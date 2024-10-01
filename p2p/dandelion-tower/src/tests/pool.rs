@@ -39,5 +39,5 @@ async fn basic_functionality() {
     // TODO: the DandelionPoolManager doesn't handle adding txs to the pool, add more tests here to test
     // all functionality.
     //assert!(pool.lock().unwrap().contains_key(&1));
-    assert!(broadcast_rx.try_recv().is_ok())
+    assert!(broadcast_rx.try_recv().is_ok());
 }

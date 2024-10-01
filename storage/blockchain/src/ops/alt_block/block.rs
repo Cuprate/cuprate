@@ -15,6 +15,26 @@ use crate::{
     types::{AltBlockHeight, BlockHash, BlockHeight, CompactAltBlockInfo},
 };
 
+/// Flush all alt-block data from all the alt-block tables.
+///
+/// This function completely empties the alt block tables.
+pub fn flush_alt_blocks<'a, E: cuprate_database::EnvInner<'a>>(
+    env_inner: &E,
+    tx_rw: &mut E::Rw<'_>,
+) -> Result<(), RuntimeError> {
+    use crate::tables::{
+        AltBlockBlobs, AltBlockHeights, AltBlocksInfo, AltChainInfos, AltTransactionBlobs,
+        AltTransactionInfos,
+    };
+
+    env_inner.clear_db::<AltChainInfos>(tx_rw)?;
+    env_inner.clear_db::<AltBlockHeights>(tx_rw)?;
+    env_inner.clear_db::<AltBlocksInfo>(tx_rw)?;
+    env_inner.clear_db::<AltBlockBlobs>(tx_rw)?;
+    env_inner.clear_db::<AltTransactionBlobs>(tx_rw)?;
+    env_inner.clear_db::<AltTransactionInfos>(tx_rw)
+}
+
 /// Add a [`AltBlockInformation`] to the database.
 ///
 /// This extracts all the data from the input block and
@@ -211,7 +231,7 @@ mod tests {
         types::AltBlockHeight,
     };
 
-    #[allow(clippy::range_plus_one)]
+    #[expect(clippy::range_plus_one)]
     #[test]
     fn all_alt_blocks() {
         let (env, _tmp) = tmp_concrete_env();

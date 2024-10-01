@@ -2,7 +2,6 @@
 //!
 //! Tests that assert particular requests lead to particular
 //! responses are also tested in Cuprate's blockchain database crate.
-//!
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     collections::{HashMap, HashSet},
@@ -11,7 +10,7 @@ use std::{
 
 use crate::{
     types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation},
-    AltBlockInformation, BlockCompleteEntry, ChainId,
+    AltBlockInformation, ChainId,
 };
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
@@ -25,11 +24,6 @@ use crate::{
 /// See `Response` for the expected responses per `Request`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BlockchainReadRequest {
-    /// Request for [`BlockCompleteEntry`]s.
-    ///
-    /// The input is the hashes of the blocks wanted.
-    BlockCompleteEntries(Vec<[u8; 32]>),
-
     /// Request a block's extended header.
     ///
     /// The input is the block's height.
@@ -107,12 +101,6 @@ pub enum BlockchainReadRequest {
     /// as this request performs a binary search.
     FindFirstUnknown(Vec<[u8; 32]>),
 
-    /// A request for the next missing chain entry.
-    ///
-    /// The input is a list of block hashes in reverse chronological order that do not necessarily
-    /// directly follow each other.
-    NextMissingChainEntry(Vec<[u8; 32]>),
-
     /// A request for all alt blocks in the chain with the given [`ChainId`].
     AltBlocksInChain(ChainId),
 }
@@ -125,10 +113,12 @@ pub enum BlockchainWriteRequest {
     ///
     /// Input is an already verified block.
     WriteBlock(VerifiedBlockInformation),
+
     /// Write an alternative block to the database,
     ///
     /// Input is the alternative block.
     WriteAltBlock(AltBlockInformation),
+
     /// A request to pop some blocks from the top of the main chain
     ///
     /// Input is the amount of blocks to pop.
@@ -136,6 +126,7 @@ pub enum BlockchainWriteRequest {
     /// This request flushes all alt-chains from the cache before adding the popped blocks to the
     /// alt cache.
     PopBlocks(usize),
+
     /// A request to reverse the re-org process.
     ///
     /// The inner value is the [`ChainId`] of the old main chain.
@@ -143,6 +134,7 @@ pub enum BlockchainWriteRequest {
     /// # Invariant
     /// It is invalid to call this with a [`ChainId`] that was not returned from [`BlockchainWriteRequest::PopBlocks`].
     ReverseReorg(ChainId),
+
     /// A request to flush all alternative blocks.
     FlushAltBlocks,
 }
@@ -157,16 +149,6 @@ pub enum BlockchainWriteRequest {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BlockchainResponse {
     //------------------------------------------------------ Reads
-    /// Response to [`BlockchainReadRequest::BlockCompleteEntries`]
-    BlockCompleteEntries {
-        /// The blocks requested that we had.
-        blocks: Vec<BlockCompleteEntry>,
-        /// The hashes of the blocks we did not have.
-        missed_ids: Vec<[u8; 32]>,
-        /// The current height of our blockchain.
-        current_blockchain_height: usize,
-    },
-
     /// Response to [`BlockchainReadRequest::BlockExtendedHeader`].
     ///
     /// Inner value is the extended headed of the requested block.
@@ -239,24 +221,6 @@ pub enum BlockchainResponse {
     ///
     /// This will be [`None`] if all blocks were known.
     FindFirstUnknown(Option<(usize, usize)>),
-
-    /// The response for [`BlockchainReadRequest::NextMissingChainEntry`]
-    NextMissingChainEntry {
-        /// A list of block hashes that should be next from the requested chain.
-        ///
-        /// The first block hash will overlap with one of the blocks in the request.
-        next_entry: Vec<[u8; 32]>,
-        /// The block blob of the second block in `next_entry`.
-        ///
-        /// If there is only 1 block in `next_entry` then this will be [`None`].
-        first_missing_block: Option<Vec<u8>>,
-        /// The height of the first block in `next_entry`.
-        start_height: usize,
-        /// The current height of our chain.
-        chain_height: usize,
-        /// The cumulative difficulty of our chain.
-        cumulative_difficulty: u128,
-    },
 
     /// The response for [`BlockchainReadRequest::AltBlocksInChain`].
     ///

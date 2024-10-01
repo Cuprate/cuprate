@@ -1,6 +1,6 @@
 #[rustfmt::skip]
 /// Decomposed amount table.
-pub static DECOMPOSED_AMOUNTS: [u64; 172] = [
+pub(crate) static DECOMPOSED_AMOUNTS: [u64; 172] = [
     1,                   2,                   3,                   4,                   5,                   6,                   7,                   8,                   9,
     10,                  20,                  30,                  40,                  50,                  60,                  70,                  80,                  90,
     100,                 200,                 300,                 400,                 500,                 600,                 700,                 800,                 900,
@@ -40,8 +40,8 @@ mod tests {
 
     #[test]
     fn decomposed_amounts_return_decomposed() {
-        for amount in DECOMPOSED_AMOUNTS.iter() {
-            assert!(is_decomposed_amount(amount))
+        for amount in &DECOMPOSED_AMOUNTS {
+            assert!(is_decomposed_amount(amount));
         }
     }
 

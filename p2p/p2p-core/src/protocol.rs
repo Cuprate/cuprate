@@ -8,7 +8,7 @@
 //!
 //! Here is every P2P request/response.
 //!
-//! *note admin messages are already request/response so "Handshake" is actually made of a HandshakeRequest & HandshakeResponse
+//! *note admin messages are already request/response so "Handshake" is actually made of a `HandshakeRequest` & `HandshakeResponse`
 //!
 //! ```md
 //! Admin:
@@ -78,15 +78,15 @@ pub enum PeerRequest {
 }
 
 impl PeerRequest {
-    pub fn id(&self) -> MessageID {
+    pub const fn id(&self) -> MessageID {
         match self {
-            PeerRequest::Admin(admin_req) => match admin_req {
+            Self::Admin(admin_req) => match admin_req {
                 AdminRequestMessage::Handshake(_) => MessageID::Handshake,
                 AdminRequestMessage::TimedSync(_) => MessageID::TimedSync,
                 AdminRequestMessage::Ping => MessageID::Ping,
                 AdminRequestMessage::SupportFlags => MessageID::SupportFlags,
             },
-            PeerRequest::Protocol(protocol_request) => match protocol_request {
+            Self::Protocol(protocol_request) => match protocol_request {
                 ProtocolRequest::GetObjects(_) => MessageID::GetObjects,
                 ProtocolRequest::GetChain(_) => MessageID::GetChain,
                 ProtocolRequest::FluffyMissingTxs(_) => MessageID::FluffyMissingTxs,
@@ -98,10 +98,10 @@ impl PeerRequest {
         }
     }
 
-    pub fn needs_response(&self) -> bool {
+    pub const fn needs_response(&self) -> bool {
         !matches!(
             self,
-            PeerRequest::Protocol(
+            Self::Protocol(
                 ProtocolRequest::NewBlock(_)
                     | ProtocolRequest::NewFluffyBlock(_)
                     | ProtocolRequest::NewTransactions(_)
@@ -127,15 +127,15 @@ pub enum PeerResponse {
 }
 
 impl PeerResponse {
-    pub fn id(&self) -> Option<MessageID> {
+    pub const fn id(&self) -> Option<MessageID> {
         Some(match self {
-            PeerResponse::Admin(admin_res) => match admin_res {
+            Self::Admin(admin_res) => match admin_res {
                 AdminResponseMessage::Handshake(_) => MessageID::Handshake,
                 AdminResponseMessage::TimedSync(_) => MessageID::TimedSync,
                 AdminResponseMessage::Ping(_) => MessageID::Ping,
                 AdminResponseMessage::SupportFlags(_) => MessageID::SupportFlags,
             },
-            PeerResponse::Protocol(protocol_res) => match protocol_res {
+            Self::Protocol(protocol_res) => match protocol_res {
                 ProtocolResponse::GetObjects(_) => MessageID::GetObjects,
                 ProtocolResponse::GetChain(_) => MessageID::GetChain,
                 ProtocolResponse::NewFluffyBlock(_) => MessageID::NewBlock,

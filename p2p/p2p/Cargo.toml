@@ -30,7 +30,6 @@ thiserror = { workspace = true }
 bytes = { workspace = true, features = ["std"] }
 rand = { workspace = true, features = ["std", "std_rng"] }
 rand_distr = { workspace = true, features = ["std"] }
-hex = { workspace = true, features = ["std"] }
 tracing = { workspace = true, features = ["std", "attributes"] }
 borsh = { workspace = true, features = ["derive", "std"] }
 
@@ -39,3 +38,6 @@ cuprate-test-utils = { path = "../../test-utils" }
 indexmap = { workspace = true }
 proptest = { workspace = true }
 tokio-test = { workspace = true }
+
+[lints]
+workspace = true

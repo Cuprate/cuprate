@@ -8,7 +8,8 @@ use crate::{
 };
 use cuprate_types::Chain;
 
-pub const TEST_WEIGHT_CONFIG: BlockWeightsCacheConfig = BlockWeightsCacheConfig::new(100, 5000);
+pub(crate) const TEST_WEIGHT_CONFIG: BlockWeightsCacheConfig =
+    BlockWeightsCacheConfig::new(100, 5000);
 
 #[tokio::test]
 async fn blocks_out_of_window_not_counted() -> Result<(), tower::BoxError> {
@@ -157,7 +158,7 @@ async fn calc_bw_ltw_2850000_3050000() {
 
     for (i, (weight, ltw)) in BW_2850000_3050000.iter().skip(100_000).enumerate() {
         let calc_ltw = calculate_block_long_term_weight(
-            &HardFork::V16,
+            HardFork::V16,
             *weight,
             weight_cache.median_long_term_weight(),
         );

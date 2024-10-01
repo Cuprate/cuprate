@@ -25,10 +25,10 @@ pub fn check_block_version_vote(
 ) -> Result<(), HardForkError> {
     // self = current hf
     if hf != version {
-        Err(HardForkError::VersionIncorrect)?;
+        return Err(HardForkError::VersionIncorrect);
     }
     if hf > vote {
-        Err(HardForkError::VoteTooLow)?;
+        return Err(HardForkError::VoteTooLow);
     }
 
     Ok(())
@@ -41,8 +41,8 @@ pub struct HFInfo {
     threshold: usize,
 }
 impl HFInfo {
-    pub const fn new(height: usize, threshold: usize) -> HFInfo {
-        HFInfo { height, threshold }
+    pub const fn new(height: usize, threshold: usize) -> Self {
+        Self { height, threshold }
     }
 }
 
@@ -51,7 +51,7 @@ impl HFInfo {
 pub struct HFsInfo([HFInfo; NUMB_OF_HARD_FORKS]);
 
 impl HFsInfo {
-    pub fn info_for_hf(&self, hf: &HardFork) -> HFInfo {
+    pub const fn info_for_hf(&self, hf: &HardFork) -> HFInfo {
         self.0[*hf as usize - 1]
     }
 
@@ -62,7 +62,7 @@ impl HFsInfo {
     /// Returns the main-net hard-fork information.
     ///
     /// ref: <https://monero-book.cuprate.org/consensus_rules/hardforks.html#Mainnet-Hard-Forks>
-    pub const fn main_net() -> HFsInfo {
+    pub const fn main_net() -> Self {
         Self([
             HFInfo::new(0, 0),
             HFInfo::new(1009827, 0),
@@ -86,7 +86,7 @@ impl HFsInfo {
     /// Returns the test-net hard-fork information.
     ///
     /// ref: <https://monero-book.cuprate.org/consensus_rules/hardforks.html#Testnet-Hard-Forks>
-    pub const fn test_net() -> HFsInfo {
+    pub const fn test_net() -> Self {
         Self([
             HFInfo::new(0, 0),
             HFInfo::new(624634, 0),
@@ -110,7 +110,7 @@ impl HFsInfo {
     /// Returns the test-net hard-fork information.
     ///
     /// ref: <https://monero-book.cuprate.org/consensus_rules/hardforks.html#Stagenet-Hard-Forks>
-    pub const fn stage_net() -> HFsInfo {
+    pub const fn stage_net() -> Self {
         Self([
             HFInfo::new(0, 0),
             HFInfo::new(32000, 0),
@@ -165,8 +165,8 @@ impl Display for HFVotes {
 }
 
 impl HFVotes {
-    pub fn new(window_size: usize) -> HFVotes {
-        HFVotes {
+    pub fn new(window_size: usize) -> Self {
+        Self {
             votes: [0; NUMB_OF_HARD_FORKS],
             vote_list: VecDeque::with_capacity(window_size),
             window_size,
@@ -251,6 +251,6 @@ impl HFVotes {
 /// Returns the votes needed for a hard-fork.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/hardforks.html#accepting-a-fork>
-pub fn votes_needed(threshold: usize, window: usize) -> usize {
+pub const fn votes_needed(threshold: usize, window: usize) -> usize {
     (threshold * window).div_ceil(100)
 }

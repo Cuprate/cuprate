@@ -54,7 +54,7 @@ pub trait DatabaseIter<T: Table> {
 
     /// Get an [`Iterator`] that returns the `(key, value)` types for this database.
     #[doc = doc_iter!()]
-    #[allow(clippy::iter_not_returning_iterator)]
+    #[expect(clippy::iter_not_returning_iterator)]
     fn iter(
         &self,
     ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + '_, RuntimeError>;

@@ -71,7 +71,7 @@ impl<T: EpeeObject> EpeeValue for Vec<T> {
 
         let individual_marker = Marker::new(marker.inner_marker);
 
-        let mut res = Vec::with_capacity(len);
+        let mut res = Self::with_capacity(len);
         for _ in 0..len {
             res.push(T::read(r, &individual_marker)?);
         }
@@ -83,7 +83,7 @@ impl<T: EpeeObject> EpeeValue for Vec<T> {
     }
 
     fn epee_default_value() -> Option<Self> {
-        Some(Vec::new())
+        Some(Self::new())
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
@@ -181,7 +181,7 @@ impl EpeeValue for Vec<u8> {
     }
 
     fn epee_default_value() -> Option<Self> {
-        Some(Vec::new())
+        Some(Self::new())
     }
 
     fn should_write(&self) -> bool {
@@ -216,7 +216,7 @@ impl EpeeValue for Bytes {
     }
 
     fn epee_default_value() -> Option<Self> {
-        Some(Bytes::new())
+        Some(Self::new())
     }
 
     fn should_write(&self) -> bool {
@@ -247,14 +247,14 @@ impl EpeeValue for BytesMut {
             return Err(Error::IO("Not enough bytes to fill object"));
         }
 
-        let mut bytes = BytesMut::zeroed(len);
+        let mut bytes = Self::zeroed(len);
         r.copy_to_slice(&mut bytes);
 
         Ok(bytes)
     }
 
     fn epee_default_value() -> Option<Self> {
-        Some(BytesMut::new())
+        Some(Self::new())
     }
 
     fn should_write(&self) -> bool {
@@ -285,12 +285,11 @@ impl<const N: usize> EpeeValue for ByteArrayVec<N> {
             return Err(Error::IO("Not enough bytes to fill object"));
         }
 
-        ByteArrayVec::try_from(r.copy_to_bytes(len))
-            .map_err(|_| Error::Format("Field has invalid length"))
+        Self::try_from(r.copy_to_bytes(len)).map_err(|_| Error::Format("Field has invalid length"))
     }
 
     fn epee_default_value() -> Option<Self> {
-        Some(ByteArrayVec::try_from(Bytes::new()).unwrap())
+        Some(Self::try_from(Bytes::new()).unwrap())
     }
 
     fn should_write(&self) -> bool {
@@ -320,8 +319,7 @@ impl<const N: usize> EpeeValue for ByteArray<N> {
             return Err(Error::IO("Not enough bytes to fill object"));
         }
 
-        ByteArray::try_from(r.copy_to_bytes(N))
-            .map_err(|_| Error::Format("Field has invalid length"))
+        Self::try_from(r.copy_to_bytes(N)).map_err(|_| Error::Format("Field has invalid length"))
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
@@ -335,7 +333,7 @@ impl EpeeValue for String {
 
     fn read<B: Buf>(r: &mut B, marker: &Marker) -> Result<Self> {
         let bytes = Vec::<u8>::read(r, marker)?;
-        String::from_utf8(bytes).map_err(|_| Error::Format("Invalid string"))
+        Self::from_utf8(bytes).map_err(|_| Error::Format("Invalid string"))
     }
 
     fn should_write(&self) -> bool {
@@ -343,7 +341,7 @@ impl EpeeValue for String {
     }
 
     fn epee_default_value() -> Option<Self> {
-        Some(String::new())
+        Some(Self::new())
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
@@ -383,7 +381,7 @@ impl<const N: usize> EpeeValue for Vec<[u8; N]> {
 
         let individual_marker = Marker::new(marker.inner_marker);
 
-        let mut res = Vec::with_capacity(len);
+        let mut res = Self::with_capacity(len);
         for _ in 0..len {
             res.push(<[u8; N]>::read(r, &individual_marker)?);
         }
@@ -395,7 +393,7 @@ impl<const N: usize> EpeeValue for Vec<[u8; N]> {
     }
 
     fn epee_default_value() -> Option<Self> {
-        Some(Vec::new())
+        Some(Self::new())
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {

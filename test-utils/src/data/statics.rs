@@ -11,7 +11,7 @@ use std::sync::LazyLock;
 use hex_literal::hex;
 use monero_serai::{block::Block, transaction::Transaction};
 
-use cuprate_helper::{map::combine_low_high_bits_to_u128, tx_utils::tx_fee};
+use cuprate_helper::{map::combine_low_high_bits_to_u128, tx::tx_fee};
 use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
 
 use crate::data::constants::{
@@ -118,8 +118,8 @@ fn to_tx_verification_data(tx_blob: impl AsRef<[u8]>) -> VerifiedTransactionInfo
 ///
 /// This requires some static block/tx input (from data) and some fields.
 /// This data can be accessed more easily via:
-/// - A block explorer (https://xmrchain.net)
-/// - Monero RPC (see cuprate_test_utils::rpc for this)
+/// - A block explorer (<https://xmrchain.net>)
+/// - Monero RPC (see `cuprate_test_utils::rpc` for this)
 ///
 /// See below for actual usage.
 macro_rules! verified_block_information {

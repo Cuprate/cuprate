@@ -1,20 +1,19 @@
 //! Database reader thread-pool definitions and logic.
 
 //---------------------------------------------------------------------------------------------------- Import
-use rayon::{
-    iter::{Either, IntoParallelIterator, ParallelIterator},
-    prelude::*,
-    ThreadPool,
-};
-use std::cmp::min;
-use std::ops::Index;
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
+
+use rayon::{
+    iter::{IntoParallelIterator, ParallelIterator},
+    prelude::*,
+    ThreadPool,
+};
 use thread_local::ThreadLocal;
 
-use cuprate_database::{ConcreteEnv, DatabaseIter, DatabaseRo, Env, EnvInner, RuntimeError};
+use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
 use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
@@ -22,8 +21,6 @@ use cuprate_types::{
     Chain, ChainId, ExtendedBlockHeader, OutputOnChain,
 };
 
-use crate::ops::block::get_block_complete_entry;
-use crate::tables::{BlockBlobs, TxIds};
 use crate::{
     ops::{
         alt_block::{
@@ -95,7 +92,6 @@ fn map_request(
     /* SOMEDAY: pre-request handling, run some code for each request? */
 
     match request {
-        R::BlockCompleteEntries(blocks) => block_complete_entries(env, blocks),
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
         R::BlockHash(block, chain) => block_hash(env, block, chain),
         R::FindBlock(block_hash) => find_block(env, block_hash),
@@ -110,7 +106,6 @@ fn map_request(
         R::KeyImagesSpent(set) => key_images_spent(env, set),
         R::CompactChainHistory => compact_chain_history(env),
         R::FindFirstUnknown(block_ids) => find_first_unknown(env, &block_ids),
-        R::NextMissingChainEntry(block_hashes) => next_missing_chain_entry(env, block_hashes),
         R::AltBlocksInChain(chain_id) => alt_blocks_in_chain(env, chain_id),
     }
 
@@ -155,7 +150,6 @@ fn thread_local<T: Send>(env: &impl Env) -> ThreadLocal<T> {
 macro_rules! get_tables {
     ($env_inner:ident, $tx_ro:ident, $tables:ident) => {{
         $tables.get_or_try(|| {
-            #[allow(clippy::significant_drop_in_scrutinee)]
             match $env_inner.open_tables($tx_ro) {
                 // SAFETY: see above macro doc comment.
                 Ok(tables) => Ok(unsafe { crate::unsafe_sendable::UnsafeSendable::new(tables) }),
@@ -185,40 +179,8 @@ macro_rules! get_tables {
 // FIXME: implement multi-transaction read atomicity.
 // <https://github.com/Cuprate/cuprate/pull/113#discussion_r1576874589>.
 
-// TODO: The overhead of parallelism may be too much for every request, performance test to find optimal
+// TODO: The overhead of parallelism may be too much for every request, perfomace test to find optimal
 // amount of parallelism.
-
-/// [`BlockchainReadRequest::BlockCompleteEntries`].
-fn block_complete_entries(env: &ConcreteEnv, block_hashes: Vec<BlockHash>) -> ResponseResult {
-    // Prepare tx/tables in `ThreadLocal`.
-    let env_inner = env.env_inner();
-    let tx_ro = thread_local(env);
-    let tables = thread_local(env);
-
-    let (missed_ids, blocks) = block_hashes
-        .into_par_iter()
-        .map(|block_hash| {
-            let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-            let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
-
-            match get_block_complete_entry(&block_hash, tables) {
-                Err(RuntimeError::KeyNotFound) => Ok(Either::Left(block_hash)),
-                res => res.map(Either::Right),
-            }
-        })
-        .collect::<Result<_, _>>()?;
-
-    let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-    let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
-
-    let chain_height = crate::ops::blockchain::chain_height(tables.block_heights())?;
-
-    Ok(BlockchainResponse::BlockCompleteEntries {
-        blocks,
-        missed_ids,
-        current_blockchain_height: chain_height,
-    })
-}
 
 /// [`BlockchainReadRequest::BlockExtendedHeader`].
 #[inline]
@@ -274,7 +236,7 @@ fn find_block(env: &ConcreteEnv, block_hash: BlockHash) -> ResponseResult {
             height.height,
         )))),
         Err(RuntimeError::KeyNotFound) => Ok(BlockchainResponse::FindBlock(None)),
-        Err(e) => return Err(e),
+        Err(e) => Err(e),
     }
 }
 
@@ -340,7 +302,7 @@ fn block_extended_header_in_range(
             ranges
                 .par_iter()
                 .rev()
-                .map(|(chain, range)| {
+                .flat_map(|(chain, range)| {
                     range.clone().into_par_iter().map(|height| {
                         let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
                         let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
@@ -357,7 +319,6 @@ fn block_extended_header_in_range(
                         }
                     })
                 })
-                .flatten()
                 .collect::<Result<Vec<_>, _>>()?
         }
     };
@@ -444,8 +405,10 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
     let tables = thread_local(env);
 
     // Cache the amount of RCT outputs once.
-    // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
-    #[allow(clippy::cast_possible_truncation)]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`"
+    )]
     let num_rct_outputs = {
         let tx_ro = env_inner.tx_ro()?;
         let tables = env_inner.open_tables(&tx_ro)?;
@@ -465,8 +428,10 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
             } else {
                 // v1 transactions.
                 match tables.num_outputs().get(&amount) {
-                    // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
-                    #[allow(clippy::cast_possible_truncation)]
+                    #[expect(
+                        clippy::cast_possible_truncation,
+                        reason = "INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`"
+                    )]
                     Ok(count) => Ok((amount, count as usize)),
                     // If we get a request for an `amount` that doesn't exist,
                     // we return `0` instead of an error.
@@ -592,62 +557,6 @@ fn find_first_unknown(env: &ConcreteEnv, block_ids: &[BlockHash]) -> ResponseRes
         let last_known_height = get_block_height(&block_ids[idx - 1], &table_block_heights)?;
 
         BlockchainResponse::FindFirstUnknown(Some((idx, last_known_height + 1)))
-    })
-}
-
-/// [`BlockchainReadRequest::NextMissingChainEntry`]
-fn next_missing_chain_entry(env: &ConcreteEnv, block_hashes: Vec<[u8; 32]>) -> ResponseResult {
-    let env_inner = env.env_inner();
-    let tx_ro = env_inner.tx_ro()?;
-
-    let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
-    let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
-
-    let (top_block_height, top_block_info) = table_block_infos.last()?;
-
-    let mut start_height = 0;
-
-    for block_hash in block_hashes {
-        match table_block_heights.get(&block_hash) {
-            Ok(height) => {
-                start_height = height;
-                break;
-            }
-            Err(RuntimeError::KeyNotFound) => continue,
-            Err(e) => return Err(e),
-        }
-    }
-
-    let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
-
-    const DEFAULT_CHAIN_ENTRY_SIZE: usize = 10_000;
-
-    let end_height = min(
-        start_height + DEFAULT_CHAIN_ENTRY_SIZE,
-        top_block_height + 1,
-    );
-
-    let block_hashes: Vec<_> = table_block_infos
-        .get_range(start_height..end_height)?
-        .map(|block_info| Ok(block_info?.block_hash))
-        .collect::<Result<_, RuntimeError>>()?;
-
-    let first_missing_block = if block_hashes.len() > 1 {
-        let table_block_blobs = env_inner.open_db_ro::<BlockBlobs>(&tx_ro)?;
-        Some(table_block_blobs.get(&(start_height + 1))?.0)
-    } else {
-        None
-    };
-
-    Ok(BlockchainResponse::NextMissingChainEntry {
-        next_entry: block_hashes,
-        first_missing_block,
-        start_height,
-        chain_height: top_block_height + 1,
-        cumulative_difficulty: combine_low_high_bits_to_u128(
-            top_block_info.cumulative_difficulty_low,
-            top_block_info.cumulative_difficulty_high,
-        ),
     })
 }
 

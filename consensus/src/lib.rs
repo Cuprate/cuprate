@@ -10,6 +10,16 @@
 //! implement a database you need to have a service which accepts [`BlockchainReadRequest`] and responds
 //! with [`BlockchainResponse`].
 //!
+
+cfg_if::cfg_if! {
+    // Used in external `tests/`.
+    if #[cfg(test)] {
+        use cuprate_test_utils as _;
+        use curve25519_dalek as _;
+        use hex_literal as _;
+    }
+}
+
 use cuprate_consensus_rules::ConsensusError;
 
 mod batch_verifier;
@@ -27,7 +37,6 @@ pub use context::{
 pub use transactions::{TxVerifierService, VerifyTxRequest, VerifyTxResponse};
 
 // re-export.
-pub use cuprate_consensus_rules::genesis::generate_genesis_block;
 pub use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     HardFork,
@@ -35,6 +44,7 @@ pub use cuprate_types::{
 
 /// An Error returned from one of the consensus services.
 #[derive(Debug, thiserror::Error)]
+#[expect(variant_size_differences)]
 pub enum ExtendedConsensusError {
     /// A consensus error.
     #[error("{0}")]
@@ -54,13 +64,17 @@ pub enum ExtendedConsensusError {
 }
 
 /// Initialize the 2 verifier [`tower::Service`]s (block and transaction).
+#[expect(clippy::type_complexity)]
 pub fn initialize_verifier<D, Ctx>(
     database: D,
     ctx_svc: Ctx,
-) -> (
-    BlockVerifierService<Ctx, TxVerifierService<D>, D>,
-    TxVerifierService<D>,
-)
+) -> Result<
+    (
+        BlockVerifierService<Ctx, TxVerifierService<D>, D>,
+        TxVerifierService<D>,
+    ),
+    ConsensusError,
+>
 where
     D: Database + Clone + Send + Sync + 'static,
     D::Future: Send + 'static,
@@ -76,7 +90,7 @@ where
 {
     let tx_svc = TxVerifierService::new(database.clone());
     let block_svc = BlockVerifierService::new(ctx_svc, tx_svc.clone(), database);
-    (block_svc, tx_svc)
+    Ok((block_svc, tx_svc))
 }
 
 use __private::Database;
@@ -110,7 +124,7 @@ pub mod __private {
                 Response = BlockchainResponse,
                 Error = tower::BoxError,
             >,
-        > crate::Database for T
+        > Database for T
     where
         T::Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
     {

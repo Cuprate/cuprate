@@ -11,15 +11,13 @@ pub struct MessageConversionError;
 impl From<ProtocolRequest> for ProtocolMessage {
     fn from(value: ProtocolRequest) -> Self {
         match value {
-            ProtocolRequest::GetObjects(val) => ProtocolMessage::GetObjectsRequest(val),
-            ProtocolRequest::GetChain(val) => ProtocolMessage::ChainRequest(val),
-            ProtocolRequest::FluffyMissingTxs(val) => {
-                ProtocolMessage::FluffyMissingTransactionsRequest(val)
-            }
-            ProtocolRequest::GetTxPoolCompliment(val) => ProtocolMessage::GetTxPoolCompliment(val),
-            ProtocolRequest::NewBlock(val) => ProtocolMessage::NewBlock(val),
-            ProtocolRequest::NewFluffyBlock(val) => ProtocolMessage::NewFluffyBlock(val),
-            ProtocolRequest::NewTransactions(val) => ProtocolMessage::NewTransactions(val),
+            ProtocolRequest::GetObjects(val) => Self::GetObjectsRequest(val),
+            ProtocolRequest::GetChain(val) => Self::ChainRequest(val),
+            ProtocolRequest::FluffyMissingTxs(val) => Self::FluffyMissingTransactionsRequest(val),
+            ProtocolRequest::GetTxPoolCompliment(val) => Self::GetTxPoolCompliment(val),
+            ProtocolRequest::NewBlock(val) => Self::NewBlock(val),
+            ProtocolRequest::NewFluffyBlock(val) => Self::NewFluffyBlock(val),
+            ProtocolRequest::NewTransactions(val) => Self::NewTransactions(val),
         }
     }
 }
@@ -29,15 +27,13 @@ impl TryFrom<ProtocolMessage> for ProtocolRequest {
 
     fn try_from(value: ProtocolMessage) -> Result<Self, Self::Error> {
         Ok(match value {
-            ProtocolMessage::GetObjectsRequest(val) => ProtocolRequest::GetObjects(val),
-            ProtocolMessage::ChainRequest(val) => ProtocolRequest::GetChain(val),
-            ProtocolMessage::FluffyMissingTransactionsRequest(val) => {
-                ProtocolRequest::FluffyMissingTxs(val)
-            }
-            ProtocolMessage::GetTxPoolCompliment(val) => ProtocolRequest::GetTxPoolCompliment(val),
-            ProtocolMessage::NewBlock(val) => ProtocolRequest::NewBlock(val),
-            ProtocolMessage::NewFluffyBlock(val) => ProtocolRequest::NewFluffyBlock(val),
-            ProtocolMessage::NewTransactions(val) => ProtocolRequest::NewTransactions(val),
+            ProtocolMessage::GetObjectsRequest(val) => Self::GetObjects(val),
+            ProtocolMessage::ChainRequest(val) => Self::GetChain(val),
+            ProtocolMessage::FluffyMissingTransactionsRequest(val) => Self::FluffyMissingTxs(val),
+            ProtocolMessage::GetTxPoolCompliment(val) => Self::GetTxPoolCompliment(val),
+            ProtocolMessage::NewBlock(val) => Self::NewBlock(val),
+            ProtocolMessage::NewFluffyBlock(val) => Self::NewFluffyBlock(val),
+            ProtocolMessage::NewTransactions(val) => Self::NewTransactions(val),
             ProtocolMessage::GetObjectsResponse(_) | ProtocolMessage::ChainEntryResponse(_) => {
                 return Err(MessageConversionError)
             }
@@ -48,8 +44,8 @@ impl TryFrom<ProtocolMessage> for ProtocolRequest {
 impl From<PeerRequest> for Message {
     fn from(value: PeerRequest) -> Self {
         match value {
-            PeerRequest::Admin(val) => Message::Request(val),
-            PeerRequest::Protocol(val) => Message::Protocol(val.into()),
+            PeerRequest::Admin(val) => Self::Request(val),
+            PeerRequest::Protocol(val) => Self::Protocol(val.into()),
         }
     }
 }
@@ -59,8 +55,8 @@ impl TryFrom<Message> for PeerRequest {
 
     fn try_from(value: Message) -> Result<Self, Self::Error> {
         match value {
-            Message::Request(req) => Ok(PeerRequest::Admin(req)),
-            Message::Protocol(pro) => Ok(PeerRequest::Protocol(pro.try_into()?)),
+            Message::Request(req) => Ok(Self::Admin(req)),
+            Message::Protocol(pro) => Ok(Self::Protocol(pro.try_into()?)),
             Message::Response(_) => Err(MessageConversionError),
         }
     }
@@ -71,13 +67,10 @@ impl TryFrom<ProtocolResponse> for ProtocolMessage {
 
     fn try_from(value: ProtocolResponse) -> Result<Self, Self::Error> {
         Ok(match value {
-            ProtocolResponse::NewTransactions(val) => ProtocolMessage::NewTransactions(val),
-            ProtocolResponse::NewFluffyBlock(val) => ProtocolMessage::NewFluffyBlock(val),
-            ProtocolResponse::GetChain(val) => ProtocolMessage::ChainEntryResponse(val),
-            ProtocolResponse::GetObjects(val) => ProtocolMessage::GetObjectsResponse(val),
-            ProtocolResponse::FluffyMissingTxs(val) => {
-                ProtocolMessage::FluffyMissingTransactionsRequest(val)
-            }
+            ProtocolResponse::NewTransactions(val) => Self::NewTransactions(val),
+            ProtocolResponse::NewFluffyBlock(val) => Self::NewFluffyBlock(val),
+            ProtocolResponse::GetChain(val) => Self::ChainEntryResponse(val),
+            ProtocolResponse::GetObjects(val) => Self::GetObjectsResponse(val),
             ProtocolResponse::NA => return Err(MessageConversionError),
         })
     }
@@ -88,10 +81,10 @@ impl TryFrom<ProtocolMessage> for ProtocolResponse {
 
     fn try_from(value: ProtocolMessage) -> Result<Self, Self::Error> {
         Ok(match value {
-            ProtocolMessage::NewTransactions(val) => ProtocolResponse::NewTransactions(val),
-            ProtocolMessage::NewFluffyBlock(val) => ProtocolResponse::NewFluffyBlock(val),
-            ProtocolMessage::ChainEntryResponse(val) => ProtocolResponse::GetChain(val),
-            ProtocolMessage::GetObjectsResponse(val) => ProtocolResponse::GetObjects(val),
+            ProtocolMessage::NewTransactions(val) => Self::NewTransactions(val),
+            ProtocolMessage::NewFluffyBlock(val) => Self::NewFluffyBlock(val),
+            ProtocolMessage::ChainEntryResponse(val) => Self::GetChain(val),
+            ProtocolMessage::GetObjectsResponse(val) => Self::GetObjects(val),
             ProtocolMessage::ChainRequest(_)
             | ProtocolMessage::FluffyMissingTransactionsRequest(_)
             | ProtocolMessage::GetObjectsRequest(_)
@@ -106,8 +99,8 @@ impl TryFrom<Message> for PeerResponse {
 
     fn try_from(value: Message) -> Result<Self, Self::Error> {
         match value {
-            Message::Response(res) => Ok(PeerResponse::Admin(res)),
-            Message::Protocol(pro) => Ok(PeerResponse::Protocol(pro.try_into()?)),
+            Message::Response(res) => Ok(Self::Admin(res)),
+            Message::Protocol(pro) => Ok(Self::Protocol(pro.try_into()?)),
             Message::Request(_) => Err(MessageConversionError),
         }
     }
@@ -118,8 +111,8 @@ impl TryFrom<PeerResponse> for Message {
 
     fn try_from(value: PeerResponse) -> Result<Self, Self::Error> {
         Ok(match value {
-            PeerResponse::Admin(val) => Message::Response(val),
-            PeerResponse::Protocol(val) => Message::Protocol(val.try_into()?),
+            PeerResponse::Admin(val) => Self::Response(val),
+            PeerResponse::Protocol(val) => Self::Protocol(val.try_into()?),
         })
     }
 }

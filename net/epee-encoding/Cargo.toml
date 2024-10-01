@@ -18,10 +18,13 @@ std = ["dep:thiserror", "bytes/std", "cuprate-fixed-bytes/std"]
 cuprate-helper = { path = "../../helper", default-features = false, features = ["cast"] }
 cuprate-fixed-bytes = { path = "../fixed-bytes", default-features = false }
 
-paste = "1.0.14"
-ref-cast = "1.0.22"
+paste = "1.0.15"
+ref-cast = "1.0.23"
 bytes = { workspace = true }
 thiserror = { workspace = true, optional = true}
 
 [dev-dependencies]
 hex = { workspace = true, features = ["default"] }
+
+[lints]
+workspace = true

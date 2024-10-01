@@ -2,23 +2,23 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
-use bytes::Bytes;
+use monero_serai::{
+    block::{Block, BlockHeader},
+    transaction::Transaction,
+};
 
 use cuprate_database::{
-    RuntimeError, StorableVec, {DatabaseIter, DatabaseRo, DatabaseRw},
+    RuntimeError, StorableVec, {DatabaseRo, DatabaseRw},
 };
-use cuprate_helper::cast::usize_to_u64;
 use cuprate_helper::{
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
-    tx_utils::tx_fee,
+    tx::tx_fee,
 };
 use cuprate_types::{
-    AltBlockInformation, BlockCompleteEntry, ChainId, ExtendedBlockHeader, HardFork,
-    TransactionBlobs, VerifiedBlockInformation, VerifiedTransactionInformation,
+    AltBlockInformation, ChainId, ExtendedBlockHeader, HardFork, VerifiedBlockInformation,
+    VerifiedTransactionInformation,
 };
-use monero_serai::block::{Block, BlockHeader};
 
-use crate::tables::TablesIter;
 use crate::{
     ops::{
         alt_block,
@@ -79,10 +79,10 @@ pub fn add_block(
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
     // Add the miner transaction first.
-    {
+    let mining_tx_index = {
         let tx = &block.block.miner_transaction;
-        add_tx(tx, &tx.serialize(), &tx.hash(), &chain_height, tables)?;
-    }
+        add_tx(tx, &tx.serialize(), &tx.hash(), &chain_height, tables)?
+    };
 
     for tx in &block.txs {
         add_tx(&tx.tx, &tx.tx_blob, &tx.tx_hash, &chain_height, tables)?;
@@ -94,6 +94,7 @@ pub fn add_block(
     // RCT output count needs account for _this_ block's outputs.
     let cumulative_rct_outs = get_rct_num_outputs(tables.rct_outputs())?;
 
+    // `saturating_add` is used here as cumulative generated coins overflows due to tail emission.
     let cumulative_generated_coins =
         cumulative_generated_coins(&block.height.saturating_sub(1), tables.block_infos())?
             .saturating_add(block.generated_coins);
@@ -113,13 +114,21 @@ pub fn add_block(
             block_hash: block.block_hash,
             weight: block.weight,
             long_term_weight: block.long_term_weight,
+            mining_tx_index,
         },
     )?;
 
-    // Block blobs.
-    tables
-        .block_blobs_mut()
-        .put(&block.height, StorableVec::wrap_ref(&block.block_blob))?;
+    // Block header blob.
+    tables.block_header_blobs_mut().put(
+        &block.height,
+        StorableVec::wrap_ref(&block.block.header.serialize()),
+    )?;
+
+    // Block transaction hashes
+    tables.block_txs_hashes_mut().put(
+        &block.height,
+        StorableVec::wrap_ref(&block.block.transactions),
+    )?;
 
     // Block heights.
     tables
@@ -153,38 +162,48 @@ pub fn pop_block(
     tables.block_heights_mut().delete(&block_info.block_hash)?;
 
     // Block blobs.
-    // We deserialize the block blob into a `Block`, such
-    // that we can remove the associated transactions later.
-    let block_blob = tables.block_blobs_mut().take(&block_height)?.0;
-    let block = Block::read(&mut block_blob.as_slice())?;
+    //
+    // We deserialize the block header blob and mining transaction blob
+    // to form a `Block`, such that we can remove the associated transactions
+    // later.
+    let block_header = tables.block_header_blobs_mut().take(&block_height)?.0;
+    let block_txs_hashes = tables.block_txs_hashes_mut().take(&block_height)?.0;
+    let miner_transaction = tables.tx_blobs().get(&block_info.mining_tx_index)?.0;
+    let block = Block {
+        header: BlockHeader::read(&mut block_header.as_slice())?,
+        miner_transaction: Transaction::read(&mut miner_transaction.as_slice())?,
+        transactions: block_txs_hashes,
+    };
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
-    let mut txs = Vec::with_capacity(block.transactions.len());
-
     remove_tx(&block.miner_transaction.hash(), tables)?;
-    for tx_hash in &block.transactions {
-        let (_, tx) = remove_tx(tx_hash, tables)?;
 
-        if move_to_alt_chain.is_some() {
-            txs.push(VerifiedTransactionInformation {
-                tx_weight: tx.weight(),
-                tx_blob: tx.serialize(),
-                tx_hash: tx.hash(),
-                fee: tx_fee(&tx),
-                tx,
-            });
-        }
-    }
+    let remove_tx_iter = block.transactions.iter().map(|tx_hash| {
+        let (_, tx) = remove_tx(tx_hash, tables)?;
+        Ok::<_, RuntimeError>(tx)
+    });
 
     if let Some(chain_id) = move_to_alt_chain {
+        let txs = remove_tx_iter
+            .map(|result| {
+                let tx = result?;
+                Ok(VerifiedTransactionInformation {
+                    tx_weight: tx.weight(),
+                    tx_blob: tx.serialize(),
+                    tx_hash: tx.hash(),
+                    fee: tx_fee(&tx),
+                    tx,
+                })
+            })
+            .collect::<Result<Vec<VerifiedTransactionInformation>, RuntimeError>>()?;
+
         alt_block::add_alt_block(
             &AltBlockInformation {
                 block: block.clone(),
-                block_blob,
+                block_blob: block.serialize(),
                 txs,
                 block_hash: block_info.block_hash,
-                // We know the PoW is valid for this block so just set it so it will always verify as
-                // valid.
+                // We know the PoW is valid for this block so just set it so it will always verify as valid.
                 pow_hash: [0; 32],
                 height: block_height,
                 weight: block_info.weight,
@@ -197,6 +216,10 @@ pub fn pop_block(
             },
             tables,
         )?;
+    } else {
+        for result in remove_tx_iter {
+            drop(result?);
+        }
     }
 
     Ok((block_height, block_info.block_hash, block))
@@ -222,15 +245,18 @@ pub fn get_block_extended_header(
 
 /// Same as [`get_block_extended_header`] but with a [`BlockHeight`].
 #[doc = doc_error!()]
-#[allow(clippy::missing_panics_doc)] // The panic is only possible with a corrupt DB
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "The panic is only possible with a corrupt DB"
+)]
 #[inline]
 pub fn get_block_extended_header_from_height(
     block_height: &BlockHeight,
     tables: &impl Tables,
 ) -> Result<ExtendedBlockHeader, RuntimeError> {
     let block_info = tables.block_infos().get(block_height)?;
-    let block_blob = tables.block_blobs().get(block_height)?.0;
-    let block_header = BlockHeader::read(&mut block_blob.as_slice())?;
+    let block_header_blob = tables.block_header_blobs().get(block_height)?.0;
+    let block_header = BlockHeader::read(&mut block_header_blob.as_slice())?;
 
     let cumulative_difficulty = combine_low_high_bits_to_u128(
         block_info.cumulative_difficulty_low,
@@ -257,40 +283,6 @@ pub fn get_block_extended_header_top(
     let height = chain_height(tables.block_heights())?.saturating_sub(1);
     let header = get_block_extended_header_from_height(&height, tables)?;
     Ok((header, height))
-}
-
-//---------------------------------------------------------------------------------------------------- `get_block_complete_entry`
-
-pub fn get_block_complete_entry(
-    block_hash: &BlockHash,
-    tables: &impl TablesIter,
-) -> Result<BlockCompleteEntry, RuntimeError> {
-    let height = tables.block_heights().get(block_hash)?;
-
-    let block_blob = tables.block_blobs().get(&height)?.0;
-
-    let block = Block::read(&mut block_blob.as_slice()).expect("Valid block failed to be read");
-
-    let txs = if let Some(first_tx) = block.transactions.first() {
-        let first_tx_idx = tables.tx_ids().get(first_tx)?;
-        let end_tx_idx = first_tx_idx + usize_to_u64(block.transactions.len());
-
-        let tx_blobs = tables.tx_blobs_iter().get_range(first_tx_idx..end_tx_idx)?;
-
-        tx_blobs
-            .map(|res| Ok(Bytes::from(res?.0)))
-            .collect::<Result<_, RuntimeError>>()?
-    } else {
-        vec![]
-    };
-
-    Ok(BlockCompleteEntry {
-        block: Bytes::from(block_blob),
-        txs: TransactionBlobs::Normal(txs),
-        pruned: false,
-        // This is only needed when pruned.
-        block_weight: 0,
-    })
 }
 
 //---------------------------------------------------------------------------------------------------- Misc
@@ -331,11 +323,7 @@ pub fn block_exists(
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-#[allow(
-    clippy::significant_drop_tightening,
-    clippy::cognitive_complexity,
-    clippy::too_many_lines
-)]
+#[expect(clippy::too_many_lines)]
 mod test {
     use pretty_assertions::assert_eq;
 
@@ -401,7 +389,8 @@ mod test {
             // Assert only the proper tables were added to.
             AssertTableLen {
                 block_infos: 3,
-                block_blobs: 3,
+                block_header_blobs: 3,
+                block_txs_hashes: 3,
                 block_heights: 3,
                 key_images: 69,
                 num_outputs: 41,

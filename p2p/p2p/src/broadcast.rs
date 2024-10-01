@@ -35,7 +35,7 @@ use crate::constants::{
 
 /// The configuration for the [`BroadcastSvc`].
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct BroadcastConfig {
+pub(crate) struct BroadcastConfig {
     /// The average number of seconds between diffusion flushes for outbound connections.
     pub diffusion_flush_average_seconds_outbound: Duration,
     /// The average number of seconds between diffusion flushes for inbound connections.
@@ -57,7 +57,7 @@ impl Default for BroadcastConfig {
 /// - The [`BroadcastSvc`]
 /// - A function that takes in [`InternalPeerID`]s and produces [`BroadcastMessageStream`]s to give to **outbound** peers.
 /// - A function that takes in [`InternalPeerID`]s and produces [`BroadcastMessageStream`]s to give to **inbound** peers.
-pub fn init_broadcast_channels<N: NetworkZone>(
+pub(crate) fn init_broadcast_channels<N: NetworkZone>(
     config: BroadcastConfig,
 ) -> (
     BroadcastSvc<N>,
@@ -193,7 +193,7 @@ impl<N: NetworkZone> Service<BroadcastRequest<N>> for BroadcastSvc<N> {
                 };
 
                 // An error here means _all_ receivers were dropped which we assume will never happen.
-                let _ = match direction {
+                drop(match direction {
                     Some(ConnectionDirection::Inbound) => {
                         self.tx_broadcast_channel_inbound.send(nex_tx_info)
                     }
@@ -201,10 +201,10 @@ impl<N: NetworkZone> Service<BroadcastRequest<N>> for BroadcastSvc<N> {
                         self.tx_broadcast_channel_outbound.send(nex_tx_info)
                     }
                     None => {
-                        let _ = self.tx_broadcast_channel_outbound.send(nex_tx_info.clone());
+                        drop(self.tx_broadcast_channel_outbound.send(nex_tx_info.clone()));
                         self.tx_broadcast_channel_inbound.send(nex_tx_info)
                     }
-                };
+                });
             }
         }
 
@@ -246,7 +246,7 @@ struct BroadcastTxInfo<N: NetworkZone> {
 ///
 /// This is given to the connection task to await on for broadcast messages.
 #[pin_project::pin_project]
-pub struct BroadcastMessageStream<N: NetworkZone> {
+pub(crate) struct BroadcastMessageStream<N: NetworkZone> {
     /// The peer that is holding this stream.
     addr: InternalPeerID<N::Addr>,
 
@@ -336,8 +336,9 @@ impl<N: NetworkZone> Stream for BroadcastMessageStream<N> {
             Poll::Ready(Some(BroadcastMessage::NewTransaction(txs)))
         } else {
             tracing::trace!("Diffusion flush timer expired but no txs to diffuse");
-            // poll next_flush now to register the waker with it
+            // poll next_flush now to register the waker with it.
             // the waker will already be registered with the block broadcast channel.
+            #[expect(clippy::let_underscore_must_use)]
             let _ = this.next_flush.poll(cx);
             Poll::Pending
         }
@@ -458,7 +459,7 @@ mod tests {
 
         let match_tx = |mes, txs| match mes {
             BroadcastMessage::NewTransaction(tx) => assert_eq!(tx.txs.as_slice(), txs),
-            _ => panic!("Block broadcast?"),
+            BroadcastMessage::NewFluffyBlock(_) => panic!("Block broadcast?"),
         };
 
         let next = outbound_stream.next().await.unwrap();
@@ -520,7 +521,7 @@ mod tests {
 
         let match_tx = |mes, txs| match mes {
             BroadcastMessage::NewTransaction(tx) => assert_eq!(tx.txs.as_slice(), txs),
-            _ => panic!("Block broadcast?"),
+            BroadcastMessage::NewFluffyBlock(_) => panic!("Block broadcast?"),
         };
 
         let next = outbound_stream.next().await.unwrap();
@@ -536,6 +537,6 @@ mod tests {
             futures::future::select(inbound_stream_from.next(), outbound_stream_from.next())
         )
         .await
-        .is_err())
+        .is_err());
     }
 }

@@ -10,8 +10,8 @@ use crate::{
     types::{AltTransactionInfo, TxHash},
 };
 
-/// Adds a [`VerifiedTransactionInformation`] form an alt-block to the DB, if
-/// that transaction is not already in the DB.
+/// Adds a [`VerifiedTransactionInformation`] from an alt-block
+/// if it is not already in the DB.
 ///
 /// If the transaction is in the main-chain this function will still fill in the
 /// [`AltTransactionInfos`](crate::tables::AltTransactionInfos) table, as that
@@ -40,7 +40,9 @@ pub fn add_alt_transaction_blob(
 
     tables
         .alt_transaction_blobs_mut()
-        .put(&tx.tx_hash, StorableVec::wrap_ref(&tx.tx_blob))
+        .put(&tx.tx_hash, StorableVec::wrap_ref(&tx.tx_blob))?;
+
+    Ok(())
 }
 
 /// Retrieve a [`VerifiedTransactionInformation`] from the database.

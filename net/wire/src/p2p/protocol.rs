@@ -127,7 +127,7 @@ pub struct ChainResponse {
 
 impl ChainResponse {
     #[inline]
-    pub fn cumulative_difficulty(&self) -> u128 {
+    pub const fn cumulative_difficulty(&self) -> u128 {
         let cumulative_difficulty = self.cumulative_difficulty_top64 as u128;
         cumulative_difficulty << 64 | self.cumulative_difficulty_low64 as u128
     }
@@ -159,7 +159,7 @@ epee_object!(
     current_blockchain_height: u64,
 );
 
-/// A request for Txs we are missing from our TxPool
+/// A request for Txs we are missing from our `TxPool`
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FluffyMissingTransactionsRequest {
     /// The Block we are missing the Txs in
@@ -177,7 +177,7 @@ epee_object!(
     missing_tx_indices: Vec<u64> as ContainerAsBlob<u64>,
 );
 
-/// TxPoolCompliment
+/// `TxPoolCompliment`
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GetTxPoolCompliment {
     /// Tx Hashes

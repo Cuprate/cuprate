@@ -3,6 +3,12 @@ use std::time::Duration;
 /// The timeout we set on handshakes.
 pub(crate) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(20);
 
+/// The timeout we set on receiving ping requests
+pub(crate) const PING_REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// The amount of concurrency (maximum number of simultaneous tasks) we allow for handling ping requests
+pub(crate) const PING_REQUEST_CONCURRENCY: usize = 2;
+
 /// The maximum amount of connections to make to seed nodes for when we need peers.
 pub(crate) const MAX_SEED_CONNECTIONS: usize = 3;
 
@@ -10,13 +16,14 @@ pub(crate) const MAX_SEED_CONNECTIONS: usize = 3;
 pub(crate) const OUTBOUND_CONNECTION_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// The durations of a short ban.
-pub const SHORT_BAN: Duration = Duration::from_secs(60 * 10);
+#[cfg_attr(not(test), expect(dead_code))]
+pub(crate) const SHORT_BAN: Duration = Duration::from_secs(60 * 10);
 
 /// The durations of a medium ban.
-pub const MEDIUM_BAN: Duration = Duration::from_secs(60 * 60 * 24);
+pub(crate) const MEDIUM_BAN: Duration = Duration::from_secs(60 * 60 * 24);
 
 /// The durations of a long ban.
-pub const LONG_BAN: Duration = Duration::from_secs(60 * 60 * 24 * 7);
+pub(crate) const LONG_BAN: Duration = Duration::from_secs(60 * 60 * 24 * 7);
 
 /// The default amount of time between inbound diffusion flushes.
 pub(crate) const DIFFUSION_FLUSH_AVERAGE_SECONDS_INBOUND: Duration = Duration::from_secs(5);
@@ -46,12 +53,7 @@ pub(crate) const INITIAL_CHAIN_REQUESTS_TO_SEND: usize = 3;
 /// The enforced maximum amount of blocks to request in a batch.
 ///
 /// Requesting more than this will cause the peer to disconnect and potentially lead to bans.
-pub const MAX_BLOCK_BATCH_LEN: usize = 100;
-
-/// The enforced maximum amount of block hashes in a blockchain supplement request.
-///
-/// Requesting more than this might cause the peer to disconnect and potentially lead to bans.
-pub const MAX_BLOCKCHAIN_SUPPLEMENT_LEN: usize = 250;
+pub(crate) const MAX_BLOCK_BATCH_LEN: usize = 100;
 
 /// The timeout that the block downloader will use for requests.
 pub(crate) const BLOCK_DOWNLOADER_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
