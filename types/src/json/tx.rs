@@ -1015,10 +1015,433 @@ mod test {
         test(tx, JSON);
     }
 
-    // #[test]
-    // fn tx_rct_6() {
-    //     const JSON: &str = r#"{"version":2,"unlock_time":0,"vin":[{"key":{"amount":0,"key_offsets":[56619444,517411,383964,1514827,38358,263974,91303,3018,14681,34540,7767,8131,20234,16575,18300,3587],"k_image":"ec1636db12f12cffa66e8e3286d8216ad7900128c996ffcc96196856daf10585"}},{"key":{"amount":0,"key_offsets":[49738606,2766321,6291275,92656,166783,91733,286477,1130,5724,9633,44284,24605,8133,20600,9906,2115],"k_image":"953c1d93684671eb658284061b6f7724f37c68c3bc24732fb81a09f7056426d0"}},{"key":{"amount":0,"key_offsets":[2971790,44215494,8487702,3226387,861,158991,281736,74021,24277,10705,51824,25824,4951,1235,7824,15715],"k_image":"41a34e8637c3974c9a0444f9c45b361775cc178e4d7d8e07e7d4afdc8e591675"}},{"key":{"amount":0,"key_offsets":[57701146,641169,170653,321459,625073,40514,6448,5687,13246,14743,7359,1788,1054,1061,4460,4059],"k_image":"2d57a890ff948dd7f0ba17940b6b76db2c87163322f0bd5aca29462f9224c777"}}],"vout":[{"amount":0,"target":{"tagged_key":{"key":"570482299e724f78b8441d700aa63388a842c7f5dbcbe5fa859c2c0abad96b30","view_tag":"9f"}}},{"amount":0,"target":{"tagged_key":{"key":"50c1a24ef57aeba07beecd8ddbf294e2501d6fa90ad9712829c00b7293eead96","view_tag":"06"}}}],"extra":[1,254,81,251,73,229,142,177,14,82,43,62,58,255,63,24,202,118,195,65,161,185,96,142,214,48,255,145,202,52,3,199,202,2,9,1,53,17,236,142,199,122,102,77],"rct_signatures":{"type":6,"txnFee":71860000,"ecdhInfo":[{"amount":"b0af37c16a8f08a0"},{"amount":"4cc0843dec9af6b4"}],"outPk":["3c51d83c816a0cb8585641a165e866e0215302af9b498db762db27141e673e15","96eba06bfd2781e65e9a1b1506abfd9ae29dc60fcd29007cd6ad94a8abbf1ecc"]},"rctsig_prunable":{"nbp":1,"bpp":[{"A":"28197d8ac07948082b50274fb8d5bea0f81561d02c88981e0d9b5ffd6e5ee169","A1":"efe6eda671d68a894e1b8aff4a1992f85c4269e17196916cfcdf8519cc94d35e","B":"7e374ac72276298148217d99568c3d4e09f2442864b5be228cd2d01328abe2d2","r1":"a2e06c25825774e5a130944c6c3eaa3c8afea2ca7d2c09e024615ff700be240a","s1":"6ee7e6624941d1e9ea18024f39a9a694ac798fb69084e10bf982d6a58d416c0a","d1":"d30bea1ffb8e79d0fe37d60c55f6e654d1ca388b102b29a6b28c48c2c617b70f","L":["cf6e067c87b9161c424620e83645f13284e64c803b9d7af729d0550d475d2199","159a03db0d038f6691816d9c31b52a325ad13941222ce1791a0285ca0cf0169d","f0276445ea2ec07957fa58675c89aec4dab57d163290e95845dccd484c3e1790","40c19df50385f55b4d53fc101c8eef7d411b76c8b94eadbf464d1401d171ea0a","6b9a8da4219da8f3e944351825eaf66e99ea954ed0e3b4eed0782379f8fd5509","567d12ccd952444055c9a595024f1229a8e0d3ad816f6fd28a448f021603bcc1","44616a4203c430653b12e5a2504e79ea390719a1d6a9557eeb55067ba7efc9d3"],"R":["a7dd6caebda761e8c2ca07e65f9f5b5868777bdc9a4af810d55c691ee62922aa","e8db14727596359e8b2e52bd55ceea81e102028d979f79d464d8afe3fd183de3","0f808f768cec8fe9f5e41d5925eb5c4955a2c16f650ba26e8cf7be2246b4e559","4931dd8eb664e60d86ff259b0e8af24329aefd550170683c324bf8e68ca97169","ce05c6ddb73f36dcd5d94cd6a92220c5c42df15f649d4029c9046fb8a8bf4003","ae2d51efb12a81062c7a6c9d2c4cdb4b6d7561f76e6f8aa554d98717716b8dda","ab4a29f9efa41472ae9dfb13d80c929d904a2fbc72a9d2bce063b19baf3bbdbe"]}],"CLSAGs":[{"s":["fa3c832924a4716bac410b9708ac11ed35d9cb01f3e0c1d3958e77791f9ce905","6b4dfe306de3f55c5507d802347f4c94ae55e0db4f3bf25e1af3ba1ecd993e0d","71c7c612a3dd9d123609df658aaff494787b5cabb5624d5c5d519120f29f5407","d72c30a667f22dbc5bbc8479a4e70094bff1980eb962f3f5ce43954da9a5b009","869470794715faa72ec2cbbb78743448f9dc5bb6383ac2030484adbb760e7a09","6247f181b491a4da82cadbca6272b58365e9160030ed92a1ac5641f9d4163b06","9269814384a16ff2bd297fbce5a614ed67529551ba0c21a26abdaff55c96870a","b10aeaac7f08f1782a2eb4094864f26fcb6c43559b7610ccd7809b90b1c4f003","f38ce2ac13fcdee7be79d0bd98bc17f3df4b1c266a45e1fede7582b12e3a3c0d","1b9f3aee12c9fd4e5aae9cf64bd65f0ad20dbc779f472db0bd338229638a6401","a04b7e6791b7ea10af2a8b0ff2dbfe63fb6036beed0bd09e9319d4728e33130b","a0cd570e0cb80e0fc111468add13b0fc0d8eb4df6942ce3caafedb6c9eee0f07","14b38cbfb7012d1c96a25ea5dcb9bfdfb1a92ffe727dd7a1cb332a9bd630d10f","5f9be3bc2f667e41baaad111e34ac14eefa493b565c4be4ab6eeab286903870b","549bc3275bafd26ab4b89ba14b43976dd317d8d344e37ccbd5a20351a084e005","a93847d26171a9194cfa5a94d7f40576b2e808b4bde927e3398bb0a6e9ad0f0e"],"c1":"794f4e50841235043b39fbcb5b50babf5c4b98339fec9538c2538644ac104f01","D":"6d50f7b691c0bc174aa11d9953b3452b0f249aa4e7edd560ff1e5772f592a618"},{"s":["e8140f6e69981917d78656f0b1572ff748771f3106f6134cca77ae83bc2ff201","7970c1856b630f213e52c825c507f331145c55104611a908c91998dcc76dd40f","8b6899f8eef5bb4c0c830fbb53e34b6089215e0c18b174648fe482675eb0740e","8ff4173d836bddc7fd430b0e2cd7d377f9a81025ebdee6030c19114b7964dc05","8f14171c429fbf9bd4aa5fe67d180e99a6092f8a7e27a97e6fd85c02613a0209","9208e8cc2fd66d6c154202c42bde24f14917b79ccc1b2f31d54880fa14c51202","11da8c69a612d2090b375efb61f9be10a16d6ac3d95e8777cb4d3b0cce028509","f0b097956d07aaf27a4d19463b63bed427b4945321f203be856a1c45e058ed0e","0ad2af34567c40ea4166cd49c368a9ac3bac132c2507f444657de8152465ff0c","ded4f3f699c692d01999b858cb752bb6691418393543fa0b1805115847be8f04","6ef1fa94a6448488fdc4fdc629813940f78706f9045f48b8d69ce717510b7b0e","fbc95294de167bb8a431ff2eacec66637a49927eb15bb443f0ec7c909e301a06","03eec8ccae4fd9942376e3df671ed3de9743b03331ee518a69e0f8fb09644e0e","861c4a794793dd3eaedd1770263124530035378121bde995b27cbf50bfeb0d08","043d02997ff017b110590482dba8a69d2a97092ef7640b8cba5d4271ffc67e04","23f12cabd4d7d69a1c6c6cb960b82a427a0ad2df276786312e2b1c60cb17de06"],"c1":"c0f8e42ef1b220d60fa76532b84dd5def896a25b62eec08691ca438c6abcc40d","D":"9d0844d4ac7c5988e336514ba17841a3bd1aefd5fa024b692ccd6ef6e9364e34"},{"s":["bf3a319fd83070d2c97049e1e2d4636f498a5c0547e5e0144f9eb58247f9a50d","70b626b51f5e934fad8f6df0db79c3d2af88b6a93e3fcf872d64e89d1909b10b","71b200df8b8c5132ba533f1f18924114d451d2b9cca454ea36b7e4b559962307","99cc6995a942ad4e9f993d980a077113d46da70f003539190c5bb9ffb4f6310f","4dac904bc896e0f8690353924bc98f0baf2d3a2e39da272fd34444664eede404","158c1087ae06422bd71a0b59ff7e8f2caa6bbc651b4d0e105551bf91a51f2002","e4d119f8c6d39a02b06aca1627078c37b962463d733a4b25d3b6410bdaad6f0f","16d5e70dc9bd9f8e9d8d74d75db0bf3a144952d7eaab3abc78ce7c66cb958d06","3a0ee94b516a8596bd718ffd87efb76e10b61904033fd0225543680064c5120e","354d44ea658710784c4b3389d4048399302e4d7bfa676ea3de53feba2012e30b","ce00bbc38aa3e018f1231972232a076f42d38e6d75dececee6561c6336c4be00","85094c21f620b87e976f42b742449a048eb303597b1ef362c1a44f76f8d9fa08","8e88e960c771bdd2b3df0e0fddbc0cd0a692807d8432c54d6b6ad2114007d10f","976274603af385a4079a970a5ddba77a01ac7411e9b2303e76207b288830a107","a7f760605b4dffb5b76943e8097b11fb4f2db2fea6354cffc2b96c21aef7a300","7e378e64b7a3ece77d88d966e386e939f56976109ad395b4712cf916f50b4c01"],"c1":"edecc915049e5ead7e5fe36dd70c558ace09f4d3a0c6216be148a51e3a72e302","D":"197665d3b405f42a2053f9e946483435e75d6c4e801427bfeb66cc58c72e2670"},{"s":["20c7f0d492ecf79f1d29305f4e8387238a5927fe676674fe479c129431841607","b9b98379560d7e22a09fcc72db5b1d05870ffdbded5cf560fcaf5303033f7d04","8fc79c2b767ea73f7f552f48d0603b5ee369cdd9535ca06f03fd11e16f08ea0b","7e2bdb348f8a719ffed9d995a35d83ae93a63abe1090fae68a3d23ae47c64402","aa0f6221cc1454b4dbf84b7f8c6e7b89a1c2a3d0f56a2d6302106e47b6b1b50d","08a9283d8b34426eb7b7547fa8fb1573430b99f1c119f2ff9612e82acee98e03","250d2ac44e26782f293eca3deb70fc5c52cb942166b1efb2f78ec32640e02d06","1bc1bcc3de357a4652c03815e59e14cb13668946366746dca3dad2f4c44c9000","9f8b446e373e3e19871f22b9bc95017d4411e555477afb34114b428c8296470a","e49d0313e969fb8c4e451388309280a96b8e3216fa1e28ab2efab49f38e86f07","0cee07c99293507ad558838f2fa07af1c4ddc86886658c6207c1f25f343afb06","39bd17be3aaaeda4fb8aa8dafcf5748581f7bb8b92b0dfe3add14a8481570003","0048e1ca905806551cd210c40356cc80935a98f63163a087ea89585915e8770d","3c46eea5308dbdff7376d89378998376cb722d08604d6ecb2b3cb795f91dc607","7d13be56b2e858d2fca81b3a6b0312943d33e501b4e09814818edb96fb28aa0c","313a2021350abd25bd79c22ea33fe071367da2e208913d788d50101c90f0e702"],"c1":"9d96220cd0d49340e06b915f7204cd1f68c4c2069389bf4c011b4fa6c24c0d02","D":"91d00727ba3655729ce88981e803967946403e970f0a6749625f59d4e6d7ebc9"}],"pseudoOuts":["a6785a3aca529db1da40944bb1826519d7caaa31f4549e6854cb97e5234d3e8e","f5cda4db5f83f1c1edea0b66461d1848daf01054c24a690e1438add59dc4f206","dff30968b66355b9c7890db508692e9620c999e0025ca9395fa53732e6432606","6b78d37b63714ebe1d09981766c61a07bf0bfbc9fc7f7a8998396aa99d43e0cc"]}}"#;
+    #[test]
+    fn tx_rct_6() {
+        const JSON: &str = r#"{"version":2,"unlock_time":0,"vin":[{"key":{"amount":0,"key_offsets":[56619444,517411,383964,1514827,38358,263974,91303,3018,14681,34540,7767,8131,20234,16575,18300,3587],"k_image":"ec1636db12f12cffa66e8e3286d8216ad7900128c996ffcc96196856daf10585"}},{"key":{"amount":0,"key_offsets":[49738606,2766321,6291275,92656,166783,91733,286477,1130,5724,9633,44284,24605,8133,20600,9906,2115],"k_image":"953c1d93684671eb658284061b6f7724f37c68c3bc24732fb81a09f7056426d0"}},{"key":{"amount":0,"key_offsets":[2971790,44215494,8487702,3226387,861,158991,281736,74021,24277,10705,51824,25824,4951,1235,7824,15715],"k_image":"41a34e8637c3974c9a0444f9c45b361775cc178e4d7d8e07e7d4afdc8e591675"}},{"key":{"amount":0,"key_offsets":[57701146,641169,170653,321459,625073,40514,6448,5687,13246,14743,7359,1788,1054,1061,4460,4059],"k_image":"2d57a890ff948dd7f0ba17940b6b76db2c87163322f0bd5aca29462f9224c777"}}],"vout":[{"amount":0,"target":{"tagged_key":{"key":"570482299e724f78b8441d700aa63388a842c7f5dbcbe5fa859c2c0abad96b30","view_tag":"9f"}}},{"amount":0,"target":{"tagged_key":{"key":"50c1a24ef57aeba07beecd8ddbf294e2501d6fa90ad9712829c00b7293eead96","view_tag":"06"}}}],"extra":[1,254,81,251,73,229,142,177,14,82,43,62,58,255,63,24,202,118,195,65,161,185,96,142,214,48,255,145,202,52,3,199,202,2,9,1,53,17,236,142,199,122,102,77],"rct_signatures":{"type":6,"txnFee":71860000,"ecdhInfo":[{"amount":"b0af37c16a8f08a0"},{"amount":"4cc0843dec9af6b4"}],"outPk":["3c51d83c816a0cb8585641a165e866e0215302af9b498db762db27141e673e15","96eba06bfd2781e65e9a1b1506abfd9ae29dc60fcd29007cd6ad94a8abbf1ecc"]},"rctsig_prunable":{"nbp":1,"bpp":[{"A":"28197d8ac07948082b50274fb8d5bea0f81561d02c88981e0d9b5ffd6e5ee169","A1":"efe6eda671d68a894e1b8aff4a1992f85c4269e17196916cfcdf8519cc94d35e","B":"7e374ac72276298148217d99568c3d4e09f2442864b5be228cd2d01328abe2d2","r1":"a2e06c25825774e5a130944c6c3eaa3c8afea2ca7d2c09e024615ff700be240a","s1":"6ee7e6624941d1e9ea18024f39a9a694ac798fb69084e10bf982d6a58d416c0a","d1":"d30bea1ffb8e79d0fe37d60c55f6e654d1ca388b102b29a6b28c48c2c617b70f","L":["cf6e067c87b9161c424620e83645f13284e64c803b9d7af729d0550d475d2199","159a03db0d038f6691816d9c31b52a325ad13941222ce1791a0285ca0cf0169d","f0276445ea2ec07957fa58675c89aec4dab57d163290e95845dccd484c3e1790","40c19df50385f55b4d53fc101c8eef7d411b76c8b94eadbf464d1401d171ea0a","6b9a8da4219da8f3e944351825eaf66e99ea954ed0e3b4eed0782379f8fd5509","567d12ccd952444055c9a595024f1229a8e0d3ad816f6fd28a448f021603bcc1","44616a4203c430653b12e5a2504e79ea390719a1d6a9557eeb55067ba7efc9d3"],"R":["a7dd6caebda761e8c2ca07e65f9f5b5868777bdc9a4af810d55c691ee62922aa","e8db14727596359e8b2e52bd55ceea81e102028d979f79d464d8afe3fd183de3","0f808f768cec8fe9f5e41d5925eb5c4955a2c16f650ba26e8cf7be2246b4e559","4931dd8eb664e60d86ff259b0e8af24329aefd550170683c324bf8e68ca97169","ce05c6ddb73f36dcd5d94cd6a92220c5c42df15f649d4029c9046fb8a8bf4003","ae2d51efb12a81062c7a6c9d2c4cdb4b6d7561f76e6f8aa554d98717716b8dda","ab4a29f9efa41472ae9dfb13d80c929d904a2fbc72a9d2bce063b19baf3bbdbe"]}],"CLSAGs":[{"s":["fa3c832924a4716bac410b9708ac11ed35d9cb01f3e0c1d3958e77791f9ce905","6b4dfe306de3f55c5507d802347f4c94ae55e0db4f3bf25e1af3ba1ecd993e0d","71c7c612a3dd9d123609df658aaff494787b5cabb5624d5c5d519120f29f5407","d72c30a667f22dbc5bbc8479a4e70094bff1980eb962f3f5ce43954da9a5b009","869470794715faa72ec2cbbb78743448f9dc5bb6383ac2030484adbb760e7a09","6247f181b491a4da82cadbca6272b58365e9160030ed92a1ac5641f9d4163b06","9269814384a16ff2bd297fbce5a614ed67529551ba0c21a26abdaff55c96870a","b10aeaac7f08f1782a2eb4094864f26fcb6c43559b7610ccd7809b90b1c4f003","f38ce2ac13fcdee7be79d0bd98bc17f3df4b1c266a45e1fede7582b12e3a3c0d","1b9f3aee12c9fd4e5aae9cf64bd65f0ad20dbc779f472db0bd338229638a6401","a04b7e6791b7ea10af2a8b0ff2dbfe63fb6036beed0bd09e9319d4728e33130b","a0cd570e0cb80e0fc111468add13b0fc0d8eb4df6942ce3caafedb6c9eee0f07","14b38cbfb7012d1c96a25ea5dcb9bfdfb1a92ffe727dd7a1cb332a9bd630d10f","5f9be3bc2f667e41baaad111e34ac14eefa493b565c4be4ab6eeab286903870b","549bc3275bafd26ab4b89ba14b43976dd317d8d344e37ccbd5a20351a084e005","a93847d26171a9194cfa5a94d7f40576b2e808b4bde927e3398bb0a6e9ad0f0e"],"c1":"794f4e50841235043b39fbcb5b50babf5c4b98339fec9538c2538644ac104f01","D":"6d50f7b691c0bc174aa11d9953b3452b0f249aa4e7edd560ff1e5772f592a618"},{"s":["e8140f6e69981917d78656f0b1572ff748771f3106f6134cca77ae83bc2ff201","7970c1856b630f213e52c825c507f331145c55104611a908c91998dcc76dd40f","8b6899f8eef5bb4c0c830fbb53e34b6089215e0c18b174648fe482675eb0740e","8ff4173d836bddc7fd430b0e2cd7d377f9a81025ebdee6030c19114b7964dc05","8f14171c429fbf9bd4aa5fe67d180e99a6092f8a7e27a97e6fd85c02613a0209","9208e8cc2fd66d6c154202c42bde24f14917b79ccc1b2f31d54880fa14c51202","11da8c69a612d2090b375efb61f9be10a16d6ac3d95e8777cb4d3b0cce028509","f0b097956d07aaf27a4d19463b63bed427b4945321f203be856a1c45e058ed0e","0ad2af34567c40ea4166cd49c368a9ac3bac132c2507f444657de8152465ff0c","ded4f3f699c692d01999b858cb752bb6691418393543fa0b1805115847be8f04","6ef1fa94a6448488fdc4fdc629813940f78706f9045f48b8d69ce717510b7b0e","fbc95294de167bb8a431ff2eacec66637a49927eb15bb443f0ec7c909e301a06","03eec8ccae4fd9942376e3df671ed3de9743b03331ee518a69e0f8fb09644e0e","861c4a794793dd3eaedd1770263124530035378121bde995b27cbf50bfeb0d08","043d02997ff017b110590482dba8a69d2a97092ef7640b8cba5d4271ffc67e04","23f12cabd4d7d69a1c6c6cb960b82a427a0ad2df276786312e2b1c60cb17de06"],"c1":"c0f8e42ef1b220d60fa76532b84dd5def896a25b62eec08691ca438c6abcc40d","D":"9d0844d4ac7c5988e336514ba17841a3bd1aefd5fa024b692ccd6ef6e9364e34"},{"s":["bf3a319fd83070d2c97049e1e2d4636f498a5c0547e5e0144f9eb58247f9a50d","70b626b51f5e934fad8f6df0db79c3d2af88b6a93e3fcf872d64e89d1909b10b","71b200df8b8c5132ba533f1f18924114d451d2b9cca454ea36b7e4b559962307","99cc6995a942ad4e9f993d980a077113d46da70f003539190c5bb9ffb4f6310f","4dac904bc896e0f8690353924bc98f0baf2d3a2e39da272fd34444664eede404","158c1087ae06422bd71a0b59ff7e8f2caa6bbc651b4d0e105551bf91a51f2002","e4d119f8c6d39a02b06aca1627078c37b962463d733a4b25d3b6410bdaad6f0f","16d5e70dc9bd9f8e9d8d74d75db0bf3a144952d7eaab3abc78ce7c66cb958d06","3a0ee94b516a8596bd718ffd87efb76e10b61904033fd0225543680064c5120e","354d44ea658710784c4b3389d4048399302e4d7bfa676ea3de53feba2012e30b","ce00bbc38aa3e018f1231972232a076f42d38e6d75dececee6561c6336c4be00","85094c21f620b87e976f42b742449a048eb303597b1ef362c1a44f76f8d9fa08","8e88e960c771bdd2b3df0e0fddbc0cd0a692807d8432c54d6b6ad2114007d10f","976274603af385a4079a970a5ddba77a01ac7411e9b2303e76207b288830a107","a7f760605b4dffb5b76943e8097b11fb4f2db2fea6354cffc2b96c21aef7a300","7e378e64b7a3ece77d88d966e386e939f56976109ad395b4712cf916f50b4c01"],"c1":"edecc915049e5ead7e5fe36dd70c558ace09f4d3a0c6216be148a51e3a72e302","D":"197665d3b405f42a2053f9e946483435e75d6c4e801427bfeb66cc58c72e2670"},{"s":["20c7f0d492ecf79f1d29305f4e8387238a5927fe676674fe479c129431841607","b9b98379560d7e22a09fcc72db5b1d05870ffdbded5cf560fcaf5303033f7d04","8fc79c2b767ea73f7f552f48d0603b5ee369cdd9535ca06f03fd11e16f08ea0b","7e2bdb348f8a719ffed9d995a35d83ae93a63abe1090fae68a3d23ae47c64402","aa0f6221cc1454b4dbf84b7f8c6e7b89a1c2a3d0f56a2d6302106e47b6b1b50d","08a9283d8b34426eb7b7547fa8fb1573430b99f1c119f2ff9612e82acee98e03","250d2ac44e26782f293eca3deb70fc5c52cb942166b1efb2f78ec32640e02d06","1bc1bcc3de357a4652c03815e59e14cb13668946366746dca3dad2f4c44c9000","9f8b446e373e3e19871f22b9bc95017d4411e555477afb34114b428c8296470a","e49d0313e969fb8c4e451388309280a96b8e3216fa1e28ab2efab49f38e86f07","0cee07c99293507ad558838f2fa07af1c4ddc86886658c6207c1f25f343afb06","39bd17be3aaaeda4fb8aa8dafcf5748581f7bb8b92b0dfe3add14a8481570003","0048e1ca905806551cd210c40356cc80935a98f63163a087ea89585915e8770d","3c46eea5308dbdff7376d89378998376cb722d08604d6ecb2b3cb795f91dc607","7d13be56b2e858d2fca81b3a6b0312943d33e501b4e09814818edb96fb28aa0c","313a2021350abd25bd79c22ea33fe071367da2e208913d788d50101c90f0e702"],"c1":"9d96220cd0d49340e06b915f7204cd1f68c4c2069389bf4c011b4fa6c24c0d02","D":"91d00727ba3655729ce88981e803967946403e970f0a6749625f59d4e6d7ebc9"}],"pseudoOuts":["a6785a3aca529db1da40944bb1826519d7caaa31f4549e6854cb97e5234d3e8e","f5cda4db5f83f1c1edea0b66461d1848daf01054c24a690e1438add59dc4f206","dff30968b66355b9c7890db508692e9620c999e0025ca9395fa53732e6432606","6b78d37b63714ebe1d09981766c61a07bf0bfbc9fc7f7a8998396aa99d43e0cc"]}}"#;
 
-    //     test(todo!(), JSON);
-    // }
+        let tx = Transaction::V2 {
+            prefix: TransactionPrefix {
+                version: 2,
+                unlock_time: 0,
+                vin: vec![
+                    Input {
+                        key: Key {
+                            amount: 0,
+                            key_offsets: vec![
+                                56619444, 517411, 383964, 1514827, 38358, 263974, 91303, 3018,
+                                14681, 34540, 7767, 8131, 20234, 16575, 18300, 3587,
+                            ],
+                            k_image: HexBytes32(hex!(
+                                "ec1636db12f12cffa66e8e3286d8216ad7900128c996ffcc96196856daf10585"
+                            )),
+                        },
+                    },
+                    Input {
+                        key: Key {
+                            amount: 0,
+                            key_offsets: vec![
+                                49738606, 2766321, 6291275, 92656, 166783, 91733, 286477, 1130,
+                                5724, 9633, 44284, 24605, 8133, 20600, 9906, 2115,
+                            ],
+                            k_image: HexBytes32(hex!(
+                                "953c1d93684671eb658284061b6f7724f37c68c3bc24732fb81a09f7056426d0"
+                            )),
+                        },
+                    },
+                    Input {
+                        key: Key {
+                            amount: 0,
+                            key_offsets: vec![
+                                2971790, 44215494, 8487702, 3226387, 861, 158991, 281736, 74021,
+                                24277, 10705, 51824, 25824, 4951, 1235, 7824, 15715,
+                            ],
+                            k_image: HexBytes32(hex!(
+                                "41a34e8637c3974c9a0444f9c45b361775cc178e4d7d8e07e7d4afdc8e591675"
+                            )),
+                        },
+                    },
+                    Input {
+                        key: Key {
+                            amount: 0,
+                            key_offsets: vec![
+                                57701146, 641169, 170653, 321459, 625073, 40514, 6448, 5687, 13246,
+                                14743, 7359, 1788, 1054, 1061, 4460, 4059,
+                            ],
+                            k_image: HexBytes32(hex!(
+                                "2d57a890ff948dd7f0ba17940b6b76db2c87163322f0bd5aca29462f9224c777"
+                            )),
+                        },
+                    },
+                ],
+                vout: vec![
+                    Output {
+                        amount: 0,
+                        target: Target::TaggedKey {
+                            tagged_key: TaggedKey {
+                                key: HexBytes32(hex!(
+                                "570482299e724f78b8441d700aa63388a842c7f5dbcbe5fa859c2c0abad96b30"
+                            )),
+                                view_tag: HexBytes1(hex!("9f")),
+                            },
+                        },
+                    },
+                    Output {
+                        amount: 0,
+                        target: Target::TaggedKey {
+                            tagged_key: TaggedKey {
+                                key: HexBytes32(hex!(
+                                "50c1a24ef57aeba07beecd8ddbf294e2501d6fa90ad9712829c00b7293eead96"
+                            )),
+                                view_tag: HexBytes1(hex!("06")),
+                            },
+                        },
+                    },
+                ],
+                extra: vec![
+                    1, 254, 81, 251, 73, 229, 142, 177, 14, 82, 43, 62, 58, 255, 63, 24, 202, 118,
+                    195, 65, 161, 185, 96, 142, 214, 48, 255, 145, 202, 52, 3, 199, 202, 2, 9, 1,
+                    53, 17, 236, 142, 199, 122, 102, 77,
+                ],
+            },
+            rct_signatures: RctSignatures::NonCoinbase {
+                r#type: 6,
+                txnFee: 71860000,
+                ecdhInfo: vec![
+                    EcdhInfo::Compact {
+                        amount: HexBytes8(hex!("b0af37c16a8f08a0")),
+                    },
+                    EcdhInfo::Compact {
+                        amount: HexBytes8(hex!("4cc0843dec9af6b4")),
+                    },
+                ],
+                outPk: vec![
+                    HexBytes32(hex!(
+                        "3c51d83c816a0cb8585641a165e866e0215302af9b498db762db27141e673e15"
+                    )),
+                    HexBytes32(hex!(
+                        "96eba06bfd2781e65e9a1b1506abfd9ae29dc60fcd29007cd6ad94a8abbf1ecc"
+                    )),
+                ],
+            },
+            rctsig_prunable: Some(RctSigPrunable::ClsagBulletproofsPlus {
+                nbp: 1,
+                bpp: vec![BulletproofPlus {
+                    A: HexBytes32(hex!(
+                        "28197d8ac07948082b50274fb8d5bea0f81561d02c88981e0d9b5ffd6e5ee169"
+                    )),
+                    A1: HexBytes32(hex!(
+                        "efe6eda671d68a894e1b8aff4a1992f85c4269e17196916cfcdf8519cc94d35e"
+                    )),
+                    B: HexBytes32(hex!(
+                        "7e374ac72276298148217d99568c3d4e09f2442864b5be228cd2d01328abe2d2"
+                    )),
+                    r1: HexBytes32(hex!(
+                        "a2e06c25825774e5a130944c6c3eaa3c8afea2ca7d2c09e024615ff700be240a"
+                    )),
+                    s1: HexBytes32(hex!(
+                        "6ee7e6624941d1e9ea18024f39a9a694ac798fb69084e10bf982d6a58d416c0a"
+                    )),
+                    d1: HexBytes32(hex!(
+                        "d30bea1ffb8e79d0fe37d60c55f6e654d1ca388b102b29a6b28c48c2c617b70f"
+                    )),
+                    L: vec![
+                        HexBytes32(hex!(
+                            "cf6e067c87b9161c424620e83645f13284e64c803b9d7af729d0550d475d2199"
+                        )),
+                        HexBytes32(hex!(
+                            "159a03db0d038f6691816d9c31b52a325ad13941222ce1791a0285ca0cf0169d"
+                        )),
+                        HexBytes32(hex!(
+                            "f0276445ea2ec07957fa58675c89aec4dab57d163290e95845dccd484c3e1790"
+                        )),
+                        HexBytes32(hex!(
+                            "40c19df50385f55b4d53fc101c8eef7d411b76c8b94eadbf464d1401d171ea0a"
+                        )),
+                        HexBytes32(hex!(
+                            "6b9a8da4219da8f3e944351825eaf66e99ea954ed0e3b4eed0782379f8fd5509"
+                        )),
+                        HexBytes32(hex!(
+                            "567d12ccd952444055c9a595024f1229a8e0d3ad816f6fd28a448f021603bcc1"
+                        )),
+                        HexBytes32(hex!(
+                            "44616a4203c430653b12e5a2504e79ea390719a1d6a9557eeb55067ba7efc9d3"
+                        )),
+                    ],
+                    R: vec![
+                        HexBytes32(hex!(
+                            "a7dd6caebda761e8c2ca07e65f9f5b5868777bdc9a4af810d55c691ee62922aa"
+                        )),
+                        HexBytes32(hex!(
+                            "e8db14727596359e8b2e52bd55ceea81e102028d979f79d464d8afe3fd183de3"
+                        )),
+                        HexBytes32(hex!(
+                            "0f808f768cec8fe9f5e41d5925eb5c4955a2c16f650ba26e8cf7be2246b4e559"
+                        )),
+                        HexBytes32(hex!(
+                            "4931dd8eb664e60d86ff259b0e8af24329aefd550170683c324bf8e68ca97169"
+                        )),
+                        HexBytes32(hex!(
+                            "ce05c6ddb73f36dcd5d94cd6a92220c5c42df15f649d4029c9046fb8a8bf4003"
+                        )),
+                        HexBytes32(hex!(
+                            "ae2d51efb12a81062c7a6c9d2c4cdb4b6d7561f76e6f8aa554d98717716b8dda"
+                        )),
+                        HexBytes32(hex!(
+                            "ab4a29f9efa41472ae9dfb13d80c929d904a2fbc72a9d2bce063b19baf3bbdbe"
+                        )),
+                    ],
+                }],
+                CLSAGs: vec![
+                    Clsag {
+                        s: vec![
+                            HexBytes32(hex!(
+                                "fa3c832924a4716bac410b9708ac11ed35d9cb01f3e0c1d3958e77791f9ce905"
+                            )),
+                            HexBytes32(hex!(
+                                "6b4dfe306de3f55c5507d802347f4c94ae55e0db4f3bf25e1af3ba1ecd993e0d"
+                            )),
+                            HexBytes32(hex!(
+                                "71c7c612a3dd9d123609df658aaff494787b5cabb5624d5c5d519120f29f5407"
+                            )),
+                            HexBytes32(hex!(
+                                "d72c30a667f22dbc5bbc8479a4e70094bff1980eb962f3f5ce43954da9a5b009"
+                            )),
+                            HexBytes32(hex!(
+                                "869470794715faa72ec2cbbb78743448f9dc5bb6383ac2030484adbb760e7a09"
+                            )),
+                            HexBytes32(hex!(
+                                "6247f181b491a4da82cadbca6272b58365e9160030ed92a1ac5641f9d4163b06"
+                            )),
+                            HexBytes32(hex!(
+                                "9269814384a16ff2bd297fbce5a614ed67529551ba0c21a26abdaff55c96870a"
+                            )),
+                            HexBytes32(hex!(
+                                "b10aeaac7f08f1782a2eb4094864f26fcb6c43559b7610ccd7809b90b1c4f003"
+                            )),
+                            HexBytes32(hex!(
+                                "f38ce2ac13fcdee7be79d0bd98bc17f3df4b1c266a45e1fede7582b12e3a3c0d"
+                            )),
+                            HexBytes32(hex!(
+                                "1b9f3aee12c9fd4e5aae9cf64bd65f0ad20dbc779f472db0bd338229638a6401"
+                            )),
+                            HexBytes32(hex!(
+                                "a04b7e6791b7ea10af2a8b0ff2dbfe63fb6036beed0bd09e9319d4728e33130b"
+                            )),
+                            HexBytes32(hex!(
+                                "a0cd570e0cb80e0fc111468add13b0fc0d8eb4df6942ce3caafedb6c9eee0f07"
+                            )),
+                            HexBytes32(hex!(
+                                "14b38cbfb7012d1c96a25ea5dcb9bfdfb1a92ffe727dd7a1cb332a9bd630d10f"
+                            )),
+                            HexBytes32(hex!(
+                                "5f9be3bc2f667e41baaad111e34ac14eefa493b565c4be4ab6eeab286903870b"
+                            )),
+                            HexBytes32(hex!(
+                                "549bc3275bafd26ab4b89ba14b43976dd317d8d344e37ccbd5a20351a084e005"
+                            )),
+                            HexBytes32(hex!(
+                                "a93847d26171a9194cfa5a94d7f40576b2e808b4bde927e3398bb0a6e9ad0f0e"
+                            )),
+                        ],
+                        c1: HexBytes32(hex!(
+                            "794f4e50841235043b39fbcb5b50babf5c4b98339fec9538c2538644ac104f01"
+                        )),
+                        D: HexBytes32(hex!(
+                            "6d50f7b691c0bc174aa11d9953b3452b0f249aa4e7edd560ff1e5772f592a618"
+                        )),
+                    },
+                    Clsag {
+                        s: vec![
+                            HexBytes32(hex!(
+                                "e8140f6e69981917d78656f0b1572ff748771f3106f6134cca77ae83bc2ff201"
+                            )),
+                            HexBytes32(hex!(
+                                "7970c1856b630f213e52c825c507f331145c55104611a908c91998dcc76dd40f"
+                            )),
+                            HexBytes32(hex!(
+                                "8b6899f8eef5bb4c0c830fbb53e34b6089215e0c18b174648fe482675eb0740e"
+                            )),
+                            HexBytes32(hex!(
+                                "8ff4173d836bddc7fd430b0e2cd7d377f9a81025ebdee6030c19114b7964dc05"
+                            )),
+                            HexBytes32(hex!(
+                                "8f14171c429fbf9bd4aa5fe67d180e99a6092f8a7e27a97e6fd85c02613a0209"
+                            )),
+                            HexBytes32(hex!(
+                                "9208e8cc2fd66d6c154202c42bde24f14917b79ccc1b2f31d54880fa14c51202"
+                            )),
+                            HexBytes32(hex!(
+                                "11da8c69a612d2090b375efb61f9be10a16d6ac3d95e8777cb4d3b0cce028509"
+                            )),
+                            HexBytes32(hex!(
+                                "f0b097956d07aaf27a4d19463b63bed427b4945321f203be856a1c45e058ed0e"
+                            )),
+                            HexBytes32(hex!(
+                                "0ad2af34567c40ea4166cd49c368a9ac3bac132c2507f444657de8152465ff0c"
+                            )),
+                            HexBytes32(hex!(
+                                "ded4f3f699c692d01999b858cb752bb6691418393543fa0b1805115847be8f04"
+                            )),
+                            HexBytes32(hex!(
+                                "6ef1fa94a6448488fdc4fdc629813940f78706f9045f48b8d69ce717510b7b0e"
+                            )),
+                            HexBytes32(hex!(
+                                "fbc95294de167bb8a431ff2eacec66637a49927eb15bb443f0ec7c909e301a06"
+                            )),
+                            HexBytes32(hex!(
+                                "03eec8ccae4fd9942376e3df671ed3de9743b03331ee518a69e0f8fb09644e0e"
+                            )),
+                            HexBytes32(hex!(
+                                "861c4a794793dd3eaedd1770263124530035378121bde995b27cbf50bfeb0d08"
+                            )),
+                            HexBytes32(hex!(
+                                "043d02997ff017b110590482dba8a69d2a97092ef7640b8cba5d4271ffc67e04"
+                            )),
+                            HexBytes32(hex!(
+                                "23f12cabd4d7d69a1c6c6cb960b82a427a0ad2df276786312e2b1c60cb17de06"
+                            )),
+                        ],
+                        c1: HexBytes32(hex!(
+                            "c0f8e42ef1b220d60fa76532b84dd5def896a25b62eec08691ca438c6abcc40d"
+                        )),
+                        D: HexBytes32(hex!(
+                            "9d0844d4ac7c5988e336514ba17841a3bd1aefd5fa024b692ccd6ef6e9364e34"
+                        )),
+                    },
+                    Clsag {
+                        s: vec![
+                            HexBytes32(hex!(
+                                "bf3a319fd83070d2c97049e1e2d4636f498a5c0547e5e0144f9eb58247f9a50d"
+                            )),
+                            HexBytes32(hex!(
+                                "70b626b51f5e934fad8f6df0db79c3d2af88b6a93e3fcf872d64e89d1909b10b"
+                            )),
+                            HexBytes32(hex!(
+                                "71b200df8b8c5132ba533f1f18924114d451d2b9cca454ea36b7e4b559962307"
+                            )),
+                            HexBytes32(hex!(
+                                "99cc6995a942ad4e9f993d980a077113d46da70f003539190c5bb9ffb4f6310f"
+                            )),
+                            HexBytes32(hex!(
+                                "4dac904bc896e0f8690353924bc98f0baf2d3a2e39da272fd34444664eede404"
+                            )),
+                            HexBytes32(hex!(
+                                "158c1087ae06422bd71a0b59ff7e8f2caa6bbc651b4d0e105551bf91a51f2002"
+                            )),
+                            HexBytes32(hex!(
+                                "e4d119f8c6d39a02b06aca1627078c37b962463d733a4b25d3b6410bdaad6f0f"
+                            )),
+                            HexBytes32(hex!(
+                                "16d5e70dc9bd9f8e9d8d74d75db0bf3a144952d7eaab3abc78ce7c66cb958d06"
+                            )),
+                            HexBytes32(hex!(
+                                "3a0ee94b516a8596bd718ffd87efb76e10b61904033fd0225543680064c5120e"
+                            )),
+                            HexBytes32(hex!(
+                                "354d44ea658710784c4b3389d4048399302e4d7bfa676ea3de53feba2012e30b"
+                            )),
+                            HexBytes32(hex!(
+                                "ce00bbc38aa3e018f1231972232a076f42d38e6d75dececee6561c6336c4be00"
+                            )),
+                            HexBytes32(hex!(
+                                "85094c21f620b87e976f42b742449a048eb303597b1ef362c1a44f76f8d9fa08"
+                            )),
+                            HexBytes32(hex!(
+                                "8e88e960c771bdd2b3df0e0fddbc0cd0a692807d8432c54d6b6ad2114007d10f"
+                            )),
+                            HexBytes32(hex!(
+                                "976274603af385a4079a970a5ddba77a01ac7411e9b2303e76207b288830a107"
+                            )),
+                            HexBytes32(hex!(
+                                "a7f760605b4dffb5b76943e8097b11fb4f2db2fea6354cffc2b96c21aef7a300"
+                            )),
+                            HexBytes32(hex!(
+                                "7e378e64b7a3ece77d88d966e386e939f56976109ad395b4712cf916f50b4c01"
+                            )),
+                        ],
+                        c1: HexBytes32(hex!(
+                            "edecc915049e5ead7e5fe36dd70c558ace09f4d3a0c6216be148a51e3a72e302"
+                        )),
+                        D: HexBytes32(hex!(
+                            "197665d3b405f42a2053f9e946483435e75d6c4e801427bfeb66cc58c72e2670"
+                        )),
+                    },
+                    Clsag {
+                        s: vec![
+                            HexBytes32(hex!(
+                                "20c7f0d492ecf79f1d29305f4e8387238a5927fe676674fe479c129431841607"
+                            )),
+                            HexBytes32(hex!(
+                                "b9b98379560d7e22a09fcc72db5b1d05870ffdbded5cf560fcaf5303033f7d04"
+                            )),
+                            HexBytes32(hex!(
+                                "8fc79c2b767ea73f7f552f48d0603b5ee369cdd9535ca06f03fd11e16f08ea0b"
+                            )),
+                            HexBytes32(hex!(
+                                "7e2bdb348f8a719ffed9d995a35d83ae93a63abe1090fae68a3d23ae47c64402"
+                            )),
+                            HexBytes32(hex!(
+                                "aa0f6221cc1454b4dbf84b7f8c6e7b89a1c2a3d0f56a2d6302106e47b6b1b50d"
+                            )),
+                            HexBytes32(hex!(
+                                "08a9283d8b34426eb7b7547fa8fb1573430b99f1c119f2ff9612e82acee98e03"
+                            )),
+                            HexBytes32(hex!(
+                                "250d2ac44e26782f293eca3deb70fc5c52cb942166b1efb2f78ec32640e02d06"
+                            )),
+                            HexBytes32(hex!(
+                                "1bc1bcc3de357a4652c03815e59e14cb13668946366746dca3dad2f4c44c9000"
+                            )),
+                            HexBytes32(hex!(
+                                "9f8b446e373e3e19871f22b9bc95017d4411e555477afb34114b428c8296470a"
+                            )),
+                            HexBytes32(hex!(
+                                "e49d0313e969fb8c4e451388309280a96b8e3216fa1e28ab2efab49f38e86f07"
+                            )),
+                            HexBytes32(hex!(
+                                "0cee07c99293507ad558838f2fa07af1c4ddc86886658c6207c1f25f343afb06"
+                            )),
+                            HexBytes32(hex!(
+                                "39bd17be3aaaeda4fb8aa8dafcf5748581f7bb8b92b0dfe3add14a8481570003"
+                            )),
+                            HexBytes32(hex!(
+                                "0048e1ca905806551cd210c40356cc80935a98f63163a087ea89585915e8770d"
+                            )),
+                            HexBytes32(hex!(
+                                "3c46eea5308dbdff7376d89378998376cb722d08604d6ecb2b3cb795f91dc607"
+                            )),
+                            HexBytes32(hex!(
+                                "7d13be56b2e858d2fca81b3a6b0312943d33e501b4e09814818edb96fb28aa0c"
+                            )),
+                            HexBytes32(hex!(
+                                "313a2021350abd25bd79c22ea33fe071367da2e208913d788d50101c90f0e702"
+                            )),
+                        ],
+                        c1: HexBytes32(hex!(
+                            "9d96220cd0d49340e06b915f7204cd1f68c4c2069389bf4c011b4fa6c24c0d02"
+                        )),
+                        D: HexBytes32(hex!(
+                            "91d00727ba3655729ce88981e803967946403e970f0a6749625f59d4e6d7ebc9"
+                        )),
+                    },
+                ],
+                pseudoOuts: vec![
+                    HexBytes32(hex!(
+                        "a6785a3aca529db1da40944bb1826519d7caaa31f4549e6854cb97e5234d3e8e"
+                    )),
+                    HexBytes32(hex!(
+                        "f5cda4db5f83f1c1edea0b66461d1848daf01054c24a690e1438add59dc4f206"
+                    )),
+                    HexBytes32(hex!(
+                        "dff30968b66355b9c7890db508692e9620c999e0025ca9395fa53732e6432606"
+                    )),
+                    HexBytes32(hex!(
+                        "6b78d37b63714ebe1d09981766c61a07bf0bfbc9fc7f7a8998396aa99d43e0cc"
+                    )),
+                ],
+            }),
+        };
+
+        test(tx, JSON);
+    }
 }
