@@ -8,22 +8,28 @@ use cuprate_epee_encoding::{error, macros::bytes, EpeeValue, Marker};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-/// Generate the `HexBytes` struct for `N` lengths.
+/// Generate `HexBytes` struct(s) for `N` lengths.
 ///
-/// This is a macro because [`hex::FromHex`] does not implement for a generic `N`:
+/// This is a macro instead of a `<const N: usize>` implementation
+/// because [`hex::FromHex`] does not implement for a generic `N`:
 /// <https://docs.rs/hex/0.4.3/src/hex/lib.rs.html#220-230>
 macro_rules! generate_hex_array {
     ($(
 		$array_len:literal
 	),* $(,)?) => { paste::paste! {
 		$(
-			#[doc = concat!("Wrapper type that (de)serializes from/to a ", stringify!($array_len), "-byte array.")]
+			#[doc = concat!(
+				"Wrapper type for a ",
+				stringify!($array_len),
+				"-byte array that (de)serializes from/to hexadecimal strings."
+			)]
 			#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 			#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 			#[cfg_attr(feature = "serde", serde(transparent))]
 			#[repr(transparent)]
 			pub struct [<HexBytes $array_len>](
-				#[cfg_attr(feature = "serde", serde(with = "hex::serde"))] pub [u8; $array_len],
+				#[cfg_attr(feature = "serde", serde(with = "hex::serde"))]
+				pub [u8; $array_len],
 			);
 
 			#[cfg(feature = "epee")]

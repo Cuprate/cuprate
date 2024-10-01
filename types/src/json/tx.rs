@@ -212,22 +212,30 @@ pub enum RctSignatures {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 pub enum RctSigPrunable {
+    /// - [`ringct::RctPrunable::AggregateMlsagBorromean`]
+    /// - [`ringct::RctPrunable::MlsagBorromean`]
     MlsagBorromean {
         rangeSigs: Vec<RangeSignature>,
         MGs: Vec<Mg>,
     },
+
+    /// - [`ringct::RctPrunable::MlsagBulletproofs`]
     MlsagBulletproofs {
         nbp: u64,
         bp: Vec<Bulletproof>,
         MGs: Vec<Mg>,
         pseudoOuts: Vec<HexBytes32>,
     },
+
+    /// - [`ringct::RctPrunable::Clsag`] with [`ringct::bulletproofs::Bulletproof::Original`]
     ClsagBulletproofs {
         nbp: u64,
         bp: Vec<Bulletproof>,
         CLSAGs: Vec<Clsag>,
         pseudoOuts: Vec<HexBytes32>,
     },
+
+    /// - [`ringct::RctPrunable::Clsag`] with [`ringct::bulletproofs::Bulletproof::Plus`]
     ClsagBulletproofsPlus {
         nbp: u64,
         bpp: Vec<BulletproofPlus>,
