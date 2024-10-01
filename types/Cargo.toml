@@ -15,7 +15,7 @@ epee       = ["dep:cuprate-epee-encoding"]
 serde      = ["dep:serde"]
 proptest   = ["dep:proptest",  "dep:proptest-derive"]
 json       = ["hex", "dep:cuprate-helper"]
-hex        = ["dep:hex", "dep:paste"]
+hex        = ["dep:hex"]
 
 [dependencies]
 cuprate-epee-encoding = { path = "../net/epee-encoding", optional = true }
@@ -26,7 +26,6 @@ bytes            = { workspace = true }
 curve25519-dalek = { workspace = true }
 monero-serai     = { workspace = true }
 hex              = { workspace = true, features = ["serde", "alloc"], optional = true }
-paste            = { workspace = true, optional = true }
 serde            = { workspace = true, features = ["derive"], optional = true }
 thiserror        = { workspace = true }
 

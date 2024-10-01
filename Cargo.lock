@@ -893,7 +893,6 @@ dependencies = [
  "hex",
  "hex-literal",
  "monero-serai",
- "paste",
  "pretty_assertions",
  "proptest",
  "proptest-derive",
