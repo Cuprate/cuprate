@@ -1,7 +1,5 @@
 //! Block related.
 
-use core::time::Duration;
-
 use crate::macros::monero_definition_link;
 
 /// The maximum block height possible.
