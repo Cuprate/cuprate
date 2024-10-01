@@ -822,12 +822,198 @@ mod test {
         test(tx, JSON);
     }
 
-    // #[test]
-    // fn tx_rct_5() {
-    //     const JSON: &str = r#"{"version":2,"unlock_time":0,"vin":[{"key":{"amount":0,"key_offsets":[21656060,186727,69935,9151,6868,5611,37323,11548,1080,2867,1193],"k_image":"2969fedfe8eff9fe1aa29c73ea55e8a9080c25dc565d2703e4d2776991a158bd"}}],"vout":[{"amount":0,"target":{"key":"4a46669165c842dcc4529cb0ca7e34b47073a96d5b29862c9f052a6113ac4db6"}},{"amount":0,"target":{"key":"264b1dcf7eebde1f4eb9ec87eca25dd963d7281ab5efaa5cfa994a4265fd9b4c"}}],"extra":[1,137,144,107,99,61,229,55,205,33,49,82,78,22,98,81,68,252,30,53,33,0,208,38,36,247,66,155,149,65,35,254,12,2,9,1,151,243,81,31,198,0,170,41],"rct_signatures":{"type":5,"txnFee":13210000,"ecdhInfo":[{"amount":"5db75ce558a47531"},{"amount":"0499d909aafd0109"}],"outPk":["70cbcd5105fcb33f29c8f58b7515f98cfdfcbc425239f65eac3804fbee069995","0aba72c6895d733b7cf59d2cf9c4cd7c82dedf23f9424148d63f138291e6b142"]},"rctsig_prunable":{"nbp":1,"bp":[{"A":"86765eb65aac879a755822a69a54dbf69d2d3495439eff917dc01667b72d30f8","S":"1a1e62a9ca8142cafdd8a8b74517d17f2e883d3495b7722e27750fa3fed44d84","T1":"a6513e0191d0561c16f06dda675e9d21a6f7a074dbf1af498530711a4c0a3b8e","T2":"47a1197d264c8becf36fe2e45bebbe9ff86ab7c141dd99db218ba691a412190b","taux":"cc5aa963d74e48c673f5079b0968060db5c408d8ef50ca8cba9fc58f5e11ff06","mu":"869813119eb1c88103d3b396bb1ee604df3c2ecfd7fab9a70da41f9cb95b2309","L":["34d1b4db37ad7d522d273c134a80d08eb6a22c1e009d3ab7db950090d35accdf","e7b41adc55ec0887b1a982f25c11d50a6191aa0e3de7f92ba944b0967b7b0cd5","343b5ad8c7abe7753ddba2fadb3cef36de91a2757167c102c4bb95c3e6778028","c132bb4bab3e60b86637ce2a3a563ecf92635b4a972083adacf6ede475467eb6","3303f34042776e60631352f687a4508b6e0e96ba58e05da825649c0b342527a8","c927d1a85fab1d83e1d3312e4f136e58f13853e529e3d2738d69e7885713a402","8a440a513f9e71d1a1a6357954b9a90123da3cfde7ed50b9cb389f6963090e49"],"R":["60cec37d53635e0f7cfddf7ab7bd4fc092ac69444aa8ebe1029cdac3505e028d","4b4c26bae4ee65f66246f45a83d8f2b4aca580d3ec53bfb62ed0d33e3e80ea60","f1e6aa90b3ae9e72ce487c1728f73a550b5dc41d971a85a90785b922760b0dcd","66e773ab75baa86936bd6653102be3518470f98b1357abb3251da54f273b0e40","792e4c055a4483088698a828e6b35447a4f890ad590d9e37709e53b7a8d63d0e","f6a43739cc3895d297c42179c9cacc31715f675b332a269f7fdf7c3c645f47c3","483a9954d40d1a9ce9082a7e10b8c06fd6e5e925d87dea0d04c4b05c6e74eda7"],"a":"65b1099198e6b20e5d810147bb0f9b4de297da33fb8ffbde3721a600b91ab504","b":"40280b8a652159007d7e36d2a3d4872ae3b7e25617f486a8eeca993d1146c002","t":"aa7d0c7b795de8736e1881fe4b9457cca1e370352c9a2f791d8902292d67de0d"}],"CLSAGs":[{"s":["27c6ca7f8cbdb7d8e6a1e0d3cc0805e48a809b827ccb70a9b297b7e9fd506f04","25212da093e8a866fe693e31022f8f37547cb38643f0a8373ad20032c0d0970a","c41751c335a147960f4daf5d4f18544eab8661e4509e1def78e3c2a08800ab0e","7a82c4e2e693ad5cf288b369ed647847e2b3ada1faab0727331aebce7e026507","690685c5ecab57799fed9067c88c172c466f1ca2ce6768900af0d7d46d474f0a","1891173b4f269dbeb1e13eecd8deecf3ee9bb864476b85a5639257cf6e9f8402","737980e8606d2da628368934c5c05fd2b6c2d43a2b56c5c6c2163b70c0836b06","274a23f3b8baabb020c4e5315174d12049409cae36af0016a0993cdf97957809","de2f2b04ac951975fda136268e60126a6ca53e7cd6cbbff0c9515256d5a1c50f","d5747b07bc733144c8ef9574213731a30d1239596467e25b6aac4427647b1d0c","5fd4c201cfd87e8fb155c1975e02c06c8de1ab49c84c7948e429798a90d52101"],"c1":"0e118c43701bf377e13d9693f6783963d1e6e2a7bff9d75640eb9e1684c26205","D":"deb55a8e4de5b9c84b8d94d63988ce04048497f91bdd3e3878a3f9e7c313e01c"}],"pseudoOuts":["48604572eb550295c16f5fe4282131ed4fc5de297611f813b12e752b6b67865f"]}}"#;
+    #[test]
+    fn tx_rct_5() {
+        const JSON: &str = r#"{"version":2,"unlock_time":0,"vin":[{"key":{"amount":0,"key_offsets":[21656060,186727,69935,9151,6868,5611,37323,11548,1080,2867,1193],"k_image":"2969fedfe8eff9fe1aa29c73ea55e8a9080c25dc565d2703e4d2776991a158bd"}}],"vout":[{"amount":0,"target":{"key":"4a46669165c842dcc4529cb0ca7e34b47073a96d5b29862c9f052a6113ac4db6"}},{"amount":0,"target":{"key":"264b1dcf7eebde1f4eb9ec87eca25dd963d7281ab5efaa5cfa994a4265fd9b4c"}}],"extra":[1,137,144,107,99,61,229,55,205,33,49,82,78,22,98,81,68,252,30,53,33,0,208,38,36,247,66,155,149,65,35,254,12,2,9,1,151,243,81,31,198,0,170,41],"rct_signatures":{"type":5,"txnFee":13210000,"ecdhInfo":[{"amount":"5db75ce558a47531"},{"amount":"0499d909aafd0109"}],"outPk":["70cbcd5105fcb33f29c8f58b7515f98cfdfcbc425239f65eac3804fbee069995","0aba72c6895d733b7cf59d2cf9c4cd7c82dedf23f9424148d63f138291e6b142"]},"rctsig_prunable":{"nbp":1,"bp":[{"A":"86765eb65aac879a755822a69a54dbf69d2d3495439eff917dc01667b72d30f8","S":"1a1e62a9ca8142cafdd8a8b74517d17f2e883d3495b7722e27750fa3fed44d84","T1":"a6513e0191d0561c16f06dda675e9d21a6f7a074dbf1af498530711a4c0a3b8e","T2":"47a1197d264c8becf36fe2e45bebbe9ff86ab7c141dd99db218ba691a412190b","taux":"cc5aa963d74e48c673f5079b0968060db5c408d8ef50ca8cba9fc58f5e11ff06","mu":"869813119eb1c88103d3b396bb1ee604df3c2ecfd7fab9a70da41f9cb95b2309","L":["34d1b4db37ad7d522d273c134a80d08eb6a22c1e009d3ab7db950090d35accdf","e7b41adc55ec0887b1a982f25c11d50a6191aa0e3de7f92ba944b0967b7b0cd5","343b5ad8c7abe7753ddba2fadb3cef36de91a2757167c102c4bb95c3e6778028","c132bb4bab3e60b86637ce2a3a563ecf92635b4a972083adacf6ede475467eb6","3303f34042776e60631352f687a4508b6e0e96ba58e05da825649c0b342527a8","c927d1a85fab1d83e1d3312e4f136e58f13853e529e3d2738d69e7885713a402","8a440a513f9e71d1a1a6357954b9a90123da3cfde7ed50b9cb389f6963090e49"],"R":["60cec37d53635e0f7cfddf7ab7bd4fc092ac69444aa8ebe1029cdac3505e028d","4b4c26bae4ee65f66246f45a83d8f2b4aca580d3ec53bfb62ed0d33e3e80ea60","f1e6aa90b3ae9e72ce487c1728f73a550b5dc41d971a85a90785b922760b0dcd","66e773ab75baa86936bd6653102be3518470f98b1357abb3251da54f273b0e40","792e4c055a4483088698a828e6b35447a4f890ad590d9e37709e53b7a8d63d0e","f6a43739cc3895d297c42179c9cacc31715f675b332a269f7fdf7c3c645f47c3","483a9954d40d1a9ce9082a7e10b8c06fd6e5e925d87dea0d04c4b05c6e74eda7"],"a":"65b1099198e6b20e5d810147bb0f9b4de297da33fb8ffbde3721a600b91ab504","b":"40280b8a652159007d7e36d2a3d4872ae3b7e25617f486a8eeca993d1146c002","t":"aa7d0c7b795de8736e1881fe4b9457cca1e370352c9a2f791d8902292d67de0d"}],"CLSAGs":[{"s":["27c6ca7f8cbdb7d8e6a1e0d3cc0805e48a809b827ccb70a9b297b7e9fd506f04","25212da093e8a866fe693e31022f8f37547cb38643f0a8373ad20032c0d0970a","c41751c335a147960f4daf5d4f18544eab8661e4509e1def78e3c2a08800ab0e","7a82c4e2e693ad5cf288b369ed647847e2b3ada1faab0727331aebce7e026507","690685c5ecab57799fed9067c88c172c466f1ca2ce6768900af0d7d46d474f0a","1891173b4f269dbeb1e13eecd8deecf3ee9bb864476b85a5639257cf6e9f8402","737980e8606d2da628368934c5c05fd2b6c2d43a2b56c5c6c2163b70c0836b06","274a23f3b8baabb020c4e5315174d12049409cae36af0016a0993cdf97957809","de2f2b04ac951975fda136268e60126a6ca53e7cd6cbbff0c9515256d5a1c50f","d5747b07bc733144c8ef9574213731a30d1239596467e25b6aac4427647b1d0c","5fd4c201cfd87e8fb155c1975e02c06c8de1ab49c84c7948e429798a90d52101"],"c1":"0e118c43701bf377e13d9693f6783963d1e6e2a7bff9d75640eb9e1684c26205","D":"deb55a8e4de5b9c84b8d94d63988ce04048497f91bdd3e3878a3f9e7c313e01c"}],"pseudoOuts":["48604572eb550295c16f5fe4282131ed4fc5de297611f813b12e752b6b67865f"]}}"#;
 
-    //     test(todo!(), JSON);
-    // }
+        let tx = Transaction::V2 {
+            prefix: TransactionPrefix {
+                version: 2,
+                unlock_time: 0,
+                vin: vec![Input {
+                    key: Key {
+                        amount: 0,
+                        key_offsets: vec![
+                            21656060, 186727, 69935, 9151, 6868, 5611, 37323, 11548, 1080, 2867,
+                            1193,
+                        ],
+                        k_image: HexBytes32(hex!(
+                            "2969fedfe8eff9fe1aa29c73ea55e8a9080c25dc565d2703e4d2776991a158bd"
+                        )),
+                    },
+                }],
+                vout: vec![
+                    Output {
+                        amount: 0,
+                        target: Target::Key {
+                            key: HexBytes32(hex!(
+                                "4a46669165c842dcc4529cb0ca7e34b47073a96d5b29862c9f052a6113ac4db6"
+                            )),
+                        },
+                    },
+                    Output {
+                        amount: 0,
+                        target: Target::Key {
+                            key: HexBytes32(hex!(
+                                "264b1dcf7eebde1f4eb9ec87eca25dd963d7281ab5efaa5cfa994a4265fd9b4c"
+                            )),
+                        },
+                    },
+                ],
+                extra: vec![
+                    1, 137, 144, 107, 99, 61, 229, 55, 205, 33, 49, 82, 78, 22, 98, 81, 68, 252,
+                    30, 53, 33, 0, 208, 38, 36, 247, 66, 155, 149, 65, 35, 254, 12, 2, 9, 1, 151,
+                    243, 81, 31, 198, 0, 170, 41,
+                ],
+            },
+            rct_signatures: RctSignatures::NonCoinbase {
+                r#type: 5,
+                txnFee: 13210000,
+                ecdhInfo: vec![
+                    EcdhInfo::Compact {
+                        amount: HexBytes8(hex!("5db75ce558a47531")),
+                    },
+                    EcdhInfo::Compact {
+                        amount: HexBytes8(hex!("0499d909aafd0109")),
+                    },
+                ],
+                outPk: vec![
+                    HexBytes32(hex!(
+                        "70cbcd5105fcb33f29c8f58b7515f98cfdfcbc425239f65eac3804fbee069995"
+                    )),
+                    HexBytes32(hex!(
+                        "0aba72c6895d733b7cf59d2cf9c4cd7c82dedf23f9424148d63f138291e6b142"
+                    )),
+                ],
+            },
+            rctsig_prunable: Some(RctSigPrunable::ClsagBulletproofs {
+                nbp: 1,
+                bp: vec![Bulletproof {
+                    A: HexBytes32(hex!(
+                        "86765eb65aac879a755822a69a54dbf69d2d3495439eff917dc01667b72d30f8"
+                    )),
+                    S: HexBytes32(hex!(
+                        "1a1e62a9ca8142cafdd8a8b74517d17f2e883d3495b7722e27750fa3fed44d84"
+                    )),
+                    T1: HexBytes32(hex!(
+                        "a6513e0191d0561c16f06dda675e9d21a6f7a074dbf1af498530711a4c0a3b8e"
+                    )),
+                    T2: HexBytes32(hex!(
+                        "47a1197d264c8becf36fe2e45bebbe9ff86ab7c141dd99db218ba691a412190b"
+                    )),
+                    taux: HexBytes32(hex!(
+                        "cc5aa963d74e48c673f5079b0968060db5c408d8ef50ca8cba9fc58f5e11ff06"
+                    )),
+                    mu: HexBytes32(hex!(
+                        "869813119eb1c88103d3b396bb1ee604df3c2ecfd7fab9a70da41f9cb95b2309"
+                    )),
+                    L: vec![
+                        HexBytes32(hex!(
+                            "34d1b4db37ad7d522d273c134a80d08eb6a22c1e009d3ab7db950090d35accdf"
+                        )),
+                        HexBytes32(hex!(
+                            "e7b41adc55ec0887b1a982f25c11d50a6191aa0e3de7f92ba944b0967b7b0cd5"
+                        )),
+                        HexBytes32(hex!(
+                            "343b5ad8c7abe7753ddba2fadb3cef36de91a2757167c102c4bb95c3e6778028"
+                        )),
+                        HexBytes32(hex!(
+                            "c132bb4bab3e60b86637ce2a3a563ecf92635b4a972083adacf6ede475467eb6"
+                        )),
+                        HexBytes32(hex!(
+                            "3303f34042776e60631352f687a4508b6e0e96ba58e05da825649c0b342527a8"
+                        )),
+                        HexBytes32(hex!(
+                            "c927d1a85fab1d83e1d3312e4f136e58f13853e529e3d2738d69e7885713a402"
+                        )),
+                        HexBytes32(hex!(
+                            "8a440a513f9e71d1a1a6357954b9a90123da3cfde7ed50b9cb389f6963090e49"
+                        )),
+                    ],
+                    R: vec![
+                        HexBytes32(hex!(
+                            "60cec37d53635e0f7cfddf7ab7bd4fc092ac69444aa8ebe1029cdac3505e028d"
+                        )),
+                        HexBytes32(hex!(
+                            "4b4c26bae4ee65f66246f45a83d8f2b4aca580d3ec53bfb62ed0d33e3e80ea60"
+                        )),
+                        HexBytes32(hex!(
+                            "f1e6aa90b3ae9e72ce487c1728f73a550b5dc41d971a85a90785b922760b0dcd"
+                        )),
+                        HexBytes32(hex!(
+                            "66e773ab75baa86936bd6653102be3518470f98b1357abb3251da54f273b0e40"
+                        )),
+                        HexBytes32(hex!(
+                            "792e4c055a4483088698a828e6b35447a4f890ad590d9e37709e53b7a8d63d0e"
+                        )),
+                        HexBytes32(hex!(
+                            "f6a43739cc3895d297c42179c9cacc31715f675b332a269f7fdf7c3c645f47c3"
+                        )),
+                        HexBytes32(hex!(
+                            "483a9954d40d1a9ce9082a7e10b8c06fd6e5e925d87dea0d04c4b05c6e74eda7"
+                        )),
+                    ],
+                    a: HexBytes32(hex!(
+                        "65b1099198e6b20e5d810147bb0f9b4de297da33fb8ffbde3721a600b91ab504"
+                    )),
+                    b: HexBytes32(hex!(
+                        "40280b8a652159007d7e36d2a3d4872ae3b7e25617f486a8eeca993d1146c002"
+                    )),
+                    t: HexBytes32(hex!(
+                        "aa7d0c7b795de8736e1881fe4b9457cca1e370352c9a2f791d8902292d67de0d"
+                    )),
+                }],
+                CLSAGs: vec![Clsag {
+                    s: vec![
+                        HexBytes32(hex!(
+                            "27c6ca7f8cbdb7d8e6a1e0d3cc0805e48a809b827ccb70a9b297b7e9fd506f04"
+                        )),
+                        HexBytes32(hex!(
+                            "25212da093e8a866fe693e31022f8f37547cb38643f0a8373ad20032c0d0970a"
+                        )),
+                        HexBytes32(hex!(
+                            "c41751c335a147960f4daf5d4f18544eab8661e4509e1def78e3c2a08800ab0e"
+                        )),
+                        HexBytes32(hex!(
+                            "7a82c4e2e693ad5cf288b369ed647847e2b3ada1faab0727331aebce7e026507"
+                        )),
+                        HexBytes32(hex!(
+                            "690685c5ecab57799fed9067c88c172c466f1ca2ce6768900af0d7d46d474f0a"
+                        )),
+                        HexBytes32(hex!(
+                            "1891173b4f269dbeb1e13eecd8deecf3ee9bb864476b85a5639257cf6e9f8402"
+                        )),
+                        HexBytes32(hex!(
+                            "737980e8606d2da628368934c5c05fd2b6c2d43a2b56c5c6c2163b70c0836b06"
+                        )),
+                        HexBytes32(hex!(
+                            "274a23f3b8baabb020c4e5315174d12049409cae36af0016a0993cdf97957809"
+                        )),
+                        HexBytes32(hex!(
+                            "de2f2b04ac951975fda136268e60126a6ca53e7cd6cbbff0c9515256d5a1c50f"
+                        )),
+                        HexBytes32(hex!(
+                            "d5747b07bc733144c8ef9574213731a30d1239596467e25b6aac4427647b1d0c"
+                        )),
+                        HexBytes32(hex!(
+                            "5fd4c201cfd87e8fb155c1975e02c06c8de1ab49c84c7948e429798a90d52101"
+                        )),
+                    ],
+                    c1: HexBytes32(hex!(
+                        "0e118c43701bf377e13d9693f6783963d1e6e2a7bff9d75640eb9e1684c26205"
+                    )),
+                    D: HexBytes32(hex!(
+                        "deb55a8e4de5b9c84b8d94d63988ce04048497f91bdd3e3878a3f9e7c313e01c"
+                    )),
+                }],
+                pseudoOuts: vec![HexBytes32(hex!(
+                    "48604572eb550295c16f5fe4282131ed4fc5de297611f813b12e752b6b67865f"
+                ))],
+            }),
+        };
+
+        test(tx, JSON);
+    }
 
     // #[test]
     // fn tx_rct_6() {
