@@ -52,9 +52,9 @@ checksum = "1bec1de6f59aedf83baf9ff929c98f2ad654b97c9510f4e70cf6f661d49fd5b1"
 
 [[package]]
 name = "anyhow"
-version = "1.0.87"
+version = "1.0.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10f00e1f6e58a40e807377c75c6a7f97bf9044fab57816f2414e6f5f4499d7b8"
+checksum = "86fdf8605db99b54d3cd748a44c6d04df638eb5dafb219b135d0149bd0db01f6"
 
 [[package]]
 name = "async-stream"
@@ -129,9 +129,9 @@ dependencies = [
  "serde_urlencoded",
  "sync_wrapper 1.0.1",
  "tokio",
- "tower",
- "tower-layer",
- "tower-service",
+ "tower 0.4.13",
+ "tower-layer 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tower-service 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing",
 ]
 
@@ -151,8 +151,8 @@ dependencies = [
  "pin-project-lite",
  "rustversion",
  "sync_wrapper 0.1.2",
- "tower-layer",
- "tower-service",
+ "tower-layer 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tower-service 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing",
 ]
 
@@ -384,6 +384,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1462739cb27611015575c0c11df5df7601141071f07518d56fcc1be504cbec97"
 
 [[package]]
+name = "const_format"
+version = "0.2.33"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "50c655d81ff1114fb0dcdea9225ea9f0cc712a6f8d189378e82bdf62a473a64b"
+dependencies = [
+ "const_format_proc_macros",
+]
+
+[[package]]
+name = "const_format_proc_macros"
+version = "0.2.33"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eff1a44b93f47b1bac19a27932f5c591e43d1ba357ee4f61526c8a25603f0eb1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-xid",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -508,7 +528,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-util",
- "tower",
+ "tower 0.5.1",
  "tracing",
 ]
 
@@ -547,7 +567,7 @@ dependencies = [
  "tempfile",
  "thread_local",
  "tokio",
- "tower",
+ "tower 0.5.1",
 ]
 
 [[package]]
@@ -574,7 +594,7 @@ dependencies = [
  "tokio",
  "tokio-test",
  "tokio-util",
- "tower",
+ "tower 0.5.1",
  "tracing",
 ]
 
@@ -625,7 +645,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-util",
- "tower",
+ "tower 0.5.1",
  "tracing",
 ]
 
@@ -655,7 +675,7 @@ dependencies = [
  "futures",
  "rayon",
  "serde",
- "tower",
+ "tower 0.5.1",
 ]
 
 [[package]]
@@ -687,7 +707,7 @@ dependencies = [
  "sha3",
  "thiserror",
  "tokio",
- "tower",
+ "tower 0.5.1",
 ]
 
 [[package]]
@@ -762,7 +782,6 @@ dependencies = [
  "cuprate-wire",
  "dashmap",
  "futures",
- "hex",
  "indexmap",
  "monero-serai",
  "pin-project",
@@ -775,7 +794,7 @@ dependencies = [
  "tokio-stream",
  "tokio-test",
  "tokio-util",
- "tower",
+ "tower 0.5.1",
  "tracing",
 ]
 
@@ -798,7 +817,7 @@ dependencies = [
  "tokio-stream",
  "tokio-test",
  "tokio-util",
- "tower",
+ "tower 0.5.1",
  "tracing",
 ]
 
@@ -827,7 +846,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
- "tower",
+ "tower 0.5.1",
  "ureq",
 ]
 
@@ -888,7 +907,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
- "tower",
+ "tower 0.5.1",
 ]
 
 [[package]]
@@ -924,7 +943,7 @@ dependencies = [
 
 [[package]]
 name = "cuprated"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -935,6 +954,7 @@ dependencies = [
  "cfg-if",
  "chrono",
  "clap",
+ "const_format",
  "crossbeam",
  "crypto-bigint",
  "cuprate-address-book",
@@ -983,7 +1003,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-util",
- "tower",
+ "tower 0.5.1",
  "tracing",
  "tracing-subscriber",
 ]
@@ -1482,7 +1502,7 @@ dependencies = [
  "rustls-pki-types",
  "tokio",
  "tokio-rustls",
- "tower-service",
+ "tower-service 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1500,8 +1520,8 @@ dependencies = [
  "pin-project-lite",
  "socket2",
  "tokio",
- "tower",
- "tower-service",
+ "tower 0.4.13",
+ "tower-service 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing",
 ]
 
@@ -2530,7 +2550,7 @@ dependencies = [
  "hyper-rustls",
  "hyper-util",
  "tokio",
- "tower-service",
+ "tower-service 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2812,9 +2832,24 @@ dependencies = [
  "pin-project",
  "pin-project-lite",
  "tokio",
+ "tower-layer 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tower-service 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tracing",
+]
+
+[[package]]
+name = "tower"
+version = "0.5.1"
+source = "git+https://github.com/Cuprate/tower.git?rev=6c7faf0#6c7faf0e9dbc74aef5d3110313324bc7e1f997cf"
+dependencies = [
+ "futures-core",
+ "futures-util",
+ "pin-project-lite",
+ "sync_wrapper 0.1.2",
+ "tokio",
  "tokio-util",
- "tower-layer",
- "tower-service",
+ "tower-layer 0.3.3 (git+https://github.com/Cuprate/tower.git?rev=6c7faf0)",
+ "tower-service 0.3.3 (git+https://github.com/Cuprate/tower.git?rev=6c7faf0)",
  "tracing",
 ]
 
@@ -2825,10 +2860,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "121c2a6cda46980bb0fcd1647ffaf6cd3fc79a013de288782836f6df9c48780e"
 
 [[package]]
+name = "tower-layer"
+version = "0.3.3"
+source = "git+https://github.com/Cuprate/tower.git?rev=6c7faf0#6c7faf0e9dbc74aef5d3110313324bc7e1f997cf"
+
+[[package]]
 name = "tower-service"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8df9b6e13f2d32c91b9bd719c00d1958837bc7dec474d94952798cc8e69eeec3"
+
+[[package]]
+name = "tower-service"
+version = "0.3.3"
+source = "git+https://github.com/Cuprate/tower.git?rev=6c7faf0#6c7faf0e9dbc74aef5d3110313324bc7e1f997cf"
 
 [[package]]
 name = "tracing"
@@ -2909,6 +2954,12 @@ checksum = "5033c97c4262335cded6d6fc3e5c18ab755e1a3dc96376350f3d8e9f009ad956"
 dependencies = [
  "tinyvec",
 ]
+
+[[package]]
+name = "unicode-xid"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 
 [[package]]
 name = "untrusted"

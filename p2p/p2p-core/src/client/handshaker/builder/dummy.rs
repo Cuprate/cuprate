@@ -10,31 +10,9 @@ use cuprate_wire::CoreSyncData;
 use crate::{
     services::{
         AddressBookRequest, AddressBookResponse, CoreSyncDataRequest, CoreSyncDataResponse,
-        PeerSyncRequest, PeerSyncResponse,
     },
     NetworkZone, ProtocolRequest, ProtocolResponse,
 };
-
-/// A dummy peer sync service, that doesn't actually keep track of peers sync states.
-#[derive(Debug, Clone)]
-pub struct DummyPeerSyncSvc;
-
-impl<N: NetworkZone> Service<PeerSyncRequest<N>> for DummyPeerSyncSvc {
-    type Response = PeerSyncResponse<N>;
-    type Error = tower::BoxError;
-    type Future = Ready<Result<Self::Response, Self::Error>>;
-
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
-    }
-
-    fn call(&mut self, req: PeerSyncRequest<N>) -> Self::Future {
-        ready(Ok(match req {
-            PeerSyncRequest::PeersToSyncFrom { .. } => PeerSyncResponse::PeersToSyncFrom(vec![]),
-            PeerSyncRequest::IncomingCoreSyncData(_, _, _) => PeerSyncResponse::Ok,
-        }))
-    }
-}
 
 /// A dummy core sync service that just returns static [`CoreSyncData`].
 #[derive(Debug, Clone)]

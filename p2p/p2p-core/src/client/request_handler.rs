@@ -14,10 +14,8 @@ use crate::{
     constants::MAX_PEERS_IN_PEER_LIST_MESSAGE,
     services::{
         AddressBookRequest, AddressBookResponse, CoreSyncDataRequest, CoreSyncDataResponse,
-        PeerSyncRequest,
     },
-    AddressBook, CoreSyncSvc, NetworkZone, PeerRequest, PeerResponse, PeerSyncSvc,
-    ProtocolRequestHandler,
+    AddressBook, CoreSyncSvc, NetworkZone, PeerRequest, PeerResponse, ProtocolRequestHandler,
 };
 
 #[derive(thiserror::Error, Debug, Copy, Clone, Eq, PartialEq)]
@@ -28,13 +26,11 @@ enum PeerRequestHandlerError {
 
 /// The peer request handler, handles incoming [`PeerRequest`]s to our node.
 #[derive(Debug, Clone)]
-pub(crate) struct PeerRequestHandler<Z: NetworkZone, A, CS, PS, PR> {
+pub(crate) struct PeerRequestHandler<Z: NetworkZone, A, CS, PR> {
     /// The address book service.
     pub address_book_svc: A,
     /// Our core sync service.
     pub our_sync_svc: CS,
-    /// The peer sync service.
-    pub peer_sync_svc: PS,
 
     /// The handler for [`ProtocolRequest`](crate::ProtocolRequest)s to our node.
     pub protocol_request_handler: PR,
@@ -46,12 +42,11 @@ pub(crate) struct PeerRequestHandler<Z: NetworkZone, A, CS, PS, PR> {
     pub peer_info: PeerInformation<Z::Addr>,
 }
 
-impl<Z, A, CS, PS, PR> PeerRequestHandler<Z, A, CS, PS, PR>
+impl<Z, A, CS, PR> PeerRequestHandler<Z, A, CS, PR>
 where
     Z: NetworkZone,
     A: AddressBook<Z>,
     CS: CoreSyncSvc,
-    PS: PeerSyncSvc<Z>,
     PR: ProtocolRequestHandler,
 {
     /// Handles an incoming [`PeerRequest`] to our node.
@@ -104,18 +99,7 @@ where
     ) -> Result<TimedSyncResponse, tower::BoxError> {
         // TODO: add a limit on the amount of these requests in a certain time period.
 
-        let peer_id = self.peer_info.id;
-        let handle = self.peer_info.handle.clone();
-
-        self.peer_sync_svc
-            .ready()
-            .await?
-            .call(PeerSyncRequest::IncomingCoreSyncData(
-                peer_id,
-                handle,
-                req.payload_data,
-            ))
-            .await?;
+        *self.peer_info.core_sync_data.lock().unwrap() = req.payload_data;
 
         let AddressBookResponse::Peers(peers) = self
             .address_book_svc
