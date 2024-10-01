@@ -36,7 +36,9 @@ pub enum Transaction {
         /// This field is [flattened](https://serde.rs/field-attrs.html#flatten).
         #[serde(flatten)]
         prefix: TransactionPrefix,
-        rct_signatures: Option<RctSignatures>,
+        rct_signatures: RctSignatures,
+        /// This field is [`Some`] if [`Self::V2::rct_signatures`]
+        /// is [`RctSignatures::NonCoinbase`], else [`None`].
         rctsig_prunable: Option<RctSigPrunable>,
     },
 }
@@ -124,7 +126,15 @@ impl From<transaction::Transaction> for Transaction {
         match tx {
             transaction::Transaction::V1 { prefix, signatures } => Self::V1 {
                 prefix: map_prefix(prefix, 1),
-                signatures: todo!(),
+                signatures: signatures
+                    .into_iter()
+                    .map(|sig| {
+                        // TODO: `RingSignature` needs to expose the
+                        // inner `Signature` struct as a byte array.
+                        let sig_to_64_bytes = |sig| -> HexBytes64 { todo!() };
+                        sig_to_64_bytes(sig)
+                    })
+                    .collect(),
             },
             transaction::Transaction::V2 { prefix, proofs } => {
                 let prefix = map_prefix(prefix, 2);
@@ -132,7 +142,7 @@ impl From<transaction::Transaction> for Transaction {
                 let Some(proofs) = proofs else {
                     return Self::V2 {
                         prefix,
-                        rct_signatures: None,
+                        rct_signatures: RctSignatures::Coinbase { r#type: 0 },
                         rctsig_prunable: None,
                     };
                 };
@@ -162,19 +172,19 @@ impl From<transaction::Transaction> for Transaction {
                     .map(|point| HexBytes32(point.compress().0))
                     .collect();
 
-                let rct_signatures = RctSignatures {
+                let rct_signatures = RctSignatures::NonCoinbase {
                     r#type,
                     txnFee,
                     ecdhInfo,
                     outPk,
                 };
 
-                let rctsig_prunable = RctSigPrunable::from(proofs.prunable);
+                let rctsig_prunable = Some(RctSigPrunable::from(proofs.prunable));
 
                 Self::V2 {
                     prefix,
-                    rct_signatures: Some(rct_signatures),
-                    rctsig_prunable: Some(rctsig_prunable),
+                    rct_signatures,
+                    rctsig_prunable,
                 }
             }
         }
@@ -184,21 +194,44 @@ impl From<transaction::Transaction> for Transaction {
 /// [`Transaction::V2::rct_signatures`].
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct RctSignatures {
-    pub r#type: u8,
-    pub txnFee: u64,
-    pub ecdhInfo: Vec<EcdhInfo>,
-    pub outPk: Vec<HexBytes32>,
+pub enum RctSignatures {
+    Coinbase {
+        r#type: u8,
+    },
+    NonCoinbase {
+        r#type: u8,
+        txnFee: u64,
+        ecdhInfo: Vec<EcdhInfo>,
+        outPk: Vec<HexBytes32>,
+    },
 }
 
 /// [`Transaction::V2::rctsig_prunable`].
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct RctSigPrunable {
-    pub nbp: u64,
-    pub bpp: Vec<Bpp>,
-    pub CLSAGs: Vec<Clsag>,
-    pub pseudoOuts: Vec<String>,
+pub enum RctSigPrunable {
+    MlsagBorromean {
+        rangeSigs: Vec<RangeSignature>,
+        MGs: Vec<Mg>,
+    },
+    MlsagBulletproofs {
+        nbp: u64,
+        bp: Vec<Bulletproof>,
+        MGs: Vec<Mg>,
+        pseudoOuts: Vec<String>,
+    },
+    ClsagBulletproofs {
+        nbp: u64,
+        bp: Vec<Bulletproof>,
+        CLSAGs: Vec<Clsag>,
+        pseudoOuts: Vec<String>,
+    },
+    ClsagBulletproofsPlus {
+        nbp: u64,
+        bpp: Vec<BulletproofPlus>,
+        CLSAGs: Vec<Clsag>,
+        pseudoOuts: Vec<String>,
+    },
 }
 
 #[expect(unused_variables, reason = "TODO: finish impl")]
@@ -238,30 +271,68 @@ impl From<ringct::RctPrunable> for RctSigPrunable {
     }
 }
 
-/// [`RctSigPrunable::bpp`].
+/// [`RctSigPrunable::MlsagBorromean::rangeSigs`]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct Bpp {
-    pub A: String,
-    pub A1: String,
-    pub B: String,
-    pub r1: String,
-    pub s1: String,
-    pub d1: String,
-    pub L: Vec<String>,
-    pub R: Vec<String>,
+pub struct RangeSignature {
+    // These fields are hex but way too big to be
+    // using stack arrays to represent them.
+    pub asig: String,
+    pub Ci: String,
 }
 
-/// [`RctSigPrunable::CLSAGs`].
+/// - [`RctSigPrunable::MlsagBorromean::MGs`]
+/// - [`RctSigPrunable::MlsagBulletproofs::MGs`]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct Mg {
+    pub ss: Vec<[HexBytes32; 2]>,
+    pub cc: HexBytes32,
+}
+
+/// - [`RctSigPrunable::MlsagBulletproofs::bp`]
+/// - [`RctSigPrunable::ClsagBulletproofs::bp`]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct Bulletproof {
+    pub A: HexBytes32,
+    pub S: HexBytes32,
+    pub T1: HexBytes32,
+    pub T2: HexBytes32,
+    pub taux: HexBytes32,
+    pub mu: HexBytes32,
+    pub L: Vec<HexBytes32>,
+    pub R: Vec<HexBytes32>,
+    pub a: HexBytes32,
+    pub b: HexBytes32,
+    pub t: HexBytes32,
+}
+
+/// - [`RctSigPrunable::ClsagBulletproofsPlus::bpp`]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct BulletproofPlus {
+    pub A: HexBytes32,
+    pub A1: HexBytes32,
+    pub B: HexBytes32,
+    pub r1: HexBytes32,
+    pub s1: HexBytes32,
+    pub d1: HexBytes32,
+    pub L: Vec<HexBytes32>,
+    pub R: Vec<HexBytes32>,
+}
+
+/// - [`RctSigPrunable::ClsagBulletproofs`]
+/// - [`RctSigPrunable::ClsagBulletproofsPlus`]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Clsag {
-    pub s: Vec<String>,
-    pub c1: String,
-    pub D: String,
+    pub s: Vec<HexBytes32>,
+    pub c1: HexBytes32,
+    pub D: HexBytes32,
 }
 
-/// [`RctSignatures::ecdhInfo`].
+/// [`RctSignatures::NonCoinbase::ecdhInfo`].
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
