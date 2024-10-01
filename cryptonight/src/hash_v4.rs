@@ -411,34 +411,25 @@ pub(crate) fn v4_random_math(code: &[Instruction; 71], r: &mut [u32; 9]) {
 /// To match the C code organization, this function would be in `slow_hash.rs`, but
 /// the test code for it is so large, that it was moved here.
 pub(crate) fn variant4_random_math(
-    a1: &mut [u8; 16],
-    c2: &mut [u8; 16],
+    a1: &mut u128,
+    c2: &mut u128,
     r: &mut [u32; 9],
-    b: &[u8; 32],
+    b: &[u128; 2],
     code: &[Instruction; 71],
 ) {
-    let mut t = [0_u64; 2];
-    t[0] = u64::from_le_bytes(subarray_copy(c2, 0));
+    let t64 = u64::from(r[0].wrapping_add(r[1])) | (u64::from(r[2].wrapping_add(r[3])) << 32);
+    *c2 ^= u128::from(t64);
 
-    t[0] ^= u64::from(r[0].wrapping_add(r[1])) | (u64::from(r[2].wrapping_add(r[3])) << 32);
-    c2[..8].copy_from_slice(&t[0].to_le_bytes());
-
-    r[4] = u32::from_le_bytes(subarray_copy(a1, 0));
-    r[5] = u32::from_le_bytes(subarray_copy(a1, 8));
-    r[6] = u32::from_le_bytes(subarray_copy(b, 0));
-    r[7] = u32::from_le_bytes(subarray_copy(b, 16));
-    r[8] = u32::from_le_bytes(subarray_copy(b, 24));
+    r[4] = *a1 as u32;
+    r[5] = (*a1 >> 64) as u32;
+    r[6] = b[0] as u32;
+    r[7] = b[1] as u32;
+    r[8] = (b[1] >> 64) as u32;
 
     v4_random_math(code, r);
 
-    t[0] = u64::from_le_bytes(subarray_copy(a1, 0));
-    t[1] = u64::from_le_bytes(subarray_copy(a1, 8));
-
-    t[0] ^= u64::from(r[2]) | u64::from(r[3]) << 32;
-    t[1] ^= u64::from(r[0]) | (u64::from(r[1]) << 32);
-
-    a1[0..8].copy_from_slice(&t[0].to_le_bytes());
-    a1[8..16].copy_from_slice(&t[1].to_le_bytes());
+    *a1 ^=
+        u128::from(r[2]) | u128::from(r[3]) << 32 | u128::from(r[0]) << 64 | u128::from(r[1]) << 96;
 }
 
 #[cfg(test)]
@@ -523,17 +514,26 @@ mod tests {
 
     #[test]
     fn test1_variant4_random_math() {
-        const AES_BLOCK_SIZE: usize = 16;
-        let mut a1: [u8; AES_BLOCK_SIZE] = hex_to_array("969ecd223474a6bb3be76c637db7457b");
-        let mut c2: [u8; AES_BLOCK_SIZE] = hex_to_array("dbd1f6404d4826c52f209951334e6ea7");
+        let mut a1 = u128::from_le_bytes(hex_to_array("969ecd223474a6bb3be76c637db7457b"));
+        let mut c2 = u128::from_le_bytes(hex_to_array("dbd1f6404d4826c52f209951334e6ea7"));
         let mut r: [u32; 9] = [1336109178, 464004736, 1552145461, 3528897376, 0, 0, 0, 0, 0];
-        let b: [u8; AES_BLOCK_SIZE * 2] =
+        let b_bytes: [u8; 32] =
             hex_to_array("8dfa6d2c82e1806367b844c15f0439ced99c9a4bae0badfb8a8cf8504b813b7d");
+        let b: [u128; 2] = [
+            u128::from_le_bytes(subarray_copy(&b_bytes, 0)),
+            u128::from_le_bytes(subarray_copy(&b_bytes, 16)),
+        ];
 
         variant4_random_math(&mut a1, &mut c2, &mut r, &b, &CODE);
 
-        assert_eq!(hex::encode(a1), "1cb6fe7738de9e764dd73ea37c438056");
-        assert_eq!(hex::encode(c2), "215fbd2bd8c7fceb2f209951334e6ea7");
+        assert_eq!(
+            hex::encode(a1.to_le_bytes()),
+            "1cb6fe7738de9e764dd73ea37c438056"
+        );
+        assert_eq!(
+            hex::encode(c2.to_le_bytes()),
+            "215fbd2bd8c7fceb2f209951334e6ea7"
+        );
         #[rustfmt::skip]
         assert_eq!(r, [
             3226611830, 767947777, 1429416074, 3443042828, 583900822, 1668081467, 745405069,
@@ -543,20 +543,29 @@ mod tests {
 
     #[test]
     fn test2_variant4_random_math() {
-        const AES_BLOCK_SIZE: usize = 16;
-        let mut a1: [u8; AES_BLOCK_SIZE] = hex_to_array("643955bde578c845e4898703c3ce5eaa");
-        let mut c2: [u8; AES_BLOCK_SIZE] = hex_to_array("787e2613b8fd0a2dadad16d4ec189035");
+        let mut a1 = u128::from_le_bytes(hex_to_array("643955bde578c845e4898703c3ce5eaa"));
+        let mut c2 = u128::from_le_bytes(hex_to_array("787e2613b8fd0a2dadad16d4ec189035"));
         let mut r: [u32; 9] = [
             3226611830, 767947777, 1429416074, 3443042828, 583900822, 1668081467, 745405069,
             1268423897, 1358466186,
         ];
-        let b: [u8; AES_BLOCK_SIZE * 2] =
+        let b_bytes: [u8; 32] =
             hex_to_array("d4d1e70f7da4089ae53b2e7545e4242a8dfa6d2c82e1806367b844c15f0439ce");
+        let b: [u128; 2] = [
+            u128::from_le_bytes(subarray_copy(&b_bytes, 0)),
+            u128::from_le_bytes(subarray_copy(&b_bytes, 16)),
+        ];
 
         variant4_random_math(&mut a1, &mut c2, &mut r, &b, &CODE);
 
-        assert_eq!(hex::encode(a1), "c40cb4b3a3640a958cc919ccb4ff29e6");
-        assert_eq!(hex::encode(c2), "0f5a3efd2e2f610fadad16d4ec189035");
+        assert_eq!(
+            hex::encode(a1.to_le_bytes()),
+            "c40cb4b3a3640a958cc919ccb4ff29e6"
+        );
+        assert_eq!(
+            hex::encode(c2.to_le_bytes()),
+            "0f5a3efd2e2f610fadad16d4ec189035"
+        );
         #[rustfmt::skip]
         assert_eq!(r, [
             3483254888_u32, 1282879863, 249640352, 3502382150, 3176479076, 59214308, 266850772,

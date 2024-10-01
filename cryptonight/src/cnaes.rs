@@ -1,4 +1,4 @@
-use crate::util::{subarray, subarray_copy};
+use crate::util::subarray_copy;
 
 pub(crate) const AES_BLOCK_SIZE: usize = 16;
 
@@ -347,47 +347,46 @@ pub(crate) fn key_extend(key_bytes: &[u8; CN_AES_KEY_SIZE]) -> [u8; EXPANDED_KEY
     expanded_key
 }
 
-pub(crate) fn round_fwd(state: &mut [u8; AES_BLOCK_SIZE], key: &[u8; ROUND_KEY_SIZE]) {
-    let mut r1 = u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, (state[0] as usize) * 4));
-    r1 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 1024 + (state[5] as usize) * 4));
-    r1 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + (state[10] as usize) * 4));
-    r1 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + (state[15] as usize) * 4));
+pub(crate) fn round_fwd(state: u128, key: u128) -> u128 {
+    let sb = |state: u128, b: usize| -> usize { (state >> (b * 8) & 0xFF) as usize };
 
-    let mut r2 = u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, (state[4] as usize) * 4));
-    r2 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 1024 + (state[9] as usize) * 4));
-    r2 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + (state[14] as usize) * 4));
-    r2 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + (state[3] as usize) * 4));
+    let mut r1 = u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, sb(state, 0) * 4));
+    r1 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 1024 + sb(state, 5) * 4));
+    r1 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + sb(state, 10) * 4));
+    r1 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + sb(state, 15) * 4));
 
-    let mut r3 = u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, (state[8] as usize) * 4));
-    r3 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 1024 + (state[13] as usize) * 4));
-    r3 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + (state[2] as usize) * 4));
-    r3 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + (state[7] as usize) * 4));
+    let mut r2 = u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, sb(state, 4) * 4));
+    r2 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 1024 + sb(state, 9) * 4));
+    r2 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + sb(state, 14) * 4));
+    r2 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + sb(state, 3) * 4));
 
-    let mut r4 = u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, (state[12] as usize) * 4));
-    r4 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 1024 + (state[1] as usize) * 4));
-    r4 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + (state[6] as usize) * 4));
-    r4 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + (state[11] as usize) * 4));
+    let mut r3 = u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, sb(state, 8) * 4));
+    r3 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 1024 + sb(state, 13) * 4));
+    r3 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + sb(state, 2) * 4));
+    r3 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + sb(state, 7) * 4));
 
-    let mut state128 = (r4 as u128) << 96 | (r3 as u128) << 64 | (r2 as u128) << 32 | r1 as u128;
-    state128 ^= u128::from_ne_bytes(*key);
+    let mut r4 = u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, sb(state, 12) * 4));
+    r4 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 1024 + sb(state, 1) * 4));
+    r4 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + sb(state, 6) * 4));
+    r4 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + sb(state, 11) * 4));
 
-    state.copy_from_slice(&state128.to_ne_bytes());
+    let mut new_state = (r4 as u128) << 96 | (r3 as u128) << 64 | (r2 as u128) << 32 | r1 as u128;
+    new_state ^= key;
+    new_state
 }
 
-pub(crate) fn aesb_pseudo_round(
-    block: &mut [u8; AES_BLOCK_SIZE],
-    expanded_key: &[u8; EXPANDED_KEY_SIZE],
-) {
+pub(crate) fn aesb_pseudo_round(block: u128, expanded_key: &[u8; EXPANDED_KEY_SIZE]) -> u128 {
+    let mut block = block;
     for i in 0..NUM_AES_ROUND_KEYS {
-        round_fwd(block, subarray(expanded_key, i * ROUND_KEY_SIZE));
+        let round_key = u128::from_le_bytes(subarray_copy(expanded_key, i * ROUND_KEY_SIZE));
+        block = round_fwd(block, round_key);
     }
+
+    block
 }
 
-pub(crate) fn aesb_single_round(
-    block: &mut [u8; AES_BLOCK_SIZE],
-    round_key: &[u8; ROUND_KEY_SIZE],
-) {
-    round_fwd(block, round_key);
+pub(crate) fn aesb_single_round(block: &mut u128, round_key: u128) {
+    *block = round_fwd(*block, round_key);
 }
 
 #[cfg(test)]
@@ -439,10 +438,10 @@ mod tests {
         fn test(key_hex: &str, input_hex: &str, expected_out: &str) {
             let key: [u8; 32] = hex_to_array(key_hex);
             let extended_key = key_extend(&key);
-            let mut block: [u8; 16] = hex_to_array(input_hex);
+            let mut block = u128::from_le_bytes(hex_to_array(input_hex));
 
-            aesb_pseudo_round(&mut block, &extended_key);
-            assert_eq!(expected_out, hex::encode(block));
+            block = aesb_pseudo_round(block, &extended_key);
+            assert_eq!(expected_out, hex::encode(block.to_le_bytes()));
         }
 
         test(
@@ -500,11 +499,12 @@ mod tests {
     #[test]
     fn test_aesb_single_round() {
         let test = |key_hex: &str, input_hex: &str, expected_out: &str| {
-            let round_key: [u8; ROUND_KEY_SIZE] = hex_to_array(key_hex);
-            let mut block: [u8; AES_BLOCK_SIZE] = hex_to_array(input_hex);
+            // TODO: Show that both big and little endian work
+            let round_key = u128::from_ne_bytes(hex_to_array(key_hex));
+            let mut block = u128::from_ne_bytes(hex_to_array(input_hex));
 
-            aesb_single_round(&mut block, &round_key);
-            assert_eq!(expected_out, hex::encode(block));
+            aesb_single_round(&mut block, round_key);
+            assert_eq!(expected_out, hex::encode(block.to_ne_bytes()));
         };
 
         test(
