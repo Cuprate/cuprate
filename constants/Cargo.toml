@@ -1,0 +1,22 @@
+[package]
+name        = "cuprate-constants"
+version     = "0.1.0"
+edition     = "2021"
+description = "Constant/static data used throughout Cuprate"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/constants"
+keywords    = ["cuprate", "constants"]
+
+[features]
+default = []
+block   = []
+build   = []
+rpc     = []
+
+[dependencies]
+
+[dev-dependencies]
+
+[lints]
+workspace = true

@@ -20,9 +20,10 @@
 
 use std::cmp::Ordering;
 
+use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
+
 use thiserror::Error;
 
-pub const CRYPTONOTE_MAX_BLOCK_HEIGHT: usize = 500000000;
 /// The default log stripes for Monero pruning.
 pub const CRYPTONOTE_PRUNING_LOG_STRIPES: u32 = 3;
 /// The amount of blocks that peers keep before another stripe starts storing blocks.
@@ -41,9 +42,9 @@ pub enum PruningError {
     LogStripesOutOfRange,
     #[error("Stripe is out of range")]
     StripeOutOfRange,
-    #[error("The block height is greater than `CRYPTONOTE_MAX_BLOCK_HEIGHT`")]
+    #[error("The block height is greater than `MAX_BLOCK_HEIGHT_USIZE`")]
     BlockHeightTooLarge,
-    #[error("The blockchain height is greater than `CRYPTONOTE_MAX_BLOCK_HEIGHT`")]
+    #[error("The blockchain height is greater than `MAX_BLOCK_HEIGHT_USIZE`")]
     BlockChainHeightTooLarge,
     #[error("The calculated height is smaller than the block height entered")]
     CalculatedHeightSmallerThanEnteredBlock,
@@ -144,7 +145,7 @@ impl PruningSeed {
     /// ### Errors
     ///
     /// This function will return an Error if the inputted `block_height` or
-    /// `blockchain_height` is greater than [`CRYPTONOTE_MAX_BLOCK_HEIGHT`].
+    /// `blockchain_height` is greater than [`MAX_BLOCK_HEIGHT_USIZE`].
     ///
     /// This function will also error if `block_height` > `blockchain_height`
     pub fn get_next_pruned_block(
@@ -167,7 +168,7 @@ impl PruningSeed {
     /// ### Errors
     ///
     /// This function will return an Error if the inputted `block_height` or
-    /// `blockchain_height` is greater than [`CRYPTONOTE_MAX_BLOCK_HEIGHT`].
+    /// `blockchain_height` is greater than [`MAX_BLOCK_HEIGHT_USIZE`].
     ///
     /// This function will also error if `block_height` > `blockchain_height`
     ///
@@ -322,7 +323,7 @@ impl DecompressedPruningSeed {
     /// ### Errors
     ///
     /// This function will return an Error if the inputted `block_height` or
-    /// `blockchain_height` is greater than [`CRYPTONOTE_MAX_BLOCK_HEIGHT`].
+    /// `blockchain_height` is greater than [`MAX_BLOCK_HEIGHT_USIZE`].
     ///
     /// This function will also error if `block_height` > `blockchain_height`
     ///
@@ -331,11 +332,11 @@ impl DecompressedPruningSeed {
         block_height: usize,
         blockchain_height: usize,
     ) -> Result<usize, PruningError> {
-        if block_height > CRYPTONOTE_MAX_BLOCK_HEIGHT || block_height > blockchain_height {
+        if block_height > MAX_BLOCK_HEIGHT_USIZE || block_height > blockchain_height {
             return Err(PruningError::BlockHeightTooLarge);
         }
 
-        if blockchain_height > CRYPTONOTE_MAX_BLOCK_HEIGHT {
+        if blockchain_height > MAX_BLOCK_HEIGHT_USIZE {
             return Err(PruningError::BlockChainHeightTooLarge);
         }
 
@@ -388,7 +389,7 @@ impl DecompressedPruningSeed {
     /// ### Errors
     ///
     /// This function will return an Error if the inputted `block_height` or
-    /// `blockchain_height` is greater than [`CRYPTONOTE_MAX_BLOCK_HEIGHT`].
+    /// `blockchain_height` is greater than [`MAX_BLOCK_HEIGHT_USIZE`].
     ///
     /// This function will also error if `block_height` > `blockchain_height`
     ///

@@ -3,8 +3,9 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use indexmap::IndexMap;
 use rand::prelude::*;
 
+use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
 use cuprate_p2p_core::{services::ZoneSpecificPeerListEntryBase, NetZoneAddress, NetworkZone};
-use cuprate_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
+use cuprate_pruning::PruningSeed;
 
 #[cfg(test)]
 pub(crate) mod tests;
@@ -97,7 +98,7 @@ impl<Z: NetworkZone> PeerList<Z> {
             if let Some(needed_height) = block_needed {
                 let (_, addresses_with_block) = self.pruning_seeds.iter().find(|(seed, _)| {
                     // TODO: factor in peer blockchain height?
-                    seed.get_next_unpruned_block(needed_height, CRYPTONOTE_MAX_BLOCK_HEIGHT)
+                    seed.get_next_unpruned_block(needed_height, MAX_BLOCK_HEIGHT_USIZE)
                         .expect("Block needed is higher than max block allowed.")
                         == needed_height
                 })?;
