@@ -128,11 +128,13 @@ pub(super) fn map_valid_alt_block_to_verified_block(
 mod tests {
     use proptest::prelude::*;
 
+    use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
+
     use super::*;
 
     proptest! {
         #[test]
-        fn compact_history(top_height in 0_usize..500_000_000) {
+        fn compact_history(top_height in 0..MAX_BLOCK_HEIGHT_USIZE) {
             let mut heights = (0..)
                 .map(compact_history_index_to_height_offset::<11>)
                 .map_while(|i| top_height.checked_sub(i))

@@ -1,5 +1,6 @@
 use monero_serai::transaction::{Input, Output, Timelock, Transaction};
 
+use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
 use cuprate_types::TxVersion;
 
 use crate::{is_decomposed_amount, transactions::check_output_types, HardFork};
@@ -112,7 +113,7 @@ const fn check_time_lock(time_lock: &Timelock, chain_height: usize) -> Result<()
         &Timelock::Block(till_height) => {
             // Lock times above this amount are timestamps not blocks.
             // This is just for safety though and shouldn't actually be hit.
-            if till_height > 500_000_000 {
+            if till_height > MAX_BLOCK_HEIGHT_USIZE {
                 return Err(MinerTxError::InvalidLockTime);
             }
             if till_height == chain_height + MINER_TX_TIME_LOCKED_BLOCKS {
