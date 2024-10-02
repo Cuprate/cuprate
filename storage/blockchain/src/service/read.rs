@@ -4,6 +4,7 @@
     unreachable_code,
     unused_variables,
     clippy::unnecessary_wraps,
+    clippy::needless_pass_by_value,
     reason = "TODO: finish implementing the signatures from <https://github.com/Cuprate/cuprate/pull/297>"
 )]
 
@@ -25,7 +26,7 @@ use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThre
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, ChainId, ExtendedBlockHeader, OutputOnChain,
+    Chain, ChainId, ExtendedBlockHeader, OutputHistogramInput, OutputOnChain,
 };
 
 use crate::{
@@ -114,13 +115,13 @@ fn map_request(
         R::CompactChainHistory => compact_chain_history(env),
         R::FindFirstUnknown(block_ids) => find_first_unknown(env, &block_ids),
         R::AltBlocksInChain(chain_id) => alt_blocks_in_chain(env, chain_id),
-        R::Block(height) => block(env, height),
+        R::Block { height } => block(env, height),
         R::BlockByHash(hash) => block_by_hash(env, hash),
         R::TotalTxCount => total_tx_count(env),
         R::DatabaseSize => database_size(env),
         R::Difficulty(height) => difficulty(env, height),
-        R::OutputHistogram => output_histogram(env),
-        R::CoinbaseTxSum => coinbase_tx_sum(env),
+        R::OutputHistogram(input) => output_histogram(env, input),
+        R::CoinbaseTxSum { height, count } => coinbase_tx_sum(env, height, count),
         R::MinerData => miner_data(env),
     }
 
@@ -646,12 +647,12 @@ fn difficulty(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
 }
 
 /// [`BlockchainReadRequest::OutputHistogram`]
-fn output_histogram(env: &ConcreteEnv) -> ResponseResult {
+fn output_histogram(env: &ConcreteEnv, input: OutputHistogramInput) -> ResponseResult {
     Ok(BlockchainResponse::OutputHistogram(todo!()))
 }
 
 /// [`BlockchainReadRequest::CoinbaseTxSum`]
-fn coinbase_tx_sum(env: &ConcreteEnv) -> ResponseResult {
+fn coinbase_tx_sum(env: &ConcreteEnv, height: usize, count: u64) -> ResponseResult {
     Ok(BlockchainResponse::CoinbaseTxSum(todo!()))
 }
 

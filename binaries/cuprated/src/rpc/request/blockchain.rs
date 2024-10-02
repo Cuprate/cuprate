@@ -12,7 +12,8 @@ use tower::{Service, ServiceExt};
 use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, ExtendedBlockHeader, OutputOnChain,
+    Chain, CoinbaseTxSum, ExtendedBlockHeader, MinerData, OutputHistogramEntry,
+    OutputHistogramInput, OutputOnChain,
 };
 
 /// [`BlockchainReadRequest::BlockExtendedHeader`].
@@ -290,38 +291,46 @@ pub(super) async fn difficulty(
 /// [`BlockchainReadRequest::OutputHistogram`]
 pub(super) async fn output_histogram(
     mut blockchain_read: BlockchainReadHandle,
-) -> Result<(), Error> {
-    let BlockchainResponse::OutputHistogram(_) = blockchain_read
+    input: OutputHistogramInput,
+) -> Result<Vec<OutputHistogramEntry>, Error> {
+    let BlockchainResponse::OutputHistogram(histogram) = blockchain_read
         .ready()
         .await?
-        .call(BlockchainReadRequest::OutputHistogram)
+        .call(BlockchainReadRequest::OutputHistogram(input))
         .await?
     else {
         unreachable!();
     };
 
-    Ok(todo!())
+    Ok(histogram)
 }
 
 /// [`BlockchainReadRequest::CoinbaseTxSum`]
 pub(super) async fn coinbase_tx_sum(
     mut blockchain_read: BlockchainReadHandle,
-) -> Result<(), Error> {
-    let BlockchainResponse::CoinbaseTxSum(_) = blockchain_read
+    height: u64,
+    count: u64,
+) -> Result<CoinbaseTxSum, Error> {
+    let BlockchainResponse::CoinbaseTxSum(sum) = blockchain_read
         .ready()
         .await?
-        .call(BlockchainReadRequest::CoinbaseTxSum)
+        .call(BlockchainReadRequest::CoinbaseTxSum {
+            height: u64_to_usize(height),
+            count,
+        })
         .await?
     else {
         unreachable!();
     };
 
-    Ok(todo!())
+    Ok(sum)
 }
 
 /// [`BlockchainReadRequest::MinerData`]
-pub(super) async fn miner_data(mut blockchain_read: BlockchainReadHandle) -> Result<(), Error> {
-    let BlockchainResponse::MinerData(_) = blockchain_read
+pub(super) async fn miner_data(
+    mut blockchain_read: BlockchainReadHandle,
+) -> Result<MinerData, Error> {
+    let BlockchainResponse::MinerData(data) = blockchain_read
         .ready()
         .await?
         .call(BlockchainReadRequest::MinerData)
@@ -330,5 +339,5 @@ pub(super) async fn miner_data(mut blockchain_read: BlockchainReadHandle) -> Res
         unreachable!();
     };
 
-    Ok(todo!())
+    Ok(data)
 }

@@ -20,7 +20,8 @@ pub use transaction_verification_data::{
     CachedVerificationState, TransactionVerificationData, TxVersion,
 };
 pub use types::{
-    AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, OutputOnChain,
+    AltBlockInformation, Chain, ChainId, CoinbaseTxSum, ExtendedBlockHeader, MinerData,
+    MinerDataTxBacklogEntry, OutputHistogramEntry, OutputHistogramInput, OutputOnChain,
     VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 

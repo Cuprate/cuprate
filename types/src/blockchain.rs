@@ -12,7 +12,8 @@ use monero_serai::block::Block;
 
 use crate::{
     types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation},
-    AltBlockInformation, ChainId,
+    AltBlockInformation, ChainId, CoinbaseTxSum, MinerData, OutputHistogramEntry,
+    OutputHistogramInput,
 };
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
@@ -106,28 +107,40 @@ pub enum BlockchainReadRequest {
     /// A request for all alt blocks in the chain with the given [`ChainId`].
     AltBlocksInChain(ChainId),
 
-    /// TODO
-    Block(usize),
+    /// Get a [`Block`] by its height.
+    Block {
+        height: usize,
+    },
 
-    /// TODO
+    /// Get a [`Block`] by its hash.
     BlockByHash([u8; 32]),
 
-    /// TODO
+    /// Get the total amount of non-coinbase transactions in the chain.
     TotalTxCount,
 
-    /// TODO
+    /// Get the current size of the database.
     DatabaseSize,
 
-    // TODO
+    // Get the difficulty for the next block in the chain.
     Difficulty(usize),
 
-    /// TODO
-    OutputHistogram,
+    /// Get an output histogram.
+    ///
+    /// TODO: document fields after impl.
+    OutputHistogram(OutputHistogramInput),
 
-    /// TODO
-    CoinbaseTxSum,
+    /// Get the coinbase amount and the fees amount for
+    /// `N` last blocks starting at particular height.
+    ///
+    /// TODO: document fields after impl.
+    CoinbaseTxSum {
+        height: usize,
+        count: u64,
+    },
 
-    /// TODO
+    /// Get the necessary data to create a custom block template.
+    ///
+    /// These are used by p2pool.
     MinerData,
 }
 
@@ -242,54 +255,46 @@ pub enum BlockchainResponse {
         cumulative_difficulty: u128,
     },
 
-    /// The response for [`BlockchainReadRequest::FindFirstUnknown`].
+    /// Response to [`BlockchainReadRequest::FindFirstUnknown`].
     ///
     /// Contains the index of the first unknown block and its expected height.
     ///
     /// This will be [`None`] if all blocks were known.
     FindFirstUnknown(Option<(usize, usize)>),
 
-    /// The response for [`BlockchainReadRequest::AltBlocksInChain`].
+    /// Response to [`BlockchainReadRequest::AltBlocksInChain`].
     ///
     /// Contains all the alt blocks in the alt-chain in chronological order.
     AltBlocksInChain(Vec<AltBlockInformation>),
 
-    /// The response for:
+    /// Response to:
     /// - [`BlockchainReadRequest::Block`].
     /// - [`BlockchainReadRequest::BlockByHash`].
-    ///
-    /// TODO
     Block(Block),
 
-    /// The response for [`BlockchainReadRequest::TotalTxCount`].
-    ///
-    /// TODO
+    /// Response to [`BlockchainReadRequest::TotalTxCount`].
     TotalTxCount(usize),
 
-    /// The response for [`BlockchainReadRequest::TotalTxCount`].
-    ///
-    /// TODO
-    DatabaseSize { database_size: u64, free_space: u64 },
+    /// Response to [`BlockchainReadRequest::DatabaseSize`].
+    DatabaseSize {
+        /// The size of the database file in bytes.
+        database_size: u64,
+        /// The amount of free bytes there are
+        /// the disk where the database is located.
+        free_space: u64,
+    },
 
-    /// The response for [`BlockchainReadRequest::TotalTxCount`].
-    ///
-    // TODO
+    /// Response to [`BlockchainReadRequest::Difficulty`].
     Difficulty(u128),
 
-    /// The response for [`BlockchainReadRequest::TotalTxCount`].
-    ///
-    /// TODO
-    OutputHistogram(std::convert::Infallible),
+    /// Response to [`BlockchainReadRequest::OutputHistogram`].
+    OutputHistogram(Vec<OutputHistogramEntry>),
 
-    /// The response for [`BlockchainReadRequest::TotalTxCount`].
-    ///
-    /// TODO
-    CoinbaseTxSum(std::convert::Infallible),
+    /// Response to [`BlockchainReadRequest::CoinbaseTxSum`].
+    CoinbaseTxSum(CoinbaseTxSum),
 
-    /// The response for [`BlockchainReadRequest::TotalTxCount`].
-    ///
-    /// TODO
-    MinerData(std::convert::Infallible),
+    /// Response to [`BlockchainReadRequest::MinerData`].
+    MinerData(MinerData),
 
     //------------------------------------------------------ Writes
     /// A generic Ok response to indicate a request was successfully handled.
@@ -301,7 +306,7 @@ pub enum BlockchainResponse {
     /// - [`BlockchainWriteRequest::FlushAltBlocks`]
     Ok,
 
-    /// The response for [`BlockchainWriteRequest::PopBlocks`].
+    /// Response to [`BlockchainWriteRequest::PopBlocks`].
     ///
     /// The inner value is the alt-chain ID for the old main chain blocks.
     PopBlocks(ChainId),
