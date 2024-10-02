@@ -1,5 +1,5 @@
-use std::{cmp::PartialEq, io::Write};
-use std::mem::swap;
+use std::{cmp::PartialEq, io::Write, mem::swap};
+
 use cnaes::{AES_BLOCK_SIZE, CN_AES_KEY_SIZE};
 use digest::Digest as _;
 use groestl::Groestl256;
@@ -13,6 +13,8 @@ use crate::{
 };
 
 pub(crate) const MEMORY: usize = 1 << 21; // 2MB scratchpad
+pub(crate) const MEMORY_BLOCKS: usize = MEMORY / AES_BLOCK_SIZE;
+
 const ITER: usize = 1 << 20;
 const AES_KEY_SIZE: usize = CN_AES_KEY_SIZE;
 const INIT_SIZE_BLK: usize = 8;
@@ -84,28 +86,6 @@ impl CnSlowHashState {
     }
 }
 
-pub(crate) union LongState {
-    long_state_blocks: [u128; MEMORY / AES_BLOCK_SIZE],
-}
-
-impl LongState {
-    fn as_blocks(&self) -> &[u128; MEMORY / AES_BLOCK_SIZE] {
-        unsafe { &self.long_state_blocks }
-    }
-
-    pub(crate) fn as_blocks_mut(&mut self) -> &mut [u128; MEMORY / AES_BLOCK_SIZE] {
-        unsafe { &mut self.long_state_blocks }
-    }
-}
-
-impl Default for LongState {
-    fn default() -> Self {
-        Self {
-            long_state_blocks: [0; MEMORY / AES_BLOCK_SIZE],
-        }
-    }
-}
-
 /// Original C code:
 /// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/hash.c#L38-L47>
 fn hash_permutation(b: &mut [u8; KECCAK1600_BYTE_SIZE]) {
@@ -133,8 +113,9 @@ fn keccak1600(input: &[u8], out: &mut [u8; KECCAK1600_BYTE_SIZE]) {
 /// Original C code:
 /// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L1709C1-L1709C27>
 #[inline]
+#[expect(clippy::cast_possible_truncation)]
 const fn e2i(a: u128) -> usize {
-    const MASK: u64 = ((MEMORY / AES_BLOCK_SIZE) - 1) as u64;
+    const MASK: u64 = ((MEMORY_BLOCKS) - 1) as u64;
 
     // truncates upper 64 bits before dividing
     let value = (a as u64) / (AES_BLOCK_SIZE as u64);
@@ -145,6 +126,7 @@ const fn e2i(a: u128) -> usize {
 
 /// Original C code:
 /// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L1711-L1720>
+#[expect(clippy::cast_possible_truncation)]
 fn mul(a: u64, b: u64) -> u128 {
     let product = u128::from(a).wrapping_mul(u128::from(b));
     let hi = (product >> 64) as u64;
@@ -156,6 +138,7 @@ fn mul(a: u64, b: u64) -> u128 {
 
 /// Original C code:
 /// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L1722-L1733>
+#[expect(clippy::cast_possible_truncation)]
 fn sum_half_blocks(a: u128, b: u128) -> u128 {
     let a_low = a as u64;
     let b_low = b as u64;
@@ -199,7 +182,7 @@ fn variant1_1(p: &mut u128, variant: Variant) {
         let old_byte11 = (*p >> (11 * 8)) as u8;
         let index = (((old_byte11 >> 3) & 6) | (old_byte11 & 1)) << 1;
         let new_byte11 = old_byte11 ^ ((TABLE >> index) & 0x30) as u8;
-        *p = (*p & MASK_BYTE11) | ((new_byte11 as u128) << (11 * 8));
+        *p = (*p & MASK_BYTE11) | (u128::from(new_byte11) << (11 * 8));
     }
 }
 
@@ -207,7 +190,7 @@ fn variant1_1(p: &mut u128, variant: Variant) {
 /// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L129C1-L133C13>
 fn variant1_2(c2: &mut u128, tweak1_2: u64, variant: Variant) {
     if variant == Variant::V1 {
-        *c2 ^= (tweak1_2 as u128) << 64;
+        *c2 ^= u128::from(tweak1_2) << 64;
     }
 }
 
@@ -229,12 +212,7 @@ fn variant_2_init(b: &mut [u128; 2], state: &CnSlowHashState, variant: Variant) 
 
 /// Original C code:
 /// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L295-L299>
-fn variant_2_2(
-    long_state: &mut [u128; MEMORY / AES_BLOCK_SIZE],
-    j: usize,
-    d: &mut u128,
-    variant: Variant,
-) {
+fn variant_2_2(long_state: &mut [u128; MEMORY_BLOCKS], j: usize, d: &mut u128, variant: Variant) {
     if variant == Variant::V2 {
         let chunk1_start = j ^ 0x1;
         let chunk2_start = j ^ 0x2;
@@ -295,7 +273,8 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
     // Use a vector so the memory is allocated on the heap. We might have 2MB
     // available on the stack, but that optimization would only be meaningful if
     // this code was still used for mining.
-    let mut long_state = Box::new(LongState::default());
+    let mut long_state: Vec<u128> = vec![0; MEMORY_BLOCKS];
+    let long_state: &mut [u128; MEMORY_BLOCKS] = subarray_mut(&mut long_state, 0);
 
     for i in 0..MEMORY / INIT_SIZE_BYTE {
         for j in 0..INIT_SIZE_BLK {
@@ -305,11 +284,11 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
 
         let start = i * INIT_SIZE_BLK;
         let end = start + INIT_SIZE_BLK;
-        long_state.as_blocks_mut()[start..end].copy_from_slice(&text);
+        long_state[start..end].copy_from_slice(&text);
     }
 
     let k = state.get_k(); // TODO: Change get_k
-    let k = k.as_ptr() as *const [u128; 4];
+    let k = k.as_ptr().cast::<[u128; 4]>();
     let k = unsafe { &*k };
     let mut a = k[0] ^ k[2];
     b[0] = k[1] ^ k[3];
@@ -325,30 +304,28 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
          */
         // Iteration
         let mut j = e2i(a);
-        c1 = long_state.as_blocks()[j];
+        c1 = long_state[j];
         cnaes::aesb_single_round(&mut c1, a);
-        v2::variant2_shuffle_add(&mut c1, a, &b, long_state.as_blocks_mut(), j, variant);
+        v2::variant2_shuffle_add(&mut c1, a, &b, long_state, j, variant);
 
-        long_state.as_blocks_mut()[j] = c1 ^ b[0];
-        let mut long_state_block: &mut u128 = &mut long_state.as_blocks_mut()[j];
-        variant1_1(&mut long_state_block, variant);
+        long_state[j] = c1 ^ b[0];
+        variant1_1(&mut long_state[j], variant);
 
         /* Iteration 2 */
         j = e2i(c1);
-        let long_state_block = long_state.as_blocks_mut()[j];
-        c2 = long_state_block;
+        c2 = long_state[j];
 
         a1 = a;
         v2::variant2_integer_math(&mut c2, c1, &mut division_result, &mut sqrt_result, variant);
         v4::variant4_random_math(&mut a1, &mut c2, subarray_mut(&mut r, 0), &b, &code);
         let mut d = mul(c1 as u64, c2 as u64);
-        variant_2_2(long_state.as_blocks_mut(), j, &mut d, variant);
-        v2::variant2_shuffle_add(&mut c1, a, &b, long_state.as_blocks_mut(), j, variant);
+        variant_2_2(long_state, j, &mut d, variant);
+        v2::variant2_shuffle_add(&mut c1, a, &b, long_state, j, variant);
         a1 = sum_half_blocks(a1, d);
         swap(&mut a1, &mut c2);
         a1 ^= c2;
         variant1_2(&mut c2, tweak1_2, variant);
-        long_state.as_blocks_mut()[j] = c2;
+        long_state[j] = c2;
 
         if variant == Variant::V2 || variant == Variant::R {
             b[1] = b[0];
@@ -364,7 +341,7 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
         for j in 0..INIT_SIZE_BLK {
             let mut block = text[j];
             let ls_index = i * INIT_SIZE_BLK + j;
-            block ^= long_state.as_blocks()[ls_index];
+            block ^= long_state[ls_index];
             block = cnaes::aesb_pseudo_round(block, &aes_expanded_key);
             text[j] = block;
         }

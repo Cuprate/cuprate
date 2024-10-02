@@ -1,9 +1,4 @@
-use cnaes::AES_BLOCK_SIZE;
-
-use crate::{
-    cnaes,
-    slow_hash::{Variant, MEMORY},
-};
+use crate::slow_hash::{Variant, MEMORY_BLOCKS};
 
 const U64_MASK: u128 = u64::MAX as u128;
 
@@ -15,7 +10,7 @@ pub(crate) fn variant2_shuffle_add(
     c1: &mut u128,
     a: u128,
     b: &[u128; 2],
-    long_state: &mut [u128; MEMORY / AES_BLOCK_SIZE],
+    long_state: &mut [u128; MEMORY_BLOCKS],
     offset: usize,
     variant: Variant,
 ) {
@@ -93,6 +88,7 @@ pub(crate) fn variant2_integer_math_sqrt(sqrt_input: u64) -> u64 {
 
 /// Original C code:
 /// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L277-L283>
+#[expect(clippy::cast_possible_truncation)]
 pub(crate) fn variant2_integer_math(
     c2: &mut u128,
     c1: u128,
@@ -107,7 +103,7 @@ pub(crate) fn variant2_integer_math(
     }
 
     let tmpx = *division_result ^ (*sqrt_result << 32);
-    *c2 ^= tmpx as u128;
+    *c2 ^= u128::from(tmpx);
 
     let c1_low = c1 as u64;
     let dividend = (c1 >> 64) as u64;
@@ -125,7 +121,11 @@ mod tests {
     use groestl::Groestl256;
 
     use super::*;
-    use crate::util::{hex_to_array, subarray_mut};
+    use crate::{
+        cnaes::AES_BLOCK_SIZE,
+        slow_hash::MEMORY_BLOCKS,
+        util::{hex_to_array, subarray_mut},
+    };
 
     #[test]
     fn test_variant2_integer_math() {
@@ -402,7 +402,7 @@ mod tests {
 
             // Every byte of long_state memory is initialized with it's offset index mod 256
             // when the u128 blocks are converted to bytes in native endian format.
-            let mut long_state: Vec<u128> = Vec::with_capacity(MEMORY / AES_BLOCK_SIZE);
+            let mut long_state: Vec<u128> = Vec::with_capacity(MEMORY_BLOCKS);
             for i in 0..long_state.capacity() {
                 let mut block = [0_u8; AES_BLOCK_SIZE];
                 for (j, byte) in block.iter_mut().enumerate() {

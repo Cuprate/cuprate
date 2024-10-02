@@ -370,7 +370,8 @@ pub(crate) fn round_fwd(state: u128, key: u128) -> u128 {
     r4 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + sb(state, 6) * 4));
     r4 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + sb(state, 11) * 4));
 
-    let mut new_state = (r4 as u128) << 96 | (r3 as u128) << 64 | (r2 as u128) << 32 | r1 as u128;
+    let mut new_state =
+        u128::from(r4) << 96 | u128::from(r3) << 64 | u128::from(r2) << 32 | u128::from(r1);
     new_state ^= key;
     new_state
 }

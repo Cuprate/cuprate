@@ -410,6 +410,7 @@ pub(crate) fn v4_random_math(code: &[Instruction; 71], r: &mut [u32; 9]) {
 /// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L336-L370>
 /// To match the C code organization, this function would be in `slow_hash.rs`, but
 /// the test code for it is so large, that it was moved here.
+#[expect(clippy::cast_possible_truncation)]
 pub(crate) fn variant4_random_math(
     a1: &mut u128,
     c2: &mut u128,
