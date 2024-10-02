@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use cuprate_types::TransactionVerificationData;
 
-use crate::types::TransactionHash;
+use crate::{tx::TxEntry, types::TransactionHash};
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadRequest
 /// The transaction pool [`tower::Service`] read request type.
@@ -16,10 +16,10 @@ pub enum TxpoolReadRequest {
     /// A request for the [`TransactionVerificationData`] of a transaction in the tx pool.
     TxVerificationData(TransactionHash),
 
-    /// TODO
+    /// Get information on all transactions in the pool.
     Backlog,
 
-    /// TODO
+    /// Get the number of transactions in the pool.
     Size,
 }
 
@@ -38,12 +38,14 @@ pub enum TxpoolReadResponse {
 
     /// Response to [`TxpoolReadRequest::Backlog`].
     ///
-    /// TODO
-    Backlog(Vec<std::convert::Infallible>),
+    /// The inner `Vec` contains information on all
+    /// the transactions currently in the pool.
+    Backlog(Vec<TxEntry>),
 
     /// Response to [`TxpoolReadRequest::Size`].
     ///
-    /// TODO
+    /// The inner value is the amount of
+    /// transactions currently in the pool.
     Size(usize),
 }
 

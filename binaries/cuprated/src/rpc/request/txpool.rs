@@ -6,14 +6,17 @@ use anyhow::Error;
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::cast::usize_to_u64;
-use cuprate_txpool::service::{
-    interface::{TxpoolReadRequest, TxpoolReadResponse},
-    TxpoolReadHandle,
+use cuprate_txpool::{
+    service::{
+        interface::{TxpoolReadRequest, TxpoolReadResponse},
+        TxpoolReadHandle,
+    },
+    TxEntry,
 };
 
 /// [`TxpoolReadRequest::Backlog`]
-pub(super) async fn backlog(txpool_read: &mut TxpoolReadHandle) -> Result<Vec<Infallible>, Error> {
-    let TxpoolReadResponse::Backlog(backlog) = txpool_read
+pub(super) async fn backlog(txpool_read: &mut TxpoolReadHandle) -> Result<Vec<TxEntry>, Error> {
+    let TxpoolReadResponse::Backlog(tx_entries) = txpool_read
         .ready()
         .await
         .expect("TODO")
@@ -24,7 +27,7 @@ pub(super) async fn backlog(txpool_read: &mut TxpoolReadHandle) -> Result<Vec<In
         unreachable!();
     };
 
-    Ok(backlog)
+    Ok(tx_entries)
 }
 
 /// [`TxpoolReadRequest::Size`]
