@@ -17,8 +17,8 @@ pub(crate) const MEMORY_BLOCKS: usize = MEMORY / AES_BLOCK_SIZE;
 
 const ITER: usize = 1 << 20;
 const AES_KEY_SIZE: usize = CN_AES_KEY_SIZE;
-const INIT_SIZE_BLK: usize = 8;
-const INIT_SIZE_BYTE: usize = INIT_SIZE_BLK * AES_BLOCK_SIZE;
+const INIT_BLOCKS: usize = 8;
+const INIT_SIZE_BYTE: usize = INIT_BLOCKS * AES_BLOCK_SIZE;
 
 const KECCAK1600_BYTE_SIZE: usize = 200;
 
@@ -70,15 +70,15 @@ impl CnSlowHashState {
     }
 
     #[inline]
-    fn get_init(&self) -> [u128; INIT_SIZE_BLK] {
-        let mut init = [0_u128; INIT_SIZE_BLK];
+    fn get_init(&self) -> [u128; INIT_BLOCKS] {
+        let mut init = [0_u128; INIT_BLOCKS];
         for (i, block) in init.iter_mut().enumerate() {
             *block = u128::from_le_bytes(subarray_copy(&self.b, 64 + i * AES_BLOCK_SIZE));
         }
         init
     }
 
-    fn set_init(&mut self, init: &[u128; INIT_SIZE_BLK]) {
+    fn set_init(&mut self, init: &[u128; INIT_BLOCKS]) {
         for (i, block) in init.iter().enumerate() {
             self.b[64 + i * AES_BLOCK_SIZE..64 + (i + 1) * AES_BLOCK_SIZE]
                 .copy_from_slice(&block.to_le_bytes());
@@ -273,19 +273,16 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
     // Use a vector so the memory is allocated on the heap. We might have 2MB
     // available on the stack, but that optimization would only be meaningful if
     // this code was still used for mining.
-    let mut long_state: Vec<u128> = vec![0; MEMORY_BLOCKS];
-    let long_state: &mut [u128; MEMORY_BLOCKS] = subarray_mut(&mut long_state, 0);
+    let mut long_state: Vec<u128> = Vec::with_capacity(MEMORY_BLOCKS);
 
-    for i in 0..MEMORY / INIT_SIZE_BYTE {
-        for j in 0..INIT_SIZE_BLK {
-            let block = &mut text[j];
-            *block = cnaes::aesb_pseudo_round(*block, &aes_expanded_key);
-        }
-
-        let start = i * INIT_SIZE_BLK;
-        let end = start + INIT_SIZE_BLK;
-        long_state[start..end].copy_from_slice(&text);
+    for i in 0..MEMORY_BLOCKS {
+        let block = &mut text[i % INIT_BLOCKS];
+        *block = cnaes::aesb_pseudo_round(*block, &aes_expanded_key);
+        long_state.push(*block);
     }
+
+    // Treat long_state as an array now that it's initialized on the heap
+    let long_state: &mut [u128; MEMORY_BLOCKS] = subarray_mut(&mut long_state, 0);
 
     let k = state.get_k(); // TODO: Change get_k
     let k = k.as_ptr().cast::<[u128; 4]>();
@@ -338,9 +335,9 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
     let mut text = state.get_init();
     let aes_expanded_key = cnaes::key_extend(state.get_aes_key1());
     for i in 0..MEMORY / INIT_SIZE_BYTE {
-        for j in 0..INIT_SIZE_BLK {
+        for j in 0..INIT_BLOCKS {
             let mut block = text[j];
-            let ls_index = i * INIT_SIZE_BLK + j;
+            let ls_index = i * INIT_BLOCKS + j;
             block ^= long_state[ls_index];
             block = cnaes::aesb_pseudo_round(block, &aes_expanded_key);
             text[j] = block;
