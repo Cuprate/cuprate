@@ -50,7 +50,7 @@ pub(super) async fn connection_count<Z: NetworkZone>(
 /// [`AddressBookRequest::SetBan`]
 pub(super) async fn set_ban<Z: NetworkZone>(
     address_book: &mut impl AddressBook<Z>,
-    peer: Infallible,
+    peer: cuprate_p2p_core::ban::SetBan<Z::Addr>,
 ) -> Result<(), Error> {
     let AddressBookResponse::Ok = address_book
         .ready()
@@ -69,9 +69,9 @@ pub(super) async fn set_ban<Z: NetworkZone>(
 /// [`AddressBookRequest::GetBan`]
 pub(super) async fn get_ban<Z: NetworkZone>(
     address_book: &mut impl AddressBook<Z>,
-    peer: Infallible,
-) -> Result<(), Error> {
-    let AddressBookResponse::GetBan(ban) = address_book
+    peer: Z::Addr,
+) -> Result<Option<std::time::Instant>, Error> {
+    let AddressBookResponse::GetBan { unban_instant } = address_book
         .ready()
         .await
         .expect("TODO")
@@ -82,7 +82,7 @@ pub(super) async fn get_ban<Z: NetworkZone>(
         unreachable!();
     };
 
-    Ok(())
+    Ok(unban_instant)
 }
 
 /// [`AddressBookRequest::GetBans`]

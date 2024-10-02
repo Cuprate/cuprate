@@ -1,9 +1,13 @@
+use std::time::Instant;
+
 use cuprate_pruning::{PruningError, PruningSeed};
 use cuprate_wire::{CoreSyncData, PeerListEntryBase};
 
 use crate::{
-    client::InternalPeerID, handles::ConnectionHandle, NetZoneAddress, NetworkAddressIncorrectZone,
-    NetworkZone,
+    ban::{BanState, SetBan},
+    client::InternalPeerID,
+    handles::ConnectionHandle,
+    NetZoneAddress, NetworkAddressIncorrectZone, NetworkZone,
 };
 
 /// A request to the core sync service for our node's [`CoreSyncData`].
@@ -111,22 +115,19 @@ pub enum AddressBookRequest<Z: NetworkZone> {
     /// Gets the specified number of white peers, or less if we don't have enough.
     GetWhitePeers(usize),
 
-    /// Checks if the given peer is banned.
-    IsPeerBanned(Z::Addr),
-
-    /// TODO
+    /// Get the amount of white & grey peers.
     PeerlistSize,
 
-    /// TODO
+    /// Get the amount of incoming & outgoing connections.
     ConnectionCount,
 
-    /// TODO: `cuprate_rpc_types::json::SetBanRequest` input
-    SetBan(std::convert::Infallible),
+    /// (Un)ban a peer.
+    SetBan(SetBan<Z::Addr>),
 
-    /// TODO
-    GetBan(std::convert::Infallible),
+    /// Checks if the given peer is banned.
+    GetBan(Z::Addr),
 
-    /// TODO
+    /// Get the state of all bans.
     GetBans,
 }
 
@@ -148,28 +149,18 @@ pub enum AddressBookResponse<Z: NetworkZone> {
     /// Response to [`AddressBookRequest::GetWhitePeers`].
     Peers(Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>),
 
-    /// Response to [`AddressBookRequest::IsPeerBanned`].
-    ///
-    /// Contains `true` if the peer is banned.
-    IsPeerBanned(bool),
-
     /// Response to [`AddressBookRequest::PeerlistSize`].
-    ///
-    /// TODO
     PeerlistSize { white: usize, grey: usize },
 
     /// Response to [`AddressBookRequest::ConnectionCount`].
-    ///
-    /// TODO
     ConnectionCount { incoming: usize, outgoing: usize },
 
     /// Response to [`AddressBookRequest::GetBan`].
     ///
-    /// TODO
-    GetBan(std::convert::Infallible),
+    /// This returns [`None`] if the peer is not banned,
+    /// else it returns how long the peer is banned for.
+    GetBan { unban_instant: Option<Instant> },
 
     /// Response to [`AddressBookRequest::GetBans`].
-    ///
-    /// TODO
-    GetBans(std::convert::Infallible),
+    GetBans(Vec<BanState<Z::Addr>>),
 }

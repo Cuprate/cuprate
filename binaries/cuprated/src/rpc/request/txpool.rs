@@ -43,7 +43,7 @@ pub(super) async fn size(txpool_read: &mut TxpoolReadHandle) -> Result<u64, Erro
     Ok(usize_to_u64(size))
 }
 
-// [`::Flush`]
+/// TODO
 #[expect(clippy::needless_pass_by_ref_mut, reason = "TODO: remove after impl")]
 pub(super) async fn flush(
     txpool_read: &mut TxpoolReadHandle,

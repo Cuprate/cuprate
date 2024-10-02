@@ -1,7 +1,7 @@
 //! Convenience functions for requests/responses.
 //!
-//! This module implements many methods on
-//! [`CupratedRpcHandlerState`](crate::rpc::CupratedRpcHandlerState)
+//! This module implements many methods for
+//! [`CupratedRpcHandler`](crate::rpc::CupratedRpcHandler)
 //! that are simple wrappers around the request/response API provided
 //! by the multiple [`tower::Service`]s.
 //!

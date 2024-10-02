@@ -8,4 +8,4 @@ mod json;
 mod other;
 mod request;
 
-pub use handler::{CupratedRpcHandler, CupratedRpcHandlerState};
+pub use handler::CupratedRpcHandler;

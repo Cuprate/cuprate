@@ -229,6 +229,15 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
         self.banned_peers.contains_key(&peer.ban_id())
     }
 
+    /// Checks when a peer will be unbanned.
+    ///
+    /// - If the peer is banned, this returns [`Some`] containing
+    ///   the [`Instant`] the peer will be unbanned
+    /// - If the peer is not banned, this returns [`None`]
+    fn peer_unban_instant(&self, peer: &Z::Addr) -> Option<Instant> {
+        self.banned_peers.get(&peer.ban_id()).copied()
+    }
+
     fn handle_incoming_peer_list(
         &mut self,
         mut peer_list: Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>,
@@ -408,14 +417,15 @@ impl<Z: BorshNetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
             AddressBookRequest::GetWhitePeers(len) => {
                 Ok(AddressBookResponse::Peers(self.get_white_peers(len)))
             }
-            AddressBookRequest::IsPeerBanned(addr) => Ok(AddressBookResponse::IsPeerBanned(
-                self.is_peer_banned(&addr),
-            )),
+            AddressBookRequest::GetBan(addr) => Ok(AddressBookResponse::GetBan {
+                unban_instant: self.peer_unban_instant(&addr).map(Instant::into_std),
+            }),
             AddressBookRequest::PeerlistSize
             | AddressBookRequest::ConnectionCount
             | AddressBookRequest::SetBan(_)
-            | AddressBookRequest::GetBan(_)
-            | AddressBookRequest::GetBans => todo!("finish https://github.com/Cuprate/cuprate/pull/297"),
+            | AddressBookRequest::GetBans => {
+                todo!("finish https://github.com/Cuprate/cuprate/pull/297")
+            }
         };
 
         ready(response)

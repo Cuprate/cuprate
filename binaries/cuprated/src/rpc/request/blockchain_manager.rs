@@ -10,7 +10,7 @@ use crate::rpc::handler::{
     BlockchainManagerHandle, BlockchainManagerRequest, BlockchainManagerResponse,
 };
 
-/// [`BlockchainManagerResponse::PopBlocks`]
+/// [`BlockchainManagerRequest::PopBlocks`]
 pub(super) async fn pop_blocks(
     blockchain_manager: &mut BlockchainManagerHandle,
     amount: u64,
@@ -29,7 +29,7 @@ pub(super) async fn pop_blocks(
     Ok(usize_to_u64(new_height))
 }
 
-/// [`BlockchainManagerResponse::Prune`]
+/// [`BlockchainManagerRequest::Prune`]
 pub(super) async fn prune(blockchain_manager: &mut BlockchainManagerHandle) -> Result<(), Error> {
     let BlockchainManagerResponse::Ok = blockchain_manager
         .ready()
@@ -43,7 +43,7 @@ pub(super) async fn prune(blockchain_manager: &mut BlockchainManagerHandle) -> R
     Ok(())
 }
 
-/// [`BlockchainManagerResponse::Pruned`]
+/// [`BlockchainManagerRequest::Pruned`]
 pub(super) async fn pruned(
     blockchain_manager: &mut BlockchainManagerHandle,
 ) -> Result<bool, Error> {
@@ -59,7 +59,7 @@ pub(super) async fn pruned(
     Ok(pruned)
 }
 
-/// [`BlockchainManagerResponse::RelayBlock`]
+/// [`BlockchainManagerRequest::RelayBlock`]
 pub(super) async fn relay_block(
     blockchain_manager: &mut BlockchainManagerHandle,
     block: Block,
@@ -76,7 +76,7 @@ pub(super) async fn relay_block(
     Ok(())
 }
 
-/// [`BlockchainManagerResponse::Syncing`]
+/// [`BlockchainManagerRequest::Syncing`]
 pub(super) async fn syncing(
     blockchain_manager: &mut BlockchainManagerHandle,
 ) -> Result<bool, Error> {
@@ -92,7 +92,7 @@ pub(super) async fn syncing(
     Ok(syncing)
 }
 
-/// [`BlockchainManagerResponse::Synced`]
+/// [`BlockchainManagerRequest::Synced`]
 pub(super) async fn synced(
     blockchain_manager: &mut BlockchainManagerHandle,
 ) -> Result<bool, Error> {
@@ -108,9 +108,11 @@ pub(super) async fn synced(
     Ok(syncing)
 }
 
-/// [`BlockchainManagerResponse::Target`]
-pub(super) async fn target(blockchain_manager: &mut BlockchainManagerHandle) -> Result<u64, Error> {
-    let BlockchainManagerResponse::Target { height } = blockchain_manager
+/// [`BlockchainManagerRequest::Target`]
+pub(super) async fn target(
+    blockchain_manager: &mut BlockchainManagerHandle,
+) -> Result<std::time::Duration, Error> {
+    let BlockchainManagerResponse::Target(target) = blockchain_manager
         .ready()
         .await?
         .call(BlockchainManagerRequest::Target)
@@ -119,10 +121,10 @@ pub(super) async fn target(blockchain_manager: &mut BlockchainManagerHandle) -> 
         unreachable!();
     };
 
-    Ok(usize_to_u64(height))
+    Ok(target)
 }
 
-/// [`BlockchainManagerResponse::TargetHeight`]
+/// [`BlockchainManagerRequest::TargetHeight`]
 pub(super) async fn target_height(
     blockchain_manager: &mut BlockchainManagerHandle,
 ) -> Result<u64, Error> {
