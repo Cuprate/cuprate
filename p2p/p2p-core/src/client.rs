@@ -1,6 +1,6 @@
 use std::{
     fmt::{Debug, Display, Formatter},
-    sync::Arc,
+    sync::{Arc, Mutex},
     task::{ready, Context, Poll},
 };
 
@@ -15,6 +15,7 @@ use tracing::Instrument;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_pruning::PruningSeed;
+use cuprate_wire::CoreSyncData;
 
 use crate::{
     handles::{ConnectionGuard, ConnectionHandle},
@@ -59,8 +60,17 @@ pub struct PeerInformation<A> {
     pub handle: ConnectionHandle,
     /// The direction of this connection (inbound|outbound).
     pub direction: ConnectionDirection,
-    /// The peers pruning seed.
+    /// The peer's [`PruningSeed`].
     pub pruning_seed: PruningSeed,
+    /// The [`CoreSyncData`] of this peer.
+    ///
+    /// Data across fields are not necessarily related, so [`CoreSyncData::top_id`] is not always the
+    /// block hash for the block at height one below [`CoreSyncData::current_height`].
+    ///
+    /// This value is behind a [`Mutex`] and is updated whenever the peer sends new information related
+    /// to their sync state. It is publicly accessible to anyone who has a peers [`Client`] handle. You
+    /// probably should not mutate this value unless you are creating a custom [`ProtocolRequestHandler`](crate::ProtocolRequestHandler).
+    pub core_sync_data: Arc<Mutex<CoreSyncData>>,
 }
 
 /// This represents a connection to a peer.

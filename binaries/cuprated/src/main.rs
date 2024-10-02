@@ -13,6 +13,7 @@
 
 mod blockchain;
 mod config;
+mod constants;
 mod p2p;
 mod rpc;
 mod statics;
@@ -22,6 +23,6 @@ fn main() {
     // Initialize global static `LazyLock` data.
     statics::init_lazylock_statics();
 
-    // TODO: do other stuff
-    todo!();
+    // TODO: everything else.
+    todo!()
 }

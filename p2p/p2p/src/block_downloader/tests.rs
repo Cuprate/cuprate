@@ -2,7 +2,7 @@ use std::{
     fmt::{Debug, Formatter},
     future::Future,
     pin::Pin,
-    sync::Arc,
+    sync::{Arc, Mutex},
     task::{Context, Poll},
     time::Duration,
 };
@@ -20,13 +20,14 @@ use tower::{service_fn, Service};
 use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_p2p_core::{
     client::{mock_client, Client, InternalPeerID, PeerInformation},
-    services::{PeerSyncRequest, PeerSyncResponse},
-    ClearNet, ConnectionDirection, NetworkZone, PeerRequest, PeerResponse, ProtocolRequest,
-    ProtocolResponse,
+    ClearNet, ConnectionDirection, PeerRequest, PeerResponse, ProtocolRequest, ProtocolResponse,
 };
 use cuprate_pruning::PruningSeed;
 use cuprate_types::{BlockCompleteEntry, TransactionBlobs};
-use cuprate_wire::protocol::{ChainResponse, GetObjectsResponse};
+use cuprate_wire::{
+    protocol::{ChainResponse, GetObjectsResponse},
+    CoreSyncData,
+};
 
 use crate::{
     block_downloader::{download_blocks, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
@@ -52,19 +53,14 @@ proptest! {
             timeout(Duration::from_secs(600), async move {
                 let client_pool = ClientPool::new();
 
-                let mut peer_ids = Vec::with_capacity(peers);
-
                 for _ in 0..peers {
                     let client = mock_block_downloader_client(Arc::clone(&blockchain));
-
-                    peer_ids.push(client.info.id);
 
                     client_pool.add_new_client(client);
                 }
 
                 let stream = download_blocks(
                     client_pool,
-                    SyncStateSvc(peer_ids) ,
                     OurChainSvc {
                         genesis: *blockchain.blocks.first().unwrap().0
                     },
@@ -255,29 +251,17 @@ fn mock_block_downloader_client(blockchain: Arc<MockBlockchain>) -> Client<Clear
         handle: connection_handle,
         direction: ConnectionDirection::Inbound,
         pruning_seed: PruningSeed::NotPruned,
+        core_sync_data: Arc::new(Mutex::new(CoreSyncData {
+            cumulative_difficulty: u64::MAX,
+            cumulative_difficulty_top64: u64::MAX,
+            current_height: 0,
+            pruning_seed: 0,
+            top_id: [0; 32],
+            top_version: 0,
+        })),
     };
 
     mock_client(info, connection_guard, request_handler)
-}
-
-#[derive(Clone)]
-struct SyncStateSvc<Z: NetworkZone>(Vec<InternalPeerID<Z::Addr>>);
-
-impl Service<PeerSyncRequest<ClearNet>> for SyncStateSvc<ClearNet> {
-    type Response = PeerSyncResponse<ClearNet>;
-    type Error = tower::BoxError;
-    type Future =
-        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
-
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
-    }
-
-    fn call(&mut self, _: PeerSyncRequest<ClearNet>) -> Self::Future {
-        let peers = self.0.clone();
-
-        async move { Ok(PeerSyncResponse::PeersToSyncFrom(peers)) }.boxed()
-    }
 }
 
 struct OurChainSvc {

@@ -76,7 +76,7 @@ and should not be relied upon. This extends to any `struct/enum` that contains `
 - It implements [`Env`]
 - Upon [`Drop::drop`], all database data will sync to disk
 
-Note that `ConcreteEnv` itself is not a clonable type,
+Note that `ConcreteEnv` itself is not a cloneable type,
 it should be wrapped in [`std::sync::Arc`].
 
 <!-- SOMEDAY: replace `ConcreteEnv` with `fn Env::open() -> impl Env`/
