@@ -174,9 +174,8 @@ impl<N: NetworkZone> NetworkInterface<N> {
         self.address_book.clone()
     }
 
-    /// Pulls a client from the client pool, returning it in a guard that will return it there when it's
-    /// dropped.
-    pub fn borrow_client(&self, peer: &InternalPeerID<N::Addr>) -> Option<ClientPoolDropGuard<N>> {
-        self.pool.borrow_client(peer)
+    /// TODO
+    pub fn client_pool(&self) -> &Arc<client_pool::ClientPool<N>> {
+        &self.pool
     }
 }

@@ -153,6 +153,19 @@ impl<N: NetworkZone> ClientPool<N> {
 
         self.borrow_clients(&peers).collect()
     }
+
+    pub fn contains_client_with_more_cumulative_difficulty(
+        &self,
+        cumulative_difficulty: u128,
+    ) -> bool {
+        self.clients
+            .iter()
+            .find(|element| {
+                let sync_data = element.value().info.core_sync_data.lock().unwrap();
+                sync_data.cumulative_difficulty() > cumulative_difficulty
+            })
+            .is_some()
+    }
 }
 
 mod sealed {

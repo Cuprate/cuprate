@@ -68,7 +68,12 @@ pub async fn handle_incoming_block(
         return Ok(false);
     };
 
-    if !BLOCKS_BEING_HANDLED.get_or_init(|| Mutex::new(HashSet::new())).lock().unwrap().insert(block_hash) {
+    if !BLOCKS_BEING_HANDLED
+        .get_or_init(|| Mutex::new(HashSet::new()))
+        .lock()
+        .unwrap()
+        .insert(block_hash)
+    {
         return Ok(false);
     }
 
@@ -83,12 +88,17 @@ pub async fn handle_incoming_block(
         .await
         .expect("TODO: don't actually panic here");
 
-    let res =response_rx
+    let res = response_rx
         .await
         .unwrap()
         .map_err(IncomingBlockError::InvalidBlock);
 
-    BLOCKS_BEING_HANDLED.get().unwrap().lock().unwrap().remove(&block_hash);
+    BLOCKS_BEING_HANDLED
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .remove(&block_hash);
 
     res
 }

@@ -37,6 +37,7 @@ pub use context::{
 pub use transactions::{TxVerifierService, VerifyTxRequest, VerifyTxResponse};
 
 // re-export.
+pub use cuprate_consensus_rules::genesis::generate_genesis_block;
 pub use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     HardFork,
@@ -68,13 +69,10 @@ pub enum ExtendedConsensusError {
 pub fn initialize_verifier<D, Ctx>(
     database: D,
     ctx_svc: Ctx,
-) -> Result<
-    (
-        BlockVerifierService<Ctx, TxVerifierService<D>, D>,
-        TxVerifierService<D>,
-    ),
-    ConsensusError,
->
+) -> (
+    BlockVerifierService<Ctx, TxVerifierService<D>, D>,
+    TxVerifierService<D>,
+)
 where
     D: Database + Clone + Send + Sync + 'static,
     D::Future: Send + 'static,
@@ -90,7 +88,7 @@ where
 {
     let tx_svc = TxVerifierService::new(database.clone());
     let block_svc = BlockVerifierService::new(ctx_svc, tx_svc.clone(), database);
-    Ok((block_svc, tx_svc))
+    (block_svc, tx_svc)
 }
 
 use __private::Database;

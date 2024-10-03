@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use futures::StreamExt;
+use tokio::time::interval;
 use tokio::{
     sync::{mpsc, Notify},
     time::sleep,
@@ -16,6 +17,8 @@ use cuprate_p2p::{
     NetworkInterface,
 };
 use cuprate_p2p_core::ClearNet;
+
+const CHECK_SYNC_FREQUENCY: Duration = Duration::from_secs(30);
 
 /// An error returned from the [`syncer`].
 #[derive(Debug, thiserror::Error)]
@@ -50,6 +53,8 @@ where
 {
     tracing::info!("Starting blockchain syncer");
 
+    let mut check_sync_interval = interval(CHECK_SYNC_FREQUENCY);
+
     let BlockChainContextResponse::Context(mut blockchain_ctx) = context_svc
         .ready()
         .await?
@@ -59,26 +64,21 @@ where
         panic!("Blockchain context service returned wrong response!");
     };
 
-    let mut peer_sync_watch = clearnet_interface.top_sync_stream();
+    let client_pool = clearnet_interface.client_pool();
 
     tracing::debug!("Waiting for new sync info in top sync channel");
 
-    while let Some(top_sync_info) = peer_sync_watch.next().await {
-        tracing::info!(
-            "New sync info seen, top height: {}, top block hash: {}",
-            top_sync_info.chain_height,
-            hex::encode(top_sync_info.top_hash)
-        );
+    loop {
+        check_sync_interval.tick().await;
 
-        // The new info could be from a peer giving us a block, so wait a couple seconds to allow the block to
-        // be added to our blockchain.
-        sleep(Duration::from_secs(2)).await;
+        tracing::trace!("Checking connected peers to see if we are behind",);
 
         check_update_blockchain_context(&mut context_svc, &mut blockchain_ctx).await?;
         let raw_blockchain_context = blockchain_ctx.unchecked_blockchain_context();
 
-        if top_sync_info.cumulative_difficulty <= raw_blockchain_context.cumulative_difficulty {
-            tracing::debug!("New peer sync info is not ahead, nothing to do.");
+        if !client_pool.contains_client_with_more_cumulative_difficulty(
+            raw_blockchain_context.cumulative_difficulty,
+        ) {
             continue;
         }
 
@@ -103,8 +103,6 @@ where
             }
         }
     }
-
-    Ok(())
 }
 
 async fn check_update_blockchain_context<C>(

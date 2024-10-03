@@ -35,7 +35,7 @@ pub use free::{handle_incoming_block, IncomingBlockError};
 pub async fn check_add_genesis(
     blockchain_read_handle: &mut BlockchainReadHandle,
     blockchain_write_handle: &mut BlockchainWriteHandle,
-    network: &Network,
+    network: Network,
 ) {
     // Try to get the chain height, will fail if the genesis block is not in the DB.
     if blockchain_read_handle
