@@ -17,19 +17,19 @@ use cuprate_types::{
     VerifiedBlockInformation,
 };
 
-mod free;
+mod interface;
 mod manager;
 mod syncer;
 mod types;
 
-use crate::blockchain::free::INCOMING_BLOCK_TX;
+use crate::blockchain::interface::INCOMING_BLOCK_TX;
 use manager::BlockchainManager;
 use types::{
     ChainService, ConcreteBlockVerifierService, ConcreteTxVerifierService,
     ConsensusBlockchainReadHandle,
 };
 
-pub use free::{handle_incoming_block, IncomingBlockError};
+pub use interface::{handle_incoming_block, IncomingBlockError};
 
 /// Checks if the genesis block is in the blockchain and adds it if not.
 pub async fn check_add_genesis(
@@ -99,41 +99,4 @@ pub async fn init_consensus(
     );
 
     Ok((block_verifier_svc, tx_verifier_svc, ctx_service))
-}
-
-/// Initializes the blockchain manager task and syncer.
-pub async fn init_blockchain_manager(
-    clearnet_interface: NetworkInterface<ClearNet>,
-    blockchain_write_handle: BlockchainWriteHandle,
-    blockchain_read_handle: BlockchainReadHandle,
-    blockchain_context_service: BlockChainContextService,
-    block_verifier_service: ConcreteBlockVerifierService,
-    block_downloader_config: BlockDownloaderConfig,
-) {
-    let (batch_tx, batch_rx) = mpsc::channel(1);
-    let stop_current_block_downloader = Arc::new(Notify::new());
-    let (command_tx, command_rx) = mpsc::channel(1);
-
-    INCOMING_BLOCK_TX.set(command_tx).unwrap();
-
-    tokio::spawn(syncer::syncer(
-        blockchain_context_service.clone(),
-        ChainService(blockchain_read_handle.clone()),
-        clearnet_interface.clone(),
-        batch_tx,
-        stop_current_block_downloader.clone(),
-        block_downloader_config,
-    ));
-
-    let manager = BlockchainManager::new(
-        blockchain_write_handle,
-        blockchain_read_handle,
-        blockchain_context_service,
-        block_verifier_service,
-        stop_current_block_downloader,
-        clearnet_interface.broadcast_svc(),
-    )
-    .await;
-
-    tokio::spawn(manager.run(batch_rx, command_rx));
 }
