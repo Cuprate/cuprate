@@ -65,7 +65,6 @@ pub enum ExtendedConsensusError {
 }
 
 /// Initialize the 2 verifier [`tower::Service`]s (block and transaction).
-#[expect(clippy::type_complexity)]
 pub fn initialize_verifier<D, Ctx>(
     database: D,
     ctx_svc: Ctx,

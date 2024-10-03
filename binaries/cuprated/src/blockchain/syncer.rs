@@ -1,6 +1,4 @@
-use std::pin::pin;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{pin::pin, sync::Arc, time::Duration};
 
 use futures::StreamExt;
 use tokio::time::interval;
@@ -18,6 +16,7 @@ use cuprate_p2p::{
 };
 use cuprate_p2p_core::ClearNet;
 
+// FIXME: This whole module is not great and should be rewritten when the PeerSet is made.
 const CHECK_SYNC_FREQUENCY: Duration = Duration::from_secs(30);
 
 /// An error returned from the [`syncer`].

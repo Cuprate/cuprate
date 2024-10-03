@@ -8,7 +8,6 @@ use std::{
 };
 
 use futures::FutureExt;
-use monero_serai::generators::H;
 use monero_serai::{
     block::Block,
     transaction::{Input, Transaction},
@@ -124,10 +123,7 @@ impl PreparedBlock {
     ///
     /// The randomX VM must be Some if RX is needed or this will panic.
     /// The randomX VM must also be initialised with the correct seed.
-    pub fn new<R: RandomX>(
-        block: Block,
-        randomx_vm: Option<&R>,
-    ) -> Result<PreparedBlock, ConsensusError> {
+    pub fn new<R: RandomX>(block: Block, randomx_vm: Option<&R>) -> Result<Self, ConsensusError> {
         let (hf_version, hf_vote) = HardFork::from_block_header(&block.header)
             .map_err(|_| BlockError::HardForkError(HardForkError::HardForkUnknown))?;
 
@@ -185,8 +181,8 @@ impl PreparedBlock {
         })
     }
 
-    pub fn new_alt_block(block: AltBlockInformation) -> Result<PreparedBlock, ConsensusError> {
-        Ok(PreparedBlock {
+    pub fn new_alt_block(block: AltBlockInformation) -> Result<Self, ConsensusError> {
+        Ok(Self {
             block_blob: block.block_blob,
             hf_vote: HardFork::from_version(block.block.header.hardfork_version)
                 .map_err(|_| BlockError::HardForkError(HardForkError::HardForkUnknown))?,

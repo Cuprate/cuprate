@@ -1,35 +1,46 @@
-pub(super) mod commands;
-mod handler;
+use std::{collections::HashMap, sync::Arc};
 
-use crate::blockchain::interface::INCOMING_BLOCK_TX;
-use crate::blockchain::manager::commands::BlockchainManagerCommand;
-use crate::blockchain::types::ChainService;
-use crate::blockchain::{
-    syncer,
-    types::{ConcreteBlockVerifierService, ConsensusBlockchainReadHandle},
-};
-use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
-use cuprate_consensus::context::RawBlockChainContext;
-use cuprate_consensus::{
-    BlockChainContextRequest, BlockChainContextResponse, BlockChainContextService,
-    BlockVerifierService, ExtendedConsensusError, TxVerifierService, VerifyBlockRequest,
-    VerifyBlockResponse, VerifyTxRequest, VerifyTxResponse,
-};
-use cuprate_p2p::block_downloader::{BlockBatch, BlockDownloaderConfig};
-use cuprate_p2p::{BroadcastSvc, NetworkInterface};
-use cuprate_p2p_core::ClearNet;
-use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
-use cuprate_types::{Chain, TransactionVerificationData};
 use futures::StreamExt;
 use monero_serai::block::Block;
-use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::mpsc;
-use tokio::sync::{oneshot, Notify};
+use tokio::sync::{mpsc, oneshot, Notify};
 use tower::{Service, ServiceExt};
 use tracing::error;
-use tracing_subscriber::fmt::time::FormatTime;
 
+use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
+use cuprate_consensus::{
+    context::RawBlockChainContext, BlockChainContextRequest, BlockChainContextResponse,
+    BlockChainContextService, BlockVerifierService, ExtendedConsensusError, TxVerifierService,
+    VerifyBlockRequest, VerifyBlockResponse, VerifyTxRequest, VerifyTxResponse,
+};
+use cuprate_p2p::{
+    block_downloader::{BlockBatch, BlockDownloaderConfig},
+    BroadcastSvc, NetworkInterface,
+};
+use cuprate_p2p_core::ClearNet;
+use cuprate_types::{
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
+    Chain, TransactionVerificationData,
+};
+
+use crate::{
+    blockchain::{
+        interface::COMMAND_TX,
+        syncer,
+        types::ChainService,
+        types::{ConcreteBlockVerifierService, ConsensusBlockchainReadHandle},
+    },
+    constants::PANIC_CRITICAL_SERVICE_ERROR,
+};
+
+mod commands;
+mod handler;
+
+pub use commands::BlockchainManagerCommand;
+
+/// Initialize the blockchain manger.
+///
+/// This function sets up the [`BlockchainManager`] and the [`syncer`] so that the functions in [`interface`](super::interface)
+/// can be called.
 pub async fn init_blockchain_manger(
     clearnet_interface: NetworkInterface<ClearNet>,
     blockchain_write_handle: BlockchainWriteHandle,
@@ -42,7 +53,7 @@ pub async fn init_blockchain_manger(
     let stop_current_block_downloader = Arc::new(Notify::new());
     let (command_tx, command_rx) = mpsc::channel(1);
 
-    INCOMING_BLOCK_TX.set(command_tx).unwrap();
+    COMMAND_TX.set(command_tx).unwrap();
 
     tokio::spawn(syncer::syncer(
         blockchain_context_service.clone(),
@@ -56,10 +67,10 @@ pub async fn init_blockchain_manger(
     let BlockChainContextResponse::Context(blockchain_context) = blockchain_context_service
         .ready()
         .await
-        .expect("TODO")
+        .expect(PANIC_CRITICAL_SERVICE_ERROR)
         .call(BlockChainContextRequest::GetContext)
         .await
-        .expect("TODO")
+        .expect(PANIC_CRITICAL_SERVICE_ERROR)
     else {
         panic!("Blockchain context service returned wrong response!");
     };
@@ -71,7 +82,7 @@ pub async fn init_blockchain_manger(
         cached_blockchain_context: blockchain_context.unchecked_blockchain_context().clone(),
         block_verifier_service,
         stop_current_block_downloader,
-        broadcast_svc,
+        broadcast_svc: clearnet_interface.broadcast_svc(),
     };
 
     tokio::spawn(manger.run(batch_rx, command_rx));
@@ -97,11 +108,7 @@ pub struct BlockchainManager {
     /// A cached context representing the current state.
     cached_blockchain_context: RawBlockChainContext,
     /// The block verifier service, to verify incoming blocks.
-    block_verifier_service: BlockVerifierService<
-        BlockChainContextService,
-        TxVerifierService<ConsensusBlockchainReadHandle>,
-        ConsensusBlockchainReadHandle,
-    >,
+    block_verifier_service: ConcreteBlockVerifierService,
     /// A [`Notify`] to tell the [syncer](syncer::syncer) that we want to cancel this current download
     /// attempt.
     stop_current_block_downloader: Arc<Notify>,
@@ -110,6 +117,7 @@ pub struct BlockchainManager {
 }
 
 impl BlockchainManager {
+    /// The [`BlockchainManager`] task.
     pub async fn run(
         mut self,
         mut block_batch_rx: mpsc::Receiver<BlockBatch>,

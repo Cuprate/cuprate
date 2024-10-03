@@ -1,11 +1,11 @@
 //! Blockchain
 //!
 //! Will contain the chain manager and syncer.
+use std::sync::Arc;
 
 use futures::FutureExt;
-use std::sync::Arc;
 use tokio::sync::{mpsc, Notify};
-use tower::{Service, ServiceExt};
+use tower::{BoxError, Service, ServiceExt};
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{generate_genesis_block, BlockChainContextService, ContextConfig};
@@ -22,11 +22,8 @@ mod manager;
 mod syncer;
 mod types;
 
-use crate::blockchain::interface::INCOMING_BLOCK_TX;
-use manager::BlockchainManager;
 use types::{
-    ChainService, ConcreteBlockVerifierService, ConcreteTxVerifierService,
-    ConsensusBlockchainReadHandle,
+    ConcreteBlockVerifierService, ConcreteTxVerifierService, ConsensusBlockchainReadHandle,
 };
 
 pub use interface::{handle_incoming_block, IncomingBlockError};
@@ -50,6 +47,9 @@ pub async fn check_add_genesis(
     }
 
     let genesis = generate_genesis_block(network);
+
+    assert_eq!(genesis.miner_transaction.prefix().outputs.len(), 1);
+    assert!(genesis.transactions.is_empty());
 
     blockchain_write_handle
         .ready()
@@ -87,16 +87,14 @@ pub async fn init_consensus(
     ),
     tower::BoxError,
 > {
-    let ctx_service = cuprate_consensus::initialize_blockchain_context(
-        context_config,
-        ConsensusBlockchainReadHandle(blockchain_read_handle.clone()),
-    )
-    .await?;
+    let read_handle = ConsensusBlockchainReadHandle::new(blockchain_read_handle, BoxError::from);
 
-    let (block_verifier_svc, tx_verifier_svc) = cuprate_consensus::initialize_verifier(
-        ConsensusBlockchainReadHandle(blockchain_read_handle),
-        ctx_service.clone(),
-    );
+    let ctx_service =
+        cuprate_consensus::initialize_blockchain_context(context_config, read_handle.clone())
+            .await?;
+
+    let (block_verifier_svc, tx_verifier_svc) =
+        cuprate_consensus::initialize_verifier(read_handle, ctx_service.clone());
 
     Ok((block_verifier_svc, tx_verifier_svc, ctx_service))
 }

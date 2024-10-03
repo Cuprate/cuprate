@@ -90,7 +90,7 @@ async fn get_objects(
     // de-allocate the backing [`Bytes`]
     drop(req);
 
-    return Ok(ProtocolResponse::NA);
+    Ok(ProtocolResponse::NA)
     /*
 
     let res = blockchain_read_handle
@@ -122,7 +122,8 @@ async fn get_chain(
     if req.block_ids.is_empty() {
         Err("No block hashes sent in a `ChainRequest`")?;
     }
-    return Ok(ProtocolResponse::NA);
+
+    Ok(ProtocolResponse::NA)
 
     /*
     if req.block_ids.len() > MAX_BLOCKCHAIN_SUPPLEMENT_LEN {
@@ -191,15 +192,13 @@ async fn new_fluffy_block(
     let res = handle_incoming_block(block, txs, &mut blockchain_read_handle).await;
 
     match res {
-        Err(IncomingBlockError::UnknownTransactions(block_hash, tx_indexes)) => {
-            return Ok(ProtocolResponse::FluffyMissingTxs(
-                FluffyMissingTransactionsRequest {
-                    block_hash: ByteArray::from(block_hash),
-                    current_blockchain_height: peer_blockchain_height,
-                    missing_tx_indices: tx_indexes,
-                },
-            ))
-        }
+        Err(IncomingBlockError::UnknownTransactions(block_hash, tx_indexes)) => Ok(
+            ProtocolResponse::FluffyMissingTxs(FluffyMissingTransactionsRequest {
+                block_hash: ByteArray::from(block_hash),
+                current_blockchain_height: peer_blockchain_height,
+                missing_tx_indices: tx_indexes,
+            }),
+        ),
         Err(IncomingBlockError::InvalidBlock(e)) => Err(e)?,
         Err(IncomingBlockError::Orphan) | Ok(_) => Ok(ProtocolResponse::NA),
     }

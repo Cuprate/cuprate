@@ -12,7 +12,6 @@ use tracing::{instrument, Instrument, Span};
 use cuprate_async_buffer::BufferStream;
 use cuprate_p2p_core::{
     client::Connector,
-    client::InternalPeerID,
     services::{AddressBookRequest, AddressBookResponse},
     CoreSyncSvc, NetworkZone, ProtocolRequestHandlerMaker,
 };
@@ -27,7 +26,6 @@ mod inbound_server;
 
 use block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse};
 pub use broadcast::{BroadcastRequest, BroadcastSvc};
-use client_pool::ClientPoolDropGuard;
 pub use config::{AddressBookConfig, P2PConfig};
 use connection_maintainer::MakeConnectionRequest;
 
@@ -175,7 +173,7 @@ impl<N: NetworkZone> NetworkInterface<N> {
     }
 
     /// TODO
-    pub fn client_pool(&self) -> &Arc<client_pool::ClientPool<N>> {
+    pub const fn client_pool(&self) -> &Arc<client_pool::ClientPool<N>> {
         &self.pool
     }
 }

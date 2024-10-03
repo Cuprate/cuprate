@@ -1,41 +1,32 @@
-use cuprate_blockchain::cuprate_database::RuntimeError;
-use cuprate_blockchain::service::BlockchainReadHandle;
+use std::task::{Context, Poll};
+
+use futures::future::BoxFuture;
+use futures::{FutureExt, TryFutureExt};
+use tower::{util::MapErr, Service};
+
+use cuprate_blockchain::{cuprate_database::RuntimeError, service::BlockchainReadHandle};
 use cuprate_consensus::{BlockChainContextService, BlockVerifierService, TxVerifierService};
 use cuprate_p2p::block_downloader::{ChainSvcRequest, ChainSvcResponse};
 use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
-use futures::future::{BoxFuture, MapErr};
-use futures::{FutureExt, TryFutureExt};
-use std::task::{Context, Poll};
-use tower::Service;
 
+/// The [`BlockVerifierService`] with all generic types defined.
 pub type ConcreteBlockVerifierService = BlockVerifierService<
     BlockChainContextService,
-    TxVerifierService<ConsensusBlockchainReadHandle>,
+    ConcreteTxVerifierService,
     ConsensusBlockchainReadHandle,
 >;
 
+/// The [`TxVerifierService`] with all generic types defined.
 pub type ConcreteTxVerifierService = TxVerifierService<ConsensusBlockchainReadHandle>;
 
-#[derive(Clone)]
-pub struct ConsensusBlockchainReadHandle(pub BlockchainReadHandle);
+/// The [`BlockchainReadHandle`] with the [`tower::Service::Error`] mapped to conform to what the consensus crate requires.
+pub type ConsensusBlockchainReadHandle =
+    MapErr<BlockchainReadHandle, fn(RuntimeError) -> tower::BoxError>;
 
-impl Service<BlockchainReadRequest> for ConsensusBlockchainReadHandle {
-    type Response = BlockchainResponse;
-    type Error = tower::BoxError;
-    type Future = MapErr<
-        <BlockchainReadHandle as Service<BlockchainReadRequest>>::Future,
-        fn(RuntimeError) -> tower::BoxError,
-    >;
-
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.0.poll_ready(cx).map_err(Into::into)
-    }
-
-    fn call(&mut self, req: BlockchainReadRequest) -> Self::Future {
-        self.0.call(req).map_err(Into::into)
-    }
-}
-
+/// That service that allows retrieving the chain state to give to the P2P crates, so we can figure out
+/// what blocks we need.
+///
+/// This has a more minimal interface than [`BlockchainReadRequest`] to make using the p2p crates easier.
 #[derive(Clone)]
 pub struct ChainService(pub BlockchainReadHandle);
 
@@ -79,6 +70,7 @@ impl Service<ChainSvcRequest> for ChainService {
                 .call(BlockchainReadRequest::CompactChainHistory)
                 .map_ok(|res| {
                     // TODO create a custom request instead of hijacking this one.
+                    // TODO: use the context cache.
                     let BlockchainResponse::CompactChainHistory {
                         cumulative_difficulty,
                         ..

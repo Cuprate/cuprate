@@ -1,8 +1,9 @@
+use std::{collections::HashMap, sync::Arc};
+
 use bytes::Bytes;
 use futures::{TryFutureExt, TryStreamExt};
 use monero_serai::{block::Block, transaction::Transaction};
 use rayon::prelude::*;
-use std::{collections::HashMap, sync::Arc};
 use tower::{Service, ServiceExt};
 use tracing::info;
 
@@ -20,11 +21,16 @@ use cuprate_types::{
     AltBlockInformation, HardFork, TransactionVerificationData, VerifiedBlockInformation,
 };
 
-use crate::blockchain::manager::commands::BlockchainManagerCommand;
-use crate::constants::PANIC_CRITICAL_SERVICE_ERROR;
-use crate::{blockchain::types::ConsensusBlockchainReadHandle, signals::REORG_LOCK};
+use crate::{
+    blockchain::{
+        manager::commands::BlockchainManagerCommand, types::ConsensusBlockchainReadHandle,
+    },
+    constants::PANIC_CRITICAL_SERVICE_ERROR,
+    signals::REORG_LOCK,
+};
 
 impl super::BlockchainManager {
+    /// Handle an incoming command from another part of Cuprate.
     pub async fn handle_command(&mut self, command: BlockchainManagerCommand) {
         match command {
             BlockchainManagerCommand::AddBlock {
@@ -39,6 +45,7 @@ impl super::BlockchainManager {
         }
     }
 
+    /// Broadcast a valid block to the network.
     async fn broadcast_block(&mut self, block_bytes: Bytes, blockchain_height: usize) {
         self.broadcast_svc
             .ready()
@@ -191,7 +198,7 @@ impl super::BlockchainManager {
     /// This function will panic if any internal service returns an unexpected error that we cannot
     /// recover from.
     async fn handle_incoming_block_batch_alt_chain(&mut self, mut batch: BlockBatch) {
-        // TODO: this needs testing (this whole section does but this specifically).
+        // TODO: this needs testing (this whole section does but alt-blocks specifically).
 
         let mut blocks = batch.blocks.into_iter();
 
@@ -394,7 +401,7 @@ impl super::BlockchainManager {
                 .block_verifier_service
                 .ready()
                 .await
-                .expect("TODO")
+                .expect(PANIC_CRITICAL_SERVICE_ERROR)
                 .call(VerifyBlockRequest::MainChainPrepped {
                     block: prepped_block,
                     txs: prepped_txs,
@@ -426,7 +433,7 @@ impl super::BlockchainManager {
         self.blockchain_context_service
             .ready()
             .await
-            .expect("TODO")
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
             .call(BlockChainContextRequest::Update(NewBlockData {
                 block_hash: verified_block.block_hash,
                 height: verified_block.height,
@@ -438,24 +445,24 @@ impl super::BlockchainManager {
                 cumulative_difficulty: verified_block.cumulative_difficulty,
             }))
             .await
-            .expect("TODO");
+            .expect(PANIC_CRITICAL_SERVICE_ERROR);
 
         self.blockchain_write_handle
             .ready()
             .await
-            .expect("TODO")
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
             .call(BlockchainWriteRequest::WriteBlock(verified_block))
             .await
-            .expect("TODO");
+            .expect(PANIC_CRITICAL_SERVICE_ERROR);
 
         let BlockChainContextResponse::Context(blockchain_context) = self
             .blockchain_context_service
             .ready()
             .await
-            .expect("TODO")
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
             .call(BlockChainContextRequest::GetContext)
             .await
-            .expect("TODO")
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
         else {
             panic!("Incorrect response!");
         };

@@ -158,13 +158,10 @@ impl<N: NetworkZone> ClientPool<N> {
         &self,
         cumulative_difficulty: u128,
     ) -> bool {
-        self.clients
-            .iter()
-            .find(|element| {
-                let sync_data = element.value().info.core_sync_data.lock().unwrap();
-                sync_data.cumulative_difficulty() > cumulative_difficulty
-            })
-            .is_some()
+        self.clients.iter().any(|element| {
+            let sync_data = element.value().info.core_sync_data.lock().unwrap();
+            sync_data.cumulative_difficulty() > cumulative_difficulty
+        })
     }
 }
 
