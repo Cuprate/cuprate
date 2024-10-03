@@ -1,4 +1,4 @@
-//! Functions for TODO: doc enum message.
+//! Functions for [`BlockchainManagerRequest`] & [`BlockchainManagerResponse`].
 
 use anyhow::Error;
 use monero_serai::block::Block;

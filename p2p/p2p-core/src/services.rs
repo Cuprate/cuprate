@@ -133,7 +133,7 @@ pub enum AddressBookRequest<Z: NetworkZone> {
 
 /// A response from the address book service.
 pub enum AddressBookResponse<Z: NetworkZone> {
-    /// TODO
+    /// Generic OK response.
     ///
     /// Response to:
     /// - [`AddressBookRequest::NewConnection`]

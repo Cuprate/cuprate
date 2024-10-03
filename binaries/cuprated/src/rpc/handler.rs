@@ -116,7 +116,7 @@ pub struct CupratedRpcHandler {
 }
 
 impl CupratedRpcHandler {
-    /// TODO
+    /// Create a new [`Self`].
     pub const fn new(
         restricted: bool,
         blockchain_read: BlockchainReadHandle,

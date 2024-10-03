@@ -254,8 +254,20 @@ pub enum BlockChainContextRequest {
         numb_blocks: usize,
     },
 
+    /// Get information on a certain hardfork.
+    HardForkInfo(HardFork),
+
+    /// Get the current fee estimate.
+    FeeEstimate {
+        /// TODO
+        grace_blocks: u64,
+    },
+
     /// Clear the alt chain context caches.
     ClearAltCache,
+
+    /// Get information on all the current alternate chains.
+    AltChains,
 
     //----------------------------------------------------------------------------------------------------------- AltChainRequests
     /// A request for an alt chain context cache.
@@ -318,18 +330,6 @@ pub enum BlockChainContextRequest {
         /// An internal token to prevent external crates calling this request.
         _token: AltChainRequestToken,
     },
-
-    /// Get information on a certain hardfork.
-    HardForkInfo(HardFork),
-
-    /// Get the current fee estimate.
-    FeeEstimate {
-        /// TODO
-        grace_blocks: u64,
-    },
-
-    /// Get information on all the current alternate chains.
-    AlternateChains,
 }
 
 pub enum BlockChainContextResponse {
@@ -346,7 +346,6 @@ pub enum BlockChainContextResponse {
     /// Response to [`BlockChainContextRequest::Context`]
     Context(BlockChainContext),
 
-    // TODO: why does this return a `HashMap` when the request is `CurrentRxVm`?
     /// Response to [`BlockChainContextRequest::CurrentRxVm`]
     ///
     /// A map of seed height to `RandomX` VMs.
@@ -354,6 +353,17 @@ pub enum BlockChainContextResponse {
 
     /// A list of difficulties.
     BatchDifficulties(Vec<u128>),
+
+    /// Response to [`BlockChainContextRequest::HardForkInfo`]
+    HardForkInfo(HardForkInfo),
+
+    /// Response to [`BlockChainContextRequest::FeeEstimate`]
+    FeeEstimate(FeeEstimate),
+
+    /// Response to [`BlockChainContextRequest::AltChains`]
+    ///
+    /// If the inner [`Vec::is_empty`], there were no alternate chains.
+    AltChains(Vec<ChainInfo>),
 
     /// An alt chain context cache.
     AltChainContextCache(Box<AltChainContextCache>),
@@ -366,17 +376,6 @@ pub enum BlockChainContextResponse {
 
     /// A weight cache for an alt chain
     AltChainWeightCache(BlockWeightsCache),
-
-    /// Response to [`BlockChainContextRequest::HardForkInfo`]
-    HardForkInfo(HardForkInfo),
-
-    /// Response to [`BlockChainContextRequest::FeeEstimate`]
-    FeeEstimate(FeeEstimate),
-
-    /// Response to [`BlockChainContextRequest::AlternateChains`]
-    ///
-    /// If the inner [`Vec::is_empty`], there were no alternate chains.
-    AlternateChains(Vec<ChainInfo>),
 }
 
 /// The blockchain context service.

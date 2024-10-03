@@ -1,4 +1,4 @@
-//! Functions for TODO: doc enum message.
+//! Functions for [`TxpoolReadRequest`].
 
 use std::convert::Infallible;
 

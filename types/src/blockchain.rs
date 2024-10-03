@@ -139,8 +139,6 @@ pub enum BlockchainReadRequest {
     },
 
     /// Get the necessary data to create a custom block template.
-    ///
-    /// These are used by p2pool.
     MinerData,
 }
 
