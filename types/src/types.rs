@@ -147,7 +147,9 @@ pub struct OutputOnChain {
     pub commitment: EdwardsPoint,
 }
 
-/// TODO
+/// Input required to generate an output histogram.
+///
+/// Used in RPC's `get_output_histogram`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OutputHistogramInput {
     pub amounts: Vec<u64>,
@@ -157,7 +159,9 @@ pub struct OutputHistogramInput {
     pub recent_cutoff: u64,
 }
 
-/// TODO
+/// A single entry in an output histogram.
+///
+/// Used in RPC's `get_output_histogram`.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OutputHistogramEntry {
     pub amount: u64,
@@ -166,18 +170,20 @@ pub struct OutputHistogramEntry {
     pub recent_instances: u64,
 }
 
-/// TODO
+/// Data of summed coinbase transactions.
+///
+/// Used in RPC's `get_coinbase_tx_sum`.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CoinbaseTxSum {
-    pub emission_amount: u64,
-    pub emission_amount_top64: u64,
-    pub fee_amount: u64,
-    pub fee_amount_top64: u64,
+    pub emission_amount: u128,
+    pub fee_amount: u128,
     pub wide_emission_amount: u128,
     pub wide_fee_amount: u128,
 }
 
-/// TODO
+/// Data to create a custom block template.
+///
+/// Used in RPC's `get_miner_data`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MinerData {
     pub major_version: u8,
@@ -190,12 +196,53 @@ pub struct MinerData {
     pub tx_backlog: Vec<MinerDataTxBacklogEntry>,
 }
 
-/// TODO
+/// A transaction in the txpool.
+///
+/// Used in [`MinerData::tx_backlog`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MinerDataTxBacklogEntry {
     pub id: [u8; 32],
     pub weight: u64,
     pub fee: u64,
+}
+
+/// Information on a [`HardFork`].
+///
+/// Used in RPC's `hard_fork_info`.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct HardForkInfo {
+    pub earliest_height: u64,
+    pub enabled: bool,
+    pub state: u32,
+    pub threshold: u32,
+    pub version: u8,
+    pub votes: u32,
+    pub voting: u8,
+    pub window: u32,
+}
+
+/// Estimated fee data.
+///
+/// Used in RPC's `get_fee_estimate`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct FeeEstimate {
+    pub fee: u64,
+    pub fees: Vec<u64>,
+    pub quantization_mask: u64,
+}
+
+/// Information on a (maybe alternate) chain.
+///
+/// Used in RPC's `get_alternate_chains`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ChainInfo {
+    pub block_hash: [u8; 32],
+    pub block_hashes: Vec<[u8; 32]>,
+    pub difficulty: u128,
+    pub height: u64,
+    pub length: u64,
+    pub main_chain_parent_block: [u8; 32],
+    pub wide_difficulty: u128,
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

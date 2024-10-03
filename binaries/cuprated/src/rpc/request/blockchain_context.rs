@@ -9,7 +9,7 @@ use cuprate_consensus::context::{
     BlockChainContext, BlockChainContextRequest, BlockChainContextResponse,
     BlockChainContextService,
 };
-use cuprate_types::HardFork;
+use cuprate_types::{FeeEstimate, HardFork, HardForkInfo};
 
 /// [`BlockChainContextRequest::Context`].
 pub(super) async fn context(
@@ -34,7 +34,7 @@ pub(super) async fn context(
 pub(super) async fn hard_fork_info(
     service: &mut BlockChainContextService,
     hard_fork: HardFork,
-) -> Result<Infallible, Error> {
+) -> Result<HardForkInfo, Error> {
     let BlockChainContextResponse::HardForkInfo(hf_info) = service
         .ready()
         .await
@@ -53,8 +53,8 @@ pub(super) async fn hard_fork_info(
 pub(super) async fn fee_estimate(
     service: &mut BlockChainContextService,
     grace_blocks: u64,
-) -> Result<Infallible, Error> {
-    let BlockChainContextResponse::FeeEstimate(hf_info) = service
+) -> Result<FeeEstimate, Error> {
+    let BlockChainContextResponse::FeeEstimate(fee) = service
         .ready()
         .await
         .expect("TODO")
@@ -65,5 +65,5 @@ pub(super) async fn fee_estimate(
         unreachable!();
     };
 
-    Ok(hf_info)
+    Ok(fee)
 }

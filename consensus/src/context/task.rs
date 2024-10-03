@@ -326,7 +326,8 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                 BlockChainContextResponse::Ok
             }
             BlockChainContextRequest::HardForkInfo(_)
-            | BlockChainContextRequest::FeeEstimate { .. } => {
+            | BlockChainContextRequest::FeeEstimate { .. }
+            | BlockChainContextRequest::AlternateChains => {
                 todo!("finish https://github.com/Cuprate/cuprate/pull/297")
             }
         })

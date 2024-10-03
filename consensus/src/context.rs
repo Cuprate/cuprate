@@ -31,7 +31,7 @@ mod alt_chains;
 mod task;
 mod tokens;
 
-use cuprate_types::Chain;
+use cuprate_types::{Chain, ChainInfo, FeeEstimate, HardForkInfo};
 use difficulty::DifficultyCache;
 use rx_vms::RandomXVm;
 use weight::BlockWeightsCache;
@@ -319,14 +319,17 @@ pub enum BlockChainContextRequest {
         _token: AltChainRequestToken,
     },
 
-    /// TODO
+    /// Get information on a certain hardfork.
     HardForkInfo(HardFork),
 
-    /// TODO
+    /// Get the current fee estimate.
     FeeEstimate {
         /// TODO
         grace_blocks: u64,
     },
+
+    /// Get information on all the current alternate chains.
+    AlternateChains,
 }
 
 pub enum BlockChainContextResponse {
@@ -365,14 +368,15 @@ pub enum BlockChainContextResponse {
     AltChainWeightCache(BlockWeightsCache),
 
     /// Response to [`BlockChainContextRequest::HardForkInfo`]
-    ///
-    /// TODO
-    HardForkInfo(std::convert::Infallible /* TODO */),
+    HardForkInfo(HardForkInfo),
 
     /// Response to [`BlockChainContextRequest::FeeEstimate`]
+    FeeEstimate(FeeEstimate),
+
+    /// Response to [`BlockChainContextRequest::AlternateChains`]
     ///
-    /// TODO
-    FeeEstimate(std::convert::Infallible /* TODO */),
+    /// If the inner [`Vec::is_empty`], there were no alternate chains.
+    AlternateChains(Vec<ChainInfo>),
 }
 
 /// The blockchain context service.
