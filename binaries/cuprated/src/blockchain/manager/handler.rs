@@ -300,7 +300,7 @@ impl super::BlockchainManager {
     ///
     /// This function will take a write lock on [`REORG_LOCK`] and then set up the blockchain database
     /// and context cache to verify the alt-chain. It will then attempt to verify and add each block
-    /// in the alt-chain to tha main-chain. Releasing the lock on [`REORG_LOCK`] when finished.
+    /// in the alt-chain to the main-chain. Releasing the lock on [`REORG_LOCK`] when finished.
     ///
     /// # Errors
     ///
