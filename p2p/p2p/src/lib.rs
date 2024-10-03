@@ -172,7 +172,7 @@ impl<N: NetworkZone> NetworkInterface<N> {
         self.address_book.clone()
     }
 
-    /// TODO
+    /// Borrows the `ClientPool`, for access to connected peers.
     pub const fn client_pool(&self) -> &Arc<client_pool::ClientPool<N>> {
         &self.pool
     }

@@ -1,3 +1,4 @@
+// FIXME: This whole module is not great and should be rewritten when the PeerSet is made.
 use std::{pin::pin, sync::Arc, time::Duration};
 
 use futures::StreamExt;
@@ -16,7 +17,6 @@ use cuprate_p2p::{
 };
 use cuprate_p2p_core::ClearNet;
 
-// FIXME: This whole module is not great and should be rewritten when the PeerSet is made.
 const CHECK_SYNC_FREQUENCY: Duration = Duration::from_secs(30);
 
 /// An error returned from the [`syncer`].
@@ -28,6 +28,11 @@ pub enum SyncerError {
     ServiceError(#[from] tower::BoxError),
 }
 
+/// The syncer tasks that makes sure we are fully synchronised with our connected peers.
+#[expect(
+    clippy::significant_drop_tightening,
+    reason = "Client pool which will be removed"
+)]
 #[instrument(level = "debug", skip_all)]
 pub async fn syncer<C, CN>(
     mut context_svc: C,
@@ -89,7 +94,7 @@ where
 
         loop {
             tokio::select! {
-                _ = stop_current_block_downloader.notified() => {
+                () = stop_current_block_downloader.notified() => {
                     tracing::info!("Stopping block downloader");
                     break;
                 }
@@ -104,6 +109,7 @@ where
     }
 }
 
+/// Checks if we should update the given [`BlockChainContext`] and updates it if needed.
 async fn check_update_blockchain_context<C>(
     context_svc: C,
     old_context: &mut BlockChainContext,

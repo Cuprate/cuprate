@@ -1,6 +1,6 @@
 //! The blockchain manger interface.
 //!
-//! This module contains all the functions to mutate the blockchains state in any way, through the
+//! This module contains all the functions to mutate the blockchain's state in any way, through the
 //! blockchain manger.
 use std::{
     collections::{HashMap, HashSet},
@@ -28,6 +28,10 @@ use crate::{
 pub static COMMAND_TX: OnceLock<mpsc::Sender<BlockchainManagerCommand>> = OnceLock::new();
 
 /// A [`HashSet`] of block hashes that the blockchain manager is currently handling.
+///
+/// This is used over something like a dashmap as we expect a lot of collisions in a short amount of
+/// time for new blocks so we would lose the benefit of sharded locks. A dashmap is made up of `RwLocks`
+/// which are also more expensive than `Mutex`s.
 pub static BLOCKS_BEING_HANDLED: OnceLock<Mutex<HashSet<[u8; 32]>>> = OnceLock::new();
 
 /// An error that can be returned from [`handle_incoming_block`].
@@ -90,7 +94,7 @@ pub async fn handle_incoming_block(
         ));
     }
 
-    // TODO: check we actually go given the right txs.
+    // TODO: check we actually got given the right txs.
     let prepped_txs = given_txs
         .into_par_iter()
         .map(|tx| {

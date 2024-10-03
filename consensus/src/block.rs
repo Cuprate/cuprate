@@ -181,6 +181,7 @@ impl PreparedBlock {
         })
     }
 
+    /// Creates a new [`PreparedBlock`] from an [`AltBlockInformation`].
     pub fn new_alt_block(block: AltBlockInformation) -> Result<Self, ConsensusError> {
         Ok(Self {
             block_blob: block.block_blob,

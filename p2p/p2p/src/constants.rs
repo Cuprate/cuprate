@@ -16,11 +16,10 @@ pub(crate) const MAX_SEED_CONNECTIONS: usize = 3;
 pub(crate) const OUTBOUND_CONNECTION_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// The durations of a short ban.
-#[cfg_attr(not(test), expect(dead_code))]
-pub(crate) const SHORT_BAN: Duration = Duration::from_secs(60 * 10);
+pub const SHORT_BAN: Duration = Duration::from_secs(60 * 10);
 
 /// The durations of a medium ban.
-pub(crate) const MEDIUM_BAN: Duration = Duration::from_secs(60 * 60 * 24);
+pub const MEDIUM_BAN: Duration = Duration::from_secs(60 * 60 * 24);
 
 /// The durations of a long ban.
 pub const LONG_BAN: Duration = Duration::from_secs(60 * 60 * 24 * 7);
@@ -53,7 +52,7 @@ pub(crate) const INITIAL_CHAIN_REQUESTS_TO_SEND: usize = 3;
 /// The enforced maximum amount of blocks to request in a batch.
 ///
 /// Requesting more than this will cause the peer to disconnect and potentially lead to bans.
-pub const MAX_BLOCK_BATCH_LEN: usize = 100;
+pub(crate) const MAX_BLOCK_BATCH_LEN: usize = 100;
 
 /// The timeout that the block downloader will use for requests.
 pub(crate) const BLOCK_DOWNLOADER_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);

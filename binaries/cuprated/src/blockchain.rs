@@ -1,6 +1,6 @@
 //! Blockchain
 //!
-//! Will contain the chain manager and syncer.
+//! Contains the blockchain manager, syncer and an interface to mutate the blockchain.
 use std::sync::Arc;
 
 use futures::FutureExt;
@@ -17,7 +17,9 @@ use cuprate_types::{
     VerifiedBlockInformation,
 };
 
-mod interface;
+use crate::constants::PANIC_CRITICAL_SERVICE_ERROR;
+
+pub mod interface;
 mod manager;
 mod syncer;
 mod types;
@@ -25,8 +27,6 @@ mod types;
 use types::{
     ConcreteBlockVerifierService, ConcreteTxVerifierService, ConsensusBlockchainReadHandle,
 };
-
-pub use interface::{handle_incoming_block, IncomingBlockError};
 
 /// Checks if the genesis block is in the blockchain and adds it if not.
 pub async fn check_add_genesis(
@@ -38,7 +38,7 @@ pub async fn check_add_genesis(
     if blockchain_read_handle
         .ready()
         .await
-        .unwrap()
+        .expect(PANIC_CRITICAL_SERVICE_ERROR)
         .call(BlockchainReadRequest::ChainHeight)
         .await
         .is_ok()
@@ -54,7 +54,7 @@ pub async fn check_add_genesis(
     blockchain_write_handle
         .ready()
         .await
-        .unwrap()
+        .expect(PANIC_CRITICAL_SERVICE_ERROR)
         .call(BlockchainWriteRequest::WriteBlock(
             VerifiedBlockInformation {
                 block_blob: genesis.serialize(),
@@ -72,7 +72,7 @@ pub async fn check_add_genesis(
             },
         ))
         .await
-        .unwrap();
+        .expect(PANIC_CRITICAL_SERVICE_ERROR);
 }
 
 /// Initializes the consensus services.
@@ -85,7 +85,7 @@ pub async fn init_consensus(
         ConcreteTxVerifierService,
         BlockChainContextService,
     ),
-    tower::BoxError,
+    BoxError,
 > {
     let read_handle = ConsensusBlockchainReadHandle::new(blockchain_read_handle, BoxError::from);
 

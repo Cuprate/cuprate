@@ -1,3 +1,4 @@
+//! The blockchain manger handler functions.
 use std::{collections::HashMap, sync::Arc};
 
 use bytes::Bytes;
@@ -67,7 +68,7 @@ impl super::BlockchainManager {
     /// Otherwise, this function will validate and add the block to the main chain.
     ///
     /// On success returns a [`bool`] indicating if the block was added to the main chain ([`true`])
-    /// of an alt-chain ([`false`]).
+    /// or an alt-chain ([`false`]).
     pub async fn handle_incoming_block(
         &mut self,
         block: Block,
@@ -373,7 +374,7 @@ impl super::BlockchainManager {
     ///
     /// This function assumes the first [`AltBlockInformation`] is the next block in the blockchain
     /// for the blockchain database and the context cache, or in other words that the blockchain database
-    /// and context cache has had the top blocks popped to where the alt-chain meets the main-chain.
+    /// and context cache have already had the top blocks popped to where the alt-chain meets the main-chain.
     ///
     /// # Errors
     ///

@@ -49,9 +49,10 @@ pub async fn init_blockchain_manger(
     block_verifier_service: ConcreteBlockVerifierService,
     block_downloader_config: BlockDownloaderConfig,
 ) {
+    // TODO: find good values for these size limits
     let (batch_tx, batch_rx) = mpsc::channel(1);
     let stop_current_block_downloader = Arc::new(Notify::new());
-    let (command_tx, command_rx) = mpsc::channel(1);
+    let (command_tx, command_rx) = mpsc::channel(3);
 
     COMMAND_TX.set(command_tx).unwrap();
 
@@ -60,7 +61,7 @@ pub async fn init_blockchain_manger(
         ChainService(blockchain_read_handle.clone()),
         clearnet_interface.clone(),
         batch_tx,
-        stop_current_block_downloader.clone(),
+        Arc::clone(&stop_current_block_downloader),
         block_downloader_config,
     ));
 
