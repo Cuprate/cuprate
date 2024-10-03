@@ -11,8 +11,6 @@ const ROUND_KEY_SIZE: usize = 16;
 /// first round, while AES mixes the first round key into the state.
 const NUM_AES_ROUND_KEYS: usize = 10;
 
-const EXPANDED_KEY_SIZE: usize = NUM_AES_ROUND_KEYS * ROUND_KEY_SIZE;
-
 /// Cryptonight's hash uses the key size of AES256, but it only does 10 AES
 /// rounds like AES128.
 pub(crate) const CN_AES_KEY_SIZE: usize = 32;
@@ -302,8 +300,8 @@ const CRYPTONIGHT_SBOX: [u8; 4096] = [
 ];
 
 const fn substitute_word(word: u32) -> u32 {
-    let wb: [u8; 4] = word.to_be_bytes();
-    u32::from_be_bytes([
+    let wb: [u8; 4] = word.to_le_bytes();
+    u32::from_le_bytes([
         AES_SBOX[(wb[0] >> 4) as usize][(wb[0] & 0x0F) as usize],
         AES_SBOX[(wb[1] >> 4) as usize][(wb[1] & 0x0F) as usize],
         AES_SBOX[(wb[2] >> 4) as usize][(wb[2] & 0x0F) as usize],
@@ -314,13 +312,17 @@ const fn substitute_word(word: u32) -> u32 {
 /// Extends the key in the same way as it is extended for AES256, but for
 /// Cryptonight's hash we only need to extend to 10 round keys instead of 15
 /// like AES256.
-pub(crate) fn key_extend(key_bytes: &[u8; CN_AES_KEY_SIZE]) -> [u8; EXPANDED_KEY_SIZE] {
+#[expect(clippy::cast_possible_truncation)]
+pub(crate) fn key_extend(key_bytes: &[u8; CN_AES_KEY_SIZE]) -> [u128; NUM_AES_ROUND_KEYS] {
     // NK comes from the AES specification, it is the number of 32-bit words in
     // the non-expanded key (For AES-256: 32/4 = 8)
     const NK: usize = 8;
-    let mut expanded_key = [0_u8; EXPANDED_KEY_SIZE];
+    let mut expanded_key = [0_u128; NUM_AES_ROUND_KEYS];
 
-    expanded_key[0..CN_AES_KEY_SIZE].copy_from_slice(key_bytes);
+    // The next 2 lines, which set the first 2 round keys without using
+    // the expansion algorithm, are specific to Cryptonight.
+    expanded_key[0] = u128::from_le_bytes(subarray_copy(key_bytes, 0));
+    expanded_key[1] = u128::from_le_bytes(subarray_copy(key_bytes, ROUND_KEY_SIZE));
 
     /// See FIPS-197, especially figure 11 to better understand how the
     /// expansion happens: <https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.197.pdf>
@@ -328,20 +330,32 @@ pub(crate) fn key_extend(key_bytes: &[u8; CN_AES_KEY_SIZE]) -> [u8; EXPANDED_KEY
         0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36,
     ];
 
+    // the word before w0 in the loop below
+    let mut w0_prev = (expanded_key[1] >> 96) as u32;
+
     // expand to 10, 16-byte round keys (160 total bytes, or 40 4-byte words)
-    for i in (CN_AES_KEY_SIZE..EXPANDED_KEY_SIZE).step_by(4) {
-        let mut temp = u32::from_be_bytes(subarray_copy(&expanded_key, i - 4));
-        let word_num = i / 4;
+    for i in 2..NUM_AES_ROUND_KEYS {
+        let word_num = i * 4;
 
-        if word_num % NK == 0 {
-            let rc = u32::from_be_bytes([ROUND_CONSTS[word_num / NK], 0, 0, 0]);
-            temp = substitute_word(temp.rotate_left(8)) ^ rc;
-        } else if word_num % NK == 4 {
-            temp = substitute_word(temp);
-        }
+        // if `i` is even, `word_num` for `w0` is divisible by 8 (`NK`), otherwise it
+        // is divisible by 4
+        let mut w0 = if i & 1 == 0 {
+            substitute_word(w0_prev.rotate_right(8)) ^ u32::from(ROUND_CONSTS[word_num / NK])
+        } else {
+            substitute_word(w0_prev)
+        };
 
-        temp ^= u32::from_be_bytes(subarray_copy(&expanded_key, i - CN_AES_KEY_SIZE));
-        expanded_key[i..i + 4].copy_from_slice(&temp.to_be_bytes());
+        let pprev_key = expanded_key[i - 2];
+
+        w0 ^= pprev_key as u32;
+        let w1 = w0 ^ ((pprev_key >> 32) as u32);
+        let w2 = w1 ^ ((pprev_key >> 64) as u32);
+        let w3 = w2 ^ ((pprev_key >> 96) as u32);
+
+        expanded_key[i] =
+            u128::from(w0) | u128::from(w1) << 32 | u128::from(w2) << 64 | u128::from(w3) << 96;
+
+        w0_prev = w3;
     }
 
     expanded_key
@@ -350,25 +364,25 @@ pub(crate) fn key_extend(key_bytes: &[u8; CN_AES_KEY_SIZE]) -> [u8; EXPANDED_KEY
 pub(crate) fn round_fwd(state: u128, key: u128) -> u128 {
     let sb = |state: u128, b: usize| -> usize { (state >> (b * 8) & 0xFF) as usize };
 
-    let mut r1 = u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, sb(state, 0) * 4));
-    r1 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 1024 + sb(state, 5) * 4));
-    r1 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + sb(state, 10) * 4));
-    r1 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + sb(state, 15) * 4));
+    let mut r1 = u32::from_le_bytes(subarray_copy(&CRYPTONIGHT_SBOX, sb(state, 0) * 4));
+    r1 ^= u32::from_le_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 1024 + sb(state, 5) * 4));
+    r1 ^= u32::from_le_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + sb(state, 10) * 4));
+    r1 ^= u32::from_le_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + sb(state, 15) * 4));
 
-    let mut r2 = u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, sb(state, 4) * 4));
-    r2 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 1024 + sb(state, 9) * 4));
-    r2 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + sb(state, 14) * 4));
-    r2 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + sb(state, 3) * 4));
+    let mut r2 = u32::from_le_bytes(subarray_copy(&CRYPTONIGHT_SBOX, sb(state, 4) * 4));
+    r2 ^= u32::from_le_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 1024 + sb(state, 9) * 4));
+    r2 ^= u32::from_le_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + sb(state, 14) * 4));
+    r2 ^= u32::from_le_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + sb(state, 3) * 4));
 
-    let mut r3 = u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, sb(state, 8) * 4));
-    r3 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 1024 + sb(state, 13) * 4));
-    r3 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + sb(state, 2) * 4));
-    r3 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + sb(state, 7) * 4));
+    let mut r3 = u32::from_le_bytes(subarray_copy(&CRYPTONIGHT_SBOX, sb(state, 8) * 4));
+    r3 ^= u32::from_le_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 1024 + sb(state, 13) * 4));
+    r3 ^= u32::from_le_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + sb(state, 2) * 4));
+    r3 ^= u32::from_le_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + sb(state, 7) * 4));
 
-    let mut r4 = u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, sb(state, 12) * 4));
-    r4 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 1024 + sb(state, 1) * 4));
-    r4 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + sb(state, 6) * 4));
-    r4 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + sb(state, 11) * 4));
+    let mut r4 = u32::from_le_bytes(subarray_copy(&CRYPTONIGHT_SBOX, sb(state, 12) * 4));
+    r4 ^= u32::from_le_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 1024 + sb(state, 1) * 4));
+    r4 ^= u32::from_le_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + sb(state, 6) * 4));
+    r4 ^= u32::from_le_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + sb(state, 11) * 4));
 
     let mut new_state =
         u128::from(r4) << 96 | u128::from(r3) << 64 | u128::from(r2) << 32 | u128::from(r1);
@@ -376,11 +390,10 @@ pub(crate) fn round_fwd(state: u128, key: u128) -> u128 {
     new_state
 }
 
-pub(crate) fn aesb_pseudo_round(block: u128, expanded_key: &[u8; EXPANDED_KEY_SIZE]) -> u128 {
+pub(crate) fn aesb_pseudo_round(block: u128, expanded_key: &[u128; NUM_AES_ROUND_KEYS]) -> u128 {
     let mut block = block;
-    for i in 0..NUM_AES_ROUND_KEYS {
-        let round_key = u128::from_le_bytes(subarray_copy(expanded_key, i * ROUND_KEY_SIZE));
-        block = round_fwd(block, round_key);
+    for round_key in expanded_key {
+        block = round_fwd(block, *round_key);
     }
 
     block
@@ -409,7 +422,12 @@ mod tests {
         fn test(key_hex: &str, expected_out: &str) {
             let key = hex_to_array(key_hex);
             let expanded_key = key_extend(&key);
-            assert_eq!(expected_out, hex::encode(expanded_key));
+            let expanded_key_hex = expanded_key
+                .iter()
+                .map(|value| hex::encode(value.to_le_bytes()))
+                .collect::<String>();
+            assert_eq!(expected_out[..64], expanded_key_hex[..64]);
+            assert_eq!(expected_out[64..], expanded_key_hex[64..]);
         }
 
         test(

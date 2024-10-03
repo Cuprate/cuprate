@@ -57,8 +57,13 @@ impl CnSlowHashState {
         u64::from_le_bytes(subarray_copy(&self.b, index * 8))
     }
 
-    fn get_k(&self) -> &[u8; AES_KEY_SIZE * 2] {
-        subarray(&self.b, 0)
+    fn get_k(&self) -> [u128; 4] {
+        [
+            u128::from_le_bytes(subarray_copy(&self.b, 0)),
+            u128::from_le_bytes(subarray_copy(&self.b, 16)),
+            u128::from_le_bytes(subarray_copy(&self.b, 32)),
+            u128::from_le_bytes(subarray_copy(&self.b, 48)),
+        ]
     }
 
     fn get_aes_key0(&self) -> &[u8; AES_KEY_SIZE] {
@@ -284,9 +289,7 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
     // Treat long_state as an array now that it's initialized on the heap
     let long_state: &mut [u128; MEMORY_BLOCKS] = subarray_mut(&mut long_state, 0);
 
-    let k = state.get_k(); // TODO: Change get_k
-    let k = k.as_ptr().cast::<[u128; 4]>();
-    let k = unsafe { &*k };
+    let k = state.get_k();
     let mut a = k[0] ^ k[2];
     b[0] = k[1] ^ k[3];
 
@@ -335,12 +338,10 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
     let mut text = state.get_init();
     let aes_expanded_key = cnaes::key_extend(state.get_aes_key1());
     for i in 0..MEMORY / INIT_SIZE_BYTE {
-        for j in 0..INIT_BLOCKS {
-            let mut block = text[j];
+        for (j, block) in text.iter_mut().enumerate() {
             let ls_index = i * INIT_BLOCKS + j;
-            block ^= long_state[ls_index];
-            block = cnaes::aesb_pseudo_round(block, &aes_expanded_key);
-            text[j] = block;
+            *block ^= long_state[ls_index];
+            *block = cnaes::aesb_pseudo_round(*block, &aes_expanded_key);
         }
     }
     state.set_init(&text);

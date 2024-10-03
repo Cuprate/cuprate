@@ -384,6 +384,7 @@ mod tests {
 
     #[test]
     fn test_variant2_shuffle_add() {
+        #[expect(clippy::cast_possible_truncation)]
         fn test(
             c1_hex: &str,
             a_hex: &str,
@@ -421,7 +422,7 @@ mod tests {
             );
             assert_eq!(hex::encode(c1.to_le_bytes()), c1_hex_end);
             let mut hash = Groestl256::new();
-            for (_, block) in long_state.iter().enumerate() {
+            for block in long_state {
                 hash.update(block.to_le_bytes());
             }
             let hash = hex::encode(hash.finalize().as_slice());
