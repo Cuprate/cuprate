@@ -1,0 +1,28 @@
+[package]
+name        = "cuprate-benchmark"
+version     = "0.0.0"
+edition     = "2021"
+description = "Cuprate's benchmarking binary"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/benches/benchmark/bin"
+keywords    = ["cuprate", "benchmarking", "binary"]
+
+[features]
+default  = ["example"]
+example  = ["dep:cuprate-benchmark-example"]
+database = ["dep:cuprate-database"]
+
+[dependencies]
+cuprate-benchmark-lib     = { path = "../lib" }
+cuprate-benchmark-example = { path = "../example", optional = true }
+cuprate-database          = { path = "../../../storage/database", optional = true }
+
+cfg-if     = { workspace = true }
+# serde      = { workspace = true, features = ["derive"] }
+# serde_json = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+
+[lints]
+workspace = true

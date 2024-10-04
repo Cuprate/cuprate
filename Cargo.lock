@@ -633,6 +633,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-benchmark"
+version = "0.0.0"
+dependencies = [
+ "cfg-if",
+ "cuprate-benchmark-example",
+ "cuprate-benchmark-lib",
+ "cuprate-database",
+]
+
+[[package]]
+name = "cuprate-benchmark-example"
+version = "0.0.0"
+dependencies = [
+ "cuprate-benchmark-lib",
+]
+
+[[package]]
+name = "cuprate-benchmark-lib"
+version = "0.0.0"
+
+[[package]]
 name = "cuprate-blockchain"
 version = "0.0.0"
 dependencies = [
@@ -819,27 +840,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
-]
-
-[[package]]
-name = "cuprate-harness"
-version = "0.0.0"
-dependencies = [
- "cfg-if",
- "cuprate-database",
- "cuprate-harness-lib",
- "cuprate-harness-test",
-]
-
-[[package]]
-name = "cuprate-harness-lib"
-version = "0.0.0"
-
-[[package]]
-name = "cuprate-harness-test"
-version = "0.0.0"
-dependencies = [
- "cuprate-harness-lib",
 ]
 
 [[package]]

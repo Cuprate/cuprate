@@ -4,9 +4,9 @@ members = [
 	# Binaries
 	"binaries/cuprated",
 	# Benchmarks
-	"benches/harness",
-	"benches/harness/lib",
-	"benches/harness/harness-test",
+	"benches/benchmark/bin",
+	"benches/benchmark/lib",
+	"benches/benchmark/example",
 	"benches/criterion/cuprate-json-rpc",
 	# Consensus
 	"consensus",
