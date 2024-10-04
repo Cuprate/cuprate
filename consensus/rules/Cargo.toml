@@ -11,6 +11,7 @@ proptest = ["cuprate-types/proptest"]
 rayon = ["dep:rayon"]
 
 [dependencies]
+cuprate-constants = { path = "../../constants", default-features = false }
 cuprate-helper = { path = "../../helper", default-features = false, features = ["std", "cast"] }
 cuprate-types = { path = "../../types", default-features = false }
 cuprate-cryptonight = {path = "../../cryptonight"}

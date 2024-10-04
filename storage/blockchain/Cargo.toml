@@ -38,6 +38,7 @@ rayon        = { workspace = true, optional = true }
 bytes = "1.7.2"
 
 [dev-dependencies]
+cuprate-constants  = { path = "../../constants" }
 cuprate-helper     = { path = "../../helper", features = ["thread", "cast"] }
 cuprate-test-utils = { path = "../../test-utils" }
 
