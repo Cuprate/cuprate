@@ -102,17 +102,14 @@ pub struct CupratedRpcHandler {
     /// Read handle to the blockchain database.
     pub blockchain_read: BlockchainReadHandle,
 
-    /// Write handle to the blockchain database.
-    pub blockchain_write: BlockchainWriteHandle,
-
     /// Handle to the blockchain manager.
     pub blockchain_manager: BlockchainManagerHandle,
 
     /// Read handle to the transaction pool database.
     pub txpool_read: TxpoolReadHandle,
 
-    /// Write handle to the transaction pool database.
-    pub txpool_write: TxpoolWriteHandle,
+    /// TODO: handle to txpool service.
+    pub txpool_manager: std::convert::Infallible,
 }
 
 impl CupratedRpcHandler {
@@ -120,18 +117,16 @@ impl CupratedRpcHandler {
     pub const fn new(
         restricted: bool,
         blockchain_read: BlockchainReadHandle,
-        blockchain_write: BlockchainWriteHandle,
         blockchain_manager: BlockchainManagerHandle,
         txpool_read: TxpoolReadHandle,
-        txpool_write: TxpoolWriteHandle,
+        txpool_manager: std::convert::Infallible,
     ) -> Self {
         Self {
             restricted,
             blockchain_read,
-            blockchain_write,
             blockchain_manager,
             txpool_read,
-            txpool_write,
+            txpool_manager,
         }
     }
 }
