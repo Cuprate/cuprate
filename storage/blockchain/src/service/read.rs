@@ -119,7 +119,6 @@ fn map_request(
         R::BlockByHash(hash) => block_by_hash(env, hash),
         R::TotalTxCount => total_tx_count(env),
         R::DatabaseSize => database_size(env),
-        R::Difficulty(height) => difficulty(env, height),
         R::OutputHistogram(input) => output_histogram(env, input),
         R::CoinbaseTxSum { height, count } => coinbase_tx_sum(env, height, count),
         R::MinerData => miner_data(env),
@@ -639,11 +638,6 @@ fn database_size(env: &ConcreteEnv) -> ResponseResult {
         database_size: todo!(),
         free_space: todo!(),
     })
-}
-
-/// [`BlockchainReadRequest::Difficulty()`]
-fn difficulty(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
-    Ok(BlockchainResponse::Difficulty(todo!()))
 }
 
 /// [`BlockchainReadRequest::OutputHistogram`]

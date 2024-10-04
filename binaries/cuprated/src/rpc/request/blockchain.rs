@@ -269,25 +269,6 @@ pub(super) async fn database_size(
     Ok((database_size, free_space))
 }
 
-/// [`BlockchainReadRequest::Difficulty`]
-pub(super) async fn difficulty(
-    mut blockchain_read: BlockchainReadHandle,
-    block_height: u64,
-) -> Result<u128, Error> {
-    let BlockchainResponse::Difficulty(difficulty) = blockchain_read
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::Difficulty(u64_to_usize(
-            block_height,
-        )))
-        .await?
-    else {
-        unreachable!();
-    };
-
-    Ok(difficulty)
-}
-
 /// [`BlockchainReadRequest::OutputHistogram`]
 pub(super) async fn output_histogram(
     mut blockchain_read: BlockchainReadHandle,

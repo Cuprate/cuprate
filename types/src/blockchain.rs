@@ -108,9 +108,7 @@ pub enum BlockchainReadRequest {
     AltBlocksInChain(ChainId),
 
     /// Get a [`Block`] by its height.
-    Block {
-        height: usize,
-    },
+    Block { height: usize },
 
     /// Get a [`Block`] by its hash.
     BlockByHash([u8; 32]),
@@ -121,9 +119,6 @@ pub enum BlockchainReadRequest {
     /// Get the current size of the database.
     DatabaseSize,
 
-    // Get the difficulty for the next block in the chain.
-    Difficulty(usize),
-
     /// Get an output histogram.
     ///
     /// TODO: document fields after impl.
@@ -133,10 +128,7 @@ pub enum BlockchainReadRequest {
     /// `N` last blocks starting at particular height.
     ///
     /// TODO: document fields after impl.
-    CoinbaseTxSum {
-        height: usize,
-        count: u64,
-    },
+    CoinbaseTxSum { height: usize, count: u64 },
 
     /// Get the necessary data to create a custom block template.
     MinerData,
@@ -281,9 +273,6 @@ pub enum BlockchainResponse {
         /// the disk where the database is located.
         free_space: u64,
     },
-
-    /// Response to [`BlockchainReadRequest::Difficulty`].
-    Difficulty(u128),
 
     /// Response to [`BlockchainReadRequest::OutputHistogram`].
     OutputHistogram(Vec<OutputHistogramEntry>),
