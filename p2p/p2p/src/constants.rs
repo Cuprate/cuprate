@@ -3,6 +3,12 @@ use std::time::Duration;
 /// The timeout we set on handshakes.
 pub(crate) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(20);
 
+/// The timeout we set on receiving ping requests
+pub(crate) const PING_REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// The amount of concurrency (maximum number of simultaneous tasks) we allow for handling ping requests
+pub(crate) const PING_REQUEST_CONCURRENCY: usize = 2;
+
 /// The maximum amount of connections to make to seed nodes for when we need peers.
 pub(crate) const MAX_SEED_CONNECTIONS: usize = 3;
 
@@ -10,6 +16,7 @@ pub(crate) const MAX_SEED_CONNECTIONS: usize = 3;
 pub(crate) const OUTBOUND_CONNECTION_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// The durations of a short ban.
+#[cfg_attr(not(test), expect(dead_code))]
 pub(crate) const SHORT_BAN: Duration = Duration::from_secs(60 * 10);
 
 /// The durations of a medium ban.

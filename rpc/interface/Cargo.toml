@@ -1,0 +1,37 @@
+[package]
+name        = "cuprate-rpc-interface"
+version     = "0.0.0"
+edition     = "2021"
+description = "Cuprate's RPC interface library"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/rpc/cuprate-rpc-interface"
+keywords    = ["cuprate", "rpc", "interface"]
+
+[features]
+default  = ["dummy", "serde"]
+dummy    = []
+
+[dependencies]
+cuprate-epee-encoding = { path = "../../net/epee-encoding", default-features = false }
+cuprate-json-rpc      = { path = "../json-rpc", default-features = false }
+cuprate-rpc-types     = { path = "../types", features = ["serde", "epee"], default-features = false }
+cuprate-helper        = { path = "../../helper", features = ["asynch"], default-features = false }
+
+anyhow     = { workspace = true }
+axum       = { version = "0.7.5", features = ["json"], default-features = false }
+serde      = { workspace = true, optional = true }
+tower      = { workspace = true }
+paste      = { workspace = true }
+futures    = { workspace = true }
+
+[dev-dependencies]
+cuprate-test-utils = { path = "../../test-utils" }
+
+axum       = { version = "0.7.5", features = ["json", "tokio", "http2"] }
+serde_json = { workspace = true, features = ["std"] }
+tokio      = { workspace = true, features = ["full"] }
+ureq       = { version = "2.10.1", features = ["json"] }
+
+[lints]
+workspace = true

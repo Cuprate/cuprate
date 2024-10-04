@@ -1,6 +1,6 @@
 [package]
 name        = "cuprate-database"
-version     = "0.0.0"
+version     = "0.0.1"
 edition     = "2021"
 description = "Cuprate's database abstraction"
 license     = "MIT"
@@ -9,7 +9,30 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/storage/database"
 keywords    = ["cuprate", "database"]
 
 [features]
+# default     = ["heed"]
+# default     = ["redb"]
+# default     = ["redb-memory"]
+heed        = ["dep:heed"]
+redb        = ["dep:redb"]
+redb-memory = ["redb"]
 
 [dependencies]
+bytemuck  = { version = "1.18.0", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
+bytes     = { workspace = true }
+cfg-if    = { workspace = true }
+page_size = { version = "0.6.0" } # Needed for database resizes, they must be a multiple of the OS page size.
+paste     = { workspace = true }
+thiserror = { workspace = true }
+
+# Optional features.
+heed  = { version = "0.20.5", features = ["read-txn-no-tls"], optional = true }
+redb  = { version = "2.1.3", optional = true }
+serde = { workspace = true, optional = true }
 
 [dev-dependencies]
+bytemuck  = { version = "1.18.0", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
+page_size = { version = "0.6.0" }
+tempfile  = { version = "3.12.0" }
+
+[lints]
+workspace = true

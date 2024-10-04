@@ -1,11 +1,10 @@
 use std::time::Duration;
 
+use super::*;
 use crate::{
-    pool::{start_dandelion_pool, IncomingTx},
+    pool::{start_dandelion_pool_manager, IncomingTx},
     DandelionConfig, DandelionRouter, Graph, TxState,
 };
-
-use super::*;
 
 #[tokio::test]
 async fn basic_functionality() {
@@ -21,9 +20,9 @@ async fn basic_functionality() {
 
     let router = DandelionRouter::new(broadcast_svc, outbound_peer_svc, config);
 
-    let (pool_svc, pool) = mock_in_memory_backing_pool();
+    let (pool_svc, _pool) = mock_in_memory_backing_pool();
 
-    let mut pool_svc = start_dandelion_pool(15, router, pool_svc, config);
+    let mut pool_svc = start_dandelion_pool_manager(15, router, pool_svc, config);
 
     pool_svc
         .ready()
@@ -32,11 +31,13 @@ async fn basic_functionality() {
         .call(IncomingTx {
             tx: 0_usize,
             tx_id: 1_usize,
-            tx_state: TxState::Fluff,
+            routing_state: TxState::Fluff,
         })
         .await
         .unwrap();
 
-    assert!(pool.lock().unwrap().contains_key(&1));
-    assert!(broadcast_rx.try_recv().is_ok())
+    // TODO: the DandelionPoolManager doesn't handle adding txs to the pool, add more tests here to test
+    // all functionality.
+    //assert!(pool.lock().unwrap().contains_key(&1));
+    assert!(broadcast_rx.try_recv().is_ok());
 }

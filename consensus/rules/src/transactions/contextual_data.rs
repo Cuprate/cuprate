@@ -26,7 +26,7 @@ pub fn get_absolute_offsets(relative_offsets: &[u64]) -> Result<Vec<u64>, Transa
     Ok(offsets)
 }
 
-/// Inserts the output IDs that are needed to verify the transaction inputs into the provided HashMap.
+/// Inserts the output IDs that are needed to verify the transaction inputs into the provided `HashMap`.
 ///
 /// This will error if the inputs are empty
 /// <https://cuprate.github.io/monero-book/consensus_rules/transactions.html#no-empty-inputs>
@@ -49,7 +49,7 @@ pub fn insert_ring_member_ids(
                 .entry(amount.unwrap_or(0))
                 .or_default()
                 .extend(get_absolute_offsets(key_offsets)?),
-            _ => return Err(TransactionError::IncorrectInputType),
+            Input::Gen(_) => return Err(TransactionError::IncorrectInputType),
         }
     }
     Ok(())
@@ -60,7 +60,7 @@ pub fn insert_ring_member_ids(
 pub enum Rings {
     /// Legacy, pre-ringCT, rings.
     Legacy(Vec<Vec<EdwardsPoint>>),
-    /// RingCT rings, (outkey, amount commitment).
+    /// `RingCT` rings, (outkey, amount commitment).
     RingCT(Vec<Vec<[EdwardsPoint; 2]>>),
 }
 
@@ -70,7 +70,7 @@ pub struct TxRingMembersInfo {
     pub rings: Rings,
     /// Information on the structure of the decoys, must be [`None`] for txs before [`HardFork::V1`]
     pub decoy_info: Option<DecoyInfo>,
-    pub youngest_used_out_height: u64,
+    pub youngest_used_out_height: usize,
     pub time_locked_outs: Vec<Timelock>,
 }
 
@@ -103,15 +103,15 @@ impl DecoyInfo {
     ///
     /// So:
     ///
-    /// amount_outs_on_chain(inputs`[X]`) == outputs_with_amount`[X]`
+    /// `amount_outs_on_chain(inputs[X]) == outputs_with_amount[X]`
     ///
     /// Do not rely on this function to do consensus checks!
     ///
     pub fn new(
         inputs: &[Input],
         outputs_with_amount: impl Fn(u64) -> usize,
-        hf: &HardFork,
-    ) -> Result<DecoyInfo, TransactionError> {
+        hf: HardFork,
+    ) -> Result<Self, TransactionError> {
         let mut min_decoys = usize::MAX;
         let mut max_decoys = usize::MIN;
         let mut mixable = 0;
@@ -119,7 +119,7 @@ impl DecoyInfo {
 
         let minimum_decoys = minimum_decoys(hf);
 
-        for inp in inputs.iter() {
+        for inp in inputs {
             match inp {
                 Input::ToKey {
                     key_offsets,
@@ -149,11 +149,11 @@ impl DecoyInfo {
                     min_decoys = min(min_decoys, numb_decoys);
                     max_decoys = max(max_decoys, numb_decoys);
                 }
-                _ => return Err(TransactionError::IncorrectInputType),
+                Input::Gen(_) => return Err(TransactionError::IncorrectInputType),
             }
         }
 
-        Ok(DecoyInfo {
+        Ok(Self {
             mixable,
             not_mixable,
             min_decoys,
@@ -166,7 +166,7 @@ impl DecoyInfo {
 /// **There are exceptions to this always being the minimum decoys**
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#default-minimum-decoys>
-pub(crate) fn minimum_decoys(hf: &HardFork) -> usize {
+pub(crate) fn minimum_decoys(hf: HardFork) -> usize {
     use HardFork as HF;
     match hf {
         HF::V1 => panic!("hard-fork 1 does not use these rules!"),

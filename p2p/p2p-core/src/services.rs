@@ -6,30 +6,16 @@ use crate::{
     NetworkZone,
 };
 
-pub enum PeerSyncRequest<N: NetworkZone> {
-    /// Request some peers to sync from.
-    ///
-    /// This takes in the current cumulative difficulty of our chain and will return peers that
-    /// claim to have a higher cumulative difficulty.
-    PeersToSyncFrom {
-        current_cumulative_difficulty: u128,
-        block_needed: Option<u64>,
-    },
-    /// Add/update a peers core sync data to the sync state service.
-    IncomingCoreSyncData(InternalPeerID<N::Addr>, ConnectionHandle, CoreSyncData),
-}
-
-pub enum PeerSyncResponse<N: NetworkZone> {
-    /// The return value of [`PeerSyncRequest::PeersToSyncFrom`].
-    PeersToSyncFrom(Vec<InternalPeerID<N::Addr>>),
-    /// A generic ok response.
-    Ok,
-}
-
+/// A request to the core sync service for our node's [`CoreSyncData`].
 pub struct CoreSyncDataRequest;
 
+/// A response from the core sync service containing our [`CoreSyncData`].
 pub struct CoreSyncDataResponse(pub CoreSyncData);
 
+/// A [`NetworkZone`] specific [`PeerListEntryBase`].
+///
+/// Using this type instead of [`PeerListEntryBase`] in the address book makes
+/// usage easier for the rest of the P2P code as we can guarantee only the correct addresses will be stored and returned.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[cfg_attr(
     feature = "borsh",
@@ -44,7 +30,7 @@ pub struct ZoneSpecificPeerListEntryBase<A: NetZoneAddress> {
     pub rpc_credits_per_hash: u32,
 }
 
-impl<A: NetZoneAddress> From<ZoneSpecificPeerListEntryBase<A>> for cuprate_wire::PeerListEntryBase {
+impl<A: NetZoneAddress> From<ZoneSpecificPeerListEntryBase<A>> for PeerListEntryBase {
     fn from(value: ZoneSpecificPeerListEntryBase<A>) -> Self {
         Self {
             adr: value.adr.into(),
@@ -57,6 +43,7 @@ impl<A: NetZoneAddress> From<ZoneSpecificPeerListEntryBase<A>> for cuprate_wire:
     }
 }
 
+/// An error converting a [`PeerListEntryBase`] into a [`ZoneSpecificPeerListEntryBase`].
 #[derive(Debug, thiserror::Error)]
 pub enum PeerListConversionError {
     #[error("Address is in incorrect zone")]
@@ -65,9 +52,7 @@ pub enum PeerListConversionError {
     PruningSeed(#[from] PruningError),
 }
 
-impl<A: NetZoneAddress> TryFrom<cuprate_wire::PeerListEntryBase>
-    for ZoneSpecificPeerListEntryBase<A>
-{
+impl<A: NetZoneAddress> TryFrom<PeerListEntryBase> for ZoneSpecificPeerListEntryBase<A> {
     type Error = PeerListConversionError;
 
     fn try_from(value: PeerListEntryBase) -> Result<Self, Self::Error> {
@@ -82,6 +67,7 @@ impl<A: NetZoneAddress> TryFrom<cuprate_wire::PeerListEntryBase>
     }
 }
 
+/// A request to the address book service.
 pub enum AddressBookRequest<Z: NetworkZone> {
     /// Tells the address book that we have connected or received a connection from a peer.
     NewConnection {
@@ -105,24 +91,25 @@ pub enum AddressBookRequest<Z: NetworkZone> {
     /// Takes a random white peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
     /// block at that height according to it's pruning seed
-    TakeRandomWhitePeer { height: Option<u64> },
+    TakeRandomWhitePeer { height: Option<usize> },
     /// Takes a random gray peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
     /// block at that height according to it's pruning seed
-    TakeRandomGrayPeer { height: Option<u64> },
+    TakeRandomGrayPeer { height: Option<usize> },
     /// Takes a random peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
     /// block at that height according to it's pruning seed.
     ///
     /// The address book will look in the white peer list first, then the gray
     /// one if no peer is found.
-    TakeRandomPeer { height: Option<u64> },
+    TakeRandomPeer { height: Option<usize> },
     /// Gets the specified number of white peers, or less if we don't have enough.
     GetWhitePeers(usize),
     /// Checks if the given peer is banned.
     IsPeerBanned(Z::Addr),
 }
 
+/// A response from the address book service.
 pub enum AddressBookResponse<Z: NetworkZone> {
     Ok,
     Peer(ZoneSpecificPeerListEntryBase<Z::Addr>),

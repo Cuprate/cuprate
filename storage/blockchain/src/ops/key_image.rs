@@ -1,9 +1,9 @@
 //! Key image functions.
 
 //---------------------------------------------------------------------------------------------------- Import
+use cuprate_database::{DatabaseRo, DatabaseRw, RuntimeError};
+
 use crate::{
-    database::{DatabaseRo, DatabaseRw},
-    error::RuntimeError,
     ops::macros::{doc_add_block_inner_invariant, doc_error},
     tables::KeyImages,
     types::KeyImage,
@@ -47,12 +47,13 @@ pub fn key_image_exists(
 mod test {
     use hex_literal::hex;
 
+    use cuprate_database::{Env, EnvInner, TxRw};
+
     use super::*;
+
     use crate::{
-        tables::{Tables, TablesMut},
+        tables::{OpenTables, Tables, TablesMut},
         tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
-        transaction::TxRw,
-        Env, EnvInner,
     };
 
     /// Tests all above key-image functions.

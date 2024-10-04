@@ -9,7 +9,7 @@ pub struct ContainerAsBlob<T: Containerable + EpeeValue>(Vec<T>);
 
 impl<T: Containerable + EpeeValue> From<Vec<T>> for ContainerAsBlob<T> {
     fn from(value: Vec<T>) -> Self {
-        ContainerAsBlob(value)
+        Self(value)
     }
 }
 
@@ -36,9 +36,7 @@ impl<T: Containerable + EpeeValue> EpeeValue for ContainerAsBlob<T> {
             ));
         }
 
-        Ok(ContainerAsBlob(
-            bytes.chunks(T::SIZE).map(T::from_bytes).collect(),
-        ))
+        Ok(Self(bytes.chunks(T::SIZE).map(T::from_bytes).collect()))
     }
 
     fn should_write(&self) -> bool {
@@ -46,10 +44,10 @@ impl<T: Containerable + EpeeValue> EpeeValue for ContainerAsBlob<T> {
     }
 
     fn epee_default_value() -> Option<Self> {
-        Some(ContainerAsBlob(vec![]))
+        Some(Self(vec![]))
     }
 
-    fn write<B: BufMut>(self, w: &mut B) -> crate::Result<()> {
+    fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
         let mut buf = BytesMut::with_capacity(self.0.len() * T::SIZE);
         self.0.iter().for_each(|tt| tt.push_bytes(&mut buf));
         buf.write(w)
@@ -70,7 +68,7 @@ pub trait Containerable {
 macro_rules! int_container_able {
     ($int:ty ) => {
         impl Containerable for $int {
-            const SIZE: usize = std::mem::size_of::<$int>();
+            const SIZE: usize = size_of::<$int>();
 
             fn from_bytes(bytes: &[u8]) -> Self {
                 <$int>::from_le_bytes(bytes.try_into().unwrap())

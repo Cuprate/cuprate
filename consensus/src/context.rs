@@ -27,16 +27,22 @@ pub(crate) mod hardforks;
 pub(crate) mod rx_vms;
 pub(crate) mod weight;
 
+mod alt_chains;
 mod task;
 mod tokens;
 
+use cuprate_types::Chain;
+use difficulty::DifficultyCache;
+use rx_vms::RandomXVm;
+use weight::BlockWeightsCache;
+
+pub(crate) use alt_chains::{sealed::AltChainRequestToken, AltChainContextCache};
 pub use difficulty::DifficultyCacheConfig;
 pub use hardforks::HardForkConfig;
-use rx_vms::RandomXVM;
 pub use tokens::*;
 pub use weight::BlockWeightsCacheConfig;
 
-const BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW: u64 = 60;
+pub(crate) const BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW: u64 = 60;
 
 /// Config for the context service.
 pub struct ContextConfig {
@@ -50,8 +56,8 @@ pub struct ContextConfig {
 
 impl ContextConfig {
     /// Get the config for main-net.
-    pub fn main_net() -> ContextConfig {
-        ContextConfig {
+    pub const fn main_net() -> Self {
+        Self {
             hard_fork_cfg: HardForkConfig::main_net(),
             difficulty_cfg: DifficultyCacheConfig::main_net(),
             weights_config: BlockWeightsCacheConfig::main_net(),
@@ -59,8 +65,8 @@ impl ContextConfig {
     }
 
     /// Get the config for stage-net.
-    pub fn stage_net() -> ContextConfig {
-        ContextConfig {
+    pub const fn stage_net() -> Self {
+        Self {
             hard_fork_cfg: HardForkConfig::stage_net(),
             // These 2 have the same config as main-net.
             difficulty_cfg: DifficultyCacheConfig::main_net(),
@@ -69,8 +75,8 @@ impl ContextConfig {
     }
 
     /// Get the config for test-net.
-    pub fn test_net() -> ContextConfig {
-        ContextConfig {
+    pub const fn test_net() -> Self {
+        Self {
             hard_fork_cfg: HardForkConfig::test_net(),
             // These 2 have the same config as main-net.
             difficulty_cfg: DifficultyCacheConfig::main_net(),
@@ -85,20 +91,7 @@ impl ContextConfig {
 pub async fn initialize_blockchain_context<D>(
     cfg: ContextConfig,
     database: D,
-) -> Result<
-    impl Service<
-            BlockChainContextRequest,
-            Response = BlockChainContextResponse,
-            Error = tower::BoxError,
-            Future = impl Future<Output = Result<BlockChainContextResponse, tower::BoxError>>
-                         + Send
-                         + 'static,
-        > + Clone
-        + Send
-        + Sync
-        + 'static,
-    ExtendedConsensusError,
->
+) -> Result<BlockChainContextService, ExtendedConsensusError>
 where
     D: Database + Clone + Send + Sync + 'static,
     D::Future: Send + 'static,
@@ -121,9 +114,6 @@ where
 pub struct RawBlockChainContext {
     /// The current cumulative difficulty.
     pub cumulative_difficulty: u128,
-    /// RandomX VMs, this maps seeds height to VM. Will definitely contain the VM required to calculate the current blocks
-    /// POW hash (if a RX VM is required), may contain more.
-    pub rx_vms: HashMap<u64, Arc<RandomXVM>>,
     /// Context to verify a block, as needed by [`cuprate-consensus-rules`]
     pub context_to_verify_block: ContextToVerifyBlock,
     /// The median long term block weight.
@@ -162,10 +152,10 @@ impl RawBlockChainContext {
         }
     }
 
-    /// Returns the next blocks long term weight from it's block weight.
+    /// Returns the next blocks long term weight from its block weight.
     pub fn next_block_long_term_weight(&self, block_weight: usize) -> usize {
         weight::calculate_block_long_term_weight(
-            &self.current_hf,
+            self.current_hf,
             block_weight,
             self.median_long_term_weight,
         )
@@ -201,7 +191,7 @@ impl BlockChainContext {
     }
 
     /// Returns the blockchain context without checking the validity token.
-    pub fn unchecked_blockchain_context(&self) -> &RawBlockChainContext {
+    pub const fn unchecked_blockchain_context(&self) -> &RawBlockChainContext {
         &self.raw
     }
 }
@@ -212,7 +202,7 @@ pub struct NewBlockData {
     /// The blocks hash.
     pub block_hash: [u8; 32],
     /// The blocks height.
-    pub height: u64,
+    pub height: usize,
     /// The blocks timestamp.
     pub timestamp: u64,
     /// The blocks weight.
@@ -232,6 +222,8 @@ pub struct NewBlockData {
 pub enum BlockChainContextRequest {
     /// Get the current blockchain context.
     GetContext,
+    /// Gets the current `RandomX` VM.
+    GetCurrentRxVm,
     /// Get the next difficulties for these blocks.
     ///
     /// Inputs: a list of block timestamps and hfs
@@ -244,17 +236,95 @@ pub enum BlockChainContextRequest {
     /// seed.
     ///
     /// This should include the seed used to init this VM and the VM.
-    NewRXVM(([u8; 32], Arc<RandomXVM>)),
+    NewRXVM(([u8; 32], Arc<RandomXVm>)),
     /// A request to add a new block to the cache.
     Update(NewBlockData),
+    /// Pop blocks from the cache to the specified height.
+    PopBlocks {
+        /// The number of blocks to pop from the top of the chain.
+        ///
+        /// # Panics
+        ///
+        /// This will panic if the number of blocks will pop the genesis block.
+        numb_blocks: usize,
+    },
+    /// Clear the alt chain context caches.
+    ClearAltCache,
+    //----------------------------------------------------------------------------------------------------------- AltChainRequests
+    /// A request for an alt chain context cache.
+    ///
+    /// This variant is private and is not callable from outside this crate, the block verifier service will
+    /// handle getting the alt cache.
+    AltChainContextCache {
+        /// The previous block field in a [`BlockHeader`](monero_serai::block::BlockHeader).
+        prev_id: [u8; 32],
+        /// An internal token to prevent external crates calling this request.
+        _token: AltChainRequestToken,
+    },
+    /// A request for a difficulty cache of an alternative chin.
+    ///
+    /// This variant is private and is not callable from outside this crate, the block verifier service will
+    /// handle getting the difficulty cache of an alt chain.
+    AltChainDifficultyCache {
+        /// The previous block field in a [`BlockHeader`](monero_serai::block::BlockHeader).
+        prev_id: [u8; 32],
+        /// An internal token to prevent external crates calling this request.
+        _token: AltChainRequestToken,
+    },
+    /// A request for a block weight cache of an alternative chin.
+    ///
+    /// This variant is private and is not callable from outside this crate, the block verifier service will
+    /// handle getting the weight cache of an alt chain.
+    AltChainWeightCache {
+        /// The previous block field in a [`BlockHeader`](monero_serai::block::BlockHeader).
+        prev_id: [u8; 32],
+        /// An internal token to prevent external crates calling this request.
+        _token: AltChainRequestToken,
+    },
+    /// A request for a RX VM for an alternative chin.
+    ///
+    /// Response variant: [`BlockChainContextResponse::AltChainRxVM`].
+    ///
+    /// This variant is private and is not callable from outside this crate, the block verifier service will
+    /// handle getting the randomX VM of an alt chain.
+    AltChainRxVM {
+        /// The height the `RandomX` VM is needed for.
+        height: usize,
+        /// The chain to look in for the seed.
+        chain: Chain,
+        /// An internal token to prevent external crates calling this request.
+        _token: AltChainRequestToken,
+    },
+    /// A request to add an alt chain context cache to the context cache.
+    ///
+    /// This variant is private and is not callable from outside this crate, the block verifier service will
+    /// handle returning the alt cache to the context service.
+    AddAltChainContextCache {
+        /// The previous block field in a [`BlockHeader`](monero_serai::block::BlockHeader).
+        prev_id: [u8; 32],
+        /// The cache.
+        cache: Box<AltChainContextCache>,
+        /// An internal token to prevent external crates calling this request.
+        _token: AltChainRequestToken,
+    },
 }
 
 pub enum BlockChainContextResponse {
     /// Blockchain context response.
     Context(BlockChainContext),
+    /// A map of seed height to `RandomX` VMs.
+    RxVms(HashMap<usize, Arc<RandomXVm>>),
     /// A list of difficulties.
     BatchDifficulties(Vec<u128>),
-    /// Ok response.
+    /// An alt chain context cache.
+    AltChainContextCache(Box<AltChainContextCache>),
+    /// A difficulty cache for an alt chain.
+    AltChainDifficultyCache(DifficultyCache),
+    /// A randomX VM for an alt chain.
+    AltChainRxVM(Arc<RandomXVm>),
+    /// A weight cache for an alt chain
+    AltChainWeightCache(BlockWeightsCache),
+    /// A generic Ok response.
     Ok,
 }
 

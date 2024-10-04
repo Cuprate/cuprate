@@ -1,3 +1,5 @@
+#![expect(unused_crate_dependencies, reason = "outer test module")]
+
 use cuprate_epee_encoding::{epee_object, from_bytes, to_bytes};
 
 struct Child {
@@ -37,6 +39,7 @@ epee_object!(
 );
 
 #[test]
+#[expect(clippy::float_cmp)]
 fn epee_flatten() {
     let val2 = ParentChild {
         h: 38.9,

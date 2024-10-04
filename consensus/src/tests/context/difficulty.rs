@@ -1,15 +1,15 @@
 use std::collections::VecDeque;
 
-use proptest::collection::size_range;
+use proptest::collection::{size_range, vec};
 use proptest::{prelude::*, prop_assert_eq, prop_compose, proptest};
-
-use cuprate_helper::num::median;
 
 use crate::{
     context::difficulty::*,
     tests::{context::data::DIF_3000000_3002000, mock_db::*},
     HardFork,
 };
+use cuprate_helper::num::median;
+use cuprate_types::Chain;
 
 const TEST_WINDOW: usize = 72;
 const TEST_CUT: usize = 6;
@@ -17,7 +17,7 @@ const TEST_LAG: usize = 2;
 
 const TEST_TOTAL_ACCOUNTED_BLOCKS: usize = TEST_WINDOW + TEST_LAG;
 
-pub const TEST_DIFFICULTY_CONFIG: DifficultyCacheConfig =
+pub(crate) const TEST_DIFFICULTY_CONFIG: DifficultyCacheConfig =
     DifficultyCacheConfig::new(TEST_WINDOW, TEST_CUT, TEST_LAG);
 
 #[tokio::test]
@@ -26,12 +26,16 @@ async fn first_3_blocks_fixed_difficulty() -> Result<(), tower::BoxError> {
     let genesis = DummyBlockExtendedHeader::default().with_difficulty_info(0, 1);
     db_builder.add_block(genesis);
 
-    let mut difficulty_cache =
-        DifficultyCache::init_from_chain_height(1, TEST_DIFFICULTY_CONFIG, db_builder.finish(None))
-            .await?;
+    let mut difficulty_cache = DifficultyCache::init_from_chain_height(
+        1,
+        TEST_DIFFICULTY_CONFIG,
+        db_builder.finish(None),
+        Chain::Main,
+    )
+    .await?;
 
     for height in 1..3 {
-        assert_eq!(difficulty_cache.next_difficulty(&HardFork::V1), 1);
+        assert_eq!(difficulty_cache.next_difficulty(HardFork::V1), 1);
         difficulty_cache.new_block(height, 0, u128::MAX);
     }
     Ok(())
@@ -42,9 +46,13 @@ async fn genesis_block_skipped() -> Result<(), tower::BoxError> {
     let mut db_builder = DummyDatabaseBuilder::default();
     let genesis = DummyBlockExtendedHeader::default().with_difficulty_info(0, 1);
     db_builder.add_block(genesis);
-    let diff_cache =
-        DifficultyCache::init_from_chain_height(1, TEST_DIFFICULTY_CONFIG, db_builder.finish(None))
-            .await?;
+    let diff_cache = DifficultyCache::init_from_chain_height(
+        1,
+        TEST_DIFFICULTY_CONFIG,
+        db_builder.finish(None),
+        Chain::Main,
+    )
+    .await?;
     assert!(diff_cache.cumulative_difficulties.is_empty());
     assert!(diff_cache.timestamps.is_empty());
     Ok(())
@@ -55,32 +63,30 @@ async fn calculate_diff_3000000_3002000() -> Result<(), tower::BoxError> {
     let cfg = DifficultyCacheConfig::main_net();
 
     let mut db_builder = DummyDatabaseBuilder::default();
-    for (cum_dif, timestamp) in DIF_3000000_3002000
-        .iter()
-        .take(cfg.total_block_count() as usize)
-    {
+    for (cum_dif, timestamp) in DIF_3000000_3002000.iter().take(cfg.total_block_count()) {
         db_builder.add_block(
             DummyBlockExtendedHeader::default().with_difficulty_info(*timestamp, *cum_dif),
-        )
+        );
     }
 
     let mut diff_cache = DifficultyCache::init_from_chain_height(
         3_000_720,
-        cfg.clone(),
+        cfg,
         db_builder.finish(Some(3_000_720)),
+        Chain::Main,
     )
     .await?;
 
     for (i, diff_info) in DIF_3000000_3002000
         .windows(2)
-        .skip(cfg.total_block_count() as usize - 1)
+        .skip(cfg.total_block_count() - 1)
         .enumerate()
     {
         let diff = diff_info[1].0 - diff_info[0].0;
 
-        assert_eq!(diff_cache.next_difficulty(&HardFork::V16), diff);
+        assert_eq!(diff_cache.next_difficulty(HardFork::V16), diff);
 
-        diff_cache.new_block(3_000_720 + i as u64, diff_info[1].1, diff_info[1].0);
+        diff_cache.new_block(3_000_720 + i, diff_info[1].1, diff_info[1].0);
     }
 
     Ok(())
@@ -95,7 +101,7 @@ prop_compose! {
         let (timestamps, mut cumulative_difficulties): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
         cumulative_difficulties.sort_unstable();
         DifficultyCache {
-            last_accounted_height: timestamps.len().try_into().unwrap(),
+            last_accounted_height: timestamps.len(),
             config: TEST_DIFFICULTY_CONFIG,
             timestamps: timestamps.into(),
             // we generate cumulative_difficulties in range 0..u64::MAX as if the generated values are close to u128::MAX
@@ -133,22 +139,22 @@ proptest! {
             no_lag_cache.cumulative_difficulties.pop_front();
         }
         // get the difficulty
-        let next_diff_no_lag = no_lag_cache.next_difficulty(&hf);
+        let next_diff_no_lag = no_lag_cache.next_difficulty(hf);
 
         for _ in 0..TEST_LAG {
             // add new blocks to the lagged cache
             diff_cache.new_block(diff_cache.last_accounted_height+1, timestamp, cumulative_difficulty);
         }
         // they both should now be the same
-        prop_assert_eq!(diff_cache.next_difficulty(&hf), next_diff_no_lag)
+        prop_assert_eq!(diff_cache.next_difficulty(hf), next_diff_no_lag);
     }
 
     #[test]
     fn next_difficulty_consistent(diff_cache in arb_difficulty_cache(TEST_TOTAL_ACCOUNTED_BLOCKS), hf in any::<HardFork>()) {
-        let first_call = diff_cache.next_difficulty(&hf);
-        prop_assert_eq!(first_call, diff_cache.next_difficulty(&hf));
-        prop_assert_eq!(first_call, diff_cache.next_difficulty(&hf));
-        prop_assert_eq!(first_call, diff_cache.next_difficulty(&hf));
+        let first_call = diff_cache.next_difficulty(hf);
+        prop_assert_eq!(first_call, diff_cache.next_difficulty(hf));
+        prop_assert_eq!(first_call, diff_cache.next_difficulty(hf));
+        prop_assert_eq!(first_call, diff_cache.next_difficulty(hf));
     }
 
     #[test]
@@ -156,7 +162,7 @@ proptest! {
         let mut timestamps: VecDeque<u64> = timestamps.into();
 
         let diff_cache = DifficultyCache {
-            last_accounted_height: (TEST_WINDOW -1).try_into().unwrap(),
+            last_accounted_height: TEST_WINDOW -1,
             config: TEST_DIFFICULTY_CONFIG,
             timestamps: timestamps.clone(),
             // we dont need cumulative_difficulties
@@ -172,7 +178,7 @@ proptest! {
 
     #[test]
     fn window_size_kept_constant(mut diff_cache in arb_difficulty_cache(TEST_TOTAL_ACCOUNTED_BLOCKS), new_blocks in any::<Vec<(u64, u128)>>()) {
-        for (timestamp, cumulative_difficulty) in new_blocks.into_iter() {
+        for (timestamp, cumulative_difficulty) in new_blocks {
             diff_cache.new_block(diff_cache.last_accounted_height+1, timestamp, cumulative_difficulty);
             prop_assert_eq!(diff_cache.timestamps.len(), TEST_TOTAL_ACCOUNTED_BLOCKS);
             prop_assert_eq!(diff_cache.cumulative_difficulties.len(), TEST_TOTAL_ACCOUNTED_BLOCKS);
@@ -187,7 +193,7 @@ proptest! {
     ) {
         let cache = diff_cache.clone();
 
-        diff_cache.next_difficulties(timestamps.into_iter().zip([hf].into_iter().cycle()).collect(), &hf);
+        diff_cache.next_difficulties(timestamps.into_iter().zip(std::iter::once(hf).cycle()).collect(), hf);
 
         prop_assert_eq!(diff_cache, cache);
     }
@@ -198,14 +204,62 @@ proptest! {
         timestamps in any_with::<Vec<u64>>(size_range(0..1000).lift()),
         hf in any::<HardFork>(),
     ) {
-        let timestamps: Vec<_> = timestamps.into_iter().zip([hf].into_iter().cycle()).collect();
+        let timestamps: Vec<_> = timestamps.into_iter().zip(std::iter::once(hf).cycle()).collect();
 
-        let diffs = diff_cache.next_difficulties(timestamps.clone(), &hf);
+        let diffs = diff_cache.next_difficulties(timestamps.clone(), hf);
 
         for (timestamp, diff) in timestamps.into_iter().zip(diffs.into_iter()) {
-            prop_assert_eq!(diff_cache.next_difficulty(&timestamp.1), diff);
+            prop_assert_eq!(diff_cache.next_difficulty(timestamp.1), diff);
             diff_cache.new_block(diff_cache.last_accounted_height +1, timestamp.0, diff +  diff_cache.cumulative_difficulty());
         }
 
+    }
+
+    #[test]
+    fn pop_blocks_below_total_blocks(
+        mut database in arb_dummy_database(20),
+        new_blocks in vec(any::<(u64, u128)>(), 0..500)
+    ) {
+        tokio_test::block_on(async move {
+            let old_cache = DifficultyCache::init_from_chain_height(19, TEST_DIFFICULTY_CONFIG, database.clone(), Chain::Main).await.unwrap();
+
+            let blocks_to_pop = new_blocks.len();
+
+            let mut new_cache = old_cache.clone();
+            for (timestamp, cumulative_difficulty) in new_blocks {
+                database.add_block(DummyBlockExtendedHeader::default().with_difficulty_info(timestamp, cumulative_difficulty));
+                new_cache.new_block(new_cache.last_accounted_height+1, timestamp, cumulative_difficulty);
+            }
+
+            new_cache.pop_blocks_main_chain(blocks_to_pop, database).await?;
+
+            prop_assert_eq!(new_cache, old_cache);
+
+            Ok::<_, TestCaseError>(())
+        })?;
+    }
+
+    #[test]
+    fn pop_blocks_above_total_blocks(
+        mut database in arb_dummy_database(2000),
+        new_blocks in vec(any::<(u64, u128)>(), 0..5_000)
+    ) {
+        tokio_test::block_on(async move {
+            let old_cache = DifficultyCache::init_from_chain_height(1999, TEST_DIFFICULTY_CONFIG, database.clone(), Chain::Main).await.unwrap();
+
+            let blocks_to_pop = new_blocks.len();
+
+            let mut new_cache = old_cache.clone();
+            for (timestamp, cumulative_difficulty) in new_blocks {
+                database.add_block(DummyBlockExtendedHeader::default().with_difficulty_info(timestamp, cumulative_difficulty));
+                new_cache.new_block(new_cache.last_accounted_height+1, timestamp, cumulative_difficulty);
+            }
+
+            new_cache.pop_blocks_main_chain(blocks_to_pop, database).await?;
+
+            prop_assert_eq!(new_cache, old_cache);
+
+            Ok::<_, TestCaseError>(())
+        })?;
     }
 }

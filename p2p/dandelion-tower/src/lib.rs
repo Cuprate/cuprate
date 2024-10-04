@@ -2,17 +2,17 @@
 //!
 //! This crate implements [dandelion++](https://arxiv.org/pdf/1805.11060.pdf), using [`tower`].
 //!  
-//! This crate provides 2 [`tower::Service`]s, a [`DandelionRouter`] and a [`DandelionPool`](pool::DandelionPool).
+//! This crate provides 2 [`tower::Service`]s, a [`DandelionRouter`] and a [`DandelionPoolManager`](pool::DandelionPoolManager).
 //! The router is pretty minimal and only handles the absolute necessary data to route transactions, whereas the
 //! pool keeps track of all data necessary for dandelion++ but requires you to provide a backing tx-pool.
 //!
-//! This split was done not because the [`DandelionPool`](pool::DandelionPool) is unnecessary but because it is hard
-//! to cover a wide range of projects when abstracting over the tx-pool. Not using the [`DandelionPool`](pool::DandelionPool)
+//! This split was done not because the [`DandelionPoolManager`](pool::DandelionPoolManager) is unnecessary but because it is hard
+//! to cover a wide range of projects when abstracting over the tx-pool. Not using the [`DandelionPoolManager`](pool::DandelionPoolManager)
 //! requires you to implement part of the paper yourself.
 //!
 //! # Features
 //!
-//! This crate only has one feature `txpool` which enables [`DandelionPool`](pool::DandelionPool).
+//! This crate only has one feature `txpool` which enables [`DandelionPoolManager`](pool::DandelionPoolManager).
 //!
 //! # Needed Services
 //!
@@ -26,9 +26,9 @@
 //! The diffuse service should have a request of [`DiffuseRequest`](traits::DiffuseRequest) and it's error
 //! should be [`tower::BoxError`].
 //!
-//! ## Outbound Peer Discoverer
+//! ## Outbound Peer `TryStream`
 //!
-//! The outbound peer [`Discover`](tower::discover::Discover) should provide a stream of randomly selected outbound
+//! The outbound peer [`TryStream`](futures::TryStream) should provide a stream of randomly selected outbound
 //! peers, these peers will then be used to route stem txs to.
 //!
 //! The peers will not be returned anywhere, so it is recommended to wrap them in some sort of drop guard that returns
@@ -37,15 +37,15 @@
 //! ## Peer Service
 //!
 //! This service represents a connection to an individual peer, this should be returned from the Outbound Peer
-//! Discover. This should immediately send the transaction to the peer when requested, i.e. it should _not_ set
+//! `TryStream`. This should immediately send the transaction to the peer when requested, it should _not_ set
 //! a timer.
 //!
-//! The diffuse service should have a request of [`StemRequest`](traits::StemRequest) and it's error
+//! The peer service should have a request of [`StemRequest`](traits::StemRequest) and its error
 //! should be [`tower::BoxError`].
 //!
 //! ## Backing Pool
 //!
-//! ([`DandelionPool`](pool::DandelionPool) only)
+//! ([`DandelionPoolManager`](pool::DandelionPoolManager) only)
 //!
 //! This service is a backing tx-pool, in memory or on disk.
 //! The backing pool should have a request of [`TxStoreRequest`](traits::TxStoreRequest) and a response of

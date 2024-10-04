@@ -5,14 +5,14 @@
 //! database operations.
 //!
 //! # `impl Table`
-//! `ops/` functions take [`Tables`](crate::tables::Tables) and
+//! Functions in this module take [`Tables`](crate::tables::Tables) and
 //! [`TablesMut`](crate::tables::TablesMut) directly - these are
 //! _already opened_ database tables.
 //!
-//! As such, the function puts the responsibility
-//! of transactions, tables, etc on the caller.
+//! As such, the responsibility of
+//! transactions, tables, etc, are on the caller.
 //!
-//! This does mean these functions are mostly as lean
+//! Notably, this means that these functions are as lean
 //! as possible, so calling them in a loop should be okay.
 //!
 //! # Atomicity
@@ -20,7 +20,7 @@
 //! it is up to the caller to decide what happens if one them return
 //! an error.
 //!
-//! To maintain atomicity, transactions should be [`abort`](crate::transaction::TxRw::abort)ed
+//! To maintain atomicity, transactions should be [`abort`](cuprate_database::TxRw::abort)ed
 //! if one of the functions failed.
 //!
 //! For example, if [`add_block()`](block::add_block) is called and returns an [`Err`],
@@ -54,26 +54,28 @@
 //! ```rust
 //! use hex_literal::hex;
 //!
-//! use cuprate_test_utils::data::block_v16_tx0;
-//!
+//! use cuprate_test_utils::data::BLOCK_V16_TX0;
 //! use cuprate_blockchain::{
-//!     ConcreteEnv,
+//!     cuprate_database::{
+//!         ConcreteEnv,
+//!         Env, EnvInner,
+//!         DatabaseRo, DatabaseRw, TxRo, TxRw,
+//!     },
 //!     config::ConfigBuilder,
-//!     Env, EnvInner,
-//!     tables::{Tables, TablesMut},
-//!     DatabaseRo, DatabaseRw, TxRo, TxRw,
+//!     tables::{Tables, TablesMut, OpenTables},
 //!     ops::block::{add_block, pop_block},
 //! };
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a configuration for the database environment.
-//! let db_dir = tempfile::tempdir()?;
+//! let tmp_dir = tempfile::tempdir()?;
+//! let db_dir = tmp_dir.path().to_owned();
 //! let config = ConfigBuilder::new()
-//!     .db_directory(db_dir.path().to_path_buf())
+//!     .db_directory(db_dir.into())
 //!     .build();
 //!
 //! // Initialize the database environment.
-//! let env = ConcreteEnv::open(config)?;
+//! let env = cuprate_blockchain::open(config)?;
 //!
 //! // Open up a transaction + tables for writing.
 //! let env_inner = env.env_inner();
@@ -81,7 +83,7 @@
 //! let mut tables = env_inner.open_tables_mut(&tx_rw)?;
 //!
 //! // Write a block to the database.
-//! let mut block = block_v16_tx0().clone();
+//! let mut block = BLOCK_V16_TX0.clone();
 //! # block.height = 0;
 //! add_block(&block, &mut tables)?;
 //!
@@ -92,7 +94,7 @@
 //! // Read the data, assert it is correct.
 //! let tx_rw = env_inner.tx_rw()?;
 //! let mut tables = env_inner.open_tables_mut(&tx_rw)?;
-//! let (height, hash, serai_block) = pop_block(&mut tables)?;
+//! let (height, hash, serai_block) = pop_block(None, &mut tables)?;
 //!
 //! assert_eq!(height, 0);
 //! assert_eq!(serai_block, block.block);
@@ -100,6 +102,7 @@
 //! # Ok(()) }
 //! ```
 
+pub mod alt_block;
 pub mod block;
 pub mod blockchain;
 pub mod key_image;

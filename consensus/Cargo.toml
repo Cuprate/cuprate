@@ -12,6 +12,7 @@ cuprate-helper = { path = "../helper", default-features = false, features = ["st
 cuprate-consensus-rules = { path = "./rules", features = ["rayon"] }
 cuprate-types = { path = "../types" }
 
+cfg-if = { workspace = true }
 thiserror = { workspace = true }
 tower = { workspace = true, features = ["util"] }
 tracing = { workspace = true, features = ["std", "attributes"] }
@@ -19,9 +20,6 @@ futures = { workspace = true, features = ["std", "async-await"] }
 
 randomx-rs = { workspace = true }
 monero-serai = { workspace = true, features = ["std"] }
-multiexp = { workspace = true }
-dalek-ff-group = { workspace = true }
-curve25519-dalek = { workspace = true }
 
 rayon = { workspace = true }
 thread_local = { workspace = true }
@@ -29,13 +27,19 @@ tokio = { workspace = true, features = ["rt"] }
 tokio-util = { workspace = true }
 
 hex = { workspace = true }
+rand = { workspace = true }
 
 [dev-dependencies]
 cuprate-test-utils = { path = "../test-utils" }
 cuprate-consensus-rules =  {path = "./rules", features = ["proptest"]}
 
 hex-literal = { workspace = true }
+curve25519-dalek = { workspace = true }
 
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"]}
+tokio-test = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
+
+[lints]
+workspace = true

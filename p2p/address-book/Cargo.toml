@@ -7,8 +7,8 @@ authors = ["Boog900"]
 
 
 [dependencies]
+cuprate-constants = { path = "../../constants" }
 cuprate-pruning = { path = "../../pruning" }
-cuprate-wire = { path= "../../net/wire" }
 cuprate-p2p-core = { path = "../p2p-core" }
 
 tower = { workspace = true, features = ["util"] }
@@ -29,3 +29,6 @@ borsh = { workspace = true, features = ["derive", "std"]}
 cuprate-test-utils = {path = "../../test-utils"}
 
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"]}
+
+[lints]
+workspace = true

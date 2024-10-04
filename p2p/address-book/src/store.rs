@@ -1,11 +1,16 @@
+#![expect(
+    single_use_lifetimes,
+    reason = "false positive on generated derive code on `SerPeerDataV1`"
+)]
+
 use std::fs;
 
 use borsh::{from_slice, to_vec, BorshDeserialize, BorshSerialize};
 use tokio::task::{spawn_blocking, JoinHandle};
 
-use cuprate_p2p_core::{services::ZoneSpecificPeerListEntryBase, NetZoneAddress, NetworkZone};
+use cuprate_p2p_core::{services::ZoneSpecificPeerListEntryBase, NetZoneAddress};
 
-use crate::{peer_list::PeerList, AddressBookConfig};
+use crate::{peer_list::PeerList, AddressBookConfig, BorshNetworkZone};
 
 // TODO: store anchor and ban list.
 
@@ -21,7 +26,7 @@ struct DeserPeerDataV1<A: NetZoneAddress> {
     gray_list: Vec<ZoneSpecificPeerListEntryBase<A>>,
 }
 
-pub fn save_peers_to_disk<Z: NetworkZone>(
+pub(crate) fn save_peers_to_disk<Z: BorshNetworkZone>(
     cfg: &AddressBookConfig,
     white_list: &PeerList<Z>,
     gray_list: &PeerList<Z>,
@@ -38,7 +43,7 @@ pub fn save_peers_to_disk<Z: NetworkZone>(
     spawn_blocking(move || fs::write(&file, &data))
 }
 
-pub async fn read_peers_from_disk<Z: NetworkZone>(
+pub(crate) async fn read_peers_from_disk<Z: BorshNetworkZone>(
     cfg: &AddressBookConfig,
 ) -> Result<
     (

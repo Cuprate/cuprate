@@ -12,7 +12,10 @@ use tower::ServiceExt;
 use tracing::instrument;
 
 use cuprate_helper::num::median;
-use cuprate_types::blockchain::{BCReadRequest, BCResponse};
+use cuprate_types::{
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
+    Chain,
+};
 
 use crate::{Database, ExtendedConsensusError, HardFork};
 
@@ -28,7 +31,7 @@ const DIFFICULTY_LAG: usize = 15;
 
 /// Configuration for the difficulty cache.
 ///
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct DifficultyCacheConfig {
     pub(crate) window: usize,
     pub(crate) cut: usize,
@@ -40,24 +43,24 @@ impl DifficultyCacheConfig {
     ///
     /// # Notes
     /// You probably do not need this, use [`DifficultyCacheConfig::main_net`] instead.
-    pub const fn new(window: usize, cut: usize, lag: usize) -> DifficultyCacheConfig {
-        DifficultyCacheConfig { window, cut, lag }
+    pub const fn new(window: usize, cut: usize, lag: usize) -> Self {
+        Self { window, cut, lag }
     }
 
     /// Returns the total amount of blocks we need to track to calculate difficulty
-    pub fn total_block_count(&self) -> u64 {
-        (self.window + self.lag).try_into().unwrap()
+    pub const fn total_block_count(&self) -> usize {
+        self.window + self.lag
     }
 
     /// The amount of blocks we account for after removing the outliers.
-    pub fn accounted_window_len(&self) -> usize {
+    pub const fn accounted_window_len(&self) -> usize {
         self.window - 2 * self.cut
     }
 
     /// Returns the config needed for [`Mainnet`](cuprate_helper::network::Network::Mainnet). This is also the
     /// config for all other current networks.
-    pub const fn main_net() -> DifficultyCacheConfig {
-        DifficultyCacheConfig {
+    pub const fn main_net() -> Self {
+        Self {
             window: DIFFICULTY_WINDOW,
             cut: DIFFICULTY_CUT,
             lag: DIFFICULTY_LAG,
@@ -68,14 +71,14 @@ impl DifficultyCacheConfig {
 /// This struct is able to calculate difficulties from blockchain information.
 ///
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) struct DifficultyCache {
+pub struct DifficultyCache {
     /// The list of timestamps in the window.
     /// len <= [`DIFFICULTY_BLOCKS_COUNT`]
     pub(crate) timestamps: VecDeque<u64>,
     /// The current cumulative difficulty of the chain.
     pub(crate) cumulative_difficulties: VecDeque<u128>,
     /// The last height we accounted for.
-    pub(crate) last_accounted_height: u64,
+    pub(crate) last_accounted_height: usize,
     /// The config
     pub(crate) config: DifficultyCacheConfig,
 }
@@ -84,9 +87,10 @@ impl DifficultyCache {
     /// Initialize the difficulty cache from the specified chain height.
     #[instrument(name = "init_difficulty_cache", level = "info", skip(database, config))]
     pub async fn init_from_chain_height<D: Database + Clone>(
-        chain_height: u64,
+        chain_height: usize,
         config: DifficultyCacheConfig,
         database: D,
+        chain: Chain,
     ) -> Result<Self, ExtendedConsensusError> {
         tracing::info!("Initializing difficulty cache this may take a while.");
 
@@ -98,7 +102,9 @@ impl DifficultyCache {
         }
 
         let (timestamps, cumulative_difficulties) =
-            get_blocks_in_pow_info(database.clone(), block_start..chain_height).await?;
+            get_blocks_in_pow_info(database.clone(), block_start..chain_height, chain).await?;
+
+        debug_assert_eq!(timestamps.len(), chain_height - block_start);
 
         tracing::info!(
             "Current chain height: {}, accounting for {} blocks timestamps",
@@ -106,7 +112,7 @@ impl DifficultyCache {
             timestamps.len()
         );
 
-        let diff = DifficultyCache {
+        let diff = Self {
             timestamps,
             cumulative_difficulties,
             last_accounted_height: chain_height - 1,
@@ -116,8 +122,68 @@ impl DifficultyCache {
         Ok(diff)
     }
 
+    /// Pop some blocks from the top of the cache.
+    ///
+    /// The cache will be returned to the state it would have been in `numb_blocks` ago.
+    ///
+    /// # Invariant
+    ///
+    /// This _must_ only be used on a main-chain cache.
+    #[instrument(name = "pop_blocks_diff_cache", skip_all, fields(numb_blocks = numb_blocks))]
+    pub async fn pop_blocks_main_chain<D: Database + Clone>(
+        &mut self,
+        numb_blocks: usize,
+        database: D,
+    ) -> Result<(), ExtendedConsensusError> {
+        let Some(retained_blocks) = self.timestamps.len().checked_sub(numb_blocks) else {
+            // More blocks to pop than we have in the cache, so just restart a new cache.
+            *self = Self::init_from_chain_height(
+                self.last_accounted_height - numb_blocks + 1,
+                self.config,
+                database,
+                Chain::Main,
+            )
+            .await?;
+
+            return Ok(());
+        };
+
+        let current_chain_height = self.last_accounted_height + 1;
+
+        let mut new_start_height = current_chain_height
+            .saturating_sub(self.config.total_block_count())
+            .saturating_sub(numb_blocks);
+
+        // skip the genesis block.
+        if new_start_height == 0 {
+            new_start_height = 1;
+        }
+
+        let (mut timestamps, mut cumulative_difficulties) = get_blocks_in_pow_info(
+            database,
+            new_start_height
+                // current_chain_height - self.timestamps.len() blocks are already in the cache.
+                ..(current_chain_height - self.timestamps.len()),
+            Chain::Main,
+        )
+        .await?;
+
+        self.timestamps.drain(retained_blocks..);
+        self.cumulative_difficulties.drain(retained_blocks..);
+        timestamps.append(&mut self.timestamps);
+        cumulative_difficulties.append(&mut self.cumulative_difficulties);
+
+        self.timestamps = timestamps;
+        self.cumulative_difficulties = cumulative_difficulties;
+        self.last_accounted_height -= numb_blocks;
+
+        assert_eq!(self.timestamps.len(), self.cumulative_difficulties.len());
+
+        Ok(())
+    }
+
     /// Add a new block to the difficulty cache.
-    pub fn new_block(&mut self, height: u64, timestamp: u64, cumulative_difficulty: u128) {
+    pub fn new_block(&mut self, height: usize, timestamp: u64, cumulative_difficulty: u128) {
         assert_eq!(self.last_accounted_height + 1, height);
         self.last_accounted_height += 1;
 
@@ -129,7 +195,7 @@ impl DifficultyCache {
         self.cumulative_difficulties
             .push_back(cumulative_difficulty);
 
-        if u64::try_from(self.timestamps.len()).unwrap() > self.config.total_block_count() {
+        if self.timestamps.len() > self.config.total_block_count() {
             self.timestamps.pop_front();
             self.cumulative_difficulties.pop_front();
         }
@@ -137,8 +203,8 @@ impl DifficultyCache {
 
     /// Returns the required difficulty for the next block.
     ///
-    /// See: https://cuprate.github.io/monero-book/consensus_rules/blocks/difficulty.html#calculating-difficulty
-    pub fn next_difficulty(&self, hf: &HardFork) -> u128 {
+    /// See: <https://cuprate.github.io/monero-book/consensus_rules/blocks/difficulty.html#calculating-difficulty>
+    pub fn next_difficulty(&self, hf: HardFork) -> u128 {
         next_difficulty(
             &self.config,
             &self.timestamps,
@@ -157,7 +223,7 @@ impl DifficultyCache {
     pub fn next_difficulties(
         &self,
         blocks: Vec<(u64, HardFork)>,
-        current_hf: &HardFork,
+        current_hf: HardFork,
     ) -> Vec<u128> {
         let mut timestamps = self.timestamps.clone();
         let mut cumulative_difficulties = self.cumulative_difficulties.clone();
@@ -166,26 +232,22 @@ impl DifficultyCache {
 
         difficulties.push(self.next_difficulty(current_hf));
 
-        let mut diff_info_popped = Vec::new();
-
         for (new_timestamp, hf) in blocks {
             timestamps.push_back(new_timestamp);
 
             let last_cum_diff = cumulative_difficulties.back().copied().unwrap_or(1);
             cumulative_difficulties.push_back(last_cum_diff + *difficulties.last().unwrap());
 
-            if u64::try_from(timestamps.len()).unwrap() > self.config.total_block_count() {
-                diff_info_popped.push((
-                    timestamps.pop_front().unwrap(),
-                    cumulative_difficulties.pop_front().unwrap(),
-                ));
+            if timestamps.len() > self.config.total_block_count() {
+                timestamps.pop_front().unwrap();
+                cumulative_difficulties.pop_front().unwrap();
             }
 
             difficulties.push(next_difficulty(
                 &self.config,
                 &timestamps,
                 &cumulative_difficulties,
-                &hf,
+                hf,
             ));
         }
 
@@ -196,22 +258,21 @@ impl DifficultyCache {
     ///
     /// Will return [`None`] if there aren't enough blocks.
     pub fn median_timestamp(&self, numb_blocks: usize) -> Option<u64> {
-        let mut timestamps =
-            if self.last_accounted_height + 1 == u64::try_from(numb_blocks).unwrap() {
-                // if the chain height is equal to `numb_blocks` add the genesis block.
-                // otherwise if the chain height is less than `numb_blocks` None is returned
-                // and if its more than it would be excluded from calculations.
-                let mut timestamps = self.timestamps.clone();
-                // all genesis blocks have a timestamp of 0.
-                // https://cuprate.github.io/monero-book/consensus_rules/genesis_block.html
-                timestamps.push_front(0);
-                timestamps.into()
-            } else {
-                self.timestamps
-                    .range(self.timestamps.len().checked_sub(numb_blocks)?..)
-                    .copied()
-                    .collect::<Vec<_>>()
-            };
+        let mut timestamps = if self.last_accounted_height + 1 == numb_blocks {
+            // if the chain height is equal to `numb_blocks` add the genesis block.
+            // otherwise if the chain height is less than `numb_blocks` None is returned
+            // and if it's more it would be excluded from calculations.
+            let mut timestamps = self.timestamps.clone();
+            // all genesis blocks have a timestamp of 0.
+            // https://cuprate.github.io/monero-book/consensus_rules/genesis_block.html
+            timestamps.push_front(0);
+            timestamps.into()
+        } else {
+            self.timestamps
+                .range(self.timestamps.len().checked_sub(numb_blocks)?..)
+                .copied()
+                .collect::<Vec<_>>()
+        };
         timestamps.sort_unstable();
         debug_assert_eq!(timestamps.len(), numb_blocks);
 
@@ -230,12 +291,12 @@ impl DifficultyCache {
     }
 }
 
-/// Calculates the next difficulty with the inputted config/timestamps/cumulative_difficulties.
+/// Calculates the next difficulty with the inputted `config/timestamps/cumulative_difficulties`.
 fn next_difficulty(
     config: &DifficultyCacheConfig,
     timestamps: &VecDeque<u64>,
     cumulative_difficulties: &VecDeque<u128>,
-    hf: &HardFork,
+    hf: HardFork,
 ) -> u128 {
     if timestamps.len() <= 1 {
         return 1;
@@ -298,12 +359,16 @@ fn get_window_start_and_end(
 #[instrument(name = "get_blocks_timestamps", skip(database), level = "info")]
 async fn get_blocks_in_pow_info<D: Database + Clone>(
     database: D,
-    block_heights: Range<u64>,
+    block_heights: Range<usize>,
+    chain: Chain,
 ) -> Result<(VecDeque<u64>, VecDeque<u128>), ExtendedConsensusError> {
     tracing::info!("Getting blocks timestamps");
 
-    let BCResponse::BlockExtendedHeaderInRange(ext_header) = database
-        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(block_heights))
+    let BlockchainResponse::BlockExtendedHeaderInRange(ext_header) = database
+        .oneshot(BlockchainReadRequest::BlockExtendedHeaderInRange(
+            block_heights,
+            chain,
+        ))
         .await?
     else {
         panic!("Database sent incorrect response");

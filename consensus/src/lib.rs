@@ -7,10 +7,20 @@
 //! - [`TxVerifierService`] Which handles transaction verification.
 //!
 //! This crate is generic over the database which is implemented as a [`tower::Service`]. To
-//! implement a database you need to have a service which accepts [`BCReadRequest`] and responds
-//! with [`BCResponse`].
+//! implement a database you need to have a service which accepts [`BlockchainReadRequest`] and responds
+//! with [`BlockchainResponse`].
 //!
-use cuprate_consensus_rules::{ConsensusError, HardFork};
+
+cfg_if::cfg_if! {
+    // Used in external `tests/`.
+    if #[cfg(test)] {
+        use cuprate_test_utils as _;
+        use curve25519_dalek as _;
+        use hex_literal as _;
+    }
+}
+
+use cuprate_consensus_rules::ConsensusError;
 
 mod batch_verifier;
 pub mod block;
@@ -27,10 +37,14 @@ pub use context::{
 pub use transactions::{TxVerifierService, VerifyTxRequest, VerifyTxResponse};
 
 // re-export.
-pub use cuprate_types::blockchain::{BCReadRequest, BCResponse};
+pub use cuprate_types::{
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
+    HardFork,
+};
 
 /// An Error returned from one of the consensus services.
 #[derive(Debug, thiserror::Error)]
+#[expect(variant_size_differences)]
 pub enum ExtendedConsensusError {
     /// A consensus error.
     #[error("{0}")]
@@ -44,10 +58,14 @@ pub enum ExtendedConsensusError {
     /// One or more statements in the batch verifier was invalid.
     #[error("One or more statements in the batch verifier was invalid.")]
     OneOrMoreBatchVerificationStatementsInvalid,
+    /// A request to verify a batch of blocks had no blocks in the batch.
+    #[error("A request to verify a batch of blocks had no blocks in the batch.")]
+    NoBlocksToVerify,
 }
 
 /// Initialize the 2 verifier [`tower::Service`]s (block and transaction).
-pub async fn initialize_verifier<D, Ctx>(
+#[expect(clippy::type_complexity)]
+pub fn initialize_verifier<D, Ctx>(
     database: D,
     ctx_svc: Ctx,
 ) -> Result<
@@ -80,7 +98,7 @@ use __private::Database;
 pub mod __private {
     use std::future::Future;
 
-    use cuprate_types::blockchain::{BCReadRequest, BCResponse};
+    use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
 
     /// A type alias trait used to represent a database, so we don't have to write [`tower::Service`] bounds
     /// everywhere.
@@ -91,8 +109,8 @@ pub mod __private {
     /// ```
     pub trait Database:
         tower::Service<
-        BCReadRequest,
-        Response = BCResponse,
+        BlockchainReadRequest,
+        Response = BlockchainResponse,
         Error = tower::BoxError,
         Future = Self::Future2,
     >
@@ -100,8 +118,13 @@ pub mod __private {
         type Future2: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static;
     }
 
-    impl<T: tower::Service<BCReadRequest, Response = BCResponse, Error = tower::BoxError>>
-        crate::Database for T
+    impl<
+            T: tower::Service<
+                BlockchainReadRequest,
+                Response = BlockchainResponse,
+                Error = tower::BoxError,
+            >,
+        > Database for T
     where
         T::Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
     {

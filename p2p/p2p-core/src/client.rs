@@ -1,6 +1,6 @@
 use std::{
     fmt::{Debug, Display, Formatter},
-    sync::Arc,
+    sync::{Arc, Mutex},
     task::{ready, Context, Poll},
 };
 
@@ -15,6 +15,7 @@ use tracing::Instrument;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_pruning::PruningSeed;
+use cuprate_wire::CoreSyncData;
 
 use crate::{
     handles::{ConnectionGuard, ConnectionHandle},
@@ -24,10 +25,11 @@ use crate::{
 mod connection;
 mod connector;
 pub mod handshaker;
+mod request_handler;
 mod timeout_monitor;
 
 pub use connector::{ConnectRequest, Connector};
-pub use handshaker::{DoHandshakeRequest, HandShaker, HandshakeError};
+pub use handshaker::{DoHandshakeRequest, HandshakeError, HandshakerBuilder};
 
 /// An internal identifier for a given peer, will be their address if known
 /// or a random u128 if not.
@@ -42,8 +44,8 @@ pub enum InternalPeerID<A> {
 impl<A: Display> Display for InternalPeerID<A> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            InternalPeerID::KnownAddr(addr) => addr.fmt(f),
-            InternalPeerID::Unknown(id) => f.write_str(&format!("Unknown, ID: {id}")),
+            Self::KnownAddr(addr) => addr.fmt(f),
+            Self::Unknown(id) => f.write_str(&format!("Unknown, ID: {id}")),
         }
     }
 }
@@ -58,8 +60,17 @@ pub struct PeerInformation<A> {
     pub handle: ConnectionHandle,
     /// The direction of this connection (inbound|outbound).
     pub direction: ConnectionDirection,
-    /// The peers pruning seed.
+    /// The peer's [`PruningSeed`].
     pub pruning_seed: PruningSeed,
+    /// The [`CoreSyncData`] of this peer.
+    ///
+    /// Data across fields are not necessarily related, so [`CoreSyncData::top_id`] is not always the
+    /// block hash for the block at height one below [`CoreSyncData::current_height`].
+    ///
+    /// This value is behind a [`Mutex`] and is updated whenever the peer sends new information related
+    /// to their sync state. It is publicly accessible to anyone who has a peers [`Client`] handle. You
+    /// probably should not mutate this value unless you are creating a custom [`ProtocolRequestHandler`](crate::ProtocolRequestHandler).
+    pub core_sync_data: Arc<Mutex<CoreSyncData>>,
 }
 
 /// This represents a connection to a peer.
@@ -112,7 +123,7 @@ impl<Z: NetworkZone> Client<Z> {
     fn set_err(&self, err: PeerError) -> tower::BoxError {
         let err_str = err.to_string();
         match self.error.try_insert_err(err) {
-            Ok(_) => err_str,
+            Ok(()) => err_str,
             Err(e) => e.to_string(),
         }
         .into()
@@ -168,9 +179,8 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
                 TrySendError::Closed(req) | TrySendError::Full(req) => {
                     self.set_err(PeerError::ClientChannelClosed);
 
-                    let _ = req
-                        .response_channel
-                        .send(Err(PeerError::ClientChannelClosed.into()));
+                    let resp = Err(PeerError::ClientChannelClosed.into());
+                    drop(req.response_channel.send(resp));
                 }
             }
         }
@@ -188,7 +198,8 @@ pub fn mock_client<Z: NetworkZone, S>(
     mut request_handler: S,
 ) -> Client<Z>
 where
-    S: crate::PeerRequestHandler,
+    S: Service<PeerRequest, Response = PeerResponse, Error = tower::BoxError> + Send + 'static,
+    S::Future: Send + 'static,
 {
     let (tx, mut rx) = mpsc::channel(1);
 
@@ -214,7 +225,7 @@ where
 
                 tracing::debug!("Sending back response");
 
-                let _ = req.response_channel.send(Ok(res));
+                drop(req.response_channel.send(Ok(res)));
             }
         }
         .instrument(task_span),

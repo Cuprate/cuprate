@@ -2,14 +2,15 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY, Scalar};
-use monero_serai::{transaction::Timelock, H};
+use monero_serai::{generators::H, transaction::Timelock};
 
+use cuprate_database::{
+    RuntimeError, {DatabaseRo, DatabaseRw},
+};
 use cuprate_helper::map::u64_to_timelock;
 use cuprate_types::OutputOnChain;
 
 use crate::{
-    database::{DatabaseRo, DatabaseRw},
-    error::RuntimeError,
     ops::macros::{doc_add_block_inner_invariant, doc_error},
     tables::{Outputs, RctOutputs, Tables, TablesMut, TxUnlockTime},
     types::{Amount, AmountIndex, Output, OutputFlags, PreRctOutputId, RctOutput},
@@ -156,7 +157,7 @@ pub fn output_to_output_on_chain(
 ) -> Result<OutputOnChain, RuntimeError> {
     // FIXME: implement lookup table for common values:
     // <https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/ringct/rctOps.cpp#L322>
-    let commitment = ED25519_BASEPOINT_POINT + H() * Scalar::from(amount);
+    let commitment = ED25519_BASEPOINT_POINT + *H * Scalar::from(amount);
 
     let time_lock = if output
         .output_flags
@@ -172,7 +173,7 @@ pub fn output_to_output_on_chain(
         .unwrap_or(None);
 
     Ok(OutputOnChain {
-        height: u64::from(output.height),
+        height: output.height as usize,
         time_lock,
         key,
         commitment,
@@ -212,7 +213,7 @@ pub fn rct_output_to_output_on_chain(
         .unwrap_or(None);
 
     Ok(OutputOnChain {
-        height: u64::from(rct_output.height),
+        height: rct_output.height as usize,
         time_lock,
         key,
         commitment,
@@ -247,14 +248,16 @@ pub fn id_to_output_on_chain(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{
-        tables::{Tables, TablesMut},
-        tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
-        types::OutputFlags,
-        Env, EnvInner,
-    };
 
     use pretty_assertions::assert_eq;
+
+    use cuprate_database::{Env, EnvInner};
+
+    use crate::{
+        tables::{OpenTables, Tables, TablesMut},
+        tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
+        types::OutputFlags,
+    };
 
     /// Dummy `Output`.
     const OUTPUT: Output = Output {
@@ -313,7 +316,8 @@ mod test {
             // Assert proper tables were added to.
             AssertTableLen {
                 block_infos: 0,
-                block_blobs: 0,
+                block_header_blobs: 0,
+                block_txs_hashes: 0,
                 block_heights: 0,
                 key_images: 0,
                 num_outputs: 1,
