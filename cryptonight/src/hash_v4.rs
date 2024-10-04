@@ -355,55 +355,28 @@ pub(crate) fn random_math_init(
 }
 
 /// Original C code:
-/// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/variant4_random_math.h#L180-L439>
-pub(crate) fn v4_random_math(code: &[Instruction; 71], r: &mut [u32; 9]) {
+/// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/variant4_random_math.h#L81-L168>
+#[unroll::unroll_for_loops]
+#[expect(clippy::needless_return)] // last iteration of unrolled loop
+pub(crate) fn v4_random_math(code: &[Instruction; NUM_INSTRUCTIONS_MAX + 1], r: &mut [u32; 9]) {
     const REG_BITS: u32 = 32;
 
-    macro_rules! v4_exec {
-        ($i:expr) => {
-            let op = &code[$i];
-            let src: u32 = r[op.src_index as usize];
-            let dst = &mut r[op.dst_index as usize];
-            match op.opcode {
-                Mul => *dst = dst.wrapping_mul(src),
-                Add => *dst = dst.wrapping_add(src).wrapping_add(op.c),
-                Sub => *dst = dst.wrapping_sub(src),
-                Ror => {
-                    let shift = src % REG_BITS;
-                    *dst = dst.rotate_right(shift);
-                }
-                Rol => {
-                    let shift = src % REG_BITS;
-                    *dst = dst.rotate_left(shift);
-                }
-                Xor => *dst ^= src,
-                Ret => return,
-            }
-        };
+    // loop unrolling requires literal values in the range
+    debug_assert_eq!(NUM_INSTRUCTIONS_MAX, 70);
+    for i in 0..70 {
+        let op = &code[i];
+        let src = r[op.src_index as usize];
+        let dst = &mut r[op.dst_index as usize];
+        match op.opcode {
+            Mul => *dst = dst.wrapping_mul(src),
+            Add => *dst = dst.wrapping_add(src).wrapping_add(op.c),
+            Sub => *dst = dst.wrapping_sub(src),
+            Ror => *dst = dst.rotate_right(src % REG_BITS),
+            Rol => *dst = dst.rotate_left(src % REG_BITS),
+            Xor => *dst ^= src,
+            Ret => return,
+        }
     }
-
-    macro_rules! v4_exec_10 {
-        ($j:expr) => {
-            v4_exec!($j + 0);
-            v4_exec!($j + 1);
-            v4_exec!($j + 2);
-            v4_exec!($j + 3);
-            v4_exec!($j + 4);
-            v4_exec!($j + 5);
-            v4_exec!($j + 6);
-            v4_exec!($j + 7);
-            v4_exec!($j + 8);
-            v4_exec!($j + 9);
-        };
-    }
-
-    v4_exec_10!(0); // instructions 0-9
-    v4_exec_10!(10); // instructions 10-19
-    v4_exec_10!(20); // instructions 20-29
-    v4_exec_10!(30); // instructions 30-39
-    v4_exec_10!(40); // instructions 40-49
-    v4_exec_10!(50); // instructions 50-59
-    v4_exec_10!(60); // instructions 60-69
 }
 
 /// Original C code:
