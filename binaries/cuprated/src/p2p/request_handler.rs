@@ -1,10 +1,10 @@
+use bytes::Bytes;
+use futures::future::BoxFuture;
+use futures::FutureExt;
 use std::{
     future::{ready, Ready},
     task::{Context, Poll},
 };
-
-use futures::future::BoxFuture;
-use futures::FutureExt;
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::service::BlockchainReadHandle;
@@ -15,7 +15,11 @@ use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_hig
 use cuprate_p2p::constants::MAX_BLOCK_BATCH_LEN;
 use cuprate_p2p_core::{client::PeerInformation, NetworkZone, ProtocolRequest, ProtocolResponse};
 use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
-use cuprate_wire::protocol::{ChainRequest, ChainResponse, GetObjectsRequest, GetObjectsResponse};
+use cuprate_types::{BlockCompleteEntry, MissingTxsInBlock, TransactionBlobs};
+use cuprate_wire::protocol::{
+    ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest,
+    GetObjectsResponse, NewFluffyBlock,
+};
 
 #[derive(Clone)]
 pub struct P2pProtocolRequestHandlerMaker {
@@ -63,12 +67,20 @@ impl<Z: NetworkZone> Service<ProtocolRequest> for P2pProtocolRequestHandler<Z> {
             ProtocolRequest::GetObjects(r) => {
                 get_objects(r, self.blockchain_read_handle.clone()).boxed()
             }
-            ProtocolRequest::GetChain(_) => todo!(),
-            ProtocolRequest::FluffyMissingTxs(_) => todo!(),
-            ProtocolRequest::GetTxPoolCompliment(_) => todo!(),
-            ProtocolRequest::NewBlock(_) => todo!(),
+            ProtocolRequest::GetChain(r) => {
+                get_chain(r, self.blockchain_read_handle.clone()).boxed()
+            }
+            ProtocolRequest::FluffyMissingTxs(r) => {
+                fluffy_missing_txs(r, self.blockchain_read_handle.clone()).boxed()
+            }
+            ProtocolRequest::NewBlock(_) => ready(Err(anyhow::anyhow!(
+                "Peer sent a full block when we support fluffy blocks"
+            )))
+            .boxed(),
             ProtocolRequest::NewFluffyBlock(_) => todo!(),
-            ProtocolRequest::NewTransactions(_) => todo!(),
+            ProtocolRequest::GetTxPoolCompliment(_) | ProtocolRequest::NewTransactions(_) => {
+                ready(Ok(ProtocolResponse::NA)).boxed()
+            } // TODO: tx-pool
         }
     }
 }
@@ -138,6 +150,10 @@ async fn get_chain(
         panic!("blockchain returned wrong response!");
     };
 
+    if start_height == 0 {
+        anyhow::bail!("The peers chain has a different genesis block than ours.");
+    }
+
     let (cumulative_difficulty_low64, cumulative_difficulty_top64) =
         split_u128_into_low_high_bits(cumulative_difficulty);
 
@@ -147,12 +163,52 @@ async fn get_chain(
         cumulative_difficulty_low64,
         cumulative_difficulty_top64,
         m_block_ids: ByteArrayVec::from(block_ids),
-        first_block: Default::default(),
+        first_block: first_block_blob.map_or(Bytes::new(), Bytes::from),
         // only needed when
         m_block_weights: if want_pruned_data {
             block_weights.into_iter().map(usize_to_u64).collect()
         } else {
             vec![]
         },
+    }))
+}
+
+/// [`ProtocolRequest::FluffyMissingTxs`]
+async fn fluffy_missing_txs(
+    mut request: FluffyMissingTransactionsRequest,
+    mut blockchain_read_handle: BlockchainReadHandle,
+) -> anyhow::Result<ProtocolResponse> {
+    let tx_indexes = std::mem::take(&mut request.missing_tx_indices);
+    let block_hash: [u8; 32] = *request.block_hash;
+    let current_blockchain_height = request.current_blockchain_height;
+
+    // de-allocate the backing `Bytes`.
+    drop(request);
+
+    let BlockchainResponse::MissingTxsInBlock(res) = blockchain_read_handle
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::MissingTxsInBlock {
+            block_hash,
+            tx_indexes,
+        })
+        .await?
+    else {
+        panic!("blockchain returned wrong response!");
+    };
+
+    let Some(MissingTxsInBlock { block, txs }) = res else {
+        anyhow::bail!("The peer requested txs out of range.");
+    };
+
+    Ok(ProtocolResponse::NewFluffyBlock(NewFluffyBlock {
+        b: BlockCompleteEntry {
+            block: Bytes::from(block),
+            txs: TransactionBlobs::Normal(txs.into_iter().map(Bytes::from).collect()),
+            pruned: false,
+            // only needed for pruned blocks.
+            block_weight: 0,
+        },
+        current_blockchain_height,
     }))
 }

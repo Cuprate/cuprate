@@ -8,6 +8,7 @@ use std::{
     ops::Range,
 };
 
+use crate::types::MissingTxsInBlock;
 use crate::{
     types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation},
     AltBlockInformation, BlockCompleteEntry, ChainId,
@@ -112,6 +113,16 @@ pub enum BlockchainReadRequest {
     /// order, or else the returned response is unspecified and meaningless,
     /// as this request performs a binary search.
     FindFirstUnknown(Vec<[u8; 32]>),
+
+    /// A request for transactions from a specific block.
+    MissingTxsInBlock {
+        /// The block to get transactions from.
+        block_hash: [u8; 32],
+        /// The indexes of the transactions from the block.
+        /// This is not the global index of the txs, instead it is the local index as they appear in
+        /// the block/
+        tx_indexes: Vec<u64>,
+    },
 
     /// A request for all alt blocks in the chain with the given [`ChainId`].
     AltBlocksInChain(ChainId),
@@ -251,6 +262,11 @@ pub enum BlockchainResponse {
     ///
     /// This will be [`None`] if all blocks were known.
     FindFirstUnknown(Option<(usize, usize)>),
+
+    /// The response for [`BlockchainReadRequest::MissingTxsInBlock`].
+    ///
+    /// Will return [`None`] if the request contained an index out of range.
+    MissingTxsInBlock(Option<MissingTxsInBlock>),
 
     /// The response for [`BlockchainReadRequest::AltBlocksInChain`].
     ///
