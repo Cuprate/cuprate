@@ -183,7 +183,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                     },
                 })
             }
-            BlockChainContextRequest::CurrentRxVm => {
+            BlockChainContextRequest::CurrentRxVms => {
                 BlockChainContextResponse::RxVms(self.rx_vm_cache.get_vms().await)
             }
             BlockChainContextRequest::BatchGetDifficulties(blocks) => {

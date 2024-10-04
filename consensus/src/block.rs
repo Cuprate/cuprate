@@ -360,7 +360,7 @@ where
         let BlockChainContextResponse::RxVms(rx_vms) = context_svc
             .ready()
             .await?
-            .call(BlockChainContextRequest::CurrentRxVm)
+            .call(BlockChainContextRequest::CurrentRxVms)
             .await?
         else {
             panic!("Blockchain context service returned wrong response!");

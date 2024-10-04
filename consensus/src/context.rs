@@ -223,8 +223,8 @@ pub enum BlockChainContextRequest {
     /// Get the current blockchain context.
     Context,
 
-    /// Gets the current `RandomX` VM.
-    CurrentRxVm,
+    /// Gets all the current  `RandomX` VMs.
+    CurrentRxVms,
 
     /// Get the next difficulties for these blocks.
     ///
@@ -346,7 +346,7 @@ pub enum BlockChainContextResponse {
     /// Response to [`BlockChainContextRequest::Context`]
     Context(BlockChainContext),
 
-    /// Response to [`BlockChainContextRequest::CurrentRxVm`]
+    /// Response to [`BlockChainContextRequest::CurrentRxVms`]
     ///
     /// A map of seed height to `RandomX` VMs.
     RxVms(HashMap<usize, Arc<RandomXVm>>),
