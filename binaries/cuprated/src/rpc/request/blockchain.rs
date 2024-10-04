@@ -306,19 +306,3 @@ pub(super) async fn coinbase_tx_sum(
 
     Ok(sum)
 }
-
-/// [`BlockchainReadRequest::MinerData`]
-pub(super) async fn miner_data(
-    mut blockchain_read: BlockchainReadHandle,
-) -> Result<MinerData, Error> {
-    let BlockchainResponse::MinerData(data) = blockchain_read
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::MinerData)
-        .await?
-    else {
-        unreachable!();
-    };
-
-    Ok(data)
-}

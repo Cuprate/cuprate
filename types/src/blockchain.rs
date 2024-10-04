@@ -12,8 +12,7 @@ use monero_serai::block::Block;
 
 use crate::{
     types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation},
-    AltBlockInformation, ChainId, CoinbaseTxSum, MinerData, OutputHistogramEntry,
-    OutputHistogramInput,
+    AltBlockInformation, ChainId, CoinbaseTxSum, OutputHistogramEntry, OutputHistogramInput,
 };
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
@@ -129,9 +128,6 @@ pub enum BlockchainReadRequest {
     ///
     /// TODO: document fields after impl.
     CoinbaseTxSum { height: usize, count: u64 },
-
-    /// Get the necessary data to create a custom block template.
-    MinerData,
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
@@ -279,9 +275,6 @@ pub enum BlockchainResponse {
 
     /// Response to [`BlockchainReadRequest::CoinbaseTxSum`].
     CoinbaseTxSum(CoinbaseTxSum),
-
-    /// Response to [`BlockchainReadRequest::MinerData`].
-    MinerData(MinerData),
 
     //------------------------------------------------------ Writes
     /// A generic Ok response to indicate a request was successfully handled.
