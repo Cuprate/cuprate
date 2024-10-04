@@ -10,7 +10,7 @@ use std::{
 
 use crate::{
     types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation},
-    AltBlockInformation, ChainId,
+    AltBlockInformation, BlockCompleteEntry, ChainId,
 };
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
@@ -24,6 +24,8 @@ use crate::{
 /// See `Response` for the expected responses per `Request`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BlockchainReadRequest {
+    BlockCompleteEntries(Vec<[u8; 32]>),
+
     /// Request a block's extended header.
     ///
     /// The input is the block's height.
@@ -149,6 +151,12 @@ pub enum BlockchainWriteRequest {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BlockchainResponse {
     //------------------------------------------------------ Reads
+    BlockCompleteEntries {
+        blocks: Vec<BlockCompleteEntry>,
+        missing_hashes: Vec<[u8; 32]>,
+        blockchain_height: usize,
+    },
+
     /// Response to [`BlockchainReadRequest::BlockExtendedHeader`].
     ///
     /// Inner value is the extended headed of the requested block.

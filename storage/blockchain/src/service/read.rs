@@ -7,7 +7,7 @@ use std::{
 };
 
 use rayon::{
-    iter::{IntoParallelIterator, ParallelIterator},
+    iter::{IntoParallelIterator, ParallelIterator, Either},
     prelude::*,
     ThreadPool,
 };
@@ -18,9 +18,10 @@ use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThre
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, ChainId, ExtendedBlockHeader, OutputOnChain,
+    BlockCompleteEntry, Chain, ChainId, ExtendedBlockHeader, OutputOnChain,
 };
 
+use crate::ops::block::get_block_complete_entry;
 use crate::{
     ops::{
         alt_block::{
@@ -92,6 +93,7 @@ fn map_request(
     /* SOMEDAY: pre-request handling, run some code for each request? */
 
     match request {
+        R::BlockCompleteEntries(block_hashes) => block_complete_entries(env, block_hashes),
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
         R::BlockHash(block, chain) => block_hash(env, block, chain),
         R::FindBlock(block_hash) => find_block(env, block_hash),
@@ -181,6 +183,38 @@ macro_rules! get_tables {
 
 // TODO: The overhead of parallelism may be too much for every request, perfomace test to find optimal
 // amount of parallelism.
+
+/// [`BlockchainReadRequest::BlockCompleteEntries`].
+fn block_complete_entries(env: &ConcreteEnv, block_hashes: Vec<BlockHash>) -> ResponseResult {
+    // Prepare tx/tables in `ThreadLocal`.
+    let env_inner = env.env_inner();
+    let tx_ro = thread_local(env);
+    let tables = thread_local(env);
+
+    let (missing_hashes, blocks) = block_hashes
+        .into_par_iter()
+        .map(|block_hash| {
+            let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+            let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+
+            match get_block_complete_entry(&block_hash, tables) {
+                Err(RuntimeError::KeyNotFound) => Ok(Either::Left(block_hash)),
+                res => res.map(Either::Right),
+            }
+        })
+        .collect::<Result<_, _>>()?;
+
+    let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+    let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+
+    let blockchain_height = crate::ops::blockchain::chain_height(tables.block_heights())?;
+
+    Ok(BlockchainResponse::BlockCompleteEntries {
+        blocks,
+        missing_hashes,
+        blockchain_height,
+    })
+}
 
 /// [`BlockchainReadRequest::BlockExtendedHeader`].
 #[inline]

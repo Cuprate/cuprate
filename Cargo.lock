@@ -547,6 +547,7 @@ version = "0.0.0"
 dependencies = [
  "bitflags 2.6.0",
  "bytemuck",
+ "bytes",
  "cuprate-database",
  "cuprate-database-service",
  "cuprate-helper",
