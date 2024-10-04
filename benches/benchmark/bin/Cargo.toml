@@ -10,6 +10,7 @@ keywords    = ["cuprate", "benchmarking", "binary"]
 
 [features]
 default  = ["example"]
+json     = []
 example  = ["dep:cuprate-benchmark-example"]
 database = ["dep:cuprate-database"]
 
@@ -19,8 +20,8 @@ cuprate-benchmark-example = { path = "../example", optional = true }
 cuprate-database          = { path = "../../../storage/database", optional = true }
 
 cfg-if     = { workspace = true }
-# serde      = { workspace = true, features = ["derive"] }
-# serde_json = { workspace = true, features = ["std"] }
+serde      = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 

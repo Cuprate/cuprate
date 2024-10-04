@@ -640,6 +640,8 @@ dependencies = [
  "cuprate-benchmark-example",
  "cuprate-benchmark-lib",
  "cuprate-database",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

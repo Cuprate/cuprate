@@ -1,4 +1,6 @@
-//! TODO
+//! Benchmarking trait.
+
+use std::time::Duration;
 
 /// A benchmarking function and its inputs.
 pub trait Benchmark {
@@ -18,4 +20,15 @@ pub trait Benchmark {
     /// this function is called and ends after the
     /// function returns.
     const MAIN: fn(Self::Input);
+
+    /// `cuprate-benchmark` will sleep for this [`Duration`] after
+    /// creating the [`Self::Input`], but before starting [`Self::Main`].
+    ///
+    /// 1 second by default.
+    const PRE_SLEEP_DURATION: Duration = Duration::from_secs(1);
+
+    /// `cuprate-benchmark` will sleep for this [`Duration`] after [`Self::Main`].
+    ///
+    /// 1 second by default.
+    const POST_SLEEP_DURATION: Duration = Duration::from_secs(1);
 }
