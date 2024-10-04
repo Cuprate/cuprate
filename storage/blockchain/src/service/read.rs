@@ -2,26 +2,26 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
+    cmp::min,
     collections::{HashMap, HashSet},
     sync::Arc,
 };
 
 use rayon::{
-    iter::{IntoParallelIterator, ParallelIterator, Either},
+    iter::{Either, IntoParallelIterator, ParallelIterator},
     prelude::*,
     ThreadPool,
 };
 use thread_local::ThreadLocal;
 
-use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
+use cuprate_database::{ConcreteEnv, DatabaseIter, DatabaseRo, Env, EnvInner, RuntimeError};
 use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    BlockCompleteEntry, Chain, ChainId, ExtendedBlockHeader, OutputOnChain,
+    Chain, ChainId, ExtendedBlockHeader, OutputOnChain,
 };
 
-use crate::ops::block::get_block_complete_entry;
 use crate::{
     ops::{
         alt_block::{
@@ -29,9 +29,10 @@ use crate::{
             get_alt_chain_history_ranges,
         },
         block::{
-            block_exists, get_block_extended_header_from_height, get_block_height, get_block_info,
+            block_exists, get_block_blob_with_tx_indexes, get_block_complete_entry,
+            get_block_extended_header_from_height, get_block_height, get_block_info,
         },
-        blockchain::{cumulative_generated_coins, top_block_height},
+        blockchain::{cumulative_generated_coins, find_split_point, top_block_height},
         key_image::key_image_exists,
         output::id_to_output_on_chain,
     },
@@ -39,7 +40,7 @@ use crate::{
         free::{compact_history_genesis_not_included, compact_history_index_to_height_offset},
         types::{BlockchainReadHandle, ResponseResult},
     },
-    tables::{AltBlockHeights, BlockHeights, BlockInfos, OpenTables, Tables},
+    tables::{AltBlockHeights, BlockHeights, BlockInfos, OpenTables, Tables, TablesIter},
     types::{
         AltBlockHeight, Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId,
     },
@@ -107,6 +108,7 @@ fn map_request(
         R::NumberOutputsWithAmount(vec) => number_outputs_with_amount(env, vec),
         R::KeyImagesSpent(set) => key_images_spent(env, set),
         R::CompactChainHistory => compact_chain_history(env),
+        R::NextChainEntry(block_hashes, amount) => next_chain_entry(env, &block_hashes, amount),
         R::FindFirstUnknown(block_ids) => find_first_unknown(env, &block_ids),
         R::AltBlocksInChain(chain_id) => alt_blocks_in_chain(env, chain_id),
     }
@@ -552,6 +554,76 @@ fn compact_chain_history(env: &ConcreteEnv) -> ResponseResult {
     })
 }
 
+/// [`BlockchainReadRequest::NextChainEntry`]
+///
+/// # Invariant
+/// `block_ids` must be sorted in reverse chronological block order, or else
+/// the returned result is unspecified and meaningless, as this function
+/// performs a binary search.
+fn next_chain_entry(
+    env: &ConcreteEnv,
+    block_ids: &[BlockHash],
+    next_entry_size: usize,
+) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+
+    let tables = env_inner.open_tables(&tx_ro)?;
+    let table_block_heights = tables.block_heights();
+    let table_block_infos = tables.block_infos_iter();
+
+    let idx = find_split_point(block_ids, false, table_block_heights)?;
+
+    // This will happen if we have a different genesis block.
+    if idx == block_ids.len() {
+        return Ok(BlockchainResponse::NextChainEntry {
+            start_height: 0,
+            chain_height: 0,
+            block_ids: vec![],
+            block_weights: vec![],
+            cumulative_difficulty: 0,
+            first_block_blob: None,
+        });
+    }
+
+    // The returned chain entry must overlap with one of the blocks  we were told about.
+    let first_known_block_hash = block_ids[idx];
+    let first_known_height = table_block_heights.get(&first_known_block_hash)?;
+
+    let chain_height = crate::ops::blockchain::chain_height(table_block_heights)?;
+    let last_height_in_chain_entry = min(first_known_height + next_entry_size, chain_height);
+
+    let (block_ids, block_weights) = table_block_infos
+        .get_range(first_known_height..last_height_in_chain_entry)?
+        .map(|block_info| {
+            let block_info = block_info?;
+
+            Ok((block_info.block_hash, block_info.weight))
+        })
+        .collect::<Result<(Vec<_>, Vec<_>), RuntimeError>>()?;
+
+    let top_block_info = table_block_infos.get(&(chain_height - 1))?;
+
+    let first_block_blob = if block_ids.len() >= 2 {
+        Some(get_block_blob_with_tx_indexes(&(first_known_height + 1), &tables)?.0)
+    } else {
+        None
+    };
+
+    Ok(BlockchainResponse::NextChainEntry {
+        start_height: first_known_height,
+        chain_height,
+        block_ids,
+        block_weights,
+        cumulative_difficulty: combine_low_high_bits_to_u128(
+            top_block_info.cumulative_difficulty_low,
+            top_block_info.cumulative_difficulty_high,
+        ),
+        first_block_blob,
+    })
+}
+
 /// [`BlockchainReadRequest::FindFirstUnknown`]
 ///
 /// # Invariant
@@ -564,24 +636,7 @@ fn find_first_unknown(env: &ConcreteEnv, block_ids: &[BlockHash]) -> ResponseRes
 
     let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
 
-    let mut err = None;
-
-    // Do a binary search to find the first unknown block in the batch.
-    let idx =
-        block_ids.partition_point(
-            |block_id| match block_exists(block_id, &table_block_heights) {
-                Ok(exists) => exists,
-                Err(e) => {
-                    err.get_or_insert(e);
-                    // if this happens the search is scrapped, just return `false` back.
-                    false
-                }
-            },
-        );
-
-    if let Some(e) = err {
-        return Err(e);
-    }
+    let idx = find_split_point(block_ids, true, &table_block_heights)?;
 
     Ok(if idx == block_ids.len() {
         BlockchainResponse::FindFirstUnknown(None)

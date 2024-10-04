@@ -95,6 +95,16 @@ pub enum BlockchainReadRequest {
     /// A request for the compact chain history.
     CompactChainHistory,
 
+    /// A request for the next chain entry.
+    ///
+    /// Input is a list of block hashes and the amount of block hashes to return in the next chain entry.
+    ///
+    /// # Invariant
+    /// The [`Vec`] containing the block IDs must be sorted in reverse chronological block
+    /// order, or else the returned response is unspecified and meaningless,
+    /// as this request performs a binary search
+    NextChainEntry(Vec<[u8; 32]>, usize),
+
     /// A request to find the first unknown block ID in a list of block IDs.
     ///
     /// # Invariant
@@ -221,6 +231,18 @@ pub enum BlockchainResponse {
         block_ids: Vec<[u8; 32]>,
         /// The current cumulative difficulty of the chain.
         cumulative_difficulty: u128,
+    },
+
+    /// Response to [`BlockchainReadRequest::NextChainEntry`].
+    ///
+    /// If all blocks were unknown `start_height` will be `0`, the other fields will be meaningless.
+    NextChainEntry {
+        start_height: usize,
+        chain_height: usize,
+        block_ids: Vec<[u8; 32]>,
+        block_weights: Vec<usize>,
+        cumulative_difficulty: u128,
+        first_block_blob: Option<Vec<u8>>,
     },
 
     /// The response for [`BlockchainReadRequest::FindFirstUnknown`].

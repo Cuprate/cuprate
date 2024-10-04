@@ -1,16 +1,15 @@
 //! Block functions.
 
-use std::slice;
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
-use bytes::{Bytes, BytesMut};
+use bytes::Bytes;
 use monero_serai::{
     block::{Block, BlockHeader},
     transaction::Transaction,
 };
 
 use cuprate_database::{
-    RuntimeError, StorableVec, {DatabaseRo, DatabaseRw},
+    RuntimeError, StorableVec, {DatabaseIter, DatabaseRo, DatabaseRw},
 };
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_helper::{
@@ -22,7 +21,6 @@ use cuprate_types::{
     TransactionBlobs, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 
-use crate::tables::TablesIter;
 use crate::{
     ops::{
         alt_block,
@@ -31,7 +29,7 @@ use crate::{
         output::get_rct_num_outputs,
         tx::{add_tx, remove_tx},
     },
-    tables::{BlockHeights, BlockInfos, Tables, TablesMut},
+    tables::{BlockHeights, BlockInfos, Tables, TablesIter, TablesMut},
     types::{BlockHash, BlockHeight, BlockInfo},
 };
 
@@ -235,14 +233,14 @@ pub fn get_block_blob_with_tx_indexes(
 ) -> Result<(Vec<u8>, u64, usize), RuntimeError> {
     use monero_serai::io::write_varint;
 
-    let block_info = tables.block_infos().get(&block_height)?;
+    let block_info = tables.block_infos().get(block_height)?;
 
     let miner_tx_idx = block_info.mining_tx_index;
-    let mut block_txs = tables.block_txs_hashes().get(&block_height)?.0;
+    let block_txs = tables.block_txs_hashes().get(block_height)?.0;
     let numb_txs = block_txs.len();
 
     // Get the block header
-    let mut block = tables.block_header_blobs().get(&block_height)?.0;
+    let mut block = tables.block_header_blobs().get(block_height)?.0;
 
     // Add the miner tx to the blob.
     let mut miner_tx_blob = tables.tx_blobs().get(&miner_tx_idx)?.0;
@@ -273,7 +271,7 @@ pub fn get_block_complete_entry(
         .tx_blobs_iter()
         .get_range(first_tx_idx..=usize_to_u64(numb_non_miner_txs))?
         .map(|tx_blob| Ok(Bytes::from(tx_blob?.0)))
-        .collect::<Result<_, _>>()?;
+        .collect::<Result<_, RuntimeError>>()?;
 
     Ok(BlockCompleteEntry {
         block: Bytes::from(block_blob),
