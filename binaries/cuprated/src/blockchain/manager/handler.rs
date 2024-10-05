@@ -1,4 +1,4 @@
-//! The blockchain manger handler functions.
+//! The blockchain manager handler functions.
 use std::{collections::HashMap, sync::Arc};
 
 use bytes::Bytes;

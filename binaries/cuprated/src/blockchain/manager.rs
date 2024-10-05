@@ -37,11 +37,11 @@ mod handler;
 
 pub use commands::BlockchainManagerCommand;
 
-/// Initialize the blockchain manger.
+/// Initialize the blockchain manager.
 ///
 /// This function sets up the [`BlockchainManager`] and the [`syncer`] so that the functions in [`interface`](super::interface)
 /// can be called.
-pub async fn init_blockchain_manger(
+pub async fn init_blockchain_manager(
     clearnet_interface: NetworkInterface<ClearNet>,
     blockchain_write_handle: BlockchainWriteHandle,
     blockchain_read_handle: BlockchainReadHandle,
@@ -76,7 +76,7 @@ pub async fn init_blockchain_manger(
         panic!("Blockchain context service returned wrong response!");
     };
 
-    let manger = BlockchainManager {
+    let manager = BlockchainManager {
         blockchain_write_handle,
         blockchain_read_handle,
         blockchain_context_service,
@@ -86,7 +86,7 @@ pub async fn init_blockchain_manger(
         broadcast_svc: clearnet_interface.broadcast_svc(),
     };
 
-    tokio::spawn(manger.run(batch_rx, command_rx));
+    tokio::spawn(manager.run(batch_rx, command_rx));
 }
 
 /// The blockchain manager.

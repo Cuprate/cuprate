@@ -1,16 +1,16 @@
-//! The blockchain manger interface.
+//! The blockchain manager interface.
 //!
 //! This module contains all the functions to mutate the blockchain's state in any way, through the
-//! blockchain manger.
-use monero_serai::{block::Block, transaction::Transaction};
-use rayon::prelude::*;
-use std::sync::LazyLock;
+//! blockchain manager.
 use std::{
     collections::{HashMap, HashSet},
-    sync::{Mutex, OnceLock},
+    sync::{Mutex, OnceLock, LazyLock},
 };
+
 use tokio::sync::{mpsc, oneshot};
 use tower::{Service, ServiceExt};
+use monero_serai::{block::Block, transaction::Transaction};
+use rayon::prelude::*;
 
 use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::transactions::new_tx_verification_data;
@@ -24,9 +24,9 @@ use crate::{
     blockchain::manager::BlockchainManagerCommand, constants::PANIC_CRITICAL_SERVICE_ERROR,
 };
 
-/// The channel used to send [`BlockchainManagerCommand`]s to the blockchain manger.
+/// The channel used to send [`BlockchainManagerCommand`]s to the blockchain manager.
 ///
-/// This channel is initialized in [`init_blockchain_manger`](super::manager::init_blockchain_manger).
+/// This channel is initialized in [`init_blockchain_manager`](super::manager::init_blockchain_manager).
 pub(super) static COMMAND_TX: OnceLock<mpsc::Sender<BlockchainManagerCommand>> = OnceLock::new();
 
 /// An error that can be returned from [`handle_incoming_block`].
@@ -50,7 +50,7 @@ pub enum IncomingBlockError {
 /// This returns a [`bool`] indicating if the block was added to the main-chain ([`true`]) or an alt-chain
 /// ([`false`]).
 ///
-/// If we already knew about this block or the blockchain manger is not setup yet `Ok(false)` is returned.
+/// If we already knew about this block or the blockchain manager is not setup yet `Ok(false)` is returned.
 ///
 /// # Errors
 ///
@@ -110,7 +110,7 @@ pub async fn handle_incoming_block(
         .map_err(IncomingBlockError::InvalidBlock)?;
 
     let Some(incoming_block_tx) = COMMAND_TX.get() else {
-        // We could still be starting up the blockchain manger, so just return this as there is nothing
+        // We could still be starting up the blockchain manager, so just return this as there is nothing
         // else we can do.
         return Ok(false);
     };
