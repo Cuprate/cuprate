@@ -1,36 +1,39 @@
-use bytes::Bytes;
-use futures::future::BoxFuture;
-use futures::FutureExt;
-use monero_serai::block::Block;
-use monero_serai::transaction::Transaction;
-use std::collections::HashSet;
 use std::{
+    collections::HashSet,
     future::{ready, Ready},
     task::{Context, Poll},
 };
+
+use bytes::Bytes;
+use futures::{future::BoxFuture, FutureExt};
+use monero_serai::{block::Block, transaction::Transaction};
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::service::BlockchainReadHandle;
-use cuprate_consensus::transactions::new_tx_verification_data;
-use cuprate_consensus::BlockChainContextService;
+use cuprate_consensus::{transactions::new_tx_verification_data, BlockChainContextService};
 use cuprate_fixed_bytes::ByteArrayVec;
-use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_helper::cast::usize_to_u64;
-use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};
+use cuprate_helper::{
+    asynch::rayon_spawn_async,
+    cast::usize_to_u64,
+    map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
+};
 use cuprate_p2p::constants::MAX_BLOCK_BATCH_LEN;
 use cuprate_p2p_core::{client::PeerInformation, NetworkZone, ProtocolRequest, ProtocolResponse};
-use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
-use cuprate_types::{BlockCompleteEntry, MissingTxsInBlock, TransactionBlobs};
+use cuprate_types::{
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
+    BlockCompleteEntry, MissingTxsInBlock, TransactionBlobs,
+};
 use cuprate_wire::protocol::{
     ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest,
     GetObjectsResponse, NewFluffyBlock,
 };
 
-use crate::blockchain::interface as blockchain_interface;
-use crate::blockchain::interface::IncomingBlockError;
+use crate::blockchain::interface::{self as blockchain_interface, IncomingBlockError};
 
+/// The P2P protocol request handler [`MakeService`](tower::MakeService).
 #[derive(Clone)]
 pub struct P2pProtocolRequestHandlerMaker {
+    /// The [`BlockchainReadHandle`]
     pub blockchain_read_handle: BlockchainReadHandle,
 }
 
@@ -55,9 +58,12 @@ impl<N: NetworkZone> Service<PeerInformation<N>> for P2pProtocolRequestHandlerMa
     }
 }
 
+/// The P2P protocol request handler.
 #[derive(Clone)]
 pub struct P2pProtocolRequestHandler<N: NetworkZone> {
+    /// The [`PeerInformation`] for this peer.
     peer_information: PeerInformation<N>,
+    /// The [`BlockchainReadHandle`]
     blockchain_read_handle: BlockchainReadHandle,
 }
 
