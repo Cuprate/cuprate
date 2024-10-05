@@ -14,6 +14,10 @@ pub const VERSION_BUILD: &str = if cfg!(debug_assertions) {
     formatcp!("{VERSION}-release")
 };
 
+/// The panic message used when cuprated encounters a critical service error.
+pub const PANIC_CRITICAL_SERVICE_ERROR: &str =
+    "A service critical to Cuprate's function returned an unexpected error.";
+
 #[cfg(test)]
 mod test {
     use super::*;

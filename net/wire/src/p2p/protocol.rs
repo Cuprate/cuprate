@@ -159,7 +159,7 @@ epee_object!(
     current_blockchain_height: u64,
 );
 
-/// A request for Txs we are missing from our `TxPool`
+/// A request for txs we are missing from an incoming block.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FluffyMissingTransactionsRequest {
     /// The Block we are missing the Txs in

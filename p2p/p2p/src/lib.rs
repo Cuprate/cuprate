@@ -12,23 +12,21 @@ use tracing::{instrument, Instrument, Span};
 use cuprate_async_buffer::BufferStream;
 use cuprate_p2p_core::{
     client::Connector,
-    client::InternalPeerID,
     services::{AddressBookRequest, AddressBookResponse},
     CoreSyncSvc, NetworkZone, ProtocolRequestHandlerMaker,
 };
 
-mod block_downloader;
+pub mod block_downloader;
 mod broadcast;
 mod client_pool;
 pub mod config;
 pub mod connection_maintainer;
-mod constants;
+pub mod constants;
 mod inbound_server;
 
 use block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse};
 pub use broadcast::{BroadcastRequest, BroadcastSvc};
-use client_pool::ClientPoolDropGuard;
-pub use config::P2PConfig;
+pub use config::{AddressBookConfig, P2PConfig};
 use connection_maintainer::MakeConnectionRequest;
 
 /// Initializes the P2P [`NetworkInterface`] for a specific [`NetworkZone`].
@@ -174,9 +172,8 @@ impl<N: NetworkZone> NetworkInterface<N> {
         self.address_book.clone()
     }
 
-    /// Pulls a client from the client pool, returning it in a guard that will return it there when it's
-    /// dropped.
-    pub fn borrow_client(&self, peer: &InternalPeerID<N::Addr>) -> Option<ClientPoolDropGuard<N>> {
-        self.pool.borrow_client(peer)
+    /// Borrows the `ClientPool`, for access to connected peers.
+    pub const fn client_pool(&self) -> &Arc<client_pool::ClientPool<N>> {
+        &self.pool
     }
 }

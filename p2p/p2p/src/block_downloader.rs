@@ -1,6 +1,6 @@
 //! # Block Downloader
 //!
-//! This module contains the [`BlockDownloader`], which finds a chain to
+//! This module contains the block downloader, which finds a chain to
 //! download from our connected peers and downloads it. See the actual
 //! `struct` documentation for implementation details.
 //!

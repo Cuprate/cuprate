@@ -20,7 +20,7 @@ pub use transaction_verification_data::{
     CachedVerificationState, TransactionVerificationData, TxVersion,
 };
 pub use types::{
-    AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, OutputOnChain,
+    AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, MissingTxsInBlock, OutputOnChain,
     VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 
