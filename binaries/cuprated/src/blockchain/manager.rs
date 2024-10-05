@@ -24,9 +24,9 @@ use cuprate_types::{
 
 use crate::{
     blockchain::{
+        chain_service::ChainService,
         interface::COMMAND_TX,
         syncer,
-        types::ChainService,
         types::{ConcreteBlockVerifierService, ConsensusBlockchainReadHandle},
     },
     constants::PANIC_CRITICAL_SERVICE_ERROR,
