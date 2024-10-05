@@ -17,7 +17,7 @@ const TEST_LAG: usize = 2;
 
 const TEST_TOTAL_ACCOUNTED_BLOCKS: usize = TEST_WINDOW + TEST_LAG;
 
-pub const TEST_DIFFICULTY_CONFIG: DifficultyCacheConfig =
+pub(crate) const TEST_DIFFICULTY_CONFIG: DifficultyCacheConfig =
     DifficultyCacheConfig::new(TEST_WINDOW, TEST_CUT, TEST_LAG);
 
 #[tokio::test]
@@ -35,7 +35,7 @@ async fn first_3_blocks_fixed_difficulty() -> Result<(), tower::BoxError> {
     .await?;
 
     for height in 1..3 {
-        assert_eq!(difficulty_cache.next_difficulty(&HardFork::V1), 1);
+        assert_eq!(difficulty_cache.next_difficulty(HardFork::V1), 1);
         difficulty_cache.new_block(height, 0, u128::MAX);
     }
     Ok(())
@@ -66,7 +66,7 @@ async fn calculate_diff_3000000_3002000() -> Result<(), tower::BoxError> {
     for (cum_dif, timestamp) in DIF_3000000_3002000.iter().take(cfg.total_block_count()) {
         db_builder.add_block(
             DummyBlockExtendedHeader::default().with_difficulty_info(*timestamp, *cum_dif),
-        )
+        );
     }
 
     let mut diff_cache = DifficultyCache::init_from_chain_height(
@@ -84,7 +84,7 @@ async fn calculate_diff_3000000_3002000() -> Result<(), tower::BoxError> {
     {
         let diff = diff_info[1].0 - diff_info[0].0;
 
-        assert_eq!(diff_cache.next_difficulty(&HardFork::V16), diff);
+        assert_eq!(diff_cache.next_difficulty(HardFork::V16), diff);
 
         diff_cache.new_block(3_000_720 + i, diff_info[1].1, diff_info[1].0);
     }
@@ -139,22 +139,22 @@ proptest! {
             no_lag_cache.cumulative_difficulties.pop_front();
         }
         // get the difficulty
-        let next_diff_no_lag = no_lag_cache.next_difficulty(&hf);
+        let next_diff_no_lag = no_lag_cache.next_difficulty(hf);
 
         for _ in 0..TEST_LAG {
             // add new blocks to the lagged cache
             diff_cache.new_block(diff_cache.last_accounted_height+1, timestamp, cumulative_difficulty);
         }
         // they both should now be the same
-        prop_assert_eq!(diff_cache.next_difficulty(&hf), next_diff_no_lag)
+        prop_assert_eq!(diff_cache.next_difficulty(hf), next_diff_no_lag);
     }
 
     #[test]
     fn next_difficulty_consistent(diff_cache in arb_difficulty_cache(TEST_TOTAL_ACCOUNTED_BLOCKS), hf in any::<HardFork>()) {
-        let first_call = diff_cache.next_difficulty(&hf);
-        prop_assert_eq!(first_call, diff_cache.next_difficulty(&hf));
-        prop_assert_eq!(first_call, diff_cache.next_difficulty(&hf));
-        prop_assert_eq!(first_call, diff_cache.next_difficulty(&hf));
+        let first_call = diff_cache.next_difficulty(hf);
+        prop_assert_eq!(first_call, diff_cache.next_difficulty(hf));
+        prop_assert_eq!(first_call, diff_cache.next_difficulty(hf));
+        prop_assert_eq!(first_call, diff_cache.next_difficulty(hf));
     }
 
     #[test]
@@ -178,7 +178,7 @@ proptest! {
 
     #[test]
     fn window_size_kept_constant(mut diff_cache in arb_difficulty_cache(TEST_TOTAL_ACCOUNTED_BLOCKS), new_blocks in any::<Vec<(u64, u128)>>()) {
-        for (timestamp, cumulative_difficulty) in new_blocks.into_iter() {
+        for (timestamp, cumulative_difficulty) in new_blocks {
             diff_cache.new_block(diff_cache.last_accounted_height+1, timestamp, cumulative_difficulty);
             prop_assert_eq!(diff_cache.timestamps.len(), TEST_TOTAL_ACCOUNTED_BLOCKS);
             prop_assert_eq!(diff_cache.cumulative_difficulties.len(), TEST_TOTAL_ACCOUNTED_BLOCKS);
@@ -193,7 +193,7 @@ proptest! {
     ) {
         let cache = diff_cache.clone();
 
-        diff_cache.next_difficulties(timestamps.into_iter().zip([hf].into_iter().cycle()).collect(), &hf);
+        diff_cache.next_difficulties(timestamps.into_iter().zip(std::iter::once(hf).cycle()).collect(), hf);
 
         prop_assert_eq!(diff_cache, cache);
     }
@@ -204,12 +204,12 @@ proptest! {
         timestamps in any_with::<Vec<u64>>(size_range(0..1000).lift()),
         hf in any::<HardFork>(),
     ) {
-        let timestamps: Vec<_> = timestamps.into_iter().zip([hf].into_iter().cycle()).collect();
+        let timestamps: Vec<_> = timestamps.into_iter().zip(std::iter::once(hf).cycle()).collect();
 
-        let diffs = diff_cache.next_difficulties(timestamps.clone(), &hf);
+        let diffs = diff_cache.next_difficulties(timestamps.clone(), hf);
 
         for (timestamp, diff) in timestamps.into_iter().zip(diffs.into_iter()) {
-            prop_assert_eq!(diff_cache.next_difficulty(&timestamp.1), diff);
+            prop_assert_eq!(diff_cache.next_difficulty(timestamp.1), diff);
             diff_cache.new_block(diff_cache.last_accounted_height +1, timestamp.0, diff +  diff_cache.cumulative_difficulty());
         }
 
@@ -226,7 +226,7 @@ proptest! {
             let blocks_to_pop = new_blocks.len();
 
             let mut new_cache = old_cache.clone();
-            for (timestamp, cumulative_difficulty) in new_blocks.into_iter() {
+            for (timestamp, cumulative_difficulty) in new_blocks {
                 database.add_block(DummyBlockExtendedHeader::default().with_difficulty_info(timestamp, cumulative_difficulty));
                 new_cache.new_block(new_cache.last_accounted_height+1, timestamp, cumulative_difficulty);
             }
@@ -250,7 +250,7 @@ proptest! {
             let blocks_to_pop = new_blocks.len();
 
             let mut new_cache = old_cache.clone();
-            for (timestamp, cumulative_difficulty) in new_blocks.into_iter() {
+            for (timestamp, cumulative_difficulty) in new_blocks {
                 database.add_block(DummyBlockExtendedHeader::default().with_difficulty_info(timestamp, cumulative_difficulty));
                 new_cache.new_block(new_cache.last_accounted_height+1, timestamp, cumulative_difficulty);
             }

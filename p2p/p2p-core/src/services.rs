@@ -6,28 +6,6 @@ use crate::{
     NetworkZone,
 };
 
-/// A request to the service that keeps track of peers sync states.
-pub enum PeerSyncRequest<N: NetworkZone> {
-    /// Request some peers to sync from.
-    ///
-    /// This takes in the current cumulative difficulty of our chain and will return peers that
-    /// claim to have a higher cumulative difficulty.
-    PeersToSyncFrom {
-        current_cumulative_difficulty: u128,
-        block_needed: Option<usize>,
-    },
-    /// Add/update a peer's core sync data.
-    IncomingCoreSyncData(InternalPeerID<N::Addr>, ConnectionHandle, CoreSyncData),
-}
-
-/// A response from the service that keeps track of peers sync states.
-pub enum PeerSyncResponse<N: NetworkZone> {
-    /// The return value of [`PeerSyncRequest::PeersToSyncFrom`].
-    PeersToSyncFrom(Vec<InternalPeerID<N::Addr>>),
-    /// A generic ok response.
-    Ok,
-}
-
 /// A request to the core sync service for our node's [`CoreSyncData`].
 pub struct CoreSyncDataRequest;
 
@@ -52,7 +30,7 @@ pub struct ZoneSpecificPeerListEntryBase<A: NetZoneAddress> {
     pub rpc_credits_per_hash: u32,
 }
 
-impl<A: NetZoneAddress> From<ZoneSpecificPeerListEntryBase<A>> for cuprate_wire::PeerListEntryBase {
+impl<A: NetZoneAddress> From<ZoneSpecificPeerListEntryBase<A>> for PeerListEntryBase {
     fn from(value: ZoneSpecificPeerListEntryBase<A>) -> Self {
         Self {
             adr: value.adr.into(),
@@ -74,9 +52,7 @@ pub enum PeerListConversionError {
     PruningSeed(#[from] PruningError),
 }
 
-impl<A: NetZoneAddress> TryFrom<cuprate_wire::PeerListEntryBase>
-    for ZoneSpecificPeerListEntryBase<A>
-{
+impl<A: NetZoneAddress> TryFrom<PeerListEntryBase> for ZoneSpecificPeerListEntryBase<A> {
     type Error = PeerListConversionError;
 
     fn try_from(value: PeerListEntryBase) -> Result<Self, Self::Error> {

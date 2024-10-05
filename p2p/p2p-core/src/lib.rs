@@ -6,7 +6,7 @@
 //!
 //! # Network Zones
 //!
-//! This crate abstracts over network zones, Tor/I2p/clearnet with the [NetworkZone] trait. Currently only clearnet is implemented: [ClearNet].
+//! This crate abstracts over network zones, Tor/I2p/clearnet with the [`NetworkZone`] trait. Currently only clearnet is implemented: [`ClearNet`].
 //!
 //! # Usage
 //!
@@ -56,7 +56,17 @@
 //!     .unwrap();
 //! # });
 //! ```
-use std::{fmt::Debug, future::Future, hash::Hash};
+
+cfg_if::cfg_if! {
+    // Used in `tests/`
+    if #[cfg(test)] {
+        use cuprate_test_utils as _;
+        use tokio_test as _;
+        use hex as _;
+    }
+}
+
+use std::{fmt::Debug, hash::Hash};
 
 use futures::{Sink, Stream};
 
@@ -102,7 +112,7 @@ pub trait NetZoneAddress:
     + Unpin
     + 'static
 {
-    /// Cuprate needs to be able to ban peers by IP addresses and not just by SocketAddr as
+    /// Cuprate needs to be able to ban peers by IP addresses and not just by `SocketAddr` as
     /// that include the port, to be able to facilitate this network addresses must have a ban ID
     /// which for hidden services could just be the address it self but for clear net addresses will
     /// be the IP address.
@@ -182,55 +192,26 @@ pub trait NetworkZone: Clone + Copy + Send + 'static {
 // Below here is just helper traits, so we don't have to type out tower::Service bounds
 // everywhere but still get to use tower.
 
-pub trait PeerSyncSvc<Z: NetworkZone>:
-    tower::Service<
-        PeerSyncRequest<Z>,
-        Response = PeerSyncResponse<Z>,
-        Error = tower::BoxError,
-        Future = Self::Future2,
-    > + Send
-    + 'static
-{
-    // This allows us to put more restrictive bounds on the future without defining the future here
-    // explicitly.
-    type Future2: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static;
-}
-
-impl<T, Z: NetworkZone> PeerSyncSvc<Z> for T
-where
-    T: tower::Service<PeerSyncRequest<Z>, Response = PeerSyncResponse<Z>, Error = tower::BoxError>
-        + Send
-        + 'static,
-    T::Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
-{
-    type Future2 = T::Future;
-}
-
 pub trait AddressBook<Z: NetworkZone>:
     tower::Service<
         AddressBookRequest<Z>,
         Response = AddressBookResponse<Z>,
         Error = tower::BoxError,
-        Future = Self::Future2,
+        Future: Send + 'static,
     > + Send
     + 'static
 {
-    // This allows us to put more restrictive bounds on the future without defining the future here
-    // explicitly.
-    type Future2: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static;
 }
 
-impl<T, Z: NetworkZone> AddressBook<Z> for T
-where
+impl<T, Z: NetworkZone> AddressBook<Z> for T where
     T: tower::Service<
             AddressBookRequest<Z>,
             Response = AddressBookResponse<Z>,
             Error = tower::BoxError,
+            Future: Send + 'static,
         > + Send
-        + 'static,
-    T::Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
+        + 'static
 {
-    type Future2 = T::Future;
 }
 
 pub trait CoreSyncSvc:
@@ -238,26 +219,21 @@ pub trait CoreSyncSvc:
         CoreSyncDataRequest,
         Response = CoreSyncDataResponse,
         Error = tower::BoxError,
-        Future = Self::Future2,
+        Future: Send + 'static,
     > + Send
     + 'static
 {
-    // This allows us to put more restrictive bounds on the future without defining the future here
-    // explicitly.
-    type Future2: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static;
 }
 
-impl<T> CoreSyncSvc for T
-where
+impl<T> CoreSyncSvc for T where
     T: tower::Service<
             CoreSyncDataRequest,
             Response = CoreSyncDataResponse,
             Error = tower::BoxError,
+            Future: Send + 'static,
         > + Send
-        + 'static,
-    T::Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
+        + 'static
 {
-    type Future2 = T::Future;
 }
 
 pub trait ProtocolRequestHandler:
@@ -265,21 +241,43 @@ pub trait ProtocolRequestHandler:
         ProtocolRequest,
         Response = ProtocolResponse,
         Error = tower::BoxError,
-        Future = Self::Future2,
+        Future: Send + 'static,
     > + Send
     + 'static
 {
-    // This allows us to put more restrictive bounds on the future without defining the future here
-    // explicitly.
-    type Future2: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static;
 }
 
-impl<T> ProtocolRequestHandler for T
-where
-    T: tower::Service<ProtocolRequest, Response = ProtocolResponse, Error = tower::BoxError>
-        + Send
-        + 'static,
-    T::Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
+impl<T> ProtocolRequestHandler for T where
+    T: tower::Service<
+            ProtocolRequest,
+            Response = ProtocolResponse,
+            Error = tower::BoxError,
+            Future: Send + 'static,
+        > + Send
+        + 'static
 {
-    type Future2 = T::Future;
+}
+
+pub trait ProtocolRequestHandlerMaker<Z: NetworkZone>:
+    tower::MakeService<
+        client::PeerInformation<Z::Addr>,
+        ProtocolRequest,
+        MakeError = tower::BoxError,
+        Service: ProtocolRequestHandler,
+        Future: Send + 'static,
+    > + Send
+    + 'static
+{
+}
+
+impl<T, Z: NetworkZone> ProtocolRequestHandlerMaker<Z> for T where
+    T: tower::MakeService<
+            client::PeerInformation<Z::Addr>,
+            ProtocolRequest,
+            MakeError = tower::BoxError,
+            Service: ProtocolRequestHandler,
+            Future: Send + 'static,
+        > + Send
+        + 'static
+{
 }

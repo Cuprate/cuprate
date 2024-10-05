@@ -1,9 +1,7 @@
 fn main() {
-    #[cfg(feature = "constants")]
     set_commit_env();
 }
 
-#[cfg(feature = "constants")]
 /// This sets the git `COMMIT` environment variable.
 fn set_commit_env() {
     const PATH: &str = "../.git/refs/heads/";

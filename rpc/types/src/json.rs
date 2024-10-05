@@ -635,7 +635,9 @@ define_request_and_response! {
     AccessResponseBase {
         blob: String,
         block_header: BlockHeader,
-        json: String, // FIXME: this should be defined in a struct, it has many fields.
+        /// `cuprate_rpc_types::json::block::Block` should be used
+        /// to create this JSON string in a type-safe manner.
+        json: String,
         miner_tx_hash: String,
         tx_hashes: Vec<String> = default_vec::<String>(), "default_vec",
     }

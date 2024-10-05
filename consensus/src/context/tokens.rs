@@ -15,8 +15,8 @@ pub struct ValidityToken {
 
 impl ValidityToken {
     /// Creates a new [`ValidityToken`]
-    pub fn new() -> ValidityToken {
-        ValidityToken {
+    pub fn new() -> Self {
+        Self {
             token: CancellationToken::new(),
         }
     }
@@ -28,6 +28,6 @@ impl ValidityToken {
 
     /// Sets the data to invalid.
     pub fn set_data_invalid(self) {
-        self.token.cancel()
+        self.token.cancel();
     }
 }

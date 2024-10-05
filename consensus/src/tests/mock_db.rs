@@ -1,3 +1,5 @@
+#![expect(non_local_definitions, reason = "proptest macro")]
+
 use std::{
     future::Future,
     pin::Pin,
@@ -60,7 +62,7 @@ pub struct DummyBlockExtendedHeader {
 
 impl From<DummyBlockExtendedHeader> for ExtendedBlockHeader {
     fn from(value: DummyBlockExtendedHeader) -> Self {
-        ExtendedBlockHeader {
+        Self {
             version: value.version.unwrap_or(HardFork::V1),
             vote: value.vote.unwrap_or(HardFork::V1).as_u8(),
             timestamp: value.timestamp.unwrap_or_default(),
@@ -72,31 +74,23 @@ impl From<DummyBlockExtendedHeader> for ExtendedBlockHeader {
 }
 
 impl DummyBlockExtendedHeader {
-    pub fn with_weight_into(
-        mut self,
-        weight: usize,
-        long_term_weight: usize,
-    ) -> DummyBlockExtendedHeader {
+    pub const fn with_weight_into(mut self, weight: usize, long_term_weight: usize) -> Self {
         self.block_weight = Some(weight);
         self.long_term_weight = Some(long_term_weight);
         self
     }
 
-    pub fn with_hard_fork_info(
-        mut self,
-        version: HardFork,
-        vote: HardFork,
-    ) -> DummyBlockExtendedHeader {
+    pub const fn with_hard_fork_info(mut self, version: HardFork, vote: HardFork) -> Self {
         self.vote = Some(vote);
         self.version = Some(version);
         self
     }
 
-    pub fn with_difficulty_info(
+    pub const fn with_difficulty_info(
         mut self,
         timestamp: u64,
         cumulative_difficulty: u128,
-    ) -> DummyBlockExtendedHeader {
+    ) -> Self {
         self.timestamp = Some(timestamp);
         self.cumulative_difficulty = Some(cumulative_difficulty);
         self
@@ -104,16 +98,16 @@ impl DummyBlockExtendedHeader {
 }
 
 #[derive(Debug, Default)]
-pub struct DummyDatabaseBuilder {
+pub(crate) struct DummyDatabaseBuilder {
     blocks: Vec<DummyBlockExtendedHeader>,
 }
 
 impl DummyDatabaseBuilder {
-    pub fn add_block(&mut self, block: DummyBlockExtendedHeader) {
+    pub(crate) fn add_block(&mut self, block: DummyBlockExtendedHeader) {
         self.blocks.push(block);
     }
 
-    pub fn finish(self, dummy_height: Option<usize>) -> DummyDatabase {
+    pub(crate) fn finish(self, dummy_height: Option<usize>) -> DummyDatabase {
         DummyDatabase {
             blocks: Arc::new(self.blocks.into()),
             dummy_height,
@@ -122,14 +116,15 @@ impl DummyDatabaseBuilder {
 }
 
 #[derive(Clone, Debug)]
-pub struct DummyDatabase {
+pub(crate) struct DummyDatabase {
     blocks: Arc<RwLock<Vec<DummyBlockExtendedHeader>>>,
     dummy_height: Option<usize>,
 }
 
 impl DummyDatabase {
-    pub fn add_block(&mut self, block: DummyBlockExtendedHeader) {
-        self.blocks.write().unwrap().push(block)
+    #[expect(clippy::needless_pass_by_ref_mut)]
+    pub(crate) fn add_block(&mut self, block: DummyBlockExtendedHeader) {
+        self.blocks.write().unwrap().push(block);
     }
 }
 
@@ -144,7 +139,7 @@ impl Service<BlockchainReadRequest> for DummyDatabase {
     }
 
     fn call(&mut self, req: BlockchainReadRequest) -> Self::Future {
-        let blocks = self.blocks.clone();
+        let blocks = Arc::clone(&self.blocks);
         let dummy_height = self.dummy_height;
 
         async move {

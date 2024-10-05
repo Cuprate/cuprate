@@ -55,6 +55,7 @@ cargo doc --open --package cuprate-blockchain
 ## 1-off crates
 | Crate | In-tree path | Purpose |
 |-------|--------------|---------|
+| [`cuprate-constants`](https://doc.cuprate.org/cuprate_constants) | [`constants/`](https://github.com/Cuprate/cuprate/tree/main/constants) | Shared `const/static` data across Cuprate
 | [`cuprate-cryptonight`](https://doc.cuprate.org/cuprate_cryptonight) | [`cryptonight/`](https://github.com/Cuprate/cuprate/tree/main/cryptonight) | CryptoNight hash functions
 | [`cuprate-pruning`](https://doc.cuprate.org/cuprate_pruning) | [`pruning/`](https://github.com/Cuprate/cuprate/tree/main/pruning) | Monero pruning logic/types
 | [`cuprate-helper`](https://doc.cuprate.org/cuprate_helper) | [`helper/`](https://github.com/Cuprate/cuprate/tree/main/helper) | Kitchen-sink helper crate for Cuprate

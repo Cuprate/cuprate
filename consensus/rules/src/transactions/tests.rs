@@ -9,6 +9,7 @@ use proptest::{collection::vec, prelude::*};
 
 use monero_serai::transaction::Output;
 
+use cuprate_constants::block::MAX_BLOCK_HEIGHT;
 use cuprate_helper::cast::u64_to_usize;
 
 use super::*;
@@ -16,13 +17,13 @@ use crate::decomposed_amount::DECOMPOSED_AMOUNTS;
 
 #[test]
 fn test_check_output_amount_v1() {
-    for amount in DECOMPOSED_AMOUNTS.iter() {
-        assert!(check_output_amount_v1(*amount, &HardFork::V2).is_ok())
+    for amount in &DECOMPOSED_AMOUNTS {
+        assert!(check_output_amount_v1(*amount, HardFork::V2).is_ok());
     }
 
     proptest!(|(amount in any::<u64>().prop_filter("value_decomposed", |val| !is_decomposed_amount(val)))| {
-        prop_assert!(check_output_amount_v1(amount, &HardFork::V2).is_err());
-        prop_assert!(check_output_amount_v1(amount, &HardFork::V1).is_ok())
+        prop_assert!(check_output_amount_v1(amount, HardFork::V2).is_err());
+        prop_assert!(check_output_amount_v1(amount, HardFork::V1).is_ok());
     });
 }
 
@@ -41,10 +42,10 @@ fn test_sum_outputs() {
 
     let outs = [output_10, outputs_20];
 
-    let sum = sum_outputs(&outs, &HardFork::V16, &TxVersion::RingSignatures).unwrap();
+    let sum = sum_outputs(&outs, HardFork::V16, TxVersion::RingSignatures).unwrap();
     assert_eq!(sum, 30);
 
-    assert!(sum_outputs(&outs, &HardFork::V16, &TxVersion::RingCT).is_err())
+    assert!(sum_outputs(&outs, HardFork::V16, TxVersion::RingCT).is_err());
 }
 
 #[test]
@@ -52,50 +53,50 @@ fn test_decoy_info() {
     let decoy_info = DecoyInfo {
         mixable: 0,
         not_mixable: 0,
-        min_decoys: minimum_decoys(&HardFork::V8),
-        max_decoys: minimum_decoys(&HardFork::V8) + 1,
+        min_decoys: minimum_decoys(HardFork::V8),
+        max_decoys: minimum_decoys(HardFork::V8) + 1,
     };
 
-    assert!(check_decoy_info(&decoy_info, &HardFork::V8).is_ok());
-    assert!(check_decoy_info(&decoy_info, &HardFork::V16).is_err());
+    assert!(check_decoy_info(&decoy_info, HardFork::V8).is_ok());
+    assert!(check_decoy_info(&decoy_info, HardFork::V16).is_err());
 
     let mut decoy_info = DecoyInfo {
         mixable: 0,
         not_mixable: 0,
-        min_decoys: minimum_decoys(&HardFork::V8) - 1,
-        max_decoys: minimum_decoys(&HardFork::V8) + 1,
+        min_decoys: minimum_decoys(HardFork::V8) - 1,
+        max_decoys: minimum_decoys(HardFork::V8) + 1,
     };
 
-    assert!(check_decoy_info(&decoy_info, &HardFork::V8).is_err());
+    assert!(check_decoy_info(&decoy_info, HardFork::V8).is_err());
 
     decoy_info.not_mixable = 1;
-    assert!(check_decoy_info(&decoy_info, &HardFork::V8).is_ok());
+    assert!(check_decoy_info(&decoy_info, HardFork::V8).is_ok());
 
     decoy_info.mixable = 2;
-    assert!(check_decoy_info(&decoy_info, &HardFork::V8).is_err());
+    assert!(check_decoy_info(&decoy_info, HardFork::V8).is_err());
 
     let mut decoy_info = DecoyInfo {
         mixable: 0,
         not_mixable: 0,
-        min_decoys: minimum_decoys(&HardFork::V12),
-        max_decoys: minimum_decoys(&HardFork::V12) + 1,
+        min_decoys: minimum_decoys(HardFork::V12),
+        max_decoys: minimum_decoys(HardFork::V12) + 1,
     };
 
-    assert!(check_decoy_info(&decoy_info, &HardFork::V12).is_err());
+    assert!(check_decoy_info(&decoy_info, HardFork::V12).is_err());
 
     decoy_info.max_decoys = decoy_info.min_decoys;
-    assert!(check_decoy_info(&decoy_info, &HardFork::V12).is_ok());
+    assert!(check_decoy_info(&decoy_info, HardFork::V12).is_ok());
 }
 
 #[test]
 fn test_torsion_ki() {
-    for &key_image in EIGHT_TORSION[1..].iter() {
+    for &key_image in &EIGHT_TORSION[1..] {
         assert!(check_key_images(&Input::ToKey {
             key_image,
             amount: None,
             key_offsets: vec![],
         })
-        .is_err())
+        .is_err());
     }
 }
 
@@ -109,7 +110,7 @@ prop_compose! {
 prop_compose! {
     /// Returns a valid torsioned point.
     fn random_torsioned_point()(point in random_point(), torsion in 1..8_usize ) -> EdwardsPoint {
-        point + curve25519_dalek::constants::EIGHT_TORSION[torsion]
+        point + EIGHT_TORSION[torsion]
     }
 }
 
@@ -160,10 +161,10 @@ prop_compose! {
     /// Returns a [`Timelock`] that is locked given a height and time.
     fn locked_timelock(height: u64, time_for_time_lock: u64)(
         timebased in any::<bool>(),
-        lock_height in (height+1)..500_000_001,
+        lock_height in (height+1)..=MAX_BLOCK_HEIGHT,
         time_for_time_lock in (time_for_time_lock+121)..,
     ) -> Timelock {
-        if timebased || lock_height > 500_000_000 {
+        if timebased || lock_height > MAX_BLOCK_HEIGHT {
             Timelock::Time(time_for_time_lock)
         } else {
             Timelock::Block(u64_to_usize(lock_height))
@@ -175,7 +176,7 @@ prop_compose! {
     /// Returns a [`Timelock`] that is unlocked given a height and time.
     fn unlocked_timelock(height: u64, time_for_time_lock: u64)(
         ty in 0..3,
-        lock_height in 0..(height+1),
+        lock_height in 0..=height,
         time_for_time_lock in 0..(time_for_time_lock+121),
     ) -> Timelock {
         match ty {
@@ -203,33 +204,33 @@ proptest! {
         hf_no_view_tags in hf_in_range(1..14),
         hf_view_tags in hf_in_range(16..17),
     ) {
-        prop_assert!(check_output_types(&view_tag_outs, &hf_view_tags).is_ok());
-        prop_assert!(check_output_types(&view_tag_outs, &hf_no_view_tags).is_err());
+        prop_assert!(check_output_types(&view_tag_outs, hf_view_tags).is_ok());
+        prop_assert!(check_output_types(&view_tag_outs, hf_no_view_tags).is_err());
 
 
-        prop_assert!(check_output_types(&non_view_tag_outs, &hf_no_view_tags).is_ok());
-        prop_assert!(check_output_types(&non_view_tag_outs, &hf_view_tags).is_err());
+        prop_assert!(check_output_types(&non_view_tag_outs, hf_no_view_tags).is_ok());
+        prop_assert!(check_output_types(&non_view_tag_outs, hf_view_tags).is_err());
 
-        prop_assert!(check_output_types(&non_view_tag_outs, &HardFork::V15).is_ok());
-        prop_assert!(check_output_types(&view_tag_outs, &HardFork::V15).is_ok());
+        prop_assert!(check_output_types(&non_view_tag_outs, HardFork::V15).is_ok());
+        prop_assert!(check_output_types(&view_tag_outs, HardFork::V15).is_ok());
         view_tag_outs.append(&mut non_view_tag_outs);
-        prop_assert!(check_output_types(&view_tag_outs, &HardFork::V15).is_err());
+        prop_assert!(check_output_types(&view_tag_outs, HardFork::V15).is_err());
     }
 
     #[test]
     fn test_valid_number_of_outputs(valid_numb_outs in 2..17_usize) {
-        prop_assert!(check_number_of_outputs(valid_numb_outs, &HardFork::V16, &TxVersion::RingCT, true).is_ok());
+        prop_assert!(check_number_of_outputs(valid_numb_outs, HardFork::V16, TxVersion::RingCT, true).is_ok());
     }
 
     #[test]
     fn test_invalid_number_of_outputs(numb_outs in 17..usize::MAX) {
-        prop_assert!(check_number_of_outputs(numb_outs, &HardFork::V16, &TxVersion::RingCT, true).is_err());
+        prop_assert!(check_number_of_outputs(numb_outs, HardFork::V16, TxVersion::RingCT, true).is_err());
     }
 
     #[test]
     fn test_check_output_amount_v2(amt in 1..u64::MAX) {
         prop_assert!(check_output_amount_v2(amt).is_err());
-        prop_assert!(check_output_amount_v2(0).is_ok())
+        prop_assert!(check_output_amount_v2(0).is_ok());
     }
 
     #[test]
@@ -240,10 +241,10 @@ proptest! {
     }
 
     #[test]
-    fn test_timestamp_time_lock(timestamp in 500_000_001..u64::MAX) {
-        prop_assert!(check_timestamp_time_lock(timestamp, timestamp - 120, &HardFork::V16));
-        prop_assert!(!check_timestamp_time_lock(timestamp, timestamp - 121, &HardFork::V16));
-        prop_assert!(check_timestamp_time_lock(timestamp, timestamp, &HardFork::V16));
+    fn test_timestamp_time_lock(timestamp in MAX_BLOCK_HEIGHT+1..u64::MAX) {
+        prop_assert!(check_timestamp_time_lock(timestamp, timestamp - 120, HardFork::V16));
+        prop_assert!(!check_timestamp_time_lock(timestamp, timestamp - 121, HardFork::V16));
+        prop_assert!(check_timestamp_time_lock(timestamp, timestamp, HardFork::V16));
     }
 
     #[test]
@@ -251,11 +252,11 @@ proptest! {
         mut locked_locks in vec(locked_timelock(5_000, 100_000_000), 1..50),
         mut unlocked_locks in vec(unlocked_timelock(5_000, 100_000_000), 1..50)
     ) {
-        assert!(check_all_time_locks(&locked_locks, 5_000, 100_000_000, &HardFork::V16).is_err());
-        assert!(check_all_time_locks(&unlocked_locks, 5_000, 100_000_000, &HardFork::V16).is_ok());
+        assert!(check_all_time_locks(&locked_locks, 5_000, 100_000_000, HardFork::V16).is_err());
+        assert!(check_all_time_locks(&unlocked_locks, 5_000, 100_000_000, HardFork::V16).is_ok());
 
         unlocked_locks.append(&mut locked_locks);
-        assert!(check_all_time_locks(&unlocked_locks, 5_000, 100_000_000, &HardFork::V16).is_err());
+        assert!(check_all_time_locks(&unlocked_locks, 5_000, 100_000_000, HardFork::V16).is_err());
     }
 
     #[test]
