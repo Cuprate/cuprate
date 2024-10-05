@@ -35,7 +35,7 @@ use crate::{
 mod commands;
 mod handler;
 
-pub use commands::BlockchainManagerCommand;
+pub use commands::{BlockchainManagerCommand, IncomingBlockOk};
 
 /// Initialize the blockchain manager.
 ///

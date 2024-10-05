@@ -4,13 +4,13 @@
 //! blockchain manager.
 use std::{
     collections::{HashMap, HashSet},
-    sync::{Mutex, OnceLock, LazyLock},
+    sync::{LazyLock, Mutex, OnceLock},
 };
 
-use tokio::sync::{mpsc, oneshot};
-use tower::{Service, ServiceExt};
 use monero_serai::{block::Block, transaction::Transaction};
 use rayon::prelude::*;
+use tokio::sync::{mpsc, oneshot};
+use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::transactions::new_tx_verification_data;
@@ -21,12 +21,14 @@ use cuprate_types::{
 };
 
 use crate::{
-    blockchain::manager::BlockchainManagerCommand, constants::PANIC_CRITICAL_SERVICE_ERROR,
+    blockchain::manager::{BlockchainManagerCommand, IncomingBlockOk},
+    constants::PANIC_CRITICAL_SERVICE_ERROR,
 };
 
 /// The channel used to send [`BlockchainManagerCommand`]s to the blockchain manager.
 ///
-/// This channel is initialized in [`init_blockchain_manager`](super::manager::init_blockchain_manager).
+/// This channel is initialized in [`init_blockchain_manager`](super::manager::init_blockchain_manager), the functions
+/// in this file document what happens if this is not initialized when they are called.
 pub(super) static COMMAND_TX: OnceLock<mpsc::Sender<BlockchainManagerCommand>> = OnceLock::new();
 
 /// An error that can be returned from [`handle_incoming_block`].
@@ -62,7 +64,7 @@ pub async fn handle_incoming_block(
     block: Block,
     given_txs: Vec<Transaction>,
     blockchain_read_handle: &mut BlockchainReadHandle,
-) -> Result<bool, IncomingBlockError> {
+) -> Result<IncomingBlockOk, IncomingBlockError> {
     /// A [`HashSet`] of block hashes that the blockchain manager is currently handling.
     ///
     /// This lock prevents sending the same block to the blockchain manager from multiple connections
@@ -88,7 +90,7 @@ pub async fn handle_incoming_block(
         .await
         .expect(PANIC_CRITICAL_SERVICE_ERROR)
     {
-        return Ok(false);
+        return Ok(IncomingBlockOk::AlreadyHave);
     }
 
     // TODO: remove this when we have a working tx-pool.
@@ -110,15 +112,14 @@ pub async fn handle_incoming_block(
         .map_err(IncomingBlockError::InvalidBlock)?;
 
     let Some(incoming_block_tx) = COMMAND_TX.get() else {
-        // We could still be starting up the blockchain manager, so just return this as there is nothing
-        // else we can do.
-        return Ok(false);
+        // We could still be starting up the blockchain manager.
+        return Ok(IncomingBlockOk::NotReady);
     };
 
     // Add the blocks hash to the blocks being handled.
     if !BLOCKS_BEING_HANDLED.lock().unwrap().insert(block_hash) {
         // If another place is already adding this block then we can stop.
-        return Ok(false);
+        return Ok(IncomingBlockOk::AlreadyHave);
     }
 
     // From this point on we MUST not early return without removing the block hash from `BLOCKS_BEING_HANDLED`.
