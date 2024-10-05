@@ -17,7 +17,7 @@ use crate::try_par_iter;
 /// Verifies the ring signature.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/transactions/ring_signatures.html>
-pub fn check_input_signatures(
+pub(crate) fn check_input_signatures(
     inputs: &[Input],
     signatures: &[RingSignature],
     rings: &Rings,
@@ -45,7 +45,7 @@ pub fn check_input_signatures(
                     Ok(())
                 })?;
         }
-        _ => panic!("tried to verify v1 tx with a non v1 ring"),
+        Rings::RingCT(_) => panic!("tried to verify v1 tx with a non v1 ring"),
     }
     Ok(())
 }

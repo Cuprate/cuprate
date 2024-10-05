@@ -6,6 +6,7 @@ license = "MIT"
 authors = ["Boog900"]
 
 [dependencies]
+cuprate-constants = { path = "../../constants" }
 cuprate-fixed-bytes = { path = "../../net/fixed-bytes" }
 cuprate-wire = { path = "../../net/wire" }
 cuprate-p2p-core = { path = "../p2p-core", features = ["borsh"] }
@@ -30,7 +31,6 @@ thiserror = { workspace = true }
 bytes = { workspace = true, features = ["std"] }
 rand = { workspace = true, features = ["std", "std_rng"] }
 rand_distr = { workspace = true, features = ["std"] }
-hex = { workspace = true, features = ["std"] }
 tracing = { workspace = true, features = ["std", "attributes"] }
 borsh = { workspace = true, features = ["derive", "std"] }
 
@@ -39,3 +39,6 @@ cuprate-test-utils = { path = "../../test-utils" }
 indexmap = { workspace = true }
 proptest = { workspace = true }
 tokio-test = { workspace = true }
+
+[lints]
+workspace = true

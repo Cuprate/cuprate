@@ -1,6 +1,6 @@
 //! Timeout Monitor
 //!
-//! This module holds the task that sends periodic [TimedSync](PeerRequest::TimedSync) requests to a peer to make
+//! This module holds the task that sends periodic [`TimedSync`](PeerRequest::TimedSync) requests to a peer to make
 //! sure the connection is still active.
 use std::sync::Arc;
 
@@ -15,36 +15,35 @@ use tracing::instrument;
 use cuprate_wire::{admin::TimedSyncRequest, AdminRequestMessage, AdminResponseMessage};
 
 use crate::{
-    client::{connection::ConnectionTaskRequest, InternalPeerID},
+    client::{connection::ConnectionTaskRequest, PeerInformation},
     constants::{MAX_PEERS_IN_PEER_LIST_MESSAGE, TIMEOUT_INTERVAL},
-    handles::ConnectionHandle,
-    services::{AddressBookRequest, CoreSyncDataRequest, CoreSyncDataResponse, PeerSyncRequest},
-    AddressBook, CoreSyncSvc, NetworkZone, PeerRequest, PeerResponse, PeerSyncSvc,
+    services::{AddressBookRequest, CoreSyncDataRequest, CoreSyncDataResponse},
+    AddressBook, CoreSyncSvc, NetworkZone, PeerRequest, PeerResponse,
 };
 
 /// The timeout monitor task, this task will send periodic timed sync requests to the peer to make sure it is still active.
 #[instrument(
     name = "timeout_monitor",
     level = "debug",
-    fields(addr = %id),
+    fields(addr = %peer_information.id),
     skip_all,
 )]
-pub async fn connection_timeout_monitor_task<N: NetworkZone, AdrBook, CSync, PSync>(
-    id: InternalPeerID<N::Addr>,
-    handle: ConnectionHandle,
+pub async fn connection_timeout_monitor_task<N: NetworkZone, AdrBook, CSync>(
+    peer_information: PeerInformation<N::Addr>,
 
     connection_tx: mpsc::Sender<ConnectionTaskRequest>,
     semaphore: Arc<Semaphore>,
 
     mut address_book_svc: AdrBook,
     mut core_sync_svc: CSync,
-    mut peer_core_sync_svc: PSync,
 ) -> Result<(), tower::BoxError>
 where
     AdrBook: AddressBook<N>,
     CSync: CoreSyncSvc,
-    PSync: PeerSyncSvc<N>,
 {
+    let connection_tx_weak = connection_tx.downgrade();
+    drop(connection_tx);
+
     // Instead of tracking the time from last message from the peer and sending a timed sync if this value is too high,
     // we just send a timed sync every [TIMEOUT_INTERVAL] seconds.
     let mut interval = interval(TIMEOUT_INTERVAL);
@@ -59,12 +58,12 @@ where
 
         tracing::trace!("timeout monitor tick.");
 
-        if connection_tx.is_closed() {
+        let Some(connection_tx) = connection_tx_weak.upgrade() else {
             tracing::debug!("Closing timeout monitor, connection disconnected.");
             return Ok(());
-        }
+        };
 
-        let Ok(permit) = semaphore.clone().try_acquire_owned() else {
+        let Ok(permit) = Arc::clone(&semaphore).try_acquire_owned() else {
             // If we can't get a permit the connection is currently waiting for a response, so no need to
             // do a timed sync.
             continue;
@@ -122,15 +121,6 @@ where
             ))
             .await?;
 
-        // Tell the peer sync service about the peers core sync data
-        peer_core_sync_svc
-            .ready()
-            .await?
-            .call(PeerSyncRequest::IncomingCoreSyncData(
-                id,
-                handle.clone(),
-                timed_sync.payload_data,
-            ))
-            .await?;
+        *peer_information.core_sync_data.lock().unwrap() = timed_sync.payload_data;
     }
 }

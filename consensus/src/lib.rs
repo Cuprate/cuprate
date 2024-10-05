@@ -10,6 +10,16 @@
 //! implement a database you need to have a service which accepts [`BlockchainReadRequest`] and responds
 //! with [`BlockchainResponse`].
 //!
+
+cfg_if::cfg_if! {
+    // Used in external `tests/`.
+    if #[cfg(test)] {
+        use cuprate_test_utils as _;
+        use curve25519_dalek as _;
+        use hex_literal as _;
+    }
+}
+
 use cuprate_consensus_rules::ConsensusError;
 
 mod batch_verifier;
@@ -34,6 +44,7 @@ pub use cuprate_types::{
 
 /// An Error returned from one of the consensus services.
 #[derive(Debug, thiserror::Error)]
+#[expect(variant_size_differences)]
 pub enum ExtendedConsensusError {
     /// A consensus error.
     #[error("{0}")]
@@ -53,7 +64,8 @@ pub enum ExtendedConsensusError {
 }
 
 /// Initialize the 2 verifier [`tower::Service`]s (block and transaction).
-pub async fn initialize_verifier<D, Ctx>(
+#[expect(clippy::type_complexity)]
+pub fn initialize_verifier<D, Ctx>(
     database: D,
     ctx_svc: Ctx,
 ) -> Result<
@@ -112,7 +124,7 @@ pub mod __private {
                 Response = BlockchainResponse,
                 Error = tower::BoxError,
             >,
-        > crate::Database for T
+        > Database for T
     where
         T::Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
     {

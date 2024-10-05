@@ -8,7 +8,7 @@
 //! returns the peer to the pool when it is dropped.
 //!
 //! Internally the pool is a [`DashMap`] which means care should be taken in `async` code
-//! as internally this uses blocking RwLocks.
+//! as internally this uses blocking `RwLock`s.
 use std::sync::Arc;
 
 use dashmap::DashMap;
@@ -24,7 +24,7 @@ use cuprate_p2p_core::{
 pub(crate) mod disconnect_monitor;
 mod drop_guard_client;
 
-pub use drop_guard_client::ClientPoolDropGuard;
+pub(crate) use drop_guard_client::ClientPoolDropGuard;
 
 /// The client pool, which holds currently connected free peers.
 ///
@@ -38,16 +38,17 @@ pub struct ClientPool<N: NetworkZone> {
 
 impl<N: NetworkZone> ClientPool<N> {
     /// Returns a new [`ClientPool`] wrapped in an [`Arc`].
-    pub fn new() -> Arc<ClientPool<N>> {
+    pub fn new() -> Arc<Self> {
         let (tx, rx) = mpsc::unbounded_channel();
 
-        let pool = Arc::new(ClientPool {
+        let pool = Arc::new(Self {
             clients: DashMap::new(),
             new_connection_tx: tx,
         });
 
         tokio::spawn(
-            disconnect_monitor::disconnect_monitor(rx, pool.clone()).instrument(Span::current()),
+            disconnect_monitor::disconnect_monitor(rx, Arc::clone(&pool))
+                .instrument(Span::current()),
         );
 
         pool
@@ -69,8 +70,7 @@ impl<N: NetworkZone> ClientPool<N> {
             return;
         }
 
-        let res = self.clients.insert(id, client);
-        assert!(res.is_none());
+        assert!(self.clients.insert(id, client).is_none());
 
         // We have to check this again otherwise we could have a race condition where a
         // peer is disconnected after the first check, the disconnect monitor tries to remove it,
@@ -121,19 +121,44 @@ impl<N: NetworkZone> ClientPool<N> {
     /// Note that the returned iterator is not guaranteed to contain every peer asked for.
     ///
     /// See [`Self::borrow_client`] for borrowing a single client.
-    #[allow(private_interfaces)] // TODO: Remove me when 2024 Rust
     pub fn borrow_clients<'a, 'b>(
         self: &'a Arc<Self>,
         peers: &'b [InternalPeerID<N::Addr>],
     ) -> impl Iterator<Item = ClientPoolDropGuard<N>> + sealed::Captures<(&'a (), &'b ())> {
         peers.iter().filter_map(|peer| self.borrow_client(peer))
     }
+
+    /// Borrows all [`Client`]s from the pool that have claimed a higher cumulative difficulty than
+    /// the amount passed in.
+    ///
+    /// The [`Client`]s are wrapped in [`ClientPoolDropGuard`] which
+    /// will return the clients to the pool when they are dropped.
+    pub fn clients_with_more_cumulative_difficulty(
+        self: &Arc<Self>,
+        cumulative_difficulty: u128,
+    ) -> Vec<ClientPoolDropGuard<N>> {
+        let peers = self
+            .clients
+            .iter()
+            .filter_map(|element| {
+                let peer_sync_info = element.value().info.core_sync_data.lock().unwrap();
+
+                if peer_sync_info.cumulative_difficulty() > cumulative_difficulty {
+                    Some(*element.key())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        self.borrow_clients(&peers).collect()
+    }
 }
 
 mod sealed {
     /// TODO: Remove me when 2024 Rust
     ///
-    /// https://rust-lang.github.io/rfcs/3498-lifetime-capture-rules-2024.html#the-captures-trick
+    /// <https://rust-lang.github.io/rfcs/3498-lifetime-capture-rules-2024.html#the-captures-trick>
     pub trait Captures<U> {}
 
     impl<T: ?Sized, U> Captures<U> for T {}

@@ -3,6 +3,7 @@ resolver = "2"
 
 members = [
 	"binaries/cuprated",
+	"constants",
 	"consensus",
 	"consensus/fast-sync",
 	"consensus/rules",
@@ -48,48 +49,49 @@ opt-level     = 1
 opt-level = 3
 
 [workspace.dependencies]
-anyhow                = { version = "1.0.87", default-features = false }
-async-trait           = { version = "0.1.74", default-features = false }
-bitflags              = { version = "2.4.2", default-features = false }
-borsh                 = { version = "1.2.1", default-features = false }
-bytemuck              = { version = "1.14.3", default-features = false }
-bytes                 = { version = "1.5.0", default-features = false }
+anyhow                = { version = "1.0.89", default-features = false }
+async-trait           = { version = "0.1.82", default-features = false }
+bitflags              = { version = "2.6.0", default-features = false }
+borsh                 = { version = "1.5.1", default-features = false }
+bytemuck              = { version = "1.18.0", default-features = false }
+bytes                 = { version = "1.7.2", default-features = false }
 cfg-if                = { version = "1.0.0", default-features = false }
-clap                  = { version = "4.4.7", default-features = false }
-chrono                = { version = "0.4.31", default-features = false }
+clap                  = { version = "4.5.17", default-features = false }
+chrono                = { version = "0.4.38", default-features = false }
 crypto-bigint         = { version = "0.5.5", default-features = false }
 crossbeam             = { version = "0.8.4", default-features = false }
+const_format          = { version = "0.2.33", default-features = false }
 curve25519-dalek      = { version = "4.1.3", default-features = false }
 dashmap               = { version = "5.5.3", default-features = false }
 dirs                  = { version = "5.0.1", default-features = false }
-futures               = { version = "0.3.29", default-features = false }
+futures               = { version = "0.3.30", default-features = false }
 hex                   = { version = "0.4.3", default-features = false }
 hex-literal           = { version = "0.4", default-features = false }
-indexmap              = { version = "2.2.5", default-features = false }
+indexmap              = { version = "2.5.0", default-features = false }
 monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "d5205ce", default-features = false }
-paste                 = { version = "1.0.14", default-features = false }
-pin-project           = { version = "1.1.3", default-features = false }
+paste                 = { version = "1.0.15", default-features = false }
+pin-project           = { version = "1.1.5", default-features = false }
 randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev = "0028464", default-features = false }
 rand                  = { version = "0.8.5", default-features = false }
 rand_distr            = { version = "0.4.3", default-features = false }
-rayon                 = { version = "1.9.0", default-features = false }
-serde_bytes           = { version = "0.11.12", default-features = false }
-serde_json            = { version = "1.0.108", default-features = false }
-serde                 = { version = "1.0.190", default-features = false }
-thiserror             = { version = "1.0.50", default-features = false }
-thread_local          = { version = "1.1.7", default-features = false }
-tokio-util            = { version = "0.7.10", default-features = false }
-tokio-stream          = { version = "0.1.14", default-features = false }
-tokio                 = { version = "1.33.0", default-features = false }
-tower                 = { version = "0.4.13", default-features = false }
-tracing-subscriber    = { version = "0.3.17", default-features = false }
+rayon                 = { version = "1.10.0", default-features = false }
+serde_bytes           = { version = "0.11.15", default-features = false }
+serde_json            = { version = "1.0.128", default-features = false }
+serde                 = { version = "1.0.210", default-features = false }
+thiserror             = { version = "1.0.63", default-features = false }
+thread_local          = { version = "1.1.8", default-features = false }
+tokio-util            = { version = "0.7.12", default-features = false }
+tokio-stream          = { version = "0.1.16", default-features = false }
+tokio                 = { version = "1.40.0", default-features = false }
+tower                 = { git = "https://github.com/Cuprate/tower.git", rev = "6c7faf0", default-features = false } # <https://github.com/tower-rs/tower/pull/796>
+tracing-subscriber    = { version = "0.3.18", default-features = false }
 tracing               = { version = "0.1.40", default-features = false }
 
 ## workspace.dev-dependencies
 monero-rpc                = { git = "https://github.com/Cuprate/serai.git", rev = "d5205ce" }
 monero-simple-request-rpc = { git = "https://github.com/Cuprate/serai.git", rev = "d5205ce" }
 tempfile                  = { version = "3" }
-pretty_assertions         = { version = "1.4.0" }
+pretty_assertions         = { version = "1.4.1" }
 proptest                  = { version = "1" }
 proptest-derive           = { version = "0.4.0" }
 tokio-test                = { version = "0.4.4" }

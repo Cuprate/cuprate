@@ -36,7 +36,7 @@ pub(super) struct ContextTaskRequest {
 }
 
 /// The Context task that keeps the blockchain context and handles requests.
-pub struct ContextTask<D: Database> {
+pub(crate) struct ContextTask<D: Database> {
     /// A token used to invalidate previous contexts when a new
     /// block is added to the chain.
     current_validity_token: ValidityToken,
@@ -65,7 +65,7 @@ pub struct ContextTask<D: Database> {
 impl<D: Database + Clone + Send + 'static> ContextTask<D> {
     /// Initialize the [`ContextTask`], this will need to pull a lot of data from the database so may take a
     /// while to complete.
-    pub async fn init_context(
+    pub(crate) async fn init_context(
         cfg: ContextConfig,
         mut database: D,
     ) -> Result<Self, ExtendedConsensusError> {
@@ -131,7 +131,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
             rx_vms::RandomXVmCache::init_from_chain_height(chain_height, &current_hf, db).await
         });
 
-        let context_svc = ContextTask {
+        let context_svc = Self {
             current_validity_token: ValidityToken::new(),
             difficulty_cache: difficulty_cache_handle.await.unwrap()?,
             weight_cache: weight_cache_handle.await.unwrap()?,
@@ -148,7 +148,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
     }
 
     /// Handles a [`BlockChainContextRequest`] and returns a [`BlockChainContextResponse`].
-    pub async fn handle_req(
+    pub(crate) async fn handle_req(
         &mut self,
         req: BlockChainContextRequest,
     ) -> Result<BlockChainContextResponse, tower::BoxError> {
@@ -164,17 +164,17 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                         context_to_verify_block: ContextToVerifyBlock {
                             median_weight_for_block_reward: self
                                 .weight_cache
-                                .median_for_block_reward(&current_hf),
+                                .median_for_block_reward(current_hf),
                             effective_median_weight: self
                                 .weight_cache
-                                .effective_median_block_weight(&current_hf),
+                                .effective_median_block_weight(current_hf),
                             top_hash: self.top_block_hash,
                             median_block_timestamp: self
                                 .difficulty_cache
                                 .median_timestamp(u64_to_usize(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW)),
                             chain_height: self.chain_height,
                             current_hf,
-                            next_difficulty: self.difficulty_cache.next_difficulty(&current_hf),
+                            next_difficulty: self.difficulty_cache.next_difficulty(current_hf),
                             already_generated_coins: self.already_generated_coins,
                         },
                         cumulative_difficulty: self.difficulty_cache.cumulative_difficulty(),
@@ -191,7 +191,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
 
                 let next_diffs = self
                     .difficulty_cache
-                    .next_difficulties(blocks, &self.hardfork_state.current_hardfork());
+                    .next_difficulties(blocks, self.hardfork_state.current_hardfork());
                 BlockChainContextResponse::BatchDifficulties(next_diffs)
             }
             BlockChainContextRequest::NewRXVM(vm) => {
@@ -330,10 +330,10 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
 
     /// Run the [`ContextTask`], the task will listen for requests on the passed in channel. When the channel closes the
     /// task will finish.
-    pub async fn run(mut self, mut rx: mpsc::Receiver<ContextTaskRequest>) {
+    pub(crate) async fn run(mut self, mut rx: mpsc::Receiver<ContextTaskRequest>) {
         while let Some(req) = rx.recv().await {
             let res = self.handle_req(req.req).instrument(req.span).await;
-            let _ = req.tx.send(res);
+            drop(req.tx.send(res));
         }
 
         tracing::info!("Shutting down blockchain context task.");

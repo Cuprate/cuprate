@@ -1,3 +1,12 @@
+cfg_if::cfg_if! {
+    // Used in external `tests/`.
+    if #[cfg(test)] {
+        use proptest as _;
+        use proptest_derive as _;
+        use tokio as _;
+    }
+}
+
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub mod batch_verifier;

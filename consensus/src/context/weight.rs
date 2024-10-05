@@ -38,16 +38,16 @@ pub struct BlockWeightsCacheConfig {
 
 impl BlockWeightsCacheConfig {
     /// Creates a new [`BlockWeightsCacheConfig`]
-    pub const fn new(short_term_window: usize, long_term_window: usize) -> BlockWeightsCacheConfig {
-        BlockWeightsCacheConfig {
+    pub const fn new(short_term_window: usize, long_term_window: usize) -> Self {
+        Self {
             short_term_window,
             long_term_window,
         }
     }
 
     /// Returns the [`BlockWeightsCacheConfig`] for all networks (They are all the same as mainnet).
-    pub fn main_net() -> BlockWeightsCacheConfig {
-        BlockWeightsCacheConfig {
+    pub const fn main_net() -> Self {
+        Self {
             short_term_window: SHORT_TERM_WINDOW,
             long_term_window: LONG_TERM_WINDOW,
         }
@@ -99,7 +99,7 @@ impl BlockWeightsCache {
 
         tracing::info!("Initialized block weight cache, chain-height: {:?}, long term weights length: {:?}, short term weights length: {:?}", chain_height, long_term_weights.len(), short_term_block_weights.len());
 
-        Ok(BlockWeightsCache {
+        Ok(Self {
             short_term_block_weights: rayon_spawn_async(move || {
                 RollingMedian::from_vec(short_term_block_weights, config.short_term_window)
             })
@@ -178,7 +178,7 @@ impl BlockWeightsCache {
 
     /// Add a new block to the cache.
     ///
-    /// The block_height **MUST** be one more than the last height the cache has
+    /// The `block_height` **MUST** be one more than the last height the cache has
     /// seen.
     pub fn new_block(&mut self, block_height: usize, block_weight: usize, long_term_weight: usize) {
         assert_eq!(self.tip_height + 1, block_height);
@@ -208,8 +208,8 @@ impl BlockWeightsCache {
     /// Returns the effective median weight, used for block reward calculations and to calculate
     /// the block weight limit.
     ///
-    /// See: https://cuprate.github.io/monero-book/consensus_rules/blocks/weight_limit.html#calculating-effective-median-weight
-    pub fn effective_median_block_weight(&self, hf: &HardFork) -> usize {
+    /// See: <https://cuprate.github.io/monero-book/consensus_rules/blocks/weight_limit.html#calculating-effective-median-weight>
+    pub fn effective_median_block_weight(&self, hf: HardFork) -> usize {
         calculate_effective_median_block_weight(
             hf,
             self.median_short_term_weight(),
@@ -219,9 +219,9 @@ impl BlockWeightsCache {
 
     /// Returns the median weight used to calculate block reward punishment.
     ///
-    /// https://cuprate.github.io/monero-book/consensus_rules/blocks/reward.html#calculating-block-reward
-    pub fn median_for_block_reward(&self, hf: &HardFork) -> usize {
-        if hf < &HardFork::V12 {
+    /// <https://cuprate.github.io/monero-book/consensus_rules/blocks/reward.html#calculating-block-reward>
+    pub fn median_for_block_reward(&self, hf: HardFork) -> usize {
+        if hf < HardFork::V12 {
             self.median_short_term_weight()
         } else {
             self.effective_median_block_weight(hf)
@@ -232,17 +232,17 @@ impl BlockWeightsCache {
 
 /// Calculates the effective median with the long term and short term median.
 fn calculate_effective_median_block_weight(
-    hf: &HardFork,
+    hf: HardFork,
     median_short_term_weight: usize,
     median_long_term_weight: usize,
 ) -> usize {
-    if hf < &HardFork::V10 {
+    if hf < HardFork::V10 {
         return median_short_term_weight.max(penalty_free_zone(hf));
     }
 
     let long_term_median = median_long_term_weight.max(PENALTY_FREE_ZONE_5);
     let short_term_median = median_short_term_weight;
-    let effective_median = if hf >= &HardFork::V10 && hf < &HardFork::V15 {
+    let effective_median = if hf >= HardFork::V10 && hf < HardFork::V15 {
         min(
             max(PENALTY_FREE_ZONE_5, short_term_median),
             50 * long_term_median,
@@ -258,19 +258,19 @@ fn calculate_effective_median_block_weight(
 }
 
 /// Calculates a blocks long term weight.
-pub fn calculate_block_long_term_weight(
-    hf: &HardFork,
+pub(crate) fn calculate_block_long_term_weight(
+    hf: HardFork,
     block_weight: usize,
     long_term_median: usize,
 ) -> usize {
-    if hf < &HardFork::V10 {
+    if hf < HardFork::V10 {
         return block_weight;
     }
 
     let long_term_median = max(penalty_free_zone(hf), long_term_median);
 
     let (short_term_constraint, adjusted_block_weight) =
-        if hf >= &HardFork::V10 && hf < &HardFork::V15 {
+        if hf >= HardFork::V10 && hf < HardFork::V15 {
             let stc = long_term_median + long_term_median * 2 / 5;
             (stc, block_weight)
         } else {

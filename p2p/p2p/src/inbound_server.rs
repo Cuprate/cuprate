@@ -100,7 +100,7 @@ where
         };
 
         // If we're still behind our maximum limit, Initiate handshake.
-        if let Ok(permit) = semaphore.clone().try_acquire_owned() {
+        if let Ok(permit) = Arc::clone(&semaphore).try_acquire_owned() {
             tracing::debug!("Permit free for incoming connection, attempting handshake.");
 
             let fut = handshaker.ready().await?.call(DoHandshakeRequest {
@@ -111,11 +111,12 @@ where
                 permit: Some(permit),
             });
 
-            let cloned_pool = client_pool.clone();
+            let cloned_pool = Arc::clone(&client_pool);
 
             tokio::spawn(
                 async move {
-                    if let Ok(Ok(peer)) = timeout(HANDSHAKE_TIMEOUT, fut).await {
+                    let client = timeout(HANDSHAKE_TIMEOUT, fut).await;
+                    if let Ok(Ok(peer)) = client {
                         cloned_pool.add_new_client(peer);
                     }
                 }
@@ -133,8 +134,10 @@ where
                         let fut = timeout(PING_REQUEST_TIMEOUT, peer_stream.next());
 
                         // Ok if timeout did not elapsed -> Some if there is a message -> Ok if it has been decoded
-                        if let Ok(Some(Ok(Message::Request(AdminRequestMessage::Ping)))) = fut.await
-                        {
+                        if matches!(
+                            fut.await,
+                            Ok(Some(Ok(Message::Request(AdminRequestMessage::Ping))))
+                        ) {
                             let response = peer_sink
                                 .send(
                                     Message::Response(AdminResponseMessage::Ping(PingResponse {
@@ -148,7 +151,7 @@ where
                             if let Err(err) = response {
                                 tracing::debug!(
                                     "Unable to respond to ping request from peer ({addr}): {err}"
-                                )
+                                );
                             }
                         }
                     }
