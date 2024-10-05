@@ -2,13 +2,13 @@
 //!
 //! This module contains all the functions to mutate the blockchain's state in any way, through the
 //! blockchain manger.
+use monero_serai::{block::Block, transaction::Transaction};
+use rayon::prelude::*;
+use std::sync::LazyLock;
 use std::{
     collections::{HashMap, HashSet},
     sync::{Mutex, OnceLock},
 };
-
-use monero_serai::{block::Block, transaction::Transaction};
-use rayon::prelude::*;
 use tokio::sync::{mpsc, oneshot};
 use tower::{Service, ServiceExt};
 
@@ -25,14 +25,9 @@ use crate::{
 };
 
 /// The channel used to send [`BlockchainManagerCommand`]s to the blockchain manger.
-pub static COMMAND_TX: OnceLock<mpsc::Sender<BlockchainManagerCommand>> = OnceLock::new();
-
-/// A [`HashSet`] of block hashes that the blockchain manager is currently handling.
 ///
-/// This is used over something like a dashmap as we expect a lot of collisions in a short amount of
-/// time for new blocks so we would lose the benefit of sharded locks. A dashmap is made up of `RwLocks`
-/// which are also more expensive than `Mutex`s.
-pub static BLOCKS_BEING_HANDLED: OnceLock<Mutex<HashSet<[u8; 32]>>> = OnceLock::new();
+/// This channel is initialized in [`init_blockchain_manger`](super::manager::init_blockchain_manger).
+pub(super) static COMMAND_TX: OnceLock<mpsc::Sender<BlockchainManagerCommand>> = OnceLock::new();
 
 /// An error that can be returned from [`handle_incoming_block`].
 #[derive(Debug, thiserror::Error)]
@@ -68,6 +63,16 @@ pub async fn handle_incoming_block(
     given_txs: Vec<Transaction>,
     blockchain_read_handle: &mut BlockchainReadHandle,
 ) -> Result<bool, IncomingBlockError> {
+    /// A [`HashSet`] of block hashes that the blockchain manager is currently handling.
+    ///
+    /// This lock prevents sending the same block to the blockchain manager from multiple connections
+    /// before one of them actually gets added to the chain, allowing peers to do other things.
+    ///
+    /// This is used over something like a dashmap as we expect a lot of collisions in a short amount of
+    /// time for new blocks, so we would lose the benefit of sharded locks. A dashmap is made up of `RwLocks`
+    /// which are also more expensive than `Mutex`s.
+    static BLOCKS_BEING_HANDLED: LazyLock<Mutex<HashSet<[u8; 32]>>> =
+        LazyLock::new(|| Mutex::new(HashSet::new()));
     // FIXME: we should look in the tx-pool for txs when that is ready.
 
     if !block_exists(block.header.previous, blockchain_read_handle)
@@ -111,12 +116,7 @@ pub async fn handle_incoming_block(
     };
 
     // Add the blocks hash to the blocks being handled.
-    if !BLOCKS_BEING_HANDLED
-        .get_or_init(|| Mutex::new(HashSet::new()))
-        .lock()
-        .unwrap()
-        .insert(block_hash)
-    {
+    if !BLOCKS_BEING_HANDLED.lock().unwrap().insert(block_hash) {
         // If another place is already adding this block then we can stop.
         return Ok(false);
     }
@@ -140,12 +140,7 @@ pub async fn handle_incoming_block(
         .map_err(IncomingBlockError::InvalidBlock);
 
     // Remove the block hash from the blocks being handled.
-    BLOCKS_BEING_HANDLED
-        .get()
-        .unwrap()
-        .lock()
-        .unwrap()
-        .remove(&block_hash);
+    BLOCKS_BEING_HANDLED.lock().unwrap().remove(&block_hash);
 
     res
 }
