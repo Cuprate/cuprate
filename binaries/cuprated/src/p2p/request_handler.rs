@@ -1,6 +1,9 @@
 use bytes::Bytes;
 use futures::future::BoxFuture;
 use futures::FutureExt;
+use monero_serai::block::Block;
+use monero_serai::transaction::Transaction;
+use std::collections::HashSet;
 use std::{
     future::{ready, Ready},
     task::{Context, Poll},
@@ -8,8 +11,10 @@ use std::{
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::service::BlockchainReadHandle;
+use cuprate_consensus::transactions::new_tx_verification_data;
 use cuprate_consensus::BlockChainContextService;
 use cuprate_fixed_bytes::ByteArrayVec;
+use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};
 use cuprate_p2p::constants::MAX_BLOCK_BATCH_LEN;
@@ -20,6 +25,9 @@ use cuprate_wire::protocol::{
     ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest,
     GetObjectsResponse, NewFluffyBlock,
 };
+
+use crate::blockchain::interface as blockchain_interface;
+use crate::blockchain::interface::IncomingBlockError;
 
 #[derive(Clone)]
 pub struct P2pProtocolRequestHandlerMaker {
@@ -77,7 +85,9 @@ impl<Z: NetworkZone> Service<ProtocolRequest> for P2pProtocolRequestHandler<Z> {
                 "Peer sent a full block when we support fluffy blocks"
             )))
             .boxed(),
-            ProtocolRequest::NewFluffyBlock(_) => todo!(),
+            ProtocolRequest::NewFluffyBlock(r) => {
+                new_fluffy_block(r, self.blockchain_read_handle.clone()).boxed()
+            }
             ProtocolRequest::GetTxPoolCompliment(_) | ProtocolRequest::NewTransactions(_) => {
                 ready(Ok(ProtocolResponse::NA)).boxed()
             } // TODO: tx-pool
@@ -97,7 +107,7 @@ async fn get_objects(
     }
 
     let block_hashes: Vec<[u8; 32]> = (&request.blocks).into();
-    // de-allocate the backing `Bytes`.
+    // deallocate the backing `Bytes`.
     drop(request);
 
     let BlockchainResponse::BlockCompleteEntries {
@@ -131,7 +141,7 @@ async fn get_chain(
 
     let block_hashes: Vec<[u8; 32]> = (&request.block_ids).into();
     let want_pruned_data = request.prune;
-    // de-allocate the backing `Bytes`.
+    // deallocate the backing `Bytes`.
     drop(request);
 
     let BlockchainResponse::NextChainEntry {
@@ -182,7 +192,7 @@ async fn fluffy_missing_txs(
     let block_hash: [u8; 32] = *request.block_hash;
     let current_blockchain_height = request.current_blockchain_height;
 
-    // de-allocate the backing `Bytes`.
+    // deallocate the backing `Bytes`.
     drop(request);
 
     let BlockchainResponse::MissingTxsInBlock(res) = blockchain_read_handle
@@ -211,4 +221,64 @@ async fn fluffy_missing_txs(
         },
         current_blockchain_height,
     }))
+}
+
+/// [`ProtocolRequest::NewFluffyBlock`]
+async fn new_fluffy_block(
+    request: NewFluffyBlock,
+    mut blockchain_read_handle: BlockchainReadHandle,
+) -> anyhow::Result<ProtocolResponse> {
+    let current_blockchain_height = request.current_blockchain_height;
+
+    let (block, txs) = rayon_spawn_async(move || -> Result<_, anyhow::Error> {
+        let block = Block::read(&mut request.b.block.as_ref())?;
+
+        let tx_blobs = request
+            .b
+            .txs
+            .take_normal()
+            .ok_or(anyhow::anyhow!("Peer sent pruned txs in fluffy block"))?;
+
+        let mut txs_in_block = block.transactions.iter().copied().collect::<HashSet<_>>();
+
+        // TODO: size check these tx blobs
+        let txs = tx_blobs
+            .into_iter()
+            .map(|tx_blob| {
+                let tx = Transaction::read(&mut tx_blob.as_ref())?;
+
+                let tx = new_tx_verification_data(tx)?;
+
+                if !txs_in_block.remove(&tx.tx_hash) {
+                    anyhow::bail!("Peer sent tx in fluffy block that wasn't actually in block")
+                }
+
+                Ok((tx.tx_hash, tx))
+            })
+            .collect::<Result<_, anyhow::Error>>()?;
+
+        // The backing `Bytes` will be deallocated when this closure returns.
+
+        Ok((block, txs))
+    })
+    .await?;
+
+    let res =
+        blockchain_interface::handle_incoming_block(block, txs, &mut blockchain_read_handle).await;
+
+    match res {
+        Ok(_) => Ok(ProtocolResponse::NA),
+        Err(IncomingBlockError::UnknownTransactions(block_hash, missing_tx_indices)) => Ok(
+            ProtocolResponse::FluffyMissingTransactionsRequest(FluffyMissingTransactionsRequest {
+                block_hash: block_hash.into(),
+                current_blockchain_height,
+                missing_tx_indices,
+            }),
+        ),
+        Err(IncomingBlockError::Orphan) => {
+            // Block's parent was unknown, could be syncing?
+            Ok(ProtocolResponse::NA)
+        }
+        Err(e) => Err(e.into()),
+    }
 }
