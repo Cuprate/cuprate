@@ -1,10 +1,10 @@
-//! The blockchain manger handler functions.
-use std::{collections::HashMap, sync::Arc};
-
+//! The blockchain manager handler functions.
 use bytes::Bytes;
 use futures::{TryFutureExt, TryStreamExt};
 use monero_serai::{block::Block, transaction::Transaction};
 use rayon::prelude::*;
+use std::ops::ControlFlow;
+use std::{collections::HashMap, sync::Arc};
 use tower::{Service, ServiceExt};
 use tracing::info;
 
@@ -22,6 +22,7 @@ use cuprate_types::{
     AltBlockInformation, HardFork, TransactionVerificationData, VerifiedBlockInformation,
 };
 
+use crate::blockchain::manager::commands::IncomingBlockOk;
 use crate::{
     blockchain::{
         manager::commands::BlockchainManagerCommand, types::ConsensusBlockchainReadHandle,
@@ -32,6 +33,11 @@ use crate::{
 
 impl super::BlockchainManager {
     /// Handle an incoming command from another part of Cuprate.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// recover from.
     pub async fn handle_command(&mut self, command: BlockchainManagerCommand) {
         match command {
             BlockchainManagerCommand::AddBlock {
@@ -67,17 +73,18 @@ impl super::BlockchainManager {
     ///
     /// Otherwise, this function will validate and add the block to the main chain.
     ///
-    /// On success returns a [`bool`] indicating if the block was added to the main chain ([`true`])
-    /// or an alt-chain ([`false`]).
+    /// # Panics
+    ///
+    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// recover from.
     pub async fn handle_incoming_block(
         &mut self,
         block: Block,
         prepared_txs: HashMap<[u8; 32], TransactionVerificationData>,
-    ) -> Result<bool, anyhow::Error> {
+    ) -> Result<IncomingBlockOk, anyhow::Error> {
         if block.header.previous != self.cached_blockchain_context.top_hash {
             self.handle_incoming_alt_block(block, prepared_txs).await?;
-
-            return Ok(false);
+            return Ok(IncomingBlockOk::AddedToAltChain);
         }
 
         let VerifyBlockResponse::MainChain(verified_block) = self
@@ -91,7 +98,7 @@ impl super::BlockchainManager {
             })
             .await?
         else {
-            panic!("Incorrect response!");
+            unreachable!();
         };
 
         let block_blob = Bytes::copy_from_slice(&verified_block.block_blob);
@@ -100,7 +107,7 @@ impl super::BlockchainManager {
         self.broadcast_block(block_blob, self.cached_blockchain_context.chain_height)
             .await;
 
-        Ok(true)
+        Ok(IncomingBlockOk::AddedToMainChain)
     }
 
     /// Handle an incoming [`BlockBatch`].
@@ -160,7 +167,7 @@ impl super::BlockchainManager {
                 self.stop_current_block_downloader.notify_one();
                 return;
             }
-            _ => panic!("Incorrect response!"),
+            _ => unreachable!(),
         };
 
         for (block, txs) in prepped_blocks {
@@ -179,7 +186,7 @@ impl super::BlockchainManager {
                     self.stop_current_block_downloader.notify_one();
                     return;
                 }
-                _ => panic!("Incorrect response!"),
+                _ => unreachable!(),
             };
 
             self.add_valid_block_to_main_chain(verified_block).await;
@@ -226,16 +233,14 @@ impl super::BlockchainManager {
                     self.stop_current_block_downloader.notify_one();
                     return;
                 }
-                // the chain was reorged
-                Ok(true) => {
+                Ok(AddAltBlock::Reorged) => {
                     // Collect the remaining blocks and add them to the main chain instead.
                     batch.blocks = blocks.collect();
                     self.handle_incoming_block_batch_main_chain(batch).await;
-
                     return;
                 }
                 // continue adding alt blocks.
-                Ok(false) => (),
+                Ok(AddAltBlock::Cached) => (),
             }
         }
     }
@@ -245,8 +250,6 @@ impl super::BlockchainManager {
     /// This function will do some pre-validation of the alt block, then if the cumulative difficulty
     /// of the alt chain is higher than the main chain it will attempt a reorg otherwise it will add
     /// the alt block to the alt block cache.
-    ///
-    /// This function returns a [`bool`] indicating if the chain was reorganised ([`true`]) or not ([`false`]).
     ///
     /// # Errors
     ///
@@ -258,11 +261,11 @@ impl super::BlockchainManager {
     ///
     /// This function will panic if any internal service returns an unexpected error that we cannot
     /// recover from.
-    pub async fn handle_incoming_alt_block(
+    async fn handle_incoming_alt_block(
         &mut self,
         block: Block,
         prepared_txs: HashMap<[u8; 32], TransactionVerificationData>,
-    ) -> Result<bool, anyhow::Error> {
+    ) -> Result<AddAltBlock, anyhow::Error> {
         let VerifyBlockResponse::AltChain(alt_block_info) = self
             .block_verifier_service
             .ready()
@@ -274,7 +277,7 @@ impl super::BlockchainManager {
             })
             .await?
         else {
-            panic!("Incorrect response!");
+            unreachable!();
         };
 
         // TODO: check in consensus crate if alt block with this hash already exists.
@@ -284,7 +287,7 @@ impl super::BlockchainManager {
             > self.cached_blockchain_context.cumulative_difficulty
         {
             self.try_do_reorg(alt_block_info).await?;
-            return Ok(true);
+            return Ok(AddAltBlock::Reorged);
         }
 
         self.blockchain_write_handle
@@ -294,7 +297,7 @@ impl super::BlockchainManager {
             .call(BlockchainWriteRequest::WriteAltBlock(alt_block_info))
             .await?;
 
-        Ok(false)
+        Ok(AddAltBlock::Cached)
     }
 
     /// Attempt a re-org with the given top block of the alt-chain.
@@ -328,7 +331,7 @@ impl super::BlockchainManager {
             ))
             .await?
         else {
-            panic!("Incorrect response!");
+            unreachable!();
         };
 
         alt_blocks.push(top_alt_block);
@@ -347,7 +350,7 @@ impl super::BlockchainManager {
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR)
         else {
-            panic!("Incorrect response!");
+            unreachable!();
         };
 
         self.blockchain_context_service
@@ -409,7 +412,7 @@ impl super::BlockchainManager {
                 })
                 .await?
             else {
-                panic!("Incorrect response!");
+                unreachable!();
             };
 
             self.add_valid_block_to_main_chain(verified_block).await;
@@ -465,9 +468,17 @@ impl super::BlockchainManager {
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR)
         else {
-            panic!("Incorrect response!");
+            unreachable!();
         };
 
         self.cached_blockchain_context = blockchain_context.unchecked_blockchain_context().clone();
     }
+}
+
+/// The result from successfully adding an alt-block.
+enum AddAltBlock {
+    /// The alt-block was cached.
+    Cached,
+    /// The chain was reorged.
+    Reorged,
 }

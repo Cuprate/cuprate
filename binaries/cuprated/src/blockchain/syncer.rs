@@ -65,7 +65,7 @@ where
         .call(BlockChainContextRequest::GetContext)
         .await?
     else {
-        panic!("Blockchain context service returned wrong response!");
+        unreachable!();
     };
 
     let client_pool = clearnet_interface.client_pool();
@@ -130,7 +130,7 @@ where
         .oneshot(BlockChainContextRequest::GetContext)
         .await?
     else {
-        panic!("Blockchain context service returned wrong response!");
+        unreachable!();
     };
 
     *old_context = ctx;

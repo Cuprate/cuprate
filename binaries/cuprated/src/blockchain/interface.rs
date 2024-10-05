@@ -1,10 +1,10 @@
-//! The blockchain manger interface.
+//! The blockchain manager interface.
 //!
 //! This module contains all the functions to mutate the blockchain's state in any way, through the
-//! blockchain manger.
+//! blockchain manager.
 use std::{
     collections::{HashMap, HashSet},
-    sync::{Mutex, OnceLock},
+    sync::{LazyLock, Mutex, OnceLock},
 };
 
 use monero_serai::{block::Block, transaction::Transaction};
@@ -21,18 +21,15 @@ use cuprate_types::{
 };
 
 use crate::{
-    blockchain::manager::BlockchainManagerCommand, constants::PANIC_CRITICAL_SERVICE_ERROR,
+    blockchain::manager::{BlockchainManagerCommand, IncomingBlockOk},
+    constants::PANIC_CRITICAL_SERVICE_ERROR,
 };
 
-/// The channel used to send [`BlockchainManagerCommand`]s to the blockchain manger.
-pub static COMMAND_TX: OnceLock<mpsc::Sender<BlockchainManagerCommand>> = OnceLock::new();
-
-/// A [`HashSet`] of block hashes that the blockchain manager is currently handling.
+/// The channel used to send [`BlockchainManagerCommand`]s to the blockchain manager.
 ///
-/// This is used over something like a dashmap as we expect a lot of collisions in a short amount of
-/// time for new blocks so we would lose the benefit of sharded locks. A dashmap is made up of `RwLocks`
-/// which are also more expensive than `Mutex`s.
-pub static BLOCKS_BEING_HANDLED: OnceLock<Mutex<HashSet<[u8; 32]>>> = OnceLock::new();
+/// This channel is initialized in [`init_blockchain_manager`](super::manager::init_blockchain_manager), the functions
+/// in this file document what happens if this is not initialized when they are called.
+pub(super) static COMMAND_TX: OnceLock<mpsc::Sender<BlockchainManagerCommand>> = OnceLock::new();
 
 /// An error that can be returned from [`handle_incoming_block`].
 #[derive(Debug, thiserror::Error)]
@@ -52,10 +49,7 @@ pub enum IncomingBlockError {
 
 /// Try to add a new block to the blockchain.
 ///
-/// This returns a [`bool`] indicating if the block was added to the main-chain ([`true`]) or an alt-chain
-/// ([`false`]).
-///
-/// If we already knew about this block or the blockchain manger is not setup yet `Ok(false)` is returned.
+/// On success returns [`IncomingBlockOk`].
 ///
 /// # Errors
 ///
@@ -67,7 +61,17 @@ pub async fn handle_incoming_block(
     block: Block,
     given_txs: HashMap<[u8; 32], TransactionVerificationData>,
     blockchain_read_handle: &mut BlockchainReadHandle,
-) -> Result<bool, IncomingBlockError> {
+) -> Result<IncomingBlockOk, IncomingBlockError> {
+    /// A [`HashSet`] of block hashes that the blockchain manager is currently handling.
+    ///
+    /// This lock prevents sending the same block to the blockchain manager from multiple connections
+    /// before one of them actually gets added to the chain, allowing peers to do other things.
+    ///
+    /// This is used over something like a dashmap as we expect a lot of collisions in a short amount of
+    /// time for new blocks, so we would lose the benefit of sharded locks. A dashmap is made up of `RwLocks`
+    /// which are also more expensive than `Mutex`s.
+    static BLOCKS_BEING_HANDLED: LazyLock<Mutex<HashSet<[u8; 32]>>> =
+        LazyLock::new(|| Mutex::new(HashSet::new()));
     // FIXME: we should look in the tx-pool for txs when that is ready.
 
     if !block_exists(block.header.previous, blockchain_read_handle)
@@ -83,7 +87,7 @@ pub async fn handle_incoming_block(
         .await
         .expect(PANIC_CRITICAL_SERVICE_ERROR)
     {
-        return Ok(false);
+        return Ok(IncomingBlockOk::AlreadyHave);
     }
 
     // TODO: remove this when we have a working tx-pool.
@@ -97,20 +101,14 @@ pub async fn handle_incoming_block(
     // TODO: check we actually got given the right txs.
 
     let Some(incoming_block_tx) = COMMAND_TX.get() else {
-        // We could still be starting up the blockchain manger, so just return this as there is nothing
-        // else we can do.
-        return Ok(false);
+        // We could still be starting up the blockchain manager.
+        return Ok(IncomingBlockOk::NotReady);
     };
 
     // Add the blocks hash to the blocks being handled.
-    if !BLOCKS_BEING_HANDLED
-        .get_or_init(|| Mutex::new(HashSet::new()))
-        .lock()
-        .unwrap()
-        .insert(block_hash)
-    {
+    if !BLOCKS_BEING_HANDLED.lock().unwrap().insert(block_hash) {
         // If another place is already adding this block then we can stop.
-        return Ok(false);
+        return Ok(IncomingBlockOk::AlreadyHave);
     }
 
     // From this point on we MUST not early return without removing the block hash from `BLOCKS_BEING_HANDLED`.
@@ -132,12 +130,7 @@ pub async fn handle_incoming_block(
         .map_err(IncomingBlockError::InvalidBlock);
 
     // Remove the block hash from the blocks being handled.
-    BLOCKS_BEING_HANDLED
-        .get()
-        .unwrap()
-        .lock()
-        .unwrap()
-        .remove(&block_hash);
+    BLOCKS_BEING_HANDLED.lock().unwrap().remove(&block_hash);
 
     res
 }
@@ -153,7 +146,7 @@ async fn block_exists(
         .call(BlockchainReadRequest::FindBlock(block_hash))
         .await?
     else {
-        panic!("Invalid blockchain response!");
+        unreachable!();
     };
 
     Ok(chain.is_some())

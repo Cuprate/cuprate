@@ -19,6 +19,7 @@ use cuprate_types::{
 
 use crate::constants::PANIC_CRITICAL_SERVICE_ERROR;
 
+mod chain_service;
 pub mod interface;
 mod manager;
 mod syncer;

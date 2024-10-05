@@ -24,9 +24,9 @@ use cuprate_types::{
 
 use crate::{
     blockchain::{
+        chain_service::ChainService,
         interface::COMMAND_TX,
         syncer,
-        types::ChainService,
         types::{ConcreteBlockVerifierService, ConsensusBlockchainReadHandle},
     },
     constants::PANIC_CRITICAL_SERVICE_ERROR,
@@ -35,13 +35,13 @@ use crate::{
 mod commands;
 mod handler;
 
-pub use commands::BlockchainManagerCommand;
+pub use commands::{BlockchainManagerCommand, IncomingBlockOk};
 
-/// Initialize the blockchain manger.
+/// Initialize the blockchain manager.
 ///
 /// This function sets up the [`BlockchainManager`] and the [`syncer`] so that the functions in [`interface`](super::interface)
 /// can be called.
-pub async fn init_blockchain_manger(
+pub async fn init_blockchain_manager(
     clearnet_interface: NetworkInterface<ClearNet>,
     blockchain_write_handle: BlockchainWriteHandle,
     blockchain_read_handle: BlockchainReadHandle,
@@ -73,10 +73,10 @@ pub async fn init_blockchain_manger(
         .await
         .expect(PANIC_CRITICAL_SERVICE_ERROR)
     else {
-        panic!("Blockchain context service returned wrong response!");
+        unreachable!()
     };
 
-    let manger = BlockchainManager {
+    let manager = BlockchainManager {
         blockchain_write_handle,
         blockchain_read_handle,
         blockchain_context_service,
@@ -86,7 +86,7 @@ pub async fn init_blockchain_manger(
         broadcast_svc: clearnet_interface.broadcast_svc(),
     };
 
-    tokio::spawn(manger.run(batch_rx, command_rx));
+    tokio::spawn(manager.run(batch_rx, command_rx));
 }
 
 /// The blockchain manager.
