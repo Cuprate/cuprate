@@ -605,10 +605,10 @@ dependencies = [
  "hex",
  "jh",
  "keccak",
+ "seq-macro",
  "sha3",
  "skein",
  "thiserror",
- "unroll",
 ]
 
 [[package]]
@@ -2436,6 +2436,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61697e0a1c7e512e84a621326239844a24d8207b4669b41bc18b32ea5cbf988b"
 
 [[package]]
+name = "seq-macro"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3f0bf26fd526d2a95683cd0f87bf103b8539e2ca1ef48ce002d67aad59aa0b4"
+
+[[package]]
 name = "serde"
 version = "1.0.210"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2938,16 +2944,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5033c97c4262335cded6d6fc3e5c18ab755e1a3dc96376350f3d8e9f009ad956"
 dependencies = [
  "tinyvec",
-]
-
-[[package]]
-name = "unroll"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ad948c1cb799b1a70f836077721a92a35ac177d4daddf4c20a633786d4cf618"
-dependencies = [
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]

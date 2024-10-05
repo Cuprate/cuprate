@@ -1,5 +1,6 @@
 use std::cmp::max;
 
+use seq_macro::seq;
 use InstructionList::{Add, Mul, Ret, Rol, Ror, Sub, Xor};
 
 use crate::{
@@ -356,14 +357,12 @@ pub(crate) fn random_math_init(
 
 /// Original C code:
 /// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/variant4_random_math.h#L81-L168>
-#[unroll::unroll_for_loops]
 #[expect(clippy::needless_return)] // last iteration of unrolled loop
 pub(crate) fn v4_random_math(code: &[Instruction; NUM_INSTRUCTIONS_MAX + 1], r: &mut [u32; 9]) {
     const REG_BITS: u32 = 32;
 
-    // loop unrolling requires literal values in the range
     debug_assert_eq!(NUM_INSTRUCTIONS_MAX, 70);
-    for i in 0..70 {
+    seq!(i in 0..70 {
         let op = &code[i];
         let src = r[op.src_index as usize];
         let dst = &mut r[op.dst_index as usize];
@@ -376,7 +375,7 @@ pub(crate) fn v4_random_math(code: &[Instruction; NUM_INSTRUCTIONS_MAX + 1], r: 
             Xor => *dst ^= src,
             Ret => return,
         }
-    }
+    });
 }
 
 /// Original C code:

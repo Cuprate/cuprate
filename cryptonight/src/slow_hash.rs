@@ -334,7 +334,6 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
         a = a1;
     }
 
-    // TODO: Verify that text needs reinitialization
     let mut text = state.get_init();
     let aes_expanded_key = cnaes::key_extend(state.get_aes_key1());
     for i in 0..MEMORY / INIT_SIZE_BYTE {
