@@ -33,7 +33,7 @@ impl Service<ChainSvcRequest> for ChainService {
                 cumulative_difficulty,
             },
             BlockchainResponse::FindFirstUnknown(res) => ChainSvcResponse::FindFirstUnknown(res),
-            _ => panic!("Blockchain returned wrong response"),
+            _ => unreachable!(),
         };
 
         match req {
@@ -60,7 +60,7 @@ impl Service<ChainSvcRequest> for ChainService {
                         ..
                     } = res
                     else {
-                        panic!("Blockchain returned wrong response");
+                        unreachable!()
                     };
 
                     ChainSvcResponse::CumulativeDifficulty(cumulative_difficulty)

@@ -1,4 +1,4 @@
-//! This module contains the commands for th blockchain manager.
+//! This module contains the commands for the blockchain manager.
 use std::collections::HashMap;
 
 use monero_serai::block::Block;

@@ -33,6 +33,11 @@ use crate::{
 
 impl super::BlockchainManager {
     /// Handle an incoming command from another part of Cuprate.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// recover from.
     pub async fn handle_command(&mut self, command: BlockchainManagerCommand) {
         match command {
             BlockchainManagerCommand::AddBlock {
@@ -68,8 +73,10 @@ impl super::BlockchainManager {
     ///
     /// Otherwise, this function will validate and add the block to the main chain.
     ///
-    /// On success returns a [`bool`] indicating if the block was added to the main chain ([`true`])
-    /// or an alt-chain ([`false`]).
+    /// # Panics
+    ///
+    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// recover from.
     pub async fn handle_incoming_block(
         &mut self,
         block: Block,
@@ -243,8 +250,6 @@ impl super::BlockchainManager {
     /// This function will do some pre-validation of the alt block, then if the cumulative difficulty
     /// of the alt chain is higher than the main chain it will attempt a reorg otherwise it will add
     /// the alt block to the alt block cache.
-    ///
-    /// This function returns a [`bool`] indicating if the chain was reorganised ([`true`]) or not ([`false`]).
     ///
     /// # Errors
     ///

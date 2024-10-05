@@ -73,7 +73,7 @@ pub async fn init_blockchain_manager(
         .await
         .expect(PANIC_CRITICAL_SERVICE_ERROR)
     else {
-        panic!("Blockchain context service returned wrong response!");
+        unreachable!()
     };
 
     let manager = BlockchainManager {

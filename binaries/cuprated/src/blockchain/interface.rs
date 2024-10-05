@@ -49,10 +49,7 @@ pub enum IncomingBlockError {
 
 /// Try to add a new block to the blockchain.
 ///
-/// This returns a [`bool`] indicating if the block was added to the main-chain ([`true`]) or an alt-chain
-/// ([`false`]).
-///
-/// If we already knew about this block or the blockchain manager is not setup yet `Ok(false)` is returned.
+/// On success returns [`IncomingBlockOk`].
 ///
 /// # Errors
 ///
@@ -157,7 +154,7 @@ async fn block_exists(
         .call(BlockchainReadRequest::FindBlock(block_hash))
         .await?
     else {
-        panic!("Invalid blockchain response!");
+        unreachable!();
     };
 
     Ok(chain.is_some())
