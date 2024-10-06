@@ -13,7 +13,7 @@ cuprate-consensus        = { path = "../../consensus" }
 cuprate-fast-sync        = { path = "../../consensus/fast-sync" }
 cuprate-consensus-rules  = { path = "../../consensus/rules" }
 cuprate-cryptonight      = { path = "../../cryptonight" }
-cuprate-helper           = { path = "../../helper" }
+cuprate-helper           = { path = "../../helper", features = ["serde"] }
 cuprate-epee-encoding    = { path = "../../net/epee-encoding" }
 cuprate-fixed-bytes      = { path = "../../net/fixed-bytes" }
 cuprate-levin            = { path = "../../net/levin" }
