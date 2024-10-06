@@ -35,7 +35,7 @@ pub struct SharedNetConfig {
 impl Default for SharedNetConfig {
     fn default() -> Self {
         Self {
-            outbound_connections: 32,
+            outbound_connections: 64,
             extra_outbound_connections: 8,
             max_inbound_connections: 128,
             gray_peers_percent: 0.7,

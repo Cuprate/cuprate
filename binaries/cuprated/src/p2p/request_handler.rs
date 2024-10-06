@@ -5,7 +5,7 @@ use std::{
 };
 
 use bytes::Bytes;
-use futures::{future::BoxFuture, FutureExt};
+use futures::{future::BoxFuture, FutureExt, TryFutureExt};
 use monero_serai::{block::Block, transaction::Transaction};
 use tower::{Service, ServiceExt};
 
@@ -18,7 +18,9 @@ use cuprate_helper::{
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
 };
 use cuprate_p2p::constants::MAX_BLOCK_BATCH_LEN;
-use cuprate_p2p_core::{client::PeerInformation, NetworkZone, ProtocolRequest, ProtocolResponse};
+use cuprate_p2p_core::{
+    client::PeerInformation, NetZoneAddress, NetworkZone, ProtocolRequest, ProtocolResponse,
+};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     BlockCompleteEntry, MissingTxsInBlock, TransactionBlobs,
@@ -37,8 +39,8 @@ pub struct P2pProtocolRequestHandlerMaker {
     pub blockchain_read_handle: BlockchainReadHandle,
 }
 
-impl<N: NetworkZone> Service<PeerInformation<N>> for P2pProtocolRequestHandlerMaker {
-    type Response = P2pProtocolRequestHandler<N>;
+impl<A: NetZoneAddress> Service<PeerInformation<A>> for P2pProtocolRequestHandlerMaker {
+    type Response = P2pProtocolRequestHandler<A>;
     type Error = tower::BoxError;
     type Future = Ready<Result<Self::Response, Self::Error>>;
 
@@ -46,7 +48,7 @@ impl<N: NetworkZone> Service<PeerInformation<N>> for P2pProtocolRequestHandlerMa
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, peer_information: PeerInformation<N>) -> Self::Future {
+    fn call(&mut self, peer_information: PeerInformation<A>) -> Self::Future {
         // TODO: check sync info?
 
         let blockchain_read_handle = self.blockchain_read_handle.clone();
@@ -60,16 +62,16 @@ impl<N: NetworkZone> Service<PeerInformation<N>> for P2pProtocolRequestHandlerMa
 
 /// The P2P protocol request handler.
 #[derive(Clone)]
-pub struct P2pProtocolRequestHandler<N: NetworkZone> {
+pub struct P2pProtocolRequestHandler<A: NetZoneAddress> {
     /// The [`PeerInformation`] for this peer.
-    peer_information: PeerInformation<N>,
+    peer_information: PeerInformation<A>,
     /// The [`BlockchainReadHandle`]
     blockchain_read_handle: BlockchainReadHandle,
 }
 
-impl<Z: NetworkZone> Service<ProtocolRequest> for P2pProtocolRequestHandler<Z> {
+impl<A: NetZoneAddress> Service<ProtocolRequest> for P2pProtocolRequestHandler<A> {
     type Response = ProtocolResponse;
-    type Error = anyhow::Error;
+    type Error = tower::BoxError;
     type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
 
     fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -78,21 +80,26 @@ impl<Z: NetworkZone> Service<ProtocolRequest> for P2pProtocolRequestHandler<Z> {
 
     fn call(&mut self, request: ProtocolRequest) -> Self::Future {
         match request {
-            ProtocolRequest::GetObjects(r) => {
-                get_objects(r, self.blockchain_read_handle.clone()).boxed()
-            }
-            ProtocolRequest::GetChain(r) => {
-                get_chain(r, self.blockchain_read_handle.clone()).boxed()
-            }
+            ProtocolRequest::GetObjects(r) => get_objects(r, self.blockchain_read_handle.clone())
+                .map_err(Into::into)
+                .boxed(),
+            ProtocolRequest::GetChain(r) => get_chain(r, self.blockchain_read_handle.clone())
+                .map_err(Into::into)
+                .boxed(),
             ProtocolRequest::FluffyMissingTxs(r) => {
-                fluffy_missing_txs(r, self.blockchain_read_handle.clone()).boxed()
+                fluffy_missing_txs(r, self.blockchain_read_handle.clone())
+                    .map_err(Into::into)
+                    .boxed()
             }
             ProtocolRequest::NewBlock(_) => ready(Err(anyhow::anyhow!(
                 "Peer sent a full block when we support fluffy blocks"
-            )))
+            )
+            .into()))
             .boxed(),
             ProtocolRequest::NewFluffyBlock(r) => {
-                new_fluffy_block(r, self.blockchain_read_handle.clone()).boxed()
+                new_fluffy_block(r, self.blockchain_read_handle.clone())
+                    .map_err(Into::into)
+                    .boxed()
             }
             ProtocolRequest::GetTxPoolCompliment(_) | ProtocolRequest::NewTransactions(_) => {
                 ready(Ok(ProtocolResponse::NA)).boxed()

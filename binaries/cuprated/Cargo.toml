@@ -70,7 +70,7 @@ tokio-util            = { workspace = true }
 tokio-stream          = { workspace = true }
 tokio                 = { workspace = true }
 tower                 = { workspace = true }
-tracing-subscriber    = { workspace = true }
+tracing-subscriber    = { workspace = true, features = ["ansi", "std", "fmt"] }
 tracing               = { workspace = true }
 
 [lints]
