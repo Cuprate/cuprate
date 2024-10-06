@@ -27,6 +27,7 @@ tracing = { workspace = true, features = ["std", "attributes"] }
 hex-literal = { workspace = true }
 
 borsh = { workspace = true, features = ["derive", "std"], optional = true }
+serde = { workspace = true, features = ["derive", "std"], optional = true }
 
 [dev-dependencies]
 cuprate-test-utils = { path = "../../test-utils" }
