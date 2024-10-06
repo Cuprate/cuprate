@@ -36,6 +36,7 @@ serde            = { workspace = true, optional = true }
 tower        = { workspace = true }
 thread_local = { workspace = true, optional = true }
 rayon        = { workspace = true, optional = true }
+bytes = "1.7.2"
 
 [dev-dependencies]
 cuprate-constants  = { path = "../../constants" }

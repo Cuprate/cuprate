@@ -155,6 +155,12 @@ pub struct OutputOnChain {
     pub commitment: EdwardsPoint,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MissingTxsInBlock {
+    pub block: Vec<u8>,
+    pub txs: Vec<Vec<u8>>,
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {

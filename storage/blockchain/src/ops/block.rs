@@ -2,21 +2,23 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
+use bytes::Bytes;
 use monero_serai::{
     block::{Block, BlockHeader},
     transaction::Transaction,
 };
 
 use cuprate_database::{
-    RuntimeError, StorableVec, {DatabaseRo, DatabaseRw},
+    RuntimeError, StorableVec, {DatabaseIter, DatabaseRo, DatabaseRw},
 };
+use cuprate_helper::cast::usize_to_u64;
 use cuprate_helper::{
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
     tx::tx_fee,
 };
 use cuprate_types::{
-    AltBlockInformation, ChainId, ExtendedBlockHeader, HardFork, VerifiedBlockInformation,
-    VerifiedTransactionInformation,
+    AltBlockInformation, BlockCompleteEntry, ChainId, ExtendedBlockHeader, HardFork,
+    TransactionBlobs, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 
 use crate::{
@@ -27,7 +29,7 @@ use crate::{
         output::get_rct_num_outputs,
         tx::{add_tx, remove_tx},
     },
-    tables::{BlockHeights, BlockInfos, Tables, TablesMut},
+    tables::{BlockHeights, BlockInfos, Tables, TablesIter, TablesMut},
     types::{BlockHash, BlockHeight, BlockInfo},
 };
 
@@ -223,6 +225,60 @@ pub fn pop_block(
     }
 
     Ok((block_height, block_info.block_hash, block))
+}
+//---------------------------------------------------------------------------------------------------- `get_block_blob_with_tx_indexes`
+pub fn get_block_blob_with_tx_indexes(
+    block_height: &BlockHeight,
+    tables: &impl Tables,
+) -> Result<(Vec<u8>, u64, usize), RuntimeError> {
+    use monero_serai::io::write_varint;
+
+    let block_info = tables.block_infos().get(block_height)?;
+
+    let miner_tx_idx = block_info.mining_tx_index;
+    let block_txs = tables.block_txs_hashes().get(block_height)?.0;
+    let numb_txs = block_txs.len();
+
+    // Get the block header
+    let mut block = tables.block_header_blobs().get(block_height)?.0;
+
+    // Add the miner tx to the blob.
+    let mut miner_tx_blob = tables.tx_blobs().get(&miner_tx_idx)?.0;
+    block.append(&mut miner_tx_blob);
+
+    // Add the blocks tx hashes.
+    write_varint(&block_txs.len(), &mut block)
+        .expect("The number of txs per block will not exceed u64::MAX");
+    for tx in block_txs {
+        block.extend_from_slice(&tx);
+    }
+
+    Ok((block, miner_tx_idx, numb_txs))
+}
+
+//---------------------------------------------------------------------------------------------------- `get_block_extended_header_*`
+pub fn get_block_complete_entry(
+    block_hash: &BlockHash,
+    tables: &impl TablesIter,
+) -> Result<BlockCompleteEntry, RuntimeError> {
+    let block_height = tables.block_heights().get(block_hash)?;
+    let (block_blob, miner_tx_idx, numb_non_miner_txs) =
+        get_block_blob_with_tx_indexes(&block_height, tables)?;
+
+    let first_tx_idx = miner_tx_idx + 1;
+
+    let tx_blobs = tables
+        .tx_blobs_iter()
+        .get_range(first_tx_idx..=usize_to_u64(numb_non_miner_txs))?
+        .map(|tx_blob| Ok(Bytes::from(tx_blob?.0)))
+        .collect::<Result<_, RuntimeError>>()?;
+
+    Ok(BlockCompleteEntry {
+        block: Bytes::from(block_blob),
+        txs: TransactionBlobs::Normal(tx_blobs),
+        pruned: false,
+        block_weight: 0,
+    })
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_extended_header_*`
