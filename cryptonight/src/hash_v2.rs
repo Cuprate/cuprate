@@ -1,27 +1,16 @@
-use cnaes::AES_BLOCK_SIZE;
+use crate::slow_hash::{Variant, MEMORY_BLOCKS};
 
-use crate::{
-    cnaes,
-    slow_hash::{Variant, MEMORY},
-    util::{subarray, subarray_copy},
-};
-
-fn block_to_u64le(block: &[u8; AES_BLOCK_SIZE]) -> [u64; 2] {
-    [
-        u64::from_le_bytes(subarray_copy(block, 0)),
-        u64::from_le_bytes(subarray_copy(block, 8)),
-    ]
-}
+const U64_MASK: u128 = u64::MAX as u128;
 
 /// Original C code:
 /// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L217-L254>
 /// If we kept the C code organization, this function would be in `slow_hash.rs`, but it's
 /// here in the rust code to keep the `slow_hash.rs` file size manageable.
 pub(crate) fn variant2_shuffle_add(
-    c1: &mut [u8; AES_BLOCK_SIZE],
-    a: &[u8; AES_BLOCK_SIZE],
-    b: &[u8; AES_BLOCK_SIZE * 2],
-    long_state: &mut [u8; MEMORY],
+    c1: &mut u128,
+    a: u128,
+    b: &[u128; 2],
+    long_state: &mut [u128; MEMORY_BLOCKS],
     offset: usize,
     variant: Variant,
 ) {
@@ -29,47 +18,38 @@ pub(crate) fn variant2_shuffle_add(
         return;
     }
 
-    let chunk1_start = offset ^ 0x10;
-    let chunk2_start = offset ^ 0x20;
-    let chunk3_start = offset ^ 0x30;
+    let chunk1_start = offset ^ 0x1;
+    let chunk2_start = offset ^ 0x2;
+    let chunk3_start = offset ^ 0x3;
 
-    let chunk1: &[u8; AES_BLOCK_SIZE] = subarray(long_state, chunk1_start);
-    let chunk2: &[u8; AES_BLOCK_SIZE] = subarray(long_state, chunk2_start);
-    let chunk3: &[u8; AES_BLOCK_SIZE] = subarray(long_state, chunk3_start);
+    let chunk1 = long_state[chunk1_start];
+    let chunk2 = long_state[chunk2_start];
+    let chunk3 = long_state[chunk3_start];
 
-    let mut chunk1_old = block_to_u64le(chunk1);
-    let chunk2_old = block_to_u64le(chunk2);
-    let chunk3_old = block_to_u64le(chunk3);
+    let chunk1_old = chunk1;
+    let chunk2_old = chunk2;
+    let chunk3_old = chunk3;
 
-    let b1 = block_to_u64le(subarray(b, 16));
+    let b1 = b[1];
 
-    let chunk1 = &mut long_state[chunk1_start..chunk1_start + 16];
-    chunk1[0..8].copy_from_slice(&(chunk3_old[0].wrapping_add(b1[0]).to_le_bytes()));
-    chunk1[8..16].copy_from_slice(&(chunk3_old[1].wrapping_add(b1[1]).to_le_bytes()));
+    let chunk1 = &mut long_state[chunk1_start];
+    let sum1 = chunk3_old.wrapping_add(b1) & U64_MASK;
+    let sum2 = (chunk3_old >> 64).wrapping_add(b1 >> 64) & U64_MASK;
+    *chunk1 = sum2 << 64 | sum1; // TODO remove some shifting above
 
-    let a0 = block_to_u64le(a);
+    let chunk3 = &mut long_state[chunk3_start];
+    let sum1 = chunk2_old.wrapping_add(a) & U64_MASK;
+    let sum2 = (chunk2_old >> 64).wrapping_add(a >> 64) & U64_MASK;
+    *chunk3 = sum2 << 64 | sum1;
 
-    let chunk3 = &mut long_state[chunk3_start..chunk3_start + 16];
-    chunk3[0..8].copy_from_slice(&(chunk2_old[0].wrapping_add(a0[0])).to_le_bytes());
-    chunk3[8..16].copy_from_slice(&(chunk2_old[1].wrapping_add(a0[1])).to_le_bytes());
-
-    let b0 = block_to_u64le(subarray(b, 0));
-    let chunk2 = &mut long_state[chunk2_start..chunk2_start + 16];
-    chunk2[0..8].copy_from_slice(&(chunk1_old[0].wrapping_add(b0[0])).to_le_bytes());
-    chunk2[8..16].copy_from_slice(&(chunk1_old[1].wrapping_add(b0[1])).to_le_bytes());
+    let b0 = b[0];
+    let chunk2 = &mut long_state[chunk2_start];
+    let sum1 = chunk1_old.wrapping_add(b0) & U64_MASK;
+    let sum2 = (chunk1_old >> 64).wrapping_add(b0 >> 64) & U64_MASK;
+    *chunk2 = sum2 << 64 | sum1;
 
     if variant == Variant::R {
-        let mut out_copy = block_to_u64le(c1);
-
-        chunk1_old[0] ^= chunk2_old[0];
-        chunk1_old[1] ^= chunk2_old[1];
-        out_copy[0] ^= chunk3_old[0];
-        out_copy[1] ^= chunk3_old[1];
-        out_copy[0] ^= chunk1_old[0];
-        out_copy[1] ^= chunk1_old[1];
-
-        c1[0..8].copy_from_slice(&out_copy[0].to_le_bytes());
-        c1[8..16].copy_from_slice(&out_copy[1].to_le_bytes());
+        *c1 ^= chunk1_old ^ chunk2_old ^ chunk3_old;
     }
 }
 
@@ -108,9 +88,10 @@ pub(crate) fn variant2_integer_math_sqrt(sqrt_input: u64) -> u64 {
 
 /// Original C code:
 /// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L277-L283>
+#[expect(clippy::cast_possible_truncation)]
 pub(crate) fn variant2_integer_math(
-    c2: &mut [u8; 8],
-    c1: &[u8; AES_BLOCK_SIZE],
+    c2: &mut u128,
+    c1: u128,
     division_result: &mut u64,
     sqrt_result: &mut u64,
     variant: Variant,
@@ -122,16 +103,15 @@ pub(crate) fn variant2_integer_math(
     }
 
     let tmpx = *division_result ^ (*sqrt_result << 32);
-    *c2 = (u64::from_le_bytes(*c2) ^ tmpx).to_le_bytes();
+    *c2 ^= u128::from(tmpx);
 
-    let c1_64 = block_to_u64le(c1);
-    let mut divisor = c1_64[0];
-    let dividend = c1_64[1];
+    let c1_low = c1 as u64;
+    let dividend = (c1 >> 64) as u64;
 
-    divisor = ((divisor.wrapping_add((*sqrt_result << 1) & U32_MASK)) | 0x80000001) & U32_MASK;
+    let divisor = ((c1_low.wrapping_add((*sqrt_result << 1) & U32_MASK)) | 0x80000001) & U32_MASK;
     *division_result = ((dividend / divisor) & U32_MASK).wrapping_add((dividend % divisor) << 32);
 
-    let sqrt_input = c1_64[0].wrapping_add(*division_result);
+    let sqrt_input = c1_low.wrapping_add(*division_result);
     *sqrt_result = variant2_integer_math_sqrt(sqrt_input);
 }
 
@@ -141,7 +121,11 @@ mod tests {
     use groestl::Groestl256;
 
     use super::*;
-    use crate::util::{hex_to_array, subarray_mut};
+    use crate::{
+        cnaes::AES_BLOCK_SIZE,
+        slow_hash::MEMORY_BLOCKS,
+        util::{hex_to_array, subarray_mut},
+    };
 
     #[test]
     fn test_variant2_integer_math() {
@@ -154,20 +138,20 @@ mod tests {
             division_result_end: u64,
             sqrt_result_end: u64,
         ) {
-            let mut c2: [u8; 16] = hex_to_array(c2_hex);
-            let c1: [u8; 16] = hex_to_array(c1_hex);
+            let mut c2 = u128::from_le_bytes(hex_to_array(c2_hex));
+            let c1 = u128::from_le_bytes(hex_to_array(c1_hex));
             let mut division_result = division_result;
             let mut sqrt_result = sqrt_result;
 
             variant2_integer_math(
-                subarray_mut(&mut c2, 0),
-                &c1,
+                &mut c2,
+                c1,
                 &mut division_result,
                 &mut sqrt_result,
                 Variant::V2,
             );
 
-            assert_eq!(hex::encode(c2), c2_hex_end);
+            assert_eq!(hex::encode(c2.to_le_bytes()), c2_hex_end);
             assert_eq!(division_result, division_result_end);
             assert_eq!(sqrt_result, sqrt_result_end);
         }
@@ -400,6 +384,7 @@ mod tests {
 
     #[test]
     fn test_variant2_shuffle_add() {
+        #[expect(clippy::cast_possible_truncation)]
         fn test(
             c1_hex: &str,
             a_hex: &str,
@@ -409,27 +394,47 @@ mod tests {
             c1_hex_end: &str,
             long_state_end_hash: &str,
         ) {
-            let mut c1: [u8; AES_BLOCK_SIZE] = hex_to_array(c1_hex);
-            let a: [u8; AES_BLOCK_SIZE] = hex_to_array(a_hex);
-            let b: [u8; AES_BLOCK_SIZE * 2] = hex_to_array(b_hex);
+            let mut c1 = u128::from_le_bytes(hex_to_array(c1_hex));
+            let a = u128::from_le_bytes(hex_to_array(a_hex));
+            let b: [u128; 2] = [
+                u128::from_le_bytes(hex_to_array(&b_hex[0..AES_BLOCK_SIZE * 2])),
+                u128::from_le_bytes(hex_to_array(&b_hex[AES_BLOCK_SIZE * 2..])),
+            ];
 
-            let mut long_state = vec![0_u8; MEMORY];
-            let long_state: &mut [u8; MEMORY] = subarray_mut(&mut long_state, 0);
-            for (i, byte) in long_state.iter_mut().enumerate() {
-                *byte = u8::try_from(i & 0xFF).unwrap();
+            // Every byte of long_state memory is initialized with it's offset index mod 256
+            // when the u128 blocks are converted to bytes in native endian format.
+            let mut long_state: Vec<u128> = Vec::with_capacity(MEMORY_BLOCKS);
+            for i in 0..long_state.capacity() {
+                let mut block = [0_u8; AES_BLOCK_SIZE];
+                for (j, byte) in block.iter_mut().enumerate() {
+                    *byte = (i * AES_BLOCK_SIZE + j) as u8;
+                }
+                long_state.push(u128::from_le_bytes(block));
             }
 
-            variant2_shuffle_add(&mut c1, &a, &b, long_state, offset, variant);
-            assert_eq!(hex::encode(c1), c1_hex_end);
-            let hash = Groestl256::digest(long_state.as_slice());
-            assert_eq!(hex::encode(hash), long_state_end_hash);
+            variant2_shuffle_add(
+                &mut c1,
+                a,
+                &b,
+                subarray_mut(&mut long_state, 0),
+                offset,
+                variant,
+            );
+            assert_eq!(hex::encode(c1.to_le_bytes()), c1_hex_end);
+            let mut hash = Groestl256::new();
+            for block in long_state {
+                hash.update(block.to_le_bytes());
+            }
+            let hash = hex::encode(hash.finalize().as_slice());
+
+            assert_eq!(hash, long_state_end_hash);
         }
 
         test(
             "d7143e3b6ffdeae4b2ceea30e9889c8a",
             "875fa34de3af48f15638bad52581ef4c",
             "b07d6f24f19434289b305525f094d8d7bd9d3c9bc956ac081d6186432a282a36",
-            221056,
+            221056 / AES_BLOCK_SIZE,
             Variant::R,
             "5795bcb8eb786c633a4760bb65051205",
             "26c32c4c2eeec340d62b88f5261d1a264c74240c2f8424c6e7101cf490e5772e",
@@ -438,7 +443,7 @@ mod tests {
             "c7d6fe95ffd8d902d2cfc1883f7a2bc3",
             "bceb9d8cb71c2ac85c24129c94708e17",
             "4b3a589c187e26bea487b19ea36eb19e8369f4825642eb467c75bf07466b87ba",
-            1960880,
+            1960880 / AES_BLOCK_SIZE,
             Variant::V2,
             "c7d6fe95ffd8d902d2cfc1883f7a2bc3",
             "2d4ddadd0e53a02797c62bf37d11bb2de73e6769abd834a81c1262752176a024",
@@ -447,7 +452,7 @@ mod tests {
             "92ad41fc1596244e2e0f0bfed6555cef",
             "d1f0337e48c4f53742cedd78b6b33b67",
             "b17bce6c44e0f680aa0f0a28a4e3865b43cdd18644a383e7a9d2f17310e5b6aa",
-            1306832,
+            1306832 / AES_BLOCK_SIZE,
             Variant::R,
             "427c932fc143f299f6d6d1250a888230",
             "984440e0b9f77f1159f09b13d2d455292d5a9b4095037f4e8ca2a0ed982bee8f",
@@ -456,7 +461,7 @@ mod tests {
             "7e2c813d10f06d4b8af85389bc82eb18",
             "74fc41829b88f55e62aec4749685b323",
             "7a00c480b31d851359d78fad279dcd343bcd6a5f902ac0b55da656d735dbf329",
-            130160,
+            130160 / AES_BLOCK_SIZE,
             Variant::V2,
             "7e2c813d10f06d4b8af85389bc82eb18",
             "6ccb68ee6fc38a6e91f546f62b8e1a64b5223a4a0ef916e6062188c4ee15a879",
