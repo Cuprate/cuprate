@@ -39,16 +39,27 @@ fn main() {
     let async_rt = init_tokio_rt(&config);
 
     async_rt.block_on(async move {
-        blockchain:: check_add_genesis(&mut bc_read_handle, &mut bc_write_handle, &config.network()).await;
+        blockchain:: check_add_genesis(&mut bc_read_handle, &mut bc_write_handle, config.network()).await;
 
         let (block_verifier, _tx_verifier, context_svc) =
             blockchain::init_consensus(bc_read_handle.clone(), config.context_config())
                 .await
                 .unwrap();
-    }
 
-    // TODO: everything else.
-    todo!()
+        let net = cuprate_p2p::initialize_network(
+            p2p::request_handler:: {
+                blockchain_read_handle: bc_read_handle.clone(),
+            },
+            p2p::core_sync_service::CoreSyncService(context_svc.clone()),
+            config.clearnet_p2p_config(),
+        )
+            .await
+            .unwrap();
+
+        // TODO: this can be removed as long as the main thread does not exit, so when command handling
+        // is added
+        futures::future::pending::<()>().await;
+    });
 }
 
 fn init_log(_config: &Config) {
