@@ -3,9 +3,15 @@ use serde::{Deserialize, Serialize};
 use cuprate_helper::network::Network;
 use cuprate_p2p_core::ClearNet;
 
-mod sections;
+mod p2p;
+mod storage;
 
-use sections::P2PConfig;
+use p2p::P2PConfig;
+use storage::StorageConfig;
+
+pub fn config() -> Config {
+    Config::default()
+}
 
 #[derive(Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, default)]
@@ -13,6 +19,8 @@ pub struct Config {
     network: Network,
     
     p2p: P2PConfig,
+    
+    storage: StorageConfig
 }
 
 impl Config {
@@ -28,5 +36,9 @@ impl Config {
             rpc_port: 0,
             address_book_config: self.p2p.clear_net.general.address_book_config.clone(),
         }
+    }
+
+    pub fn blockchain_config(&self) -> cuprate_blockchain::config::Config {
+        self.storage.blockchain.clone()
     }
 }

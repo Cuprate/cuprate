@@ -168,6 +168,7 @@ impl Default for ConfigBuilder {
 ///
 /// For construction, either use [`ConfigBuilder`] or [`Config::default`].
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Config {
     /// The database configuration.
     pub db_config: DbConfig,
