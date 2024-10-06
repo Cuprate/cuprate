@@ -19,6 +19,7 @@ mod config;
 mod constants;
 mod p2p;
 mod rpc;
+mod signals;
 mod statics;
 mod txpool;
 

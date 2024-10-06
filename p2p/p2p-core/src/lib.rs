@@ -89,6 +89,7 @@ pub use protocol::*;
 use services::*;
 //re-export
 pub use cuprate_helper::network::Network;
+pub use cuprate_wire::CoreSyncData;
 
 /// The direction of a connection.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

@@ -23,7 +23,7 @@ cuprate-p2p-core         = { path = "../../p2p/p2p-core", features = ["serde"] }
 cuprate-dandelion-tower  = { path = "../../p2p/dandelion-tower" }
 cuprate-async-buffer     = { path = "../../p2p/async-buffer" }
 cuprate-address-book     = { path = "../../p2p/address-book", features = ["serde_config"] }
-cuprate-blockchain       = { path = "../../storage/blockchain", features = ["serde"] }
+cuprate-blockchain       = { path = "../../storage/blockchain", features = ["service", "serde"] }
 cuprate-database-service = { path = "../../storage/service" }
 cuprate-txpool           = { path = "../../storage/txpool", features = ["serde"] }
 cuprate-database         = { path = "../../storage/database" }
@@ -70,8 +70,14 @@ tokio-util            = { workspace = true }
 tokio-stream          = { workspace = true }
 tokio                 = { workspace = true }
 tower                 = { workspace = true }
-tracing-subscriber    = { workspace = true, features = ["std", "fmt", "ansi"] }
+tracing-subscriber    = { workspace = true }
 tracing               = { workspace = true }
 
 [lints]
 workspace = true
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
