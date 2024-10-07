@@ -104,12 +104,12 @@ where
         clippy::significant_drop_tightening
     )]
     async fn connect_to_random_seeds(&mut self) -> Result<(), OutboundConnectorError> {
-        let seeds = N::SEEDS.choose_multiple(&mut thread_rng(), MAX_SEED_CONNECTIONS);
+        let seeds = self
+            .config
+            .seeds
+            .choose_multiple(&mut thread_rng(), MAX_SEED_CONNECTIONS);
 
-        assert!(
-            seeds.len() != 0,
-            "No seed nodes available to get peers from"
-        );
+        assert_ne!(seeds.len(), 0, "No seed nodes available to get peers from");
 
         let mut allowed_errors = seeds.len();
 
