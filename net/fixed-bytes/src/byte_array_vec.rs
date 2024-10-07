@@ -1,7 +1,7 @@
 mod into_iter;
 
 use core::ops::Index;
-
+use std::{mem, slice};
 use bytes::{BufMut, Bytes, BytesMut};
 
 use crate::FixedByteError;
@@ -46,18 +46,29 @@ impl<const N: usize> IntoIterator for ByteArrayVec<N> {
 
 impl<const N: usize> From<ByteArrayVec<N>> for Vec<[u8; N]> {
     fn from(value: ByteArrayVec<N>) -> Self {
-        value.into_iter().collect()
+        let vec = value.0.to_vec();
+
+        let mut v = mem::ManuallyDrop::new(vec);
+
+        let p = v.as_mut_ptr().cast::<[u8; N]>();
+        let len = v.len() / N;
+        let cap = v.capacity() / N;
+
+        unsafe { Vec::from_raw_parts(p, len, cap) }
     }
 }
 
 impl<const N: usize> From<Vec<[u8; N]>> for ByteArrayVec<N> {
     fn from(value: Vec<[u8; N]>) -> Self {
-        let mut bytes = BytesMut::with_capacity(N * value.len());
-        for i in value.into_iter() {
-            bytes.extend_from_slice(&i)
-        }
+        let mut v = mem::ManuallyDrop::new(value);
 
-        ByteArrayVec(bytes.freeze())
+        let p = v.as_mut_ptr().cast::<u8>();
+        let len = v.len() * N;
+        let cap = v.capacity() * N;
+
+        let v = unsafe { Vec::from_raw_parts(p, len, cap) };
+
+        ByteArrayVec(Bytes::from(v))
     }
 }
 
@@ -81,13 +92,7 @@ impl<const N: usize> From<[u8; N]> for ByteArrayVec<N> {
 
 impl<const N: usize, const LEN: usize> From<[[u8; N]; LEN]> for ByteArrayVec<N> {
     fn from(value: [[u8; N]; LEN]) -> Self {
-        let mut bytes = BytesMut::with_capacity(N * LEN);
-
-        for val in value.into_iter() {
-            bytes.put_slice(val.as_slice());
-        }
-
-        ByteArrayVec(bytes.freeze())
+        ByteArrayVec::from(value.to_vec())
     }
 }
 

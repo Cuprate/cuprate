@@ -33,9 +33,7 @@ impl<const N: usize> Iterator for ByteArrayVecIterator<N> {
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         let iters_left = self.0.len() / N;
 
-        if iters_left.checked_sub(n).is_none() {
-            return None;
-        }
+        iters_left.checked_sub(n)?;
 
         self.0.advance(n * N - N);
 
@@ -55,9 +53,7 @@ impl<const N: usize> DoubleEndedIterator for ByteArrayVecIterator<N> {
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         let iters_left = self.0.len() / N;
 
-        if iters_left.checked_sub(n).is_none() {
-            return None;
-        }
+        iters_left.checked_sub(n)?;
 
         self.0.truncate(self.0.len() - n * N - N);
 
