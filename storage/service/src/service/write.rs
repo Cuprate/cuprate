@@ -21,7 +21,7 @@ const WRITER_THREAD_NAME: &str = concat!(module_path!(), "::DatabaseWriter");
 /// Calling [`tower::Service::call`] with a [`DatabaseWriteHandle`]
 /// will return an `async`hronous channel that can be `.await`ed upon
 /// to receive the corresponding response.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct DatabaseWriteHandle<Req, Res> {
     /// Sender channel to the database write thread-pool.
     ///

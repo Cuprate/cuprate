@@ -21,10 +21,9 @@
 //!
 //! The 2nd allows any caller to send [`WriteRequest`][req_w]s.
 //!
-//! The [`BlockchainReadHandle`] can be shared as it is cheaply [`Clone`]able.
-//!
-//! Although [`BlockchainWriteHandle`] can also be cloned, there is only 1 place
-//! in Cuprate that writes (the blockchain manager), so it is passed there and used.
+//! The [`BlockchainReadHandle`] can be shared as it is cheaply [`Clone`]able, however,
+//! the [`BlockchainWriteHandle`] cannot be cloned. There is only 1 place in Cuprate that
+//! writes, so it is passed there and used.
 //!
 //! ## Initialization
 //! The database & thread-pool system can be initialized with [`init()`].
