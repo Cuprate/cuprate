@@ -20,10 +20,7 @@ fn test_cfg() -> AddressBookConfig {
     }
 }
 
-fn make_fake_address_book(
-    numb_white: u32,
-    numb_gray: u32,
-) -> AddressBook<TestNetZone<true, true, true>> {
+fn make_fake_address_book(numb_white: u32, numb_gray: u32) -> AddressBook<TestNetZone<true>> {
     let white_list = make_fake_peer_list(0, numb_white);
     let gray_list = make_fake_peer_list(numb_white, numb_gray);
 

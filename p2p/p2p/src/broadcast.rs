@@ -414,7 +414,7 @@ mod tests {
     #[tokio::test]
     async fn tx_broadcast_direction_correct() {
         let (mut brcst, outbound_mkr, inbound_mkr) =
-            init_broadcast_channels::<TestNetZone<true, true, true>>(TEST_CONFIG);
+            init_broadcast_channels::<TestNetZone<true>>(TEST_CONFIG);
 
         let mut outbound_stream = pin!(outbound_mkr(InternalPeerID::Unknown(1)));
         let mut inbound_stream = pin!(inbound_mkr(InternalPeerID::Unknown(1)));
@@ -473,7 +473,7 @@ mod tests {
     #[tokio::test]
     async fn block_broadcast_sent_to_all() {
         let (mut brcst, outbound_mkr, inbound_mkr) =
-            init_broadcast_channels::<TestNetZone<true, true, true>>(TEST_CONFIG);
+            init_broadcast_channels::<TestNetZone<true>>(TEST_CONFIG);
 
         let mut outbound_stream = pin!(outbound_mkr(InternalPeerID::Unknown(1)));
         let mut inbound_stream = pin!(inbound_mkr(InternalPeerID::Unknown(1)));
@@ -499,7 +499,7 @@ mod tests {
     #[tokio::test]
     async fn tx_broadcast_skipped_for_received_from_peer() {
         let (mut brcst, outbound_mkr, inbound_mkr) =
-            init_broadcast_channels::<TestNetZone<true, true, true>>(TEST_CONFIG);
+            init_broadcast_channels::<TestNetZone<true>>(TEST_CONFIG);
 
         let mut outbound_stream = pin!(outbound_mkr(InternalPeerID::Unknown(1)));
         let mut outbound_stream_from = pin!(outbound_mkr(InternalPeerID::Unknown(0)));
