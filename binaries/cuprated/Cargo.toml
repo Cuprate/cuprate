@@ -75,9 +75,3 @@ tracing               = { workspace = true }
 
 [lints]
 workspace = true
-
-[profile.dev]
-panic = "abort"
-
-[profile.release]
-panic = "abort"

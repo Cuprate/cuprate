@@ -22,9 +22,9 @@ const STAGENET_NETWORK_ID: [u8; 16] = [
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum Network {
     /// Mainnet
-    #[default]
     Mainnet,
     /// Testnet
+    #[default]
     Testnet,
     /// Stagenet
     Stagenet,

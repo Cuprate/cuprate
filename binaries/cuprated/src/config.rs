@@ -35,6 +35,7 @@ impl Config {
     pub fn clearnet_p2p_config(&self) -> cuprate_p2p::P2PConfig<ClearNet> {
         cuprate_p2p::P2PConfig {
             network: self.network,
+            seeds: p2p::clear_net_seed_nodes(self.network),
             outbound_connections: self.p2p.clear_net.general.outbound_connections,
             extra_outbound_connections: self.p2p.clear_net.general.extra_outbound_connections,
             max_inbound_connections: self.p2p.clear_net.general.max_inbound_connections,

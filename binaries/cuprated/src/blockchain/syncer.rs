@@ -98,7 +98,11 @@ where
                     tracing::info!("Stopping block downloader");
                     break;
                 }
-                Some(batch) = block_batch_stream.next() => {
+                batch = block_batch_stream.next() => {
+                    let Some(batch) = batch else {
+                        break;
+                    };
+                    
                     tracing::debug!("Got batch, len: {}", batch.blocks.len());
                     if incoming_block_batch_tx.send(batch).await.is_err() {
                         return Err(SyncerError::IncomingBlockChannelClosed);

@@ -35,6 +35,7 @@ lto           = true   # Build with LTO
 strip         = "none" # Keep panic stack traces
 codegen-units = 1      # Optimize for binary speed over compile times
 opt-level     = 3
+panic = "abort"
 
 [profile.dev]
 lto           = false
