@@ -75,6 +75,12 @@ jobs:
     - name: Download monerod
       uses: ./.github/actions/monerod-download
 
+    - name: Add msbuild to PATH
+      if: matrix.os == 'windows-latest'
+      uses: microsoft/setup-msbuild@v2
+      with:
+        vs-version: '[16.4,16.5)'
+
     - name: Documentation
       run: cargo doc --workspace --all-features --no-deps
 
