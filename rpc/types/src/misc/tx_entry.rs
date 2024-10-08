@@ -71,32 +71,24 @@ use cuprate_epee_encoding::{
 pub enum TxEntry {
     /// This entry exists in the transaction pool.
     InPool {
-        as_hex: String,
-        as_json: String,
+        /// This field is [flattened](https://serde.rs/field-attrs.html#flatten).
+        #[cfg_attr(feature = "serde", serde(flatten))]
+        prefix: TxEntryPrefix,
         block_height: u64,
         block_timestamp: u64,
         confirmations: u64,
-        double_spend_seen: bool,
         output_indices: Vec<u64>,
-        prunable_as_hex: String,
-        prunable_hash: String,
-        pruned_as_hex: String,
-        tx_hash: String,
         #[cfg_attr(feature = "serde", serde(serialize_with = "serde_true"))]
         /// Will always be serialized as `true`.
         in_pool: bool,
     },
     /// This entry _does not_ exist in the transaction pool.
     NotInPool {
-        as_hex: String,
-        as_json: String,
-        double_spend_seen: bool,
-        prunable_as_hex: String,
-        prunable_hash: String,
-        pruned_as_hex: String,
+        /// This field is [flattened](https://serde.rs/field-attrs.html#flatten).
+        #[cfg_attr(feature = "serde", serde(flatten))]
+        prefix: TxEntryPrefix,
         received_timestamp: u64,
         relayed: bool,
-        tx_hash: String,
         #[cfg_attr(feature = "serde", serde(serialize_with = "serde_false"))]
         /// Will always be serialized as `false`.
         in_pool: bool,
@@ -106,18 +98,27 @@ pub enum TxEntry {
 impl Default for TxEntry {
     fn default() -> Self {
         Self::NotInPool {
-            as_hex: String::default(),
-            as_json: String::default(),
-            double_spend_seen: bool::default(),
-            prunable_as_hex: String::default(),
-            prunable_hash: String::default(),
-            pruned_as_hex: String::default(),
+            prefix: Default::default(),
             received_timestamp: u64::default(),
             relayed: bool::default(),
-            tx_hash: String::default(),
             in_pool: false,
         }
     }
+}
+
+/// Common fields in all [`TxEntry`] variants.
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct TxEntryPrefix {
+    as_hex: String,
+    /// `cuprate_rpc_types::json::tx::Transaction` should be used
+    /// to create this JSON string in a type-safe manner.
+    as_json: String,
+    double_spend_seen: bool,
+    tx_hash: String,
+    prunable_as_hex: String,
+    prunable_hash: String,
+    pruned_as_hex: String,
 }
 
 //---------------------------------------------------------------------------------------------------- Epee

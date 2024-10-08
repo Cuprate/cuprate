@@ -123,7 +123,7 @@ impl PreparedBlock {
     ///
     /// The randomX VM must be Some if RX is needed or this will panic.
     /// The randomX VM must also be initialised with the correct seed.
-    fn new<R: RandomX>(block: Block, randomx_vm: Option<&R>) -> Result<Self, ConsensusError> {
+    pub fn new<R: RandomX>(block: Block, randomx_vm: Option<&R>) -> Result<Self, ConsensusError> {
         let (hf_version, hf_vote) = HardFork::from_block_header(&block.header)
             .map_err(|_| BlockError::HardForkError(HardForkError::HardForkUnknown))?;
 
@@ -176,6 +176,20 @@ impl PreparedBlock {
                 &block.hf_version,
             )?,
 
+            miner_tx_weight: block.block.miner_transaction.weight(),
+            block: block.block,
+        })
+    }
+
+    /// Creates a new [`PreparedBlock`] from an [`AltBlockInformation`].
+    pub fn new_alt_block(block: AltBlockInformation) -> Result<Self, ConsensusError> {
+        Ok(Self {
+            block_blob: block.block_blob,
+            hf_vote: HardFork::from_version(block.block.header.hardfork_version)
+                .map_err(|_| BlockError::HardForkError(HardForkError::HardForkUnknown))?,
+            hf_version: HardFork::from_vote(block.block.header.hardfork_signal),
+            block_hash: block.block_hash,
+            pow_hash: block.pow_hash,
             miner_tx_weight: block.block.miner_transaction.weight(),
             block: block.block,
         })
@@ -246,7 +260,7 @@ where
         + Clone
         + Send
         + 'static,
-    D: Database + Clone + Send + Sync + 'static,
+    D: Database + Clone + Send + 'static,
     D::Future: Send + 'static,
 {
     /// Creates a new block verifier.
@@ -276,7 +290,7 @@ where
         + 'static,
     TxV::Future: Send + 'static,
 
-    D: Database + Clone + Send + Sync + 'static,
+    D: Database + Clone + Send + 'static,
     D::Future: Send + 'static,
 {
     type Response = VerifyBlockResponse;

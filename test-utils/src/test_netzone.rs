@@ -69,16 +69,11 @@ impl TryFrom<NetworkAddress> for TestNetZoneAddr {
 
 /// TODO
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct TestNetZone<const ALLOW_SYNC: bool, const DANDELION_PP: bool, const CHECK_NODE_ID: bool>;
+pub struct TestNetZone<const CHECK_NODE_ID: bool>;
 
 #[async_trait::async_trait]
-impl<const ALLOW_SYNC: bool, const DANDELION_PP: bool, const CHECK_NODE_ID: bool> NetworkZone
-    for TestNetZone<ALLOW_SYNC, DANDELION_PP, CHECK_NODE_ID>
-{
+impl<const CHECK_NODE_ID: bool> NetworkZone for TestNetZone<CHECK_NODE_ID> {
     const NAME: &'static str = "Testing";
-    const SEEDS: &'static [Self::Addr] = &[];
-    const ALLOW_SYNC: bool = ALLOW_SYNC;
-    const DANDELION_PP: bool = DANDELION_PP;
     const CHECK_NODE_ID: bool = CHECK_NODE_ID;
 
     type Addr = TestNetZoneAddr;

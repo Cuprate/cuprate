@@ -89,6 +89,7 @@ pub use protocol::*;
 use services::*;
 //re-export
 pub use cuprate_helper::network::Network;
+pub use cuprate_wire::CoreSyncData;
 
 /// The direction of a connection.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -139,21 +140,11 @@ pub trait NetZoneAddress:
 pub trait NetworkZone: Clone + Copy + Send + 'static {
     /// The network name.
     const NAME: &'static str;
-    /// Allow syncing over this network.
-    ///
-    /// Not recommended for anonymity networks.
-    const ALLOW_SYNC: bool;
-    /// Enable dandelion++ for this network.
-    ///
-    /// This is unneeded on anonymity networks.
-    const DANDELION_PP: bool;
     /// Check if our node ID matches the incoming peers node ID for this network.
     ///
     /// This has privacy implications on an anonymity network if true so should be set
     /// to false.
     const CHECK_NODE_ID: bool;
-    /// Fixed seed nodes for this network.
-    const SEEDS: &'static [Self::Addr];
 
     /// The address type of this network.
     type Addr: NetZoneAddress;
