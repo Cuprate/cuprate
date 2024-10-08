@@ -69,7 +69,7 @@ pub async fn init_blockchain_manager(
         .ready()
         .await
         .expect(PANIC_CRITICAL_SERVICE_ERROR)
-        .call(BlockChainContextRequest::GetContext)
+        .call(BlockChainContextRequest::Context)
         .await
         .expect(PANIC_CRITICAL_SERVICE_ERROR)
     else {
