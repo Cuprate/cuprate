@@ -57,13 +57,13 @@ impl super::BlockchainManager {
         self.broadcast_svc
             .ready()
             .await
-            .expect("Broadcast service cannot error.")
+            .expect("Broadcast service is Infallible.")
             .call(BroadcastRequest::Block {
                 block_bytes,
                 current_blockchain_height: usize_to_u64(blockchain_height),
             })
             .await
-            .expect("Broadcast service cannot error.");
+            .expect("Broadcast service is Infallible.");
     }
 
     /// Handle an incoming [`Block`].
