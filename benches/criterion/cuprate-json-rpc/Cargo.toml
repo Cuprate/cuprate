@@ -12,10 +12,12 @@ keywords    = ["cuprate", "json-rpc", "criterion", "benchmark"]
 criterion     = { workspace = true }
 function_name = { workspace = true }
 serde_json    = { workspace = true, features = ["default"] }
-tempfile      = { workspace = true }
 
 cuprate-json-rpc = { path = "../../../rpc/json-rpc" }
 
 [[bench]]
 name    = "main"
 harness = false
+
+[lints]
+workspace = true

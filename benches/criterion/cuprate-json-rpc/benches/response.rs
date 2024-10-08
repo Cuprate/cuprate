@@ -1,13 +1,12 @@
-//! `trait Storable` benchmarks.
+//! Benchmarks for [`Response`].
+#![allow(unused_attributes, unused_crate_dependencies)]
 
-//---------------------------------------------------------------------------------------------------- Import
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use function_name::named;
 use serde_json::{from_str, to_string_pretty};
 
 use cuprate_json_rpc::{Id, Response};
 
-//---------------------------------------------------------------------------------------------------- Criterion
 criterion_group! {
     benches,
     response_from_str_u8,
@@ -25,8 +24,7 @@ criterion_group! {
 }
 criterion_main!(benches);
 
-//---------------------------------------------------------------------------------------------------- Deserialization
-/// TODO
+/// Generate `from_str` deserialization benchmark functions for [`Response`].
 macro_rules! impl_from_str_benchmark {
     (
         $(
@@ -60,8 +58,7 @@ impl_from_str_benchmark! {
     response_from_str_string_500_len => String => r#"{"jsonrpc":"2.0","id":123,"result":"helloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworld"}"#,
 }
 
-//---------------------------------------------------------------------------------------------------- Deserialization
-/// TODO
+/// Generate `to_string_pretty` serialization benchmark functions for [`Response`].
 macro_rules! impl_to_string_pretty_benchmark {
     (
         $(
