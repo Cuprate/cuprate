@@ -29,4 +29,10 @@ pub use types::{
 #[cfg(feature = "blockchain")]
 pub mod blockchain;
 
+#[cfg(feature = "json")]
+pub mod json;
+
+#[cfg(feature = "hex")]
+pub mod hex;
+
 //---------------------------------------------------------------------------------------------------- Private

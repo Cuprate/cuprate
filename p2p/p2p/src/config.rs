@@ -1,13 +1,16 @@
-use cuprate_address_book::AddressBookConfig;
 use cuprate_helper::network::Network;
 use cuprate_p2p_core::NetworkZone;
 use cuprate_wire::{common::PeerSupportFlags, BasicNodeData};
+
+pub use cuprate_address_book::AddressBookConfig;
 
 /// P2P config.
 #[derive(Clone, Debug)]
 pub struct P2PConfig<N: NetworkZone> {
     /// The [`Network`] we should connect to.
     pub network: Network,
+    /// Seed nodes to connect to find peers if our address book is empty.
+    pub seeds: Vec<N::Addr>,
 
     /// The number of outbound connections to make and try keep.
     pub outbound_connections: usize,

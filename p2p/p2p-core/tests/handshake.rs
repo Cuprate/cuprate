@@ -44,10 +44,10 @@ async fn handshake_cuprate_to_cuprate() {
     our_basic_node_data_2.peer_id = 2344;
 
     let mut handshaker_1 =
-        HandshakerBuilder::<TestNetZone<true, true, true>>::new(our_basic_node_data_1).build();
+        HandshakerBuilder::<TestNetZone<true>>::new(our_basic_node_data_1).build();
 
     let mut handshaker_2 =
-        HandshakerBuilder::<TestNetZone<true, true, true>>::new(our_basic_node_data_2).build();
+        HandshakerBuilder::<TestNetZone<true>>::new(our_basic_node_data_2).build();
 
     let (p1, p2) = duplex(50_000);
 

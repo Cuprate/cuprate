@@ -79,9 +79,8 @@ mod tests {
 
         let de_ser: DeserPeerDataV1<TestNetZoneAddr> = from_slice(&data).unwrap();
 
-        let white_list_2: PeerList<TestNetZone<true, true, true>> =
-            PeerList::new(de_ser.white_list);
-        let gray_list_2: PeerList<TestNetZone<true, true, true>> = PeerList::new(de_ser.gray_list);
+        let white_list_2: PeerList<TestNetZone<true>> = PeerList::new(de_ser.white_list);
+        let gray_list_2: PeerList<TestNetZone<true>> = PeerList::new(de_ser.gray_list);
 
         assert_eq!(white_list.peers.len(), white_list_2.peers.len());
         assert_eq!(gray_list.peers.len(), gray_list_2.peers.len());
