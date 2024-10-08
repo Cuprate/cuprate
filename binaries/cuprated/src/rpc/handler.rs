@@ -3,51 +3,131 @@
 use std::task::{Context, Poll};
 
 use anyhow::Error;
-use futures::{channel::oneshot::channel, future::BoxFuture};
-use serde::{Deserialize, Serialize};
+use futures::future::BoxFuture;
+use monero_serai::block::Block;
 use tower::Service;
 
-use cuprate_blockchain::service::BlockchainReadHandle;
-use cuprate_helper::asynch::InfallibleOneshotReceiver;
-use cuprate_json_rpc::Id;
+use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
     bin::{BinRequest, BinResponse},
     json::{JsonRpcRequest, JsonRpcResponse},
     other::{OtherRequest, OtherResponse},
 };
-use cuprate_txpool::service::TxpoolReadHandle;
+use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
 
 use crate::rpc::{bin, json, other};
+
+/// TODO: use real type when public.
+#[derive(Clone)]
+#[expect(clippy::large_enum_variant)]
+pub enum BlockchainManagerRequest {
+    /// Pop blocks off the top of the blockchain.
+    ///
+    /// Input is the amount of blocks to pop.
+    PopBlocks { amount: usize },
+
+    /// Start pruning the blockchain.
+    Prune,
+
+    /// Is the blockchain pruned?
+    Pruned,
+
+    /// Relay a block to the network.
+    RelayBlock(Block),
+
+    /// Is the blockchain in the middle of syncing?
+    ///
+    /// This returning `false` does not necessarily
+    /// mean [`BlockchainManagerRequest::Synced`] will
+    /// return `true`, for example, if the network has been
+    /// cut off and we have no peers, this will return `false`,
+    /// however, [`BlockchainManagerRequest::Synced`] may return
+    /// `true` if the latest known chain tip is equal to our height.
+    Syncing,
+
+    /// Is the blockchain fully synced?
+    Synced,
+
+    /// Current target block time.
+    Target,
+
+    /// The height of the next block in the chain.
+    TargetHeight,
+}
+
+/// TODO: use real type when public.
+#[derive(Clone)]
+pub enum BlockchainManagerResponse {
+    /// General OK response.
+    ///
+    /// Response to:
+    /// - [`BlockchainManagerRequest::Prune`]
+    /// - [`BlockchainManagerRequest::RelayBlock`]
+    Ok,
+
+    /// Response to [`BlockchainManagerRequest::PopBlocks`]
+    PopBlocks { new_height: usize },
+
+    /// Response to [`BlockchainManagerRequest::Pruned`]
+    Pruned(bool),
+
+    /// Response to [`BlockchainManagerRequest::Syncing`]
+    Syncing(bool),
+
+    /// Response to [`BlockchainManagerRequest::Synced`]
+    Synced(bool),
+
+    /// Response to [`BlockchainManagerRequest::Target`]
+    Target(std::time::Duration),
+
+    /// Response to [`BlockchainManagerRequest::TargetHeight`]
+    TargetHeight { height: usize },
+}
+
+/// TODO: use real type when public.
+pub type BlockchainManagerHandle = cuprate_database_service::DatabaseReadService<
+    BlockchainManagerRequest,
+    BlockchainManagerResponse,
+>;
 
 /// TODO
 #[derive(Clone)]
 pub struct CupratedRpcHandler {
     /// Should this RPC server be [restricted](RpcHandler::restricted)?
-    //
-    // INVARIANT:
-    // We don't need to include this in `state` and check for
-    // `self.is_restricted()` because `cuprate-rpc-interface` handles that.
-    pub restricted: bool,
+    ///
+    /// This is not `pub` on purpose, as it should not be mutated after [`Self::new`].
+    restricted: bool,
 
-    /// State needed for request -> response mapping.
-    pub state: CupratedRpcHandlerState,
-}
-
-/// TODO
-#[derive(Clone)]
-pub struct CupratedRpcHandlerState {
     /// Read handle to the blockchain database.
-    pub blockchain: BlockchainReadHandle,
+    pub blockchain_read: BlockchainReadHandle,
+
+    /// Handle to the blockchain manager.
+    pub blockchain_manager: BlockchainManagerHandle,
 
     /// Read handle to the transaction pool database.
-    pub txpool: TxpoolReadHandle,
+    pub txpool_read: TxpoolReadHandle,
+
+    /// TODO: handle to txpool service.
+    pub txpool_manager: std::convert::Infallible,
 }
 
 impl CupratedRpcHandler {
-    /// TODO
-    pub fn init() {
-        todo!()
+    /// Create a new [`Self`].
+    pub const fn new(
+        restricted: bool,
+        blockchain_read: BlockchainReadHandle,
+        blockchain_manager: BlockchainManagerHandle,
+        txpool_read: TxpoolReadHandle,
+        txpool_manager: std::convert::Infallible,
+    ) -> Self {
+        Self {
+            restricted,
+            blockchain_read,
+            blockchain_manager,
+            txpool_read,
+            txpool_manager,
+        }
     }
 }
 
@@ -67,7 +147,7 @@ impl Service<JsonRpcRequest> for CupratedRpcHandler {
     }
 
     fn call(&mut self, request: JsonRpcRequest) -> Self::Future {
-        let state = CupratedRpcHandlerState::clone(&self.state);
+        let state = self.clone();
         Box::pin(json::map_request(state, request))
     }
 }
@@ -82,7 +162,7 @@ impl Service<BinRequest> for CupratedRpcHandler {
     }
 
     fn call(&mut self, request: BinRequest) -> Self::Future {
-        let state = CupratedRpcHandlerState::clone(&self.state);
+        let state = self.clone();
         Box::pin(bin::map_request(state, request))
     }
 }
@@ -97,7 +177,7 @@ impl Service<OtherRequest> for CupratedRpcHandler {
     }
 
     fn call(&mut self, request: OtherRequest) -> Self::Future {
-        let state = CupratedRpcHandlerState::clone(&self.state);
+        let state = self.clone();
         Box::pin(other::map_request(state, request))
     }
 }

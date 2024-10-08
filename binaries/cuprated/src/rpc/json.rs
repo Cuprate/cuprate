@@ -23,11 +23,11 @@ use cuprate_rpc_types::json::{
     SyncInfoRequest, SyncInfoResponse,
 };
 
-use crate::rpc::CupratedRpcHandlerState;
+use crate::rpc::CupratedRpcHandler;
 
 /// Map a [`JsonRpcRequest`] to the function that will lead to a [`JsonRpcResponse`].
 pub(super) async fn map_request(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: JsonRpcRequest,
 ) -> Result<JsonRpcResponse, Error> {
     use JsonRpcRequest as Req;
@@ -84,210 +84,210 @@ pub(super) async fn map_request(
 }
 
 async fn get_block_count(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: GetBlockCountRequest,
 ) -> Result<GetBlockCountResponse, Error> {
     todo!()
 }
 
 async fn on_get_block_hash(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: OnGetBlockHashRequest,
 ) -> Result<OnGetBlockHashResponse, Error> {
     todo!()
 }
 
 async fn submit_block(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: SubmitBlockRequest,
 ) -> Result<SubmitBlockResponse, Error> {
     todo!()
 }
 
 async fn generate_blocks(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: GenerateBlocksRequest,
 ) -> Result<GenerateBlocksResponse, Error> {
     todo!()
 }
 
 async fn get_last_block_header(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: GetLastBlockHeaderRequest,
 ) -> Result<GetLastBlockHeaderResponse, Error> {
     todo!()
 }
 
 async fn get_block_header_by_hash(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: GetBlockHeaderByHashRequest,
 ) -> Result<GetBlockHeaderByHashResponse, Error> {
     todo!()
 }
 
 async fn get_block_header_by_height(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: GetBlockHeaderByHeightRequest,
 ) -> Result<GetBlockHeaderByHeightResponse, Error> {
     todo!()
 }
 
 async fn get_block_headers_range(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: GetBlockHeadersRangeRequest,
 ) -> Result<GetBlockHeadersRangeResponse, Error> {
     todo!()
 }
 
 async fn get_block(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: GetBlockRequest,
 ) -> Result<GetBlockResponse, Error> {
     todo!()
 }
 
 async fn get_connections(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: GetConnectionsRequest,
 ) -> Result<GetConnectionsResponse, Error> {
     todo!()
 }
 
 async fn get_info(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: GetInfoRequest,
 ) -> Result<GetInfoResponse, Error> {
     todo!()
 }
 
 async fn hard_fork_info(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: HardForkInfoRequest,
 ) -> Result<HardForkInfoResponse, Error> {
     todo!()
 }
 
 async fn set_bans(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: SetBansRequest,
 ) -> Result<SetBansResponse, Error> {
     todo!()
 }
 
 async fn get_bans(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: GetBansRequest,
 ) -> Result<GetBansResponse, Error> {
     todo!()
 }
 
 async fn banned(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: BannedRequest,
 ) -> Result<BannedResponse, Error> {
     todo!()
 }
 
 async fn flush_transaction_pool(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: FlushTransactionPoolRequest,
 ) -> Result<FlushTransactionPoolResponse, Error> {
     todo!()
 }
 
 async fn get_output_histogram(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: GetOutputHistogramRequest,
 ) -> Result<GetOutputHistogramResponse, Error> {
     todo!()
 }
 
 async fn get_coinbase_tx_sum(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: GetCoinbaseTxSumRequest,
 ) -> Result<GetCoinbaseTxSumResponse, Error> {
     todo!()
 }
 
 async fn get_version(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: GetVersionRequest,
 ) -> Result<GetVersionResponse, Error> {
     todo!()
 }
 
 async fn get_fee_estimate(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: GetFeeEstimateRequest,
 ) -> Result<GetFeeEstimateResponse, Error> {
     todo!()
 }
 
 async fn get_alternate_chains(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: GetAlternateChainsRequest,
 ) -> Result<GetAlternateChainsResponse, Error> {
     todo!()
 }
 
 async fn relay_tx(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: RelayTxRequest,
 ) -> Result<RelayTxResponse, Error> {
     todo!()
 }
 
 async fn sync_info(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: SyncInfoRequest,
 ) -> Result<SyncInfoResponse, Error> {
     todo!()
 }
 
 async fn get_transaction_pool_backlog(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: GetTransactionPoolBacklogRequest,
 ) -> Result<GetTransactionPoolBacklogResponse, Error> {
     todo!()
 }
 
 async fn get_miner_data(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: GetMinerDataRequest,
 ) -> Result<GetMinerDataResponse, Error> {
     todo!()
 }
 
 async fn prune_blockchain(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: PruneBlockchainRequest,
 ) -> Result<PruneBlockchainResponse, Error> {
     todo!()
 }
 
 async fn calc_pow(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: CalcPowRequest,
 ) -> Result<CalcPowResponse, Error> {
     todo!()
 }
 
 async fn flush_cache(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: FlushCacheRequest,
 ) -> Result<FlushCacheResponse, Error> {
     todo!()
 }
 
 async fn add_aux_pow(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: AddAuxPowRequest,
 ) -> Result<AddAuxPowResponse, Error> {
     todo!()
 }
 
 async fn get_tx_ids_loose(
-    state: CupratedRpcHandlerState,
+    state: CupratedRpcHandler,
     request: GetTxIdsLooseRequest,
 ) -> Result<GetTxIdsLooseResponse, Error> {
     todo!()

@@ -75,6 +75,7 @@ use cuprate_wire::{
     NetworkAddress,
 };
 
+pub mod ban;
 pub mod client;
 mod constants;
 pub mod error;
