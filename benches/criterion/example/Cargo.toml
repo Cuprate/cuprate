@@ -1,19 +1,17 @@
 [package]
-name        = "cuprate-criterion-json-rpc"
+name        = "cuprate-criterion-example"
 version     = "0.0.0"
 edition     = "2021"
-description = "Criterion benchmarking for cuprate-json-rpc"
+description = "Criterion benchmarking example for Cuprate"
 license     = "MIT"
 authors     = ["hinto-janai"]
-repository  = "https://github.com/Cuprate/cuprate/tree/main/benches/criterion/cuprate-json-rpc"
-keywords    = ["cuprate", "json-rpc", "criterion", "benchmark"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/benches/criterion/example"
+keywords    = ["cuprate", "criterion", "benchmark", "example"]
 
 [dependencies]
 criterion     = { workspace = true }
 function_name = { workspace = true }
 serde_json    = { workspace = true, features = ["default"] }
-
-cuprate-json-rpc = { path = "../../../rpc/json-rpc" }
 
 [[bench]]
 name    = "main"

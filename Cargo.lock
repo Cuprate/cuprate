@@ -738,6 +738,15 @@ name = "cuprate-constants"
 version = "0.1.0"
 
 [[package]]
+name = "cuprate-criterion-example"
+version = "0.0.0"
+dependencies = [
+ "criterion",
+ "function_name",
+ "serde_json",
+]
+
+[[package]]
 name = "cuprate-criterion-json-rpc"
 version = "0.0.0"
 dependencies = [

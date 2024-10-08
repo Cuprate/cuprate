@@ -16,7 +16,7 @@ Before plugging into `cuprate-benchmark`, your actual benchmark crate must be cr
 1. Implement `cuprate_benchmark_lib::Benchmark`
 
 ## `cuprate_benchmark_lib::Benchmark`
-This is the trait that standarizes all benchmarks ran under `cuprate-benchmark`.
+This is the trait that standardizes all benchmarks ran under `cuprate-benchmark`.
 
 It must be implemented by your benchmarking crate.
 
