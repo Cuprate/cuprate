@@ -1,3 +1,5 @@
+#![expect(dead_code, reason = "code hidden behind feature flags")]
+
 use cfg_if::cfg_if;
 
 use crate::timings::Timings;
@@ -30,7 +32,6 @@ pub(crate) fn print_timings_markdown(timings: &Timings) {
 }
 
 /// Enabled via `json` feature.
-#[expect(dead_code)]
 pub(crate) fn print_timings_json(timings: &Timings) {
     let json = serde_json::to_string_pretty(timings).unwrap();
     println!("\n{json}");

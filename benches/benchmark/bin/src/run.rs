@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use tracing::{info, instrument, trace};
 
 use cuprate_benchmark_lib::Benchmark;
