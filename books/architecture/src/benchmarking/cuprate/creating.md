@@ -4,8 +4,7 @@ New benchmarks are plugged into `cuprate-benchmark` by:
 1. Registering the benchmark in the `cuprate_benchmark` binary
 
 See [`benches/benchmark/example`](https://github.com/Cuprate/cuprate/tree/main/benches/benchmark/example)
-for an example. For a real example, see:
-[`cuprate-benchmark-database`](https://github.com/Cuprate/cuprate/tree/main/benches/benchmark/cuprate-database).
+for an example.
 
 ## Creating the benchmark crate
 Before plugging into `cuprate-benchmark`, your actual benchmark crate must be created:
@@ -14,6 +13,13 @@ Before plugging into `cuprate-benchmark`, your actual benchmark crate must be cr
 1. Pull in `cuprate_benchmark_lib` as a dependency
 1. Create a benchmark
 1. Implement `cuprate_benchmark_lib::Benchmark`
+
+New benchmark crates using `cuprate-database` should:
+- Be in [`benches/benchmark/`](https://github.com/Cuprate/cuprate/tree/main/benches/benchmark/)
+- Be in the `cuprate-benchmark-$CRATE_NAME` format
+
+For a real example, see:
+[`cuprate-benchmark-database`](https://github.com/Cuprate/cuprate/tree/main/benches/benchmark/cuprate-database).
 
 ## `cuprate_benchmark_lib::Benchmark`
 This is the trait that standardizes all benchmarks ran under `cuprate-benchmark`.
@@ -43,3 +49,9 @@ cfg_if! {
 	}
 }
 ```
+
+## Workspace
+Finally, make sure to add the benchmark crate to the workspace
+[`Cargo.toml`](https://github.com/Cuprate/cuprate/blob/main/Cargo.toml) file.
+
+Your benchmark is now ready to be ran.

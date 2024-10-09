@@ -7,8 +7,11 @@ use serde_json::{from_str, to_string_pretty};
 
 use cuprate_json_rpc::{Id, Response};
 
+// `serde` benchmarks on `Response`.
 criterion_group! {
-    benches,
+    name = serde;
+    config = Criterion::default();
+    targets =
     response_from_str_u8,
     response_from_str_u64,
     response_from_str_string_5_len,
@@ -22,7 +25,7 @@ criterion_group! {
     response_to_string_pretty_string_100_len,
     response_to_string_pretty_string_500_len,
 }
-criterion_main!(benches);
+criterion_main!(serde);
 
 /// Generate `from_str` deserialization benchmark functions for [`Response`].
 macro_rules! impl_from_str_benchmark {

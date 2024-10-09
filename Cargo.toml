@@ -106,7 +106,7 @@ tempfile                  = { version = "3.13.0" }
 monero-rpc                = { git = "https://github.com/Cuprate/serai.git", rev = "d5205ce" }
 monero-simple-request-rpc = { git = "https://github.com/Cuprate/serai.git", rev = "d5205ce" }
 pretty_assertions         = { version = "1.4.1" }
-proptest                  = { version = "1" }
+proptest                  = { version = "1.5.0" }
 proptest-derive           = { version = "0.4.0" }
 tokio-test                = { version = "0.4.4" }
 
