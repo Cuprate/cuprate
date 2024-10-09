@@ -3,8 +3,7 @@ This crate is the glue between
 [`cuprate-benchmark`](https://github.com/Cuprate/cuprate/tree/benches/benches/benchmark/bin)
 and all the benchmark crates.
 
-It defines the [`cuprate_benchmark_lib::Benchmark`] trait,
-which is the behavior of all benchmarks.
+It defines the [`crate::Benchmark`] trait, which is the behavior of all benchmarks.
 
 See the [`cuprate-benchmark-example`](https://github.com/Cuprate/cuprate/tree/benches/benches/benchmark/example)
 crate to see an example implementation of this trait.
