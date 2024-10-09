@@ -12,17 +12,30 @@ keywords    = ["cuprate", "benchmarking", "binary"]
 # All new benchmarks should be added here!
 all = ["example"]
 
-default  = []
-json     = []
-example  = ["dep:cuprate-benchmark-example"]
+# Non-benchmark features.
+default = []
+json    = []
+trace   = []
+debug   = []
+warn    = []
+info    = []
+error   = []
+
+# Benchmark features.
+# New benchmarks should be added here!
+example = [
+	"dep:cuprate-benchmark-example"
+]
 
 [dependencies]
 cuprate-benchmark-lib     = { path = "../lib" }
 cuprate-benchmark-example = { path = "../example", optional = true }
 
-cfg-if     = { workspace = true }
-serde      = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true, features = ["std"] }
+cfg-if             = { workspace = true }
+serde              = { workspace = true, features = ["derive"] }
+serde_json         = { workspace = true, features = ["std"] }
+tracing            = { workspace = true, features = ["std", "attributes"] }
+tracing-subscriber = { workspace = true, features = ["fmt", "std", "env-filter"] }
 
 [dev-dependencies]
 

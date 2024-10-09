@@ -4,6 +4,7 @@
     reason = "this crate imports many potentially unused dependencies"
 )]
 
+mod log;
 mod print;
 mod run;
 mod timings;
@@ -20,11 +21,13 @@ use cfg_if::cfg_if;
 /// 2. Change it to your benchmark's feature flag
 /// 3. Change it to your benchmark's type
 fn main() {
+    log::init_logger();
+
     let mut timings = timings::Timings::new();
 
     cfg_if! {
         if #[cfg(not(any(feature = "example")))] {
-            compile_error!("[cuprate_benchmark]: no feature specified. Use `--features $BENCHMARK_FEATURE` when building.");
+            compile_error!("No feature specified. Use `--features $BENCHMARK_FEATURE` when building.");
         }
     }
 

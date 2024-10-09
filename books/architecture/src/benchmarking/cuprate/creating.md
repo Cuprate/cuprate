@@ -28,6 +28,9 @@ in the binary that is actually ran: `cuprate-benchmark`.
 
 If your benchmark is new, add a new crate feature to [`cuprate-benchmark`'s Cargo.toml file](https://github.com/Cuprate/cuprate/tree/main/benches/benchmark/bin/Cargo.toml) with an optional dependency to your benchmarking crate.
 
+Please remember to edit the feature table in the
+[`README.md`](https://github.com/Cuprate/cuprate/tree/main/benches/benchmark/bin/README.md) as well!
+
 ## Adding to `cuprate-benchmark`'s `main()`
 After adding your crate's feature, add a conditional line that run the benchmark
 if the feature is enabled to the `main()` function:

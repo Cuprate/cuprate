@@ -4,6 +4,8 @@ use crate::timings::Timings;
 
 /// Print the final the final markdown table of benchmark timings.
 pub(crate) fn print_timings(timings: &Timings) {
+    println!("\nFinished all benchmarks, printing results:");
+
     cfg_if! {
         if #[cfg(feature = "json")] {
             print_timings_json(timings);

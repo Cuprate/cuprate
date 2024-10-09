@@ -4,6 +4,14 @@ use std::time::Duration;
 
 /// A benchmarking function and its inputs.
 pub trait Benchmark {
+    /// The benchmark's name.
+    ///
+    /// This is automatically implemented
+    /// as the name of the [`Self`] type.
+    fn name() -> &'static str {
+        std::any::type_name::<Self>()
+    }
+
     /// Input to the main benchmarking function.
     ///
     /// This is passed to [`Self::MAIN`].
@@ -22,12 +30,12 @@ pub trait Benchmark {
     const MAIN: fn(Self::Input);
 
     /// `cuprate-benchmark` will sleep for this [`Duration`] after
-    /// creating the [`Self::Input`], but before starting [`Self::Main`].
+    /// creating the [`Self::Input`], but before starting [`Self::MAIN`].
     ///
     /// 1 second by default.
     const PRE_SLEEP_DURATION: Duration = Duration::from_secs(1);
 
-    /// `cuprate-benchmark` will sleep for this [`Duration`] after [`Self::Main`].
+    /// `cuprate-benchmark` will sleep for this [`Duration`] after [`Self::MAIN`].
     ///
     /// 1 second by default.
     const POST_SLEEP_DURATION: Duration = Duration::from_secs(1);
