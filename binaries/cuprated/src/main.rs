@@ -3,6 +3,7 @@
 #![allow(
     unused_imports,
     unreachable_pub,
+    unreachable_code,
     unused_crate_dependencies,
     dead_code,
     unused_variables,

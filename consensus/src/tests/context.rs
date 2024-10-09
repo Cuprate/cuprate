@@ -41,7 +41,7 @@ async fn context_invalidated_on_new_block() -> Result<(), tower::BoxError> {
 
     let BlockChainContextResponse::Context(context) = ctx_svc
         .clone()
-        .oneshot(BlockChainContextRequest::GetContext)
+        .oneshot(BlockChainContextRequest::Context)
         .await?
     else {
         panic!("Context service returned wrong response!");
@@ -81,9 +81,8 @@ async fn context_height_correct() -> Result<(), tower::BoxError> {
 
     let ctx_svc = initialize_blockchain_context(TEST_CONTEXT_CONFIG, db).await?;
 
-    let BlockChainContextResponse::Context(context) = ctx_svc
-        .oneshot(BlockChainContextRequest::GetContext)
-        .await?
+    let BlockChainContextResponse::Context(context) =
+        ctx_svc.oneshot(BlockChainContextRequest::Context).await?
     else {
         panic!("context service returned incorrect response!")
     };

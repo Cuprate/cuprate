@@ -1,3 +1,10 @@
+#![expect(
+    unreachable_code,
+    unused_variables,
+    clippy::unnecessary_wraps,
+    reason = "TODO: finish implementing the signatures from <https://github.com/Cuprate/cuprate/pull/297>"
+)]
+
 use std::sync::Arc;
 
 use rayon::ThreadPool;
@@ -58,6 +65,8 @@ fn map_request(
     match request {
         TxpoolReadRequest::TxBlob(tx_hash) => tx_blob(env, &tx_hash),
         TxpoolReadRequest::TxVerificationData(tx_hash) => tx_verification_data(env, &tx_hash),
+        TxpoolReadRequest::Backlog => backlog(env),
+        TxpoolReadRequest::Size => size(env),
     }
 }
 
@@ -100,4 +109,16 @@ fn tx_verification_data(env: &ConcreteEnv, tx_hash: &TransactionHash) -> ReadRes
     let tables = inner_env.open_tables(&tx_ro)?;
 
     get_transaction_verification_data(tx_hash, &tables).map(TxpoolReadResponse::TxVerificationData)
+}
+
+/// [`TxpoolReadRequest::Backlog`].
+#[inline]
+fn backlog(env: &ConcreteEnv) -> ReadResponseResult {
+    Ok(TxpoolReadResponse::Backlog(todo!()))
+}
+
+/// [`TxpoolReadRequest::Size`].
+#[inline]
+fn size(env: &ConcreteEnv) -> ReadResponseResult {
+    Ok(TxpoolReadResponse::Size(todo!()))
 }
