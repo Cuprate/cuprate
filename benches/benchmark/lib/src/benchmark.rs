@@ -8,6 +8,9 @@ pub trait Benchmark {
     ///
     /// This is automatically implemented
     /// as the name of the [`Self`] type.
+    //
+    // FIXME: use `const` instead of `fn` when stable
+    // <https://github.com/rust-lang/rust/issues/63084>
     fn name() -> &'static str {
         std::any::type_name::<Self>()
     }
