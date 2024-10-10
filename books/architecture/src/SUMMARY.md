@@ -143,9 +143,16 @@
 
 ---
 
-- [⚪️ Benchmarking](benchmarking/intro.md)
-    - [⚪️ Criterion](benchmarking/criterion.md)
-    - [⚪️ Harness](benchmarking/harness.md)
+- [🟢 Benchmarking](benchmarking/intro.md)
+    - [🟢 Criterion](benchmarking/criterion/intro.md)
+        - [🟢 Creating](benchmarking/criterion/creating.md)
+        - [🟢 Running](benchmarking/criterion/running.md)
+    - [🟢 `cuprate-benchmark`](benchmarking/cuprate/intro.md)
+        - [🟢 Creating](benchmarking/cuprate/creating.md)
+        - [🟢 Running](benchmarking/cuprate/running.md)
+
+---
+
 - [⚪️ Testing](testing/intro.md)
     - [⚪️ Monero data](testing/monero-data.md)
     - [⚪️ RPC client](testing/rpc-client.md)
