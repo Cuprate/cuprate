@@ -12,6 +12,7 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/binaries/cuprated"
 cuprate-consensus        = { path = "../../consensus" }
 cuprate-fast-sync        = { path = "../../consensus/fast-sync" }
 cuprate-consensus-rules  = { path = "../../consensus/rules" }
+cuprate-constants        = { path = "../../constants", features = ["build", "rpc"] }
 cuprate-cryptonight      = { path = "../../cryptonight" }
 cuprate-helper           = { path = "../../helper" }
 cuprate-epee-encoding    = { path = "../../net/epee-encoding" }
