@@ -1,6 +1,8 @@
 //! Tx-pool [`service`](super) interface.
 //!
 //! This module contains `cuprate_txpool`'s [`tower::Service`] request and response enums.
+
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use cuprate_types::TransactionVerificationData;
@@ -9,11 +11,14 @@ use crate::types::TransactionHash;
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadRequest
 /// The transaction pool [`tower::Service`] read request type.
+#[derive(Clone)]
 pub enum TxpoolReadRequest {
     /// A request for the blob (raw bytes) of a transaction with the given hash.
     TxBlob(TransactionHash),
     /// A request for the [`TransactionVerificationData`] of a transaction in the tx pool.
     TxVerificationData(TransactionHash),
+
+    FilterKnownTxBlobHashes(HashSet<TransactionHash>),
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadResponse
@@ -25,10 +30,13 @@ pub enum TxpoolReadResponse {
     TxBlob(Vec<u8>),
     /// A response of [`TransactionVerificationData`].
     TxVerificationData(TransactionVerificationData),
+
+    FilterKnownTxBlobHashes(HashSet<TransactionHash>),
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteRequest
 /// The transaction pool [`tower::Service`] write request type.
+#[derive(Clone)]
 pub enum TxpoolWriteRequest {
     /// Add a transaction to the pool.
     ///

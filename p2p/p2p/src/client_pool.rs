@@ -18,7 +18,7 @@ use tracing::{Instrument, Span};
 use cuprate_p2p_core::{
     client::{Client, InternalPeerID},
     handles::ConnectionHandle,
-    NetworkZone,
+    ConnectionDirection, NetworkZone,
 };
 
 pub(crate) mod disconnect_monitor;
@@ -164,6 +164,16 @@ impl<N: NetworkZone> ClientPool<N> {
             let sync_data = element.value().info.core_sync_data.lock().unwrap();
             sync_data.cumulative_difficulty() > cumulative_difficulty
         })
+    }
+
+    pub fn outbound_client(&self) -> Option<Client<N>> {
+        let client = self
+            .clients
+            .iter()
+            .find(|element| element.value().info.direction == ConnectionDirection::Outbound)?;
+        let id = *client.key();
+
+        Some(self.clients.remove(&id).unwrap().1)
     }
 }
 
