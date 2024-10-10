@@ -92,7 +92,7 @@ pub(super) async fn block_header_by_hash(
     let block = blockchain::block_by_hash(&mut state.blockchain_read, hash).await?;
     let header: ExtendedBlockHeader = todo!(); //blockchain::block_extended_header_by_hash(state.blockchain_read, hash).await?;
 
-    let block_header = into_block_header(header.height, top_height, fill_pow_hash, block, header);
+    let block_header = into_block_header(todo!(), top_height, fill_pow_hash, block, header);
 
     Ok(block_header)
 }
@@ -105,8 +105,7 @@ pub(super) async fn top_block_header(
     let block: Block = todo!();
     let header: ExtendedBlockHeader = todo!();
 
-    let block_header =
-        into_block_header(header.height, header.height, fill_pow_hash, block, header);
+    let block_header = into_block_header(todo!(), todo!(), fill_pow_hash, block, header);
 
     Ok(block_header)
 }
@@ -148,7 +147,7 @@ pub(super) fn hex_to_hash(hex: String) -> Result<[u8; 32], Error> {
 
 /// [`BlockchainResponse::ChainHeight`] minus 1.
 pub(super) async fn top_height(state: &mut CupratedRpcHandler) -> Result<(u64, [u8; 32]), Error> {
-    let (chain_height, hash) = blockchain::chain_height(state).await?;
+    let (chain_height, hash) = blockchain::chain_height(&mut state.blockchain_read).await?;
     let height = chain_height.saturating_sub(1);
     Ok((height, hash))
 }
@@ -158,11 +157,12 @@ pub(super) async fn key_image_spent(
     state: &mut CupratedRpcHandler,
     key_image: [u8; 32],
 ) -> Result<KeyImageSpentStatus, Error> {
-    if blockchain::key_image_spent(state, key_image).await? {
-        Ok(KeyImageSpentStatus::SpentInBlockchain)
-    } else if todo!("key image is spent in tx pool") {
-        Ok(KeyImageSpentStatus::SpentInPool)
-    } else {
-        Ok(KeyImageSpentStatus::Unspent)
-    }
+    todo!("impl key image vec check responding KeyImageSpentStatus")
+    // if blockchain::key_image_spent(state, key_image).await? {
+    //     Ok(KeyImageSpentStatus::SpentInBlockchain)
+    // } else if todo!("key image is spent in tx pool") {
+    //     Ok(KeyImageSpentStatus::SpentInPool)
+    // } else {
+    //     Ok(KeyImageSpentStatus::Unspent)
+    // }
 }

@@ -27,6 +27,7 @@ curve25519-dalek = { workspace = true }
 monero-serai     = { workspace = true }
 hex              = { workspace = true, features = ["serde", "alloc"], optional = true }
 serde            = { workspace = true, features = ["derive"], optional = true }
+strum            = { workspace = true, features = ["derive"] }
 thiserror        = { workspace = true }
 
 proptest = { workspace = true, optional = true }

@@ -1,6 +1,10 @@
 //! The [`HardFork`] type.
 use std::time::Duration;
 
+use strum::{
+    AsRefStr, Display, EnumCount, EnumIs, EnumString, FromRepr, IntoStaticStr, VariantArray,
+};
+
 use monero_serai::block::BlockHeader;
 
 /// Target block time for hf 1.
@@ -27,7 +31,25 @@ pub enum HardForkError {
 }
 
 /// An identifier for every hard-fork Monero has had.
-#[derive(Default, Debug, PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash)]
+#[derive(
+    Default,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Copy,
+    Clone,
+    Hash,
+    EnumCount,
+    Display,
+    AsRefStr,
+    EnumIs,
+    EnumString,
+    FromRepr,
+    IntoStaticStr,
+    VariantArray,
+)]
 #[cfg_attr(any(feature = "proptest"), derive(proptest_derive::Arbitrary))]
 #[repr(u8)]
 pub enum HardFork {
@@ -52,6 +74,14 @@ pub enum HardFork {
 }
 
 impl HardFork {
+    /// TODO
+    ///
+    /// ```rust
+    /// # use crate::hard_fork::HardFork;
+    /// assert_eq!(HardFork::CURRENT, HardFork::V16);
+    /// ```
+    pub const CURRENT: Self = Self::VARIANTS[Self::COUNT - 1];
+
     /// Returns the hard-fork for a blocks [`BlockHeader::hardfork_version`] field.
     ///
     /// ref: <https://monero-book.cuprate.org/consensus_rules/hardforks.html#blocks-version-and-vote>
@@ -61,25 +91,21 @@ impl HardFork {
     /// Will return [`Err`] if the version is not a valid [`HardFork`].
     #[inline]
     pub const fn from_version(version: u8) -> Result<Self, HardForkError> {
-        Ok(match version {
-            1 => Self::V1,
-            2 => Self::V2,
-            3 => Self::V3,
-            4 => Self::V4,
-            5 => Self::V5,
-            6 => Self::V6,
-            7 => Self::V7,
-            8 => Self::V8,
-            9 => Self::V9,
-            10 => Self::V10,
-            11 => Self::V11,
-            12 => Self::V12,
-            13 => Self::V13,
-            14 => Self::V14,
-            15 => Self::V15,
-            16 => Self::V16,
-            _ => return Err(HardForkError::HardForkUnknown),
-        })
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "we check that `HardFork::COUNT` fits into a `u8`."
+        )]
+        const COUNT_AS_U8: u8 = {
+            const COUNT: usize = HardFork::COUNT;
+            assert!(COUNT <= u8::MAX as usize);
+            COUNT as u8
+        };
+
+        if version != 0 && version <= COUNT_AS_U8 {
+            Ok(Self::VARIANTS[(version - 1) as usize])
+        } else {
+            Err(HardForkError::HardForkUnknown)
+        }
     }
 
     /// Returns the hard-fork for a blocks [`BlockHeader::hardfork_signal`] (vote) field.
@@ -92,7 +118,7 @@ impl HardFork {
             return Self::V1;
         }
         // This must default to the latest hard-fork!
-        Self::from_version(vote).unwrap_or(Self::V16)
+        Self::from_version(vote).unwrap_or(Self::CURRENT)
     }
 
     /// Returns the [`HardFork`] version and vote from this block header.
@@ -126,5 +152,10 @@ impl HardFork {
             Self::V1 => BLOCK_TIME_V1,
             _ => BLOCK_TIME_V2,
         }
+    }
+
+    /// TODO
+    pub const fn is_current(self) -> bool {
+        matches!(self, Self::CURRENT)
     }
 }

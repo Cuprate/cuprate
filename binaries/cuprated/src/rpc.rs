@@ -4,9 +4,9 @@
 
 mod bin;
 mod handler;
+mod helper;
 mod json;
 mod other;
 mod request;
-mod helper;
 
 pub use handler::CupratedRpcHandler;

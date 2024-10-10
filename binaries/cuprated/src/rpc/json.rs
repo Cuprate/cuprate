@@ -8,9 +8,10 @@ use tower::{Service, ServiceExt};
 use cuprate_consensus::{BlockchainReadRequest, BlockchainResponse};
 use cuprate_constants::{
     build::RELEASE,
-    rpc::{BLOCK_SIZE_SANITY_LEEWAY, RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE},
+    rpc::{RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE},
 };
 use cuprate_helper::cast::u64_to_usize;
+use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
     base::{AccessResponseBase, ResponseBase},
     json::{
@@ -114,7 +115,7 @@ async fn on_get_block_hash(
     request: OnGetBlockHashRequest,
 ) -> Result<OnGetBlockHashResponse, Error> {
     let [height] = request.block_height;
-    let hash = blockchain::block_hash(&mut state, height).await?;
+    let hash = blockchain::block_hash(&mut state.blockchain_read, height, todo!()).await?;
     let block_hash = hex::encode(hash);
 
     Ok(OnGetBlockHashResponse { block_hash })
@@ -127,11 +128,11 @@ async fn submit_block(
 ) -> Result<SubmitBlockResponse, Error> {
     let [blob] = request.block_blob;
 
-    let limit = blockchain::cumulative_block_weight_limit(&mut state).await?;
+    let limit = todo!(); //blockchain::cumulative_block_weight_limit(&mut state.blockchain_read).await?;
 
-    if blob.len() > limit + BLOCK_SIZE_SANITY_LEEWAY {
-        return Err(anyhow!("Block size is too big, rejecting block"));
-    }
+    // if blob.len() > limit + BLOCK_SIZE_SANITY_LEEWAY {
+    //     return Err(anyhow!("Block size is too big, rejecting block"));
+    // }
 
     let bytes = hex::decode(blob)?;
     let block = Block::read(&mut bytes.as_slice())?;
@@ -173,12 +174,12 @@ async fn get_last_block_header(
     })
 }
 
-/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2468-L2498>
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2500-L2567>
 async fn get_block_header_by_hash(
     mut state: CupratedRpcHandler,
     request: GetBlockHeaderByHashRequest,
 ) -> Result<GetBlockHeaderByHashResponse, Error> {
-    if state.restricted && request.hashes.len() > RESTRICTED_BLOCK_COUNT {
+    if state.restricted() && request.hashes.len() > RESTRICTED_BLOCK_COUNT {
         return Err(anyhow!(
             "Too many block headers requested in restricted mode"
         ));
@@ -239,7 +240,7 @@ async fn get_block_headers_range(
         return Err(anyhow!("Invalid start/end heights"));
     }
 
-    if state.restricted
+    if state.restricted()
         && request.end_height.saturating_sub(request.start_height) + 1
             > RESTRICTED_BLOCK_HEADER_RANGE
     {
@@ -280,10 +281,10 @@ async fn get_block(
 ) -> Result<GetBlockResponse, Error> {
     let block = if request.hash.is_empty() {
         helper::check_height(&mut state, request.height).await?;
-        blockchain::block(&mut state, request.height).await?
+        blockchain::block(&mut state.blockchain_read, request.height).await?
     } else {
         let hash = helper::hex_to_hash(request.hash)?;
-        blockchain::block_by_hash(&mut state, hash).await?
+        blockchain::block_by_hash(&mut state.blockchain_read, hash).await?
     };
 
     Ok(todo!())
@@ -375,7 +376,8 @@ async fn hard_fork_info(
     let hard_fork = if request.version > 0 {
         HardFork::from_version(request.version)?
     } else {
-        blockchain::current_hard_fork(&mut state).await?
+        // blockchain::current_hard_fork(&mut state).await?
+        todo!()
     };
 
     Ok(HardForkInfoResponse {
