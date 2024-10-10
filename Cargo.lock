@@ -972,6 +972,7 @@ dependencies = [
  "cuprate-blockchain",
  "cuprate-consensus",
  "cuprate-consensus-rules",
+ "cuprate-constants",
  "cuprate-cryptonight",
  "cuprate-dandelion-tower",
  "cuprate-database",
