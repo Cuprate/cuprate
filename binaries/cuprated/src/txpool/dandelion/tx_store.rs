@@ -11,8 +11,8 @@ use tower::util::Oneshot;
 use tower::{Service, ServiceExt};
 
 pub struct TxStoreService {
-    txpool_read_handle: TxpoolReadHandle,
-    txpool_write_handle: TxpoolWriteHandle,
+    pub txpool_read_handle: TxpoolReadHandle,
+    pub txpool_write_handle: TxpoolWriteHandle,
 }
 
 impl Service<TxStoreRequest<TxId>> for TxStoreService {
