@@ -15,7 +15,7 @@ use cuprate_txpool::{
 };
 
 /// [`TxpoolReadRequest::Backlog`]
-pub(super) async fn backlog(txpool_read: &mut TxpoolReadHandle) -> Result<Vec<TxEntry>, Error> {
+pub(crate) async fn backlog(txpool_read: &mut TxpoolReadHandle) -> Result<Vec<TxEntry>, Error> {
     let TxpoolReadResponse::Backlog(tx_entries) = txpool_read
         .ready()
         .await
@@ -31,7 +31,7 @@ pub(super) async fn backlog(txpool_read: &mut TxpoolReadHandle) -> Result<Vec<Tx
 }
 
 /// [`TxpoolReadRequest::Size`]
-pub(super) async fn size(txpool_read: &mut TxpoolReadHandle) -> Result<u64, Error> {
+pub(crate) async fn size(txpool_read: &mut TxpoolReadHandle) -> Result<u64, Error> {
     let TxpoolReadResponse::Size(size) = txpool_read
         .ready()
         .await
@@ -48,7 +48,7 @@ pub(super) async fn size(txpool_read: &mut TxpoolReadHandle) -> Result<u64, Erro
 
 /// TODO
 #[expect(clippy::needless_pass_by_ref_mut, reason = "TODO: remove after impl")]
-pub(super) async fn flush(
+pub(crate) async fn flush(
     txpool_read: &mut TxpoolReadHandle,
     tx_hashes: Vec<[u8; 32]>,
 ) -> Result<(), Error> {
