@@ -3,6 +3,7 @@
 use std::task::{Context, Poll};
 
 use anyhow::Error;
+use cuprate_consensus::BlockChainContextService;
 use futures::future::BoxFuture;
 use monero_serai::block::Block;
 use tower::Service;
@@ -102,6 +103,9 @@ pub struct CupratedRpcHandler {
     /// Read handle to the blockchain database.
     pub blockchain_read: BlockchainReadHandle,
 
+    /// Handle to the blockchain context service.
+    pub blockchain_context: BlockChainContextService,
+
     /// Handle to the blockchain manager.
     pub blockchain_manager: BlockchainManagerHandle,
 
@@ -117,6 +121,7 @@ impl CupratedRpcHandler {
     pub const fn new(
         restricted: bool,
         blockchain_read: BlockchainReadHandle,
+        blockchain_context: BlockChainContextService,
         blockchain_manager: BlockchainManagerHandle,
         txpool_read: TxpoolReadHandle,
         txpool_manager: std::convert::Infallible,
@@ -124,6 +129,7 @@ impl CupratedRpcHandler {
         Self {
             restricted,
             blockchain_read,
+            blockchain_context,
             blockchain_manager,
             txpool_read,
             txpool_manager,

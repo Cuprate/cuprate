@@ -38,7 +38,11 @@ use cuprate_rpc_types::{
     CORE_RPC_VERSION,
 };
 
-use crate::rpc::{helper, request::blockchain, CupratedRpcHandler};
+use crate::rpc::{
+    helper,
+    request::{blockchain, blockchain_context, blockchain_manager},
+    CupratedRpcHandler,
+};
 
 /// Map a [`JsonRpcRequest`] to the function that will lead to a [`JsonRpcResponse`].
 pub(super) async fn map_request(
@@ -115,7 +119,8 @@ async fn on_get_block_hash(
     request: OnGetBlockHashRequest,
 ) -> Result<OnGetBlockHashResponse, Error> {
     let [height] = request.block_height;
-    let hash = blockchain::block_hash(&mut state.blockchain_read, height, todo!()).await?;
+    let hash = blockchain::block_hash(&mut state.blockchain_read, height, todo!("access to chain"))
+        .await?;
     let block_hash = hex::encode(hash);
 
     Ok(OnGetBlockHashResponse { block_hash })
@@ -126,21 +131,14 @@ async fn submit_block(
     mut state: CupratedRpcHandler,
     request: SubmitBlockRequest,
 ) -> Result<SubmitBlockResponse, Error> {
+    // Parse hex into block.
     let [blob] = request.block_blob;
-
-    let limit = todo!(); //blockchain::cumulative_block_weight_limit(&mut state.blockchain_read).await?;
-
-    // if blob.len() > limit + BLOCK_SIZE_SANITY_LEEWAY {
-    //     return Err(anyhow!("Block size is too big, rejecting block"));
-    // }
-
     let bytes = hex::decode(blob)?;
     let block = Block::read(&mut bytes.as_slice())?;
+    let block_id = hex::encode(block.hash());
 
-    // <https://github.com/monero-project/monero/blob/master/src/cryptonote_core/cryptonote_core.cpp#L1540>
-    let block_id = todo!("submit block to DB");
-    todo!("relay to P2P");
-    todo!("send to txpool");
+    // Attempt to relay the block.
+    blockchain_manager::relay_block(&mut state.blockchain_manager, block).await?;
 
     Ok(SubmitBlockResponse {
         base: ResponseBase::ok(),
@@ -383,7 +381,7 @@ async fn hard_fork_info(
     Ok(HardForkInfoResponse {
         base: AccessResponseBase::ok(),
         earliest_height: todo!(),
-        enabled: hard_fork.is_current(),
+        enabled: todo!("hard_fork.is_latest() is not always correct"),
         state: todo!(),
         threshold: todo!(),
         version: hard_fork.as_u8(),

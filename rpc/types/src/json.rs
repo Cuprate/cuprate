@@ -836,9 +836,9 @@ define_request_and_response! {
             enabled: true,
             state: 0,
             threshold: 0,
-            version: 3,
+            version: 16,
             votes: 10080,
-            voting: 3,
+            voting: 16,
             window: 10080
         }
     )]
