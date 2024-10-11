@@ -820,7 +820,7 @@ define_request_and_response! {
     HardForkInfo,
 
     #[doc = serde_doc_test!(
-        HARD_FORK_INFO => HardForkInfo {
+        HARD_FORK_INFO_REQUEST => HardForkInfoRequest {
             version: 16,
         }
     )]
