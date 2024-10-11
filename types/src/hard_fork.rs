@@ -73,13 +73,13 @@ pub enum HardFork {
 }
 
 impl HardFork {
-    /// The current [`HardFork`].
+    /// The latest [`HardFork`].
     ///
     /// ```rust
     /// # use cuprate_types::HardFork;
-    /// assert_eq!(HardFork::CURRENT, HardFork::V16);
+    /// assert_eq!(HardFork::LATEST, HardFork::V16);
     /// ```
-    pub const CURRENT: Self = Self::VARIANTS[Self::COUNT - 1];
+    pub const LATEST: Self = Self::VARIANTS[Self::COUNT - 1];
 
     /// Returns the hard-fork for a blocks [`BlockHeader::hardfork_version`] field.
     ///
@@ -101,21 +101,9 @@ impl HardFork {
     /// ```
     #[inline]
     pub const fn from_version(version: u8) -> Result<Self, HardForkError> {
-        #[expect(
-            clippy::cast_possible_truncation,
-            reason = "we check that `HardFork::COUNT` fits into a `u8`."
-        )]
-        const COUNT_AS_U8: u8 = {
-            const COUNT: usize = HardFork::COUNT;
-            assert!(COUNT <= u8::MAX as usize);
-            COUNT as u8
-        };
-
-        if version == 0 || version > COUNT_AS_U8 {
-            Err(HardForkError::HardForkUnknown)
-        } else {
-            // INVARIANT: we've proved above that `version` is in a valid range.
-            Ok(Self::VARIANTS[(version - 1) as usize])
+        match Self::from_repr(version) {
+            Some(this) => Ok(this),
+            None => Err(HardForkError::HardForkUnknown),
         }
     }
 
@@ -128,7 +116,7 @@ impl HardFork {
     /// # use strum::VariantArray;
     /// // 0 is interpreted as 1.
     /// assert_eq!(HardFork::from_vote(0), HardFork::V1);
-    /// // Unknown defaults to `CURRENT`.
+    /// // Unknown defaults to `LATEST`.
     /// assert_eq!(HardFork::from_vote(17), HardFork::V16);
     ///
     /// for (vote, hf) in HardFork::VARIANTS.iter().enumerate() {
@@ -143,7 +131,7 @@ impl HardFork {
             Self::V1
         } else {
             // This must default to the latest hard-fork!
-            Self::from_version(vote).unwrap_or(Self::CURRENT)
+            Self::from_version(vote).unwrap_or(Self::LATEST)
         }
     }
 
@@ -188,21 +176,21 @@ impl HardFork {
         }
     }
 
-    /// Returns `true` if `self` is [`Self::CURRENT`].
+    /// Returns `true` if `self` is [`Self::LATEST`].
     ///
     /// ```rust
     /// # use cuprate_types::HardFork;
     /// # use strum::VariantArray;
     ///
     /// for hf in HardFork::VARIANTS.iter() {
-    ///     if *hf == HardFork::CURRENT {
-    ///         assert!(hf.is_current());
+    ///     if *hf == HardFork::LATEST {
+    ///         assert!(hf.is_latest());
     ///     } else {
-    ///         assert!(!hf.is_current());
+    ///         assert!(!hf.is_latest());
     ///     }
     /// }
     /// ```
-    pub const fn is_current(self) -> bool {
-        matches!(self, Self::CURRENT)
+    pub const fn is_latest(self) -> bool {
+        matches!(self, Self::LATEST)
     }
 }
