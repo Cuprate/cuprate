@@ -69,15 +69,14 @@ pub enum HardFork {
     V13,
     V14,
     V15,
-    // remember to update from_vote!
     V16,
 }
 
 impl HardFork {
-    /// TODO
+    /// The current [`HardFork`].
     ///
     /// ```rust
-    /// # use crate::hard_fork::HardFork;
+    /// # use cuprate_types::HardFork;
     /// assert_eq!(HardFork::CURRENT, HardFork::V16);
     /// ```
     pub const CURRENT: Self = Self::VARIANTS[Self::COUNT - 1];
@@ -87,8 +86,19 @@ impl HardFork {
     /// ref: <https://monero-book.cuprate.org/consensus_rules/hardforks.html#blocks-version-and-vote>
     ///
     /// # Errors
-    ///
     /// Will return [`Err`] if the version is not a valid [`HardFork`].
+    ///
+    /// ```rust
+    /// # use cuprate_types::{HardFork, HardForkError};
+    /// # use strum::VariantArray;
+    /// assert_eq!(HardFork::from_version(0), Err(HardForkError::HardForkUnknown));
+    /// assert_eq!(HardFork::from_version(17), Err(HardForkError::HardForkUnknown));
+    ///
+    /// for (version, hf) in HardFork::VARIANTS.iter().enumerate() {
+    ///     // +1 because enumerate starts at 0, hf starts at 1.
+    ///     assert_eq!(*hf, HardFork::from_version(version as u8 + 1).unwrap());
+    /// }
+    /// ```
     #[inline]
     pub const fn from_version(version: u8) -> Result<Self, HardForkError> {
         #[expect(
@@ -101,30 +111,45 @@ impl HardFork {
             COUNT as u8
         };
 
-        if version != 0 && version <= COUNT_AS_U8 {
-            Ok(Self::VARIANTS[(version - 1) as usize])
-        } else {
+        if version == 0 || version > COUNT_AS_U8 {
             Err(HardForkError::HardForkUnknown)
+        } else {
+            // INVARIANT: we've proved above that `version` is in a valid range.
+            Ok(Self::VARIANTS[(version - 1) as usize])
         }
     }
 
     /// Returns the hard-fork for a blocks [`BlockHeader::hardfork_signal`] (vote) field.
     ///
     /// <https://monero-book.cuprate.org/consensus_rules/hardforks.html#blocks-version-and-vote>
+    ///
+    /// ```rust
+    /// # use cuprate_types::{HardFork, HardForkError};
+    /// # use strum::VariantArray;
+    /// // 0 is interpreted as 1.
+    /// assert_eq!(HardFork::from_vote(0), HardFork::V1);
+    /// // Unknown defaults to `CURRENT`.
+    /// assert_eq!(HardFork::from_vote(17), HardFork::V16);
+    ///
+    /// for (vote, hf) in HardFork::VARIANTS.iter().enumerate() {
+    ///     // +1 because enumerate starts at 0, hf starts at 1.
+    ///     assert_eq!(*hf, HardFork::from_vote(vote as u8 + 1));
+    /// }
+    /// ```
     #[inline]
     pub fn from_vote(vote: u8) -> Self {
         if vote == 0 {
             // A vote of 0 is interpreted as 1 as that's what Monero used to default to.
-            return Self::V1;
+            Self::V1
+        } else {
+            // This must default to the latest hard-fork!
+            Self::from_version(vote).unwrap_or(Self::CURRENT)
         }
-        // This must default to the latest hard-fork!
-        Self::from_version(vote).unwrap_or(Self::CURRENT)
     }
 
     /// Returns the [`HardFork`] version and vote from this block header.
     ///
     /// # Errors
-    ///
     /// Will return [`Err`] if the [`BlockHeader::hardfork_version`] is not a valid [`HardFork`].
     #[inline]
     pub fn from_block_header(header: &BlockHeader) -> Result<(Self, Self), HardForkError> {
@@ -135,26 +160,48 @@ impl HardFork {
     }
 
     /// Returns the raw hard-fork value, as it would appear in [`BlockHeader::hardfork_version`].
-    pub const fn as_u8(&self) -> u8 {
-        *self as u8
+    ///
+    /// ```rust
+    /// # use cuprate_types::{HardFork, HardForkError};
+    /// # use strum::VariantArray;
+    /// for (i, hf) in HardFork::VARIANTS.iter().enumerate() {
+    ///     // +1 because enumerate starts at 0, hf starts at 1.
+    ///     assert_eq!(hf.as_u8(), i as u8 + 1);
+    /// }
+    /// ```
+    pub const fn as_u8(self) -> u8 {
+        self as u8
     }
 
     /// Returns the next hard-fork.
-    pub fn next_fork(&self) -> Option<Self> {
-        Self::from_version(*self as u8 + 1).ok()
+    pub fn next_fork(self) -> Option<Self> {
+        Self::from_version(self as u8 + 1).ok()
     }
 
     /// Returns the target block time for this hardfork.
     ///
     /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/difficulty.html#target-seconds>
-    pub const fn block_time(&self) -> Duration {
+    pub const fn block_time(self) -> Duration {
         match self {
             Self::V1 => BLOCK_TIME_V1,
             _ => BLOCK_TIME_V2,
         }
     }
 
-    /// TODO
+    /// Returns `true` if `self` is [`Self::CURRENT`].
+    ///
+    /// ```rust
+    /// # use cuprate_types::HardFork;
+    /// # use strum::VariantArray;
+    ///
+    /// for hf in HardFork::VARIANTS.iter() {
+    ///     if *hf == HardFork::CURRENT {
+    ///         assert!(hf.is_current());
+    ///     } else {
+    ///         assert!(!hf.is_current());
+    ///     }
+    /// }
+    /// ```
     pub const fn is_current(self) -> bool {
         matches!(self, Self::CURRENT)
     }
