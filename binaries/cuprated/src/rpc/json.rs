@@ -277,33 +277,36 @@ async fn get_block(
     mut state: CupratedRpcHandler,
     request: GetBlockRequest,
 ) -> Result<GetBlockResponse, Error> {
-    let block = if request.hash.is_empty() {
+    let (block, block_header) = if request.hash.is_empty() {
         helper::check_height(&mut state, request.height).await?;
-        blockchain::block(&mut state.blockchain_read, request.height).await?
+        let block = blockchain::block(&mut state.blockchain_read, request.height).await?;
+        let block_header =
+            helper::block_header(&mut state, request.height, request.fill_pow_hash).await?;
+        (block, block_header)
     } else {
         let hash = helper::hex_to_hash(request.hash)?;
-        blockchain::block_by_hash(&mut state.blockchain_read, hash).await?
+        let block = blockchain::block_by_hash(&mut state.blockchain_read, hash).await?;
+        let block_header =
+            helper::block_header_by_hash(&mut state, hash, request.fill_pow_hash).await?;
+        (block, block_header)
     };
 
-    Ok(todo!())
+    let blob = hex::encode(block.serialize());
+    let miner_tx_hash = hex::encode(block.miner_transaction.hash());
+    let tx_hashes = block.transactions.iter().map(hex::encode).collect();
+    let json = {
+        let block = cuprate_types::json::block::Block::from(block);
+        serde_json::to_string_pretty(&block)?
+    };
 
-    // let block_header = (&block).into();
-    // let blob = hex::encode(block.block_blob);
-    // let miner_tx_hash = hex::encode(block.block.miner_transaction.hash());
-    // let tx_hashes = block
-    //     .txs
-    //     .into_iter()
-    //     .map(|tx| hex::encode(tx.tx_hash))
-    //     .collect();
-
-    // Ok(GetBlockResponse {
-    //     base: AccessResponseBase::ok(),
-    //     blob,
-    //     json: todo!(), // TODO: make `JSON` type in `cuprate_rpc_types`
-    //     miner_tx_hash,
-    //     tx_hashes,
-    //     block_header,
-    // })
+    Ok(GetBlockResponse {
+        base: AccessResponseBase::ok(),
+        blob,
+        json,
+        miner_tx_hash,
+        tx_hashes,
+        block_header,
+    })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2729-L2738>
