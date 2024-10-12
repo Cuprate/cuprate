@@ -2,7 +2,7 @@
 
 use std::convert::Infallible;
 
-use anyhow::Error;
+use anyhow::{anyhow, Error};
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::cast::usize_to_u64;
@@ -14,15 +14,17 @@ use cuprate_txpool::{
     TxEntry,
 };
 
+// FIXME: use `anyhow::Error` over `tower::BoxError` in txpool.
+
 /// [`TxpoolReadRequest::Backlog`]
 pub(crate) async fn backlog(txpool_read: &mut TxpoolReadHandle) -> Result<Vec<TxEntry>, Error> {
     let TxpoolReadResponse::Backlog(tx_entries) = txpool_read
         .ready()
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
         .call(TxpoolReadRequest::Backlog)
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };
@@ -35,10 +37,10 @@ pub(crate) async fn size(txpool_read: &mut TxpoolReadHandle) -> Result<u64, Erro
     let TxpoolReadResponse::Size(size) = txpool_read
         .ready()
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
         .call(TxpoolReadRequest::Size)
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };

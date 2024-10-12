@@ -2,7 +2,7 @@
 
 use std::convert::Infallible;
 
-use anyhow::Error;
+use anyhow::{anyhow, Error};
 use tower::ServiceExt;
 
 use cuprate_helper::cast::usize_to_u64;
@@ -11,6 +11,8 @@ use cuprate_p2p_core::{
     AddressBook, NetworkZone,
 };
 
+// FIXME: use `anyhow::Error` over `tower::BoxError` in address book.
+
 /// [`AddressBookRequest::PeerlistSize`]
 pub(crate) async fn peerlist_size<Z: NetworkZone>(
     address_book: &mut impl AddressBook<Z>,
@@ -18,10 +20,10 @@ pub(crate) async fn peerlist_size<Z: NetworkZone>(
     let AddressBookResponse::PeerlistSize { white, grey } = address_book
         .ready()
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
         .call(AddressBookRequest::PeerlistSize)
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };
@@ -36,10 +38,10 @@ pub(crate) async fn connection_count<Z: NetworkZone>(
     let AddressBookResponse::ConnectionCount { incoming, outgoing } = address_book
         .ready()
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
         .call(AddressBookRequest::ConnectionCount)
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };
@@ -55,10 +57,10 @@ pub(crate) async fn set_ban<Z: NetworkZone>(
     let AddressBookResponse::Ok = address_book
         .ready()
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
         .call(AddressBookRequest::SetBan(peer))
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };
@@ -74,10 +76,10 @@ pub(crate) async fn get_ban<Z: NetworkZone>(
     let AddressBookResponse::GetBan { unban_instant } = address_book
         .ready()
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
         .call(AddressBookRequest::GetBan(peer))
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };
@@ -92,10 +94,10 @@ pub(crate) async fn get_bans<Z: NetworkZone>(
     let AddressBookResponse::GetBans(bans) = address_book
         .ready()
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
         .call(AddressBookRequest::GetBans)
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };
