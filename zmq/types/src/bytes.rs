@@ -4,7 +4,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Wrapper for fixed-size arrays of `u8` to provide serde serialization
 /// and deserialization to and from hex strings.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Bytes<const N: usize>(
     #[serde(
@@ -13,6 +13,12 @@ pub struct Bytes<const N: usize>(
     )]
     pub [u8; N],
 );
+
+impl<const N: usize> Default for Bytes<N> {
+    fn default() -> Self {
+        Self([0; N])
+    }
+}
 
 fn serialize_to_hex<const N: usize, S>(bytes: &[u8; N], serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -57,5 +63,11 @@ mod tests {
         let hex_str = "98f1e11d62b90c665a8a96fb1b10332e37a790ea1e01a9e8ec8de74b7b27b0df";
         let bytes = Bytes::<32>(hex::decode(hex_str).unwrap().try_into().unwrap());
         assert_eq!(format!("{}", bytes), hex_str);
+    }
+
+    #[test]
+    fn test_bytes_default() {
+        let bytes = Bytes::<32>::default();
+        assert_eq!(bytes.0, [0; 32]);
     }
 }

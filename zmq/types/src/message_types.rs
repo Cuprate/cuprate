@@ -2,90 +2,98 @@ use serde::{Deserialize, Serialize};
 
 use crate::bytes::Bytes;
 
-#[derive(Serialize, Deserialize)]
-struct TxPoolAdd {
-    version: u8,
-    unlock_time: u64,
-    inputs: Vec<Input>,
-    outputs: Vec<Output>,
-    extra: Bytes<44>,
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct TxPoolAdd {
+    pub version: u8,
+    pub unlock_time: u64,
+    pub inputs: Vec<Input>,
+    pub outputs: Vec<Output>,
+    pub extra: Bytes<44>,
     signatures: Vec<NotUsed>,
-    ringct: RingCt,
+    pub ringct: RingCt,
 }
 
-#[derive(Serialize, Deserialize)]
-struct Input {
-    to_key: ToKey,
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct TxPoolAddMin {
+    pub id: Bytes<32>,
+    pub blob_size: u64,
+    pub weight: u64,
+    pub fee: u64,
 }
 
-#[derive(Serialize, Deserialize)]
-struct ToKey {
-    amount: u64,
-    key_offsets: Vec<u64>,
-    key_image: Bytes<32>,
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct Input {
+    pub to_key: ToKey,
 }
 
-#[derive(Serialize, Deserialize)]
-struct Output {
-    amount: u64,
-    to_tagged_key: ToTaggedKey,
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct ToKey {
+    pub amount: u64,
+    pub key_offsets: Vec<u64>,
+    pub key_image: Bytes<32>,
 }
 
-#[derive(Serialize, Deserialize)]
-struct ToTaggedKey {
-    key: Bytes<32>,
-    view_tag: Bytes<1>,
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
+pub struct Output {
+    pub amount: u64,
+    pub to_tagged_key: ToTaggedKey,
 }
 
-#[derive(Serialize, Deserialize)]
-struct RingCt {
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
+pub struct ToTaggedKey {
+    pub key: Bytes<32>,
+    pub view_tag: Bytes<1>,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct RingCt {
     #[serde(rename = "type")]
-    ringct_type: u8,
-    encrypted: Vec<Encrypted>,
-    commitments: Vec<Bytes<32>>,
-    fee: u64,
-    prunable: Prunable,
+    pub ringct_type: u8,
+    pub encrypted: Vec<Encrypted>,
+    pub commitments: Vec<Bytes<32>>,
+    pub fee: u64,
+    pub prunable: Prunable,
 }
 
-#[derive(Serialize, Deserialize)]
-struct Encrypted {
-    mask: Bytes<32>,
-    amount: Bytes<32>,
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
+pub struct Encrypted {
+    pub mask: Bytes<32>,
+    pub amount: Bytes<32>,
 }
 
-#[derive(Serialize, Deserialize)]
-struct Prunable {
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct Prunable {
     range_proofs: Vec<NotUsed>,
     bulletproofs: Vec<NotUsed>,
-    bulletproofs_plus: Vec<BulletproofPlus>,
-    mlsags: Vec<Bytes<32>>,
-    clsags: Vec<Clsag>,
-    pseudo_outs: Vec<Bytes<32>>,
+    pub bulletproofs_plus: Vec<BulletproofPlus>,
+    pub mlsags: Vec<Bytes<32>>,
+    pub clsags: Vec<Clsag>,
+    pub pseudo_outs: Vec<Bytes<32>>,
 }
 
 #[expect(non_snake_case)]
-#[derive(Serialize, Deserialize)]
-struct BulletproofPlus {
-    V: Vec<Bytes<32>>,
-    A: Bytes<32>,
-    A1: Bytes<32>,
-    B: Bytes<32>,
-    r1: Bytes<32>,
-    s1: Bytes<32>,
-    d1: Bytes<32>,
-    L: Vec<Bytes<32>>,
-    R: Vec<Bytes<32>>,
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct BulletproofPlus {
+    pub V: Vec<Bytes<32>>,
+    pub A: Bytes<32>,
+    pub A1: Bytes<32>,
+    pub B: Bytes<32>,
+    pub r1: Bytes<32>,
+    pub s1: Bytes<32>,
+    pub d1: Bytes<32>,
+    pub L: Vec<Bytes<32>>,
+    pub R: Vec<Bytes<32>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 struct NotUsed;
 
 #[expect(non_snake_case)]
-#[derive(Serialize, Deserialize)]
-struct Clsag {
-    s: Vec<Bytes<32>>,
-    c1: Bytes<32>,
-    D: Bytes<32>,
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct Clsag {
+    pub s: Vec<Bytes<32>>,
+    pub c1: Bytes<32>,
+    pub D: Bytes<32>,
 }
 
 #[cfg(test)]
@@ -93,7 +101,7 @@ mod tests {
     use assert_json_diff::assert_json_eq;
     use serde_json::{self, json};
 
-    use crate::message_types::TxPoolAdd;
+    use super::*;
 
     #[test]
     fn test_txpooladd_json() {
@@ -231,6 +239,22 @@ mod tests {
         ]);
 
         let tx_pool_adds: Vec<TxPoolAdd> = serde_json::from_value(json1.clone()).unwrap();
+        let json2 = serde_json::to_value(&tx_pool_adds).unwrap();
+        assert_json_eq!(json1, json2);
+    }
+
+    #[test]
+    fn test_txpooladd_min_json() {
+        let json1 = json!([
+          {
+            "id": "b5086746e805d875cbbbbb49e19aac29d9b75019f656fab8516cdf64ac5cd346",
+            "blob_size": 1533,
+            "weight": 1533,
+            "fee": 30660000
+          }
+        ]);
+
+        let tx_pool_adds: Vec<TxPoolAddMin> = serde_json::from_value(json1.clone()).unwrap();
         let json2 = serde_json::to_value(&tx_pool_adds).unwrap();
         assert_json_eq!(json1, json2);
     }
