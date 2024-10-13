@@ -8,9 +8,12 @@ authors = ["dimalinux", "The Monero Project"]
 repository = "https://github.com/Cuprate/cuprate/tree/main/zmq/types"
 
 [dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true, features = ["std"] }
+hex = { workspace = true, features = ["std", "serde"] }
 
 [dev-dependencies]
+assert-json-diff = "2.0.2"
 
 [lints]
 workspace = true
-

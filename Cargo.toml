@@ -28,6 +28,7 @@ members = [
 	"rpc/json-rpc",
 	"rpc/types",
 	"rpc/interface",
+	"zmq/types",
 ]
 
 [profile.release]
