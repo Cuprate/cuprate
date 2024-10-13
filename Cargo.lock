@@ -910,6 +910,7 @@ dependencies = [
  "monero-serai",
  "rayon",
  "serde",
+ "sha3",
  "tempfile",
  "thiserror",
  "tokio",

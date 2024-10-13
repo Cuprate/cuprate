@@ -16,7 +16,7 @@ pub enum TxpoolReadRequest {
     /// A request for the [`TransactionVerificationData`] of a transaction in the tx pool.
     TxVerificationData(TransactionHash),
     /// A request to filter (remove) all **known** transactions from the set.
-    /// 
+    ///
     /// The hash is **not** the transaction hash, it is the hash of the serialized tx-blob.
     FilterKnownTxBlobHashes(HashSet<TransactionBlobHash>),
 }
@@ -26,10 +26,7 @@ pub enum TxpoolReadRequest {
 #[expect(clippy::large_enum_variant)]
 pub enum TxpoolReadResponse {
     /// A response containing the raw bytes of a transaction.
-    TxBlob {
-        tx_blob: Vec<u8>,
-        state_stem: bool,
-    },
+    TxBlob { tx_blob: Vec<u8>, state_stem: bool },
     /// A response of [`TransactionVerificationData`].
     TxVerificationData(TransactionVerificationData),
     /// The response for [`TxpoolReadRequest::FilterKnownTxBlobHashes`].

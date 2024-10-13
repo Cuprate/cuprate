@@ -16,7 +16,9 @@
 //! accessing _all_ tables defined here at once.
 use cuprate_database::{define_tables, StorableVec};
 
-use crate::types::{KeyImage, RawCachedVerificationState, TransactionHash, TransactionInfo};
+use crate::types::{
+    KeyImage, RawCachedVerificationState, TransactionBlobHash, TransactionHash, TransactionInfo,
+};
 
 define_tables! {
     /// Serialized transaction blobs.
@@ -41,5 +43,9 @@ define_tables! {
     ///
     /// This table contains the spent key images from all transactions in the pool.
     3 => SpentKeyImages,
-    KeyImage => TransactionHash
+    KeyImage => TransactionHash,
+
+    /// Transaction blob hashes that are in the pool.
+    4 => KnownBlobHashes,
+    TransactionBlobHash => (),
 }

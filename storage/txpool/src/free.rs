@@ -1,9 +1,11 @@
 //! General free functions (related to the tx-pool database).
 
 //---------------------------------------------------------------------------------------------------- Import
+use sha3::{Digest, Sha3_256};
+
 use cuprate_database::{ConcreteEnv, Env, EnvInner, InitError, RuntimeError, TxRw};
 
-use crate::{config::Config, tables::OpenTables};
+use crate::{config::Config, tables::OpenTables, types::TransactionBlobHash};
 
 //---------------------------------------------------------------------------------------------------- Free functions
 /// Open the txpool database using the passed [`Config`].
@@ -59,4 +61,16 @@ pub fn open(config: Config) -> Result<ConcreteEnv, InitError> {
     }
 
     Ok(env)
+}
+
+/// Calculate the transaction blob hash.
+///
+/// This value is supposed to be quick to compute just based of the tx-blob without needing to parse the tx.
+///
+/// The exact way the hash is calculated is not stable and is subject to change, as such it should not be exposed
+/// as a way to interact with Cuprate externally.
+pub fn transaction_blob_hash(tx_blob: &[u8]) -> TransactionBlobHash {
+    let mut hasher = Sha3_256::new();
+    hasher.update(tx_blob);
+    hasher.finalize().into()
 }
