@@ -19,7 +19,7 @@ use cuprate_consensus::{
 };
 use cuprate_dandelion_tower::{
     pool::{DandelionPoolService, IncomingTx, IncomingTxBuilder},
-    TxState,
+    State, TxState,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_txpool::service::{
@@ -110,7 +110,7 @@ async fn handle_incoming_txs(
 ) -> Result<(), IncomingTxError> {
     let reorg_guard = REORG_LOCK.read().await;
 
-    let (txs, txs_being_handled_guard) =
+    let (txs, stem_pool_txs, txs_being_handled_guard) =
         prepare_incoming_txs(txs, txs_being_handled, &mut txpool_read_handle).await?;
 
     let BlockChainContextResponse::Context(context) = blockchain_context_cache
@@ -150,6 +150,16 @@ async fn handle_incoming_txs(
         .await
     }
 
+    for stem_tx in stem_pool_txs {
+        rerelay_stem_tx(
+            &stem_tx,
+            state.clone(),
+            &mut txpool_read_handle,
+            &mut dandelion_pool_manager,
+        )
+        .await;
+    }
+
     Ok(())
 }
 
@@ -160,7 +170,14 @@ async fn prepare_incoming_txs(
     tx_blobs: Vec<Bytes>,
     txs_being_handled: TxsBeingHandled,
     txpool_read_handle: &mut TxpoolReadHandle,
-) -> Result<(Vec<Arc<TransactionVerificationData>>, TxBeingHandledLocally), IncomingTxError> {
+) -> Result<
+    (
+        Vec<Arc<TransactionVerificationData>>,
+        Vec<TxId>,
+        TxBeingHandledLocally,
+    ),
+    IncomingTxError,
+> {
     let mut tx_blob_hashes = HashSet::new();
     let mut txs_being_handled_loacally = txs_being_handled.local_tracker();
 
@@ -186,7 +203,10 @@ async fn prepare_incoming_txs(
 
     // Filter the txs already in the txpool out.
     // This will leave the txs already in the pool in [`TxBeingHandledLocally`] but that shouldn't be an issue.
-    let TxpoolReadResponse::FilterKnownTxBlobHashes(tx_blob_hashes) = txpool_read_handle
+    let TxpoolReadResponse::FilterKnownTxBlobHashes {
+        unknown_blob_hashes,
+        stem_pool_hashes,
+    } = txpool_read_handle
         .ready()
         .await
         .expect(PANIC_CRITICAL_SERVICE_ERROR)
@@ -202,7 +222,7 @@ async fn prepare_incoming_txs(
         let txs = txs
             .into_iter()
             .filter_map(|(tx_blob_hash, tx_blob)| {
-                if tx_blob_hashes.contains(&tx_blob_hash) {
+                if unknown_blob_hashes.contains(&tx_blob_hash) {
                     Some(tx_blob)
                 } else {
                     None
@@ -218,7 +238,7 @@ async fn prepare_incoming_txs(
             })
             .collect::<Result<Vec<_>, IncomingTxError>>()?;
 
-        Ok((txs, txs_being_handled_loacally))
+        Ok((txs, stem_pool_hashes, txs_being_handled_loacally))
     })
     .await
 }
@@ -257,6 +277,42 @@ async fn handle_valid_tx(
     let incoming_tx = incoming_tx
         .with_routing_state(state)
         .with_state_in_db(None)
+        .build()
+        .unwrap();
+
+    dandelion_pool_manager
+        .ready()
+        .await
+        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .call(incoming_tx)
+        .await
+        .expect(PANIC_CRITICAL_SERVICE_ERROR);
+}
+
+async fn rerelay_stem_tx(
+    tx_hash: &TxId,
+    state: TxState<NetworkAddress>,
+    txpool_read_handle: &mut TxpoolReadHandle,
+    dandelion_pool_manager: &mut DandelionPoolService<DandelionTx, TxId, NetworkAddress>,
+) {
+    let TxpoolReadResponse::TxBlob { tx_blob, .. } = txpool_read_handle
+        .ready()
+        .await
+        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .call(TxpoolReadRequest::TxBlob(*tx_hash))
+        .await
+        .expect("TODO")
+    else {
+        unreachable!()
+    };
+
+    let incoming_tx =
+        IncomingTxBuilder::new(DandelionTx(Bytes::copy_from_slice(&tx_blob)), *tx_hash);
+
+    // TODO: fill this in properly.
+    let incoming_tx = incoming_tx
+        .with_routing_state(state)
+        .with_state_in_db(Some(State::Stem))
         .build()
         .unwrap();
 

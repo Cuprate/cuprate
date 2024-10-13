@@ -59,7 +59,9 @@ pub fn add_transaction(
 
     // Add the blob hash to table 4.
     let blob_hash = transaction_blob_hash(&tx.tx_blob);
-    tables.known_blob_hashes_mut().put(&blob_hash, &())?;
+    tables
+        .known_blob_hashes_mut()
+        .put(&blob_hash, &tx.tx_hash)?;
 
     Ok(())
 }

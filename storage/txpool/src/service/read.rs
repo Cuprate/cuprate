@@ -2,9 +2,10 @@ use std::{collections::HashSet, sync::Arc};
 
 use rayon::ThreadPool;
 
-use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner};
+use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
 use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
 
+use crate::ops::in_stem_pool;
 use crate::{
     ops::get_transaction_verification_data,
     service::{
@@ -119,12 +120,30 @@ fn filter_known_tx_blob_hashes(
     let tx_ro = inner_env.tx_ro()?;
 
     let tx_blob_hashes = inner_env.open_db_ro::<KnownBlobHashes>(&tx_ro)?;
+    let tx_infos = inner_env.open_db_ro::<TransactionInfos>(&tx_ro)?;
+
+    let mut stem_pool_hashes = Vec::new();
+
+    // A closure that returns if a tx with a certain blob hash is unknown.
+    // This also fills in `stem_tx_hashes`.
+    let mut tx_unknown = |blob_hash| -> Result<bool, RuntimeError> {
+        match tx_blob_hashes.get(&blob_hash) {
+            Ok(tx_hash) => {
+                if in_stem_pool(&tx_hash, &tx_infos)? {
+                    stem_pool_hashes.push(tx_hash);
+                }
+                Ok(false)
+            }
+            Err(RuntimeError::KeyNotFound) => Ok(true),
+            Err(e) => Err(e),
+        }
+    };
 
     let mut err = None;
-    blob_hashes.retain(|blob_hash| match tx_blob_hashes.contains(blob_hash) {
-        Ok(exists) => !exists,
+    blob_hashes.retain(|blob_hash| match tx_unknown(*blob_hash) {
+        Ok(res) => res,
         Err(e) => {
-            err.get_or_insert(e);
+            err = Some(e);
             false
         }
     });
@@ -133,5 +152,8 @@ fn filter_known_tx_blob_hashes(
         return Err(e);
     }
 
-    Ok(TxpoolReadResponse::FilterKnownTxBlobHashes(blob_hashes))
+    Ok(TxpoolReadResponse::FilterKnownTxBlobHashes {
+        unknown_blob_hashes: blob_hashes,
+        stem_pool_hashes,
+    })
 }

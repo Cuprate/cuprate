@@ -30,7 +30,12 @@ pub enum TxpoolReadResponse {
     /// A response of [`TransactionVerificationData`].
     TxVerificationData(TransactionVerificationData),
     /// The response for [`TxpoolReadRequest::FilterKnownTxBlobHashes`].
-    FilterKnownTxBlobHashes(HashSet<TransactionBlobHash>),
+    FilterKnownTxBlobHashes {
+        /// The blob hashes that are unknown.
+        unknown_blob_hashes: HashSet<TransactionBlobHash>,
+        /// The tx hashes of the blob hashes that were known but were in the stem pool.
+        stem_pool_hashes: Vec<TransactionHash>,
+    },
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteRequest

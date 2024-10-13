@@ -47,5 +47,5 @@ define_tables! {
 
     /// Transaction blob hashes that are in the pool.
     4 => KnownBlobHashes,
-    TransactionBlobHash => (),
+    TransactionBlobHash => TransactionHash,
 }
