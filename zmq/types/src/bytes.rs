@@ -2,14 +2,16 @@ use std::fmt;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+/// Wrapper for fixed-size arrays of `u8` to provide serde serialization
+/// and deserialization to and from hex strings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub(crate) struct Bytes<const N: usize>(
+pub struct Bytes<const N: usize>(
     #[serde(
         serialize_with = "serialize_to_hex",
         deserialize_with = "deserialize_from_hex"
     )]
-    [u8; N],
+    pub [u8; N],
 );
 
 fn serialize_to_hex<const N: usize, S>(bytes: &[u8; N], serializer: S) -> Result<S::Ok, S::Error>
@@ -43,10 +45,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_bytes32_json() {
+    fn test_bytes_json() {
         let json1 = "\"536f91da278f730f2524260d2778dc5959d40a5c724dd789d35bbd309eabd933\"";
         let array: Bytes<32> = serde_json::from_str(json1).unwrap();
         let json2 = serde_json::to_string(&array).unwrap();
         assert_eq!(json1, json2);
+    }
+
+    #[test]
+    fn test_bytes_display() {
+        let hex_str = "98f1e11d62b90c665a8a96fb1b10332e37a790ea1e01a9e8ec8de74b7b27b0df";
+        let bytes = Bytes::<32>(hex::decode(hex_str).unwrap().try_into().unwrap());
+        assert_eq!(format!("{}", bytes), hex_str);
     }
 }
