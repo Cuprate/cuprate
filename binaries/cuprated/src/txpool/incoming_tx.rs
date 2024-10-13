@@ -84,11 +84,9 @@ impl Service<IncomingTxs> for IncomingTxHandler {
     }
 
     fn call(&mut self, req: IncomingTxs) -> Self::Future {
-        let IncomingTxs::Bytes { txs, state } = req;
-
         handle_incoming_txs(
-            txs,
-            state,
+            req.txs,
+            req.state,
             self.txs_being_handled.clone(),
             self.blockchain_context_cache.clone(),
             self.tx_verifier_service.clone(),

@@ -13,7 +13,7 @@ pub mod tables;
 pub mod types;
 
 pub use config::Config;
-pub use free::open;
+pub use free::{open, transaction_blob_hash};
 
 //re-exports
 pub use cuprate_database;

@@ -65,9 +65,10 @@ impl Service<TxStoreRequest<TxId>> for TxStoreService {
                 .boxed(),
             TxStoreRequest::Promote(tx_id) => self
                 .txpool_write_handle
+                .clone()
                 .oneshot(TxpoolWriteRequest::Promote(tx_id))
                 .map(|res| match res {
-                    Ok(_) | Err(RuntimeError::KeyNotFound) => TxStoreResponse::Ok,
+                    Ok(_) | Err(RuntimeError::KeyNotFound) => Ok(TxStoreResponse::Ok),
                     Err(e) => Err(e.into()),
                 })
                 .boxed(),

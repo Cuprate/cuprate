@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use cuprate_database::{ConcreteEnv, Env, EnvInner, RuntimeError, TxRw};
+use cuprate_database::{ConcreteEnv, DatabaseRw, Env, EnvInner, RuntimeError, TxRw};
 use cuprate_database_service::DatabaseWriteHandle;
 use cuprate_types::TransactionVerificationData;
 
@@ -10,8 +10,8 @@ use crate::{
         interface::{TxpoolWriteRequest, TxpoolWriteResponse},
         types::TxpoolWriteHandle,
     },
-    tables::OpenTables,
-    types::TransactionHash,
+    tables::{OpenTables, TransactionInfos},
+    types::{TransactionHash, TxStateFlags},
 };
 
 //---------------------------------------------------------------------------------------------------- init_write_service
@@ -31,6 +31,7 @@ fn handle_txpool_request(
             add_transaction(env, tx, *state_stem)
         }
         TxpoolWriteRequest::RemoveTransaction(tx_hash) => remove_transaction(env, tx_hash),
+        TxpoolWriteRequest::Promote(tx_hash) => promote(env, tx_hash),
     }
 }
 
@@ -99,5 +100,23 @@ fn remove_transaction(
     drop(tables_mut);
 
     TxRw::commit(tx_rw)?;
+    Ok(TxpoolWriteResponse::Ok)
+}
+
+/// [`TxpoolWriteRequest::Promote`]
+fn promote(
+    env: &ConcreteEnv,
+    tx_hash: &TransactionHash,
+) -> Result<TxpoolWriteResponse, RuntimeError> {
+    let env_inner = env.env_inner();
+    let tx_rw = env_inner.tx_rw()?;
+
+    let mut tx_infos = env_inner.open_db_rw::<TransactionInfos>(&tx_rw)?;
+
+    tx_infos.update(tx_hash, |mut info| {
+        info.flags.remove(TxStateFlags::STATE_STEM);
+        Some(info)
+    })?;
+
     Ok(TxpoolWriteResponse::Ok)
 }

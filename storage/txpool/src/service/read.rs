@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use rayon::ThreadPool;
 
@@ -11,8 +11,8 @@ use crate::{
         interface::{TxpoolReadRequest, TxpoolReadResponse},
         types::{ReadResponseResult, TxpoolReadHandle},
     },
-    tables::{OpenTables, TransactionBlobs},
-    types::TransactionHash,
+    tables::{KnownBlobHashes, OpenTables, TransactionBlobs, TransactionInfos},
+    types::{TransactionBlobHash, TransactionHash, TxStateFlags},
 };
 
 // TODO: update the docs here
@@ -58,7 +58,9 @@ fn map_request(
     match request {
         TxpoolReadRequest::TxBlob(tx_hash) => tx_blob(env, &tx_hash),
         TxpoolReadRequest::TxVerificationData(tx_hash) => tx_verification_data(env, &tx_hash),
-        _ => todo!(),
+        TxpoolReadRequest::FilterKnownTxBlobHashes(blob_hashes) => {
+            filter_known_tx_blob_hashes(env, blob_hashes)
+        }
     }
 }
 
@@ -86,10 +88,15 @@ fn tx_blob(env: &ConcreteEnv, tx_hash: &TransactionHash) -> ReadResponseResult {
     let tx_ro = inner_env.tx_ro()?;
 
     let tx_blobs_table = inner_env.open_db_ro::<TransactionBlobs>(&tx_ro)?;
+    let tx_infos_table = inner_env.open_db_ro::<TransactionInfos>(&tx_ro)?;
 
-    tx_blobs_table
-        .get(tx_hash)
-        .map(|blob| TxpoolReadResponse::TxBlob(blob.0))
+    let tx_blob = tx_blobs_table.get(tx_hash)?.0;
+    let tx_info = tx_infos_table.get(tx_hash)?;
+
+    Ok(TxpoolReadResponse::TxBlob {
+        tx_blob,
+        state_stem: tx_info.flags.contains(TxStateFlags::STATE_STEM),
+    })
 }
 
 /// [`TxpoolReadRequest::TxVerificationData`].
@@ -101,4 +108,30 @@ fn tx_verification_data(env: &ConcreteEnv, tx_hash: &TransactionHash) -> ReadRes
     let tables = inner_env.open_tables(&tx_ro)?;
 
     get_transaction_verification_data(tx_hash, &tables).map(TxpoolReadResponse::TxVerificationData)
+}
+
+/// [`TxpoolReadRequest::FilterKnownTxBlobHashes`].
+fn filter_known_tx_blob_hashes(
+    env: &ConcreteEnv,
+    mut blob_hashes: HashSet<TransactionBlobHash>,
+) -> ReadResponseResult {
+    let inner_env = env.env_inner();
+    let tx_ro = inner_env.tx_ro()?;
+
+    let tx_blob_hashes = inner_env.open_db_ro::<KnownBlobHashes>(&tx_ro)?;
+
+    let mut err = None;
+    blob_hashes.retain(|blob_hash| match tx_blob_hashes.contains(blob_hash) {
+        Ok(exists) => !exists,
+        Err(e) => {
+            err.get_or_insert(e);
+            false
+        }
+    });
+
+    if let Some(e) = err {
+        return Err(e);
+    }
+
+    Ok(TxpoolReadResponse::FilterKnownTxBlobHashes(blob_hashes))
 }
