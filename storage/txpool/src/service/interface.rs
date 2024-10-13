@@ -1,9 +1,9 @@
 //! Tx-pool [`service`](super) interface.
 //!
 //! This module contains `cuprate_txpool`'s [`tower::Service`] request and response enums.
-use std::{collections::HashSet, sync::Arc};
-
 use cuprate_types::TransactionVerificationData;
+use std::collections::HashMap;
+use std::{collections::HashSet, sync::Arc};
 
 use crate::types::{TransactionBlobHash, TransactionHash};
 
@@ -19,6 +19,8 @@ pub enum TxpoolReadRequest {
     ///
     /// The hash is **not** the transaction hash, it is the hash of the serialized tx-blob.
     FilterKnownTxBlobHashes(HashSet<TransactionBlobHash>),
+    /// A request to pull some transactions for an incoming block.
+    TxsForBlock(Vec<TransactionHash>),
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadResponse
@@ -35,6 +37,10 @@ pub enum TxpoolReadResponse {
         unknown_blob_hashes: HashSet<TransactionBlobHash>,
         /// The tx hashes of the blob hashes that were known but were in the stem pool.
         stem_pool_hashes: Vec<TransactionHash>,
+    },
+    TxsForBlock {
+        txs: HashMap<[u8; 32], TransactionVerificationData>,
+        missing: Vec<usize>,
     },
 }
 

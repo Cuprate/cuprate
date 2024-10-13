@@ -6,7 +6,6 @@
 //!
 //! <!-- FIXME: Add schema here or a link to it when complete -->
 use bytemuck::{Pod, Zeroable};
-
 use monero_serai::transaction::Timelock;
 
 use cuprate_types::{CachedVerificationState, HardFork};

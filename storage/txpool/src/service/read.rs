@@ -1,13 +1,15 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use rayon::ThreadPool;
 
 use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
 use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
 
-use crate::ops::in_stem_pool;
 use crate::{
-    ops::get_transaction_verification_data,
+    ops::{get_transaction_verification_data, in_stem_pool},
     service::{
         interface::{TxpoolReadRequest, TxpoolReadResponse},
         types::{ReadResponseResult, TxpoolReadHandle},
@@ -51,7 +53,6 @@ fn init_read_service_with_pool(env: Arc<ConcreteEnv>, pool: Arc<ThreadPool>) -> 
 /// 1. `Request` is mapped to a handler function
 /// 2. Handler function is called
 /// 3. [`TxpoolReadResponse`] is returned
-#[expect(clippy::needless_pass_by_value)]
 fn map_request(
     env: &ConcreteEnv,          // Access to the database
     request: TxpoolReadRequest, // The request we must fulfill
@@ -62,6 +63,7 @@ fn map_request(
         TxpoolReadRequest::FilterKnownTxBlobHashes(blob_hashes) => {
             filter_known_tx_blob_hashes(env, blob_hashes)
         }
+        TxpoolReadRequest::TxsForBlock(txs_needed) => txs_for_block(env, txs_needed),
     }
 }
 
@@ -155,5 +157,31 @@ fn filter_known_tx_blob_hashes(
     Ok(TxpoolReadResponse::FilterKnownTxBlobHashes {
         unknown_blob_hashes: blob_hashes,
         stem_pool_hashes,
+    })
+}
+
+/// [`TxpoolReadRequest::TxsForBlock`].
+fn txs_for_block(env: &ConcreteEnv, txs: Vec<TransactionHash>) -> ReadResponseResult {
+    let inner_env = env.env_inner();
+    let tx_ro = inner_env.tx_ro()?;
+
+    let tables = inner_env.open_tables(&tx_ro)?;
+
+    let mut missing_tx_indexes = Vec::with_capacity(txs.len());
+    let mut txs_verification_data = HashMap::with_capacity(txs.len());
+
+    for (i, tx_hash) in txs.into_iter().enumerate() {
+        match get_transaction_verification_data(&tx_hash, &tables) {
+            Ok(tx) => {
+                txs_verification_data.insert(tx_hash, tx);
+            }
+            Err(RuntimeError::KeyNotFound) => missing_tx_indexes.push(i),
+            Err(e) => return Err(e),
+        }
+    }
+
+    Ok(TxpoolReadResponse::TxsForBlock {
+        txs: txs_verification_data,
+        missing: missing_tx_indexes,
     })
 }
