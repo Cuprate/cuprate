@@ -7,6 +7,7 @@ pub fn tx_blob_hash(tx_bytes: &[u8]) -> [u8; 32] {
     hasher.update(tx_bytes);
     hasher.finalize().into()
 }
+
 #[derive(Clone)]
 pub struct TxsBeingHandled(Arc<DashSet<[u8; 32]>>);
 
@@ -25,11 +26,7 @@ pub struct TxBeingHandledLocally {
 }
 
 impl TxBeingHandledLocally {
-    pub fn try_add_tx(&mut self, tx_bytes: &[u8]) -> bool {
-        let mut hasher = Sha3_256::new();
-        hasher.update(tx_bytes);
-        let tx_blob_hash = hasher.finalize().into();
-
+    pub fn try_add_tx(&mut self, tx_blob_hash: [u8; 32]) -> bool {
         if !self.txs_being_handled.0.insert(tx_blob_hash) {
             return false;
         }

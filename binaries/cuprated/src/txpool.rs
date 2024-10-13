@@ -4,5 +4,4 @@
 
 mod dandelion;
 mod incoming_tx;
-mod manager;
 mod txs_being_handled;

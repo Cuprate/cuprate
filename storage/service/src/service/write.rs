@@ -21,13 +21,21 @@ const WRITER_THREAD_NAME: &str = concat!(module_path!(), "::DatabaseWriter");
 /// Calling [`tower::Service::call`] with a [`DatabaseWriteHandle`]
 /// will return an `async`hronous channel that can be `.await`ed upon
 /// to receive the corresponding response.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct DatabaseWriteHandle<Req, Res> {
     /// Sender channel to the database write thread-pool.
     ///
     /// We provide the response channel for the thread-pool.
     pub(super) sender:
         crossbeam::channel::Sender<(Req, oneshot::Sender<Result<Res, RuntimeError>>)>,
+}
+
+impl<Req, Res> Clone for DatabaseWriteHandle<Req, Res> {
+    fn clone(&self) -> Self {
+        Self {
+            sender: self.sender.clone(),
+        }
+    }
 }
 
 impl<Req, Res> DatabaseWriteHandle<Req, Res>

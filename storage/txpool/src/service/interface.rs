@@ -1,13 +1,11 @@
 //! Tx-pool [`service`](super) interface.
 //!
 //! This module contains `cuprate_txpool`'s [`tower::Service`] request and response enums.
-
-use std::collections::HashSet;
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use cuprate_types::TransactionVerificationData;
 
-use crate::types::TransactionHash;
+use crate::types::{TransactionBlobHash, TransactionHash};
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadRequest
 /// The transaction pool [`tower::Service`] read request type.
@@ -17,8 +15,10 @@ pub enum TxpoolReadRequest {
     TxBlob(TransactionHash),
     /// A request for the [`TransactionVerificationData`] of a transaction in the tx pool.
     TxVerificationData(TransactionHash),
-
-    FilterKnownTxBlobHashes(HashSet<TransactionHash>),
+    /// A request to filter (remove) all **known** transactions from the set.
+    /// 
+    /// The hash is **not** the transaction hash, it is the hash of the serialized tx-blob.
+    FilterKnownTxBlobHashes(HashSet<TransactionBlobHash>),
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadResponse
@@ -26,12 +26,14 @@ pub enum TxpoolReadRequest {
 #[expect(clippy::large_enum_variant)]
 pub enum TxpoolReadResponse {
     /// A response containing the raw bytes of a transaction.
-    // TODO: use bytes::Bytes.
-    TxBlob(Vec<u8>),
+    TxBlob {
+        tx_blob: Vec<u8>,
+        state_stem: bool,
+    },
     /// A response of [`TransactionVerificationData`].
     TxVerificationData(TransactionVerificationData),
-
-    FilterKnownTxBlobHashes(HashSet<TransactionHash>),
+    /// The response for [`TxpoolReadRequest::FilterKnownTxBlobHashes`].
+    FilterKnownTxBlobHashes(HashSet<TransactionBlobHash>),
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteRequest
@@ -53,6 +55,11 @@ pub enum TxpoolWriteRequest {
     ///
     /// Returns [`TxpoolWriteResponse::Ok`].
     RemoveTransaction(TransactionHash),
+    /// Promote a transaction from the stem pool to the fluff pool.
+    /// If the tx is already in the fluff pool this does nothing.
+    ///
+    /// Returns [`TxpoolWriteResponse::Ok`].
+    Promote(TransactionHash),
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteResponse

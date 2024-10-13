@@ -1,6 +1,8 @@
+use std::time::Duration;
+
 use bytes::Bytes;
 use cuprate_dandelion_tower::pool::DandelionPoolService;
-use cuprate_dandelion_tower::{DandelionConfig, DandelionRouter};
+use cuprate_dandelion_tower::{DandelionConfig, DandelionRouter, Graph};
 use cuprate_p2p::NetworkInterface;
 use cuprate_p2p_core::ClearNet;
 use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
@@ -11,9 +13,16 @@ mod stem_service;
 mod tx_store;
 
 #[derive(Clone)]
-struct DandelionTx(Bytes);
+pub struct DandelionTx(Bytes);
 
 type TxId = [u8; 32];
+
+const DANDELION_CONFIG: DandelionConfig = DandelionConfig {
+    time_between_hop: Duration::from_millis(175),
+    epoch_duration: Duration::from_secs(10 * 60),
+    fluff_probability: 0.12,
+    graph: Graph::FourRegular,
+};
 
 type ConcreteDandelionRouter = DandelionRouter<
     stem_service::OutboundPeerStream,
@@ -35,12 +44,7 @@ pub fn start_dandelion_pool_manager(
             txpool_read_handle,
             txpool_write_handle,
         },
-        DandelionConfig {
-            time_between_hop: Default::default(),
-            epoch_duration: Default::default(),
-            fluff_probability: 0.0,
-            graph: Default::default(),
-        },
+        DANDELION_CONFIG,
     )
 }
 
@@ -49,14 +53,7 @@ pub fn dandelion_router(clear_net: NetworkInterface<ClearNet>) -> ConcreteDandel
         diffuse_service::DiffuseService {
             clear_net_broadcast_service: clear_net.broadcast_svc(),
         },
-        stem_service::OutboundPeerStream {
-            clear_net: clear_net.clone(),
-        },
-        DandelionConfig {
-            time_between_hop: Default::default(),
-            epoch_duration: Default::default(),
-            fluff_probability: 0.0,
-            graph: Default::default(),
-        },
+        stem_service::OutboundPeerStream { clear_net },
+        DANDELION_CONFIG,
     )
 }

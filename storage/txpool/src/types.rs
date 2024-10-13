@@ -17,6 +17,9 @@ pub type KeyImage = [u8; 32];
 /// A transaction hash.
 pub type TransactionHash = [u8; 32];
 
+/// A transaction blob hash.
+pub type TransactionBlobHash = [u8; 32];
+
 bitflags::bitflags! {
     /// Flags representing the state of the transaction in the pool.
     #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]

@@ -1,17 +1,23 @@
-use super::DandelionTx;
-use bytes::Bytes;
-use cuprate_dandelion_tower::traits::StemRequest;
-use cuprate_dandelion_tower::OutboundPeer;
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
+};
+
+use cuprate_dandelion_tower::{traits::StemRequest, OutboundPeer};
 use cuprate_p2p::NetworkInterface;
-use cuprate_p2p_core::client::Client;
-use cuprate_p2p_core::{ClearNet, NetworkZone, PeerRequest, ProtocolRequest};
-use cuprate_wire::protocol::NewTransactions;
-use cuprate_wire::NetworkAddress;
+use cuprate_p2p_core::{
+    client::{Client, InternalPeerID},
+    ClearNet, NetworkZone, PeerRequest, ProtocolRequest,
+};
+use cuprate_wire::{protocol::NewTransactions, NetworkAddress};
+
+use bytes::Bytes;
 use futures::Stream;
-use std::pin::Pin;
-use std::task::{Context, Poll};
 use tower::Service;
 
+use super::DandelionTx;
+
+/// The dandelion outbound peer stream.
 pub struct OutboundPeerStream {
     pub clear_net: NetworkInterface<ClearNet>,
 }
@@ -20,22 +26,29 @@ impl Stream for OutboundPeerStream {
     type Item = Result<OutboundPeer<NetworkAddress, StemPeerService<ClearNet>>, tower::BoxError>;
 
     fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        // TODO: make the outbound peer choice random.
         Poll::Ready(Some(Ok(self
             .clear_net
             .client_pool()
             .outbound_client()
             .map_or(OutboundPeer::Exhausted, |client| {
-                OutboundPeer::Peer(client.info.id.into(), StemPeerService(client))
+                let addr = match client.info.id {
+                    InternalPeerID::KnownAddr(addr) => addr,
+                    InternalPeerID::Unknown(_) => panic!("Outbound peer had an unknown address"),
+                };
+
+                OutboundPeer::Peer(addr.into(), StemPeerService(client))
             }))))
     }
 }
 
-pub struct StemPeerService<N>(Client<N>);
+/// The stem service, used to send stem txs.
+pub struct StemPeerService<N: NetworkZone>(Client<N>);
 
 impl<N: NetworkZone> Service<StemRequest<DandelionTx>> for StemPeerService<N> {
-    type Response = ();
+    type Response = <Client<N> as Service<PeerRequest>>::Response;
     type Error = tower::BoxError;
-    type Future = Client::Future;
+    type Future = <Client<N> as Service<PeerRequest>>::Future;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.0.poll_ready(cx)

@@ -1,58 +1,76 @@
-use std::collections::HashSet;
-use std::future::ready;
-use std::sync::Arc;
-use std::task::{Context, Poll};
+use std::{
+    collections::HashSet,
+    future::ready,
+    sync::Arc,
+    task::{Context, Poll},
+};
 
-use crate::blockchain::ConcreteTxVerifierService;
-use crate::txpool::txs_being_handled::{tx_blob_hash, TxBeingHandledLocally, TxsBeingHandled};
 use bytes::Bytes;
-use cuprate_consensus::transactions::new_tx_verification_data;
-use cuprate_consensus::{
-    BlockChainContextRequest, BlockChainContextResponse, BlockChainContextService,
-    ExtendedConsensusError, TxVerifierService, VerifyTxRequest, VerifyTxResponse,
-};
-use cuprate_dandelion_tower::pool::{DandelionPoolService, IncomingTx, IncomingTxBuilder};
-use cuprate_dandelion_tower::TxState;
-use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_txpool::service::interface::{
-    TxpoolReadRequest, TxpoolWriteRequest, TxpoolWriteResponse,
-};
-use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
-use cuprate_wire::NetworkAddress;
 use dashmap::DashSet;
-use futures::future::BoxFuture;
-use futures::FutureExt;
+use futures::{future::BoxFuture, FutureExt};
 use monero_serai::transaction::Transaction;
 use sha3::{Digest, Sha3_256};
 use tower::{Service, ServiceExt};
 
+use cuprate_consensus::{
+    transactions::new_tx_verification_data, BlockChainContextRequest, BlockChainContextResponse,
+    BlockChainContextService, ExtendedConsensusError, TxVerifierService, VerifyTxRequest,
+    VerifyTxResponse,
+};
+use cuprate_dandelion_tower::{
+    pool::{DandelionPoolService, IncomingTx, IncomingTxBuilder},
+    TxState,
+};
+use cuprate_helper::asynch::rayon_spawn_async;
+use cuprate_txpool::service::{
+    interface::{TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest, TxpoolWriteResponse},
+    TxpoolReadHandle, TxpoolWriteHandle,
+};
+use cuprate_types::TransactionVerificationData;
+use cuprate_wire::NetworkAddress;
+
+use crate::{
+    blockchain::ConcreteTxVerifierService,
+    constants::PANIC_CRITICAL_SERVICE_ERROR,
+    signals::REORG_LOCK,
+    txpool::txs_being_handled::{tx_blob_hash, TxBeingHandledLocally, TxsBeingHandled},
+};
+
+/// An error that can happen handling an incoming tx.
 pub enum IncomingTxError {
     Parse(std::io::Error),
     Consensus(ExtendedConsensusError),
     DuplicateTransaction,
 }
 
-pub enum IncomingTxs {
-    Bytes {
-        txs: Vec<Bytes>,
-        state: TxState<NetworkAddress>,
-    },
+/// Incoming transactions.
+pub struct IncomingTxs {
+    pub txs: Vec<Bytes>,
+    pub state: TxState<NetworkAddress>,
 }
 
+///  The transaction type used for dandelion++.
+#[derive(Clone)]
 struct DandelionTx(Bytes);
 
+/// A transaction ID/hash.
 type TxId = [u8; 32];
 
+/// The service than handles incoming transaction pool transactions.
+///
+/// This service handles everything including verifying the tx, adding it to the pool and routing it to other nodes.
 pub struct IncomingTxHandler {
-    txs_being_added: Arc<TxsBeingHandled>,
-
+    /// A store of txs currently being handled in incoming tx requests.
+    txs_being_handled: TxsBeingHandled,
+    /// The blockchain context cache.
     blockchain_context_cache: BlockChainContextService,
-
+    /// The dandelion txpool manager.
     dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, NetworkAddress>,
+    /// The transaction verifier service.
     tx_verifier_service: ConcreteTxVerifierService,
-
+    /// The txpool write handle.
     txpool_write_handle: TxpoolWriteHandle,
-
+    /// The txpool read handle.
     txpool_read_handle: TxpoolReadHandle,
 }
 
@@ -66,70 +84,18 @@ impl Service<IncomingTxs> for IncomingTxHandler {
     }
 
     fn call(&mut self, req: IncomingTxs) -> Self::Future {
-        let IncomingTxs::Bytes { mut txs, state } = req;
+        let IncomingTxs::Bytes { txs, state } = req;
 
-        let mut local_tracker = self.txs_being_added.local_tracker();
-
-        txs.retain(|bytes| local_tracker.try_add_tx(bytes.as_ref()));
-
-        if txs.is_empty() {
-            return ready(Ok(())).boxed();
-        }
-
-        let mut blockchain_context_cache = self.blockchain_context_cache.clone();
-        let mut tx_verifier_service = self.tx_verifier_service.clone();
-        let mut txpool_write_handle = self.txpool_write_handle.clone();
-
-        async move {
-            let txs = rayon_spawn_async(move || {
-                txs.into_iter()
-                    .map(|bytes| {
-                        let tx = Transaction::read(&mut bytes.as_ref())
-                            .map_err(IncomingTxError::Parse)?;
-
-                        let tx = new_tx_verification_data(tx)
-                            .map_err(|e| IncomingTxError::Consensus(e.into()))?;
-
-                        Ok(Arc::new(tx))
-                    })
-                    .collect::<Result<Vec<_>, IncomingTxError>>()
-            })
-            .await?;
-
-            let BlockChainContextResponse::Context(context) = blockchain_context_cache
-                .ready()
-                .await?
-                .call(BlockChainContextRequest::GetContext)
-                .await?
-            else {
-                unreachable!()
-            };
-
-            let context = context.unchecked_blockchain_context();
-
-            tx_verifier_service
-                .ready()
-                .await?
-                .call(VerifyTxRequest::Prepped {
-                    txs: txs.clone(),
-                    current_chain_height: context.chain_height,
-                    top_hash: context.top_hash,
-                    time_for_time_lock: context.current_adjusted_timestamp_for_time_lock(),
-                    hf: context.current_hf,
-                })
-                .await?;
-
-            txpool_write_handle
-                .ready()
-                .await?
-                .call(TxpoolWriteRequest::AddTransaction {
-                    tx,
-                    state_stem: state.state_stem(),
-                })
-                .await;
-
-            todo!()
-        }
+        handle_incoming_txs(
+            txs,
+            state,
+            self.txs_being_handled.clone(),
+            self.blockchain_context_cache.clone(),
+            self.tx_verifier_service.clone(),
+            self.txpool_write_handle.clone(),
+            self.txpool_read_handle.clone(),
+            self.dandelion_pool_manager.clone(),
+        )
         .boxed()
     }
 }
@@ -137,38 +103,106 @@ impl Service<IncomingTxs> for IncomingTxHandler {
 async fn handle_incoming_txs(
     txs: Vec<Bytes>,
     state: TxState<NetworkAddress>,
-    tx_being_handled_locally: TxBeingHandledLocally,
+    txs_being_handled: TxsBeingHandled,
     mut blockchain_context_cache: BlockChainContextService,
     mut tx_verifier_service: ConcreteTxVerifierService,
     mut txpool_write_handle: TxpoolWriteHandle,
     mut txpool_read_handle: TxpoolReadHandle,
     mut dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, NetworkAddress>,
 ) -> Result<(), IncomingTxError> {
-    let mut tx_blob_hashes = HashSet::new();
+    let reorg_guard = REORG_LOCK.read().await;
 
-    let txs = txs
-        .into_iter()
-        .map(|tx_blob| {
-            let tx_blob_hash = tx_blob_hash(tx_blob.as_ref());
-            if !tx_blob_hashes.insert(tx_blob_hash) {
-                return Err(IncomingTxError::DuplicateTransaction);
-            }
+    let (txs, txs_being_handled_guard) =
+        prepare_incoming_txs(txs, txs_being_handled, &mut txpool_read_handle).await?;
 
-            Ok((tx_blob_hash, tx_blob))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-
-    let TxpoolReadRequest::FilterKnownTxBlobHashes(tx_blob_hashes) = txpool_read_handle
+    let BlockChainContextResponse::Context(context) = blockchain_context_cache
         .ready()
-        .await?
-        .call(TxpoolReadRequest::FilterKnownTxBlobHashes(tx_blob_hashes))
-        .await?
+        .await
+        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .call(BlockChainContextRequest::GetContext)
+        .await
+        .expect(PANIC_CRITICAL_SERVICE_ERROR)
     else {
         unreachable!()
     };
 
-    let txs = rayon_spawn_async(move || {
-        txs.into_iter()
+    let context = context.unchecked_blockchain_context();
+
+    tx_verifier_service
+        .ready()
+        .await
+        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .call(VerifyTxRequest::Prepped {
+            txs: txs.clone(),
+            current_chain_height: context.chain_height,
+            top_hash: context.top_hash,
+            time_for_time_lock: context.current_adjusted_timestamp_for_time_lock(),
+            hf: context.current_hf,
+        })
+        .await
+        .map_err(IncomingTxError::Consensus)?;
+
+    for tx in txs {
+        handle_valid_tx(
+            tx,
+            state.clone(),
+            &mut txpool_write_handle,
+            &mut dandelion_pool_manager,
+        )
+        .await
+    }
+
+    Ok(())
+}
+
+/// Prepares the incoming transactions for verification.
+///
+/// This will filter out all transactions already in the pool or txs already being handled in another request.
+async fn prepare_incoming_txs(
+    tx_blobs: Vec<Bytes>,
+    txs_being_handled: TxsBeingHandled,
+    txpool_read_handle: &mut TxpoolReadHandle,
+) -> Result<(Vec<Arc<TransactionVerificationData>>, TxBeingHandledLocally), IncomingTxError> {
+    let mut tx_blob_hashes = HashSet::new();
+    let mut txs_being_handled_loacally = txs_being_handled.local_tracker();
+
+    // Compute the blob hash for each tx and filter out the txs currently being handled by another incoming tx batch.
+    let txs = tx_blobs
+        .into_iter()
+        .filter_map(|tx_blob| {
+            let tx_blob_hash = tx_blob_hash(tx_blob.as_ref());
+
+            // If a duplicate is in here the incoming tx batch contained the same tx twice.
+            if !tx_blob_hashes.insert(tx_blob_hash) {
+                return Some(Err(IncomingTxError::DuplicateTransaction));
+            }
+
+            // If a duplicate is here it is being handled in another batch.
+            if !txs_being_handled_loacally.try_add_tx(tx_blob_hash) {
+                return None;
+            }
+
+            Some(Ok((tx_blob_hash, tx_blob)))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    // Filter the txs already in the txpool out.
+    // This will leave the txs already in the pool in [`TxBeingHandledLocally`] but that shouldn't be an issue.
+    let TxpoolReadResponse::FilterKnownTxBlobHashes(tx_blob_hashes) = txpool_read_handle
+        .ready()
+        .await
+        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .call(TxpoolReadRequest::FilterKnownTxBlobHashes(tx_blob_hashes))
+        .await
+        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+    else {
+        unreachable!()
+    };
+
+    // Now prepare the txs for verification.
+    rayon_spawn_async(move || {
+        let txs = txs
+            .into_iter()
             .filter_map(|(tx_blob_hash, tx_blob)| {
                 if tx_blob_hashes.contains(&tx_blob_hash) {
                     Some(tx_blob)
@@ -184,66 +218,55 @@ async fn handle_incoming_txs(
 
                 Ok(Arc::new(tx))
             })
-            .collect::<Result<Vec<_>, IncomingTxError>>()
-    })
-    .await?;
+            .collect::<Result<Vec<_>, IncomingTxError>>()?;
 
-    let BlockChainContextResponse::Context(context) = blockchain_context_cache
+        Ok((txs, txs_being_handled_loacally))
+    })
+    .await
+}
+
+async fn handle_valid_tx(
+    tx: Arc<TransactionVerificationData>,
+    state: TxState<NetworkAddress>,
+    txpool_write_handle: &mut TxpoolWriteHandle,
+    dandelion_pool_manager: &mut DandelionPoolService<DandelionTx, TxId, NetworkAddress>,
+) {
+    let incoming_tx =
+        IncomingTxBuilder::new(DandelionTx(Bytes::copy_from_slice(&tx.tx_blob)), tx.tx_hash);
+
+    let TxpoolWriteResponse::AddTransaction(double_spend) = txpool_write_handle
         .ready()
-        .await?
-        .call(BlockChainContextRequest::GetContext)
-        .await?
+        .await
+        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .call(TxpoolWriteRequest::AddTransaction {
+            tx,
+            state_stem: state.state_stem(),
+        })
+        .await
+        .expect("TODO")
     else {
         unreachable!()
     };
 
-    let context = context.unchecked_blockchain_context();
+    // TODO: track double spends to quickly ignore them from their blob hash.
+    if let Some(tx_hash) = double_spend {
+        return;
+    };
 
-    tx_verifier_service
+    // TODO: check blockchain for double spends to prevent a race condition.
+
+    // TODO: fill this in properly.
+    let incoming_tx = incoming_tx
+        .with_routing_state(state)
+        .with_state_in_db(None)
+        .build()
+        .unwrap();
+
+    dandelion_pool_manager
         .ready()
-        .await?
-        .call(VerifyTxRequest::Prepped {
-            txs: txs.clone(),
-            current_chain_height: context.chain_height,
-            top_hash: context.top_hash,
-            time_for_time_lock: context.current_adjusted_timestamp_for_time_lock(),
-            hf: context.current_hf,
-        })
-        .await?;
-
-    for tx in txs {
-        let incoming_tx = IncomingTxBuilder::new(Bytes::copy_from_slice(&tx.tx_blob), tx.tx_hash);
-
-        let TxpoolWriteResponse::AddTransaction(double_spend) = txpool_write_handle
-            .ready()
-            .await?
-            .call(TxpoolWriteRequest::AddTransaction {
-                tx,
-                state_stem: state.state_stem(),
-            })
-            .await?
-        else {
-            unreachable!()
-        };
-
-        // TODO: track double spends to quickly ignore them from their blob hash.
-        if let Some(tx_hash) = double_spend {
-            continue;
-        };
-
-        // TODO: check blockchain for double spends to prevent a race condition.
-
-        // TODO: fill this in properly.
-        let incoming_tx = incoming_tx
-            .with_routing_state(state.clone())
-            .with_state_in_db(None)
-            .build()
-            .unwrap();
-
-        dandelion_pool_manager
-            .ready()
-            .await?
-            .call(incoming_tx)
-            .await?;
-    }
+        .await
+        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .call(incoming_tx)
+        .await
+        .expect(PANIC_CRITICAL_SERVICE_ERROR);
 }
