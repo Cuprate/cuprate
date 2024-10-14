@@ -1,6 +1,7 @@
 //! The blockchain manager handler functions.
 use bytes::Bytes;
 use futures::{TryFutureExt, TryStreamExt};
+use monero_serai::transaction::Input;
 use monero_serai::{block::Block, transaction::Transaction};
 use rayon::prelude::*;
 use std::ops::ControlFlow;
@@ -17,6 +18,7 @@ use cuprate_consensus::{
 };
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p::{block_downloader::BlockBatch, constants::LONG_BAN, BroadcastRequest};
+use cuprate_txpool::service::interface::TxpoolWriteRequest;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
     AltBlockInformation, HardFork, TransactionVerificationData, VerifiedBlockInformation,
@@ -434,6 +436,18 @@ impl super::BlockchainManager {
         &mut self,
         verified_block: VerifiedBlockInformation,
     ) {
+        // FIXME: this is pretty inefficient, we should probably return the KI map created in the consensus crate.
+        let spent_key_images = verified_block
+            .txs
+            .iter()
+            .flat_map(|tx| {
+                tx.tx.prefix().inputs.iter().map(|input| match input {
+                    Input::ToKey { key_image, .. } => key_image.compress().0,
+                    Input::Gen(_) => unreachable!(),
+                })
+            })
+            .collect::<Vec<[u8; 32]>>();
+
         self.blockchain_context_service
             .ready()
             .await
@@ -472,6 +486,14 @@ impl super::BlockchainManager {
         };
 
         self.cached_blockchain_context = blockchain_context.unchecked_blockchain_context().clone();
+
+        self.txpool_write_handle
+            .ready()
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .call(TxpoolWriteRequest::NewBlock { spent_key_images })
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR);
     }
 }
 
