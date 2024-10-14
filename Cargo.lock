@@ -548,6 +548,7 @@ version = "0.0.0"
 dependencies = [
  "bitflags 2.6.0",
  "bytemuck",
+ "bytes",
  "cuprate-constants",
  "cuprate-database",
  "cuprate-database-service",
@@ -910,6 +911,7 @@ dependencies = [
  "monero-serai",
  "rayon",
  "serde",
+ "sha3",
  "tempfile",
  "thiserror",
  "tokio",
@@ -1009,6 +1011,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
+ "sha3",
  "thiserror",
  "thread_local",
  "tokio",

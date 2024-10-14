@@ -73,6 +73,12 @@ pub enum TxState<Id> {
     Local,
 }
 
+impl<Id> TxState<Id> {
+    pub const fn state_stem(&self) -> bool {
+        matches!(self, Self::Local | Self::Stem { .. })
+    }
+}
+
 /// A request to route a transaction.
 pub struct DandelionRouteReq<Tx, Id> {
     /// The transaction.

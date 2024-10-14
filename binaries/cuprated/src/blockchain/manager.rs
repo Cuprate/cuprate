@@ -36,6 +36,7 @@ mod commands;
 mod handler;
 
 pub use commands::{BlockchainManagerCommand, IncomingBlockOk};
+use cuprate_txpool::service::TxpoolWriteHandle;
 
 /// Initialize the blockchain manager.
 ///
@@ -45,6 +46,7 @@ pub async fn init_blockchain_manager(
     clearnet_interface: NetworkInterface<ClearNet>,
     blockchain_write_handle: BlockchainWriteHandle,
     blockchain_read_handle: BlockchainReadHandle,
+    txpool_write_handle: TxpoolWriteHandle,
     mut blockchain_context_service: BlockChainContextService,
     block_verifier_service: ConcreteBlockVerifierService,
     block_downloader_config: BlockDownloaderConfig,
@@ -79,6 +81,7 @@ pub async fn init_blockchain_manager(
     let manager = BlockchainManager {
         blockchain_write_handle,
         blockchain_read_handle,
+        txpool_write_handle,
         blockchain_context_service,
         cached_blockchain_context: blockchain_context.unchecked_blockchain_context().clone(),
         block_verifier_service,
@@ -101,6 +104,8 @@ pub struct BlockchainManager {
     blockchain_write_handle: BlockchainWriteHandle,
     /// A [`BlockchainReadHandle`].
     blockchain_read_handle: BlockchainReadHandle,
+    /// A [`TxpoolWriteHandle`].
+    txpool_write_handle: TxpoolWriteHandle,
     // TODO: Improve the API of the cache service.
     // TODO: rename the cache service -> `BlockchainContextService`.
     /// The blockchain context cache, this caches the current state of the blockchain to quickly calculate/retrieve
