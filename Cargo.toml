@@ -5,6 +5,7 @@ members = [
 	"binaries/cuprated",
 	"constants",
 	"consensus",
+	"consensus/context",
 	"consensus/fast-sync",
 	"consensus/rules",
 	"cryptonight",

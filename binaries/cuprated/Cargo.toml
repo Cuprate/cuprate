@@ -11,6 +11,7 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/binaries/cuprated"
 # TODO: after v1.0.0, remove unneeded dependencies.
 cuprate-consensus        = { path = "../../consensus" }
 cuprate-fast-sync        = { path = "../../consensus/fast-sync" }
+cuprate-consensus-context = { path = "../../consensus/context" }
 cuprate-consensus-rules  = { path = "../../consensus/rules" }
 cuprate-cryptonight      = { path = "../../cryptonight" }
 cuprate-helper           = { path = "../../helper" }
