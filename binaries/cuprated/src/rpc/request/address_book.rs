@@ -3,6 +3,7 @@
 use std::convert::Infallible;
 
 use anyhow::{anyhow, Error};
+use cuprate_rpc_types::misc::ConnectionInfo;
 use tower::ServiceExt;
 
 use cuprate_helper::cast::usize_to_u64;
@@ -31,6 +32,56 @@ pub(crate) async fn peerlist_size<Z: NetworkZone>(
     Ok((usize_to_u64(white), usize_to_u64(grey)))
 }
 
+/// [`AddressBookRequest::ConnectionInfo`]
+pub(crate) async fn connection_info<Z: NetworkZone>(
+    address_book: &mut impl AddressBook<Z>,
+) -> Result<Vec<ConnectionInfo>, Error> {
+    let AddressBookResponse::ConnectionInfo(vec) = address_book
+        .ready()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .call(AddressBookRequest::ConnectionInfo)
+        .await
+        .map_err(|e| anyhow!(e))?
+    else {
+        unreachable!();
+    };
+
+    // FIXME: impl this map somewhere instead of inline.
+    let vec = vec
+        .into_iter()
+        .map(|info| ConnectionInfo {
+            address: info.address.to_string(),
+            address_type: info.address_type,
+            avg_download: info.avg_download,
+            avg_upload: info.avg_upload,
+            connection_id: info.connection_id,
+            current_download: info.current_download,
+            current_upload: info.current_upload,
+            height: info.height,
+            host: info.host,
+            incoming: info.incoming,
+            ip: info.ip,
+            live_time: info.live_time,
+            localhost: info.localhost,
+            local_ip: info.local_ip,
+            peer_id: info.peer_id,
+            port: info.port,
+            pruning_seed: info.pruning_seed,
+            recv_count: info.recv_count,
+            recv_idle_time: info.recv_idle_time,
+            rpc_credits_per_hash: info.rpc_credits_per_hash,
+            rpc_port: info.rpc_port,
+            send_count: info.send_count,
+            send_idle_time: info.send_idle_time,
+            state: info.state,
+            support_flags: info.support_flags,
+        })
+        .collect();
+
+    Ok(vec)
+}
+
 /// [`AddressBookRequest::ConnectionCount`]
 pub(crate) async fn connection_count<Z: NetworkZone>(
     address_book: &mut impl AddressBook<Z>,
@@ -52,7 +103,7 @@ pub(crate) async fn connection_count<Z: NetworkZone>(
 /// [`AddressBookRequest::SetBan`]
 pub(crate) async fn set_ban<Z: NetworkZone>(
     address_book: &mut impl AddressBook<Z>,
-    peer: cuprate_p2p_core::ban::SetBan<Z::Addr>,
+    peer: cuprate_p2p_core::types::SetBan<Z::Addr>,
 ) -> Result<(), Error> {
     let AddressBookResponse::Ok = address_book
         .ready()

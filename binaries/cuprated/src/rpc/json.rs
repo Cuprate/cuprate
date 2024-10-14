@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::{anyhow, Error};
+use cuprate_p2p_core::{client::handshaker::builder::DummyAddressBook, ClearNet};
 use cuprate_types::HardFork;
 use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
@@ -40,7 +41,7 @@ use cuprate_rpc_types::{
 
 use crate::rpc::{
     helper,
-    request::{blockchain, blockchain_context, blockchain_manager},
+    request::{address_book, blockchain, blockchain_context, blockchain_manager},
     CupratedRpcHandler,
 };
 
@@ -314,9 +315,11 @@ async fn get_connections(
     state: CupratedRpcHandler,
     request: GetConnectionsRequest,
 ) -> Result<GetConnectionsResponse, Error> {
+    let connections = address_book::connection_info::<ClearNet>(&mut DummyAddressBook).await?;
+
     Ok(GetConnectionsResponse {
         base: ResponseBase::ok(),
-        connections: todo!(),
+        connections,
     })
 }
 
