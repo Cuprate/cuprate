@@ -8,7 +8,7 @@ use std::{
 
 use cuprate_types::TransactionVerificationData;
 
-use crate::types::{KeyImage, TransactionBlobHash, TransactionHash};
+use crate::{tx::TxEntry, types::{KeyImage, TransactionBlobHash, TransactionHash}};
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadRequest
 /// The transaction pool [`tower::Service`] read request type.
@@ -16,14 +16,23 @@ use crate::types::{KeyImage, TransactionBlobHash, TransactionHash};
 pub enum TxpoolReadRequest {
     /// A request for the blob (raw bytes) of a transaction with the given hash.
     TxBlob(TransactionHash),
+
     /// A request for the [`TransactionVerificationData`] of a transaction in the tx pool.
     TxVerificationData(TransactionHash),
+
     /// A request to filter (remove) all **known** transactions from the set.
     ///
     /// The hash is **not** the transaction hash, it is the hash of the serialized tx-blob.
     FilterKnownTxBlobHashes(HashSet<TransactionBlobHash>),
+
     /// A request to pull some transactions for an incoming block.
     TxsForBlock(Vec<TransactionHash>),
+
+    /// Get information on all transactions in the pool.
+    Backlog,
+
+    /// Get the number of transactions in the pool.
+    Size,
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadResponse
@@ -32,8 +41,10 @@ pub enum TxpoolReadRequest {
 pub enum TxpoolReadResponse {
     /// A response containing the raw bytes of a transaction.
     TxBlob { tx_blob: Vec<u8>, state_stem: bool },
+
     /// A response of [`TransactionVerificationData`].
     TxVerificationData(TransactionVerificationData),
+
     /// The response for [`TxpoolReadRequest::FilterKnownTxBlobHashes`].
     FilterKnownTxBlobHashes {
         /// The blob hashes that are unknown.
@@ -41,6 +52,7 @@ pub enum TxpoolReadResponse {
         /// The tx hashes of the blob hashes that were known but were in the stem pool.
         stem_pool_hashes: Vec<TransactionHash>,
     },
+
     /// The response for [`TxpoolReadRequest::TxsForBlock`].
     TxsForBlock {
         /// The txs we had in the txpool.
@@ -48,6 +60,18 @@ pub enum TxpoolReadResponse {
         /// The indexes of the missing txs.
         missing: Vec<usize>,
     },
+
+    /// Response to [`TxpoolReadRequest::Backlog`].
+    ///
+    /// The inner `Vec` contains information on all
+    /// the transactions currently in the pool.
+    Backlog(Vec<TxEntry>),
+
+    /// Response to [`TxpoolReadRequest::Size`].
+    ///
+    /// The inner value is the amount of
+    /// transactions currently in the pool.
+    Size(usize),
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteRequest
@@ -65,15 +89,18 @@ pub enum TxpoolWriteRequest {
         /// [`true`] if this tx is in the stem state.
         state_stem: bool,
     },
+
     /// Remove a transaction with the given hash from the pool.
     ///
     /// Returns [`TxpoolWriteResponse::Ok`].
     RemoveTransaction(TransactionHash),
+
     /// Promote a transaction from the stem pool to the fluff pool.
     /// If the tx is already in the fluff pool this does nothing.
     ///
     /// Returns [`TxpoolWriteResponse::Ok`].
     Promote(TransactionHash),
+
     /// Tell the tx-pool about a new block.
     NewBlock {
         /// The new blockchain height.
@@ -85,11 +112,14 @@ pub enum TxpoolWriteRequest {
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteResponse
 /// The transaction pool [`tower::Service`] write response type.
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub enum TxpoolWriteResponse {
-    /// A [`TxpoolWriteRequest::AddTransaction`] response.
+    /// Response to:
+    /// - [`TxpoolWriteRequest::RemoveTransaction`]
+    Ok,
+
+    /// Response to [`TxpoolWriteRequest::AddTransaction`].
     ///
     /// If the inner value is [`Some`] the tx was not added to the pool as it double spends a tx with the given hash.
     AddTransaction(Option<TransactionHash>),
-    Ok,
 }

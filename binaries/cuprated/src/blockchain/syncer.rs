@@ -62,7 +62,7 @@ where
     let BlockChainContextResponse::Context(mut blockchain_ctx) = context_svc
         .ready()
         .await?
-        .call(BlockChainContextRequest::GetContext)
+        .call(BlockChainContextRequest::Context)
         .await?
     else {
         unreachable!();
@@ -131,7 +131,7 @@ where
     }
 
     let BlockChainContextResponse::Context(ctx) = context_svc
-        .oneshot(BlockChainContextRequest::GetContext)
+        .oneshot(BlockChainContextRequest::Context)
         .await?
     else {
         unreachable!();

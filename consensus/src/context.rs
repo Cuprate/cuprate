@@ -31,7 +31,7 @@ mod alt_chains;
 mod task;
 mod tokens;
 
-use cuprate_types::Chain;
+use cuprate_types::{Chain, ChainInfo, FeeEstimate, HardForkInfo};
 use difficulty::DifficultyCache;
 use rx_vms::RandomXVm;
 use weight::BlockWeightsCache;
@@ -221,15 +221,18 @@ pub struct NewBlockData {
 #[derive(Debug, Clone)]
 pub enum BlockChainContextRequest {
     /// Get the current blockchain context.
-    GetContext,
-    /// Gets the current `RandomX` VM.
-    GetCurrentRxVm,
+    Context,
+
+    /// Gets all the current  `RandomX` VMs.
+    CurrentRxVms,
+
     /// Get the next difficulties for these blocks.
     ///
     /// Inputs: a list of block timestamps and hfs
     ///
     /// The number of difficulties returned will be one more than the number of timestamps/ hfs.
     BatchGetDifficulties(Vec<(u64, HardFork)>),
+
     /// Add a VM that has been created outside of the blockchain context service to the blockchain context.
     /// This is useful when batch calculating POW as you may need to create a new VM if you batch a lot of blocks together,
     /// it would be wasteful to then not give this VM to the context service to then use when it needs to init a VM with the same
@@ -237,8 +240,10 @@ pub enum BlockChainContextRequest {
     ///
     /// This should include the seed used to init this VM and the VM.
     NewRXVM(([u8; 32], Arc<RandomXVm>)),
+
     /// A request to add a new block to the cache.
     Update(NewBlockData),
+
     /// Pop blocks from the cache to the specified height.
     PopBlocks {
         /// The number of blocks to pop from the top of the chain.
@@ -248,8 +253,22 @@ pub enum BlockChainContextRequest {
         /// This will panic if the number of blocks will pop the genesis block.
         numb_blocks: usize,
     },
+
+    /// Get information on a certain hardfork.
+    HardForkInfo(HardFork),
+
+    /// Get the current fee estimate.
+    FeeEstimate {
+        /// TODO
+        grace_blocks: u64,
+    },
+
     /// Clear the alt chain context caches.
     ClearAltCache,
+
+    /// Get information on all the current alternate chains.
+    AltChains,
+
     //----------------------------------------------------------------------------------------------------------- AltChainRequests
     /// A request for an alt chain context cache.
     ///
@@ -261,6 +280,7 @@ pub enum BlockChainContextRequest {
         /// An internal token to prevent external crates calling this request.
         _token: AltChainRequestToken,
     },
+
     /// A request for a difficulty cache of an alternative chin.
     ///
     /// This variant is private and is not callable from outside this crate, the block verifier service will
@@ -271,6 +291,7 @@ pub enum BlockChainContextRequest {
         /// An internal token to prevent external crates calling this request.
         _token: AltChainRequestToken,
     },
+
     /// A request for a block weight cache of an alternative chin.
     ///
     /// This variant is private and is not callable from outside this crate, the block verifier service will
@@ -281,6 +302,7 @@ pub enum BlockChainContextRequest {
         /// An internal token to prevent external crates calling this request.
         _token: AltChainRequestToken,
     },
+
     /// A request for a RX VM for an alternative chin.
     ///
     /// Response variant: [`BlockChainContextResponse::AltChainRxVM`].
@@ -295,6 +317,7 @@ pub enum BlockChainContextRequest {
         /// An internal token to prevent external crates calling this request.
         _token: AltChainRequestToken,
     },
+
     /// A request to add an alt chain context cache to the context cache.
     ///
     /// This variant is private and is not callable from outside this crate, the block verifier service will
@@ -310,22 +333,49 @@ pub enum BlockChainContextRequest {
 }
 
 pub enum BlockChainContextResponse {
-    /// Blockchain context response.
+    /// A generic Ok response.
+    ///
+    /// Response to:
+    /// - [`BlockChainContextRequest::NewRXVM`]
+    /// - [`BlockChainContextRequest::Update`]
+    /// - [`BlockChainContextRequest::PopBlocks`]
+    /// - [`BlockChainContextRequest::ClearAltCache`]
+    /// - [`BlockChainContextRequest::AddAltChainContextCache`]
+    Ok,
+
+    /// Response to [`BlockChainContextRequest::Context`]
     Context(BlockChainContext),
+
+    /// Response to [`BlockChainContextRequest::CurrentRxVms`]
+    ///
     /// A map of seed height to `RandomX` VMs.
     RxVms(HashMap<usize, Arc<RandomXVm>>),
+
     /// A list of difficulties.
     BatchDifficulties(Vec<u128>),
+
+    /// Response to [`BlockChainContextRequest::HardForkInfo`]
+    HardForkInfo(HardForkInfo),
+
+    /// Response to [`BlockChainContextRequest::FeeEstimate`]
+    FeeEstimate(FeeEstimate),
+
+    /// Response to [`BlockChainContextRequest::AltChains`]
+    ///
+    /// If the inner [`Vec::is_empty`], there were no alternate chains.
+    AltChains(Vec<ChainInfo>),
+
     /// An alt chain context cache.
     AltChainContextCache(Box<AltChainContextCache>),
+
     /// A difficulty cache for an alt chain.
     AltChainDifficultyCache(DifficultyCache),
+
     /// A randomX VM for an alt chain.
     AltChainRxVM(Arc<RandomXVm>),
+
     /// A weight cache for an alt chain
     AltChainWeightCache(BlockWeightsCache),
-    /// A generic Ok response.
-    Ok,
 }
 
 /// The blockchain context service.

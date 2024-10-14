@@ -1,3 +1,10 @@
+#![expect(
+    unreachable_code,
+    unused_variables,
+    clippy::unnecessary_wraps,
+    reason = "TODO: finish implementing the signatures from <https://github.com/Cuprate/cuprate/pull/297>"
+)]
+
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -64,6 +71,8 @@ fn map_request(
             filter_known_tx_blob_hashes(env, blob_hashes)
         }
         TxpoolReadRequest::TxsForBlock(txs_needed) => txs_for_block(env, txs_needed),
+        TxpoolReadRequest::Backlog => backlog(env),
+        TxpoolReadRequest::Size => size(env),
     }
 }
 
@@ -184,4 +193,16 @@ fn txs_for_block(env: &ConcreteEnv, txs: Vec<TransactionHash>) -> ReadResponseRe
         txs: txs_verification_data,
         missing: missing_tx_indexes,
     })
+}
+
+/// [`TxpoolReadRequest::Backlog`].
+#[inline]
+fn backlog(env: &ConcreteEnv) -> ReadResponseResult {
+    Ok(TxpoolReadResponse::Backlog(todo!()))
+}
+
+/// [`TxpoolReadRequest::Size`].
+#[inline]
+fn size(env: &ConcreteEnv) -> ReadResponseResult {
+    Ok(TxpoolReadResponse::Size(todo!()))
 }

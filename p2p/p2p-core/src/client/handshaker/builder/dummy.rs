@@ -105,7 +105,15 @@ impl<N: NetworkZone> Service<AddressBookRequest<N>> for DummyAddressBook {
             AddressBookRequest::NewConnection { .. } | AddressBookRequest::IncomingPeerList(_) => {
                 AddressBookResponse::Ok
             }
-            AddressBookRequest::IsPeerBanned(_) => AddressBookResponse::IsPeerBanned(false),
+            AddressBookRequest::GetBan(_) => AddressBookResponse::GetBan {
+                unban_instant: None,
+            },
+            AddressBookRequest::PeerlistSize
+            | AddressBookRequest::ConnectionCount
+            | AddressBookRequest::SetBan(_)
+            | AddressBookRequest::GetBans => {
+                todo!("finish https://github.com/Cuprate/cuprate/pull/297")
+            }
         }))
     }
 }
