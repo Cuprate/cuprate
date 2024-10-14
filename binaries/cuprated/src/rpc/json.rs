@@ -38,7 +38,7 @@ use cuprate_rpc_types::{
         SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse, SyncInfoRequest,
         SyncInfoResponse,
     },
-    misc::{BlockHeader, Status},
+    misc::{BlockHeader, GetBan, Status},
     CORE_RPC_VERSION,
 };
 
@@ -433,9 +433,34 @@ async fn get_bans(
     state: CupratedRpcHandler,
     request: GetBansRequest,
 ) -> Result<GetBansResponse, Error> {
+    let now = Instant::now();
+
+    let bans = address_book::get_bans::<ClearNet>(&mut DummyAddressBook)
+        .await?
+        .into_iter()
+        .map(|ban| {
+            let seconds = if let Some(instant) = ban.unban_instant {
+                instant
+                    .checked_duration_since(now)
+                    .unwrap_or_default()
+                    .as_secs()
+                    .try_into()
+                    .unwrap_or(0)
+            } else {
+                0
+            };
+
+            GetBan {
+                host: ban.address.to_string(),
+                ip: todo!(),
+                seconds,
+            }
+        })
+        .collect();
+
     Ok(GetBansResponse {
         base: ResponseBase::ok(),
-        bans: todo!(),
+        bans,
     })
 }
 

@@ -9,6 +9,7 @@ use tower::ServiceExt;
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p_core::{
     services::{AddressBookRequest, AddressBookResponse},
+    types::BanState,
     AddressBook, NetworkZone,
 };
 
@@ -141,7 +142,7 @@ pub(crate) async fn get_ban<Z: NetworkZone>(
 /// [`AddressBookRequest::GetBans`]
 pub(crate) async fn get_bans<Z: NetworkZone>(
     address_book: &mut impl AddressBook<Z>,
-) -> Result<(), Error> {
+) -> Result<Vec<BanState<Z::Addr>>, Error> {
     let AddressBookResponse::GetBans(bans) = address_book
         .ready()
         .await
@@ -153,5 +154,5 @@ pub(crate) async fn get_bans<Z: NetworkZone>(
         unreachable!();
     };
 
-    Ok(todo!())
+    Ok(bans)
 }
