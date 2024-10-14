@@ -245,21 +245,13 @@ async fn new_fluffy_block(
             .take_normal()
             .ok_or(anyhow::anyhow!("Peer sent pruned txs in fluffy block"))?;
 
-        let mut txs_in_block = block.transactions.iter().copied().collect::<HashSet<_>>();
-
         // TODO: size check these tx blobs
         let txs = tx_blobs
             .into_iter()
             .map(|tx_blob| {
                 let tx = Transaction::read(&mut tx_blob.as_ref())?;
 
-                let tx = new_tx_verification_data(tx)?;
-
-                if !txs_in_block.remove(&tx.tx_hash) {
-                    anyhow::bail!("Peer sent tx in fluffy block that wasn't actually in block")
-                }
-
-                Ok((tx.tx_hash, tx))
+                Ok(tx)
             })
             .collect::<Result<_, anyhow::Error>>()?;
 

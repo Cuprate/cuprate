@@ -21,8 +21,9 @@ pub use transaction_verification_data::{
 };
 pub use types::{
     AltBlockInformation, Chain, ChainId, ChainInfo, CoinbaseTxSum, ExtendedBlockHeader,
-    FeeEstimate, HardForkInfo, MinerData, MinerDataTxBacklogEntry, OutputHistogramEntry,
-    OutputHistogramInput, OutputOnChain, VerifiedBlockInformation, VerifiedTransactionInformation,
+    FeeEstimate, HardForkInfo, MinerData, MinerDataTxBacklogEntry, MissingTxsInBlock,
+    OutputHistogramEntry, OutputHistogramInput, OutputOnChain, VerifiedBlockInformation,
+    VerifiedTransactionInformation,
 };
 
 //---------------------------------------------------------------------------------------------------- Feature-gated

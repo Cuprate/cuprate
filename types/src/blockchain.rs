@@ -11,9 +11,11 @@ use std::{
 use monero_serai::block::Block;
 
 use crate::{
-    types::{MissingTxsInBlock, Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation},
-    BlockCompleteEntry,
-    AltBlockInformation, ChainId, CoinbaseTxSum, OutputHistogramEntry, OutputHistogramInput,
+    types::{
+        Chain, ExtendedBlockHeader, MissingTxsInBlock, OutputOnChain, VerifiedBlockInformation,
+    },
+    AltBlockInformation, BlockCompleteEntry, ChainId, CoinbaseTxSum, OutputHistogramEntry,
+    OutputHistogramInput,
 };
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
@@ -130,7 +132,9 @@ pub enum BlockchainReadRequest {
     AltBlocksInChain(ChainId),
 
     /// Get a [`Block`] by its height.
-    Block { height: usize },
+    Block {
+        height: usize,
+    },
 
     /// Get a [`Block`] by its hash.
     BlockByHash([u8; 32]),
@@ -150,7 +154,10 @@ pub enum BlockchainReadRequest {
     /// `N` last blocks starting at particular height.
     ///
     /// TODO: document fields after impl.
-    CoinbaseTxSum { height: usize, count: u64 },
+    CoinbaseTxSum {
+        height: usize,
+        count: u64,
+    },
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
