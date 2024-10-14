@@ -38,7 +38,7 @@ use cuprate_rpc_types::{
         SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse, SyncInfoRequest,
         SyncInfoResponse,
     },
-    misc::{BlockHeader, GetBan, Status},
+    misc::{BlockHeader, GetBan, HistogramEntry, Status},
     CORE_RPC_VERSION,
 };
 
@@ -512,12 +512,31 @@ async fn flush_transaction_pool(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2934-L2979>
 async fn get_output_histogram(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: GetOutputHistogramRequest,
 ) -> Result<GetOutputHistogramResponse, Error> {
+    let input = cuprate_types::OutputHistogramInput {
+        amounts: request.amounts,
+        min_count: request.min_count,
+        max_count: request.max_count,
+        unlocked: request.unlocked,
+        recent_cutoff: request.recent_cutoff,
+    };
+
+    let histogram = blockchain::output_histogram(&mut state.blockchain_read, input)
+        .await?
+        .into_iter()
+        .map(|entry| HistogramEntry {
+            amount: entry.amount,
+            total_instances: entry.total_instances,
+            unlocked_instances: entry.unlocked_instances,
+            recent_instances: entry.recent_instances,
+        })
+        .collect();
+
     Ok(GetOutputHistogramResponse {
         base: AccessResponseBase::ok(),
-        histogram: todo!(),
+        histogram,
     })
 }
 
