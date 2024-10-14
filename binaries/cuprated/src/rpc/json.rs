@@ -469,10 +469,26 @@ async fn banned(
     state: CupratedRpcHandler,
     request: BannedRequest,
 ) -> Result<BannedResponse, Error> {
+    let peer = todo!("create Z::Addr from request.address");
+    let ban = address_book::get_ban::<ClearNet>(&mut DummyAddressBook, peer).await?;
+
+    let (banned, seconds) = if let Some(instant) = ban {
+        let seconds = instant
+            .checked_duration_since(Instant::now())
+            .unwrap_or_default()
+            .as_secs()
+            .try_into()
+            .unwrap_or(0);
+
+        (true, seconds)
+    } else {
+        (false, 0)
+    };
+
     Ok(BannedResponse {
-        banned: todo!(),
-        seconds: todo!(),
-        status: todo!(),
+        banned,
+        seconds,
+        status: Status::Ok,
     })
 }
 
