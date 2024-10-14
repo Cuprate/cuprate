@@ -1,9 +1,12 @@
 //! Tx-pool [`service`](super) interface.
 //!
 //! This module contains `cuprate_txpool`'s [`tower::Service`] request and response enums.
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
+
 use cuprate_types::TransactionVerificationData;
-use std::collections::HashMap;
-use std::{collections::HashSet, sync::Arc};
 
 use crate::types::{KeyImage, TransactionBlobHash, TransactionHash};
 
@@ -38,8 +41,11 @@ pub enum TxpoolReadResponse {
         /// The tx hashes of the blob hashes that were known but were in the stem pool.
         stem_pool_hashes: Vec<TransactionHash>,
     },
+    /// The response for [`TxpoolReadRequest::TxsForBlock`].
     TxsForBlock {
+        /// The txs we had in the txpool.
         txs: HashMap<[u8; 32], TransactionVerificationData>,
+        /// The indexes of the missing txs.
         missing: Vec<usize>,
     },
 }
@@ -68,9 +74,11 @@ pub enum TxpoolWriteRequest {
     ///
     /// Returns [`TxpoolWriteResponse::Ok`].
     Promote(TransactionHash),
-
+    /// Tell the tx-pool about a new block.
     NewBlock {
+        /// The new blockchain height.
         blockchain_height: usize,
+        /// The spent key images in the new block.
         spent_key_images: Vec<KeyImage>,
     },
 }

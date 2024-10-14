@@ -271,9 +271,8 @@ async fn handle_valid_tx(
         return;
     };
 
-    // TODO: check blockchain for double spends to prevent a race condition.
+    // TODO: There is a race condition possible if a tx and block come in at the same time <https://github.com/Cuprate/cuprate/issues/314>.
 
-    // TODO: fill this in properly.
     let incoming_tx = incoming_tx
         .with_routing_state(state)
         .with_state_in_db(None)
