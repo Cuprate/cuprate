@@ -5,7 +5,7 @@ use cuprate_types::TransactionVerificationData;
 use std::collections::HashMap;
 use std::{collections::HashSet, sync::Arc};
 
-use crate::types::{TransactionBlobHash, TransactionHash};
+use crate::types::{KeyImage, TransactionBlobHash, TransactionHash};
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadRequest
 /// The transaction pool [`tower::Service`] read request type.
@@ -68,6 +68,11 @@ pub enum TxpoolWriteRequest {
     ///
     /// Returns [`TxpoolWriteResponse::Ok`].
     Promote(TransactionHash),
+
+    NewBlock {
+        blockchain_height: usize,
+        spent_key_images: Vec<KeyImage>,
+    },
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteResponse

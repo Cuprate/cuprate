@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use cuprate_database::{ConcreteEnv, DatabaseRw, Env, EnvInner, RuntimeError, TxRw};
+use cuprate_database::{ConcreteEnv, DatabaseRo, DatabaseRw, Env, EnvInner, RuntimeError, TxRw};
 use cuprate_database_service::DatabaseWriteHandle;
 use cuprate_types::TransactionVerificationData;
 
@@ -10,8 +10,8 @@ use crate::{
         interface::{TxpoolWriteRequest, TxpoolWriteResponse},
         types::TxpoolWriteHandle,
     },
-    tables::{OpenTables, TransactionInfos},
-    types::{TransactionHash, TxStateFlags},
+    tables::{OpenTables, Tables, TablesMut, TransactionInfos},
+    types::{KeyImage, PoolInfo, TransactionHash, TxStateFlags},
 };
 
 //---------------------------------------------------------------------------------------------------- init_write_service
@@ -32,6 +32,10 @@ fn handle_txpool_request(
         }
         TxpoolWriteRequest::RemoveTransaction(tx_hash) => remove_transaction(env, tx_hash),
         TxpoolWriteRequest::Promote(tx_hash) => promote(env, tx_hash),
+        TxpoolWriteRequest::NewBlock {
+            blockchain_height,
+            spent_key_images,
+        } => new_block(env, *blockchain_height, spent_key_images),
     }
 }
 
@@ -118,5 +122,60 @@ fn promote(
         Some(info)
     })?;
 
+    drop(tx_infos);
+
+    TxRw::commit(tx_rw)?;
+    Ok(TxpoolWriteResponse::Ok)
+}
+
+fn new_block(
+    env: &ConcreteEnv,
+    blockchain_height: usize,
+    spent_key_images: &[KeyImage],
+) -> Result<TxpoolWriteResponse, RuntimeError> {
+    let env_inner = env.env_inner();
+    let tx_rw = env_inner.tx_rw()?;
+
+    // FIXME: use try blocks once stable.
+    let result = || {
+        let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
+
+        for key_image in spent_key_images {
+            match tables_mut
+                .spent_key_images()
+                .get(key_image)
+                .and_then(|tx_hash| ops::remove_transaction(&tx_hash, &mut tables_mut))
+            {
+                Ok(()) | Err(RuntimeError::KeyNotFound) => (),
+                Err(e) => return Err(e),
+            }
+        }
+
+        let res = tables_mut.pool_stats_mut().update(&(), |mut info| {
+            info.last_known_blockchain_height = blockchain_height;
+
+            Some(info)
+        });
+
+        match res {
+            Ok(()) => (),
+            Err(RuntimeError::KeyNotFound) => tables_mut.pool_stats_mut().put(
+                &(),
+                &PoolInfo {
+                    last_known_blockchain_height: blockchain_height,
+                },
+            )?,
+            Err(e) => return Err(e),
+        }
+
+        Ok(())
+    };
+
+    if let Err(e) = result() {
+        TxRw::abort(tx_rw)?;
+        return Err(e);
+    }
+
+    TxRw::commit(tx_rw)?;
     Ok(TxpoolWriteResponse::Ok)
 }
