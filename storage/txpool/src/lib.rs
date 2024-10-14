@@ -10,10 +10,12 @@ pub mod ops;
 #[cfg(feature = "service")]
 pub mod service;
 pub mod tables;
+mod tx;
 pub mod types;
 
 pub use config::Config;
 pub use free::open;
+pub use tx::TxEntry;
 
 //re-exports
 pub use cuprate_database;

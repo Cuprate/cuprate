@@ -1,9 +1,13 @@
+use std::time::Instant;
+
 use cuprate_pruning::{PruningError, PruningSeed};
 use cuprate_wire::{CoreSyncData, PeerListEntryBase};
 
 use crate::{
-    client::InternalPeerID, handles::ConnectionHandle, NetZoneAddress, NetworkAddressIncorrectZone,
-    NetworkZone,
+    ban::{BanState, SetBan},
+    client::InternalPeerID,
+    handles::ConnectionHandle,
+    NetZoneAddress, NetworkAddressIncorrectZone, NetworkZone,
 };
 
 /// A request to the core sync service for our node's [`CoreSyncData`].
@@ -86,16 +90,20 @@ pub enum AddressBookRequest<Z: NetworkZone> {
         /// The peers rpc credits per hash
         rpc_credits_per_hash: u32,
     },
+
     /// Tells the address book about a peer list received from a peer.
     IncomingPeerList(Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>),
+
     /// Takes a random white peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
     /// block at that height according to it's pruning seed
     TakeRandomWhitePeer { height: Option<usize> },
+
     /// Takes a random gray peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
     /// block at that height according to it's pruning seed
     TakeRandomGrayPeer { height: Option<usize> },
+
     /// Takes a random peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
     /// block at that height according to it's pruning seed.
@@ -103,17 +111,56 @@ pub enum AddressBookRequest<Z: NetworkZone> {
     /// The address book will look in the white peer list first, then the gray
     /// one if no peer is found.
     TakeRandomPeer { height: Option<usize> },
+
     /// Gets the specified number of white peers, or less if we don't have enough.
     GetWhitePeers(usize),
+
+    /// Get the amount of white & grey peers.
+    PeerlistSize,
+
+    /// Get the amount of incoming & outgoing connections.
+    ConnectionCount,
+
+    /// (Un)ban a peer.
+    SetBan(SetBan<Z::Addr>),
+
     /// Checks if the given peer is banned.
-    IsPeerBanned(Z::Addr),
+    GetBan(Z::Addr),
+
+    /// Get the state of all bans.
+    GetBans,
 }
 
 /// A response from the address book service.
 pub enum AddressBookResponse<Z: NetworkZone> {
+    /// Generic OK response.
+    ///
+    /// Response to:
+    /// - [`AddressBookRequest::NewConnection`]
+    /// - [`AddressBookRequest::IncomingPeerList`]
     Ok,
+
+    /// Response to:
+    /// - [`AddressBookRequest::TakeRandomWhitePeer`]
+    /// - [`AddressBookRequest::TakeRandomGrayPeer`]
+    /// - [`AddressBookRequest::TakeRandomPeer`]
     Peer(ZoneSpecificPeerListEntryBase<Z::Addr>),
+
+    /// Response to [`AddressBookRequest::GetWhitePeers`].
     Peers(Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>),
-    /// Contains `true` if the peer is banned.
-    IsPeerBanned(bool),
+
+    /// Response to [`AddressBookRequest::PeerlistSize`].
+    PeerlistSize { white: usize, grey: usize },
+
+    /// Response to [`AddressBookRequest::ConnectionCount`].
+    ConnectionCount { incoming: usize, outgoing: usize },
+
+    /// Response to [`AddressBookRequest::GetBan`].
+    ///
+    /// This returns [`None`] if the peer is not banned,
+    /// else it returns how long the peer is banned for.
+    GetBan { unban_instant: Option<Instant> },
+
+    /// Response to [`AddressBookRequest::GetBans`].
+    GetBans(Vec<BanState<Z::Addr>>),
 }

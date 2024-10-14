@@ -1,6 +1,5 @@
 //! Various shared data types in Cuprate.
 
-//---------------------------------------------------------------------------------------------------- Import
 use std::num::NonZero;
 
 use curve25519_dalek::edwards::EdwardsPoint;
@@ -11,7 +10,6 @@ use monero_serai::{
 
 use crate::HardFork;
 
-//---------------------------------------------------------------------------------------------------- ExtendedBlockHeader
 /// Extended header data of a block.
 ///
 /// This contains various metadata of a block, but not the block blob itself.
@@ -37,7 +35,6 @@ pub struct ExtendedBlockHeader {
     pub long_term_weight: usize,
 }
 
-//---------------------------------------------------------------------------------------------------- VerifiedTransactionInformation
 /// Verified information of a transaction.
 ///
 /// This represents a valid transaction
@@ -61,7 +58,6 @@ pub struct VerifiedTransactionInformation {
     pub tx_hash: [u8; 32],
 }
 
-//---------------------------------------------------------------------------------------------------- VerifiedBlockInformation
 /// Verified information of a block.
 ///
 /// This represents a block that has already been verified to be correct.
@@ -94,14 +90,12 @@ pub struct VerifiedBlockInformation {
     pub cumulative_difficulty: u128,
 }
 
-//---------------------------------------------------------------------------------------------------- ChainID
 /// A unique ID for an alt chain.
 ///
 /// The inner value is meaningless.
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct ChainId(pub NonZero<u64>);
 
-//---------------------------------------------------------------------------------------------------- Chain
 /// An identifier for a chain.
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub enum Chain {
@@ -111,7 +105,6 @@ pub enum Chain {
     Alt(ChainId),
 }
 
-//---------------------------------------------------------------------------------------------------- AltBlockInformation
 /// A block on an alternative chain.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AltBlockInformation {
@@ -141,7 +134,6 @@ pub struct AltBlockInformation {
     pub chain_id: ChainId,
 }
 
-//---------------------------------------------------------------------------------------------------- OutputOnChain
 /// An already existing transaction output.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct OutputOnChain {
@@ -153,6 +145,104 @@ pub struct OutputOnChain {
     pub key: Option<EdwardsPoint>,
     /// The output's commitment.
     pub commitment: EdwardsPoint,
+}
+
+/// Input required to generate an output histogram.
+///
+/// Used in RPC's `get_output_histogram`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct OutputHistogramInput {
+    pub amounts: Vec<u64>,
+    pub min_count: u64,
+    pub max_count: u64,
+    pub unlocked: bool,
+    pub recent_cutoff: u64,
+}
+
+/// A single entry in an output histogram.
+///
+/// Used in RPC's `get_output_histogram`.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct OutputHistogramEntry {
+    pub amount: u64,
+    pub total_instances: u64,
+    pub unlocked_instances: u64,
+    pub recent_instances: u64,
+}
+
+/// Data of summed coinbase transactions.
+///
+/// Used in RPC's `get_coinbase_tx_sum`.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CoinbaseTxSum {
+    pub emission_amount: u128,
+    pub fee_amount: u128,
+    pub wide_emission_amount: u128,
+    pub wide_fee_amount: u128,
+}
+
+/// Data to create a custom block template.
+///
+/// Used in RPC's `get_miner_data`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MinerData {
+    pub major_version: u8,
+    pub height: u64,
+    pub prev_id: [u8; 32],
+    pub seed_hash: [u8; 32],
+    pub difficulty: u128,
+    pub median_weight: u64,
+    pub already_generated_coins: u64,
+    pub tx_backlog: Vec<MinerDataTxBacklogEntry>,
+}
+
+/// A transaction in the txpool.
+///
+/// Used in [`MinerData::tx_backlog`].
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MinerDataTxBacklogEntry {
+    pub id: [u8; 32],
+    pub weight: u64,
+    pub fee: u64,
+}
+
+/// Information on a [`HardFork`].
+///
+/// Used in RPC's `hard_fork_info`.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct HardForkInfo {
+    pub earliest_height: u64,
+    pub enabled: bool,
+    pub state: u32,
+    pub threshold: u32,
+    pub version: u8,
+    pub votes: u32,
+    pub voting: u8,
+    pub window: u32,
+}
+
+/// Estimated fee data.
+///
+/// Used in RPC's `get_fee_estimate`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct FeeEstimate {
+    pub fee: u64,
+    pub fees: Vec<u64>,
+    pub quantization_mask: u64,
+}
+
+/// Information on a (maybe alternate) chain.
+///
+/// Used in RPC's `get_alternate_chains`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ChainInfo {
+    pub block_hash: [u8; 32],
+    pub block_hashes: Vec<[u8; 32]>,
+    pub difficulty: u128,
+    pub height: u64,
+    pub length: u64,
+    pub main_chain_parent_block: [u8; 32],
+    pub wide_difficulty: u128,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

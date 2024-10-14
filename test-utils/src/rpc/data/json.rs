@@ -608,7 +608,10 @@ define_request_and_response! {
 r#"{
   "jsonrpc": "2.0",
   "id": "0",
-  "method": "hard_fork_info"
+  "method": "hard_fork_info",
+  "params": {
+    "version": 16
+  }
 }"#;
     Response =
 r#"{

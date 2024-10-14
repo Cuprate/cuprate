@@ -59,7 +59,7 @@ pub enum IncomingBlockError {
 ///  - the block's parent is unknown
 pub async fn handle_incoming_block(
     block: Block,
-    given_txs: HashMap<[u8; 32], TransactionVerificationData>,
+    given_txs: Vec<Transaction>,
     blockchain_read_handle: &mut BlockchainReadHandle,
 ) -> Result<IncomingBlockOk, IncomingBlockError> {
     /// A [`HashSet`] of block hashes that the blockchain manager is currently handling.
@@ -99,6 +99,14 @@ pub async fn handle_incoming_block(
     }
 
     // TODO: check we actually got given the right txs.
+    let prepped_txs = given_txs
+        .into_par_iter()
+        .map(|tx| {
+            let tx = new_tx_verification_data(tx)?;
+            Ok((tx.tx_hash, tx))
+        })
+        .collect::<Result<_, anyhow::Error>>()
+        .map_err(IncomingBlockError::InvalidBlock)?;
 
     let Some(incoming_block_tx) = COMMAND_TX.get() else {
         // We could still be starting up the blockchain manager.
@@ -118,7 +126,7 @@ pub async fn handle_incoming_block(
     incoming_block_tx
         .send(BlockchainManagerCommand::AddBlock {
             block,
-            prepped_txs: given_txs,
+            prepped_txs: todo!(),
             response_tx,
         })
         .await

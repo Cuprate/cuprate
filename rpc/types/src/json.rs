@@ -635,7 +635,9 @@ define_request_and_response! {
     AccessResponseBase {
         blob: String,
         block_header: BlockHeader,
-        json: String, // FIXME: this should be defined in a struct, it has many fields.
+        /// `cuprate_rpc_types::json::block::Block` should be used
+        /// to create this JSON string in a type-safe manner.
+        json: String,
         miner_tx_hash: String,
         tx_hashes: Vec<String> = default_vec::<String>(), "default_vec",
     }
@@ -815,8 +817,17 @@ define_request_and_response! {
     hard_fork_info,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1958..=1995,
-    HardForkInfo (empty),
-    Request {},
+    HardForkInfo,
+
+    #[doc = serde_doc_test!(
+        HARD_FORK_INFO_REQUEST => HardForkInfoRequest {
+            version: 16,
+        }
+    )]
+    #[derive(Copy)]
+    Request {
+        version: u8,
+    },
 
     #[doc = serde_doc_test!(
         HARD_FORK_INFO_RESPONSE => HardForkInfoResponse {

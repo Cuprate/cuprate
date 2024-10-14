@@ -8,10 +8,12 @@ use std::{
     ops::Range,
 };
 
-use crate::types::MissingTxsInBlock;
+use monero_serai::block::Block;
+
 use crate::{
-    types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation},
-    AltBlockInformation, BlockCompleteEntry, ChainId,
+    types::{MissingTxsInBlock, Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation},
+    BlockCompleteEntry,
+    AltBlockInformation, ChainId, CoinbaseTxSum, OutputHistogramEntry, OutputHistogramInput,
 };
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
@@ -126,6 +128,29 @@ pub enum BlockchainReadRequest {
 
     /// A request for all alt blocks in the chain with the given [`ChainId`].
     AltBlocksInChain(ChainId),
+
+    /// Get a [`Block`] by its height.
+    Block { height: usize },
+
+    /// Get a [`Block`] by its hash.
+    BlockByHash([u8; 32]),
+
+    /// Get the total amount of non-coinbase transactions in the chain.
+    TotalTxCount,
+
+    /// Get the current size of the database.
+    DatabaseSize,
+
+    /// Get an output histogram.
+    ///
+    /// TODO: document fields after impl.
+    OutputHistogram(OutputHistogramInput),
+
+    /// Get the coinbase amount and the fees amount for
+    /// `N` last blocks starting at particular height.
+    ///
+    /// TODO: document fields after impl.
+    CoinbaseTxSum { height: usize, count: u64 },
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
@@ -170,6 +195,7 @@ pub enum BlockchainWriteRequest {
 /// This pairs with [`BlockchainReadRequest`] and [`BlockchainWriteRequest`],
 /// see those two for more info.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[expect(clippy::large_enum_variant)]
 pub enum BlockchainResponse {
     //------------------------------------------------------ Reads
     BlockCompleteEntries {
@@ -256,7 +282,7 @@ pub enum BlockchainResponse {
         first_block_blob: Option<Vec<u8>>,
     },
 
-    /// The response for [`BlockchainReadRequest::FindFirstUnknown`].
+    /// Response to [`BlockchainReadRequest::FindFirstUnknown`].
     ///
     /// Contains the index of the first unknown block and its expected height.
     ///
@@ -273,6 +299,29 @@ pub enum BlockchainResponse {
     /// Contains all the alt blocks in the alt-chain in chronological order.
     AltBlocksInChain(Vec<AltBlockInformation>),
 
+    /// Response to:
+    /// - [`BlockchainReadRequest::Block`].
+    /// - [`BlockchainReadRequest::BlockByHash`].
+    Block(Block),
+
+    /// Response to [`BlockchainReadRequest::TotalTxCount`].
+    TotalTxCount(usize),
+
+    /// Response to [`BlockchainReadRequest::DatabaseSize`].
+    DatabaseSize {
+        /// The size of the database file in bytes.
+        database_size: u64,
+        /// The amount of free bytes there are
+        /// the disk where the database is located.
+        free_space: u64,
+    },
+
+    /// Response to [`BlockchainReadRequest::OutputHistogram`].
+    OutputHistogram(Vec<OutputHistogramEntry>),
+
+    /// Response to [`BlockchainReadRequest::CoinbaseTxSum`].
+    CoinbaseTxSum(CoinbaseTxSum),
+
     //------------------------------------------------------ Writes
     /// A generic Ok response to indicate a request was successfully handled.
     ///
@@ -282,7 +331,8 @@ pub enum BlockchainResponse {
     /// - [`BlockchainWriteRequest::ReverseReorg`]
     /// - [`BlockchainWriteRequest::FlushAltBlocks`]
     Ok,
-    /// The response for [`BlockchainWriteRequest::PopBlocks`].
+
+    /// Response to [`BlockchainWriteRequest::PopBlocks`].
     ///
     /// The inner value is the alt-chain ID for the old main chain blocks.
     PopBlocks(ChainId),

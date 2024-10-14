@@ -5,30 +5,53 @@ use std::sync::Arc;
 
 use cuprate_types::TransactionVerificationData;
 
-use crate::types::TransactionHash;
+use crate::{tx::TxEntry, types::TransactionHash};
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadRequest
 /// The transaction pool [`tower::Service`] read request type.
 pub enum TxpoolReadRequest {
     /// A request for the blob (raw bytes) of a transaction with the given hash.
     TxBlob(TransactionHash),
+
     /// A request for the [`TransactionVerificationData`] of a transaction in the tx pool.
     TxVerificationData(TransactionHash),
+
+    /// Get information on all transactions in the pool.
+    Backlog,
+
+    /// Get the number of transactions in the pool.
+    Size,
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadResponse
 /// The transaction pool [`tower::Service`] read response type.
 #[expect(clippy::large_enum_variant)]
 pub enum TxpoolReadResponse {
-    /// A response containing the raw bytes of a transaction.
+    /// Response to [`TxpoolReadRequest::TxBlob`].
+    ///
+    /// The inner value is the raw bytes of a transaction.
     // TODO: use bytes::Bytes.
     TxBlob(Vec<u8>),
-    /// A response of [`TransactionVerificationData`].
+
+    /// Response to [`TxpoolReadRequest::TxVerificationData`].
     TxVerificationData(TransactionVerificationData),
+
+    /// Response to [`TxpoolReadRequest::Backlog`].
+    ///
+    /// The inner `Vec` contains information on all
+    /// the transactions currently in the pool.
+    Backlog(Vec<TxEntry>),
+
+    /// Response to [`TxpoolReadRequest::Size`].
+    ///
+    /// The inner value is the amount of
+    /// transactions currently in the pool.
+    Size(usize),
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteRequest
 /// The transaction pool [`tower::Service`] write request type.
+#[derive(Clone)]
 pub enum TxpoolWriteRequest {
     /// Add a transaction to the pool.
     ///
@@ -41,6 +64,7 @@ pub enum TxpoolWriteRequest {
         /// [`true`] if this tx is in the stem state.
         state_stem: bool,
     },
+
     /// Remove a transaction with the given hash from the pool.
     ///
     /// Returns [`TxpoolWriteResponse::Ok`].
@@ -49,11 +73,14 @@ pub enum TxpoolWriteRequest {
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteResponse
 /// The transaction pool [`tower::Service`] write response type.
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub enum TxpoolWriteResponse {
-    /// A [`TxpoolWriteRequest::AddTransaction`] response.
+    /// Response to:
+    /// - [`TxpoolWriteRequest::RemoveTransaction`]
+    Ok,
+
+    /// Response to [`TxpoolWriteRequest::AddTransaction`].
     ///
     /// If the inner value is [`Some`] the tx was not added to the pool as it double spends a tx with the given hash.
     AddTransaction(Option<TransactionHash>),
-    Ok,
 }

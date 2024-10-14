@@ -1,5 +1,13 @@
 //! Database reader thread-pool definitions and logic.
 
+#![expect(
+    unreachable_code,
+    unused_variables,
+    clippy::unnecessary_wraps,
+    clippy::needless_pass_by_value,
+    reason = "TODO: finish implementing the signatures from <https://github.com/Cuprate/cuprate/pull/297>"
+)]
+
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     cmp::min,
@@ -13,6 +21,14 @@ use rayon::{
     ThreadPool,
 };
 use thread_local::ThreadLocal;
+
+use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
+use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
+use cuprate_helper::map::combine_low_high_bits_to_u128;
+use cuprate_types::{
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
+    Chain, ChainId, ExtendedBlockHeader, OutputHistogramInput, OutputOnChain,
+};
 
 use crate::{
     ops::{
@@ -36,13 +52,6 @@ use crate::{
     types::{
         AltBlockHeight, Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId,
     },
-};
-use cuprate_database::{ConcreteEnv, DatabaseIter, DatabaseRo, Env, EnvInner, RuntimeError};
-use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
-use cuprate_helper::map::combine_low_high_bits_to_u128;
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, ChainId, ExtendedBlockHeader, MissingTxsInBlock, OutputOnChain,
 };
 
 //---------------------------------------------------------------------------------------------------- init_read_service
@@ -114,6 +123,12 @@ fn map_request(
             tx_indexes,
         } => missing_txs_in_block(env, block_hash, tx_indexes),
         R::AltBlocksInChain(chain_id) => alt_blocks_in_chain(env, chain_id),
+        R::Block { height } => block(env, height),
+        R::BlockByHash(hash) => block_by_hash(env, hash),
+        R::TotalTxCount => total_tx_count(env),
+        R::DatabaseSize => database_size(env),
+        R::OutputHistogram(input) => output_histogram(env, input),
+        R::CoinbaseTxSum { height, count } => coinbase_tx_sum(env, height, count),
     }
 
     /* SOMEDAY: post-request handling, run some code for each request? */
@@ -722,4 +737,37 @@ fn alt_blocks_in_chain(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
         .collect::<Result<_, _>>()?;
 
     Ok(BlockchainResponse::AltBlocksInChain(blocks))
+}
+
+/// [`BlockchainReadRequest::Block`]
+fn block(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
+    Ok(BlockchainResponse::Block(todo!()))
+}
+
+/// [`BlockchainReadRequest::BlockByHash`]
+fn block_by_hash(env: &ConcreteEnv, block_hash: BlockHash) -> ResponseResult {
+    Ok(BlockchainResponse::Block(todo!()))
+}
+
+/// [`BlockchainReadRequest::TotalTxCount`]
+fn total_tx_count(env: &ConcreteEnv) -> ResponseResult {
+    Ok(BlockchainResponse::TotalTxCount(todo!()))
+}
+
+/// [`BlockchainReadRequest::DatabaseSize`]
+fn database_size(env: &ConcreteEnv) -> ResponseResult {
+    Ok(BlockchainResponse::DatabaseSize {
+        database_size: todo!(),
+        free_space: todo!(),
+    })
+}
+
+/// [`BlockchainReadRequest::OutputHistogram`]
+fn output_histogram(env: &ConcreteEnv, input: OutputHistogramInput) -> ResponseResult {
+    Ok(BlockchainResponse::OutputHistogram(todo!()))
+}
+
+/// [`BlockchainReadRequest::CoinbaseTxSum`]
+fn coinbase_tx_sum(env: &ConcreteEnv, height: usize, count: u64) -> ResponseResult {
+    Ok(BlockchainResponse::CoinbaseTxSum(todo!()))
 }

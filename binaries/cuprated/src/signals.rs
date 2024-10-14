@@ -8,5 +8,5 @@ use tokio::sync::RwLock;
 /// for any operation which must complete without a reorg happening.
 ///
 /// Currently, the only operation that needs to take a read lock is adding txs to the tx-pool,
-/// this can potentially be removed in the future, see: TODO
+/// this can potentially be removed in the future, see: <https://github.com/Cuprate/cuprate/issues/305>
 pub static REORG_LOCK: RwLock<()> = RwLock::const_new(());
