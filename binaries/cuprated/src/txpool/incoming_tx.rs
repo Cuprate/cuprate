@@ -37,9 +37,13 @@ use crate::{
 };
 
 /// An error that can happen handling an incoming tx.
+#[derive(Debug, thiserror::Error)]
 pub enum IncomingTxError {
+    #[error("parse error: {0}")]
     Parse(std::io::Error),
+    #[error("consensus error: {0}")]
     Consensus(ExtendedConsensusError),
+    #[error("Duplicate tx sent in message")]
     DuplicateTransaction,
 }
 
@@ -51,7 +55,7 @@ pub struct IncomingTxs {
 
 ///  The transaction type used for dandelion++.
 #[derive(Clone)]
-struct DandelionTx(Bytes);
+pub struct DandelionTx(Bytes);
 
 /// A transaction ID/hash.
 type TxId = [u8; 32];
@@ -59,19 +63,20 @@ type TxId = [u8; 32];
 /// The service than handles incoming transaction pool transactions.
 ///
 /// This service handles everything including verifying the tx, adding it to the pool and routing it to other nodes.
+#[derive(Clone)]
 pub struct IncomingTxHandler {
     /// A store of txs currently being handled in incoming tx requests.
-    txs_being_handled: TxsBeingHandled,
+    pub txs_being_handled: TxsBeingHandled,
     /// The blockchain context cache.
-    blockchain_context_cache: BlockChainContextService,
+    pub blockchain_context_cache: BlockChainContextService,
     /// The dandelion txpool manager.
-    dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, NetworkAddress>,
+    pub dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, NetworkAddress>,
     /// The transaction verifier service.
-    tx_verifier_service: ConcreteTxVerifierService,
+    pub tx_verifier_service: ConcreteTxVerifierService,
     /// The txpool write handle.
-    txpool_write_handle: TxpoolWriteHandle,
+    pub txpool_write_handle: TxpoolWriteHandle,
     /// The txpool read handle.
-    txpool_read_handle: TxpoolReadHandle,
+    pub txpool_read_handle: TxpoolReadHandle,
 }
 
 impl Service<IncomingTxs> for IncomingTxHandler {

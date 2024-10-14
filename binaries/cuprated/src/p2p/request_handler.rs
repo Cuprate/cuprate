@@ -10,7 +10,11 @@ use std::{
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::service::BlockchainReadHandle;
-use cuprate_consensus::{transactions::new_tx_verification_data, BlockChainContextService};
+use cuprate_consensus::{
+    transactions::new_tx_verification_data, BlockChainContextRequest, BlockChainContextResponse,
+    BlockChainContextService,
+};
+use cuprate_dandelion_tower::TxState;
 use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_helper::cast::u64_to_usize;
 use cuprate_helper::{
@@ -19,7 +23,10 @@ use cuprate_helper::{
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
 };
 use cuprate_p2p::constants::MAX_BLOCK_BATCH_LEN;
-use cuprate_p2p_core::{client::PeerInformation, NetworkZone, ProtocolRequest, ProtocolResponse};
+use cuprate_p2p_core::client::InternalPeerID;
+use cuprate_p2p_core::{
+    client::PeerInformation, NetZoneAddress, NetworkZone, ProtocolRequest, ProtocolResponse,
+};
 use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
@@ -27,21 +34,28 @@ use cuprate_types::{
 };
 use cuprate_wire::protocol::{
     ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest,
-    GetObjectsResponse, NewFluffyBlock,
+    GetObjectsResponse, NewFluffyBlock, NewTransactions,
 };
 
 use crate::blockchain::interface::{self as blockchain_interface, IncomingBlockError};
+use crate::constants::PANIC_CRITICAL_SERVICE_ERROR;
+use crate::txpool::{IncomingTxHandler, IncomingTxs};
 
 /// The P2P protocol request handler [`MakeService`](tower::MakeService).
 #[derive(Clone)]
 pub struct P2pProtocolRequestHandlerMaker {
     /// The [`BlockchainReadHandle`]
     pub blockchain_read_handle: BlockchainReadHandle,
+
+    pub blockchain_context_service: BlockChainContextService,
+
     /// The [`TxpoolReadHandle`].
     pub txpool_read_handle: TxpoolReadHandle,
+
+    pub incoming_tx_handler: IncomingTxHandler,
 }
 
-impl<N: NetworkZone> Service<PeerInformation<N>> for P2pProtocolRequestHandlerMaker {
+impl<N: NetZoneAddress> Service<PeerInformation<N>> for P2pProtocolRequestHandlerMaker {
     type Response = P2pProtocolRequestHandler<N>;
     type Error = tower::BoxError;
     type Future = Ready<Result<Self::Response, Self::Error>>;
@@ -59,23 +73,29 @@ impl<N: NetworkZone> Service<PeerInformation<N>> for P2pProtocolRequestHandlerMa
         ready(Ok(P2pProtocolRequestHandler {
             peer_information,
             blockchain_read_handle,
+            blockchain_context_service: self.blockchain_context_service.clone(),
             txpool_read_handle,
+            incoming_tx_handler: self.incoming_tx_handler.clone(),
         }))
     }
 }
 
 /// The P2P protocol request handler.
 #[derive(Clone)]
-pub struct P2pProtocolRequestHandler<N: NetworkZone> {
+pub struct P2pProtocolRequestHandler<N: NetZoneAddress> {
     /// The [`PeerInformation`] for this peer.
     peer_information: PeerInformation<N>,
     /// The [`BlockchainReadHandle`].
     blockchain_read_handle: BlockchainReadHandle,
+
+    blockchain_context_service: BlockChainContextService,
     /// The [`TxpoolReadHandle`].
     txpool_read_handle: TxpoolReadHandle,
+
+    incoming_tx_handler: IncomingTxHandler,
 }
 
-impl<Z: NetworkZone> Service<ProtocolRequest> for P2pProtocolRequestHandler<Z> {
+impl<Z: NetZoneAddress> Service<ProtocolRequest> for P2pProtocolRequestHandler<Z> {
     type Response = ProtocolResponse;
     type Error = anyhow::Error;
     type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
@@ -105,9 +125,14 @@ impl<Z: NetworkZone> Service<ProtocolRequest> for P2pProtocolRequestHandler<Z> {
                 self.txpool_read_handle.clone(),
             )
             .boxed(),
-            ProtocolRequest::GetTxPoolCompliment(_) | ProtocolRequest::NewTransactions(_) => {
-                ready(Ok(ProtocolResponse::NA)).boxed()
-            } // TODO: tx-pool
+            ProtocolRequest::NewTransactions(r) => new_transactions(
+                self.peer_information.clone(),
+                r,
+                self.blockchain_context_service.clone(),
+                self.incoming_tx_handler.clone(),
+            )
+            .boxed(),
+            ProtocolRequest::GetTxPoolCompliment(_) => ready(Ok(ProtocolResponse::NA)).boxed(), // TODO: tx-pool
         }
     }
 }
@@ -294,6 +319,62 @@ async fn new_fluffy_block(
             // Block's parent was unknown, could be syncing?
             Ok(ProtocolResponse::NA)
         }
+        Err(e) => Err(e.into()),
+    }
+}
+
+async fn new_transactions<A: NetZoneAddress>(
+    peer_information: PeerInformation<A>,
+    request: NewTransactions,
+    mut blockchain_context_service: BlockChainContextService,
+    mut incoming_tx_handler: IncomingTxHandler,
+) -> anyhow::Result<ProtocolResponse> {
+    let BlockChainContextResponse::Context(context) = blockchain_context_service
+        .ready()
+        .await
+        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .call(BlockChainContextRequest::Context)
+        .await
+        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+    else {
+        unreachable!()
+    };
+
+    let context = context.unchecked_blockchain_context();
+
+    if usize_to_u64(context.chain_height + 2)
+        < peer_information
+            .core_sync_data
+            .lock()
+            .unwrap()
+            .current_height
+    {
+        return Ok(ProtocolResponse::NA);
+    }
+
+    let state = if request.dandelionpp_fluff {
+        TxState::Fluff
+    } else {
+        let InternalPeerID::KnownAddr(addr) = peer_information.id else {
+            todo!("Anonymity networks")
+        };
+
+        TxState::Stem { from: addr.into() }
+    };
+
+    drop(request.padding);
+    let res = incoming_tx_handler
+        .ready()
+        .await
+        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .call(IncomingTxs {
+            txs: request.txs,
+            state,
+        })
+        .await;
+
+    match res {
+        Ok(()) => Ok(ProtocolResponse::NA),
         Err(e) => Err(e.into()),
     }
 }
