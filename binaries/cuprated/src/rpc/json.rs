@@ -48,6 +48,8 @@ use crate::rpc::{
     CupratedRpcHandler,
 };
 
+use super::request::txpool;
+
 /// Map a [`JsonRpcRequest`] to the function that will lead to a [`JsonRpcResponse`].
 pub(super) async fn map_request(
     state: CupratedRpcHandler,
@@ -497,7 +499,14 @@ async fn flush_transaction_pool(
     state: CupratedRpcHandler,
     request: FlushTransactionPoolRequest,
 ) -> Result<FlushTransactionPoolResponse, Error> {
-    todo!();
+    let tx_hashes = request
+        .txids
+        .into_iter()
+        .map(helper::hex_to_hash)
+        .collect::<Result<Vec<[u8; 32]>, _>>()?;
+
+    txpool::flush(tx_hashes).await?;
+
     Ok(FlushTransactionPoolResponse { status: Status::Ok })
 }
 
