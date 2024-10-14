@@ -180,7 +180,7 @@ async fn prepare_incoming_txs(
     IncomingTxError,
 > {
     let mut tx_blob_hashes = HashSet::new();
-    let mut txs_being_handled_loacally = txs_being_handled.local_tracker();
+    let mut txs_being_handled_locally = txs_being_handled.local_tracker();
 
     // Compute the blob hash for each tx and filter out the txs currently being handled by another incoming tx batch.
     let txs = tx_blobs
@@ -194,7 +194,7 @@ async fn prepare_incoming_txs(
             }
 
             // If a duplicate is here it is being handled in another batch.
-            if !txs_being_handled_loacally.try_add_tx(tx_blob_hash) {
+            if !txs_being_handled_locally.try_add_tx(tx_blob_hash) {
                 return None;
             }
 
@@ -239,7 +239,7 @@ async fn prepare_incoming_txs(
             })
             .collect::<Result<Vec<_>, IncomingTxError>>()?;
 
-        Ok((txs, stem_pool_hashes, txs_being_handled_loacally))
+        Ok((txs, stem_pool_hashes, txs_being_handled_locally))
     })
     .await
 }
