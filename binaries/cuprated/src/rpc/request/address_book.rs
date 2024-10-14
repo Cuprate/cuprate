@@ -103,13 +103,13 @@ pub(crate) async fn connection_count<Z: NetworkZone>(
 /// [`AddressBookRequest::SetBan`]
 pub(crate) async fn set_ban<Z: NetworkZone>(
     address_book: &mut impl AddressBook<Z>,
-    peer: cuprate_p2p_core::types::SetBan<Z::Addr>,
+    set_ban: cuprate_p2p_core::types::SetBan<Z::Addr>,
 ) -> Result<(), Error> {
     let AddressBookResponse::Ok = address_book
         .ready()
         .await
         .map_err(|e| anyhow!(e))?
-        .call(AddressBookRequest::SetBan(peer))
+        .call(AddressBookRequest::SetBan(set_ban))
         .await
         .map_err(|e| anyhow!(e))?
     else {

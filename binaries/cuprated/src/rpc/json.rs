@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use anyhow::{anyhow, Error};
 use cuprate_p2p_core::{client::handshaker::builder::DummyAddressBook, ClearNet};
@@ -406,7 +409,19 @@ async fn set_bans(
     state: CupratedRpcHandler,
     request: SetBansRequest,
 ) -> Result<SetBansResponse, Error> {
-    todo!();
+    for peer in request.bans {
+        let address = todo!();
+
+        let ban = if peer.ban {
+            Some(Duration::from_secs(peer.seconds.into()))
+        } else {
+            None
+        };
+
+        let set_ban = cuprate_p2p_core::types::SetBan { address, ban };
+
+        address_book::set_ban::<ClearNet>(&mut DummyAddressBook, set_ban).await?;
+    }
 
     Ok(SetBansResponse {
         base: ResponseBase::ok(),
