@@ -8,14 +8,11 @@ use cuprate_p2p_core::ClearNet;
 use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
 use cuprate_wire::NetworkAddress;
 
+use super::incoming_tx::{DandelionTx, TxId};
+
 mod diffuse_service;
 mod stem_service;
 mod tx_store;
-
-#[derive(Clone)]
-pub struct DandelionTx(Bytes);
-
-type TxId = [u8; 32];
 
 const DANDELION_CONFIG: DandelionConfig = DandelionConfig {
     time_between_hop: Duration::from_millis(175),
@@ -38,7 +35,7 @@ pub fn start_dandelion_pool_manager(
     txpool_write_handle: TxpoolWriteHandle,
 ) -> DandelionPoolService<DandelionTx, TxId, NetworkAddress> {
     cuprate_dandelion_tower::pool::start_dandelion_pool_manager(
-        12,
+        32,
         router,
         tx_store::TxStoreService {
             txpool_read_handle,

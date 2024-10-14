@@ -51,27 +51,27 @@ pub struct IncomingTxs {
 
 ///  The transaction type used for dandelion++.
 #[derive(Clone)]
-struct DandelionTx(Bytes);
+pub struct DandelionTx(pub Bytes);
 
 /// A transaction ID/hash.
-type TxId = [u8; 32];
+pub(super) type TxId = [u8; 32];
 
 /// The service than handles incoming transaction pool transactions.
 ///
 /// This service handles everything including verifying the tx, adding it to the pool and routing it to other nodes.
 pub struct IncomingTxHandler {
     /// A store of txs currently being handled in incoming tx requests.
-    txs_being_handled: TxsBeingHandled,
+    pub(super) txs_being_handled: TxsBeingHandled,
     /// The blockchain context cache.
-    blockchain_context_cache: BlockChainContextService,
+    pub(super) blockchain_context_cache: BlockChainContextService,
     /// The dandelion txpool manager.
-    dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, NetworkAddress>,
+    pub(super) dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, NetworkAddress>,
     /// The transaction verifier service.
-    tx_verifier_service: ConcreteTxVerifierService,
+    pub(super) tx_verifier_service: ConcreteTxVerifierService,
     /// The txpool write handle.
-    txpool_write_handle: TxpoolWriteHandle,
+    pub(super) txpool_write_handle: TxpoolWriteHandle,
     /// The txpool read handle.
-    txpool_read_handle: TxpoolReadHandle,
+    pub(super) txpool_read_handle: TxpoolReadHandle,
 }
 
 impl Service<IncomingTxs> for IncomingTxHandler {

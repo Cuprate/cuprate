@@ -12,6 +12,10 @@ pub fn tx_blob_hash(tx_bytes: &[u8]) -> [u8; 32] {
 pub struct TxsBeingHandled(Arc<DashSet<[u8; 32]>>);
 
 impl TxsBeingHandled {
+    pub fn new() -> Self {
+        Self(Arc::new(DashSet::new()))
+    }
+
     pub fn local_tracker(&self) -> TxBeingHandledLocally {
         TxBeingHandledLocally {
             txs_being_handled: self.clone(),
