@@ -380,20 +380,24 @@ async fn hard_fork_info(
     let hard_fork = if request.version > 0 {
         HardFork::from_version(request.version)?
     } else {
-        // blockchain::current_hard_fork(&mut state).await?
-        todo!()
+        blockchain_context::context(&mut state.blockchain_context)
+            .await?
+            .unchecked_blockchain_context()
+            .current_hf
     };
+
+    let info = blockchain_context::hard_fork_info(&mut state.blockchain_context, hard_fork).await?;
 
     Ok(HardForkInfoResponse {
         base: AccessResponseBase::ok(),
-        earliest_height: todo!(),
-        enabled: todo!("hard_fork.is_latest() is not always correct"),
-        state: todo!(),
-        threshold: todo!(),
-        version: hard_fork.as_u8(),
-        votes: todo!(),
-        voting: todo!(),
-        window: todo!(),
+        earliest_height: info.earliest_height,
+        enabled: info.enabled,
+        state: info.state,
+        threshold: info.threshold,
+        version: info.version,
+        votes: info.votes,
+        voting: info.voting,
+        window: info.window,
     })
 }
 
