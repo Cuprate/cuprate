@@ -19,13 +19,6 @@ pub type TransactionHash = [u8; 32];
 /// A transaction blob hash.
 pub type TransactionBlobHash = [u8; 32];
 
-/// Information on the tx-pool.
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
-#[repr(C)]
-pub struct PoolInfo {
-    pub last_known_blockchain_height: usize,
-}
-
 bitflags::bitflags! {
     /// Flags representing the state of the transaction in the pool.
     #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]

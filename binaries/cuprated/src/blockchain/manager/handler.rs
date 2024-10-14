@@ -447,7 +447,6 @@ impl super::BlockchainManager {
                 })
             })
             .collect::<Vec<[u8; 32]>>();
-        let blockchain_height = verified_block.height + 1;
 
         self.blockchain_context_service
             .ready()
@@ -492,10 +491,7 @@ impl super::BlockchainManager {
             .ready()
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR)
-            .call(TxpoolWriteRequest::NewBlock {
-                spent_key_images,
-                blockchain_height,
-            })
+            .call(TxpoolWriteRequest::NewBlock { spent_key_images })
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
     }

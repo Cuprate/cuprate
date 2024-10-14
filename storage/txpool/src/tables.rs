@@ -17,8 +17,7 @@
 use cuprate_database::{define_tables, StorableVec};
 
 use crate::types::{
-    KeyImage, PoolInfo, RawCachedVerificationState, TransactionBlobHash, TransactionHash,
-    TransactionInfo,
+    KeyImage, RawCachedVerificationState, TransactionBlobHash, TransactionHash, TransactionInfo,
 };
 
 define_tables! {
@@ -49,7 +48,4 @@ define_tables! {
     /// Transaction blob hashes that are in the pool.
     4 => KnownBlobHashes,
     TransactionBlobHash => TransactionHash,
-
-    5 => PoolStats,
-    () => PoolInfo,
 }

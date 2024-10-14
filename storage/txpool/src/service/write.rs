@@ -10,8 +10,8 @@ use crate::{
         interface::{TxpoolWriteRequest, TxpoolWriteResponse},
         types::TxpoolWriteHandle,
     },
-    tables::{OpenTables, Tables, TablesMut, TransactionInfos},
-    types::{KeyImage, PoolInfo, TransactionHash, TxStateFlags},
+    tables::{OpenTables, Tables, TransactionInfos},
+    types::{KeyImage, TransactionHash, TxStateFlags},
 };
 
 //---------------------------------------------------------------------------------------------------- init_write_service
@@ -32,10 +32,7 @@ fn handle_txpool_request(
         }
         TxpoolWriteRequest::RemoveTransaction(tx_hash) => remove_transaction(env, tx_hash),
         TxpoolWriteRequest::Promote(tx_hash) => promote(env, tx_hash),
-        TxpoolWriteRequest::NewBlock {
-            blockchain_height,
-            spent_key_images,
-        } => new_block(env, *blockchain_height, spent_key_images),
+        TxpoolWriteRequest::NewBlock { spent_key_images } => new_block(env, spent_key_images),
     }
 }
 
@@ -130,7 +127,6 @@ fn promote(
 
 fn new_block(
     env: &ConcreteEnv,
-    blockchain_height: usize,
     spent_key_images: &[KeyImage],
 ) -> Result<TxpoolWriteResponse, RuntimeError> {
     let env_inner = env.env_inner();
@@ -149,23 +145,6 @@ fn new_block(
                 Ok(()) | Err(RuntimeError::KeyNotFound) => (),
                 Err(e) => return Err(e),
             }
-        }
-
-        let res = tables_mut.pool_stats_mut().update(&(), |mut info| {
-            info.last_known_blockchain_height = blockchain_height;
-
-            Some(info)
-        });
-
-        match res {
-            Ok(()) => (),
-            Err(RuntimeError::KeyNotFound) => tables_mut.pool_stats_mut().put(
-                &(),
-                &PoolInfo {
-                    last_known_blockchain_height: blockchain_height,
-                },
-            )?,
-            Err(e) => return Err(e),
         }
 
         Ok(())

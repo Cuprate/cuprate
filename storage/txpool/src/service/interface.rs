@@ -106,8 +106,6 @@ pub enum TxpoolWriteRequest {
 
     /// Tell the tx-pool about a new block.
     NewBlock {
-        /// The new blockchain height.
-        blockchain_height: usize,
         /// The spent key images in the new block.
         spent_key_images: Vec<KeyImage>,
     },
