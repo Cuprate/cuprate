@@ -4,7 +4,6 @@
     clippy::unnecessary_wraps,
     reason = "TODO: finish implementing the signatures from <https://github.com/Cuprate/cuprate/pull/297>"
 )]
-
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,

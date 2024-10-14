@@ -19,6 +19,7 @@ pub type TransactionHash = [u8; 32];
 /// A transaction blob hash.
 pub type TransactionBlobHash = [u8; 32];
 
+/// Information on the tx-pool.
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(C)]
 pub struct PoolInfo {

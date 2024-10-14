@@ -8,7 +8,10 @@ use std::{
 
 use cuprate_types::TransactionVerificationData;
 
-use crate::{tx::TxEntry, types::{KeyImage, TransactionBlobHash, TransactionHash}};
+use crate::{
+    tx::TxEntry,
+    types::{KeyImage, TransactionBlobHash, TransactionHash},
+};
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadRequest
 /// The transaction pool [`tower::Service`] read request type.

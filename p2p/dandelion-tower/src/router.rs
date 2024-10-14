@@ -74,7 +74,7 @@ pub enum TxState<Id> {
 }
 
 impl<Id> TxState<Id> {
-    pub fn state_stem(&self) -> bool {
+    pub const fn state_stem(&self) -> bool {
         matches!(self, Self::Local | Self::Stem { .. })
     }
 }

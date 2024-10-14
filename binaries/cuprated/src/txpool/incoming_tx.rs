@@ -98,6 +98,7 @@ impl Service<IncomingTxs> for IncomingTxHandler {
     }
 }
 
+#[expect(clippy::too_many_arguments)]
 async fn handle_incoming_txs(
     txs: Vec<Bytes>,
     state: TxState<NetworkAddress>,
@@ -117,7 +118,7 @@ async fn handle_incoming_txs(
         .ready()
         .await
         .expect(PANIC_CRITICAL_SERVICE_ERROR)
-        .call(BlockChainContextRequest::GetContext)
+        .call(BlockChainContextRequest::Context)
         .await
         .expect(PANIC_CRITICAL_SERVICE_ERROR)
     else {
@@ -147,7 +148,7 @@ async fn handle_incoming_txs(
             &mut txpool_write_handle,
             &mut dandelion_pool_manager,
         )
-        .await
+        .await;
     }
 
     for stem_tx in stem_pool_txs {
