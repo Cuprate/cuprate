@@ -14,7 +14,7 @@ use cuprate_constants::{
     build::RELEASE,
     rpc::{RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE},
 };
-use cuprate_helper::cast::u64_to_usize;
+use cuprate_helper::{cast::u64_to_usize, map::split_u128_into_low_high_bits};
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
     base::{AccessResponseBase, ResponseBase},
@@ -542,17 +542,29 @@ async fn get_output_histogram(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2998-L3013>
 async fn get_coinbase_tx_sum(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: GetCoinbaseTxSumRequest,
 ) -> Result<GetCoinbaseTxSumResponse, Error> {
+    let sum =
+        blockchain::coinbase_tx_sum(&mut state.blockchain_read, request.height, request.count)
+            .await?;
+
+    // Formats `u128` as hexadecimal strings.
+    let wide_emission_amount = format!("{:#x}", sum.fee_amount);
+    let wide_fee_amount = format!("{:#x}", sum.emission_amount);
+
+    let (emission_amount, emission_amount_top64) =
+        split_u128_into_low_high_bits(sum.emission_amount);
+    let (fee_amount, fee_amount_top64) = split_u128_into_low_high_bits(sum.fee_amount);
+
     Ok(GetCoinbaseTxSumResponse {
         base: AccessResponseBase::ok(),
-        emission_amount: todo!(),
-        emission_amount_top64: todo!(),
-        fee_amount: todo!(),
-        fee_amount_top64: todo!(),
-        wide_emission_amount: todo!(),
-        wide_fee_amount: todo!(),
+        emission_amount,
+        emission_amount_top64,
+        fee_amount,
+        fee_amount_top64,
+        wide_emission_amount,
+        wide_fee_amount,
     })
 }
 

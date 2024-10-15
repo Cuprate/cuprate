@@ -177,8 +177,6 @@ pub struct OutputHistogramEntry {
 pub struct CoinbaseTxSum {
     pub emission_amount: u128,
     pub fee_amount: u128,
-    pub wide_emission_amount: u128,
-    pub wide_fee_amount: u128,
 }
 
 /// Data to create a custom block template.
