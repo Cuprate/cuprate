@@ -40,7 +40,10 @@ use cuprate_rpc_types::{
         SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse, SyncInfoRequest,
         SyncInfoResponse,
     },
-    misc::{BlockHeader, ChainInfo, GetBan, HardforkEntry, HistogramEntry, Status, TxBacklogEntry},
+    misc::{
+        AuxPow, BlockHeader, ChainInfo, GetBan, HardforkEntry, HistogramEntry, Status,
+        TxBacklogEntry,
+    },
     CORE_RPC_VERSION,
 };
 use cuprate_types::HardFork;
@@ -761,7 +764,7 @@ async fn flush_cache(
     state: CupratedRpcHandler,
     request: FlushCacheRequest,
 ) -> Result<FlushCacheResponse, Error> {
-    todo!();
+    // TODO: cuprated doesn't need this call; decide behavior.
 
     Ok(FlushCacheResponse {
         base: ResponseBase::OK,
@@ -770,16 +773,43 @@ async fn flush_cache(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2072-L2207>
 async fn add_aux_pow(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: AddAuxPowRequest,
 ) -> Result<AddAuxPowResponse, Error> {
+    let blocktemplate_blob = hex::decode(request.blocktemplate_blob)?;
+    let aux_pow = request
+        .aux_pow
+        .into_iter()
+        .map(|aux| {
+            let id = helper::hex_to_hash(aux.id)?;
+            let hash = helper::hex_to_hash(aux.hash)?;
+            Ok(cuprate_types::AuxPow { id, hash })
+        })
+        .collect::<Result<Vec<_>, Error>>()?;
+
+    let resp =
+        blockchain_manager::add_aux_pow(&mut state.blockchain_manager, blocktemplate_blob, aux_pow)
+            .await?;
+
+    let blocktemplate_blob = hex::encode(resp.blocktemplate_blob);
+    let blockhashing_blob = hex::encode(resp.blockhashing_blob);
+    let merkle_root = hex::encode(resp.merkle_root);
+    let aux_pow = resp
+        .aux_pow
+        .into_iter()
+        .map(|aux| AuxPow {
+            id: hex::encode(aux.id),
+            hash: hex::encode(aux.hash),
+        })
+        .collect::<Vec<AuxPow>>();
+
     Ok(AddAuxPowResponse {
         base: ResponseBase::OK,
-        blocktemplate_blob: todo!(),
-        blockhashing_blob: todo!(),
-        merkle_root: todo!(),
-        merkle_tree_depth: todo!(),
-        aux_pow: todo!(),
+        blocktemplate_blob,
+        blockhashing_blob,
+        merkle_root,
+        merkle_tree_depth: resp.merkle_tree_depth,
+        aux_pow,
     })
 }
 

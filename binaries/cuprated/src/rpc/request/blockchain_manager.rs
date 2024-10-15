@@ -1,7 +1,7 @@
 //! Functions for [`BlockchainManagerRequest`] & [`BlockchainManagerResponse`].
 
 use anyhow::Error;
-use cuprate_types::HardFork;
+use cuprate_types::{AddAuxPow, AuxPow, HardFork};
 use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 
@@ -167,4 +167,25 @@ pub(crate) async fn calculate_pow(
     };
 
     Ok(hash)
+}
+
+/// [`BlockchainManagerRequest::AddAuxPow`]
+pub(crate) async fn add_aux_pow(
+    blockchain_manager: &mut BlockchainManagerHandle,
+    blocktemplate_blob: Vec<u8>,
+    aux_pow: Vec<AuxPow>,
+) -> Result<AddAuxPow, Error> {
+    let BlockchainManagerResponse::AddAuxPow(response) = blockchain_manager
+        .ready()
+        .await?
+        .call(BlockchainManagerRequest::AddAuxPow {
+            blocktemplate_blob,
+            aux_pow,
+        })
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(response)
 }

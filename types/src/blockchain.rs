@@ -289,6 +289,7 @@ pub enum BlockchainResponse {
     /// - Value = hardfork version
     HardForks(BTreeMap<usize, HardFork>),
 
+    /// TODO
     AltChains(Vec<ChainInfo>),
 
     //------------------------------------------------------ Writes

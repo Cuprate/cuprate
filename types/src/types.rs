@@ -242,6 +242,23 @@ pub struct ChainInfo {
     pub main_chain_parent_block: [u8; 32],
 }
 
+/// Used in RPC's `add_aux_pow`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct AuxPow {
+    pub id: [u8; 32],
+    pub hash: [u8; 32],
+}
+
+/// Used in RPC's `add_aux_pow`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct AddAuxPow {
+    pub blocktemplate_blob: Vec<u8>,
+    pub blockhashing_blob: Vec<u8>,
+    pub merkle_root: [u8; 32],
+    pub merkle_tree_depth: u64,
+    pub aux_pow: Vec<AuxPow>,
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
