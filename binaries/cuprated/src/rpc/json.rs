@@ -41,7 +41,7 @@ use cuprate_rpc_types::{
         SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse, SyncInfoRequest,
         SyncInfoResponse,
     },
-    misc::{BlockHeader, ChainInfo, GetBan, HardforkEntry, HistogramEntry, Status},
+    misc::{BlockHeader, ChainInfo, GetBan, HardforkEntry, HistogramEntry, Status, TxBacklogEntry},
     CORE_RPC_VERSION,
 };
 
@@ -680,12 +680,22 @@ async fn sync_info(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3332-L3350>
 async fn get_transaction_pool_backlog(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: GetTransactionPoolBacklogRequest,
 ) -> Result<GetTransactionPoolBacklogResponse, Error> {
+    let backlog = txpool::backlog(&mut state.txpool_read)
+        .await?
+        .into_iter()
+        .map(|entry| TxBacklogEntry {
+            weight: entry.weight,
+            fee: entry.fee,
+            time_in_pool: entry.time_in_pool.as_secs(),
+        })
+        .collect();
+
     Ok(GetTransactionPoolBacklogResponse {
         base: ResponseBase::OK,
-        backlog: todo!(),
+        backlog,
     })
 }
 
