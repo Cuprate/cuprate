@@ -332,7 +332,6 @@ async fn rerelay_stem_tx(
     let incoming_tx =
         IncomingTxBuilder::new(DandelionTx(Bytes::copy_from_slice(&tx_blob)), *tx_hash);
 
-    // TODO: fill this in properly.
     let incoming_tx = incoming_tx
         .with_routing_state(state)
         .with_state_in_db(Some(State::Stem))
