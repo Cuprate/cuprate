@@ -41,7 +41,7 @@ use cuprate_rpc_types::{
         SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse, SyncInfoRequest,
         SyncInfoResponse,
     },
-    misc::{BlockHeader, GetBan, HardforkEntry, HistogramEntry, Status},
+    misc::{BlockHeader, ChainInfo, GetBan, HardforkEntry, HistogramEntry, Status},
     CORE_RPC_VERSION,
 };
 
@@ -617,12 +617,32 @@ async fn get_fee_estimate(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3033-L3064>
 async fn get_alternate_chains(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: GetAlternateChainsRequest,
 ) -> Result<GetAlternateChainsResponse, Error> {
+    let chains = blockchain::alt_chains(&mut state.blockchain_read)
+        .await?
+        .into_iter()
+        .map(|info| {
+            let block_hashes = info.block_hashes.into_iter().map(hex::encode).collect();
+            let (difficulty, difficulty_top64) = split_u128_into_low_high_bits(info.difficulty);
+
+            ChainInfo {
+                block_hash: hex::encode(info.block_hash),
+                block_hashes,
+                difficulty,
+                difficulty_top64,
+                height: info.height,
+                length: info.length,
+                main_chain_parent_block: hex::encode(info.main_chain_parent_block),
+                wide_difficulty: hex::encode(u128::to_ne_bytes(info.difficulty)),
+            }
+        })
+        .collect();
+
     Ok(GetAlternateChainsResponse {
         base: ResponseBase::ok(),
-        chains: todo!(),
+        chains,
     })
 }
 

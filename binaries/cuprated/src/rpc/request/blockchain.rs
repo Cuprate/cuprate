@@ -9,12 +9,12 @@ use anyhow::Error;
 use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 
-use cuprate_blockchain::service::BlockchainReadHandle;
+use cuprate_blockchain::{service::BlockchainReadHandle, types::AltChainInfo};
 use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, CoinbaseTxSum, ExtendedBlockHeader, HardFork, MinerData, OutputHistogramEntry,
-    OutputHistogramInput, OutputOnChain,
+    Chain, ChainInfo, CoinbaseTxSum, ExtendedBlockHeader, HardFork, MinerData,
+    OutputHistogramEntry, OutputHistogramInput, OutputOnChain,
 };
 
 /// [`BlockchainReadRequest::Block`].
@@ -358,4 +358,20 @@ pub(crate) async fn hard_forks(
     };
 
     Ok(hfs)
+}
+
+/// [`BlockchainReadRequest::AltChains`]
+pub(crate) async fn alt_chains(
+    blockchain_read: &mut BlockchainReadHandle,
+) -> Result<Vec<ChainInfo>, Error> {
+    let BlockchainResponse::AltChains(vec) = blockchain_read
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::AltChains)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(vec)
 }

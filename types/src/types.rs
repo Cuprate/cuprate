@@ -240,7 +240,6 @@ pub struct ChainInfo {
     pub height: u64,
     pub length: u64,
     pub main_chain_parent_block: [u8; 32],
-    pub wide_difficulty: u128,
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
