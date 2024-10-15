@@ -125,6 +125,7 @@ fn promote(
     Ok(TxpoolWriteResponse::Ok)
 }
 
+/// [`TxpoolWriteRequest::NewBlock`]
 fn new_block(
     env: &ConcreteEnv,
     spent_key_images: &[KeyImage],
@@ -136,6 +137,7 @@ fn new_block(
     let result = || {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
 
+        // Remove all txs which spend key images that were spent in the new block.
         for key_image in spent_key_images {
             match tables_mut
                 .spent_key_images()

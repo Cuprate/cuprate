@@ -21,7 +21,7 @@ use crate::{
         types::{ReadResponseResult, TxpoolReadHandle},
     },
     tables::{KnownBlobHashes, OpenTables, TransactionBlobs, TransactionInfos},
-    types::{TransactionBlobHash, TransactionHash, TxStateFlags},
+    types::{TransactionBlobHash, TransactionHash},
 };
 
 // TODO: update the docs here
@@ -102,11 +102,10 @@ fn tx_blob(env: &ConcreteEnv, tx_hash: &TransactionHash) -> ReadResponseResult {
     let tx_infos_table = inner_env.open_db_ro::<TransactionInfos>(&tx_ro)?;
 
     let tx_blob = tx_blobs_table.get(tx_hash)?.0;
-    let tx_info = tx_infos_table.get(tx_hash)?;
 
     Ok(TxpoolReadResponse::TxBlob {
         tx_blob,
-        state_stem: tx_info.flags.contains(TxStateFlags::STATE_STEM),
+        state_stem: in_stem_pool(tx_hash, &tx_infos_table)?,
     })
 }
 

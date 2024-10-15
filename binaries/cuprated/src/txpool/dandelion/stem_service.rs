@@ -8,7 +8,7 @@ use futures::Stream;
 use tower::Service;
 
 use cuprate_dandelion_tower::{traits::StemRequest, OutboundPeer};
-use cuprate_p2p::NetworkInterface;
+use cuprate_p2p::{ClientPoolDropGuard, NetworkInterface};
 use cuprate_p2p_core::{
     client::{Client, InternalPeerID},
     ClearNet, NetworkZone, PeerRequest, ProtocolRequest,
@@ -45,7 +45,7 @@ impl Stream for OutboundPeerStream {
 }
 
 /// The stem service, used to send stem txs.
-pub struct StemPeerService<N: NetworkZone>(Client<N>);
+pub struct StemPeerService<N: NetworkZone>(ClientPoolDropGuard<N>);
 
 impl<N: NetworkZone> Service<StemRequest<DandelionTx>> for StemPeerService<N> {
     type Response = <Client<N> as Service<PeerRequest>>::Response;

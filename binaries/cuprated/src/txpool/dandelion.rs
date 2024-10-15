@@ -1,13 +1,16 @@
 use std::time::Duration;
 
-use super::incoming_tx::{DandelionTx, TxId};
-use crate::p2p::CrossNetworkInternalPeerId;
 use cuprate_dandelion_tower::{
     pool::DandelionPoolService, DandelionConfig, DandelionRouter, Graph,
 };
 use cuprate_p2p::NetworkInterface;
 use cuprate_p2p_core::ClearNet;
 use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
+
+use crate::{
+    p2p::CrossNetworkInternalPeerId,
+    txpool::incoming_tx::{DandelionTx, TxId},
+};
 
 mod diffuse_service;
 mod stem_service;

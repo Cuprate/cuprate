@@ -26,6 +26,7 @@ mod inbound_server;
 
 use block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse};
 pub use broadcast::{BroadcastRequest, BroadcastSvc};
+pub use client_pool::ClientPoolDropGuard;
 pub use config::{AddressBookConfig, P2PConfig};
 use connection_maintainer::MakeConnectionRequest;
 

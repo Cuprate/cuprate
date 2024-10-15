@@ -8,9 +8,10 @@ use monero_serai::transaction::Transaction;
 use cuprate_database::{DatabaseRo, RuntimeError};
 use cuprate_types::{TransactionVerificationData, TxVersion};
 
-use crate::tables::TransactionInfos;
-use crate::types::TxStateFlags;
-use crate::{tables::Tables, types::TransactionHash};
+use crate::{
+    tables::{Tables, TransactionInfos},
+    types::{TransactionHash, TxStateFlags},
+};
 
 /// Gets the [`TransactionVerificationData`] of a transaction in the tx-pool, leaving the tx in the pool.
 pub fn get_transaction_verification_data(
@@ -37,6 +38,9 @@ pub fn get_transaction_verification_data(
     })
 }
 
+/// Returns if the transaction with the given hash is in the stem pool.
+///
+/// This will return an err if the transaction is not in the pool.
 pub fn in_stem_pool(
     tx_hash: &TransactionHash,
     tx_infos: &impl DatabaseRo<TransactionInfos>,
