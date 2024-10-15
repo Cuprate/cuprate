@@ -49,7 +49,19 @@ pub(crate) async fn size(txpool_read: &mut TxpoolReadHandle) -> Result<u64, Erro
 }
 
 /// TODO
-pub(crate) async fn flush(tx_hashes: Vec<[u8; 32]>) -> Result<(), Error> {
+pub(crate) async fn flush(
+    txpool_manager: &mut Infallible,
+    tx_hashes: Vec<[u8; 32]>,
+) -> Result<(), Error> {
+    todo!();
+    Ok(())
+}
+
+/// TODO
+pub(crate) async fn relay(
+    txpool_manager: &mut Infallible,
+    tx_hashes: Vec<[u8; 32]>,
+) -> Result<(), Error> {
     todo!();
     Ok(())
 }

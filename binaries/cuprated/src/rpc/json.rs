@@ -499,7 +499,7 @@ async fn banned(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2880-L2932>
 async fn flush_transaction_pool(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: FlushTransactionPoolRequest,
 ) -> Result<FlushTransactionPoolResponse, Error> {
     let tx_hashes = request
@@ -508,7 +508,7 @@ async fn flush_transaction_pool(
         .map(helper::hex_to_hash)
         .collect::<Result<Vec<[u8; 32]>, _>>()?;
 
-    txpool::flush(tx_hashes).await?;
+    txpool::flush(&mut state.txpool_manager, tx_hashes).await?;
 
     Ok(FlushTransactionPoolResponse { status: Status::Ok })
 }
@@ -648,10 +648,17 @@ async fn get_alternate_chains(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3254-L3304>
 async fn relay_tx(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: RelayTxRequest,
 ) -> Result<RelayTxResponse, Error> {
-    todo!();
+    let tx_hashes = request
+        .txids
+        .into_iter()
+        .map(helper::hex_to_hash)
+        .collect::<Result<Vec<[u8; 32]>, _>>()?;
+
+    txpool::relay(&mut state.txpool_manager, tx_hashes).await?;
+
     Ok(RelayTxResponse { status: Status::Ok })
 }
 
