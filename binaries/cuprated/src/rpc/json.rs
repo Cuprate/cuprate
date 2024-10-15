@@ -600,14 +600,18 @@ async fn get_version(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3015-L3031>
 async fn get_fee_estimate(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: GetFeeEstimateRequest,
 ) -> Result<GetFeeEstimateResponse, Error> {
+    let estimate =
+        blockchain_context::fee_estimate(&mut state.blockchain_context, request.grace_blocks)
+            .await?;
+
     Ok(GetFeeEstimateResponse {
         base: AccessResponseBase::ok(),
-        fee: todo!(),
-        fees: todo!(),
-        quantization_mask: todo!(),
+        fee: estimate.fee,
+        fees: estimate.fees,
+        quantization_mask: estimate.quantization_mask,
     })
 }
 
