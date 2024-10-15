@@ -734,10 +734,26 @@ async fn prune_blockchain(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2035-L2070>
 async fn calc_pow(
-    state: CupratedRpcHandler,
-    request: CalcPowRequest,
+    mut state: CupratedRpcHandler,
+    mut request: CalcPowRequest,
 ) -> Result<CalcPowResponse, Error> {
-    Ok(CalcPowResponse { pow_hash: todo!() })
+    let hardfork = HardFork::from_version(request.major_version)?;
+    let mut block_blob: Vec<u8> = hex::decode(request.block_blob)?;
+    let block = Block::read(&mut block_blob.as_slice())?;
+    let seed_hash = helper::hex_to_hash(request.seed_hash)?;
+
+    let pow_hash = blockchain_manager::calculate_pow(
+        &mut state.blockchain_manager,
+        hardfork,
+        request.height,
+        block,
+        seed_hash,
+    )
+    .await?;
+
+    let hex = hex::encode(pow_hash);
+
+    Ok(CalcPowResponse { pow_hash: hex })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3542-L3551>

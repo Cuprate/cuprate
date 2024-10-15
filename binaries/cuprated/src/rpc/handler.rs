@@ -5,6 +5,7 @@ use std::task::{Context, Poll};
 use anyhow::Error;
 use cuprate_consensus::BlockChainContextService;
 use cuprate_pruning::PruningSeed;
+use cuprate_types::HardFork;
 use futures::future::BoxFuture;
 use monero_serai::block::Block;
 use tower::Service;
@@ -56,6 +57,18 @@ pub enum BlockchainManagerRequest {
 
     /// The height of the next block in the chain.
     TargetHeight,
+
+    /// Calculate proof-of-work for this block.
+    CalculatePow {
+        /// The hardfork of the protocol at this block height.
+        hardfork: HardFork,
+        /// The height of the block.
+        height: usize,
+        /// The block data.
+        block: Block,
+        /// The seed hash for the proof-of-work.
+        seed_hash: [u8; 32],
+    },
 }
 
 /// TODO: use real type when public.
@@ -88,6 +101,9 @@ pub enum BlockchainManagerResponse {
 
     /// Response to [`BlockchainManagerRequest::TargetHeight`]
     TargetHeight { height: usize },
+
+    /// Response to [`BlockchainManagerRequest::CalculatePow`]
+    CalculatePow([u8; 32]),
 }
 
 /// TODO: use real type when public.
