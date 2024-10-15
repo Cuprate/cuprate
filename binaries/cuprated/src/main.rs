@@ -12,8 +12,6 @@
     reason = "TODO: remove after v1.0.0"
 )]
 
-use crate::txpool::IncomingTxHandler;
-
 mod blockchain;
 mod config;
 mod constants;

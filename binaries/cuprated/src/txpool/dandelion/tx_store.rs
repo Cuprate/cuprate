@@ -1,11 +1,8 @@
-use std::{
-    f32::consts::E,
-    task::{Context, Poll},
-};
+use std::task::{Context, Poll};
 
 use bytes::Bytes;
-use futures::{future::BoxFuture, FutureExt, StreamExt, TryFutureExt};
-use tower::{util::Oneshot, Service, ServiceExt};
+use futures::{future::BoxFuture, FutureExt};
+use tower::{Service, ServiceExt};
 
 use cuprate_dandelion_tower::{
     traits::{TxStoreRequest, TxStoreResponse},
@@ -13,7 +10,7 @@ use cuprate_dandelion_tower::{
 };
 use cuprate_database::RuntimeError;
 use cuprate_txpool::service::{
-    interface::{TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest, TxpoolWriteResponse},
+    interface::{TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest},
     TxpoolReadHandle, TxpoolWriteHandle,
 };
 

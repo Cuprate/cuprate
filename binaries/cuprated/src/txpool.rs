@@ -1,7 +1,6 @@
 //! Transaction Pool
 //!
-//! Will handle initiating the tx-pool, providing the preprocessor required for the dandelion pool.
-
+//! Handles initiating the tx-pool, providing the preprocessor required for the dandelion pool.
 use cuprate_consensus::BlockChainContextService;
 use cuprate_p2p::NetworkInterface;
 use cuprate_p2p_core::ClearNet;
@@ -13,9 +12,11 @@ mod dandelion;
 mod incoming_tx;
 mod txs_being_handled;
 
-pub use incoming_tx::{IncomingTxError, IncomingTxHandler, IncomingTxs};
+pub use incoming_tx::IncomingTxHandler;
 
-pub fn init_incoming_tx_handler(
+/// Initialize the [`IncomingTxHandler`].
+#[expect(clippy::significant_drop_tightening)]
+pub fn incoming_tx_handler(
     clear_net: NetworkInterface<ClearNet>,
     txpool_write_handle: TxpoolWriteHandle,
     txpool_read_handle: TxpoolReadHandle,

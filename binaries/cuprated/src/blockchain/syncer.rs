@@ -1,11 +1,10 @@
 // FIXME: This whole module is not great and should be rewritten when the PeerSet is made.
-use std::{pin::pin, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use futures::StreamExt;
-use tokio::time::interval;
 use tokio::{
     sync::{mpsc, Notify},
-    time::sleep,
+    time::interval,
 };
 use tower::{Service, ServiceExt};
 use tracing::instrument;

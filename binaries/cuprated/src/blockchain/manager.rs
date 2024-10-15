@@ -17,6 +17,7 @@ use cuprate_p2p::{
     BroadcastSvc, NetworkInterface,
 };
 use cuprate_p2p_core::ClearNet;
+use cuprate_txpool::service::TxpoolWriteHandle;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain, TransactionVerificationData,
@@ -36,7 +37,6 @@ mod commands;
 mod handler;
 
 pub use commands::{BlockchainManagerCommand, IncomingBlockOk};
-use cuprate_txpool::service::TxpoolWriteHandle;
 
 /// Initialize the blockchain manager.
 ///

@@ -1,8 +1,10 @@
 //! The blockchain manager handler functions.
 use bytes::Bytes;
 use futures::{TryFutureExt, TryStreamExt};
-use monero_serai::transaction::Input;
-use monero_serai::{block::Block, transaction::Transaction};
+use monero_serai::{
+    block::Block,
+    transaction::{Input, Transaction},
+};
 use rayon::prelude::*;
 use std::ops::ControlFlow;
 use std::{collections::HashMap, sync::Arc};
@@ -24,11 +26,8 @@ use cuprate_types::{
     AltBlockInformation, HardFork, TransactionVerificationData, VerifiedBlockInformation,
 };
 
-use crate::blockchain::manager::commands::IncomingBlockOk;
 use crate::{
-    blockchain::{
-        manager::commands::BlockchainManagerCommand, types::ConsensusBlockchainReadHandle,
-    },
+    blockchain::manager::commands::{BlockchainManagerCommand, IncomingBlockOk},
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     signals::REORG_LOCK,
 };
