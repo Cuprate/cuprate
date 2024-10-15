@@ -117,7 +117,7 @@ async fn get_block_count(
     request: GetBlockCountRequest,
 ) -> Result<GetBlockCountResponse, Error> {
     Ok(GetBlockCountResponse {
-        base: ResponseBase::ok(),
+        base: ResponseBase::OK,
         count: helper::top_height(&mut state).await?.0,
     })
 }
@@ -150,7 +150,7 @@ async fn submit_block(
     blockchain_manager::relay_block(&mut state.blockchain_manager, block).await?;
 
     Ok(SubmitBlockResponse {
-        base: ResponseBase::ok(),
+        base: ResponseBase::OK,
         block_id,
     })
 }
@@ -161,7 +161,7 @@ async fn generate_blocks(
     request: GenerateBlocksRequest,
 ) -> Result<GenerateBlocksResponse, Error> {
     Ok(GenerateBlocksResponse {
-        base: ResponseBase::ok(),
+        base: ResponseBase::OK,
         blocks: todo!(),
         height: todo!(),
     })
@@ -176,7 +176,7 @@ async fn get_last_block_header(
     let block_header = helper::block_header(&mut state, height, request.fill_pow_hash).await?;
 
     Ok(GetLastBlockHeaderResponse {
-        base: AccessResponseBase::ok(),
+        base: AccessResponseBase::OK,
         block_header,
     })
 }
@@ -212,7 +212,7 @@ async fn get_block_header_by_hash(
     }
 
     Ok(GetBlockHeaderByHashResponse {
-        base: AccessResponseBase::ok(),
+        base: AccessResponseBase::OK,
         block_header,
         block_headers,
     })
@@ -228,7 +228,7 @@ async fn get_block_header_by_height(
         helper::block_header(&mut state, request.height, request.fill_pow_hash).await?;
 
     Ok(GetBlockHeaderByHeightResponse {
-        base: AccessResponseBase::ok(),
+        base: AccessResponseBase::OK,
         block_header,
     })
 }
@@ -276,7 +276,7 @@ async fn get_block_headers_range(
     }
 
     Ok(GetBlockHeadersRangeResponse {
-        base: AccessResponseBase::ok(),
+        base: AccessResponseBase::OK,
         headers,
     })
 }
@@ -309,7 +309,7 @@ async fn get_block(
     };
 
     Ok(GetBlockResponse {
-        base: AccessResponseBase::ok(),
+        base: AccessResponseBase::OK,
         blob,
         json,
         miner_tx_hash,
@@ -326,7 +326,7 @@ async fn get_connections(
     let connections = address_book::connection_info::<ClearNet>(&mut DummyAddressBook).await?;
 
     Ok(GetConnectionsResponse {
-        base: ResponseBase::ok(),
+        base: ResponseBase::OK,
         connections,
     })
 }
@@ -337,7 +337,7 @@ async fn get_info(
     request: GetInfoRequest,
 ) -> Result<GetInfoResponse, Error> {
     Ok(GetInfoResponse {
-        base: AccessResponseBase::ok(),
+        base: AccessResponseBase::OK,
         adjusted_time: todo!(),
         alt_blocks_count: todo!(),
         block_size_limit: todo!(),
@@ -397,7 +397,7 @@ async fn hard_fork_info(
     let info = blockchain_context::hard_fork_info(&mut state.blockchain_context, hard_fork).await?;
 
     Ok(HardForkInfoResponse {
-        base: AccessResponseBase::ok(),
+        base: AccessResponseBase::OK,
         earliest_height: info.earliest_height,
         enabled: info.enabled,
         state: info.state,
@@ -429,7 +429,7 @@ async fn set_bans(
     }
 
     Ok(SetBansResponse {
-        base: ResponseBase::ok(),
+        base: ResponseBase::OK,
     })
 }
 
@@ -464,7 +464,7 @@ async fn get_bans(
         .collect();
 
     Ok(GetBansResponse {
-        base: ResponseBase::ok(),
+        base: ResponseBase::OK,
         bans,
     })
 }
@@ -538,7 +538,7 @@ async fn get_output_histogram(
         .collect();
 
     Ok(GetOutputHistogramResponse {
-        base: AccessResponseBase::ok(),
+        base: AccessResponseBase::OK,
         histogram,
     })
 }
@@ -561,7 +561,7 @@ async fn get_coinbase_tx_sum(
     let (fee_amount, fee_amount_top64) = split_u128_into_low_high_bits(sum.fee_amount);
 
     Ok(GetCoinbaseTxSumResponse {
-        base: AccessResponseBase::ok(),
+        base: AccessResponseBase::OK,
         emission_amount,
         emission_amount_top64,
         fee_amount,
@@ -589,7 +589,7 @@ async fn get_version(
         .collect();
 
     Ok(GetVersionResponse {
-        base: ResponseBase::ok(),
+        base: ResponseBase::OK,
         version: CORE_RPC_VERSION,
         release: RELEASE,
         current_height,
@@ -608,7 +608,7 @@ async fn get_fee_estimate(
             .await?;
 
     Ok(GetFeeEstimateResponse {
-        base: AccessResponseBase::ok(),
+        base: AccessResponseBase::OK,
         fee: estimate.fee,
         fees: estimate.fees,
         quantization_mask: estimate.quantization_mask,
@@ -641,7 +641,7 @@ async fn get_alternate_chains(
         .collect();
 
     Ok(GetAlternateChainsResponse {
-        base: ResponseBase::ok(),
+        base: ResponseBase::OK,
         chains,
     })
 }
@@ -668,7 +668,7 @@ async fn sync_info(
     request: SyncInfoRequest,
 ) -> Result<SyncInfoResponse, Error> {
     Ok(SyncInfoResponse {
-        base: AccessResponseBase::ok(),
+        base: AccessResponseBase::OK,
         height: todo!(),
         next_needed_pruning_seed: todo!(),
         overview: todo!(),
@@ -684,7 +684,7 @@ async fn get_transaction_pool_backlog(
     request: GetTransactionPoolBacklogRequest,
 ) -> Result<GetTransactionPoolBacklogResponse, Error> {
     Ok(GetTransactionPoolBacklogResponse {
-        base: ResponseBase::ok(),
+        base: ResponseBase::OK,
         backlog: todo!(),
     })
 }
@@ -695,7 +695,7 @@ async fn get_miner_data(
     request: GetMinerDataRequest,
 ) -> Result<GetMinerDataResponse, Error> {
     Ok(GetMinerDataResponse {
-        base: ResponseBase::ok(),
+        base: ResponseBase::OK,
         major_version: todo!(),
         height: todo!(),
         prev_id: todo!(),
@@ -713,7 +713,7 @@ async fn prune_blockchain(
     request: PruneBlockchainRequest,
 ) -> Result<PruneBlockchainResponse, Error> {
     Ok(PruneBlockchainResponse {
-        base: ResponseBase::ok(),
+        base: ResponseBase::OK,
         pruned: todo!(),
         pruning_seed: todo!(),
     })
@@ -735,7 +735,7 @@ async fn flush_cache(
     todo!();
 
     Ok(FlushCacheResponse {
-        base: ResponseBase::ok(),
+        base: ResponseBase::OK,
     })
 }
 
@@ -745,7 +745,7 @@ async fn add_aux_pow(
     request: AddAuxPowRequest,
 ) -> Result<AddAuxPowResponse, Error> {
     Ok(AddAuxPowResponse {
-        base: ResponseBase::ok(),
+        base: ResponseBase::OK,
         blocktemplate_blob: todo!(),
         blockhashing_blob: todo!(),
         merkle_root: todo!(),
@@ -760,7 +760,7 @@ async fn get_tx_ids_loose(
     request: GetTxIdsLooseRequest,
 ) -> Result<GetTxIdsLooseResponse, Error> {
     Ok(GetTxIdsLooseResponse {
-        base: ResponseBase::ok(),
+        base: ResponseBase::OK,
         txids: todo!(),
     })
 }
