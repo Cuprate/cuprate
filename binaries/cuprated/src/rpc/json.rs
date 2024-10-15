@@ -14,7 +14,10 @@ use cuprate_constants::{
     build::RELEASE,
     rpc::{RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE},
 };
-use cuprate_helper::{cast::u64_to_usize, map::split_u128_into_low_high_bits};
+use cuprate_helper::{
+    cast::{u64_to_usize, usize_to_u64},
+    map::split_u128_into_low_high_bits,
+};
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
     base::{AccessResponseBase, ResponseBase},
@@ -38,7 +41,7 @@ use cuprate_rpc_types::{
         SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse, SyncInfoRequest,
         SyncInfoResponse,
     },
-    misc::{BlockHeader, GetBan, HistogramEntry, Status},
+    misc::{BlockHeader, GetBan, HardforkEntry, HistogramEntry, Status},
     CORE_RPC_VERSION,
 };
 
@@ -573,13 +576,25 @@ async fn get_version(
     mut state: CupratedRpcHandler,
     request: GetVersionRequest,
 ) -> Result<GetVersionResponse, Error> {
+    let current_height = helper::top_height(&mut state).await?.0;
+    let target_height = blockchain_manager::target_height(&mut state.blockchain_manager).await?;
+
+    let hard_forks = blockchain::hard_forks(&mut state.blockchain_read)
+        .await?
+        .into_iter()
+        .map(|(height, hf)| HardforkEntry {
+            height: usize_to_u64(height),
+            hf_version: hf.as_u8(),
+        })
+        .collect();
+
     Ok(GetVersionResponse {
         base: ResponseBase::ok(),
         version: CORE_RPC_VERSION,
         release: RELEASE,
-        current_height: helper::top_height(&mut state).await?.0,
-        target_height: todo!(),
-        hard_forks: todo!(),
+        current_height,
+        target_height,
+        hard_forks,
     })
 }
 

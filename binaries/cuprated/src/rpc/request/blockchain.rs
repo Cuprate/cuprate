@@ -1,7 +1,7 @@
 //! Functions for [`BlockchainReadRequest`].
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     ops::Range,
 };
 
@@ -13,7 +13,7 @@ use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, CoinbaseTxSum, ExtendedBlockHeader, MinerData, OutputHistogramEntry,
+    Chain, CoinbaseTxSum, ExtendedBlockHeader, HardFork, MinerData, OutputHistogramEntry,
     OutputHistogramInput, OutputOnChain,
 };
 
@@ -342,4 +342,20 @@ pub(crate) async fn coinbase_tx_sum(
     };
 
     Ok(sum)
+}
+
+/// [`BlockchainReadRequest::HardForks`]
+pub(crate) async fn hard_forks(
+    blockchain_read: &mut BlockchainReadHandle,
+) -> Result<BTreeMap<usize, HardFork>, Error> {
+    let BlockchainResponse::HardForks(hfs) = blockchain_read
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::HardForks)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(hfs)
 }
