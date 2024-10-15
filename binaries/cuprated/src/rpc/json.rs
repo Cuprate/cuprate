@@ -818,6 +818,9 @@ async fn get_tx_ids_loose(
     state: CupratedRpcHandler,
     request: GetTxIdsLooseRequest,
 ) -> Result<GetTxIdsLooseResponse, Error> {
+    // TODO: this RPC call is not yet in the v0.18 branch.
+    return Err(anyhow!("not implemented"));
+
     Ok(GetTxIdsLooseResponse {
         base: ResponseBase::OK,
         txids: todo!(),
