@@ -5,6 +5,7 @@ use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
+use cuprate_pruning::PruningSeed;
 
 use crate::rpc::handler::{
     BlockchainManagerHandle, BlockchainManagerRequest, BlockchainManagerResponse,
@@ -30,8 +31,10 @@ pub(crate) async fn pop_blocks(
 }
 
 /// [`BlockchainManagerRequest::Prune`]
-pub(crate) async fn prune(blockchain_manager: &mut BlockchainManagerHandle) -> Result<(), Error> {
-    let BlockchainManagerResponse::Ok = blockchain_manager
+pub(crate) async fn prune(
+    blockchain_manager: &mut BlockchainManagerHandle,
+) -> Result<PruningSeed, Error> {
+    let BlockchainManagerResponse::Prune(seed) = blockchain_manager
         .ready()
         .await?
         .call(BlockchainManagerRequest::Prune)
@@ -40,7 +43,7 @@ pub(crate) async fn prune(blockchain_manager: &mut BlockchainManagerHandle) -> R
         unreachable!();
     };
 
-    Ok(())
+    Ok(seed)
 }
 
 /// [`BlockchainManagerRequest::Pruned`]

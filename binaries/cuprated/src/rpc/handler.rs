@@ -4,6 +4,7 @@ use std::task::{Context, Poll};
 
 use anyhow::Error;
 use cuprate_consensus::BlockChainContextService;
+use cuprate_pruning::PruningSeed;
 use futures::future::BoxFuture;
 use monero_serai::block::Block;
 use tower::Service;
@@ -69,6 +70,9 @@ pub enum BlockchainManagerResponse {
 
     /// Response to [`BlockchainManagerRequest::PopBlocks`]
     PopBlocks { new_height: usize },
+
+    /// Response to [`BlockchainManagerRequest::Prune`]
+    Prune(PruningSeed),
 
     /// Response to [`BlockchainManagerRequest::Pruned`]
     Pruned(bool),

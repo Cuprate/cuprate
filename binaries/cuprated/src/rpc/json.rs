@@ -5,7 +5,6 @@ use std::{
 
 use anyhow::{anyhow, Error};
 use cuprate_p2p_core::{client::handshaker::builder::DummyAddressBook, ClearNet};
-use cuprate_types::HardFork;
 use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 
@@ -44,14 +43,13 @@ use cuprate_rpc_types::{
     misc::{BlockHeader, ChainInfo, GetBan, HardforkEntry, HistogramEntry, Status, TxBacklogEntry},
     CORE_RPC_VERSION,
 };
+use cuprate_types::HardFork;
 
 use crate::rpc::{
     helper,
-    request::{address_book, blockchain, blockchain_context, blockchain_manager},
+    request::{address_book, blockchain, blockchain_context, blockchain_manager, txpool},
     CupratedRpcHandler,
 };
-
-use super::request::txpool;
 
 /// Map a [`JsonRpcRequest`] to the function that will lead to a [`JsonRpcResponse`].
 pub(super) async fn map_request(
@@ -719,13 +717,18 @@ async fn get_miner_data(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3453-L3476>
 async fn prune_blockchain(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: PruneBlockchainRequest,
 ) -> Result<PruneBlockchainResponse, Error> {
+    let pruned = blockchain_manager::pruned(&mut state.blockchain_manager).await?;
+    let pruning_seed = blockchain_manager::prune(&mut state.blockchain_manager)
+        .await?
+        .compress();
+
     Ok(PruneBlockchainResponse {
         base: ResponseBase::OK,
-        pruned: todo!(),
-        pruning_seed: todo!(),
+        pruned,
+        pruning_seed,
     })
 }
 
