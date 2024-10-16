@@ -29,6 +29,7 @@ mod request_handler;
 mod timeout_monitor;
 
 pub use connector::{ConnectRequest, Connector};
+use cuprate_wire::common::PeerSupportFlags;
 pub use handshaker::{DoHandshakeRequest, HandshakeError, HandshakerBuilder};
 
 /// An internal identifier for a given peer, will be their address if known
@@ -62,6 +63,8 @@ pub struct PeerInformation<A> {
     pub direction: ConnectionDirection,
     /// The peer's [`PruningSeed`].
     pub pruning_seed: PruningSeed,
+    /// The peer's [`PeerSupportFlags`].
+    pub support_flags: PeerSupportFlags,
     /// The [`CoreSyncData`] of this peer.
     ///
     /// Data across fields are not necessarily related, so [`CoreSyncData::top_id`] is not always the
