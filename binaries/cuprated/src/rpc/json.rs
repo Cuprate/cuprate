@@ -46,7 +46,7 @@ use cuprate_rpc_types::{
     },
     CORE_RPC_VERSION,
 };
-use cuprate_types::HardFork;
+use cuprate_types::{Chain, HardFork};
 
 use crate::rpc::{
     helper,
@@ -161,10 +161,29 @@ async fn generate_blocks(
     state: CupratedRpcHandler,
     request: GenerateBlocksRequest,
 ) -> Result<GenerateBlocksResponse, Error> {
+    if todo!("active cuprated chain") != todo!("regtest chain") {
+        return Err(anyhow!("Regtest required when generating blocks"));
+    }
+
+    // TODO: is this value only used as a local variable in the handler?
+    // it may not be needed in the request type.
+    let prev_block = helper::hex_to_hash(request.prev_block)?;
+
+    let (blocks, height) = blockchain_manager::generate_blocks(
+        &mut state.blockchain_manager,
+        request.amount_of_blocks,
+        prev_block,
+        request.starting_nonce,
+        request.wallet_address,
+    )
+    .await?;
+
+    let blocks = blocks.into_iter().map(hex::encode).collect();
+
     Ok(GenerateBlocksResponse {
         base: ResponseBase::OK,
-        blocks: todo!(),
-        height: todo!(),
+        blocks,
+        height,
     })
 }
 

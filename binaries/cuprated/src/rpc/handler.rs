@@ -23,7 +23,6 @@ use crate::rpc::{bin, json, other};
 
 /// TODO: use real type when public.
 #[derive(Clone)]
-#[expect(clippy::large_enum_variant)]
 pub enum BlockchainManagerRequest {
     /// Pop blocks off the top of the blockchain.
     ///
@@ -72,8 +71,22 @@ pub enum BlockchainManagerRequest {
 
     /// TODO
     AddAuxPow {
+        /// TODO
         blocktemplate_blob: Vec<u8>,
+        /// TODO
         aux_pow: Vec<AuxPow>,
+    },
+
+    /// TODO
+    GenerateBlocks {
+        /// TODO
+        amount_of_blocks: u64,
+        /// TODO
+        prev_block: [u8; 32],
+        /// TODO
+        starting_nonce: u32,
+        /// TODO
+        wallet_address: String,
     },
 }
 
@@ -113,6 +126,14 @@ pub enum BlockchainManagerResponse {
 
     /// Response to [`BlockchainManagerRequest::AddAuxPow`]
     AddAuxPow(AddAuxPow),
+
+    /// Response to [`BlockchainManagerRequest::GenerateBlocks`]
+    GenerateBlocks {
+        /// TODO
+        blocks: Vec<[u8; 32]>,
+        /// TODO
+        height: usize,
+    },
 }
 
 /// TODO: use real type when public.

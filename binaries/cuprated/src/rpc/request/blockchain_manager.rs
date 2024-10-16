@@ -189,3 +189,28 @@ pub(crate) async fn add_aux_pow(
 
     Ok(response)
 }
+
+/// [`BlockchainManagerRequest::GenerateBlocks`]
+pub(crate) async fn generate_blocks(
+    blockchain_manager: &mut BlockchainManagerHandle,
+    amount_of_blocks: u64,
+    prev_block: [u8; 32],
+    starting_nonce: u32,
+    wallet_address: String,
+) -> Result<(Vec<[u8; 32]>, u64), Error> {
+    let BlockchainManagerResponse::GenerateBlocks { blocks, height } = blockchain_manager
+        .ready()
+        .await?
+        .call(BlockchainManagerRequest::GenerateBlocks {
+            amount_of_blocks,
+            prev_block,
+            starting_nonce,
+            wallet_address,
+        })
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok((blocks, usize_to_u64(height)))
+}
