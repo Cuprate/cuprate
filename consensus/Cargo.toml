@@ -11,6 +11,7 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"
 cuprate-helper = { path = "../helper", default-features = false, features = ["std", "asynch", "num"] }
 cuprate-consensus-rules = { path = "./rules", features = ["rayon"] }
 cuprate-types = { path = "../types" }
+cuprate-consensus-context = { path = "./context" }
 
 cfg-if = { workspace = true }
 thiserror = { workspace = true }
@@ -18,13 +19,10 @@ tower = { workspace = true, features = ["util"] }
 tracing = { workspace = true, features = ["std", "attributes"] }
 futures = { workspace = true, features = ["std", "async-await"] }
 
-randomx-rs = { workspace = true }
 monero-serai = { workspace = true, features = ["std"] }
 
 rayon = { workspace = true }
 thread_local = { workspace = true }
-tokio = { workspace = true, features = ["rt"] }
-tokio-util = { workspace = true }
 
 hex = { workspace = true }
 rand = { workspace = true }

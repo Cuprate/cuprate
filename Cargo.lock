@@ -575,6 +575,7 @@ name = "cuprate-consensus"
 version = "0.1.0"
 dependencies = [
  "cfg-if",
+ "cuprate-consensus-context",
  "cuprate-consensus-rules",
  "cuprate-helper",
  "cuprate-test-utils",
@@ -587,12 +588,30 @@ dependencies = [
  "proptest",
  "proptest-derive",
  "rand",
- "randomx-rs",
  "rayon",
  "thiserror",
  "thread_local",
  "tokio",
  "tokio-test",
+ "tower 0.5.1",
+ "tracing",
+]
+
+[[package]]
+name = "cuprate-consensus-context"
+version = "0.1.0"
+dependencies = [
+ "cuprate-consensus-rules",
+ "cuprate-helper",
+ "cuprate-types",
+ "futures",
+ "hex",
+ "monero-serai",
+ "randomx-rs",
+ "rayon",
+ "thiserror",
+ "thread_local",
+ "tokio",
  "tokio-util",
  "tower 0.5.1",
  "tracing",
@@ -704,6 +723,7 @@ dependencies = [
  "clap",
  "cuprate-blockchain",
  "cuprate-consensus",
+ "cuprate-consensus-context",
  "cuprate-consensus-rules",
  "cuprate-helper",
  "cuprate-types",
@@ -972,6 +992,7 @@ dependencies = [
  "cuprate-async-buffer",
  "cuprate-blockchain",
  "cuprate-consensus",
+ "cuprate-consensus-context",
  "cuprate-consensus-rules",
  "cuprate-cryptonight",
  "cuprate-dandelion-tower",
