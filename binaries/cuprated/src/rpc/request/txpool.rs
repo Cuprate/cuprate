@@ -11,7 +11,7 @@ use cuprate_txpool::{
         interface::{TxpoolReadRequest, TxpoolReadResponse},
         TxpoolReadHandle,
     },
-    TxEntry,
+    BlockTemplateTxEntry, TxEntry,
 };
 
 // FIXME: use `anyhow::Error` over `tower::BoxError` in txpool.
@@ -23,6 +23,24 @@ pub(crate) async fn backlog(txpool_read: &mut TxpoolReadHandle) -> Result<Vec<Tx
         .await
         .map_err(|e| anyhow!(e))?
         .call(TxpoolReadRequest::Backlog)
+        .await
+        .map_err(|e| anyhow!(e))?
+    else {
+        unreachable!();
+    };
+
+    Ok(tx_entries)
+}
+
+/// [`TxpoolReadRequest::BlockTemplateBacklog`]
+pub(crate) async fn block_template_backlog(
+    txpool_read: &mut TxpoolReadHandle,
+) -> Result<Vec<BlockTemplateTxEntry>, Error> {
+    let TxpoolReadResponse::BlockTemplateBacklog(tx_entries) = txpool_read
+        .ready()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .call(TxpoolReadRequest::BlockTemplateBacklog)
         .await
         .map_err(|e| anyhow!(e))?
     else {

@@ -15,9 +15,9 @@ use cuprate_types::{FeeEstimate, HardFork, HardForkInfo};
 
 /// [`BlockChainContextRequest::Context`].
 pub(crate) async fn context(
-    service: &mut BlockChainContextService,
+    blockchain_context: &mut BlockChainContextService,
 ) -> Result<BlockChainContext, Error> {
-    let BlockChainContextResponse::Context(context) = service
+    let BlockChainContextResponse::Context(context) = blockchain_context
         .ready()
         .await
         .map_err(|e| anyhow!(e))?
@@ -33,10 +33,10 @@ pub(crate) async fn context(
 
 /// [`BlockChainContextRequest::HardForkInfo`].
 pub(crate) async fn hard_fork_info(
-    service: &mut BlockChainContextService,
+    blockchain_context: &mut BlockChainContextService,
     hard_fork: HardFork,
 ) -> Result<HardForkInfo, Error> {
-    let BlockChainContextResponse::HardForkInfo(hf_info) = service
+    let BlockChainContextResponse::HardForkInfo(hf_info) = blockchain_context
         .ready()
         .await
         .map_err(|e| anyhow!(e))?
@@ -52,10 +52,10 @@ pub(crate) async fn hard_fork_info(
 
 /// [`BlockChainContextRequest::FeeEstimate`].
 pub(crate) async fn fee_estimate(
-    service: &mut BlockChainContextService,
+    blockchain_context: &mut BlockChainContextService,
     grace_blocks: u64,
 ) -> Result<FeeEstimate, Error> {
-    let BlockChainContextResponse::FeeEstimate(fee) = service
+    let BlockChainContextResponse::FeeEstimate(fee) = blockchain_context
         .ready()
         .await
         .map_err(|e| anyhow!(e))?

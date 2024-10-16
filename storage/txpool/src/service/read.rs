@@ -66,6 +66,7 @@ fn map_request(
         TxpoolReadRequest::TxBlob(tx_hash) => tx_blob(env, &tx_hash),
         TxpoolReadRequest::TxVerificationData(tx_hash) => tx_verification_data(env, &tx_hash),
         TxpoolReadRequest::Backlog => backlog(env),
+        TxpoolReadRequest::BlockTemplateBacklog => block_template_backlog(env),
         TxpoolReadRequest::Size {
             include_sensitive_txs,
         } => size(env, include_sensitive_txs),
@@ -117,6 +118,12 @@ fn tx_verification_data(env: &ConcreteEnv, tx_hash: &TransactionHash) -> ReadRes
 #[inline]
 fn backlog(env: &ConcreteEnv) -> ReadResponseResult {
     Ok(TxpoolReadResponse::Backlog(todo!()))
+}
+
+/// [`TxpoolReadRequest::BlockTemplateBacklog`].
+#[inline]
+fn block_template_backlog(env: &ConcreteEnv) -> ReadResponseResult {
+    Ok(TxpoolReadResponse::BlockTemplateBacklog(todo!()))
 }
 
 /// [`TxpoolReadRequest::Size`].
