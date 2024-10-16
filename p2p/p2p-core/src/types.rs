@@ -52,3 +52,17 @@ pub struct ConnectionInfo<A: NetZoneAddress> {
     pub state: String,
     pub support_flags: u32,
 }
+
+/// Used in RPC's `sync_info`.
+///
+/// Data within [`crate::services::AddressBookResponse::Spans`].
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Span {
+    pub connection_id: String,
+    pub nblocks: u64,
+    pub rate: u32,
+    pub remote_address: String,
+    pub size: u64,
+    pub speed: u32,
+    pub start_block_height: u64,
+}

@@ -88,6 +88,11 @@ pub enum BlockchainManagerRequest {
         /// TODO
         wallet_address: String,
     },
+
+    /// TODO
+    ///
+    /// <https://github.com/monero-project/monero/blob/master/src/cryptonote_protocol/block_queue.cpp#L178>
+    Overview { height: usize },
 }
 
 /// TODO: use real type when public.
@@ -134,6 +139,9 @@ pub enum BlockchainManagerResponse {
         /// TODO
         height: usize,
     },
+
+    /// Response to [`BlockchainManagerRequest::Overview`]
+    Overview(String),
 }
 
 /// TODO: use real type when public.

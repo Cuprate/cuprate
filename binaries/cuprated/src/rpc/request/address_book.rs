@@ -3,7 +3,8 @@
 use std::convert::Infallible;
 
 use anyhow::{anyhow, Error};
-use cuprate_rpc_types::misc::ConnectionInfo;
+use cuprate_pruning::PruningSeed;
+use cuprate_rpc_types::misc::{ConnectionInfo, Span};
 use tower::ServiceExt;
 
 use cuprate_helper::cast::usize_to_u64;
@@ -155,4 +156,54 @@ pub(crate) async fn get_bans<Z: NetworkZone>(
     };
 
     Ok(bans)
+}
+
+/// [`AddressBookRequest::Spans`]
+pub(crate) async fn spans<Z: NetworkZone>(
+    address_book: &mut impl AddressBook<Z>,
+) -> Result<Vec<Span>, Error> {
+    let AddressBookResponse::Spans(vec) = address_book
+        .ready()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .call(AddressBookRequest::Spans)
+        .await
+        .map_err(|e| anyhow!(e))?
+    else {
+        unreachable!();
+    };
+
+    // FIXME: impl this map somewhere instead of inline.
+    let vec = vec
+        .into_iter()
+        .map(|span| Span {
+            connection_id: span.connection_id,
+            nblocks: span.nblocks,
+            rate: span.rate,
+            remote_address: span.remote_address,
+            size: span.size,
+            speed: span.speed,
+            start_block_height: span.start_block_height,
+        })
+        .collect();
+
+    Ok(vec)
+}
+
+/// [`AddressBookRequest::NextNeededPruningSeed`]
+pub(crate) async fn next_needed_pruning_seed<Z: NetworkZone>(
+    address_book: &mut impl AddressBook<Z>,
+) -> Result<PruningSeed, Error> {
+    let AddressBookResponse::NextNeededPruningSeed(seed) = address_book
+        .ready()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .call(AddressBookRequest::NextNeededPruningSeed)
+        .await
+        .map_err(|e| anyhow!(e))?
+    else {
+        unreachable!();
+    };
+
+    Ok(seed)
 }

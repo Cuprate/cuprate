@@ -6,7 +6,7 @@ use cuprate_wire::{CoreSyncData, PeerListEntryBase};
 use crate::{
     client::InternalPeerID,
     handles::ConnectionHandle,
-    types::{BanState, ConnectionInfo, SetBan},
+    types::{BanState, ConnectionInfo, SetBan, Span},
     NetZoneAddress, NetworkAddressIncorrectZone, NetworkZone,
 };
 
@@ -132,6 +132,12 @@ pub enum AddressBookRequest<Z: NetworkZone> {
 
     /// Get the state of all bans.
     GetBans,
+
+    /// TODO
+    Spans,
+
+    /// TODO
+    NextNeededPruningSeed,
 }
 
 /// A response from the address book service.
@@ -169,4 +175,10 @@ pub enum AddressBookResponse<Z: NetworkZone> {
 
     /// Response to [`AddressBookRequest::GetBans`].
     GetBans(Vec<BanState<Z::Addr>>),
+
+    /// Response to [`AddressBookRequest::Spans`].
+    Spans(Vec<Span>),
+
+    /// Response to [`AddressBookRequest::NextNeededPruningSeed`].
+    NextNeededPruningSeed(PruningSeed),
 }

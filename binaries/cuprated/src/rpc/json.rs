@@ -42,7 +42,7 @@ use cuprate_rpc_types::{
     },
     misc::{
         AuxPow, BlockHeader, ChainInfo, GetBan, HardforkEntry, HistogramEntry, Status,
-        TxBacklogEntry,
+        SyncInfoPeer, TxBacklogEntry,
     },
     CORE_RPC_VERSION,
 };
@@ -758,17 +758,39 @@ async fn relay_tx(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3306-L3330>
 async fn sync_info(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: SyncInfoRequest,
 ) -> Result<SyncInfoResponse, Error> {
+    let height = usize_to_u64(
+        blockchain_context::context(&mut state.blockchain_context)
+            .await?
+            .unchecked_blockchain_context()
+            .chain_height,
+    );
+
+    let target_height = blockchain_manager::target_height(&mut state.blockchain_manager).await?;
+
+    let peers = address_book::connection_info::<ClearNet>(&mut DummyAddressBook)
+        .await?
+        .into_iter()
+        .map(|info| SyncInfoPeer { info })
+        .collect();
+
+    let next_needed_pruning_seed =
+        address_book::next_needed_pruning_seed::<ClearNet>(&mut DummyAddressBook)
+            .await?
+            .compress();
+    let overview = blockchain_manager::overview(&mut state.blockchain_manager, height).await?;
+    let spans = address_book::spans::<ClearNet>(&mut DummyAddressBook).await?;
+
     Ok(SyncInfoResponse {
         base: AccessResponseBase::OK,
-        height: todo!(),
-        next_needed_pruning_seed: todo!(),
-        overview: todo!(),
-        peers: todo!(),
-        spans: todo!(),
-        target_height: todo!(),
+        height,
+        next_needed_pruning_seed,
+        overview,
+        peers,
+        spans,
+        target_height,
     })
 }
 
