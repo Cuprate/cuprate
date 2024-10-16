@@ -30,6 +30,14 @@ pub struct DatabaseWriteHandle<Req, Res> {
         crossbeam::channel::Sender<(Req, oneshot::Sender<Result<Res, RuntimeError>>)>,
 }
 
+impl<Req, Res> Clone for DatabaseWriteHandle<Req, Res> {
+    fn clone(&self) -> Self {
+        Self {
+            sender: self.sender.clone(),
+        }
+    }
+}
+
 impl<Req, Res> DatabaseWriteHandle<Req, Res>
 where
     Req: Send + 'static,

@@ -8,6 +8,7 @@ use cuprate_database::{DatabaseRw, RuntimeError, StorableVec};
 use cuprate_types::TransactionVerificationData;
 
 use crate::{
+    free::transaction_blob_hash,
     ops::{
         key_images::{add_tx_key_images, remove_tx_key_images},
         TxPoolWriteError,
@@ -56,6 +57,12 @@ pub fn add_transaction(
     let kis_table = tables.spent_key_images_mut();
     add_tx_key_images(&tx.tx.prefix().inputs, &tx.tx_hash, kis_table)?;
 
+    // Add the blob hash to table 4.
+    let blob_hash = transaction_blob_hash(&tx.tx_blob);
+    tables
+        .known_blob_hashes_mut()
+        .put(&blob_hash, &tx.tx_hash)?;
+
     Ok(())
 }
 
@@ -78,6 +85,10 @@ pub fn remove_transaction(
         .expect("Tx in the tx-pool must be parseable");
     let kis_table = tables.spent_key_images_mut();
     remove_tx_key_images(&tx.prefix().inputs, kis_table)?;
+
+    // Remove the blob hash from table 4.
+    let blob_hash = transaction_blob_hash(&tx_blob);
+    tables.known_blob_hashes_mut().delete(&blob_hash)?;
 
     Ok(())
 }

@@ -1,7 +1,7 @@
 //! Global `static`s used throughout `cuprated`.
 
 use std::{
-    sync::{atomic::AtomicU64, LazyLock},
+    sync::LazyLock,
     time::{SystemTime, UNIX_EPOCH},
 };
 
