@@ -48,10 +48,14 @@ use cuprate_rpc_types::{
 };
 use cuprate_types::{Chain, HardFork};
 
-use crate::rpc::{
-    helper,
-    request::{address_book, blockchain, blockchain_context, blockchain_manager, txpool},
-    CupratedRpcHandler,
+use crate::{
+    constants::VERSION_BUILD,
+    rpc::{
+        helper,
+        request::{address_book, blockchain, blockchain_context, blockchain_manager, txpool},
+        CupratedRpcHandler,
+    },
+    statics::START_INSTANT_UNIX,
 };
 
 /// Map a [`JsonRpcRequest`] to the function that will lead to a [`JsonRpcResponse`].
@@ -353,50 +357,120 @@ async fn get_connections(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L501-L582>
 async fn get_info(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: GetInfoRequest,
 ) -> Result<GetInfoResponse, Error> {
+    let restricted = state.restricted();
+    let context = blockchain_context::context(&mut state.blockchain_context).await?;
+
+    let c = context.unchecked_blockchain_context();
+    let cumulative_difficulty = c.cumulative_difficulty;
+    let adjusted_time = c.current_adjusted_timestamp_for_time_lock(); // TODO: is this correct?
+
+    let c = &c.context_to_verify_block;
+
+    let alt_blocks_count = if restricted {
+        0
+    } else {
+        blockchain::alt_chain_count(&mut state.blockchain_read).await?
+    };
+    let block_weight_limit = usize_to_u64(c.effective_median_weight); // TODO: is this correct?
+    let block_weight_median = usize_to_u64(c.median_weight_for_block_reward); // TODO: is this correct?
+    let block_size_limit = block_weight_limit;
+    let block_size_median = block_weight_median;
+    let (bootstrap_daemon_address, was_bootstrap_ever_used) = if restricted {
+        (String::new(), false)
+    } else {
+        todo!()
+    };
+    let busy_syncing = blockchain_manager::syncing(&mut state.blockchain_manager).await?;
+    let (cumulative_difficulty, cumulative_difficulty_top64) =
+        split_u128_into_low_high_bits(cumulative_difficulty);
+    let (database_size, free_space) = blockchain::database_size(&mut state.blockchain_read).await?;
+    let (database_size, free_space) = if restricted {
+        let database_size = todo!(); // round_up(res.database_size, 5ull* 1024 * 1024 * 1024) */
+        (database_size, u64::MAX)
+    } else {
+        (database_size, free_space)
+    };
+    let (difficulty, difficulty_top64) = split_u128_into_low_high_bits(c.next_difficulty);
+    let height = usize_to_u64(c.chain_height);
+    let height_without_bootstrap = if restricted { 0 } else { height };
+    let (incoming_connections_count, outgoing_connections_count) = if restricted {
+        (0, 0)
+    } else {
+        address_book::connection_count::<ClearNet>(&mut DummyAddressBook).await?
+    };
+    let mainnet = todo!();
+    let nettype = todo!();
+    let offline = todo!();
+    let rpc_connections_count = if restricted { 0 } else { todo!() };
+    let stagenet = todo!();
+    let start_time = if restricted { 0 } else { *START_INSTANT_UNIX };
+    let synchronized = blockchain_manager::synced(&mut state.blockchain_manager).await?;
+    let target_height = blockchain_manager::target_height(&mut state.blockchain_manager).await?;
+    let target = blockchain_manager::target(&mut state.blockchain_manager)
+        .await?
+        .as_secs();
+    let testnet = todo!();
+    let top_block_hash = hex::encode(c.top_hash);
+    let tx_count = blockchain::total_tx_count(&mut state.blockchain_read).await?;
+    let tx_pool_size = txpool::size(&mut state.txpool_read, !restricted).await?;
+    let update_available = if restricted { false } else { todo!() };
+    let version = if restricted {
+        String::new()
+    } else {
+        VERSION_BUILD.to_string()
+    };
+    let (white_peerlist_size, grey_peerlist_size) = if restricted {
+        (0, 0)
+    } else {
+        address_book::peerlist_size::<ClearNet>(&mut DummyAddressBook).await?
+    };
+    let wide_cumulative_difficulty = format!("{cumulative_difficulty:#x}");
+    let wide_difficulty = format!("{:#x}", c.next_difficulty);
+
     Ok(GetInfoResponse {
         base: AccessResponseBase::OK,
-        adjusted_time: todo!(),
-        alt_blocks_count: todo!(),
-        block_size_limit: todo!(),
-        block_size_median: todo!(),
-        block_weight_limit: todo!(),
-        block_weight_median: todo!(),
-        bootstrap_daemon_address: todo!(),
-        busy_syncing: todo!(),
-        cumulative_difficulty_top64: todo!(),
-        cumulative_difficulty: todo!(),
-        database_size: todo!(),
-        difficulty_top64: todo!(),
-        difficulty: todo!(),
-        free_space: todo!(),
-        grey_peerlist_size: todo!(),
-        height: todo!(),
-        height_without_bootstrap: todo!(),
-        incoming_connections_count: todo!(),
-        mainnet: todo!(),
-        nettype: todo!(),
-        offline: todo!(),
-        outgoing_connections_count: todo!(),
-        restricted: todo!(),
-        rpc_connections_count: todo!(),
-        stagenet: todo!(),
-        start_time: todo!(),
-        synchronized: todo!(),
-        target_height: todo!(),
-        target: todo!(),
-        testnet: todo!(),
-        top_block_hash: todo!(),
-        tx_count: todo!(),
-        tx_pool_size: todo!(),
-        update_available: todo!(),
-        version: todo!(),
-        was_bootstrap_ever_used: todo!(),
-        white_peerlist_size: todo!(),
-        wide_cumulative_difficulty: todo!(),
-        wide_difficulty: todo!(),
+        adjusted_time,
+        alt_blocks_count,
+        block_size_limit,
+        block_size_median,
+        block_weight_limit,
+        block_weight_median,
+        bootstrap_daemon_address,
+        busy_syncing,
+        cumulative_difficulty_top64,
+        cumulative_difficulty,
+        database_size,
+        difficulty_top64,
+        difficulty,
+        free_space,
+        grey_peerlist_size,
+        height,
+        height_without_bootstrap,
+        incoming_connections_count,
+        mainnet,
+        nettype,
+        offline,
+        outgoing_connections_count,
+        restricted,
+        rpc_connections_count,
+        stagenet,
+        start_time,
+        synchronized,
+        target_height,
+        target,
+        testnet,
+        top_block_hash,
+        tx_count,
+        tx_pool_size,
+        update_available,
+        version,
+        was_bootstrap_ever_used,
+        white_peerlist_size,
+        wide_cumulative_difficulty,
+        wide_difficulty,
     })
 }
 

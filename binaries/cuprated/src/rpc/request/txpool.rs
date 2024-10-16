@@ -33,12 +33,17 @@ pub(crate) async fn backlog(txpool_read: &mut TxpoolReadHandle) -> Result<Vec<Tx
 }
 
 /// [`TxpoolReadRequest::Size`]
-pub(crate) async fn size(txpool_read: &mut TxpoolReadHandle) -> Result<u64, Error> {
+pub(crate) async fn size(
+    txpool_read: &mut TxpoolReadHandle,
+    include_sensitive_txs: bool,
+) -> Result<u64, Error> {
     let TxpoolReadResponse::Size(size) = txpool_read
         .ready()
         .await
         .map_err(|e| anyhow!(e))?
-        .call(TxpoolReadRequest::Size)
+        .call(TxpoolReadRequest::Size {
+            include_sensitive_txs,
+        })
         .await
         .map_err(|e| anyhow!(e))?
     else {

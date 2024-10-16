@@ -375,3 +375,19 @@ pub(crate) async fn alt_chains(
 
     Ok(vec)
 }
+
+/// [`BlockchainReadRequest::AltChainCount`]
+pub(crate) async fn alt_chain_count(
+    blockchain_read: &mut BlockchainReadHandle,
+) -> Result<u64, Error> {
+    let BlockchainResponse::AltChainCount(count) = blockchain_read
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::AltChainCount)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(usize_to_u64(count))
+}

@@ -20,7 +20,10 @@ pub enum TxpoolReadRequest {
     Backlog,
 
     /// Get the number of transactions in the pool.
-    Size,
+    Size {
+        /// TODO
+        include_sensitive_txs: bool,
+    },
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadResponse

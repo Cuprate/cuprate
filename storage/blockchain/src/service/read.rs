@@ -123,6 +123,7 @@ fn map_request(
         R::CoinbaseTxSum { height, count } => coinbase_tx_sum(env, height, count),
         R::HardForks => hard_forks(env),
         R::AltChains => alt_chains(env),
+        R::AltChainCount => alt_chain_count(env),
     }
 
     /* SOMEDAY: post-request handling, run some code for each request? */
@@ -659,4 +660,9 @@ fn hard_forks(env: &ConcreteEnv) -> ResponseResult {
 /// [`BlockchainReadRequest::AltChains`]
 fn alt_chains(env: &ConcreteEnv) -> ResponseResult {
     Ok(BlockchainResponse::AltChains(todo!()))
+}
+
+/// [`BlockchainReadRequest::AltChainCount`]
+fn alt_chain_count(env: &ConcreteEnv) -> ResponseResult {
+    Ok(BlockchainResponse::AltChainCount(todo!()))
 }

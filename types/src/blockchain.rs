@@ -135,6 +135,9 @@ pub enum BlockchainReadRequest {
 
     /// TODO
     AltChains,
+
+    /// TODO
+    AltChainCount,
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
@@ -291,6 +294,9 @@ pub enum BlockchainResponse {
 
     /// TODO
     AltChains(Vec<ChainInfo>),
+
+    /// Response to [`BlockchainReadRequest::AltChainCount`].
+    AltChainCount(usize),
 
     //------------------------------------------------------ Writes
     /// A generic Ok response to indicate a request was successfully handled.
