@@ -2,7 +2,7 @@
 
 use std::convert::Infallible;
 
-use anyhow::Error;
+use anyhow::{anyhow, Error};
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::cast::usize_to_u64;
@@ -11,18 +11,38 @@ use cuprate_txpool::{
         interface::{TxpoolReadRequest, TxpoolReadResponse},
         TxpoolReadHandle,
     },
-    TxEntry,
+    BlockTemplateTxEntry, TxEntry,
 };
 
+// FIXME: use `anyhow::Error` over `tower::BoxError` in txpool.
+
 /// [`TxpoolReadRequest::Backlog`]
-pub(super) async fn backlog(txpool_read: &mut TxpoolReadHandle) -> Result<Vec<TxEntry>, Error> {
+pub(crate) async fn backlog(txpool_read: &mut TxpoolReadHandle) -> Result<Vec<TxEntry>, Error> {
     let TxpoolReadResponse::Backlog(tx_entries) = txpool_read
         .ready()
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
         .call(TxpoolReadRequest::Backlog)
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
+    else {
+        unreachable!();
+    };
+
+    Ok(tx_entries)
+}
+
+/// [`TxpoolReadRequest::BlockTemplateBacklog`]
+pub(crate) async fn block_template_backlog(
+    txpool_read: &mut TxpoolReadHandle,
+) -> Result<Vec<BlockTemplateTxEntry>, Error> {
+    let TxpoolReadResponse::BlockTemplateBacklog(tx_entries) = txpool_read
+        .ready()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .call(TxpoolReadRequest::BlockTemplateBacklog)
+        .await
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };
@@ -31,14 +51,19 @@ pub(super) async fn backlog(txpool_read: &mut TxpoolReadHandle) -> Result<Vec<Tx
 }
 
 /// [`TxpoolReadRequest::Size`]
-pub(super) async fn size(txpool_read: &mut TxpoolReadHandle) -> Result<u64, Error> {
+pub(crate) async fn size(
+    txpool_read: &mut TxpoolReadHandle,
+    include_sensitive_txs: bool,
+) -> Result<u64, Error> {
     let TxpoolReadResponse::Size(size) = txpool_read
         .ready()
         .await
-        .expect("TODO")
-        .call(TxpoolReadRequest::Size)
+        .map_err(|e| anyhow!(e))?
+        .call(TxpoolReadRequest::Size {
+            include_sensitive_txs,
+        })
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };
@@ -47,9 +72,17 @@ pub(super) async fn size(txpool_read: &mut TxpoolReadHandle) -> Result<u64, Erro
 }
 
 /// TODO
-#[expect(clippy::needless_pass_by_ref_mut, reason = "TODO: remove after impl")]
-pub(super) async fn flush(
-    txpool_read: &mut TxpoolReadHandle,
+pub(crate) async fn flush(
+    txpool_manager: &mut Infallible,
+    tx_hashes: Vec<[u8; 32]>,
+) -> Result<(), Error> {
+    todo!();
+    Ok(())
+}
+
+/// TODO
+pub(crate) async fn relay(
+    txpool_manager: &mut Infallible,
     tx_hashes: Vec<[u8; 32]>,
 ) -> Result<(), Error> {
     todo!();

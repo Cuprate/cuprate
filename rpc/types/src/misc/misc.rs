@@ -110,7 +110,7 @@ define_struct_and_impl_epee! {
     /// Used in [`crate::json::GetConnectionsResponse`].
     ConnectionInfo {
         address: String,
-        address_type: u8,
+        address_type: crate::misc::AddressType,
         avg_download: u64,
         avg_upload: u64,
         connection_id: String,

@@ -4,6 +4,7 @@
 
 mod bin;
 mod handler;
+mod helper;
 mod json;
 mod other;
 mod request;
