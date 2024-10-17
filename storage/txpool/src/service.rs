@@ -21,9 +21,7 @@
 //!
 //! The 2nd allows any caller to send [`WriteRequest`][req_w]s.
 //!
-//! The `DatabaseReadHandle` can be shared as it is cheaply [`Clone`]able, however,
-//! the `DatabaseWriteHandle` cannot be cloned. There is only 1 place in Cuprate that
-//! writes, so it is passed there and used.
+//! Both the handles are cheaply [`Clone`]able.
 //!
 //! ## Initialization
 //! The database & thread-pool system can be initialized with [`init()`].

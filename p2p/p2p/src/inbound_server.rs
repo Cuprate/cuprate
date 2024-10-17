@@ -79,16 +79,16 @@ where
 
         // If peer is banned, drop connection
         if let Some(addr) = &addr {
-            let AddressBookResponse::IsPeerBanned(banned) = address_book
+            let AddressBookResponse::GetBan { unban_instant } = address_book
                 .ready()
                 .await?
-                .call(AddressBookRequest::IsPeerBanned(*addr))
+                .call(AddressBookRequest::GetBan(*addr))
                 .await?
             else {
                 panic!("Address book returned incorrect response!");
             };
 
-            if banned {
+            if unban_instant.is_some() {
                 continue;
             }
         }

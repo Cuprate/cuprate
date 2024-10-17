@@ -3,6 +3,7 @@
 #![allow(
     unused_imports,
     unreachable_pub,
+    unreachable_code,
     unused_crate_dependencies,
     dead_code,
     unused_variables,
@@ -16,6 +17,7 @@ mod config;
 mod constants;
 mod p2p;
 mod rpc;
+mod signals;
 mod statics;
 mod txpool;
 

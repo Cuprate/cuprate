@@ -25,7 +25,7 @@ fn make_fake_peer(
 pub(crate) fn make_fake_peer_list(
     start_idx: u32,
     numb_o_peers: u32,
-) -> PeerList<TestNetZone<true, true, true>> {
+) -> PeerList<TestNetZone<true>> {
     let mut peer_list = Vec::with_capacity(numb_o_peers as usize);
 
     for idx in start_idx..(start_idx + numb_o_peers) {
@@ -35,9 +35,7 @@ pub(crate) fn make_fake_peer_list(
     PeerList::new(peer_list)
 }
 
-fn make_fake_peer_list_with_random_pruning_seeds(
-    numb_o_peers: u32,
-) -> PeerList<TestNetZone<true, true, true>> {
+fn make_fake_peer_list_with_random_pruning_seeds(numb_o_peers: u32) -> PeerList<TestNetZone<true>> {
     let mut r = rand::thread_rng();
 
     let mut peer_list = Vec::with_capacity(numb_o_peers as usize);
