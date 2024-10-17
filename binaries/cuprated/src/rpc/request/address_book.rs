@@ -52,32 +52,45 @@ pub(crate) async fn connection_info<Z: NetworkZone>(
     // FIXME: impl this map somewhere instead of inline.
     let vec = vec
         .into_iter()
-        .map(|info| ConnectionInfo {
-            address: info.address.to_string(),
-            address_type: info.address_type,
-            avg_download: info.avg_download,
-            avg_upload: info.avg_upload,
-            connection_id: info.connection_id,
-            current_download: info.current_download,
-            current_upload: info.current_upload,
-            height: info.height,
-            host: info.host,
-            incoming: info.incoming,
-            ip: info.ip,
-            live_time: info.live_time,
-            localhost: info.localhost,
-            local_ip: info.local_ip,
-            peer_id: info.peer_id,
-            port: info.port,
-            pruning_seed: info.pruning_seed,
-            recv_count: info.recv_count,
-            recv_idle_time: info.recv_idle_time,
-            rpc_credits_per_hash: info.rpc_credits_per_hash,
-            rpc_port: info.rpc_port,
-            send_count: info.send_count,
-            send_idle_time: info.send_idle_time,
-            state: info.state,
-            support_flags: info.support_flags,
+        .map(|info| {
+            use cuprate_p2p_core::types::AddressType as A1;
+            use cuprate_rpc_types::misc::AddressType as A2;
+
+            let address_type = match info.address_type {
+                A1::Invalid => A2::Invalid,
+                A1::Ipv4 => A2::Ipv4,
+                A1::Ipv6 => A2::Ipv6,
+                A1::I2p => A2::I2p,
+                A1::Tor => A2::Tor,
+            };
+
+            ConnectionInfo {
+                address: info.address.to_string(),
+                address_type,
+                avg_download: info.avg_download,
+                avg_upload: info.avg_upload,
+                connection_id: hex::encode(info.connection_id.to_ne_bytes()),
+                current_download: info.current_download,
+                current_upload: info.current_upload,
+                height: info.height,
+                host: info.host,
+                incoming: info.incoming,
+                ip: info.ip,
+                live_time: info.live_time,
+                localhost: info.localhost,
+                local_ip: info.local_ip,
+                peer_id: info.peer_id,
+                port: info.port,
+                pruning_seed: info.pruning_seed.compress(),
+                recv_count: info.recv_count,
+                recv_idle_time: info.recv_idle_time,
+                rpc_credits_per_hash: info.rpc_credits_per_hash,
+                rpc_port: info.rpc_port,
+                send_count: info.send_count,
+                send_idle_time: info.send_idle_time,
+                state: info.state,
+                support_flags: info.support_flags,
+            }
         })
         .collect();
 
@@ -177,10 +190,10 @@ pub(crate) async fn spans<Z: NetworkZone>(
     let vec = vec
         .into_iter()
         .map(|span| Span {
-            connection_id: span.connection_id,
+            connection_id: hex::encode(span.connection_id.to_ne_bytes()),
             nblocks: span.nblocks,
             rate: span.rate,
-            remote_address: span.remote_address,
+            remote_address: span.remote_address.to_string(),
             size: span.size,
             speed: span.speed,
             start_block_height: span.start_block_height,

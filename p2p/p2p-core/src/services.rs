@@ -133,10 +133,13 @@ pub enum AddressBookRequest<Z: NetworkZone> {
     /// Get the state of all bans.
     GetBans,
 
-    /// TODO
+    /// Get [`Span`] data.
+    ///
+    /// This is data that describes an active downloading process,
+    /// if we are fully synced, this will return an empty [`Vec`].
     Spans,
 
-    /// TODO
+    /// Get the next [`PruningSeed`] needed for a pruned sync.
     NextNeededPruningSeed,
 }
 
@@ -177,7 +180,7 @@ pub enum AddressBookResponse<Z: NetworkZone> {
     GetBans(Vec<BanState<Z::Addr>>),
 
     /// Response to [`AddressBookRequest::Spans`].
-    Spans(Vec<Span>),
+    Spans(Vec<Span<Z::Addr>>),
 
     /// Response to [`AddressBookRequest::NextNeededPruningSeed`].
     NextNeededPruningSeed(PruningSeed),
