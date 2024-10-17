@@ -5,15 +5,15 @@ use serde::{Deserialize, Serialize};
 #[derive(Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct P2PConfig {
-    clear_net: ClearNetConfig,
+    pub clear_net: ClearNetConfig,
 }
 
 #[derive(Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct ClearNetConfig {
-    server: ClearNetServerCfg,
+    pub server: ClearNetServerCfg,
     #[serde(flatten)]
-    flattened: SharedNetConfig,
+    pub general: SharedNetConfig,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -25,6 +25,7 @@ pub struct SharedNetConfig {
     pub extra_outbound_connections: usize,
     /// The maximum amount of inbound connections
     pub max_inbound_connections: usize,
+    pub gray_peers_percent: f64,
     /// port to use to accept p2p connections.
     pub p2p_port: u16,
     /// The address book config.
@@ -34,9 +35,10 @@ pub struct SharedNetConfig {
 impl Default for SharedNetConfig {
     fn default() -> Self {
         Self {
-            outbound_connections: 32,
+            outbound_connections: 64,
             extra_outbound_connections: 8,
             max_inbound_connections: 128,
+            gray_peers_percent: 0.7,
             p2p_port: 18080,
             address_book_config: AddressBookConfig::default(),
         }

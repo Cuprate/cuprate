@@ -17,7 +17,7 @@ use cuprate_p2p_core::{
     CoreSyncSvc, NetworkZone, ProtocolRequestHandlerMaker,
 };
 
-mod block_downloader;
+pub mod block_downloader;
 mod broadcast;
 mod client_pool;
 pub mod config;
