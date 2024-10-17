@@ -1010,6 +1010,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
+ "strum",
  "thiserror",
  "thread_local",
  "tokio",

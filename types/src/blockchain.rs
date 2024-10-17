@@ -4,7 +4,7 @@
 //! responses are also tested in Cuprate's blockchain database crate.
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     ops::Range,
 };
 
@@ -12,7 +12,7 @@ use monero_serai::block::Block;
 
 use crate::{
     types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation},
-    AltBlockInformation, ChainId, ChainInfo, CoinbaseTxSum, HardFork, OutputHistogramEntry,
+    AltBlockInformation, ChainId, ChainInfo, CoinbaseTxSum, OutputHistogramEntry,
     OutputHistogramInput,
 };
 
@@ -130,13 +130,10 @@ pub enum BlockchainReadRequest {
     /// TODO: document fields after impl.
     CoinbaseTxSum { height: usize, count: u64 },
 
-    /// TODO
-    HardForks,
-
-    /// TODO
+    /// Get information on all alternative chains.
     AltChains,
 
-    /// TODO
+    /// Get the amount of alternative chains that exist.
     AltChainCount,
 }
 
@@ -286,13 +283,7 @@ pub enum BlockchainResponse {
     /// Response to [`BlockchainReadRequest::CoinbaseTxSum`].
     CoinbaseTxSum(CoinbaseTxSum),
 
-    /// Response to [`BlockchainReadRequest::HardForks`].
-    ///
-    /// - Key = height at which the hardfork activated
-    /// - Value = hardfork version
-    HardForks(BTreeMap<usize, HardFork>),
-
-    /// TODO
+    /// Response to [`BlockchainReadRequest::AltChains`].
     AltChains(Vec<ChainInfo>),
 
     /// Response to [`BlockchainReadRequest::AltChainCount`].

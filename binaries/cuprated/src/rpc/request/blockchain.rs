@@ -344,22 +344,6 @@ pub(crate) async fn coinbase_tx_sum(
     Ok(sum)
 }
 
-/// [`BlockchainReadRequest::HardForks`]
-pub(crate) async fn hard_forks(
-    blockchain_read: &mut BlockchainReadHandle,
-) -> Result<BTreeMap<usize, HardFork>, Error> {
-    let BlockchainResponse::HardForks(hfs) = blockchain_read
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::HardForks)
-        .await?
-    else {
-        unreachable!();
-    };
-
-    Ok(hfs)
-}
-
 /// [`BlockchainReadRequest::AltChains`]
 pub(crate) async fn alt_chains(
     blockchain_read: &mut BlockchainReadHandle,

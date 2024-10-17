@@ -5,7 +5,9 @@ use std::{
 
 use anyhow::{anyhow, Error};
 use cuprate_p2p_core::{client::handshaker::builder::DummyAddressBook, ClearNet};
+use futures::TryFutureExt;
 use monero_serai::block::Block;
+use strum::{EnumCount, VariantArray};
 use tower::{Service, ServiceExt};
 
 use cuprate_consensus::{BlockchainReadRequest, BlockchainResponse};
@@ -673,14 +675,20 @@ async fn get_version(
     let current_height = helper::top_height(&mut state).await?.0;
     let target_height = blockchain_manager::target_height(&mut state.blockchain_manager).await?;
 
-    let hard_forks = blockchain::hard_forks(&mut state.blockchain_read)
-        .await?
-        .into_iter()
-        .map(|(height, hf)| HardforkEntry {
-            height: usize_to_u64(height),
-            hf_version: hf.as_u8(),
-        })
-        .collect();
+    let mut hard_forks = Vec::with_capacity(HardFork::COUNT);
+
+    // FIXME: use an iterator `collect()` version.
+    for hf in HardFork::VARIANTS {
+        if let Ok(hf) = blockchain_context::hard_fork_info(&mut state.blockchain_context, *hf).await
+        {
+            let entry = HardforkEntry {
+                height: hf.earliest_height,
+                hf_version: hf.version,
+            };
+
+            hard_forks.push(entry);
+        }
+    }
 
     Ok(GetVersionResponse {
         base: ResponseBase::OK,

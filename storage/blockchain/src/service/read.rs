@@ -121,7 +121,6 @@ fn map_request(
         R::DatabaseSize => database_size(env),
         R::OutputHistogram(input) => output_histogram(env, input),
         R::CoinbaseTxSum { height, count } => coinbase_tx_sum(env, height, count),
-        R::HardForks => hard_forks(env),
         R::AltChains => alt_chains(env),
         R::AltChainCount => alt_chain_count(env),
     }
@@ -650,11 +649,6 @@ fn output_histogram(env: &ConcreteEnv, input: OutputHistogramInput) -> ResponseR
 /// [`BlockchainReadRequest::CoinbaseTxSum`]
 fn coinbase_tx_sum(env: &ConcreteEnv, height: usize, count: u64) -> ResponseResult {
     Ok(BlockchainResponse::CoinbaseTxSum(todo!()))
-}
-
-/// [`BlockchainReadRequest::HardForks`]
-fn hard_forks(env: &ConcreteEnv) -> ResponseResult {
-    Ok(BlockchainResponse::HardForks(todo!()))
 }
 
 /// [`BlockchainReadRequest::AltChains`]

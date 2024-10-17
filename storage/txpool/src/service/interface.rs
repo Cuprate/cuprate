@@ -22,12 +22,16 @@ pub enum TxpoolReadRequest {
     /// Get information on all transactions in the pool.
     Backlog,
 
-    /// TODO
+    /// Get information on all transactions in
+    /// the pool for block template purposes.
+    ///
+    /// This is only slightly different to [`TxpoolReadRequest::Backlog`].
     BlockTemplateBacklog,
 
     /// Get the number of transactions in the pool.
     Size {
-        /// TODO
+        /// If this is [`true`], the size returned will
+        /// include private transactions in the pool.
         include_sensitive_txs: bool,
     },
 }
@@ -47,13 +51,13 @@ pub enum TxpoolReadResponse {
 
     /// Response to [`TxpoolReadRequest::Backlog`].
     ///
-    /// The inner `Vec` contains information on all
+    /// The inner [`Vec`] contains information on all
     /// the transactions currently in the pool.
     Backlog(Vec<TxEntry>),
 
     /// Response to [`TxpoolReadRequest::BlockTemplateBacklog`].
     ///
-    /// TODO
+    /// The inner [`Vec`] contains information on transactions
     BlockTemplateBacklog(Vec<BlockTemplateTxEntry>),
 
     /// Response to [`TxpoolReadRequest::Size`].
