@@ -28,6 +28,8 @@
 //! - <https://docs.rs/dirs>
 
 //---------------------------------------------------------------------------------------------------- Use
+use crate::network::Network;
+use std::path::Path;
 use std::{path::PathBuf, sync::LazyLock};
 
 //---------------------------------------------------------------------------------------------------- Const
@@ -176,6 +178,10 @@ impl_path_lazylock! {
     CUPRATE_TXPOOL_DIR,
     data_dir,
     "txpool",
+}
+
+pub fn path_with_network(path: &Path, network: Network) -> PathBuf {
+    path.join(network.to_string())
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

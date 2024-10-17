@@ -25,6 +25,8 @@ fn main() {
     // Initialize global static `LazyLock` data.
     statics::init_lazylock_statics();
 
+    let _config = config::read_config_and_args();
+
     // TODO: everything else.
     todo!()
 }

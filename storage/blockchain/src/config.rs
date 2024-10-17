@@ -41,16 +41,17 @@
 //! ```
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{borrow::Cow, path::Path};
+use std::{borrow::Cow, path::PathBuf};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use cuprate_database::{config::SyncMode, resize::ResizeAlgorithm};
-use cuprate_helper::fs::CUPRATE_BLOCKCHAIN_DIR;
+use cuprate_helper::fs::{path_with_network, CUPRATE_BLOCKCHAIN_DIR};
 
 // re-exports
 pub use cuprate_database_service::ReaderThreads;
+use cuprate_helper::network::Network;
 
 //---------------------------------------------------------------------------------------------------- ConfigBuilder
 /// Builder for [`Config`].
@@ -59,8 +60,10 @@ pub use cuprate_database_service::ReaderThreads;
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ConfigBuilder {
+    network: Network,
+
     /// [`Config::db_directory`].
-    db_directory: Option<Cow<'static, Path>>,
+    db_directory: Option<PathBuf>,
 
     /// [`Config::cuprate_database_config`].
     db_config: cuprate_database::config::ConfigBuilder,
@@ -76,10 +79,12 @@ impl ConfigBuilder {
     /// after this function to use default values.
     pub fn new() -> Self {
         Self {
+            network: Network::default(),
             db_directory: None,
-            db_config: cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(
-                &*CUPRATE_BLOCKCHAIN_DIR,
-            )),
+            db_config: cuprate_database::config::ConfigBuilder::new(Cow::Owned(path_with_network(
+                &CUPRATE_BLOCKCHAIN_DIR,
+                Network::default(),
+            ))),
             reader_threads: None,
         }
     }
@@ -96,12 +101,12 @@ impl ConfigBuilder {
         // in `helper::fs`. No need to do them here.
         let db_directory = self
             .db_directory
-            .unwrap_or_else(|| Cow::Borrowed(&*CUPRATE_BLOCKCHAIN_DIR));
+            .unwrap_or_else(|| CUPRATE_BLOCKCHAIN_DIR.to_path_buf());
 
         let reader_threads = self.reader_threads.unwrap_or_default();
         let db_config = self
             .db_config
-            .db_directory(db_directory)
+            .db_directory(Cow::Owned(path_with_network(&db_directory, self.network)))
             .reader_threads(reader_threads.as_threads())
             .build();
 
@@ -111,9 +116,16 @@ impl ConfigBuilder {
         }
     }
 
+    /// Change the network this blockchain database is for.
+    #[must_use]
+    pub const fn network(mut self, network: Network) -> Self {
+        self.network = network;
+        self
+    }
+
     /// Set a custom database directory (and file) [`Path`].
     #[must_use]
-    pub fn db_directory(mut self, db_directory: Cow<'static, Path>) -> Self {
+    pub fn db_directory(mut self, db_directory: PathBuf) -> Self {
         self.db_directory = Some(db_directory);
         self
     }
@@ -170,10 +182,13 @@ impl ConfigBuilder {
 
 impl Default for ConfigBuilder {
     fn default() -> Self {
-        let db_directory = Cow::Borrowed(&**CUPRATE_BLOCKCHAIN_DIR);
         Self {
-            db_directory: Some(db_directory.clone()),
-            db_config: cuprate_database::config::ConfigBuilder::new(db_directory),
+            network: Network::default(),
+            db_directory: Some(CUPRATE_BLOCKCHAIN_DIR.to_path_buf()),
+            db_config: cuprate_database::config::ConfigBuilder::new(Cow::Owned(path_with_network(
+                &CUPRATE_BLOCKCHAIN_DIR,
+                Network::default(),
+            ))),
             reader_threads: Some(ReaderThreads::default()),
         }
     }

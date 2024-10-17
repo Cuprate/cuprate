@@ -1,15 +1,18 @@
 //! The transaction pool [`Config`].
-use std::{borrow::Cow, path::Path};
+use std::{borrow::Cow, path::PathBuf};
+
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 use cuprate_database::{
     config::{Config as DbConfig, SyncMode},
     resize::ResizeAlgorithm,
 };
 use cuprate_database_service::ReaderThreads;
-use cuprate_helper::fs::CUPRATE_TXPOOL_DIR;
-
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use cuprate_helper::{
+    fs::{path_with_network, CUPRATE_TXPOOL_DIR},
+    network::Network,
+};
 
 /// The default transaction pool weight limit.
 const DEFAULT_TXPOOL_WEIGHT_LIMIT: usize = 600 * 1024 * 1024;
@@ -21,8 +24,10 @@ const DEFAULT_TXPOOL_WEIGHT_LIMIT: usize = 600 * 1024 * 1024;
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ConfigBuilder {
+    network: Network,
+
     /// [`Config::db_directory`].
-    db_directory: Option<Cow<'static, Path>>,
+    db_directory: Option<PathBuf>,
 
     /// [`Config::cuprate_database_config`].
     db_config: cuprate_database::config::ConfigBuilder,
@@ -41,10 +46,12 @@ impl ConfigBuilder {
     /// after this function to use default values.
     pub fn new() -> Self {
         Self {
+            network: Network::default(),
             db_directory: None,
-            db_config: cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(
-                &*CUPRATE_TXPOOL_DIR,
-            )),
+            db_config: cuprate_database::config::ConfigBuilder::new(Cow::Owned(path_with_network(
+                &CUPRATE_TXPOOL_DIR,
+                Network::default(),
+            ))),
             reader_threads: None,
             max_txpool_weight: None,
         }
@@ -62,7 +69,7 @@ impl ConfigBuilder {
         // in `helper::fs`. No need to do them here.
         let db_directory = self
             .db_directory
-            .unwrap_or_else(|| Cow::Borrowed(&*CUPRATE_TXPOOL_DIR));
+            .unwrap_or_else(|| CUPRATE_TXPOOL_DIR.to_path_buf());
 
         let reader_threads = self.reader_threads.unwrap_or_default();
 
@@ -72,7 +79,7 @@ impl ConfigBuilder {
 
         let db_config = self
             .db_config
-            .db_directory(db_directory)
+            .db_directory(Cow::Owned(path_with_network(&db_directory, self.network)))
             .reader_threads(reader_threads.as_threads())
             .build();
 
@@ -81,6 +88,13 @@ impl ConfigBuilder {
             reader_threads,
             max_txpool_weight,
         }
+    }
+
+    /// Change the network this blockchain database is for.
+    #[must_use]
+    pub const fn network(mut self, network: Network) -> Self {
+        self.network = network;
+        self
     }
 
     /// Sets a new maximum weight for the transaction pool.
@@ -92,7 +106,7 @@ impl ConfigBuilder {
 
     /// Set a custom database directory (and file) [`Path`].
     #[must_use]
-    pub fn db_directory(mut self, db_directory: Cow<'static, Path>) -> Self {
+    pub fn db_directory(mut self, db_directory: PathBuf) -> Self {
         self.db_directory = Some(db_directory);
         self
     }
@@ -149,10 +163,13 @@ impl ConfigBuilder {
 
 impl Default for ConfigBuilder {
     fn default() -> Self {
-        let db_directory = Cow::Borrowed(CUPRATE_TXPOOL_DIR.as_path());
         Self {
-            db_directory: Some(db_directory.clone()),
-            db_config: cuprate_database::config::ConfigBuilder::new(db_directory),
+            network: Network::default(),
+            db_directory: Some(CUPRATE_TXPOOL_DIR.to_path_buf()),
+            db_config: cuprate_database::config::ConfigBuilder::new(Cow::Owned(path_with_network(
+                &CUPRATE_TXPOOL_DIR,
+                Network::default(),
+            ))),
             reader_threads: Some(ReaderThreads::default()),
             max_txpool_weight: Some(DEFAULT_TXPOOL_WEIGHT_LIMIT),
         }

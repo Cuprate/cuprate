@@ -1,5 +1,5 @@
 use std::{
-    net::{IpAddr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, SocketAddr},
     pin::Pin,
     task::{Context, Poll},
 };

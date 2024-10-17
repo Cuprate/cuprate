@@ -13,20 +13,20 @@ cuprate-consensus        = { path = "../../consensus" }
 cuprate-fast-sync        = { path = "../../consensus/fast-sync" }
 cuprate-consensus-rules  = { path = "../../consensus/rules" }
 cuprate-cryptonight      = { path = "../../cryptonight" }
-cuprate-helper           = { path = "../../helper" }
+cuprate-helper           = { path = "../../helper", features = ["serde"] }
 cuprate-epee-encoding    = { path = "../../net/epee-encoding" }
 cuprate-fixed-bytes      = { path = "../../net/fixed-bytes" }
 cuprate-levin            = { path = "../../net/levin" }
 cuprate-wire             = { path = "../../net/wire" }
-cuprate-p2p              = { path = "../../p2p/p2p" }
+cuprate-p2p              = { path = "../../p2p/p2p", features = ["serde"] }
 cuprate-p2p-core         = { path = "../../p2p/p2p-core", features = ["serde"] }
 cuprate-dandelion-tower  = { path = "../../p2p/dandelion-tower" }
 cuprate-async-buffer     = { path = "../../p2p/async-buffer" }
 cuprate-address-book     = { path = "../../p2p/address-book", features = ["serde_config"] }
 cuprate-blockchain       = { path = "../../storage/blockchain", features = ["service"] }
-cuprate-database-service = { path = "../../storage/service" }
+cuprate-database-service = { path = "../../storage/service", features = ["serde"] }
 cuprate-txpool           = { path = "../../storage/txpool" }
-cuprate-database         = { path = "../../storage/database" }
+cuprate-database         = { path = "../../storage/database", features = ["serde"] }
 cuprate-pruning          = { path = "../../pruning" }
 cuprate-test-utils       = { path = "../../test-utils" }
 cuprate-types            = { path = "../../types" }
@@ -71,7 +71,8 @@ tokio-stream          = { workspace = true }
 tokio                 = { workspace = true }
 tower                 = { workspace = true }
 tracing-subscriber    = { workspace = true, features = ["std", "fmt", "default"] }
-tracing               = { workspace = true }
+tracing               = { workspace = true, features = ["default"] }
+toml = "0.8"
 
 [lints]
 workspace = true
