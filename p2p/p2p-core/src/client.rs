@@ -15,7 +15,7 @@ use tracing::Instrument;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_pruning::PruningSeed;
-use cuprate_wire::CoreSyncData;
+use cuprate_wire::{BasicNodeData, CoreSyncData};
 
 use crate::{
     handles::{ConnectionGuard, ConnectionHandle},
@@ -29,7 +29,6 @@ mod request_handler;
 mod timeout_monitor;
 
 pub use connector::{ConnectRequest, Connector};
-use cuprate_wire::common::PeerSupportFlags;
 pub use handshaker::{DoHandshakeRequest, HandshakeError, HandshakerBuilder};
 
 /// An internal identifier for a given peer, will be their address if known
@@ -63,8 +62,8 @@ pub struct PeerInformation<A> {
     pub direction: ConnectionDirection,
     /// The peer's [`PruningSeed`].
     pub pruning_seed: PruningSeed,
-    /// The peer's [`PeerSupportFlags`].
-    pub support_flags: PeerSupportFlags,
+    /// The peer's [`BasicNodeData`].
+    pub basic_node_data: BasicNodeData,
     /// The [`CoreSyncData`] of this peer.
     ///
     /// Data across fields are not necessarily related, so [`CoreSyncData::top_id`] is not always the

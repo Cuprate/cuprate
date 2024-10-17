@@ -455,7 +455,7 @@ where
         handle,
         direction,
         pruning_seed,
-        support_flags: peer_node_data.support_flags,
+        basic_node_data: peer_node_data,
         core_sync_data: Arc::new(Mutex::new(peer_core_sync)),
     };
 
