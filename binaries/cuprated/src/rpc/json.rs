@@ -910,7 +910,9 @@ async fn add_aux_pow(
     mut state: CupratedRpcHandler,
     request: AddAuxPowRequest,
 ) -> Result<AddAuxPowResponse, Error> {
-    let blocktemplate_blob = hex::decode(request.blocktemplate_blob)?;
+    let hex = hex::decode(request.blocktemplate_blob)?;
+    let block_template = Block::read(&mut hex.as_slice())?;
+
     let aux_pow = request
         .aux_pow
         .into_iter()
@@ -922,7 +924,7 @@ async fn add_aux_pow(
         .collect::<Result<Vec<_>, Error>>()?;
 
     let resp =
-        blockchain_manager::add_aux_pow(&mut state.blockchain_manager, blocktemplate_blob, aux_pow)
+        blockchain_manager::add_aux_pow(&mut state.blockchain_manager, block_template, aux_pow)
             .await?;
 
     let blocktemplate_blob = hex::encode(resp.blocktemplate_blob);

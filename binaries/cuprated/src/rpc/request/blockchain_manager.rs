@@ -172,14 +172,14 @@ pub(crate) async fn calculate_pow(
 /// [`BlockchainManagerRequest::AddAuxPow`]
 pub(crate) async fn add_aux_pow(
     blockchain_manager: &mut BlockchainManagerHandle,
-    blocktemplate_blob: Vec<u8>,
+    block_template: Block,
     aux_pow: Vec<AuxPow>,
 ) -> Result<AddAuxPow, Error> {
     let BlockchainManagerResponse::AddAuxPow(response) = blockchain_manager
         .ready()
         .await?
         .call(BlockchainManagerRequest::AddAuxPow {
-            blocktemplate_blob,
+            block_template,
             aux_pow,
         })
         .await?

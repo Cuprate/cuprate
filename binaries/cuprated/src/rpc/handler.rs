@@ -69,30 +69,48 @@ pub enum BlockchainManagerRequest {
         seed_hash: [u8; 32],
     },
 
-    /// TODO
+    /// Add auxirilly proof-of-work to a block.
+    ///
+    /// From the RPC `add_aux_pow` usecase's documentation:
+    /// ````
+    /// This enables merge mining with Monero without requiring
+    /// software that manually alters the extra field in the coinbase
+    /// tx to include the merkle root of the aux blocks.
+    /// ````
     AddAuxPow {
-        /// TODO
-        blocktemplate_blob: Vec<u8>,
-        /// TODO
+        /// The block template to add to.
+        block_template: Block,
+        /// The auxirilly proof-of-work to add.
         aux_pow: Vec<AuxPow>,
     },
 
-    /// TODO
+    /// Generate new blocks.
+    ///
+    /// This request is only for regtest, see RPC's `generateblocks`.
     GenerateBlocks {
-        /// TODO
+        /// Number of the blocks to be generated.
         amount_of_blocks: u64,
-        /// TODO
+        /// The previous block's hash.
         prev_block: [u8; 32],
-        /// TODO
+        /// The starting value for the nonce.
         starting_nonce: u32,
-        /// TODO
+        /// The address that will receive the coinbase reward.
         wallet_address: String,
     },
 
-    /// TODO
+    /// Get a visual [`String`] overview of blockchain progress.
     ///
-    /// <https://github.com/monero-project/monero/blob/master/src/cryptonote_protocol/block_queue.cpp#L178>
-    Overview { height: usize },
+    /// This is a highly implementation specific format used by
+    /// `monerod` in the `sync_info` RPC call's `overview` field;
+    /// it is essentially an ASCII visual of blocks.
+    ///
+    /// See also:
+    /// - <https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#sync_info>
+    /// - <https://github.com/monero-project/monero/blob/master/src/cryptonote_protocol/block_queue.cpp#L178>
+    Overview {
+        /// TODO: the current blockchain height? do we need to pass this?
+        height: usize,
+    },
 }
 
 /// TODO: use real type when public.
@@ -134,9 +152,9 @@ pub enum BlockchainManagerResponse {
 
     /// Response to [`BlockchainManagerRequest::GenerateBlocks`]
     GenerateBlocks {
-        /// TODO
+        /// Hashes of the blocks generated.
         blocks: Vec<[u8; 32]>,
-        /// TODO
+        /// The new top height. (TODO: is this correct?)
         height: usize,
     },
 
