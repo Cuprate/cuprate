@@ -12,6 +12,7 @@
 )]
 
 //---------------------------------------------------------------------------------------------------- Mod
+mod address_type;
 mod binary_string;
 mod distribution;
 mod key_image_spent_status;
@@ -21,6 +22,7 @@ mod pool_info_extent;
 mod status;
 mod tx_entry;
 
+pub use address_type::AddressType;
 pub use binary_string::BinaryString;
 pub use distribution::{Distribution, DistributionCompressedBinary, DistributionUncompressed};
 pub use key_image_spent_status::KeyImageSpentStatus;

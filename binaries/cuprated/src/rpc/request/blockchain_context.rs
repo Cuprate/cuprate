@@ -2,7 +2,7 @@
 
 use std::convert::Infallible;
 
-use anyhow::Error;
+use anyhow::{anyhow, Error};
 use tower::{Service, ServiceExt};
 
 use cuprate_consensus_context::{
@@ -11,18 +11,19 @@ use cuprate_consensus_context::{
 };
 use cuprate_types::{FeeEstimate, HardFork, HardForkInfo};
 
+// FIXME: use `anyhow::Error` over `tower::BoxError` in blockchain context.
+
 /// [`BlockChainContextRequest::Context`].
-pub(super) async fn context(
-    service: &mut BlockChainContextService,
-    height: u64,
+pub(crate) async fn context(
+    blockchain_context: &mut BlockChainContextService,
 ) -> Result<BlockChainContext, Error> {
-    let BlockChainContextResponse::Context(context) = service
+    let BlockChainContextResponse::Context(context) = blockchain_context
         .ready()
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
         .call(BlockChainContextRequest::Context)
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };
@@ -31,17 +32,17 @@ pub(super) async fn context(
 }
 
 /// [`BlockChainContextRequest::HardForkInfo`].
-pub(super) async fn hard_fork_info(
-    service: &mut BlockChainContextService,
+pub(crate) async fn hard_fork_info(
+    blockchain_context: &mut BlockChainContextService,
     hard_fork: HardFork,
 ) -> Result<HardForkInfo, Error> {
-    let BlockChainContextResponse::HardForkInfo(hf_info) = service
+    let BlockChainContextResponse::HardForkInfo(hf_info) = blockchain_context
         .ready()
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
         .call(BlockChainContextRequest::HardForkInfo(hard_fork))
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };
@@ -50,17 +51,17 @@ pub(super) async fn hard_fork_info(
 }
 
 /// [`BlockChainContextRequest::FeeEstimate`].
-pub(super) async fn fee_estimate(
-    service: &mut BlockChainContextService,
+pub(crate) async fn fee_estimate(
+    blockchain_context: &mut BlockChainContextService,
     grace_blocks: u64,
 ) -> Result<FeeEstimate, Error> {
-    let BlockChainContextResponse::FeeEstimate(fee) = service
+    let BlockChainContextResponse::FeeEstimate(fee) = blockchain_context
         .ready()
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
         .call(BlockChainContextRequest::FeeEstimate { grace_blocks })
         .await
-        .expect("TODO")
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };
