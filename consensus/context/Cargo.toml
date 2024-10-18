@@ -7,8 +7,8 @@ authors = ["SyntheticBird","Boog900"]
 
 [dependencies]
 cuprate-consensus-rules =  { path = "../rules", features = ["proptest"]}
-cuprate-helper = { path = "../../helper", default-features = false, features = ["std", "cast"] }
-cuprate-types = { path = "../../types", default-features = false }
+cuprate-helper = { path = "../../helper", default-features = false, features = ["std", "cast", "num", "asynch"] }
+cuprate-types = { path = "../../types", default-features = false, features = ["blockchain"] }
 
 futures = { workspace = true, features = ["std", "async-await"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"]}
@@ -22,3 +22,6 @@ randomx-rs = { workspace = true }
 rayon = { workspace = true }
 thread_local = { workspace = true }
 hex = { workspace = true }
+
+[lints]
+workspace = true
