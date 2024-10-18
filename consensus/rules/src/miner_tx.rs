@@ -68,7 +68,7 @@ pub fn calculate_block_reward(
         .unwrap();
     let effective_median_bw: u128 = median_bw.try_into().unwrap();
 
-    (((base_reward as u128 * multiplicand) / effective_median_bw) / effective_median_bw)
+    (((u128::from(base_reward) * multiplicand) / effective_median_bw) / effective_median_bw)
         .try_into()
         .unwrap()
 }
