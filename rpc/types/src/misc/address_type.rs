@@ -20,7 +20,7 @@ use cuprate_epee_encoding::{
 )]
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(untagged))]
+#[cfg_attr(feature = "serde", serde(untagged, try_from = "u8", into = "u8"))]
 #[repr(u8)]
 pub enum AddressType {
     #[default]
@@ -77,6 +77,16 @@ impl AddressType {
 impl From<AddressType> for u8 {
     fn from(value: AddressType) -> Self {
         value.to_u8()
+    }
+}
+
+impl TryFrom<u8> for AddressType {
+    type Error = u8;
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match Self::from_u8(value) {
+            Some(s) => Ok(s),
+            None => Err(value),
+        }
     }
 }
 

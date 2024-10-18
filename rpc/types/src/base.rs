@@ -164,7 +164,7 @@ impl AccessResponseBase {
     /// use cuprate_rpc_types::{misc::*, base::*};
     ///
     /// assert_eq!(AccessResponseBase::OK_UNTRUSTED, AccessResponseBase {
-    ///     response_base: ResponseBase::ok_untrusted(),
+    ///     response_base: ResponseBase::OK_UNTRUSTED,
     ///     credits: 0,
     ///     top_hash: "".into(),
     /// });

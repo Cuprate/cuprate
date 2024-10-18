@@ -658,7 +658,7 @@ define_request_and_response! {
             connections: vec![
                 ConnectionInfo {
                     address: "3evk3kezfjg44ma6tvesy7rbxwwpgpympj45xar5fo4qajrsmkoaqdqd.onion:18083".into(),
-                    address_type: 4,
+                    address_type: cuprate_rpc_types::misc::AddressType::Tor,
                     avg_download: 0,
                     avg_upload: 0,
                     connection_id: "22ef856d0f1d44cc95e84fecfd065fe2".into(),
@@ -685,7 +685,7 @@ define_request_and_response! {
                 },
                 ConnectionInfo {
                     address: "4iykytmumafy5kjahdqc7uzgcs34s2vwsadfjpk4znvsa5vmcxeup2qd.onion:18083".into(),
-                    address_type: 4,
+                    address_type: cuprate_rpc_types::misc::AddressType::Tor,
                     avg_download: 0,
                     avg_upload: 0,
                     connection_id: "c7734e15936f485a86d2b0534f87e499".into(),
@@ -1251,7 +1251,7 @@ define_request_and_response! {
                 SyncInfoPeer {
                     info: ConnectionInfo {
                         address: "142.93.128.65:44986".into(),
-                        address_type: 1,
+                        address_type: AddressType::Ipv4,
                         avg_download: 1,
                         avg_upload: 1,
                         connection_id: "a5803c4c2dac49e7b201dccdef54c862".into(),
@@ -1280,7 +1280,7 @@ define_request_and_response! {
                 SyncInfoPeer {
                     info: ConnectionInfo {
                         address: "4iykytmumafy5kjahdqc7uzgcs34s2vwsadfjpk4znvsa5vmcxeup2qd.onion:18083".into(),
-                        address_type: 4,
+                        address_type: AddressType::Tor,
                         avg_download: 0,
                         avg_upload: 0,
                         connection_id: "277f7c821bc546878c8bd29977e780f5".into(),
