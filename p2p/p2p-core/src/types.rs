@@ -42,7 +42,7 @@ impl AddressType {
     /// Convert [`Self`] to a [`u8`].
     ///
     /// ```rust
-    /// use cuprate_p2p_core::AddressType as A;
+    /// use cuprate_p2p_core::types::AddressType as A;
     ///
     /// assert_eq!(A::Invalid.to_u8(), 0);
     /// assert_eq!(A::Ipv4.to_u8(), 1);
@@ -60,7 +60,7 @@ impl AddressType {
     /// This returns [`None`] if `u > 4`.
     ///
     /// ```rust
-    /// use cuprate_p2p_core::AddressType as A;
+    /// use cuprate_p2p_core::types::AddressType as A;
     ///
     /// assert_eq!(A::from_u8(0), Some(A::Invalid));
     /// assert_eq!(A::from_u8(1), Some(A::Ipv4));
