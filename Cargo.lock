@@ -749,6 +749,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-criterion-helper"
+version = "0.0.0"
+dependencies = [
+ "criterion",
+ "cuprate-constants",
+ "cuprate-helper",
+ "cuprate-test-utils",
+ "function_name",
+ "monero-serai",
+ "serde_json",
+]
+
+[[package]]
 name = "cuprate-criterion-json-rpc"
 version = "0.0.0"
 dependencies = [
