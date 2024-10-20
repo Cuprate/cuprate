@@ -1,7 +1,20 @@
+//! Objects for JSON serialization and deserialization in message bodies of
+//! the ZMQ pub/sub interface. Handles JSON for the following subscriptions:
+//! * `json-full-txpool_add`
+//! * `json-minimal-txpool_add`
+//! * `json-full-chain_main`
+//! * `json-minimal-chain_main`
+//! * `json-full-miner_data`
 use serde::{Deserialize, Serialize};
 
-use crate::bytes::Bytes;
+use crate::{bytes_hex::Bytes, u128_hex::U128};
 
+/// ZMQ `json-full-txpool_add` packets contain an array of `TxPoolAdd`.
+///
+/// Each `TxPoolAdd` object represents a new transaction in the mempool that was
+/// not previously seen in a block. Miner coinbase transactions *are not*
+/// included. `do-not-relay` transactions *are* included. Values are not
+/// republished during a re-org.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TxPoolAdd {
     pub version: u8,
@@ -9,10 +22,13 @@ pub struct TxPoolAdd {
     pub inputs: Vec<PoolInput>,
     pub outputs: Vec<Output>,
     pub extra: Bytes<44>,
-    signatures: Vec<NotUsed>,
+    signatures: Vec<Obsolete>,
     pub ringct: PoolRingCt,
 }
 
+/// ZMQ `json-minimal-txpool_add` subscriber messages contain an array of
+/// `TxPoolAddMin` JSON objects. See `TxPoolAdd` for information on which
+/// transactions are published to subscribers.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TxPoolAddMin {
     pub id: Bytes<32>,
@@ -23,13 +39,39 @@ pub struct TxPoolAddMin {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FullChainMain {
+    /// The major version of the monero protocol at the next? block height.
     pub major_version: u8,
+    /// The minor version of the monero protocol at the next? block height.
     pub minor_version: u8,
+    /// Unix epoch time, decided by the miner, at which the block was mined.
     pub timestamp: u64,
+    /// Hash of the most recent block on which to mine the next block
     pub prev_id: Bytes<32>,
+    /// a cryptographic random one-time number used in mining a Monero block
     pub nonce: u32,
+    /// Miner transaction information
     pub miner_tx: MinerTx,
+    /// List of hashes of non-coinbase transactions in the block. If there are no
+    /// other transactions, this will be an empty list.
     pub tx_hashes: Vec<Bytes<32>>,
+}
+
+/// ZMQ `json-full-miner_data` subscriber messages contain a single
+/// `FullMinerData` object that provides the necessary data to create a
+/// custom block template. There is no min version of this object.
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct FullMinerData {
+    pub major_version: u8,
+    pub height: u64,
+    pub prev_id: Bytes<32>,
+    pub seed_hash: Bytes<32>,
+    pub difficulty: U128,
+    pub median_weight: u64,
+    /// Fixed at `u64::MAX` in perpetuity as Monero has already reached tail emission.
+    /// Note that not all JSON parsers can handle this large value correctly.
+    pub already_generated_coins: u64,
+    /// List of mineable mempool transactions
+    pub tx_backlog: Vec<TxBacklog>,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -88,8 +130,8 @@ pub struct Encrypted {
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Prunable {
-    range_proofs: Vec<NotUsed>,
-    bulletproofs: Vec<NotUsed>,
+    range_proofs: Vec<Obsolete>,
+    bulletproofs: Vec<Obsolete>,
     pub bulletproofs_plus: Vec<BulletproofPlus>,
     pub mlsags: Vec<Bytes<32>>,
     pub clsags: Vec<Clsag>,
@@ -110,8 +152,10 @@ pub struct BulletproofPlus {
     pub R: Vec<Bytes<32>>,
 }
 
+/// Placeholder element type so obsolete fields can be deserialized
+/// to the empty vector for backwards compatibility.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-struct NotUsed;
+struct Obsolete;
 
 #[expect(non_snake_case)]
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -124,12 +168,22 @@ pub struct Clsag {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MinerTx {
     pub version: u8,
+    /// The block height when the coinbase transaction becomes spendable
     pub unlock_time: u64,
+    /// list of transaction inputs
     pub inputs: Vec<MinerInput>,
+    /// list of transaction outputs
     pub outputs: Vec<Output>,
     pub extra: Bytes<52>,
-    signatures: Vec<NotUsed>,
+    signatures: Vec<Obsolete>,
     pub ringct: MinerRingCt,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct TxBacklog {
+    pub id: Bytes<32>,
+    pub weight: u64,
+    pub fee: u64,
 }
 
 #[cfg(test)]
@@ -419,6 +473,45 @@ mod tests {
 
         let full_chain_main: Vec<FullChainMain> = serde_json::from_value(json1.clone()).unwrap();
         let json2 = serde_json::to_value(&full_chain_main).unwrap();
+        assert_json_eq!(json1, json2);
+    }
+
+    #[test]
+    fn test_full_miner_data_json() {
+        let json1 = json!({
+          "major_version": 16,
+          "height": 3242764,
+          "prev_id": "dc53c24683dca14586fb2909b9aa4a44adb524e010d438e2491e7d8cc1c80831",
+          "seed_hash": "526577d6e6689ba8736c16ccc76e6ce4ada3b0ceeaa3a2260b96ba188a17d705",
+          "difficulty": "0x526f2623ce",
+          "median_weight": 300000,
+          "already_generated_coins": 18446744073709551615_u64,
+          "tx_backlog": [
+            {
+              "id": "dbec64651bb4e83d0e9a05c2826bde605a940f12179fab0ab5dc8bc4392c776b",
+              "weight": 2905,
+              "fee": 929600000
+            },
+            {
+              "id": "ec5728dd1fbd98db1f93d612826e73b95f52cca49f247a6dbc35390f45766a7d",
+              "weight": 2222,
+              "fee": 44440000
+            },
+            {
+              "id": "41f613b1a470af494e0a705993e305dfaad3e365fcc0b0db0118256fc54559aa",
+              "weight": 2221,
+              "fee": 44420000
+            },
+            {
+              "id": "34fa33bf96dc2f825fe870e8f5402be6225c1623b345224e0dbc38b6407873de",
+              "weight": 2217,
+              "fee": 709440000
+            }
+          ]
+        });
+
+        let full_miner_data: FullMinerData = serde_json::from_value(json1.clone()).unwrap();
+        let json2 = serde_json::to_value(&full_miner_data).unwrap();
         assert_json_eq!(json1, json2);
     }
 }
