@@ -20,7 +20,7 @@ service     = ["dep:thread_local", "dep:rayon", "cuprate-helper/thread"]
 [dependencies]
 cuprate-database         = { path = "../database" }
 cuprate-database-service = { path = "../service" }
-cuprate-helper           = { path = "../../helper", features = ["fs", "map"] }
+cuprate-helper           = { path = "../../helper", features = ["fs", "map", "crypto"] }
 cuprate-types            = { path = "../../types", features = ["blockchain"] }
 cuprate-pruning          = { path = "../../pruning" }
 
