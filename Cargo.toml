@@ -1,34 +1,46 @@
 [workspace]
 resolver = "2"
-
 members = [
+	# Binaries
 	"binaries/cuprated",
-	"constants",
+	# Benchmarks
+	"benches/benchmark/bin",
+	"benches/benchmark/lib",
+	"benches/benchmark/example",
+	"benches/criterion/example",
+	"benches/criterion/cuprate-json-rpc",
+	# Consensus
 	"consensus",
 	"consensus/context",
 	"consensus/fast-sync",
 	"consensus/rules",
-	"cryptonight",
-	"helper",
+	# Net
 	"net/epee-encoding",
 	"net/fixed-bytes",
 	"net/levin",
 	"net/wire",
+	# P2P
 	"p2p/p2p",
 	"p2p/p2p-core",
 	"p2p/dandelion-tower",
 	"p2p/async-buffer",
 	"p2p/address-book",
+	# Storage
 	"storage/blockchain",
 	"storage/service",
 	"storage/txpool",
 	"storage/database",
-	"pruning",
-	"test-utils",
-	"types",
+	# RPC
 	"rpc/json-rpc",
 	"rpc/types",
 	"rpc/interface",
+	# Misc
+	"constants",
+	"cryptonight",
+	"helper",
+	"pruning",
+	"test-utils",
+	"types",
 ]
 
 [profile.release]
@@ -90,11 +102,13 @@ tracing-subscriber    = { version = "0.3.18", default-features = false }
 tracing               = { version = "0.1.40", default-features = false }
 
 ## workspace.dev-dependencies
+criterion                 = { version = "0.5.1" }
+function_name             = { version = "0.3.0" }
+tempfile                  = { version = "3.13.0" }
 monero-rpc                = { git = "https://github.com/Cuprate/serai.git", rev = "d5205ce" }
 monero-simple-request-rpc = { git = "https://github.com/Cuprate/serai.git", rev = "d5205ce" }
-tempfile                  = { version = "3" }
 pretty_assertions         = { version = "1.4.1" }
-proptest                  = { version = "1" }
+proptest                  = { version = "1.5.0" }
 proptest-derive           = { version = "0.4.0" }
 tokio-test                = { version = "0.4.4" }
 
