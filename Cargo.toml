@@ -9,6 +9,7 @@ members = [
 	"benches/benchmark/example",
 	"benches/criterion/example",
 	"benches/criterion/cuprate-json-rpc",
+	"benches/criterion/cuprate-database",
 	# Consensus
 	"consensus",
 	"consensus/fast-sync",

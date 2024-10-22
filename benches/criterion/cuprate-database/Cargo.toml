@@ -1,24 +1,30 @@
 [package]
-name        = "cuprate-database-benchmark"
+name        = "cuprate-criterion-database"
 version     = "0.0.0"
 edition     = "2021"
-description = "Benchmarking for Cuprate's database abstraction"
+description = "Criterion benchmarking for cuprate-database"
 license     = "MIT"
 authors     = ["hinto-janai"]
-repository  = "https://github.com/Cuprate/cuprate/tree/main/database/benchmark"
+repository  = "https://github.com/Cuprate/cuprate/tree/main/benches/criterion/cuprate-database"
 keywords    = ["cuprate", "database", "benchmark"]
 
 [features]
-default   = []
+default = ["heed"]
+heed    = ["cuprate-database/heed", "cuprate-blockchain/heed"]
+redb    = ["cuprate-database/redb", "cuprate-blockchain/redb"]
 
 [dependencies]
-criterion        = { workspace = true }
-cuprate-database = { path = "../", features = ["default"] }
-cuprate-helper   = { path = "../../helper", features = ["fs", "thread"] }
-# cuprate-types    = { path = "../../types", features = ["service"] }
-function_name    = { version = "0.3.0" }
-tempfile         = { version = "3.10.0" }
+criterion          = { workspace = true }
+cuprate-database   = { path = "../../../storage/database" }
+cuprate-blockchain = { path = "../../../storage/blockchain" }
+cuprate-helper     = { path = "../../../helper", features = ["fs", "thread"] }
+
+function_name = { workspace = true }
+tempfile      = { workspace = true}
 
 [[bench]]
 name    = "main"
 harness = false
+
+[lints]
+workspace = true

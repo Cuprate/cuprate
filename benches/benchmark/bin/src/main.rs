@@ -20,6 +20,13 @@ use cfg_if::cfg_if;
 /// 1. Copy + paste a `cfg_if` block
 /// 2. Change it to your benchmark's feature flag
 /// 3. Change it to your benchmark's type
+#[allow(
+    clippy::allow_attributes,
+    unused_variables,
+    unused_mut,
+    unreachable_code,
+    reason = "clippy does not account for all cfg()s"
+)]
 fn main() {
     log::init_logger();
 
@@ -27,7 +34,8 @@ fn main() {
 
     cfg_if! {
         if #[cfg(not(any(feature = "example")))] {
-            compile_error!("No feature specified. Use `--features $BENCHMARK_FEATURE` when building.");
+            println!("No feature specified. Use `--features $BENCHMARK_FEATURE` when building.");
+            return;
         }
     }
 

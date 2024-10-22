@@ -740,6 +740,18 @@ name = "cuprate-constants"
 version = "0.1.0"
 
 [[package]]
+name = "cuprate-criterion-database"
+version = "0.0.0"
+dependencies = [
+ "criterion",
+ "cuprate-blockchain",
+ "cuprate-database",
+ "cuprate-helper",
+ "function_name",
+ "tempfile",
+]
+
+[[package]]
 name = "cuprate-criterion-example"
 version = "0.0.0"
 dependencies = [

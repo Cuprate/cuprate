@@ -1,40 +1,45 @@
-//! `trait {Env, EnvInner, TxR{o,w}, Tables[Mut]}` benchmarks.
+//! Same as `env.rs` but multi-threaded.
+//! TODO: create multi-threaded benchmarks
 
-//---------------------------------------------------------------------------------------------------- Import
+#![expect(clippy::significant_drop_tightening)]
+
+// TODO
+use cuprate_helper as _;
+use tempfile as _;
+
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-
 use function_name::named;
 
+use cuprate_blockchain::tables::{OpenTables, Outputs};
 use cuprate_database::{
-    config::Config,
-    resize::{page_size, ResizeAlgorithm},
-    tables::Outputs,
+    config::ConfigBuilder,
+    resize::{ResizeAlgorithm, PAGE_SIZE},
     ConcreteEnv, Env, EnvInner, TxRo, TxRw,
 };
 
-use cuprate_database_benchmark::tmp_env;
+use cuprate_criterion_database::TmpEnv;
 
-//---------------------------------------------------------------------------------------------------- Criterion
 criterion_group! {
     benches,
     open,
     env_inner,
     tx_ro,
     tx_rw,
-    open_tables,
-    open_tables_mut,
+    open_db_ro,
+    open_db_rw,
     resize,
     current_map_size,
     disk_size_bytes,
 }
 criterion_main!(benches);
 
-//---------------------------------------------------------------------------------------------------- Env benchmarks
 /// [`Env::open`].
 #[named]
 fn open(c: &mut Criterion) {
     let tempdir = tempfile::tempdir().unwrap();
-    let config = Config::low_power(Some(tempdir.path().into()));
+    let config = ConfigBuilder::new(tempdir.path().to_path_buf().into())
+        .low_power()
+        .build();
 
     c.bench_function(function_name!(), |b| {
         b.iter_with_large_drop(|| {
@@ -46,20 +51,20 @@ fn open(c: &mut Criterion) {
 /// [`Env::env_inner`].
 #[named]
 fn env_inner(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_env();
+    let env = TmpEnv::new();
 
     c.bench_function(function_name!(), |b| {
         b.iter(|| {
-            black_box(env.env_inner());
+            drop(black_box(env.env.env_inner()));
         });
     });
 }
 
-/// Create and commit read-only transactions.
+/// [`EnvInner::tx_ro`].
 #[named]
 fn tx_ro(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_env();
-    let env_inner = env.env_inner();
+    let env = TmpEnv::new();
+    let env_inner = env.env.env_inner();
 
     c.bench_function(function_name!(), |b| {
         b.iter(|| {
@@ -69,11 +74,11 @@ fn tx_ro(c: &mut Criterion) {
     });
 }
 
-/// Create and commit read/write transactions.
+/// [`EnvInner::tx_rw`].
 #[named]
 fn tx_rw(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_env();
-    let env_inner = env.env_inner();
+    let env = TmpEnv::new();
+    let env_inner = env.env.env_inner();
 
     c.bench_function(function_name!(), |b| {
         b.iter(|| {
@@ -83,79 +88,78 @@ fn tx_rw(c: &mut Criterion) {
     });
 }
 
-/// Open all database tables in read-only mode.
+/// [`EnvInner::open_db_ro`].
 #[named]
-fn open_tables(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_env();
-    let env_inner = env.env_inner();
+fn open_db_ro(c: &mut Criterion) {
+    // `with_key_value()` creates the `Outputs`
+    // table so the `open_db_ro` below doesn't panic.
+    let env = TmpEnv::new().with_key_value();
+    let env_inner = env.env.env_inner();
     let tx_ro = env_inner.tx_ro().unwrap();
 
     c.bench_function(function_name!(), |b| {
         b.iter(|| {
-            black_box(env_inner.open_db_ro::<Outputs>(&tx_ro)).unwrap();
-            // env_inner.open_tables(&tx_ro).unwrap();
-            // TODO: waiting on PR 102
+            env_inner.open_db_ro::<Outputs>(&tx_ro).unwrap();
         });
     });
 }
 
-/// Open all database tables in read/write mode.
+/// [`EnvInner::open_db_rw`].
 #[named]
-fn open_tables_mut(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_env();
-    let env_inner = env.env_inner();
+fn open_db_rw(c: &mut Criterion) {
+    let env = TmpEnv::new();
+    let env_inner = env.env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
 
     c.bench_function(function_name!(), |b| {
         b.iter(|| {
-            black_box(env_inner.open_db_rw::<Outputs>(&tx_rw)).unwrap();
-            // env_inner.open_tables_mut(&mut tx_rw).unwrap();
-            // TODO: waiting on PR 102
+            env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
+            env_inner.open_tables_mut(&tx_rw).unwrap();
         });
     });
 }
 
-/// `Env` memory map resizes.
+/// [`Env::resize`].
 #[named]
 fn resize(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_env();
+    let env = TmpEnv::new();
 
-    // Resize by the OS page size.
-    let page_size = page_size();
+    // Resize env.by the OS page size.
+    let resize = Some(ResizeAlgorithm::FixedBytes(*PAGE_SIZE));
 
     c.bench_function(function_name!(), |b| {
         b.iter(|| {
             // This test is only valid for `Env`'s that need to resize manually.
             if ConcreteEnv::MANUAL_RESIZE {
-                env.resize_map(black_box(Some(ResizeAlgorithm::FixedBytes(page_size))));
+                env.env.resize_map(resize);
             }
         });
     });
 }
 
-/// Access current memory map size of the database.
+/// [`Env::current_map_size`].
 #[named]
 fn current_map_size(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_env();
+    let env = TmpEnv::new();
 
     c.bench_function(function_name!(), |b| {
         b.iter(|| {
             // This test is only valid for `Env`'s that need to resize manually.
             if ConcreteEnv::MANUAL_RESIZE {
-                black_box(env.current_map_size());
+                black_box(env.env.current_map_size());
             }
         });
     });
 }
 
-/// Access on-disk size of the database.
+/// [`Env::disk_size_bytes`].
 #[named]
 fn disk_size_bytes(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_env();
+    let env = TmpEnv::new();
 
     c.bench_function(function_name!(), |b| {
         b.iter(|| {
-            black_box(env.disk_size_bytes()).unwrap();
+            black_box(env.env.disk_size_bytes()).unwrap();
         });
     });
 }
