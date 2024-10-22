@@ -17,18 +17,18 @@ use crate::{
 /// The transaction pool [`tower::Service`] read request type.
 #[derive(Clone)]
 pub enum TxpoolReadRequest {
-    /// A request for the blob (raw bytes) of a transaction with the given hash.
+    /// Get the blob (raw bytes) of a transaction with the given hash.
     TxBlob(TransactionHash),
 
-    /// A request for the [`TransactionVerificationData`] of a transaction in the tx pool.
+    /// Get the [`TransactionVerificationData`] of a transaction in the tx pool.
     TxVerificationData(TransactionHash),
 
-    /// A request to filter (remove) all **known** transactions from the set.
+    /// Filter (remove) all **known** transactions from the set.
     ///
     /// The hash is **not** the transaction hash, it is the hash of the serialized tx-blob.
     FilterKnownTxBlobHashes(HashSet<TransactionBlobHash>),
 
-    /// A request to pull some transactions for an incoming block.
+    /// Get some transactions for an incoming block.
     TxsForBlock(Vec<TransactionHash>),
 
     /// Get information on all transactions in the pool.
@@ -42,10 +42,10 @@ pub enum TxpoolReadRequest {
 /// The transaction pool [`tower::Service`] read response type.
 #[expect(clippy::large_enum_variant)]
 pub enum TxpoolReadResponse {
-    /// A response containing the raw bytes of a transaction.
+    /// The response for [`TxpoolReadRequest::TxBlob`].
     TxBlob { tx_blob: Vec<u8>, state_stem: bool },
 
-    /// A response of [`TransactionVerificationData`].
+    /// The response for [`TxpoolReadRequest::TxVerificationData`].
     TxVerificationData(TransactionVerificationData),
 
     /// The response for [`TxpoolReadRequest::FilterKnownTxBlobHashes`].
@@ -117,6 +117,8 @@ pub enum TxpoolWriteRequest {
 pub enum TxpoolWriteResponse {
     /// Response to:
     /// - [`TxpoolWriteRequest::RemoveTransaction`]
+    /// - [`TxpoolWriteRequest::Promote`]
+    /// - [`TxpoolWriteRequest::NewBlock`]
     Ok,
 
     /// Response to [`TxpoolWriteRequest::AddTransaction`].

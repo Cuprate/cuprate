@@ -133,7 +133,7 @@ fn filter_known_tx_blob_hashes(
 
     let mut stem_pool_hashes = Vec::new();
 
-    // A closure that returns if a tx with a certain blob hash is unknown.
+    // A closure that returns `true` if a tx with a certain blob hash is unknown.
     // This also fills in `stem_tx_hashes`.
     let mut tx_unknown = |blob_hash| -> Result<bool, RuntimeError> {
         match tx_blob_hashes.get(&blob_hash) {

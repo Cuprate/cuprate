@@ -74,10 +74,10 @@ pub enum TxState<Id> {
 }
 
 impl<Id> TxState<Id> {
-    /// Returns if the tx is in the stem stage.
+    /// Returns `true` if the tx is in the stem stage.
     ///
     /// [`TxState::Local`] & [`TxState::Stem`] are the 2 stem stage states.
-    pub const fn state_stage(&self) -> bool {
+    pub const fn is_stem_stage(&self) -> bool {
         matches!(self, Self::Local | Self::Stem { .. })
     }
 }

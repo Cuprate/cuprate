@@ -38,9 +38,10 @@ pub fn get_transaction_verification_data(
     })
 }
 
-/// Returns if the transaction with the given hash is in the stem pool.
+/// Returns `true` if the transaction with the given hash is in the stem pool.
 ///
-/// This will return an err if the transaction is not in the pool.
+/// # Errors
+/// This will return an [`Err`] if the transaction is not in the pool.
 pub fn in_stem_pool(
     tx_hash: &TransactionHash,
     tx_infos: &impl DatabaseRo<TransactionInfos>,

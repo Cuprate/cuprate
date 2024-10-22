@@ -277,7 +277,7 @@ async fn handle_valid_tx(
         .expect(PANIC_CRITICAL_SERVICE_ERROR)
         .call(TxpoolWriteRequest::AddTransaction {
             tx,
-            state_stem: state.state_stage(),
+            state_stem: state.is_stem_stage(),
         })
         .await
         .expect("TODO")
