@@ -1,6 +1,7 @@
 //! Same as `env.rs` but multi-threaded.
 //! TODO: create multi-threaded benchmarks
 
+#![allow(unused_crate_dependencies, unused_attributes)]
 #![expect(clippy::significant_drop_tightening)]
 
 // TODO

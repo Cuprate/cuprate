@@ -19,6 +19,7 @@
 //!
 //! Writes are single-threaded, so they only use [`TmpEnv::new`].
 
+#![allow(unused_crate_dependencies, unused_attributes)]
 #![expect(clippy::significant_drop_tightening, clippy::needless_pass_by_value)]
 
 // TODO

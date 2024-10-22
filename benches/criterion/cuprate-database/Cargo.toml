@@ -14,13 +14,24 @@ heed    = ["cuprate-database/heed", "cuprate-blockchain/heed"]
 redb    = ["cuprate-database/redb", "cuprate-blockchain/redb"]
 
 [dependencies]
+# FIXME:
+# Some crates/features that are unused here but
+# needed in other crates are pulled in, see:
+# - <https://github.com/Cuprate/cuprate/issues/325>
+#
+# Remove:
+# - rand
+# - cuprate-blockchain/asynch
+# - cuprate-blockchain/tx
+
 criterion          = { workspace = true }
 cuprate-database   = { path = "../../../storage/database" }
-cuprate-blockchain = { path = "../../../storage/blockchain" }
-cuprate-helper     = { path = "../../../helper", features = ["fs", "thread"] }
+cuprate-blockchain = { path = "../../../storage/blockchain", features = ["service"] }
+cuprate-helper     = { path = "../../../helper", features = ["asynch", "fs", "thread", "tx"] }
 
 function_name = { workspace = true }
-tempfile      = { workspace = true}
+tempfile      = { workspace = true }
+rand          = { workspace = true, features = ["std", "std_rng"] }
 
 [[bench]]
 name    = "main"

@@ -748,6 +748,7 @@ dependencies = [
  "cuprate-database",
  "cuprate-helper",
  "function_name",
+ "rand",
  "tempfile",
 ]
 

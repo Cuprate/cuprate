@@ -1,5 +1,7 @@
 //! [`Storable`] benchmarks.
 
+#![allow(unused_crate_dependencies, unused_attributes)]
+
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 use function_name::named;
