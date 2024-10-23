@@ -214,22 +214,3 @@ pub(crate) async fn generate_blocks(
 
     Ok((blocks, usize_to_u64(height)))
 }
-
-/// [`BlockchainManagerRequest::Overview`]
-pub(crate) async fn overview(
-    blockchain_manager: &mut BlockchainManagerHandle,
-    height: u64,
-) -> Result<String, Error> {
-    let BlockchainManagerResponse::Overview(overview) = blockchain_manager
-        .ready()
-        .await?
-        .call(BlockchainManagerRequest::Overview {
-            height: u64_to_usize(height),
-        })
-        .await?
-    else {
-        unreachable!();
-    };
-
-    Ok(overview)
-}

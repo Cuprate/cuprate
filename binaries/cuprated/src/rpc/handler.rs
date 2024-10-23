@@ -97,20 +97,6 @@ pub enum BlockchainManagerRequest {
         /// The address that will receive the coinbase reward.
         wallet_address: String,
     },
-
-    /// Get a visual [`String`] overview of blockchain progress.
-    ///
-    /// This is a highly implementation specific format used by
-    /// `monerod` in the `sync_info` RPC call's `overview` field;
-    /// it is essentially an ASCII visual of blocks.
-    ///
-    /// See also:
-    /// - <https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#sync_info>
-    /// - <https://github.com/monero-project/monero/blob/master/src/cryptonote_protocol/block_queue.cpp#L178>
-    Overview {
-        /// TODO: the current blockchain height? do we need to pass this?
-        height: usize,
-    },
 }
 
 /// TODO: use real type when public.
@@ -157,9 +143,6 @@ pub enum BlockchainManagerResponse {
         /// The new top height. (TODO: is this correct?)
         height: usize,
     },
-
-    /// Response to [`BlockchainManagerRequest::Overview`]
-    Overview(String),
 }
 
 /// TODO: use real type when public.
