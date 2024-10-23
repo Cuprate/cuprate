@@ -57,21 +57,6 @@ pub enum BlockchainManagerRequest {
     /// The height of the next block in the chain.
     TargetHeight,
 
-    /// Add auxirilly proof-of-work to a block.
-    ///
-    /// From the RPC `add_aux_pow` usecase's documentation:
-    /// ````
-    /// This enables merge mining with Monero without requiring
-    /// software that manually alters the extra field in the coinbase
-    /// tx to include the merkle root of the aux blocks.
-    /// ````
-    AddAuxPow {
-        /// The block template to add to.
-        block_template: Block,
-        /// The auxirilly proof-of-work to add.
-        aux_pow: Vec<AuxPow>,
-    },
-
     /// Generate new blocks.
     ///
     /// This request is only for regtest, see RPC's `generateblocks`.
@@ -117,9 +102,6 @@ pub enum BlockchainManagerResponse {
 
     /// Response to [`BlockchainManagerRequest::TargetHeight`]
     TargetHeight { height: usize },
-
-    /// Response to [`BlockchainManagerRequest::AddAuxPow`]
-    AddAuxPow(AddAuxPow),
 
     /// Response to [`BlockchainManagerRequest::GenerateBlocks`]
     GenerateBlocks {
