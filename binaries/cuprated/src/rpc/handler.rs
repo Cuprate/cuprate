@@ -57,18 +57,6 @@ pub enum BlockchainManagerRequest {
     /// The height of the next block in the chain.
     TargetHeight,
 
-    /// Calculate proof-of-work for this block.
-    CalculatePow {
-        /// The hardfork of the protocol at this block height.
-        hardfork: HardFork,
-        /// The height of the block.
-        height: usize,
-        /// The block data.
-        block: Block,
-        /// The seed hash for the proof-of-work.
-        seed_hash: [u8; 32],
-    },
-
     /// Add auxirilly proof-of-work to a block.
     ///
     /// From the RPC `add_aux_pow` usecase's documentation:
@@ -129,9 +117,6 @@ pub enum BlockchainManagerResponse {
 
     /// Response to [`BlockchainManagerRequest::TargetHeight`]
     TargetHeight { height: usize },
-
-    /// Response to [`BlockchainManagerRequest::CalculatePow`]
-    CalculatePow([u8; 32]),
 
     /// Response to [`BlockchainManagerRequest::AddAuxPow`]
     AddAuxPow(AddAuxPow),

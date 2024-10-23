@@ -144,31 +144,6 @@ pub(crate) async fn target_height(
     Ok(usize_to_u64(height))
 }
 
-/// [`BlockchainManagerRequest::CalculatePow`]
-pub(crate) async fn calculate_pow(
-    blockchain_manager: &mut BlockchainManagerHandle,
-    hardfork: HardFork,
-    height: u64,
-    block: Block,
-    seed_hash: [u8; 32],
-) -> Result<[u8; 32], Error> {
-    let BlockchainManagerResponse::CalculatePow(hash) = blockchain_manager
-        .ready()
-        .await?
-        .call(BlockchainManagerRequest::CalculatePow {
-            hardfork,
-            height: u64_to_usize(height),
-            block,
-            seed_hash,
-        })
-        .await?
-    else {
-        unreachable!();
-    };
-
-    Ok(hash)
-}
-
 /// [`BlockchainManagerRequest::AddAuxPow`]
 pub(crate) async fn add_aux_pow(
     blockchain_manager: &mut BlockchainManagerHandle,
