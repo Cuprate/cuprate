@@ -181,7 +181,8 @@ pub struct ConnectionInfo<A: NetZoneAddress> {
 
 /// Used in RPC's `sync_info`.
 ///
-/// Data within [`crate::services::AddressBookResponse::Spans`].
+// TODO: fix docs after <https://github.com/Cuprate/cuprate/pull/320#discussion_r1811089758>
+// Data within [`crate::services::AddressBookResponse::Spans`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Span<A: NetZoneAddress> {
     pub nblocks: u64,

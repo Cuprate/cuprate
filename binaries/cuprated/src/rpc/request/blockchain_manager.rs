@@ -1,6 +1,8 @@
 //! Functions for [`BlockchainManagerRequest`] & [`BlockchainManagerResponse`].
 
 use anyhow::Error;
+use cuprate_p2p_core::NetworkZone;
+use cuprate_rpc_types::misc::Span;
 use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 
@@ -8,8 +10,9 @@ use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_pruning::PruningSeed;
 use cuprate_types::{AddAuxPow, AuxPow, HardFork};
 
-use crate::rpc::handler::{
-    BlockchainManagerHandle, BlockchainManagerRequest, BlockchainManagerResponse,
+use crate::rpc::{
+    constants::FIELD_NOT_SUPPORTED,
+    handler::{BlockchainManagerHandle, BlockchainManagerRequest, BlockchainManagerResponse},
 };
 
 /// [`BlockchainManagerRequest::PopBlocks`]
@@ -144,27 +147,6 @@ pub(crate) async fn target_height(
     Ok(usize_to_u64(height))
 }
 
-/// [`BlockchainManagerRequest::AddAuxPow`]
-pub(crate) async fn add_aux_pow(
-    blockchain_manager: &mut BlockchainManagerHandle,
-    block_template: Block,
-    aux_pow: Vec<AuxPow>,
-) -> Result<AddAuxPow, Error> {
-    let BlockchainManagerResponse::AddAuxPow(response) = blockchain_manager
-        .ready()
-        .await?
-        .call(BlockchainManagerRequest::AddAuxPow {
-            block_template,
-            aux_pow,
-        })
-        .await?
-    else {
-        unreachable!();
-    };
-
-    Ok(response)
-}
-
 /// [`BlockchainManagerRequest::GenerateBlocks`]
 pub(crate) async fn generate_blocks(
     blockchain_manager: &mut BlockchainManagerHandle,
@@ -188,4 +170,52 @@ pub(crate) async fn generate_blocks(
     };
 
     Ok((blocks, usize_to_u64(height)))
+}
+
+// [`BlockchainManagerRequest::Spans`]
+pub(crate) async fn spans<Z: NetworkZone>(
+    blockchain_manager: &mut BlockchainManagerHandle,
+) -> Result<Vec<Span>, Error> {
+    // let BlockchainManagerResponse::Spans(vec) = blockchain_manager
+    //     .ready()
+    //     .await?
+    //     .call(BlockchainManagerRequest::Spans)
+    //     .await?
+    // else {
+    //     unreachable!();
+    // };
+
+    let vec: Vec<cuprate_p2p_core::types::Span<Z::Addr>> = todo!();
+
+    // FIXME: impl this map somewhere instead of inline.
+    let vec = vec
+        .into_iter()
+        .map(|span| Span {
+            connection_id: String::from(FIELD_NOT_SUPPORTED),
+            nblocks: span.nblocks,
+            rate: span.rate,
+            remote_address: span.remote_address.to_string(),
+            size: span.size,
+            speed: span.speed,
+            start_block_height: span.start_block_height,
+        })
+        .collect();
+
+    Ok(vec)
+}
+
+/// [`BlockchainManagerRequest::NextNeededPruningSeed`]
+pub(crate) async fn next_needed_pruning_seed(
+    blockchain_manager: &mut BlockchainManagerHandle,
+) -> Result<PruningSeed, Error> {
+    let BlockchainManagerResponse::NextNeededPruningSeed(seed) = blockchain_manager
+        .ready()
+        .await?
+        .call(BlockchainManagerRequest::NextNeededPruningSeed)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(seed)
 }

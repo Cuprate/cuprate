@@ -23,6 +23,7 @@ use crate::rpc::{bin, json, other};
 
 /// TODO: use real type when public.
 #[derive(Clone)]
+#[expect(clippy::large_enum_variant)]
 pub enum BlockchainManagerRequest {
     /// Pop blocks off the top of the blockchain.
     ///
@@ -70,6 +71,18 @@ pub enum BlockchainManagerRequest {
         /// The address that will receive the coinbase reward.
         wallet_address: String,
     },
+
+    //    // TODO: the below requests actually belong to the block downloader/syncer:
+    //    // <https://github.com/Cuprate/cuprate/pull/320#discussion_r1811089758>
+    //    /// Get [`Span`] data.
+    //    ///
+    //    /// This is data that describes an active downloading process,
+    //    /// if we are fully synced, this will return an empty [`Vec`].
+    //    Spans,
+
+    //
+    /// Get the next [`PruningSeed`] needed for a pruned sync.
+    NextNeededPruningSeed,
 }
 
 /// TODO: use real type when public.
@@ -110,6 +123,11 @@ pub enum BlockchainManagerResponse {
         /// The new top height. (TODO: is this correct?)
         height: usize,
     },
+
+    //    /// Response to [`BlockchainManagerRequest::Spans`].
+    //    Spans(Vec<Span<Z::Addr>>),
+    /// Response to [`BlockchainManagerRequest::NextNeededPruningSeed`].
+    NextNeededPruningSeed(PruningSeed),
 }
 
 /// TODO: use real type when public.
