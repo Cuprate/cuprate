@@ -135,7 +135,7 @@ define_struct_and_impl_epee! {
         // Exists in the original definition, but isn't
         // used or (de)serialized for RPC purposes.
         // ssl: bool,
-        state: String,
+        state: crate::misc::ConnectionState,
         support_flags: u32,
     }
 }

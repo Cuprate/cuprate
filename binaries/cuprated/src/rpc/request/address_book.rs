@@ -14,6 +14,8 @@ use cuprate_p2p_core::{
     AddressBook, NetworkZone,
 };
 
+use crate::rpc::constants::FIELD_NOT_SUPPORTED;
+
 // FIXME: use `anyhow::Error` over `tower::BoxError` in address book.
 
 /// [`AddressBookRequest::PeerlistSize`]
@@ -53,15 +55,20 @@ pub(crate) async fn connection_info<Z: NetworkZone>(
     let vec = vec
         .into_iter()
         .map(|info| {
-            use cuprate_p2p_core::types::AddressType as A1;
-            use cuprate_rpc_types::misc::AddressType as A2;
+            /// Message to use when casting between enums with `u8` fails.
+            /// This should never happen.
+            const EXPECT: &str = "u8 repr between these types should be 1-1";
 
-            let address_type = match info.address_type {
-                A1::Invalid => A2::Invalid,
-                A1::Ipv4 => A2::Ipv4,
-                A1::Ipv6 => A2::Ipv6,
-                A1::I2p => A2::I2p,
-                A1::Tor => A2::Tor,
+            let address_type =
+                cuprate_rpc_types::misc::AddressType::from_u8(info.address_type.to_u8())
+                    .expect(EXPECT);
+
+            let state = cuprate_rpc_types::misc::ConnectionState::from_u8(info.state.to_u8())
+                .expect(EXPECT);
+
+            let (ip, port) = match info.socket_addr {
+                Some(socket) => (socket.ip().to_string(), socket.port().to_string()),
+                None => (String::new(), String::new()),
             };
 
             ConnectionInfo {
@@ -69,18 +76,18 @@ pub(crate) async fn connection_info<Z: NetworkZone>(
                 address_type,
                 avg_download: info.avg_download,
                 avg_upload: info.avg_upload,
-                connection_id: hex::encode(info.connection_id.to_ne_bytes()),
+                connection_id: String::from(FIELD_NOT_SUPPORTED),
                 current_download: info.current_download,
                 current_upload: info.current_upload,
                 height: info.height,
                 host: info.host,
                 incoming: info.incoming,
-                ip: info.ip,
+                ip,
                 live_time: info.live_time,
                 localhost: info.localhost,
                 local_ip: info.local_ip,
-                peer_id: info.peer_id,
-                port: info.port,
+                peer_id: hex::encode(info.peer_id.to_ne_bytes()),
+                port,
                 pruning_seed: info.pruning_seed.compress(),
                 recv_count: info.recv_count,
                 recv_idle_time: info.recv_idle_time,
@@ -88,7 +95,7 @@ pub(crate) async fn connection_info<Z: NetworkZone>(
                 rpc_port: info.rpc_port,
                 send_count: info.send_count,
                 send_idle_time: info.send_idle_time,
-                state: info.state,
+                state,
                 support_flags: info.support_flags,
             }
         })
@@ -190,7 +197,7 @@ pub(crate) async fn spans<Z: NetworkZone>(
     let vec = vec
         .into_iter()
         .map(|span| Span {
-            connection_id: hex::encode(span.connection_id.to_ne_bytes()),
+            connection_id: String::from(FIELD_NOT_SUPPORTED),
             nblocks: span.nblocks,
             rate: span.rate,
             remote_address: span.remote_address.to_string(),
