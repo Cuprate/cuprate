@@ -3,7 +3,9 @@
 use tempfile::TempDir;
 
 use cuprate_blockchain::tables::Outputs;
-use cuprate_database::{config::ConfigBuilder, ConcreteEnv, DatabaseRw, Env, EnvInner, TxRw};
+use cuprate_database::{
+    config::ConfigBuilder, resize::PAGE_SIZE, ConcreteEnv, DatabaseRw, Env, EnvInner, TxRw,
+};
 
 use crate::constants::{KEY, VALUE};
 
@@ -33,16 +35,15 @@ impl TmpEnv {
         let config = ConfigBuilder::new(path).low_power().build();
         let env = ConcreteEnv::open(config).unwrap();
 
-        Self { env, tempdir }
-    }
-
-    /// Same as [`Self::new`] but uses all system threads for the [`Env`].
-    #[expect(clippy::missing_panics_doc)]
-    pub fn new_all_threads() -> Self {
-        let tempdir = tempfile::tempdir().unwrap();
-        let path = tempdir.path().to_path_buf().into();
-        let config = ConfigBuilder::new(path).fast().build();
-        let env = ConcreteEnv::open(config).unwrap();
+        // Resize to a very large map to prevent resize errors.
+        if ConcreteEnv::MANUAL_RESIZE {
+            // SAFETY: no write transactions exist yet.
+            unsafe {
+                env.env_inner()
+                    .resize(PAGE_SIZE.get() * 1024 * 1024 * 1024)
+                    .unwrap();
+            }
+        }
 
         Self { env, tempdir }
     }

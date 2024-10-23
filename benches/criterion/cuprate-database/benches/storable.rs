@@ -3,7 +3,6 @@
 #![allow(unused_crate_dependencies, unused_attributes)]
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-
 use function_name::named;
 
 use cuprate_blockchain::types::{Output, PreRctOutputId};
@@ -12,7 +11,9 @@ use cuprate_database::Storable;
 use cuprate_criterion_database::{KEY, VALUE};
 
 criterion_group! {
-    benches,
+    name = benches;
+    config = Criterion::default();
+    targets =
     pre_rct_output_id_as_bytes,
     pre_rct_output_id_from_bytes,
     output_as_bytes,
