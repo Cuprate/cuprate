@@ -658,7 +658,7 @@ define_request_and_response! {
             connections: vec![
                 ConnectionInfo {
                     address: "3evk3kezfjg44ma6tvesy7rbxwwpgpympj45xar5fo4qajrsmkoaqdqd.onion:18083".into(),
-                    address_type: cuprate_rpc_types::misc::AddressType::Tor,
+                    address_type: cuprate_types::AddressType::Tor,
                     avg_download: 0,
                     avg_upload: 0,
                     connection_id: "22ef856d0f1d44cc95e84fecfd065fe2".into(),
@@ -680,12 +680,12 @@ define_request_and_response! {
                     rpc_port: 0,
                     send_count: 3406572,
                     send_idle_time: 30,
-                    state: "normal".into(),
+                    state: cuprate_types::ConnectionState::Normal,
                     support_flags: 0
                 },
                 ConnectionInfo {
                     address: "4iykytmumafy5kjahdqc7uzgcs34s2vwsadfjpk4znvsa5vmcxeup2qd.onion:18083".into(),
-                    address_type: cuprate_rpc_types::misc::AddressType::Tor,
+                    address_type: cuprate_types::AddressType::Tor,
                     avg_download: 0,
                     avg_upload: 0,
                     connection_id: "c7734e15936f485a86d2b0534f87e499".into(),
@@ -707,7 +707,7 @@ define_request_and_response! {
                     rpc_port: 0,
                     send_count: 3370566,
                     send_idle_time: 120,
-                    state: "normal".into(),
+                    state: cuprate_types::ConnectionState::Normal,
                     support_flags: 0
                 }
             ],
@@ -1251,7 +1251,7 @@ define_request_and_response! {
                 SyncInfoPeer {
                     info: ConnectionInfo {
                         address: "142.93.128.65:44986".into(),
-                        address_type: AddressType::Ipv4,
+                        address_type: cuprate_types::AddressType::Ipv4,
                         avg_download: 1,
                         avg_upload: 1,
                         connection_id: "a5803c4c2dac49e7b201dccdef54c862".into(),
@@ -1273,14 +1273,14 @@ define_request_and_response! {
                         rpc_port: 18089,
                         send_count: 32235,
                         send_idle_time: 6,
-                        state: "normal".into(),
+                        state: cuprate_types::ConnectionState::Normal,
                         support_flags: 1
                     }
                 },
                 SyncInfoPeer {
                     info: ConnectionInfo {
                         address: "4iykytmumafy5kjahdqc7uzgcs34s2vwsadfjpk4znvsa5vmcxeup2qd.onion:18083".into(),
-                        address_type: AddressType::Tor,
+                        address_type: cuprate_types::AddressType::Tor,
                         avg_download: 0,
                         avg_upload: 0,
                         connection_id: "277f7c821bc546878c8bd29977e780f5".into(),
@@ -1302,7 +1302,7 @@ define_request_and_response! {
                         rpc_port: 0,
                         send_count: 99120,
                         send_idle_time: 15,
-                        state: "normal".into(),
+                        state: cuprate_types::ConnectionState::Normal,
                         support_flags: 0
                     }
                 }

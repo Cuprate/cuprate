@@ -20,6 +20,26 @@ use strum::{
 ///
 /// Original definition:
 /// - <https://github.com/monero-project/monero/blob/893916ad091a92e765ce3241b94e706ad012b62a/src/cryptonote_basic/connection_context.h#L49>
+///
+/// # Serde
+/// This type's `serde` implementation depends on `snake_case`.
+///
+/// ```rust
+/// use cuprate_types::ConnectionState as C;
+/// use serde_json::to_string;
+///
+/// assert_eq!(to_string(&C::BeforeHandshake).unwrap(), r#""before_handshake""#);
+/// assert_eq!(to_string(&C::Synchronizing).unwrap(), r#""synchronizing""#);
+/// assert_eq!(to_string(&C::Standby).unwrap(), r#""standby""#);
+/// assert_eq!(to_string(&C::Idle).unwrap(), r#""idle""#);
+/// assert_eq!(to_string(&C::Normal).unwrap(), r#""normal""#);
+///
+/// assert_eq!(C::BeforeHandshake.to_string(), "before_handshake");
+/// assert_eq!(C::Synchronizing.to_string(), "synchronizing");
+/// assert_eq!(C::Standby.to_string(), "standby");
+/// assert_eq!(C::Idle.to_string(), "idle");
+/// assert_eq!(C::Normal.to_string(), "normal");
+/// ```
 #[derive(
     Copy,
     Clone,
@@ -40,7 +60,8 @@ use strum::{
     VariantArray,
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(untagged, try_from = "u8", into = "u8"))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))] // cuprate-rpc-types depends on snake_case
+#[strum(serialize_all = "snake_case")]
 #[repr(u8)]
 pub enum ConnectionState {
     BeforeHandshake,
@@ -75,7 +96,7 @@ impl ConnectionState {
     /// ```rust
     /// use cuprate_types::ConnectionState as C;
     ///
-    /// assert_eq!(C::from_u8(0), Some(C::BeforeHandShake));
+    /// assert_eq!(C::from_u8(0), Some(C::BeforeHandshake));
     /// assert_eq!(C::from_u8(1), Some(C::Synchronizing));
     /// assert_eq!(C::from_u8(2), Some(C::Standby));
     /// assert_eq!(C::from_u8(3), Some(C::Idle));

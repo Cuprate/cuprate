@@ -20,6 +20,26 @@ use strum::{
 ///
 /// Original definition:
 /// - <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/epee/include/net/enums.h/#L49>
+///
+/// # Serde
+/// This type's `serde` implementation (de)serializes from a [`u8`].
+///
+/// ```rust
+/// use cuprate_types::AddressType as A;
+/// use serde_json::{to_string, from_str};
+///
+/// assert_eq!(from_str::<A>(&"0").unwrap(), A::Invalid);
+/// assert_eq!(from_str::<A>(&"1").unwrap(), A::Ipv4);
+/// assert_eq!(from_str::<A>(&"2").unwrap(), A::Ipv6);
+/// assert_eq!(from_str::<A>(&"3").unwrap(), A::I2p);
+/// assert_eq!(from_str::<A>(&"4").unwrap(), A::Tor);
+///
+/// assert_eq!(to_string(&A::Invalid).unwrap(), "0");
+/// assert_eq!(to_string(&A::Ipv4).unwrap(), "1");
+/// assert_eq!(to_string(&A::Ipv6).unwrap(), "2");
+/// assert_eq!(to_string(&A::I2p).unwrap(), "3");
+/// assert_eq!(to_string(&A::Tor).unwrap(), "4");
+/// ```
 #[derive(
     Copy,
     Clone,
