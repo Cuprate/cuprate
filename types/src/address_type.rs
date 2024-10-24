@@ -1,7 +1,5 @@
 //! Types of network addresses; used in P2P.
 
-use cuprate_epee_encoding::Marker;
-
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -9,16 +7,38 @@ use serde::{Deserialize, Serialize};
 use cuprate_epee_encoding::{
     error,
     macros::bytes::{Buf, BufMut},
-    EpeeValue,
+    EpeeValue, Marker,
 };
 
-/// Used in [`crate::misc::ConnectionInfo::address_type`].
-#[doc = crate::macros::monero_definition_link!(
-    cc73fe71162d564ffda8e549b79a350bca53c454,
-    "epee/include/net/enums.h",
-    39..=47
+use strum::{
+    AsRefStr, Display, EnumCount, EnumIs, EnumString, FromRepr, IntoStaticStr, VariantArray,
+};
+
+/// An enumeration of address types.
+///
+/// Used in `cuprate_p2p` and `cuprate_types`
+///
+/// Original definition:
+/// - <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/epee/include/net/enums.h/#L49>
+#[derive(
+    Copy,
+    Clone,
+    Default,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    AsRefStr,
+    Display,
+    EnumCount,
+    EnumIs,
+    EnumString,
+    FromRepr,
+    IntoStaticStr,
+    VariantArray,
 )]
-#[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged, try_from = "u8", into = "u8"))]
 #[repr(u8)]
@@ -35,7 +55,7 @@ impl AddressType {
     /// Convert [`Self`] to a [`u8`].
     ///
     /// ```rust
-    /// use cuprate_rpc_types::misc::AddressType as A;
+    /// use cuprate_types::AddressType as A;
     ///
     /// assert_eq!(A::Invalid.to_u8(), 0);
     /// assert_eq!(A::Ipv4.to_u8(), 1);
@@ -53,7 +73,7 @@ impl AddressType {
     /// This returns [`None`] if `u > 4`.
     ///
     /// ```rust
-    /// use cuprate_rpc_types::misc::AddressType as A;
+    /// use cuprate_types::AddressType as A;
     ///
     /// assert_eq!(A::from_u8(0), Some(A::Invalid));
     /// assert_eq!(A::from_u8(1), Some(A::Ipv4));

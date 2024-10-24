@@ -110,7 +110,7 @@ define_struct_and_impl_epee! {
     /// Used in [`crate::json::GetConnectionsResponse`].
     ConnectionInfo {
         address: String,
-        address_type: crate::misc::AddressType,
+        address_type: cuprate_types::AddressType,
         avg_download: u64,
         avg_upload: u64,
         connection_id: String,
@@ -135,7 +135,7 @@ define_struct_and_impl_epee! {
         // Exists in the original definition, but isn't
         // used or (de)serialized for RPC purposes.
         // ssl: bool,
-        state: crate::misc::ConnectionState,
+        state: cuprate_types::ConnectionState,
         support_flags: u32,
     }
 }

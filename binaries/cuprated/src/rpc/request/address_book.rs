@@ -55,17 +55,6 @@ pub(crate) async fn connection_info<Z: NetworkZone>(
     let vec = vec
         .into_iter()
         .map(|info| {
-            /// Message to use when casting between enums with `u8` fails.
-            /// This should never happen.
-            const EXPECT: &str = "u8 repr between these types should be 1-1";
-
-            let address_type =
-                cuprate_rpc_types::misc::AddressType::from_u8(info.address_type.to_u8())
-                    .expect(EXPECT);
-
-            let state = cuprate_rpc_types::misc::ConnectionState::from_u8(info.state.to_u8())
-                .expect(EXPECT);
-
             let (ip, port) = match info.socket_addr {
                 Some(socket) => (socket.ip().to_string(), socket.port().to_string()),
                 None => (String::new(), String::new()),
@@ -73,7 +62,7 @@ pub(crate) async fn connection_info<Z: NetworkZone>(
 
             ConnectionInfo {
                 address: info.address.to_string(),
-                address_type,
+                address_type: info.address_type,
                 avg_download: info.avg_download,
                 avg_upload: info.avg_upload,
                 connection_id: String::from(FIELD_NOT_SUPPORTED),
@@ -95,7 +84,7 @@ pub(crate) async fn connection_info<Z: NetworkZone>(
                 rpc_port: info.rpc_port,
                 send_count: info.send_count,
                 send_idle_time: info.send_idle_time,
-                state,
+                state: info.state,
                 support_flags: info.support_flags,
             }
         })

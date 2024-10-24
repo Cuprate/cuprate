@@ -1,6 +1,4 @@
-//! Types of network addresses; used in P2P.
-
-use cuprate_epee_encoding::Marker;
+//! [`ConnectionState`].
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -9,16 +7,38 @@ use serde::{Deserialize, Serialize};
 use cuprate_epee_encoding::{
     error,
     macros::bytes::{Buf, BufMut},
-    EpeeValue,
+    EpeeValue, Marker,
 };
 
-/// Used in [`crate::misc::ConnectionInfo::address_type`].
-#[doc = crate::macros::monero_definition_link!(
-    cc73fe71162d564ffda8e549b79a350bca53c454,
-    "cryptonote_basic/connection_context.h",
-    49..=56
+use strum::{
+    AsRefStr, Display, EnumCount, EnumIs, EnumString, FromRepr, IntoStaticStr, VariantArray,
+};
+
+/// An enumeration of P2P connection states.
+///
+/// Used in `cuprate_p2p` and `cuprate_rpc_types`.
+///
+/// Original definition:
+/// - <https://github.com/monero-project/monero/blob/893916ad091a92e765ce3241b94e706ad012b62a/src/cryptonote_basic/connection_context.h#L49>
+#[derive(
+    Copy,
+    Clone,
+    Default,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    AsRefStr,
+    Display,
+    EnumCount,
+    EnumIs,
+    EnumString,
+    FromRepr,
+    IntoStaticStr,
+    VariantArray,
 )]
-#[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged, try_from = "u8", into = "u8"))]
 #[repr(u8)]
@@ -35,7 +55,7 @@ impl ConnectionState {
     /// Convert [`Self`] to a [`u8`].
     ///
     /// ```rust
-    /// use cuprate_p2p_core::types::ConnectionState as C;
+    /// use cuprate_types::ConnectionState as C;
     ///
     /// assert_eq!(C::BeforeHandshake.to_u8(), 0);
     /// assert_eq!(C::Synchronizing.to_u8(), 1);
@@ -53,7 +73,7 @@ impl ConnectionState {
     /// This returns [`None`] if `u > 4`.
     ///
     /// ```rust
-    /// use cuprate_p2p_core::types::ConnectionState as C;
+    /// use cuprate_types::ConnectionState as C;
     ///
     /// assert_eq!(C::from_u8(0), Some(C::BeforeHandShake));
     /// assert_eq!(C::from_u8(1), Some(C::Synchronizing));

@@ -13,6 +13,7 @@ borsh = ["dep:borsh", "cuprate-pruning/borsh"]
 cuprate-helper = { path = "../../helper", features = ["asynch"], default-features = false }
 cuprate-wire = { path = "../../net/wire", features = ["tracing"] }
 cuprate-pruning = { path = "../../pruning" }
+cuprate-types = { path = "../../types" }
 
 tokio = { workspace = true, features = ["net", "sync", "macros", "time", "rt", "rt-multi-thread"]}
 tokio-util = { workspace = true, features = ["codec"] }

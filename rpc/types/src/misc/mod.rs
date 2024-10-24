@@ -12,9 +12,7 @@
 )]
 
 //---------------------------------------------------------------------------------------------------- Mod
-mod address_type;
 mod binary_string;
-mod connection_state;
 mod distribution;
 mod key_image_spent_status;
 #[expect(clippy::module_inception)]
@@ -23,9 +21,7 @@ mod pool_info_extent;
 mod status;
 mod tx_entry;
 
-pub use address_type::AddressType;
 pub use binary_string::BinaryString;
-pub use connection_state::ConnectionState;
 pub use distribution::{Distribution, DistributionCompressedBinary, DistributionUncompressed};
 pub use key_image_spent_status::KeyImageSpentStatus;
 pub use misc::{
