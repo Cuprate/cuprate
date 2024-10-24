@@ -4,22 +4,24 @@
     clippy::unnecessary_wraps,
     reason = "TODO: finish implementing the signatures from <https://github.com/Cuprate/cuprate/pull/297>"
 )]
-
-use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use rayon::ThreadPool;
 
-use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner};
+use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
 use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
 
 use crate::{
-    ops::get_transaction_verification_data,
+    ops::{get_transaction_verification_data, in_stem_pool},
     service::{
         interface::{TxpoolReadRequest, TxpoolReadResponse},
         types::{ReadResponseResult, TxpoolReadHandle},
     },
-    tables::{OpenTables, TransactionBlobs},
-    types::TransactionHash,
+    tables::{KnownBlobHashes, OpenTables, TransactionBlobs, TransactionInfos},
+    types::{TransactionBlobHash, TransactionHash},
 };
 
 // TODO: update the docs here
@@ -57,7 +59,6 @@ fn init_read_service_with_pool(env: Arc<ConcreteEnv>, pool: Arc<ThreadPool>) -> 
 /// 1. `Request` is mapped to a handler function
 /// 2. Handler function is called
 /// 3. [`TxpoolReadResponse`] is returned
-#[expect(clippy::needless_pass_by_value)]
 fn map_request(
     env: &ConcreteEnv,          // Access to the database
     request: TxpoolReadRequest, // The request we must fulfill
@@ -65,6 +66,10 @@ fn map_request(
     match request {
         TxpoolReadRequest::TxBlob(tx_hash) => tx_blob(env, &tx_hash),
         TxpoolReadRequest::TxVerificationData(tx_hash) => tx_verification_data(env, &tx_hash),
+        TxpoolReadRequest::FilterKnownTxBlobHashes(blob_hashes) => {
+            filter_known_tx_blob_hashes(env, blob_hashes)
+        }
+        TxpoolReadRequest::TxsForBlock(txs_needed) => txs_for_block(env, txs_needed),
         TxpoolReadRequest::Backlog => backlog(env),
         TxpoolReadRequest::Size => size(env),
     }
@@ -94,10 +99,14 @@ fn tx_blob(env: &ConcreteEnv, tx_hash: &TransactionHash) -> ReadResponseResult {
     let tx_ro = inner_env.tx_ro()?;
 
     let tx_blobs_table = inner_env.open_db_ro::<TransactionBlobs>(&tx_ro)?;
+    let tx_infos_table = inner_env.open_db_ro::<TransactionInfos>(&tx_ro)?;
 
-    tx_blobs_table
-        .get(tx_hash)
-        .map(|blob| TxpoolReadResponse::TxBlob(blob.0))
+    let tx_blob = tx_blobs_table.get(tx_hash)?.0;
+
+    Ok(TxpoolReadResponse::TxBlob {
+        tx_blob,
+        state_stem: in_stem_pool(tx_hash, &tx_infos_table)?,
+    })
 }
 
 /// [`TxpoolReadRequest::TxVerificationData`].
@@ -109,6 +118,79 @@ fn tx_verification_data(env: &ConcreteEnv, tx_hash: &TransactionHash) -> ReadRes
     let tables = inner_env.open_tables(&tx_ro)?;
 
     get_transaction_verification_data(tx_hash, &tables).map(TxpoolReadResponse::TxVerificationData)
+}
+
+/// [`TxpoolReadRequest::FilterKnownTxBlobHashes`].
+fn filter_known_tx_blob_hashes(
+    env: &ConcreteEnv,
+    mut blob_hashes: HashSet<TransactionBlobHash>,
+) -> ReadResponseResult {
+    let inner_env = env.env_inner();
+    let tx_ro = inner_env.tx_ro()?;
+
+    let tx_blob_hashes = inner_env.open_db_ro::<KnownBlobHashes>(&tx_ro)?;
+    let tx_infos = inner_env.open_db_ro::<TransactionInfos>(&tx_ro)?;
+
+    let mut stem_pool_hashes = Vec::new();
+
+    // A closure that returns `true` if a tx with a certain blob hash is unknown.
+    // This also fills in `stem_tx_hashes`.
+    let mut tx_unknown = |blob_hash| -> Result<bool, RuntimeError> {
+        match tx_blob_hashes.get(&blob_hash) {
+            Ok(tx_hash) => {
+                if in_stem_pool(&tx_hash, &tx_infos)? {
+                    stem_pool_hashes.push(tx_hash);
+                }
+                Ok(false)
+            }
+            Err(RuntimeError::KeyNotFound) => Ok(true),
+            Err(e) => Err(e),
+        }
+    };
+
+    let mut err = None;
+    blob_hashes.retain(|blob_hash| match tx_unknown(*blob_hash) {
+        Ok(res) => res,
+        Err(e) => {
+            err = Some(e);
+            false
+        }
+    });
+
+    if let Some(e) = err {
+        return Err(e);
+    }
+
+    Ok(TxpoolReadResponse::FilterKnownTxBlobHashes {
+        unknown_blob_hashes: blob_hashes,
+        stem_pool_hashes,
+    })
+}
+
+/// [`TxpoolReadRequest::TxsForBlock`].
+fn txs_for_block(env: &ConcreteEnv, txs: Vec<TransactionHash>) -> ReadResponseResult {
+    let inner_env = env.env_inner();
+    let tx_ro = inner_env.tx_ro()?;
+
+    let tables = inner_env.open_tables(&tx_ro)?;
+
+    let mut missing_tx_indexes = Vec::with_capacity(txs.len());
+    let mut txs_verification_data = HashMap::with_capacity(txs.len());
+
+    for (i, tx_hash) in txs.into_iter().enumerate() {
+        match get_transaction_verification_data(&tx_hash, &tables) {
+            Ok(tx) => {
+                txs_verification_data.insert(tx_hash, tx);
+            }
+            Err(RuntimeError::KeyNotFound) => missing_tx_indexes.push(i),
+            Err(e) => return Err(e),
+        }
+    }
+
+    Ok(TxpoolReadResponse::TxsForBlock {
+        txs: txs_verification_data,
+        missing: missing_tx_indexes,
+    })
 }
 
 /// [`TxpoolReadRequest::Backlog`].

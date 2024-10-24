@@ -18,13 +18,13 @@ use tracing::{Instrument, Span};
 use cuprate_p2p_core::{
     client::{Client, InternalPeerID},
     handles::ConnectionHandle,
-    NetworkZone,
+    ConnectionDirection, NetworkZone,
 };
 
 pub(crate) mod disconnect_monitor;
 mod drop_guard_client;
 
-pub(crate) use drop_guard_client::ClientPoolDropGuard;
+pub use drop_guard_client::ClientPoolDropGuard;
 
 /// The client pool, which holds currently connected free peers.
 ///
@@ -164,6 +164,17 @@ impl<N: NetworkZone> ClientPool<N> {
             let sync_data = element.value().info.core_sync_data.lock().unwrap();
             sync_data.cumulative_difficulty() > cumulative_difficulty
         })
+    }
+
+    /// Returns the first outbound peer when iterating over the peers.
+    pub fn outbound_client(self: &Arc<Self>) -> Option<ClientPoolDropGuard<N>> {
+        let client = self
+            .clients
+            .iter()
+            .find(|element| element.value().info.direction == ConnectionDirection::Outbound)?;
+        let id = *client.key();
+
+        Some(self.borrow_client(&id).unwrap())
     }
 }
 
