@@ -9,12 +9,12 @@ name = "cuprate-fast-sync-create-hashes"
 path = "src/create.rs"
 
 [dependencies]
-cuprate-blockchain          = { path = "../../storage/blockchain" }
-cuprate-consensus           = { path = ".." }
-cuprate-consensus-rules     = { path = "../rules" }
-cuprate-consensus-context   = { path = "../context" }
-cuprate-types               = { path = "../../types" }
-cuprate-helper              = { path = "../../helper", features = ["cast"] }
+cuprate-blockchain          = { workspace = true }
+cuprate-consensus           = { workspace = true }
+cuprate-consensus-rules     = { workspace = true }
+cuprate-consensus-context   = { workspace = true }
+cuprate-types               = { workspace = true }
+cuprate-helper              = { workspace = true, features = ["cast"] }
 
 clap         = { workspace = true, features = ["derive", "std"] }
 hex          = { workspace = true }

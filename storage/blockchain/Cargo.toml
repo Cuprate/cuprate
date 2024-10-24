@@ -18,11 +18,11 @@ redb-memory = ["cuprate-database/redb-memory"]
 service     = ["dep:thread_local", "dep:rayon", "cuprate-helper/thread"]
 
 [dependencies]
-cuprate-database         = { path = "../database" }
-cuprate-database-service = { path = "../service" }
-cuprate-helper           = { path = "../../helper", features = ["fs", "map", "crypto"] }
-cuprate-types            = { path = "../../types", features = ["blockchain"] }
-cuprate-pruning          = { path = "../../pruning" }
+cuprate-database         = { workspace = true }
+cuprate-database-service = { workspace = true }
+cuprate-helper           = { workspace = true, features = ["fs", "map", "crypto"] }
+cuprate-types            = { workspace = true, features = ["blockchain"] }
+cuprate-pruning          = { workspace = true }
 
 bitflags         = { workspace = true, features = ["std", "serde", "bytemuck"] }
 bytemuck         = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
@@ -37,9 +37,9 @@ thread_local = { workspace = true, optional = true }
 rayon        = { workspace = true, optional = true }
 
 [dev-dependencies]
-cuprate-constants  = { path = "../../constants" }
-cuprate-helper     = { path = "../../helper", features = ["thread", "cast"] }
-cuprate-test-utils = { path = "../../test-utils" }
+cuprate-constants  = { workspace = true }
+cuprate-helper     = { workspace = true, features = ["thread", "cast"] }
+cuprate-test-utils = { workspace = true }
 
 tokio             = { workspace = true, features = ["full"] }
 tempfile          = { workspace = true }

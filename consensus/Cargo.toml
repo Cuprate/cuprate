@@ -8,10 +8,10 @@ authors = ["Boog900"]
 repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"
 
 [dependencies]
-cuprate-helper = { path = "../helper", default-features = false, features = ["std", "asynch", "num"] }
-cuprate-consensus-rules = { path = "./rules", features = ["rayon"] }
-cuprate-types = { path = "../types" }
-cuprate-consensus-context = { path = "./context" }
+cuprate-helper              = { workspace = true, default-features = false, features = ["std", "asynch", "num"] }
+cuprate-consensus-rules     = { workspace = true, features = ["rayon"] }
+cuprate-types               = { workspace = true }
+cuprate-consensus-context   = { workspace = true }
 
 cfg-if = { workspace = true }
 thiserror = { workspace = true }
@@ -28,8 +28,8 @@ hex = { workspace = true }
 rand = { workspace = true }
 
 [dev-dependencies]
-cuprate-test-utils = { path = "../test-utils" }
-cuprate-consensus-rules =  {path = "./rules", features = ["proptest"]}
+cuprate-test-utils = { workspace = true }
+cuprate-consensus-rules =  { workspace = true, features = ["proptest"]}
 
 hex-literal = { workspace = true }
 curve25519-dalek = { workspace = true }
