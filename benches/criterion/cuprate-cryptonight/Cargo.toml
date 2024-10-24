@@ -1,0 +1,22 @@
+[package]
+name        = "cuprate-criterion-cryptonight"
+version     = "0.0.0"
+edition     = "2021"
+description = "Criterion benchmarking for cuprate-cryptonight"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/benches/criterion/cuprate-cryptonight"
+keywords    = ["cuprate", "cryptonight", "criterion", "benchmark"]
+
+[dependencies]
+criterion     = { workspace = true }
+function_name = { workspace = true }
+
+cuprate-cryptonight = { path = "../../../cryptonight" }
+
+[[bench]]
+name    = "main"
+harness = false
+
+[lints]
+workspace = true
