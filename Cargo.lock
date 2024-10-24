@@ -740,6 +740,15 @@ name = "cuprate-constants"
 version = "0.1.0"
 
 [[package]]
+name = "cuprate-criterion-cryptonight"
+version = "0.0.0"
+dependencies = [
+ "criterion",
+ "cuprate-cryptonight",
+ "function_name",
+]
+
+[[package]]
 name = "cuprate-criterion-example"
 version = "0.0.0"
 dependencies = [
