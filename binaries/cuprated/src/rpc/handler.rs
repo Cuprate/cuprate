@@ -8,6 +8,8 @@ use monero_serai::block::Block;
 use tower::Service;
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
+use cuprate_consensus::BlockChainContextService;
+use cuprate_pruning::PruningSeed;
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
     bin::{BinRequest, BinResponse},
@@ -15,6 +17,7 @@ use cuprate_rpc_types::{
     other::{OtherRequest, OtherResponse},
 };
 use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
+use cuprate_types::{AddAuxPow, AuxPow, HardFork};
 
 use crate::rpc::{bin, json, other};
 
@@ -54,6 +57,32 @@ pub enum BlockchainManagerRequest {
 
     /// The height of the next block in the chain.
     TargetHeight,
+
+    /// Generate new blocks.
+    ///
+    /// This request is only for regtest, see RPC's `generateblocks`.
+    GenerateBlocks {
+        /// Number of the blocks to be generated.
+        amount_of_blocks: u64,
+        /// The previous block's hash.
+        prev_block: [u8; 32],
+        /// The starting value for the nonce.
+        starting_nonce: u32,
+        /// The address that will receive the coinbase reward.
+        wallet_address: String,
+    },
+
+    //    // TODO: the below requests actually belong to the block downloader/syncer:
+    //    // <https://github.com/Cuprate/cuprate/pull/320#discussion_r1811089758>
+    //    /// Get [`Span`] data.
+    //    ///
+    //    /// This is data that describes an active downloading process,
+    //    /// if we are fully synced, this will return an empty [`Vec`].
+    //    Spans,
+
+    //
+    /// Get the next [`PruningSeed`] needed for a pruned sync.
+    NextNeededPruningSeed,
 }
 
 /// TODO: use real type when public.
@@ -69,6 +98,9 @@ pub enum BlockchainManagerResponse {
     /// Response to [`BlockchainManagerRequest::PopBlocks`]
     PopBlocks { new_height: usize },
 
+    /// Response to [`BlockchainManagerRequest::Prune`]
+    Prune(PruningSeed),
+
     /// Response to [`BlockchainManagerRequest::Pruned`]
     Pruned(bool),
 
@@ -83,6 +115,19 @@ pub enum BlockchainManagerResponse {
 
     /// Response to [`BlockchainManagerRequest::TargetHeight`]
     TargetHeight { height: usize },
+
+    /// Response to [`BlockchainManagerRequest::GenerateBlocks`]
+    GenerateBlocks {
+        /// Hashes of the blocks generated.
+        blocks: Vec<[u8; 32]>,
+        /// The new top height. (TODO: is this correct?)
+        height: usize,
+    },
+
+    //    /// Response to [`BlockchainManagerRequest::Spans`].
+    //    Spans(Vec<Span<Z::Addr>>),
+    /// Response to [`BlockchainManagerRequest::NextNeededPruningSeed`].
+    NextNeededPruningSeed(PruningSeed),
 }
 
 /// TODO: use real type when public.
@@ -102,6 +147,9 @@ pub struct CupratedRpcHandler {
     /// Read handle to the blockchain database.
     pub blockchain_read: BlockchainReadHandle,
 
+    /// Handle to the blockchain context service.
+    pub blockchain_context: BlockChainContextService,
+
     /// Handle to the blockchain manager.
     pub blockchain_manager: BlockchainManagerHandle,
 
@@ -117,6 +165,7 @@ impl CupratedRpcHandler {
     pub const fn new(
         restricted: bool,
         blockchain_read: BlockchainReadHandle,
+        blockchain_context: BlockChainContextService,
         blockchain_manager: BlockchainManagerHandle,
         txpool_read: TxpoolReadHandle,
         txpool_manager: std::convert::Infallible,
@@ -124,6 +173,7 @@ impl CupratedRpcHandler {
         Self {
             restricted,
             blockchain_read,
+            blockchain_context,
             blockchain_manager,
             txpool_read,
             txpool_manager,

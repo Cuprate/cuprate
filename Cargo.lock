@@ -834,6 +834,7 @@ dependencies = [
  "cuprate-helper",
  "cuprate-pruning",
  "cuprate-test-utils",
+ "cuprate-types",
  "cuprate-wire",
  "futures",
  "hex",

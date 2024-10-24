@@ -4,9 +4,9 @@ use cuprate_pruning::{PruningError, PruningSeed};
 use cuprate_wire::{CoreSyncData, PeerListEntryBase};
 
 use crate::{
-    ban::{BanState, SetBan},
     client::InternalPeerID,
     handles::ConnectionHandle,
+    types::{BanState, ConnectionInfo, SetBan},
     NetZoneAddress, NetworkAddressIncorrectZone, NetworkZone,
 };
 
@@ -118,6 +118,9 @@ pub enum AddressBookRequest<Z: NetworkZone> {
     /// Get the amount of white & grey peers.
     PeerlistSize,
 
+    /// Get information on all connections.
+    ConnectionInfo,
+
     /// Get the amount of incoming & outgoing connections.
     ConnectionCount,
 
@@ -151,6 +154,9 @@ pub enum AddressBookResponse<Z: NetworkZone> {
 
     /// Response to [`AddressBookRequest::PeerlistSize`].
     PeerlistSize { white: usize, grey: usize },
+
+    /// Response to [`AddressBookRequest::ConnectionInfo`].
+    ConnectionInfo(Vec<ConnectionInfo<Z::Addr>>),
 
     /// Response to [`AddressBookRequest::ConnectionCount`].
     ConnectionCount { incoming: usize, outgoing: usize },
