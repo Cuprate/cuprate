@@ -20,6 +20,8 @@ mod store;
 
 /// The address book config.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde_config", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde_config", serde(deny_unknown_fields, default))]
 pub struct AddressBookConfig {
     /// The maximum number of white peers in the peer list.
     ///
@@ -29,10 +31,22 @@ pub struct AddressBookConfig {
     ///
     /// Gray peers are peers we are yet to make a connection to.
     pub max_gray_list_length: usize,
-    /// The location to store the address book.
-    pub peer_store_file: PathBuf,
+    /// The location to store the peer store file.
+    pub peer_store_folder: PathBuf,
     /// The amount of time between saving the address book to disk.
     pub peer_save_period: Duration,
+}
+
+#[cfg(feature = "serde_config")]
+impl Default for AddressBookConfig {
+    fn default() -> Self {
+        Self {
+            max_white_list_length: 1000,
+            max_gray_list_length: 5000,
+            peer_store_folder: cuprate_helper::fs::CUPRATE_CACHE_DIR.clone(),
+            peer_save_period: Duration::from_secs(90),
+        }
+    }
 }
 
 /// Possible errors when dealing with the address book.
@@ -63,11 +77,6 @@ pub enum AddressBookError {
 pub async fn init_address_book<Z: BorshNetworkZone>(
     cfg: AddressBookConfig,
 ) -> Result<book::AddressBook<Z>, std::io::Error> {
-    tracing::info!(
-        "Loading peers from file: {} ",
-        cfg.peer_store_file.display()
-    );
-
     let (white_list, gray_list) = match store::read_peers_from_disk::<Z>(&cfg).await {
         Ok(res) => res,
         Err(e) if e.kind() == ErrorKind::NotFound => (vec![], vec![]),
