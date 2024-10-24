@@ -1,0 +1,41 @@
+[package]
+name        = "cuprate-criterion-database"
+version     = "0.0.0"
+edition     = "2021"
+description = "Criterion benchmarking for cuprate-database"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/benches/criterion/cuprate-database"
+keywords    = ["cuprate", "database", "benchmark"]
+
+[features]
+default = ["heed"]
+heed    = ["cuprate-database/heed", "cuprate-blockchain/heed"]
+redb    = ["cuprate-database/redb", "cuprate-blockchain/redb"]
+
+[dependencies]
+# FIXME:
+# Some crates/features that are unused here but
+# needed in other crates are pulled in, see:
+# - <https://github.com/Cuprate/cuprate/issues/325>
+#
+# Remove:
+# - rand
+# - cuprate-blockchain/asynch
+# - cuprate-blockchain/tx
+
+criterion          = { workspace = true }
+cuprate-database   = { path = "../../../storage/database" }
+cuprate-blockchain = { path = "../../../storage/blockchain", features = ["service"] }
+cuprate-helper     = { path = "../../../helper", features = ["asynch", "fs", "thread", "tx"] }
+
+function_name = { workspace = true }
+tempfile      = { workspace = true }
+rand          = { workspace = true, features = ["std", "std_rng"] }
+
+[[bench]]
+name    = "main"
+harness = false
+
+[lints]
+workspace = true
