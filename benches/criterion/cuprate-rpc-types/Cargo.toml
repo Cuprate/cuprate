@@ -1,0 +1,26 @@
+[package]
+name        = "cuprate-criterion-rpc-types"
+version     = "0.0.0"
+edition     = "2021"
+description = "Criterion benchmarking for cuprate-rpc-types"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/benches/criterion/cuprate-rpc-types"
+keywords    = ["cuprate", "rpc", "types", "criterion", "benchmark"]
+
+[dependencies]
+cuprate-epee-encoding = { path = "../../../net/epee-encoding" }
+cuprate-rpc-types     = { path = "../../../rpc/types", features = ["serde", "epee"] }
+cuprate-test-utils    = { path = "../../../test-utils" }
+
+criterion     = { workspace = true }
+function_name = { workspace = true }
+serde_json    = { workspace = true, features = ["default"] }
+paste         = { workspace = true }
+
+[[bench]]
+name    = "main"
+harness = false
+
+[lints]
+workspace = true
