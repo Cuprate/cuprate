@@ -1,0 +1,26 @@
+[package]
+name        = "cuprate-criterion-helper"
+version     = "0.0.0"
+edition     = "2021"
+description = "Criterion benchmarks for cuprate-helper"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/benches/criterion/example"
+keywords    = ["cuprate", "helper", "criterion", "benchmark"]
+
+[dependencies]
+cuprate-constants = { path = "../../../constants", features = ["block"] }
+cuprate-helper    = { path = "../../../helper", features = ["cast", "map", "num", "tx"] }
+cuprate-test-utils = { path = "../../../test-utils" }
+
+criterion     = { workspace = true }
+function_name = { workspace = true }
+monero-serai  = { workspace = true }
+serde_json    = { workspace = true, features = ["default"] }
+
+[[bench]]
+name    = "main"
+harness = false
+
+[lints]
+workspace = true
