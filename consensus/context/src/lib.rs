@@ -3,7 +3,11 @@
 //! This crate contains a service to get cached context from the blockchain: [`BlockChainContext`].
 //! This is used during contextual validation, this does not have all the data for contextual validation
 //! (outputs) for that you will need a [`Database`].
-//!
+
+// Used in documentation references for [`BlockChainContextRequest`]
+// FIXME: should we pull in a dependency just to link docs?
+use monero_serai as _;
+
 use std::{
     cmp::min,
     collections::HashMap,

@@ -14,15 +14,15 @@ serde   = ["dep:serde", "cuprate-fixed-bytes/serde", "cuprate-types/serde"]
 epee    = ["dep:cuprate-epee-encoding", "cuprate-types/epee"]
 
 [dependencies]
-cuprate-epee-encoding = { path = "../../net/epee-encoding", optional = true }
-cuprate-fixed-bytes   = { path = "../../net/fixed-bytes" }
-cuprate-types         = { path = "../../types", default-features = false }
+cuprate-epee-encoding = { workspace = true, optional = true }
+cuprate-fixed-bytes   = { workspace = true }
+cuprate-types         = { workspace = true, default-features = false }
 
 paste = { workspace = true }
 serde = { workspace = true, optional = true }
 
 [dev-dependencies]
-cuprate-test-utils = { path = "../../test-utils" }
+cuprate-test-utils = { workspace = true }
 
 serde      = { workspace = true }
 serde_json = { workspace = true }

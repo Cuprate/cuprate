@@ -11,11 +11,11 @@ default = []
 tracing = ["cuprate-levin/tracing"]
 
 [dependencies]
-cuprate-levin = { path = "../levin" }
-cuprate-epee-encoding = { path = "../epee-encoding" }
-cuprate-fixed-bytes = { path = "../fixed-bytes" }
-cuprate-types = { path = "../../types", default-features = false, features = ["epee"] }
-cuprate-helper = { path = "../../helper", default-features = false, features = ["map"] }
+cuprate-levin           = { workspace = true }
+cuprate-epee-encoding   = { workspace = true }
+cuprate-fixed-bytes     = { workspace = true }
+cuprate-types           = { workspace = true, default-features = false, features = ["epee"] }
+cuprate-helper          = { workspace = true, default-features = false, features = ["map"] }
 
 bitflags = { workspace = true, features = ["std"] }
 bytes = { workspace = true, features = ["std"] }
