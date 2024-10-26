@@ -15,8 +15,7 @@ use cuprate_p2p_core::{
 };
 use cuprate_wire::protocol::NewTransactions;
 
-use super::DandelionTx;
-use crate::p2p::CrossNetworkInternalPeerId;
+use crate::{p2p::CrossNetworkInternalPeerId, txpool::dandelion::DandelionTx};
 
 /// The dandelion outbound peer stream.
 pub struct OutboundPeerStream {

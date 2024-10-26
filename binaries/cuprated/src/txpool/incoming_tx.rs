@@ -18,6 +18,8 @@ use cuprate_dandelion_tower::{
     State, TxState,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
+use cuprate_p2p::NetworkInterface;
+use cuprate_p2p_core::ClearNet;
 use cuprate_txpool::{
     service::{
         interface::{
@@ -34,7 +36,10 @@ use crate::{
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     p2p::CrossNetworkInternalPeerId,
     signals::REORG_LOCK,
-    txpool::txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
+    txpool::{
+        dandelion,
+        txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
+    },
 };
 
 /// An error that can happen handling an incoming tx.
@@ -78,6 +83,35 @@ pub struct IncomingTxHandler {
     pub(super) txpool_read_handle: TxpoolReadHandle,
 }
 
+impl IncomingTxHandler {
+    /// Initialize the [`IncomingTxHandler`].
+    #[expect(clippy::significant_drop_tightening)]
+    pub fn init(
+        clear_net: NetworkInterface<ClearNet>,
+        txpool_write_handle: TxpoolWriteHandle,
+        txpool_read_handle: TxpoolReadHandle,
+        blockchain_context_cache: BlockChainContextService,
+        tx_verifier_service: ConcreteTxVerifierService,
+    ) -> Self {
+        let dandelion_router = dandelion::dandelion_router(clear_net);
+
+        let dandelion_pool_manager = dandelion::start_dandelion_pool_manager(
+            dandelion_router,
+            txpool_read_handle.clone(),
+            txpool_write_handle.clone(),
+        );
+
+        Self {
+            txs_being_handled: TxsBeingHandled::new(),
+            blockchain_context_cache,
+            dandelion_pool_manager,
+            tx_verifier_service,
+            txpool_write_handle,
+            txpool_read_handle,
+        }
+    }
+}
+
 impl Service<IncomingTxs> for IncomingTxHandler {
     type Response = ();
     type Error = IncomingTxError;
@@ -89,8 +123,7 @@ impl Service<IncomingTxs> for IncomingTxHandler {
 
     fn call(&mut self, req: IncomingTxs) -> Self::Future {
         handle_incoming_txs(
-            req.txs,
-            req.state,
+            req,
             self.txs_being_handled.clone(),
             self.blockchain_context_cache.clone(),
             self.tx_verifier_service.clone(),
@@ -105,8 +138,7 @@ impl Service<IncomingTxs> for IncomingTxHandler {
 /// Handles the incoming txs.
 #[expect(clippy::too_many_arguments)]
 async fn handle_incoming_txs(
-    txs: Vec<Bytes>,
-    state: TxState<CrossNetworkInternalPeerId>,
+    IncomingTxs { txs, state }: IncomingTxs,
     txs_being_handled: TxsBeingHandled,
     mut blockchain_context_cache: BlockChainContextService,
     mut tx_verifier_service: ConcreteTxVerifierService,
@@ -197,7 +229,7 @@ async fn prepare_incoming_txs(
     let txs = tx_blobs
         .into_iter()
         .filter_map(|tx_blob| {
-            let tx_blob_hash = transaction_blob_hash(tx_blob.as_ref());
+            let tx_blob_hash = transaction_blob_hash(&tx_blob);
 
             // If a duplicate is in here the incoming tx batch contained the same tx twice.
             if !tx_blob_hashes.insert(tx_blob_hash) {

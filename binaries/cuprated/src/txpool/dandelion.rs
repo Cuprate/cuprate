@@ -18,7 +18,7 @@ mod tx_store;
 
 /// The configuration used for [`cuprate_dandelion_tower`].
 ///
-/// TODO: should we expose this? probably not.
+/// TODO: should we expose this to users of cuprated? probably not.
 const DANDELION_CONFIG: DandelionConfig = DandelionConfig {
     time_between_hop: Duration::from_millis(175),
     epoch_duration: Duration::from_secs(10 * 60),

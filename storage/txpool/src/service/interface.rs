@@ -94,14 +94,10 @@ pub enum TxpoolWriteRequest {
     },
 
     /// Remove a transaction with the given hash from the pool.
-    ///
-    /// Returns [`TxpoolWriteResponse::Ok`].
     RemoveTransaction(TransactionHash),
 
     /// Promote a transaction from the stem pool to the fluff pool.
     /// If the tx is already in the fluff pool this does nothing.
-    ///
-    /// Returns [`TxpoolWriteResponse::Ok`].
     Promote(TransactionHash),
 
     /// Tell the tx-pool about a new block.

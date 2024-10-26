@@ -10,7 +10,7 @@ use cuprate_dandelion_tower::traits::DiffuseRequest;
 use cuprate_p2p::{BroadcastRequest, BroadcastSvc};
 use cuprate_p2p_core::ClearNet;
 
-use super::DandelionTx;
+use crate::txpool::dandelion::DandelionTx;
 
 /// The dandelion diffusion service.
 pub struct DiffuseService {
@@ -30,16 +30,14 @@ impl Service<DiffuseRequest<DandelionTx>> for DiffuseService {
 
     fn call(&mut self, req: DiffuseRequest<DandelionTx>) -> Self::Future {
         // TODO: the dandelion crate should pass along where we got the tx from.
-        // TODO: Use `into_inner` when 1.82.0 stabilizes.
-        self.clear_net_broadcast_service
+        let Ok(()) = self
+            .clear_net_broadcast_service
             .call(BroadcastRequest::Transaction {
                 tx_bytes: req.0 .0,
                 direction: None,
                 received_from: None,
             })
-            .now_or_never()
-            .unwrap()
-            .expect("Broadcast service is Infallible");
+            .into_inner();
 
         ready(Ok(()))
     }

@@ -137,7 +137,21 @@ pub async fn handle_incoming_block(
         return Ok(IncomingBlockOk::AlreadyHave);
     }
 
-    // From this point on we MUST not early return without removing the block hash from `BLOCKS_BEING_HANDLED`.
+    // We must remove the block hash from `BLOCKS_BEING_HANDLED`.
+    let _guard = {
+        struct RemoveFromBlocksBeingHandled {
+            block_hash: [u8; 32],
+        }
+        impl Drop for RemoveFromBlocksBeingHandled {
+            fn drop(&mut self) {
+                BLOCKS_BEING_HANDLED
+                    .lock()
+                    .unwrap()
+                    .remove(&self.block_hash);
+            }
+        }
+        RemoveFromBlocksBeingHandled { block_hash }
+    };
 
     let (response_tx, response_rx) = oneshot::channel();
 
@@ -150,15 +164,10 @@ pub async fn handle_incoming_block(
         .await
         .expect("TODO: don't actually panic here, an err means we are shutting down");
 
-    let res = response_rx
+    response_rx
         .await
         .expect("The blockchain manager will always respond")
-        .map_err(IncomingBlockError::InvalidBlock);
-
-    // Remove the block hash from the blocks being handled.
-    BLOCKS_BEING_HANDLED.lock().unwrap().remove(&block_hash);
-
-    res
+        .map_err(IncomingBlockError::InvalidBlock)
 }
 
 /// Check if we have a block with the given hash.
