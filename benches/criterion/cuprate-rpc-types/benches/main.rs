@@ -1,8 +1,8 @@
 //! Benchmarks for `cuprate-json-rpc`.
 #![allow(unused_crate_dependencies)]
 
-mod serde;
 mod epee;
+mod serde;
 
 criterion::criterion_main! {
     epee::benches,
