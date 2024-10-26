@@ -9,9 +9,8 @@ use cuprate_types::{
 };
 
 use crate::{
-    ExtendedConsensusError,
-    __private::Database,
-    context::{difficulty::DifficultyCache, rx_vms::RandomXVm, weight::BlockWeightsCache},
+    ContextCacheError, __private::Database, difficulty::DifficultyCache, rx_vms::RandomXVm,
+    weight::BlockWeightsCache,
 };
 
 pub(crate) mod sealed {
@@ -38,7 +37,7 @@ pub struct AltChainContextCache {
     pub chain_height: usize,
     /// The top hash of the alt chain.
     pub top_hash: [u8; 32],
-    /// The [`ChainID`] of the alt chain.
+    /// The [`ChainId`] of the alt chain.
     pub chain_id: Option<ChainId>,
     /// The parent [`Chain`] of this alt chain.
     pub parent_chain: Chain,
@@ -98,7 +97,7 @@ impl AltChainMap {
         &mut self,
         prev_id: [u8; 32],
         database: D,
-    ) -> Result<Box<AltChainContextCache>, ExtendedConsensusError> {
+    ) -> Result<Box<AltChainContextCache>, ContextCacheError> {
         if let Some(cache) = self.alt_cache_map.remove(&prev_id) {
             return Ok(cache);
         }
@@ -133,7 +132,7 @@ pub(crate) async fn get_alt_chain_difficulty_cache<D: Database + Clone>(
     prev_id: [u8; 32],
     main_chain_difficulty_cache: &DifficultyCache,
     mut database: D,
-) -> Result<DifficultyCache, ExtendedConsensusError> {
+) -> Result<DifficultyCache, ContextCacheError> {
     // find the block with hash == prev_id.
     let BlockchainResponse::FindBlock(res) = database
         .ready()
@@ -180,7 +179,7 @@ pub(crate) async fn get_alt_chain_weight_cache<D: Database + Clone>(
     prev_id: [u8; 32],
     main_chain_weight_cache: &BlockWeightsCache,
     mut database: D,
-) -> Result<BlockWeightsCache, ExtendedConsensusError> {
+) -> Result<BlockWeightsCache, ContextCacheError> {
     // find the block with hash == prev_id.
     let BlockchainResponse::FindBlock(res) = database
         .ready()
