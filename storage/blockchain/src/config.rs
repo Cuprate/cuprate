@@ -125,7 +125,7 @@ impl ConfigBuilder {
         self
     }
 
-    /// Set a custom database directory (and file) [`Path`].
+    /// Set a custom database directory (and file) [`PathBuf`].
     #[must_use]
     pub fn db_directory(mut self, db_directory: PathBuf) -> Self {
         self.db_directory = Some(db_directory);
