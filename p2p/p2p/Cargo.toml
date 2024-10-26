@@ -6,15 +6,15 @@ license = "MIT"
 authors = ["Boog900"]
 
 [dependencies]
-cuprate-constants = { path = "../../constants" }
-cuprate-fixed-bytes = { path = "../../net/fixed-bytes" }
-cuprate-wire = { path = "../../net/wire" }
-cuprate-p2p-core = { path = "../p2p-core", features = ["borsh"] }
-cuprate-address-book = { path = "../address-book" }
-cuprate-pruning = { path = "../../pruning" }
-cuprate-helper = { path = "../../helper", features = ["asynch"], default-features = false }
-cuprate-async-buffer = { path = "../async-buffer" }
-cuprate-types = { path = "../../types", default-features = false }
+cuprate-constants = { workspace = true }
+cuprate-fixed-bytes = { workspace = true }
+cuprate-wire = { workspace = true }
+cuprate-p2p-core = { workspace = true, features = ["borsh"] }
+cuprate-address-book = { workspace = true }
+cuprate-pruning = { workspace = true }
+cuprate-helper = { workspace = true, features = ["asynch"], default-features = false }
+cuprate-async-buffer = { workspace = true }
+cuprate-types = { workspace = true, default-features = false }
 
 monero-serai = { workspace = true, features = ["std"] }
 
@@ -37,7 +37,7 @@ borsh = { workspace = true, features = ["derive", "std"] }
 serde = { workspace = true, features = ["std", "derive"], optional = true }
 
 [dev-dependencies]
-cuprate-test-utils = { path = "../../test-utils" }
+cuprate-test-utils = { workspace = true }
 indexmap = { workspace = true }
 proptest = { workspace = true }
 tokio-test = { workspace = true }

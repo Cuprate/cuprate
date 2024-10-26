@@ -9,30 +9,31 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/binaries/cuprated"
 
 [dependencies]
 # TODO: after v1.0.0, remove unneeded dependencies.
-cuprate-consensus        = { path = "../../consensus" }
-cuprate-fast-sync        = { path = "../../consensus/fast-sync" }
-cuprate-consensus-rules  = { path = "../../consensus/rules" }
-cuprate-cryptonight      = { path = "../../cryptonight" }
-cuprate-helper           = { path = "../../helper", features = ["serde"] }
-cuprate-epee-encoding    = { path = "../../net/epee-encoding" }
-cuprate-fixed-bytes      = { path = "../../net/fixed-bytes" }
-cuprate-levin            = { path = "../../net/levin" }
-cuprate-wire             = { path = "../../net/wire" }
-cuprate-p2p              = { path = "../../p2p/p2p", features = ["serde"] }
-cuprate-p2p-core         = { path = "../../p2p/p2p-core", features = ["serde"] }
-cuprate-dandelion-tower  = { path = "../../p2p/dandelion-tower" }
-cuprate-async-buffer     = { path = "../../p2p/async-buffer" }
-cuprate-address-book     = { path = "../../p2p/address-book", features = ["serde_config"] }
-cuprate-blockchain       = { path = "../../storage/blockchain", features = ["service"] }
-cuprate-database-service = { path = "../../storage/service", features = ["serde"] }
-cuprate-txpool           = { path = "../../storage/txpool" }
-cuprate-database         = { path = "../../storage/database", features = ["serde"] }
-cuprate-pruning          = { path = "../../pruning" }
-cuprate-test-utils       = { path = "../../test-utils" }
-cuprate-types            = { path = "../../types" }
-cuprate-json-rpc         = { path = "../../rpc/json-rpc" }
-cuprate-rpc-interface    = { path = "../../rpc/interface" }
-cuprate-rpc-types        = { path = "../../rpc/types" }
+cuprate-consensus        = { workspace = true }
+cuprate-fast-sync        = { workspace = true }
+cuprate-consensus-context = { workspace = true }
+cuprate-consensus-rules  = { workspace = true }
+cuprate-cryptonight      = { workspace = true }
+cuprate-helper           = { workspace = true, features = ["serde"] }
+cuprate-epee-encoding    = { workspace = true }
+cuprate-fixed-bytes      = { workspace = true }
+cuprate-levin            = { workspace = true }
+cuprate-wire             = { workspace = true }
+cuprate-p2p              = { workspace = true, features = ["serde"] }
+cuprate-p2p-core         = { workspace = true, features = ["serde"] }
+cuprate-dandelion-tower  = { workspace = true }
+cuprate-async-buffer     = { workspace = true }
+cuprate-address-book     = { workspace = true, features = ["serde_config"] }
+cuprate-blockchain       = { workspace = true, features = ["service"] }
+cuprate-database-service = { workspace = true, features = ["serde"] }
+cuprate-txpool           = { workspace = true }
+cuprate-database         = { workspace = true, features = ["serde"] }
+cuprate-pruning          = { workspace = true }
+cuprate-test-utils       = { workspace = true }
+cuprate-types            = { workspace = true }
+cuprate-json-rpc         = { workspace = true }
+cuprate-rpc-interface    = { workspace = true }
+cuprate-rpc-types        = { workspace = true }
 
 # TODO: after v1.0.0, remove unneeded dependencies.
 anyhow                = { workspace = true }

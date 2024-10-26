@@ -10,9 +10,9 @@ default = ["borsh"]
 borsh = ["dep:borsh", "cuprate-pruning/borsh"]
 
 [dependencies]
-cuprate-helper = { path = "../../helper", features = ["asynch"], default-features = false }
-cuprate-wire = { path = "../../net/wire", features = ["tracing"] }
-cuprate-pruning = { path = "../../pruning" }
+cuprate-helper = { workspace = true, features = ["asynch"], default-features = false }
+cuprate-wire = { workspace = true, features = ["tracing"] }
+cuprate-pruning = { workspace = true }
 
 tokio = { workspace = true, features = ["net", "sync", "macros", "time", "rt", "rt-multi-thread"]}
 tokio-util = { workspace = true, features = ["codec"] }
@@ -30,7 +30,7 @@ borsh = { workspace = true, features = ["derive", "std"], optional = true }
 serde = { workspace = true, features = ["derive", "std"], optional = true }
 
 [dev-dependencies]
-cuprate-test-utils = { path = "../../test-utils" }
+cuprate-test-utils = { workspace = true }
 
 hex = { workspace = true, features = ["std"] }
 tokio-test = { workspace = true }

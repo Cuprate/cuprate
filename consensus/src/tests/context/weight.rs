@@ -1,10 +1,10 @@
 use crate::{
-    context::{
-        weight::{calculate_block_long_term_weight, BlockWeightsCache},
-        BlockWeightsCacheConfig,
-    },
     tests::{context::data::BW_2850000_3050000, mock_db::*},
     HardFork,
+};
+use cuprate_consensus_context::{
+    weight::{calculate_block_long_term_weight, BlockWeightsCache},
+    BlockWeightsCacheConfig,
 };
 use cuprate_types::Chain;
 

@@ -6,10 +6,10 @@ license = "MIT"
 authors = ["Boog900", "hinto-janai"]
 
 [dependencies]
-cuprate-types             = { path = "../types" }
-cuprate-helper            = { path = "../helper", features = ["map", "tx"] }
-cuprate-wire              = { path = "../net/wire" }
-cuprate-p2p-core          = { path = "../p2p/p2p-core", features = ["borsh"] }
+cuprate-types             = { workspace = true }
+cuprate-helper            = { workspace = true, features = ["map", "tx"] }
+cuprate-wire              = { workspace = true }
+cuprate-p2p-core          = { workspace = true, features = ["borsh"] }
 
 hex                       = { workspace = true }
 hex-literal               = { workspace = true }
