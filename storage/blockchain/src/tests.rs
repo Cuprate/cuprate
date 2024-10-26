@@ -5,7 +5,7 @@
 //! - only used internally
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{borrow::Cow, fmt::Debug};
+use std::fmt::Debug;
 
 use pretty_assertions::assert_eq;
 
@@ -74,7 +74,7 @@ impl AssertTableLen {
 pub(crate) fn tmp_concrete_env() -> (impl Env, tempfile::TempDir) {
     let tempdir = tempfile::tempdir().unwrap();
     let config = ConfigBuilder::new()
-        .db_directory(Cow::Owned(tempdir.path().into()))
+        .db_directory(tempdir.path().into())
         .low_power()
         .build();
     let env = crate::open(config).unwrap();

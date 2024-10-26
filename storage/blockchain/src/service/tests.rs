@@ -7,7 +7,6 @@
 
 //---------------------------------------------------------------------------------------------------- Use
 use std::{
-    borrow::Cow,
     collections::{HashMap, HashSet},
     sync::Arc,
 };
@@ -46,7 +45,7 @@ fn init_service() -> (
 ) {
     let tempdir = tempfile::tempdir().unwrap();
     let config = ConfigBuilder::new()
-        .db_directory(Cow::Owned(tempdir.path().into()))
+        .db_directory(tempdir.path().into())
         .low_power()
         .build();
     let (reader, writer, env) = init(config).unwrap();
