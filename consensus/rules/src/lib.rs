@@ -63,9 +63,9 @@ where
 /// An internal function that returns an iterator or a parallel iterator if the
 /// `rayon` feature is enabled.
 #[cfg(not(feature = "rayon"))]
-fn try_par_iter<T>(t: T) -> impl std::iter::Iterator<Item = T::Item>
+fn try_par_iter<T>(t: T) -> impl Iterator<Item = T::Item>
 where
-    T: std::iter::IntoIterator,
+    T: IntoIterator,
 {
     t.into_iter()
 }

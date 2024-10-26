@@ -16,13 +16,10 @@ use cuprate_types::{
 };
 
 use crate::{
-    context::{
-        alt_chains::{get_alt_chain_difficulty_cache, get_alt_chain_weight_cache, AltChainMap},
-        difficulty, hardforks, rx_vms, weight, BlockChainContext, BlockChainContextRequest,
-        BlockChainContextResponse, ContextConfig, RawBlockChainContext, ValidityToken,
-        BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
-    },
-    Database, ExtendedConsensusError,
+    alt_chains::{get_alt_chain_difficulty_cache, get_alt_chain_weight_cache, AltChainMap},
+    difficulty, hardforks, rx_vms, weight, BlockChainContext, BlockChainContextRequest,
+    BlockChainContextResponse, ContextCacheError, ContextConfig, Database, RawBlockChainContext,
+    ValidityToken, BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
 };
 
 /// A request from the context service to the context task.
@@ -68,7 +65,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
     pub(crate) async fn init_context(
         cfg: ContextConfig,
         mut database: D,
-    ) -> Result<Self, ExtendedConsensusError> {
+    ) -> Result<Self, ContextCacheError> {
         let ContextConfig {
             difficulty_cfg,
             weights_config,

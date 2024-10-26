@@ -1,9 +1,13 @@
 //! # Blockchain Context
 //!
-//! This module contains a service to get cached context from the blockchain: [`BlockChainContext`].
+//! This crate contains a service to get cached context from the blockchain: [`BlockChainContext`].
 //! This is used during contextual validation, this does not have all the data for contextual validation
 //! (outputs) for that you will need a [`Database`].
-//!
+
+// Used in documentation references for [`BlockChainContextRequest`]
+// FIXME: should we pull in a dependency just to link docs?
+use monero_serai as _;
+
 use std::{
     cmp::min,
     collections::HashMap,
@@ -18,14 +22,14 @@ use tokio::sync::mpsc;
 use tokio_util::sync::PollSender;
 use tower::Service;
 
-use cuprate_consensus_rules::{blocks::ContextToVerifyBlock, current_unix_timestamp, HardFork};
+use cuprate_consensus_rules::{
+    blocks::ContextToVerifyBlock, current_unix_timestamp, ConsensusError, HardFork,
+};
 
-use crate::{Database, ExtendedConsensusError};
-
-pub(crate) mod difficulty;
-pub(crate) mod hardforks;
-pub(crate) mod rx_vms;
-pub(crate) mod weight;
+pub mod difficulty;
+pub mod hardforks;
+pub mod rx_vms;
+pub mod weight;
 
 mod alt_chains;
 mod task;
@@ -36,13 +40,13 @@ use difficulty::DifficultyCache;
 use rx_vms::RandomXVm;
 use weight::BlockWeightsCache;
 
-pub(crate) use alt_chains::{sealed::AltChainRequestToken, AltChainContextCache};
+pub use alt_chains::{sealed::AltChainRequestToken, AltChainContextCache};
 pub use difficulty::DifficultyCacheConfig;
 pub use hardforks::HardForkConfig;
 pub use tokens::*;
 pub use weight::BlockWeightsCacheConfig;
 
-pub(crate) const BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW: u64 = 60;
+pub const BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW: u64 = 60;
 
 /// Config for the context service.
 pub struct ContextConfig {
@@ -91,7 +95,7 @@ impl ContextConfig {
 pub async fn initialize_blockchain_context<D>(
     cfg: ContextConfig,
     database: D,
-) -> Result<BlockChainContextService, ExtendedConsensusError>
+) -> Result<BlockChainContextService, ContextCacheError>
 where
     D: Database + Clone + Send + Sync + 'static,
     D::Future: Send + 'static,
@@ -412,5 +416,54 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
             rx.await.expect("Oneshot closed without response!")
         }
         .boxed()
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ContextCacheError {
+    /// A consensus error.
+    #[error("{0}")]
+    ConErr(#[from] ConsensusError),
+    /// A database error.
+    #[error("Database error: {0}")]
+    DBErr(#[from] tower::BoxError),
+}
+
+use __private::Database;
+
+pub mod __private {
+    use std::future::Future;
+
+    use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
+
+    /// A type alias trait used to represent a database, so we don't have to write [`tower::Service`] bounds
+    /// everywhere.
+    ///
+    /// Automatically implemented for:
+    /// ```ignore
+    /// tower::Service<BCReadRequest, Response = BCResponse, Error = tower::BoxError>
+    /// ```
+    pub trait Database:
+        tower::Service<
+        BlockchainReadRequest,
+        Response = BlockchainResponse,
+        Error = tower::BoxError,
+        Future = Self::Future2,
+    >
+    {
+        type Future2: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static;
+    }
+
+    impl<
+            T: tower::Service<
+                BlockchainReadRequest,
+                Response = BlockchainResponse,
+                Error = tower::BoxError,
+            >,
+        > Database for T
+    where
+        T::Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
+    {
+        type Future2 = T::Future;
     }
 }
