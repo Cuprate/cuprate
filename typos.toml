@@ -16,7 +16,8 @@ extend-ignore-identifiers-re = [
 # False positive files.
 extend-exclude = [
 	"/misc/gpg_keys/",
-	"cryptonight/",
+	"/cryptonight/",
 	"/test-utils/src/rpc/data/json.rs",
-	"rpc/types/src/json.rs",
+	"/rpc/types/src/json.rs",
+	"/benches/criterion/cuprate-rpc-types/benches/serde.rs",
 ]
