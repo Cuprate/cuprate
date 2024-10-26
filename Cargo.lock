@@ -689,6 +689,7 @@ name = "cuprate-consensus"
 version = "0.1.0"
 dependencies = [
  "cfg-if",
+ "cuprate-consensus-context",
  "cuprate-consensus-rules",
  "cuprate-helper",
  "cuprate-test-utils",
@@ -701,12 +702,30 @@ dependencies = [
  "proptest",
  "proptest-derive",
  "rand",
- "randomx-rs",
  "rayon",
  "thiserror",
  "thread_local",
  "tokio",
  "tokio-test",
+ "tower 0.5.1",
+ "tracing",
+]
+
+[[package]]
+name = "cuprate-consensus-context"
+version = "0.1.0"
+dependencies = [
+ "cuprate-consensus-rules",
+ "cuprate-helper",
+ "cuprate-types",
+ "futures",
+ "hex",
+ "monero-serai",
+ "randomx-rs",
+ "rayon",
+ "thiserror",
+ "thread_local",
+ "tokio",
  "tokio-util",
  "tower 0.5.1",
  "tracing",
@@ -846,6 +865,7 @@ dependencies = [
  "clap",
  "cuprate-blockchain",
  "cuprate-consensus",
+ "cuprate-consensus-context",
  "cuprate-consensus-rules",
  "cuprate-helper",
  "cuprate-types",
@@ -1075,6 +1095,7 @@ dependencies = [
  "proptest-derive",
  "serde",
  "serde_json",
+ "strum",
  "thiserror",
 ]
 
@@ -1113,6 +1134,7 @@ dependencies = [
  "cuprate-async-buffer",
  "cuprate-blockchain",
  "cuprate-consensus",
+ "cuprate-consensus-context",
  "cuprate-consensus-rules",
  "cuprate-cryptonight",
  "cuprate-dandelion-tower",
@@ -2948,6 +2970,28 @@ source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414
 dependencies = [
  "hashbrown",
  "spin",
+]
+
+[[package]]
+name = "strum"
+version = "0.26.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
+dependencies = [
+ "strum_macros",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.26.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c6bee85a5a24955dc440386795aa378cd9cf82acd5f764469152d2270e581be"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.77",
 ]
 
 [[package]]

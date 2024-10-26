@@ -7,6 +7,12 @@ use std::{collections::HashMap, sync::Arc};
 use monero_serai::{block::Block, transaction::Input};
 use tower::{Service, ServiceExt};
 
+use cuprate_consensus_context::{
+    difficulty::DifficultyCache,
+    rx_vms::RandomXVm,
+    weight::{self, BlockWeightsCache},
+    AltChainContextCache, AltChainRequestToken, BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
+};
 use cuprate_consensus_rules::{
     blocks::{
         check_block_pow, check_block_weight, check_timestamp, randomx_seed_height, BlockError,
@@ -22,12 +28,6 @@ use cuprate_types::{
 
 use crate::{
     block::{free::pull_ordered_transactions, PreparedBlock},
-    context::{
-        difficulty::DifficultyCache,
-        rx_vms::RandomXVm,
-        weight::{self, BlockWeightsCache},
-        AltChainContextCache, AltChainRequestToken, BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
-    },
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
     VerifyBlockResponse,
 };

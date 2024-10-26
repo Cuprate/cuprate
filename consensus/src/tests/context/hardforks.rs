@@ -1,13 +1,11 @@
 use proptest::{collection::vec, prelude::*};
 
+use cuprate_consensus_context::{hardforks::HardForkState, HardForkConfig};
 use cuprate_consensus_rules::hard_forks::{HFInfo, HFsInfo, HardFork, NUMB_OF_HARD_FORKS};
 
-use crate::{
-    context::{hardforks::HardForkState, HardForkConfig},
-    tests::{
-        context::data::{HFS_2678808_2688888, HFS_2688888_2689608},
-        mock_db::*,
-    },
+use crate::tests::{
+    context::data::{HFS_2678808_2688888, HFS_2688888_2689608},
+    mock_db::*,
 };
 
 const TEST_WINDOW_SIZE: usize = 25;
