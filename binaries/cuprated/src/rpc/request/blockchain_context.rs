@@ -5,7 +5,7 @@ use std::convert::Infallible;
 use anyhow::Error;
 use tower::{Service, ServiceExt};
 
-use cuprate_consensus::context::{
+use cuprate_consensus_context::{
     BlockChainContext, BlockChainContextRequest, BlockChainContextResponse,
     BlockChainContextService,
 };

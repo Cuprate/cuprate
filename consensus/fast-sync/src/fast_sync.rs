@@ -12,10 +12,8 @@ use monero_serai::{
 };
 use tower::{Service, ServiceExt};
 
-use cuprate_consensus::{
-    context::{BlockChainContextRequest, BlockChainContextResponse},
-    transactions::new_tx_verification_data,
-};
+use cuprate_consensus::transactions::new_tx_verification_data;
+use cuprate_consensus_context::{BlockChainContextRequest, BlockChainContextResponse};
 use cuprate_consensus_rules::{miner_tx::MinerTxError, ConsensusError};
 use cuprate_helper::cast::u64_to_usize;
 use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
