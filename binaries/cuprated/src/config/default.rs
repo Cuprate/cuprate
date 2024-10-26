@@ -1,6 +1,7 @@
 use std::{
     io::Write,
     path::{Path, PathBuf},
+    str::from_utf8,
 };
 
 use cuprate_helper::fs::{CUPRATE_BLOCKCHAIN_DIR, CUPRATE_CACHE_DIR, CUPRATE_TXPOOL_DIR};
@@ -36,7 +37,7 @@ pub fn create_default_config_file(path: &Path) -> ! {
 /// Generates the text of the default config file.
 fn generate_config_text() -> String {
     format!(
-        include_str!("Cuprate.toml"),
+        include!("Cuprate.toml"),
         cache = CUPRATE_CACHE_DIR.to_string_lossy(),
         txpool = CUPRATE_TXPOOL_DIR.to_string_lossy(),
         blockchain = CUPRATE_BLOCKCHAIN_DIR.to_string_lossy()

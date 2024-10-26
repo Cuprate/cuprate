@@ -1,3 +1,4 @@
+r#"
 #     ____                      _
 #    / ___|   _ _ __  _ __ __ _| |_ ___
 #   | |  | | | | '_ \| '__/ _` | __/ _ \
@@ -73,3 +74,5 @@ max_txpool_size = 100_000_000
 path = "{blockchain}"
 ## The database sync mode for the blockchain.
 sync_mode = "Async"
+
+"#
