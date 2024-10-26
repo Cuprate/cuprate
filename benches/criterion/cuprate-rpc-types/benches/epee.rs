@@ -14,7 +14,7 @@ use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion
 use function_name::named;
 
 use cuprate_epee_encoding::{from_bytes, to_bytes};
-use cuprate_rpc_types::bin::{GetBlocksRequest, GetBlocksResponse};
+use cuprate_rpc_types::bin::GetBlocksRequest;
 
 /// Create [`to_bytes`] and [`from_bytes`] benchmarks for `epee` types.
 macro_rules! generate_epee_benchmarks {
