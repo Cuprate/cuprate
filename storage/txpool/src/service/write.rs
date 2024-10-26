@@ -112,14 +112,22 @@ fn promote(
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw()?;
 
-    let mut tx_infos = env_inner.open_db_rw::<TransactionInfos>(&tx_rw)?;
+    let res = || {
+        let mut tx_infos = env_inner.open_db_rw::<TransactionInfos>(&tx_rw)?;
 
-    tx_infos.update(tx_hash, |mut info| {
-        info.flags.remove(TxStateFlags::STATE_STEM);
-        Some(info)
-    })?;
+        tx_infos.update(tx_hash, |mut info| {
+            info.flags.remove(TxStateFlags::STATE_STEM);
+            Some(info)
+        })
+    };
 
-    drop(tx_infos);
+    if let Err(e) = res() {
+        // error promoting the tx, abort the DB transaction.
+        TxRw::abort(tx_rw)
+            .expect("could not maintain database atomicity by aborting write transaction");
+
+        return Err(e);
+    }
 
     TxRw::commit(tx_rw)?;
     Ok(TxpoolWriteResponse::Ok)
