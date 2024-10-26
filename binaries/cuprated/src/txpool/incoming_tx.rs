@@ -136,7 +136,6 @@ impl Service<IncomingTxs> for IncomingTxHandler {
 }
 
 /// Handles the incoming txs.
-#[expect(clippy::too_many_arguments)]
 async fn handle_incoming_txs(
     IncomingTxs { txs, state }: IncomingTxs,
     txs_being_handled: TxsBeingHandled,
