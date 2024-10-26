@@ -9,8 +9,8 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/storage/service"
 keywords    = ["cuprate", "service", "database"]
 
 [dependencies]
-cuprate-database = { path = "../database" }
-cuprate-helper   = { path = "../../helper", features = ["fs", "thread", "map"] }
+cuprate-database = { workspace = true }
+cuprate-helper   = { workspace = true, features = ["fs", "thread", "map"] }
 
 serde     = { workspace = true, optional = true }
 rayon     = { workspace = true }
