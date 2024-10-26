@@ -70,10 +70,10 @@ thread_local          = { workspace = true }
 tokio-util            = { workspace = true }
 tokio-stream          = { workspace = true }
 tokio                 = { workspace = true }
+toml                  = { workspace = true, features = ["parse"]}
 tower                 = { workspace = true }
 tracing-subscriber    = { workspace = true, features = ["std", "fmt", "default"] }
 tracing               = { workspace = true, features = ["default"] }
-toml = "0.8"
 
 [lints]
 workspace = true

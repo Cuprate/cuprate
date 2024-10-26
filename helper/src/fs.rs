@@ -28,9 +28,12 @@
 //! - <https://docs.rs/dirs>
 
 //---------------------------------------------------------------------------------------------------- Use
+use std::{
+    path::{Path, PathBuf},
+    sync::LazyLock,
+};
+
 use crate::network::Network;
-use std::path::Path;
-use std::{path::PathBuf, sync::LazyLock};
 
 //---------------------------------------------------------------------------------------------------- Const
 /// Cuprate's main directory.
@@ -180,6 +183,7 @@ impl_path_lazylock! {
     "txpool",
 }
 
+/// Joins the [`Path`] with a folder for the given [`Network`].
 pub fn path_with_network(path: &Path, network: Network) -> PathBuf {
     path.join(network.to_string())
 }

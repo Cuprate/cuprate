@@ -42,7 +42,20 @@ pub struct SharedNetConfig {
     /// port to use to accept p2p connections.
     pub p2p_port: u16,
     /// The address book config.
-    pub address_book_config: AddressBookConfig,
+    address_book_config: AddressBookConfig,
+}
+
+impl SharedNetConfig {
+    /// Returns the [`AddressBookConfig`].
+    pub fn address_book_config(&self, network: Network) -> AddressBookConfig {
+        // HACK: we add the network here so we don't need to define another address book config.
+        let mut address_book_config = self.address_book_config.clone();
+        address_book_config
+            .peer_store_folder
+            .push(network.to_string());
+
+        address_book_config
+    }
 }
 
 impl Default for SharedNetConfig {

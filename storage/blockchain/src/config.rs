@@ -47,11 +47,13 @@ use std::{borrow::Cow, path::PathBuf};
 use serde::{Deserialize, Serialize};
 
 use cuprate_database::{config::SyncMode, resize::ResizeAlgorithm};
-use cuprate_helper::fs::{path_with_network, CUPRATE_BLOCKCHAIN_DIR};
+use cuprate_helper::{
+    fs::{path_with_network, CUPRATE_BLOCKCHAIN_DIR},
+    network::Network,
+};
 
 // re-exports
 pub use cuprate_database_service::ReaderThreads;
-use cuprate_helper::network::Network;
 
 //---------------------------------------------------------------------------------------------------- ConfigBuilder
 /// Builder for [`Config`].
