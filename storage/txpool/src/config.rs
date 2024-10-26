@@ -201,7 +201,7 @@ impl Config {
     /// Create a new [`Config`] with sane default settings.
     ///
     /// The [`DbConfig::db_directory`]
-    /// will be set to [`CUPRATE_TXPOOL_DIR`].
+    /// will be set to [`CUPRATE_TXPOOL_DIR`] joined with [`Network::Mainnet`].
     ///
     /// All other values will be [`Default::default`].
     ///
@@ -214,13 +214,13 @@ impl Config {
     ///     DATABASE_DATA_FILENAME,
     /// };
     /// use cuprate_database_service::ReaderThreads;
-    /// use cuprate_helper::fs::*;
+    /// use cuprate_helper::{fs::*, network::Network};
     ///
     /// use cuprate_txpool::Config;
     ///
     /// let config = Config::new();
     ///
-    /// assert_eq!(config.db_config.db_directory(), &*CUPRATE_TXPOOL_DIR);
+    /// assert_eq!(config.db_config.db_directory(), path_with_network(&CUPRATE_TXPOOL_DIR, Network::Mainnet).as_path());
     /// assert!(config.db_config.db_file().starts_with(&*CUPRATE_TXPOOL_DIR));
     /// assert!(config.db_config.db_file().ends_with(DATABASE_DATA_FILENAME));
     /// assert_eq!(config.db_config.sync_mode, SyncMode::default());
@@ -228,11 +228,7 @@ impl Config {
     /// assert_eq!(config.reader_threads, ReaderThreads::default());
     /// ```
     pub fn new() -> Self {
-        Self {
-            db_config: DbConfig::new(Cow::Borrowed(&*CUPRATE_TXPOOL_DIR)),
-            reader_threads: ReaderThreads::default(),
-            max_txpool_weight: 0,
-        }
+        ConfigBuilder::new().build()
     }
 }
 

@@ -159,9 +159,10 @@ impl ConfigBuilder {
     /// Good default for testing, and resource-available machines.
     #[must_use]
     pub fn fast(mut self) -> Self {
-        self.db_config =
-            cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(&*CUPRATE_BLOCKCHAIN_DIR))
-                .fast();
+        self.db_config = cuprate_database::config::ConfigBuilder::new(Cow::Owned(
+            path_with_network(&CUPRATE_BLOCKCHAIN_DIR, self.network),
+        ))
+        .fast();
 
         self.reader_threads = Some(ReaderThreads::OnePerThread);
         self
@@ -173,9 +174,10 @@ impl ConfigBuilder {
     /// Good default for resource-limited machines, e.g. a cheap VPS.
     #[must_use]
     pub fn low_power(mut self) -> Self {
-        self.db_config =
-            cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(&*CUPRATE_BLOCKCHAIN_DIR))
-                .low_power();
+        self.db_config = cuprate_database::config::ConfigBuilder::new(Cow::Owned(
+            path_with_network(&CUPRATE_BLOCKCHAIN_DIR, self.network),
+        ))
+        .low_power();
 
         self.reader_threads = Some(ReaderThreads::One);
         self
@@ -218,7 +220,7 @@ impl Config {
     /// Create a new [`Config`] with sane default settings.
     ///
     /// The [`cuprate_database::config::Config::db_directory`]
-    /// will be set to [`CUPRATE_BLOCKCHAIN_DIR`].
+    /// will be set to [`CUPRATE_BLOCKCHAIN_DIR`] joined with [`Network::Mainnet`].
     ///
     /// All other values will be [`Default::default`].
     ///
@@ -230,13 +232,13 @@ impl Config {
     ///     resize::ResizeAlgorithm,
     ///     DATABASE_DATA_FILENAME,
     /// };
-    /// use cuprate_helper::fs::*;
+    /// use cuprate_helper::{fs::*, network::Network};
     ///
     /// use cuprate_blockchain::config::*;
     ///
     /// let config = Config::new();
     ///
-    /// assert_eq!(config.db_config.db_directory(), &*CUPRATE_BLOCKCHAIN_DIR);
+    /// assert_eq!(config.db_config.db_directory().as_ref(), path_with_network(&CUPRATE_BLOCKCHAIN_DIR, Network::Mainnet).as_path());
     /// assert!(config.db_config.db_file().starts_with(&*CUPRATE_BLOCKCHAIN_DIR));
     /// assert!(config.db_config.db_file().ends_with(DATABASE_DATA_FILENAME));
     /// assert_eq!(config.db_config.sync_mode, SyncMode::default());
