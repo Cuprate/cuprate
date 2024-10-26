@@ -1,0 +1,27 @@
+[package]
+name = "cuprate-consensus-context"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["SyntheticBird","Boog900"]
+
+[dependencies]
+cuprate-consensus-rules =  { workspace = true, features = ["proptest"]}
+cuprate-helper = { workspace = true, default-features = false, features = ["std", "cast", "num", "asynch"] }
+cuprate-types = { workspace = true, default-features = false, features = ["blockchain"] }
+
+futures = { workspace = true, features = ["std", "async-await"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"]}
+tokio-util = { workspace = true }
+tower = { workspace = true, features = ["util"] }
+tracing = { workspace = true, features = ["std", "attributes"] }
+thiserror = { workspace = true }
+
+monero-serai = { workspace = true, features = ["std"] }
+randomx-rs = { workspace = true }
+rayon = { workspace = true }
+thread_local = { workspace = true }
+hex = { workspace = true }
+
+[lints]
+workspace = true

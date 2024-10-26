@@ -13,11 +13,11 @@ use tracing::info;
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{
-    block::PreparedBlock, context::NewBlockData, transactions::new_tx_verification_data,
-    BlockChainContextRequest, BlockChainContextResponse, BlockVerifierService,
-    ExtendedConsensusError, VerifyBlockRequest, VerifyBlockResponse, VerifyTxRequest,
-    VerifyTxResponse,
+    block::PreparedBlock, transactions::new_tx_verification_data, BlockChainContextRequest,
+    BlockChainContextResponse, BlockVerifierService, ExtendedConsensusError, VerifyBlockRequest,
+    VerifyBlockResponse, VerifyTxRequest, VerifyTxResponse,
 };
+use cuprate_consensus_context::NewBlockData;
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p::{block_downloader::BlockBatch, constants::LONG_BAN, BroadcastRequest};
 use cuprate_txpool::service::interface::TxpoolWriteRequest;
