@@ -6,7 +6,9 @@ use cuprate_helper::network::Network;
 
 use crate::config::{default::create_default_config_file, Config, DEFAULT_CONFIG_FILE_NAME};
 
+/// Cuprate Args.
 #[derive(clap::Parser, Debug)]
+#[command(version, about)]
 pub struct Args {
     /// The network we should run on.
     #[arg(
@@ -17,10 +19,13 @@ pub struct Args {
     )]
     pub network: Network,
     /// The amount of outbound clear-net connections to maintain.
+    #[arg(long)]
     pub outbound_connections: Option<usize>,
     /// The location of the Cuprate config file.
+    #[arg(long)]
     pub config_file: Option<PathBuf>,
     /// Generate a config file and place it in the given folder.
+    #[arg(long)]
     pub generate_config: Option<PathBuf>,
 }
 
