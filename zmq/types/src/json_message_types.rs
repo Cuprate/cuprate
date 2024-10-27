@@ -1,10 +1,10 @@
 //! Objects for JSON serialization and deserialization in message bodies of
 //! the ZMQ pub/sub interface. Handles JSON for the following subscriptions:
-//! * `json-full-txpool_add`
-//! * `json-minimal-txpool_add`
-//! * `json-full-chain_main`
-//! * `json-minimal-chain_main`
-//! * `json-full-miner_data`
+//! * `json-full-txpool_add` (`Vec<TxPoolAdd>`)
+//! * `json-minimal-txpool_add` (`Vec<TxPoolAddMin>`)
+//! * `json-full-chain_main` (`Vec<ChainMain>`)
+//! * `json-minimal-chain_main` (`ChainMainMin`)
+//! * `json-full-miner_data` (`MinerData`)
 use serde::{Deserialize, Serialize};
 
 use crate::{bytes_hex::Bytes, u128_hex::U128};
@@ -18,6 +18,7 @@ use crate::{bytes_hex::Bytes, u128_hex::U128};
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TxPoolAdd {
     pub version: u8,
+    // If not 0, this is the block height when a transaction output is spendable.
     pub unlock_time: u64,
     pub inputs: Vec<PoolInput>,
     pub outputs: Vec<Output>,
@@ -32,13 +33,15 @@ pub struct TxPoolAdd {
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TxPoolAddMin {
     pub id: Bytes<32>,
+    // size of the full transaction blob
     pub blob_size: u64,
     pub weight: u64,
+    // mining fee included in the transaction in piconeros
     pub fee: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct FullChainMain {
+pub struct ChainMain {
     /// The major version of the monero protocol at the next? block height.
     pub major_version: u8,
     /// The minor version of the monero protocol at the next? block height.
@@ -56,16 +59,25 @@ pub struct FullChainMain {
     pub tx_hashes: Vec<Bytes<32>>,
 }
 
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct ChainMainMin {
+    pub first_height: u64,
+    pub first_prev_id: Bytes<32>,
+    pub ids: Vec<Bytes<32>>,
+}
+
 /// ZMQ `json-full-miner_data` subscriber messages contain a single
 /// `FullMinerData` object that provides the necessary data to create a
 /// custom block template. There is no min version of this object.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct FullMinerData {
+pub struct MinerData {
     pub major_version: u8,
     pub height: u64,
     pub prev_id: Bytes<32>,
     pub seed_hash: Bytes<32>,
+    // Least-significant 64 bits of the 128-bit network difficulty
     pub difficulty: U128,
+    // Median adjusted block size of latest 100000 blocks
     pub median_weight: u64,
     /// Fixed at `u64::MAX` in perpetuity as Monero has already reached tail emission.
     /// Note that not all JSON parsers can handle this large value correctly.
@@ -350,7 +362,7 @@ mod tests {
     }
 
     #[test]
-    fn test_full_chain_main_json() {
+    fn test_chain_main_json() {
         let json1 = json!([
           {
             "major_version": 16,
@@ -471,13 +483,28 @@ mod tests {
           }
         ]);
 
-        let full_chain_main: Vec<FullChainMain> = serde_json::from_value(json1.clone()).unwrap();
-        let json2 = serde_json::to_value(&full_chain_main).unwrap();
+        let chain_main: Vec<ChainMain> = serde_json::from_value(json1.clone()).unwrap();
+        let json2 = serde_json::to_value(&chain_main).unwrap();
         assert_json_eq!(json1, json2);
     }
 
     #[test]
-    fn test_full_miner_data_json() {
+    fn test_chain_main_min_json() {
+        let json1 = json!({
+          "first_height": 3242758,
+          "first_prev_id": "ce3731311b7e4c1e58a2fe902dbb5c60bb2c0decc163d5397fa52a260d7f09c1",
+          "ids": [
+            "ee1238b884e64f7e438223aa8d42d0efc15e7640f1a432448fbad116dc72f1b2"
+          ]
+        });
+
+        let chain_main_min: ChainMainMin = serde_json::from_value(json1.clone()).unwrap();
+        let json2 = serde_json::to_value(&chain_main_min).unwrap();
+        assert_json_eq!(json1, json2);
+    }
+
+    #[test]
+    fn test_miner_data_json() {
         let json1 = json!({
           "major_version": 16,
           "height": 3242764,
@@ -510,8 +537,8 @@ mod tests {
           ]
         });
 
-        let full_miner_data: FullMinerData = serde_json::from_value(json1.clone()).unwrap();
-        let json2 = serde_json::to_value(&full_miner_data).unwrap();
+        let miner_data: MinerData = serde_json::from_value(json1.clone()).unwrap();
+        let json2 = serde_json::to_value(&miner_data).unwrap();
         assert_json_eq!(json1, json2);
     }
 }
