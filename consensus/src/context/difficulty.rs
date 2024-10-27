@@ -330,7 +330,7 @@ fn next_difficulty(
     }
 
     // TODO: do checked operations here and unwrap so we don't silently overflow?
-    (windowed_work * hf.block_time().as_secs() as u128 + time_span - 1) / time_span
+    (windowed_work * u128::from(hf.block_time().as_secs()) + time_span - 1) / time_span
 }
 
 /// Get the start and end of the window to calculate difficulty.

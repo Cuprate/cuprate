@@ -22,6 +22,7 @@ use cuprate_dandelion_tower::{
     State, TxState,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
+use cuprate_p2p::constants::MAX_TRANSACTION_BLOB_SIZE;
 use cuprate_txpool::service::{
     interface::{TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest, TxpoolWriteResponse},
     TxpoolReadHandle, TxpoolWriteHandle,
@@ -39,6 +40,8 @@ use crate::{
 /// An error that can happen handling an incoming tx.
 #[derive(Debug, thiserror::Error)]
 pub enum IncomingTxError {
+    #[error("Peer sent a transaction which is too big")]
+    TooLarge,
     #[error("parse error: {0}")]
     Parse(std::io::Error),
     #[error("consensus error: {0}")]
@@ -191,6 +194,10 @@ async fn prepare_incoming_txs(
     let txs = tx_blobs
         .into_iter()
         .filter_map(|tx_blob| {
+            if tx_blob.len() > MAX_TRANSACTION_BLOB_SIZE {
+                return Some(Err(IncomingTxError::TooLarge));
+            }
+
             let tx_blob_hash = tx_blob_hash(tx_blob.as_ref());
 
             // If a duplicate is in here the incoming tx batch contained the same tx twice.

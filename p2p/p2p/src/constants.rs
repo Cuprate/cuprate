@@ -61,7 +61,7 @@ pub(crate) const BLOCK_DOWNLOADER_REQUEST_TIMEOUT: Duration = Duration::from_sec
 /// be less than.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/transactions.html#transaction-size>
-pub(crate) const MAX_TRANSACTION_BLOB_SIZE: usize = 1_000_000;
+pub const MAX_TRANSACTION_BLOB_SIZE: usize = 1_000_000;
 
 /// The maximum amount of block IDs allowed in a chain entry response.
 ///
