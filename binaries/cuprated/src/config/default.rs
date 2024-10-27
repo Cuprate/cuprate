@@ -36,11 +36,19 @@ pub fn create_default_config_file(path: &Path) -> ! {
 
 /// Generates the text of the default config file.
 fn generate_config_text() -> String {
+    let toml_value_str = |t: &PathBuf| {
+        let mut value = String::new();
+
+        serde::Serialize::serialize(t, toml::ser::ValueSerializer::new(&mut value)).unwrap();
+
+        value
+    };
+
     format!(
         include_str!("Cuprate.toml"),
-        cache = CUPRATE_CACHE_DIR.to_string_lossy(),
-        txpool = CUPRATE_TXPOOL_DIR.to_string_lossy(),
-        blockchain = CUPRATE_BLOCKCHAIN_DIR.to_string_lossy()
+        cache = toml_value_str(&CUPRATE_CACHE_DIR),
+        txpool = toml_value_str(&CUPRATE_TXPOOL_DIR),
+        blockchain = toml_value_str(&CUPRATE_BLOCKCHAIN_DIR)
     )
 }
 
@@ -51,13 +59,6 @@ mod tests {
     #[test]
     fn generate_config_text_covers_all_values() {
         let text = generate_config_text();
-
-        #[cfg(target_os = "windows")]
-        {
-            let full_config = Config::default();
-            panic!("{}", toml::to_string_pretty(&full_config).unwrap());
-        }
-
         let table: toml::Table = toml::from_str(&text).unwrap();
 
         let full_config = Config::default();
