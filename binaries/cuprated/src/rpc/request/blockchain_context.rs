@@ -3,10 +3,10 @@
 use std::convert::Infallible;
 
 use anyhow::{anyhow, Error};
-use cuprate_helper::cast::u64_to_usize;
 use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 
+use cuprate_helper::cast::u64_to_usize;
 use cuprate_consensus_context::{
     BlockChainContext, BlockChainContextRequest, BlockChainContextResponse,
     BlockChainContextService,
