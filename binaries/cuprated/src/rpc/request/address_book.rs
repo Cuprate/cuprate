@@ -5,14 +5,14 @@ use std::convert::Infallible;
 use anyhow::{anyhow, Error};
 use tower::ServiceExt;
 
-use cuprate_pruning::PruningSeed;
-use cuprate_rpc_types::misc::{ConnectionInfo, Span};
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p_core::{
     services::{AddressBookRequest, AddressBookResponse},
     types::BanState,
     AddressBook, NetworkZone,
 };
+use cuprate_pruning::PruningSeed;
+use cuprate_rpc_types::misc::{ConnectionInfo, Span};
 
 use crate::rpc::constants::FIELD_NOT_SUPPORTED;
 
