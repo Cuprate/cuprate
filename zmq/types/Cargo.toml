@@ -11,6 +11,7 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/zmq/types"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["std"] }
 hex = { workspace = true, features = ["std", "serde"] }
+cuprate-types = { path = "../../types", features = ["hex"] }
 
 [dev-dependencies]
 assert-json-diff = "2.0.2"

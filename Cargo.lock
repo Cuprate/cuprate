@@ -966,6 +966,7 @@ name = "cuprate-zmq-types"
 version = "0.1.0"
 dependencies = [
  "assert-json-diff",
+ "cuprate-types",
  "hex",
  "serde",
  "serde_json",
