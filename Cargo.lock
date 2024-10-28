@@ -856,6 +856,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-p2p-bucket"
+version = "0.1.0"
+dependencies = [
+ "arrayvec",
+ "rand",
+]
+
+[[package]]
 name = "cuprate-p2p-core"
 version = "0.1.0"
 dependencies = [
