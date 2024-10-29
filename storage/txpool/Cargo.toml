@@ -29,6 +29,7 @@ bytemuck                 = { workspace = true, features = ["must_cast", "derive"
 bitflags                 = { workspace = true, features = ["std", "serde", "bytemuck"] }
 thiserror                = { workspace = true }
 hex                      = { workspace = true }
+blake3                   = { workspace = true, features = ["std"] }
 
 tower                    = { workspace = true, optional = true }
 rayon                    = { workspace = true, optional = true }
