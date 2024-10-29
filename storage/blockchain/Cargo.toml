@@ -15,38 +15,38 @@ default     = ["heed", "service"]
 heed        = ["cuprate-database/heed"]
 redb        = ["cuprate-database/redb"]
 redb-memory = ["cuprate-database/redb-memory"]
-service     = ["dep:crossbeam", "dep:futures", "dep:tokio", "dep:tokio-util", "dep:tower", "dep:rayon", "dep:thread_local"]
+service     = ["dep:thread_local", "dep:rayon", "cuprate-helper/thread"]
 
 [dependencies]
-# FIXME:
-# We only need the `thread` feature if `service` is enabled.
-# Figure out how to enable features of an already pulled in dependency conditionally.
-cuprate-database = { path = "../database" }
-cuprate-helper   = { path = "../../helper", features = ["fs", "thread", "map"] }
-cuprate-types    = { path = "../../types", features = ["blockchain"] }
+cuprate-database         = { workspace = true }
+cuprate-database-service = { workspace = true }
+cuprate-helper           = { workspace = true, features = ["fs", "map", "crypto"] }
+cuprate-types            = { workspace = true, features = ["blockchain"] }
+cuprate-pruning          = { workspace = true }
 
-bitflags         = { workspace = true, features = ["serde", "bytemuck"] }
-bytemuck         = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
+bitflags         = { workspace = true, features = ["std", "serde", "bytemuck"] }
+bytemuck         = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 curve25519-dalek = { workspace = true }
-cuprate-pruning  = { path = "../../pruning" }
+rand             = { workspace = true }
 monero-serai     = { workspace = true, features = ["std"] }
-paste            = { workspace = true }
+serde            = { workspace = true, optional = true }
 
 # `service` feature.
-crossbeam    = { workspace = true, features = ["std"], optional = true }
-futures      = { workspace = true, optional = true }
-tokio        = { workspace = true, features = ["full"], optional = true }
-tokio-util   = { workspace = true, features = ["full"], optional = true }
-tower        = { workspace = true, features = ["full"], optional = true }
+tower        = { workspace = true }
 thread_local = { workspace = true, optional = true }
 rayon        = { workspace = true, optional = true }
 
 [dev-dependencies]
-cuprate-helper     = { path = "../../helper", features = ["thread"] }
-cuprate-test-utils = { path = "../../test-utils" }
+cuprate-constants  = { workspace = true }
+cuprate-helper     = { workspace = true, features = ["thread", "cast"] }
+cuprate-test-utils = { workspace = true }
 
-bytemuck          = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
-tempfile          = { version = "3.10.0" }
+tokio             = { workspace = true, features = ["full"] }
+tempfile          = { workspace = true }
 pretty_assertions = { workspace = true }
+proptest          = { workspace = true }
 hex               = { workspace = true }
 hex-literal       = { workspace = true }
+
+[lints]
+workspace = true

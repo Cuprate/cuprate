@@ -9,25 +9,31 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"
 
 
 [features]
-# All features on by default.
-default   = ["std", "atomic", "asynch", "fs", "num", "map", "time", "thread", "constants"]
+# All features off by default.
+default   = []
 std       = []
 atomic    = ["dep:crossbeam"]
 asynch    = ["dep:futures", "dep:rayon"]
+cast      = []
 constants = []
+crypto    = ["dep:curve25519-dalek", "dep:monero-serai", "std"]
 fs        = ["dep:dirs"]
 num       = []
-map       = ["dep:monero-serai"]
+map       = ["cast", "dep:monero-serai", "dep:cuprate-constants"]
 time      = ["dep:chrono", "std"]
 thread    = ["std", "dep:target_os_lib"]
+tx        = ["dep:monero-serai"]
 
 [dependencies]
-crossbeam    = { workspace = true, optional = true }
-chrono       = { workspace = true, optional = true, features = ["std", "clock"] }
-dirs         = { workspace = true, optional = true }
-futures      = { workspace = true, optional = true, features = ["std"] }
-monero-serai = { workspace = true, optional = true }
-rayon        = { workspace = true, optional = true }
+cuprate-constants = { workspace = true, optional = true, features = ["block"] }
+
+chrono           = { workspace = true, optional = true, features = ["std", "clock"] }
+crossbeam        = { workspace = true, optional = true }
+curve25519-dalek = { workspace = true, optional = true }
+dirs             = { workspace = true, optional = true }
+futures          = { workspace = true, optional = true, features = ["std"] }
+monero-serai     = { workspace = true, optional = true }
+rayon            = { workspace = true, optional = true }
 
 # This is kinda a stupid work around.
 # [thread] needs to activate one of these libs (windows|libc)
@@ -35,7 +41,11 @@ rayon        = { workspace = true, optional = true }
 [target.'cfg(windows)'.dependencies]
 target_os_lib = { package = "windows", version = ">=0.51", features = ["Win32_System_Threading", "Win32_Foundation"], optional = true }
 [target.'cfg(unix)'.dependencies]
-target_os_lib = { package = "libc", version = "0.2.151", optional = true }
+target_os_lib = { package = "libc", version = "0.2.158", optional = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["full"] }
+tokio            = { workspace = true, features = ["full"] }
+curve25519-dalek = { workspace = true }
+
+[lints]
+workspace = true

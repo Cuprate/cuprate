@@ -8,6 +8,8 @@ use crate::{key::Key, storable::Storable};
 /// Database table metadata.
 ///
 /// Purely compile time information for database tables.
+///
+/// See [`crate::define_tables`] for bulk table generation.
 pub trait Table: 'static {
     /// Name of the database table.
     const NAME: &'static str;

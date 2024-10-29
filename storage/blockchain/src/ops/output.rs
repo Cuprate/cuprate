@@ -1,12 +1,13 @@
 //! Output functions.
 
 //---------------------------------------------------------------------------------------------------- Import
-use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY, Scalar};
-use monero_serai::{transaction::Timelock, H};
+use curve25519_dalek::edwards::CompressedEdwardsY;
+use monero_serai::transaction::Timelock;
 
 use cuprate_database::{
     RuntimeError, {DatabaseRo, DatabaseRw},
 };
+use cuprate_helper::crypto::compute_zero_commitment;
 use cuprate_helper::map::u64_to_timelock;
 use cuprate_types::OutputOnChain;
 
@@ -155,9 +156,7 @@ pub fn output_to_output_on_chain(
     amount: Amount,
     table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
 ) -> Result<OutputOnChain, RuntimeError> {
-    // FIXME: implement lookup table for common values:
-    // <https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/ringct/rctOps.cpp#L322>
-    let commitment = ED25519_BASEPOINT_POINT + H() * Scalar::from(amount);
+    let commitment = compute_zero_commitment(amount);
 
     let time_lock = if output
         .output_flags
@@ -173,7 +172,7 @@ pub fn output_to_output_on_chain(
         .unwrap_or(None);
 
     Ok(OutputOnChain {
-        height: u64::from(output.height),
+        height: output.height as usize,
         time_lock,
         key,
         commitment,
@@ -213,7 +212,7 @@ pub fn rct_output_to_output_on_chain(
         .unwrap_or(None);
 
     Ok(OutputOnChain {
-        height: u64::from(rct_output.height),
+        height: rct_output.height as usize,
         time_lock,
         key,
         commitment,
@@ -254,8 +253,7 @@ mod test {
     use cuprate_database::{Env, EnvInner};
 
     use crate::{
-        open_tables::OpenTables,
-        tables::{Tables, TablesMut},
+        tables::{OpenTables, Tables, TablesMut},
         tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
         types::OutputFlags,
     };
@@ -317,7 +315,8 @@ mod test {
             // Assert proper tables were added to.
             AssertTableLen {
                 block_infos: 0,
-                block_blobs: 0,
+                block_header_blobs: 0,
+                block_txs_hashes: 0,
                 block_heights: 0,
                 key_images: 0,
                 num_outputs: 1,

@@ -2,7 +2,10 @@
 resolver = "2"
 
 members = [
+	"binaries/cuprated",
+	"constants",
 	"consensus",
+	"consensus/context",
 	"consensus/fast-sync",
 	"consensus/rules",
 	"cryptonight",
@@ -17,6 +20,7 @@ members = [
 	"p2p/async-buffer",
 	"p2p/address-book",
 	"storage/blockchain",
+	"storage/service",
 	"storage/txpool",
 	"storage/database",
 	"pruning",
@@ -46,50 +50,82 @@ opt-level     = 1
 opt-level = 3
 
 [workspace.dependencies]
-async-trait           = { version = "0.1.74", default-features = false }
-bitflags              = { version = "2.4.2", default-features = false }
-borsh                 = { version = "1.2.1", default-features = false }
-bytemuck              = { version = "1.14.3", default-features = false }
-bytes                 = { version = "1.5.0", default-features = false }
+# Cuprate members
+cuprate-fast-sync           = { path = "consensus/fast-sync"    ,default-features = false}
+cuprate-consensus-rules     = { path = "consensus/rules"        ,default-features = false}
+cuprate-constants           = { path = "constants"              ,default-features = false}
+cuprate-consensus           = { path = "consensus"              ,default-features = false}
+cuprate-consensus-context   = { path = "consensus/context"      ,default-features = false}
+cuprate-cryptonight         = { path = "cryptonight"            ,default-features = false}
+cuprate-helper              = { path = "helper"                 ,default-features = false}
+cuprate-epee-encoding       = { path = "net/epee-encoding"      ,default-features = false}
+cuprate-fixed-bytes         = { path = "net/fixed-bytes"        ,default-features = false}
+cuprate-levin               = { path = "net/levin"              ,default-features = false}
+cuprate-wire                = { path = "net/wire"               ,default-features = false}
+cuprate-p2p                 = { path = "p2p/p2p"                ,default-features = false}
+cuprate-p2p-core            = { path = "p2p/p2p-core"           ,default-features = false}
+cuprate-dandelion-tower     = { path = "p2p/dandelion-tower"    ,default-features = false}
+cuprate-async-buffer        = { path = "p2p/async-buffer"       ,default-features = false}
+cuprate-address-book        = { path = "p2p/address-book"       ,default-features = false}
+cuprate-blockchain          = { path = "storage/blockchain"     ,default-features = false}
+cuprate-database            = { path = "storage/database"       ,default-features = false}
+cuprate-database-service    = { path = "storage/service"        ,default-features = false}
+cuprate-txpool              = { path = "storage/txpool"         ,default-features = false}
+cuprate-pruning             = { path = "pruning"                ,default-features = false}
+cuprate-test-utils          = { path = "test-utils"             ,default-features = false}
+cuprate-types               = { path = "types"                  ,default-features = false}
+cuprate-json-rpc            = { path = "rpc/json-rpc"           ,default-features = false}
+cuprate-rpc-types           = { path = "rpc/types"              ,default-features = false}
+cuprate-rpc-interface       = { path = "rpc/interface"          ,default-features = false}
+
+# External dependencies
+anyhow                = { version = "1.0.89", default-features = false }
+async-trait           = { version = "0.1.82", default-features = false }
+bitflags              = { version = "2.6.0", default-features = false }
+borsh                 = { version = "1.5.1", default-features = false }
+bytemuck              = { version = "1.18.0", default-features = false }
+bytes                 = { version = "1.7.2", default-features = false }
 cfg-if                = { version = "1.0.0", default-features = false }
-clap                  = { version = "4.4.7", default-features = false }
-chrono                = { version = "0.4.31", default-features = false }
+clap                  = { version = "4.5.17", default-features = false }
+chrono                = { version = "0.4.38", default-features = false }
 crypto-bigint         = { version = "0.5.5", default-features = false }
 crossbeam             = { version = "0.8.4", default-features = false }
+const_format          = { version = "0.2.33", default-features = false }
 curve25519-dalek      = { version = "4.1.3", default-features = false }
-dalek-ff-group        = { git = "https://github.com/Cuprate/serai.git", rev = "d27d934", default-features = false }
 dashmap               = { version = "5.5.3", default-features = false }
 dirs                  = { version = "5.0.1", default-features = false }
-futures               = { version = "0.3.29", default-features = false }
+futures               = { version = "0.3.30", default-features = false }
 hex                   = { version = "0.4.3", default-features = false }
 hex-literal           = { version = "0.4", default-features = false }
-indexmap              = { version = "2.2.5", default-features = false }
-monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "d27d934", default-features = false }
-multiexp              = { git = "https://github.com/Cuprate/serai.git", rev = "d27d934", default-features = false }
-paste                 = { version = "1.0.14", default-features = false }
-pin-project           = { version = "1.1.3", default-features = false }
+indexmap              = { version = "2.5.0", default-features = false }
+monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "d5205ce", default-features = false }
+paste                 = { version = "1.0.15", default-features = false }
+pin-project           = { version = "1.1.5", default-features = false }
 randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev = "0028464", default-features = false }
 rand                  = { version = "0.8.5", default-features = false }
 rand_distr            = { version = "0.4.3", default-features = false }
-rayon                 = { version = "1.9.0", default-features = false }
-serde_bytes           = { version = "0.11.12", default-features = false }
-serde_json            = { version = "1.0.108", default-features = false }
-serde                 = { version = "1.0.190", default-features = false }
-thiserror             = { version = "1.0.50", default-features = false }
-thread_local		  = { version = "1.1.7", default-features = false }
-tokio-util            = { version = "0.7.10", default-features = false }
-tokio-stream          = { version = "0.1.14", default-features = false }
-tokio                 = { version = "1.33.0", default-features = false }
-tower                 = { version = "0.4.13", default-features = false }
-tracing-subscriber    = { version = "0.3.17", default-features = false }
+rayon                 = { version = "1.10.0", default-features = false }
+serde_bytes           = { version = "0.11.15", default-features = false }
+serde_json            = { version = "1.0.128", default-features = false }
+serde                 = { version = "1.0.210", default-features = false }
+strum                 = { version = "0.26.3", default-features = false }
+thiserror             = { version = "1.0.63", default-features = false }
+thread_local          = { version = "1.1.8", default-features = false }
+tokio-util            = { version = "0.7.12", default-features = false }
+tokio-stream          = { version = "0.1.16", default-features = false }
+tokio                 = { version = "1.40.0", default-features = false }
+tower                 = { git = "https://github.com/Cuprate/tower.git", rev = "6c7faf0", default-features = false } # <https://github.com/tower-rs/tower/pull/796>
+tracing-subscriber    = { version = "0.3.18", default-features = false }
 tracing               = { version = "0.1.40", default-features = false }
 
 ## workspace.dev-dependencies
-tempfile              = { version = "3" }
-pretty_assertions     = { version = "1.4.0" }
-proptest              = { version = "1" }
-proptest-derive       = { version = "0.4.0" }
-tokio-test            = { version = "0.4.4" }
+monero-rpc                = { git = "https://github.com/Cuprate/serai.git", rev = "d5205ce" }
+monero-simple-request-rpc = { git = "https://github.com/Cuprate/serai.git", rev = "d5205ce" }
+tempfile                  = { version = "3" }
+pretty_assertions         = { version = "1.4.1" }
+proptest                  = { version = "1" }
+proptest-derive           = { version = "0.4.0" }
+tokio-test                = { version = "0.4.4" }
 
 ## TODO:
 ## Potential dependencies.
@@ -101,7 +137,219 @@ tokio-test            = { version = "0.4.4" }
 # regex     = { version = "1.10.2" } # Regular expressions                  | https://github.com/rust-lang/regex
 # ryu       = { version = "1.0.15" } # Fast float to string formatting      | https://github.com/dtolnay/ryu
 
-# Maybe one day.
-# disk     = { version = "*" } # (De)serialization to/from disk with various file formats | https://github.com/hinto-janai/disk
-# readable = { version = "*" } # Stack-based string formatting utilities                  | https://github.com/hinto-janai/readable
-# json-rpc = { git = "https://github.com/hinto-janai/json-rpc" }                          # JSON-RPC 2.0 types
+# Lints: cold, warm, hot: <https://github.com/Cuprate/cuprate/issues/131>
+[workspace.lints.clippy]
+# Cold
+borrow_as_ptr = "deny"
+case_sensitive_file_extension_comparisons = "deny"
+cast_lossless = "deny"
+cast_ptr_alignment = "deny"
+checked_conversions = "deny"
+cloned_instead_of_copied = "deny"
+const_is_empty = "deny"
+doc_lazy_continuation = "deny"
+doc_link_with_quotes = "deny"
+duplicated_attributes = "deny"
+empty_enum = "deny"
+enum_glob_use = "deny"
+expl_impl_clone_on_copy = "deny"
+explicit_into_iter_loop = "deny"
+filter_map_next = "deny"
+flat_map_option = "deny"
+from_iter_instead_of_collect = "deny"
+if_not_else = "deny"
+ignored_unit_patterns = "deny"
+inconsistent_struct_constructor = "deny"
+index_refutable_slice = "deny"
+inefficient_to_string = "deny"
+invalid_upcast_comparisons = "deny"
+iter_filter_is_ok = "deny"
+iter_filter_is_some = "deny"
+implicit_clone = "deny"
+legacy_numeric_constants = "deny"
+manual_c_str_literals = "deny"
+manual_pattern_char_comparison = "deny"
+manual_instant_elapsed = "deny"
+manual_inspect = "deny"
+manual_is_variant_and = "deny"
+manual_let_else = "deny"
+manual_ok_or = "deny"
+manual_string_new = "deny"
+manual_unwrap_or_default = "deny"
+map_unwrap_or = "deny"
+match_bool = "deny"
+match_same_arms = "deny"
+match_wildcard_for_single_variants = "deny"
+mismatching_type_param_order = "deny"
+missing_transmute_annotations = "deny"
+mut_mut = "deny"
+needless_bitwise_bool = "deny"
+needless_character_iteration = "deny"
+needless_continue = "deny"
+needless_for_each = "deny"
+needless_maybe_sized = "deny"
+needless_raw_string_hashes = "deny"
+no_effect_underscore_binding = "deny"
+no_mangle_with_rust_abi = "deny"
+option_as_ref_cloned = "deny"
+option_option = "deny"
+ptr_as_ptr = "deny"
+ptr_cast_constness = "deny"
+pub_underscore_fields = "deny"
+redundant_closure_for_method_calls = "deny"
+ref_as_ptr = "deny"
+ref_option_ref = "deny"
+same_functions_in_if_condition = "deny"
+semicolon_if_nothing_returned = "deny"
+trivially_copy_pass_by_ref = "deny"
+uninlined_format_args = "deny"
+unnecessary_join = "deny"
+unnested_or_patterns = "deny"
+unused_async = "deny"
+unused_self = "deny"
+used_underscore_binding = "deny"
+zero_sized_map_values = "deny"
+as_ptr_cast_mut = "deny"
+clear_with_drain = "deny"
+collection_is_never_read = "deny"
+debug_assert_with_mut_call = "deny"
+derive_partial_eq_without_eq = "deny"
+empty_line_after_doc_comments = "deny"
+empty_line_after_outer_attr = "deny"
+equatable_if_let = "deny"
+iter_on_empty_collections = "deny"
+iter_on_single_items = "deny"
+iter_with_drain = "deny"
+needless_collect = "deny"
+needless_pass_by_ref_mut = "deny"
+negative_feature_names = "deny"
+non_send_fields_in_send_ty = "deny"
+nonstandard_macro_braces = "deny"
+path_buf_push_overwrite = "deny"
+read_zero_byte_vec = "deny"
+redundant_clone = "deny"
+redundant_feature_names = "deny"
+trailing_empty_array = "deny"
+trait_duplication_in_bounds = "deny"
+type_repetition_in_bounds = "deny"
+uninhabited_references = "deny"
+unnecessary_struct_initialization = "deny"
+unused_peekable = "deny"
+unused_rounding = "deny"
+use_self = "deny"
+useless_let_if_seq = "deny"
+wildcard_dependencies = "deny"
+unseparated_literal_suffix = "deny"
+unnecessary_safety_doc = "deny"
+unnecessary_safety_comment = "deny"
+unnecessary_self_imports = "deny"
+string_to_string = "deny"
+rest_pat_in_fully_bound_structs = "deny"
+redundant_type_annotations = "deny"
+infinite_loop = "deny"
+zero_repeat_side_effects = "deny"
+
+# Warm
+cast_possible_truncation = "deny"
+cast_possible_wrap = "deny"
+cast_precision_loss = "deny"
+cast_sign_loss = "deny"
+copy_iterator = "deny"
+doc_markdown = "deny"
+explicit_deref_methods = "deny"
+explicit_iter_loop = "deny"
+float_cmp = "deny"
+fn_params_excessive_bools = "deny"
+into_iter_without_iter = "deny"
+iter_without_into_iter = "deny"
+iter_not_returning_iterator = "deny"
+large_digit_groups = "deny"
+large_types_passed_by_value = "deny"
+manual_assert = "deny"
+maybe_infinite_iter = "deny"
+missing_fields_in_debug = "deny"
+needless_pass_by_value = "deny"
+range_minus_one = "deny"
+range_plus_one = "deny"
+redundant_else = "deny"
+ref_binding_to_reference = "deny"
+return_self_not_must_use = "deny"
+single_match_else = "deny"
+string_add_assign = "deny"
+transmute_ptr_to_ptr = "deny"
+unchecked_duration_subtraction = "deny"
+unnecessary_box_returns = "deny"
+unnecessary_wraps = "deny"
+branches_sharing_code = "deny"
+fallible_impl_from = "deny"
+missing_const_for_fn = "deny"
+significant_drop_in_scrutinee = "deny"
+significant_drop_tightening = "deny"
+try_err = "deny"
+lossy_float_literal = "deny"
+let_underscore_must_use = "deny"
+iter_over_hash_type = "deny"
+get_unwrap = "deny"
+error_impl_error = "deny"
+empty_structs_with_brackets = "deny"
+empty_enum_variants_with_brackets = "deny"
+empty_drop = "deny"
+clone_on_ref_ptr = "deny"
+upper_case_acronyms  = "deny"
+allow_attributes = "deny"
+
+# Hot
+# inline_always = "deny"
+# large_futures = "deny"
+# large_stack_arrays = "deny"
+# linkedlist = "deny"
+# missing_errors_doc = "deny"
+# missing_panics_doc = "deny"
+# should_panic_without_expect = "deny"
+# similar_names = "deny"
+# too_many_lines = "deny"
+# unreadable_literal = "deny"
+# wildcard_imports = "deny"
+# allow_attributes_without_reason = "deny"
+# missing_assert_message = "deny"
+# missing_docs_in_private_items = "deny"
+undocumented_unsafe_blocks = "deny"
+# multiple_unsafe_ops_per_block = "deny"
+# single_char_lifetime_names = "deny"
+# wildcard_enum_match_arm = "deny"
+
+[workspace.lints.rust]
+# Cold
+future_incompatible = { level = "deny", priority = -1 }
+nonstandard_style = { level = "deny", priority = -1 }
+absolute_paths_not_starting_with_crate = "deny"
+explicit_outlives_requirements = "deny"
+keyword_idents_2018 = "deny"
+keyword_idents_2024 = "deny"
+missing_abi = "deny"
+non_ascii_idents = "deny"
+non_local_definitions = "deny"
+redundant_lifetimes = "deny"
+single_use_lifetimes = "deny"
+trivial_casts = "deny"
+trivial_numeric_casts = "deny"
+unsafe_op_in_unsafe_fn = "deny"
+unused_crate_dependencies = "deny"
+unused_import_braces = "deny"
+unused_lifetimes = "deny"
+unused_macro_rules = "deny"
+ambiguous_glob_imports = "deny"
+unused_unsafe = "deny"
+
+# Warm
+let_underscore = { level = "deny", priority = -1 }
+unreachable_pub = "deny"
+unused_qualifications = "deny"
+variant_size_differences = "deny"
+non_camel_case_types = "deny"
+
+# Hot
+# unused_results = "deny"
+# non_exhaustive_omitted_patterns = "deny"
+# missing_docs = "deny"
+# missing_copy_implementations = "deny"

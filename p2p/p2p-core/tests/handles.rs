@@ -1,3 +1,5 @@
+#![expect(unused_crate_dependencies, reason = "external test module")]
+
 use std::{sync::Arc, time::Duration};
 
 use tokio::sync::Semaphore;
@@ -6,10 +8,7 @@ use cuprate_p2p_core::handles::HandleBuilder;
 
 #[test]
 fn send_ban_signal() {
-    let semaphore = Arc::new(Semaphore::new(5));
-    let (guard, mut connection_handle) = HandleBuilder::default()
-        .with_permit(semaphore.try_acquire_owned().unwrap())
-        .build();
+    let (guard, mut connection_handle) = HandleBuilder::default().build();
 
     connection_handle.ban_peer(Duration::from_secs(300));
 
@@ -28,10 +27,7 @@ fn send_ban_signal() {
 
 #[test]
 fn multiple_ban_signals() {
-    let semaphore = Arc::new(Semaphore::new(5));
-    let (guard, mut connection_handle) = HandleBuilder::default()
-        .with_permit(semaphore.try_acquire_owned().unwrap())
-        .build();
+    let (guard, mut connection_handle) = HandleBuilder::default().build();
 
     connection_handle.ban_peer(Duration::from_secs(300));
     connection_handle.ban_peer(Duration::from_secs(301));
@@ -55,7 +51,7 @@ fn multiple_ban_signals() {
 fn dropped_guard_sends_disconnect_signal() {
     let semaphore = Arc::new(Semaphore::new(5));
     let (guard, connection_handle) = HandleBuilder::default()
-        .with_permit(semaphore.try_acquire_owned().unwrap())
+        .with_permit(Some(semaphore.try_acquire_owned().unwrap()))
         .build();
 
     assert!(!connection_handle.is_closed());

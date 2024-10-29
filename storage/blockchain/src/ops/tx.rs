@@ -2,10 +2,10 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
-use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, Scalar};
 use monero_serai::transaction::{Input, Timelock, Transaction};
 
 use cuprate_database::{DatabaseRo, DatabaseRw, RuntimeError, StorableVec};
+use cuprate_helper::crypto::compute_zero_commitment;
 
 use crate::{
     ops::{
@@ -68,7 +68,7 @@ pub fn add_tx(
     // so the `u64/usize` is stored without any tag.
     //
     // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1558504285>
-    match tx.prefix.timelock {
+    match tx.prefix().additional_timelock {
         Timelock::None => (),
         Timelock::Block(height) => tables.tx_unlock_time_mut().put(&tx_id, &(height as u64))?,
         Timelock::Time(time) => tables.tx_unlock_time_mut().put(&tx_id, &time)?,
@@ -92,7 +92,7 @@ pub fn add_tx(
     let mut miner_tx = false;
 
     // Key images.
-    for inputs in &tx.prefix.inputs {
+    for inputs in &tx.prefix().inputs {
         match inputs {
             // Key images.
             Input::ToKey { key_image, .. } => {
@@ -106,70 +106,61 @@ pub fn add_tx(
     //------------------------------------------------------ Outputs
     // Output bit flags.
     // Set to a non-zero bit value if the unlock time is non-zero.
-    let output_flags = match tx.prefix.timelock {
+    let output_flags = match tx.prefix().additional_timelock {
         Timelock::None => OutputFlags::empty(),
         Timelock::Block(_) | Timelock::Time(_) => OutputFlags::NON_ZERO_UNLOCK_TIME,
     };
 
-    let mut amount_indices = Vec::with_capacity(tx.prefix.outputs.len());
-
-    for (i, output) in tx.prefix.outputs.iter().enumerate() {
-        let key = *output.key.as_bytes();
-
-        // Outputs with clear amounts.
-        let amount_index = if let Some(amount) = output.amount {
-            // RingCT (v2 transaction) miner outputs.
-            if miner_tx && tx.prefix.version == 2 {
-                // Create commitment.
-                // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1559489302>
-                // FIXME: implement lookup table for common values:
-                // <https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/ringct/rctOps.cpp#L322>
-                let commitment = (ED25519_BASEPOINT_POINT
-                    + monero_serai::H() * Scalar::from(amount))
-                .compress()
-                .to_bytes();
-
-                add_rct_output(
-                    &RctOutput {
-                        key,
-                        height,
-                        output_flags,
-                        tx_idx: tx_id,
-                        commitment,
-                    },
-                    tables.rct_outputs_mut(),
-                )?
-            // Pre-RingCT outputs.
-            } else {
-                add_output(
-                    amount,
+    let amount_indices = match &tx {
+        Transaction::V1 { prefix, .. } => prefix
+            .outputs
+            .iter()
+            .map(|output| {
+                // Pre-RingCT outputs.
+                Ok(add_output(
+                    output.amount.unwrap_or(0),
                     &Output {
-                        key,
+                        key: output.key.0,
                         height,
                         output_flags,
                         tx_idx: tx_id,
                     },
                     tables,
                 )?
-                .amount_index
-            }
-        // RingCT outputs.
-        } else {
-            let commitment = tx.rct_signatures.base.commitments[i].compress().to_bytes();
-            add_rct_output(
-                &RctOutput {
-                    key,
-                    height,
-                    output_flags,
-                    tx_idx: tx_id,
-                    commitment,
-                },
-                tables.rct_outputs_mut(),
-            )?
-        };
+                .amount_index)
+            })
+            .collect::<Result<Vec<_>, RuntimeError>>()?,
+        Transaction::V2 { prefix, proofs } => prefix
+            .outputs
+            .iter()
+            .enumerate()
+            .map(|(i, output)| {
+                // Create commitment.
 
-        amount_indices.push(amount_index);
-    } // for each output
+                let commitment = if miner_tx {
+                    compute_zero_commitment(output.amount.unwrap_or(0))
+                } else {
+                    proofs
+                        .as_ref()
+                        .expect("A V2 transaction with no RCT proofs is a miner tx")
+                        .base
+                        .commitments[i]
+                };
+
+                // Add the RCT output.
+                add_rct_output(
+                    &RctOutput {
+                        key: output.key.0,
+                        height,
+                        output_flags,
+                        tx_idx: tx_id,
+                        commitment: commitment.compress().0,
+                    },
+                    tables.rct_outputs_mut(),
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?,
+    };
 
     tables
         .tx_outputs_mut()
@@ -227,7 +218,7 @@ pub fn remove_tx(
     //------------------------------------------------------ Key Images
     // Is this a miner transaction?
     let mut miner_tx = false;
-    for inputs in &tx.prefix.inputs {
+    for inputs in &tx.prefix().inputs {
         match inputs {
             // Key images.
             Input::ToKey { key_image, .. } => {
@@ -240,11 +231,11 @@ pub fn remove_tx(
 
     //------------------------------------------------------ Outputs
     // Remove each output in the transaction.
-    for output in &tx.prefix.outputs {
+    for output in &tx.prefix().outputs {
         // Outputs with clear amounts.
         if let Some(amount) = output.amount {
             // RingCT miner outputs.
-            if miner_tx && tx.prefix.version == 2 {
+            if miner_tx && tx.version() == 2 {
                 let amount_index = get_rct_num_outputs(tables.rct_outputs())? - 1;
                 remove_rct_output(&amount_index, tables.rct_outputs_mut())?;
             // Pre-RingCT outputs.
@@ -328,11 +319,10 @@ mod test {
     use pretty_assertions::assert_eq;
 
     use cuprate_database::{Env, EnvInner, TxRw};
-    use cuprate_test_utils::data::{tx_v1_sig0, tx_v1_sig2, tx_v2_rct3};
+    use cuprate_test_utils::data::{TX_V1_SIG0, TX_V1_SIG2, TX_V2_RCT3};
 
     use crate::{
-        open_tables::OpenTables,
-        tables::Tables,
+        tables::{OpenTables, Tables},
         tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
     };
 
@@ -344,7 +334,7 @@ mod test {
         assert_all_tables_are_empty(&env);
 
         // Monero `Transaction`, not database tx.
-        let txs = [tx_v1_sig0(), tx_v1_sig2(), tx_v2_rct3()];
+        let txs = [&*TX_V1_SIG0, &*TX_V1_SIG2, &*TX_V2_RCT3];
 
         // Add transactions.
         let tx_ids = {
@@ -373,7 +363,8 @@ mod test {
             // Assert only the proper tables were added to.
             AssertTableLen {
                 block_infos: 0,
-                block_blobs: 0,
+                block_header_blobs: 0,
+                block_txs_hashes: 0,
                 block_heights: 0,
                 key_images: 4, // added to key images
                 pruned_tx_blobs: 0,

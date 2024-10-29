@@ -1,13 +1,13 @@
 use curve25519_dalek::{EdwardsPoint, Scalar};
 use hex_literal::hex;
 use monero_serai::{
+    generators::H,
     ringct::{
         clsag::ClsagError,
         mlsag::{AggregateRingMatrixBuilder, MlsagError, RingMatrix},
-        RctPrunable, RctSignatures, RctType,
+        RctProofs, RctPrunable, RctType,
     },
-    transaction::{Input, Transaction},
-    H,
+    transaction::Input,
 };
 use rand::thread_rng;
 #[cfg(feature = "rayon")]
@@ -40,20 +40,20 @@ pub enum RingCTError {
     CLSAGError(#[from] ClsagError),
 }
 
-/// Checks the RingCT type is allowed for the current hard fork.
+/// Checks the `RingCT` type is allowed for the current hard fork.
 ///
 /// <https://monero-book.cuprate.org/consensus_rules/ring_ct.html#type>
-fn check_rct_type(ty: &RctType, hf: HardFork, tx_hash: &[u8; 32]) -> Result<(), RingCTError> {
+fn check_rct_type(ty: RctType, hf: HardFork, tx_hash: &[u8; 32]) -> Result<(), RingCTError> {
     use HardFork as F;
     use RctType as T;
 
     match ty {
-        T::MlsagAggregate | T::MlsagIndividual if hf >= F::V4 && hf < F::V9 => Ok(()),
-        T::Bulletproofs if hf >= F::V8 && hf < F::V11 => Ok(()),
-        T::BulletproofsCompactAmount if hf >= F::V10 && hf < F::V14 => Ok(()),
-        T::BulletproofsCompactAmount if GRANDFATHERED_TRANSACTIONS.contains(tx_hash) => Ok(()),
-        T::Clsag if hf >= F::V13 && hf < F::V16 => Ok(()),
-        T::BulletproofsPlus if hf >= F::V15 => Ok(()),
+        T::AggregateMlsagBorromean | T::MlsagBorromean if hf >= F::V4 && hf < F::V9 => Ok(()),
+        T::MlsagBulletproofs if hf >= F::V8 && hf < F::V11 => Ok(()),
+        T::MlsagBulletproofsCompactAmount if hf >= F::V10 && hf < F::V14 => Ok(()),
+        T::MlsagBulletproofsCompactAmount if GRANDFATHERED_TRANSACTIONS.contains(tx_hash) => Ok(()),
+        T::ClsagBulletproof if hf >= F::V13 && hf < F::V16 => Ok(()),
+        T::ClsagBulletproofPlus if hf >= F::V15 => Ok(()),
         _ => Err(RingCTError::TypeNotAllowed),
     }
 }
@@ -61,20 +61,22 @@ fn check_rct_type(ty: &RctType, hf: HardFork, tx_hash: &[u8; 32]) -> Result<(), 
 /// Checks that the pseudo-outs sum to the same point as the output commitments.
 ///
 /// <https://monero-book.cuprate.org/consensus_rules/ring_ct.html#pseudo-outs-outpks-balance>
-fn simple_type_balances(rct_sig: &RctSignatures) -> Result<(), RingCTError> {
-    let pseudo_outs = if rct_sig.rct_type() == RctType::MlsagIndividual {
+fn simple_type_balances(rct_sig: &RctProofs) -> Result<(), RingCTError> {
+    let pseudo_outs = if rct_sig.rct_type() == RctType::MlsagBorromean {
         &rct_sig.base.pseudo_outs
     } else {
         match &rct_sig.prunable {
             RctPrunable::Clsag { pseudo_outs, .. }
+            | RctPrunable::MlsagBulletproofsCompactAmount { pseudo_outs, .. }
             | RctPrunable::MlsagBulletproofs { pseudo_outs, .. } => pseudo_outs,
-            _ => panic!("RingCT type is not simple!"),
+            RctPrunable::MlsagBorromean { .. } => &rct_sig.base.pseudo_outs,
+            RctPrunable::AggregateMlsagBorromean { .. } => panic!("RingCT type is not simple!"),
         }
     };
 
     let sum_inputs = pseudo_outs.iter().sum::<EdwardsPoint>();
-    let sum_outputs = rct_sig.base.commitments.iter().sum::<EdwardsPoint>()
-        + Scalar::from(rct_sig.base.fee) * H();
+    let sum_outputs =
+        rct_sig.base.commitments.iter().sum::<EdwardsPoint>() + Scalar::from(rct_sig.base.fee) * *H;
 
     if sum_inputs == sum_outputs {
         Ok(())
@@ -89,13 +91,12 @@ fn simple_type_balances(rct_sig: &RctSignatures) -> Result<(), RingCTError> {
 /// <https://monero-book.cuprate.org/consensus_rules/ring_ct/bulletproofs.html>
 /// <https://monero-book.cuprate.org/consensus_rules/ring_ct/bulletproofs+.html>
 fn check_output_range_proofs(
-    rct_sig: &RctSignatures,
+    proofs: &RctProofs,
     mut verifier: impl BatchVerifier,
 ) -> Result<(), RingCTError> {
-    let commitments = &rct_sig.base.commitments;
+    let commitments = &proofs.base.commitments;
 
-    match &rct_sig.prunable {
-        RctPrunable::Null => Err(RingCTError::TypeNotAllowed)?,
+    match &proofs.prunable {
         RctPrunable::MlsagBorromean { borromean, .. }
         | RctPrunable::AggregateMlsagBorromean { borromean, .. } => try_par_iter(borromean)
             .zip(commitments)
@@ -106,10 +107,11 @@ fn check_output_range_proofs(
                     Err(RingCTError::BorromeanRangeInvalid)
                 }
             }),
-        RctPrunable::MlsagBulletproofs { bulletproofs, .. }
-        | RctPrunable::Clsag { bulletproofs, .. } => {
+        RctPrunable::MlsagBulletproofs { bulletproof, .. }
+        | RctPrunable::MlsagBulletproofsCompactAmount { bulletproof, .. }
+        | RctPrunable::Clsag { bulletproof, .. } => {
             if verifier.queue_statement(|verifier| {
-                bulletproofs.batch_verify(&mut thread_rng(), verifier, (), commitments)
+                bulletproof.batch_verify(&mut thread_rng(), verifier, commitments)
             }) {
                 Ok(())
             } else {
@@ -120,18 +122,18 @@ fn check_output_range_proofs(
 }
 
 pub(crate) fn ring_ct_semantic_checks(
-    tx: &Transaction,
+    proofs: &RctProofs,
     tx_hash: &[u8; 32],
     verifier: impl BatchVerifier,
-    hf: &HardFork,
+    hf: HardFork,
 ) -> Result<(), RingCTError> {
-    let rct_type = tx.rct_signatures.rct_type();
+    let rct_type = proofs.rct_type();
 
-    check_rct_type(&rct_type, *hf, tx_hash)?;
-    check_output_range_proofs(&tx.rct_signatures, verifier)?;
+    check_rct_type(rct_type, hf, tx_hash)?;
+    check_output_range_proofs(proofs, verifier)?;
 
-    if rct_type != RctType::MlsagAggregate {
-        simple_type_balances(&tx.rct_signatures)?;
+    if rct_type != RctType::AggregateMlsagBorromean {
+        simple_type_balances(proofs)?;
     }
 
     Ok(())
@@ -144,7 +146,7 @@ pub(crate) fn ring_ct_semantic_checks(
 pub(crate) fn check_input_signatures(
     msg: &[u8; 32],
     inputs: &[Input],
-    rct_sig: &RctSignatures,
+    proofs: &RctProofs,
     rings: &Rings,
 ) -> Result<(), RingCTError> {
     let Rings::RingCT(rings) = rings else {
@@ -152,18 +154,18 @@ pub(crate) fn check_input_signatures(
     };
 
     if rings.is_empty() {
-        Err(RingCTError::RingInvalid)?;
+        return Err(RingCTError::RingInvalid);
     }
 
-    let pseudo_outs = match &rct_sig.prunable {
+    let pseudo_outs = match &proofs.prunable {
         RctPrunable::MlsagBulletproofs { pseudo_outs, .. }
+        | RctPrunable::MlsagBulletproofsCompactAmount { pseudo_outs, .. }
         | RctPrunable::Clsag { pseudo_outs, .. } => pseudo_outs.as_slice(),
-        RctPrunable::MlsagBorromean { .. } => rct_sig.base.pseudo_outs.as_slice(),
-        RctPrunable::AggregateMlsagBorromean { .. } | RctPrunable::Null => &[],
+        RctPrunable::MlsagBorromean { .. } => proofs.base.pseudo_outs.as_slice(),
+        RctPrunable::AggregateMlsagBorromean { .. } => &[],
     };
 
-    match &rct_sig.prunable {
-        RctPrunable::Null => Err(RingCTError::TypeNotAllowed)?,
+    match &proofs.prunable {
         RctPrunable::AggregateMlsagBorromean { mlsag, .. } => {
             let key_images = inputs
                 .iter()
@@ -176,11 +178,14 @@ pub(crate) fn check_input_signatures(
                 .collect::<Vec<_>>();
 
             let mut matrix =
-                AggregateRingMatrixBuilder::new(&rct_sig.base.commitments, rct_sig.base.fee);
+                AggregateRingMatrixBuilder::new(&proofs.base.commitments, proofs.base.fee);
+
             rings.iter().try_for_each(|ring| matrix.push_ring(ring))?;
+
             Ok(mlsag.verify(msg, &matrix.build()?, &key_images)?)
         }
         RctPrunable::MlsagBorromean { mlsags, .. }
+        | RctPrunable::MlsagBulletproofsCompactAmount { mlsags, .. }
         | RctPrunable::MlsagBulletproofs { mlsags, .. } => try_par_iter(mlsags)
             .zip(pseudo_outs)
             .zip(inputs)
@@ -216,18 +221,21 @@ mod tests {
 
     #[test]
     fn grandfathered_bulletproofs2() {
-        assert!(
-            check_rct_type(&RctType::BulletproofsCompactAmount, HardFork::V14, &[0; 32]).is_err()
-        );
+        assert!(check_rct_type(
+            RctType::MlsagBulletproofsCompactAmount,
+            HardFork::V14,
+            &[0; 32]
+        )
+        .is_err());
 
         assert!(check_rct_type(
-            &RctType::BulletproofsCompactAmount,
+            RctType::MlsagBulletproofsCompactAmount,
             HardFork::V14,
             &GRANDFATHERED_TRANSACTIONS[0]
         )
         .is_ok());
         assert!(check_rct_type(
-            &RctType::BulletproofsCompactAmount,
+            RctType::MlsagBulletproofsCompactAmount,
             HardFork::V14,
             &GRANDFATHERED_TRANSACTIONS[1]
         )

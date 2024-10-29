@@ -1,3 +1,12 @@
+cfg_if::cfg_if! {
+    // Used in external `tests/`.
+    if #[cfg(test)] {
+        use proptest as _;
+        use proptest_derive as _;
+        use tokio as _;
+    }
+}
+
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub mod batch_verifier;
@@ -9,7 +18,7 @@ pub mod miner_tx;
 pub mod transactions;
 
 pub use decomposed_amount::is_decomposed_amount;
-pub use hard_forks::{HFVotes, HFsInfo, HardFork};
+pub use hard_forks::{check_block_version_vote, HFVotes, HFsInfo, HardFork};
 pub use transactions::TxVersion;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -54,9 +63,9 @@ where
 /// An internal function that returns an iterator or a parallel iterator if the
 /// `rayon` feature is enabled.
 #[cfg(not(feature = "rayon"))]
-fn try_par_iter<T>(t: T) -> impl std::iter::Iterator<Item = T::Item>
+fn try_par_iter<T>(t: T) -> impl Iterator<Item = T::Item>
 where
-    T: std::iter::IntoIterator,
+    T: IntoIterator,
 {
     t.into_iter()
 }

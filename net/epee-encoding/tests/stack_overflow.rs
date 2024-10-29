@@ -1,3 +1,5 @@
+#![expect(unused_crate_dependencies, reason = "outer test module")]
+
 use cuprate_epee_encoding::{epee_object, from_bytes};
 
 struct D {
@@ -737,5 +739,5 @@ fn stack_overflow() {
 
     let obj: Result<Q, _> = from_bytes(&mut bytes.as_slice());
 
-    assert!(obj.is_err())
+    assert!(obj.is_err());
 }

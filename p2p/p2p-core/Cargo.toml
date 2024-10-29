@@ -10,25 +10,29 @@ default = ["borsh"]
 borsh = ["dep:borsh", "cuprate-pruning/borsh"]
 
 [dependencies]
-cuprate-helper = { path = "../../helper", features = ["asynch"], default-features = false }
-cuprate-wire = { path = "../../net/wire", features = ["tracing"] }
-cuprate-pruning = { path = "../../pruning" }
+cuprate-helper = { workspace = true, features = ["asynch"], default-features = false }
+cuprate-wire = { workspace = true, features = ["tracing"] }
+cuprate-pruning = { workspace = true }
 
-tokio = { workspace = true, features = ["net", "sync", "macros", "time", "rt"]}
+tokio = { workspace = true, features = ["net", "sync", "macros", "time", "rt", "rt-multi-thread"]}
 tokio-util = { workspace = true, features = ["codec"] }
 tokio-stream = { workspace = true, features = ["sync"]}
 futures = { workspace = true, features = ["std"] }
 async-trait = { workspace = true }
-tower = { workspace = true, features = ["util", "tracing"] }
+tower = { workspace = true, features = ["util", "tracing", "make"] }
 
+cfg-if = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true, features = ["std", "attributes"] }
+hex-literal = { workspace = true }
 
 borsh = { workspace = true, features = ["derive", "std"], optional = true }
 
 [dev-dependencies]
-cuprate-test-utils = {path = "../../test-utils"}
+cuprate-test-utils = { workspace = true }
 
 hex = { workspace = true, features = ["std"] }
-tokio = { workspace = true, features = ["net", "rt-multi-thread", "rt", "macros"]}
-tracing-subscriber = { workspace = true }
+tokio-test = { workspace = true }
+
+[lints]
+workspace = true

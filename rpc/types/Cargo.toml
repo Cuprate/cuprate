@@ -9,14 +9,23 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/rpc/types"
 keywords    = ["cuprate", "rpc", "types", "monero"]
 
 [features]
-default = []
+default = ["serde", "epee"]
+serde   = ["dep:serde", "cuprate-fixed-bytes/serde"]
+epee    = ["dep:cuprate-epee-encoding"]
 
 [dependencies]
-cuprate-epee-encoding = { path = "../../net/epee-encoding" }
+cuprate-epee-encoding = { workspace = true, optional = true }
+cuprate-fixed-bytes   = { workspace = true }
+cuprate-types         = { workspace = true, default-features = false, features = ["epee", "serde"] }
 
-monero-serai = { workspace = true }
 paste        = { workspace = true }
-serde        = { workspace = true }
+serde        = { workspace = true, optional = true }
 
 [dev-dependencies]
+cuprate-test-utils = { workspace = true }
+
+serde      = { workspace = true }
 serde_json = { workspace = true }
+
+[lints]
+workspace = true

@@ -4,7 +4,6 @@
 //! perform a handshake and create a [`Client`].
 //!
 //! This is where outbound connections are created.
-//!
 use std::{
     future::Future,
     pin::Pin,
@@ -16,9 +15,9 @@ use tokio::sync::OwnedSemaphorePermit;
 use tower::{Service, ServiceExt};
 
 use crate::{
-    client::{Client, DoHandshakeRequest, HandShaker, HandshakeError, InternalPeerID},
+    client::{handshaker::HandShaker, Client, DoHandshakeRequest, HandshakeError, InternalPeerID},
     AddressBook, BroadcastMessage, ConnectionDirection, CoreSyncSvc, NetworkZone,
-    PeerRequestHandler, PeerSyncSvc,
+    ProtocolRequestHandlerMaker,
 };
 
 /// A request to connect to a peer.
@@ -27,30 +26,33 @@ pub struct ConnectRequest<Z: NetworkZone> {
     pub addr: Z::Addr,
     /// A permit which will be held be the connection allowing you to set limits on the number of
     /// connections.
-    pub permit: OwnedSemaphorePermit,
+    ///
+    /// This doesn't have to be set.
+    pub permit: Option<OwnedSemaphorePermit>,
 }
 
 /// The connector service, this service connects to peer and returns the [`Client`].
-pub struct Connector<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr> {
-    handshaker: HandShaker<Z, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>,
+pub struct Connector<Z: NetworkZone, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr> {
+    handshaker: HandShaker<Z, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>,
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
-    Connector<Z, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
+impl<Z: NetworkZone, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
+    Connector<Z, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
 {
     /// Create a new connector from a handshaker.
-    pub fn new(handshaker: HandShaker<Z, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>) -> Self {
+    pub const fn new(
+        handshaker: HandShaker<Z, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>,
+    ) -> Self {
         Self { handshaker }
     }
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr, BrdcstStrm>
-    Service<ConnectRequest<Z>> for Connector<Z, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
+impl<Z: NetworkZone, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr, BrdcstStrm>
+    Service<ConnectRequest<Z>> for Connector<Z, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
 where
     AdrBook: AddressBook<Z> + Clone,
     CSync: CoreSyncSvc + Clone,
-    PSync: PeerSyncSvc<Z> + Clone,
-    ReqHdlr: PeerRequestHandler + Clone,
+    ProtoHdlrMkr: ProtocolRequestHandlerMaker<Z> + Clone,
     BrdcstStrm: Stream<Item = BroadcastMessage> + Send + 'static,
     BrdcstStrmMkr: Fn(InternalPeerID<Z::Addr>) -> BrdcstStrm + Clone + Send + 'static,
 {
@@ -74,7 +76,7 @@ where
                 permit: req.permit,
                 peer_stream,
                 peer_sink,
-                direction: ConnectionDirection::OutBound,
+                direction: ConnectionDirection::Outbound,
             };
             handshaker.ready().await?.call(req).await
         }

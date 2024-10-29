@@ -5,14 +5,14 @@
 //! database operations.
 //!
 //! # `impl Table`
-//! `ops/` functions take [`Tables`](crate::tables::Tables) and
+//! Functions in this module take [`Tables`](crate::tables::Tables) and
 //! [`TablesMut`](crate::tables::TablesMut) directly - these are
 //! _already opened_ database tables.
 //!
-//! As such, the function puts the responsibility
-//! of transactions, tables, etc on the caller.
+//! As such, the responsibility of
+//! transactions, tables, etc, are on the caller.
 //!
-//! This does mean these functions are mostly as lean
+//! Notably, this means that these functions are as lean
 //! as possible, so calling them in a loop should be okay.
 //!
 //! # Atomicity
@@ -54,16 +54,15 @@
 //! ```rust
 //! use hex_literal::hex;
 //!
-//! use cuprate_test_utils::data::block_v16_tx0;
+//! use cuprate_test_utils::data::BLOCK_V16_TX0;
 //! use cuprate_blockchain::{
 //!     cuprate_database::{
 //!         ConcreteEnv,
 //!         Env, EnvInner,
 //!         DatabaseRo, DatabaseRw, TxRo, TxRw,
 //!     },
-//!     OpenTables,
 //!     config::ConfigBuilder,
-//!     tables::{Tables, TablesMut},
+//!     tables::{Tables, TablesMut, OpenTables},
 //!     ops::block::{add_block, pop_block},
 //! };
 //!
@@ -84,7 +83,7 @@
 //! let mut tables = env_inner.open_tables_mut(&tx_rw)?;
 //!
 //! // Write a block to the database.
-//! let mut block = block_v16_tx0().clone();
+//! let mut block = BLOCK_V16_TX0.clone();
 //! # block.height = 0;
 //! add_block(&block, &mut tables)?;
 //!
@@ -95,7 +94,7 @@
 //! // Read the data, assert it is correct.
 //! let tx_rw = env_inner.tx_rw()?;
 //! let mut tables = env_inner.open_tables_mut(&tx_rw)?;
-//! let (height, hash, serai_block) = pop_block(&mut tables)?;
+//! let (height, hash, serai_block) = pop_block(None, &mut tables)?;
 //!
 //! assert_eq!(height, 0);
 //! assert_eq!(serai_block, block.block);
@@ -103,6 +102,7 @@
 //! # Ok(()) }
 //! ```
 
+pub mod alt_block;
 pub mod block;
 pub mod blockchain;
 pub mod key_image;

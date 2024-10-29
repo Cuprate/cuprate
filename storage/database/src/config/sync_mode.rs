@@ -84,7 +84,7 @@ pub enum SyncMode {
     ///
     /// This is expected to be very slow.
     ///
-    /// This matches:
+    /// This maps to:
     /// - LMDB without any special sync flags
     /// - [`redb::Durability::Immediate`](https://docs.rs/redb/1.5.0/redb/enum.Durability.html#variant.Immediate)
     Safe,
@@ -96,7 +96,7 @@ pub enum SyncMode {
     /// each transaction commit will sync to disk,
     /// but only eventually, not necessarily immediately.
     ///
-    /// This matches:
+    /// This maps to:
     /// - [`MDB_MAPASYNC`](http://www.lmdb.tech/doc/group__mdb__env.html#gab034ed0d8e5938090aef5ee0997f7e94)
     /// - [`redb::Durability::Eventual`](https://docs.rs/redb/1.5.0/redb/enum.Durability.html#variant.Eventual)
     Async,
@@ -115,17 +115,25 @@ pub enum SyncMode {
     /// This is the fastest, yet unsafest option.
     ///
     /// It will cause the database to never _actively_ sync,
-    /// letting the OS decide when to flush data to disk.
+    /// letting the OS decide when to flush data to disk[^1].
     ///
-    /// This matches:
+    /// This maps to:
     /// - [`MDB_NOSYNC`](http://www.lmdb.tech/doc/group__mdb__env.html#ga5791dd1adb09123f82dd1f331209e12e) + [`MDB_MAPASYNC`](http://www.lmdb.tech/doc/group__mdb__env.html#gab034ed0d8e5938090aef5ee0997f7e94)
-    /// - [`redb::Durability::None`](https://docs.rs/redb/1.5.0/redb/enum.Durability.html#variant.None)
+    /// - [`redb::Durability::Eventual`](https://docs.rs/redb/1.5.0/redb/enum.Durability.html#variant.Eventual)
     ///
-    /// `monerod` reference: <https://github.com/monero-project/monero/blob/7b7958bbd9d76375c47dc418b4adabba0f0b1785/src/blockchain_db/lmdb/db_lmdb.cpp#L1380-L1381>
+    /// [`monerod` reference](https://github.com/monero-project/monero/blob/7b7958bbd9d76375c47dc418b4adabba0f0b1785/src/blockchain_db/lmdb/db_lmdb.cpp#L1380-L1381).
     ///
     /// # Corruption
     /// In the case of a system crash, the database
     /// may become corrupted when using this option.
+    ///
+    ///
+    /// [^1]: Semantically, this variant would actually map to
+    /// [`redb::Durability::None`](https://docs.rs/redb/1.5.0/redb/enum.Durability.html#variant.None),
+    /// however due to [`#149`](https://github.com/Cuprate/cuprate/issues/149),
+    /// this is not possible. As such, when using the `redb` backend,
+    /// transaction writes "should be persistent some time after `WriteTransaction::commit` returns."
+    /// Thus, [`SyncMode::Async`] will map to the same `redb::Durability::Eventual` as [`SyncMode::Fast`].
     //
     // FIXME: we could call this `unsafe`
     // and use that terminology in the config file

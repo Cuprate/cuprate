@@ -1,41 +1,45 @@
-//! Database [`BCReadRequest`]s, [`BCWriteRequest`]s, and [`BCResponse`]s.
+//! Database [`BlockchainReadRequest`]s, [`BlockchainWriteRequest`]s, and [`BlockchainResponse`]s.
 //!
 //! Tests that assert particular requests lead to particular
 //! responses are also tested in Cuprate's blockchain database crate.
-
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     collections::{HashMap, HashSet},
     ops::Range,
 };
 
-#[cfg(feature = "borsh")]
-use borsh::{BorshDeserialize, BorshSerialize};
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use monero_serai::block::Block;
 
-use crate::types::{ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation};
+use crate::{
+    types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation},
+    AltBlockInformation, ChainId, CoinbaseTxSum, OutputHistogramEntry, OutputHistogramInput,
+};
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
 /// A read request to the blockchain database.
 ///
-/// This pairs with [`BCResponse`], where each variant here
-/// matches in name with a [`BCResponse`] variant. For example,
-/// the proper response for a [`BCReadRequest::BlockHash`]
-/// would be a [`BCResponse::BlockHash`].
+/// This pairs with [`BlockchainResponse`], where each variant here
+/// matches in name with a [`BlockchainResponse`] variant. For example,
+/// the proper response for a [`BlockchainReadRequest::BlockHash`]
+/// would be a [`BlockchainResponse::BlockHash`].
 ///
 /// See `Response` for the expected responses per `Request`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum BCReadRequest {
+pub enum BlockchainReadRequest {
     /// Request a block's extended header.
     ///
     /// The input is the block's height.
-    BlockExtendedHeader(u64),
+    BlockExtendedHeader(usize),
 
     /// Request a block's hash.
     ///
-    /// The input is the block's height.
-    BlockHash(u64),
+    /// The input is the block's height and the chain it is on.
+    BlockHash(usize, Chain),
+
+    /// Request to check if we have a block and which [`Chain`] it is on.
+    ///
+    /// The input is the block's hash.
+    FindBlock([u8; 32]),
 
     /// Removes the block hashes that are not in the _main_ chain.
     ///
@@ -45,15 +49,15 @@ pub enum BCReadRequest {
     /// Request a range of block extended headers.
     ///
     /// The input is a range of block heights.
-    BlockExtendedHeaderInRange(Range<u64>),
+    BlockExtendedHeaderInRange(Range<usize>, Chain),
 
     /// Request the current chain height.
     ///
     /// Note that this is not the top-block height.
     ChainHeight,
 
-    /// Request the total amount of generated coins (atomic units) so far.
-    GeneratedCoins,
+    /// Request the total amount of generated coins (atomic units) at this height.
+    GeneratedCoins(usize),
 
     /// Request data for multiple outputs.
     ///
@@ -83,24 +87,81 @@ pub enum BCReadRequest {
     /// The input is a list of output amounts.
     NumberOutputsWithAmount(Vec<u64>),
 
-    /// Check that all key images within a set arer not spent.
+    /// Check that all key images within a set are not spent.
     ///
     /// Input is a set of key images.
     KeyImagesSpent(HashSet<[u8; 32]>),
+
+    /// A request for the compact chain history.
+    CompactChainHistory,
+
+    /// A request to find the first unknown block ID in a list of block IDs.
+    ///
+    /// # Invariant
+    /// The [`Vec`] containing the block IDs must be sorted in chronological block
+    /// order, or else the returned response is unspecified and meaningless,
+    /// as this request performs a binary search.
+    FindFirstUnknown(Vec<[u8; 32]>),
+
+    /// A request for all alt blocks in the chain with the given [`ChainId`].
+    AltBlocksInChain(ChainId),
+
+    /// Get a [`Block`] by its height.
+    Block { height: usize },
+
+    /// Get a [`Block`] by its hash.
+    BlockByHash([u8; 32]),
+
+    /// Get the total amount of non-coinbase transactions in the chain.
+    TotalTxCount,
+
+    /// Get the current size of the database.
+    DatabaseSize,
+
+    /// Get an output histogram.
+    ///
+    /// TODO: document fields after impl.
+    OutputHistogram(OutputHistogramInput),
+
+    /// Get the coinbase amount and the fees amount for
+    /// `N` last blocks starting at particular height.
+    ///
+    /// TODO: document fields after impl.
+    CoinbaseTxSum { height: usize, count: u64 },
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
 /// A write request to the blockchain database.
-///
-/// There is currently only 1 write request to the database,
-/// as such, the only valid [`BCResponse`] to this request is
-/// the proper response for a [`BCResponse::WriteBlockOk`].
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum BCWriteRequest {
+pub enum BlockchainWriteRequest {
     /// Request that a block be written to the database.
     ///
     /// Input is an already verified block.
     WriteBlock(VerifiedBlockInformation),
+
+    /// Write an alternative block to the database,
+    ///
+    /// Input is the alternative block.
+    WriteAltBlock(AltBlockInformation),
+
+    /// A request to pop some blocks from the top of the main chain
+    ///
+    /// Input is the amount of blocks to pop.
+    ///
+    /// This request flushes all alt-chains from the cache before adding the popped blocks to the
+    /// alt cache.
+    PopBlocks(usize),
+
+    /// A request to reverse the re-org process.
+    ///
+    /// The inner value is the [`ChainId`] of the old main chain.
+    ///
+    /// # Invariant
+    /// It is invalid to call this with a [`ChainId`] that was not returned from [`BlockchainWriteRequest::PopBlocks`].
+    ReverseReorg(ChainId),
+
+    /// A request to flush all alternative blocks.
+    FlushAltBlocks,
 }
 
 //---------------------------------------------------------------------------------------------------- Response
@@ -108,55 +169,61 @@ pub enum BCWriteRequest {
 ///
 /// These are the data types returned when using sending a `Request`.
 ///
-/// This pairs with [`BCReadRequest`] and [`BCWriteRequest`],
+/// This pairs with [`BlockchainReadRequest`] and [`BlockchainWriteRequest`],
 /// see those two for more info.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum BCResponse {
+#[expect(clippy::large_enum_variant)]
+pub enum BlockchainResponse {
     //------------------------------------------------------ Reads
-    /// Response to [`BCReadRequest::BlockExtendedHeader`].
+    /// Response to [`BlockchainReadRequest::BlockExtendedHeader`].
     ///
     /// Inner value is the extended headed of the requested block.
     BlockExtendedHeader(ExtendedBlockHeader),
 
-    /// Response to [`BCReadRequest::BlockHash`].
+    /// Response to [`BlockchainReadRequest::BlockHash`].
     ///
     /// Inner value is the hash of the requested block.
     BlockHash([u8; 32]),
 
-    /// Response to [`BCReadRequest::FilterUnknownHashes`].
+    /// Response to [`BlockchainReadRequest::FindBlock`].
+    ///
+    /// Inner value is the chain and height of the block if found.
+    FindBlock(Option<(Chain, usize)>),
+
+    /// Response to [`BlockchainReadRequest::FilterUnknownHashes`].
     ///
     /// Inner value is the list of hashes that were in the main chain.
     FilterUnknownHashes(HashSet<[u8; 32]>),
 
-    /// Response to [`BCReadRequest::BlockExtendedHeaderInRange`].
+    /// Response to [`BlockchainReadRequest::BlockExtendedHeaderInRange`].
     ///
     /// Inner value is the list of extended header(s) of the requested block(s).
     BlockExtendedHeaderInRange(Vec<ExtendedBlockHeader>),
 
-    /// Response to [`BCReadRequest::ChainHeight`].
+    /// Response to [`BlockchainReadRequest::ChainHeight`].
     ///
     /// Inner value is the chain height, and the top block's hash.
-    ChainHeight(u64, [u8; 32]),
+    ChainHeight(usize, [u8; 32]),
 
-    /// Response to [`BCReadRequest::GeneratedCoins`].
+    /// Response to [`BlockchainReadRequest::GeneratedCoins`].
     ///
-    /// Inner value is the total amount of generated coins so far, in atomic units.
+    /// Inner value is the total amount of generated coins up to and including the chosen height, in atomic units.
     GeneratedCoins(u64),
 
-    /// Response to [`BCReadRequest::Outputs`].
+    /// Response to [`BlockchainReadRequest::Outputs`].
     ///
     /// Inner value is all the outputs requested,
     /// associated with their amount and amount index.
     Outputs(HashMap<u64, HashMap<u64, OutputOnChain>>),
 
-    /// Response to [`BCReadRequest::NumberOutputsWithAmount`].
+    /// Response to [`BlockchainReadRequest::NumberOutputsWithAmount`].
     ///
     /// Inner value is a `HashMap` of all the outputs requested where:
     /// - Key = output amount
     /// - Value = count of outputs with the same amount
     NumberOutputsWithAmount(HashMap<u64, usize>),
 
-    /// Response to [`BCReadRequest::KeyImagesSpent`].
+    /// Response to [`BlockchainReadRequest::KeyImagesSpent`].
     ///
     /// The inner value is `true` if _any_ of the key images
     /// were spent (existed in the database already).
@@ -164,12 +231,65 @@ pub enum BCResponse {
     /// The inner value is `false` if _none_ of the key images were spent.
     KeyImagesSpent(bool),
 
-    //------------------------------------------------------ Writes
-    /// Response to [`BCWriteRequest::WriteBlock`].
+    /// Response to [`BlockchainReadRequest::CompactChainHistory`].
+    CompactChainHistory {
+        /// A list of blocks IDs in our chain, starting with the most recent block, all the way to the genesis block.
+        ///
+        /// These blocks should be in reverse chronological order, not every block is needed.
+        block_ids: Vec<[u8; 32]>,
+        /// The current cumulative difficulty of the chain.
+        cumulative_difficulty: u128,
+    },
+
+    /// Response to [`BlockchainReadRequest::FindFirstUnknown`].
     ///
-    /// This response indicates that the requested block has
-    /// successfully been written to the database without error.
-    WriteBlockOk,
+    /// Contains the index of the first unknown block and its expected height.
+    ///
+    /// This will be [`None`] if all blocks were known.
+    FindFirstUnknown(Option<(usize, usize)>),
+
+    /// Response to [`BlockchainReadRequest::AltBlocksInChain`].
+    ///
+    /// Contains all the alt blocks in the alt-chain in chronological order.
+    AltBlocksInChain(Vec<AltBlockInformation>),
+
+    /// Response to:
+    /// - [`BlockchainReadRequest::Block`].
+    /// - [`BlockchainReadRequest::BlockByHash`].
+    Block(Block),
+
+    /// Response to [`BlockchainReadRequest::TotalTxCount`].
+    TotalTxCount(usize),
+
+    /// Response to [`BlockchainReadRequest::DatabaseSize`].
+    DatabaseSize {
+        /// The size of the database file in bytes.
+        database_size: u64,
+        /// The amount of free bytes there are
+        /// the disk where the database is located.
+        free_space: u64,
+    },
+
+    /// Response to [`BlockchainReadRequest::OutputHistogram`].
+    OutputHistogram(Vec<OutputHistogramEntry>),
+
+    /// Response to [`BlockchainReadRequest::CoinbaseTxSum`].
+    CoinbaseTxSum(CoinbaseTxSum),
+
+    //------------------------------------------------------ Writes
+    /// A generic Ok response to indicate a request was successfully handled.
+    ///
+    /// currently the response for:
+    /// - [`BlockchainWriteRequest::WriteBlock`]
+    /// - [`BlockchainWriteRequest::WriteAltBlock`]
+    /// - [`BlockchainWriteRequest::ReverseReorg`]
+    /// - [`BlockchainWriteRequest::FlushAltBlocks`]
+    Ok,
+
+    /// Response to [`BlockchainWriteRequest::PopBlocks`].
+    ///
+    /// The inner value is the alt-chain ID for the old main chain blocks.
+    PopBlocks(ChainId),
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

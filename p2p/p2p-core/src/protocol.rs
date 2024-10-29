@@ -1,13 +1,16 @@
-//! This module defines InternalRequests and InternalResponses. Cuprate's P2P works by translating network messages into an internal
-//! request/ response, this is easy for levin "requests" and "responses" (admin messages) but takes a bit more work with "notifications"
+//! This module defines [`PeerRequest`] and [`PeerResponse`]. Cuprate's P2P crates works by translating network messages into an internal
+//! request/response enums, this is easy for levin "requests" and "responses" (admin messages) but takes a bit more work with "notifications"
 //! (protocol messages).
 //!
-//! Some notifications are easy to translate, like `GetObjectsRequest` is obviously a request but others like `NewFluffyBlock` are a
-//! bit tri cker. To translate a `NewFluffyBlock` into a request/ response we will have to look to see if we asked for `FluffyMissingTransactionsRequest`
-//! if we have we interpret `NewFluffyBlock` as a response if not its a request that doesn't require a response.
+//! Some notifications are easy to translate, like [`GetObjectsRequest`] is obviously a request but others like [`NewFluffyBlock`] are a
+//! bit tricker. To translate a [`NewFluffyBlock`] into a request/ response we will have to look to see if we asked for [`FluffyMissingTransactionsRequest`],
+//! if we have, we interpret [`NewFluffyBlock`] as a response, if not, it's a request that doesn't require a response.
 //!
-//! Here is every P2P request/ response. *note admin messages are already request/ response so "Handshake" is actually made of a HandshakeRequest & HandshakeResponse
+//! Here is every P2P request/response.
 //!
+//! *note admin messages are already request/response so "Handshake" is actually made of a `HandshakeRequest` & `HandshakeResponse`
+//!
+//! ```md
 //! Admin:
 //!     Handshake,
 //!     TimedSync,
@@ -21,16 +24,14 @@
 //!     Request: NewBlock,                          Response: None,
 //!     Request: NewFluffyBlock,                    Response: None,
 //!     Request: NewTransactions,                   Response: None
+//!```
 //!
 use cuprate_wire::{
-    admin::{
-        HandshakeRequest, HandshakeResponse, PingResponse, SupportFlagsResponse, TimedSyncRequest,
-        TimedSyncResponse,
-    },
     protocol::{
         ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest,
         GetObjectsResponse, GetTxPoolCompliment, NewBlock, NewFluffyBlock, NewTransactions,
     },
+    AdminRequestMessage, AdminResponseMessage,
 };
 
 mod try_from;
@@ -60,12 +61,7 @@ pub enum BroadcastMessage {
 }
 
 #[derive(Debug, Clone)]
-pub enum PeerRequest {
-    Handshake(HandshakeRequest),
-    TimedSync(TimedSyncRequest),
-    Ping,
-    SupportFlags,
-
+pub enum ProtocolRequest {
     GetObjects(GetObjectsRequest),
     GetChain(ChainRequest),
     FluffyMissingTxs(FluffyMissingTransactionsRequest),
@@ -75,41 +71,47 @@ pub enum PeerRequest {
     NewTransactions(NewTransactions),
 }
 
-impl PeerRequest {
-    pub fn id(&self) -> MessageID {
-        match self {
-            PeerRequest::Handshake(_) => MessageID::Handshake,
-            PeerRequest::TimedSync(_) => MessageID::TimedSync,
-            PeerRequest::Ping => MessageID::Ping,
-            PeerRequest::SupportFlags => MessageID::SupportFlags,
+#[derive(Debug, Clone)]
+pub enum PeerRequest {
+    Admin(AdminRequestMessage),
+    Protocol(ProtocolRequest),
+}
 
-            PeerRequest::GetObjects(_) => MessageID::GetObjects,
-            PeerRequest::GetChain(_) => MessageID::GetChain,
-            PeerRequest::FluffyMissingTxs(_) => MessageID::FluffyMissingTxs,
-            PeerRequest::GetTxPoolCompliment(_) => MessageID::GetTxPoolCompliment,
-            PeerRequest::NewBlock(_) => MessageID::NewBlock,
-            PeerRequest::NewFluffyBlock(_) => MessageID::NewFluffyBlock,
-            PeerRequest::NewTransactions(_) => MessageID::NewTransactions,
+impl PeerRequest {
+    pub const fn id(&self) -> MessageID {
+        match self {
+            Self::Admin(admin_req) => match admin_req {
+                AdminRequestMessage::Handshake(_) => MessageID::Handshake,
+                AdminRequestMessage::TimedSync(_) => MessageID::TimedSync,
+                AdminRequestMessage::Ping => MessageID::Ping,
+                AdminRequestMessage::SupportFlags => MessageID::SupportFlags,
+            },
+            Self::Protocol(protocol_request) => match protocol_request {
+                ProtocolRequest::GetObjects(_) => MessageID::GetObjects,
+                ProtocolRequest::GetChain(_) => MessageID::GetChain,
+                ProtocolRequest::FluffyMissingTxs(_) => MessageID::FluffyMissingTxs,
+                ProtocolRequest::GetTxPoolCompliment(_) => MessageID::GetTxPoolCompliment,
+                ProtocolRequest::NewBlock(_) => MessageID::NewBlock,
+                ProtocolRequest::NewFluffyBlock(_) => MessageID::NewFluffyBlock,
+                ProtocolRequest::NewTransactions(_) => MessageID::NewTransactions,
+            },
         }
     }
 
-    pub fn needs_response(&self) -> bool {
+    pub const fn needs_response(&self) -> bool {
         !matches!(
             self,
-            PeerRequest::NewBlock(_)
-                | PeerRequest::NewFluffyBlock(_)
-                | PeerRequest::NewTransactions(_)
+            Self::Protocol(
+                ProtocolRequest::NewBlock(_)
+                    | ProtocolRequest::NewFluffyBlock(_)
+                    | ProtocolRequest::NewTransactions(_)
+            )
         )
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum PeerResponse {
-    Handshake(HandshakeResponse),
-    TimedSync(TimedSyncResponse),
-    Ping(PingResponse),
-    SupportFlags(SupportFlagsResponse),
-
+pub enum ProtocolResponse {
     GetObjects(GetObjectsResponse),
     GetChain(ChainResponse),
     NewFluffyBlock(NewFluffyBlock),
@@ -117,20 +119,29 @@ pub enum PeerResponse {
     NA,
 }
 
+#[derive(Debug, Clone)]
+pub enum PeerResponse {
+    Admin(AdminResponseMessage),
+    Protocol(ProtocolResponse),
+}
+
 impl PeerResponse {
-    pub fn id(&self) -> MessageID {
-        match self {
-            PeerResponse::Handshake(_) => MessageID::Handshake,
-            PeerResponse::TimedSync(_) => MessageID::TimedSync,
-            PeerResponse::Ping(_) => MessageID::Ping,
-            PeerResponse::SupportFlags(_) => MessageID::SupportFlags,
+    pub const fn id(&self) -> Option<MessageID> {
+        Some(match self {
+            Self::Admin(admin_res) => match admin_res {
+                AdminResponseMessage::Handshake(_) => MessageID::Handshake,
+                AdminResponseMessage::TimedSync(_) => MessageID::TimedSync,
+                AdminResponseMessage::Ping(_) => MessageID::Ping,
+                AdminResponseMessage::SupportFlags(_) => MessageID::SupportFlags,
+            },
+            Self::Protocol(protocol_res) => match protocol_res {
+                ProtocolResponse::GetObjects(_) => MessageID::GetObjects,
+                ProtocolResponse::GetChain(_) => MessageID::GetChain,
+                ProtocolResponse::NewFluffyBlock(_) => MessageID::NewBlock,
+                ProtocolResponse::NewTransactions(_) => MessageID::NewFluffyBlock,
 
-            PeerResponse::GetObjects(_) => MessageID::GetObjects,
-            PeerResponse::GetChain(_) => MessageID::GetChain,
-            PeerResponse::NewFluffyBlock(_) => MessageID::NewBlock,
-            PeerResponse::NewTransactions(_) => MessageID::NewFluffyBlock,
-
-            PeerResponse::NA => panic!("Can't get message ID for a non existent response"),
-        }
+                ProtocolResponse::NA => return None,
+            },
+        })
     }
 }

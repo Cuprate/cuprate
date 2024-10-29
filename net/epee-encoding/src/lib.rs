@@ -59,12 +59,16 @@
 //!
 //! ```
 
+#[cfg(test)]
+use hex as _;
+
 extern crate alloc;
 
-use alloc::string::ToString;
-use core::{ops::Deref, str::from_utf8 as str_from_utf8};
+use core::str::from_utf8 as str_from_utf8;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
+
+use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 
 pub mod container_as_blob;
 pub mod error;
@@ -129,7 +133,7 @@ pub fn to_bytes<T: EpeeObject>(val: T) -> Result<BytesMut> {
 fn read_header<B: Buf>(r: &mut B) -> Result<()> {
     let buf = checked_read(r, |b: &mut B| b.copy_to_bytes(HEADER.len()), HEADER.len())?;
 
-    if buf.deref() != HEADER {
+    if &*buf != HEADER {
         return Err(Error::Format("Data does not contain header"));
     }
     Ok(())
@@ -184,7 +188,7 @@ fn read_object<T: EpeeObject, B: Buf>(r: &mut B, skipped_objects: &mut u8) -> Re
 
     for _ in 0..number_o_field {
         let field_name_bytes = read_field_name_bytes(r)?;
-        let field_name = str_from_utf8(field_name_bytes.deref())?;
+        let field_name = str_from_utf8(&field_name_bytes)?;
 
         if !object_builder.add_field(field_name, r)? {
             skip_epee_value(r, skipped_objects)?;
@@ -243,7 +247,7 @@ pub fn write_bytes<T: AsRef<[u8]>, B: BufMut>(t: T, w: &mut B) -> Result<()> {
     let bytes = t.as_ref();
     let len = bytes.len();
 
-    write_varint(len.try_into()?, w)?;
+    write_varint(usize_to_u64(len), w)?;
 
     if w.remaining_mut() < len {
         return Err(Error::IO("Not enough capacity to write bytes"));
@@ -287,8 +291,8 @@ where
     I: Iterator<Item = T> + ExactSizeIterator,
     B: BufMut,
 {
-    write_varint(iterator.len().try_into()?, w)?;
-    for item in iterator.into_iter() {
+    write_varint(usize_to_u64(iterator.len()), w)?;
+    for item in iterator {
         item.write(w)?;
     }
     Ok(())
@@ -328,14 +332,11 @@ impl EpeeObject for SkipObject {
 fn skip_epee_value<B: Buf>(r: &mut B, skipped_objects: &mut u8) -> Result<()> {
     let marker = read_marker(r)?;
 
-    let mut len = 1;
-    if marker.is_seq {
-        len = read_varint(r)?;
-    }
+    let len = if marker.is_seq { read_varint(r)? } else { 1 };
 
     if let Some(size) = marker.inner_marker.size() {
         let bytes_to_skip = size
-            .checked_mul(len.try_into()?)
+            .checked_mul(u64_to_usize(len))
             .ok_or(Error::Value("List is too big".to_string()))?;
         return advance(bytes_to_skip, r);
     };
@@ -353,8 +354,8 @@ fn skip_epee_value<B: Buf>(r: &mut B, skipped_objects: &mut u8) -> Result<()> {
             | InnerMarker::U8
             | InnerMarker::Bool => unreachable!("These types are constant size."),
             InnerMarker::String => {
-                let len = read_varint(r)?;
-                advance(len.try_into()?, r)?;
+                let len = u64_to_usize(read_varint(r)?);
+                advance(len, r)?;
             }
             InnerMarker::Object => {
                 *skipped_objects += 1;

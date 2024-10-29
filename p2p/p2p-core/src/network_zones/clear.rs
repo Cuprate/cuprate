@@ -1,5 +1,5 @@
 use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
+    net::{IpAddr, SocketAddr},
     pin::Pin,
     task::{Context, Poll},
 };
@@ -19,7 +19,7 @@ impl NetZoneAddress for SocketAddr {
     type BanID = IpAddr;
 
     fn set_port(&mut self, port: u16) {
-        SocketAddr::set_port(self, port)
+        Self::set_port(self, port);
     }
 
     fn ban_id(&self) -> Self::BanID {
@@ -45,21 +45,10 @@ pub struct ClearNetServerCfg {
 #[derive(Clone, Copy)]
 pub enum ClearNet {}
 
-const fn ip_v4(a: u8, b: u8, c: u8, d: u8, port: u16) -> SocketAddr {
-    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(a, b, c, d)), port)
-}
-
 #[async_trait::async_trait]
 impl NetworkZone for ClearNet {
     const NAME: &'static str = "ClearNet";
 
-    const SEEDS: &'static [Self::Addr] = &[
-        ip_v4(37, 187, 74, 171, 18080),
-        ip_v4(192, 99, 8, 110, 18080),
-    ];
-
-    const ALLOW_SYNC: bool = true;
-    const DANDELION_PP: bool = true;
     const CHECK_NODE_ID: bool = true;
 
     type Addr = SocketAddr;

@@ -2,8 +2,9 @@ use std::{cmp::min, collections::VecDeque};
 
 use cuprate_fixed_bytes::ByteArrayVec;
 
+use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
 use cuprate_p2p_core::{client::InternalPeerID, handles::ConnectionHandle, NetworkZone};
-use cuprate_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
+use cuprate_pruning::PruningSeed;
 
 use crate::constants::MEDIUM_BAN;
 
@@ -20,13 +21,13 @@ pub(crate) struct ChainEntry<N: NetworkZone> {
 
 /// A batch of blocks to retrieve.
 #[derive(Clone)]
-pub struct BlocksToRetrieve<N: NetworkZone> {
+pub(crate) struct BlocksToRetrieve<N: NetworkZone> {
     /// The block IDs to get.
     pub ids: ByteArrayVec<32>,
     /// The hash of the last block before this batch.
     pub prev_id: [u8; 32],
     /// The expected height of the first block in [`BlocksToRetrieve::ids`].
-    pub start_height: u64,
+    pub start_height: usize,
     /// The peer who told us about this batch.
     pub peer_who_told_us: InternalPeerID<N::Addr>,
     /// The peer who told us about this batch's handle.
@@ -39,7 +40,7 @@ pub struct BlocksToRetrieve<N: NetworkZone> {
 
 /// An error returned from the [`ChainTracker`].
 #[derive(Debug, Clone)]
-pub enum ChainTrackerError {
+pub(crate) enum ChainTrackerError {
     /// The new chain entry is invalid.
     NewEntryIsInvalid,
     /// The new chain entry does not follow from the top of our chain tracker.
@@ -50,11 +51,11 @@ pub enum ChainTrackerError {
 ///
 /// This struct allows following a single chain. It takes in [`ChainEntry`]s and
 /// allows getting [`BlocksToRetrieve`].
-pub struct ChainTracker<N: NetworkZone> {
+pub(crate) struct ChainTracker<N: NetworkZone> {
     /// A list of [`ChainEntry`]s, in order.
     entries: VecDeque<ChainEntry<N>>,
     /// The height of the first block, in the first entry in [`Self::entries`].
-    first_height: u64,
+    first_height: usize,
     /// The hash of the last block in the last entry.
     top_seen_hash: [u8; 32],
     /// The hash of the block one below [`Self::first_height`].
@@ -65,9 +66,9 @@ pub struct ChainTracker<N: NetworkZone> {
 
 impl<N: NetworkZone> ChainTracker<N> {
     /// Creates a new chain tracker.
-    pub fn new(
+    pub(crate) fn new(
         new_entry: ChainEntry<N>,
-        first_height: u64,
+        first_height: usize,
         our_genesis: [u8; 32],
         previous_hash: [u8; 32],
     ) -> Self {
@@ -76,9 +77,9 @@ impl<N: NetworkZone> ChainTracker<N> {
         entries.push_back(new_entry);
 
         Self {
-            top_seen_hash,
             entries,
             first_height,
+            top_seen_hash,
             previous_hash,
             our_genesis,
         }
@@ -86,31 +87,31 @@ impl<N: NetworkZone> ChainTracker<N> {
 
     /// Returns `true` if the peer is expected to have the next block after our highest seen block
     /// according to their pruning seed.
-    pub fn should_ask_for_next_chain_entry(&self, seed: &PruningSeed) -> bool {
-        seed.has_full_block(self.top_height(), CRYPTONOTE_MAX_BLOCK_HEIGHT)
+    pub(crate) fn should_ask_for_next_chain_entry(&self, seed: &PruningSeed) -> bool {
+        seed.has_full_block(self.top_height(), MAX_BLOCK_HEIGHT_USIZE)
     }
 
     /// Returns the simple history, the highest seen block and the genesis block.
-    pub fn get_simple_history(&self) -> [[u8; 32]; 2] {
+    pub(crate) const fn get_simple_history(&self) -> [[u8; 32]; 2] {
         [self.top_seen_hash, self.our_genesis]
     }
 
     /// Returns the height of the highest block we are tracking.
-    pub fn top_height(&self) -> u64 {
+    pub(crate) fn top_height(&self) -> usize {
         let top_block_idx = self
             .entries
             .iter()
             .map(|entry| entry.ids.len())
             .sum::<usize>();
 
-        self.first_height + u64::try_from(top_block_idx).unwrap()
+        self.first_height + top_block_idx
     }
 
     /// Returns the total number of queued batches for a certain `batch_size`.
     ///
     /// # Panics
     /// This function panics if `batch_size` is `0`.
-    pub fn block_requests_queued(&self, batch_size: usize) -> usize {
+    pub(crate) fn block_requests_queued(&self, batch_size: usize) -> usize {
         self.entries
             .iter()
             .map(|entry| entry.ids.len().div_ceil(batch_size))
@@ -118,7 +119,10 @@ impl<N: NetworkZone> ChainTracker<N> {
     }
 
     /// Attempts to add an incoming [`ChainEntry`] to the chain tracker.
-    pub fn add_entry(&mut self, mut chain_entry: ChainEntry<N>) -> Result<(), ChainTrackerError> {
+    pub(crate) fn add_entry(
+        &mut self,
+        mut chain_entry: ChainEntry<N>,
+    ) -> Result<(), ChainTrackerError> {
         if chain_entry.ids.is_empty() {
             // The peer must send at lest one overlapping block.
             chain_entry.handle.ban_peer(MEDIUM_BAN);
@@ -154,12 +158,12 @@ impl<N: NetworkZone> ChainTracker<N> {
     /// Returns a batch of blocks to request.
     ///
     /// The returned batches length will be less than or equal to `max_blocks`
-    pub fn blocks_to_get(
+    pub(crate) fn blocks_to_get(
         &mut self,
         pruning_seed: &PruningSeed,
         max_blocks: usize,
     ) -> Option<BlocksToRetrieve<N>> {
-        if !pruning_seed.has_full_block(self.first_height, CRYPTONOTE_MAX_BLOCK_HEIGHT) {
+        if !pruning_seed.has_full_block(self.first_height, MAX_BLOCK_HEIGHT_USIZE) {
             return None;
         }
 
@@ -171,15 +175,12 @@ impl<N: NetworkZone> ChainTracker<N> {
         // - index of the next pruned block for this seed
         let end_idx = min(
             min(entry.ids.len(), max_blocks),
-            usize::try_from(
                 pruning_seed
-                    .get_next_pruned_block(self.first_height, CRYPTONOTE_MAX_BLOCK_HEIGHT)
+                    .get_next_pruned_block(self.first_height, MAX_BLOCK_HEIGHT_USIZE)
                     .expect("We use local values to calculate height which should be below the sanity limit")
                     // Use a big value as a fallback if the seed does no pruning.
-                    .unwrap_or(CRYPTONOTE_MAX_BLOCK_HEIGHT)
+                    .unwrap_or(MAX_BLOCK_HEIGHT_USIZE)
                     - self.first_height,
-            )
-            .unwrap(),
         );
 
         if end_idx == 0 {
@@ -198,7 +199,7 @@ impl<N: NetworkZone> ChainTracker<N> {
             failures: 0,
         };
 
-        self.first_height += u64::try_from(end_idx).unwrap();
+        self.first_height += end_idx;
         // TODO: improve ByteArrayVec API.
         self.previous_hash = blocks.ids[blocks.ids.len() - 1];
 

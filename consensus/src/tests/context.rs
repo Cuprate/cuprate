@@ -2,14 +2,12 @@ use proptest::strategy::ValueTree;
 use proptest::{strategy::Strategy, test_runner::TestRunner};
 use tower::ServiceExt;
 
-use crate::{
-    context::{
-        initialize_blockchain_context, BlockChainContextRequest, BlockChainContextResponse,
-        ContextConfig, NewBlockData,
-    },
-    tests::mock_db::*,
-    HardFork,
+use cuprate_consensus_context::{
+    initialize_blockchain_context, BlockChainContextRequest, BlockChainContextResponse,
+    ContextConfig, NewBlockData,
 };
+
+use crate::{tests::mock_db::*, HardFork};
 
 pub(crate) mod data;
 mod difficulty;
@@ -29,10 +27,10 @@ const TEST_CONTEXT_CONFIG: ContextConfig = ContextConfig {
 
 #[tokio::test]
 async fn context_invalidated_on_new_block() -> Result<(), tower::BoxError> {
-    const BLOCKCHAIN_HEIGHT: u64 = 6000;
+    const BLOCKCHAIN_HEIGHT: usize = 6000;
 
     let mut runner = TestRunner::default();
-    let db = arb_dummy_database(BLOCKCHAIN_HEIGHT.try_into().unwrap())
+    let db = arb_dummy_database(BLOCKCHAIN_HEIGHT)
         .new_tree(&mut runner)
         .unwrap()
         .current();
@@ -41,7 +39,7 @@ async fn context_invalidated_on_new_block() -> Result<(), tower::BoxError> {
 
     let BlockChainContextResponse::Context(context) = ctx_svc
         .clone()
-        .oneshot(BlockChainContextRequest::GetContext)
+        .oneshot(BlockChainContextRequest::Context)
         .await?
     else {
         panic!("Context service returned wrong response!");
@@ -71,19 +69,18 @@ async fn context_invalidated_on_new_block() -> Result<(), tower::BoxError> {
 
 #[tokio::test]
 async fn context_height_correct() -> Result<(), tower::BoxError> {
-    const BLOCKCHAIN_HEIGHT: u64 = 6000;
+    const BLOCKCHAIN_HEIGHT: usize = 6000;
 
     let mut runner = TestRunner::default();
-    let db = arb_dummy_database(BLOCKCHAIN_HEIGHT.try_into().unwrap())
+    let db = arb_dummy_database(BLOCKCHAIN_HEIGHT)
         .new_tree(&mut runner)
         .unwrap()
         .current();
 
     let ctx_svc = initialize_blockchain_context(TEST_CONTEXT_CONFIG, db).await?;
 
-    let BlockChainContextResponse::Context(context) = ctx_svc
-        .oneshot(BlockChainContextRequest::GetContext)
-        .await?
+    let BlockChainContextResponse::Context(context) =
+        ctx_svc.oneshot(BlockChainContextRequest::Context).await?
     else {
         panic!("context service returned incorrect response!")
     };

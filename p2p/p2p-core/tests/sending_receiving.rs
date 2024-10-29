@@ -1,27 +1,19 @@
-use std::sync::Arc;
+#![expect(unused_crate_dependencies, reason = "external test module")]
 
-use tokio::sync::Semaphore;
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::network::Network;
+use cuprate_test_utils::monerod::monerod;
 use cuprate_wire::{common::PeerSupportFlags, protocol::GetObjectsRequest, BasicNodeData};
 
 use cuprate_p2p_core::{
-    client::{ConnectRequest, Connector, HandShaker},
-    network_zones::ClearNet,
+    client::{handshaker::HandshakerBuilder, ConnectRequest, Connector},
     protocol::{PeerRequest, PeerResponse},
+    ClearNet, ProtocolRequest, ProtocolResponse,
 };
-
-use cuprate_test_utils::monerod::monerod;
-
-mod utils;
-use utils::*;
 
 #[tokio::test]
 async fn get_single_block_from_monerod() {
-    let semaphore = Arc::new(Semaphore::new(10));
-    let permit = semaphore.acquire_owned().await.unwrap();
-
     let monerod = monerod(["--out-peers=0"]).await;
 
     let our_basic_node_data = BasicNodeData {
@@ -33,14 +25,7 @@ async fn get_single_block_from_monerod() {
         rpc_credits_per_hash: 0,
     };
 
-    let handshaker = HandShaker::<ClearNet, _, _, _, _, _>::new(
-        DummyAddressBook,
-        DummyPeerSyncSvc,
-        DummyCoreSyncSvc,
-        DummyPeerRequestHandlerSvc,
-        |_| futures::stream::pending(),
-        our_basic_node_data,
-    );
+    let handshaker = HandshakerBuilder::<ClearNet>::new(our_basic_node_data).build();
 
     let mut connector = Connector::new(handshaker);
 
@@ -50,22 +35,26 @@ async fn get_single_block_from_monerod() {
         .unwrap()
         .call(ConnectRequest {
             addr: monerod.p2p_addr(),
-            permit,
+            permit: None,
         })
         .await
         .unwrap();
 
-    let PeerResponse::GetObjects(obj) = connected_peer
+    let PeerResponse::Protocol(ProtocolResponse::GetObjects(obj)) = connected_peer
         .ready()
         .await
         .unwrap()
-        .call(PeerRequest::GetObjects(GetObjectsRequest {
-            blocks: hex::decode("418015bb9ae982a1975da7d79277c2705727a56894ba0fb246adaabb1f4632e3")
+        .call(PeerRequest::Protocol(ProtocolRequest::GetObjects(
+            GetObjectsRequest {
+                blocks: hex::decode(
+                    "418015bb9ae982a1975da7d79277c2705727a56894ba0fb246adaabb1f4632e3",
+                )
                 .unwrap()
                 .try_into()
                 .unwrap(),
-            pruned: false,
-        }))
+                pruned: false,
+            },
+        )))
         .await
         .unwrap()
     else {

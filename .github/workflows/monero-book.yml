@@ -1,0 +1,40 @@
+# This action attempts to build the Monero book, if changed.
+
+name: Monero mdBook
+
+on:
+  push:
+    branches: ['main']
+    paths: ['books/protocol/**']
+  pull_request:
+    paths: ['books/protocol/**']
+  workflow_dispatch:
+
+env:
+  # Version of `mdbook` to install.
+  MDBOOK_VERSION: 0.4.36
+  # Version of `mdbook-svgbob` to install.
+  # <https://github.com/boozook/mdbook-svgbob>.
+  MDBOOK_SVGBOB_VERSION: 0.2.1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/mdbook
+            ~/.cargo/bin/mdbook-svgbob
+          key: monero-book
+
+      - name: Install mdBook
+        run: |
+          cargo install --locked --version ${MDBOOK_VERSION} mdbook || echo "mdbook already exists"
+          cargo install --locked --version ${MDBOOK_SVGBOB_VERSION} mdbook-svgbob || echo "mdbook-svgbob already exists"
+
+      - name: Build
+        run: mdbook build books/protocol

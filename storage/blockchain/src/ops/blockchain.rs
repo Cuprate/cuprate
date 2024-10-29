@@ -25,7 +25,8 @@ use crate::{
 pub fn chain_height(
     table_block_heights: &impl DatabaseRo<BlockHeights>,
 ) -> Result<BlockHeight, RuntimeError> {
-    table_block_heights.len()
+    #[expect(clippy::cast_possible_truncation, reason = "we enforce 64-bit")]
+    table_block_heights.len().map(|height| height as usize)
 }
 
 /// Retrieve the height of the top block.
@@ -47,7 +48,8 @@ pub fn top_block_height(
 ) -> Result<BlockHeight, RuntimeError> {
     match table_block_heights.len()? {
         0 => Err(RuntimeError::KeyNotFound),
-        height => Ok(height - 1),
+        #[expect(clippy::cast_possible_truncation, reason = "we enforce 64-bit")]
+        height => Ok(height as usize - 1),
     }
 }
 
@@ -82,14 +84,13 @@ mod test {
     use pretty_assertions::assert_eq;
 
     use cuprate_database::{Env, EnvInner, TxRw};
-    use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx2, block_v9_tx3};
+    use cuprate_test_utils::data::{BLOCK_V16_TX0, BLOCK_V1_TX2, BLOCK_V9_TX3};
 
     use super::*;
 
     use crate::{
-        open_tables::OpenTables,
         ops::block::add_block,
-        tables::Tables,
+        tables::{OpenTables, Tables},
         tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
     };
 
@@ -107,11 +108,11 @@ mod test {
         assert_all_tables_are_empty(&env);
 
         let mut blocks = [
-            block_v1_tx2().clone(),
-            block_v9_tx3().clone(),
-            block_v16_tx0().clone(),
+            BLOCK_V1_TX2.clone(),
+            BLOCK_V9_TX3.clone(),
+            BLOCK_V16_TX0.clone(),
         ];
-        let blocks_len = u64::try_from(blocks.len()).unwrap();
+        let blocks_len = blocks.len();
 
         // Add blocks.
         {
@@ -128,7 +129,6 @@ mod test {
             );
 
             for (i, block) in blocks.iter_mut().enumerate() {
-                let i = u64::try_from(i).unwrap();
                 // HACK: `add_block()` asserts blocks with non-sequential heights
                 // cannot be added, to get around this, manually edit the block height.
                 block.height = i;
@@ -138,7 +138,8 @@ mod test {
             // Assert reads are correct.
             AssertTableLen {
                 block_infos: 3,
-                block_blobs: 3,
+                block_header_blobs: 3,
+                block_txs_hashes: 3,
                 block_heights: 3,
                 key_images: 69,
                 num_outputs: 41,

@@ -13,10 +13,10 @@
 // copies or substantial portions of the Software.
 //
 
-//! # Monero Wire
+//! # Cuprate Wire
 //!
 //! A crate defining Monero network messages and network addresses,
-//! built on top of the levin-cuprate crate.
+//! built on top of the [`cuprate_levin`] crate.
 //!
 //! ## License
 //!

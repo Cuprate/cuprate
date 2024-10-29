@@ -10,7 +10,7 @@ default = ["txpool"]
 txpool = ["dep:rand_distr", "dep:tokio-util", "dep:tokio"]
 
 [dependencies]
-tower = { workspace = true, features = ["discover", "util"] }
+tower = { workspace = true, features = ["util"] }
 tracing = { workspace = true, features = ["std"] }
 
 futures = { workspace = true, features = ["std"] }
@@ -25,3 +25,6 @@ thiserror = { workspace = true }
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync"] }
 proptest = { workspace = true, features = ["default"] }
+
+[lints]
+workspace = true

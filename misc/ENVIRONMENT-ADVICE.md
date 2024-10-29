@@ -87,4 +87,4 @@ On Rust-analyzer's VSCode plugin, you can add the following configuration if you
 
 If you still deal with lags on VSCode or Neovim, you could try the following IDE:
 - RustRover: It have been reported to have excellent performance at managing huge workspace. It use its own fine-tuned plugins by jetbrains.
-- Zed: Rust-written IDE focused on performance. Still in beta and macOS only.
+- Zed: Rust-written IDE focused on performance. Stable on MacOS and Linux (requires Vulkan driver, therefore unable in virtual machines).

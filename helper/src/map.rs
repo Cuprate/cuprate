@@ -7,6 +7,10 @@
 //---------------------------------------------------------------------------------------------------- Use
 use monero_serai::transaction::Timelock;
 
+use cuprate_constants::block::MAX_BLOCK_HEIGHT;
+
+use crate::cast::{u64_to_usize, usize_to_u64};
+
 //---------------------------------------------------------------------------------------------------- `(u64, u64) <-> u128`
 /// Split a [`u128`] value into 2 64-bit values.
 ///
@@ -27,6 +31,7 @@ use monero_serai::transaction::Timelock;
 /// ```
 #[inline]
 pub const fn split_u128_into_low_high_bits(value: u128) -> (u64, u64) {
+    #[expect(clippy::cast_possible_truncation)]
     (value as u64, (value >> 64) as u64)
 }
 
@@ -58,7 +63,7 @@ pub const fn combine_low_high_bits_to_u128(low_bits: u64, high_bits: u64) -> u12
 /// Map a [`u64`] to a [`Timelock`].
 ///
 /// Height/time is not differentiated via type, but rather:
-/// "height is any value less than 500_000_000 and timestamp is any value above"
+/// "height is any value less than [`MAX_BLOCK_HEIGHT`] and timestamp is any value above"
 /// so the `u64/usize` is stored without any tag.
 ///
 /// See [`timelock_to_u64`] for the inverse function.
@@ -69,15 +74,16 @@ pub const fn combine_low_high_bits_to_u128(low_bits: u64, high_bits: u64) -> u12
 /// ```rust
 /// # use cuprate_helper::map::*;
 /// # use monero_serai::transaction::*;
+/// use cuprate_constants::block::{MAX_BLOCK_HEIGHT, MAX_BLOCK_HEIGHT_USIZE};
 /// assert_eq!(u64_to_timelock(0), Timelock::None);
-/// assert_eq!(u64_to_timelock(499_999_999), Timelock::Block(499_999_999));
-/// assert_eq!(u64_to_timelock(500_000_000), Timelock::Time(500_000_000));
+/// assert_eq!(u64_to_timelock(MAX_BLOCK_HEIGHT-1), Timelock::Block(MAX_BLOCK_HEIGHT_USIZE-1));
+/// assert_eq!(u64_to_timelock(MAX_BLOCK_HEIGHT), Timelock::Time(MAX_BLOCK_HEIGHT));
 /// ```
-pub fn u64_to_timelock(u: u64) -> Timelock {
+pub const fn u64_to_timelock(u: u64) -> Timelock {
     if u == 0 {
         Timelock::None
-    } else if u < 500_000_000 {
-        Timelock::Block(usize::try_from(u).unwrap())
+    } else if u < MAX_BLOCK_HEIGHT {
+        Timelock::Block(u64_to_usize(u))
     } else {
         Timelock::Time(u)
     }
@@ -90,14 +96,15 @@ pub fn u64_to_timelock(u: u64) -> Timelock {
 /// ```rust
 /// # use cuprate_helper::map::*;
 /// # use monero_serai::transaction::*;
+/// use cuprate_constants::block::{MAX_BLOCK_HEIGHT, MAX_BLOCK_HEIGHT_USIZE};
 /// assert_eq!(timelock_to_u64(Timelock::None), 0);
-/// assert_eq!(timelock_to_u64(Timelock::Block(499_999_999)), 499_999_999);
-/// assert_eq!(timelock_to_u64(Timelock::Time(500_000_000)), 500_000_000);
+/// assert_eq!(timelock_to_u64(Timelock::Block(MAX_BLOCK_HEIGHT_USIZE-1)), MAX_BLOCK_HEIGHT-1);
+/// assert_eq!(timelock_to_u64(Timelock::Time(MAX_BLOCK_HEIGHT)), MAX_BLOCK_HEIGHT);
 /// ```
-pub fn timelock_to_u64(timelock: Timelock) -> u64 {
+pub const fn timelock_to_u64(timelock: Timelock) -> u64 {
     match timelock {
         Timelock::None => 0,
-        Timelock::Block(u) => u64::try_from(u).unwrap(),
+        Timelock::Block(u) => usize_to_u64(u),
         Timelock::Time(u) => u,
     }
 }

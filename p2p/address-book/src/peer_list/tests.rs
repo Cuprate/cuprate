@@ -14,7 +14,7 @@ fn make_fake_peer(
 ) -> ZoneSpecificPeerListEntryBase<TestNetZoneAddr> {
     ZoneSpecificPeerListEntryBase {
         adr: TestNetZoneAddr(id),
-        id: id as u64,
+        id: u64::from(id),
         last_seen: 0,
         pruning_seed: PruningSeed::decompress(pruning_seed.unwrap_or(0)).unwrap(),
         rpc_port: 0,
@@ -22,22 +22,20 @@ fn make_fake_peer(
     }
 }
 
-pub fn make_fake_peer_list(
+pub(crate) fn make_fake_peer_list(
     start_idx: u32,
     numb_o_peers: u32,
-) -> PeerList<TestNetZone<true, true, true>> {
+) -> PeerList<TestNetZone<true>> {
     let mut peer_list = Vec::with_capacity(numb_o_peers as usize);
 
     for idx in start_idx..(start_idx + numb_o_peers) {
-        peer_list.push(make_fake_peer(idx, None))
+        peer_list.push(make_fake_peer(idx, None));
     }
 
     PeerList::new(peer_list)
 }
 
-fn make_fake_peer_list_with_random_pruning_seeds(
-    numb_o_peers: u32,
-) -> PeerList<TestNetZone<true, true, true>> {
+fn make_fake_peer_list_with_random_pruning_seeds(numb_o_peers: u32) -> PeerList<TestNetZone<true>> {
     let mut r = rand::thread_rng();
 
     let mut peer_list = Vec::with_capacity(numb_o_peers as usize);
@@ -50,7 +48,7 @@ fn make_fake_peer_list_with_random_pruning_seeds(
             } else {
                 r.gen_range(384..=391)
             }),
-        ))
+        ));
     }
     PeerList::new(peer_list)
 }
@@ -70,7 +68,7 @@ fn peer_list_reduce_length() {
 #[test]
 fn peer_list_reduce_length_with_peers_we_need() {
     let mut peer_list = make_fake_peer_list(0, 500);
-    let must_keep_peers = HashSet::from_iter(peer_list.peers.keys().copied());
+    let must_keep_peers = peer_list.peers.keys().copied().collect::<HashSet<_>>();
 
     let target_len = 49;
 
@@ -92,7 +90,7 @@ fn peer_list_remove_specific_peer() {
     let peers = peer_list.peers;
 
     for (_, addrs) in pruning_idxs {
-        addrs.iter().for_each(|adr| assert_ne!(adr, &peer.adr))
+        addrs.iter().for_each(|adr| assert_ne!(adr, &peer.adr));
     }
 
     assert!(!peers.contains_key(&peer.adr));
@@ -104,13 +102,13 @@ fn peer_list_pruning_idxs_are_correct() {
     let mut total_len = 0;
 
     for (seed, list) in peer_list.pruning_seeds {
-        for peer in list.iter() {
+        for peer in &list {
             assert_eq!(peer_list.peers.get(peer).unwrap().pruning_seed, seed);
             total_len += 1;
         }
     }
 
-    assert_eq!(total_len, peer_list.peers.len())
+    assert_eq!(total_len, peer_list.peers.len());
 }
 
 #[test]
@@ -122,11 +120,7 @@ fn peer_list_add_new_peer() {
 
     assert_eq!(peer_list.len(), 11);
     assert_eq!(peer_list.peers.get(&new_peer.adr), Some(&new_peer));
-    assert!(peer_list
-        .pruning_seeds
-        .get(&new_peer.pruning_seed)
-        .unwrap()
-        .contains(&new_peer.adr));
+    assert!(peer_list.pruning_seeds[&new_peer.pruning_seed].contains(&new_peer.adr));
 }
 
 #[test]
@@ -164,7 +158,7 @@ fn peer_list_get_peer_with_block() {
     assert!(peer
         .pruning_seed
         .get_next_unpruned_block(1, 1_000_000)
-        .is_ok())
+        .is_ok());
 }
 
 #[test]

@@ -1,14 +1,14 @@
+use proptest::{collection::vec, prelude::*};
+
+use cuprate_consensus_context::{hardforks::HardForkState, HardForkConfig};
 use cuprate_consensus_rules::hard_forks::{HFInfo, HFsInfo, HardFork, NUMB_OF_HARD_FORKS};
 
-use crate::{
-    context::{hardforks::HardForkState, HardForkConfig},
-    tests::{
-        context::data::{HFS_2678808_2688888, HFS_2688888_2689608},
-        mock_db::*,
-    },
+use crate::tests::{
+    context::data::{HFS_2678808_2688888, HFS_2688888_2689608},
+    mock_db::*,
 };
 
-const TEST_WINDOW_SIZE: u64 = 25;
+const TEST_WINDOW_SIZE: usize = 25;
 
 const TEST_HFS: [HFInfo; NUMB_OF_HARD_FORKS] = [
     HFInfo::new(0, 0),
@@ -29,7 +29,7 @@ const TEST_HFS: [HFInfo; NUMB_OF_HARD_FORKS] = [
     HFInfo::new(150, 0),
 ];
 
-pub const TEST_HARD_FORK_CONFIG: HardForkConfig = HardForkConfig {
+pub(crate) const TEST_HARD_FORK_CONFIG: HardForkConfig = HardForkConfig {
     window: TEST_WINDOW_SIZE,
     info: HFsInfo::new(TEST_HFS),
 };
@@ -77,8 +77,49 @@ async fn hf_v15_v16_correct() {
 
     for (i, (_, vote)) in HFS_2688888_2689608.into_iter().enumerate() {
         assert_eq!(state.current_hardfork, HardFork::V15);
-        state.new_block(vote, (2688888 + i) as u64);
+        state.new_block(vote, 2688888 + i);
     }
 
     assert_eq!(state.current_hardfork, HardFork::V16);
+}
+
+proptest! {
+    fn pop_blocks(
+        hfs in vec(any::<HardFork>(), 0..100),
+        extra_hfs in vec(any::<HardFork>(), 0..100)
+    ) {
+        tokio_test::block_on(async move {
+            let numb_hfs = hfs.len();
+            let numb_pop_blocks = extra_hfs.len();
+
+            let mut db_builder = DummyDatabaseBuilder::default();
+
+            for hf in hfs {
+                db_builder.add_block(
+                    DummyBlockExtendedHeader::default().with_hard_fork_info(hf, hf),
+                );
+            }
+
+            let db = db_builder.finish(Some(numb_hfs ));
+
+            let mut state = HardForkState::init_from_chain_height(
+                numb_hfs,
+                TEST_HARD_FORK_CONFIG,
+                db.clone(),
+            )
+            .await?;
+
+            let state_clone = state.clone();
+
+            for (i, hf) in extra_hfs.into_iter().enumerate() {
+                state.new_block(hf, state.last_height + i + 1);
+            }
+
+            state.pop_blocks_main_chain(numb_pop_blocks, db).await?;
+
+            prop_assert_eq!(state_clone, state);
+
+            Ok::<(), TestCaseError>(())
+        })?;
+    }
 }

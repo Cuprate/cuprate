@@ -1,19 +1,17 @@
 [book]
-authors = ["hinto-janai"]
+authors = ["Cuprate Contributors"]
 language = "en"
 multilingual = false
 src = "src"
 title = "Cuprate Architecture"
 git-repository-url = "https://github.com/Cuprate/architecture-book"
 
-# TODO: fix after importing real files.
-#
-# [preprocessor.last-changed]
-# command = "mdbook-last-changed"
-# renderer = ["html"]
-#
-# [output.html]
-# default-theme = "ayu"
-# preferred-dark-theme = "ayu"
-# git-repository-url = "https://github.com/hinto-janai/cuprate-architecture"
-# additional-css = ["last-changed.css"]
+[preprocessor.last-changed]
+command = "mdbook-last-changed"
+renderer = ["html"]
+
+[output.html]
+default-theme = "ayu"
+preferred-dark-theme = "ayu"
+git-repository-url = "https://github.com/Cuprate/architecture-book"
+additional-css = ["last-changed.css"]

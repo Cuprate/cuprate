@@ -219,9 +219,9 @@ The description of pull requests should generally follow the template laid out i
 If your pull request is long and/or has sections that need clarifying, consider leaving a review on your own PR with comments explaining the changes.
 
 ## 5. Documentation
-Cuprate's crates (libraries) have inline documentation.
+Cuprate's crates (libraries) have inline documentation, they are published from the `main` branch at https://doc.cuprate.org.
 
-These can be built and viewed using the `cargo` tool. For example, to build and view a specific crate's documentation, run the following command at the repository's root:
+Documentation can be built and viewed using the `cargo` tool. For example, to build and view a specific crate's documentation, run the following command at the repository's root:
 ```bash
 cargo doc --open --package $CRATE
 ```
