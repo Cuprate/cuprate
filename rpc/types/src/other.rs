@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     base::{AccessResponseBase, ResponseBase},
-    defaults::{default_false, default_string, default_true, default_vec, default_zero},
     macros::define_request_and_response,
     misc::{
         GetOutputsOut, OutKey, Peer, PublicNode, SpentKeyImageInfo, Status, TxEntry, TxInfo,
@@ -16,6 +15,9 @@ use crate::{
     },
     RpcCallValue,
 };
+
+#[cfg(any(feature = "serde", feature = "epee"))]
+use crate::defaults::{default_false, default_string, default_true, default_vec, default_zero};
 
 //---------------------------------------------------------------------------------------------------- Macro
 /// Adds a (de)serialization doc-test to a type in `other.rs`.

@@ -20,11 +20,13 @@ use cuprate_types::BlockCompleteEntry;
 
 use crate::{
     base::AccessResponseBase,
-    defaults::{default_false, default_zero},
     macros::{define_request, define_request_and_response, define_request_and_response_doc},
-    misc::{BlockOutputIndices, GetOutputsOut, OutKeyBin, PoolInfoExtent, PoolTxInfo, Status},
+    misc::{BlockOutputIndices, GetOutputsOut, OutKeyBin, PoolTxInfo, Status},
     rpc_call::RpcCallValue,
 };
+
+#[cfg(any(feature = "epee", feature = "serde"))]
+use crate::defaults::{default_false, default_zero};
 
 //---------------------------------------------------------------------------------------------------- Definitions
 define_request_and_response! {
@@ -137,15 +139,15 @@ define_request! {
     core_rpc_server_commands_defs, h, 162, 262,
 )]
 ///
-/// This response's variant depends upon [`PoolInfoExtent`].
+/// This response's variant depends upon [`crate::misc::PoolInfoExtent`].
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum GetBlocksResponse {
-    /// Will always serialize a [`PoolInfoExtent::None`] field.
+    /// Will always serialize a [`crate::misc::PoolInfoExtent::None`] field.
     PoolInfoNone(GetBlocksResponsePoolInfoNone),
-    /// Will always serialize a [`PoolInfoExtent::Incremental`] field.
+    /// Will always serialize a [`crate::misc::PoolInfoExtent::Incremental`] field.
     PoolInfoIncremental(GetBlocksResponsePoolInfoIncremental),
-    /// Will always serialize a [`PoolInfoExtent::Full`] field.
+    /// Will always serialize a [`crate::misc::PoolInfoExtent::Full`] field.
     PoolInfoFull(GetBlocksResponsePoolInfoFull),
 }
 
@@ -254,7 +256,7 @@ pub struct __GetBlocksResponseEpeeBuilder {
     pub current_height: Option<u64>,
     pub output_indices: Option<Vec<BlockOutputIndices>>,
     pub daemon_time: Option<u64>,
-    pub pool_info_extent: Option<PoolInfoExtent>,
+    pub pool_info_extent: Option<crate::misc::PoolInfoExtent>,
     pub added_pool_txs: Option<Vec<PoolTxInfo>>,
     pub remaining_added_pool_txids: Option<ByteArrayVec<32>>,
     pub removed_pool_txids: Option<ByteArrayVec<32>>,
@@ -304,7 +306,7 @@ impl EpeeObjectBuilder<GetBlocksResponse> for __GetBlocksResponseEpeeBuilder {
         let pool_info_extent = self.pool_info_extent.ok_or(ELSE)?;
 
         let this = match pool_info_extent {
-            PoolInfoExtent::None => {
+            crate::misc::PoolInfoExtent::None => {
                 GetBlocksResponse::PoolInfoNone(GetBlocksResponsePoolInfoNone {
                     status,
                     untrusted,
@@ -315,7 +317,7 @@ impl EpeeObjectBuilder<GetBlocksResponse> for __GetBlocksResponseEpeeBuilder {
                     daemon_time,
                 })
             }
-            PoolInfoExtent::Incremental => {
+            crate::misc::PoolInfoExtent::Incremental => {
                 GetBlocksResponse::PoolInfoIncremental(GetBlocksResponsePoolInfoIncremental {
                     status,
                     untrusted,
@@ -329,7 +331,7 @@ impl EpeeObjectBuilder<GetBlocksResponse> for __GetBlocksResponseEpeeBuilder {
                     removed_pool_txids: self.removed_pool_txids.ok_or(ELSE)?,
                 })
             }
-            PoolInfoExtent::Full => {
+            crate::misc::PoolInfoExtent::Full => {
                 GetBlocksResponse::PoolInfoFull(GetBlocksResponsePoolInfoFull {
                     status,
                     untrusted,
@@ -353,7 +355,7 @@ impl EpeeObject for GetBlocksResponse {
     type Builder = __GetBlocksResponseEpeeBuilder;
 
     fn number_of_fields(&self) -> u64 {
-        // [`PoolInfoExtent`] + inner struct fields.
+        // [`crate::misc::PoolInfoExtent`] + inner struct fields.
         let inner_fields = match self {
             Self::PoolInfoNone(s) => s.number_of_fields(),
             Self::PoolInfoIncremental(s) => s.number_of_fields(),
@@ -367,15 +369,27 @@ impl EpeeObject for GetBlocksResponse {
         match self {
             Self::PoolInfoNone(s) => {
                 s.write_fields(w)?;
-                write_field(PoolInfoExtent::None.to_u8(), "pool_info_extent", w)?;
+                write_field(
+                    crate::misc::PoolInfoExtent::None.to_u8(),
+                    "pool_info_extent",
+                    w,
+                )?;
             }
             Self::PoolInfoIncremental(s) => {
                 s.write_fields(w)?;
-                write_field(PoolInfoExtent::Incremental.to_u8(), "pool_info_extent", w)?;
+                write_field(
+                    crate::misc::PoolInfoExtent::Incremental.to_u8(),
+                    "pool_info_extent",
+                    w,
+                )?;
             }
             Self::PoolInfoFull(s) => {
                 s.write_fields(w)?;
-                write_field(PoolInfoExtent::Full.to_u8(), "pool_info_extent", w)?;
+                write_field(
+                    crate::misc::PoolInfoExtent::Full.to_u8(),
+                    "pool_info_extent",
+                    w,
+                )?;
             }
         }
 

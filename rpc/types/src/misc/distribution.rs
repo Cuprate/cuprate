@@ -20,8 +20,8 @@ use cuprate_epee_encoding::{
     "rpc/core_rpc_server_commands_defs.h",
     45..=55
 )]
-#[cfg(feature = "epee")]
-fn compress_integer_array(_: &[u64]) -> error::Result<Vec<u8>> {
+#[cfg(any(feature = "epee", feature = "serde"))]
+fn compress_integer_array(_: &[u64]) -> Vec<u8> {
     todo!()
 }
 
@@ -33,6 +33,7 @@ fn compress_integer_array(_: &[u64]) -> error::Result<Vec<u8>> {
     "rpc/core_rpc_server_commands_defs.h",
     57..=72
 )]
+#[cfg(any(feature = "epee", feature = "serde"))]
 fn decompress_integer_array(_: &[u8]) -> Vec<u64> {
     todo!()
 }
@@ -135,12 +136,7 @@ fn serialize_distribution_as_compressed_data<S>(v: &Vec<u64>, s: S) -> Result<S:
 where
     S: serde::Serializer,
 {
-    match compress_integer_array(v) {
-        Ok(compressed_data) => compressed_data.serialize(s),
-        Err(_) => Err(serde::ser::Error::custom(
-            "error compressing distribution array",
-        )),
-    }
+    compress_integer_array(v).serialize(s)
 }
 
 /// Deserializer function for [`DistributionCompressedBinary::distribution`].
@@ -256,7 +252,7 @@ impl EpeeObject for Distribution {
                 distribution,
                 amount,
             }) => {
-                let compressed_data = compress_integer_array(&distribution)?;
+                let compressed_data = compress_integer_array(&distribution);
 
                 start_height.write(w)?;
                 base.write(w)?;
