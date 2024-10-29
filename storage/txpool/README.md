@@ -15,7 +15,7 @@ This crate does 3 things:
 
 1. Uses [`cuprate_database`] as a base database layer
 1. Implements various transaction pool related [operations](ops), [tables], and [types]
-1. Exposes a [`tower::Service`] backed by a thread-pool
+1. Exposes a `tower::Service` backed by a thread-pool
 
 Each layer builds on-top of the previous.
 

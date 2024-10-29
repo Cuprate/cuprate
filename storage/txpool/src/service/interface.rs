@@ -1,6 +1,6 @@
 //! Tx-pool [`service`](super) interface.
 //!
-//! This module contains `cuprate_txpool`'s [`tower::Service`] request and response enums.
+//! This module contains `cuprate_txpool`'s `tower::Service` request and response enums.
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -14,7 +14,7 @@ use crate::{
 };
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadRequest
-/// The transaction pool [`tower::Service`] read request type.
+/// The transaction pool `tower::Service` read request type.
 #[derive(Clone)]
 pub enum TxpoolReadRequest {
     /// Get the blob (raw bytes) of a transaction with the given hash.
@@ -39,7 +39,7 @@ pub enum TxpoolReadRequest {
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadResponse
-/// The transaction pool [`tower::Service`] read response type.
+/// The transaction pool `service` read response type.
 #[expect(clippy::large_enum_variant)]
 pub enum TxpoolReadResponse {
     /// The response for [`TxpoolReadRequest::TxBlob`].
@@ -78,7 +78,7 @@ pub enum TxpoolReadResponse {
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteRequest
-/// The transaction pool [`tower::Service`] write request type.
+/// The transaction pool `service` write request type.
 #[derive(Clone)]
 pub enum TxpoolWriteRequest {
     /// Add a transaction to the pool.
@@ -108,7 +108,7 @@ pub enum TxpoolWriteRequest {
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteResponse
-/// The transaction pool [`tower::Service`] write response type.
+/// The transaction pool `service` write response type.
 #[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub enum TxpoolWriteResponse {
     /// Response to:
