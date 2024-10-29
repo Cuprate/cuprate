@@ -25,4 +25,5 @@ mod test {
     use hex_literal as _;
     use tempfile as _;
     use tokio as _;
+    use tower as _;
 }
