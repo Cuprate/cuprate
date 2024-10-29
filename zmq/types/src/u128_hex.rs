@@ -9,7 +9,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 pub struct U128(
     #[serde(
         serialize_with = "serialize_u128",
-        deserialize_with = "deserialize_128"
+        deserialize_with = "deserialize_u128"
     )]
     pub u128,
 );
@@ -21,7 +21,7 @@ where
     serializer.serialize_str(&format!("0x{n:x}"))
 }
 
-fn deserialize_128<'de, D>(deserializer: D) -> Result<u128, D::Error>
+fn deserialize_u128<'de, D>(deserializer: D) -> Result<u128, D::Error>
 where
     D: Deserializer<'de>,
 {

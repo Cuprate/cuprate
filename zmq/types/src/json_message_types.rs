@@ -19,15 +19,21 @@ use crate::u128_hex::U128;
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TxPoolAdd {
     pub version: u8,
-    /// If not 0, this is the block height when a transaction output is spendable.
+    /// if not 0, this is usually the block height when transaction output(s)
+    /// are spendable; if the value is over 500,000,000, it is the unix epoch
+    /// block timestamp after when the output(s) are spendable
     pub unlock_time: u64,
+    /// list of previous outputs (real and decoys) used as inputs to the transaction
     pub inputs: Vec<PoolInput>,
+    /// transaction outputs
     pub outputs: Vec<Output>,
-    /// Extra data for the transaction with variable size, but limited to 1060 bytes
-    /// (after hex decoding).
+    /// extra data for the transaction with variable size, but should not exceed
+    /// 1060 bytes (2120 hex nibbles).
     #[serde(with = "hex::serde")]
     pub extra: Vec<u8>,
+    /// obsolete, empty list in JSON
     signatures: Vec<Obsolete>,
+    /// ring confidential transaction data
     pub ringct: PoolRingCt,
 }
 
@@ -39,6 +45,7 @@ pub struct TxPoolAddMin {
     pub id: HexBytes<32>,
     /// size of the full transaction blob
     pub blob_size: u64,
+    /// metric used to calculate transaction fee
     pub weight: u64,
     /// mining fee included in the transaction in piconeros
     pub fee: u64,
@@ -46,20 +53,19 @@ pub struct TxPoolAddMin {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ChainMain {
-    /// The major version of the monero protocol at the next? block height.
+    /// major version of the monero protocol at the next? block height
     pub major_version: u8,
-    /// The minor version of the monero protocol at the next? block height.
+    /// minor version of the monero protocol at the next? block height
     pub minor_version: u8,
-    /// Unix epoch time, decided by the miner, at which the block was mined.
+    /// epoch time, decided by the miner, at which the block was mined
     pub timestamp: u64,
-    /// Hash of the most recent block on which to mine the next block
+    /// hash of the most recent block on which to mine the next block
     pub prev_id: HexBytes<32>,
-    /// a cryptographic random one-time number used in mining a Monero block
+    /// cryptographic random one-time number used in mining a Monero block
     pub nonce: u32,
-    /// Miner transaction information
+    /// miner transaction information
     pub miner_tx: MinerTx,
-    /// List of hashes of non-coinbase transactions in the block. If there are no
-    /// other transactions, this will be an empty list.
+    /// list of non-coinbase transaction IDs in the block (can be empty)
     pub tx_hashes: Vec<HexBytes<32>>,
 }
 
@@ -79,14 +85,13 @@ pub struct MinerData {
     pub height: u64,
     pub prev_id: HexBytes<32>,
     pub seed_hash: HexBytes<32>,
-    /// Least-significant 64 bits of the 128-bit network difficulty
+    /// least-significant 64 bits of the 128-bit network difficulty
     pub difficulty: U128,
-    /// Median adjusted block size of latest 100000 blocks
+    /// median adjusted block size of latest 100000 blocks
     pub median_weight: u64,
-    /// Fixed at `u64::MAX` in perpetuity as Monero has already reached tail emission.
-    /// Note that not all JSON parsers can handle this large value correctly.
+    /// fixed at `u64::MAX` in perpetuity as Monero has already reached tail emission
     pub already_generated_coins: u64,
-    /// List of mineable mempool transactions
+    /// list of mineable mempool transactions
     pub tx_backlog: Vec<TxBacklog>,
 }
 
@@ -95,26 +100,30 @@ pub struct PoolInput {
     pub to_key: ToKey,
 }
 
+/// Holds the block height of the coinbase transaction.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct MinerInput {
+    /// gen is another name for a coinbase transaction
     pub r#gen: Gen,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Gen {
+    /// block height when the coinbase transaction was created
     pub height: u64,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct ToKey {
-    /// The amount of the transaction input, in piconeros
-    pub amount: u64,
-    ///  List of integer offsets to outputs
+    /// obsolete field (always 0), amounts are now encrypted
+    amount: u64,
+    ///  list of integer offsets to outputs
     pub key_offsets: Vec<u64>,
-    /// Key image for the given input
+    /// key image for the given input
     pub key_image: HexBytes<32>,
 }
 
+// Transaction output data used by both `TxPoolAdd` and `MinerTx`
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct Output {
     pub amount: u64,
@@ -124,18 +133,22 @@ pub struct Output {
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct ToTaggedKey {
     pub key: HexBytes<32>,
+    /// tag between 0 and 255 that speeds wallet sync times
     pub view_tag: HexBytes<1>,
 }
 
+// ring CT type for `TxPoolAdd`
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct PoolRingCt {
     pub r#type: u8,
     pub encrypted: Vec<Encrypted>,
     pub commitments: Vec<HexBytes<32>>,
+    /// mining fee in piconeros
     pub fee: u64,
     pub prunable: Prunable,
 }
 
+// ring CT type for `MinerTx`
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct MinerRingCt {
     pub r#type: u8,
@@ -143,16 +156,20 @@ pub struct MinerRingCt {
 
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct Encrypted {
-    pub mask: HexBytes<32>,
+    /// obsolete field, but present as zeros in JSON
+    mask: HexBytes<32>,
     pub amount: HexBytes<32>,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Prunable {
+    /// obsolete, empty list in JSON
     range_proofs: Vec<Obsolete>,
+    /// obsolete, empty list in JSON
     bulletproofs: Vec<Obsolete>,
     pub bulletproofs_plus: Vec<BulletproofPlus>,
-    pub mlsags: Vec<HexBytes<32>>,
+    /// obsolete, empty list in JSON
+    mlsags: Vec<Obsolete>,
     pub clsags: Vec<Clsag>,
     pub pseudo_outs: Vec<HexBytes<32>>,
 }
@@ -186,22 +203,29 @@ pub struct Clsag {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MinerTx {
+    /// transaction version number
     pub version: u8,
-    /// The block height when the coinbase transaction becomes spendable
+    /// block height when the coinbase transaction becomes spendable (currently
+    /// 60 blocks above the coinbase transaction height)
     pub unlock_time: u64,
     /// list of transaction inputs
     pub inputs: Vec<MinerInput>,
     /// list of transaction outputs
     pub outputs: Vec<Output>,
+    /// appears to be 52 bytes in practice, but can I miner set it differently?
     pub extra: HexBytes<52>,
+    /// obsolete, empty list in JSON
     signatures: Vec<Obsolete>,
     pub ringct: MinerRingCt,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TxBacklog {
+    /// transaction ID
     pub id: HexBytes<32>,
+    /// metric used to calculate transaction fee
     pub weight: u64,
+    /// mining fee in piconeros
     pub fee: u64,
 }
 
