@@ -14,7 +14,7 @@ mod tx;
 pub mod types;
 
 pub use config::Config;
-pub use free::open;
+pub use free::{open, transaction_blob_hash};
 pub use tx::{BlockTemplateTxEntry, TxEntry};
 
 //re-exports

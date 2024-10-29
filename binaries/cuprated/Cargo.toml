@@ -22,7 +22,7 @@ cuprate-levin             = { workspace = true }
 cuprate-wire              = { workspace = true }
 cuprate-p2p               = { workspace = true }
 cuprate-p2p-core          = { workspace = true }
-cuprate-dandelion-tower   = { workspace = true }
+cuprate-dandelion-tower   = { workspace = true, features = ["txpool"] }
 cuprate-async-buffer      = { workspace = true }
 cuprate-address-book      = { workspace = true }
 cuprate-blockchain        = { workspace = true, features = ["service"] }

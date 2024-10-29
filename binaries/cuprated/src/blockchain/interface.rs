@@ -8,17 +8,16 @@ use std::{
 };
 
 use monero_serai::{block::Block, transaction::Transaction};
-use rayon::prelude::*;
 use tokio::sync::{mpsc, oneshot};
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::transactions::new_tx_verification_data;
-use cuprate_helper::cast::usize_to_u64;
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain,
+use cuprate_txpool::service::{
+    interface::{TxpoolReadRequest, TxpoolReadResponse},
+    TxpoolReadHandle,
 };
+use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
 
 use crate::{
     blockchain::manager::{BlockchainManagerCommand, IncomingBlockOk},
@@ -38,7 +37,7 @@ pub enum IncomingBlockError {
     ///
     /// The inner values are the block hash and the indexes of the missing txs in the block.
     #[error("Unknown transactions in block.")]
-    UnknownTransactions([u8; 32], Vec<u64>),
+    UnknownTransactions([u8; 32], Vec<usize>),
     /// We are missing the block's parent.
     #[error("The block has an unknown parent.")]
     Orphan,
@@ -59,8 +58,9 @@ pub enum IncomingBlockError {
 ///  - the block's parent is unknown
 pub async fn handle_incoming_block(
     block: Block,
-    given_txs: Vec<Transaction>,
+    mut given_txs: HashMap<[u8; 32], Transaction>,
     blockchain_read_handle: &mut BlockchainReadHandle,
+    txpool_read_handle: &mut TxpoolReadHandle,
 ) -> Result<IncomingBlockOk, IncomingBlockError> {
     /// A [`HashSet`] of block hashes that the blockchain manager is currently handling.
     ///
@@ -72,7 +72,12 @@ pub async fn handle_incoming_block(
     /// which are also more expensive than `Mutex`s.
     static BLOCKS_BEING_HANDLED: LazyLock<Mutex<HashSet<[u8; 32]>>> =
         LazyLock::new(|| Mutex::new(HashSet::new()));
-    // FIXME: we should look in the tx-pool for txs when that is ready.
+
+    if given_txs.len() > block.transactions.len() {
+        return Err(IncomingBlockError::InvalidBlock(anyhow::anyhow!(
+            "Too many transactions given for block"
+        )));
+    }
 
     if !block_exists(block.header.previous, blockchain_read_handle)
         .await
@@ -90,23 +95,36 @@ pub async fn handle_incoming_block(
         return Ok(IncomingBlockOk::AlreadyHave);
     }
 
-    // TODO: remove this when we have a working tx-pool.
-    if given_txs.len() != block.transactions.len() {
-        return Err(IncomingBlockError::UnknownTransactions(
-            block_hash,
-            (0..usize_to_u64(block.transactions.len())).collect(),
-        ));
-    }
+    let TxpoolReadResponse::TxsForBlock { mut txs, missing } = txpool_read_handle
+        .ready()
+        .await
+        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .call(TxpoolReadRequest::TxsForBlock(block.transactions.clone()))
+        .await
+        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+    else {
+        unreachable!()
+    };
 
-    // TODO: check we actually got given the right txs.
-    let prepped_txs = given_txs
-        .into_par_iter()
-        .map(|tx| {
-            let tx = new_tx_verification_data(tx)?;
-            Ok((tx.tx_hash, tx))
-        })
-        .collect::<Result<_, anyhow::Error>>()
-        .map_err(IncomingBlockError::InvalidBlock)?;
+    if !missing.is_empty() {
+        let needed_hashes = missing.iter().map(|index| block.transactions[*index]);
+
+        for needed_hash in needed_hashes {
+            let Some(tx) = given_txs.remove(&needed_hash) else {
+                // We return back the indexes of all txs missing from our pool, not taking into account the txs
+                // that were given with the block, as these txs will be dropped. It is not worth it to try to add
+                // these txs to the pool as this will only happen with a misbehaving peer or if the txpool reaches
+                // the size limit.
+                return Err(IncomingBlockError::UnknownTransactions(block_hash, missing));
+            };
+
+            txs.insert(
+                needed_hash,
+                new_tx_verification_data(tx)
+                    .map_err(|e| IncomingBlockError::InvalidBlock(e.into()))?,
+            );
+        }
+    }
 
     let Some(incoming_block_tx) = COMMAND_TX.get() else {
         // We could still be starting up the blockchain manager.
@@ -119,28 +137,37 @@ pub async fn handle_incoming_block(
         return Ok(IncomingBlockOk::AlreadyHave);
     }
 
-    // From this point on we MUST not early return without removing the block hash from `BLOCKS_BEING_HANDLED`.
+    // We must remove the block hash from `BLOCKS_BEING_HANDLED`.
+    let _guard = {
+        struct RemoveFromBlocksBeingHandled {
+            block_hash: [u8; 32],
+        }
+        impl Drop for RemoveFromBlocksBeingHandled {
+            fn drop(&mut self) {
+                BLOCKS_BEING_HANDLED
+                    .lock()
+                    .unwrap()
+                    .remove(&self.block_hash);
+            }
+        }
+        RemoveFromBlocksBeingHandled { block_hash }
+    };
 
     let (response_tx, response_rx) = oneshot::channel();
 
     incoming_block_tx
         .send(BlockchainManagerCommand::AddBlock {
             block,
-            prepped_txs,
+            prepped_txs: txs,
             response_tx,
         })
         .await
         .expect("TODO: don't actually panic here, an err means we are shutting down");
 
-    let res = response_rx
+    response_rx
         .await
         .expect("The blockchain manager will always respond")
-        .map_err(IncomingBlockError::InvalidBlock);
-
-    // Remove the block hash from the blocks being handled.
-    BLOCKS_BEING_HANDLED.lock().unwrap().remove(&block_hash);
-
-    res
+        .map_err(IncomingBlockError::InvalidBlock)
 }
 
 /// Check if we have a block with the given hash.
