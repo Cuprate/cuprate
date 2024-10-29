@@ -7,7 +7,6 @@
 //! * `json-full-miner_data` (`MinerData`)
 use cuprate_types::hex::HexBytes;
 use serde::{Deserialize, Serialize};
-
 use crate::u128_hex::U128;
 
 /// ZMQ `json-full-txpool_add` packets contain an array of `TxPoolAdd`.
@@ -42,6 +41,7 @@ pub struct TxPoolAdd {
 /// transactions are published to subscribers.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TxPoolAddMin {
+    /// transaction ID
     pub id: HexBytes<32>,
     /// size of the full transaction blob
     pub blob_size: u64,
@@ -77,7 +77,7 @@ pub struct ChainMainMin {
 }
 
 /// ZMQ `json-full-miner_data` subscriber messages contain a single
-/// `FullMinerData` object that provides the necessary data to create a
+/// `MinerData` object that provides the necessary data to create a
 /// custom block template. There is no min version of this object.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct MinerData {
@@ -137,9 +137,10 @@ pub struct ToTaggedKey {
     pub view_tag: HexBytes<1>,
 }
 
-// ring CT type for `TxPoolAdd`
+/// RingCT information used inside `TxPoolAdd`
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct PoolRingCt {
+    // ring CT type; always 6 (`ClsagBulletproofPlus`) at the time of this writing
     pub r#type: u8,
     pub encrypted: Vec<Encrypted>,
     pub commitments: Vec<HexBytes<32>>,
@@ -148,10 +149,12 @@ pub struct PoolRingCt {
     pub prunable: Prunable,
 }
 
-// ring CT type for `MinerTx`
+/// RingCT information used inside `MinerTx` (note: miner coinbase transactions
+/// don't use RingCT).
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct MinerRingCt {
-    pub r#type: u8,
+struct MinerRingCt {
+    /// always zero to indicate that RingCT is not used
+    r#type: u8,
 }
 
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
@@ -161,6 +164,8 @@ pub struct Encrypted {
     pub amount: HexBytes<32>,
 }
 
+/// Data needed to validate transactions that can, optionally, be pruned from
+/// older blocks.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Prunable {
     /// obsolete, empty list in JSON
@@ -193,6 +198,7 @@ pub struct BulletproofPlus {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 struct Obsolete;
 
+/// CLSAG signature fields
 #[expect(non_snake_case)]
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Clsag {
@@ -212,11 +218,14 @@ pub struct MinerTx {
     pub inputs: Vec<MinerInput>,
     /// list of transaction outputs
     pub outputs: Vec<Output>,
-    /// appears to be 52 bytes in practice, but can I miner set it differently?
-    pub extra: HexBytes<52>,
+    /// extra data for the transaction with variable size; does the 1060-byte
+    /// limit apply for miners?
+    #[serde(with = "hex::serde")]
+    pub extra: Vec<u8>,
     /// obsolete, empty list in JSON
     signatures: Vec<Obsolete>,
-    pub ringct: MinerRingCt,
+    /// only for JSON compatibility; miner's don't use RingCT
+    ringct: MinerRingCt,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
