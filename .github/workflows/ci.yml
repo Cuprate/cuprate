@@ -29,22 +29,22 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: Format
-        run: cargo fmt --all --check
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - name: Format
+      run: cargo fmt --all --check
 
   # Run typo checker separately.
   # This will fast-cancel other CI early if this fails.
   typo:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Spell Check
-        uses: crate-ci/typos@master
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Spell Check
+      uses: crate-ci/typos@master
 
   # All other CI.
   ci:
@@ -52,7 +52,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [ windows-latest, macos-latest, ubuntu-latest ]
+        os: [windows-latest, macos-latest, ubuntu-latest]
         include:
           - os: windows-latest
             shell: msys2 {0}
@@ -71,75 +71,75 @@ jobs:
         shell: ${{ matrix.shell }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.rust }}
-          components: clippy
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ matrix.rust }}
+        components: clippy
 
-      - name: Cache
-        uses: actions/cache@v4
-        with:
-          path: target
-          key: ${{ matrix.os }}
+    - name: Cache
+      uses: actions/cache@v4
+      with:
+        path: target
+        key: ${{ matrix.os }}
 
-      - name: Download monerod
-        uses: ./.github/actions/monerod-download
+    - name: Download monerod
+      uses: ./.github/actions/monerod-download
 
-      # Packages other than `Boost` used by `Monero` are listed here.
-      # https://github.com/monero-project/monero/blob/c444a7e002036e834bfb4c68f04a121ce1af5825/.github/workflows/build.yml#L71
+    # Packages other than `Boost` used by `Monero` are listed here.
+    # https://github.com/monero-project/monero/blob/c444a7e002036e834bfb4c68f04a121ce1af5825/.github/workflows/build.yml#L71
 
-      - name: Install dependencies (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt install -y libboost-dev
+    - name: Install dependencies (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: sudo apt install -y libboost-dev
 
-      - name: Install dependencies (macOS)
-        if: matrix.os == 'macos-latest'
-        run: HOMEBREW_NO_AUTO_UPDATE=1 brew install boost
+    - name: Install dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: HOMEBREW_NO_AUTO_UPDATE=1 brew install boost
 
-      - name: Install dependencies (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: msys2/setup-msys2@v2
-        with:
-          path-type: inherit
-          update: true
-          install: mingw-w64-x86_64-toolchain mingw-w64-x86_64-boost msys2-runtime-devel git mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+    - name: Install dependencies (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: msys2/setup-msys2@v2
+      with:
+        path-type: inherit
+        update: true
+        install: mingw-w64-x86_64-toolchain mingw-w64-x86_64-boost msys2-runtime-devel git mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
 
-      # HACK: 2024-05-14
-      # GCC 14+ fails to build `lmdb-master-sys` with no clear error message:
-      # <https://github.com/Cuprate/cuprate/pull/127>
-      #
-      # - MSYS2 repos carry older versions of packages
-      # - pacman lets us manually downgrade from package files
-      # - Note that `gcc` requires `gcc-libs`
-      - name: Downgrade to GCC 13.2 (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          wget https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-gcc-13.2.0-6-any.pkg.tar.zst https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-gcc-libs-13.2.0-6-any.pkg.tar.zst
-          pacman -U --noconfirm mingw-w64-x86_64-gcc-13.2.0-6-any.pkg.tar.zst mingw-w64-x86_64-gcc-libs-13.2.0-6-any.pkg.tar.zst
+    # HACK: 2024-05-14
+    # GCC 14+ fails to build `lmdb-master-sys` with no clear error message:
+    # <https://github.com/Cuprate/cuprate/pull/127>
+    #
+    # - MSYS2 repos carry older versions of packages
+    # - pacman lets us manually downgrade from package files
+    # - Note that `gcc` requires `gcc-libs`
+    - name: Downgrade to GCC 13.2 (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        wget https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-gcc-13.2.0-6-any.pkg.tar.zst https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-gcc-libs-13.2.0-6-any.pkg.tar.zst
+        pacman -U --noconfirm mingw-w64-x86_64-gcc-13.2.0-6-any.pkg.tar.zst mingw-w64-x86_64-gcc-libs-13.2.0-6-any.pkg.tar.zst
 
-      - name: Documentation
-        run: cargo doc --workspace --all-features --no-deps
+    - name: Documentation
+      run: cargo doc --workspace --all-features --no-deps
 
-      - name: Clippy (fail on warnings)
-        run: cargo clippy --workspace --all-features --all-targets -- -D warnings
+    - name: Clippy (fail on warnings)
+      run: cargo clippy --workspace --all-features --all-targets -- -D warnings
 
-      # HACK: how to test both DB backends that are feature-gated?
-      - name: Test
-        run: |
-          cargo test --all-features --workspace
-          cargo test --package cuprate-blockchain --no-default-features --features redb --features service
+    # HACK: how to test both DB backends that are feature-gated?
+    - name: Test
+      run: |
+        cargo test --all-features --workspace
+        cargo test --package cuprate-blockchain --no-default-features --features redb --features service
 
-      - name: Hack Check
-        run: |
-          cargo install cargo-hack --locked
-          cargo hack --workspace check --feature-powerset --no-dev-deps
+    - name: Hack Check
+      run: |
+        cargo install cargo-hack --locked
+        cargo hack --workspace check --feature-powerset --no-dev-deps
 
-      # TODO: upload binaries with `actions/upload-artifact@v3`
-      - name: Build
-        run: cargo build --all-features --all-targets --workspace
+    # TODO: upload binaries with `actions/upload-artifact@v3`
+    - name: Build
+      run: cargo build --all-features --all-targets --workspace
