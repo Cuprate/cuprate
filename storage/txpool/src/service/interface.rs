@@ -9,7 +9,7 @@ use std::{
 use cuprate_types::TransactionVerificationData;
 
 use crate::{
-    tx::{BlockTemplateTxEntry, TxEntry},
+    tx::TxEntry,
     types::{KeyImage, TransactionBlobHash, TransactionHash},
 };
 
@@ -33,12 +33,6 @@ pub enum TxpoolReadRequest {
 
     /// Get information on all transactions in the pool.
     Backlog,
-
-    /// Get information on all transactions in
-    /// the pool for block template purposes.
-    ///
-    /// This is only slightly different to [`TxpoolReadRequest::Backlog`].
-    BlockTemplateBacklog,
 
     /// Get the number of transactions in the pool.
     Size {
@@ -79,11 +73,6 @@ pub enum TxpoolReadResponse {
     /// The inner [`Vec`] contains information on all
     /// the transactions currently in the pool.
     Backlog(Vec<TxEntry>),
-
-    /// Response to [`TxpoolReadRequest::BlockTemplateBacklog`].
-    ///
-    /// The inner [`Vec`] contains information on transactions
-    BlockTemplateBacklog(Vec<BlockTemplateTxEntry>),
 
     /// Response to [`TxpoolReadRequest::Size`].
     ///

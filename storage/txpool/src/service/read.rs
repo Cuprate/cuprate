@@ -71,7 +71,6 @@ fn map_request(
         }
         TxpoolReadRequest::TxsForBlock(txs_needed) => txs_for_block(env, txs_needed),
         TxpoolReadRequest::Backlog => backlog(env),
-        TxpoolReadRequest::BlockTemplateBacklog => block_template_backlog(env),
         TxpoolReadRequest::Size {
             include_sensitive_txs,
         } => size(env, include_sensitive_txs),
@@ -200,12 +199,6 @@ fn txs_for_block(env: &ConcreteEnv, txs: Vec<TransactionHash>) -> ReadResponseRe
 #[inline]
 fn backlog(env: &ConcreteEnv) -> ReadResponseResult {
     Ok(TxpoolReadResponse::Backlog(todo!()))
-}
-
-/// [`TxpoolReadRequest::BlockTemplateBacklog`].
-#[inline]
-fn block_template_backlog(env: &ConcreteEnv) -> ReadResponseResult {
-    Ok(TxpoolReadResponse::BlockTemplateBacklog(todo!()))
 }
 
 /// [`TxpoolReadRequest::Size`].
