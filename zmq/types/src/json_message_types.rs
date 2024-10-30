@@ -7,7 +7,6 @@
 //! * `json-full-miner_data` (`MinerData`)
 use cuprate_types::hex::HexBytes;
 use serde::{Deserialize, Serialize};
-use crate::u128_hex::U128;
 
 /// ZMQ `json-full-txpool_add` packets contain an array of `TxPoolAdd`.
 ///
@@ -17,6 +16,7 @@ use crate::u128_hex::U128;
 /// republished during a re-org.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TxPoolAdd {
+    /// TODO: Document
     pub version: u8,
     /// if not 0, this is usually the block height when transaction output(s)
     /// are spendable; if the value is over 500,000,000, it is the unix epoch
@@ -69,6 +69,7 @@ pub struct ChainMain {
     pub tx_hashes: Vec<HexBytes<32>>,
 }
 
+/// TODO: Document
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct ChainMainMin {
     pub first_height: u64,
@@ -81,12 +82,17 @@ pub struct ChainMainMin {
 /// custom block template. There is no min version of this object.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct MinerData {
+    /// TODO: document
     pub major_version: u8,
+    /// height on which to mine
     pub height: u64,
+    /// hash of the most recent block on which to mine the next block
     pub prev_id: HexBytes<32>,
+    /// hash of block to use as seed for Random-X proof-of-work
     pub seed_hash: HexBytes<32>,
     /// least-significant 64 bits of the 128-bit network difficulty
-    pub difficulty: U128,
+    #[serde(with = "hex_difficulty")]
+    pub difficulty: u64,
     /// median adjusted block size of latest 100000 blocks
     pub median_weight: u64,
     /// fixed at `u64::MAX` in perpetuity as Monero has already reached tail emission
@@ -126,45 +132,54 @@ pub struct ToKey {
 // Transaction output data used by both `TxPoolAdd` and `MinerTx`
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct Output {
+    /// zero for non-coinbase transactions which use encrypted amounts,
+    /// amount in piconeros for coinbase transactions
     pub amount: u64,
+    /// public key of the output destination
     pub to_tagged_key: ToTaggedKey,
 }
 
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct ToTaggedKey {
+    // key used to indicate the destination of a transaction output
     pub key: HexBytes<32>,
-    /// tag between 0 and 255 that speeds wallet sync times
+    /// 1st byte of a shared secret used to reduce wallet synchronization time
     pub view_tag: HexBytes<1>,
 }
 
-/// RingCT information used inside `TxPoolAdd`
+/// Ring CT information used inside `TxPoolAdd`
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct PoolRingCt {
-    // ring CT type; always 6 (`ClsagBulletproofPlus`) at the time of this writing
+    // ring CT type; 6 (CLSAG Bulletproof Plus) at the time of this writing
     pub r#type: u8,
+    // encrypted amount values of the transaction outputs
     pub encrypted: Vec<Encrypted>,
+    // RingCT commitments, 1 per output
     pub commitments: Vec<HexBytes<32>>,
     /// mining fee in piconeros
     pub fee: u64,
+    // data to validate the transaction
     pub prunable: Prunable,
 }
 
-/// RingCT information used inside `MinerTx` (note: miner coinbase transactions
-/// don't use RingCT).
+/// Ring CT information used inside `MinerTx` (note: miner coinbase transactions
+/// don't use Ring CT).
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 struct MinerRingCt {
-    /// always zero to indicate that RingCT is not used
+    /// always zero to indicate that Ring CT is not used
     r#type: u8,
 }
 
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct Encrypted {
-    /// obsolete field, but present as zeros in JSON
+    /// obsolete field, but present as zeros in JSON; this does not represent
+    /// the newer deterministically derived mask
     mask: HexBytes<32>,
+    /// encrypted amount of the transaction output
     pub amount: HexBytes<32>,
 }
 
-/// Data needed to validate transactions that can, optionally, be pruned from
+/// Data needed to validate a transaction that can optionally be pruned from
 /// older blocks.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Prunable {
@@ -172,15 +187,20 @@ pub struct Prunable {
     range_proofs: Vec<Obsolete>,
     /// obsolete, empty list in JSON
     bulletproofs: Vec<Obsolete>,
+    /// list of Bulletproofs+ data used to validate the legitimacy of a Ring CT transaction
+    /// TODO: Can this be a fixed size array of 1?
     pub bulletproofs_plus: Vec<BulletproofPlus>,
     /// obsolete, empty list in JSON
     mlsags: Vec<Obsolete>,
+    /// TODO: Can this be a fixed size array of 1?
     pub clsags: Vec<Clsag>,
+    /// TODO: document
     pub pseudo_outs: Vec<HexBytes<32>>,
 }
 
-#[expect(non_snake_case)]
+/// Bulletproofs+ data used to validate the legitimacy of a Ring CT transaction.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[expect(non_snake_case)]
 pub struct BulletproofPlus {
     pub V: Vec<HexBytes<32>>,
     pub A: HexBytes<32>,
@@ -224,7 +244,7 @@ pub struct MinerTx {
     pub extra: Vec<u8>,
     /// obsolete, empty list in JSON
     signatures: Vec<Obsolete>,
-    /// only for JSON compatibility; miner's don't use RingCT
+    /// only for JSON compatibility; miner's don't use Ring CT
     ringct: MinerRingCt,
 }
 
@@ -236,6 +256,30 @@ pub struct TxBacklog {
     pub weight: u64,
     /// mining fee in piconeros
     pub fee: u64,
+}
+
+mod hex_difficulty {
+    //! u64 difficulty serialization for monerod compatibility. The difficulty
+    //! value is inside a string, in big-endian hex, and has a 0x prefix with
+    //! no leading zeros.
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    #[expect(clippy::trivially_copy_pass_by_ref)]
+    pub(super) fn serialize<S>(difficulty: &u64, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&format!("0x{difficulty:x}"))
+    }
+
+    pub(super) fn deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        let s = s.strip_prefix("0x").unwrap_or(&s);
+        u64::from_str_radix(s, 16).map_err(serde::de::Error::custom)
+    }
 }
 
 #[cfg(test)]
