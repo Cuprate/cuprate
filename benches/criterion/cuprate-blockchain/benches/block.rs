@@ -48,6 +48,7 @@ fn add_block_inner(c: &mut Criterion, function_name: &str, block: &VerifiedBlock
 
             let start = Instant::now();
             for block in &blocks {
+                let block = black_box(block);
                 black_box(block::add_block(block, &mut tables)).unwrap();
             }
             start.elapsed()
@@ -75,6 +76,18 @@ fn add_block_v16_tx0(c: &mut Criterion) {
 fn add_alt_block_inner(c: &mut Criterion, function_name: &str, block: &VerifiedBlockInformation) {
     let env = cuprate_criterion_blockchain::TmpEnv::new();
 
+    // We must have at least 1 block or else `add_alt_block` will panic.
+    {
+        let env_inner = env.env.env_inner();
+        let tx_rw = env_inner.tx_rw().unwrap();
+        let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
+
+        let mut block = BLOCK_V1_TX2.clone();
+        block.height = 0;
+
+        block::add_block(&block, &mut tables).unwrap();
+    }
+
     c.bench_function(function_name, |b| {
         // We use `iter_custom` because we need to generate an
         // appropriate amount of blocks and only time the `add_block`.
@@ -89,7 +102,7 @@ fn add_alt_block_inner(c: &mut Criterion, function_name: &str, block: &VerifiedB
                     txs: b.txs,
                     block_hash: b.block_hash,
                     pow_hash: b.pow_hash,
-                    height: b.height,
+                    height: b.height + 1,
                     weight: b.weight,
                     long_term_weight: b.long_term_weight,
                     cumulative_difficulty: b.cumulative_difficulty,
@@ -103,6 +116,7 @@ fn add_alt_block_inner(c: &mut Criterion, function_name: &str, block: &VerifiedB
 
             let start = Instant::now();
             for block in &blocks {
+                let block = black_box(block);
                 black_box(alt_block::add_alt_block(block, &mut tables)).unwrap();
             }
             start.elapsed()
