@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 /// republished during a re-org.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TxPoolAdd {
-    /// TODO: Document
+    /// transaction version number. 2 indicates Ring CT (all variants).
     pub version: u8,
     /// if not 0, this is usually the block height when transaction output(s)
     /// are spendable; if the value is over 500,000,000, it is the unix epoch
@@ -51,6 +51,9 @@ pub struct TxPoolAddMin {
     pub fee: u64,
 }
 
+/// ZMQ `json-full-chain_main` subscriber messages contain an array of
+/// `ChainMain` JSON objects. Each `ChainMain` object represents a new block.
+/// Push messages only contain more than one block if a re-org occurred.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ChainMain {
     /// major version of the monero protocol at the next? block height
@@ -69,11 +72,17 @@ pub struct ChainMain {
     pub tx_hashes: Vec<HexBytes<32>>,
 }
 
-/// TODO: Document
+/// ZMQ `json-minimal-chain_main` subscriber messages contain a single
+/// `ChainMainMin` JSON object. Unlike the full version, only the topmost
+/// block is sent in the case of a re-org.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct ChainMainMin {
+    /// height of the block
     pub first_height: u64,
+    /// block id of the previous block
     pub first_prev_id: HexBytes<32>,
+    /// block ID of the current block is the 0th entry; additional block IDs
+    /// will only be included if this is the topmost block of a re-org.
     pub ids: Vec<HexBytes<32>>,
 }
 
@@ -93,7 +102,7 @@ pub struct MinerData {
     /// least-significant 64 bits of the 128-bit network difficulty
     #[serde(with = "hex_difficulty")]
     pub difficulty: u64,
-    /// median adjusted block size of latest 100000 blocks
+    /// median adjusted block size of the latest 100000 blocks
     pub median_weight: u64,
     /// fixed at `u64::MAX` in perpetuity as Monero has already reached tail emission
     pub already_generated_coins: u64,
@@ -248,6 +257,7 @@ pub struct MinerTx {
     ringct: MinerRingCt,
 }
 
+/// Holds a transaction entry in the `MinerData` `tx_backlog` field.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TxBacklog {
     /// transaction ID
@@ -259,9 +269,9 @@ pub struct TxBacklog {
 }
 
 mod hex_difficulty {
-    //! u64 difficulty serialization for monerod compatibility. The difficulty
-    //! value is inside a string, in big-endian hex, and has a 0x prefix with
-    //! no leading zeros.
+    //! Serializes the u64 difficulty field of `MinerData` in the same ways as
+    //! monerod. The difficulty value is inside a string, in big-endian hex, and
+    //! has a 0x prefix with no leading zeros.
     use serde::{Deserialize, Deserializer, Serializer};
 
     #[expect(clippy::trivially_copy_pass_by_ref)]
