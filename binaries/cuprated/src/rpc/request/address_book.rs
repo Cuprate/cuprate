@@ -65,7 +65,7 @@ pub(crate) async fn connection_info<Z: NetworkZone>(
                 address_type: info.address_type,
                 avg_download: info.avg_download,
                 avg_upload: info.avg_upload,
-                connection_id: String::from(FIELD_NOT_SUPPORTED),
+                connection_id: String::from(ConnectionId::DEFAULT_STR),
                 current_download: info.current_download,
                 current_upload: info.current_upload,
                 height: info.height,

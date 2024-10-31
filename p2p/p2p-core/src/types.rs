@@ -53,12 +53,32 @@ pub struct ConnectionInfo<A: NetZoneAddress> {
     pub support_flags: u32,
 
     // The following fields are slightly different than `monerod`.
+
     //
     /// [`None`] if Tor/i2p or unknown.
     pub socket_addr: Option<std::net::SocketAddr>,
-    // This field does not exist for Cuprate:
-    // <https://github.com/Cuprate/cuprate/pull/320#discussion_r1811335020>
-    // pub connection_id: u128,
+
+    /// This field does not exist for `cuprated`'s RPC, this is just a marker type:
+    /// - <https://github.com/Cuprate/cuprate/pull/320#discussion_r1811335020>
+    /// - <https://github.com/Cuprate/cuprate/pull/320#discussion_r1819826080>
+    ///
+    /// [`ConnectionId::DEFAULT_STR`] is used when mapping to the RPC type.
+    pub connection_id: ConnectionId,
+}
+
+/// Marker type for `monerod`'s connection ID.
+///
+/// `connection_id` is a 128-bit `uuid` in `monerod`.
+/// `cuprated` does not support this field so it returns
+/// the default value in the RPC interface, an all 0-bit UUID.
+///
+/// This default value in string form is [`ConnectionId::DEFAULT_STR`].
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ConnectionId;
+
+impl ConnectionId {
+    /// [`str`] representation of a default connection ID.
+    pub const DEFAULT_STR: &str = "00000000000000000000000000000000";
 }
 
 /// Used in RPC's `sync_info`.
