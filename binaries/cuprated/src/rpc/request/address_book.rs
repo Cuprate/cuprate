@@ -8,7 +8,7 @@ use tower::ServiceExt;
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p_core::{
     services::{AddressBookRequest, AddressBookResponse},
-    types::BanState,
+    types::{BanState, ConnectionId},
     AddressBook, NetworkZone,
 };
 use cuprate_pruning::PruningSeed;
