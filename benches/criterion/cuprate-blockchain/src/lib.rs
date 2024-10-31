@@ -1,7 +1,7 @@
 #![allow(unused_crate_dependencies, reason = "used in benchmarks")]
 
-mod tmp_env;
 mod blocks;
+mod tmp_env;
 
 pub use blocks::generate_fake_blocks;
 pub use tmp_env::TmpEnv;
