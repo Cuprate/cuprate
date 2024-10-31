@@ -3,19 +3,19 @@ use std::{
     task::{Context, Poll},
 };
 
-use cuprate_dandelion_tower::{traits::StemRequest, OutboundPeer};
-use cuprate_p2p::NetworkInterface;
-use cuprate_p2p_core::{
-    client::{Client, InternalPeerID},
-    ClearNet, NetworkZone, PeerRequest, ProtocolRequest,
-};
-use cuprate_wire::{protocol::NewTransactions, NetworkAddress};
-
 use bytes::Bytes;
 use futures::Stream;
 use tower::Service;
 
-use super::DandelionTx;
+use cuprate_dandelion_tower::{traits::StemRequest, OutboundPeer};
+use cuprate_p2p::{ClientPoolDropGuard, NetworkInterface};
+use cuprate_p2p_core::{
+    client::{Client, InternalPeerID},
+    ClearNet, NetworkZone, PeerRequest, ProtocolRequest,
+};
+use cuprate_wire::protocol::NewTransactions;
+
+use crate::{p2p::CrossNetworkInternalPeerId, txpool::dandelion::DandelionTx};
 
 /// The dandelion outbound peer stream.
 pub struct OutboundPeerStream {
@@ -23,7 +23,10 @@ pub struct OutboundPeerStream {
 }
 
 impl Stream for OutboundPeerStream {
-    type Item = Result<OutboundPeer<NetworkAddress, StemPeerService<ClearNet>>, tower::BoxError>;
+    type Item = Result<
+        OutboundPeer<CrossNetworkInternalPeerId, StemPeerService<ClearNet>>,
+        tower::BoxError,
+    >;
 
     fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // TODO: make the outbound peer choice random.
@@ -32,18 +35,16 @@ impl Stream for OutboundPeerStream {
             .client_pool()
             .outbound_client()
             .map_or(OutboundPeer::Exhausted, |client| {
-                let addr = match client.info.id {
-                    InternalPeerID::KnownAddr(addr) => addr,
-                    InternalPeerID::Unknown(_) => panic!("Outbound peer had an unknown address"),
-                };
-
-                OutboundPeer::Peer(addr.into(), StemPeerService(client))
+                OutboundPeer::Peer(
+                    CrossNetworkInternalPeerId::ClearNet(client.info.id),
+                    StemPeerService(client),
+                )
             }))))
     }
 }
 
 /// The stem service, used to send stem txs.
-pub struct StemPeerService<N: NetworkZone>(Client<N>);
+pub struct StemPeerService<N: NetworkZone>(ClientPoolDropGuard<N>);
 
 impl<N: NetworkZone> Service<StemRequest<DandelionTx>> for StemPeerService<N> {
     type Response = <Client<N> as Service<PeerRequest>>::Response;

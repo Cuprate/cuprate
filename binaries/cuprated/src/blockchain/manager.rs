@@ -8,15 +8,17 @@ use tracing::error;
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{
-    context::RawBlockChainContext, BlockChainContextRequest, BlockChainContextResponse,
-    BlockChainContextService, BlockVerifierService, ExtendedConsensusError, TxVerifierService,
-    VerifyBlockRequest, VerifyBlockResponse, VerifyTxRequest, VerifyTxResponse,
+    BlockChainContextRequest, BlockChainContextResponse, BlockChainContextService,
+    BlockVerifierService, ExtendedConsensusError, TxVerifierService, VerifyBlockRequest,
+    VerifyBlockResponse, VerifyTxRequest, VerifyTxResponse,
 };
+use cuprate_consensus_context::RawBlockChainContext;
 use cuprate_p2p::{
     block_downloader::{BlockBatch, BlockDownloaderConfig},
     BroadcastSvc, NetworkInterface,
 };
 use cuprate_p2p_core::ClearNet;
+use cuprate_txpool::service::TxpoolWriteHandle;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain, TransactionVerificationData,

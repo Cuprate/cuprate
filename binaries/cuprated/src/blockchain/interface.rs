@@ -8,19 +8,16 @@ use std::{
 };
 
 use monero_serai::{block::Block, transaction::Transaction};
-use rayon::prelude::*;
 use tokio::sync::{mpsc, oneshot};
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::transactions::new_tx_verification_data;
-use cuprate_helper::cast::usize_to_u64;
-use cuprate_txpool::service::interface::{TxpoolReadRequest, TxpoolReadResponse};
-use cuprate_txpool::service::TxpoolReadHandle;
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain,
+use cuprate_txpool::service::{
+    interface::{TxpoolReadRequest, TxpoolReadResponse},
+    TxpoolReadHandle,
 };
+use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
 
 use crate::{
     blockchain::manager::{BlockchainManagerCommand, IncomingBlockOk},
@@ -114,6 +111,10 @@ pub async fn handle_incoming_block(
 
         for needed_hash in needed_hashes {
             let Some(tx) = given_txs.remove(&needed_hash) else {
+                // We return back the indexes of all txs missing from our pool, not taking into account the txs
+                // that were given with the block, as these txs will be dropped. It is not worth it to try to add
+                // these txs to the pool as this will only happen with a misbehaving peer or if the txpool reaches
+                // the size limit.
                 return Err(IncomingBlockError::UnknownTransactions(block_hash, missing));
             };
 
@@ -136,7 +137,21 @@ pub async fn handle_incoming_block(
         return Ok(IncomingBlockOk::AlreadyHave);
     }
 
-    // From this point on we MUST not early return without removing the block hash from `BLOCKS_BEING_HANDLED`.
+    // We must remove the block hash from `BLOCKS_BEING_HANDLED`.
+    let _guard = {
+        struct RemoveFromBlocksBeingHandled {
+            block_hash: [u8; 32],
+        }
+        impl Drop for RemoveFromBlocksBeingHandled {
+            fn drop(&mut self) {
+                BLOCKS_BEING_HANDLED
+                    .lock()
+                    .unwrap()
+                    .remove(&self.block_hash);
+            }
+        }
+        RemoveFromBlocksBeingHandled { block_hash }
+    };
 
     let (response_tx, response_rx) = oneshot::channel();
 
@@ -149,15 +164,10 @@ pub async fn handle_incoming_block(
         .await
         .expect("TODO: don't actually panic here, an err means we are shutting down");
 
-    let res = response_rx
+    response_rx
         .await
         .expect("The blockchain manager will always respond")
-        .map_err(IncomingBlockError::InvalidBlock);
-
-    // Remove the block hash from the blocks being handled.
-    BLOCKS_BEING_HANDLED.lock().unwrap().remove(&block_hash);
-
-    res
+        .map_err(IncomingBlockError::InvalidBlock)
 }
 
 /// Check if we have a block with the given hash.

@@ -17,7 +17,7 @@ use cuprate_types::{
     Chain,
 };
 
-use crate::{Database, ExtendedConsensusError, HardFork};
+use crate::{ContextCacheError, Database, HardFork};
 
 /// The amount of blocks we account for to calculate difficulty
 const DIFFICULTY_WINDOW: usize = 720;
@@ -33,9 +33,9 @@ const DIFFICULTY_LAG: usize = 15;
 ///
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct DifficultyCacheConfig {
-    pub(crate) window: usize,
-    pub(crate) cut: usize,
-    pub(crate) lag: usize,
+    pub window: usize,
+    pub cut: usize,
+    pub lag: usize,
 }
 
 impl DifficultyCacheConfig {
@@ -73,14 +73,13 @@ impl DifficultyCacheConfig {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DifficultyCache {
     /// The list of timestamps in the window.
-    /// len <= [`DIFFICULTY_BLOCKS_COUNT`]
-    pub(crate) timestamps: VecDeque<u64>,
+    pub timestamps: VecDeque<u64>,
     /// The current cumulative difficulty of the chain.
-    pub(crate) cumulative_difficulties: VecDeque<u128>,
+    pub cumulative_difficulties: VecDeque<u128>,
     /// The last height we accounted for.
-    pub(crate) last_accounted_height: usize,
+    pub last_accounted_height: usize,
     /// The config
-    pub(crate) config: DifficultyCacheConfig,
+    pub config: DifficultyCacheConfig,
 }
 
 impl DifficultyCache {
@@ -91,7 +90,7 @@ impl DifficultyCache {
         config: DifficultyCacheConfig,
         database: D,
         chain: Chain,
-    ) -> Result<Self, ExtendedConsensusError> {
+    ) -> Result<Self, ContextCacheError> {
         tracing::info!("Initializing difficulty cache this may take a while.");
 
         let mut block_start = chain_height.saturating_sub(config.total_block_count());
@@ -134,7 +133,7 @@ impl DifficultyCache {
         &mut self,
         numb_blocks: usize,
         database: D,
-    ) -> Result<(), ExtendedConsensusError> {
+    ) -> Result<(), ContextCacheError> {
         let Some(retained_blocks) = self.timestamps.len().checked_sub(numb_blocks) else {
             // More blocks to pop than we have in the cache, so just restart a new cache.
             *self = Self::init_from_chain_height(
@@ -361,7 +360,7 @@ async fn get_blocks_in_pow_info<D: Database + Clone>(
     database: D,
     block_heights: Range<usize>,
     chain: Chain,
-) -> Result<(VecDeque<u64>, VecDeque<u128>), ExtendedConsensusError> {
+) -> Result<(VecDeque<u64>, VecDeque<u128>), ContextCacheError> {
     tracing::info!("Getting blocks timestamps");
 
     let BlockchainResponse::BlockExtendedHeaderInRange(ext_header) = database

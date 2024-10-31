@@ -24,7 +24,7 @@ use cuprate_p2p_core::{
 pub(crate) mod disconnect_monitor;
 mod drop_guard_client;
 
-pub(crate) use drop_guard_client::ClientPoolDropGuard;
+pub use drop_guard_client::ClientPoolDropGuard;
 
 /// The client pool, which holds currently connected free peers.
 ///
@@ -166,14 +166,15 @@ impl<N: NetworkZone> ClientPool<N> {
         })
     }
 
-    pub fn outbound_client(&self) -> Option<Client<N>> {
+    /// Returns the first outbound peer when iterating over the peers.
+    pub fn outbound_client(self: &Arc<Self>) -> Option<ClientPoolDropGuard<N>> {
         let client = self
             .clients
             .iter()
             .find(|element| element.value().info.direction == ConnectionDirection::Outbound)?;
         let id = *client.key();
 
-        Some(self.clients.remove(&id).unwrap().1)
+        Some(self.borrow_client(&id).unwrap())
     }
 }
 

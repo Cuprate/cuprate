@@ -1,85 +1,115 @@
 use std::{
     collections::HashSet,
-    future::ready,
     sync::Arc,
     task::{Context, Poll},
 };
 
 use bytes::Bytes;
-use dashmap::DashSet;
 use futures::{future::BoxFuture, FutureExt};
 use monero_serai::transaction::Transaction;
-use sha3::{Digest, Sha3_256};
 use tower::{Service, ServiceExt};
 
 use cuprate_consensus::{
     transactions::new_tx_verification_data, BlockChainContextRequest, BlockChainContextResponse,
-    BlockChainContextService, ExtendedConsensusError, TxVerifierService, VerifyTxRequest,
-    VerifyTxResponse,
+    BlockChainContextService, ExtendedConsensusError, VerifyTxRequest,
 };
 use cuprate_dandelion_tower::{
-    pool::{DandelionPoolService, IncomingTx, IncomingTxBuilder},
+    pool::{DandelionPoolService, IncomingTxBuilder},
     State, TxState,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_p2p::constants::MAX_TRANSACTION_BLOB_SIZE;
-use cuprate_txpool::service::{
-    interface::{TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest, TxpoolWriteResponse},
-    TxpoolReadHandle, TxpoolWriteHandle,
+use cuprate_p2p::NetworkInterface;
+use cuprate_p2p_core::ClearNet;
+use cuprate_txpool::{
+    service::{
+        interface::{
+            TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest, TxpoolWriteResponse,
+        },
+        TxpoolReadHandle, TxpoolWriteHandle,
+    },
+    transaction_blob_hash,
 };
 use cuprate_types::TransactionVerificationData;
-use cuprate_wire::NetworkAddress;
 
 use crate::{
     blockchain::ConcreteTxVerifierService,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
+    p2p::CrossNetworkInternalPeerId,
     signals::REORG_LOCK,
-    txpool::txs_being_handled::{tx_blob_hash, TxBeingHandledLocally, TxsBeingHandled},
+    txpool::{
+        dandelion,
+        txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
+    },
 };
 
 /// An error that can happen handling an incoming tx.
-#[derive(Debug, thiserror::Error)]
 pub enum IncomingTxError {
-    #[error("Peer sent a transaction which is too big")]
-    TooLarge,
-    #[error("parse error: {0}")]
     Parse(std::io::Error),
-    #[error("consensus error: {0}")]
     Consensus(ExtendedConsensusError),
-    #[error("Duplicate tx sent in message")]
     DuplicateTransaction,
 }
 
 /// Incoming transactions.
 pub struct IncomingTxs {
+    /// The raw bytes of the transactions.
     pub txs: Vec<Bytes>,
-    pub state: TxState<NetworkAddress>,
+    /// The routing state of the transactions.
+    pub state: TxState<CrossNetworkInternalPeerId>,
 }
 
 ///  The transaction type used for dandelion++.
 #[derive(Clone)]
-pub struct DandelionTx(Bytes);
+pub struct DandelionTx(pub Bytes);
 
 /// A transaction ID/hash.
-type TxId = [u8; 32];
+pub(super) type TxId = [u8; 32];
 
 /// The service than handles incoming transaction pool transactions.
 ///
 /// This service handles everything including verifying the tx, adding it to the pool and routing it to other nodes.
-#[derive(Clone)]
 pub struct IncomingTxHandler {
     /// A store of txs currently being handled in incoming tx requests.
-    pub txs_being_handled: TxsBeingHandled,
+    pub(super) txs_being_handled: TxsBeingHandled,
     /// The blockchain context cache.
-    pub blockchain_context_cache: BlockChainContextService,
+    pub(super) blockchain_context_cache: BlockChainContextService,
     /// The dandelion txpool manager.
-    pub dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, NetworkAddress>,
+    pub(super) dandelion_pool_manager:
+        DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
     /// The transaction verifier service.
-    pub tx_verifier_service: ConcreteTxVerifierService,
+    pub(super) tx_verifier_service: ConcreteTxVerifierService,
     /// The txpool write handle.
-    pub txpool_write_handle: TxpoolWriteHandle,
+    pub(super) txpool_write_handle: TxpoolWriteHandle,
     /// The txpool read handle.
-    pub txpool_read_handle: TxpoolReadHandle,
+    pub(super) txpool_read_handle: TxpoolReadHandle,
+}
+
+impl IncomingTxHandler {
+    /// Initialize the [`IncomingTxHandler`].
+    #[expect(clippy::significant_drop_tightening)]
+    pub fn init(
+        clear_net: NetworkInterface<ClearNet>,
+        txpool_write_handle: TxpoolWriteHandle,
+        txpool_read_handle: TxpoolReadHandle,
+        blockchain_context_cache: BlockChainContextService,
+        tx_verifier_service: ConcreteTxVerifierService,
+    ) -> Self {
+        let dandelion_router = dandelion::dandelion_router(clear_net);
+
+        let dandelion_pool_manager = dandelion::start_dandelion_pool_manager(
+            dandelion_router,
+            txpool_read_handle.clone(),
+            txpool_write_handle.clone(),
+        );
+
+        Self {
+            txs_being_handled: TxsBeingHandled::new(),
+            blockchain_context_cache,
+            dandelion_pool_manager,
+            tx_verifier_service,
+            txpool_write_handle,
+            txpool_read_handle,
+        }
+    }
 }
 
 impl Service<IncomingTxs> for IncomingTxHandler {
@@ -93,8 +123,7 @@ impl Service<IncomingTxs> for IncomingTxHandler {
 
     fn call(&mut self, req: IncomingTxs) -> Self::Future {
         handle_incoming_txs(
-            req.txs,
-            req.state,
+            req,
             self.txs_being_handled.clone(),
             self.blockchain_context_cache.clone(),
             self.tx_verifier_service.clone(),
@@ -106,18 +135,17 @@ impl Service<IncomingTxs> for IncomingTxHandler {
     }
 }
 
-#[expect(clippy::too_many_arguments)]
+/// Handles the incoming txs.
 async fn handle_incoming_txs(
-    txs: Vec<Bytes>,
-    state: TxState<NetworkAddress>,
+    IncomingTxs { txs, state }: IncomingTxs,
     txs_being_handled: TxsBeingHandled,
     mut blockchain_context_cache: BlockChainContextService,
     mut tx_verifier_service: ConcreteTxVerifierService,
     mut txpool_write_handle: TxpoolWriteHandle,
     mut txpool_read_handle: TxpoolReadHandle,
-    mut dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, NetworkAddress>,
+    mut dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
 ) -> Result<(), IncomingTxError> {
-    let reorg_guard = REORG_LOCK.read().await;
+    let _reorg_guard = REORG_LOCK.read().await;
 
     let (txs, stem_pool_txs, txs_being_handled_guard) =
         prepare_incoming_txs(txs, txs_being_handled, &mut txpool_read_handle).await?;
@@ -159,6 +187,7 @@ async fn handle_incoming_txs(
         .await;
     }
 
+    // Re-relay any txs we got in the block that were already in our stem pool.
     for stem_tx in stem_pool_txs {
         rerelay_stem_tx(
             &stem_tx,
@@ -175,6 +204,11 @@ async fn handle_incoming_txs(
 /// Prepares the incoming transactions for verification.
 ///
 /// This will filter out all transactions already in the pool or txs already being handled in another request.
+///
+/// Returns in order:
+///   - The [`TransactionVerificationData`] for all the txs we did not already have
+///   - The Ids of the transactions in the incoming message that are in our stem-pool
+///   - A [`TxsBeingHandledLocally`] guard that prevents verifying the same tx at the same time across 2 tasks.
 async fn prepare_incoming_txs(
     tx_blobs: Vec<Bytes>,
     txs_being_handled: TxsBeingHandled,
@@ -183,7 +217,7 @@ async fn prepare_incoming_txs(
     (
         Vec<Arc<TransactionVerificationData>>,
         Vec<TxId>,
-        TxBeingHandledLocally,
+        TxsBeingHandledLocally,
     ),
     IncomingTxError,
 > {
@@ -194,11 +228,7 @@ async fn prepare_incoming_txs(
     let txs = tx_blobs
         .into_iter()
         .filter_map(|tx_blob| {
-            if tx_blob.len() > MAX_TRANSACTION_BLOB_SIZE {
-                return Some(Err(IncomingTxError::TooLarge));
-            }
-
-            let tx_blob_hash = tx_blob_hash(tx_blob.as_ref());
+            let tx_blob_hash = transaction_blob_hash(&tx_blob);
 
             // If a duplicate is in here the incoming tx batch contained the same tx twice.
             if !tx_blob_hashes.insert(tx_blob_hash) {
@@ -256,11 +286,18 @@ async fn prepare_incoming_txs(
     .await
 }
 
+/// Handle a verified tx.
+///
+/// This will add the tx to the txpool and route it to the network.
 async fn handle_valid_tx(
     tx: Arc<TransactionVerificationData>,
-    state: TxState<NetworkAddress>,
+    state: TxState<CrossNetworkInternalPeerId>,
     txpool_write_handle: &mut TxpoolWriteHandle,
-    dandelion_pool_manager: &mut DandelionPoolService<DandelionTx, TxId, NetworkAddress>,
+    dandelion_pool_manager: &mut DandelionPoolService<
+        DandelionTx,
+        TxId,
+        CrossNetworkInternalPeerId,
+    >,
 ) {
     let incoming_tx =
         IncomingTxBuilder::new(DandelionTx(Bytes::copy_from_slice(&tx.tx_blob)), tx.tx_hash);
@@ -271,7 +308,7 @@ async fn handle_valid_tx(
         .expect(PANIC_CRITICAL_SERVICE_ERROR)
         .call(TxpoolWriteRequest::AddTransaction {
             tx,
-            state_stem: state.state_stem(),
+            state_stem: state.is_stem_stage(),
         })
         .await
         .expect("TODO")
@@ -284,7 +321,7 @@ async fn handle_valid_tx(
         return;
     };
 
-    // TODO: There is a race condition possible if a tx and block come in at the same time <https://github.com/Cuprate/cuprate/issues/314>.
+    // TODO: There is a race condition possible if a tx and block come in at the same time: <https://github.com/Cuprate/cuprate/issues/314>.
 
     let incoming_tx = incoming_tx
         .with_routing_state(state)
@@ -301,27 +338,31 @@ async fn handle_valid_tx(
         .expect(PANIC_CRITICAL_SERVICE_ERROR);
 }
 
+/// Re-relay a tx that was already in our stem pool.
 async fn rerelay_stem_tx(
     tx_hash: &TxId,
-    state: TxState<NetworkAddress>,
+    state: TxState<CrossNetworkInternalPeerId>,
     txpool_read_handle: &mut TxpoolReadHandle,
-    dandelion_pool_manager: &mut DandelionPoolService<DandelionTx, TxId, NetworkAddress>,
+    dandelion_pool_manager: &mut DandelionPoolService<
+        DandelionTx,
+        TxId,
+        CrossNetworkInternalPeerId,
+    >,
 ) {
-    let TxpoolReadResponse::TxBlob { tx_blob, .. } = txpool_read_handle
+    let Ok(TxpoolReadResponse::TxBlob { tx_blob, .. }) = txpool_read_handle
         .ready()
         .await
         .expect(PANIC_CRITICAL_SERVICE_ERROR)
         .call(TxpoolReadRequest::TxBlob(*tx_hash))
         .await
-        .expect("TODO")
     else {
-        unreachable!()
+        // The tx could have been dropped from the pool.
+        return;
     };
 
     let incoming_tx =
         IncomingTxBuilder::new(DandelionTx(Bytes::copy_from_slice(&tx_blob)), *tx_hash);
 
-    // TODO: fill this in properly.
     let incoming_tx = incoming_tx
         .with_routing_state(state)
         .with_state_in_db(Some(State::Stem))

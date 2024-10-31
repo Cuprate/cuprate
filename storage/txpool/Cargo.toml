@@ -19,17 +19,17 @@ service     = ["dep:tower", "dep:rayon", "dep:cuprate-database-service"]
 serde       = ["dep:serde", "cuprate-database/serde", "cuprate-database-service/serde"]
 
 [dependencies]
-cuprate-database         = { path = "../database", features = ["heed"] }
-cuprate-database-service = { path = "../service", optional = true }
-cuprate-types            = { path = "../../types" }
-cuprate-helper           = { path = "../../helper", default-features = false, features = ["constants"] }
+cuprate-database         = { workspace = true, features = ["heed"] }
+cuprate-database-service = { workspace = true, optional = true }
+cuprate-types            = { workspace = true }
+cuprate-helper           = { workspace = true, default-features = false, features = ["constants"] }
 
 monero-serai             = { workspace = true, features = ["std"] }
 bytemuck                 = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 bitflags                 = { workspace = true, features = ["std", "serde", "bytemuck"] }
 thiserror                = { workspace = true }
 hex                      = { workspace = true }
-sha3                     = { workspace = true, features = ["std"] }
+blake3                   = { workspace = true, features = ["std"] }
 
 tower                    = { workspace = true, optional = true }
 rayon                    = { workspace = true, optional = true }
@@ -37,7 +37,7 @@ rayon                    = { workspace = true, optional = true }
 serde                    = { workspace = true, optional = true }
 
 [dev-dependencies]
-cuprate-test-utils = { path = "../../test-utils" }
+cuprate-test-utils = { workspace = true }
 
 tokio              = { workspace = true }
 tempfile           = { workspace = true }

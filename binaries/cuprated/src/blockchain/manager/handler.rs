@@ -1,8 +1,10 @@
 //! The blockchain manager handler functions.
 use bytes::Bytes;
 use futures::{TryFutureExt, TryStreamExt};
-use monero_serai::transaction::Input;
-use monero_serai::{block::Block, transaction::Transaction};
+use monero_serai::{
+    block::Block,
+    transaction::{Input, Transaction},
+};
 use rayon::prelude::*;
 use std::ops::ControlFlow;
 use std::{collections::HashMap, sync::Arc};
@@ -11,11 +13,11 @@ use tracing::info;
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{
-    block::PreparedBlock, context::NewBlockData, transactions::new_tx_verification_data,
-    BlockChainContextRequest, BlockChainContextResponse, BlockVerifierService,
-    ExtendedConsensusError, VerifyBlockRequest, VerifyBlockResponse, VerifyTxRequest,
-    VerifyTxResponse,
+    block::PreparedBlock, transactions::new_tx_verification_data, BlockChainContextRequest,
+    BlockChainContextResponse, BlockVerifierService, ExtendedConsensusError, VerifyBlockRequest,
+    VerifyBlockResponse, VerifyTxRequest, VerifyTxResponse,
 };
+use cuprate_consensus_context::NewBlockData;
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p::{block_downloader::BlockBatch, constants::LONG_BAN, BroadcastRequest};
 use cuprate_txpool::service::interface::TxpoolWriteRequest;
@@ -24,11 +26,8 @@ use cuprate_types::{
     AltBlockInformation, HardFork, TransactionVerificationData, VerifiedBlockInformation,
 };
 
-use crate::blockchain::manager::commands::IncomingBlockOk;
 use crate::{
-    blockchain::{
-        manager::commands::BlockchainManagerCommand, types::ConsensusBlockchainReadHandle,
-    },
+    blockchain::manager::commands::{BlockchainManagerCommand, IncomingBlockOk},
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     signals::REORG_LOCK,
 };
