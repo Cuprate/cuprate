@@ -38,7 +38,6 @@ mod commands;
 mod handler;
 
 pub use commands::{BlockchainManagerCommand, IncomingBlockOk};
-use cuprate_txpool::service::TxpoolWriteHandle;
 
 /// Initialize the blockchain manager.
 ///

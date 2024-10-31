@@ -42,6 +42,7 @@ use cuprate_wire::protocol::{
 
 use crate::blockchain::interface::{self as blockchain_interface, IncomingBlockError};
 use crate::constants::PANIC_CRITICAL_SERVICE_ERROR;
+use crate::p2p::CrossNetworkInternalPeerId;
 use crate::txpool::{IncomingTxHandler, IncomingTxs};
 
 /// The P2P protocol request handler [`MakeService`](tower::MakeService).
@@ -60,8 +61,12 @@ pub struct P2pProtocolRequestHandlerMaker {
     pub incoming_tx_handler_fut: Shared<oneshot::Receiver<IncomingTxHandler>>,
 }
 
-impl<N: NetZoneAddress> Service<PeerInformation<N>> for P2pProtocolRequestHandlerMaker {
-    type Response = P2pProtocolRequestHandler<N>;
+impl<A: NetZoneAddress> Service<PeerInformation<A>> for P2pProtocolRequestHandlerMaker
+where
+    A: NetZoneAddress,
+    InternalPeerID<A>: Into<CrossNetworkInternalPeerId>,
+{
+    type Response = P2pProtocolRequestHandler<A>;
     type Error = tower::BoxError;
     type Future = Ready<Result<Self::Response, Self::Error>>;
 
@@ -79,7 +84,7 @@ impl<N: NetZoneAddress> Service<PeerInformation<N>> for P2pProtocolRequestHandle
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, peer_information: PeerInformation<N>) -> Self::Future {
+    fn call(&mut self, peer_information: PeerInformation<A>) -> Self::Future {
         let Some(incoming_tx_handler) = self.incoming_tx_handler.clone() else {
             panic!("poll_ready was not called or did not return `Poll::Ready`")
         };
@@ -114,7 +119,11 @@ pub struct P2pProtocolRequestHandler<N: NetZoneAddress> {
     incoming_tx_handler: IncomingTxHandler,
 }
 
-impl<Z: NetZoneAddress> Service<ProtocolRequest> for P2pProtocolRequestHandler<Z> {
+impl<A: NetZoneAddress> Service<ProtocolRequest> for P2pProtocolRequestHandler<A>
+where
+    A: NetZoneAddress,
+    InternalPeerID<A>: Into<CrossNetworkInternalPeerId>,
+{
     type Response = ProtocolResponse;
     type Error = anyhow::Error;
     type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
@@ -355,12 +364,16 @@ async fn new_fluffy_block<A: NetZoneAddress>(
 }
 
 /// [`ProtocolRequest::NewTransactions`]
-async fn new_transactions<A: NetZoneAddress>(
+async fn new_transactions<A>(
     peer_information: PeerInformation<A>,
     request: NewTransactions,
     mut blockchain_context_service: BlockChainContextService,
     mut incoming_tx_handler: IncomingTxHandler,
-) -> anyhow::Result<ProtocolResponse> {
+) -> anyhow::Result<ProtocolResponse>
+where
+    A: NetZoneAddress,
+    InternalPeerID<A>: Into<CrossNetworkInternalPeerId>,
+{
     let BlockChainContextResponse::Context(context) = blockchain_context_service
         .ready()
         .await
@@ -387,11 +400,9 @@ async fn new_transactions<A: NetZoneAddress>(
     let state = if request.dandelionpp_fluff {
         TxState::Fluff
     } else {
-        let InternalPeerID::KnownAddr(addr) = peer_information.id else {
-            todo!("Anonymity networks")
-        };
-
-        TxState::Stem { from: addr.into() }
+        TxState::Stem {
+            from: peer_information.id.into(),
+        }
     };
 
     drop(request.padding);
