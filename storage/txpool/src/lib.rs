@@ -15,7 +15,7 @@ pub mod types;
 
 pub use config::Config;
 pub use free::{open, transaction_blob_hash};
-pub use tx::{BlockTemplateTxEntry, TxEntry};
+pub use tx::TxEntry;
 
 //re-exports
 pub use cuprate_database;
