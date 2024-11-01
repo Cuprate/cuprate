@@ -23,6 +23,7 @@ pub mod config;
 pub mod connection_maintainer;
 pub mod constants;
 mod inbound_server;
+mod peer_set;
 
 use block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse};
 pub use broadcast::{BroadcastRequest, BroadcastSvc};
