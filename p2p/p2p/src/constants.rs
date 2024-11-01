@@ -67,7 +67,7 @@ pub const MAX_TRANSACTION_BLOB_SIZE: usize = 1_000_000;
 ///
 /// ref: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_config.h#L97>
 // TODO: link to the protocol book when this section is added.
-pub(crate) const MAX_BLOCKS_IDS_IN_CHAIN_ENTRY: usize = 25_000;
+pub const MAX_BLOCKS_IDS_IN_CHAIN_ENTRY: usize = 25_000;
 
 /// The amount of failures downloading a specific batch before we stop attempting to download it.
 pub(crate) const MAX_DOWNLOAD_FAILURES: usize = 5;

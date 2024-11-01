@@ -25,7 +25,9 @@ use cuprate_helper::{
     cast::usize_to_u64,
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
 };
-use cuprate_p2p::constants::{MAX_BLOCK_BATCH_LEN, MAX_TRANSACTION_BLOB_SIZE, MEDIUM_BAN};
+use cuprate_p2p::constants::{
+    MAX_BLOCKS_IDS_IN_CHAIN_ENTRY, MAX_BLOCK_BATCH_LEN, MAX_TRANSACTION_BLOB_SIZE, MEDIUM_BAN,
+};
 use cuprate_p2p_core::client::InternalPeerID;
 use cuprate_p2p_core::{
     client::PeerInformation, NetZoneAddress, NetworkZone, ProtocolRequest, ProtocolResponse,
@@ -206,7 +208,7 @@ async fn get_chain(
     request: ChainRequest,
     mut blockchain_read_handle: BlockchainReadHandle,
 ) -> anyhow::Result<ProtocolResponse> {
-    if request.block_ids.len() > 25_000 {
+    if request.block_ids.len() > MAX_BLOCKS_IDS_IN_CHAIN_ENTRY {
         anyhow::bail!("Peer sent too many block hashes in chain request.")
     }
 
@@ -387,6 +389,7 @@ where
 
     let context = context.unchecked_blockchain_context();
 
+    // If we are more than 2 blocks behind the peer then ignore the txs - we are probably still syncing.
     if usize_to_u64(context.chain_height + 2)
         < peer_information
             .core_sync_data
@@ -405,15 +408,18 @@ where
         }
     };
 
-    drop(request.padding);
+    // Drop all the data except the stuff we still need.
+    let NewTransactions {
+        txs,
+        dandelionpp_fluff: _,
+        padding: _,
+    } = request;
+
     let res = incoming_tx_handler
         .ready()
         .await
         .expect(PANIC_CRITICAL_SERVICE_ERROR)
-        .call(IncomingTxs {
-            txs: request.txs,
-            state,
-        })
+        .call(IncomingTxs { txs, state })
         .await;
 
     match res {
