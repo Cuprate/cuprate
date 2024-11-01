@@ -4,6 +4,7 @@
     clippy::significant_drop_tightening
 )]
 
+// Used in docs: <https://github.com/Cuprate/cuprate/pull/170#discussion_r1823644357>.
 use tower as _;
 
 pub mod config;

@@ -32,9 +32,6 @@ use cuprate_blockchain::{
 This ensures the types/traits used from `cuprate_database` are the same ones used by `cuprate_blockchain` internally.
 
 # Feature flags
-The `service` module requires the `service` feature to be enabled.
-See the module for more documentation.
-
 Different database backends are enabled by the feature flags:
 - `heed` (LMDB)
 - `redb`
@@ -45,7 +42,7 @@ The default is `heed`.
 <!-- FIXME: tracing should be behind a feature flag -->
 
 # Invariants when not using `service`
-`cuprate_blockchain` can be used without the `service` feature enabled but
+`cuprate_blockchain` can be used without the `service` module but
 there are some things that must be kept in mind when doing so.
 
 Failing to uphold these invariants may cause panics.

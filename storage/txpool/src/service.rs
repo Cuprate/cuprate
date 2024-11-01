@@ -10,8 +10,6 @@
 //!
 //! The system is managed by this crate, and only requires [`init`] by the user.
 //!
-//! This module must be enabled with the `service` feature.
-//!
 //! ## Handles
 //! The 2 handles to the database are:
 //! - [`TxpoolReadHandle`]

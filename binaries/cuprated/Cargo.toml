@@ -24,7 +24,7 @@ cuprate-p2p-core         = { workspace = true }
 cuprate-dandelion-tower  = { workspace = true, features = ["txpool"] }
 cuprate-async-buffer     = { workspace = true }
 cuprate-address-book     = { workspace = true }
-cuprate-blockchain       = { workspace = true, features = ["service"] }
+cuprate-blockchain       = { workspace = true }
 cuprate-database-service = { workspace = true }
 cuprate-txpool           = { workspace = true }
 cuprate-database         = { workspace = true }

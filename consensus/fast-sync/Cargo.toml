@@ -9,7 +9,7 @@ name = "cuprate-fast-sync-create-hashes"
 path = "src/create.rs"
 
 [dependencies]
-cuprate-blockchain          = { workspace = true, features = ["service"] }
+cuprate-blockchain          = { workspace = true }
 cuprate-consensus           = { workspace = true }
 cuprate-consensus-rules     = { workspace = true }
 cuprate-consensus-context   = { workspace = true }
