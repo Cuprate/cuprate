@@ -12,21 +12,23 @@ keywords    = ["cuprate", "types"]
 default    = ["blockchain", "epee", "serde", "json", "hex"]
 blockchain = []
 epee       = ["dep:cuprate-epee-encoding"]
-serde      = ["dep:serde"]
+serde      = ["dep:serde", "hex"]
 proptest   = ["dep:proptest",  "dep:proptest-derive"]
 json       = ["hex", "dep:cuprate-helper"]
-hex        = ["dep:hex"]
+# We sadly have no choice but to enable serde here as otherwise we will get warnings from the `hex` dep being unused.
+# This isn't too bad as `HexBytes` only makes sense with serde anyway.
+hex        = ["serde", "dep:hex"]
 
 [dependencies]
 cuprate-epee-encoding   = { workspace = true, optional = true, features = ["std"] }
 cuprate-helper          = { workspace = true, optional = true, features = ["cast"] }
-cuprate-fixed-bytes     = { workspace = true }
+cuprate-fixed-bytes     = { workspace = true, features = ["std", "serde"] }
 
 bytes            = { workspace = true }
 curve25519-dalek = { workspace = true }
 monero-serai     = { workspace = true }
 hex              = { workspace = true, features = ["serde", "alloc"], optional = true }
-serde            = { workspace = true, features = ["derive"], optional = true }
+serde            = { workspace = true, features = ["std", "derive"], optional = true }
 strum            = { workspace = true, features = ["derive"] }
 thiserror        = { workspace = true }
 

@@ -8,10 +8,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     base::{AccessResponseBase, ResponseBase},
-    defaults::{
-        default_false, default_height, default_one, default_string, default_true, default_vec,
-        default_zero,
-    },
     macros::define_request_and_response,
     misc::{
         AuxPow, BlockHeader, ChainInfo, ConnectionInfo, Distribution, GetBan,
@@ -19,6 +15,12 @@ use crate::{
         SyncInfoPeer, TxBacklogEntry,
     },
     rpc_call::RpcCallValue,
+};
+
+#[cfg(any(feature = "epee", feature = "serde"))]
+use crate::defaults::{
+    default_false, default_height, default_one, default_string, default_true, default_vec,
+    default_zero,
 };
 
 //---------------------------------------------------------------------------------------------------- Macro
