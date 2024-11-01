@@ -16,18 +16,18 @@ use serde::{Deserialize, Serialize};
 /// republished during a re-org.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TxPoolAdd {
-    /// transaction version number. 2 indicates Ring CT (all sub-variants).
+    /// transaction version number. `2` indicates Ring CT (all sub-variants).
     pub version: u8,
-    /// if not 0, this is usually the block height when transaction output(s)
-    /// are spendable; if the value is over 500,000,000, it is the unix epoch
-    /// block timestamp after when the output(s) are spendable
+    /// if not `0` and less than `500_000_000`, this is the block height when
+    /// transaction output(s) are spendable; if >= `500_000_000` this is roughly
+    /// the unix epoch block timestamp when the output(s) are spendable.
     pub unlock_time: u64,
-    /// array of previous outputs (real and decoys) used as inputs to the transaction
+    /// transaction inputs (key images) with separate rings for each input
     pub inputs: Vec<PoolInput>,
     /// transaction outputs
     pub outputs: Vec<Output>,
-    /// extra data for the transaction with variable size, but should not exceed
-    /// 1060 bytes (2120 hex nibbles).
+    /// extra data for the transaction with variable size, but limited to `1060`
+    /// bytes (`2120` hex nibbles).
     #[serde(with = "hex::serde")]
     pub extra: Vec<u8>,
     /// obsolete, empty array in JSON
@@ -68,7 +68,7 @@ pub struct ChainMain {
     pub nonce: u32,
     /// coinbase transaction information
     pub miner_tx: MinerTx,
-    /// array of non-coinbase transaction IDs in the block (can be empty)
+    /// non-coinbase transaction IDs in the block (can be empty)
     pub tx_hashes: Vec<HexBytes<32>>,
 }
 
@@ -106,7 +106,7 @@ pub struct MinerData {
     pub median_weight: u64,
     /// fixed at `u64::MAX` in perpetuity as Monero has already reached tail emission
     pub already_generated_coins: u64,
-    /// array of mineable mempool transactions
+    /// mineable mempool transactions
     pub tx_backlog: Vec<TxBacklog>,
 }
 
@@ -121,7 +121,7 @@ pub struct PoolInput {
 pub struct ToKey {
     /// obsolete field (always 0), non-coinbase TX amounts are now encrypted
     amount: u64,
-    /// array of integer offsets to the input
+    /// integer offsets for ring members
     pub key_offsets: Vec<u64>,
     /// key image for the given input
     pub key_image: HexBytes<32>,
@@ -134,7 +134,7 @@ pub struct MinerInput {
     pub r#gen: Gen,
 }
 
-/// Yet another namespace layer around the block height in `ChainMain`; gen is
+/// Additional namespace layer around the block height in `ChainMain`; gen is
 /// another name for a coinbase transaction
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Gen {
@@ -155,7 +155,7 @@ pub struct Output {
 /// Holds the public key of an output destination with its view tag.
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct ToTaggedKey {
-    /// key used to indicate the destination of a transaction output
+    /// public key used to indicate the destination of a transaction output
     pub key: HexBytes<32>,
     /// 1st byte of a shared secret used to reduce wallet synchronization time
     pub view_tag: HexBytes<1>,
@@ -164,26 +164,27 @@ pub struct ToTaggedKey {
 /// Ring CT information used inside `TxPoolAdd`
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct PoolRingCt {
-    /// ring CT type; 6 (CLSAG Bulletproof Plus) at the time of this writing
+    /// ring CT type; `6` is CLSAG Bulletproof Plus
     pub r#type: u8,
     /// encrypted amount values of the transaction outputs
     pub encrypted: Vec<Encrypted>,
-    /// Ring CT commitments, 1 per output
+    /// Ring CT commitments, 1 per transaction input
     pub commitments: Vec<HexBytes<32>>,
     /// mining fee in piconeros
     pub fee: u64,
-    /// data to validate the transaction
+    /// data to validate the transaction that can be pruned from older blocks
     pub prunable: Prunable,
 }
 
-/// Ring CT information used inside `MinerTx` (note: miner coinbase transactions
-/// don't use Ring CT).
+/// Ring CT information used inside `MinerTx`. Miner coinbase transactions don't
+/// use Ring CT, so this only holds a block height.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 struct MinerRingCt {
     /// always zero to indicate that Ring CT is not used
     r#type: u8,
 }
 
+/// Holds the encrypted amount of a non-coinbase transaction output.
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct Encrypted {
     /// obsolete field, but present as zeros in JSON; this does not represent
@@ -201,14 +202,15 @@ pub struct Prunable {
     range_proofs: Vec<Obsolete>,
     /// obsolete, empty array in JSON
     bulletproofs: Vec<Obsolete>,
-    /// array of Bulletproofs+ data used to validate a Ring CT transaction; at
-    /// the current time this array always has exactly one element
+    /// Bulletproofs+ data used to validate a Ring CT transaction; at the
+    /// current time this array always has exactly one element
     pub bulletproofs_plus: Vec<BulletproofPlus>,
     /// obsolete, empty array in JSON
     mlsags: Vec<Obsolete>,
-    /// CLSAG signatures (1 per non-decoy transaction input)
+    /// CLSAG signatures; 1 per transaction input
     pub clsags: Vec<Clsag>,
-    /// Ring CT pseudo output commitments (1 per non-decoy transaction input)
+    /// Ring CT pseudo output commitments; 1 per transaction input (*not*
+    /// output)
     pub pseudo_outs: Vec<HexBytes<32>>,
 }
 
@@ -249,13 +251,13 @@ pub struct MinerTx {
     /// block height when the coinbase transaction becomes spendable (currently
     /// 60 blocks above the coinbase transaction height)
     pub unlock_time: u64,
-    /// contains block height in inputs[0].gen.height and nothing else; coinbase
-    /// transactions have no inputs
+    /// contains the block height in `inputs[0].gen.height` and nothing else as
+    /// coinbase transactions have no inputs
     pub inputs: Vec<MinerInput>,
-    /// array of transaction outputs
+    /// transaction outputs
     pub outputs: Vec<Output>,
-    /// extra data for the transaction with variable size; does the 1060-byte
-    /// limit apply for miners?
+    /// extra data for the transaction with variable size; not limited to `1060`
+    /// bytes like the extra field of non-coinbase transactions
     #[serde(with = "hex::serde")]
     pub extra: Vec<u8>,
     /// obsolete, empty array in JSON
