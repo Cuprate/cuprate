@@ -81,6 +81,7 @@ ignore = [
     #{ id = "RUSTSEC-0000-0000", reason = "you can specify a reason the advisory is ignored" },
     #"a-crate-that-is-yanked@0.1.1", # you can also ignore yanked crate versions if you wish
     #{ crate = "a-crate-that-is-yanked@0.1.1", reason = "you can specify why you are ignoring the yanked crate" },
+    { id = "RUSTSEC-2024-0370", reason = "you can specify a reason the advisory is ignored" }
 ]
 # If this is true, then cargo deny will use the git executable to fetch advisory database.
 # If this is false, then it uses a built-in git library.
@@ -110,6 +111,7 @@ allow = [
     "Apache-2.0",                     # https://tldrlegal.com/license/apache-license-2.0-(apache-2.0)
     "MPL-2.0",                        # https://www.mozilla.org/en-US/MPL/2.0/FAQ/
     "BSL-1.0",                        # https://tldrlegal.com/license/boost-software-license-1.0-explained
+    "Zlib",                           # https://spdx.org/licenses/Zlib.html
 
     # OpenSSL 3.0+ uses Apache-2.0
     # OpenSSL 1.x.x uses https://www.openssl.org/source/license-openssl-ssleay.txt
