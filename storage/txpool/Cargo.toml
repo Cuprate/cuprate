@@ -30,6 +30,7 @@ thiserror                = { workspace = true }
 hex                      = { workspace = true, features = ["std"] }
 blake3                   = { workspace = true, features = ["std"] }
 
+tower                    = { workspace = true }
 rayon                    = { workspace = true }
 
 serde                    = { workspace = true, optional = true }
@@ -38,7 +39,6 @@ serde                    = { workspace = true, optional = true }
 cuprate-test-utils = { workspace = true }
 
 tokio              = { workspace = true }
-tower              = { workspace = true }
 tempfile           = { workspace = true }
 hex-literal        = { workspace = true }
 

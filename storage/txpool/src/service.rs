@@ -1,7 +1,7 @@
-//! `tower::Service` integeration + thread-pool.
+//! [`tower::Service`] integeration + thread-pool.
 //!
 //! ## `service`
-//! The `service` module implements the `tower` integration,
+//! The `service` module implements the [`tower`] integration,
 //! along with the reader/writer thread-pool system.
 //!
 //! The thread-pool allows outside crates to communicate with it by
@@ -42,7 +42,7 @@
 //! To interact with the database (whether reading or writing data),
 //! a `Request` can be sent using one of the above handles.
 //!
-//! Both the handles implement `tower::Service`, so they can be `tower::Service::call`ed.
+//! Both the handles implement [`tower::Service`], so they can be [`tower::Service::call`]ed.
 //!
 //! An `async`hronous channel will be returned from the call.
 //! This channel can be `.await`ed upon to (eventually) receive

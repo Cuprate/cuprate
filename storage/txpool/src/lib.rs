@@ -4,6 +4,8 @@
     clippy::significant_drop_tightening
 )]
 
+use tower as _;
+
 pub mod config;
 mod free;
 pub mod ops;
@@ -25,5 +27,4 @@ mod test {
     use hex_literal as _;
     use tempfile as _;
     use tokio as _;
-    use tower as _;
 }
