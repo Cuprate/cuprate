@@ -16,13 +16,13 @@ use serde::{Deserialize, Serialize};
 /// republished during a re-org.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TxPoolAdd {
-    /// transaction version number. 2 indicates Ring CT (all variants).
+    /// transaction version number. 2 indicates Ring CT (all sub-variants).
     pub version: u8,
     /// if not 0, this is usually the block height when transaction output(s)
     /// are spendable; if the value is over 500,000,000, it is the unix epoch
     /// block timestamp after when the output(s) are spendable
     pub unlock_time: u64,
-    /// list of previous outputs (real and decoys) used as inputs to the transaction
+    /// array of previous outputs (real and decoys) used as inputs to the transaction
     pub inputs: Vec<PoolInput>,
     /// transaction outputs
     pub outputs: Vec<Output>,
@@ -30,7 +30,7 @@ pub struct TxPoolAdd {
     /// 1060 bytes (2120 hex nibbles).
     #[serde(with = "hex::serde")]
     pub extra: Vec<u8>,
-    /// obsolete, empty list in JSON
+    /// obsolete, empty array in JSON
     signatures: Vec<Obsolete>,
     /// ring confidential transaction data
     pub ringct: PoolRingCt,
@@ -56,19 +56,19 @@ pub struct TxPoolAddMin {
 /// Push messages only contain more than one block if a re-org occurred.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ChainMain {
-    /// major version of the monero protocol at the next? block height
+    /// major version of the monero protocol at this block's height
     pub major_version: u8,
-    /// minor version of the monero protocol at the next? block height
+    /// minor version of the monero protocol at this block's height
     pub minor_version: u8,
     /// epoch time, decided by the miner, at which the block was mined
     pub timestamp: u64,
-    /// hash of the most recent block on which to mine the next block
+    /// block id of the previous block
     pub prev_id: HexBytes<32>,
     /// cryptographic random one-time number used in mining a Monero block
     pub nonce: u32,
-    /// miner transaction information
+    /// coinbase transaction information
     pub miner_tx: MinerTx,
-    /// list of non-coinbase transaction IDs in the block (can be empty)
+    /// array of non-coinbase transaction IDs in the block (can be empty)
     pub tx_hashes: Vec<HexBytes<32>>,
 }
 
@@ -91,11 +91,11 @@ pub struct ChainMainMin {
 /// custom block template. There is no min version of this object.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct MinerData {
-    /// TODO: document
+    /// major version of the monero protocol for the next mined block
     pub major_version: u8,
     /// height on which to mine
     pub height: u64,
-    /// hash of the most recent block on which to mine the next block
+    /// block id of the most recent block on which to mine the next block
     pub prev_id: HexBytes<32>,
     /// hash of block to use as seed for Random-X proof-of-work
     pub seed_hash: HexBytes<32>,
@@ -106,51 +106,56 @@ pub struct MinerData {
     pub median_weight: u64,
     /// fixed at `u64::MAX` in perpetuity as Monero has already reached tail emission
     pub already_generated_coins: u64,
-    /// list of mineable mempool transactions
+    /// array of mineable mempool transactions
     pub tx_backlog: Vec<TxBacklog>,
 }
 
+/// Holds a single input for the `TxPoolAdd` `inputs` array.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct PoolInput {
     pub to_key: ToKey,
 }
 
+/// Same as `PoolInput` (adds an extra JSON name layer)
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct ToKey {
+    /// obsolete field (always 0), non-coinbase TX amounts are now encrypted
+    amount: u64,
+    /// array of integer offsets to the input
+    pub key_offsets: Vec<u64>,
+    /// key image for the given input
+    pub key_image: HexBytes<32>,
+}
+
 /// Holds the block height of the coinbase transaction.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct MinerInput {
-    /// gen is another name for a coinbase transaction
+    /// namespace layer around the block height
     pub r#gen: Gen,
 }
 
+/// Yet another namespace layer around the block height in `ChainMain`; gen is
+/// another name for a coinbase transaction
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Gen {
     /// block height when the coinbase transaction was created
     pub height: u64,
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct ToKey {
-    /// obsolete field (always 0), amounts are now encrypted
-    amount: u64,
-    ///  list of integer offsets to outputs
-    pub key_offsets: Vec<u64>,
-    /// key image for the given input
-    pub key_image: HexBytes<32>,
-}
-
-// Transaction output data used by both `TxPoolAdd` and `MinerTx`
+/// Transaction output data used by both `TxPoolAdd` and `MinerTx`
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct Output {
-    /// zero for non-coinbase transactions which use encrypted amounts,
-    /// amount in piconeros for coinbase transactions
+    /// zero for non-coinbase transactions which use encrypted amounts or
+    /// an amount in piconeros for coinbase transactions
     pub amount: u64,
     /// public key of the output destination
     pub to_tagged_key: ToTaggedKey,
 }
 
+/// Holds the public key of an output destination with its view tag.
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct ToTaggedKey {
-    // key used to indicate the destination of a transaction output
+    /// key used to indicate the destination of a transaction output
     pub key: HexBytes<32>,
     /// 1st byte of a shared secret used to reduce wallet synchronization time
     pub view_tag: HexBytes<1>,
@@ -159,15 +164,15 @@ pub struct ToTaggedKey {
 /// Ring CT information used inside `TxPoolAdd`
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct PoolRingCt {
-    // ring CT type; 6 (CLSAG Bulletproof Plus) at the time of this writing
+    /// ring CT type; 6 (CLSAG Bulletproof Plus) at the time of this writing
     pub r#type: u8,
-    // encrypted amount values of the transaction outputs
+    /// encrypted amount values of the transaction outputs
     pub encrypted: Vec<Encrypted>,
-    // RingCT commitments, 1 per output
+    /// Ring CT commitments, 1 per output
     pub commitments: Vec<HexBytes<32>>,
     /// mining fee in piconeros
     pub fee: u64,
-    // data to validate the transaction
+    /// data to validate the transaction
     pub prunable: Prunable,
 }
 
@@ -192,18 +197,18 @@ pub struct Encrypted {
 /// older blocks.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Prunable {
-    /// obsolete, empty list in JSON
+    /// obsolete, empty array in JSON
     range_proofs: Vec<Obsolete>,
-    /// obsolete, empty list in JSON
+    /// obsolete, empty array in JSON
     bulletproofs: Vec<Obsolete>,
-    /// list of Bulletproofs+ data used to validate the legitimacy of a Ring CT transaction
-    /// TODO: Can this be a fixed size array of 1?
+    /// array of Bulletproofs+ data used to validate a Ring CT transaction; at
+    /// the current time this array always has exactly one element
     pub bulletproofs_plus: Vec<BulletproofPlus>,
-    /// obsolete, empty list in JSON
+    /// obsolete, empty array in JSON
     mlsags: Vec<Obsolete>,
-    /// TODO: Can this be a fixed size array of 1?
+    /// CLSAG signatures (1 per non-decoy transaction input)
     pub clsags: Vec<Clsag>,
-    /// TODO: document
+    /// Ring CT pseudo output commitments (1 per non-decoy transaction input)
     pub pseudo_outs: Vec<HexBytes<32>>,
 }
 
@@ -236,6 +241,7 @@ pub struct Clsag {
     pub D: HexBytes<32>,
 }
 
+/// Part of the new block information in `ChainMain`
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MinerTx {
     /// transaction version number
@@ -243,17 +249,18 @@ pub struct MinerTx {
     /// block height when the coinbase transaction becomes spendable (currently
     /// 60 blocks above the coinbase transaction height)
     pub unlock_time: u64,
-    /// list of transaction inputs
+    /// contains block height in inputs[0].gen.height and nothing else; coinbase
+    /// transactions have no inputs
     pub inputs: Vec<MinerInput>,
-    /// list of transaction outputs
+    /// array of transaction outputs
     pub outputs: Vec<Output>,
     /// extra data for the transaction with variable size; does the 1060-byte
     /// limit apply for miners?
     #[serde(with = "hex::serde")]
     pub extra: Vec<u8>,
-    /// obsolete, empty list in JSON
+    /// obsolete, empty array in JSON
     signatures: Vec<Obsolete>,
-    /// only for JSON compatibility; miner's don't use Ring CT
+    /// only for JSON compatibility; miners' don't use Ring CT
     ringct: MinerRingCt,
 }
 
