@@ -6,6 +6,7 @@
 )]
 
 mod constants;
+#[cfg(any(feature = "serde", feature = "epee"))]
 mod defaults;
 mod free;
 mod macros;
