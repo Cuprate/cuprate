@@ -740,7 +740,6 @@ version = "0.5.0"
 dependencies = [
  "bytes",
  "cuprate-fixed-bytes",
- "cuprate-helper",
  "hex",
  "paste",
  "ref-cast",

@@ -19,7 +19,7 @@ const FITS_IN_FOUR_BYTES: u64 = 2_u64.pow(32 - SIZE_OF_SIZE_MARKER) - 1;
 /// assert_eq!(read_varint(&mut [254, 255, 255, 255].as_slice()).unwrap(), 1_073_741_823);
 /// assert_eq!(read_varint(&mut [3, 0, 0, 0, 1, 0, 0, 0].as_slice()).unwrap(), 1_073_741_824);
 /// ```
-pub fn read_varint<B: Buf>(r: &mut B) -> Result<u64> {
+pub fn read_varint<B: Buf, T: TryFrom<u64>>(r: &mut B) -> Result<T> {
     if !r.has_remaining() {
         return Err(Error::IO("Not enough bytes to build VarInt"));
     }
@@ -35,7 +35,8 @@ pub fn read_varint<B: Buf>(r: &mut B) -> Result<u64> {
     for i in 1..len {
         vi |= u64::from(r.get_u8()) << (((i - 1) * 8) + 6);
     }
-    Ok(vi)
+
+    vi.try_into().map_err(|_| Error::IO("VarInt is too big"))
 }
 
 /// Write an epee variable sized number into `w`.
@@ -58,7 +59,12 @@ pub fn read_varint<B: Buf>(r: &mut B) -> Result<u64> {
 ///     assert_eq!(buf.as_slice(), expected_bytes);
 /// }
 /// ```
-pub fn write_varint<B: BufMut>(number: u64, w: &mut B) -> Result<()> {
+pub fn write_varint<B: BufMut, T: TryInto<u64>>(number: T, w: &mut B) -> Result<()> {
+    let number = number
+        .try_into()
+        .map_err(|_| "Tried to write a varint bigger than 64-bits")
+        .unwrap();
+
     let size_marker = match number {
         0..=FITS_IN_ONE_BYTE => 0,
         64..=FITS_IN_TWO_BYTES => 1,
@@ -101,7 +107,7 @@ mod tests {
     }
 
     fn assert_varint_val(mut varint: &[u8], val: u64) {
-        assert_eq!(read_varint(&mut varint).unwrap(), val);
+        assert_eq!(read_varint::<_, u64>(&mut varint).unwrap(), val);
     }
 
     #[test]
