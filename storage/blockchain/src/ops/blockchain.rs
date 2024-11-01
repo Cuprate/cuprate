@@ -2,6 +2,7 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use cuprate_database::{DatabaseRo, RuntimeError};
+use cuprate_helper::cast::u64_to_usize;
 
 use crate::{
     ops::macros::doc_error,
@@ -25,8 +26,7 @@ use crate::{
 pub fn chain_height(
     table_block_heights: &impl DatabaseRo<BlockHeights>,
 ) -> Result<BlockHeight, RuntimeError> {
-    #[expect(clippy::cast_possible_truncation, reason = "we enforce 64-bit")]
-    table_block_heights.len().map(|height| height as usize)
+    table_block_heights.len().map(u64_to_usize)
 }
 
 /// Retrieve the height of the top block.
@@ -48,8 +48,7 @@ pub fn top_block_height(
 ) -> Result<BlockHeight, RuntimeError> {
     match table_block_heights.len()? {
         0 => Err(RuntimeError::KeyNotFound),
-        #[expect(clippy::cast_possible_truncation, reason = "we enforce 64-bit")]
-        height => Ok(height as usize - 1),
+        height => Ok(u64_to_usize(height) - 1),
     }
 }
 

@@ -23,7 +23,7 @@ use thread_local::ThreadLocal;
 
 use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
 use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
-use cuprate_helper::map::combine_low_high_bits_to_u128;
+use cuprate_helper::{cast::u64_to_usize, map::combine_low_high_bits_to_u128};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain, ChainId, ExtendedBlockHeader, OutputHistogramInput, OutputOnChain,
@@ -419,14 +419,10 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
     let tables = thread_local(env);
 
     // Cache the amount of RCT outputs once.
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`"
-    )]
     let num_rct_outputs = {
         let tx_ro = env_inner.tx_ro()?;
         let tables = env_inner.open_tables(&tx_ro)?;
-        tables.rct_outputs().len()? as usize
+        u64_to_usize(tables.rct_outputs().len()?)
     };
 
     // Collect results using `rayon`.
@@ -442,11 +438,7 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
             } else {
                 // v1 transactions.
                 match tables.num_outputs().get(&amount) {
-                    #[expect(
-                        clippy::cast_possible_truncation,
-                        reason = "INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`"
-                    )]
-                    Ok(count) => Ok((amount, count as usize)),
+                    Ok(count) => Ok((amount, u64_to_usize(count))),
                     // If we get a request for an `amount` that doesn't exist,
                     // we return `0` instead of an error.
                     Err(RuntimeError::KeyNotFound) => Ok((amount, 0)),

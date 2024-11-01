@@ -12,11 +12,14 @@ keywords    = ["cuprate", "database"]
 # default     = ["heed"]
 # default     = ["redb"]
 # default     = ["redb-memory"]
-heed        = ["dep:heed"]
+heed        = ["dep:heed", "dep:cuprate-helper"]
 redb        = ["dep:redb"]
 redb-memory = ["redb"]
 
 [dependencies]
+# `usize_to_u64` needed in `heed`
+cuprate-helper = { workspace = true, features = ["cast"], optional = true }
+
 bytemuck  = { version = "1.18.0", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 bytes     = { workspace = true }
 cfg-if    = { workspace = true }

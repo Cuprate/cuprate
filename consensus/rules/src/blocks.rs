@@ -4,6 +4,7 @@ use crypto_bigint::{CheckedMul, U256};
 use monero_serai::block::Block;
 
 use cuprate_cryptonight::*;
+use cuprate_helper::cast::usize_to_u64;
 
 use crate::{
     check_block_version_vote, current_unix_timestamp,
@@ -89,8 +90,7 @@ pub fn calculate_pow_hash<R: RandomX>(
     } else if hf < &HardFork::V10 {
         cryptonight_hash_v2(buf)
     } else if hf < &HardFork::V12 {
-        // FIXME: https://github.com/Cuprate/cuprate/issues/167.
-        cryptonight_hash_r(buf, height as u64)
+        cryptonight_hash_r(buf, usize_to_u64(height))
     } else {
         randomx_vm
             .expect("RandomX VM needed from hf 12")

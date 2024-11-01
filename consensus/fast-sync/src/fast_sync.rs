@@ -15,7 +15,7 @@ use tower::{Service, ServiceExt};
 use cuprate_consensus::transactions::new_tx_verification_data;
 use cuprate_consensus_context::{BlockChainContextRequest, BlockChainContextResponse};
 use cuprate_consensus_rules::{miner_tx::MinerTxError, ConsensusError};
-use cuprate_helper::cast::u64_to_usize;
+use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
 
 use crate::{hash_of_hashes, BlockId, HashOfHashes};
@@ -38,7 +38,7 @@ const BATCH_SIZE: usize = 4;
 
 #[inline]
 fn max_height() -> u64 {
-    (HASHES_OF_HASHES.len() * BATCH_SIZE) as u64
+    usize_to_u64(HASHES_OF_HASHES.len() * BATCH_SIZE)
 }
 
 #[derive(Debug, PartialEq, Eq)]

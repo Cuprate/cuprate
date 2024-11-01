@@ -17,6 +17,7 @@ use rand::Rng;
 use tower::{Service, ServiceExt};
 
 use cuprate_database::{ConcreteEnv, DatabaseIter, DatabaseRo, Env, EnvInner, RuntimeError};
+use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_test_utils::data::{BLOCK_V16_TX0, BLOCK_V1_TX2, BLOCK_V9_TX3};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
@@ -168,11 +169,7 @@ async fn test_template(
         num_req
             .iter()
             .map(|amount| match tables.num_outputs().get(amount) {
-                #[expect(
-                    clippy::cast_possible_truncation,
-                    reason = "INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`"
-                )]
-                Ok(count) => (*amount, count as usize),
+                Ok(count) => (*amount, u64_to_usize(count)),
                 Err(RuntimeError::KeyNotFound) => (*amount, 0),
                 Err(e) => panic!("{e:?}"),
             })
@@ -322,7 +319,7 @@ async fn test_template(
 
     // Assert the amount of `Output`'s returned is as expected.
     let table_output_len = tables.outputs().len().unwrap() + tables.rct_outputs().len().unwrap();
-    assert_eq!(output_count as u64, table_output_len);
+    assert_eq!(usize_to_u64(output_count), table_output_len);
     assert_eq!(output_count, response_output_count);
 }
 

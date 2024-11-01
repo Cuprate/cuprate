@@ -20,7 +20,7 @@ service     = ["dep:thread_local", "dep:rayon", "cuprate-helper/thread"]
 [dependencies]
 cuprate-database         = { workspace = true }
 cuprate-database-service = { workspace = true }
-cuprate-helper           = { workspace = true, features = ["fs", "map", "crypto"] }
+cuprate-helper           = { workspace = true, features = ["fs", "map", "crypto", "cast"] }
 cuprate-types            = { workspace = true, features = ["blockchain"] }
 cuprate-pruning          = { workspace = true }
 

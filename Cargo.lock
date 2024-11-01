@@ -712,6 +712,7 @@ dependencies = [
  "bytemuck",
  "bytes",
  "cfg-if",
+ "cuprate-helper",
  "heed",
  "page_size",
  "paste",
@@ -884,6 +885,7 @@ version = "0.1.0"
 dependencies = [
  "borsh",
  "cuprate-constants",
+ "cuprate-helper",
  "thiserror",
 ]
 

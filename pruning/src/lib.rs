@@ -21,6 +21,7 @@
 use std::cmp::Ordering;
 
 use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
+use cuprate_helper::cast::u32_to_usize;
 
 use thiserror::Error;
 
@@ -368,7 +369,7 @@ impl DecompressedPruningSeed {
 
         // amt_of_cycles * blocks in a cycle + how many blocks through a cycles until the seed starts storing blocks
         let calculated_height = cycles_start * (CRYPTONOTE_PRUNING_STRIPE_SIZE << self.log_stripes)
-            + (self.stripe as usize - 1) * CRYPTONOTE_PRUNING_STRIPE_SIZE;
+            + (u32_to_usize(self.stripe) - 1) * CRYPTONOTE_PRUNING_STRIPE_SIZE;
 
         if calculated_height + CRYPTONOTE_PRUNING_TIP_BLOCKS > blockchain_height {
             // if our calculated height is greater than the amount of tip blocks then the start of the tip blocks will be the next un-pruned
@@ -436,15 +437,12 @@ const fn get_block_pruning_stripe(
     if block_height + CRYPTONOTE_PRUNING_TIP_BLOCKS >= blockchain_height {
         None
     } else {
-        #[expect(
-            clippy::cast_possible_truncation,
-            clippy::cast_sign_loss,
-            reason = "it's trivial to prove it's ok to us `as` here"
-        )]
-        Some(
-            (((block_height / CRYPTONOTE_PRUNING_STRIPE_SIZE) & ((1 << log_stripe) as usize - 1))
-                + 1) as u32,
-        )
+        let a = block_height / CRYPTONOTE_PRUNING_STRIPE_SIZE;
+        let b = u32_to_usize(1 << log_stripe) - 1;
+        let c = (a & b) + 1;
+
+        #[expect(clippy::cast_possible_truncation)]
+        Some(c as u32)
     }
 }
 
