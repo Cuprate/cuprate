@@ -27,7 +27,9 @@ mod connector;
 pub mod handshaker;
 mod request_handler;
 mod timeout_monitor;
+mod weak;
 
+use crate::client::weak::WeakClient;
 pub use connector::{ConnectRequest, Connector};
 pub use handshaker::{DoHandshakeRequest, HandshakeError, HandshakerBuilder};
 
@@ -127,6 +129,16 @@ impl<Z: NetworkZone> Client<Z> {
             Err(e) => e.to_string(),
         }
         .into()
+    }
+
+    pub fn downgrade(&self) -> WeakClient<Z> {
+        WeakClient {
+            info: self.info.clone(),
+            connection_tx: self.connection_tx.downgrade(),
+            semaphore: self.semaphore.clone(),
+            permit: None,
+            error: self.error.clone(),
+        }
     }
 }
 
