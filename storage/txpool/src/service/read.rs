@@ -71,7 +71,9 @@ fn map_request(
         }
         TxpoolReadRequest::TxsForBlock(txs_needed) => txs_for_block(env, txs_needed),
         TxpoolReadRequest::Backlog => backlog(env),
-        TxpoolReadRequest::Size => size(env),
+        TxpoolReadRequest::Size {
+            include_sensitive_txs,
+        } => size(env, include_sensitive_txs),
     }
 }
 
@@ -201,6 +203,6 @@ fn backlog(env: &ConcreteEnv) -> ReadResponseResult {
 
 /// [`TxpoolReadRequest::Size`].
 #[inline]
-fn size(env: &ConcreteEnv) -> ReadResponseResult {
+fn size(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
     Ok(TxpoolReadResponse::Size(todo!()))
 }

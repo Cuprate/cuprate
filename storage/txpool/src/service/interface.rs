@@ -35,7 +35,11 @@ pub enum TxpoolReadRequest {
     Backlog,
 
     /// Get the number of transactions in the pool.
-    Size,
+    Size {
+        /// If this is [`true`], the size returned will
+        /// include private transactions in the pool.
+        include_sensitive_txs: bool,
+    },
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadResponse
@@ -66,7 +70,7 @@ pub enum TxpoolReadResponse {
 
     /// Response to [`TxpoolReadRequest::Backlog`].
     ///
-    /// The inner `Vec` contains information on all
+    /// The inner [`Vec`] contains information on all
     /// the transactions currently in the pool.
     Backlog(Vec<TxEntry>),
 

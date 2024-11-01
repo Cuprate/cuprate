@@ -10,16 +10,16 @@ keywords    = ["cuprate", "rpc", "types", "monero"]
 
 [features]
 default = ["serde", "epee"]
-serde   = ["dep:serde", "cuprate-fixed-bytes/serde"]
-epee    = ["dep:cuprate-epee-encoding"]
+serde   = ["dep:serde", "cuprate-fixed-bytes/serde", "cuprate-types/serde"]
+epee    = ["dep:cuprate-epee-encoding", "cuprate-types/epee"]
 
 [dependencies]
 cuprate-epee-encoding = { workspace = true, optional = true }
 cuprate-fixed-bytes   = { workspace = true }
-cuprate-types         = { workspace = true, default-features = false, features = ["epee", "serde"] }
+cuprate-types         = { workspace = true, default-features = false }
 
-paste        = { workspace = true }
-serde        = { workspace = true, optional = true }
+paste = { workspace = true }
+serde = { workspace = true, optional = true }
 
 [dev-dependencies]
 cuprate-test-utils = { workspace = true }
