@@ -24,13 +24,12 @@ use cuprate_consensus_rules::ConsensusError;
 
 mod batch_verifier;
 pub mod block;
-pub mod context;
 #[cfg(test)]
 mod tests;
 pub mod transactions;
 
 pub use block::{BlockVerifierService, VerifyBlockRequest, VerifyBlockResponse};
-pub use context::{
+pub use cuprate_consensus_context::{
     initialize_blockchain_context, BlockChainContext, BlockChainContextRequest,
     BlockChainContextResponse, BlockChainContextService, ContextConfig,
 };

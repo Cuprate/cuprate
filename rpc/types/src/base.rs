@@ -58,61 +58,37 @@ pub struct ResponseBase {
 }
 
 impl ResponseBase {
-    /// `const` version of [`Default::default`].
-    ///
-    /// ```rust
-    /// use cuprate_rpc_types::{misc::*, base::*};
-    ///
-    /// let new = ResponseBase::new();
-    /// assert_eq!(new, ResponseBase {
-    ///     status: Status::Ok,
-    ///     untrusted: false,
-    /// });
-    /// ```
-    pub const fn new() -> Self {
-        Self {
-            status: Status::Ok,
-            untrusted: false,
-        }
-    }
-
-    /// Returns OK and trusted [`Self`].
+    /// [`Status::Ok`] and trusted [`Self`].
     ///
     /// This is the most common version of [`Self`].
     ///
     /// ```rust
     /// use cuprate_rpc_types::{misc::*, base::*};
     ///
-    /// let ok = ResponseBase::ok();
-    /// assert_eq!(ok, ResponseBase {
+    /// assert_eq!(ResponseBase::OK, ResponseBase {
     ///     status: Status::Ok,
     ///     untrusted: false,
     /// });
     /// ```
-    pub const fn ok() -> Self {
-        Self {
-            status: Status::Ok,
-            untrusted: false,
-        }
-    }
+    pub const OK: Self = Self {
+        status: Status::Ok,
+        untrusted: false,
+    };
 
-    /// Same as [`Self::ok`] but with [`Self::untrusted`] set to `true`.
+    /// Same as [`Self::OK`] but with [`Self::untrusted`] set to `true`.
     ///
     /// ```rust
     /// use cuprate_rpc_types::{misc::*, base::*};
     ///
-    /// let ok_untrusted = ResponseBase::ok_untrusted();
-    /// assert_eq!(ok_untrusted, ResponseBase {
+    /// assert_eq!(ResponseBase::OK_UNTRUSTED, ResponseBase {
     ///     status: Status::Ok,
     ///     untrusted: true,
     /// });
     /// ```
-    pub const fn ok_untrusted() -> Self {
-        Self {
-            status: Status::Ok,
-            untrusted: true,
-        }
-    }
+    pub const OK_UNTRUSTED: Self = Self {
+        status: Status::Ok,
+        untrusted: true,
+    };
 }
 
 #[cfg(feature = "epee")]
@@ -148,9 +124,9 @@ impl AccessResponseBase {
     /// ```rust
     /// use cuprate_rpc_types::{misc::*, base::*};
     ///
-    /// let new = AccessResponseBase::new(ResponseBase::ok());
+    /// let new = AccessResponseBase::new(ResponseBase::OK);
     /// assert_eq!(new, AccessResponseBase {
-    ///     response_base: ResponseBase::ok(),
+    ///     response_base: ResponseBase::OK,
     ///     credits: 0,
     ///     top_hash: "".into(),
     /// });
@@ -163,47 +139,41 @@ impl AccessResponseBase {
         }
     }
 
-    /// Returns OK and trusted [`Self`].
+    /// [`Status::Ok`] and trusted [`Self`].
     ///
     /// This is the most common version of [`Self`].
     ///
     /// ```rust
     /// use cuprate_rpc_types::{misc::*, base::*};
     ///
-    /// let ok = AccessResponseBase::ok();
-    /// assert_eq!(ok, AccessResponseBase {
-    ///     response_base: ResponseBase::ok(),
+    /// assert_eq!(AccessResponseBase::OK, AccessResponseBase {
+    ///     response_base: ResponseBase::OK,
     ///     credits: 0,
     ///     top_hash: "".into(),
     /// });
     /// ```
-    pub const fn ok() -> Self {
-        Self {
-            response_base: ResponseBase::ok(),
-            credits: 0,
-            top_hash: String::new(),
-        }
-    }
+    pub const OK: Self = Self {
+        response_base: ResponseBase::OK,
+        credits: 0,
+        top_hash: String::new(),
+    };
 
-    /// Same as [`Self::ok`] but with `untrusted` set to `true`.
+    /// Same as [`Self::OK`] but with `untrusted` set to `true`.
     ///
     /// ```rust
     /// use cuprate_rpc_types::{misc::*, base::*};
     ///
-    /// let ok_untrusted = AccessResponseBase::ok_untrusted();
-    /// assert_eq!(ok_untrusted, AccessResponseBase {
-    ///     response_base: ResponseBase::ok_untrusted(),
+    /// assert_eq!(AccessResponseBase::OK_UNTRUSTED, AccessResponseBase {
+    ///     response_base: ResponseBase::OK_UNTRUSTED,
     ///     credits: 0,
     ///     top_hash: "".into(),
     /// });
     /// ```
-    pub const fn ok_untrusted() -> Self {
-        Self {
-            response_base: ResponseBase::ok_untrusted(),
-            credits: 0,
-            top_hash: String::new(),
-        }
-    }
+    pub const OK_UNTRUSTED: Self = Self {
+        response_base: ResponseBase::OK_UNTRUSTED,
+        credits: 0,
+        top_hash: String::new(),
+    };
 }
 
 #[cfg(feature = "epee")]

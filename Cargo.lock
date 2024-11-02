@@ -57,6 +57,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "86fdf8605db99b54d3cd748a44c6d04df638eb5dafb219b135d0149bd0db01f6"
 
 [[package]]
+name = "arrayref"
+version = "0.3.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76a2e8124351fda1ef8aaaa3bbd7ebbcb486bbcd4225aca0aa0d84bb2db8fecb"
+
+[[package]]
+name = "arrayvec"
+version = "0.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
+
+[[package]]
 name = "assert-json-diff"
 version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -249,6 +261,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "blake3"
+version = "1.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d82033247fd8e890df8f740e407ad4d038debb9eb1f40533fffb32e7d17dc6f7"
+dependencies = [
+ "arrayref",
+ "arrayvec",
+ "cc",
+ "cfg-if",
+ "constant_time_eq",
+]
+
+[[package]]
 name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -412,6 +437,12 @@ dependencies = [
  "quote",
  "unicode-xid",
 ]
+
+[[package]]
+name = "constant_time_eq"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c74b8349d32d297c9134b8c88677813a227df8f779daa29bfc29c183fe3dca6"
 
 [[package]]
 name = "core-foundation"
@@ -585,6 +616,7 @@ name = "cuprate-consensus"
 version = "0.1.0"
 dependencies = [
  "cfg-if",
+ "cuprate-consensus-context",
  "cuprate-consensus-rules",
  "cuprate-helper",
  "cuprate-test-utils",
@@ -597,12 +629,30 @@ dependencies = [
  "proptest",
  "proptest-derive",
  "rand",
- "randomx-rs",
  "rayon",
  "thiserror",
  "thread_local",
  "tokio",
  "tokio-test",
+ "tower 0.5.1",
+ "tracing",
+]
+
+[[package]]
+name = "cuprate-consensus-context"
+version = "0.1.0"
+dependencies = [
+ "cuprate-consensus-rules",
+ "cuprate-helper",
+ "cuprate-types",
+ "futures",
+ "hex",
+ "monero-serai",
+ "randomx-rs",
+ "rayon",
+ "thiserror",
+ "thread_local",
+ "tokio",
  "tokio-util",
  "tower 0.5.1",
  "tracing",
@@ -714,6 +764,7 @@ dependencies = [
  "clap",
  "cuprate-blockchain",
  "cuprate-consensus",
+ "cuprate-consensus-context",
  "cuprate-consensus-rules",
  "cuprate-helper",
  "cuprate-types",
@@ -815,6 +866,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-p2p-bucket"
+version = "0.1.0"
+dependencies = [
+ "arrayvec",
+ "rand",
+]
+
+[[package]]
 name = "cuprate-p2p-core"
 version = "0.1.0"
 dependencies = [
@@ -824,6 +883,7 @@ dependencies = [
  "cuprate-helper",
  "cuprate-pruning",
  "cuprate-test-utils",
+ "cuprate-types",
  "cuprate-wire",
  "futures",
  "hex",
@@ -909,6 +969,7 @@ name = "cuprate-txpool"
 version = "0.0.0"
 dependencies = [
  "bitflags 2.6.0",
+ "blake3",
  "bytemuck",
  "cuprate-database",
  "cuprate-database-service",
@@ -943,6 +1004,7 @@ dependencies = [
  "proptest-derive",
  "serde",
  "serde_json",
+ "strum",
  "thiserror",
 ]
 
@@ -992,7 +1054,9 @@ dependencies = [
  "cuprate-async-buffer",
  "cuprate-blockchain",
  "cuprate-consensus",
+ "cuprate-consensus-context",
  "cuprate-consensus-rules",
+ "cuprate-constants",
  "cuprate-cryptonight",
  "cuprate-dandelion-tower",
  "cuprate-database",
@@ -2692,6 +2756,28 @@ source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414
 dependencies = [
  "hashbrown",
  "spin",
+]
+
+[[package]]
+name = "strum"
+version = "0.26.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
+dependencies = [
+ "strum_macros",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.26.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c6bee85a5a24955dc440386795aa378cd9cf82acd5f764469152d2270e581be"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.77",
 ]
 
 [[package]]

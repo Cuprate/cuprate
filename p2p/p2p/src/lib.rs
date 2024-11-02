@@ -18,7 +18,7 @@ use cuprate_p2p_core::{
 
 pub mod block_downloader;
 mod broadcast;
-mod client_pool;
+pub mod client_pool;
 pub mod config;
 pub mod connection_maintainer;
 pub mod constants;
@@ -26,6 +26,7 @@ mod inbound_server;
 
 use block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse};
 pub use broadcast::{BroadcastRequest, BroadcastSvc};
+pub use client_pool::{ClientPool, ClientPoolDropGuard};
 pub use config::{AddressBookConfig, P2PConfig};
 use connection_maintainer::MakeConnectionRequest;
 
@@ -82,7 +83,7 @@ where
 
     let outbound_handshaker = outbound_handshaker_builder.build();
 
-    let client_pool = client_pool::ClientPool::new();
+    let client_pool = ClientPool::new();
 
     let (make_connection_tx, make_connection_rx) = mpsc::channel(3);
 
@@ -132,7 +133,7 @@ where
 #[derive(Clone)]
 pub struct NetworkInterface<N: NetworkZone> {
     /// A pool of free connected peers.
-    pool: Arc<client_pool::ClientPool<N>>,
+    pool: Arc<ClientPool<N>>,
     /// A [`Service`] that allows broadcasting to all connected peers.
     broadcast_svc: BroadcastSvc<N>,
     /// A channel to request extra connections.
@@ -173,7 +174,7 @@ impl<N: NetworkZone> NetworkInterface<N> {
     }
 
     /// Borrows the `ClientPool`, for access to connected peers.
-    pub const fn client_pool(&self) -> &Arc<client_pool::ClientPool<N>> {
+    pub const fn client_pool(&self) -> &Arc<ClientPool<N>> {
         &self.pool
     }
 }

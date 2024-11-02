@@ -5,6 +5,7 @@ members = [
 	"binaries/cuprated",
 	"constants",
 	"consensus",
+	"consensus/context",
 	"consensus/fast-sync",
 	"consensus/rules",
 	"cryptonight",
@@ -15,6 +16,7 @@ members = [
 	"net/wire",
 	"p2p/p2p",
 	"p2p/p2p-core",
+	"p2p/bucket",
 	"p2p/dandelion-tower",
 	"p2p/async-buffer",
 	"p2p/address-book",
@@ -50,9 +52,41 @@ opt-level     = 1
 opt-level = 3
 
 [workspace.dependencies]
+# Cuprate members
+cuprate-fast-sync           = { path = "consensus/fast-sync"    ,default-features = false}
+cuprate-consensus-rules     = { path = "consensus/rules"        ,default-features = false}
+cuprate-constants           = { path = "constants"              ,default-features = false}
+cuprate-consensus           = { path = "consensus"              ,default-features = false}
+cuprate-consensus-context   = { path = "consensus/context"      ,default-features = false}
+cuprate-cryptonight         = { path = "cryptonight"            ,default-features = false}
+cuprate-helper              = { path = "helper"                 ,default-features = false}
+cuprate-epee-encoding       = { path = "net/epee-encoding"      ,default-features = false}
+cuprate-fixed-bytes         = { path = "net/fixed-bytes"        ,default-features = false}
+cuprate-levin               = { path = "net/levin"              ,default-features = false}
+cuprate-wire                = { path = "net/wire"               ,default-features = false}
+cuprate-p2p                 = { path = "p2p/p2p"                ,default-features = false}
+cuprate-p2p-core            = { path = "p2p/p2p-core"           ,default-features = false}
+cuprate-p2p-bucket          = { path = "p2p/p2p-bucket"         ,default-features = false}
+cuprate-dandelion-tower     = { path = "p2p/dandelion-tower"    ,default-features = false}
+cuprate-async-buffer        = { path = "p2p/async-buffer"       ,default-features = false}
+cuprate-address-book        = { path = "p2p/address-book"       ,default-features = false}
+cuprate-blockchain          = { path = "storage/blockchain"     ,default-features = false}
+cuprate-database            = { path = "storage/database"       ,default-features = false}
+cuprate-database-service    = { path = "storage/service"        ,default-features = false}
+cuprate-txpool              = { path = "storage/txpool"         ,default-features = false}
+cuprate-pruning             = { path = "pruning"                ,default-features = false}
+cuprate-test-utils          = { path = "test-utils"             ,default-features = false}
+cuprate-types               = { path = "types"                  ,default-features = false}
+cuprate-json-rpc            = { path = "rpc/json-rpc"           ,default-features = false}
+cuprate-rpc-types           = { path = "rpc/types"              ,default-features = false}
+cuprate-rpc-interface       = { path = "rpc/interface"          ,default-features = false}
+
+# External dependencies
 anyhow                = { version = "1.0.89", default-features = false }
+arrayvec              = { version = "0.7", default-features = false }
 async-trait           = { version = "0.1.82", default-features = false }
 bitflags              = { version = "2.6.0", default-features = false }
+blake3                = { version = "1", default-features = false }
 borsh                 = { version = "1.5.1", default-features = false }
 bytemuck              = { version = "1.18.0", default-features = false }
 bytes                 = { version = "1.7.2", default-features = false }
@@ -79,6 +113,7 @@ rayon                 = { version = "1.10.0", default-features = false }
 serde_bytes           = { version = "0.11.15", default-features = false }
 serde_json            = { version = "1.0.128", default-features = false }
 serde                 = { version = "1.0.210", default-features = false }
+strum                 = { version = "0.26.3", default-features = false }
 thiserror             = { version = "1.0.63", default-features = false }
 thread_local          = { version = "1.1.8", default-features = false }
 tokio-util            = { version = "0.7.12", default-features = false }

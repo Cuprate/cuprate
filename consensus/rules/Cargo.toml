@@ -11,10 +11,10 @@ proptest = ["cuprate-types/proptest"]
 rayon = ["dep:rayon"]
 
 [dependencies]
-cuprate-constants = { path = "../../constants", default-features = false }
-cuprate-helper = { path = "../../helper", default-features = false, features = ["std", "cast"] }
-cuprate-types = { path = "../../types", default-features = false }
-cuprate-cryptonight = {path = "../../cryptonight"}
+cuprate-constants   = { workspace = true, default-features = false, features = ["block"] }
+cuprate-helper      = { workspace = true, default-features = false, features = ["std", "cast"] }
+cuprate-types       = { workspace = true, default-features = false }
+cuprate-cryptonight = { workspace = true }
 
 monero-serai = { workspace = true, features = ["std"] }
 curve25519-dalek = { workspace = true, features = ["alloc", "zeroize", "precomputed-tables"] }

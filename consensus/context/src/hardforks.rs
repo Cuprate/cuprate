@@ -9,7 +9,7 @@ use cuprate_types::{
     Chain,
 };
 
-use crate::{Database, ExtendedConsensusError};
+use crate::{ContextCacheError, Database};
 
 /// The default amount of hard-fork votes to track to decide on activation of a hard-fork.
 ///
@@ -21,9 +21,9 @@ const DEFAULT_WINDOW_SIZE: usize = 10080; // supermajority window check length -
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct HardForkConfig {
     /// The network we are on.
-    pub(crate) info: HFsInfo,
+    pub info: HFsInfo,
     /// The amount of votes we are taking into account to decide on a fork activation.
-    pub(crate) window: usize,
+    pub window: usize,
 }
 
 impl HardForkConfig {
@@ -54,17 +54,17 @@ impl HardForkConfig {
 
 /// A struct that keeps track of the current hard-fork and current votes.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) struct HardForkState {
+pub struct HardForkState {
     /// The current active hard-fork.
-    pub(crate) current_hardfork: HardFork,
+    pub current_hardfork: HardFork,
 
     /// The hard-fork config.
-    pub(crate) config: HardForkConfig,
+    pub config: HardForkConfig,
     /// The votes in the current window.
-    pub(crate) votes: HFVotes,
+    pub votes: HFVotes,
 
     /// The last block height accounted for.
-    pub(crate) last_height: usize,
+    pub last_height: usize,
 }
 
 impl HardForkState {
@@ -74,7 +74,7 @@ impl HardForkState {
         chain_height: usize,
         config: HardForkConfig,
         mut database: D,
-    ) -> Result<Self, ExtendedConsensusError> {
+    ) -> Result<Self, ContextCacheError> {
         tracing::info!("Initializing hard-fork state this may take a while.");
 
         let block_start = chain_height.saturating_sub(config.window);
@@ -122,11 +122,11 @@ impl HardForkState {
     /// # Invariant
     ///
     /// This _must_ only be used on a main-chain cache.
-    pub(crate) async fn pop_blocks_main_chain<D: Database + Clone>(
+    pub async fn pop_blocks_main_chain<D: Database + Clone>(
         &mut self,
         numb_blocks: usize,
         database: D,
-    ) -> Result<(), ExtendedConsensusError> {
+    ) -> Result<(), ContextCacheError> {
         let Some(retained_blocks) = self.votes.total_votes().checked_sub(self.config.window) else {
             *self = Self::init_from_chain_height(
                 self.last_height + 1 - numb_blocks,
@@ -159,7 +159,7 @@ impl HardForkState {
     }
 
     /// Add a new block to the cache.
-    pub(crate) fn new_block(&mut self, vote: HardFork, height: usize) {
+    pub fn new_block(&mut self, vote: HardFork, height: usize) {
         // We don't _need_ to take in `height` but it's for safety, so we don't silently loose track
         // of blocks.
         assert_eq!(self.last_height + 1, height);
@@ -194,7 +194,7 @@ impl HardForkState {
     }
 
     /// Returns the current hard-fork.
-    pub(crate) const fn current_hardfork(&self) -> HardFork {
+    pub const fn current_hardfork(&self) -> HardFork {
         self.current_hardfork
     }
 }
@@ -205,7 +205,7 @@ async fn get_votes_in_range<D: Database>(
     database: D,
     block_heights: Range<usize>,
     window_size: usize,
-) -> Result<HFVotes, ExtendedConsensusError> {
+) -> Result<HFVotes, ContextCacheError> {
     let mut votes = HFVotes::new(window_size);
 
     let BlockchainResponse::BlockExtendedHeaderInRange(vote_list) = database

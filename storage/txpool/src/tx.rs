@@ -5,6 +5,8 @@
 /// Used in [`TxpoolReadResponse::Backlog`](crate::service::interface::TxpoolReadResponse::Backlog).
 #[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct TxEntry {
+    /// The transaction's ID (hash).
+    pub id: [u8; 32],
     /// The transaction's weight.
     pub weight: u64,
     /// The transaction's fee.

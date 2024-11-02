@@ -7,9 +7,9 @@ authors = ["Boog900"]
 
 
 [dependencies]
-cuprate-constants = { path = "../../constants" }
-cuprate-pruning = { path = "../../pruning" }
-cuprate-p2p-core = { path = "../p2p-core" }
+cuprate-constants   = { workspace = true }
+cuprate-pruning     = { workspace = true }
+cuprate-p2p-core    = { workspace = true, features = ["borsh"] }
 
 tower = { workspace = true, features = ["util"] }
 tokio = { workspace = true, features = ["time", "fs", "rt"]}
@@ -26,7 +26,7 @@ rand = { workspace = true, features = ["std", "std_rng"] }
 borsh = { workspace = true, features = ["derive", "std"]}
 
 [dev-dependencies]
-cuprate-test-utils = {path = "../../test-utils"}
+cuprate-test-utils = { workspace = true }
 
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"]}
 

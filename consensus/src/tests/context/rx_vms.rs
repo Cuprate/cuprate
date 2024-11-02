@@ -3,15 +3,13 @@ use std::collections::VecDeque;
 use proptest::prelude::*;
 use tokio::runtime::Builder;
 
+use cuprate_consensus_context::rx_vms::{get_last_rx_seed_heights, RandomXVmCache};
 use cuprate_consensus_rules::{
     blocks::{is_randomx_seed_height, randomx_seed_height},
     HardFork,
 };
 
-use crate::{
-    context::rx_vms::{get_last_rx_seed_heights, RandomXVmCache},
-    tests::mock_db::*,
-};
+use crate::tests::mock_db::*;
 
 #[test]
 fn rx_heights_consistent() {
