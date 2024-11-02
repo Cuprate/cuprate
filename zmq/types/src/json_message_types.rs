@@ -31,7 +31,7 @@ pub struct TxPoolAdd {
     #[serde(with = "hex::serde")]
     pub extra: Vec<u8>,
     /// obsolete, empty array in JSON
-    signatures: Vec<Obsolete>,
+    signatures: [Obsolete; 0],
     /// ring confidential transaction data
     pub ringct: PoolRingCt,
 }
@@ -199,14 +199,14 @@ pub struct Encrypted {
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Prunable {
     /// obsolete, empty array in JSON
-    range_proofs: Vec<Obsolete>,
+    range_proofs: [Obsolete; 0],
     /// obsolete, empty array in JSON
-    bulletproofs: Vec<Obsolete>,
+    bulletproofs: [Obsolete; 0],
     /// Bulletproofs+ data used to validate a Ring CT transaction; at the
     /// current time this array always has exactly one element
     pub bulletproofs_plus: Vec<BulletproofPlus>,
     /// obsolete, empty array in JSON
-    mlsags: Vec<Obsolete>,
+    mlsags: [Obsolete; 0],
     /// CLSAG signatures; 1 per transaction input
     pub clsags: Vec<Clsag>,
     /// Ring CT pseudo output commitments; 1 per transaction input (*not*
@@ -261,7 +261,7 @@ pub struct MinerTx {
     #[serde(with = "hex::serde")]
     pub extra: Vec<u8>,
     /// obsolete, empty array in JSON
-    signatures: Vec<Obsolete>,
+    signatures: [Obsolete; 0],
     /// only for JSON compatibility; miners' don't use Ring CT
     ringct: MinerRingCt,
 }
