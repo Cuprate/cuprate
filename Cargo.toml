@@ -80,6 +80,7 @@ cuprate-types               = { path = "types"                  ,default-feature
 cuprate-json-rpc            = { path = "rpc/json-rpc"           ,default-features = false}
 cuprate-rpc-types           = { path = "rpc/types"              ,default-features = false}
 cuprate-rpc-interface       = { path = "rpc/interface"          ,default-features = false}
+cuprate-zmq-types           = { path = "zmq/types"              ,default-features = false}
 
 # External dependencies
 anyhow                = { version = "1.0.89", default-features = false }
