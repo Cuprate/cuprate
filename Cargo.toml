@@ -16,6 +16,7 @@ members = [
 	"net/wire",
 	"p2p/p2p",
 	"p2p/p2p-core",
+	"p2p/bucket",
 	"p2p/dandelion-tower",
 	"p2p/async-buffer",
 	"p2p/address-book",
@@ -64,6 +65,7 @@ cuprate-levin               = { path = "net/levin"              ,default-feature
 cuprate-wire                = { path = "net/wire"               ,default-features = false}
 cuprate-p2p                 = { path = "p2p/p2p"                ,default-features = false}
 cuprate-p2p-core            = { path = "p2p/p2p-core"           ,default-features = false}
+cuprate-p2p-bucket          = { path = "p2p/p2p-bucket"         ,default-features = false}
 cuprate-dandelion-tower     = { path = "p2p/dandelion-tower"    ,default-features = false}
 cuprate-async-buffer        = { path = "p2p/async-buffer"       ,default-features = false}
 cuprate-address-book        = { path = "p2p/address-book"       ,default-features = false}
@@ -80,6 +82,7 @@ cuprate-rpc-interface       = { path = "rpc/interface"          ,default-feature
 
 # External dependencies
 anyhow                = { version = "1.0.89", default-features = false }
+arrayvec              = { version = "0.7", default-features = false }
 async-trait           = { version = "0.1.82", default-features = false }
 bitflags              = { version = "2.6.0", default-features = false }
 blake3                = { version = "1", default-features = false }
