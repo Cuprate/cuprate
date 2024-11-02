@@ -6,7 +6,7 @@ use cuprate_wire::{CoreSyncData, PeerListEntryBase};
 use crate::{
     client::InternalPeerID,
     handles::ConnectionHandle,
-    types::{BanState, ConnectionInfo, SetBan, Span},
+    types::{BanState, ConnectionInfo, SetBan},
     NetZoneAddress, NetworkAddressIncorrectZone, NetworkZone,
 };
 
@@ -133,12 +133,6 @@ pub enum AddressBookRequest<Z: NetworkZone> {
     /// Get the state of all bans.
     GetBans,
 
-    /// Get [`Span`] data.
-    ///
-    /// This is data that describes an active downloading process,
-    /// if we are fully synced, this will return an empty [`Vec`].
-    Spans,
-
     /// Get the next [`PruningSeed`] needed for a pruned sync.
     NextNeededPruningSeed,
 }
@@ -178,9 +172,6 @@ pub enum AddressBookResponse<Z: NetworkZone> {
 
     /// Response to [`AddressBookRequest::GetBans`].
     GetBans(Vec<BanState<Z::Addr>>),
-
-    /// Response to [`AddressBookRequest::Spans`].
-    Spans(Vec<Span<Z::Addr>>),
 
     /// Response to [`AddressBookRequest::NextNeededPruningSeed`].
     NextNeededPruningSeed(PruningSeed),

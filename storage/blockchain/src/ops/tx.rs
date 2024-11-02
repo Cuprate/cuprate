@@ -2,10 +2,10 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
-use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, Scalar};
 use monero_serai::transaction::{Input, Timelock, Transaction};
 
 use cuprate_database::{DatabaseRo, DatabaseRw, RuntimeError, StorableVec};
+use cuprate_helper::crypto::compute_zero_commitment;
 
 use crate::{
     ops::{
@@ -136,12 +136,9 @@ pub fn add_tx(
             .enumerate()
             .map(|(i, output)| {
                 // Create commitment.
-                // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1559489302>
-                // FIXME: implement lookup table for common values:
-                // <https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/ringct/rctOps.cpp#L322>
+
                 let commitment = if miner_tx {
-                    ED25519_BASEPOINT_POINT
-                        + *monero_serai::generators::H * Scalar::from(output.amount.unwrap_or(0))
+                    compute_zero_commitment(output.amount.unwrap_or(0))
                 } else {
                     proofs
                         .as_ref()

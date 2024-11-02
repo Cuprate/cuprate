@@ -16,7 +16,8 @@ cargo doc --open --package cuprate-blockchain
 | Crate | In-tree path | Purpose |
 |-------|--------------|---------|
 | [`cuprate-consensus`](https://doc.cuprate.org/cuprate_consensus) | [`consensus/`](https://github.com/Cuprate/cuprate/tree/main/consensus) | TODO
-| [`cuprate-consensus-rules`](https://doc.cuprate.org/cuprate_consensus_rules) | [`consensus/rules/`](https://github.com/Cuprate/cuprate/tree/main/consensus-rules) | TODO
+| [`cuprate-consensus-context`](https://doc.cuprate.org/cuprate_consensus_context) | [`consensus/context/`](https://github.com/Cuprate/cuprate/tree/main/consensus/context) | TODO
+| [`cuprate-consensus-rules`](https://doc.cuprate.org/cuprate_consensus_rules) | [`consensus/rules/`](https://github.com/Cuprate/cuprate/tree/main/consensus/rules) | TODO
 | [`cuprate-fast-sync`](https://doc.cuprate.org/cuprate_fast_sync) | [`consensus/fast-sync/`](https://github.com/Cuprate/cuprate/tree/main/consensus/fast-sync) | Fast block synchronization
 
 ## Networking

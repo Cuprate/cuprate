@@ -1,12 +1,13 @@
 //! Output functions.
 
 //---------------------------------------------------------------------------------------------------- Import
-use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY, Scalar};
-use monero_serai::{generators::H, transaction::Timelock};
+use curve25519_dalek::edwards::CompressedEdwardsY;
+use monero_serai::transaction::Timelock;
 
 use cuprate_database::{
     RuntimeError, {DatabaseRo, DatabaseRw},
 };
+use cuprate_helper::crypto::compute_zero_commitment;
 use cuprate_helper::map::u64_to_timelock;
 use cuprate_types::OutputOnChain;
 
@@ -155,9 +156,7 @@ pub fn output_to_output_on_chain(
     amount: Amount,
     table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
 ) -> Result<OutputOnChain, RuntimeError> {
-    // FIXME: implement lookup table for common values:
-    // <https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/ringct/rctOps.cpp#L322>
-    let commitment = ED25519_BASEPOINT_POINT + *H * Scalar::from(amount);
+    let commitment = compute_zero_commitment(amount);
 
     let time_lock = if output
         .output_flags

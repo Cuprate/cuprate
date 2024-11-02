@@ -8,7 +8,6 @@
 use std::sync::Arc;
 
 use anyhow::{anyhow, Error};
-use cuprate_rpc_types::misc::{BlockHeader, KeyImageSpentStatus};
 use futures::StreamExt;
 use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
@@ -19,6 +18,7 @@ use cuprate_helper::{
     cast::{u64_to_usize, usize_to_u64},
     map::split_u128_into_low_high_bits,
 };
+use cuprate_rpc_types::misc::{BlockHeader, KeyImageSpentStatus};
 use cuprate_types::{
     blockchain::BlockchainReadRequest, Chain, ExtendedBlockHeader, VerifiedBlockInformation,
 };

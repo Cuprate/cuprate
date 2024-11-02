@@ -4,7 +4,6 @@ use std::{
 };
 
 use anyhow::{anyhow, Error};
-use cuprate_p2p_core::{client::handshaker::builder::DummyAddressBook, ClearNet};
 use futures::TryFutureExt;
 use monero_serai::block::Block;
 use strum::{EnumCount, VariantArray};
@@ -19,6 +18,7 @@ use cuprate_helper::{
     cast::{u64_to_usize, usize_to_u64},
     map::split_u128_into_low_high_bits,
 };
+use cuprate_p2p_core::{client::handshaker::builder::DummyAddressBook, ClearNet};
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
     base::{AccessResponseBase, ResponseBase},
@@ -784,12 +784,16 @@ async fn sync_info(
         .map(|info| SyncInfoPeer { info })
         .collect();
 
-    let next_needed_pruning_seed =
-        address_book::next_needed_pruning_seed::<ClearNet>(&mut DummyAddressBook)
-            .await?
-            .compress();
-    let overview = blockchain_manager::overview(&mut state.blockchain_manager, height).await?;
-    let spans = address_book::spans::<ClearNet>(&mut DummyAddressBook).await?;
+    // TODO
+    // let next_needed_pruning_seed =
+    //     address_book::next_needed_pruning_seed::<ClearNet>(&mut DummyAddressBook)
+    //         .await?
+    //         .compress();
+    // let overview = blockchain_manager::overview(&mut state.blockchain_manager, height).await?;
+    // let spans = address_book::spans::<ClearNet>(&mut DummyAddressBook).await?;
+    let next_needed_pruning_seed = todo!();
+    let overview = todo!();
+    let spans = todo!();
 
     Ok(SyncInfoResponse {
         base: AccessResponseBase::OK,
@@ -837,15 +841,16 @@ async fn get_miner_data(
     let difficulty = format!("{:#x}", context.next_difficulty);
     let median_weight = usize_to_u64(context.median_weight_for_block_reward);
     let already_generated_coins = context.already_generated_coins;
-    let tx_backlog = txpool::block_template_backlog(&mut state.txpool_read)
-        .await?
-        .into_iter()
-        .map(|entry| GetMinerDataTxBacklogEntry {
-            id: hex::encode(entry.id),
-            weight: entry.weight,
-            fee: entry.fee,
-        })
-        .collect();
+    let tx_backlog = todo!();
+    // let tx_backlog = txpool::block_template_backlog(&mut state.txpool_read)
+    //     .await?
+    //     .into_iter()
+    //     .map(|entry| GetMinerDataTxBacklogEntry {
+    //         id: hex::encode(entry.id),
+    //         weight: entry.weight,
+    //         fee: entry.fee,
+    //     })
+    //     .collect();
 
     Ok(GetMinerDataResponse {
         base: ResponseBase::OK,
@@ -887,16 +892,18 @@ async fn calc_pow(
     let block = Block::read(&mut block_blob.as_slice())?;
     let seed_hash = helper::hex_to_hash(request.seed_hash)?;
 
-    let pow_hash = blockchain_manager::calculate_pow(
-        &mut state.blockchain_manager,
-        hardfork,
-        request.height,
-        block,
-        seed_hash,
-    )
-    .await?;
+    // let pow_hash = blockchain_manager::calculate_pow(
+    //     &mut state.blockchain_manager,
+    //     hardfork,
+    //     request.height,
+    //     block,
+    //     seed_hash,
+    // )
+    // .await?;
 
-    let hex = hex::encode(pow_hash);
+    // let hex = hex::encode(pow_hash);
+
+    let hex = todo!();
 
     Ok(CalcPowResponse { pow_hash: hex })
 }
@@ -931,9 +938,10 @@ async fn add_aux_pow(
         })
         .collect::<Result<Vec<_>, Error>>()?;
 
-    let resp =
-        blockchain_manager::add_aux_pow(&mut state.blockchain_manager, block_template, aux_pow)
-            .await?;
+    let resp = todo!();
+    // let resp =
+    //     blockchain_manager::add_aux_pow(&mut state.blockchain_manager, block_template, aux_pow)
+    //         .await?;
 
     let blocktemplate_blob = hex::encode(resp.blocktemplate_blob);
     let blockhashing_blob = hex::encode(resp.blockhashing_blob);

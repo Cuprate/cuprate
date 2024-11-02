@@ -6,7 +6,6 @@
 //!
 //! <!-- FIXME: Add schema here or a link to it when complete -->
 use bytemuck::{Pod, Zeroable};
-
 use monero_serai::transaction::Timelock;
 
 use cuprate_types::{CachedVerificationState, HardFork};
@@ -16,6 +15,9 @@ pub type KeyImage = [u8; 32];
 
 /// A transaction hash.
 pub type TransactionHash = [u8; 32];
+
+/// A transaction blob hash.
+pub type TransactionBlobHash = [u8; 32];
 
 bitflags::bitflags! {
     /// Flags representing the state of the transaction in the pool.

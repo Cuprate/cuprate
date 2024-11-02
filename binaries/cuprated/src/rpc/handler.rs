@@ -57,33 +57,6 @@ pub enum BlockchainManagerRequest {
     /// The height of the next block in the chain.
     TargetHeight,
 
-    /// Calculate proof-of-work for this block.
-    CalculatePow {
-        /// The hardfork of the protocol at this block height.
-        hardfork: HardFork,
-        /// The height of the block.
-        height: usize,
-        /// The block data.
-        block: Block,
-        /// The seed hash for the proof-of-work.
-        seed_hash: [u8; 32],
-    },
-
-    /// Add auxirilly proof-of-work to a block.
-    ///
-    /// From the RPC `add_aux_pow` usecase's documentation:
-    /// ````
-    /// This enables merge mining with Monero without requiring
-    /// software that manually alters the extra field in the coinbase
-    /// tx to include the merkle root of the aux blocks.
-    /// ````
-    AddAuxPow {
-        /// The block template to add to.
-        block_template: Block,
-        /// The auxirilly proof-of-work to add.
-        aux_pow: Vec<AuxPow>,
-    },
-
     /// Generate new blocks.
     ///
     /// This request is only for regtest, see RPC's `generateblocks`.
@@ -98,19 +71,17 @@ pub enum BlockchainManagerRequest {
         wallet_address: String,
     },
 
-    /// Get a visual [`String`] overview of blockchain progress.
-    ///
-    /// This is a highly implementation specific format used by
-    /// `monerod` in the `sync_info` RPC call's `overview` field;
-    /// it is essentially an ASCII visual of blocks.
-    ///
-    /// See also:
-    /// - <https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#sync_info>
-    /// - <https://github.com/monero-project/monero/blob/master/src/cryptonote_protocol/block_queue.cpp#L178>
-    Overview {
-        /// TODO: the current blockchain height? do we need to pass this?
-        height: usize,
-    },
+    //    // TODO: the below requests actually belong to the block downloader/syncer:
+    //    // <https://github.com/Cuprate/cuprate/pull/320#discussion_r1811089758>
+    //    /// Get [`Span`] data.
+    //    ///
+    //    /// This is data that describes an active downloading process,
+    //    /// if we are fully synced, this will return an empty [`Vec`].
+    //    Spans,
+
+    //
+    /// Get the next [`PruningSeed`] needed for a pruned sync.
+    NextNeededPruningSeed,
 }
 
 /// TODO: use real type when public.
@@ -144,12 +115,6 @@ pub enum BlockchainManagerResponse {
     /// Response to [`BlockchainManagerRequest::TargetHeight`]
     TargetHeight { height: usize },
 
-    /// Response to [`BlockchainManagerRequest::CalculatePow`]
-    CalculatePow([u8; 32]),
-
-    /// Response to [`BlockchainManagerRequest::AddAuxPow`]
-    AddAuxPow(AddAuxPow),
-
     /// Response to [`BlockchainManagerRequest::GenerateBlocks`]
     GenerateBlocks {
         /// Hashes of the blocks generated.
@@ -158,8 +123,10 @@ pub enum BlockchainManagerResponse {
         height: usize,
     },
 
-    /// Response to [`BlockchainManagerRequest::Overview`]
-    Overview(String),
+    //    /// Response to [`BlockchainManagerRequest::Spans`].
+    //    Spans(Vec<Span<Z::Addr>>),
+    /// Response to [`BlockchainManagerRequest::NextNeededPruningSeed`].
+    NextNeededPruningSeed(PruningSeed),
 }
 
 /// TODO: use real type when public.

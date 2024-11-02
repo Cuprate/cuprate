@@ -3,16 +3,20 @@
 use std::convert::Infallible;
 
 use anyhow::{anyhow, Error};
-use cuprate_pruning::PruningSeed;
-use cuprate_rpc_types::misc::{ConnectionInfo, Span};
 use tower::ServiceExt;
 
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p_core::{
     services::{AddressBookRequest, AddressBookResponse},
-    types::BanState,
+    types::{BanState, ConnectionId},
     AddressBook, NetworkZone,
 };
+use cuprate_pruning::PruningSeed;
+use cuprate_rpc_types::misc::{ConnectionInfo, Span};
+
+use crate::rpc::constants::FIELD_NOT_SUPPORTED;
+
+// FIXME: use `anyhow::Error` over `tower::BoxError` in address book.
 
 // FIXME: use `anyhow::Error` over `tower::BoxError` in address book.
 
@@ -53,34 +57,28 @@ pub(crate) async fn connection_info<Z: NetworkZone>(
     let vec = vec
         .into_iter()
         .map(|info| {
-            use cuprate_p2p_core::types::AddressType as A1;
-            use cuprate_rpc_types::misc::AddressType as A2;
-
-            let address_type = match info.address_type {
-                A1::Invalid => A2::Invalid,
-                A1::Ipv4 => A2::Ipv4,
-                A1::Ipv6 => A2::Ipv6,
-                A1::I2p => A2::I2p,
-                A1::Tor => A2::Tor,
+            let (ip, port) = match info.socket_addr {
+                Some(socket) => (socket.ip().to_string(), socket.port().to_string()),
+                None => (String::new(), String::new()),
             };
 
             ConnectionInfo {
                 address: info.address.to_string(),
-                address_type,
+                address_type: info.address_type,
                 avg_download: info.avg_download,
                 avg_upload: info.avg_upload,
-                connection_id: hex::encode(info.connection_id.to_ne_bytes()),
+                connection_id: String::from(ConnectionId::DEFAULT_STR),
                 current_download: info.current_download,
                 current_upload: info.current_upload,
                 height: info.height,
                 host: info.host,
                 incoming: info.incoming,
-                ip: info.ip,
+                ip,
                 live_time: info.live_time,
                 localhost: info.localhost,
                 local_ip: info.local_ip,
-                peer_id: info.peer_id,
-                port: info.port,
+                peer_id: hex::encode(info.peer_id.to_ne_bytes()),
+                port,
                 pruning_seed: info.pruning_seed.compress(),
                 recv_count: info.recv_count,
                 recv_idle_time: info.recv_idle_time,
@@ -169,54 +167,4 @@ pub(crate) async fn get_bans<Z: NetworkZone>(
     };
 
     Ok(bans)
-}
-
-/// [`AddressBookRequest::Spans`]
-pub(crate) async fn spans<Z: NetworkZone>(
-    address_book: &mut impl AddressBook<Z>,
-) -> Result<Vec<Span>, Error> {
-    let AddressBookResponse::Spans(vec) = address_book
-        .ready()
-        .await
-        .map_err(|e| anyhow!(e))?
-        .call(AddressBookRequest::Spans)
-        .await
-        .map_err(|e| anyhow!(e))?
-    else {
-        unreachable!();
-    };
-
-    // FIXME: impl this map somewhere instead of inline.
-    let vec = vec
-        .into_iter()
-        .map(|span| Span {
-            connection_id: hex::encode(span.connection_id.to_ne_bytes()),
-            nblocks: span.nblocks,
-            rate: span.rate,
-            remote_address: span.remote_address.to_string(),
-            size: span.size,
-            speed: span.speed,
-            start_block_height: span.start_block_height,
-        })
-        .collect();
-
-    Ok(vec)
-}
-
-/// [`AddressBookRequest::NextNeededPruningSeed`]
-pub(crate) async fn next_needed_pruning_seed<Z: NetworkZone>(
-    address_book: &mut impl AddressBook<Z>,
-) -> Result<PruningSeed, Error> {
-    let AddressBookResponse::NextNeededPruningSeed(seed) = address_book
-        .ready()
-        .await
-        .map_err(|e| anyhow!(e))?
-        .call(AddressBookRequest::NextNeededPruningSeed)
-        .await
-        .map_err(|e| anyhow!(e))?
-    else {
-        unreachable!();
-    };
-
-    Ok(seed)
 }

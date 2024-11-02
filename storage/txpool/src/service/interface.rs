@@ -1,32 +1,38 @@
 //! Tx-pool [`service`](super) interface.
 //!
 //! This module contains `cuprate_txpool`'s [`tower::Service`] request and response enums.
-use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use cuprate_types::TransactionVerificationData;
 
 use crate::{
-    tx::{BlockTemplateTxEntry, TxEntry},
-    types::TransactionHash,
+    tx::TxEntry,
+    types::{KeyImage, TransactionBlobHash, TransactionHash},
 };
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadRequest
 /// The transaction pool [`tower::Service`] read request type.
+#[derive(Clone)]
 pub enum TxpoolReadRequest {
-    /// A request for the blob (raw bytes) of a transaction with the given hash.
+    /// Get the blob (raw bytes) of a transaction with the given hash.
     TxBlob(TransactionHash),
 
-    /// A request for the [`TransactionVerificationData`] of a transaction in the tx pool.
+    /// Get the [`TransactionVerificationData`] of a transaction in the tx pool.
     TxVerificationData(TransactionHash),
+
+    /// Filter (remove) all **known** transactions from the set.
+    ///
+    /// The hash is **not** the transaction hash, it is the hash of the serialized tx-blob.
+    FilterKnownTxBlobHashes(HashSet<TransactionBlobHash>),
+
+    /// Get some transactions for an incoming block.
+    TxsForBlock(Vec<TransactionHash>),
 
     /// Get information on all transactions in the pool.
     Backlog,
-
-    /// Get information on all transactions in
-    /// the pool for block template purposes.
-    ///
-    /// This is only slightly different to [`TxpoolReadRequest::Backlog`].
-    BlockTemplateBacklog,
 
     /// Get the number of transactions in the pool.
     Size {
@@ -40,25 +46,33 @@ pub enum TxpoolReadRequest {
 /// The transaction pool [`tower::Service`] read response type.
 #[expect(clippy::large_enum_variant)]
 pub enum TxpoolReadResponse {
-    /// Response to [`TxpoolReadRequest::TxBlob`].
-    ///
-    /// The inner value is the raw bytes of a transaction.
-    // TODO: use bytes::Bytes.
-    TxBlob(Vec<u8>),
+    /// The response for [`TxpoolReadRequest::TxBlob`].
+    TxBlob { tx_blob: Vec<u8>, state_stem: bool },
 
-    /// Response to [`TxpoolReadRequest::TxVerificationData`].
+    /// The response for [`TxpoolReadRequest::TxVerificationData`].
     TxVerificationData(TransactionVerificationData),
+
+    /// The response for [`TxpoolReadRequest::FilterKnownTxBlobHashes`].
+    FilterKnownTxBlobHashes {
+        /// The blob hashes that are unknown.
+        unknown_blob_hashes: HashSet<TransactionBlobHash>,
+        /// The tx hashes of the blob hashes that were known but were in the stem pool.
+        stem_pool_hashes: Vec<TransactionHash>,
+    },
+
+    /// The response for [`TxpoolReadRequest::TxsForBlock`].
+    TxsForBlock {
+        /// The txs we had in the txpool.
+        txs: HashMap<[u8; 32], TransactionVerificationData>,
+        /// The indexes of the missing txs.
+        missing: Vec<usize>,
+    },
 
     /// Response to [`TxpoolReadRequest::Backlog`].
     ///
     /// The inner [`Vec`] contains information on all
     /// the transactions currently in the pool.
     Backlog(Vec<TxEntry>),
-
-    /// Response to [`TxpoolReadRequest::BlockTemplateBacklog`].
-    ///
-    /// The inner [`Vec`] contains information on transactions
-    BlockTemplateBacklog(Vec<BlockTemplateTxEntry>),
 
     /// Response to [`TxpoolReadRequest::Size`].
     ///
@@ -84,9 +98,17 @@ pub enum TxpoolWriteRequest {
     },
 
     /// Remove a transaction with the given hash from the pool.
-    ///
-    /// Returns [`TxpoolWriteResponse::Ok`].
     RemoveTransaction(TransactionHash),
+
+    /// Promote a transaction from the stem pool to the fluff pool.
+    /// If the tx is already in the fluff pool this does nothing.
+    Promote(TransactionHash),
+
+    /// Tell the tx-pool about a new block.
+    NewBlock {
+        /// The spent key images in the new block.
+        spent_key_images: Vec<KeyImage>,
+    },
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteResponse
@@ -95,6 +117,8 @@ pub enum TxpoolWriteRequest {
 pub enum TxpoolWriteResponse {
     /// Response to:
     /// - [`TxpoolWriteRequest::RemoveTransaction`]
+    /// - [`TxpoolWriteRequest::Promote`]
+    /// - [`TxpoolWriteRequest::NewBlock`]
     Ok,
 
     /// Response to [`TxpoolWriteRequest::AddTransaction`].

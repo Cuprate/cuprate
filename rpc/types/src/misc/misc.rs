@@ -11,10 +11,10 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::epee_object;
 
-use crate::{
-    defaults::{default_string, default_zero},
-    macros::monero_definition_link,
-};
+use crate::macros::monero_definition_link;
+
+#[cfg(any(feature = "epee", feature = "serde"))]
+use crate::defaults::default_zero;
 
 //---------------------------------------------------------------------------------------------------- Macros
 /// This macro (local to this file) defines all the misc types.
@@ -110,7 +110,7 @@ define_struct_and_impl_epee! {
     /// Used in [`crate::json::GetConnectionsResponse`].
     ConnectionInfo {
         address: String,
-        address_type: crate::misc::AddressType,
+        address_type: cuprate_types::AddressType,
         avg_download: u64,
         avg_upload: u64,
         connection_id: String,
@@ -135,7 +135,7 @@ define_struct_and_impl_epee! {
         // Exists in the original definition, but isn't
         // used or (de)serialized for RPC purposes.
         // ssl: bool,
-        state: String,
+        state: cuprate_types::ConnectionState,
         support_flags: u32,
     }
 }
@@ -148,7 +148,7 @@ define_struct_and_impl_epee! {
     )]
     /// Used in [`crate::json::SetBansRequest`].
     SetBan {
-        #[cfg_attr(feature = "serde", serde(default = "default_string"))]
+        #[cfg_attr(feature = "serde", serde(default = "crate::defaults::default_string"))]
         host: String,
         #[cfg_attr(feature = "serde", serde(default = "default_zero"))]
         ip: u32,

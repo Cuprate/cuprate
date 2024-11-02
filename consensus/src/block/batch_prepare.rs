@@ -5,6 +5,7 @@ use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
+use cuprate_consensus_context::rx_vms::RandomXVm;
 use cuprate_consensus_rules::{
     blocks::{check_block_pow, is_randomx_seed_height, randomx_seed_height, BlockError},
     hard_forks::HardForkError,
@@ -15,7 +16,6 @@ use cuprate_helper::asynch::rayon_spawn_async;
 
 use crate::{
     block::{free::pull_ordered_transactions, PreparedBlock, PreparedBlockExPow},
-    context::rx_vms::RandomXVm,
     transactions::new_tx_verification_data,
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
     VerifyBlockResponse,
