@@ -37,12 +37,15 @@ impl<N: NetworkZone> StoredClient<N> {
         }
     }
 
+    /*
     pub(super) fn stem_peer_guard(&self) -> ClientDropGuard<N> {
         ClientDropGuard {
             client: self.client.downgrade(),
             bool: Arc::clone(&self.stem_peer),
         }
     }
+
+     */
 }
 
 pub struct ClientDropGuard<N: NetworkZone> {

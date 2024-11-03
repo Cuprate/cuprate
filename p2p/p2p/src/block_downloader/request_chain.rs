@@ -1,4 +1,4 @@
-use std::{mem, sync::Arc};
+use std::mem;
 
 use tokio::{task::JoinSet, time::timeout};
 use tower::util::BoxCloneService;

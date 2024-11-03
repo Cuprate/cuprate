@@ -7,16 +7,6 @@ use std::{
     time::Duration,
 };
 
-use futures::{FutureExt, StreamExt};
-use indexmap::IndexMap;
-use monero_serai::{
-    block::{Block, BlockHeader},
-    transaction::{Input, Timelock, Transaction, TransactionPrefix},
-};
-use proptest::{collection::vec, prelude::*};
-use tokio::time::timeout;
-use tower::{service_fn, Service};
-
 use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_p2p_core::{
     client::{mock_client, Client, InternalPeerID, PeerInformation},
@@ -28,10 +18,21 @@ use cuprate_wire::{
     protocol::{ChainResponse, GetObjectsResponse},
     CoreSyncData,
 };
+use futures::{FutureExt, StreamExt};
+use indexmap::IndexMap;
+use monero_serai::{
+    block::{Block, BlockHeader},
+    transaction::{Input, Timelock, Transaction, TransactionPrefix},
+};
+use proptest::{collection::vec, prelude::*};
+use tokio::sync::mpsc;
+use tokio::time::timeout;
+use tower::buffer::Buffer;
+use tower::{service_fn, Service, ServiceExt};
 
 use crate::{
     block_downloader::{download_blocks, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
-    client_pool::ClientPool,
+    peer_set::PeerSet,
 };
 
 proptest! {
@@ -51,16 +52,18 @@ proptest! {
         #[expect(clippy::significant_drop_tightening)]
         tokio_pool.block_on(async move {
             timeout(Duration::from_secs(600), async move {
-                let client_pool = ClientPool::new();
+                let (new_connection_tx, new_connection_rx) = mpsc::channel(peers);
+
+                let peer_set = PeerSet::new(new_connection_rx);
 
                 for _ in 0..peers {
                     let client = mock_block_downloader_client(Arc::clone(&blockchain));
 
-                    client_pool.add_new_client(client);
+                    new_connection_tx.try_send(client).unwrap();
                 }
 
                 let stream = download_blocks(
-                    client_pool,
+                    Buffer::new(peer_set, 10).boxed_clone(),
                     OurChainSvc {
                         genesis: *blockchain.blocks.first().unwrap().0
                     },

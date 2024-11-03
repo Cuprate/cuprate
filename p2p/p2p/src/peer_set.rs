@@ -1,9 +1,7 @@
-use cuprate_p2p_core::client::{Client, InternalPeerID, WeakClient};
+use cuprate_p2p_core::client::{Client, InternalPeerID};
 use cuprate_p2p_core::NetworkZone;
 use indexmap::IndexMap;
 use std::future::{ready, Ready};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::sync::mpsc;
 use tower::Service;

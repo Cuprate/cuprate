@@ -8,7 +8,6 @@
 use std::{
     cmp::{max, min, Reverse},
     collections::{BTreeMap, BinaryHeap},
-    sync::Arc,
     time::Duration,
 };
 
