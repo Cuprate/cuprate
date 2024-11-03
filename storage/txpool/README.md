@@ -37,10 +37,6 @@ use cuprate_txpool::{
 This ensures the types/traits used from `cuprate_database` are the same ones used by `cuprate_txpool` internally.
 
 # Feature flags
-
-The `service` module requires the `service` feature to be enabled.
-See the module for more documentation.
-
 Different database backends are enabled by the feature flags:
 
 - `heed` (LMDB)
