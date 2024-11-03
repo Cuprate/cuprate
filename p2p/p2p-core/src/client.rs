@@ -29,9 +29,9 @@ mod request_handler;
 mod timeout_monitor;
 mod weak;
 
-use crate::client::weak::WeakClient;
 pub use connector::{ConnectRequest, Connector};
 pub use handshaker::{DoHandshakeRequest, HandshakeError, HandshakerBuilder};
+pub use weak::WeakClient;
 
 /// An internal identifier for a given peer, will be their address if known
 /// or a random u128 if not.
@@ -129,6 +129,12 @@ impl<Z: NetworkZone> Client<Z> {
             Err(e) => e.to_string(),
         }
         .into()
+    }
+
+    pub fn alive(&self) -> bool {
+        !(self.error.try_get_err().is_some()
+            || self.connection_handle.is_finished()
+            || self.timeout_handle.is_finished())
     }
 
     pub fn downgrade(&self) -> WeakClient<Z> {

@@ -2,7 +2,7 @@
 resolver = "2"
 
 members = [
-	"binaries/cuprated",
+	#"binaries/cuprated",
 	"constants",
 	"consensus",
 	"consensus/context",

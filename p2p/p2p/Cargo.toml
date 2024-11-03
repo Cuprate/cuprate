@@ -21,11 +21,10 @@ monero-serai = { workspace = true, features = ["std"] }
 tower = { workspace = true, features = ["buffer"] }
 tokio = { workspace = true, features = ["rt", "rt-multi-thread"] }
 rayon = { workspace = true }
-tokio-util = { workspace = true }
 tokio-stream = { workspace = true, features = ["sync", "time"] }
 futures = { workspace = true, features = ["std"] }
 pin-project = { workspace = true }
-dashmap = { workspace = true }
+indexmap = { workspace = true }
 
 thiserror = { workspace = true }
 bytes = { workspace = true, features = ["std"] }
