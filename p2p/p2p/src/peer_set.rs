@@ -1,38 +1,62 @@
-use cuprate_p2p_core::client::{Client, InternalPeerID};
-use cuprate_p2p_core::{ConnectionDirection, NetworkZone};
+use std::{
+    future::{ready, Ready},
+    task::{Context, Poll},
+};
+
 use indexmap::{IndexMap, IndexSet};
-use rand::seq::index;
-use rand::thread_rng;
-use std::future::{ready, Ready};
-use std::task::{Context, Poll};
+use rand::{seq::index, thread_rng};
 use tokio::sync::mpsc;
 use tower::Service;
+
+use cuprate_helper::cast::u64_to_usize;
+use cuprate_p2p_core::{
+    client::{Client, InternalPeerID},
+    ConnectionDirection, NetworkZone,
+};
 
 mod client_wrappers;
 
 pub use client_wrappers::ClientDropGuard;
 use client_wrappers::StoredClient;
-use cuprate_helper::cast::u64_to_usize;
 
+/// A request to the peer-set.
 pub enum PeerSetRequest {
+    /// The most claimed proof-of-work from a peer in the peer-set.
     MostPoWSeen,
+    /// Peers with more cumulative difficulty than the given cumulative difficulty.
+    ///
+    /// Returned peers will be remembered and won't be returned from subsequent calls until the guard is dropped.
     PeersWithMorePoW(u128),
+    /// A random outbound peer.
+    ///
+    /// The returned peer will be remembered and won't be returned from subsequent calls until the guard is dropped.
     StemPeer,
 }
 
+/// A response from the peer-set.
 pub enum PeerSetResponse<N: NetworkZone> {
+    /// [`PeerSetRequest::MostPoWSeen`]
     MostPoWSeen {
+        /// The cumulative difficulty claimed.
         cumulative_difficulty: u128,
+        /// The height claimed.
         height: usize,
+        /// The claimed hash of the top block.
         top_hash: [u8; 32],
     },
+    /// [`PeerSetRequest::PeersWithMorePoW`]
     PeersWithMorePoW(Vec<ClientDropGuard<N>>),
+    /// [`PeerSetRequest::StemPeer`]
     StemPeer(Option<ClientDropGuard<N>>),
 }
 
+/// A collection of all connected peers on a [`NetworkZone`].
 pub(crate) struct PeerSet<N: NetworkZone> {
+    /// The connected peers.
     peers: IndexMap<InternalPeerID<N::Addr>, StoredClient<N>>,
+    /// The [`InternalPeerID`]s of all outbound peers.
     outbound_peers: IndexSet<InternalPeerID<N::Addr>>,
+    /// A channel of new peers from the inbound server or outbound connector.
     new_peers: mpsc::Receiver<Client<N>>,
 }
 
@@ -45,6 +69,7 @@ impl<N: NetworkZone> PeerSet<N> {
         }
     }
 
+    /// Polls the new peers channel for newly connected peers.
     fn poll_new_peers(&mut self, cx: &mut Context<'_>) {
         while let Poll::Ready(Some(new_peer)) = self.new_peers.poll_recv(cx) {
             if new_peer.info.direction == ConnectionDirection::Outbound {
@@ -56,6 +81,7 @@ impl<N: NetworkZone> PeerSet<N> {
         }
     }
 
+    /// Remove disconnected peers from the peer set.
     fn remove_dead_peers(&mut self) {
         let mut i = 0;
         while i < self.peers.len() {
@@ -72,6 +98,7 @@ impl<N: NetworkZone> PeerSet<N> {
         }
     }
 
+    /// [`PeerSetRequest::MostPoWSeen`]
     fn most_pow_seen(&self) -> PeerSetResponse<N> {
         let mut most_pow_chain = (0, 0, [0; 32]);
 
@@ -94,6 +121,7 @@ impl<N: NetworkZone> PeerSet<N> {
         }
     }
 
+    /// [`PeerSetRequest::PeersWithMorePoW`]
     fn peers_with_more_pow(&self, cumulative_difficulty: u128) -> PeerSetResponse<N> {
         PeerSetResponse::PeersWithMorePoW(
             self.peers
@@ -114,6 +142,7 @@ impl<N: NetworkZone> PeerSet<N> {
         )
     }
 
+    /// [`PeerSetRequest::StemPeer`]
     fn random_peer_for_stem(&self) -> PeerSetResponse<N> {
         let outbound_peers = index::sample(
             &mut thread_rng(),

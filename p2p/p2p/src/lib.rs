@@ -176,7 +176,7 @@ impl<N: NetworkZone> NetworkInterface<N> {
         self.address_book.clone()
     }
 
-    /// Borrows the `ClientPool`, for access to connected peers.
+    /// Borrows the `PeerSet`, for access to connected peers.
     pub fn peer_set(
         &mut self,
     ) -> &mut BoxCloneService<PeerSetRequest, PeerSetResponse<N>, tower::BoxError> {
