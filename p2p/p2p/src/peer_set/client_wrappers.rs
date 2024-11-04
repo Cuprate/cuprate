@@ -30,6 +30,10 @@ impl<N: NetworkZone> StoredClient<N> {
         self.downloading_blocks.load(Ordering::Relaxed)
     }
 
+    pub(super) fn is_a_stem_peer(&self) -> bool {
+        self.stem_peer.load(Ordering::Relaxed)
+    }
+
     pub(super) fn downloading_blocks_guard(&self) -> ClientDropGuard<N> {
         ClientDropGuard {
             client: self.client.downgrade(),
@@ -37,15 +41,12 @@ impl<N: NetworkZone> StoredClient<N> {
         }
     }
 
-    /*
     pub(super) fn stem_peer_guard(&self) -> ClientDropGuard<N> {
         ClientDropGuard {
             client: self.client.downgrade(),
             bool: Arc::clone(&self.stem_peer),
         }
     }
-
-     */
 }
 
 pub struct ClientDropGuard<N: NetworkZone> {

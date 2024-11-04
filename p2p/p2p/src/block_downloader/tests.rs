@@ -49,7 +49,6 @@ proptest! {
 
         let tokio_pool = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap();
 
-        #[expect(clippy::significant_drop_tightening)]
         tokio_pool.block_on(async move {
             timeout(Duration::from_secs(600), async move {
                 let (new_connection_tx, new_connection_rx) = mpsc::channel(peers);

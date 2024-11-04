@@ -837,7 +837,6 @@ dependencies = [
  "cuprate-test-utils",
  "cuprate-types",
  "cuprate-wire",
- "dashmap",
  "futures",
  "indexmap",
  "monero-serai",
@@ -850,7 +849,6 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-test",
- "tokio-util",
  "tower 0.5.1",
  "tracing",
 ]

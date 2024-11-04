@@ -24,7 +24,7 @@ rayon = { workspace = true }
 tokio-stream = { workspace = true, features = ["sync", "time"] }
 futures = { workspace = true, features = ["std"] }
 pin-project = { workspace = true }
-indexmap = { workspace = true }
+indexmap = { workspace = true, features = ["std"] }
 
 thiserror = { workspace = true }
 bytes = { workspace = true, features = ["std"] }
