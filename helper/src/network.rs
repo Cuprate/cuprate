@@ -6,7 +6,8 @@
 //!
 //! `#[no_std]` compatible.
 // TODO: move to types crate.
-use std::{
+
+use core::{
     fmt::{Display, Formatter},
     str::FromStr,
 };
@@ -52,17 +53,16 @@ impl FromStr for Network {
     type Err = ParseNetworkError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "mainnet" => Ok(Self::Mainnet),
-            "testnet" => Ok(Self::Testnet),
-            "stagenet" => Ok(Self::Stagenet),
+        match s {
+            "mainnet" | "Mainnet" => Ok(Self::Mainnet),
+            "testnet" | "Testnet" => Ok(Self::Testnet),
+            "stagenet" | "Stagenet" => Ok(Self::Stagenet),
             _ => Err(ParseNetworkError),
         }
     }
 }
-
 impl Display for Network {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         f.write_str(match self {
             Self::Mainnet => "mainnet",
             Self::Testnet => "testnet",
