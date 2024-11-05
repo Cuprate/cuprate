@@ -36,7 +36,7 @@ max_white_list_length = 1_000
 ## The size of the gray peer list, which contains peers we have not made a connection to before.
 max_gray_list_length = 5_000
 ## The folder to store the address book.
-peer_store_folder = {cache}
+peer_store_directory = {cache}
 ## The amount of time between address book saves.
 peer_save_period = {{ secs = 90, nanos = 0 }}
 
@@ -65,7 +65,7 @@ path = {txpool}
 ## The database sync mode for the txpool.
 sync_mode = "Async"
 ## The maximum size of all the txs in the pool (bytes).
-max_txpool_size = 100_000_000
+max_txpool_byte_size = 100_000_000
 
 ## Blockchain storage config.
 [storage.blockchain]

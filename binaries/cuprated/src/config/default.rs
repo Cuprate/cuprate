@@ -45,7 +45,7 @@ fn generate_config_text() -> String {
     };
 
     format!(
-        include_str!("Cuprate.toml"),
+        include_str!("Cuprated.toml"),
         cache = toml_value_str(&CUPRATE_CACHE_DIR),
         txpool = toml_value_str(&CUPRATE_TXPOOL_DIR),
         blockchain = toml_value_str(&CUPRATE_BLOCKCHAIN_DIR)

@@ -53,7 +53,7 @@ impl Default for TxpoolConfig {
                 path: CUPRATE_TXPOOL_DIR.to_path_buf(),
                 sync_mode: SyncMode::Async,
             },
-            max_txpool_size: 100_000_000,
+            max_txpool_byte_size: 100_000_000,
         }
     }
 }
