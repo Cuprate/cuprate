@@ -9,8 +9,8 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/binaries/cuprated"
 
 [dependencies]
 # TODO: after v1.0.0, remove unneeded dependencies.
-cuprate-consensus        = { workspace = true }
-cuprate-fast-sync        = { workspace = true }
+cuprate-consensus         = { workspace = true }
+cuprate-fast-sync         = { workspace = true }
 cuprate-consensus-context = { workspace = true }
 cuprate-consensus-rules  = { workspace = true }
 cuprate-cryptonight      = { workspace = true }
@@ -21,7 +21,7 @@ cuprate-levin            = { workspace = true }
 cuprate-wire             = { workspace = true }
 cuprate-p2p              = { workspace = true, features = ["serde"] }
 cuprate-p2p-core         = { workspace = true, features = ["serde"] }
-cuprate-dandelion-tower  = { workspace = true }
+cuprate-dandelion-tower  = { workspace = true, features = ["txpool"] }
 cuprate-async-buffer     = { workspace = true }
 cuprate-address-book     = { workspace = true, features = ["serde_config"] }
 cuprate-blockchain       = { workspace = true, features = ["service"] }
@@ -34,6 +34,7 @@ cuprate-types            = { workspace = true }
 cuprate-json-rpc         = { workspace = true }
 cuprate-rpc-interface    = { workspace = true }
 cuprate-rpc-types        = { workspace = true }
+
 
 # TODO: after v1.0.0, remove unneeded dependencies.
 anyhow                = { workspace = true }

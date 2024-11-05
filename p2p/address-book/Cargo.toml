@@ -13,7 +13,7 @@ serde_config = ["dep:serde", "dep:cuprate-helper"]
 cuprate-constants   = { workspace = true }
 cuprate-helper      = { workspace = true, features = ["std", "fs"], optional = true }
 cuprate-pruning     = { workspace = true }
-cuprate-p2p-core    = { workspace = true }
+cuprate-p2p-core    = { workspace = true, features = ["borsh"] }
 
 tower = { workspace = true, features = ["util"] }
 tokio = { workspace = true, features = ["time", "fs", "rt"]}
