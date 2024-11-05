@@ -17,8 +17,7 @@ use tokio::{
     task::JoinSet,
     time::{interval, timeout, MissedTickBehavior},
 };
-use tower::util::BoxCloneService;
-use tower::{Service, ServiceExt};
+use tower::{util::BoxCloneService, Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
 use cuprate_async_buffer::{BufferAppender, BufferStream};

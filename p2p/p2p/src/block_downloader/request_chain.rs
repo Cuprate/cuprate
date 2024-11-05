@@ -10,7 +10,6 @@ use cuprate_p2p_core::{
 };
 use cuprate_wire::protocol::{ChainRequest, ChainResponse};
 
-use crate::peer_set::{PeerSetRequest, PeerSetResponse};
 use crate::{
     block_downloader::{
         chain_tracker::{ChainEntry, ChainTracker},
@@ -20,7 +19,7 @@ use crate::{
         BLOCK_DOWNLOADER_REQUEST_TIMEOUT, INITIAL_CHAIN_REQUESTS_TO_SEND,
         MAX_BLOCKS_IDS_IN_CHAIN_ENTRY, MEDIUM_BAN,
     },
-    peer_set::ClientDropGuard,
+    peer_set::{ClientDropGuard, PeerSetRequest, PeerSetResponse},
 };
 
 /// Request a chain entry from a peer.
