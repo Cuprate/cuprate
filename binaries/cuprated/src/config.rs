@@ -10,7 +10,10 @@ use clap::Parser;
 use serde::{Deserialize, Serialize};
 
 use cuprate_consensus::ContextConfig;
-use cuprate_helper::{fs::CUPRATE_CONFIG_DIR, network::Network};
+use cuprate_helper::{
+    fs::{CUPRATE_CONFIG_DIR, DEFAULT_CONFIG_FILE_NAME},
+    network::Network,
+};
 use cuprate_p2p::block_downloader::BlockDownloaderConfig;
 use cuprate_p2p_core::ClearNet;
 
@@ -24,19 +27,16 @@ use p2p::P2PConfig;
 use storage::StorageConfig;
 use tracing_config::TracingConfig;
 
-/// The default name of Cuprate's config file.
-const DEFAULT_CONFIG_FILE_NAME: &str = "Cuprate.toml";
-
 /// Reads the args & config file, returning a [`Config`].
 pub fn read_config_and_args() -> Config {
     let args = args::Args::parse();
 
     let config: Config = if let Some(config_file) = &args.config_file {
-        // If a config file was set in the args try read it and exit if we can't.
+        // If a config file was set in the args try to read it and exit if we can't.
         match Config::read_from_file(config_file) {
             Ok(config) => config,
             Err(e) => {
-                tracing::error!("Failed to read config from file: {}", e);
+                tracing::error!("Failed to read config from file: {e}");
                 std::process::exit(1);
             }
         }
@@ -74,20 +74,22 @@ pub struct Config {
     /// The P2P network config.
     p2p: P2PConfig,
 
-    /// The Storage config
+    /// The storage config.
     storage: StorageConfig,
 }
 
 impl Config {
-    /// Attempts to read a config file in [`toml`] format from the given [`Path`.
+    /// Attempts to read a config file in [`toml`] format from the given [`Path`].
     ///
     /// # Errors
     ///
     /// Will return an [`Err`] if the file cannot be read or if the file is not a valid [`toml`] config.
-    fn read_from_file(file: impl AsRef<Path>) -> Result<Self, anyhow::Error> {
+    fn read_from_path(file: impl AsRef<Path>) -> Result<Self, anyhow::Error> {
         let file_text = read_to_string(file.as_ref())?;
 
-        Ok(toml::from_str(&file_text).inspect_err(|_| {
+        Ok(toml::from_str(&file_text).inspect_err(|e| {
+            tracing::warn!("Error: {e}");
+
             tracing::warn!(
                 "Failed to parse config file at: {}",
                 file.as_ref().to_string_lossy()

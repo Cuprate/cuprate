@@ -48,7 +48,7 @@ buffer_size = 50_000_000
 in_progress_queue_size = 50_000_000
 ## The target size of a batch of blocks (bytes), must not exceed 100MB.
 target_batch_size = 5_000_000
-## The number of blocks in the first bacth (you probably shouldn't change this).
+## The number of blocks in the first batch (you probably shouldn't change this).
 initial_batch_len = 1
 ## The amount of time between checking the pool of connected peers for free peers to download blocks.
 check_client_pool_interval = {{ secs = 30, nanos = 0 }}

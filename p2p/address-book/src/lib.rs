@@ -31,8 +31,8 @@ pub struct AddressBookConfig {
     ///
     /// Gray peers are peers we are yet to make a connection to.
     pub max_gray_list_length: usize,
-    /// The location to store the peer store file.
-    pub peer_store_folder: PathBuf,
+    /// The location to store the peer store files.
+    pub peer_store_directory: PathBuf,
     /// The amount of time between saving the address book to disk.
     pub peer_save_period: Duration,
 }
@@ -43,7 +43,7 @@ impl Default for AddressBookConfig {
         Self {
             max_white_list_length: 1000,
             max_gray_list_length: 5000,
-            peer_store_folder: cuprate_helper::fs::CUPRATE_CACHE_DIR.clone(),
+            peer_store_directory: cuprate_helper::fs::CUPRATE_CACHE_DIR.clone(),
             peer_save_period: Duration::from_secs(90),
         }
     }

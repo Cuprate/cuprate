@@ -90,7 +90,7 @@ impl ConfigBuilder {
         }
     }
 
-    /// Change the network this blockchain database is for.
+    /// Change the network this database is for.
     #[must_use]
     pub const fn network(mut self, network: Network) -> Self {
         self.network = network;

@@ -15,7 +15,7 @@ fn test_cfg() -> AddressBookConfig {
     AddressBookConfig {
         max_white_list_length: 100,
         max_gray_list_length: 500,
-        peer_store_folder: PathBuf::new(),
+        peer_store_directory: PathBuf::new(),
         peer_save_period: Duration::from_secs(60),
     }
 }

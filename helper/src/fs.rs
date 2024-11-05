@@ -63,6 +63,9 @@ pub const CUPRATE_DIR: &str = {
     }
 };
 
+/// The default name of Cuprate's config file.
+pub const DEFAULT_CONFIG_FILE_NAME: &str = "Cuprated.toml";
+
 //---------------------------------------------------------------------------------------------------- Directories
 /// Create a `LazyLock` for common PATHs used by Cuprate.
 ///

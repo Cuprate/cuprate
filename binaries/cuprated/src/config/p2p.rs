@@ -51,7 +51,7 @@ impl SharedNetConfig {
         // HACK: we add the network here so we don't need to define another address book config.
         let mut address_book_config = self.address_book_config.clone();
         address_book_config
-            .peer_store_folder
+            .peer_store_directory
             .push(network.to_string());
 
         address_book_config
@@ -104,7 +104,7 @@ pub fn clear_net_seed_nodes(network: Network) -> Vec<SocketAddr> {
 
     seeds
         .iter()
-        .map(|&s| str::parse(s))
+        .map(|s| s.parse())
         .collect::<Result<_, _>>()
         .unwrap()
 }

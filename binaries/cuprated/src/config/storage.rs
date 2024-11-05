@@ -42,8 +42,8 @@ pub struct TxpoolConfig {
     #[serde(flatten)]
     pub shared: SharedStorageConfig,
 
-    /// The maximum size of the tx-pool (bytes).
-    pub max_txpool_size: usize,
+    /// The maximum size of the tx-pool.
+    pub max_txpool_byte_size: usize,
 }
 
 impl Default for TxpoolConfig {

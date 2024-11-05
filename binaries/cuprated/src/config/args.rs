@@ -10,7 +10,7 @@ use crate::config::{default::create_default_config_file, Config, DEFAULT_CONFIG_
 #[derive(clap::Parser, Debug)]
 #[command(version, about)]
 pub struct Args {
-    /// The network we should run on.
+    /// The network to run on.
     #[arg(
         long,
         default_value_t = Network::Mainnet,
@@ -21,10 +21,10 @@ pub struct Args {
     /// The amount of outbound clear-net connections to maintain.
     #[arg(long)]
     pub outbound_connections: Option<usize>,
-    /// The location of the Cuprate config file.
+    /// The PATH of the `cuprated` config file.
     #[arg(long)]
     pub config_file: Option<PathBuf>,
-    /// Generate a config file and place it in the given folder.
+    /// Generate a config file and place it in the given PATH.
     #[arg(long)]
     pub generate_config: Option<PathBuf>,
 }
