@@ -41,6 +41,8 @@ impl<N: NetworkZone> StoredClient<N> {
 
     /// Returns a [`ClientDropGuard`] that while it is alive keeps the [`StoredClient`] in the downloading blocks state.
     pub(super) fn downloading_blocks_guard(&self) -> ClientDropGuard<N> {
+        self.downloading_blocks.store(true, Ordering::Relaxed);
+
         ClientDropGuard {
             client: self.client.downgrade(),
             bool: Arc::clone(&self.downloading_blocks),
@@ -49,6 +51,8 @@ impl<N: NetworkZone> StoredClient<N> {
 
     /// Returns a [`ClientDropGuard`] that while it is alive keeps the [`StoredClient`] in the stemming peers state.
     pub(super) fn stem_peer_guard(&self) -> ClientDropGuard<N> {
+        self.stem_peer.store(true, Ordering::Relaxed);
+
         ClientDropGuard {
             client: self.client.downgrade(),
             bool: Arc::clone(&self.stem_peer),

@@ -7,6 +7,16 @@ use std::{
     time::Duration,
 };
 
+use futures::{FutureExt, StreamExt};
+use indexmap::IndexMap;
+use monero_serai::{
+    block::{Block, BlockHeader},
+    transaction::{Input, Timelock, Transaction, TransactionPrefix},
+};
+use proptest::{collection::vec, prelude::*};
+use tokio::{sync::mpsc, time::timeout};
+use tower::{buffer::Buffer, service_fn, Service, ServiceExt};
+
 use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_p2p_core::{
     client::{mock_client, Client, InternalPeerID, PeerInformation},
@@ -18,17 +28,6 @@ use cuprate_wire::{
     protocol::{ChainResponse, GetObjectsResponse},
     CoreSyncData,
 };
-use futures::{FutureExt, StreamExt};
-use indexmap::IndexMap;
-use monero_serai::{
-    block::{Block, BlockHeader},
-    transaction::{Input, Timelock, Transaction, TransactionPrefix},
-};
-use proptest::{collection::vec, prelude::*};
-use tokio::sync::mpsc;
-use tokio::time::timeout;
-use tower::buffer::Buffer;
-use tower::{service_fn, Service, ServiceExt};
 
 use crate::{
     block_downloader::{download_blocks, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},

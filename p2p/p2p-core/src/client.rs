@@ -131,12 +131,7 @@ impl<Z: NetworkZone> Client<Z> {
         .into()
     }
 
-    pub fn alive(&self) -> bool {
-        !(self.error.try_get_err().is_some()
-            || self.connection_handle.is_finished()
-            || self.timeout_handle.is_finished())
-    }
-
+    /// Create a [`WeakClient`] for this [`Client`].
     pub fn downgrade(&self) -> WeakClient<Z> {
         WeakClient {
             info: self.info.clone(),

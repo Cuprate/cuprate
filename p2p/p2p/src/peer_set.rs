@@ -1,11 +1,14 @@
 use std::{
-    future::{ready, Ready},
+    future::{ready, Future, Ready},
+    pin::{pin, Pin},
     task::{Context, Poll},
 };
 
+use futures::{stream::FuturesUnordered, StreamExt};
 use indexmap::{IndexMap, IndexSet};
 use rand::{seq::index, thread_rng};
 use tokio::sync::mpsc;
+use tokio_util::sync::WaitForCancellationFutureOwned;
 use tower::Service;
 
 use cuprate_helper::cast::u64_to_usize;
@@ -50,10 +53,29 @@ pub enum PeerSetResponse<N: NetworkZone> {
     StemPeer(Option<ClientDropGuard<N>>),
 }
 
+/// A [`Future`] that completes when a peer disconnects.
+#[pin_project::pin_project]
+struct ClosedConnectionFuture<N: NetworkZone> {
+    #[pin]
+    fut: WaitForCancellationFutureOwned,
+    id: Option<InternalPeerID<N::Addr>>,
+}
+
+impl<N: NetworkZone> Future for ClosedConnectionFuture<N> {
+    type Output = InternalPeerID<N::Addr>;
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+
+        this.fut.poll(cx).map(|()| this.id.take().unwrap())
+    }
+}
+
 /// A collection of all connected peers on a [`NetworkZone`].
 pub(crate) struct PeerSet<N: NetworkZone> {
     /// The connected peers.
     peers: IndexMap<InternalPeerID<N::Addr>, StoredClient<N>>,
+    /// A [`FuturesUnordered`] that resolves when a peer disconnects.
+    closed_connections: FuturesUnordered<ClosedConnectionFuture<N>>,
     /// The [`InternalPeerID`]s of all outbound peers.
     outbound_peers: IndexSet<InternalPeerID<N::Addr>>,
     /// A channel of new peers from the inbound server or outbound connector.
@@ -64,6 +86,7 @@ impl<N: NetworkZone> PeerSet<N> {
     pub(crate) fn new(new_peers: mpsc::Receiver<Client<N>>) -> Self {
         Self {
             peers: IndexMap::new(),
+            closed_connections: FuturesUnordered::new(),
             outbound_peers: IndexSet::new(),
             new_peers,
         }
@@ -76,25 +99,28 @@ impl<N: NetworkZone> PeerSet<N> {
                 self.outbound_peers.insert(new_peer.info.id);
             }
 
+            self.closed_connections.push(ClosedConnectionFuture {
+                fut: new_peer.info.handle.closed(),
+                id: Some(new_peer.info.id),
+            });
+
             self.peers
                 .insert(new_peer.info.id, StoredClient::new(new_peer));
         }
     }
 
     /// Remove disconnected peers from the peer set.
-    fn remove_dead_peers(&mut self) {
-        let mut i = 0;
-        while i < self.peers.len() {
-            let peer = &self.peers[i];
-            if peer.client.alive() {
-                i += 1;
-            } else {
-                if peer.client.info.direction == ConnectionDirection::Outbound {
-                    self.outbound_peers.swap_remove(&peer.client.info.id);
-                }
+    fn remove_dead_peers(&mut self, cx: &mut Context<'_>) {
+        while let Poll::Ready(Some(dead_peer)) = self.closed_connections.poll_next_unpin(cx) {
+            let Some(peer) = self.peers.swap_remove(&dead_peer) else {
+                continue;
+            };
 
-                self.peers.swap_remove_index(i);
+            if peer.client.info.direction == ConnectionDirection::Outbound {
+                self.outbound_peers.swap_remove(&peer.client.info.id);
             }
+
+            self.peers.swap_remove(&dead_peer);
         }
     }
 
@@ -173,7 +199,7 @@ impl<N: NetworkZone> Service<PeerSetRequest> for PeerSet<N> {
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.poll_new_peers(cx);
-        self.remove_dead_peers();
+        self.remove_dead_peers(cx);
 
         // TODO: should we return `Pending` if we don't have any peers?
 

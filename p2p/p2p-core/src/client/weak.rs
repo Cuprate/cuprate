@@ -12,6 +12,9 @@ use crate::{
     NetworkZone, PeerError, PeerRequest, PeerResponse, SharedError,
 };
 
+/// A weak handle to a [`Client`](super::Client).
+///
+/// When this is dropped the peer will not be disconnected.
 pub struct WeakClient<N: NetworkZone> {
     /// Information on the connected peer.
     pub info: PeerInformation<N::Addr>,
