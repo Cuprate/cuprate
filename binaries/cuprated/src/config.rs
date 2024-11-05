@@ -33,7 +33,7 @@ pub fn read_config_and_args() -> Config {
 
     let config: Config = if let Some(config_file) = &args.config_file {
         // If a config file was set in the args try to read it and exit if we can't.
-        match Config::read_from_file(config_file) {
+        match Config::read_from_path(config_file) {
             Ok(config) => config,
             Err(e) => {
                 tracing::error!("Failed to read config from file: {e}");
@@ -44,12 +44,12 @@ pub fn read_config_and_args() -> Config {
         // First attempt to read the config file from the current directory.
         std::env::current_dir()
             .map_err(Into::into)
-            .and_then(Config::read_from_file)
+            .and_then(Config::read_from_path)
             .inspect_err(|e| tracing::debug!("Failed to read config from current dir: {e}"))
             // otherwise try the main config directory.
             .or_else(|_| {
                 let file = CUPRATE_CONFIG_DIR.join(DEFAULT_CONFIG_FILE_NAME);
-                Config::read_from_file(file)
+                Config::read_from_path(file)
             })
             .inspect_err(|e| {
                 tracing::debug!("Failed to read config from config dir: {e}");

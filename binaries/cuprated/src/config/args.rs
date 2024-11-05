@@ -4,7 +4,7 @@ use clap::builder::TypedValueParser;
 
 use cuprate_helper::network::Network;
 
-use crate::config::{default::create_default_config_file, Config, DEFAULT_CONFIG_FILE_NAME};
+use crate::config::{default::create_default_config_file, Config};
 
 /// Cuprate Args.
 #[derive(clap::Parser, Debug)]

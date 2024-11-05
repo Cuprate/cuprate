@@ -4,9 +4,9 @@ use std::{
     str::from_utf8,
 };
 
-use cuprate_helper::fs::{CUPRATE_BLOCKCHAIN_DIR, CUPRATE_CACHE_DIR, CUPRATE_TXPOOL_DIR};
-
-use crate::config::DEFAULT_CONFIG_FILE_NAME;
+use cuprate_helper::fs::{
+    CUPRATE_BLOCKCHAIN_DIR, CUPRATE_CACHE_DIR, CUPRATE_TXPOOL_DIR, DEFAULT_CONFIG_FILE_NAME,
+};
 
 /// Creates a config file which will be named [`DEFAULT_CONFIG_FILE_NAME`] in the directory given in [`Path`].
 ///
