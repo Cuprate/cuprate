@@ -1,12 +1,11 @@
-use bytes::Bytes;
-use futures::future::BoxFuture;
-use futures::{FutureExt, Stream};
-use std::future::Future;
-use std::task::ready;
 use std::{
+    future::Future,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
+
+use bytes::Bytes;
+use futures::{future::BoxFuture, FutureExt, Stream};
 use tower::Service;
 
 use cuprate_dandelion_tower::{traits::StemRequest, OutboundPeer};
@@ -73,8 +72,11 @@ impl Stream for OutboundPeerStream {
     }
 }
 
+/// The state of the [`OutboundPeerStream`].
 enum OutboundPeerStreamState {
+    /// Standby state.
     Standby,
+    /// Awaiting a response from the peer-set.
     AwaitingPeer(BoxFuture<'static, Result<PeerSetResponse<ClearNet>, tower::BoxError>>),
 }
 

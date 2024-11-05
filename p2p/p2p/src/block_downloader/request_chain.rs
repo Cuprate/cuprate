@@ -1,8 +1,7 @@
 use std::mem;
 
 use tokio::{task::JoinSet, time::timeout};
-use tower::util::BoxCloneService;
-use tower::{Service, ServiceExt};
+use tower::{util::BoxCloneService, Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
 use cuprate_p2p_core::{
