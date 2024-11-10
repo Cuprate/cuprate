@@ -59,8 +59,8 @@ impl ConfigBuilder {
     /// Build into a [`Config`].
     ///
     /// # Default values
-    /// If [`ConfigBuilder::db_directory`] was not called,
-    /// the default [`CUPRATE_TXPOOL_DIR`] will be used.
+    /// If [`ConfigBuilder::data_directory`] was not called,
+    /// [`txpool_path`] with [`CUPRATE_DATA_DIR`] and [`Network::Mainnet`] will be used.
     ///
     /// For all other values, [`Default::default`] is used.
     pub fn build(self) -> Config {
@@ -196,7 +196,7 @@ impl Config {
     /// Create a new [`Config`] with sane default settings.
     ///
     /// The [`DbConfig::db_directory`]
-    /// will be set to [`CUPRATE_TXPOOL_DIR`] joined with [`Network::Mainnet`].
+    /// will be set to [`txpool_path`] with [`CUPRATE_DATA_DIR`] and [`Network::Mainnet`].
     ///
     /// All other values will be [`Default::default`].
     ///

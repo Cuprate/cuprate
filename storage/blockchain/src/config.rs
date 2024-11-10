@@ -93,8 +93,8 @@ impl ConfigBuilder {
     /// Build into a [`Config`].
     ///
     /// # Default values
-    /// If [`ConfigBuilder::db_directory`] was not called,
-    /// the default [`CUPRATE_BLOCKCHAIN_DIR`] will be used.
+    /// If [`ConfigBuilder::data_directory`] was not called,
+    /// [`blockchain_path`] with [`CUPRATE_DATA_DIR`] [`Network::Mainnet`] will be used.
     ///
     /// For all other values, [`Default::default`] is used.
     pub fn build(self) -> Config {
@@ -213,7 +213,7 @@ impl Config {
     /// Create a new [`Config`] with sane default settings.
     ///
     /// The [`cuprate_database::config::Config::db_directory`]
-    /// will be set to [`CUPRATE_BLOCKCHAIN_DIR`] joined with [`Network::Mainnet`].
+    /// will be set to [`blockchain_path`] with [`CUPRATE_DATA_DIR`] [`Network::Mainnet`].
     ///
     /// All other values will be [`Default::default`].
     ///
