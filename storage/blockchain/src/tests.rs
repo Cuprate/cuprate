@@ -74,7 +74,7 @@ impl AssertTableLen {
 pub(crate) fn tmp_concrete_env() -> (impl Env, tempfile::TempDir) {
     let tempdir = tempfile::tempdir().unwrap();
     let config = ConfigBuilder::new()
-        .db_directory(tempdir.path().into())
+        .data_directory(tempdir.path().into())
         .low_power()
         .build();
     let env = crate::open(config).unwrap();

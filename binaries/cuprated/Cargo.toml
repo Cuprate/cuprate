@@ -19,11 +19,11 @@ cuprate-epee-encoding    = { workspace = true }
 cuprate-fixed-bytes      = { workspace = true }
 cuprate-levin            = { workspace = true }
 cuprate-wire             = { workspace = true }
-cuprate-p2p              = { workspace = true, features = ["serde"] }
+cuprate-p2p              = { workspace = true }
 cuprate-p2p-core         = { workspace = true, features = ["serde"] }
 cuprate-dandelion-tower  = { workspace = true, features = ["txpool"] }
 cuprate-async-buffer     = { workspace = true }
-cuprate-address-book     = { workspace = true, features = ["serde_config"] }
+cuprate-address-book     = { workspace = true }
 cuprate-blockchain       = { workspace = true }
 cuprate-database-service = { workspace = true, features = ["serde"] }
 cuprate-txpool           = { workspace = true }

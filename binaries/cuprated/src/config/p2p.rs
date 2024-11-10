@@ -1,11 +1,9 @@
-use std::net::SocketAddr;
-
-use serde::{Deserialize, Serialize};
-
-use cuprate_address_book::AddressBookConfig;
+use cuprate_helper::fs::addressbook_path;
 use cuprate_helper::network::Network;
-use cuprate_p2p::block_downloader::BlockDownloaderConfig;
-use cuprate_p2p_core::ClearNetServerCfg;
+use serde::{Deserialize, Serialize};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::path::Path;
+use std::time::Duration;
 
 /// P2P config.
 #[derive(Default, Deserialize, Serialize)]
@@ -17,14 +15,60 @@ pub struct P2PConfig {
     pub block_downloader: BlockDownloaderConfig,
 }
 
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct BlockDownloaderConfig {
+    /// The size in bytes of the buffer between the block downloader and the place which
+    /// is consuming the downloaded blocks.
+    pub buffer_size: usize,
+    /// The size of the in progress queue (in bytes) at which we stop requesting more blocks.
+    pub in_progress_queue_size: usize,
+    /// The [`Duration`] between checking the client pool for free peers.
+    pub check_client_pool_interval: Duration,
+    /// The target size of a single batch of blocks (in bytes).
+    pub target_batch_size: usize,
+}
+
+impl From<BlockDownloaderConfig> for cuprate_p2p::block_downloader::BlockDownloaderConfig {
+    fn from(value: BlockDownloaderConfig) -> Self {
+        Self {
+            buffer_size: value.buffer_size,
+            in_progress_queue_size: value.in_progress_queue_size,
+            check_client_pool_interval: value.check_client_pool_interval,
+            target_batch_size: value.target_batch_size,
+            initial_batch_len: 1,
+        }
+    }
+}
+
+impl Default for BlockDownloaderConfig {
+    fn default() -> Self {
+        Self {
+            buffer_size: 50_000_000,
+            in_progress_queue_size: 50_000_000,
+            check_client_pool_interval: Duration::from_secs(30),
+            target_batch_size: 5_000_000,
+        }
+    }
+}
+
 /// The config values for P2P clear-net.
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct ClearNetConfig {
     /// The server config.
-    pub server: ClearNetServerCfg,
+    pub listen_on: IpAddr,
     #[serde(flatten)]
     pub general: SharedNetConfig,
+}
+
+impl Default for ClearNetConfig {
+    fn default() -> Self {
+        Self {
+            listen_on: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            general: Default::default(),
+        }
+    }
 }
 
 /// Network config values shared between all network zones.
@@ -47,14 +91,17 @@ pub struct SharedNetConfig {
 
 impl SharedNetConfig {
     /// Returns the [`AddressBookConfig`].
-    pub fn address_book_config(&self, network: Network) -> AddressBookConfig {
-        // HACK: we add the network here so we don't need to define another address book config.
-        let mut address_book_config = self.address_book_config.clone();
-        address_book_config
-            .peer_store_directory
-            .push(network.to_string());
-
-        address_book_config
+    pub fn address_book_config(
+        &self,
+        cache_dir: &Path,
+        network: Network,
+    ) -> cuprate_address_book::AddressBookConfig {
+        cuprate_address_book::AddressBookConfig {
+            max_white_list_length: self.address_book_config.max_white_list_length,
+            max_gray_list_length: self.address_book_config.max_gray_list_length,
+            peer_store_directory: addressbook_path(cache_dir, network),
+            peer_save_period: self.address_book_config.peer_save_period,
+        }
     }
 }
 
@@ -67,6 +114,24 @@ impl Default for SharedNetConfig {
             gray_peers_percent: 0.7,
             p2p_port: 0,
             address_book_config: AddressBookConfig::default(),
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct AddressBookConfig {
+    max_white_list_length: usize,
+    max_gray_list_length: usize,
+    peer_save_period: Duration,
+}
+
+impl Default for AddressBookConfig {
+    fn default() -> Self {
+        Self {
+            max_white_list_length: 1_000,
+            max_gray_list_length: 5_000,
+            peer_save_period: Duration::from_secs(30),
         }
     }
 }

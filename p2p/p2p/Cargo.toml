@@ -34,8 +34,6 @@ rand_distr = { workspace = true, features = ["std"] }
 tracing = { workspace = true, features = ["std", "attributes"] }
 borsh = { workspace = true, features = ["derive", "std"] }
 
-serde = { workspace = true, features = ["std", "derive"], optional = true }
-
 [dev-dependencies]
 cuprate-test-utils = { workspace = true }
 indexmap = { workspace = true }

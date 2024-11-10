@@ -10,7 +10,7 @@ use cuprate_database::{
 };
 use cuprate_database_service::ReaderThreads;
 use cuprate_helper::{
-    fs::{path_with_network, CUPRATE_TXPOOL_DIR},
+    fs::{txpool_path, CUPRATE_DATA_DIR},
     network::Network,
 };
 
@@ -26,8 +26,7 @@ const DEFAULT_TXPOOL_WEIGHT_LIMIT: usize = 600 * 1024 * 1024;
 pub struct ConfigBuilder {
     network: Network,
 
-    /// [`Config::db_directory`].
-    db_directory: Option<PathBuf>,
+    data_dir: Option<PathBuf>,
 
     /// [`Config::cuprate_database_config`].
     db_config: cuprate_database::config::ConfigBuilder,
@@ -47,10 +46,10 @@ impl ConfigBuilder {
     pub fn new() -> Self {
         Self {
             network: Network::default(),
-            db_directory: None,
-            db_config: cuprate_database::config::ConfigBuilder::new(Cow::Owned(path_with_network(
-                &CUPRATE_TXPOOL_DIR,
-                Network::default(),
+            data_dir: None,
+            db_config: cuprate_database::config::ConfigBuilder::new(Cow::Owned(txpool_path(
+                &CUPRATE_DATA_DIR,
+                Network::Mainnet,
             ))),
             reader_threads: None,
             max_txpool_weight: None,
@@ -67,9 +66,9 @@ impl ConfigBuilder {
     pub fn build(self) -> Config {
         // INVARIANT: all PATH safety checks are done
         // in `helper::fs`. No need to do them here.
-        let db_directory = self
-            .db_directory
-            .unwrap_or_else(|| CUPRATE_TXPOOL_DIR.to_path_buf());
+        let data_dir = self
+            .data_dir
+            .unwrap_or_else(|| CUPRATE_DATA_DIR.to_path_buf());
 
         let reader_threads = self.reader_threads.unwrap_or_default();
 
@@ -79,7 +78,7 @@ impl ConfigBuilder {
 
         let db_config = self
             .db_config
-            .db_directory(Cow::Owned(path_with_network(&db_directory, self.network)))
+            .db_directory(Cow::Owned(txpool_path(&data_dir, self.network)))
             .reader_threads(reader_threads.as_threads())
             .build();
 
@@ -104,10 +103,10 @@ impl ConfigBuilder {
         self
     }
 
-    /// Set a custom database directory (and file) [`PathBuf`].
+    /// Set a custom data directory [`PathBuf`].
     #[must_use]
-    pub fn db_directory(mut self, db_directory: PathBuf) -> Self {
-        self.db_directory = Some(db_directory);
+    pub fn data_directory(mut self, db_directory: PathBuf) -> Self {
+        self.data_dir = Some(db_directory);
         self
     }
 
@@ -138,9 +137,7 @@ impl ConfigBuilder {
     /// Good default for testing, and resource-available machines.
     #[must_use]
     pub fn fast(mut self) -> Self {
-        self.db_config =
-            cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(&*CUPRATE_TXPOOL_DIR))
-                .fast();
+        self.db_config = self.db_config.fast();
 
         self.reader_threads = Some(ReaderThreads::OnePerThread);
         self
@@ -152,9 +149,7 @@ impl ConfigBuilder {
     /// Good default for resource-limited machines, e.g. a cheap VPS.
     #[must_use]
     pub fn low_power(mut self) -> Self {
-        self.db_config =
-            cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(&*CUPRATE_TXPOOL_DIR))
-                .low_power();
+        self.db_config = self.db_config.low_power();
 
         self.reader_threads = Some(ReaderThreads::One);
         self
@@ -165,10 +160,10 @@ impl Default for ConfigBuilder {
     fn default() -> Self {
         Self {
             network: Network::default(),
-            db_directory: Some(CUPRATE_TXPOOL_DIR.to_path_buf()),
-            db_config: cuprate_database::config::ConfigBuilder::new(Cow::Owned(path_with_network(
-                &CUPRATE_TXPOOL_DIR,
-                Network::default(),
+            data_dir: Some(CUPRATE_DATA_DIR.to_path_buf()),
+            db_config: cuprate_database::config::ConfigBuilder::new(Cow::Owned(txpool_path(
+                &CUPRATE_DATA_DIR,
+                Network::Mainnet,
             ))),
             reader_threads: Some(ReaderThreads::default()),
             max_txpool_weight: Some(DEFAULT_TXPOOL_WEIGHT_LIMIT),
@@ -220,8 +215,8 @@ impl Config {
     ///
     /// let config = Config::new();
     ///
-    /// assert_eq!(config.db_config.db_directory(), path_with_network(&CUPRATE_TXPOOL_DIR, Network::Mainnet).as_path());
-    /// assert!(config.db_config.db_file().starts_with(&*CUPRATE_TXPOOL_DIR));
+    /// assert_eq!(config.db_config.db_directory(), txpool_path(&CUPRATE_DATA_DIR, Network::Mainnet).as_path());
+    /// assert!(config.db_config.db_file().starts_with(&*CUPRATE_DATA_DIR));
     /// assert!(config.db_config.db_file().ends_with(DATABASE_DATA_FILENAME));
     /// assert_eq!(config.db_config.sync_mode, SyncMode::default());
     /// assert_eq!(config.db_config.resize_algorithm, ResizeAlgorithm::default());

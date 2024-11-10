@@ -15,14 +15,16 @@ use cuprate_helper::{
     network::Network,
 };
 use cuprate_p2p::block_downloader::BlockDownloaderConfig;
-use cuprate_p2p_core::ClearNet;
+use cuprate_p2p_core::{ClearNet, ClearNetServerCfg};
 
 mod args;
 mod default;
+mod fs;
 mod p2p;
 mod storage;
 mod tracing_config;
 
+use crate::config::fs::FileSystemConfig;
 use p2p::P2PConfig;
 use storage::StorageConfig;
 use tracing_config::TracingConfig;
@@ -43,6 +45,7 @@ pub fn read_config_and_args() -> Config {
     } else {
         // First attempt to read the config file from the current directory.
         std::env::current_dir()
+            .map(|path| path.join(DEFAULT_CONFIG_FILE_NAME))
             .map_err(Into::into)
             .and_then(Config::read_from_path)
             .inspect_err(|e| tracing::debug!("Failed to read config from current dir: {e}"))
@@ -53,7 +56,7 @@ pub fn read_config_and_args() -> Config {
             })
             .inspect_err(|e| {
                 tracing::debug!("Failed to read config from config dir: {e}");
-                tracing::warn!("Failed to find/read config file, using default config.");
+                println!("Failed to find/read config file, using default config.");
             })
             .unwrap_or_default()
     };
@@ -76,6 +79,8 @@ pub struct Config {
 
     /// The storage config.
     storage: StorageConfig,
+
+    fs: FileSystemConfig,
 }
 
 impl Config {
@@ -87,14 +92,15 @@ impl Config {
     fn read_from_path(file: impl AsRef<Path>) -> Result<Self, anyhow::Error> {
         let file_text = read_to_string(file.as_ref())?;
 
-        Ok(toml::from_str(&file_text).inspect_err(|e| {
-            tracing::warn!("Error: {e}");
-
-            tracing::warn!(
-                "Failed to parse config file at: {}",
-                file.as_ref().to_string_lossy()
-            );
-        })?)
+        Ok(toml::from_str(&file_text)
+            .inspect(|_| println!("Using config at: {}", file.as_ref().to_string_lossy()))
+            .inspect_err(|e| {
+                println!("{e}");
+                println!(
+                    "Failed to parse config file at: {}",
+                    file.as_ref().to_string_lossy()
+                );
+            })?)
     }
 
     /// Returns the current [`Network`] we are running on.
@@ -111,11 +117,17 @@ impl Config {
             extra_outbound_connections: self.p2p.clear_net.general.extra_outbound_connections,
             max_inbound_connections: self.p2p.clear_net.general.max_inbound_connections,
             gray_peers_percent: self.p2p.clear_net.general.gray_peers_percent,
-            server_config: Some(self.p2p.clear_net.server.clone()),
+            server_config: Some(ClearNetServerCfg {
+                ip: self.p2p.clear_net.listen_on,
+            }),
             p2p_port: self.p2p.clear_net.general.p2p_port,
             // TODO: set this if a public RPC server is set.
             rpc_port: 0,
-            address_book_config: self.p2p.clear_net.general.address_book_config(self.network),
+            address_book_config: self
+                .p2p
+                .clear_net
+                .general
+                .address_book_config(&self.fs.cache_directory, self.network),
         }
     }
 
@@ -135,13 +147,13 @@ impl Config {
         // We don't set reader threads as we manually make the reader threadpool.
         cuprate_blockchain::config::ConfigBuilder::default()
             .network(self.network)
-            .db_directory(blockchain.shared.path.clone())
+            .data_directory(self.fs.data_directory.clone())
             .sync_mode(blockchain.shared.sync_mode)
             .build()
     }
 
     /// The [`BlockDownloaderConfig`].
-    pub const fn block_downloader_config(&self) -> BlockDownloaderConfig {
-        self.p2p.block_downloader
+    pub fn block_downloader_config(&self) -> BlockDownloaderConfig {
+        self.p2p.block_downloader.clone().into()
     }
 }

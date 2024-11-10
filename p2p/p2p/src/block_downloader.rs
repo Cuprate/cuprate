@@ -59,8 +59,6 @@ pub struct BlockBatch {
 
 /// The block downloader config.
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Ord, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields, default))]
 pub struct BlockDownloaderConfig {
     /// The size in bytes of the buffer between the block downloader and the place which
     /// is consuming the downloaded blocks.
@@ -73,18 +71,6 @@ pub struct BlockDownloaderConfig {
     pub target_batch_size: usize,
     /// The initial amount of blocks to request (in number of blocks)
     pub initial_batch_len: usize,
-}
-
-impl Default for BlockDownloaderConfig {
-    fn default() -> Self {
-        Self {
-            buffer_size: 50_000_000,
-            in_progress_queue_size: 50_000_000,
-            check_client_pool_interval: Duration::from_secs(30),
-            target_batch_size: 5_000_000,
-            initial_batch_len: 1,
-        }
-    }
 }
 
 /// An error that occurred in the [`BlockDownloader`].

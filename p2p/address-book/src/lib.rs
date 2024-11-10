@@ -20,8 +20,6 @@ mod store;
 
 /// The address book config.
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde_config", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "serde_config", serde(deny_unknown_fields, default))]
 pub struct AddressBookConfig {
     /// The maximum number of white peers in the peer list.
     ///
@@ -35,18 +33,6 @@ pub struct AddressBookConfig {
     pub peer_store_directory: PathBuf,
     /// The amount of time between saving the address book to disk.
     pub peer_save_period: Duration,
-}
-
-#[cfg(feature = "serde_config")]
-impl Default for AddressBookConfig {
-    fn default() -> Self {
-        Self {
-            max_white_list_length: 1000,
-            max_gray_list_length: 5000,
-            peer_store_directory: cuprate_helper::fs::CUPRATE_CACHE_DIR.clone(),
-            peer_save_period: Duration::from_secs(90),
-        }
-    }
 }
 
 /// Possible errors when dealing with the address book.

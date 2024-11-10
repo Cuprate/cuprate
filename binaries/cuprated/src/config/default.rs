@@ -4,9 +4,9 @@ use std::{
     str::from_utf8,
 };
 
-use cuprate_helper::fs::{
-    CUPRATE_BLOCKCHAIN_DIR, CUPRATE_CACHE_DIR, CUPRATE_TXPOOL_DIR, DEFAULT_CONFIG_FILE_NAME,
-};
+use cuprate_helper::fs::{CUPRATE_CACHE_DIR, DEFAULT_CONFIG_FILE_NAME};
+
+use crate::constants::EXAMPLE_CONFIG;
 
 /// Creates a config file which will be named [`DEFAULT_CONFIG_FILE_NAME`] in the directory given in [`Path`].
 ///
@@ -28,50 +28,17 @@ pub fn create_default_config_file(path: &Path) -> ! {
         }
     };
 
-    let config = generate_config_text();
+    let config = EXAMPLE_CONFIG;
     file.write_all(config.as_bytes()).unwrap();
 
     std::process::exit(0);
 }
 
-/// Generates the text of the default config file.
-fn generate_config_text() -> String {
-    let toml_value_str = |t: &PathBuf| {
-        let mut value = String::new();
-
-        serde::Serialize::serialize(t, toml::ser::ValueSerializer::new(&mut value)).unwrap();
-
-        value
-    };
-
-    format!(
-        include_str!("Cuprated.toml"),
-        cache = toml_value_str(&CUPRATE_CACHE_DIR),
-        txpool = toml_value_str(&CUPRATE_TXPOOL_DIR),
-        blockchain = toml_value_str(&CUPRATE_BLOCKCHAIN_DIR)
-    )
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::config::{default::generate_config_text, Config};
-
-    #[test]
-    fn generate_config_text_covers_all_values() {
-        let text = generate_config_text();
-        let table: toml::Table = toml::from_str(&text).unwrap();
-
-        let full_config = Config::default();
-        let full_config_table: toml::Table =
-            toml::from_str(&toml::to_string(&full_config).unwrap()).unwrap();
-
-        assert_eq!(full_config_table, table);
-    }
-
+    use crate::{config::Config, constants::EXAMPLE_CONFIG};
     #[test]
     fn generate_config_text_is_valid() {
-        let text = generate_config_text();
-
-        let config: Config = toml::from_str(&text).unwrap();
+        let config: Config = toml::from_str(EXAMPLE_CONFIG).unwrap();
     }
 }

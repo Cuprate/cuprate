@@ -5,13 +5,10 @@ edition = "2021"
 license = "MIT"
 authors = ["Boog900"]
 
-[features]
-defualt = []
-serde_config = ["dep:serde", "dep:cuprate-helper"]
 
 [dependencies]
 cuprate-constants   = { workspace = true }
-cuprate-helper      = { workspace = true, features = ["std", "fs"], optional = true }
+cuprate-helper      = { workspace = true, features = ["std"], optional = true }
 cuprate-pruning     = { workspace = true }
 cuprate-p2p-core    = { workspace = true, features = ["borsh"] }
 
@@ -28,7 +25,6 @@ indexmap = { workspace = true, features = ["std"] }
 rand = { workspace = true, features = ["std", "std_rng"] }
 
 borsh = { workspace = true, features = ["derive", "std"] }
-serde = { workspace = true, features = ["derive", "std"], optional = true }
 
 [dev-dependencies]
 cuprate-test-utils = { workspace = true }

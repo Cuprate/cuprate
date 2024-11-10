@@ -27,7 +27,7 @@ gray_peers_percent = 0.7
 ## The port to accept connections on, if left `0` no connections will be accepted.
 p2p_port = 0
 ## The IP address to listen to connections on.
-server.ip = "0.0.0.0"
+listen_on = "0.0.0.0"
 
 ## The Clear-net addressbook config.
 [p2p.clear_net.address_book_config]
@@ -35,10 +35,8 @@ server.ip = "0.0.0.0"
 max_white_list_length = 1_000
 ## The size of the gray peer list, which contains peers we have not made a connection to before.
 max_gray_list_length = 5_000
-## The folder to store the address book.
-peer_store_directory = {cache}
 ## The amount of time between address book saves.
-peer_save_period = {{ secs = 90, nanos = 0 }}
+peer_save_period = { secs = 90, nanos = 0 }
 
 ## The block downloader config.
 [p2p.block_downloader]
@@ -48,10 +46,8 @@ buffer_size = 50_000_000
 in_progress_queue_size = 50_000_000
 ## The target size of a batch of blocks (bytes), must not exceed 100MB.
 target_batch_size = 5_000_000
-## The number of blocks in the first batch (you probably shouldn't change this).
-initial_batch_len = 1
 ## The amount of time between checking the pool of connected peers for free peers to download blocks.
-check_client_pool_interval = {{ secs = 30, nanos = 0 }}
+check_client_pool_interval = { secs = 30, nanos = 0 }
 
 ## Storage config
 [storage]
@@ -60,8 +56,6 @@ reader_threads = "OnePerThread"
 
 ## Txpool storage config.
 [storage.txpool]
-## The txpool storage location.
-path = {txpool}
 ## The database sync mode for the txpool.
 sync_mode = "Async"
 ## The maximum size of all the txs in the pool (bytes).
@@ -69,7 +63,5 @@ max_txpool_byte_size = 100_000_000
 
 ## Blockchain storage config.
 [storage.blockchain]
-## The blockchain storage location.
-path = {blockchain}
 ## The database sync mode for the blockchain.
 sync_mode = "Async"
