@@ -357,6 +357,13 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
         self.connected_peers.insert(internal_peer_id, peer);
         Ok(())
     }
+    
+    fn add_white_peer(
+        &mut self,
+        white_peer: ZoneSpecificPeerListEntryBase<Z::Addr>
+    ) {
+        self.white_list.add_new_peer(white_peer);
+    }
 }
 
 impl<Z: BorshNetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
@@ -399,6 +406,10 @@ impl<Z: BorshNetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
                 .map(|()| AddressBookResponse::Ok),
             AddressBookRequest::IncomingPeerList(peer_list) => {
                 self.handle_incoming_peer_list(peer_list);
+                Ok(AddressBookResponse::Ok)
+            }
+            AddressBookRequest::AddWhitePeer(white_peer) =>{
+                self.add_white_peer(white_peer);
                 Ok(AddressBookResponse::Ok)
             }
             AddressBookRequest::TakeRandomWhitePeer { height } => self

@@ -10,6 +10,7 @@ cuprate-types             = { workspace = true }
 cuprate-helper            = { workspace = true, features = ["map", "tx"] }
 cuprate-wire              = { workspace = true }
 cuprate-p2p-core          = { workspace = true, features = ["borsh"] }
+cuprate-p2p-bucket        = { workspace = true }
 
 hex                       = { workspace = true }
 hex-literal               = { workspace = true }

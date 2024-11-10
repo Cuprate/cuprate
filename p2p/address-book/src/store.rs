@@ -86,11 +86,11 @@ mod tests {
         assert_eq!(gray_list.peers.len(), gray_list_2.peers.len());
 
         for addr in white_list.peers.keys() {
-            assert!(white_list_2.contains_peer(addr));
+            assert!(white_list_2.contains_peer(&addr));
         }
 
         for addr in gray_list.peers.keys() {
-            assert!(gray_list_2.contains_peer(addr));
+            assert!(gray_list_2.contains_peer(&addr));
         }
     }
 }

@@ -2,9 +2,10 @@
 //!
 //! This crate contains a [`NetworkInterface`] which allows interacting with the Monero P2P network on
 //! a certain [`NetworkZone`]
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use futures::FutureExt;
+use peer_pinger::PeerPinger;
 use tokio::{sync::mpsc, task::JoinSet};
 use tower::{buffer::Buffer, util::BoxCloneService, Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
@@ -23,6 +24,7 @@ pub mod config;
 pub mod connection_maintainer;
 pub mod constants;
 mod inbound_server;
+mod peer_pinger;
 
 use block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse};
 pub use broadcast::{BroadcastRequest, BroadcastSvc};
@@ -54,7 +56,7 @@ where
         cuprate_address_book::init_address_book(config.address_book_config.clone()).await?;
     let address_book = Buffer::new(
         address_book,
-        config.max_inbound_connections + config.outbound_connections,
+        config.max_inbound_connections + config.outbound_connections + 1,
     );
 
     // Use the default config. Changing the defaults affects tx fluff times, which could affect D++ so for now don't allow changing
@@ -95,11 +97,22 @@ where
         address_book.clone(),
         outbound_connector,
     );
+    
+    // TODO: Export duration into P2PConfig ?
+    let peer_pinger = PeerPinger::new(
+        address_book.clone(), 
+        Duration::from_secs(30)
+    );
 
     let mut background_tasks = JoinSet::new();
 
     background_tasks.spawn(
         outbound_connection_maintainer
+            .run()
+            .instrument(Span::current()),
+    );
+    background_tasks.spawn(
+        peer_pinger
             .run()
             .instrument(Span::current()),
     );
