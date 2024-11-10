@@ -6,8 +6,8 @@ use std::{
 
 use futures::{stream::FuturesUnordered, StreamExt};
 use indexmap::{IndexMap, IndexSet};
-use rand::{seq::index, thread_rng};
-use tokio::sync::mpsc;
+use rand::{seq::index::sample, thread_rng};
+use tokio::sync::mpsc::Receiver;
 use tokio_util::sync::WaitForCancellationFutureOwned;
 use tower::Service;
 
@@ -48,8 +48,12 @@ pub enum PeerSetResponse<N: NetworkZone> {
         top_hash: [u8; 32],
     },
     /// [`PeerSetRequest::PeersWithMorePoW`]
+    ///
+    /// Returned peers will be remembered and won't be returned from subsequent calls until the guard is dropped.
     PeersWithMorePoW(Vec<ClientDropGuard<N>>),
     /// [`PeerSetRequest::StemPeer`]
+    ///
+    /// The returned peer will be remembered and won't be returned from subsequent calls until the guard is dropped.
     StemPeer(Option<ClientDropGuard<N>>),
 }
 
@@ -79,11 +83,11 @@ pub(crate) struct PeerSet<N: NetworkZone> {
     /// The [`InternalPeerID`]s of all outbound peers.
     outbound_peers: IndexSet<InternalPeerID<N::Addr>>,
     /// A channel of new peers from the inbound server or outbound connector.
-    new_peers: mpsc::Receiver<Client<N>>,
+    new_peers: Receiver<Client<N>>,
 }
 
 impl<N: NetworkZone> PeerSet<N> {
-    pub(crate) fn new(new_peers: mpsc::Receiver<Client<N>>) -> Self {
+    pub(crate) fn new(new_peers: Receiver<Client<N>>) -> Self {
         Self {
             peers: IndexMap::new(),
             closed_connections: FuturesUnordered::new(),
@@ -126,19 +130,20 @@ impl<N: NetworkZone> PeerSet<N> {
 
     /// [`PeerSetRequest::MostPoWSeen`]
     fn most_pow_seen(&self) -> PeerSetResponse<N> {
-        let mut most_pow_chain = (0, 0, [0; 32]);
+        let most_pow_chain = self
+            .peers
+            .values()
+            .map(|peer| {
+                let core_sync_data = peer.client.info.core_sync_data.lock().unwrap();
 
-        for peer in self.peers.values() {
-            let core_sync_data = peer.client.info.core_sync_data.lock().unwrap();
-
-            if core_sync_data.cumulative_difficulty() > most_pow_chain.0 {
-                most_pow_chain = (
+                (
                     core_sync_data.cumulative_difficulty(),
                     u64_to_usize(core_sync_data.current_height),
                     core_sync_data.top_id,
-                );
-            }
-        }
+                )
+            })
+            .max_by_key(|(cumulative_difficulty, ..)| *cumulative_difficulty)
+            .unwrap_or_default();
 
         PeerSetResponse::MostPoWSeen {
             cumulative_difficulty: most_pow_chain.0,
@@ -170,25 +175,19 @@ impl<N: NetworkZone> PeerSet<N> {
 
     /// [`PeerSetRequest::StemPeer`]
     fn random_peer_for_stem(&self) -> PeerSetResponse<N> {
-        let outbound_peers = index::sample(
-            &mut thread_rng(),
-            self.outbound_peers.len(),
-            self.outbound_peers.len(),
-        );
-
-        for peer in outbound_peers
+        PeerSetResponse::StemPeer(
+            sample(
+                &mut thread_rng(),
+                self.outbound_peers.len(),
+                self.outbound_peers.len(),
+            )
             .into_iter()
-            .map(|i| self.outbound_peers.get_index(i).unwrap())
-        {
-            let client = self.peers.get(peer).unwrap();
-            if client.is_a_stem_peer() {
-                continue;
-            }
-
-            return PeerSetResponse::StemPeer(Some(client.stem_peer_guard()));
-        }
-
-        PeerSetResponse::StemPeer(None)
+            .find_map(|i| {
+                let peer = self.outbound_peers.get_index(i).unwrap();
+                let client = self.peers.get(peer).unwrap();
+                (!client.is_a_stem_peer()).then(|| client.stem_peer_guard())
+            }),
+        )
     }
 }
 

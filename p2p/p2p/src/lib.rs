@@ -55,7 +55,10 @@ where
         cuprate_address_book::init_address_book(config.address_book_config.clone()).await?;
     let address_book = Buffer::new(
         address_book,
-        config.max_inbound_connections + config.outbound_connections,
+        config
+            .max_inbound_connections
+            .checked_add(config.outbound_connections)
+            .unwrap(),
     );
 
     // Use the default config. Changing the defaults affects tx fluff times, which could affect D++ so for now don't allow changing
@@ -84,8 +87,12 @@ where
 
     let outbound_handshaker = outbound_handshaker_builder.build();
 
-    let (new_connection_tx, new_connection_rx) =
-        mpsc::channel(config.outbound_connections + config.max_inbound_connections);
+    let (new_connection_tx, new_connection_rx) = mpsc::channel(
+        config
+            .outbound_connections
+            .checked_add(config.max_inbound_connections)
+            .unwrap(),
+    );
     let (make_connection_tx, make_connection_rx) = mpsc::channel(3);
 
     let outbound_connector = Connector::new(outbound_handshaker);
