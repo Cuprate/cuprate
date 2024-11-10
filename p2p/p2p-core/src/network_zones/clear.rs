@@ -1,5 +1,5 @@
 use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
+    net::{IpAddr, SocketAddr},
     pin::Pin,
     task::{Context, Poll},
 };
@@ -38,18 +38,8 @@ impl NetZoneAddress for SocketAddr {
 }
 
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct ClearNetServerCfg {
     pub ip: IpAddr,
-}
-
-impl Default for ClearNetServerCfg {
-    fn default() -> Self {
-        Self {
-            ip: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-        }
-    }
 }
 
 #[derive(Clone, Copy)]

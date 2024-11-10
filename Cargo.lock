@@ -551,7 +551,6 @@ version = "0.1.0"
 dependencies = [
  "borsh",
  "cuprate-constants",
- "cuprate-helper",
  "cuprate-p2p-core",
  "cuprate-pruning",
  "cuprate-test-utils",
@@ -881,7 +880,6 @@ dependencies = [
  "futures",
  "hex",
  "hex-literal",
- "serde",
  "thiserror",
  "tokio",
  "tokio-stream",

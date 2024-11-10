@@ -1,9 +1,12 @@
-use cuprate_helper::fs::addressbook_path;
-use cuprate_helper::network::Network;
+use std::{
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    path::Path,
+    time::Duration,
+};
+
 use serde::{Deserialize, Serialize};
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::path::Path;
-use std::time::Duration;
+
+use cuprate_helper::{fs::addressbook_path, network::Network};
 
 /// P2P config.
 #[derive(Default, Deserialize, Serialize)]
