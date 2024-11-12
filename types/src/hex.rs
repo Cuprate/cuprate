@@ -22,6 +22,7 @@ pub struct HexBytes<const N: usize>(
     #[cfg_attr(feature = "serde", serde(with = "hex::serde"))] pub [u8; N],
 );
 
+#[cfg(feature = "serde")]
 impl<'de, const N: usize> Deserialize<'de> for HexBytes<N>
 where
     [u8; N]: hex::FromHex,
