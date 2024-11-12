@@ -20,11 +20,15 @@ use cuprate_types::BlockCompleteEntry;
 
 use crate::{
     base::AccessResponseBase,
-    defaults::{default_false, default_zero},
     macros::{define_request, define_request_and_response, define_request_and_response_doc},
-    misc::{BlockOutputIndices, GetOutputsOut, OutKeyBin, PoolInfoExtent, PoolTxInfo, Status},
+    misc::{BlockOutputIndices, GetOutputsOut, OutKeyBin, PoolTxInfo, Status},
     rpc_call::RpcCallValue,
 };
+
+#[cfg(any(feature = "epee", feature = "serde"))]
+use crate::defaults::{default_false, default_zero};
+#[cfg(feature = "epee")]
+use crate::misc::PoolInfoExtent;
 
 //---------------------------------------------------------------------------------------------------- Definitions
 define_request_and_response! {

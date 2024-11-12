@@ -10,9 +10,10 @@ default = ["borsh"]
 borsh = ["dep:borsh", "cuprate-pruning/borsh"]
 
 [dependencies]
-cuprate-helper = { workspace = true, features = ["asynch"], default-features = false }
-cuprate-wire = { workspace = true, features = ["tracing"] }
+cuprate-helper  = { workspace = true, features = ["asynch"], default-features = false }
+cuprate-wire    = { workspace = true, features = ["tracing"] }
 cuprate-pruning = { workspace = true }
+cuprate-types   = { workspace = true }
 
 tokio = { workspace = true, features = ["net", "sync", "macros", "time", "rt", "rt-multi-thread"]}
 tokio-util = { workspace = true, features = ["codec"] }

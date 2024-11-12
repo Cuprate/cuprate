@@ -24,17 +24,17 @@ use crate::{
 /// - [`/get_transaction_pool` -> `tx_json`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_transaction_pool)
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[serde(untagged)]
+#[cfg_attr(feature = "serde", serde(untagged))]
 pub enum Transaction {
     V1 {
         /// This field is [flattened](https://serde.rs/field-attrs.html#flatten).
-        #[serde(flatten)]
+        #[cfg_attr(feature = "serde", serde(flatten))]
         prefix: TransactionPrefix,
         signatures: Vec<HexBytes<64>>,
     },
     V2 {
         /// This field is [flattened](https://serde.rs/field-attrs.html#flatten).
-        #[serde(flatten)]
+        #[cfg_attr(feature = "serde", serde(flatten))]
         prefix: TransactionPrefix,
         rct_signatures: RctSignatures,
         /// This field is [`Some`] if [`Self::V2::rct_signatures`]

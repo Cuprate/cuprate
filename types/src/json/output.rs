@@ -20,7 +20,7 @@ pub struct Output {
 /// [`Output::target`].
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[serde(untagged)]
+#[cfg_attr(feature = "serde", serde(untagged))]
 pub enum Target {
     Key { key: HexBytes<32> },
     TaggedKey { tagged_key: TaggedKey },

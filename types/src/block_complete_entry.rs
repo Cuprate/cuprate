@@ -136,7 +136,7 @@ impl TransactionBlobs {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct PrunedTxBlobEntry {
     /// The transaction.
-    pub tx: Bytes,
+    pub blob: Bytes,
     /// The prunable transaction hash.
     pub prunable_hash: ByteArray<32>,
 }
@@ -144,7 +144,7 @@ pub struct PrunedTxBlobEntry {
 #[cfg(feature = "epee")]
 epee_object!(
     PrunedTxBlobEntry,
-    tx: Bytes,
+    blob: Bytes,
     prunable_hash: ByteArray<32>,
 );
 

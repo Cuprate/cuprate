@@ -10,7 +10,7 @@ default = []
 borsh = ["dep:borsh"]
 
 [dependencies]
-cuprate-constants = { workspace = true }
+cuprate-constants = { workspace = true, features = ["block"] }
 cuprate-helper    = { workspace = true, features = ["cast"] }
 
 thiserror = { workspace = true }
