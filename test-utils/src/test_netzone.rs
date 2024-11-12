@@ -11,6 +11,7 @@ use std::{
 };
 
 use borsh::{BorshDeserialize, BorshSerialize};
+use cuprate_p2p_bucket::Bucketable;
 use futures::Stream;
 use tokio::io::{DuplexStream, ReadHalf, WriteHalf};
 use tokio_util::codec::{FramedRead, FramedWrite};
@@ -23,8 +24,22 @@ use cuprate_wire::{
 use cuprate_p2p_core::{NetZoneAddress, NetworkZone};
 
 /// An address on the test network
-#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq, BorshSerialize, BorshDeserialize)]
+#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq, PartialOrd, Ord, BorshSerialize, BorshDeserialize)]
 pub struct TestNetZoneAddr(pub u32);
+
+impl Bucketable for TestNetZoneAddr {
+    type Key = Self;
+
+    type Discriminant = Self;
+
+    fn key(&self) -> Self::Key {
+        *self
+    }
+
+    fn compute_discriminant(key: &Self::Key) -> Self::Discriminant {
+        *key
+    }
+}
 
 impl NetZoneAddress for TestNetZoneAddr {
     type BanID = Self;

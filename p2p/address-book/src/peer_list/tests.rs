@@ -68,7 +68,7 @@ fn peer_list_reduce_length() {
 #[test]
 fn peer_list_reduce_length_with_peers_we_need() {
     let mut peer_list = make_fake_peer_list(0, 500);
-    let must_keep_peers = peer_list.peers.keys().copied().collect::<HashSet<_>>();
+    let must_keep_peers = peer_list.peers.keys().collect::<HashSet<_>>();
 
     let target_len = 49;
 
@@ -93,7 +93,7 @@ fn peer_list_remove_specific_peer() {
         addrs.iter().for_each(|adr| assert_ne!(adr, &peer.adr));
     }
 
-    assert!(!peers.contains_key(&peer.adr));
+    assert!(!peers.contains(&peer.adr));
 }
 
 #[test]
@@ -170,7 +170,7 @@ fn peer_list_ban_peers() {
     let ban_id = peer.adr.ban_id();
 
     assert_eq!(peer_list.ban_ids.get(&ban_id), None);
-    for (addr, _) in peer_list.peers {
+    for addr in peer_list.peers.keys() {
         assert_ne!(addr.ban_id(), ban_id);
     }
 }

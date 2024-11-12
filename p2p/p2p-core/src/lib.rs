@@ -68,6 +68,7 @@ cfg_if::cfg_if! {
 
 use std::{fmt::Debug, hash::Hash};
 
+use cuprate_p2p_bucket::Bucketable;
 use futures::{Sink, Stream};
 
 use cuprate_wire::{
@@ -105,6 +106,7 @@ pub enum ConnectionDirection {
 pub trait NetZoneAddress:
     TryFrom<NetworkAddress, Error = NetworkAddressIncorrectZone>
     + Into<NetworkAddress>
+    + Bucketable
     + std::fmt::Display
     + Hash
     + Eq

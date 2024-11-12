@@ -1,5 +1,6 @@
 use std::time::Instant;
 
+use cuprate_p2p_bucket::Bucketable;
 use cuprate_pruning::{PruningError, PruningSeed};
 use cuprate_wire::{CoreSyncData, PeerListEntryBase};
 
@@ -32,6 +33,23 @@ pub struct ZoneSpecificPeerListEntryBase<A: NetZoneAddress> {
     pub pruning_seed: PruningSeed,
     pub rpc_port: u16,
     pub rpc_credits_per_hash: u32,
+}
+
+impl<A: NetZoneAddress> Bucketable for ZoneSpecificPeerListEntryBase<A> 
+{
+    type Key = A;
+    
+    type Discriminant = A::Discriminant;
+
+    #[inline]
+    fn key(&self) -> Self::Key {
+        self.adr
+    }
+    
+    #[inline]
+    fn compute_discriminant(key: &Self::Key) -> Self::Discriminant {
+        A::compute_discriminant(&key.key())
+    }
 }
 
 impl<A: NetZoneAddress> From<ZoneSpecificPeerListEntryBase<A>> for PeerListEntryBase {
@@ -93,6 +111,9 @@ pub enum AddressBookRequest<Z: NetworkZone> {
 
     /// Tells the address book about a peer list received from a peer.
     IncomingPeerList(Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>),
+    
+    /// Add a new specific white peer to the peer list.
+    AddWhitePeer(ZoneSpecificPeerListEntryBase<Z::Addr>),
 
     /// Takes a random white peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
@@ -141,6 +162,7 @@ pub enum AddressBookResponse<Z: NetworkZone> {
     /// Response to:
     /// - [`AddressBookRequest::NewConnection`]
     /// - [`AddressBookRequest::IncomingPeerList`]
+    /// - [`AddressBookRequest::AddWhitePeer`]
     Ok,
 
     /// Response to:
