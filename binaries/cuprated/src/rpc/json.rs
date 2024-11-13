@@ -16,7 +16,7 @@ use cuprate_helper::{
     cast::{u64_to_usize, usize_to_u64},
     map::split_u128_into_low_high_bits,
 };
-use cuprate_p2p_core::{client::handshaker::builder::DummyAddressBook, ClearNet};
+use cuprate_p2p_core::{client::handshaker::builder::DummyAddressBook, ClearNet, Network};
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
     base::{AccessResponseBase, ResponseBase},
@@ -400,7 +400,11 @@ async fn get_info(
         split_u128_into_low_high_bits(cumulative_difficulty);
     let (database_size, free_space) = blockchain::database_size(&mut state.blockchain_read).await?;
     let (database_size, free_space) = if restricted {
-        let database_size = todo!(); // round_up(res.database_size, 5ull* 1024 * 1024 * 1024) */
+        // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L131-L134>
+        fn round_up(value: u64, quantum: u64) -> u64 {
+            (value + quantum - 1) / quantum * quantum
+        }
+        let database_size = round_up(database_size, 5 * 1024 * 1024 * 1024);
         (database_size, u64::MAX)
     } else {
         (database_size, free_space)
@@ -413,22 +417,37 @@ async fn get_info(
     } else {
         address_book::connection_count::<ClearNet>(&mut DummyAddressBook).await?
     };
-    let mainnet = todo!();
-    let nettype = todo!();
-    let offline = todo!();
-    let rpc_connections_count = if restricted { 0 } else { todo!() };
-    let stagenet = todo!();
+    let (mainnet, testnet, stagenet) = match todo!("access to `cuprated`'s `Network`") {
+        Network::Mainnet => (true, false, false),
+        Network::Testnet => (false, true, false),
+        Network::Stagenet => (false, false, true),
+    };
+    // TODO: make sure this is:
+    // - the same case as `monerod`
+    // - untagged (no `Network::`)
+    let nettype = todo!("access to `cuprated`'s `Network`").to_string();
+    let offline = todo!("access to CLI/config's `--offline`");
+    let rpc_connections_count = if restricted {
+        0
+    } else {
+        todo!(
+            "implement a connection counter in axum/RPC, maybe `AtomicU64` any handler activating"
+        )
+    };
     let start_time = if restricted { 0 } else { *START_INSTANT_UNIX };
     let synchronized = blockchain_manager::synced(&mut state.blockchain_manager).await?;
     let target_height = blockchain_manager::target_height(&mut state.blockchain_manager).await?;
     let target = blockchain_manager::target(&mut state.blockchain_manager)
         .await?
         .as_secs();
-    let testnet = todo!();
     let top_block_hash = hex::encode(c.top_hash);
     let tx_count = blockchain::total_tx_count(&mut state.blockchain_read).await?;
     let tx_pool_size = txpool::size(&mut state.txpool_read, !restricted).await?;
-    let update_available = if restricted { false } else { todo!() };
+    let update_available = if restricted {
+        false
+    } else {
+        todo!("implement an update checker for `cuprated`")
+    };
     let version = if restricted {
         String::new()
     } else {
@@ -580,7 +599,16 @@ async fn banned(
     state: CupratedRpcHandler,
     request: BannedRequest,
 ) -> Result<BannedResponse, Error> {
-    let peer = todo!("create Z::Addr from request.address");
+    let peer = match request.address.parse::<std::net::SocketAddr>() {
+        Ok(p) => p,
+        Err(e) => {
+            return Err(anyhow!(
+                "Failed to parse address: {} ({e})",
+                request.address
+            ))
+        }
+    };
+
     let ban = address_book::get_ban::<ClearNet>(&mut DummyAddressBook, peer).await?;
 
     let (banned, seconds) = if let Some(instant) = ban {
