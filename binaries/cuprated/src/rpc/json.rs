@@ -41,8 +41,8 @@ use cuprate_rpc_types::{
         SyncInfoResponse,
     },
     misc::{
-        AuxPow, BlockHeader, ChainInfo, GetBan, HardforkEntry, HistogramEntry, Status,
-        SyncInfoPeer, TxBacklogEntry,
+        AuxPow, BlockHeader, ChainInfo, GetBan, GetMinerDataTxBacklogEntry, HardforkEntry,
+        HistogramEntry, Status, SyncInfoPeer, TxBacklogEntry,
     },
     CORE_RPC_VERSION,
 };
@@ -872,24 +872,24 @@ async fn get_miner_data(
     request: GetMinerDataRequest,
 ) -> Result<GetMinerDataResponse, Error> {
     let context = blockchain_context::context(&mut state.blockchain_context).await?;
-    let context = context.unchecked_blockchain_context();
-    let major_version = context.current_hf.as_u8();
-    let height = usize_to_u64(context.chain_height);
-    let prev_id = hex::encode(context.top_hash);
-    let seed_hash = todo!();
-    let difficulty = format!("{:#x}", context.next_difficulty);
-    let median_weight = usize_to_u64(context.median_weight_for_block_reward);
-    let already_generated_coins = context.already_generated_coins;
-    let tx_backlog = todo!();
-    // let tx_backlog = txpool::block_template_backlog(&mut state.txpool_read)
-    //     .await?
-    //     .into_iter()
-    //     .map(|entry| GetMinerDataTxBacklogEntry {
-    //         id: hex::encode(entry.id),
-    //         weight: entry.weight,
-    //         fee: entry.fee,
-    //     })
-    //     .collect();
+    let c = context.unchecked_blockchain_context();
+
+    let major_version = c.current_hf.as_u8();
+    let height = usize_to_u64(c.chain_height);
+    let prev_id = hex::encode(c.top_hash);
+    let seed_hash = hex::encode(c.top_hash);
+    let difficulty = format!("{:#x}", c.next_difficulty);
+    let median_weight = usize_to_u64(c.median_weight_for_block_reward);
+    let already_generated_coins = c.already_generated_coins;
+    let tx_backlog = txpool::backlog(&mut state.txpool_read)
+        .await?
+        .into_iter()
+        .map(|entry| GetMinerDataTxBacklogEntry {
+            id: hex::encode(entry.id),
+            weight: entry.weight,
+            fee: entry.fee,
+        })
+        .collect();
 
     Ok(GetMinerDataResponse {
         base: ResponseBase::OK,
