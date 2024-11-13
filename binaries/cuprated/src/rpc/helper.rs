@@ -14,7 +14,7 @@ use cuprate_types::ExtendedBlockHeader;
 
 use crate::{rpc::request::blockchain, rpc::CupratedRpcHandler};
 
-fn into_block_header(
+pub(super) fn into_block_header(
     height: u64,
     top_height: u64,
     fill_pow_hash: bool,

@@ -1,3 +1,5 @@
+//! RPC request handler functions (binary endpoints).
+
 use anyhow::Error;
 
 use cuprate_rpc_types::{

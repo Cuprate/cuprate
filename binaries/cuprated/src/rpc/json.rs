@@ -1,3 +1,5 @@
+//! RPC request handler functions (JSON-RPC).
+
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Error};
@@ -131,8 +133,12 @@ async fn on_get_block_hash(
     request: OnGetBlockHashRequest,
 ) -> Result<OnGetBlockHashResponse, Error> {
     let [height] = request.block_height;
-    let hash = blockchain::block_hash(&mut state.blockchain_read, height, todo!("access to chain"))
-        .await?;
+    let hash = blockchain::block_hash(
+        &mut state.blockchain_read,
+        height,
+        todo!("access to `cuprated`'s Chain"),
+    )
+    .await?;
     let block_hash = hex::encode(hash);
 
     Ok(OnGetBlockHashResponse { block_hash })
@@ -167,8 +173,9 @@ async fn generate_blocks(
         return Err(anyhow!("Regtest required when generating blocks"));
     }
 
-    // TODO: is this value only used as a local variable in the handler?
-    // it may not be needed in the request type.
+    // FIXME:
+    // is this field only used as a local variable in the handler in `monerod`?
+    // It may not be needed in the request type.
     let prev_block = helper::hex_to_hash(request.prev_block)?;
 
     let (blocks, height) = blockchain_manager::generate_blocks(
@@ -269,32 +276,39 @@ async fn get_block_headers_range(
         return Err(anyhow!("Invalid start/end heights"));
     }
 
-    if state.restricted()
-        && request.end_height.saturating_sub(request.start_height) + 1
-            > RESTRICTED_BLOCK_HEADER_RANGE
-    {
+    let too_many_blocks = || {
+        request.end_height.saturating_sub(request.start_height) + 1 > RESTRICTED_BLOCK_HEADER_RANGE
+    };
+
+    if state.restricted() && too_many_blocks() {
         return Err(anyhow!("Too many block headers requested."));
     }
 
-    let block_len = u64_to_usize(request.end_height.saturating_sub(request.start_height));
-    let mut tasks = Vec::with_capacity(block_len);
-    let mut headers = Vec::with_capacity(block_len);
+    // FIXME:
+    // This code currently:
+    // 1. requests a specific `(Block, BlockHeader)`
+    // 2. maps them to the RPC type
+    // 3. pushes them to the a `Vec` sequentially
+    //
+    // It could be more efficient by:
+    // 1. requesting all `(Block, Header)`s in the range at once
+    // 2. mapping all at once and collect into a `Vec`
+    //
+    // This isn't currently possible because there
+    // is no internal request for a range of blocks.
 
-    {
-        let ready = state.blockchain_read.ready().await?;
-        for height in request.start_height..=request.end_height {
-            let height = u64_to_usize(height);
-            let task = tokio::task::spawn(ready.call(BlockchainReadRequest::Block { height }));
-            tasks.push(task);
-        }
-    }
+    let (range, expected_len) = {
+        let start = u64_to_usize(request.start_height);
+        let end = u64_to_usize(request.end_height).saturating_add(1);
+        (start..end, end.saturating_sub(start))
+    };
 
-    for task in tasks {
-        let BlockchainResponse::Block(header) = task.await?? else {
-            unreachable!();
-        };
-        // headers.push((&header).into());
-        headers.push(todo!());
+    let mut headers = Vec::with_capacity(expected_len);
+
+    for height in range {
+        let height = usize_to_u64(height);
+        let header = helper::block_header(&mut state, height, request.fill_pow_hash).await?;
+        headers.push(header);
     }
 
     Ok(GetBlockHeadersRangeResponse {

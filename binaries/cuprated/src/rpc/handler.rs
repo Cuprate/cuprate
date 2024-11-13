@@ -1,4 +1,4 @@
-//! Dummy implementation of [`RpcHandler`].
+//! `cuprated`'s implementation of [`RpcHandler`].
 
 use std::task::{Context, Poll};
 
