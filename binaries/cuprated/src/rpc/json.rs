@@ -58,6 +58,8 @@ use crate::{
     statics::START_INSTANT_UNIX,
 };
 
+use super::constants::FIELD_NOT_SUPPORTED;
+
 /// Map a [`JsonRpcRequest`] to the function that will lead to a [`JsonRpcResponse`].
 pub(super) async fn map_request(
     state: CupratedRpcHandler,
@@ -715,7 +717,7 @@ async fn get_version(
 
     let mut hard_forks = Vec::with_capacity(HardFork::COUNT);
 
-    // FIXME: use an iterator `collect()` version.
+    // FIXME: use an async iterator `collect()` version.
     for hf in HardFork::VARIANTS {
         if let Ok(hf) = blockchain_context::hard_fork_info(&mut state.blockchain_context, *hf).await
         {
@@ -822,16 +824,15 @@ async fn sync_info(
         .map(|info| SyncInfoPeer { info })
         .collect();
 
-    // TODO
-    // let next_needed_pruning_seed =
-    //     address_book::next_needed_pruning_seed::<ClearNet>(&mut DummyAddressBook)
-    //         .await?
-    //         .compress();
-    // let overview = blockchain_manager::overview(&mut state.blockchain_manager, height).await?;
-    // let spans = address_book::spans::<ClearNet>(&mut DummyAddressBook).await?;
-    let next_needed_pruning_seed = todo!();
-    let overview = todo!();
-    let spans = todo!();
+    let next_needed_pruning_seed =
+        blockchain_manager::next_needed_pruning_seed(&mut state.blockchain_manager)
+            .await?
+            .compress();
+
+    let spans = blockchain_manager::spans::<ClearNet>(&mut state.blockchain_manager).await?;
+
+    // <https://github.com/Cuprate/cuprate/pull/320#discussion_r1811063772>
+    let overview = String::from(FIELD_NOT_SUPPORTED);
 
     Ok(SyncInfoResponse {
         base: AccessResponseBase::OK,
@@ -1009,7 +1010,7 @@ async fn get_tx_ids_loose(
     request: GetTxIdsLooseRequest,
 ) -> Result<GetTxIdsLooseResponse, Error> {
     // TODO: this RPC call is not yet in the v0.18 branch.
-    return Err(anyhow!("not implemented"));
+    return Err(anyhow!("Not implemented"));
 
     Ok(GetTxIdsLooseResponse {
         base: ResponseBase::OK,

@@ -183,7 +183,8 @@ pub(crate) async fn spans<Z: NetworkZone>(
     //     unreachable!();
     // };
 
-    let vec: Vec<cuprate_p2p_core::types::Span<Z::Addr>> = todo!();
+    let vec: Vec<cuprate_p2p_core::types::Span<Z::Addr>> =
+        todo!("waiting on blockchain downloader/syncer: <https://github.com/Cuprate/cuprate/pull/320#discussion_r1811089758>");
 
     // FIXME: impl this map somewhere instead of inline.
     let vec = vec
