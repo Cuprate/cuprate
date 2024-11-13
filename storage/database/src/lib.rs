@@ -71,6 +71,5 @@ cfg_if::cfg_if! {
         use redb as _;
     } else {
         use heed as _;
-        use cuprate_helper as _;
     }
 }
