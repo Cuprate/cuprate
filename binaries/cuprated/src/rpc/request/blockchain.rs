@@ -1,7 +1,7 @@
 //! Functions for [`BlockchainReadRequest`].
 
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     ops::Range,
 };
 
@@ -9,12 +9,12 @@ use anyhow::Error;
 use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 
-use cuprate_blockchain::{service::BlockchainReadHandle, types::AltChainInfo};
+use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, ChainInfo, CoinbaseTxSum, ExtendedBlockHeader, HardFork, MinerData,
-    OutputHistogramEntry, OutputHistogramInput, OutputOnChain,
+    Chain, ChainInfo, CoinbaseTxSum, ExtendedBlockHeader, OutputHistogramEntry,
+    OutputHistogramInput, OutputOnChain,
 };
 
 /// [`BlockchainReadRequest::Block`].

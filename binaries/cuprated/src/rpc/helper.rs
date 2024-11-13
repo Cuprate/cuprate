@@ -5,23 +5,12 @@
 //!
 //! These build on-top of [`crate::rpc::request`] functions.
 
-use std::sync::Arc;
-
 use anyhow::{anyhow, Error};
-use futures::StreamExt;
 use monero_serai::block::Block;
-use tower::{Service, ServiceExt};
 
-use cuprate_consensus::BlockchainResponse;
-use cuprate_constants::rpc::{RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE};
-use cuprate_helper::{
-    cast::{u64_to_usize, usize_to_u64},
-    map::split_u128_into_low_high_bits,
-};
+use cuprate_helper::{cast::usize_to_u64, map::split_u128_into_low_high_bits};
 use cuprate_rpc_types::misc::{BlockHeader, KeyImageSpentStatus};
-use cuprate_types::{
-    blockchain::BlockchainReadRequest, Chain, ExtendedBlockHeader, VerifiedBlockInformation,
-};
+use cuprate_types::ExtendedBlockHeader;
 
 use crate::{rpc::request::blockchain, rpc::CupratedRpcHandler};
 

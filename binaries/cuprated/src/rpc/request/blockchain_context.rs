@@ -1,7 +1,5 @@
 //! Functions for [`BlockChainContextRequest`] and [`BlockChainContextResponse`].
 
-use std::convert::Infallible;
-
 use anyhow::{anyhow, Error};
 use monero_serai::block::Block;
 use tower::{Service, ServiceExt};

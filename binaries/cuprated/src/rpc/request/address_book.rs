@@ -1,7 +1,5 @@
 //! Functions for TODO: doc enum message.
 
-use std::convert::Infallible;
-
 use anyhow::{anyhow, Error};
 use tower::ServiceExt;
 
@@ -11,12 +9,7 @@ use cuprate_p2p_core::{
     types::{BanState, ConnectionId},
     AddressBook, NetworkZone,
 };
-use cuprate_pruning::PruningSeed;
-use cuprate_rpc_types::misc::{ConnectionInfo, Span};
-
-use crate::rpc::constants::FIELD_NOT_SUPPORTED;
-
-// FIXME: use `anyhow::Error` over `tower::BoxError` in address book.
+use cuprate_rpc_types::misc::ConnectionInfo;
 
 // FIXME: use `anyhow::Error` over `tower::BoxError` in address book.
 

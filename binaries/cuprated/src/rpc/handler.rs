@@ -7,7 +7,7 @@ use futures::future::BoxFuture;
 use monero_serai::block::Block;
 use tower::Service;
 
-use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
+use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::BlockChainContextService;
 use cuprate_pruning::PruningSeed;
 use cuprate_rpc_interface::RpcHandler;
@@ -16,8 +16,7 @@ use cuprate_rpc_types::{
     json::{JsonRpcRequest, JsonRpcResponse},
     other::{OtherRequest, OtherResponse},
 };
-use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
-use cuprate_types::{AddAuxPow, AuxPow, HardFork};
+use cuprate_txpool::service::TxpoolReadHandle;
 
 use crate::rpc::{bin, json, other};
 

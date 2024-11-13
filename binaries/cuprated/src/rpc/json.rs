@@ -1,10 +1,6 @@
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Error};
-use futures::TryFutureExt;
 use monero_serai::block::Block;
 use strum::{EnumCount, VariantArray};
 use tower::{Service, ServiceExt};
@@ -43,12 +39,12 @@ use cuprate_rpc_types::{
         SyncInfoResponse,
     },
     misc::{
-        AuxPow, BlockHeader, ChainInfo, GetBan, GetMinerDataTxBacklogEntry, HardforkEntry,
-        HistogramEntry, Status, SyncInfoPeer, TxBacklogEntry,
+        AuxPow, BlockHeader, ChainInfo, GetBan, HardforkEntry, HistogramEntry, Status,
+        SyncInfoPeer, TxBacklogEntry,
     },
     CORE_RPC_VERSION,
 };
-use cuprate_types::{Chain, HardFork};
+use cuprate_types::HardFork;
 
 use crate::{
     constants::VERSION_BUILD,
