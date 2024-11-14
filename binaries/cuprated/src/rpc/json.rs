@@ -931,20 +931,31 @@ async fn calc_pow(
     let block = Block::read(&mut block_blob.as_slice())?;
     let seed_hash = helper::hex_to_hash(request.seed_hash)?;
 
-    // let pow_hash = blockchain_manager::calculate_pow(
-    //     &mut state.blockchain_manager,
-    //     hardfork,
-    //     request.height,
-    //     block,
-    //     seed_hash,
-    // )
-    // .await?;
+    let block_weight = todo!();
 
-    // let hex = hex::encode(pow_hash);
+    let median_for_block_reward = blockchain_context::context(&mut state.blockchain_context)
+        .await?
+        .unchecked_blockchain_context()
+        .context_to_verify_block
+        .median_weight_for_block_reward;
 
-    let hex = todo!();
+    if cuprate_consensus_rules::blocks::check_block_weight(block_weight, median_for_block_reward)
+        .is_err()
+    {
+        return Err(anyhow!("Block blob size is too big, rejecting block"));
+    }
 
-    Ok(CalcPowResponse { pow_hash: hex })
+    let pow_hash = blockchain_context::calculate_pow(
+        &mut state.blockchain_context,
+        hardfork,
+        block,
+        seed_hash,
+    )
+    .await?;
+
+    let pow_hash = hex::encode(pow_hash);
+
+    Ok(CalcPowResponse { pow_hash })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3542-L3551>

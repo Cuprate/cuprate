@@ -8,11 +8,15 @@
 use anyhow::{anyhow, Error};
 use monero_serai::block::Block;
 
+use cuprate_consensus::{BlockChainContext, BlockChainContextService};
 use cuprate_helper::{cast::usize_to_u64, map::split_u128_into_low_high_bits};
 use cuprate_rpc_types::misc::{BlockHeader, KeyImageSpentStatus};
 use cuprate_types::ExtendedBlockHeader;
 
-use crate::{rpc::request::blockchain, rpc::CupratedRpcHandler};
+use crate::{
+    rpc::request::{blockchain, blockchain_context},
+    rpc::CupratedRpcHandler,
+};
 
 pub(super) fn into_block_header(
     height: u64,
