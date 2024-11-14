@@ -13,7 +13,7 @@ use cuprate_constants::{
     rpc::{RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE},
 };
 use cuprate_helper::{
-    cast::{u64_to_usize, usize_to_u64},
+    cast::{u32_to_usize, u64_to_usize, usize_to_u64},
     map::split_u128_into_low_high_bits,
 };
 use cuprate_p2p_core::{client::handshaker::builder::DummyAddressBook, ClearNet, Network};
@@ -403,7 +403,7 @@ async fn get_info(
     let (database_size, free_space) = blockchain::database_size(&mut state.blockchain_read).await?;
     let (database_size, free_space) = if restricted {
         // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L131-L134>
-        fn round_up(value: u64, quantum: u64) -> u64 {
+        const fn round_up(value: u64, quantum: u64) -> u64 {
             (value + quantum - 1) / quantum * quantum
         }
         let database_size = round_up(database_size, 5 * 1024 * 1024 * 1024);
@@ -964,8 +964,9 @@ async fn add_aux_pow(
     mut state: CupratedRpcHandler,
     request: AddAuxPowRequest,
 ) -> Result<AddAuxPowResponse, Error> {
-    let hex = hex::decode(request.blocktemplate_blob)?;
-    let block_template = Block::read(&mut hex.as_slice())?;
+    if request.aux_pow.is_empty() {
+        return Err(anyhow!("Empty `aux_pow` vector"));
+    }
 
     let aux_pow = request
         .aux_pow
@@ -975,31 +976,166 @@ async fn add_aux_pow(
             let hash = helper::hex_to_hash(aux.hash)?;
             Ok(cuprate_types::AuxPow { id, hash })
         })
-        .collect::<Result<Vec<_>, Error>>()?;
+        .collect::<Result<Box<[_]>, Error>>()?;
+    // Some of the code below requires that the
+    // `.len()` of certain containers are the same.
+    // Boxed slices are used over `Vec` to slightly
+    // safe-guard against accidently pushing to it.
 
-    let resp = todo!();
-    // let resp =
-    //     blockchain_manager::add_aux_pow(&mut state.blockchain_manager, block_template, aux_pow)
-    //         .await?;
+    // --- BEGIN AUX POW IMPL ---
 
-    let blocktemplate_blob = hex::encode(resp.blocktemplate_blob);
-    let blockhashing_blob = hex::encode(resp.blockhashing_blob);
-    let merkle_root = hex::encode(resp.merkle_root);
-    let aux_pow = resp
-        .aux_pow
-        .into_iter()
+    // Original impl:
+    // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2110-L2206>
+
+    let len = aux_pow.len();
+
+    let mut path_domain = 1_usize;
+    while 1 << path_domain < len {
+        path_domain += 1;
+    }
+
+    let nonce = 0_u32;
+    let mut collision = true;
+    let mut slots: Box<[u32]> = vec![0; len].into_boxed_slice(); // INVARIANT: this must be the same `.len()` as `aux_pow`
+
+    for nonce in 0..u32::MAX {
+        let slot_seen: Vec<bool> = vec![false; len];
+
+        collision = false;
+
+        slots.iter_mut().for_each(|i| *i = u32::MAX);
+
+        for i in &mut slots {
+            let slot_u32: u32 = todo!("const uint32_t slot = cryptonote::get_aux_slot(aux_pow[idx].first, nonce, aux_pow.size());");
+            let slot = u32_to_usize(slot_u32);
+
+            if slot >= len {
+                return Err(anyhow!("Computed slot is out of range"));
+            }
+
+            if slot_seen[slot] {
+                collision = true;
+                break;
+            }
+
+            slot_seen[slot] = true;
+            *i = slot_u32;
+        }
+
+        if !collision {
+            break;
+        }
+    }
+
+    if collision {
+        return Err(anyhow!("Failed to find a suitable nonce"));
+    }
+
+    let slots = slots;
+
+    // FIXME: use iterator version.
+    let (aux_pow_id_raw, aux_pow_raw) = {
+        let mut aux_pow_id_raw = Vec::<[u8; 32]>::with_capacity(len);
+        let mut aux_pow_raw = Vec::<[u8; 32]>::with_capacity(len);
+
+        assert_eq!(
+            aux_pow.len(),
+            slots.len(),
+            "these need to be the same or else the below .zip() doesn't make sense"
+        );
+
+        for (aux_pow, slot) in aux_pow.iter().zip(&slots) {
+            if u32_to_usize(*slot) >= len {
+                return Err(anyhow!("Slot value out of range"));
+            }
+
+            aux_pow_id_raw.push(aux_pow.id);
+            aux_pow_raw.push(aux_pow.hash);
+        }
+
+        assert_eq!(
+            slots.len(),
+            aux_pow_raw.len(),
+            "these need to be the same or else the below .zip() doesn't make sense"
+        );
+        assert_eq!(
+            aux_pow_raw.len(),
+            aux_pow_id_raw.len(),
+            "these need to be the same or else the below .zip() doesn't make sense"
+        );
+
+        for (slot, aux_pow) in slots.iter().zip(&aux_pow) {
+            let slot = u32_to_usize(*slot);
+
+            if slot >= len {
+                return Err(anyhow!("Slot value out of range"));
+            }
+
+            aux_pow_raw[slot] = aux_pow.hash;
+            aux_pow_id_raw[slot] = aux_pow.id;
+        }
+
+        (
+            aux_pow_id_raw.into_boxed_slice(),
+            aux_pow_raw.into_boxed_slice(),
+        )
+    };
+
+    // let crypto_tree_hash = || todo!(&aux_pow_raw, aux_pow_raw.len());
+    let crypto_tree_hash = todo!();
+
+    let block_template = {
+        let hex = hex::decode(request.blocktemplate_blob)?;
+        Block::read(&mut hex.as_slice())?
+    };
+
+    fn remove_field_from_tx_extra() -> Result<(), ()> {
+        todo!()
+    }
+
+    if remove_field_from_tx_extra().is_err() {
+        return Err(anyhow!("Error removing existing merkle root"));
+    }
+
+    fn add_mm_merkle_root_to_tx_extra() -> Result<(), ()> {
+        todo!()
+    }
+
+    if add_mm_merkle_root_to_tx_extra().is_err() {
+        return Err(anyhow!("Error adding merkle root"));
+    }
+
+    fn invalidate_hashes() {
+        // block_template.invalidate_hashes();
+        // block_template.miner_tx.invalidate_hashes();
+        todo!();
+    }
+
+    invalidate_hashes();
+
+    let blocktemplate_blob = block_template.serialize();
+    let blockhashing_blob = block_template.serialize_pow_hash();
+    let merkle_root: [u8; 32] = todo!();
+    let merkle_tree_depth = todo!();
+
+    let blocktemplate_blob = hex::encode(blocktemplate_blob);
+    let blockhashing_blob = hex::encode(blockhashing_blob);
+    let merkle_root = hex::encode(merkle_root);
+    let aux_pow = IntoIterator::into_iter(aux_pow) // must be explicit due to `boxed_slice_into_iter`
         .map(|aux| AuxPow {
             id: hex::encode(aux.id),
             hash: hex::encode(aux.hash),
         })
         .collect::<Vec<AuxPow>>();
 
+    // --- END AUX POW IMPL ---
+
     Ok(AddAuxPowResponse {
         base: ResponseBase::OK,
         blocktemplate_blob,
         blockhashing_blob,
         merkle_root,
-        merkle_tree_depth: resp.merkle_tree_depth,
+        merkle_tree_depth,
         aux_pow,
     })
 }
