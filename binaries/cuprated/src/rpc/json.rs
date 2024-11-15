@@ -32,7 +32,8 @@ use cuprate_rpc_types::{
         GetConnectionsRequest, GetConnectionsResponse, GetFeeEstimateRequest,
         GetFeeEstimateResponse, GetInfoRequest, GetInfoResponse, GetLastBlockHeaderRequest,
         GetLastBlockHeaderResponse, GetMinerDataRequest, GetMinerDataResponse,
-        GetOutputHistogramRequest, GetOutputHistogramResponse, GetTransactionPoolBacklogRequest,
+        GetOutputDistributionRequest, GetOutputDistributionResponse, GetOutputHistogramRequest,
+        GetOutputHistogramResponse, GetTransactionPoolBacklogRequest,
         GetTransactionPoolBacklogResponse, GetTxIdsLooseRequest, GetTxIdsLooseResponse,
         GetVersionRequest, GetVersionResponse, HardForkInfoRequest, HardForkInfoResponse,
         JsonRpcRequest, JsonRpcResponse, OnGetBlockHashRequest, OnGetBlockHashResponse,
@@ -41,8 +42,8 @@ use cuprate_rpc_types::{
         SyncInfoResponse,
     },
     misc::{
-        AuxPow, BlockHeader, ChainInfo, GetBan, GetMinerDataTxBacklogEntry, HardforkEntry,
-        HistogramEntry, Status, SyncInfoPeer, TxBacklogEntry,
+        AuxPow, BlockHeader, ChainInfo, Distribution, GetBan, GetMinerDataTxBacklogEntry,
+        HardforkEntry, HistogramEntry, Status, SyncInfoPeer, TxBacklogEntry,
     },
     CORE_RPC_VERSION,
 };
@@ -108,6 +109,9 @@ pub(super) async fn map_request(
         Req::SyncInfo(r) => Resp::SyncInfo(sync_info(state, r).await?),
         Req::GetTransactionPoolBacklog(r) => {
             Resp::GetTransactionPoolBacklog(get_transaction_pool_backlog(state, r).await?)
+        }
+        Req::GetOutputDistribution(r) => {
+            Resp::GetOutputDistribution(get_output_distribution(state, r).await?)
         }
         Req::GetMinerData(r) => Resp::GetMinerData(get_miner_data(state, r).await?),
         Req::PruneBlockchain(r) => Resp::PruneBlockchain(prune_blockchain(state, r).await?),
@@ -217,7 +221,7 @@ async fn get_block_header_by_hash(
     mut state: CupratedRpcHandler,
     request: GetBlockHeaderByHashRequest,
 ) -> Result<GetBlockHeaderByHashResponse, Error> {
-    if state.restricted() && request.hashes.len() > RESTRICTED_BLOCK_COUNT {
+    if state.is_restricted() && request.hashes.len() > RESTRICTED_BLOCK_COUNT {
         return Err(anyhow!(
             "Too many block headers requested in restricted mode"
         ));
@@ -282,7 +286,7 @@ async fn get_block_headers_range(
         request.end_height.saturating_sub(request.start_height) + 1 > RESTRICTED_BLOCK_HEADER_RANGE
     };
 
-    if state.restricted() && too_many_blocks() {
+    if state.is_restricted() && too_many_blocks() {
         return Err(anyhow!("Too many block headers requested."));
     }
 
@@ -374,7 +378,7 @@ async fn get_info(
     mut state: CupratedRpcHandler,
     request: GetInfoRequest,
 ) -> Result<GetInfoResponse, Error> {
-    let restricted = state.restricted();
+    let restricted = state.is_restricted();
     let context = blockchain_context::context(&mut state.blockchain_context).await?;
 
     let c = context.unchecked_blockchain_context();
@@ -863,6 +867,39 @@ async fn get_transaction_pool_backlog(
     Ok(GetTransactionPoolBacklogResponse {
         base: ResponseBase::OK,
         backlog,
+    })
+}
+
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3352-L3398>
+async fn get_output_distribution(
+    mut state: CupratedRpcHandler,
+    request: GetOutputDistributionRequest,
+) -> Result<GetOutputDistributionResponse, Error> {
+    if state.is_restricted() && request.amounts != [1, 0] {
+        return Err(anyhow!(
+            "Restricted RPC can only get output distribution for RCT outputs. Use your own node."
+        ));
+    }
+
+    // 0 is placeholder for the whole chain
+    let req_to_height = if request.to_height == 0 {
+        helper::top_height(&mut state).await?.0.saturating_sub(1)
+    } else {
+        request.to_height
+    };
+
+    let distributions = request.amounts.into_iter().map(|amount| {
+        fn get_output_distribution() -> Result<Distribution, Error> {
+            todo!("https://github.com/monero-project/monero/blob/893916ad091a92e765ce3241b94e706ad012b62a/src/rpc/rpc_handler.cpp#L29");
+            Err(anyhow!("Failed to get output distribution"))
+        }
+
+        get_output_distribution()
+    }).collect::<Result<Vec<Distribution>, _>>()?;
+
+    Ok(GetOutputDistributionResponse {
+        base: AccessResponseBase::OK,
+        distributions,
     })
 }
 

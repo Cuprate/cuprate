@@ -180,7 +180,7 @@ impl CupratedRpcHandler {
 }
 
 impl RpcHandler for CupratedRpcHandler {
-    fn restricted(&self) -> bool {
+    fn is_restricted(&self) -> bool {
         self.restricted
     }
 }

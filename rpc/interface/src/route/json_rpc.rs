@@ -37,7 +37,7 @@ pub(crate) async fn json_rpc<H: RpcHandler>(
 
     // Return early if this RPC server is restricted and
     // the requested method is only for non-restricted RPC.
-    if request.body.is_restricted() && handler.restricted() {
+    if request.body.is_restricted() && handler.is_restricted() {
         let error_object = ErrorObject {
             code: ErrorCode::ServerError(-1 /* TODO */),
             message: Cow::Borrowed("Restricted. TODO: mimic monerod message"),
