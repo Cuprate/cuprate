@@ -1,0 +1,13 @@
+RPC stuff that needs to be written in the architecture book:
+
+## General
+- diagram showing full pipeline from input to output with crate responsibilities listed along the line
+
+## The handler
+- {json-rpc, binary, other} handler functions implemented in `cuprated` <CODE_LINK>
+- handler -> helper function -> internal component's `Service`
+
+## Unsupported RPC calls / RPC calls with different behavior
+- https://github.com/Cuprate/cuprate/issues/278
+- binary strings -> full JSON: `get_transaction_pool_backlog`, `get_output_distribution`
+- not in `monerod` yet: `get_tx_ids_loose`
