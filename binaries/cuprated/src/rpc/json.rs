@@ -931,7 +931,7 @@ async fn calc_pow(
     let block = Block::read(&mut block_blob.as_slice())?;
     let seed_hash = helper::hex_to_hash(request.seed_hash)?;
 
-    let block_weight = todo!();
+    let block_weight = todo!("calculate block weight");
 
     let median_for_block_reward = blockchain_context::context(&mut state.blockchain_context)
         .await?
@@ -1005,11 +1005,13 @@ async fn add_aux_pow(
         path_domain += 1;
     }
 
-    let nonce = 0_u32;
+    let mut nonce = 0_u32;
     let mut collision = true;
     let mut slots: Box<[u32]> = vec![0; len].into_boxed_slice(); // INVARIANT: this must be the same `.len()` as `aux_pow`
 
-    for nonce in 0..u32::MAX {
+    for n in 0..u32::MAX {
+        nonce = n;
+
         let slot_seen: Vec<bool> = vec![false; len];
 
         collision = false;
@@ -1038,11 +1040,12 @@ async fn add_aux_pow(
         }
     }
 
+    let nonce = nonce;
+    let slots = slots;
+
     if collision {
         return Err(anyhow!("Failed to find a suitable nonce"));
     }
-
-    let slots = slots;
 
     // FIXME: use iterator version.
     let (aux_pow_id_raw, aux_pow_raw) = {
@@ -1092,8 +1095,16 @@ async fn add_aux_pow(
         )
     };
 
-    // let crypto_tree_hash = || todo!(&aux_pow_raw, aux_pow_raw.len());
-    let crypto_tree_hash = todo!();
+    fn tree_hash(aux_pow_raw: &[[u8; 32]]) -> [u8; 32] {
+        todo!("https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2163")
+    }
+
+    fn encode_mm_depth(aux_pow_len: usize, nonce: u32) -> u64 {
+        todo!("https://github.com/monero-project/monero/blob/893916ad091a92e765ce3241b94e706ad012b62a/src/cryptonote_basic/merge_mining.cpp#L74")
+    }
+
+    let merkle_root = tree_hash(aux_pow_raw.as_ref());
+    let merkle_tree_depth = encode_mm_depth(len, nonce);
 
     let block_template = {
         let hex = hex::decode(request.blocktemplate_blob)?;
@@ -1101,7 +1112,7 @@ async fn add_aux_pow(
     };
 
     fn remove_field_from_tx_extra() -> Result<(), ()> {
-        todo!()
+        todo!("https://github.com/monero-project/monero/blob/master/src/cryptonote_basic/cryptonote_format_utils.cpp#L767")
     }
 
     if remove_field_from_tx_extra().is_err() {
@@ -1109,7 +1120,8 @@ async fn add_aux_pow(
     }
 
     fn add_mm_merkle_root_to_tx_extra() -> Result<(), ()> {
-        todo!()
+        todo!("https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2189
+        ")
     }
 
     if add_mm_merkle_root_to_tx_extra().is_err() {
@@ -1119,6 +1131,7 @@ async fn add_aux_pow(
     fn invalidate_hashes() {
         // block_template.invalidate_hashes();
         // block_template.miner_tx.invalidate_hashes();
+        // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2195-L2196>
         todo!();
     }
 
@@ -1126,8 +1139,6 @@ async fn add_aux_pow(
 
     let blocktemplate_blob = block_template.serialize();
     let blockhashing_blob = block_template.serialize_pow_hash();
-    let merkle_root: [u8; 32] = todo!();
-    let merkle_tree_depth = todo!();
 
     let blocktemplate_blob = hex::encode(blocktemplate_blob);
     let blockhashing_blob = hex::encode(blockhashing_blob);
