@@ -1009,8 +1009,16 @@ async fn flush_cache(
     })
 }
 
-/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2072-L2207>
+/// An async-friendly wrapper for [`add_aux_pow_inner`].
 async fn add_aux_pow(
+    state: CupratedRpcHandler,
+    request: AddAuxPowRequest,
+) -> Result<AddAuxPowResponse, Error> {
+    tokio::task::spawn_blocking(|| add_aux_pow_inner(state, request)).await?
+}
+
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2072-L2207>
+fn add_aux_pow_inner(
     mut state: CupratedRpcHandler,
     request: AddAuxPowRequest,
 ) -> Result<AddAuxPowResponse, Error> {
@@ -1046,47 +1054,35 @@ async fn add_aux_pow(
         path_domain += 1;
     }
 
-    let mut nonce = 0_u32;
-    let mut collision = true;
-    let mut slots: Box<[u32]> = vec![0; len].into_boxed_slice(); // INVARIANT: this must be the same `.len()` as `aux_pow`
+    fn find_nonce(aux_pow_len: usize) -> Result<(u32, Box<[u32]>), Error> {
+        // INVARIANT: this must be the same `.len()` as `aux_pow`
+        let mut slots: Box<[u32]> = vec![u32::MAX; aux_pow_len].into_boxed_slice();
+        let mut slot_seen: Box<[bool]> = vec![false; aux_pow_len].into_boxed_slice();
 
-    for n in 0..u32::MAX {
-        nonce = n;
+        for nonce in 0..u32::MAX {
+            for i in &mut slots {
+                let slot_u32: u32 = todo!("const uint32_t slot = cryptonote::get_aux_slot(aux_pow[idx].first, nonce, aux_pow.size());");
+                let slot = u32_to_usize(slot_u32);
 
-        let slot_seen: Vec<bool> = vec![false; len];
+                if slot >= aux_pow_len {
+                    return Err(anyhow!("Computed slot is out of range"));
+                }
 
-        collision = false;
+                if slot_seen[slot] {
+                    return Ok((nonce, slots));
+                }
 
-        slots.fill(u32::MAX);
-
-        for i in &mut slots {
-            let slot_u32: u32 = todo!("const uint32_t slot = cryptonote::get_aux_slot(aux_pow[idx].first, nonce, aux_pow.size());");
-            let slot = u32_to_usize(slot_u32);
-
-            if slot >= len {
-                return Err(anyhow!("Computed slot is out of range"));
+                slot_seen[slot] = true;
+                *i = slot_u32;
             }
 
-            if slot_seen[slot] {
-                collision = true;
-                break;
-            }
-
-            slot_seen[slot] = true;
-            *i = slot_u32;
+            slots.fill(u32::MAX);
         }
 
-        if !collision {
-            break;
-        }
+        Err(anyhow!("Failed to find a suitable nonce"))
     }
 
-    let nonce = nonce;
-    let slots = slots;
-
-    if collision {
-        return Err(anyhow!("Failed to find a suitable nonce"));
-    }
+    let (nonce, slots) = find_nonce(len)?;
 
     // FIXME: use iterator version.
     let (aux_pow_id_raw, aux_pow_raw) = {
