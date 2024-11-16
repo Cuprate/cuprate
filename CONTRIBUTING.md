@@ -120,12 +120,15 @@ Before pushing your code, please run the following at the root of the repository
 
 After that, ensure all other CI passes by running:
 
-| Command                                                                | Does what |
-|------------------------------------------------------------------------|-----------|
-| `RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features`      | Checks documentation is OK
-| `cargo clippy --workspace --all-features --all-targets -- -D warnings` | Checks clippy lints are satisfied
-| `cargo test --all-features --workspace`                                | Runs all tests
-| `cargo build --all-features --all-targets --workspace`                 | Builds all code
+| Command                                                                | Does what                                                               |
+|------------------------------------------------------------------------|-------------------------------------------------------------------------|
+| `RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features`      | Checks documentation is OK                                              |
+| `cargo clippy --workspace --all-features --all-targets -- -D warnings` | Checks clippy lints are satisfied                                       |
+| `cargo test --all-features --workspace`                                | Runs all tests                                                          |
+| `cargo build --all-features --all-targets --workspace`                 | Builds all code                                                         |
+| `cargo hack --workspace check --feature-powerset --no-dev-deps`        | Uses `cargo hack` to check our crates build with different features set |
+
+`cargo hack` can be installed with `cargo` from: https://github.com/taiki-e/cargo-hack.
 
 **Note: in order for some tests to work, you will need to place a [`monerod`](https://www.getmonero.org/downloads/) binary at the root of the repository.**
 

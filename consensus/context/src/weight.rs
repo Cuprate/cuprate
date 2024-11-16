@@ -21,12 +21,12 @@ use cuprate_types::{
     Chain,
 };
 
-use crate::{Database, ExtendedConsensusError, HardFork};
+use crate::{ContextCacheError, Database, HardFork};
 
 /// The short term block weight window.
-const SHORT_TERM_WINDOW: usize = 100;
+pub const SHORT_TERM_WINDOW: usize = 100;
 /// The long term block weight window.
-const LONG_TERM_WINDOW: usize = 100000;
+pub const LONG_TERM_WINDOW: usize = 100000;
 
 /// Configuration for the block weight cache.
 ///
@@ -80,7 +80,7 @@ impl BlockWeightsCache {
         config: BlockWeightsCacheConfig,
         database: D,
         chain: Chain,
-    ) -> Result<Self, ExtendedConsensusError> {
+    ) -> Result<Self, ContextCacheError> {
         tracing::info!("Initializing weight cache this may take a while.");
 
         let long_term_weights = get_long_term_weight_in_range(
@@ -121,7 +121,7 @@ impl BlockWeightsCache {
         &mut self,
         numb_blocks: usize,
         database: D,
-    ) -> Result<(), ExtendedConsensusError> {
+    ) -> Result<(), ContextCacheError> {
         if self.long_term_weights.window_len() <= numb_blocks {
             // More blocks to pop than we have in the cache, so just restart a new cache.
             *self = Self::init_from_chain_height(
@@ -258,7 +258,7 @@ fn calculate_effective_median_block_weight(
 }
 
 /// Calculates a blocks long term weight.
-pub(crate) fn calculate_block_long_term_weight(
+pub fn calculate_block_long_term_weight(
     hf: HardFork,
     block_weight: usize,
     long_term_median: usize,
@@ -287,7 +287,7 @@ async fn get_blocks_weight_in_range<D: Database + Clone>(
     range: Range<usize>,
     database: D,
     chain: Chain,
-) -> Result<Vec<usize>, ExtendedConsensusError> {
+) -> Result<Vec<usize>, ContextCacheError> {
     tracing::info!("getting block weights.");
 
     let BlockchainResponse::BlockExtendedHeaderInRange(ext_headers) = database
@@ -311,7 +311,7 @@ async fn get_long_term_weight_in_range<D: Database + Clone>(
     range: Range<usize>,
     database: D,
     chain: Chain,
-) -> Result<Vec<usize>, ExtendedConsensusError> {
+) -> Result<Vec<usize>, ContextCacheError> {
     tracing::info!("getting block long term weights.");
 
     let BlockchainResponse::BlockExtendedHeaderInRange(ext_headers) = database

@@ -11,7 +11,7 @@ pub mod atomic;
 #[cfg(feature = "cast")]
 pub mod cast;
 
-#[cfg(feature = "fs")]
+#[cfg(all(feature = "fs", feature = "std"))]
 pub mod fs;
 
 pub mod network;
@@ -30,6 +30,9 @@ pub mod time;
 
 #[cfg(feature = "tx")]
 pub mod tx;
+
+#[cfg(feature = "crypto")]
+pub mod crypto;
 //---------------------------------------------------------------------------------------------------- Private Usage
 
 //----------------------------------------------------------------------------------------------------

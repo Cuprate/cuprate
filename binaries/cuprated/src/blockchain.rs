@@ -25,7 +25,7 @@ mod manager;
 mod syncer;
 mod types;
 
-use types::{
+pub use types::{
     ConcreteBlockVerifierService, ConcreteTxVerifierService, ConsensusBlockchainReadHandle,
 };
 

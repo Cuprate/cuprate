@@ -85,7 +85,7 @@ mod key_images;
 mod tx_read;
 mod tx_write;
 
-pub use tx_read::get_transaction_verification_data;
+pub use tx_read::{get_transaction_verification_data, in_stem_pool};
 pub use tx_write::{add_transaction, remove_transaction};
 
 /// An error that can occur on some tx-write ops.

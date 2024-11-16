@@ -16,7 +16,8 @@ cargo doc --open --package cuprate-blockchain
 | Crate | In-tree path | Purpose |
 |-------|--------------|---------|
 | [`cuprate-consensus`](https://doc.cuprate.org/cuprate_consensus) | [`consensus/`](https://github.com/Cuprate/cuprate/tree/main/consensus) | TODO
-| [`cuprate-consensus-rules`](https://doc.cuprate.org/cuprate_consensus_rules) | [`consensus/rules/`](https://github.com/Cuprate/cuprate/tree/main/consensus-rules) | TODO
+| [`cuprate-consensus-context`](https://doc.cuprate.org/cuprate_consensus_context) | [`consensus/context/`](https://github.com/Cuprate/cuprate/tree/main/consensus/context) | TODO
+| [`cuprate-consensus-rules`](https://doc.cuprate.org/cuprate_consensus_rules) | [`consensus/rules/`](https://github.com/Cuprate/cuprate/tree/main/consensus/rules) | TODO
 | [`cuprate-fast-sync`](https://doc.cuprate.org/cuprate_fast_sync) | [`consensus/fast-sync/`](https://github.com/Cuprate/cuprate/tree/main/consensus/fast-sync) | Fast block synchronization
 
 ## Networking
@@ -34,6 +35,7 @@ cargo doc --open --package cuprate-blockchain
 | [`cuprate-async-buffer`](https://doc.cuprate.org/cuprate_async_buffer) | [`p2p/async-buffer/`](https://github.com/Cuprate/cuprate/tree/main/p2p/async-buffer) | A bounded SPSC, FIFO, asynchronous buffer that supports arbitrary weights for values
 | [`cuprate-dandelion-tower`](https://doc.cuprate.org/cuprate_dandelion_tower) | [`p2p/dandelion-tower/`](https://github.com/Cuprate/cuprate/tree/main/p2p/dandelion-tower) | TODO
 | [`cuprate-p2p`](https://doc.cuprate.org/cuprate_p2p) | [`p2p/p2p/`](https://github.com/Cuprate/cuprate/tree/main/p2p/p2p) | TODO
+| [`cuprate-p2p-bucket`](https://doc.cuprate.org/cuprate_p2p_bucket) | [`p2p/bucket/`](https://github.com/Cuprate/cuprate/tree/main/p2p/bucket) | A collection data structure discriminating its items into "buckets" of limited size.
 | [`cuprate-p2p-core`](https://doc.cuprate.org/cuprate_p2p_core) | [`p2p/p2p-core/`](https://github.com/Cuprate/cuprate/tree/main/p2p/p2p-core) | TODO
 
 ## Storage

@@ -14,6 +14,9 @@ use monero_serai::{
 };
 use tower::{Service, ServiceExt};
 
+use cuprate_consensus_context::{
+    BlockChainContextRequest, BlockChainContextResponse, RawBlockChainContext,
+};
 use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_types::{
     AltBlockInformation, TransactionVerificationData, VerifiedBlockInformation,
@@ -30,7 +33,6 @@ use cuprate_consensus_rules::{
 };
 
 use crate::{
-    context::{BlockChainContextRequest, BlockChainContextResponse, RawBlockChainContext},
     transactions::{VerifyTxRequest, VerifyTxResponse},
     Database, ExtendedConsensusError,
 };

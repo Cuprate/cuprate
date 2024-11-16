@@ -423,7 +423,8 @@ impl<Z: BorshNetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
             AddressBookRequest::PeerlistSize
             | AddressBookRequest::ConnectionCount
             | AddressBookRequest::SetBan(_)
-            | AddressBookRequest::GetBans => {
+            | AddressBookRequest::GetBans
+            | AddressBookRequest::ConnectionInfo => {
                 todo!("finish https://github.com/Cuprate/cuprate/pull/297")
             }
         };
