@@ -1,9 +1,9 @@
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 
 use bytes::Buf;
+use thiserror::Error;
 
 use cuprate_epee_encoding::{epee_object, EpeeObjectBuilder};
-use thiserror::Error;
 
 use crate::NetworkAddress;
 
