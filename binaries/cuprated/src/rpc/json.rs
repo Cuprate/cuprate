@@ -1,4 +1,8 @@
 //! RPC request handler functions (JSON-RPC).
+//!
+//! TODO:
+//! Many handlers have `todo!()`s for internals that must be completed, see:
+//! <https://github.com/Cuprate/cuprate/pull/308>
 
 use std::time::{Duration, Instant};
 
@@ -436,9 +440,7 @@ async fn get_info(
     let rpc_connections_count = if restricted {
         0
     } else {
-        todo!(
-            "implement a connection counter in axum/RPC, maybe `AtomicU64` any handler activating"
-        )
+        todo!("implement a connection counter in axum/RPC")
     };
     let start_time = if restricted { 0 } else { *START_INSTANT_UNIX };
     let synchronized = blockchain_manager::synced(&mut state.blockchain_manager).await?;
@@ -1037,6 +1039,8 @@ async fn add_aux_pow(
 
     let len = aux_pow.len();
 
+    // TODO: why is this here? it does nothing:
+    // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2110-L2112>
     let mut path_domain = 1_usize;
     while 1 << path_domain < len {
         path_domain += 1;
@@ -1053,7 +1057,7 @@ async fn add_aux_pow(
 
         collision = false;
 
-        slots.iter_mut().for_each(|i| *i = u32::MAX);
+        slots.fill(u32::MAX);
 
         for i in &mut slots {
             let slot_u32: u32 = todo!("const uint32_t slot = cryptonote::get_aux_slot(aux_pow[idx].first, nonce, aux_pow.size());");
