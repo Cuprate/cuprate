@@ -3,14 +3,14 @@
 ## What
 Monero encodes IPv4 addresses in [little-endian](https://en.wikipedia.org/wiki/Endianness) byte order.
 
+## Expected
+In general, [networking-related protocols/code use _networking order_ (big-endian)](https://en.wikipedia.org/wiki/Endianness#Networking).
+
 ## Why
 TODO
 
 - <https://github.com/monero-project/monero/issues/3826>
 - <https://github.com/monero-project/monero/pull/5544>
-
-## Expected
-In general, [networking-related protocols/code use _networking order_ (big-endian)](https://en.wikipedia.org/wiki/Endianness#Networking).
 
 ## Affects
 Any representation and (de)serialization of IPv4 addresses must keep little

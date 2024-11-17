@@ -19,12 +19,12 @@ If applicable, consider using this formatting when adding to this section.
 ## What
 A detailed description of the behavior.
 
+## Expected
+The norm or standard behavior that is usually expected.
+
 ## Why
 The reasoning behind why this behavior exists and/or
 any links to more detailed discussion on the behavior.
-
-## Expected
-The norm or standard behavior that is usually expected.
 
 ## Affects
 A (potentially non-exhaustive) list of places that this behavior can/does affect.
