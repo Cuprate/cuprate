@@ -1,5 +1,3 @@
-#![expect(non_local_definitions, reason = "proptest macro")]
-
 use std::{
     future::Future,
     pin::Pin,

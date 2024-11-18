@@ -51,17 +51,17 @@ impl From<block::Block> for Block {
 /// [`Block::miner_tx`].
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[serde(untagged)]
+#[cfg_attr(feature = "serde", serde(untagged))]
 pub enum MinerTransaction {
     V1 {
         /// This field is [flattened](https://serde.rs/field-attrs.html#flatten).
-        #[serde(flatten)]
+        #[cfg_attr(feature = "serde", serde(flatten))]
         prefix: MinerTransactionPrefix,
         signatures: [(); 0],
     },
     V2 {
         /// This field is [flattened](https://serde.rs/field-attrs.html#flatten).
-        #[serde(flatten)]
+        #[cfg_attr(feature = "serde", serde(flatten))]
         prefix: MinerTransactionPrefix,
         rct_signatures: MinerTransactionRctSignatures,
     },

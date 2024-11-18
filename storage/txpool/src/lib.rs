@@ -4,10 +4,12 @@
     clippy::significant_drop_tightening
 )]
 
+// Used in docs: <https://github.com/Cuprate/cuprate/pull/170#discussion_r1823644357>.
+use tower as _;
+
 pub mod config;
 mod free;
 pub mod ops;
-#[cfg(feature = "service")]
 pub mod service;
 pub mod tables;
 mod tx;
@@ -20,8 +22,6 @@ pub use tx::TxEntry;
 //re-exports
 pub use cuprate_database;
 
-// TODO: remove when used.
-use tower as _;
 #[cfg(test)]
 mod test {
     use cuprate_test_utils as _;

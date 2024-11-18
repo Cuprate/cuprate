@@ -9,32 +9,31 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/storage/cuprate-bloc
 keywords    = ["cuprate", "blockchain", "database"]
 
 [features]
-default     = ["heed", "service"]
+default     = ["heed"]
 # default     = ["redb", "service"]
 # default     = ["redb-memory", "service"]
 heed        = ["cuprate-database/heed"]
 redb        = ["cuprate-database/redb"]
 redb-memory = ["cuprate-database/redb-memory"]
-service     = ["dep:thread_local", "dep:rayon", "cuprate-helper/thread"]
+serde       = ["dep:serde", "cuprate-database/serde", "cuprate-database-service/serde"]
 
 [dependencies]
 cuprate-database         = { workspace = true }
 cuprate-database-service = { workspace = true }
-cuprate-helper           = { workspace = true, features = ["fs", "map", "crypto"] }
+cuprate-helper           = { workspace = true, features = ["fs", "map", "crypto", "tx", "thread"] }
 cuprate-types            = { workspace = true, features = ["blockchain"] }
 cuprate-pruning          = { workspace = true }
 
 bitflags         = { workspace = true, features = ["std", "serde", "bytemuck"] }
 bytemuck         = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 curve25519-dalek = { workspace = true }
-rand             = { workspace = true }
+rand             = { workspace = true, features = ["std", "std_rng"] }
 monero-serai     = { workspace = true, features = ["std"] }
 serde            = { workspace = true, optional = true }
 
-# `service` feature.
 tower        = { workspace = true }
-thread_local = { workspace = true, optional = true }
-rayon        = { workspace = true, optional = true }
+thread_local = { workspace = true }
+rayon        = { workspace = true }
 bytes = "1.7.2"
 
 [dev-dependencies]

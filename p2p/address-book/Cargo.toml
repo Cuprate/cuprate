@@ -9,7 +9,7 @@ authors = ["Boog900"]
 [dependencies]
 cuprate-constants   = { workspace = true }
 cuprate-pruning     = { workspace = true }
-cuprate-p2p-core    = { workspace = true }
+cuprate-p2p-core    = { workspace = true, features = ["borsh"] }
 
 tower = { workspace = true, features = ["util"] }
 tokio = { workspace = true, features = ["time", "fs", "rt"]}

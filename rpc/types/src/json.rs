@@ -8,10 +8,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     base::{AccessResponseBase, ResponseBase},
-    defaults::{
-        default_false, default_height, default_one, default_string, default_true, default_vec,
-        default_zero,
-    },
     macros::define_request_and_response,
     misc::{
         AuxPow, BlockHeader, ChainInfo, ConnectionInfo, Distribution, GetBan,
@@ -19,6 +15,12 @@ use crate::{
         SyncInfoPeer, TxBacklogEntry,
     },
     rpc_call::RpcCallValue,
+};
+
+#[cfg(any(feature = "epee", feature = "serde"))]
+use crate::defaults::{
+    default_false, default_height, default_one, default_string, default_true, default_vec,
+    default_zero,
 };
 
 //---------------------------------------------------------------------------------------------------- Macro
@@ -184,7 +186,7 @@ define_request_and_response! {
     // <https://serde.rs/field-attrs.html#flatten>.
     #[doc = serde_doc_test!(
         GET_BLOCK_TEMPLATE_RESPONSE => GetBlockTemplateResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             blockhashing_blob: "1010f4bae0b4069d648e741d85ca0e7acb4501f051b27e9b107d3cd7a3f03aa7f776089117c81a00000000e0c20372be23d356347091025c5b5e8f2abf83ab618378565cce2b703491523401".into(),
             blocktemplate_blob: "1010f4bae0b4069d648e741d85ca0e7acb4501f051b27e9b107d3cd7a3f03aa7f776089117c81a0000000002c681c30101ff8a81c3010180e0a596bb11033b7eedf47baf878f3490cb20b696079c34bd017fe59b0d070e74d73ffabc4bb0e05f011decb630f3148d0163b3bd39690dde4078e4cfb69fecf020d6278a27bad10c58023c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000".into(),
             difficulty_top64: 0,
@@ -240,7 +242,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_BLOCK_COUNT_RESPONSE => GetBlockCountResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             count: 3195019,
         }
     )]
@@ -332,7 +334,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GENERATE_BLOCKS_RESPONSE => GenerateBlocksResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             blocks: vec!["49b712db7760e3728586f8434ee8bc8d7b3d410dac6bb6e98bf5845c83b917e4".into()],
             height: 9783,
         }
@@ -357,7 +359,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_LAST_BLOCK_HEADER_RESPONSE => GetLastBlockHeaderResponse {
-            base: AccessResponseBase::ok(),
+            base: AccessResponseBase::OK,
             block_header: BlockHeader {
                 block_size: 200419,
                 block_weight: 200419,
@@ -409,7 +411,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_BLOCK_HEADER_BY_HASH_RESPONSE => GetBlockHeaderByHashResponse {
-            base: AccessResponseBase::ok(),
+            base: AccessResponseBase::OK,
             block_headers: vec![],
             block_header: BlockHeader {
                 block_size: 210,
@@ -464,7 +466,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_BLOCK_HEADER_BY_HEIGHT_RESPONSE => GetBlockHeaderByHeightResponse {
-            base: AccessResponseBase::ok(),
+            base: AccessResponseBase::OK,
             block_header: BlockHeader {
                 block_size: 210,
                 block_weight: 210,
@@ -519,7 +521,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_BLOCK_HEADERS_RANGE_RESPONSE => GetBlockHeadersRangeResponse {
-            base: AccessResponseBase::ok(),
+            base: AccessResponseBase::OK,
             headers: vec![
                 BlockHeader {
                     block_size: 301413,
@@ -601,7 +603,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_BLOCK_RESPONSE => GetBlockResponse {
-            base: AccessResponseBase::ok(),
+            base: AccessResponseBase::OK,
             blob: "1010c58bab9b06b27bdecfc6cd0a46172d136c08831cf67660377ba992332363228b1b722781e7807e07f502cef8a70101ff92f8a7010180e0a596bb1103d7cbf826b665d7a532c316982dc8dbc24f285cbc18bbcc27c7164cd9b3277a85d034019f629d8b36bd16a2bfce3ea80c31dc4d8762c67165aec21845494e32b7582fe00211000000297a787a000000000000000000000000".into(),
             block_header: BlockHeader {
                 block_size: 106,
@@ -654,11 +656,11 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_CONNECTIONS_RESPONSE => GetConnectionsResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             connections: vec![
                 ConnectionInfo {
                     address: "3evk3kezfjg44ma6tvesy7rbxwwpgpympj45xar5fo4qajrsmkoaqdqd.onion:18083".into(),
-                    address_type: 4,
+                    address_type: cuprate_types::AddressType::Tor,
                     avg_download: 0,
                     avg_upload: 0,
                     connection_id: "22ef856d0f1d44cc95e84fecfd065fe2".into(),
@@ -680,12 +682,12 @@ define_request_and_response! {
                     rpc_port: 0,
                     send_count: 3406572,
                     send_idle_time: 30,
-                    state: "normal".into(),
+                    state: cuprate_types::ConnectionState::Normal,
                     support_flags: 0
                 },
                 ConnectionInfo {
                     address: "4iykytmumafy5kjahdqc7uzgcs34s2vwsadfjpk4znvsa5vmcxeup2qd.onion:18083".into(),
-                    address_type: 4,
+                    address_type: cuprate_types::AddressType::Tor,
                     avg_download: 0,
                     avg_upload: 0,
                     connection_id: "c7734e15936f485a86d2b0534f87e499".into(),
@@ -707,7 +709,7 @@ define_request_and_response! {
                     rpc_port: 0,
                     send_count: 3370566,
                     send_idle_time: 120,
-                    state: "normal".into(),
+                    state: cuprate_types::ConnectionState::Normal,
                     support_flags: 0
                 }
             ],
@@ -728,7 +730,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_INFO_RESPONSE => GetInfoResponse {
-            base: AccessResponseBase::ok(),
+            base: AccessResponseBase::OK,
             adjusted_time: 1721245289,
             alt_blocks_count: 16,
             block_size_limit: 600000,
@@ -831,7 +833,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         HARD_FORK_INFO_RESPONSE => HardForkInfoResponse {
-            base: AccessResponseBase::ok(),
+            base: AccessResponseBase::OK,
             earliest_height: 2689608,
             enabled: true,
             state: 0,
@@ -877,7 +879,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         SET_BANS_RESPONSE => SetBansResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
         }
     )]
     ResponseBase {}
@@ -892,7 +894,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_BANS_RESPONSE => GetBansResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             bans: vec![
                 GetBan {
                     host: "104.248.206.131".into(),
@@ -994,7 +996,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_OUTPUT_HISTOGRAM_RESPONSE => GetOutputHistogramResponse {
-            base: AccessResponseBase::ok(),
+            base: AccessResponseBase::OK,
             histogram: vec![HistogramEntry {
                 amount: 20000000000,
                 recent_instances: 0,
@@ -1028,7 +1030,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_COINBASE_TX_SUM_RESPONSE => GetCoinbaseTxSumResponse {
-            base: AccessResponseBase::ok(),
+            base: AccessResponseBase::OK,
             emission_amount: 9387854817320,
             emission_amount_top64: 0,
             fee_amount: 83981380000,
@@ -1057,7 +1059,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_VERSION_RESPONSE => GetVersionResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             current_height: 3195051,
             hard_forks: vec![
                 HardforkEntry {
@@ -1143,12 +1145,16 @@ define_request_and_response! {
     get_fee_estimate,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2250..=2277,
-    GetFeeEstimate (empty),
-    Request {},
+
+    GetFeeEstimate,
+
+    Request {
+        grace_blocks: u64 = default_zero::<u64>(), "default_zero",
+    },
 
     #[doc = serde_doc_test!(
         GET_FEE_ESTIMATE_RESPONSE => GetFeeEstimateResponse {
-            base: AccessResponseBase::ok(),
+            base: AccessResponseBase::OK,
             fee: 20000,
             fees: vec![20000,80000,320000,4000000],
             quantization_mask: 10000,
@@ -1170,7 +1176,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_ALTERNATE_CHAINS_RESPONSE => GetAlternateChainsResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             chains: vec![
                 ChainInfo {
                     block_hash: "4826c7d45d7cf4f02985b5c405b0e5d7f92c8d25e015492ce19aa3b209295dce".into(),
@@ -1238,7 +1244,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         SYNC_INFO_RESPONSE => SyncInfoResponse {
-            base: AccessResponseBase::ok(),
+            base: AccessResponseBase::OK,
             height: 3195157,
             next_needed_pruning_seed: 0,
             overview: "[]".into(),
@@ -1247,7 +1253,7 @@ define_request_and_response! {
                 SyncInfoPeer {
                     info: ConnectionInfo {
                         address: "142.93.128.65:44986".into(),
-                        address_type: 1,
+                        address_type: cuprate_types::AddressType::Ipv4,
                         avg_download: 1,
                         avg_upload: 1,
                         connection_id: "a5803c4c2dac49e7b201dccdef54c862".into(),
@@ -1269,14 +1275,14 @@ define_request_and_response! {
                         rpc_port: 18089,
                         send_count: 32235,
                         send_idle_time: 6,
-                        state: "normal".into(),
+                        state: cuprate_types::ConnectionState::Normal,
                         support_flags: 1
                     }
                 },
                 SyncInfoPeer {
                     info: ConnectionInfo {
                         address: "4iykytmumafy5kjahdqc7uzgcs34s2vwsadfjpk4znvsa5vmcxeup2qd.onion:18083".into(),
-                        address_type: 4,
+                        address_type: cuprate_types::AddressType::Tor,
                         avg_download: 0,
                         avg_upload: 0,
                         connection_id: "277f7c821bc546878c8bd29977e780f5".into(),
@@ -1298,7 +1304,7 @@ define_request_and_response! {
                         rpc_port: 0,
                         send_count: 99120,
                         send_idle_time: 15,
-                        state: "normal".into(),
+                        state: cuprate_types::ConnectionState::Normal,
                         support_flags: 0
                     }
                 }
@@ -1328,7 +1334,7 @@ define_request_and_response! {
     // TODO: enable test after binary string impl.
     // #[doc = serde_doc_test!(
     //     GET_TRANSACTION_POOL_BACKLOG_RESPONSE => GetTransactionPoolBacklogResponse {
-    //         base: ResponseBase::ok(),
+    //         base: ResponseBase::OK,
     //         backlog: "...Binary...".into(),
     //     }
     // )]
@@ -1370,7 +1376,7 @@ define_request_and_response! {
     // TODO: enable test after binary string impl.
     // #[doc = serde_doc_test!(
     //     GET_OUTPUT_DISTRIBUTION_RESPONSE => GetOutputDistributionResponse {
-    //         base: AccessResponseBase::ok(),
+    //         base: AccessResponseBase::OK,
     //         distributions: vec![Distribution::Uncompressed(DistributionUncompressed {
     //             start_height: 1462078,
     //             base: 0,
@@ -1394,7 +1400,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_MINER_DATA_RESPONSE => GetMinerDataResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             already_generated_coins: 18186022843595960691,
             difficulty: "0x48afae42de".into(),
             height: 2731375,
@@ -1447,7 +1453,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         PRUNE_BLOCKCHAIN_RESPONSE => PruneBlockchainResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             pruned: true,
             pruning_seed: 387,
         }
@@ -1513,7 +1519,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         FLUSH_CACHE_RESPONSE => FlushCacheResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
         }
     )]
     ResponseBase {}
@@ -1542,7 +1548,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         ADD_AUX_POW_RESPONSE => AddAuxPowResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             aux_pow: vec![AuxPow {
                 hash: "7b35762de164b20885e15dbe656b1138db06bb402fa1796f5765a23933d8859a".into(),
                 id: "3200b4ea97c3b2081cd4190b58e49572b2319fed00d030ad51809dff06b5d8c8".into(),

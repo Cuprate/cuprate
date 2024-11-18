@@ -177,8 +177,6 @@ pub struct OutputHistogramEntry {
 pub struct CoinbaseTxSum {
     pub emission_amount: u128,
     pub fee_amount: u128,
-    pub wide_emission_amount: u128,
-    pub wide_fee_amount: u128,
 }
 
 /// Data to create a custom block template.
@@ -242,7 +240,23 @@ pub struct ChainInfo {
     pub height: u64,
     pub length: u64,
     pub main_chain_parent_block: [u8; 32],
-    pub wide_difficulty: u128,
+}
+
+/// Used in RPC's `add_aux_pow`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct AuxPow {
+    pub id: [u8; 32],
+    pub hash: [u8; 32],
+}
+
+/// Used in RPC's `add_aux_pow`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct AddAuxPow {
+    pub blocktemplate_blob: Vec<u8>,
+    pub blockhashing_blob: Vec<u8>,
+    pub merkle_root: [u8; 32],
+    pub merkle_tree_depth: u64,
+    pub aux_pow: Vec<AuxPow>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

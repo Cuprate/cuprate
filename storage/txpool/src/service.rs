@@ -10,8 +10,6 @@
 //!
 //! The system is managed by this crate, and only requires [`init`] by the user.
 //!
-//! This module must be enabled with the `service` feature.
-//!
 //! ## Handles
 //! The 2 handles to the database are:
 //! - [`TxpoolReadHandle`]
@@ -42,7 +40,7 @@
 //! To interact with the database (whether reading or writing data),
 //! a `Request` can be sent using one of the above handles.
 //!
-//! Both the handles implement `tower::Service`, so they can be [`tower::Service::call`]ed.
+//! Both the handles implement [`tower::Service`], so they can be [`tower::Service::call`]ed.
 //!
 //! An `async`hronous channel will be returned from the call.
 //! This channel can be `.await`ed upon to (eventually) receive
