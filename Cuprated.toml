@@ -1,0 +1,67 @@
+#     ____                      _
+#    / ___|   _ _ __  _ __ __ _| |_ ___
+#   | |  | | | | '_ \| '__/ _` | __/ _ \
+#   | |__| |_| | |_) | | | (_| | ||  __/
+#    \____\__,_| .__/|_|  \__,_|\__\___|
+#              |_|
+#
+
+## The network to run on, valid values: "Mainnet", "Testnet", "Stagenet".
+network = "Mainnet"
+
+## Tracing config.
+[tracing]
+## The minimum level for log events to be displayed.
+level = "info"
+
+## Clear-net config.
+[p2p.clear_net]
+## The number of outbound connections we should make and maintain.
+outbound_connections = 64
+## The number of extra connections we should make under load from the rest of Cuprate, i.e. when syncing.
+extra_outbound_connections = 8
+## The maximum number of incoming we should allow.
+max_inbound_connections = 128
+## The percent of outbound connections that should be to nodes we have not connected to before.
+gray_peers_percent = 0.7
+## The port to accept connections on, if left `0` no connections will be accepted.
+p2p_port = 0
+## The IP address to listen to connections on.
+listen_on = "0.0.0.0"
+
+## The Clear-net addressbook config.
+[p2p.clear_net.address_book_config]
+## The size of the white peer list, which contains peers we have made a connection to before.
+max_white_list_length = 1_000
+## The size of the gray peer list, which contains peers we have not made a connection to before.
+max_gray_list_length = 5_000
+## The amount of time between address book saves.
+peer_save_period = { secs = 90, nanos = 0 }
+
+## The block downloader config.
+[p2p.block_downloader]
+## The size of the buffer of sequential blocks waiting to be verified and added to the chain (bytes).
+buffer_size = 50_000_000
+## The size of the queue of blocks which are waiting for a parent block to be downloaded (bytes).
+in_progress_queue_size = 50_000_000
+## The target size of a batch of blocks (bytes), must not exceed 100MB.
+target_batch_size = 5_000_000
+## The amount of time between checking the pool of connected peers for free peers to download blocks.
+check_client_pool_interval = { secs = 30, nanos = 0 }
+
+## Storage config
+[storage]
+## The amount of reader threads to spawn.
+reader_threads = "OnePerThread"
+
+## Txpool storage config.
+[storage.txpool]
+## The database sync mode for the txpool.
+sync_mode = "Async"
+## The maximum size of all the txs in the pool (bytes).
+max_txpool_byte_size = 100_000_000
+
+## Blockchain storage config.
+[storage.blockchain]
+## The database sync mode for the blockchain.
+sync_mode = "Async"

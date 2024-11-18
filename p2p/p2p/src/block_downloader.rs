@@ -70,7 +70,7 @@ pub struct BlockDownloaderConfig {
     /// The target size of a single batch of blocks (in bytes).
     pub target_batch_size: usize,
     /// The initial amount of blocks to request (in number of blocks)
-    pub initial_batch_size: usize,
+    pub initial_batch_len: usize,
 }
 
 /// An error that occurred in the [`BlockDownloader`].
@@ -243,7 +243,7 @@ where
         Self {
             client_pool,
             our_chain_svc,
-            amount_of_blocks_to_request: config.initial_batch_size,
+            amount_of_blocks_to_request: config.initial_batch_len,
             amount_of_blocks_to_request_updated_at: 0,
             amount_of_empty_chain_entries: 0,
             block_download_tasks: JoinSet::new(),

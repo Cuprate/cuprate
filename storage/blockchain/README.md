@@ -76,7 +76,7 @@ use cuprate_blockchain::{
 let tmp_dir = tempfile::tempdir()?;
 let db_dir = tmp_dir.path().to_owned();
 let config = ConfigBuilder::new()
-    .db_directory(db_dir.into())
+    .data_directory(db_dir.into())
     .build();
 
 // Initialize the database environment.
