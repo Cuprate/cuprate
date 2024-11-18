@@ -11,9 +11,11 @@ use std::{
 use monero_serai::block::Block;
 
 use crate::{
-    types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation},
-    AltBlockInformation, ChainId, ChainInfo, CoinbaseTxSum, OutputHistogramEntry,
-    OutputHistogramInput,
+    types::{
+        Chain, ExtendedBlockHeader, MissingTxsInBlock, OutputOnChain, VerifiedBlockInformation,
+    },
+    AltBlockInformation, BlockCompleteEntry, ChainId, ChainInfo, CoinbaseTxSum,
+    OutputHistogramEntry, OutputHistogramInput,
 };
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
@@ -27,6 +29,11 @@ use crate::{
 /// See `Response` for the expected responses per `Request`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BlockchainReadRequest {
+    /// Request [`BlockCompleteEntry`]s.
+    ///
+    /// The input is the block hashes.
+    BlockCompleteEntries(Vec<[u8; 32]>),
+
     /// Request a block's extended header.
     ///
     /// The input is the block's height.
@@ -96,6 +103,16 @@ pub enum BlockchainReadRequest {
     /// A request for the compact chain history.
     CompactChainHistory,
 
+    /// A request for the next chain entry.
+    ///
+    /// Input is a list of block hashes and the amount of block hashes to return in the next chain entry.
+    ///
+    /// # Invariant
+    /// The [`Vec`] containing the block IDs must be sorted in reverse chronological block
+    /// order, or else the returned response is unspecified and meaningless,
+    /// as this request performs a binary search
+    NextChainEntry(Vec<[u8; 32]>, usize),
+
     /// A request to find the first unknown block ID in a list of block IDs.
     ///
     /// # Invariant
@@ -103,6 +120,16 @@ pub enum BlockchainReadRequest {
     /// order, or else the returned response is unspecified and meaningless,
     /// as this request performs a binary search.
     FindFirstUnknown(Vec<[u8; 32]>),
+
+    /// A request for transactions from a specific block.
+    MissingTxsInBlock {
+        /// The block to get transactions from.
+        block_hash: [u8; 32],
+        /// The indexes of the transactions from the block.
+        /// This is not the global index of the txs, instead it is the local index as they appear in
+        /// the block.
+        tx_indexes: Vec<u64>,
+    },
 
     /// A request for all alt blocks in the chain with the given [`ChainId`].
     AltBlocksInChain(ChainId),
@@ -182,6 +209,16 @@ pub enum BlockchainWriteRequest {
 #[expect(clippy::large_enum_variant)]
 pub enum BlockchainResponse {
     //------------------------------------------------------ Reads
+    /// Response to [`BlockchainReadRequest::BlockCompleteEntries`].
+    BlockCompleteEntries {
+        /// The [`BlockCompleteEntry`]s that we had.
+        blocks: Vec<BlockCompleteEntry>,
+        /// The hashes of blocks that were requested, but we don't have.
+        missing_hashes: Vec<[u8; 32]>,
+        /// Our blockchain height.
+        blockchain_height: usize,
+    },
+
     /// Response to [`BlockchainReadRequest::BlockExtendedHeader`].
     ///
     /// Inner value is the extended headed of the requested block.
@@ -248,6 +285,24 @@ pub enum BlockchainResponse {
         cumulative_difficulty: u128,
     },
 
+    /// Response to [`BlockchainReadRequest::NextChainEntry`].
+    ///
+    /// If all blocks were unknown `start_height` will be `0`, the other fields will be meaningless.
+    NextChainEntry {
+        /// The start height of this entry, `0` if we could not find the split point.
+        start_height: usize,
+        /// The current chain height.
+        chain_height: usize,
+        /// The next block hashes in the entry.
+        block_ids: Vec<[u8; 32]>,
+        /// The block weights of the next blocks.
+        block_weights: Vec<usize>,
+        /// The current cumulative difficulty of our chain.
+        cumulative_difficulty: u128,
+        /// The block blob of the 2nd block in `block_ids`, if there is one.
+        first_block_blob: Option<Vec<u8>>,
+    },
+
     /// Response to [`BlockchainReadRequest::FindFirstUnknown`].
     ///
     /// Contains the index of the first unknown block and its expected height.
@@ -255,7 +310,12 @@ pub enum BlockchainResponse {
     /// This will be [`None`] if all blocks were known.
     FindFirstUnknown(Option<(usize, usize)>),
 
-    /// Response to [`BlockchainReadRequest::AltBlocksInChain`].
+    /// The response for [`BlockchainReadRequest::MissingTxsInBlock`].
+    ///
+    /// Will return [`None`] if the request contained an index out of range.
+    MissingTxsInBlock(Option<MissingTxsInBlock>),
+
+    /// The response for [`BlockchainReadRequest::AltBlocksInChain`].
     ///
     /// Contains all the alt blocks in the alt-chain in chronological order.
     AltBlocksInChain(Vec<AltBlockInformation>),
