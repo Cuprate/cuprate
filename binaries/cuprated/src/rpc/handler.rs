@@ -35,7 +35,10 @@ pub enum BlockchainManagerRequest {
     Pruned,
 
     /// Relay a block to the network.
-    RelayBlock(Block),
+    RelayBlock(
+        /// This is [`Box`]ed due to `clippy::large_enum_variant`.
+        Box<Block>,
+    ),
 
     /// Is the blockchain in the middle of syncing?
     ///

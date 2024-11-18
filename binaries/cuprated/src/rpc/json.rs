@@ -166,7 +166,7 @@ async fn submit_block(
     let block_id = hex::encode(block.hash());
 
     // Attempt to relay the block.
-    blockchain_manager::relay_block(&mut state.blockchain_manager, block).await?;
+    blockchain_manager::relay_block(&mut state.blockchain_manager, Box::new(block)).await?;
 
     Ok(SubmitBlockResponse {
         base: ResponseBase::OK,
@@ -1059,7 +1059,9 @@ fn add_aux_pow_inner(
         let mut slots: Box<[u32]> = vec![u32::MAX; aux_pow_len].into_boxed_slice();
         let mut slot_seen: Box<[bool]> = vec![false; aux_pow_len].into_boxed_slice();
 
-        for nonce in 0..u32::MAX {
+        const MAX_NONCE: u32 = 65535;
+
+        for nonce in 0..=MAX_NONCE {
             for i in &mut slots {
                 let slot_u32: u32 = todo!("const uint32_t slot = cryptonote::get_aux_slot(aux_pow[idx].first, nonce, aux_pow.size());");
                 let slot = u32_to_usize(slot_u32);

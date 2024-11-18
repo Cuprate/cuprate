@@ -67,7 +67,7 @@ pub(crate) async fn pruned(
 /// [`BlockchainManagerRequest::RelayBlock`]
 pub(crate) async fn relay_block(
     blockchain_manager: &mut BlockchainManagerHandle,
-    block: Block,
+    block: Box<Block>,
 ) -> Result<(), Error> {
     let BlockchainManagerResponse::Ok = blockchain_manager
         .ready()
