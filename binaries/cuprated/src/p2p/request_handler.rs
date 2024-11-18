@@ -1,13 +1,16 @@
-use bytes::Bytes;
-use futures::future::Shared;
-use futures::{future::BoxFuture, FutureExt};
-use monero_serai::{block::Block, transaction::Transaction};
-use std::hash::Hash;
 use std::{
     collections::HashSet,
     future::{ready, Ready},
+    hash::Hash,
     task::{Context, Poll},
 };
+
+use bytes::Bytes;
+use futures::{
+    future::{BoxFuture, Shared},
+    FutureExt,
+};
+use monero_serai::{block::Block, transaction::Transaction};
 use tokio::sync::{broadcast, oneshot, watch};
 use tokio_stream::wrappers::WatchStream;
 use tower::{Service, ServiceExt};
@@ -28,9 +31,9 @@ use cuprate_helper::{
 use cuprate_p2p::constants::{
     MAX_BLOCKS_IDS_IN_CHAIN_ENTRY, MAX_BLOCK_BATCH_LEN, MAX_TRANSACTION_BLOB_SIZE, MEDIUM_BAN,
 };
-use cuprate_p2p_core::client::InternalPeerID;
 use cuprate_p2p_core::{
-    client::PeerInformation, NetZoneAddress, NetworkZone, ProtocolRequest, ProtocolResponse,
+    client::{InternalPeerID, PeerInformation},
+    NetZoneAddress, NetworkZone, ProtocolRequest, ProtocolResponse,
 };
 use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::{
@@ -42,30 +45,32 @@ use cuprate_wire::protocol::{
     GetObjectsResponse, NewFluffyBlock, NewTransactions,
 };
 
-use crate::blockchain::interface::{self as blockchain_interface, IncomingBlockError};
-use crate::constants::PANIC_CRITICAL_SERVICE_ERROR;
-use crate::p2p::CrossNetworkInternalPeerId;
-use crate::txpool::{IncomingTxHandler, IncomingTxs};
+use crate::{
+    blockchain::interface::{self as blockchain_interface, IncomingBlockError},
+    constants::PANIC_CRITICAL_SERVICE_ERROR,
+    p2p::CrossNetworkInternalPeerId,
+    txpool::{IncomingTxError, IncomingTxHandler, IncomingTxs},
+};
 
 /// The P2P protocol request handler [`MakeService`](tower::MakeService).
 #[derive(Clone)]
 pub struct P2pProtocolRequestHandlerMaker {
-    /// The [`BlockchainReadHandle`]
     pub blockchain_read_handle: BlockchainReadHandle,
 
     pub blockchain_context_service: BlockChainContextService,
 
-    /// The [`TxpoolReadHandle`].
     pub txpool_read_handle: TxpoolReadHandle,
 
+    /// The [`IncomingTxHandler`], wrapped in an [`Option`] as there is a cyclic reference between [`P2pProtocolRequestHandlerMaker`]
+    /// and the [`IncomingTxHandler`].
     pub incoming_tx_handler: Option<IncomingTxHandler>,
 
+    /// A [`Future`](std::future::Future) that produces the [`IncomingTxHandler`].
     pub incoming_tx_handler_fut: Shared<oneshot::Receiver<IncomingTxHandler>>,
 }
 
 impl<A: NetZoneAddress> Service<PeerInformation<A>> for P2pProtocolRequestHandlerMaker
 where
-    A: NetZoneAddress,
     InternalPeerID<A>: Into<CrossNetworkInternalPeerId>,
 {
     type Response = P2pProtocolRequestHandler<A>;
@@ -109,13 +114,12 @@ where
 /// The P2P protocol request handler.
 #[derive(Clone)]
 pub struct P2pProtocolRequestHandler<N: NetZoneAddress> {
-    /// The [`PeerInformation`] for this peer.
     peer_information: PeerInformation<N>,
-    /// The [`BlockchainReadHandle`].
+
     blockchain_read_handle: BlockchainReadHandle,
 
     blockchain_context_service: BlockChainContextService,
-    /// The [`TxpoolReadHandle`].
+
     txpool_read_handle: TxpoolReadHandle,
 
     incoming_tx_handler: IncomingTxHandler,
@@ -123,7 +127,6 @@ pub struct P2pProtocolRequestHandler<N: NetZoneAddress> {
 
 impl<A: NetZoneAddress> Service<ProtocolRequest> for P2pProtocolRequestHandler<A>
 where
-    A: NetZoneAddress,
     InternalPeerID<A>: Into<CrossNetworkInternalPeerId>,
 {
     type Response = ProtocolResponse;
@@ -163,7 +166,7 @@ where
                 self.incoming_tx_handler.clone(),
             )
             .boxed(),
-            ProtocolRequest::GetTxPoolCompliment(_) => ready(Ok(ProtocolResponse::NA)).boxed(), // TODO: tx-pool
+            ProtocolRequest::GetTxPoolCompliment(_) => ready(Ok(ProtocolResponse::NA)).boxed(), // TODO: should we support this?
         }
     }
 }
@@ -303,6 +306,7 @@ async fn new_fluffy_block<A: NetZoneAddress>(
     mut blockchain_read_handle: BlockchainReadHandle,
     mut txpool_read_handle: TxpoolReadHandle,
 ) -> anyhow::Result<ProtocolResponse> {
+    // TODO: check context service here and ignore the block?
     let current_blockchain_height = request.current_blockchain_height;
 
     peer_information
@@ -324,7 +328,6 @@ async fn new_fluffy_block<A: NetZoneAddress>(
             .into_iter()
             .map(|tx_blob| {
                 if tx_blob.len() > MAX_TRANSACTION_BLOB_SIZE {
-                    peer_information.handle.ban_peer(MEDIUM_BAN);
                     anyhow::bail!("Peer sent a transaction over the size limit.");
                 }
 
