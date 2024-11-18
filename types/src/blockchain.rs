@@ -29,6 +29,9 @@ use crate::{
 /// See `Response` for the expected responses per `Request`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BlockchainReadRequest {
+    /// Request [`BlockCompleteEntry`]s.
+    ///
+    /// The input is the block hashes.
     BlockCompleteEntries(Vec<[u8; 32]>),
 
     /// Request a block's extended header.
@@ -124,7 +127,7 @@ pub enum BlockchainReadRequest {
         block_hash: [u8; 32],
         /// The indexes of the transactions from the block.
         /// This is not the global index of the txs, instead it is the local index as they appear in
-        /// the block/
+        /// the block.
         tx_indexes: Vec<u64>,
     },
 
@@ -132,9 +135,7 @@ pub enum BlockchainReadRequest {
     AltBlocksInChain(ChainId),
 
     /// Get a [`Block`] by its height.
-    Block {
-        height: usize,
-    },
+    Block { height: usize },
 
     /// Get a [`Block`] by its hash.
     BlockByHash([u8; 32]),
@@ -154,10 +155,7 @@ pub enum BlockchainReadRequest {
     /// `N` last blocks starting at particular height.
     ///
     /// TODO: document fields after impl.
-    CoinbaseTxSum {
-        height: usize,
-        count: u64,
-    },
+    CoinbaseTxSum { height: usize, count: u64 },
 
     /// Get information on all alternative chains.
     AltChains,
@@ -211,9 +209,13 @@ pub enum BlockchainWriteRequest {
 #[expect(clippy::large_enum_variant)]
 pub enum BlockchainResponse {
     //------------------------------------------------------ Reads
+    /// Response to [`BlockchainReadRequest::BlockCompleteEntries`].
     BlockCompleteEntries {
+        /// The [`BlockCompleteEntry`]s that we had.
         blocks: Vec<BlockCompleteEntry>,
+        /// The hashes of blocks that were requested, but we don't have.
         missing_hashes: Vec<[u8; 32]>,
+        /// Our blockchain height.
         blockchain_height: usize,
     },
 
@@ -287,11 +289,17 @@ pub enum BlockchainResponse {
     ///
     /// If all blocks were unknown `start_height` will be `0`, the other fields will be meaningless.
     NextChainEntry {
+        /// The start height of this entry, `0` if we could not find the split point.
         start_height: usize,
+        /// The current chain height.
         chain_height: usize,
+        /// The next block hashes in the entry.
         block_ids: Vec<[u8; 32]>,
+        /// The block weights of the next blocks.
         block_weights: Vec<usize>,
+        /// The current cumulative difficulty of our chain.
         cumulative_difficulty: u128,
+        /// The block blob of the 2nd block in `block_ids`, if there is one.
         first_block_blob: Option<Vec<u8>>,
     },
 

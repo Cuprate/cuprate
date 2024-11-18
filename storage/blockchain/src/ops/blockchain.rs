@@ -3,12 +3,10 @@
 //---------------------------------------------------------------------------------------------------- Import
 use cuprate_database::{DatabaseRo, RuntimeError};
 
-use crate::ops::block::block_exists;
-use crate::types::BlockHash;
 use crate::{
-    ops::macros::doc_error,
+    ops::{block::block_exists, macros::doc_error},
     tables::{BlockHeights, BlockInfos},
-    types::BlockHeight,
+    types::{BlockHash, BlockHeight},
 };
 
 //---------------------------------------------------------------------------------------------------- Free Functions
@@ -82,7 +80,7 @@ pub fn cumulative_generated_coins(
 
 /// Find the split point between our chain and a list of [`BlockHash`]s from another chain.
 ///
-/// This function can be used accepts chains in chronological and reverse chronological order, however
+/// This function accepts chains in chronological and reverse chronological order, however
 /// if the wrong order is specified the return value is meaningless.
 ///
 /// For chronologically ordered chains this will return the index of the first unknown, for reverse
@@ -99,7 +97,7 @@ pub fn find_split_point(
 ) -> Result<usize, RuntimeError> {
     let mut err = None;
 
-    // Do a binary search to find the first unknown block in the batch.
+    // Do a binary search to find the first unknown/known block in the batch.
     let idx =
         block_ids.partition_point(
             |block_id| match block_exists(block_id, table_block_heights) {

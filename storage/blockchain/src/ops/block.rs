@@ -227,6 +227,9 @@ pub fn pop_block(
     Ok((block_height, block_info.block_hash, block))
 }
 //---------------------------------------------------------------------------------------------------- `get_block_blob_with_tx_indexes`
+/// Retrieve a block's raw bytes, the index of the miner transaction and the number of non miner-txs in the block.
+///
+#[doc = doc_error!()]
 pub fn get_block_blob_with_tx_indexes(
     block_height: &BlockHeight,
     tables: &impl Tables,
@@ -249,14 +252,17 @@ pub fn get_block_blob_with_tx_indexes(
     // Add the blocks tx hashes.
     write_varint(&block_txs.len(), &mut block)
         .expect("The number of txs per block will not exceed u64::MAX");
-    for tx in block_txs {
-        block.extend_from_slice(&tx);
-    }
+
+    let block_txs_bytes = bytemuck::cast_slice(&block_txs);
+    block.extend_from_slice(block_txs_bytes);
 
     Ok((block, miner_tx_idx, numb_txs))
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_extended_header_*`
+/// Retrieve a [`BlockCompleteEntry`] from the database.
+///
+#[doc = doc_error!()]
 pub fn get_block_complete_entry(
     block_hash: &BlockHash,
     tables: &impl TablesIter,
