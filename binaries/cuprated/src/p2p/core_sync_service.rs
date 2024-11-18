@@ -1,15 +1,16 @@
+use std::task::{Context, Poll};
+
+use futures::{future::BoxFuture, FutureExt, TryFutureExt};
+use tower::Service;
+
 use cuprate_consensus::{
     BlockChainContextRequest, BlockChainContextResponse, BlockChainContextService,
 };
-use cuprate_helper::cast::usize_to_u64;
-use cuprate_helper::map::split_u128_into_low_high_bits;
+use cuprate_helper::{cast::usize_to_u64, map::split_u128_into_low_high_bits};
 use cuprate_p2p_core::services::{CoreSyncDataRequest, CoreSyncDataResponse};
 use cuprate_wire::CoreSyncData;
-use futures::future::BoxFuture;
-use futures::{FutureExt, TryFutureExt};
-use std::task::{Context, Poll};
-use tower::Service;
 
+/// The core sync service.
 #[derive(Clone)]
 pub struct CoreSyncService(pub BlockChainContextService);
 
