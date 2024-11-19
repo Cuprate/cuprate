@@ -159,10 +159,10 @@ impl Default for GetBlocksResponse {
     }
 }
 
-/// Data within [`GetBlocksResponse::PoolInfoNone`].
+/// Common data within all of [`GetBlocksResponse`]'s variants.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct GetBlocksResponsePoolInfoNone {
+pub struct GetBlocksResponseHeader {
     pub status: Status,
     pub untrusted: bool,
     pub blocks: Vec<BlockCompleteEntry>,
@@ -174,7 +174,7 @@ pub struct GetBlocksResponsePoolInfoNone {
 
 #[cfg(feature = "epee")]
 epee_object! {
-    GetBlocksResponsePoolInfoNone,
+    GetBlocksResponseHeader,
     status: Status,
     untrusted: bool,
     blocks: Vec<BlockCompleteEntry>,
@@ -184,17 +184,25 @@ epee_object! {
     daemon_time: u64,
 }
 
+/// Data within [`GetBlocksResponse::PoolInfoNone`].
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct GetBlocksResponsePoolInfoNone {
+    /// This field is flattened.
+    pub header: GetBlocksResponseHeader,
+}
+
+#[cfg(feature = "epee")]
+epee_object! {
+    GetBlocksResponsePoolInfoNone,
+    !flatten: header: GetBlocksResponseHeader,
+}
+
 /// Data within [`GetBlocksResponse::PoolInfoIncremental`].
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GetBlocksResponsePoolInfoIncremental {
-    pub status: Status,
-    pub untrusted: bool,
-    pub blocks: Vec<BlockCompleteEntry>,
-    pub start_height: u64,
-    pub current_height: u64,
-    pub output_indices: Vec<BlockOutputIndices>,
-    pub daemon_time: u64,
+    pub header: GetBlocksResponseHeader,
     pub added_pool_txs: Vec<PoolTxInfo>,
     pub remaining_added_pool_txids: ByteArrayVec<32>,
     pub removed_pool_txids: ByteArrayVec<32>,
@@ -203,29 +211,17 @@ pub struct GetBlocksResponsePoolInfoIncremental {
 #[cfg(feature = "epee")]
 epee_object! {
     GetBlocksResponsePoolInfoIncremental,
-    status: Status,
-    untrusted: bool,
-    blocks: Vec<BlockCompleteEntry>,
-    start_height: u64,
-    current_height: u64,
-    output_indices: Vec<BlockOutputIndices>,
-    daemon_time: u64,
     added_pool_txs: Vec<PoolTxInfo>,
     remaining_added_pool_txids: ByteArrayVec<32>,
     removed_pool_txids: ByteArrayVec<32>,
+    !flatten: header: GetBlocksResponseHeader,
 }
 
 /// Data within [`GetBlocksResponse::PoolInfoFull`].
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GetBlocksResponsePoolInfoFull {
-    pub status: Status,
-    pub untrusted: bool,
-    pub blocks: Vec<BlockCompleteEntry>,
-    pub start_height: u64,
-    pub current_height: u64,
-    pub output_indices: Vec<BlockOutputIndices>,
-    pub daemon_time: u64,
+    pub header: GetBlocksResponseHeader,
     pub added_pool_txs: Vec<PoolTxInfo>,
     pub remaining_added_pool_txids: ByteArrayVec<32>,
 }
@@ -233,15 +229,9 @@ pub struct GetBlocksResponsePoolInfoFull {
 #[cfg(feature = "epee")]
 epee_object! {
     GetBlocksResponsePoolInfoFull,
-    status: Status,
-    untrusted: bool,
-    blocks: Vec<BlockCompleteEntry>,
-    start_height: u64,
-    current_height: u64,
-    output_indices: Vec<BlockOutputIndices>,
-    daemon_time: u64,
     added_pool_txs: Vec<PoolTxInfo>,
     remaining_added_pool_txids: ByteArrayVec<32>,
+    !flatten: header: GetBlocksResponseHeader,
 }
 
 #[cfg(feature = "epee")]
