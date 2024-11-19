@@ -134,6 +134,8 @@ define_request! {
     }
 }
 
+// TODO: add `top_block_hash` field
+// <https://github.com/monero-project/monero/blame/893916ad091a92e765ce3241b94e706ad012b62a/src/rpc/core_rpc_server_commands_defs.h#L263>
 #[doc = define_request_and_response_doc!(
     "request" => GetBlocksRequest,
     get_blocksbin,
@@ -268,6 +270,8 @@ impl EpeeObjectBuilder<GetBlocksResponse> for __GetBlocksResponseEpeeBuilder {
             };
         }
 
+        // HACK/INVARIANT: this must be manually updated
+        // if a field is added to `GetBlocksResponse`.
         read_epee_field! {
             status,
             untrusted,
@@ -286,54 +290,46 @@ impl EpeeObjectBuilder<GetBlocksResponse> for __GetBlocksResponseEpeeBuilder {
     }
 
     fn finish(self) -> error::Result<GetBlocksResponse> {
-        const ELSE: error::Error = error::Error::Format("Required field was not found!");
+        /// The error returned when a required field is missing.
+        fn error(name: &'static str) -> error::Error {
+            error::Error::Value(format!("Required field was not found: {name}"))
+        }
 
-        let status = self.status.ok_or(ELSE)?;
-        let untrusted = self.untrusted.ok_or(ELSE)?;
-        let blocks = self.blocks.ok_or(ELSE)?;
-        let start_height = self.start_height.ok_or(ELSE)?;
-        let current_height = self.current_height.ok_or(ELSE)?;
-        let output_indices = self.output_indices.ok_or(ELSE)?;
-        let daemon_time = self.daemon_time.ok_or(ELSE)?;
-        let pool_info_extent = self.pool_info_extent.ok_or(ELSE)?;
+        // INVARIANT:
+        // `monerod` omits serializing the field itself when a container is empty,
+        // `unwrap_or_default()` is used over `error()` in these cases.
+        // Some of the uses are when values have default fallbacks: `daemon_time`, `pool_info_extent`.
 
+        // Deserialize the common fields.
+        let header = GetBlocksResponseHeader {
+            status: self.status.ok_or_else(|| error("status"))?,
+            untrusted: self.untrusted.ok_or_else(|| error("untrusted"))?,
+            blocks: self.blocks.unwrap_or_default(),
+            start_height: self.start_height.ok_or_else(|| error("start_height"))?,
+            current_height: self.current_height.ok_or_else(|| error("current_height"))?,
+            output_indices: self.output_indices.unwrap_or_default(),
+            daemon_time: self.daemon_time.unwrap_or_default(),
+        };
+
+        // Specialize depending on the `pool_info_extent`.
+        let pool_info_extent = self.pool_info_extent.unwrap_or_default();
         let this = match pool_info_extent {
             PoolInfoExtent::None => {
-                GetBlocksResponse::PoolInfoNone(GetBlocksResponsePoolInfoNone {
-                    status,
-                    untrusted,
-                    blocks,
-                    start_height,
-                    current_height,
-                    output_indices,
-                    daemon_time,
-                })
+                GetBlocksResponse::PoolInfoNone(GetBlocksResponsePoolInfoNone { header })
             }
             PoolInfoExtent::Incremental => {
                 GetBlocksResponse::PoolInfoIncremental(GetBlocksResponsePoolInfoIncremental {
-                    status,
-                    untrusted,
-                    blocks,
-                    start_height,
-                    current_height,
-                    output_indices,
-                    daemon_time,
-                    added_pool_txs: self.added_pool_txs.ok_or(ELSE)?,
-                    remaining_added_pool_txids: self.remaining_added_pool_txids.ok_or(ELSE)?,
-                    removed_pool_txids: self.removed_pool_txids.ok_or(ELSE)?,
+                    header,
+                    added_pool_txs: self.added_pool_txs.unwrap_or_default(),
+                    remaining_added_pool_txids: self.remaining_added_pool_txids.unwrap_or_default(),
+                    removed_pool_txids: self.removed_pool_txids.unwrap_or_default(),
                 })
             }
             PoolInfoExtent::Full => {
                 GetBlocksResponse::PoolInfoFull(GetBlocksResponsePoolInfoFull {
-                    status,
-                    untrusted,
-                    blocks,
-                    start_height,
-                    current_height,
-                    output_indices,
-                    daemon_time,
-                    added_pool_txs: self.added_pool_txs.ok_or(ELSE)?,
-                    remaining_added_pool_txids: self.remaining_added_pool_txids.ok_or(ELSE)?,
+                    header,
+                    added_pool_txs: self.added_pool_txs.unwrap_or_default(),
+                    remaining_added_pool_txids: self.remaining_added_pool_txids.unwrap_or_default(),
                 })
             }
         };
@@ -358,18 +354,20 @@ impl EpeeObject for GetBlocksResponse {
     }
 
     fn write_fields<B: BufMut>(self, w: &mut B) -> error::Result<()> {
+        const FIELD: &str = "pool_info_extent";
+
         match self {
             Self::PoolInfoNone(s) => {
                 s.write_fields(w)?;
-                write_field(PoolInfoExtent::None.to_u8(), "pool_info_extent", w)?;
+                write_field(PoolInfoExtent::None.to_u8(), FIELD, w)?;
             }
             Self::PoolInfoIncremental(s) => {
                 s.write_fields(w)?;
-                write_field(PoolInfoExtent::Incremental.to_u8(), "pool_info_extent", w)?;
+                write_field(PoolInfoExtent::Incremental.to_u8(), FIELD, w)?;
             }
             Self::PoolInfoFull(s) => {
                 s.write_fields(w)?;
-                write_field(PoolInfoExtent::Full.to_u8(), "pool_info_extent", w)?;
+                write_field(PoolInfoExtent::Full.to_u8(), FIELD, w)?;
             }
         }
 
