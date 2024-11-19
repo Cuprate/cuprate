@@ -14,7 +14,7 @@ cuprate-fast-sync         = { workspace = true }
 cuprate-consensus-context = { workspace = true }
 cuprate-consensus-rules  = { workspace = true }
 cuprate-cryptonight      = { workspace = true }
-cuprate-helper           = { workspace = true, features = ["serde"] }
+cuprate-helper           = { workspace = true, features = ["std", "serde", "time"] }
 cuprate-epee-encoding    = { workspace = true }
 cuprate-fixed-bytes      = { workspace = true }
 cuprate-levin            = { workspace = true }

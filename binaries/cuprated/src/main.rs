@@ -135,9 +135,9 @@ async fn io_loop(
             }
             Command::Status => {
                 let uptime = statics::START_INSTANT.elapsed().unwrap_or_default();
-                let (days, minutes, second) = secs_to_hms(uptime.as_secs());
+                let (hours, minutes, second) = secs_to_hms(uptime.as_secs());
 
-                println!("STATUS:\n  uptime: {days}d {minutes}m {second}s");
+                println!("STATUS:\n  uptime: {hours}h {minutes}m {second}s");
             }
         }
     }
