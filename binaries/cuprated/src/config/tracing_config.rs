@@ -7,7 +7,7 @@ use tracing::level_filters::LevelFilter;
 pub struct TracingConfig {
     /// The default minimum log level.
     #[serde(with = "level_filter_serde")]
-    level: LevelFilter,
+    pub level: LevelFilter,
 }
 
 impl Default for TracingConfig {

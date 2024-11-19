@@ -72,7 +72,7 @@ pub struct Config {
     network: Network,
 
     /// [`tracing`] config.
-    tracing: TracingConfig,
+    pub tracing: TracingConfig,
 
     /// The P2P network config.
     p2p: P2PConfig,
@@ -149,6 +149,18 @@ impl Config {
             .network(self.network)
             .data_directory(self.fs.data_directory.clone())
             .sync_mode(blockchain.shared.sync_mode)
+            .build()
+    }
+
+    /// The [`cuprate_txpool`] config.
+    pub fn txpool_config(&self) -> cuprate_txpool::config::Config {
+        let txpool = &self.storage.txpool;
+
+        // We don't set reader threads as we manually make the reader threadpool.
+        cuprate_txpool::config::ConfigBuilder::default()
+            .network(self.network)
+            .data_directory(self.fs.data_directory.clone())
+            .sync_mode(txpool.shared.sync_mode)
             .build()
     }
 
