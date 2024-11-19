@@ -291,8 +291,13 @@ impl EpeeObjectBuilder<GetBlocksResponse> for __GetBlocksResponseEpeeBuilder {
 
     fn finish(self) -> error::Result<GetBlocksResponse> {
         /// The error returned when a required field is missing.
-        fn error(name: &'static str) -> error::Error {
-            error::Error::Value(format!("Required field was not found: {name}"))
+        macro_rules! error {
+            ($field_name:literal) => {
+                error::Error::Format(concat!(
+                    "Required field was not found: ",
+                    stringify!($field_name)
+                ))
+            };
         }
 
         // INVARIANT:
@@ -302,11 +307,11 @@ impl EpeeObjectBuilder<GetBlocksResponse> for __GetBlocksResponseEpeeBuilder {
 
         // Deserialize the common fields.
         let header = GetBlocksResponseHeader {
-            status: self.status.ok_or_else(|| error("status"))?,
-            untrusted: self.untrusted.ok_or_else(|| error("untrusted"))?,
+            status: self.status.ok_or(error!("status"))?,
+            untrusted: self.untrusted.ok_or(error!("untrusted"))?,
             blocks: self.blocks.unwrap_or_default(),
-            start_height: self.start_height.ok_or_else(|| error("start_height"))?,
-            current_height: self.current_height.ok_or_else(|| error("current_height"))?,
+            start_height: self.start_height.ok_or(error!("start_height"))?,
+            current_height: self.current_height.ok_or(error!("current_height"))?,
             output_indices: self.output_indices.unwrap_or_default(),
             daemon_time: self.daemon_time.unwrap_or_default(),
         };
