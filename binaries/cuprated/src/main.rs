@@ -30,6 +30,7 @@ mod blockchain;
 mod commands;
 mod config;
 mod constants;
+mod logging;
 mod p2p;
 mod rpc;
 mod signals;
@@ -42,7 +43,7 @@ fn main() {
 
     let config = config::read_config_and_args();
 
-    let log_level_handle = init_logging(&config);
+    logging::init_logging(&config);
 
     let rt = init_tokio_rt();
 
@@ -98,19 +99,8 @@ fn main() {
         let (command_tx, command_rx) = mpsc::channel(1);
         std::thread::spawn(|| commands::command_listener(command_tx));
 
-        io_loop(command_rx, log_level_handle).await;
+        io_loop(command_rx).await;
     });
-}
-
-fn init_logging(config: &Config) -> Handle<LevelFilter, Registry> {
-    let (filter, handle) = tracing_subscriber::reload::Layer::new(config.tracing.level);
-
-    tracing_subscriber::registry()
-        .with(filter)
-        .with(tracing_subscriber::fmt::Layer::default().with_target(false))
-        .init();
-
-    handle
 }
 
 fn init_tokio_rt() -> tokio::runtime::Runtime {
@@ -120,16 +110,11 @@ fn init_tokio_rt() -> tokio::runtime::Runtime {
         .unwrap()
 }
 
-async fn io_loop(
-    mut incoming_commands: mpsc::Receiver<Command>,
-    tracing_level_handle: Handle<LevelFilter, Registry>,
-) -> ! {
+async fn io_loop(mut incoming_commands: mpsc::Receiver<Command>) -> ! {
     while let Some(command) = incoming_commands.recv().await {
         match command {
             Command::SetLog { level } => {
-                tracing_level_handle
-                    .modify(|filter| *filter = level)
-                    .unwrap();
+                logging::modify_stdout_output(|filter| filter.level = level);
 
                 println!("LOG LEVEL CHANGED: {level}");
             }

@@ -2,18 +2,44 @@ use serde::{Deserialize, Serialize};
 use tracing::level_filters::LevelFilter;
 
 /// [`tracing`] config.
-#[derive(Deserialize, Serialize)]
+#[derive(Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct TracingConfig {
+    pub stdout: StdoutTracingConfig,
+    pub file: FileTracingConfig,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct StdoutTracingConfig {
     /// The default minimum log level.
     #[serde(with = "level_filter_serde")]
     pub level: LevelFilter,
 }
 
-impl Default for TracingConfig {
+impl Default for StdoutTracingConfig {
     fn default() -> Self {
         Self {
             level: LevelFilter::INFO,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct FileTracingConfig {
+    /// The default minimum log level.
+    #[serde(with = "level_filter_serde")]
+    pub level: LevelFilter,
+
+    pub max_log_files: usize,
+}
+
+impl Default for FileTracingConfig {
+    fn default() -> Self {
+        Self {
+            level: LevelFilter::DEBUG,
+            max_log_files: 7,
         }
     }
 }

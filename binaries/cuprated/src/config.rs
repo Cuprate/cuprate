@@ -80,7 +80,7 @@ pub struct Config {
     /// The storage config.
     storage: StorageConfig,
 
-    fs: FileSystemConfig,
+    pub fs: FileSystemConfig,
 }
 
 impl Config {

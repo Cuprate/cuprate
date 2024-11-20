@@ -10,7 +10,7 @@
 network = "Mainnet"
 
 ## Tracing config.
-[tracing]
+[tracing.stdout]
 ## The minimum level for log events to be displayed.
 level = "info"
 
