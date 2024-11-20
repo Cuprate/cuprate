@@ -16,8 +16,8 @@ use cuprate_wire::protocol::{GetObjectsRequest, GetObjectsResponse};
 
 use crate::{
     block_downloader::{BlockBatch, BlockDownloadError, BlockDownloadTaskResponse},
-    client_pool::ClientPoolDropGuard,
     constants::{BLOCK_DOWNLOADER_REQUEST_TIMEOUT, MAX_TRANSACTION_BLOB_SIZE, MEDIUM_BAN},
+    peer_set::ClientDropGuard,
 };
 
 /// Attempts to request a batch of blocks from a peer, returning [`BlockDownloadTaskResponse`].
@@ -32,7 +32,7 @@ use crate::{
 )]
 #[expect(clippy::used_underscore_binding)]
 pub async fn download_batch_task<N: NetworkZone>(
-    client: ClientPoolDropGuard<N>,
+    client: ClientDropGuard<N>,
     ids: ByteArrayVec<32>,
     previous_id: [u8; 32],
     expected_start_height: usize,
@@ -49,11 +49,11 @@ pub async fn download_batch_task<N: NetworkZone>(
 /// This function will validate the blocks that were downloaded were the ones asked for and that they match
 /// the expected height.
 async fn request_batch_from_peer<N: NetworkZone>(
-    mut client: ClientPoolDropGuard<N>,
+    mut client: ClientDropGuard<N>,
     ids: ByteArrayVec<32>,
     previous_id: [u8; 32],
     expected_start_height: usize,
-) -> Result<(ClientPoolDropGuard<N>, BlockBatch), BlockDownloadError> {
+) -> Result<(ClientDropGuard<N>, BlockBatch), BlockDownloadError> {
     let request = PeerRequest::Protocol(ProtocolRequest::GetObjects(GetObjectsRequest {
         blocks: ids.clone(),
         pruned: false,
