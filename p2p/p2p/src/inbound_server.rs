@@ -6,7 +6,7 @@ use std::{pin::pin, sync::Arc};
 
 use futures::{SinkExt, StreamExt};
 use tokio::{
-    sync::Semaphore,
+    sync::{mpsc, Semaphore},
     task::JoinSet,
     time::{sleep, timeout},
 };
@@ -24,7 +24,6 @@ use cuprate_wire::{
 };
 
 use crate::{
-    client_pool::ClientPool,
     constants::{
         HANDSHAKE_TIMEOUT, INBOUND_CONNECTION_COOL_DOWN, PING_REQUEST_CONCURRENCY,
         PING_REQUEST_TIMEOUT,
@@ -36,7 +35,7 @@ use crate::{
 /// and initiate handshake if needed, after verifying the address isn't banned.
 #[instrument(level = "warn", skip_all)]
 pub async fn inbound_server<N, HS, A>(
-    client_pool: Arc<ClientPool<N>>,
+    new_connection_tx: mpsc::Sender<Client<N>>,
     mut handshaker: HS,
     mut address_book: A,
     config: P2PConfig<N>,
@@ -111,13 +110,13 @@ where
                 permit: Some(permit),
             });
 
-            let cloned_pool = Arc::clone(&client_pool);
+            let new_connection_tx = new_connection_tx.clone();
 
             tokio::spawn(
                 async move {
                     let client = timeout(HANDSHAKE_TIMEOUT, fut).await;
                     if let Ok(Ok(peer)) = client {
-                        cloned_pool.add_new_client(peer);
+                        drop(new_connection_tx.send(peer).await);
                     }
                 }
                 .instrument(Span::current()),
