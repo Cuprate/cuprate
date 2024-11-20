@@ -202,9 +202,8 @@ pub struct Prunable {
     range_proofs: [Obsolete; 0],
     /// obsolete, empty array in JSON
     bulletproofs: [Obsolete; 0],
-    /// Bulletproofs+ data used to validate a Ring CT transaction; at the
-    /// current time this array always has exactly one element
-    pub bulletproofs_plus: Vec<BulletproofPlus>,
+    /// Bulletproofs+ data used to validate a Ring CT transaction
+    pub bulletproofs_plus: [BulletproofPlus; 1],
     /// obsolete, empty array in JSON
     mlsags: [Obsolete; 0],
     /// CLSAG signatures; 1 per transaction input
@@ -253,7 +252,7 @@ pub struct MinerTx {
     pub unlock_time: u64,
     /// contains the block height in `inputs[0].gen.height` and nothing else as
     /// coinbase transactions have no inputs
-    pub inputs: Vec<MinerInput>,
+    pub inputs: [MinerInput; 1],
     /// transaction outputs
     pub outputs: Vec<Output>,
     /// extra data for the transaction with variable size; not limited to `1060`
