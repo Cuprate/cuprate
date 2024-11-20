@@ -1,7 +1,7 @@
-use std::{mem, sync::Arc};
+use std::mem;
 
 use tokio::{task::JoinSet, time::timeout};
-use tower::{Service, ServiceExt};
+use tower::{util::BoxCloneService, Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
 use cuprate_p2p_core::{
@@ -15,11 +15,11 @@ use crate::{
         chain_tracker::{ChainEntry, ChainTracker},
         BlockDownloadError, ChainSvcRequest, ChainSvcResponse,
     },
-    client_pool::{ClientPool, ClientPoolDropGuard},
     constants::{
         BLOCK_DOWNLOADER_REQUEST_TIMEOUT, INITIAL_CHAIN_REQUESTS_TO_SEND,
         MAX_BLOCKS_IDS_IN_CHAIN_ENTRY, MEDIUM_BAN,
     },
+    peer_set::{ClientDropGuard, PeerSetRequest, PeerSetResponse},
 };
 
 /// Request a chain entry from a peer.
@@ -27,9 +27,9 @@ use crate::{
 /// Because the block downloader only follows and downloads one chain we only have to send the block hash of
 /// top block we have found and the genesis block, this is then called `short_history`.
 pub(crate) async fn request_chain_entry_from_peer<N: NetworkZone>(
-    mut client: ClientPoolDropGuard<N>,
+    mut client: ClientDropGuard<N>,
     short_history: [[u8; 32]; 2],
-) -> Result<(ClientPoolDropGuard<N>, ChainEntry<N>), BlockDownloadError> {
+) -> Result<(ClientDropGuard<N>, ChainEntry<N>), BlockDownloadError> {
     let PeerResponse::Protocol(ProtocolResponse::GetChain(chain_res)) = client
         .ready()
         .await?
@@ -80,7 +80,7 @@ pub(crate) async fn request_chain_entry_from_peer<N: NetworkZone>(
 /// We then wait for their response and choose the peer who claims the highest cumulative difficulty.
 #[instrument(level = "error", skip_all)]
 pub async fn initial_chain_search<N: NetworkZone, C>(
-    client_pool: &Arc<ClientPool<N>>,
+    peer_set: &mut BoxCloneService<PeerSetRequest, PeerSetResponse<N>, tower::BoxError>,
     mut our_chain_svc: C,
 ) -> Result<ChainTracker<N>, BlockDownloadError>
 where
@@ -102,9 +102,15 @@ where
 
     let our_genesis = *block_ids.last().expect("Blockchain had no genesis block.");
 
-    let mut peers = client_pool
-        .clients_with_more_cumulative_difficulty(cumulative_difficulty)
-        .into_iter();
+    let PeerSetResponse::PeersWithMorePoW(clients) = peer_set
+        .ready()
+        .await?
+        .call(PeerSetRequest::PeersWithMorePoW(cumulative_difficulty))
+        .await?
+    else {
+        unreachable!();
+    };
+    let mut peers = clients.into_iter();
 
     let mut futs = JoinSet::new();
 

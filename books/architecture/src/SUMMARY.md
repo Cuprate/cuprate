@@ -157,6 +157,11 @@
 
 ---
 
+- [🟢 Monero oddities](oddities/intro.md)
+    - [🟡 Little-endian IPv4 addresses](oddities/le-ipv4.md)
+
+---
+
 - [⚪️ Appendix](appendix/intro.md)
     - [🟢 Crates](appendix/crates.md)
     - [🔴 Contributing](appendix/contributing.md)
