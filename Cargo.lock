@@ -840,7 +840,6 @@ dependencies = [
  "cuprate-test-utils",
  "cuprate-types",
  "cuprate-wire",
- "dashmap",
  "futures",
  "indexmap",
  "monero-serai",
