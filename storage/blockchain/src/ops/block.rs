@@ -42,7 +42,7 @@ use crate::{
 /// # Panics
 /// This function will panic if:
 /// - `block.height > u32::MAX` (not normally possible)
-/// - `block.height` is not != [`chain_height`]
+/// - `block.height` is != [`chain_height`]
 // no inline, too big.
 pub fn add_block(
     block: &VerifiedBlockInformation,
