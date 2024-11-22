@@ -15,7 +15,6 @@ default = ["std"]
 std = ["dep:thiserror", "bytes/std", "cuprate-fixed-bytes/std"]
 
 [dependencies]
-cuprate-helper      = { workspace = true, default-features = false, features = ["cast"] }
 cuprate-fixed-bytes = { workspace = true, default-features = false }
 
 paste = "1.0.15"
