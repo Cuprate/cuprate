@@ -10,10 +10,10 @@ use monero_serai::{
     block::Block,
     transaction::{Input, Transaction},
 };
-use tower::{Service, ServiceExt};
+use tower::Service;
 
 use cuprate_consensus::transactions::new_tx_verification_data;
-use cuprate_consensus_context::{BlockChainContextRequest, BlockChainContextResponse};
+use cuprate_consensus_context::BlockchainContextService;
 use cuprate_consensus_rules::{miner_tx::MinerTxError, ConsensusError};
 use cuprate_helper::cast::u64_to_usize;
 use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
@@ -110,37 +110,18 @@ impl From<tower::BoxError> for FastSyncError {
     }
 }
 
-pub struct FastSyncService<C> {
-    context_svc: C,
+pub struct FastSyncService {
+    context_svc: BlockchainContextService,
 }
 
-impl<C> FastSyncService<C>
-where
-    C: Service<
-            BlockChainContextRequest,
-            Response = BlockChainContextResponse,
-            Error = tower::BoxError,
-        > + Clone
-        + Send
-        + 'static,
-{
+impl FastSyncService {
     #[expect(dead_code)]
-    pub(crate) const fn new(context_svc: C) -> Self {
+    pub(crate) const fn new(context_svc: BlockchainContextService) -> Self {
         Self { context_svc }
     }
 }
 
-impl<C> Service<FastSyncRequest> for FastSyncService<C>
-where
-    C: Service<
-            BlockChainContextRequest,
-            Response = BlockChainContextResponse,
-            Error = tower::BoxError,
-        > + Clone
-        + Send
-        + 'static,
-    C::Future: Send + 'static,
-{
+impl Service<FastSyncRequest> for FastSyncService {
     type Response = FastSyncResponse;
     type Error = FastSyncError;
     type Future =
@@ -210,31 +191,13 @@ fn validate_hashes(
     })
 }
 
-async fn validate_block<C>(
-    mut context_svc: C,
+async fn validate_block(
+    mut context_svc: BlockchainContextService,
     block: Block,
     mut txs: HashMap<[u8; 32], Transaction>,
     token: ValidBlockId,
-) -> Result<FastSyncResponse, FastSyncError>
-where
-    C: Service<
-            BlockChainContextRequest,
-            Response = BlockChainContextResponse,
-            Error = tower::BoxError,
-        > + Send
-        + 'static,
-    C::Future: Send + 'static,
-{
-    let BlockChainContextResponse::Context(checked_context) = context_svc
-        .ready()
-        .await?
-        .call(BlockChainContextRequest::Context)
-        .await?
-    else {
-        panic!("Context service returned wrong response!");
-    };
-
-    let block_chain_ctx = checked_context.unchecked_blockchain_context().clone();
+) -> Result<FastSyncResponse, FastSyncError> {
+    let context = context_svc.blockchain_context();
 
     let block_hash = block.hash();
     if block_hash != token.0 {
@@ -246,7 +209,7 @@ where
     let Some(Input::Gen(height)) = block.miner_transaction.prefix().inputs.first() else {
         return Err(FastSyncError::MinerTx(MinerTxError::InputNotOfTypeGen));
     };
-    if *height != block_chain_ctx.chain_height {
+    if *height != context.chain_height {
         return Err(FastSyncError::BlockHeightMismatch);
     }
 
@@ -288,9 +251,8 @@ where
         height: *height,
         generated_coins,
         weight,
-        long_term_weight: block_chain_ctx.next_block_long_term_weight(weight),
-        cumulative_difficulty: block_chain_ctx.cumulative_difficulty
-            + block_chain_ctx.next_difficulty,
+        long_term_weight: context.next_block_long_term_weight(weight),
+        cumulative_difficulty: context.cumulative_difficulty + context.next_difficulty,
         block,
     }))
 }

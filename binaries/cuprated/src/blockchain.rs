@@ -8,7 +8,7 @@ use tokio::sync::{mpsc, Notify};
 use tower::{BoxError, Service, ServiceExt};
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
-use cuprate_consensus::{generate_genesis_block, BlockChainContextService, ContextConfig};
+use cuprate_consensus::{generate_genesis_block, BlockchainContextService, ContextConfig};
 use cuprate_cryptonight::cryptonight_hash_v0;
 use cuprate_p2p::{block_downloader::BlockDownloaderConfig, NetworkInterface};
 use cuprate_p2p_core::{ClearNet, Network};
@@ -84,7 +84,7 @@ pub async fn init_consensus(
     (
         ConcreteBlockVerifierService,
         ConcreteTxVerifierService,
-        BlockChainContextService,
+        BlockchainContextService,
     ),
     BoxError,
 > {

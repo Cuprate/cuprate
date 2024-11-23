@@ -2,7 +2,7 @@
 //!
 //! This crate contains 3 [`tower::Service`]s that implement Monero's consensus rules:
 //!
-//! - [`BlockChainContextService`] Which handles keeping the current state of the blockchain.
+//! - [`BlockchainContextService`] Which handles keeping the current state of the blockchain.
 //! - [`BlockVerifierService`] Which handles block verification.
 //! - [`TxVerifierService`] Which handles transaction verification.
 //!
@@ -30,8 +30,8 @@ pub mod transactions;
 
 pub use block::{BlockVerifierService, VerifyBlockRequest, VerifyBlockResponse};
 pub use cuprate_consensus_context::{
-    initialize_blockchain_context, BlockChainContext, BlockChainContextRequest,
-    BlockChainContextResponse, BlockChainContextService, ContextConfig,
+    initialize_blockchain_context, BlockChainContextRequest, BlockChainContextResponse,
+    BlockchainContext, BlockchainContextService, ContextConfig,
 };
 pub use transactions::{TxVerifierService, VerifyTxRequest, VerifyTxResponse};
 
@@ -64,25 +64,16 @@ pub enum ExtendedConsensusError {
 }
 
 /// Initialize the 2 verifier [`tower::Service`]s (block and transaction).
-pub fn initialize_verifier<D, Ctx>(
+pub fn initialize_verifier<D>(
     database: D,
-    ctx_svc: Ctx,
+    ctx_svc: BlockchainContextService,
 ) -> (
-    BlockVerifierService<Ctx, TxVerifierService<D>, D>,
+    BlockVerifierService<TxVerifierService<D>, D>,
     TxVerifierService<D>,
 )
 where
     D: Database + Clone + Send + Sync + 'static,
     D::Future: Send + 'static,
-    Ctx: tower::Service<
-            BlockChainContextRequest,
-            Response = BlockChainContextResponse,
-            Error = tower::BoxError,
-        > + Clone
-        + Send
-        + Sync
-        + 'static,
-    Ctx::Future: Send + 'static,
 {
     let tx_svc = TxVerifierService::new(database.clone());
     let block_svc = BlockVerifierService::new(ctx_svc, tx_svc.clone(), database);

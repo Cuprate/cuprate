@@ -1,14 +1,11 @@
 use tower::util::MapErr;
 
 use cuprate_blockchain::{cuprate_database::RuntimeError, service::BlockchainReadHandle};
-use cuprate_consensus::{BlockChainContextService, BlockVerifierService, TxVerifierService};
+use cuprate_consensus::{BlockVerifierService, BlockchainContextService, TxVerifierService};
 
 /// The [`BlockVerifierService`] with all generic types defined.
-pub type ConcreteBlockVerifierService = BlockVerifierService<
-    BlockChainContextService,
-    ConcreteTxVerifierService,
-    ConsensusBlockchainReadHandle,
->;
+pub type ConcreteBlockVerifierService =
+    BlockVerifierService<ConcreteTxVerifierService, ConsensusBlockchainReadHandle>;
 
 /// The [`TxVerifierService`] with all generic types defined.
 pub type ConcreteTxVerifierService = TxVerifierService<ConsensusBlockchainReadHandle>;
