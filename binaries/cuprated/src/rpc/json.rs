@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{convert::Infallible, sync::Arc};
 
 use anyhow::Error;
 use tower::ServiceExt;
@@ -14,8 +14,8 @@ use cuprate_rpc_types::json::{
     GetCoinbaseTxSumRequest, GetCoinbaseTxSumResponse, GetConnectionsRequest,
     GetConnectionsResponse, GetFeeEstimateRequest, GetFeeEstimateResponse, GetInfoRequest,
     GetInfoResponse, GetLastBlockHeaderRequest, GetLastBlockHeaderResponse, GetMinerDataRequest,
-    GetMinerDataResponse, GetOutputHistogramRequest, GetOutputHistogramResponse,
-    GetTransactionPoolBacklogRequest, GetTransactionPoolBacklogResponse, GetTxIdsLooseRequest,
+    GetMinerDataResponse, GetOutputHistogramV2Request, GetOutputHistogramV2Response,
+    GetTransactionPoolBacklogV2Request, GetTransactionPoolBacklogV2Response, GetTxIdsLooseRequest,
     GetTxIdsLooseResponse, GetVersionRequest, GetVersionResponse, HardForkInfoRequest,
     HardForkInfoResponse, JsonRpcRequest, JsonRpcResponse, OnGetBlockHashRequest,
     OnGetBlockHashResponse, PruneBlockchainRequest, PruneBlockchainResponse, RelayTxRequest,
@@ -60,8 +60,8 @@ pub(super) async fn map_request(
         Req::FlushTransactionPool(r) => {
             Resp::FlushTransactionPool(flush_transaction_pool(state, r).await?)
         }
-        Req::GetOutputHistogram(r) => {
-            Resp::GetOutputHistogram(get_output_histogram(state, r).await?)
+        Req::GetOutputHistogramV2(r) => {
+            Resp::GetOutputHistogramV2(get_output_histogram_v2(state, r).await?)
         }
         Req::GetCoinbaseTxSum(r) => Resp::GetCoinbaseTxSum(get_coinbase_tx_sum(state, r).await?),
         Req::GetVersion(r) => Resp::GetVersion(get_version(state, r).await?),
@@ -71,8 +71,8 @@ pub(super) async fn map_request(
         }
         Req::RelayTx(r) => Resp::RelayTx(relay_tx(state, r).await?),
         Req::SyncInfo(r) => Resp::SyncInfo(sync_info(state, r).await?),
-        Req::GetTransactionPoolBacklog(r) => {
-            Resp::GetTransactionPoolBacklog(get_transaction_pool_backlog(state, r).await?)
+        Req::GetTransactionPoolBacklogV2(r) => {
+            Resp::GetTransactionPoolBacklogV2(get_transaction_pool_backlog_v2(state, r).await?)
         }
         Req::GetMinerData(r) => Resp::GetMinerData(get_miner_data(state, r).await?),
         Req::PruneBlockchain(r) => Resp::PruneBlockchain(prune_blockchain(state, r).await?),
@@ -195,10 +195,10 @@ async fn flush_transaction_pool(
     todo!()
 }
 
-async fn get_output_histogram(
+async fn get_output_histogram_v2(
     state: CupratedRpcHandler,
-    request: GetOutputHistogramRequest,
-) -> Result<GetOutputHistogramResponse, Error> {
+    request: GetOutputHistogramV2Request,
+) -> Result<GetOutputHistogramV2Response, Error> {
     todo!()
 }
 
@@ -244,10 +244,10 @@ async fn sync_info(
     todo!()
 }
 
-async fn get_transaction_pool_backlog(
+async fn get_transaction_pool_backlog_v2(
     state: CupratedRpcHandler,
-    request: GetTransactionPoolBacklogRequest,
-) -> Result<GetTransactionPoolBacklogResponse, Error> {
+    request: GetTransactionPoolBacklogV2Request,
+) -> Result<GetTransactionPoolBacklogV2Response, Error> {
     todo!()
 }
 

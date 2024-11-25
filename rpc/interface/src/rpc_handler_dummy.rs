@@ -75,15 +75,15 @@ impl Service<JsonRpcRequest> for RpcHandlerDummy {
             Req::GetBans(_) => Resp::GetBans(Default::default()),
             Req::Banned(_) => Resp::Banned(Default::default()),
             Req::FlushTransactionPool(_) => Resp::FlushTransactionPool(Default::default()),
-            Req::GetOutputHistogram(_) => Resp::GetOutputHistogram(Default::default()),
+            Req::GetOutputHistogramV2(_) => Resp::GetOutputHistogramV2(Default::default()),
             Req::GetCoinbaseTxSum(_) => Resp::GetCoinbaseTxSum(Default::default()),
             Req::GetVersion(_) => Resp::GetVersion(Default::default()),
             Req::GetFeeEstimate(_) => Resp::GetFeeEstimate(Default::default()),
             Req::GetAlternateChains(_) => Resp::GetAlternateChains(Default::default()),
             Req::RelayTx(_) => Resp::RelayTx(Default::default()),
             Req::SyncInfo(_) => Resp::SyncInfo(Default::default()),
-            Req::GetTransactionPoolBacklog(_) => {
-                Resp::GetTransactionPoolBacklog(Default::default())
+            Req::GetTransactionPoolBacklogV2(_) => {
+                Resp::GetTransactionPoolBacklogV2(Default::default())
             }
             Req::GetMinerData(_) => Resp::GetMinerData(Default::default()),
             Req::PruneBlockchain(_) => Resp::PruneBlockchain(Default::default()),
@@ -120,6 +120,9 @@ impl Service<BinRequest> for RpcHandlerDummy {
             Req::GetOutputIndexes(_) => Resp::GetOutputIndexes(Default::default()),
             Req::GetOuts(_) => Resp::GetOuts(Default::default()),
             Req::GetTransactionPoolHashes(_) => Resp::GetTransactionPoolHashes(Default::default()),
+            Req::GetTransactionPoolBacklog(_) => {
+                Resp::GetTransactionPoolBacklog(Default::default())
+            }
             Req::GetOutputDistribution(_) => Resp::GetOutputDistribution(Default::default()),
         };
 

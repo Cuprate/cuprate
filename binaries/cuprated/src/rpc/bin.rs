@@ -1,13 +1,12 @@
 use anyhow::Error;
 
-use cuprate_rpc_types::{
-    bin::{
-        BinRequest, BinResponse, GetBlocksByHeightRequest, GetBlocksByHeightResponse,
-        GetBlocksRequest, GetBlocksResponse, GetHashesRequest, GetHashesResponse,
-        GetOutputIndexesRequest, GetOutputIndexesResponse, GetOutsRequest, GetOutsResponse,
-        GetTransactionPoolHashesRequest, GetTransactionPoolHashesResponse,
-    },
-    json::{GetOutputDistributionRequest, GetOutputDistributionResponse},
+use cuprate_rpc_types::bin::{
+    BinRequest, BinResponse, GetBlocksByHeightRequest, GetBlocksByHeightResponse, GetBlocksRequest,
+    GetBlocksResponse, GetHashesRequest, GetHashesResponse, GetOutputDistributionRequest,
+    GetOutputDistributionResponse, GetOutputIndexesRequest, GetOutputIndexesResponse,
+    GetOutsRequest, GetOutsResponse, GetTransactionPoolBacklogRequest,
+    GetTransactionPoolBacklogResponse, GetTransactionPoolHashesRequest,
+    GetTransactionPoolHashesResponse,
 };
 
 use crate::rpc::CupratedRpcHandler;
@@ -28,6 +27,9 @@ pub(super) async fn map_request(
         Req::GetOuts(r) => Resp::GetOuts(get_outs(state, r).await?),
         Req::GetTransactionPoolHashes(r) => {
             Resp::GetTransactionPoolHashes(get_transaction_pool_hashes(state, r).await?)
+        }
+        Req::GetTransactionPoolBacklog(r) => {
+            Resp::GetTransactionPoolBacklog(get_transaction_pool_backlog(state, r).await?)
         }
         Req::GetOutputDistribution(r) => {
             Resp::GetOutputDistribution(get_output_distribution(state, r).await?)
@@ -74,6 +76,13 @@ async fn get_transaction_pool_hashes(
     state: CupratedRpcHandler,
     request: GetTransactionPoolHashesRequest,
 ) -> Result<GetTransactionPoolHashesResponse, Error> {
+    todo!()
+}
+
+async fn get_transaction_pool_backlog(
+    state: CupratedRpcHandler,
+    request: GetTransactionPoolBacklogRequest,
+) -> Result<GetTransactionPoolBacklogResponse, Error> {
     todo!()
 }
 
