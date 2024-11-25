@@ -3,22 +3,26 @@ resolver = "2"
 members = [
 	# Binaries
 	"binaries/cuprated",
+
 	# Benchmarks
 	"benches/benchmark/bin",
 	"benches/benchmark/lib",
 	"benches/benchmark/example",
 	"benches/criterion/example",
 	"benches/criterion/cuprate-json-rpc",
+
 	# Consensus
 	"consensus",
 	"consensus/context",
 	"consensus/fast-sync",
 	"consensus/rules",
+
 	# Net
 	"net/epee-encoding",
 	"net/fixed-bytes",
 	"net/levin",
 	"net/wire",
+
 	# P2P
 	"p2p/p2p",
 	"p2p/p2p-core",
@@ -26,15 +30,21 @@ members = [
 	"p2p/dandelion-tower",
 	"p2p/async-buffer",
 	"p2p/address-book",
+
 	# Storage
 	"storage/blockchain",
 	"storage/service",
 	"storage/txpool",
 	"storage/database",
+
 	# RPC
 	"rpc/json-rpc",
 	"rpc/types",
 	"rpc/interface",
+
+	# ZMQ
+	"zmq/types",
+
 	# Misc
 	"constants",
 	"cryptonight",
@@ -64,33 +74,34 @@ opt-level = 3
 
 [workspace.dependencies]
 # Cuprate members
-cuprate-fast-sync           = { path = "consensus/fast-sync"    ,default-features = false}
-cuprate-consensus-rules     = { path = "consensus/rules"        ,default-features = false}
-cuprate-constants           = { path = "constants"              ,default-features = false}
-cuprate-consensus           = { path = "consensus"              ,default-features = false}
-cuprate-consensus-context   = { path = "consensus/context"      ,default-features = false}
-cuprate-cryptonight         = { path = "cryptonight"            ,default-features = false}
-cuprate-helper              = { path = "helper"                 ,default-features = false}
-cuprate-epee-encoding       = { path = "net/epee-encoding"      ,default-features = false}
-cuprate-fixed-bytes         = { path = "net/fixed-bytes"        ,default-features = false}
-cuprate-levin               = { path = "net/levin"              ,default-features = false}
-cuprate-wire                = { path = "net/wire"               ,default-features = false}
-cuprate-p2p                 = { path = "p2p/p2p"                ,default-features = false}
-cuprate-p2p-core            = { path = "p2p/p2p-core"           ,default-features = false}
-cuprate-p2p-bucket          = { path = "p2p/p2p-bucket"         ,default-features = false}
-cuprate-dandelion-tower     = { path = "p2p/dandelion-tower"    ,default-features = false}
-cuprate-async-buffer        = { path = "p2p/async-buffer"       ,default-features = false}
-cuprate-address-book        = { path = "p2p/address-book"       ,default-features = false}
-cuprate-blockchain          = { path = "storage/blockchain"     ,default-features = false}
-cuprate-database            = { path = "storage/database"       ,default-features = false}
-cuprate-database-service    = { path = "storage/service"        ,default-features = false}
-cuprate-txpool              = { path = "storage/txpool"         ,default-features = false}
-cuprate-pruning             = { path = "pruning"                ,default-features = false}
-cuprate-test-utils          = { path = "test-utils"             ,default-features = false}
-cuprate-types               = { path = "types"                  ,default-features = false}
-cuprate-json-rpc            = { path = "rpc/json-rpc"           ,default-features = false}
-cuprate-rpc-types           = { path = "rpc/types"              ,default-features = false}
-cuprate-rpc-interface       = { path = "rpc/interface"          ,default-features = false}
+cuprate-fast-sync           = { path = "consensus/fast-sync", default-features = false }
+cuprate-consensus-rules     = { path = "consensus/rules",     default-features = false }
+cuprate-constants           = { path = "constants",           default-features = false }
+cuprate-consensus           = { path = "consensus",           default-features = false }
+cuprate-consensus-context   = { path = "consensus/context",   default-features = false }
+cuprate-cryptonight         = { path = "cryptonight",         default-features = false }
+cuprate-helper              = { path = "helper",              default-features = false }
+cuprate-epee-encoding       = { path = "net/epee-encoding",   default-features = false }
+cuprate-fixed-bytes         = { path = "net/fixed-bytes",     default-features = false }
+cuprate-levin               = { path = "net/levin",           default-features = false }
+cuprate-wire                = { path = "net/wire",            default-features = false }
+cuprate-p2p                 = { path = "p2p/p2p",             default-features = false }
+cuprate-p2p-core            = { path = "p2p/p2p-core",        default-features = false }
+cuprate-p2p-bucket          = { path = "p2p/p2p-bucket",      default-features = false }
+cuprate-dandelion-tower     = { path = "p2p/dandelion-tower", default-features = false }
+cuprate-async-buffer        = { path = "p2p/async-buffer",    default-features = false }
+cuprate-address-book        = { path = "p2p/address-book",    default-features = false }
+cuprate-blockchain          = { path = "storage/blockchain",  default-features = false }
+cuprate-database            = { path = "storage/database",    default-features = false }
+cuprate-database-service    = { path = "storage/service",     default-features = false }
+cuprate-txpool              = { path = "storage/txpool",      default-features = false }
+cuprate-pruning             = { path = "pruning",             default-features = false }
+cuprate-test-utils          = { path = "test-utils",          default-features = false }
+cuprate-types               = { path = "types",               default-features = false }
+cuprate-json-rpc            = { path = "rpc/json-rpc",        default-features = false }
+cuprate-rpc-types           = { path = "rpc/types",           default-features = false }
+cuprate-rpc-interface       = { path = "rpc/interface",       default-features = false }
+cuprate-zmq-types           = { path = "zmq/types",           default-features = false }
 
 # External dependencies
 anyhow                = { version = "1", default-features = false }

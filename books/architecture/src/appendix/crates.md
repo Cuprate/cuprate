@@ -54,6 +54,11 @@ cargo doc --open --package cuprate-blockchain
 | [`cuprate-rpc-interface`](https://doc.cuprate.org/cuprate_rpc_interface) | [`rpc/interface/`](https://github.com/Cuprate/cuprate/tree/main/rpc/interface) | RPC interface & routing
 | [`cuprate-rpc-handler`](https://doc.cuprate.org/cuprate_rpc_handler) | [`rpc/handler/`](https://github.com/Cuprate/cuprate/tree/main/rpc/handler) | RPC inner handlers
 
+## ZMQ
+| Crate | In-tree path | Purpose |
+|-------|--------------|---------|
+| [`cuprate-zmq-types`](https://doc.cuprate.org/cuprate_zmq_types) | [`zmq/types/`](https://github.com/Cuprate/cuprate/tree/main/zmq/types) | Message types for ZMQ Pub/Sub interface
+
 ## 1-off crates
 | Crate | In-tree path | Purpose |
 |-------|--------------|---------|

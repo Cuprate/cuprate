@@ -1,0 +1,20 @@
+[package]
+name = "cuprate-zmq-types"
+version = "0.1.0"
+edition = "2021"
+description = "Types for the ZMQ Pub/Sub API"
+license = "MIT"
+authors = ["dimalinux"]
+repository = "https://github.com/Cuprate/cuprate/tree/main/zmq/types"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+hex = { workspace = true, features = ["std", "serde"] }
+cuprate-types = { workspace = true, features = ["hex"] }
+
+[dev-dependencies]
+serde_json = { workspace = true, features = ["std"] }
+assert-json-diff = "2.0.2"
+
+[lints]
+workspace = true
