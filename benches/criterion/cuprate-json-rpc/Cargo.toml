@@ -9,11 +9,11 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/benches/criterion/cu
 keywords    = ["cuprate", "json-rpc", "criterion", "benchmark"]
 
 [dependencies]
+cuprate-json-rpc = { workspace = true }
+
 criterion     = { workspace = true }
 function_name = { workspace = true }
 serde_json    = { workspace = true, features = ["default"] }
-
-cuprate-json-rpc = { path = "../../../rpc/json-rpc" }
 
 [[bench]]
 name    = "main"

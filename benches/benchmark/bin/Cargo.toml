@@ -28,8 +28,8 @@ example = [
 ]
 
 [dependencies]
-cuprate-benchmark-lib     = { path = "../lib" }
-cuprate-benchmark-example = { path = "../example", optional = true }
+cuprate-benchmark-lib     = { workspace = true }
+cuprate-benchmark-example = { workspace = true, optional = true }
 
 cfg-if             = { workspace = true }
 serde              = { workspace = true, features = ["derive"] }
