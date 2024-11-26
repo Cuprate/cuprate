@@ -1,16 +1,18 @@
-use cuprate_epee_encoding::{write_field, EpeeObject, EpeeObjectBuilder};
-use cuprate_fixed_bytes::ByteArrayVec;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "epee")]
+use crate::misc::PoolInfoExtent;
+#[cfg(feature = "epee")]
 use cuprate_epee_encoding::{
     epee_object, error,
     macros::bytes::{Buf, BufMut},
-    read_epee_value,
+    read_epee_value, write_field, EpeeObject, EpeeObjectBuilder,
 };
 
-use super::{PoolInfoExtent, PoolTxInfo};
+use cuprate_fixed_bytes::ByteArrayVec;
+
+use crate::misc::PoolTxInfo;
 
 //---------------------------------------------------------------------------------------------------- PoolInfo
 #[doc = crate::macros::monero_definition_link!(
