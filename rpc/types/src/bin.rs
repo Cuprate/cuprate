@@ -21,16 +21,52 @@ use cuprate_types::BlockCompleteEntry;
 use crate::{
     base::AccessResponseBase,
     macros::{define_request, define_request_and_response, define_request_and_response_doc},
-    misc::{BlockOutputIndices, GetOutputsOut, OutKeyBin, PoolTxInfo, Status},
+    misc::{
+        BlockOutputIndices, Distribution, GetOutputsOut, OutKeyBin, PoolTxInfo, Status,
+        TxBacklogEntry,
+    },
     rpc_call::RpcCallValue,
 };
 
 #[cfg(any(feature = "epee", feature = "serde"))]
-use crate::defaults::{default_false, default_zero};
+use crate::defaults::{default_false, default_true, default_zero};
 #[cfg(feature = "epee")]
 use crate::misc::PoolInfoExtent;
 
 //---------------------------------------------------------------------------------------------------- Definitions
+define_request_and_response! {
+    get_txpool_backlogbin,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1637..=1664,
+    GetTransactionPoolBacklog (empty),
+    Request {},
+
+    AccessResponseBase {
+        backlog: Vec<TxBacklogEntry>,
+    }
+}
+
+define_request_and_response! {
+    get_output_distributionbin,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 2445..=2520,
+
+    GetOutputDistribution,
+
+    Request {
+        amounts: Vec<u64>,
+        binary: bool = default_true(), "default_true",
+        compress: bool = default_false(), "default_false",
+        cumulative: bool = default_false(), "default_false",
+        from_height: u64 = default_zero::<u64>(), "default_zero",
+        to_height: u64 = default_zero::<u64>(), "default_zero",
+    },
+
+    AccessResponseBase {
+        distributions: Vec<Distribution>,
+    }
+}
+
 define_request_and_response! {
     get_blocks_by_heightbin,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
@@ -403,7 +439,8 @@ pub enum BinRequest {
     GetOutputIndexes(GetOutputIndexesRequest),
     GetOuts(GetOutsRequest),
     GetTransactionPoolHashes(GetTransactionPoolHashesRequest),
-    GetOutputDistribution(crate::json::GetOutputDistributionRequest),
+    GetTransactionPoolBacklog(GetTransactionPoolBacklogRequest),
+    GetOutputDistribution(GetOutputDistributionRequest),
 }
 
 impl RpcCallValue for BinRequest {
@@ -415,6 +452,7 @@ impl RpcCallValue for BinRequest {
             Self::GetOutputIndexes(x) => x.is_restricted(),
             Self::GetOuts(x) => x.is_restricted(),
             Self::GetTransactionPoolHashes(x) => x.is_restricted(),
+            Self::GetTransactionPoolBacklog(x) => x.is_restricted(),
             Self::GetOutputDistribution(x) => x.is_restricted(),
         }
     }
@@ -427,6 +465,7 @@ impl RpcCallValue for BinRequest {
             Self::GetOutputIndexes(x) => x.is_empty(),
             Self::GetOuts(x) => x.is_empty(),
             Self::GetTransactionPoolHashes(x) => x.is_empty(),
+            Self::GetTransactionPoolBacklog(x) => x.is_empty(),
             Self::GetOutputDistribution(x) => x.is_empty(),
         }
     }
@@ -448,7 +487,8 @@ pub enum BinResponse {
     GetOutputIndexes(GetOutputIndexesResponse),
     GetOuts(GetOutsResponse),
     GetTransactionPoolHashes(GetTransactionPoolHashesResponse),
-    GetOutputDistribution(crate::json::GetOutputDistributionResponse),
+    GetTransactionPoolBacklog(GetTransactionPoolBacklogResponse),
+    GetOutputDistribution(GetOutputDistributionResponse),
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

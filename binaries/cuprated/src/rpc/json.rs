@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{convert::Infallible, sync::Arc};
 
 use anyhow::Error;
 use tower::ServiceExt;
@@ -14,13 +14,14 @@ use cuprate_rpc_types::json::{
     GetCoinbaseTxSumRequest, GetCoinbaseTxSumResponse, GetConnectionsRequest,
     GetConnectionsResponse, GetFeeEstimateRequest, GetFeeEstimateResponse, GetInfoRequest,
     GetInfoResponse, GetLastBlockHeaderRequest, GetLastBlockHeaderResponse, GetMinerDataRequest,
-    GetMinerDataResponse, GetOutputHistogramRequest, GetOutputHistogramResponse,
-    GetTransactionPoolBacklogRequest, GetTransactionPoolBacklogResponse, GetTxIdsLooseRequest,
-    GetTxIdsLooseResponse, GetVersionRequest, GetVersionResponse, HardForkInfoRequest,
-    HardForkInfoResponse, JsonRpcRequest, JsonRpcResponse, OnGetBlockHashRequest,
-    OnGetBlockHashResponse, PruneBlockchainRequest, PruneBlockchainResponse, RelayTxRequest,
-    RelayTxResponse, SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse,
-    SyncInfoRequest, SyncInfoResponse,
+    GetMinerDataResponse, GetOutputDistributionV2Request, GetOutputDistributionV2Response,
+    GetOutputHistogramRequest, GetOutputHistogramResponse, GetTransactionPoolBacklogV2Request,
+    GetTransactionPoolBacklogV2Response, GetTxIdsLooseRequest, GetTxIdsLooseResponse,
+    GetVersionRequest, GetVersionResponse, HardForkInfoRequest, HardForkInfoResponse,
+    JsonRpcRequest, JsonRpcResponse, OnGetBlockHashRequest, OnGetBlockHashResponse,
+    PruneBlockchainRequest, PruneBlockchainResponse, RelayTxRequest, RelayTxResponse,
+    SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse, SyncInfoRequest,
+    SyncInfoResponse,
 };
 
 use crate::rpc::CupratedRpcHandler;
@@ -71,8 +72,11 @@ pub(super) async fn map_request(
         }
         Req::RelayTx(r) => Resp::RelayTx(relay_tx(state, r).await?),
         Req::SyncInfo(r) => Resp::SyncInfo(sync_info(state, r).await?),
-        Req::GetTransactionPoolBacklog(r) => {
-            Resp::GetTransactionPoolBacklog(get_transaction_pool_backlog(state, r).await?)
+        Req::GetTransactionPoolBacklogV2(r) => {
+            Resp::GetTransactionPoolBacklogV2(get_transaction_pool_backlog_v2(state, r).await?)
+        }
+        Req::GetOutputDistributionV2(r) => {
+            Resp::GetOutputDistributionV2(get_output_distribution_v2(state, r).await?)
         }
         Req::GetMinerData(r) => Resp::GetMinerData(get_miner_data(state, r).await?),
         Req::PruneBlockchain(r) => Resp::PruneBlockchain(prune_blockchain(state, r).await?),
@@ -244,10 +248,17 @@ async fn sync_info(
     todo!()
 }
 
-async fn get_transaction_pool_backlog(
+async fn get_transaction_pool_backlog_v2(
     state: CupratedRpcHandler,
-    request: GetTransactionPoolBacklogRequest,
-) -> Result<GetTransactionPoolBacklogResponse, Error> {
+    request: GetTransactionPoolBacklogV2Request,
+) -> Result<GetTransactionPoolBacklogV2Response, Error> {
+    todo!()
+}
+
+async fn get_output_distribution_v2(
+    state: CupratedRpcHandler,
+    request: GetOutputDistributionV2Request,
+) -> Result<GetOutputDistributionV2Response, Error> {
     todo!()
 }
 

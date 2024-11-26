@@ -45,29 +45,16 @@ For example:
 | [`/get_blocks.bin`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_blockbin) | [`bin::GetBlocksRequest`] & [`bin::GetBlocksResponse`]
 | [`/get_height`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_height) | [`other::GetHeightRequest`] & [`other::GetHeightResponse`]
 
-# Mixed types
-Note that some types mix JSON & binary together, i.e., the message overall is JSON,
-however some fields contain binary values inside JSON strings, for example:
+# Deprecated types
+TODO: update after finalizing <https://github.com/monero-project/monero/issues/9422>.
 
-```json
-{
-  "string": "",
-  "float": 30.0,
-  "integer": 30,
-  "binary": "<serialized binary>"
-}
-```
+- [`crate::json::GetTransactionPoolBacklogV2Response`]
+- [`crate::json::GetOutputDistributionV2Response`]
 
-`binary` here is (de)serialized as a normal [`String`]. In order to be clear on which fields contain binary data, the struct fields that have them will use [`crate::misc::BinaryString`] instead of [`String`].
+# Optimized types
+TODO: updated after deciding compatibility <-> optimization tradeoff.
 
-These mixed types are:
-- [`crate::json::GetTransactionPoolBacklogResponse`]
-- [`crate::json::GetOutputDistributionResponse`]
-
-TODO: we need to figure out a type that (de)serializes correctly, `String` errors with `serde_json`
-
-# Fixed byte containers
-TODO
+- Fixed byte containers
 
 <!--
 

@@ -8,9 +8,9 @@ use cuprate_epee_encoding::from_bytes;
 use cuprate_rpc_types::{
     bin::{
         BinRequest, BinResponse, GetBlocksByHeightRequest, GetBlocksRequest, GetHashesRequest,
-        GetOutputIndexesRequest, GetOutsRequest, GetTransactionPoolHashesRequest,
+        GetOutputDistributionRequest, GetOutputIndexesRequest, GetOutsRequest,
+        GetTransactionPoolBacklogRequest, GetTransactionPoolHashesRequest,
     },
-    json::GetOutputDistributionRequest,
     RpcCall,
 };
 
@@ -102,7 +102,8 @@ generate_endpoints_with_input! {
     get_hashes => GetHashes,
     get_o_indexes => GetOutputIndexes,
     get_outs => GetOuts,
-    get_output_distribution => GetOutputDistribution
+    get_output_distribution => GetOutputDistribution,
+    get_txpool_backlog => GetTransactionPoolBacklog
 }
 
 generate_endpoints_with_no_input! {

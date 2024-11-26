@@ -1324,38 +1324,41 @@ define_request_and_response! {
     }
 }
 
+// TODO: update after finalizing <https://github.com/monero-project/monero/issues/9422>.
 define_request_and_response! {
-    get_txpool_backlog,
+    get_txpool_backlog_v2,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1637..=1664,
-    GetTransactionPoolBacklog (empty),
+    GetTransactionPoolBacklogV2 (empty),
     Request {},
 
-    // TODO: enable test after binary string impl.
-    // #[doc = serde_doc_test!(
-    //     GET_TRANSACTION_POOL_BACKLOG_RESPONSE => GetTransactionPoolBacklogResponse {
-    //         base: ResponseBase::OK,
-    //         backlog: "...Binary...".into(),
-    //     }
-    // )]
+    #[doc = serde_doc_test!(
+        GET_TRANSACTION_POOL_BACKLOG_V2_RESPONSE => GetTransactionPoolBacklogV2Response {
+            base: ResponseBase::OK,
+            backlog: vec![
+                TxBacklogEntry {
+                    weight: 0,
+                    fee: 0,
+                    time_in_pool: 0,
+                }
+            ],
+        }
+    )]
     ResponseBase {
-        // TODO: this is a [`BinaryString`].
         backlog: Vec<TxBacklogEntry>,
     }
 }
 
+// TODO: update after finalizing <https://github.com/monero-project/monero/issues/9422>.
 define_request_and_response! {
-    get_output_distribution,
+    get_output_distribution_v2,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2445..=2520,
 
-    /// This type is also used in the (undocumented)
-    /// [`/get_output_distribution.bin`](https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.h#L138)
-    /// binary endpoint.
-    GetOutputDistribution,
+    GetOutputDistributionV2,
 
     #[doc = serde_doc_test!(
-        GET_OUTPUT_DISTRIBUTION_REQUEST => GetOutputDistributionRequest {
+        GET_OUTPUT_DISTRIBUTION_V2_REQUEST => GetOutputDistributionV2Request {
             amounts: vec![628780000],
             from_height: 1462078,
             binary: true,
@@ -1373,19 +1376,17 @@ define_request_and_response! {
         to_height: u64 = default_zero::<u64>(), "default_zero",
     },
 
-    // TODO: enable test after binary string impl.
-    // #[doc = serde_doc_test!(
-    //     GET_OUTPUT_DISTRIBUTION_RESPONSE => GetOutputDistributionResponse {
-    //         base: AccessResponseBase::OK,
-    //         distributions: vec![Distribution::Uncompressed(DistributionUncompressed {
-    //             start_height: 1462078,
-    //             base: 0,
-    //             distribution: vec![],
-    //             amount: 2628780000,
-    //             binary: true,
-    //         })],
-    //     }
-    // )]
+    #[doc = serde_doc_test!(
+        GET_OUTPUT_DISTRIBUTION_V2_RESPONSE => GetOutputDistributionV2Response {
+            base: AccessResponseBase::OK,
+            distributions: vec![Distribution::Uncompressed(DistributionUncompressed {
+                start_height: 1462078,
+                base: 0,
+                distribution: vec![0, 1, 2],
+                amount: 2628780000,
+            })],
+        }
+    )]
     AccessResponseBase {
         distributions: Vec<Distribution>,
     }
@@ -1622,7 +1623,8 @@ pub enum JsonRpcRequest {
     GetAlternateChains(GetAlternateChainsRequest),
     RelayTx(RelayTxRequest),
     SyncInfo(SyncInfoRequest),
-    GetTransactionPoolBacklog(GetTransactionPoolBacklogRequest),
+    GetTransactionPoolBacklogV2(GetTransactionPoolBacklogV2Request),
+    GetOutputDistributionV2(GetOutputDistributionV2Request),
     GetMinerData(GetMinerDataRequest),
     PruneBlockchain(PruneBlockchainRequest),
     CalcPow(CalcPowRequest),
@@ -1647,7 +1649,8 @@ impl RpcCallValue for JsonRpcRequest {
             Self::GetOutputHistogram(x) => x.is_restricted(),
             Self::GetVersion(x) => x.is_restricted(),
             Self::GetFeeEstimate(x) => x.is_restricted(),
-            Self::GetTransactionPoolBacklog(x) => x.is_restricted(),
+            Self::GetTransactionPoolBacklogV2(x) => x.is_restricted(),
+            Self::GetOutputDistributionV2(x) => x.is_restricted(),
             Self::GetMinerData(x) => x.is_restricted(),
             Self::AddAuxPow(x) => x.is_restricted(),
             Self::GetTxIdsLoose(x) => x.is_restricted(),
@@ -1682,7 +1685,8 @@ impl RpcCallValue for JsonRpcRequest {
             Self::GetOutputHistogram(x) => x.is_empty(),
             Self::GetVersion(x) => x.is_empty(),
             Self::GetFeeEstimate(x) => x.is_empty(),
-            Self::GetTransactionPoolBacklog(x) => x.is_empty(),
+            Self::GetTransactionPoolBacklogV2(x) => x.is_empty(),
+            Self::GetOutputDistributionV2(x) => x.is_empty(),
             Self::GetMinerData(x) => x.is_empty(),
             Self::AddAuxPow(x) => x.is_empty(),
             Self::GetTxIdsLoose(x) => x.is_empty(),
@@ -1754,7 +1758,8 @@ pub enum JsonRpcResponse {
     GetAlternateChains(GetAlternateChainsResponse),
     RelayTx(RelayTxResponse),
     SyncInfo(SyncInfoResponse),
-    GetTransactionPoolBacklog(GetTransactionPoolBacklogResponse),
+    GetTransactionPoolBacklogV2(GetTransactionPoolBacklogV2Response),
+    GetOutputDistributionV2(GetOutputDistributionV2Response),
     GetMinerData(GetMinerDataResponse),
     PruneBlockchain(PruneBlockchainResponse),
     CalcPow(CalcPowResponse),

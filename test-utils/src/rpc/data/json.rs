@@ -1069,31 +1069,36 @@ r#"{
 }"#;
 }
 
-// TODO: binary string.
-// define_request_and_response! {
-//     get_txpool_backlog (json_rpc),
-//     GET_TRANSACTION_POOL_BACKLOG: &str,
-//     Request =
-// r#"{
-//   "jsonrpc": "2.0",
-//   "id": "0",
-//   "method": "get_txpool_backlog"
-// }"#;
-//     Response =
-// r#"{
-//   "id": "0",
-//   "jsonrpc": "2.0",
-//   "result": {
-//     "backlog": "...Binary...",
-//     "status": "OK",
-//     "untrusted": false
-//   }
-// }"#;
-// }
+define_request_and_response! {
+    get_txpool_backlog_v2 (json_rpc),
+    GET_TRANSACTION_POOL_BACKLOG_V2: &str,
+    Request =
+r#"{
+   "jsonrpc": "2.0",
+   "id": "0",
+   "method": "get_txpool_backlog_v2"
+ }"#;
+    Response =
+r#"{
+   "id": "0",
+   "jsonrpc": "2.0",
+   "result": {
+     "backlog": [
+        {
+          "weight": 0,
+          "fee": 0,
+          "time_in_pool": 0
+        }
+     ],
+     "status": "OK",
+     "untrusted": false
+   }
+ }"#;
+}
 
 define_request_and_response! {
-    get_output_distribution (json_rpc),
-    GET_OUTPUT_DISTRIBUTION: &str,
+    get_output_distribution_v2 (json_rpc),
+    GET_OUTPUT_DISTRIBUTION_V2: &str,
     Request =
 r#"{
   "jsonrpc": "2.0",
@@ -1113,9 +1118,8 @@ r#"{
     "distributions": [{
       "amount": 2628780000,
       "base": 0,
-      "distribution": "",
-      "start_height": 1462078,
-      "binary": false
+      "distribution": [0, 1, 2],
+      "start_height": 1462078
     }],
     "status": "OK",
     "top_hash": "",

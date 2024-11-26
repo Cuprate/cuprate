@@ -44,7 +44,7 @@ fn decompress_integer_array(_: &[u8]) -> Vec<u64> {
     "rpc/core_rpc_server_commands_defs.h",
     2468..=2508
 )]
-/// Used in [`crate::json::GetOutputDistributionResponse`].
+/// Used in [`crate::json::GetOutputDistributionV2Response`].
 ///
 /// # Internals
 /// This type's (de)serialization depends on `monerod`'s (de)serialization.
@@ -82,10 +82,8 @@ impl Default for Distribution {
 pub struct DistributionUncompressed {
     pub start_height: u64,
     pub base: u64,
-    /// TODO: this is a binary JSON string if `binary == true`.
     pub distribution: Vec<u64>,
     pub amount: u64,
-    pub binary: bool,
 }
 
 #[cfg(feature = "epee")]
@@ -95,7 +93,6 @@ epee_object! {
     base: u64,
     distribution: Vec<u64>,
     amount: u64,
-    binary: bool,
 }
 
 /// Data within [`Distribution::CompressedBinary`].
@@ -212,10 +209,9 @@ impl EpeeObjectBuilder<Distribution> for __DistributionEpeeBuilder {
             })
         } else if let Some(distribution) = self.distribution {
             Distribution::Uncompressed(DistributionUncompressed {
-                binary: self.binary.ok_or(ELSE)?,
-                distribution,
                 start_height,
                 base,
+                distribution,
                 amount,
             })
         } else {

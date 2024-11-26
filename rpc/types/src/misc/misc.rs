@@ -257,7 +257,7 @@ define_struct_and_impl_epee! {
         1637..=1642
     )]
     #[derive(Copy)]
-    /// Used in [`crate::json::GetTransactionPoolBacklogResponse`].
+    /// Used in [`crate::json::GetTransactionPoolBacklogV2Response`].
     TxBacklogEntry {
         weight: u64,
         fee: u64,
@@ -271,7 +271,7 @@ define_struct_and_impl_epee! {
         "rpc/rpc_handler.h",
         45..=50
     )]
-    /// Used in [`crate::json::GetOutputDistributionResponse`].
+    /// Used in [`crate::json::GetOutputDistributionV2Response`].
     OutputDistributionData {
         distribution: Vec<u64>,
         start_height: u64,

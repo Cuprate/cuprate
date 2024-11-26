@@ -82,9 +82,10 @@ impl Service<JsonRpcRequest> for RpcHandlerDummy {
             Req::GetAlternateChains(_) => Resp::GetAlternateChains(Default::default()),
             Req::RelayTx(_) => Resp::RelayTx(Default::default()),
             Req::SyncInfo(_) => Resp::SyncInfo(Default::default()),
-            Req::GetTransactionPoolBacklog(_) => {
-                Resp::GetTransactionPoolBacklog(Default::default())
+            Req::GetTransactionPoolBacklogV2(_) => {
+                Resp::GetTransactionPoolBacklogV2(Default::default())
             }
+            Req::GetOutputDistributionV2(_) => Resp::GetOutputDistributionV2(Default::default()),
             Req::GetMinerData(_) => Resp::GetMinerData(Default::default()),
             Req::PruneBlockchain(_) => Resp::PruneBlockchain(Default::default()),
             Req::CalcPow(_) => Resp::CalcPow(Default::default()),
@@ -120,6 +121,9 @@ impl Service<BinRequest> for RpcHandlerDummy {
             Req::GetOutputIndexes(_) => Resp::GetOutputIndexes(Default::default()),
             Req::GetOuts(_) => Resp::GetOuts(Default::default()),
             Req::GetTransactionPoolHashes(_) => Resp::GetTransactionPoolHashes(Default::default()),
+            Req::GetTransactionPoolBacklog(_) => {
+                Resp::GetTransactionPoolBacklog(Default::default())
+            }
             Req::GetOutputDistribution(_) => Resp::GetOutputDistribution(Default::default()),
         };
 
