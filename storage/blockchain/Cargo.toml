@@ -20,7 +20,7 @@ serde       = ["dep:serde", "cuprate-database/serde", "cuprate-database-service/
 [dependencies]
 cuprate-database         = { workspace = true }
 cuprate-database-service = { workspace = true }
-cuprate-helper           = { workspace = true, features = ["fs", "map", "crypto", "tx", "thread"] }
+cuprate-helper           = { workspace = true, features = ["fs", "map", "crypto", "tx", "thread", "cast"] }
 cuprate-types            = { workspace = true, features = ["blockchain"] }
 cuprate-pruning          = { workspace = true }
 

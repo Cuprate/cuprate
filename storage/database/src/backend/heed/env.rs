@@ -9,6 +9,8 @@ use std::{
 
 use heed::{DatabaseFlags, EnvFlags, EnvOpenOptions};
 
+use cuprate_helper::cast::u64_to_usize;
+
 use crate::{
     backend::heed::{
         database::{HeedTableRo, HeedTableRw},
@@ -144,9 +146,8 @@ impl Env for ConcreteEnv {
         // (current disk size) + (a bit of leeway)
         // to account for empty databases where we
         // need to write same tables.
-        #[expect(clippy::cast_possible_truncation, reason = "only 64-bit targets")]
         let disk_size_bytes = match std::fs::File::open(&config.db_file) {
-            Ok(file) => file.metadata()?.len() as usize,
+            Ok(file) => u64_to_usize(file.metadata()?.len()),
             // The database file doesn't exist, 0 bytes.
             Err(io_err) if io_err.kind() == std::io::ErrorKind::NotFound => 0,
             Err(io_err) => return Err(io_err.into()),

@@ -7,8 +7,7 @@ use monero_serai::transaction::Timelock;
 use cuprate_database::{
     RuntimeError, {DatabaseRo, DatabaseRw},
 };
-use cuprate_helper::crypto::compute_zero_commitment;
-use cuprate_helper::map::u64_to_timelock;
+use cuprate_helper::{cast::u32_to_usize, crypto::compute_zero_commitment, map::u64_to_timelock};
 use cuprate_types::OutputOnChain;
 
 use crate::{
@@ -172,7 +171,7 @@ pub fn output_to_output_on_chain(
         .unwrap_or(None);
 
     Ok(OutputOnChain {
-        height: output.height as usize,
+        height: u32_to_usize(output.height),
         time_lock,
         key,
         commitment,
@@ -212,7 +211,7 @@ pub fn rct_output_to_output_on_chain(
         .unwrap_or(None);
 
     Ok(OutputOnChain {
-        height: rct_output.height as usize,
+        height: u32_to_usize(rct_output.height),
         time_lock,
         key,
         commitment,
