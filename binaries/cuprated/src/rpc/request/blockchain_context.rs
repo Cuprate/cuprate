@@ -100,3 +100,22 @@ pub(crate) async fn calculate_pow(
 
     Ok(hash)
 }
+
+/// [`BlockChainContextRequest::BatchGetDifficulties`]
+pub(crate) async fn batch_get_difficulties(
+    blockchain_context: &mut BlockChainContextService,
+    difficulties: Vec<(u64, HardFork)>,
+) -> Result<Vec<u128>, Error> {
+    let BlockChainContextResponse::BatchDifficulties(resp) = blockchain_context
+        .ready()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .call(BlockChainContextRequest::BatchGetDifficulties(difficulties))
+        .await
+        .map_err(|e| anyhow!(e))?
+    else {
+        unreachable!();
+    };
+
+    Ok(resp)
+}

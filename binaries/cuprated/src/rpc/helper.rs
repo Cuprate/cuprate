@@ -9,35 +9,93 @@ use anyhow::{anyhow, Error};
 use monero_serai::block::Block;
 
 use cuprate_consensus::{BlockChainContext, BlockChainContextService};
-use cuprate_helper::{cast::usize_to_u64, map::split_u128_into_low_high_bits};
+use cuprate_helper::{
+    cast::{u64_to_usize, usize_to_u64},
+    map::split_u128_into_low_high_bits,
+};
 use cuprate_rpc_types::misc::{BlockHeader, KeyImageSpentStatus};
-use cuprate_types::ExtendedBlockHeader;
+use cuprate_types::{ExtendedBlockHeader, HardFork};
 
 use crate::{
     rpc::request::{blockchain, blockchain_context},
     rpc::CupratedRpcHandler,
 };
 
-pub(super) fn into_block_header(
+/// Map some data into a [`BlockHeader`].
+///
+/// Sort of equivalent to:
+/// <https://github.com/monero-project/monero/blob/893916ad091a92e765ce3241b94e706ad012b62a/src/rpc/core_rpc_server.cpp#L2361>.
+pub(super) async fn block_header(
+    state: &mut CupratedRpcHandler,
     height: u64,
-    top_height: u64,
     fill_pow_hash: bool,
-    block: Block,
-    header: ExtendedBlockHeader,
-) -> BlockHeader {
+) -> Result<BlockHeader, Error> {
+    let block = blockchain::block(&mut state.blockchain_read, height).await?;
+    let header = blockchain::block_extended_header(&mut state.blockchain_read, height).await?;
+    let hardfork = HardFork::from_vote(header.vote);
+    let (top_height, _) = top_height(state).await?;
+
+    // TODO: if the request block is not on the main chain,
+    // we must get the alt block and this variable will be `true`.
+    let orphan_status = false;
+
+    // FIXME: is there a cheaper way to get this?
+    let difficulty = blockchain_context::batch_get_difficulties(
+        &mut state.blockchain_context,
+        vec![(height, hardfork)],
+    )
+    .await?
+    .first()
+    .copied()
+    .ok_or_else(|| anyhow!("Failed to get block difficulty"))?;
+
+    let pow_hash = if fill_pow_hash {
+        let seed_height =
+            cuprate_consensus_rules::blocks::randomx_seed_height(u64_to_usize(height));
+        let seed_hash = blockchain::block_hash(
+            &mut state.blockchain_read,
+            height,
+            todo!("access to `cuprated`'s Chain"),
+        )
+        .await?;
+
+        let pow_hash = blockchain_context::calculate_pow(
+            &mut state.blockchain_context,
+            hardfork,
+            block,
+            seed_hash,
+        )
+        .await?;
+
+        hex::encode(pow_hash)
+    } else {
+        String::new()
+    };
+
     let block_weight = usize_to_u64(header.block_weight);
     let depth = top_height.saturating_sub(height);
+
     let (cumulative_difficulty_top64, cumulative_difficulty) =
         split_u128_into_low_high_bits(header.cumulative_difficulty);
+    let (difficulty_top64, difficulty) = split_u128_into_low_high_bits(difficulty);
+    let wide_difficulty = hex::encode(difficulty.to_ne_bytes());
 
-    BlockHeader {
+    let reward = block
+        .miner_transaction
+        .prefix()
+        .outputs
+        .iter()
+        .map(|o| o.amount.expect("coinbase is transparent"))
+        .sum::<u64>();
+
+    Ok(BlockHeader {
         block_size: block_weight,
         block_weight,
         cumulative_difficulty_top64,
         cumulative_difficulty,
         depth,
-        difficulty_top64: todo!(),
-        difficulty: todo!(),
+        difficulty_top64,
+        difficulty,
         hash: hex::encode(block.hash()),
         height,
         long_term_weight: usize_to_u64(header.long_term_weight),
@@ -46,33 +104,14 @@ pub(super) fn into_block_header(
         minor_version: header.vote,
         nonce: block.header.nonce,
         num_txes: usize_to_u64(block.transactions.len()),
-        orphan_status: todo!(),
-        pow_hash: if fill_pow_hash {
-            todo!()
-        } else {
-            String::new()
-        },
+        orphan_status,
+        pow_hash,
         prev_hash: hex::encode(block.header.previous),
-        reward: todo!(),
+        reward,
         timestamp: block.header.timestamp,
         wide_cumulative_difficulty: hex::encode(u128::to_le_bytes(header.cumulative_difficulty)),
-        wide_difficulty: todo!(),
-    }
-}
-
-/// Get a [`VerifiedBlockInformation`] and map it to a [`BlockHeader`].
-pub(super) async fn block_header(
-    state: &mut CupratedRpcHandler,
-    height: u64,
-    fill_pow_hash: bool,
-) -> Result<BlockHeader, Error> {
-    let (top_height, _) = top_height(state).await?;
-    let block = blockchain::block(&mut state.blockchain_read, height).await?;
-    let header = blockchain::block_extended_header(&mut state.blockchain_read, height).await?;
-
-    let block_header = into_block_header(height, top_height, fill_pow_hash, block, header);
-
-    Ok(block_header)
+        wide_difficulty,
+    })
 }
 
 /// Same as [`block_header`] but with the block's hash.
@@ -81,24 +120,11 @@ pub(super) async fn block_header_by_hash(
     hash: [u8; 32],
     fill_pow_hash: bool,
 ) -> Result<BlockHeader, Error> {
-    let (top_height, _) = top_height(state).await?;
-    let block = blockchain::block_by_hash(&mut state.blockchain_read, hash).await?;
-    let header: ExtendedBlockHeader = todo!(); //blockchain::block_extended_header_by_hash(state.blockchain_read, hash).await?;
+    let (_, height) = blockchain::find_block(&mut state.blockchain_read, hash)
+        .await?
+        .ok_or_else(|| anyhow!("Block did not exist."))?;
 
-    let block_header = into_block_header(todo!(), top_height, fill_pow_hash, block, header);
-
-    Ok(block_header)
-}
-
-/// TODO
-pub(super) async fn top_block_header(
-    state: &mut CupratedRpcHandler,
-    fill_pow_hash: bool,
-) -> Result<BlockHeader, Error> {
-    let block: Block = todo!();
-    let header: ExtendedBlockHeader = todo!();
-
-    let block_header = into_block_header(todo!(), todo!(), fill_pow_hash, block, header);
+    let block_header = block_header(state, usize_to_u64(height), fill_pow_hash).await?;
 
     Ok(block_header)
 }
@@ -145,7 +171,7 @@ pub(super) async fn top_height(state: &mut CupratedRpcHandler) -> Result<(u64, [
     Ok((height, hash))
 }
 
-/// TODO
+/// Check if a key image is spent.
 pub(super) async fn key_image_spent(
     state: &mut CupratedRpcHandler,
     key_image: [u8; 32],
