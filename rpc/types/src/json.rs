@@ -971,15 +971,14 @@ define_request_and_response! {
     }
 }
 
-// TODO: update after finalizing <https://github.com/monero-project/monero/issues/9422>.
 define_request_and_response! {
-    get_output_histogram_v2,
+    get_output_histogram,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2118..=2168,
-    GetOutputHistogramV2,
+    GetOutputHistogram,
 
     #[doc = serde_doc_test!(
-        GET_OUTPUT_HISTOGRAM_V2_REQUEST => GetOutputHistogramV2Request {
+        GET_OUTPUT_HISTOGRAM_REQUEST => GetOutputHistogramRequest {
             amounts: vec![20000000000],
             min_count: 0,
             max_count: 0,
@@ -996,7 +995,7 @@ define_request_and_response! {
     },
 
     #[doc = serde_doc_test!(
-        GET_OUTPUT_HISTOGRAM_V2_RESPONSE => GetOutputHistogramV2Response {
+        GET_OUTPUT_HISTOGRAM_RESPONSE => GetOutputHistogramResponse {
             base: AccessResponseBase::OK,
             histogram: vec![HistogramEntry {
                 amount: 20000000000,
@@ -1385,7 +1384,6 @@ define_request_and_response! {
                 base: 0,
                 distribution: vec![0, 1, 2],
                 amount: 2628780000,
-                binary: true,
             })],
         }
     )]
@@ -1618,7 +1616,7 @@ pub enum JsonRpcRequest {
     GetBans(GetBansRequest),
     Banned(BannedRequest),
     FlushTransactionPool(FlushTransactionPoolRequest),
-    GetOutputHistogramV2(GetOutputHistogramV2Request),
+    GetOutputHistogram(GetOutputHistogramRequest),
     GetCoinbaseTxSum(GetCoinbaseTxSumRequest),
     GetVersion(GetVersionRequest),
     GetFeeEstimate(GetFeeEstimateRequest),
@@ -1626,6 +1624,7 @@ pub enum JsonRpcRequest {
     RelayTx(RelayTxRequest),
     SyncInfo(SyncInfoRequest),
     GetTransactionPoolBacklogV2(GetTransactionPoolBacklogV2Request),
+    GetOutputDistributionV2(GetOutputDistributionV2Request),
     GetMinerData(GetMinerDataRequest),
     PruneBlockchain(PruneBlockchainRequest),
     CalcPow(CalcPowRequest),
@@ -1647,10 +1646,11 @@ impl RpcCallValue for JsonRpcRequest {
             Self::GetBlock(x) => x.is_restricted(),
             Self::GetInfo(x) => x.is_restricted(),
             Self::HardForkInfo(x) => x.is_restricted(),
-            Self::GetOutputHistogramV2(x) => x.is_restricted(),
+            Self::GetOutputHistogram(x) => x.is_restricted(),
             Self::GetVersion(x) => x.is_restricted(),
             Self::GetFeeEstimate(x) => x.is_restricted(),
             Self::GetTransactionPoolBacklogV2(x) => x.is_restricted(),
+            Self::GetOutputDistributionV2(x) => x.is_restricted(),
             Self::GetMinerData(x) => x.is_restricted(),
             Self::AddAuxPow(x) => x.is_restricted(),
             Self::GetTxIdsLoose(x) => x.is_restricted(),
@@ -1682,10 +1682,11 @@ impl RpcCallValue for JsonRpcRequest {
             Self::GetBlock(x) => x.is_empty(),
             Self::GetInfo(x) => x.is_empty(),
             Self::HardForkInfo(x) => x.is_empty(),
-            Self::GetOutputHistogramV2(x) => x.is_empty(),
+            Self::GetOutputHistogram(x) => x.is_empty(),
             Self::GetVersion(x) => x.is_empty(),
             Self::GetFeeEstimate(x) => x.is_empty(),
             Self::GetTransactionPoolBacklogV2(x) => x.is_empty(),
+            Self::GetOutputDistributionV2(x) => x.is_empty(),
             Self::GetMinerData(x) => x.is_empty(),
             Self::AddAuxPow(x) => x.is_empty(),
             Self::GetTxIdsLoose(x) => x.is_empty(),
@@ -1750,7 +1751,7 @@ pub enum JsonRpcResponse {
     GetBans(GetBansResponse),
     Banned(BannedResponse),
     FlushTransactionPool(FlushTransactionPoolResponse),
-    GetOutputHistogramV2(GetOutputHistogramV2Response),
+    GetOutputHistogram(GetOutputHistogramResponse),
     GetCoinbaseTxSum(GetCoinbaseTxSumResponse),
     GetVersion(GetVersionResponse),
     GetFeeEstimate(GetFeeEstimateResponse),
@@ -1758,6 +1759,7 @@ pub enum JsonRpcResponse {
     RelayTx(RelayTxResponse),
     SyncInfo(SyncInfoResponse),
     GetTransactionPoolBacklogV2(GetTransactionPoolBacklogV2Response),
+    GetOutputDistributionV2(GetOutputDistributionV2Response),
     GetMinerData(GetMinerDataResponse),
     PruneBlockchain(PruneBlockchainResponse),
     CalcPow(CalcPowResponse),

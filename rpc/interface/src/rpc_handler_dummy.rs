@@ -75,7 +75,7 @@ impl Service<JsonRpcRequest> for RpcHandlerDummy {
             Req::GetBans(_) => Resp::GetBans(Default::default()),
             Req::Banned(_) => Resp::Banned(Default::default()),
             Req::FlushTransactionPool(_) => Resp::FlushTransactionPool(Default::default()),
-            Req::GetOutputHistogramV2(_) => Resp::GetOutputHistogramV2(Default::default()),
+            Req::GetOutputHistogram(_) => Resp::GetOutputHistogram(Default::default()),
             Req::GetCoinbaseTxSum(_) => Resp::GetCoinbaseTxSum(Default::default()),
             Req::GetVersion(_) => Resp::GetVersion(Default::default()),
             Req::GetFeeEstimate(_) => Resp::GetFeeEstimate(Default::default()),
@@ -85,6 +85,7 @@ impl Service<JsonRpcRequest> for RpcHandlerDummy {
             Req::GetTransactionPoolBacklogV2(_) => {
                 Resp::GetTransactionPoolBacklogV2(Default::default())
             }
+            Req::GetOutputDistributionV2(_) => Resp::GetOutputDistributionV2(Default::default()),
             Req::GetMinerData(_) => Resp::GetMinerData(Default::default()),
             Req::PruneBlockchain(_) => Resp::PruneBlockchain(Default::default()),
             Req::CalcPow(_) => Resp::CalcPow(Default::default()),

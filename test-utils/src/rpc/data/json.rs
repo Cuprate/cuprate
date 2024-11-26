@@ -1118,9 +1118,8 @@ r#"{
     "distributions": [{
       "amount": 2628780000,
       "base": 0,
-      "distribution": "",
-      "start_height": 1462078,
-      "binary": false
+      "distribution": [0, 1, 2],
+      "start_height": 1462078
     }],
     "status": "OK",
     "top_hash": "",
