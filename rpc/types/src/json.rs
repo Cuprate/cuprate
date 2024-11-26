@@ -1378,12 +1378,12 @@ define_request_and_response! {
     },
 
     #[doc = serde_doc_test!(
-        GET_OUTPUT_DISTRIBUTION_RESPONSE => GetOutputDistributionResponse {
+        GET_OUTPUT_DISTRIBUTION_V2_RESPONSE => GetOutputDistributionV2Response {
             base: AccessResponseBase::OK,
             distributions: vec![Distribution::Uncompressed(DistributionUncompressed {
                 start_height: 1462078,
                 base: 0,
-                distribution: vec![],
+                distribution: vec![0, 1, 2],
                 amount: 2628780000,
                 binary: true,
             })],

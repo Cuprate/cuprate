@@ -1085,9 +1085,9 @@ r#"{
    "result": {
      "backlog": [
         {
-          weight: 0,
-          fee: 0,
-          time_in_pool: 0,
+          "weight": 0,
+          "fee": 0,
+          "time_in_pool": 0
         }
      ],
      "status": "OK",

@@ -52,7 +52,7 @@ TODO: update after finalizing <https://github.com/monero-project/monero/issues/9
 - [`crate::json::GetOutputDistributionV2Response`]
 
 # Optimized types
-TODO: updated after deciding compatability <-> optimization tradeoff.
+TODO: updated after deciding compatibility <-> optimization tradeoff.
 
 - Fixed byte containers
 

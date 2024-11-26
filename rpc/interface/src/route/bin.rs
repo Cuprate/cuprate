@@ -9,8 +9,7 @@ use cuprate_rpc_types::{
     bin::{
         BinRequest, BinResponse, GetBlocksByHeightRequest, GetBlocksRequest, GetHashesRequest,
         GetOutputDistributionRequest, GetOutputIndexesRequest, GetOutsRequest,
-        GetTransactionPoolBacklogRequest, GetTransactionPoolBacklogResponse,
-        GetTransactionPoolHashesRequest,
+        GetTransactionPoolBacklogRequest, GetTransactionPoolHashesRequest,
     },
     RpcCall,
 };
