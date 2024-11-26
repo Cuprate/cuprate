@@ -178,7 +178,7 @@ define_struct_and_impl_epee! {
         2139..=2156
     )]
     #[derive(Copy)]
-    /// Used in [`crate::json::GetOutputHistogramV2Response`].
+    /// Used in [`crate::json::GetOutputHistogramResponse`].
     HistogramEntry {
         amount: u64,
         total_instances: u64,
