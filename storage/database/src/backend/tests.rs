@@ -360,7 +360,7 @@ fn tables_are_sorted() {
     // Insert range, assert each new
     // number inserted is the minimum `last()` value.
     for key in RANGE {
-        table.put(&key, &0).unwrap();
+        table.put(&key, &(key as u64)).unwrap();
         table.contains(&key).unwrap();
         let (first, _) = table.first().unwrap();
         let (last, _) = table.last().unwrap();
@@ -383,6 +383,9 @@ fn tables_are_sorted() {
             let key = key.unwrap();
             assert_eq!(i, iter);
             assert_eq!(iter, key);
+        }
+        for (v, vv) in table.get_range(100..249).unwrap().zip(100..249) {
+            assert_eq!(v.unwrap(), vv);
         }
     }
 
