@@ -31,7 +31,7 @@ use crate::rpc_handler::RpcHandler;
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct RpcHandlerDummy {
-    /// Should this RPC server be [restricted](RpcHandler::restricted)?
+    /// Should this RPC server be [restricted](RpcHandler::is_restricted)?
     ///
     /// The dummy will honor this [`bool`]
     /// on restricted methods/endpoints.
