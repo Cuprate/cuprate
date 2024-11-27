@@ -8,7 +8,6 @@ use cuprate_consensus_context::{
     BlockChainContext, BlockChainContextRequest, BlockChainContextResponse,
     BlockChainContextService,
 };
-use cuprate_helper::cast::u64_to_usize;
 use cuprate_types::{FeeEstimate, HardFork, HardForkInfo};
 
 // FIXME: use `anyhow::Error` over `tower::BoxError` in blockchain context.

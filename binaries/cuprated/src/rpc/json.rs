@@ -5,6 +5,7 @@
 //! <https://github.com/Cuprate/cuprate/pull/308>
 
 use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4},
     num::NonZero,
     time::{Duration, Instant},
 };
@@ -12,9 +13,7 @@ use std::{
 use anyhow::{anyhow, Error};
 use monero_serai::block::Block;
 use strum::{EnumCount, VariantArray};
-use tower::{Service, ServiceExt};
 
-use cuprate_consensus::{BlockchainReadRequest, BlockchainResponse};
 use cuprate_constants::{
     build::RELEASE,
     rpc::{RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE},
@@ -129,7 +128,7 @@ pub(super) async fn map_request(
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1790-L1804>
 async fn get_block_count(
     mut state: CupratedRpcHandler,
-    request: GetBlockCountRequest,
+    _: GetBlockCountRequest,
 ) -> Result<GetBlockCountResponse, Error> {
     Ok(GetBlockCountResponse {
         base: ResponseBase::OK,
@@ -367,7 +366,7 @@ async fn get_block(
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2729-L2738>
 async fn get_connections(
     state: CupratedRpcHandler,
-    request: GetConnectionsRequest,
+    _: GetConnectionsRequest,
 ) -> Result<GetConnectionsResponse, Error> {
     let connections = address_book::connection_info::<ClearNet>(&mut DummyAddressBook).await?;
 
@@ -380,7 +379,7 @@ async fn get_connections(
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L501-L582>
 async fn get_info(
     mut state: CupratedRpcHandler,
-    request: GetInfoRequest,
+    _: GetInfoRequest,
 ) -> Result<GetInfoResponse, Error> {
     let restricted = state.is_restricted();
     let context = blockchain_context::context(&mut state.blockchain_context).await?;
@@ -403,7 +402,7 @@ async fn get_info(
     let (bootstrap_daemon_address, was_bootstrap_ever_used) = if restricted {
         (String::new(), false)
     } else {
-        todo!()
+        todo!("support bootstrap daemon")
     };
     let busy_syncing = blockchain_manager::syncing(&mut state.blockchain_manager).await?;
     let (cumulative_difficulty, cumulative_difficulty_top64) =
@@ -548,7 +547,12 @@ async fn set_bans(
     request: SetBansRequest,
 ) -> Result<SetBansResponse, Error> {
     for peer in request.bans {
-        let address = todo!();
+        // TODO: support non-clearnet addresses.
+
+        // <https://architecture.cuprate.org/oddities/le-ipv4.html>
+        let [a, b, c, d] = peer.ip.to_le_bytes();
+        let ip = Ipv4Addr::new(a, b, c, d);
+        let address = SocketAddr::V4(SocketAddrV4::new(ip, todo!("p2p port?")));
 
         let ban = if peer.ban {
             Some(Duration::from_secs(peer.seconds.into()))
@@ -567,11 +571,10 @@ async fn set_bans(
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2768-L2801>
-async fn get_bans(
-    state: CupratedRpcHandler,
-    request: GetBansRequest,
-) -> Result<GetBansResponse, Error> {
+async fn get_bans(state: CupratedRpcHandler, _: GetBansRequest) -> Result<GetBansResponse, Error> {
     let now = Instant::now();
+
+    // TODO: support non-clearnet addresses.
 
     let bans = address_book::get_bans::<ClearNet>(&mut DummyAddressBook)
         .await?
@@ -588,9 +591,15 @@ async fn get_bans(
                 0
             };
 
+            // <https://architecture.cuprate.org/oddities/le-ipv4.html>
+            let ip = match ban.address.ip() {
+                IpAddr::V4(v4) => u32::from_le_bytes(v4.octets()),
+                IpAddr::V6(v6) => todo!(),
+            };
+
             GetBan {
                 host: ban.address.to_string(),
-                ip: todo!(),
+                ip,
                 seconds,
             }
         })
@@ -607,7 +616,7 @@ async fn banned(
     state: CupratedRpcHandler,
     request: BannedRequest,
 ) -> Result<BannedResponse, Error> {
-    let peer = match request.address.parse::<std::net::SocketAddr>() {
+    let peer = match request.address.parse::<SocketAddr>() {
         Ok(p) => p,
         Err(e) => {
             return Err(anyhow!(
@@ -716,7 +725,7 @@ async fn get_coinbase_tx_sum(
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2981-L2996>
 async fn get_version(
     mut state: CupratedRpcHandler,
-    request: GetVersionRequest,
+    _: GetVersionRequest,
 ) -> Result<GetVersionResponse, Error> {
     let current_height = helper::top_height(&mut state).await?.0;
     let target_height = blockchain_manager::target_height(&mut state.blockchain_manager).await?;
@@ -766,7 +775,7 @@ async fn get_fee_estimate(
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3033-L3064>
 async fn get_alternate_chains(
     mut state: CupratedRpcHandler,
-    request: GetAlternateChainsRequest,
+    _: GetAlternateChainsRequest,
 ) -> Result<GetAlternateChainsResponse, Error> {
     let chains = blockchain::alt_chains(&mut state.blockchain_read)
         .await?
@@ -813,7 +822,7 @@ async fn relay_tx(
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3306-L3330>
 async fn sync_info(
     mut state: CupratedRpcHandler,
-    request: SyncInfoRequest,
+    _: SyncInfoRequest,
 ) -> Result<SyncInfoResponse, Error> {
     let height = usize_to_u64(
         blockchain_context::context(&mut state.blockchain_context)
@@ -854,7 +863,7 @@ async fn sync_info(
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3332-L3350>
 async fn get_transaction_pool_backlog(
     mut state: CupratedRpcHandler,
-    request: GetTransactionPoolBacklogRequest,
+    _: GetTransactionPoolBacklogRequest,
 ) -> Result<GetTransactionPoolBacklogResponse, Error> {
     let backlog = txpool::backlog(&mut state.txpool_read)
         .await?
@@ -908,7 +917,7 @@ async fn get_output_distribution(
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1998-L2033>
 async fn get_miner_data(
     mut state: CupratedRpcHandler,
-    request: GetMinerDataRequest,
+    _: GetMinerDataRequest,
 ) -> Result<GetMinerDataResponse, Error> {
     let context = blockchain_context::context(&mut state.blockchain_context).await?;
     let c = context.unchecked_blockchain_context();
@@ -963,10 +972,10 @@ async fn prune_blockchain(
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2035-L2070>
 async fn calc_pow(
     mut state: CupratedRpcHandler,
-    mut request: CalcPowRequest,
+    request: CalcPowRequest,
 ) -> Result<CalcPowResponse, Error> {
     let hardfork = HardFork::from_version(request.major_version)?;
-    let mut block_blob: Vec<u8> = hex::decode(request.block_blob)?;
+    let block_blob: Vec<u8> = hex::decode(request.block_blob)?;
     let block = Block::read(&mut block_blob.as_slice())?;
     let seed_hash = helper::hex_to_hash(request.seed_hash)?;
 
@@ -1020,7 +1029,7 @@ async fn add_aux_pow(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2072-L2207>
 fn add_aux_pow_inner(
-    mut state: CupratedRpcHandler,
+    state: CupratedRpcHandler,
     request: AddAuxPowRequest,
 ) -> Result<AddAuxPowResponse, Error> {
     let Some(non_zero_len) = NonZero::<usize>::new(request.aux_pow.len()) else {

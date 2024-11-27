@@ -6,15 +6,13 @@
 //! These build on-top of [`crate::rpc::request`] functions.
 
 use anyhow::{anyhow, Error};
-use monero_serai::block::Block;
 
-use cuprate_consensus::{BlockChainContext, BlockChainContextService};
 use cuprate_helper::{
     cast::{u64_to_usize, usize_to_u64},
     map::split_u128_into_low_high_bits,
 };
 use cuprate_rpc_types::misc::{BlockHeader, KeyImageSpentStatus};
-use cuprate_types::{ExtendedBlockHeader, HardFork};
+use cuprate_types::HardFork;
 
 use crate::{
     rpc::request::{blockchain, blockchain_context},
@@ -150,6 +148,7 @@ pub(super) async fn check_height(
 }
 
 /// Parse a hexadecimal [`String`] as a 32-byte hash.
+#[expect(clippy::needless_pass_by_value)]
 pub(super) fn hex_to_hash(hex: String) -> Result<[u8; 32], Error> {
     let error = || anyhow!("Failed to parse hex representation of hash. Hex = {hex}.");
 
