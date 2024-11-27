@@ -112,8 +112,7 @@ impl<N: NetworkZone> Service<AddressBookRequest<N>> for DummyAddressBook {
             | AddressBookRequest::ConnectionCount
             | AddressBookRequest::SetBan(_)
             | AddressBookRequest::GetBans
-            | AddressBookRequest::ConnectionInfo
-            | AddressBookRequest::NextNeededPruningSeed => {
+            | AddressBookRequest::ConnectionInfo => {
                 todo!("finish https://github.com/Cuprate/cuprate/pull/297")
             }
         }))

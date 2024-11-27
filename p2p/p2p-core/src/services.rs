@@ -132,9 +132,6 @@ pub enum AddressBookRequest<Z: NetworkZone> {
 
     /// Get the state of all bans.
     GetBans,
-
-    /// Get the next [`PruningSeed`] needed for a pruned sync.
-    NextNeededPruningSeed,
 }
 
 /// A response from the address book service.
@@ -172,7 +169,4 @@ pub enum AddressBookResponse<Z: NetworkZone> {
 
     /// Response to [`AddressBookRequest::GetBans`].
     GetBans(Vec<BanState<Z::Addr>>),
-
-    /// Response to [`AddressBookRequest::NextNeededPruningSeed`].
-    NextNeededPruningSeed(PruningSeed),
 }
