@@ -552,7 +552,7 @@ async fn set_bans(
         // <https://architecture.cuprate.org/oddities/le-ipv4.html>
         let [a, b, c, d] = peer.ip.to_le_bytes();
         let ip = Ipv4Addr::new(a, b, c, d);
-        let address = SocketAddr::V4(SocketAddrV4::new(ip, todo!("p2p port?")));
+        let address = SocketAddr::V4(SocketAddrV4::new(ip, 0));
 
         let ban = if peer.ban {
             Some(Duration::from_secs(peer.seconds.into()))
@@ -579,7 +579,7 @@ async fn get_bans(state: CupratedRpcHandler, _: GetBansRequest) -> Result<GetBan
     let bans = address_book::get_bans::<ClearNet>(&mut DummyAddressBook)
         .await?
         .into_iter()
-        .map(|ban| {
+        .filter_map(|ban| {
             let seconds = if let Some(instant) = ban.unban_instant {
                 instant
                     .checked_duration_since(now)
@@ -594,14 +594,14 @@ async fn get_bans(state: CupratedRpcHandler, _: GetBansRequest) -> Result<GetBan
             // <https://architecture.cuprate.org/oddities/le-ipv4.html>
             let ip = match ban.address.ip() {
                 IpAddr::V4(v4) => u32::from_le_bytes(v4.octets()),
-                IpAddr::V6(v6) => todo!(),
+                IpAddr::V6(v6) => return None,
             };
 
-            GetBan {
+            Some(GetBan {
                 host: ban.address.to_string(),
                 ip,
                 seconds,
-            }
+            })
         })
         .collect();
 
