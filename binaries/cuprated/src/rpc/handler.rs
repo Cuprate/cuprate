@@ -140,7 +140,7 @@ pub type BlockchainManagerHandle = cuprate_database_service::DatabaseReadService
 /// TODO
 #[derive(Clone)]
 pub struct CupratedRpcHandler {
-    /// Should this RPC server be [restricted](RpcHandler::restricted)?
+    /// Should this RPC server be [restricted](RpcHandler::is_restricted)?
     ///
     /// This is not `pub` on purpose, as it should not be mutated after [`Self::new`].
     restricted: bool,

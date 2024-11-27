@@ -117,9 +117,6 @@ pub(super) async fn map_request(
         Req::GetTransactionPoolBacklog(r) => {
             Resp::GetTransactionPoolBacklog(get_transaction_pool_backlog(state, r).await?)
         }
-        Req::GetOutputDistribution(r) => {
-            Resp::GetOutputDistribution(get_output_distribution(state, r).await?)
-        }
         Req::GetMinerData(r) => Resp::GetMinerData(get_miner_data(state, r).await?),
         Req::PruneBlockchain(r) => Resp::PruneBlockchain(prune_blockchain(state, r).await?),
         Req::CalcPow(r) => Resp::CalcPow(calc_pow(state, r).await?),

@@ -1755,7 +1755,6 @@ pub enum JsonRpcResponse {
     RelayTx(RelayTxResponse),
     SyncInfo(SyncInfoResponse),
     GetTransactionPoolBacklog(GetTransactionPoolBacklogResponse),
-    GetOutputDistribution(GetOutputDistributionResponse),
     GetMinerData(GetMinerDataResponse),
     PruneBlockchain(PruneBlockchainResponse),
     CalcPow(CalcPowResponse),

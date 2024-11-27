@@ -164,7 +164,7 @@ pub(super) fn hex_to_hash(hex: String) -> Result<[u8; 32], Error> {
     Ok(hash)
 }
 
-/// [`BlockchainResponse::ChainHeight`] minus 1.
+/// [`cuprate_types::blockchain::BlockchainResponse::ChainHeight`] minus 1.
 pub(super) async fn top_height(state: &mut CupratedRpcHandler) -> Result<(u64, [u8; 32]), Error> {
     let (chain_height, hash) = blockchain::chain_height(&mut state.blockchain_read).await?;
     let height = chain_height.saturating_sub(1);
