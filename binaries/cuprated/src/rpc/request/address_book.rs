@@ -1,4 +1,4 @@
-//! Functions for TODO: doc enum message.
+//! Functions to send [`AddressBookRequest`]s.
 
 use anyhow::{anyhow, Error};
 use tower::ServiceExt;

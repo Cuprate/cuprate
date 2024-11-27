@@ -1,4 +1,4 @@
-//! Functions for [`BlockChainContextRequest`] and [`BlockChainContextResponse`].
+//! Functions to send [`BlockChainContextRequest`]s.
 
 use anyhow::{anyhow, Error};
 use monero_serai::block::Block;
@@ -77,7 +77,7 @@ pub(crate) async fn calculate_pow(
     seed_hash: [u8; 32],
 ) -> Result<[u8; 32], Error> {
     let Some(height) = block.number() else {
-        return Err(anyhow!("block is missing height"));
+        return Err(anyhow!("Block is missing height"));
     };
 
     let block = Box::new(block);

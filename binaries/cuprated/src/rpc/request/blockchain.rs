@@ -1,4 +1,4 @@
-//! Functions for [`BlockchainReadRequest`].
+//! Functions to send [`BlockchainReadRequest`]s.
 
 use std::{
     collections::{HashMap, HashSet},

@@ -1,4 +1,4 @@
-//! Functions for [`TxpoolReadRequest`].
+//! Functions to send [`TxpoolReadRequest`]s.
 
 use std::convert::Infallible;
 

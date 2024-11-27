@@ -142,7 +142,7 @@ pub(super) async fn check_height(
 
     if height > top_height {
         return Err(anyhow!(
-            "Requested block height: {height} greater than current top block height: {top_height}",
+            "Requested block height: {height} greater than top block height: {top_height}",
         ));
     }
 

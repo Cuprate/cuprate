@@ -1,4 +1,4 @@
-//! Functions for [`BlockchainManagerRequest`] & [`BlockchainManagerResponse`].
+//! Functions to send [`BlockchainManagerRequest`]s.
 
 use anyhow::Error;
 use monero_serai::block::Block;

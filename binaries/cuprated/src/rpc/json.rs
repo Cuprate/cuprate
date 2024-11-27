@@ -1,10 +1,13 @@
 //! RPC request handler functions (JSON-RPC).
 //!
 //! TODO:
-//! Many handlers have `todo!()`s for internals that must be completed, see:
+//! Many handlers have `todo!()`s for other Cuprate internals that must be completed, see:
 //! <https://github.com/Cuprate/cuprate/pull/308>
 
-use std::time::{Duration, Instant};
+use std::{
+    num::NonZero,
+    time::{Duration, Instant},
+};
 
 use anyhow::{anyhow, Error};
 use monero_serai::block::Block;
@@ -970,20 +973,21 @@ async fn calc_pow(
     let block = Block::read(&mut block_blob.as_slice())?;
     let seed_hash = helper::hex_to_hash(request.seed_hash)?;
 
-    let block_weight = todo!("calculate block weight");
+    // let block_weight = todo!();
 
-    let median_for_block_reward = blockchain_context::context(&mut state.blockchain_context)
-        .await?
-        .unchecked_blockchain_context()
-        .context_to_verify_block
-        .median_weight_for_block_reward;
+    // let median_for_block_reward = blockchain_context::context(&mut state.blockchain_context)
+    //     .await?
+    //     .unchecked_blockchain_context()
+    //     .context_to_verify_block
+    //     .median_weight_for_block_reward;
 
-    if cuprate_consensus_rules::blocks::check_block_weight(block_weight, median_for_block_reward)
-        .is_err()
-    {
-        return Err(anyhow!("Block blob size is too big, rejecting block"));
-    }
+    // if cuprate_consensus_rules::blocks::check_block_weight(block_weight, median_for_block_reward)
+    //     .is_err()
+    // {
+    //     return Err(anyhow!("Block blob size is too big, rejecting block"));
+    // }
 
+    // TODO: will `CalculatePow` do the above checks?
     let pow_hash = blockchain_context::calculate_pow(
         &mut state.blockchain_context,
         hardfork,
@@ -1022,9 +1026,9 @@ fn add_aux_pow_inner(
     mut state: CupratedRpcHandler,
     request: AddAuxPowRequest,
 ) -> Result<AddAuxPowResponse, Error> {
-    if request.aux_pow.is_empty() {
+    let Some(non_zero_len) = NonZero::<usize>::new(request.aux_pow.len()) else {
         return Err(anyhow!("Empty `aux_pow` vector"));
-    }
+    };
 
     let aux_pow = request
         .aux_pow
@@ -1040,21 +1044,41 @@ fn add_aux_pow_inner(
     // Boxed slices are used over `Vec` to slightly
     // safe-guard against accidently pushing to it.
 
-    // --- BEGIN AUX POW IMPL ---
-
-    // Original impl:
-    // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2110-L2206>
-
-    let len = aux_pow.len();
-
     // TODO: why is this here? it does nothing:
     // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2110-L2112>
-    let mut path_domain = 1_usize;
-    while 1 << path_domain < len {
-        path_domain += 1;
-    }
+    // let mut path_domain = 1_usize;
+    // while 1 << path_domain < len {
+    //     path_domain += 1;
+    // }
 
-    fn find_nonce(aux_pow_len: usize) -> Result<(u32, Box<[u32]>), Error> {
+    fn find_nonce(
+        aux_pow: &[cuprate_types::AuxPow],
+        non_zero_len: NonZero<usize>,
+        aux_pow_len: usize,
+    ) -> Result<(u32, Box<[u32]>), Error> {
+        /// <https://github.com/monero-project/monero/blob/893916ad091a92e765ce3241b94e706ad012b62a/src/cryptonote_basic/merge_mining.cpp#L48>
+        fn get_aux_slot(id: &[u8; 32], nonce: u32, n_aux_chains: NonZero<u32>) -> u32 {
+            const HASH_SIZE: usize = 32;
+
+            let mut buf = [0; HASH_SIZE + size_of::<u32>() + 1];
+            buf[..HASH_SIZE].copy_from_slice(id);
+
+            let v: [u8; 4] = nonce.to_le_bytes();
+            buf[HASH_SIZE..HASH_SIZE + size_of::<u32>()].copy_from_slice(&v);
+
+            const HASH_KEY_MM_SLOT: u8 = b'm';
+            buf[HASH_SIZE + size_of::<u32>()] = HASH_KEY_MM_SLOT;
+
+            fn sha256sum(buf: &[u8]) -> [u8; 32] {
+                todo!()
+            }
+            let res = sha256sum(&buf);
+
+            let v = u32::from_le_bytes(res[..4].try_into().unwrap());
+
+            v % n_aux_chains.get()
+        }
+
         // INVARIANT: this must be the same `.len()` as `aux_pow`
         let mut slots: Box<[u32]> = vec![u32::MAX; aux_pow_len].into_boxed_slice();
         let mut slot_seen: Box<[bool]> = vec![false; aux_pow_len].into_boxed_slice();
@@ -1063,7 +1087,12 @@ fn add_aux_pow_inner(
 
         for nonce in 0..=MAX_NONCE {
             for i in &mut slots {
-                let slot_u32: u32 = todo!("const uint32_t slot = cryptonote::get_aux_slot(aux_pow[idx].first, nonce, aux_pow.size());");
+                let slot_u32 = get_aux_slot(
+                    &aux_pow[u32_to_usize(*i)].id,
+                    nonce,
+                    non_zero_len.try_into().unwrap(),
+                );
+
                 let slot = u32_to_usize(slot_u32);
 
                 if slot >= aux_pow_len {
@@ -1084,7 +1113,8 @@ fn add_aux_pow_inner(
         Err(anyhow!("Failed to find a suitable nonce"))
     }
 
-    let (nonce, slots) = find_nonce(len)?;
+    let len = non_zero_len.get();
+    let (nonce, slots) = find_nonce(&aux_pow, non_zero_len, len)?;
 
     // FIXME: use iterator version.
     let (aux_pow_id_raw, aux_pow_raw) = {
@@ -1135,7 +1165,7 @@ fn add_aux_pow_inner(
     };
 
     fn tree_hash(aux_pow_raw: &[[u8; 32]]) -> [u8; 32] {
-        todo!("https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2163")
+        todo!("https://github.com/serai-dex/serai/pull/629")
     }
 
     fn encode_mm_depth(aux_pow_len: usize, nonce: u32) -> u64 {
@@ -1188,8 +1218,6 @@ fn add_aux_pow_inner(
             hash: hex::encode(aux.hash),
         })
         .collect::<Vec<AuxPow>>();
-
-    // --- END AUX POW IMPL ---
 
     Ok(AddAuxPowResponse {
         base: ResponseBase::OK,
