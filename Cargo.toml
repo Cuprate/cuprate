@@ -279,6 +279,9 @@ rest_pat_in_fully_bound_structs = "deny"
 redundant_type_annotations = "deny"
 infinite_loop = "deny"
 zero_repeat_side_effects = "deny"
+non_zero_suggestions = "deny"
+manual_is_power_of_two = "deny"
+used_underscore_items = "deny"
 
 # Warm
 cast_possible_truncation = "deny"
@@ -371,6 +374,7 @@ unused_lifetimes = "deny"
 unused_macro_rules = "deny"
 ambiguous_glob_imports = "deny"
 unused_unsafe = "deny"
+rust_2024_compatibility = "deny"
 
 # Warm
 let_underscore = { level = "deny", priority = -1 }

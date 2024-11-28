@@ -76,14 +76,14 @@ macro_rules! epee_object {
     // All this does is return the second (right) arg if present otherwise the left is returned.
     (
         @internal_try_right_then_left
-        $a:expr, $b:expr
+        $a:expr_2021, $b:expr_2021
     ) => {
         $b
     };
 
     (
         @internal_try_right_then_left
-        $a:expr,
+        $a:expr_2021,
     ) => {
         $a
     };
@@ -122,7 +122,7 @@ macro_rules! epee_object {
     // ------------------------------------------------------------------------ Entry Point
     (
         $obj:ident,
-        $($field: ident $(($alt_name: literal))?: $ty:ty $(as $ty_as:ty )? $(= $default:expr)?  $(=> $read_fn:expr, $write_fn:expr, $should_write_fn:expr)?, )*
+        $($field: ident $(($alt_name: literal))?: $ty:ty $(as $ty_as:ty )? $(= $default:expr_2021)?  $(=> $read_fn:expr_2021, $write_fn:expr_2021, $should_write_fn:expr_2021)?, )*
         $(!flatten: $flat_field: ident: $flat_ty:ty ,)*
 
     ) => {

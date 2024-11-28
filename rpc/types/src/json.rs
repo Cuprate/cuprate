@@ -37,7 +37,7 @@ macro_rules! serde_doc_test {
     (
         // `const` string from `cuprate_test_utils::rpc::data`
         //  v
-        $cuprate_test_utils_rpc_const:ident => $expected:expr
+        $cuprate_test_utils_rpc_const:ident => $expected:expr_2021
         //                                     ^
         //                     Expected value as an expression
     ) => {
