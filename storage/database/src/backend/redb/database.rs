@@ -11,7 +11,7 @@ use crate::{
         types::{RedbTableRo, RedbTableRw},
     },
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
-    error::RuntimeError,
+    error::{DbResult, RuntimeError},
     table::Table,
 };
 
