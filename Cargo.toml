@@ -3,6 +3,7 @@ resolver = "2"
 members = [
 	# Binaries
 	"binaries/cuprated",
+
 	# Benchmarks
 	"benches/benchmark/bin",
 	"benches/benchmark/lib",
@@ -10,6 +11,8 @@ members = [
 	"benches/criterion/example",
 	"benches/criterion/cuprate-json-rpc",
 	"benches/criterion/cuprate-helper",
+	"benches/criterion/cuprate-database",
+
 	# Consensus
 	"consensus",
 	"consensus/context",

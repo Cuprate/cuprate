@@ -78,11 +78,12 @@ impl Drop for ConcreteEnv {
 
         // TODO: use tracing.
         // <https://github.com/LMDB/lmdb/blob/b8e54b4c31378932b69f1298972de54a565185b1/libraries/liblmdb/lmdb.h#L49-L61>
-        let result = self.env.read().unwrap().clear_stale_readers();
-        match result {
-            Ok(n) => println!("LMDB stale readers cleared: {n}"),
-            Err(e) => println!("LMDB stale reader clear error: {e:?}"),
-        }
+        drop(self.env.read().unwrap().clear_stale_readers());
+        // let result = self.env.read().unwrap().clear_stale_readers();
+        // match result {
+        //     Ok(n) => println!("LMDB stale readers cleared: {n}"),
+        //     Err(e) => println!("LMDB stale reader clear error: {e:?}"),
+        // }
     }
 }
 
