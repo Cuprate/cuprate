@@ -5,7 +5,7 @@ use std::sync::Mutex;
 
 use monero_serai::transaction::Transaction;
 
-use cuprate_database::{DatabaseRo, RuntimeError};
+use cuprate_database::{DatabaseRo, DbResult};
 use cuprate_types::{TransactionVerificationData, TxVersion};
 
 use crate::{
@@ -17,7 +17,7 @@ use crate::{
 pub fn get_transaction_verification_data(
     tx_hash: &TransactionHash,
     tables: &impl Tables,
-) -> Result<TransactionVerificationData, RuntimeError> {
+) -> DbResult<TransactionVerificationData> {
     let tx_blob = tables.transaction_blobs().get(tx_hash)?.0;
 
     let tx_info = tables.transaction_infos().get(tx_hash)?;
@@ -45,7 +45,7 @@ pub fn get_transaction_verification_data(
 pub fn in_stem_pool(
     tx_hash: &TransactionHash,
     tx_infos: &impl DatabaseRo<TransactionInfos>,
-) -> Result<bool, RuntimeError> {
+) -> DbResult<bool> {
     Ok(tx_infos
         .get(tx_hash)?
         .flags

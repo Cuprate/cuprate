@@ -21,7 +21,7 @@ use rayon::{
 };
 use thread_local::ThreadLocal;
 
-use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
+use cuprate_database::{ConcreteEnv, DatabaseRo, DbResult, Env, EnvInner, RuntimeError};
 use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
@@ -305,7 +305,7 @@ fn block_extended_header_in_range(
                 let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
                 get_block_extended_header_from_height(&block_height, tables)
             })
-            .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?,
+            .collect::<DbResult<Vec<ExtendedBlockHeader>>>()?,
         Chain::Alt(chain_id) => {
             let ranges = {
                 let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
@@ -381,7 +381,7 @@ fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) ->
 
     // The 2nd mapping function.
     // This is pulled out from the below `map()` for readability.
-    let inner_map = |amount, amount_index| -> Result<(AmountIndex, OutputOnChain), RuntimeError> {
+    let inner_map = |amount, amount_index| -> DbResult<(AmountIndex, OutputOnChain)> {
         let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
         let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
 
@@ -404,10 +404,10 @@ fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) ->
                 amount_index_set
                     .into_par_iter()
                     .map(|amount_index| inner_map(amount, amount_index))
-                    .collect::<Result<HashMap<AmountIndex, OutputOnChain>, RuntimeError>>()?,
+                    .collect::<DbResult<HashMap<AmountIndex, OutputOnChain>>>()?,
             ))
         })
-        .collect::<Result<HashMap<Amount, HashMap<AmountIndex, OutputOnChain>>, RuntimeError>>()?;
+        .collect::<DbResult<HashMap<Amount, HashMap<AmountIndex, OutputOnChain>>>>()?;
 
     Ok(BlockchainResponse::Outputs(map))
 }
@@ -456,7 +456,7 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
                 }
             }
         })
-        .collect::<Result<HashMap<Amount, usize>, RuntimeError>>()?;
+        .collect::<DbResult<HashMap<Amount, usize>>>()?;
 
     Ok(BlockchainResponse::NumberOutputsWithAmount(map))
 }
@@ -522,7 +522,7 @@ fn compact_chain_history(env: &ConcreteEnv) -> ResponseResult {
         .map(compact_history_index_to_height_offset::<INITIAL_BLOCKS>)
         .map_while(|i| top_block_height.checked_sub(i))
         .map(|height| Ok(get_block_info(&height, &table_block_infos)?.block_hash))
-        .collect::<Result<Vec<_>, RuntimeError>>()?;
+        .collect::<DbResult<Vec<_>>>()?;
 
     if compact_history_genesis_not_included::<INITIAL_BLOCKS>(top_block_height) {
         block_ids.push(get_block_info(&0, &table_block_infos)?.block_hash);

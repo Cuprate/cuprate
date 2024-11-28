@@ -18,7 +18,7 @@ use crate::{
     config::{Config, SyncMode},
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::{Env, EnvInner},
-    error::{InitError, RuntimeError},
+    error::{DbResult, InitError, RuntimeError},
     key::{Key, KeyCompare},
     resize::ResizeAlgorithm,
     table::Table,
@@ -204,7 +204,7 @@ impl Env for ConcreteEnv {
         &self.config
     }
 
-    fn sync(&self) -> Result<(), RuntimeError> {
+    fn sync(&self) -> DbResult<()> {
         Ok(self.env.read().unwrap().force_sync()?)
     }
 
@@ -254,12 +254,12 @@ where
     type Rw<'a> = RefCell<heed::RwTxn<'a>>;
 
     #[inline]
-    fn tx_ro(&self) -> Result<Self::Ro<'_>, RuntimeError> {
+    fn tx_ro(&self) -> DbResult<Self::Ro<'_>> {
         Ok(self.read_txn()?)
     }
 
     #[inline]
-    fn tx_rw(&self) -> Result<Self::Rw<'_>, RuntimeError> {
+    fn tx_rw(&self) -> DbResult<Self::Rw<'_>> {
         Ok(RefCell::new(self.write_txn()?))
     }
 
@@ -267,7 +267,7 @@ where
     fn open_db_ro<T: Table>(
         &self,
         tx_ro: &Self::Ro<'_>,
-    ) -> Result<impl DatabaseRo<T> + DatabaseIter<T>, RuntimeError> {
+    ) -> DbResult<impl DatabaseRo<T> + DatabaseIter<T>> {
         // Open up a read-only database using our table's const metadata.
         //
         // INVARIANT: LMDB caches the ordering / comparison function from [`EnvInner::create_db`],
@@ -282,10 +282,7 @@ where
     }
 
     #[inline]
-    fn open_db_rw<T: Table>(
-        &self,
-        tx_rw: &Self::Rw<'_>,
-    ) -> Result<impl DatabaseRw<T>, RuntimeError> {
+    fn open_db_rw<T: Table>(&self, tx_rw: &Self::Rw<'_>) -> DbResult<impl DatabaseRw<T>> {
         // Open up a read/write database using our table's const metadata.
         //
         // INVARIANT: LMDB caches the ordering / comparison function from [`EnvInner::create_db`],
@@ -297,7 +294,7 @@ where
         })
     }
 
-    fn create_db<T: Table>(&self, tx_rw: &Self::Rw<'_>) -> Result<(), RuntimeError> {
+    fn create_db<T: Table>(&self, tx_rw: &Self::Rw<'_>) -> DbResult<()> {
         // Create a database using our:
         // - [`Table`]'s const metadata.
         // - (potentially) our [`Key`] comparison function
@@ -329,7 +326,7 @@ where
     }
 
     #[inline]
-    fn clear_db<T: Table>(&self, tx_rw: &mut Self::Rw<'_>) -> Result<(), RuntimeError> {
+    fn clear_db<T: Table>(&self, tx_rw: &mut Self::Rw<'_>) -> DbResult<()> {
         let tx_rw = tx_rw.get_mut();
 
         // Open the table. We don't care about flags or key

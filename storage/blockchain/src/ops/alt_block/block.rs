@@ -1,7 +1,7 @@
 use bytemuck::TransparentWrapper;
 use monero_serai::block::{Block, BlockHeader};
 
-use cuprate_database::{DatabaseRo, DatabaseRw, RuntimeError, StorableVec};
+use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, StorableVec};
 use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};
 use cuprate_types::{AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, HardFork};
 
@@ -21,7 +21,7 @@ use crate::{
 pub fn flush_alt_blocks<'a, E: cuprate_database::EnvInner<'a>>(
     env_inner: &E,
     tx_rw: &mut E::Rw<'_>,
-) -> Result<(), RuntimeError> {
+) -> DbResult<()> {
     use crate::tables::{
         AltBlockBlobs, AltBlockHeights, AltBlocksInfo, AltChainInfos, AltTransactionBlobs,
         AltTransactionInfos,
@@ -47,10 +47,7 @@ pub fn flush_alt_blocks<'a, E: cuprate_database::EnvInner<'a>>(
 /// - `alt_block.height` is == `0`
 /// - `alt_block.txs.len()` != `alt_block.block.transactions.len()`
 ///
-pub fn add_alt_block(
-    alt_block: &AltBlockInformation,
-    tables: &mut impl TablesMut,
-) -> Result<(), RuntimeError> {
+pub fn add_alt_block(alt_block: &AltBlockInformation, tables: &mut impl TablesMut) -> DbResult<()> {
     let alt_block_height = AltBlockHeight {
         chain_id: alt_block.chain_id.into(),
         height: alt_block.height,
@@ -100,7 +97,7 @@ pub fn add_alt_block(
 pub fn get_alt_block(
     alt_block_height: &AltBlockHeight,
     tables: &impl Tables,
-) -> Result<AltBlockInformation, RuntimeError> {
+) -> DbResult<AltBlockInformation> {
     let block_info = tables.alt_blocks_info().get(alt_block_height)?;
 
     let block_blob = tables.alt_block_blobs().get(alt_block_height)?.0;
@@ -111,7 +108,7 @@ pub fn get_alt_block(
         .transactions
         .iter()
         .map(|tx_hash| get_alt_transaction(tx_hash, tables))
-        .collect::<Result<_, RuntimeError>>()?;
+        .collect::<DbResult<_>>()?;
 
     Ok(AltBlockInformation {
         block,
@@ -141,7 +138,7 @@ pub fn get_alt_block_hash(
     block_height: &BlockHeight,
     alt_chain: ChainId,
     tables: &impl Tables,
-) -> Result<BlockHash, RuntimeError> {
+) -> DbResult<BlockHash> {
     let alt_chains = tables.alt_chain_infos();
 
     // First find what [`ChainId`] this block would be stored under.
@@ -188,7 +185,7 @@ pub fn get_alt_block_hash(
 pub fn get_alt_block_extended_header_from_height(
     height: &AltBlockHeight,
     table: &impl Tables,
-) -> Result<ExtendedBlockHeader, RuntimeError> {
+) -> DbResult<ExtendedBlockHeader> {
     let block_info = table.alt_blocks_info().get(height)?;
 
     let block_blob = table.alt_block_blobs().get(height)?.0;
