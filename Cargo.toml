@@ -13,6 +13,7 @@ members = [
 	"benches/criterion/cuprate-helper",
 	"benches/criterion/cuprate-database",
 	"benches/criterion/cuprate-cryptonight",
+	"benches/criterion/cuprate-rpc-types",
 
 	# Consensus
 	"consensus",

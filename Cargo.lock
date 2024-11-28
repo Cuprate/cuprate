@@ -853,6 +853,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-criterion-rpc-types"
+version = "0.0.0"
+dependencies = [
+ "criterion",
+ "cuprate-epee-encoding",
+ "cuprate-rpc-types",
+ "cuprate-test-utils",
+ "function_name",
+ "paste",
+ "serde_json",
+]
+
+[[package]]
 name = "cuprate-cryptonight"
 version = "0.1.0"
 dependencies = [
