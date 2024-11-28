@@ -1,11 +1,10 @@
 // FIXME: This whole module is not great and should be rewritten when the PeerSet is made.
-use std::{pin::pin, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use futures::StreamExt;
-use tokio::time::interval;
 use tokio::{
     sync::{mpsc, Notify},
-    time::sleep,
+    time::interval,
 };
 use tower::{Service, ServiceExt};
 use tracing::instrument;
@@ -13,7 +12,7 @@ use tracing::instrument;
 use cuprate_consensus::{BlockChainContext, BlockChainContextRequest, BlockChainContextResponse};
 use cuprate_p2p::{
     block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
-    NetworkInterface,
+    NetworkInterface, PeerSetRequest, PeerSetResponse,
 };
 use cuprate_p2p_core::ClearNet;
 
@@ -29,15 +28,11 @@ pub enum SyncerError {
 }
 
 /// The syncer tasks that makes sure we are fully synchronised with our connected peers.
-#[expect(
-    clippy::significant_drop_tightening,
-    reason = "Client pool which will be removed"
-)]
 #[instrument(level = "debug", skip_all)]
 pub async fn syncer<C, CN>(
     mut context_svc: C,
     our_chain: CN,
-    clearnet_interface: NetworkInterface<ClearNet>,
+    mut clearnet_interface: NetworkInterface<ClearNet>,
     incoming_block_batch_tx: mpsc::Sender<BlockBatch>,
     stop_current_block_downloader: Arc<Notify>,
     block_downloader_config: BlockDownloaderConfig,
@@ -68,8 +63,6 @@ where
         unreachable!();
     };
 
-    let client_pool = clearnet_interface.client_pool();
-
     tracing::debug!("Waiting for new sync info in top sync channel");
 
     loop {
@@ -80,9 +73,20 @@ where
         check_update_blockchain_context(&mut context_svc, &mut blockchain_ctx).await?;
         let raw_blockchain_context = blockchain_ctx.unchecked_blockchain_context();
 
-        if !client_pool.contains_client_with_more_cumulative_difficulty(
-            raw_blockchain_context.cumulative_difficulty,
-        ) {
+        let PeerSetResponse::MostPoWSeen {
+            cumulative_difficulty,
+            ..
+        } = clearnet_interface
+            .peer_set()
+            .ready()
+            .await?
+            .call(PeerSetRequest::MostPoWSeen)
+            .await?
+        else {
+            unreachable!();
+        };
+
+        if cumulative_difficulty <= raw_blockchain_context.cumulative_difficulty {
             continue;
         }
 

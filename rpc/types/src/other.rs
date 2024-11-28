@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     base::{AccessResponseBase, ResponseBase},
-    defaults::{default_false, default_string, default_true, default_vec, default_zero},
     macros::define_request_and_response,
     misc::{
         GetOutputsOut, OutKey, Peer, PublicNode, SpentKeyImageInfo, Status, TxEntry, TxInfo,
@@ -16,6 +15,9 @@ use crate::{
     },
     RpcCallValue,
 };
+
+#[cfg(any(feature = "serde", feature = "epee"))]
+use crate::defaults::{default_false, default_string, default_true, default_vec, default_zero};
 
 //---------------------------------------------------------------------------------------------------- Macro
 /// Adds a (de)serialization doc-test to a type in `other.rs`.
@@ -102,7 +104,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_HEIGHT_RESPONSE => GetHeightResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             hash: "68bb1a1cff8e2a44c3221e8e1aff80bc6ca45d06fa8eff4d2a3a7ac31d4efe3f".into(),
             height: 3195160,
         }
@@ -157,7 +159,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_ALT_BLOCKS_HASHES_RESPONSE => GetAltBlocksHashesResponse {
-            base: AccessResponseBase::ok(),
+            base: AccessResponseBase::OK,
             blks_hashes: vec!["8ee10db35b1baf943f201b303890a29e7d45437bd76c2bd4df0d2f2ee34be109".into()],
         }
     )]
@@ -187,7 +189,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         IS_KEY_IMAGE_SPENT_RESPONSE => IsKeyImageSpentResponse {
-            base: AccessResponseBase::ok(),
+            base: AccessResponseBase::OK,
             spent_status: vec![1, 1],
         }
     )]
@@ -283,7 +285,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         START_MINING_RESPONSE => StartMiningResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
         }
     )]
     ResponseBase {}
@@ -298,7 +300,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         STOP_MINING_RESPONSE => StopMiningResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
         }
     )]
     ResponseBase {}
@@ -313,7 +315,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         MINING_STATUS_RESPONSE => MiningStatusResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             active: false,
             address: "".into(),
             bg_idle_threshold: 0,
@@ -359,7 +361,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         SAVE_BC_RESPONSE => SaveBcResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
         }
     )]
     ResponseBase {}
@@ -385,7 +387,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_PEER_LIST_RESPONSE => GetPeerListResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             gray_list: vec![
                 Peer {
                     host: "161.97.193.0".into(),
@@ -467,7 +469,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         SET_LOG_HASH_RATE_RESPONSE => SetLogHashRateResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
         }
     )]
     ResponseBase {}
@@ -492,7 +494,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         SET_LOG_LEVEL_RESPONSE => SetLogLevelResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
         }
     )]
     ResponseBase {}
@@ -516,7 +518,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         SET_LOG_CATEGORIES_RESPONSE => SetLogCategoriesResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             categories: "*:INFO".into(),
         }
     )]
@@ -582,7 +584,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_TRANSACTION_POOL_STATS_RESPONSE => GetTransactionPoolStatsResponse {
-            base: AccessResponseBase::ok(),
+            base: AccessResponseBase::OK,
             pool_stats: TxpoolStats {
                 bytes_max: 11843,
                 bytes_med: 2219,
@@ -644,7 +646,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_LIMIT_RESPONSE => GetLimitResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             limit_down: 1280000,
             limit_up: 1280000,
         }
@@ -676,7 +678,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         SET_LIMIT_RESPONSE => SetLimitResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             limit_down: 1024,
             limit_up: 128,
         }
@@ -707,7 +709,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         OUT_PEERS_RESPONSE => OutPeersResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             out_peers: 3232235535,
         }
     )]
@@ -740,7 +742,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_NET_STATS_RESPONSE => GetNetStatsResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             start_time: 1721251858,
             total_bytes_in: 16283817214,
             total_bytes_out: 34225244079,
@@ -779,7 +781,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_OUTS_RESPONSE => GetOutsResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             outs: vec![
                 OutKey {
                     height: 51941,
@@ -823,7 +825,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         UPDATE_RESPONSE => UpdateResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             auto_uri: "".into(),
             hash: "".into(),
             path: "".into(),
@@ -860,7 +862,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         POP_BLOCKS_RESPONSE => PopBlocksResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             height: 76482,
         }
     )]
@@ -879,7 +881,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_TRANSACTION_POOL_HASHES_RESPONSE => GetTransactionPoolHashesResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             tx_hashes: vec![
                 "aa928aed888acd6152c60194d50a4df29b0b851be6169acf11b6a8e304dd6c03".into(),
                 "794345f321a98f3135151f3056c0fdf8188646a8dab27de971428acf3551dd11".into(),
@@ -929,7 +931,7 @@ define_request_and_response! {
 
     #[doc = serde_doc_test!(
         GET_PUBLIC_NODES_RESPONSE => GetPublicNodesResponse {
-            base: ResponseBase::ok(),
+            base: ResponseBase::OK,
             gray: vec![],
             white: vec![
                 PublicNode {
