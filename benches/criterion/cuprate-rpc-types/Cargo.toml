@@ -9,9 +9,9 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/benches/criterion/cu
 keywords    = ["cuprate", "rpc", "types", "criterion", "benchmark"]
 
 [dependencies]
-cuprate-epee-encoding = { path = "../../../net/epee-encoding" }
-cuprate-rpc-types     = { path = "../../../rpc/types", features = ["serde", "epee"] }
-cuprate-test-utils    = { path = "../../../test-utils" }
+cuprate-epee-encoding = { workspace = true }
+cuprate-rpc-types     = { workspace = true, features = ["serde", "epee"] }
+cuprate-test-utils    = { workspace = true }
 
 criterion     = { workspace = true }
 function_name = { workspace = true }

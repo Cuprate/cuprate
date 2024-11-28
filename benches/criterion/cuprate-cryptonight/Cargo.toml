@@ -9,10 +9,10 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/benches/criterion/cu
 keywords    = ["cuprate", "cryptonight", "criterion", "benchmark"]
 
 [dependencies]
+cuprate-cryptonight = { workspace = true }
+
 criterion     = { workspace = true }
 function_name = { workspace = true }
-
-cuprate-cryptonight = { path = "../../../cryptonight" }
 
 [[bench]]
 name    = "main"

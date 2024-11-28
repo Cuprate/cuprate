@@ -24,11 +24,11 @@ redb    = ["cuprate-database/redb", "cuprate-blockchain/redb"]
 # - cuprate-blockchain/asynch
 # - cuprate-blockchain/tx
 
-criterion          = { workspace = true }
-cuprate-database   = { path = "../../../storage/database" }
-cuprate-blockchain = { path = "../../../storage/blockchain", features = ["service"] }
-cuprate-helper     = { path = "../../../helper", features = ["asynch", "fs", "thread", "tx"] }
+cuprate-database   = { workspace = true }
+cuprate-blockchain = { workspace = true }
+cuprate-helper     = { workspace = true, features = ["asynch", "fs", "thread", "tx"] }
 
+criterion          = { workspace = true }
 function_name = { workspace = true }
 tempfile      = { workspace = true }
 rand          = { workspace = true, features = ["std", "std_rng"] }

@@ -9,9 +9,9 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/benches/criterion/ex
 keywords    = ["cuprate", "helper", "criterion", "benchmark"]
 
 [dependencies]
-cuprate-constants = { path = "../../../constants", features = ["block"] }
-cuprate-helper    = { path = "../../../helper", features = ["cast", "map", "num", "tx"] }
-cuprate-test-utils = { path = "../../../test-utils" }
+cuprate-constants  = { workspace = true, features = ["block"] }
+cuprate-helper     = { workspace = true, features = ["cast", "map", "num", "tx"] }
+cuprate-test-utils = { workspace = true }
 
 criterion     = { workspace = true }
 function_name = { workspace = true }

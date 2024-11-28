@@ -799,15 +799,17 @@ name = "cuprate-constants"
 version = "0.1.0"
 
 [[package]]
-name = "cuprate-criterion-database"
+name = "cuprate-criterion-blockchain"
 version = "0.0.0"
 dependencies = [
  "criterion",
  "cuprate-blockchain",
- "cuprate-database",
  "cuprate-helper",
+ "cuprate-test-utils",
+ "cuprate-types",
  "function_name",
  "rand",
+ "serde_json",
  "tempfile",
 ]
 
@@ -821,17 +823,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "cuprate-criterion-blockchain"
+name = "cuprate-criterion-database"
 version = "0.0.0"
 dependencies = [
  "criterion",
  "cuprate-blockchain",
+ "cuprate-database",
  "cuprate-helper",
- "cuprate-test-utils",
- "cuprate-types",
  "function_name",
  "rand",
- "serde_json",
  "tempfile",
 ]
 

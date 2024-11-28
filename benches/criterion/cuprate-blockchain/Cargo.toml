@@ -9,10 +9,10 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/benches/criterion/cu
 keywords    = ["cuprate", "blockchain", "criterion", "benchmark"]
 
 [dependencies]
-cuprate-blockchain = { path = "../../../storage/blockchain" }
-cuprate-test-utils = { path = "../../../test-utils" }
-cuprate-types      = { path = "../../../types", default-features = false }
-cuprate-helper     = { path = "../../../helper", features = ["cast"] }
+cuprate-blockchain = { workspace = true }
+cuprate-test-utils = { workspace = true }
+cuprate-types      = { workspace = true, default-features = false }
+cuprate-helper     = { workspace = true, features = ["cast"] }
 
 criterion     = { workspace = true }
 function_name = { workspace = true }
