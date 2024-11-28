@@ -32,7 +32,7 @@ macro_rules! impl_hash_benchmark {
             // - The name of the benchmark function
             // - The input(s) to the hash function for that benchmark function
             $(
-                $fn_name:ident => ($($input:expr),* $(,)?)
+                $fn_name:ident => ($($input:expr_2021),* $(,)?)
             ),* $(,)?
         }
     )*) => {

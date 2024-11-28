@@ -27,7 +27,7 @@ macro_rules! generate_serde_benchmarks {
     (
         $(
             // The type to test => JSON of that type
-            $t:ty => $t_example:expr
+            $t:ty => $t_example:expr_2021
         ),* $(,)?
     ) => { paste::paste! {
         // Generate the benchmarking functions.
