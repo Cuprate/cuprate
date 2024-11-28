@@ -7,6 +7,9 @@ use std::fmt::Debug;
 /// Alias for a thread-safe boxed error.
 type BoxError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
+/// [`Result`] with [`RuntimeError`] as the error.
+pub type DbResult<T> = Result<T, RuntimeError>;
+
 //---------------------------------------------------------------------------------------------------- InitError
 /// Errors that occur during ([`Env::open`](crate::env::Env::open)).
 ///
