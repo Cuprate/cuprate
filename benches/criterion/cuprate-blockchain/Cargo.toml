@@ -1,0 +1,28 @@
+[package]
+name        = "cuprate-criterion-blockchain"
+version     = "0.0.0"
+edition     = "2021"
+description = "Criterion benchmarking for cuprate-blockchain"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/benches/criterion/cuprate-blockchain"
+keywords    = ["cuprate", "blockchain", "criterion", "benchmark"]
+
+[dependencies]
+cuprate-blockchain = { path = "../../../storage/blockchain" }
+cuprate-test-utils = { path = "../../../test-utils" }
+cuprate-types      = { path = "../../../types", default-features = false }
+cuprate-helper     = { path = "../../../helper", features = ["cast"] }
+
+criterion     = { workspace = true }
+function_name = { workspace = true }
+serde_json    = { workspace = true, features = ["default"] }
+tempfile      = { workspace = true }
+rand          = { workspace = true }
+
+[[bench]]
+name    = "main"
+harness = false
+
+[lints]
+workspace = true

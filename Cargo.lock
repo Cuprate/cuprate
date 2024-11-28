@@ -821,6 +821,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-criterion-blockchain"
+version = "0.0.0"
+dependencies = [
+ "criterion",
+ "cuprate-blockchain",
+ "cuprate-helper",
+ "cuprate-test-utils",
+ "cuprate-types",
+ "function_name",
+ "rand",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "cuprate-criterion-example"
 version = "0.0.0"
 dependencies = [
