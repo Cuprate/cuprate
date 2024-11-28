@@ -77,7 +77,7 @@ macro_rules! define_request_and_response {
                 $( #[$request_field_attr:meta] )* // Field attribute.
                 $request_field:ident: $request_field_type:ty // field_name: field type
                 $(as $request_field_type_as:ty)? // (optional) alternative type (de)serialization
-                $(= $request_field_type_default:expr, $request_field_type_default_string:literal)?, // (optional) default value
+                $(= $request_field_type_default:expr_2021, $request_field_type_default_string:literal)?, // (optional) default value
             )*
         },
 
@@ -89,7 +89,7 @@ macro_rules! define_request_and_response {
                 $( #[$response_field_attr:meta] )*
                 $response_field:ident: $response_field_type:ty
                 $(as $response_field_type_as:ty)?
-                $(= $response_field_type_default:expr, $response_field_type_default_string:literal)?,
+                $(= $response_field_type_default:expr_2021, $response_field_type_default_string:literal)?,
             )*
         }
     ) => { paste::paste! {
@@ -229,7 +229,7 @@ macro_rules! define_request {
                 // field_name: FieldType
                 $field:ident: $field_type:ty
                 $(as $field_as:ty)?
-                $(= $field_default:expr, $field_default_string:literal)?,
+                $(= $field_default:expr_2021, $field_default_string:literal)?,
                 // The $field_default is an optional extra token that represents
                 // a default value to pass to [`cuprate_epee_encoding::epee_object`],
                 // see it for usage.
@@ -286,7 +286,7 @@ macro_rules! define_response {
                 $( #[$field_attr:meta] )*
                 $field:ident: $field_type:ty
                 $(as $field_as:ty)?
-                $(= $field_default:expr, $field_default_string:literal)?,
+                $(= $field_default:expr_2021, $field_default_string:literal)?,
             )*
         }
     ) => {
@@ -323,7 +323,7 @@ macro_rules! define_response {
                 $( #[$field_attr:meta] )*
                 $field:ident: $field_type:ty
                 $(as $field_as:ty)?
-                $(= $field_default:expr, $field_default_string:literal)?,
+                $(= $field_default:expr_2021, $field_default_string:literal)?,
             )*
         }
     ) => {

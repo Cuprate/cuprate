@@ -25,11 +25,11 @@ macro_rules! define_request_and_response {
 
         // The request type (and any doc comments, derives, etc).
         $( #[$request_attr:meta] )*
-        Request = $request:expr;
+        Request = $request:expr_2021;
 
         // The response type (and any doc comments, derives, etc).
         $( #[$response_attr:meta] )*
-        Response = $response:expr;
+        Response = $response:expr_2021;
     ) => { paste::paste! {
         #[doc = $crate::rpc::data::macros::define_request_and_response_doc!(
             "response" => [<$name:upper _RESPONSE>],

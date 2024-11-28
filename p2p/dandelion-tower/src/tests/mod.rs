@@ -12,6 +12,7 @@ use crate::{
     OutboundPeer, State,
 };
 
+#[expect(clippy::type_complexity)]
 pub(crate) fn mock_discover_svc<Req: Send + 'static>() -> (
     impl Stream<
         Item = Result<
