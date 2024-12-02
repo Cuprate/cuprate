@@ -7,7 +7,7 @@ use futures::channel::oneshot;
 use rayon::ThreadPool;
 use tower::Service;
 
-use cuprate_database::{ConcreteEnv, RuntimeError};
+use cuprate_database::{ConcreteEnv, DbResult, RuntimeError};
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
 /// The [`rayon::ThreadPool`] service.
@@ -24,7 +24,7 @@ pub struct DatabaseReadService<Req, Res> {
     pool: Arc<ThreadPool>,
 
     /// The function used to handle request.
-    inner_handler: Arc<dyn Fn(Req) -> Result<Res, RuntimeError> + Send + Sync + 'static>,
+    inner_handler: Arc<dyn Fn(Req) -> DbResult<Res> + Send + Sync + 'static>,
 }
 
 // Deriving [`Clone`] means `Req` & `Res` need to be `Clone`, even if they aren't.
@@ -51,7 +51,7 @@ where
     pub fn new(
         env: Arc<ConcreteEnv>,
         pool: Arc<ThreadPool>,
-        req_handler: impl Fn(&ConcreteEnv, Req) -> Result<Res, RuntimeError> + Send + Sync + 'static,
+        req_handler: impl Fn(&ConcreteEnv, Req) -> DbResult<Res> + Send + Sync + 'static,
     ) -> Self {
         let inner_handler = Arc::new(move |req| req_handler(&env, req));
 
@@ -69,9 +69,9 @@ where
 {
     type Response = Res;
     type Error = RuntimeError;
-    type Future = InfallibleOneshotReceiver<Result<Self::Response, Self::Error>>;
+    type Future = InfallibleOneshotReceiver<DbResult<Self::Response>>;
 
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<DbResult<()>> {
         Poll::Ready(Ok(()))
     }
 

@@ -18,17 +18,18 @@ use cuprate_p2p_core::{
 
 pub mod block_downloader;
 mod broadcast;
-pub mod client_pool;
 pub mod config;
 pub mod connection_maintainer;
 pub mod constants;
 mod inbound_server;
+mod peer_set;
 
 use block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse};
 pub use broadcast::{BroadcastRequest, BroadcastSvc};
-pub use client_pool::{ClientPool, ClientPoolDropGuard};
 pub use config::{AddressBookConfig, P2PConfig};
 use connection_maintainer::MakeConnectionRequest;
+use peer_set::PeerSet;
+pub use peer_set::{ClientDropGuard, PeerSetRequest, PeerSetResponse};
 
 /// Initializes the P2P [`NetworkInterface`] for a specific [`NetworkZone`].
 ///
@@ -54,7 +55,10 @@ where
         cuprate_address_book::init_address_book(config.address_book_config.clone()).await?;
     let address_book = Buffer::new(
         address_book,
-        config.max_inbound_connections + config.outbound_connections,
+        config
+            .max_inbound_connections
+            .checked_add(config.outbound_connections)
+            .unwrap(),
     );
 
     // Use the default config. Changing the defaults affects tx fluff times, which could affect D++ so for now don't allow changing
@@ -83,18 +87,24 @@ where
 
     let outbound_handshaker = outbound_handshaker_builder.build();
 
-    let client_pool = ClientPool::new();
-
+    let (new_connection_tx, new_connection_rx) = mpsc::channel(
+        config
+            .outbound_connections
+            .checked_add(config.max_inbound_connections)
+            .unwrap(),
+    );
     let (make_connection_tx, make_connection_rx) = mpsc::channel(3);
 
     let outbound_connector = Connector::new(outbound_handshaker);
     let outbound_connection_maintainer = connection_maintainer::OutboundConnectionKeeper::new(
         config.clone(),
-        Arc::clone(&client_pool),
+        new_connection_tx.clone(),
         make_connection_rx,
         address_book.clone(),
         outbound_connector,
     );
+
+    let peer_set = PeerSet::new(new_connection_rx);
 
     let mut background_tasks = JoinSet::new();
 
@@ -105,7 +115,7 @@ where
     );
     background_tasks.spawn(
         inbound_server::inbound_server(
-            Arc::clone(&client_pool),
+            new_connection_tx,
             inbound_handshaker,
             address_book.clone(),
             config,
@@ -121,7 +131,7 @@ where
     );
 
     Ok(NetworkInterface {
-        pool: client_pool,
+        peer_set: Buffer::new(peer_set, 10).boxed_clone(),
         broadcast_svc,
         make_connection_tx,
         address_book: address_book.boxed_clone(),
@@ -133,7 +143,7 @@ where
 #[derive(Clone)]
 pub struct NetworkInterface<N: NetworkZone> {
     /// A pool of free connected peers.
-    pool: Arc<ClientPool<N>>,
+    peer_set: BoxCloneService<PeerSetRequest, PeerSetResponse<N>, tower::BoxError>,
     /// A [`Service`] that allows broadcasting to all connected peers.
     broadcast_svc: BroadcastSvc<N>,
     /// A channel to request extra connections.
@@ -163,7 +173,7 @@ impl<N: NetworkZone> NetworkInterface<N> {
             + 'static,
         C::Future: Send + 'static,
     {
-        block_downloader::download_blocks(Arc::clone(&self.pool), our_chain_service, config)
+        block_downloader::download_blocks(self.peer_set.clone(), our_chain_service, config)
     }
 
     /// Returns the address book service.
@@ -173,8 +183,10 @@ impl<N: NetworkZone> NetworkInterface<N> {
         self.address_book.clone()
     }
 
-    /// Borrows the `ClientPool`, for access to connected peers.
-    pub const fn client_pool(&self) -> &Arc<ClientPool<N>> {
-        &self.pool
+    /// Borrows the `PeerSet`, for access to connected peers.
+    pub fn peer_set(
+        &mut self,
+    ) -> &mut BoxCloneService<PeerSetRequest, PeerSetResponse<N>, tower::BoxError> {
+        &mut self.peer_set
     }
 }
