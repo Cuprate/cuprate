@@ -98,17 +98,16 @@ pub fn find_split_point(
     let mut err = None;
 
     // Do a binary search to find the first unknown/known block in the batch.
-    let idx =
-        block_ids.partition_point(
-            |block_id| match block_exists(block_id, table_block_heights) {
-                Ok(exists) => exists & chronological_order,
-                Err(e) => {
-                    err.get_or_insert(e);
-                    // if this happens the search is scrapped, just return `false` back.
-                    false
-                }
-            },
-        );
+    let idx = block_ids.partition_point(|block_id| {
+        match block_exists(block_id, table_block_heights) {
+            Ok(exists) => exists == chronological_order,
+            Err(e) => {
+                err.get_or_insert(e);
+                // if this happens the search is scrapped, just return `false` back.
+                false
+            }
+        }
+    });
 
     if let Some(e) = err {
         return Err(e);

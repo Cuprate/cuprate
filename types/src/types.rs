@@ -261,7 +261,7 @@ pub struct AddAuxPow {
 
 /// The inner response for a request for missing txs.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MissingTxsInBlock {
+pub struct TxsInBlock {
     pub block: Vec<u8>,
     pub txs: Vec<Vec<u8>>,
 }

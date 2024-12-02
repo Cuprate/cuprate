@@ -11,9 +11,7 @@ use std::{
 use monero_serai::block::Block;
 
 use crate::{
-    types::{
-        Chain, ExtendedBlockHeader, MissingTxsInBlock, OutputOnChain, VerifiedBlockInformation,
-    },
+    types::{Chain, ExtendedBlockHeader, OutputOnChain, TxsInBlock, VerifiedBlockInformation},
     AltBlockInformation, BlockCompleteEntry, ChainId, ChainInfo, CoinbaseTxSum,
     OutputHistogramEntry, OutputHistogramInput,
 };
@@ -122,7 +120,7 @@ pub enum BlockchainReadRequest {
     FindFirstUnknown(Vec<[u8; 32]>),
 
     /// A request for transactions from a specific block.
-    MissingTxsInBlock {
+    TxsInBlock {
         /// The block to get transactions from.
         block_hash: [u8; 32],
         /// The indexes of the transactions from the block.
@@ -287,10 +285,10 @@ pub enum BlockchainResponse {
 
     /// Response to [`BlockchainReadRequest::NextChainEntry`].
     ///
-    /// If all blocks were unknown `start_height` will be `0`, the other fields will be meaningless.
+    /// If all blocks were unknown `start_height` will be [`None`], the other fields will be meaningless.
     NextChainEntry {
-        /// The start height of this entry, `0` if we could not find the split point.
-        start_height: usize,
+        /// The start height of this entry, [`None`] if we could not find the split point.
+        start_height: Option<usize>,
         /// The current chain height.
         chain_height: usize,
         /// The next block hashes in the entry.
@@ -310,10 +308,10 @@ pub enum BlockchainResponse {
     /// This will be [`None`] if all blocks were known.
     FindFirstUnknown(Option<(usize, usize)>),
 
-    /// The response for [`BlockchainReadRequest::MissingTxsInBlock`].
+    /// The response for [`BlockchainReadRequest::TxsInBlock`].
     ///
     /// Will return [`None`] if the request contained an index out of range.
-    MissingTxsInBlock(Option<MissingTxsInBlock>),
+    TxsInBlock(Option<TxsInBlock>),
 
     /// The response for [`BlockchainReadRequest::AltBlocksInChain`].
     ///

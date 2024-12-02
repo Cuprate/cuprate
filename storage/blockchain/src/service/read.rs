@@ -27,7 +27,7 @@ use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThre
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, ChainId, ExtendedBlockHeader, MissingTxsInBlock, OutputHistogramInput, OutputOnChain,
+    Chain, ChainId, ExtendedBlockHeader, OutputHistogramInput, OutputOnChain, TxsInBlock,
 };
 
 use crate::{
@@ -118,10 +118,10 @@ fn map_request(
         R::CompactChainHistory => compact_chain_history(env),
         R::NextChainEntry(block_hashes, amount) => next_chain_entry(env, &block_hashes, amount),
         R::FindFirstUnknown(block_ids) => find_first_unknown(env, &block_ids),
-        R::MissingTxsInBlock {
+        R::TxsInBlock {
             block_hash,
             tx_indexes,
-        } => missing_txs_in_block(env, block_hash, tx_indexes),
+        } => txs_in_block(env, block_hash, tx_indexes),
         R::AltBlocksInChain(chain_id) => alt_blocks_in_chain(env, chain_id),
         R::Block { height } => block(env, height),
         R::BlockByHash(hash) => block_by_hash(env, hash),
@@ -598,7 +598,7 @@ fn next_chain_entry(
     // This will happen if we have a different genesis block.
     if idx == block_ids.len() {
         return Ok(BlockchainResponse::NextChainEntry {
-            start_height: 0,
+            start_height: None,
             chain_height: 0,
             block_ids: vec![],
             block_weights: vec![],
@@ -632,7 +632,7 @@ fn next_chain_entry(
     };
 
     Ok(BlockchainResponse::NextChainEntry {
-        start_height: first_known_height,
+        start_height: Some(first_known_height),
         chain_height,
         block_ids,
         block_weights,
@@ -669,12 +669,8 @@ fn find_first_unknown(env: &ConcreteEnv, block_ids: &[BlockHash]) -> ResponseRes
     })
 }
 
-/// [`BlockchainReadRequest::MissingTxsInBlock`]
-fn missing_txs_in_block(
-    env: &ConcreteEnv,
-    block_hash: [u8; 32],
-    missing_txs: Vec<u64>,
-) -> ResponseResult {
+/// [`BlockchainReadRequest::TxsInBlock`]
+fn txs_in_block(env: &ConcreteEnv, block_hash: [u8; 32], missing_txs: Vec<u64>) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
@@ -686,7 +682,7 @@ fn missing_txs_in_block(
     let first_tx_index = miner_tx_index + 1;
 
     if numb_txs < missing_txs.len() {
-        return Ok(BlockchainResponse::MissingTxsInBlock(None));
+        return Ok(BlockchainResponse::TxsInBlock(None));
     }
 
     let txs = missing_txs
@@ -694,9 +690,10 @@ fn missing_txs_in_block(
         .map(|index_offset| Ok(tables.tx_blobs().get(&(first_tx_index + index_offset))?.0))
         .collect::<Result<_, RuntimeError>>()?;
 
-    Ok(BlockchainResponse::MissingTxsInBlock(Some(
-        MissingTxsInBlock { block, txs },
-    )))
+    Ok(BlockchainResponse::TxsInBlock(Some(TxsInBlock {
+        block,
+        txs,
+    })))
 }
 
 /// [`BlockchainReadRequest::AltBlocksInChain`]

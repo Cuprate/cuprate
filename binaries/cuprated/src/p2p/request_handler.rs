@@ -38,7 +38,7 @@ use cuprate_p2p_core::{
 use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    BlockCompleteEntry, MissingTxsInBlock, TransactionBlobs,
+    BlockCompleteEntry, TransactionBlobs, TxsInBlock,
 };
 use cuprate_wire::protocol::{
     ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest,
@@ -56,9 +56,7 @@ use crate::{
 #[derive(Clone)]
 pub struct P2pProtocolRequestHandlerMaker {
     pub blockchain_read_handle: BlockchainReadHandle,
-
     pub blockchain_context_service: BlockChainContextService,
-
     pub txpool_read_handle: TxpoolReadHandle,
 
     /// The [`IncomingTxHandler`], wrapped in an [`Option`] as there is a cyclic reference between [`P2pProtocolRequestHandlerMaker`]
@@ -115,13 +113,9 @@ where
 #[derive(Clone)]
 pub struct P2pProtocolRequestHandler<N: NetZoneAddress> {
     peer_information: PeerInformation<N>,
-
     blockchain_read_handle: BlockchainReadHandle,
-
     blockchain_context_service: BlockChainContextService,
-
     txpool_read_handle: TxpoolReadHandle,
-
     incoming_tx_handler: IncomingTxHandler,
 }
 
@@ -196,7 +190,7 @@ async fn get_objects(
         .call(BlockchainReadRequest::BlockCompleteEntries(block_hashes))
         .await?
     else {
-        panic!("blockchain returned wrong response!");
+        unreachable!();
     };
 
     Ok(ProtocolResponse::GetObjects(GetObjectsResponse {
@@ -233,12 +227,12 @@ async fn get_chain(
         .call(BlockchainReadRequest::NextChainEntry(block_hashes, 10_000))
         .await?
     else {
-        panic!("blockchain returned wrong response!");
+        unreachable!();
     };
 
-    if start_height == 0 {
+    let Some(start_height) = start_height else {
         anyhow::bail!("The peers chain has a different genesis block than ours.");
-    }
+    };
 
     let (cumulative_difficulty_low64, cumulative_difficulty_top64) =
         split_u128_into_low_high_bits(cumulative_difficulty);
@@ -271,19 +265,19 @@ async fn fluffy_missing_txs(
     // deallocate the backing `Bytes`.
     drop(request);
 
-    let BlockchainResponse::MissingTxsInBlock(res) = blockchain_read_handle
+    let BlockchainResponse::TxsInBlock(res) = blockchain_read_handle
         .ready()
         .await?
-        .call(BlockchainReadRequest::MissingTxsInBlock {
+        .call(BlockchainReadRequest::TxsInBlock {
             block_hash,
             tx_indexes,
         })
         .await?
     else {
-        panic!("blockchain returned wrong response!");
+        unreachable!();
     };
 
-    let Some(MissingTxsInBlock { block, txs }) = res else {
+    let Some(TxsInBlock { block, txs }) = res else {
         anyhow::bail!("The peer requested txs out of range.");
     };
 
@@ -412,11 +406,7 @@ where
     };
 
     // Drop all the data except the stuff we still need.
-    let NewTransactions {
-        txs,
-        dandelionpp_fluff: _,
-        padding: _,
-    } = request;
+    let NewTransactions { txs, .. } = request;
 
     let res = incoming_tx_handler
         .ready()

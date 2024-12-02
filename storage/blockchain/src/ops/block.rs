@@ -226,6 +226,7 @@ pub fn pop_block(
 
     Ok((block_height, block_info.block_hash, block))
 }
+
 //---------------------------------------------------------------------------------------------------- `get_block_blob_with_tx_indexes`
 /// Retrieve a block's raw bytes, the index of the miner transaction and the number of non miner-txs in the block.
 ///
@@ -234,11 +235,8 @@ pub fn get_block_blob_with_tx_indexes(
     block_height: &BlockHeight,
     tables: &impl Tables,
 ) -> Result<(Vec<u8>, u64, usize), RuntimeError> {
-    use monero_serai::io::write_varint;
+    let miner_tx_idx = tables.block_infos().get(block_height)?.mining_tx_index;
 
-    let block_info = tables.block_infos().get(block_height)?;
-
-    let miner_tx_idx = block_info.mining_tx_index;
     let block_txs = tables.block_txs_hashes().get(block_height)?.0;
     let numb_txs = block_txs.len();
 
@@ -250,10 +248,10 @@ pub fn get_block_blob_with_tx_indexes(
     block.append(&mut miner_tx_blob);
 
     // Add the blocks tx hashes.
-    write_varint(&block_txs.len(), &mut block)
+    monero_serai::io::write_varint(&block_txs.len(), &mut block)
         .expect("The number of txs per block will not exceed u64::MAX");
 
-    let block_txs_bytes = bytemuck::cast_slice(&block_txs);
+    let block_txs_bytes = bytemuck::must_cast_slice(&block_txs);
     block.extend_from_slice(block_txs_bytes);
 
     Ok((block, miner_tx_idx, numb_txs))
@@ -275,7 +273,7 @@ pub fn get_block_complete_entry(
 
     let tx_blobs = tables
         .tx_blobs_iter()
-        .get_range(first_tx_idx..=usize_to_u64(numb_non_miner_txs))?
+        .get_range(first_tx_idx..(usize_to_u64(numb_non_miner_txs) + first_tx_idx))?
         .map(|tx_blob| Ok(Bytes::from(tx_blob?.0)))
         .collect::<Result<_, RuntimeError>>()?;
 
