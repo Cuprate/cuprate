@@ -43,7 +43,7 @@ impl Args {
     /// Apply the [`Args`] to the given [`Config`].
     ///
     /// This may exit the program if a config value was set that requires an early exit.
-    pub fn apply_args(&self, mut config: Config) -> Config {
+    pub const fn apply_args(&self, mut config: Config) -> Config {
         config.network = self.network;
 
         if let Some(outbound_connections) = self.outbound_connections {
