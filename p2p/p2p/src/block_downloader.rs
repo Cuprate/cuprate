@@ -62,13 +62,13 @@ pub struct BlockBatch {
 pub struct BlockDownloaderConfig {
     /// The size in bytes of the buffer between the block downloader and the place which
     /// is consuming the downloaded blocks.
-    pub buffer_size: usize,
+    pub buffer_bytes: usize,
     /// The size of the in progress queue (in bytes) at which we stop requesting more blocks.
-    pub in_progress_queue_size: usize,
+    pub in_progress_queue_bytes: usize,
     /// The [`Duration`] between checking the client pool for free peers.
     pub check_client_pool_interval: Duration,
     /// The target size of a single batch of blocks (in bytes).
-    pub target_batch_size: usize,
+    pub target_batch_bytes: usize,
     /// The initial amount of blocks to request (in number of blocks)
     pub initial_batch_len: usize,
 }
@@ -145,7 +145,7 @@ where
         + 'static,
     C::Future: Send + 'static,
 {
-    let (buffer_appender, buffer_stream) = cuprate_async_buffer::new_buffer(config.buffer_size);
+    let (buffer_appender, buffer_stream) = cuprate_async_buffer::new_buffer(config.buffer_bytes);
 
     let block_downloader =
         BlockDownloader::new(client_pool, our_chain_svc, buffer_appender, config);
@@ -382,7 +382,7 @@ where
         }
 
         // If our ready queue is too large send duplicate requests for the blocks we are waiting on.
-        if self.block_queue.size() >= self.config.in_progress_queue_size {
+        if self.block_queue.size() >= self.config.in_progress_queue_bytes {
             return self.request_inflight_batch_again(client);
         }
 
@@ -557,7 +557,7 @@ where
                     self.amount_of_blocks_to_request = calculate_next_block_batch_size(
                         block_batch.size,
                         block_batch.blocks.len(),
-                        self.config.target_batch_size,
+                        self.config.target_batch_bytes,
                     );
 
                     tracing::debug!(
