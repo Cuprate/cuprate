@@ -11,10 +11,10 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::epee_object;
 
-use crate::macros::monero_definition_link;
-
 #[cfg(any(feature = "epee", feature = "serde"))]
 use crate::defaults::default_zero;
+
+use crate::macros::monero_definition_link;
 
 //---------------------------------------------------------------------------------------------------- Macros
 /// This macro (local to this file) defines all the misc types.
@@ -37,7 +37,7 @@ macro_rules! define_struct_and_impl_epee {
             $(
                 $( #[$field_attr:meta] )* // Field attributes
                 // Field name => the type => optional `epee_object` default value.
-                $field_name:ident: $field_type:ty $(= $field_default:expr)?,
+                $field_name:ident: $field_type:ty $(= $field_default:expr_2021)?,
             )*
         }
     ) => {

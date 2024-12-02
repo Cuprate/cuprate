@@ -1,7 +1,7 @@
 //! Blockchain functions - chain height, generated coins, etc.
 
 //---------------------------------------------------------------------------------------------------- Import
-use cuprate_database::{DatabaseRo, RuntimeError};
+use cuprate_database::{DatabaseRo, DbResult, RuntimeError};
 
 use crate::{
     ops::{block::block_exists, macros::doc_error},
@@ -22,9 +22,7 @@ use crate::{
 /// So the height of a new block would be `chain_height()`.
 #[doc = doc_error!()]
 #[inline]
-pub fn chain_height(
-    table_block_heights: &impl DatabaseRo<BlockHeights>,
-) -> Result<BlockHeight, RuntimeError> {
+pub fn chain_height(table_block_heights: &impl DatabaseRo<BlockHeights>) -> DbResult<BlockHeight> {
     #[expect(clippy::cast_possible_truncation, reason = "we enforce 64-bit")]
     table_block_heights.len().map(|height| height as usize)
 }
@@ -45,7 +43,7 @@ pub fn chain_height(
 #[inline]
 pub fn top_block_height(
     table_block_heights: &impl DatabaseRo<BlockHeights>,
-) -> Result<BlockHeight, RuntimeError> {
+) -> DbResult<BlockHeight> {
     match table_block_heights.len()? {
         0 => Err(RuntimeError::KeyNotFound),
         #[expect(clippy::cast_possible_truncation, reason = "we enforce 64-bit")]
@@ -70,7 +68,7 @@ pub fn top_block_height(
 pub fn cumulative_generated_coins(
     block_height: &BlockHeight,
     table_block_infos: &impl DatabaseRo<BlockInfos>,
-) -> Result<u64, RuntimeError> {
+) -> DbResult<u64> {
     match table_block_infos.get(block_height) {
         Ok(block_info) => Ok(block_info.cumulative_generated_coins),
         Err(RuntimeError::KeyNotFound) if block_height == &0 => Ok(0),

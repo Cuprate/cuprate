@@ -121,7 +121,6 @@ pub trait NetZoneAddress:
     ///
     /// - TODO: IP zone banning?
     /// - TODO: rename this to Host.
-
     type BanID: Debug + Hash + Eq + Clone + Copy + Send + 'static;
 
     /// Changes the port of this address to `port`.

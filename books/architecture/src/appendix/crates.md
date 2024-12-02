@@ -54,6 +54,11 @@ cargo doc --open --package cuprate-blockchain
 | [`cuprate-rpc-interface`](https://doc.cuprate.org/cuprate_rpc_interface) | [`rpc/interface/`](https://github.com/Cuprate/cuprate/tree/main/rpc/interface) | RPC interface & routing
 | [`cuprate-rpc-handler`](https://doc.cuprate.org/cuprate_rpc_handler) | [`rpc/handler/`](https://github.com/Cuprate/cuprate/tree/main/rpc/handler) | RPC inner handlers
 
+## ZMQ
+| Crate | In-tree path | Purpose |
+|-------|--------------|---------|
+| [`cuprate-zmq-types`](https://doc.cuprate.org/cuprate_zmq_types) | [`zmq/types/`](https://github.com/Cuprate/cuprate/tree/main/zmq/types) | Message types for ZMQ Pub/Sub interface
+
 ## 1-off crates
 | Crate | In-tree path | Purpose |
 |-------|--------------|---------|
@@ -63,3 +68,11 @@ cargo doc --open --package cuprate-blockchain
 | [`cuprate-helper`](https://doc.cuprate.org/cuprate_helper) | [`helper/`](https://github.com/Cuprate/cuprate/tree/main/helper) | Kitchen-sink helper crate for Cuprate
 | [`cuprate-test-utils`](https://doc.cuprate.org/cuprate_test_utils) | [`test-utils/`](https://github.com/Cuprate/cuprate/tree/main/test-utils) | Testing utilities for Cuprate
 | [`cuprate-types`](https://doc.cuprate.org/cuprate_types) | [`types/`](https://github.com/Cuprate/cuprate/tree/main/types) | Shared types across Cuprate
+
+## Benchmarks
+| Crate | In-tree path | Purpose |
+|-------|--------------|---------|
+| [`cuprate-benchmark`](https://doc.cuprate.org/cuprate_benchmark) | [`benches/benchmark/bin/`](https://github.com/Cuprate/cuprate/tree/main/benches/benchmark/bin) | Cuprate benchmarking binary
+| [`cuprate-benchmark-lib`](https://doc.cuprate.org/cuprate_benchmark_lib) | [`benches/benchmark/lib/`](https://github.com/Cuprate/cuprate/tree/main/benches/benchmark/lib) | Cuprate benchmarking library
+| `cuprate-benchmark-*` | [`benches/benchmark/cuprate-*`](https://github.com/Cuprate/cuprate/tree/main/benches/benchmark/) | Benchmark for a Cuprate crate that uses `cuprate-benchmark`
+| `cuprate-criterion-*` | [`benches/criterion/cuprate-*`](https://github.com/Cuprate/cuprate/tree/main/benches/criterion) | Benchmark for a Cuprate crate that uses [Criterion](https://bheisler.github.io/criterion.rs/book)
