@@ -1,10 +1,10 @@
-use std::{io::Write, path::PathBuf};
+use std::{io::Write, path::PathBuf, process::exit};
 
 use clap::builder::TypedValueParser;
 
 use cuprate_helper::network::Network;
 
-use crate::config::{default::create_default_config_file, Config};
+use crate::{config::Config, constants::EXAMPLE_CONFIG};
 
 /// Cuprate Args.
 #[derive(clap::Parser, Debug)]
@@ -35,8 +35,8 @@ impl Args {
     /// This may exit the program if a config value was set that requires an early exit.
     pub fn apply_args(&self, mut config: Config) -> Config {
         if let Some(config_folder) = self.generate_config.as_ref() {
-            // This will create the config file and exit.
-            create_default_config_file(config_folder)
+            println!("{EXAMPLE_CONFIG}");
+            exit(0);
         };
 
         config.network = self.network;

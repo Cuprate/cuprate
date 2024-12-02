@@ -23,6 +23,7 @@ pub const EXAMPLE_CONFIG: &str = include_str!("../Cuprated.toml");
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::config::Config;
 
     #[test]
     fn version() {
@@ -36,5 +37,10 @@ mod test {
         } else {
             assert_eq!(VERSION_BUILD, "0.0.1-release");
         }
+    }
+
+    #[test]
+    fn generate_config_text_is_valid() {
+        let config: Config = toml::from_str(EXAMPLE_CONFIG).unwrap();
     }
 }

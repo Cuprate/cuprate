@@ -18,7 +18,6 @@ use cuprate_p2p::block_downloader::BlockDownloaderConfig;
 use cuprate_p2p_core::{ClearNet, ClearNetServerCfg};
 
 mod args;
-mod default;
 mod fs;
 mod p2p;
 mod storage;
