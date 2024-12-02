@@ -6,7 +6,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use cuprate_helper::{fs::addressbook_path, network::Network};
+use cuprate_helper::{fs::address_book_path, network::Network};
 
 /// P2P config.
 #[derive(Default, Deserialize, Serialize)]
@@ -102,7 +102,7 @@ impl SharedNetConfig {
         cuprate_address_book::AddressBookConfig {
             max_white_list_length: self.address_book_config.max_white_list_length,
             max_gray_list_length: self.address_book_config.max_gray_list_length,
-            peer_store_directory: addressbook_path(cache_dir, network),
+            peer_store_directory: address_book_path(cache_dir, network),
             peer_save_period: self.address_book_config.peer_save_period,
         }
     }
