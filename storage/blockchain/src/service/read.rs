@@ -22,7 +22,9 @@ use rayon::{
 };
 use thread_local::ThreadLocal;
 
-use cuprate_database::{ConcreteEnv, DatabaseIter, DbResult, DatabaseRo, Env, EnvInner, RuntimeError};
+use cuprate_database::{
+    ConcreteEnv, DatabaseIter, DatabaseRo, DbResult, Env, EnvInner, RuntimeError,
+};
 use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
@@ -224,7 +226,7 @@ fn block_complete_entries(env: &ConcreteEnv, block_hashes: Vec<BlockHash>) -> Re
                 res => res.map(Either::Right),
             }
         })
-        .collect::<Result<_, _>>()?;
+        .collect::<DbResult<_>>()?;
 
     let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
     let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
@@ -375,7 +377,7 @@ fn block_extended_header_in_range(
                         }
                     })
                 })
-                .collect::<Result<Vec<_>, _>>()?
+                .collect::<DbResult<Vec<_>>>()?
         }
     };
 
@@ -621,7 +623,7 @@ fn next_chain_entry(
 
             Ok((block_info.block_hash, block_info.weight))
         })
-        .collect::<Result<(Vec<_>, Vec<_>), RuntimeError>>()?;
+        .collect::<DbResult<(Vec<_>, Vec<_>)>>()?;
 
     let top_block_info = table_block_infos.get(&(chain_height - 1))?;
 
@@ -688,7 +690,7 @@ fn txs_in_block(env: &ConcreteEnv, block_hash: [u8; 32], missing_txs: Vec<u64>) 
     let txs = missing_txs
         .into_iter()
         .map(|index_offset| Ok(tables.tx_blobs().get(&(first_tx_index + index_offset))?.0))
-        .collect::<Result<_, RuntimeError>>()?;
+        .collect::<DbResult<_>>()?;
 
     Ok(BlockchainResponse::TxsInBlock(Some(TxsInBlock {
         block,
@@ -733,7 +735,7 @@ fn alt_blocks_in_chain(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
                 )
             })
         })
-        .collect::<Result<_, _>>()?;
+        .collect::<DbResult<_>>()?;
 
     Ok(BlockchainResponse::AltBlocksInChain(blocks))
 }
