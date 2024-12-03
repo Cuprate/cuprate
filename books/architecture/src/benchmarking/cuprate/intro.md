@@ -9,7 +9,7 @@ The abstract purpose of `cuprate-benchmark` is very simple:
 1. Run benchmark
 1. Output data
 
-`cuprate-benchmark` runs the benchmarks found in [`benches/benchmark/cuprate-*`](https://github.com/Cuprate/cuprate/tree/main/benches/benchmark).
+`cuprate-benchmark` runs the benchmarks found in [`benchmark/cuprate-*`](https://github.com/Cuprate/benches/tree/main/benchmark).
 
 `cuprate-benchmark-lib` defines the `Benchmark` trait that all
 benchmark crates implement to "plug-in" to the benchmarking harness.
