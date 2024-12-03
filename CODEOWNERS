@@ -5,7 +5,6 @@
 * @Boog900 @hinto-janai @SyntheticBird45
 
 # hinto-janai
-/benches/**            @hinto-janai
 /books/architecture/** @hinto-janai
 /books/user/**         @hinto-janai
 /constants/**          @hinto-janai
