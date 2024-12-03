@@ -376,7 +376,6 @@ unused_lifetimes = "deny"
 unused_macro_rules = "deny"
 ambiguous_glob_imports = "deny"
 unused_unsafe = "deny"
-rust_2024_compatibility = "deny"
 
 # Warm
 let_underscore = { level = "deny", priority = -1 }
