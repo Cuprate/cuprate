@@ -82,7 +82,7 @@ pub fn cumulative_generated_coins(
 /// if the wrong order is specified the return value is meaningless.
 ///
 /// For chronologically ordered chains this will return the index of the first unknown, for reverse
-/// chronologically ordered chains this will return the index of the fist known.
+/// chronologically ordered chains this will return the index of the first known.
 ///
 /// If all blocks are known for chronologically ordered chains or unknown for reverse chronologically
 /// ordered chains then the length of the chain will be returned.
