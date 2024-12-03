@@ -5,6 +5,12 @@
 //! into it's own crate.
 //!
 //! `#[no_std]` compatible.
+// TODO: move to types crate.
+
+use core::{
+    fmt::{Display, Formatter},
+    str::FromStr,
+};
 
 const MAINNET_NETWORK_ID: [u8; 16] = [
     0x12, 0x30, 0xF1, 0x71, 0x61, 0x04, 0x41, 0x61, 0x17, 0x31, 0x00, 0x82, 0x16, 0xA1, 0xA1, 0x10,
@@ -17,7 +23,8 @@ const STAGENET_NETWORK_ID: [u8; 16] = [
 ];
 
 /// An enum representing every Monero network.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, Ord, PartialOrd, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum Network {
     /// Mainnet
     #[default]
@@ -36,5 +43,30 @@ impl Network {
             Self::Testnet => TESTNET_NETWORK_ID,
             Self::Stagenet => STAGENET_NETWORK_ID,
         }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct ParseNetworkError;
+
+impl FromStr for Network {
+    type Err = ParseNetworkError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "mainnet" | "Mainnet" => Ok(Self::Mainnet),
+            "testnet" | "Testnet" => Ok(Self::Testnet),
+            "stagenet" | "Stagenet" => Ok(Self::Stagenet),
+            _ => Err(ParseNetworkError),
+        }
+    }
+}
+impl Display for Network {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.write_str(match self {
+            Self::Mainnet => "mainnet",
+            Self::Testnet => "testnet",
+            Self::Stagenet => "stagenet",
+        })
     }
 }

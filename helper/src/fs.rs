@@ -28,7 +28,12 @@
 //! - <https://docs.rs/dirs>
 
 //---------------------------------------------------------------------------------------------------- Use
-use std::{path::PathBuf, sync::LazyLock};
+use std::{
+    path::{Path, PathBuf},
+    sync::LazyLock,
+};
+
+use crate::network::Network;
 
 //---------------------------------------------------------------------------------------------------- Const
 /// Cuprate's main directory.
@@ -57,6 +62,9 @@ pub const CUPRATE_DIR: &str = {
         "cuprate"
     }
 };
+
+/// The default name of Cuprate's config file.
+pub const DEFAULT_CONFIG_FILE_NAME: &str = "Cuprated.toml";
 
 //---------------------------------------------------------------------------------------------------- Directories
 /// Create a `LazyLock` for common PATHs used by Cuprate.
@@ -150,32 +158,61 @@ impl_path_lazylock! {
     CUPRATE_DATA_DIR,
     data_dir,
     "",
+}
 
-    /// Cuprate's blockchain directory.
-    ///
-    /// This is the PATH used for any Cuprate blockchain files.
-    ///
-    /// | OS      | PATH                                                           |
-    /// |---------|----------------------------------------------------------------|
-    /// | Windows | `C:\Users\Alice\AppData\Roaming\Cuprate\blockchain\`           |
-    /// | macOS   | `/Users/Alice/Library/Application Support/Cuprate/blockchain/` |
-    /// | Linux   | `/home/alice/.local/share/cuprate/blockchain/`                 |
-    CUPRATE_BLOCKCHAIN_DIR,
-    data_dir,
-    "blockchain",
+/// Joins the [`Network`] to the [`Path`].
+///
+/// This will keep the path the same for [`Network::Mainnet`].
+fn path_with_network(path: &Path, network: Network) -> PathBuf {
+    match network {
+        Network::Mainnet => path.to_path_buf(),
+        network => path.join(network.to_string()),
+    }
+}
 
-    /// Cuprate's transaction pool directory.
-    ///
-    /// This is the PATH used for any Cuprate txpool files.
-    ///
-    /// | OS      | PATH                                                       |
-    /// |---------|------------------------------------------------------------|
-    /// | Windows | `C:\Users\Alice\AppData\Roaming\Cuprate\txpool\`           |
-    /// | macOS   | `/Users/Alice/Library/Application Support/Cuprate/txpool/` |
-    /// | Linux   | `/home/alice/.local/share/cuprate/txpool/`                 |
-    CUPRATE_TXPOOL_DIR,
-    data_dir,
-    "txpool",
+/// Cuprate's blockchain directory.
+///
+/// This is the PATH used for any Cuprate blockchain files.
+///
+/// ```rust
+/// use cuprate_helper::{network::Network, fs::{CUPRATE_DATA_DIR, blockchain_path}};
+///
+/// assert_eq!(blockchain_path(&**CUPRATE_DATA_DIR, Network::Mainnet).as_path(), CUPRATE_DATA_DIR.join("blockchain"));
+/// assert_eq!(blockchain_path(&**CUPRATE_DATA_DIR, Network::Stagenet).as_path(), CUPRATE_DATA_DIR.join(Network::Stagenet.to_string()).join("blockchain"));
+/// assert_eq!(blockchain_path(&**CUPRATE_DATA_DIR, Network::Testnet).as_path(), CUPRATE_DATA_DIR.join(Network::Testnet.to_string()).join("blockchain"));
+/// ```
+pub fn blockchain_path(data_dir: &Path, network: Network) -> PathBuf {
+    path_with_network(data_dir, network).join("blockchain")
+}
+
+/// Cuprate's txpool directory.
+///
+/// This is the PATH used for any Cuprate txpool files.
+///
+/// ```rust
+/// use cuprate_helper::{network::Network, fs::{CUPRATE_DATA_DIR, txpool_path}};
+///
+/// assert_eq!(txpool_path(&**CUPRATE_DATA_DIR, Network::Mainnet).as_path(), CUPRATE_DATA_DIR.join("txpool"));
+/// assert_eq!(txpool_path(&**CUPRATE_DATA_DIR, Network::Stagenet).as_path(), CUPRATE_DATA_DIR.join(Network::Stagenet.to_string()).join("txpool"));
+/// assert_eq!(txpool_path(&**CUPRATE_DATA_DIR, Network::Testnet).as_path(), CUPRATE_DATA_DIR.join(Network::Testnet.to_string()).join("txpool"));
+/// ```
+pub fn txpool_path(data_dir: &Path, network: Network) -> PathBuf {
+    path_with_network(data_dir, network).join("txpool")
+}
+
+/// Cuprate's address-book directory.
+///
+/// This is the PATH used for any Cuprate address-book files.
+///
+/// ```rust
+/// use cuprate_helper::{network::Network, fs::{CUPRATE_CACHE_DIR, address_book_path}};
+///
+/// assert_eq!(address_book_path(&**CUPRATE_CACHE_DIR, Network::Mainnet).as_path(), CUPRATE_CACHE_DIR.join("addressbook"));
+/// assert_eq!(address_book_path(&**CUPRATE_CACHE_DIR, Network::Stagenet).as_path(), CUPRATE_CACHE_DIR.join(Network::Stagenet.to_string()).join("addressbook"));
+/// assert_eq!(address_book_path(&**CUPRATE_CACHE_DIR, Network::Testnet).as_path(), CUPRATE_CACHE_DIR.join(Network::Testnet.to_string()).join("addressbook"));
+/// ```
+pub fn address_book_path(cache_dir: &Path, network: Network) -> PathBuf {
+    path_with_network(cache_dir, network).join("addressbook")
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
@@ -197,29 +234,21 @@ mod test {
             (&*CUPRATE_CACHE_DIR, ""),
             (&*CUPRATE_CONFIG_DIR, ""),
             (&*CUPRATE_DATA_DIR, ""),
-            (&*CUPRATE_BLOCKCHAIN_DIR, ""),
-            (&*CUPRATE_TXPOOL_DIR, ""),
         ];
 
         if cfg!(target_os = "windows") {
             array[0].1 = r"AppData\Local\Cuprate";
             array[1].1 = r"AppData\Roaming\Cuprate";
             array[2].1 = r"AppData\Roaming\Cuprate";
-            array[3].1 = r"AppData\Roaming\Cuprate\blockchain";
-            array[4].1 = r"AppData\Roaming\Cuprate\txpool";
         } else if cfg!(target_os = "macos") {
             array[0].1 = "Library/Caches/Cuprate";
             array[1].1 = "Library/Application Support/Cuprate";
             array[2].1 = "Library/Application Support/Cuprate";
-            array[3].1 = "Library/Application Support/Cuprate/blockchain";
-            array[4].1 = "Library/Application Support/Cuprate/txpool";
         } else {
             // Assumes Linux.
             array[0].1 = ".cache/cuprate";
             array[1].1 = ".config/cuprate";
             array[2].1 = ".local/share/cuprate";
-            array[3].1 = ".local/share/cuprate/blockchain";
-            array[4].1 = ".local/share/cuprate/txpool";
         };
 
         for (path, expected) in array {
