@@ -37,7 +37,7 @@ impl Args {
         if self.generate_config {
             println!("{EXAMPLE_CONFIG}");
             exit(0);
-        };
+        }
     }
 
     /// Apply the [`Args`] to the given [`Config`].
