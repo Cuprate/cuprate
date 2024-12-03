@@ -2,7 +2,7 @@
 # <https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners>
 
 # Default owner(s) of all code.
-* @Boog900 @hinto-janai
+* @Boog900 @hinto-janai @SyntheticBird45
 
 # hinto-janai
 /benches/**            @hinto-janai
