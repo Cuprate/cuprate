@@ -634,7 +634,7 @@ fn next_chain_entry(
     };
 
     Ok(BlockchainResponse::NextChainEntry {
-        start_height: Some(first_known_height),
+        start_height: std::num::NonZero::new(first_known_height),
         chain_height,
         block_ids,
         block_weights,
