@@ -1,7 +1,7 @@
 //! Tx-pool key image ops.
 use monero_serai::transaction::Input;
 
-use cuprate_database::{DatabaseRw, RuntimeError};
+use cuprate_database::{DatabaseRw, DbResult};
 
 use crate::{ops::TxPoolWriteError, tables::SpentKeyImages, types::TransactionHash};
 
@@ -34,7 +34,7 @@ pub(super) fn add_tx_key_images(
 pub(super) fn remove_tx_key_images(
     inputs: &[Input],
     kis_table: &mut impl DatabaseRw<SpentKeyImages>,
-) -> Result<(), RuntimeError> {
+) -> DbResult<()> {
     for ki in inputs.iter().map(ki_from_input) {
         kis_table.delete(&ki)?;
     }

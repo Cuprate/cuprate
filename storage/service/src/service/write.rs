@@ -6,7 +6,7 @@ use std::{
 
 use futures::channel::oneshot;
 
-use cuprate_database::{ConcreteEnv, Env, RuntimeError};
+use cuprate_database::{ConcreteEnv, DbResult, Env, RuntimeError};
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
 //---------------------------------------------------------------------------------------------------- Constants
@@ -26,8 +26,7 @@ pub struct DatabaseWriteHandle<Req, Res> {
     /// Sender channel to the database write thread-pool.
     ///
     /// We provide the response channel for the thread-pool.
-    pub(super) sender:
-        crossbeam::channel::Sender<(Req, oneshot::Sender<Result<Res, RuntimeError>>)>,
+    pub(super) sender: crossbeam::channel::Sender<(Req, oneshot::Sender<DbResult<Res>>)>,
 }
 
 impl<Req, Res> Clone for DatabaseWriteHandle<Req, Res> {
@@ -48,7 +47,7 @@ where
     #[inline(never)] // Only called once.
     pub fn init(
         env: Arc<ConcreteEnv>,
-        inner_handler: impl Fn(&ConcreteEnv, &Req) -> Result<Res, RuntimeError> + Send + 'static,
+        inner_handler: impl Fn(&ConcreteEnv, &Req) -> DbResult<Res> + Send + 'static,
     ) -> Self {
         // Initialize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
@@ -66,10 +65,10 @@ where
 impl<Req, Res> tower::Service<Req> for DatabaseWriteHandle<Req, Res> {
     type Response = Res;
     type Error = RuntimeError;
-    type Future = InfallibleOneshotReceiver<Result<Res, RuntimeError>>;
+    type Future = InfallibleOneshotReceiver<DbResult<Res>>;
 
     #[inline]
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<DbResult<()>> {
         Poll::Ready(Ok(()))
     }
 
@@ -89,8 +88,8 @@ impl<Req, Res> tower::Service<Req> for DatabaseWriteHandle<Req, Res> {
 /// The main function of the writer thread.
 fn database_writer<Req, Res>(
     env: &ConcreteEnv,
-    receiver: &crossbeam::channel::Receiver<(Req, oneshot::Sender<Result<Res, RuntimeError>>)>,
-    inner_handler: impl Fn(&ConcreteEnv, &Req) -> Result<Res, RuntimeError>,
+    receiver: &crossbeam::channel::Receiver<(Req, oneshot::Sender<DbResult<Res>>)>,
+    inner_handler: impl Fn(&ConcreteEnv, &Req) -> DbResult<Res>,
 ) where
     Req: Send + 'static,
     Res: Debug + Send + 'static,

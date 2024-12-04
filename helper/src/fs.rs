@@ -220,13 +220,13 @@ pub fn logs_path(data_dir: &Path, network: Network) -> PathBuf {
 /// This is the PATH used for any Cuprate address-book files.
 ///
 /// ```rust
-/// use cuprate_helper::{network::Network, fs::{CUPRATE_CACHE_DIR, addressbook_path}};
+/// use cuprate_helper::{network::Network, fs::{CUPRATE_CACHE_DIR, address_book_path}};
 ///
-/// assert_eq!(addressbook_path(&**CUPRATE_CACHE_DIR, Network::Mainnet).as_path(), CUPRATE_CACHE_DIR.join("addressbook"));
-/// assert_eq!(addressbook_path(&**CUPRATE_CACHE_DIR, Network::Stagenet).as_path(), CUPRATE_CACHE_DIR.join(Network::Stagenet.to_string()).join("addressbook"));
-/// assert_eq!(addressbook_path(&**CUPRATE_CACHE_DIR, Network::Testnet).as_path(), CUPRATE_CACHE_DIR.join(Network::Testnet.to_string()).join("addressbook"));
+/// assert_eq!(address_book_path(&**CUPRATE_CACHE_DIR, Network::Mainnet).as_path(), CUPRATE_CACHE_DIR.join("addressbook"));
+/// assert_eq!(address_book_path(&**CUPRATE_CACHE_DIR, Network::Stagenet).as_path(), CUPRATE_CACHE_DIR.join(Network::Stagenet.to_string()).join("addressbook"));
+/// assert_eq!(address_book_path(&**CUPRATE_CACHE_DIR, Network::Testnet).as_path(), CUPRATE_CACHE_DIR.join(Network::Testnet.to_string()).join("addressbook"));
 /// ```
-pub fn addressbook_path(cache_dir: &Path, network: Network) -> PathBuf {
+pub fn address_book_path(cache_dir: &Path, network: Network) -> PathBuf {
     path_with_network(cache_dir, network).join("addressbook")
 }
 

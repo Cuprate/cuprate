@@ -26,7 +26,7 @@ pub use transaction_verification_data::{
 pub use types::{
     AddAuxPow, AltBlockInformation, AuxPow, Chain, ChainId, ChainInfo, CoinbaseTxSum,
     ExtendedBlockHeader, FeeEstimate, HardForkInfo, MinerData, MinerDataTxBacklogEntry,
-    MissingTxsInBlock, OutputHistogramEntry, OutputHistogramInput, OutputOnChain,
+    OutputHistogramEntry, OutputHistogramInput, OutputOnChain, TxsInBlock,
     VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 

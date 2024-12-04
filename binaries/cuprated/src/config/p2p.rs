@@ -6,7 +6,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use cuprate_helper::{fs::addressbook_path, network::Network};
+use cuprate_helper::{fs::address_book_path, network::Network};
 
 /// P2P config.
 #[derive(Default, Deserialize, Serialize)]
@@ -23,22 +23,22 @@ pub struct P2PConfig {
 pub struct BlockDownloaderConfig {
     /// The size in bytes of the buffer between the block downloader and the place which
     /// is consuming the downloaded blocks.
-    pub buffer_size: usize,
+    pub buffer_bytes: usize,
     /// The size of the in progress queue (in bytes) at which we stop requesting more blocks.
-    pub in_progress_queue_size: usize,
+    pub in_progress_queue_bytes: usize,
     /// The [`Duration`] between checking the client pool for free peers.
     pub check_client_pool_interval: Duration,
     /// The target size of a single batch of blocks (in bytes).
-    pub target_batch_size: usize,
+    pub target_batch_bytes: usize,
 }
 
 impl From<BlockDownloaderConfig> for cuprate_p2p::block_downloader::BlockDownloaderConfig {
     fn from(value: BlockDownloaderConfig) -> Self {
         Self {
-            buffer_size: value.buffer_size,
-            in_progress_queue_size: value.in_progress_queue_size,
+            buffer_bytes: value.buffer_bytes,
+            in_progress_queue_bytes: value.in_progress_queue_bytes,
             check_client_pool_interval: value.check_client_pool_interval,
-            target_batch_size: value.target_batch_size,
+            target_batch_bytes: value.target_batch_bytes,
             initial_batch_len: 1,
         }
     }
@@ -47,10 +47,10 @@ impl From<BlockDownloaderConfig> for cuprate_p2p::block_downloader::BlockDownloa
 impl Default for BlockDownloaderConfig {
     fn default() -> Self {
         Self {
-            buffer_size: 50_000_000,
-            in_progress_queue_size: 50_000_000,
+            buffer_bytes: 50_000_000,
+            in_progress_queue_bytes: 50_000_000,
             check_client_pool_interval: Duration::from_secs(30),
-            target_batch_size: 5_000_000,
+            target_batch_bytes: 5_000_000,
         }
     }
 }
@@ -102,7 +102,7 @@ impl SharedNetConfig {
         cuprate_address_book::AddressBookConfig {
             max_white_list_length: self.address_book_config.max_white_list_length,
             max_gray_list_length: self.address_book_config.max_gray_list_length,
-            peer_store_directory: addressbook_path(cache_dir, network),
+            peer_store_directory: address_book_path(cache_dir, network),
             peer_save_period: self.address_book_config.peer_save_period,
         }
     }

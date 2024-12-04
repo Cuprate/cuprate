@@ -22,12 +22,14 @@ use rayon::{
 };
 use thread_local::ThreadLocal;
 
-use cuprate_database::{ConcreteEnv, DatabaseIter, DatabaseRo, Env, EnvInner, RuntimeError};
+use cuprate_database::{
+    ConcreteEnv, DatabaseIter, DatabaseRo, DbResult, Env, EnvInner, RuntimeError,
+};
 use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, ChainId, ExtendedBlockHeader, MissingTxsInBlock, OutputHistogramInput, OutputOnChain,
+    Chain, ChainId, ExtendedBlockHeader, OutputHistogramInput, OutputOnChain, TxsInBlock,
 };
 
 use crate::{
@@ -118,10 +120,10 @@ fn map_request(
         R::CompactChainHistory => compact_chain_history(env),
         R::NextChainEntry(block_hashes, amount) => next_chain_entry(env, &block_hashes, amount),
         R::FindFirstUnknown(block_ids) => find_first_unknown(env, &block_ids),
-        R::MissingTxsInBlock {
+        R::TxsInBlock {
             block_hash,
             tx_indexes,
-        } => missing_txs_in_block(env, block_hash, tx_indexes),
+        } => txs_in_block(env, block_hash, tx_indexes),
         R::AltBlocksInChain(chain_id) => alt_blocks_in_chain(env, chain_id),
         R::Block { height } => block(env, height),
         R::BlockByHash(hash) => block_by_hash(env, hash),
@@ -224,7 +226,7 @@ fn block_complete_entries(env: &ConcreteEnv, block_hashes: Vec<BlockHash>) -> Re
                 res => res.map(Either::Right),
             }
         })
-        .collect::<Result<_, _>>()?;
+        .collect::<DbResult<_>>()?;
 
     let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
     let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
@@ -345,7 +347,7 @@ fn block_extended_header_in_range(
                 let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
                 get_block_extended_header_from_height(&block_height, tables)
             })
-            .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?,
+            .collect::<DbResult<Vec<ExtendedBlockHeader>>>()?,
         Chain::Alt(chain_id) => {
             let ranges = {
                 let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
@@ -375,7 +377,7 @@ fn block_extended_header_in_range(
                         }
                     })
                 })
-                .collect::<Result<Vec<_>, _>>()?
+                .collect::<DbResult<Vec<_>>>()?
         }
     };
 
@@ -421,7 +423,7 @@ fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) ->
 
     // The 2nd mapping function.
     // This is pulled out from the below `map()` for readability.
-    let inner_map = |amount, amount_index| -> Result<(AmountIndex, OutputOnChain), RuntimeError> {
+    let inner_map = |amount, amount_index| -> DbResult<(AmountIndex, OutputOnChain)> {
         let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
         let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
 
@@ -444,10 +446,10 @@ fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) ->
                 amount_index_set
                     .into_par_iter()
                     .map(|amount_index| inner_map(amount, amount_index))
-                    .collect::<Result<HashMap<AmountIndex, OutputOnChain>, RuntimeError>>()?,
+                    .collect::<DbResult<HashMap<AmountIndex, OutputOnChain>>>()?,
             ))
         })
-        .collect::<Result<HashMap<Amount, HashMap<AmountIndex, OutputOnChain>>, RuntimeError>>()?;
+        .collect::<DbResult<HashMap<Amount, HashMap<AmountIndex, OutputOnChain>>>>()?;
 
     Ok(BlockchainResponse::Outputs(map))
 }
@@ -496,7 +498,7 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
                 }
             }
         })
-        .collect::<Result<HashMap<Amount, usize>, RuntimeError>>()?;
+        .collect::<DbResult<HashMap<Amount, usize>>>()?;
 
     Ok(BlockchainResponse::NumberOutputsWithAmount(map))
 }
@@ -562,7 +564,7 @@ fn compact_chain_history(env: &ConcreteEnv) -> ResponseResult {
         .map(compact_history_index_to_height_offset::<INITIAL_BLOCKS>)
         .map_while(|i| top_block_height.checked_sub(i))
         .map(|height| Ok(get_block_info(&height, &table_block_infos)?.block_hash))
-        .collect::<Result<Vec<_>, RuntimeError>>()?;
+        .collect::<DbResult<Vec<_>>>()?;
 
     if compact_history_genesis_not_included::<INITIAL_BLOCKS>(top_block_height) {
         block_ids.push(get_block_info(&0, &table_block_infos)?.block_hash);
@@ -598,7 +600,7 @@ fn next_chain_entry(
     // This will happen if we have a different genesis block.
     if idx == block_ids.len() {
         return Ok(BlockchainResponse::NextChainEntry {
-            start_height: 0,
+            start_height: None,
             chain_height: 0,
             block_ids: vec![],
             block_weights: vec![],
@@ -621,7 +623,7 @@ fn next_chain_entry(
 
             Ok((block_info.block_hash, block_info.weight))
         })
-        .collect::<Result<(Vec<_>, Vec<_>), RuntimeError>>()?;
+        .collect::<DbResult<(Vec<_>, Vec<_>)>>()?;
 
     let top_block_info = table_block_infos.get(&(chain_height - 1))?;
 
@@ -632,7 +634,7 @@ fn next_chain_entry(
     };
 
     Ok(BlockchainResponse::NextChainEntry {
-        start_height: first_known_height,
+        start_height: std::num::NonZero::new(first_known_height),
         chain_height,
         block_ids,
         block_weights,
@@ -669,12 +671,8 @@ fn find_first_unknown(env: &ConcreteEnv, block_ids: &[BlockHash]) -> ResponseRes
     })
 }
 
-/// [`BlockchainReadRequest::MissingTxsInBlock`]
-fn missing_txs_in_block(
-    env: &ConcreteEnv,
-    block_hash: [u8; 32],
-    missing_txs: Vec<u64>,
-) -> ResponseResult {
+/// [`BlockchainReadRequest::TxsInBlock`]
+fn txs_in_block(env: &ConcreteEnv, block_hash: [u8; 32], missing_txs: Vec<u64>) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
@@ -686,17 +684,18 @@ fn missing_txs_in_block(
     let first_tx_index = miner_tx_index + 1;
 
     if numb_txs < missing_txs.len() {
-        return Ok(BlockchainResponse::MissingTxsInBlock(None));
+        return Ok(BlockchainResponse::TxsInBlock(None));
     }
 
     let txs = missing_txs
         .into_iter()
         .map(|index_offset| Ok(tables.tx_blobs().get(&(first_tx_index + index_offset))?.0))
-        .collect::<Result<_, RuntimeError>>()?;
+        .collect::<DbResult<_>>()?;
 
-    Ok(BlockchainResponse::MissingTxsInBlock(Some(
-        MissingTxsInBlock { block, txs },
-    )))
+    Ok(BlockchainResponse::TxsInBlock(Some(TxsInBlock {
+        block,
+        txs,
+    })))
 }
 
 /// [`BlockchainReadRequest::AltBlocksInChain`]
@@ -736,7 +735,7 @@ fn alt_blocks_in_chain(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
                 )
             })
         })
-        .collect::<Result<_, _>>()?;
+        .collect::<DbResult<_>>()?;
 
     Ok(BlockchainResponse::AltBlocksInChain(blocks))
 }

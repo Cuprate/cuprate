@@ -1,10 +1,10 @@
-use std::{io::Write, path::PathBuf};
+use std::{io::Write, path::PathBuf, process::exit};
 
 use clap::builder::TypedValueParser;
 
 use cuprate_helper::network::Network;
 
-use crate::config::{default::create_default_config_file, Config};
+use crate::{config::Config, constants::EXAMPLE_CONFIG};
 
 /// Cuprate Args.
 #[derive(clap::Parser, Debug)]
@@ -24,21 +24,26 @@ pub struct Args {
     /// The PATH of the `cuprated` config file.
     #[arg(long)]
     pub config_file: Option<PathBuf>,
-    /// Generate a config file and place it in the given PATH.
+    /// Generate a config file and print it to stdout.
     #[arg(long)]
-    pub generate_config: Option<PathBuf>,
+    pub generate_config: bool,
 }
 
 impl Args {
+    /// Complete any quick requests asked for in [`Args`].
+    ///
+    /// May cause the process to [`exit`].
+    pub fn do_quick_requests(&self) {
+        if self.generate_config {
+            println!("{EXAMPLE_CONFIG}");
+            exit(0);
+        }
+    }
+
     /// Apply the [`Args`] to the given [`Config`].
     ///
     /// This may exit the program if a config value was set that requires an early exit.
-    pub fn apply_args(&self, mut config: Config) -> Config {
-        if let Some(config_folder) = self.generate_config.as_ref() {
-            // This will create the config file and exit.
-            create_default_config_file(config_folder)
-        };
-
+    pub const fn apply_args(&self, mut config: Config) -> Config {
         config.network = self.network;
 
         if let Some(outbound_connections) = self.outbound_connections {

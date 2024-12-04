@@ -1,0 +1,23 @@
+[package]
+name        = "cuprate-criterion-json-rpc"
+version     = "0.0.0"
+edition     = "2021"
+description = "Criterion benchmarking for cuprate-json-rpc"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/benches/criterion/cuprate-json-rpc"
+keywords    = ["cuprate", "json-rpc", "criterion", "benchmark"]
+
+[dependencies]
+cuprate-json-rpc = { workspace = true }
+
+criterion     = { workspace = true }
+function_name = { workspace = true }
+serde_json    = { workspace = true, features = ["default"] }
+
+[[bench]]
+name    = "main"
+harness = false
+
+[lints]
+workspace = true
