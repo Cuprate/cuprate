@@ -47,10 +47,12 @@ fn main() {
 
     let rt = init_tokio_rt();
 
+    let db_thread_pool = cuprate_database_service::init_thread_pool(cuprate_database_service::ReaderThreads::Percent(0.3));
+
     let (mut blockchain_read_handle, mut blockchain_write_handle, _) =
-        cuprate_blockchain::service::init(config.blockchain_config()).unwrap();
+        cuprate_blockchain::service::init_with_pool(config.blockchain_config(), db_thread_pool.clone()).unwrap();
     let (txpool_read_handle, txpool_write_handle, _) =
-        cuprate_txpool::service::init(config.txpool_config()).unwrap();
+        cuprate_txpool::service::init_with_pool(config.txpool_config(), db_thread_pool).unwrap();
 
     rt.block_on(async move {
         blockchain::check_add_genesis(
@@ -105,6 +107,7 @@ fn main() {
 
 fn init_tokio_rt() -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(13)
         .enable_all()
         .build()
         .unwrap()

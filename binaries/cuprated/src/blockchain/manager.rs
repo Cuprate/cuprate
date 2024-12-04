@@ -133,11 +133,15 @@ impl BlockchainManager {
     ) {
         loop {
             tokio::select! {
+                /*
                 Some(batch) = block_batch_rx.recv() => {
                     self.handle_incoming_block_batch(
                         batch,
                     ).await;
                 }
+
+                 */
+
                 Some(incoming_command) = command_rx.recv() => {
                     self.handle_command(incoming_command).await;
                 }

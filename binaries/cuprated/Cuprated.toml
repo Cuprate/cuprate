@@ -17,7 +17,7 @@ level = "info"
 ## Clear-net config.
 [p2p.clear_net]
 ## The number of outbound connections we should make and maintain.
-outbound_connections = 64
+outbound_connections = 32
 ## The number of extra connections we should make under load from the rest of Cuprate, i.e. when syncing.
 extra_outbound_connections = 8
 ## The maximum number of incoming we should allow.

@@ -2,14 +2,14 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::sync::Arc;
-
+use rayon::ThreadPool;
 use cuprate_database::{ConcreteEnv, InitError};
 use cuprate_types::{AltBlockInformation, VerifiedBlockInformation};
 
 use crate::{
     config::Config,
     service::{
-        init_read_service, init_write_service,
+        init_read_service, init_write_service, init_read_service_with_pool,
         types::{BlockchainReadHandle, BlockchainWriteHandle},
     },
 };
@@ -41,6 +41,27 @@ pub fn init(
 
     // Spawn the Reader thread pool and Writer.
     let readers = init_read_service(Arc::clone(&db), reader_threads);
+    let writer = init_write_service(Arc::clone(&db));
+
+    Ok((readers, writer, db))
+}
+
+pub fn init_with_pool(
+    config: Config,
+    pool: Arc<ThreadPool>,
+) -> Result<
+    (
+        BlockchainReadHandle,
+        BlockchainWriteHandle,
+        Arc<ConcreteEnv>,
+    ),
+    InitError,
+> {
+    // Initialize the database itself.
+    let db = Arc::new(crate::open(config)?);
+
+    // Spawn the Reader thread pool and Writer.
+    let readers = init_read_service_with_pool(Arc::clone(&db), pool);
     let writer = init_write_service(Arc::clone(&db));
 
     Ok((readers, writer, db))
