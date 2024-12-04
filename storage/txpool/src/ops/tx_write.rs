@@ -4,7 +4,7 @@
 use bytemuck::TransparentWrapper;
 use monero_serai::transaction::{NotPruned, Transaction};
 
-use cuprate_database::{DatabaseRw, RuntimeError, StorableVec};
+use cuprate_database::{DatabaseRw, DbResult, StorableVec};
 use cuprate_types::TransactionVerificationData;
 
 use crate::{
@@ -67,10 +67,7 @@ pub fn add_transaction(
 }
 
 /// Removes a transaction from the transaction pool.
-pub fn remove_transaction(
-    tx_hash: &TransactionHash,
-    tables: &mut impl TablesMut,
-) -> Result<(), RuntimeError> {
+pub fn remove_transaction(tx_hash: &TransactionHash, tables: &mut impl TablesMut) -> DbResult<()> {
     // Remove the tx blob from table 0.
     let tx_blob = tables.transaction_blobs_mut().take(tx_hash)?.0;
 

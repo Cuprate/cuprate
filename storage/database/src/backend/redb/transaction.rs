@@ -2,14 +2,14 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
-    error::RuntimeError,
+    error::DbResult,
     transaction::{TxRo, TxRw},
 };
 
 //---------------------------------------------------------------------------------------------------- TxRo
 impl TxRo<'_> for redb::ReadTransaction {
     /// This function is infallible.
-    fn commit(self) -> Result<(), RuntimeError> {
+    fn commit(self) -> DbResult<()> {
         // `redb`'s read transactions cleanup automatically when all references are dropped.
         //
         // There is `close()`:
@@ -22,11 +22,11 @@ impl TxRo<'_> for redb::ReadTransaction {
 
 //---------------------------------------------------------------------------------------------------- TxRw
 impl TxRw<'_> for redb::WriteTransaction {
-    fn commit(self) -> Result<(), RuntimeError> {
+    fn commit(self) -> DbResult<()> {
         Ok(self.commit()?)
     }
 
-    fn abort(self) -> Result<(), RuntimeError> {
+    fn abort(self) -> DbResult<()> {
         Ok(self.abort()?)
     }
 }

@@ -2,21 +2,23 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
+use bytes::Bytes;
 use monero_serai::{
     block::{Block, BlockHeader},
     transaction::Transaction,
 };
 
 use cuprate_database::{
-    RuntimeError, StorableVec, {DatabaseRo, DatabaseRw},
+    DbResult, RuntimeError, StorableVec, {DatabaseIter, DatabaseRo, DatabaseRw},
 };
+use cuprate_helper::cast::usize_to_u64;
 use cuprate_helper::{
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
     tx::tx_fee,
 };
 use cuprate_types::{
-    AltBlockInformation, ChainId, ExtendedBlockHeader, HardFork, VerifiedBlockInformation,
-    VerifiedTransactionInformation,
+    AltBlockInformation, BlockCompleteEntry, ChainId, ExtendedBlockHeader, HardFork,
+    TransactionBlobs, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 
 use crate::{
@@ -27,7 +29,7 @@ use crate::{
         output::get_rct_num_outputs,
         tx::{add_tx, remove_tx},
     },
-    tables::{BlockHeights, BlockInfos, Tables, TablesMut},
+    tables::{BlockHeights, BlockInfos, Tables, TablesIter, TablesMut},
     types::{BlockHash, BlockHeight, BlockInfo},
 };
 
@@ -42,12 +44,9 @@ use crate::{
 /// # Panics
 /// This function will panic if:
 /// - `block.height > u32::MAX` (not normally possible)
-/// - `block.height` is not != [`chain_height`]
+/// - `block.height` is != [`chain_height`]
 // no inline, too big.
-pub fn add_block(
-    block: &VerifiedBlockInformation,
-    tables: &mut impl TablesMut,
-) -> Result<(), RuntimeError> {
+pub fn add_block(block: &VerifiedBlockInformation, tables: &mut impl TablesMut) -> DbResult<()> {
     //------------------------------------------------------ Check preconditions first
 
     // Cast height to `u32` for storage (handled at top of function).
@@ -153,7 +152,7 @@ pub fn add_block(
 pub fn pop_block(
     move_to_alt_chain: Option<ChainId>,
     tables: &mut impl TablesMut,
-) -> Result<(BlockHeight, BlockHash, Block), RuntimeError> {
+) -> DbResult<(BlockHeight, BlockHash, Block)> {
     //------------------------------------------------------ Block Info
     // Remove block data from tables.
     let (block_height, block_info) = tables.block_infos_mut().pop_last()?;
@@ -195,7 +194,7 @@ pub fn pop_block(
                     tx,
                 })
             })
-            .collect::<Result<Vec<VerifiedTransactionInformation>, RuntimeError>>()?;
+            .collect::<DbResult<Vec<VerifiedTransactionInformation>>>()?;
 
         alt_block::add_alt_block(
             &AltBlockInformation {
@@ -225,6 +224,64 @@ pub fn pop_block(
     Ok((block_height, block_info.block_hash, block))
 }
 
+//---------------------------------------------------------------------------------------------------- `get_block_blob_with_tx_indexes`
+/// Retrieve a block's raw bytes, the index of the miner transaction and the number of non miner-txs in the block.
+///
+#[doc = doc_error!()]
+pub fn get_block_blob_with_tx_indexes(
+    block_height: &BlockHeight,
+    tables: &impl Tables,
+) -> Result<(Vec<u8>, u64, usize), RuntimeError> {
+    let miner_tx_idx = tables.block_infos().get(block_height)?.mining_tx_index;
+
+    let block_txs = tables.block_txs_hashes().get(block_height)?.0;
+    let numb_txs = block_txs.len();
+
+    // Get the block header
+    let mut block = tables.block_header_blobs().get(block_height)?.0;
+
+    // Add the miner tx to the blob.
+    let mut miner_tx_blob = tables.tx_blobs().get(&miner_tx_idx)?.0;
+    block.append(&mut miner_tx_blob);
+
+    // Add the blocks tx hashes.
+    monero_serai::io::write_varint(&block_txs.len(), &mut block)
+        .expect("The number of txs per block will not exceed u64::MAX");
+
+    let block_txs_bytes = bytemuck::must_cast_slice(&block_txs);
+    block.extend_from_slice(block_txs_bytes);
+
+    Ok((block, miner_tx_idx, numb_txs))
+}
+
+//---------------------------------------------------------------------------------------------------- `get_block_extended_header_*`
+/// Retrieve a [`BlockCompleteEntry`] from the database.
+///
+#[doc = doc_error!()]
+pub fn get_block_complete_entry(
+    block_hash: &BlockHash,
+    tables: &impl TablesIter,
+) -> Result<BlockCompleteEntry, RuntimeError> {
+    let block_height = tables.block_heights().get(block_hash)?;
+    let (block_blob, miner_tx_idx, numb_non_miner_txs) =
+        get_block_blob_with_tx_indexes(&block_height, tables)?;
+
+    let first_tx_idx = miner_tx_idx + 1;
+
+    let tx_blobs = tables
+        .tx_blobs_iter()
+        .get_range(first_tx_idx..(usize_to_u64(numb_non_miner_txs) + first_tx_idx))?
+        .map(|tx_blob| Ok(Bytes::from(tx_blob?.0)))
+        .collect::<Result<_, RuntimeError>>()?;
+
+    Ok(BlockCompleteEntry {
+        block: Bytes::from(block_blob),
+        txs: TransactionBlobs::Normal(tx_blobs),
+        pruned: false,
+        block_weight: 0,
+    })
+}
+
 //---------------------------------------------------------------------------------------------------- `get_block_extended_header_*`
 /// Retrieve a [`ExtendedBlockHeader`] from the database.
 ///
@@ -239,7 +296,7 @@ pub fn pop_block(
 pub fn get_block_extended_header(
     block_hash: &BlockHash,
     tables: &impl Tables,
-) -> Result<ExtendedBlockHeader, RuntimeError> {
+) -> DbResult<ExtendedBlockHeader> {
     get_block_extended_header_from_height(&tables.block_heights().get(block_hash)?, tables)
 }
 
@@ -253,7 +310,7 @@ pub fn get_block_extended_header(
 pub fn get_block_extended_header_from_height(
     block_height: &BlockHeight,
     tables: &impl Tables,
-) -> Result<ExtendedBlockHeader, RuntimeError> {
+) -> DbResult<ExtendedBlockHeader> {
     let block_info = tables.block_infos().get(block_height)?;
     let block_header_blob = tables.block_header_blobs().get(block_height)?.0;
     let block_header = BlockHeader::read(&mut block_header_blob.as_slice())?;
@@ -279,7 +336,7 @@ pub fn get_block_extended_header_from_height(
 #[inline]
 pub fn get_block_extended_header_top(
     tables: &impl Tables,
-) -> Result<(ExtendedBlockHeader, BlockHeight), RuntimeError> {
+) -> DbResult<(ExtendedBlockHeader, BlockHeight)> {
     let height = chain_height(tables.block_heights())?.saturating_sub(1);
     let header = get_block_extended_header_from_height(&height, tables)?;
     Ok((header, height))
@@ -292,7 +349,7 @@ pub fn get_block_extended_header_top(
 pub fn get_block_info(
     block_height: &BlockHeight,
     table_block_infos: &impl DatabaseRo<BlockInfos>,
-) -> Result<BlockInfo, RuntimeError> {
+) -> DbResult<BlockInfo> {
     table_block_infos.get(block_height)
 }
 
@@ -302,7 +359,7 @@ pub fn get_block_info(
 pub fn get_block_height(
     block_hash: &BlockHash,
     table_block_heights: &impl DatabaseRo<BlockHeights>,
-) -> Result<BlockHeight, RuntimeError> {
+) -> DbResult<BlockHeight> {
     table_block_heights.get(block_hash)
 }
 
@@ -317,7 +374,7 @@ pub fn get_block_height(
 pub fn block_exists(
     block_hash: &BlockHash,
     table_block_heights: &impl DatabaseRo<BlockHeights>,
-) -> Result<bool, RuntimeError> {
+) -> DbResult<bool> {
     table_block_heights.contains(block_hash)
 }
 
