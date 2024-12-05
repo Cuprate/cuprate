@@ -13,20 +13,24 @@ mod address_type;
 mod block_complete_entry;
 mod connection_state;
 mod hard_fork;
+mod pool_info;
+mod pool_info_extent;
 mod transaction_verification_data;
 mod types;
+
+pub mod rpc;
 
 pub use address_type::AddressType;
 pub use block_complete_entry::{BlockCompleteEntry, PrunedTxBlobEntry, TransactionBlobs};
 pub use connection_state::ConnectionState;
 pub use hard_fork::{HardFork, HardForkError};
+pub use pool_info::PoolInfo;
+pub use pool_info_extent::PoolInfoExtent;
 pub use transaction_verification_data::{
     CachedVerificationState, TransactionVerificationData, TxVersion,
 };
 pub use types::{
-    AddAuxPow, AltBlockInformation, AuxPow, Chain, ChainId, ChainInfo, CoinbaseTxSum,
-    ExtendedBlockHeader, FeeEstimate, HardForkInfo, MinerData, MinerDataTxBacklogEntry,
-    OutputHistogramEntry, OutputHistogramInput, OutputOnChain, TxsInBlock,
+    AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, OutputOnChain, TxsInBlock,
     VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 

@@ -9,6 +9,7 @@ mod constants;
 #[cfg(any(feature = "serde", feature = "epee"))]
 mod defaults;
 mod free;
+mod from;
 mod macros;
 mod rpc_call;
 

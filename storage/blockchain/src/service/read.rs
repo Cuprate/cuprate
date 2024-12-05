@@ -29,7 +29,8 @@ use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThre
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, ChainId, ExtendedBlockHeader, OutputHistogramInput, OutputOnChain, TxsInBlock,
+    rpc::OutputHistogramInput,
+    Chain, ChainId, ExtendedBlockHeader, OutputOnChain, TxsInBlock,
 };
 
 use crate::{

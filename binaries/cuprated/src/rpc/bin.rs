@@ -15,7 +15,7 @@ use cuprate_rpc_types::{
     json::{GetOutputDistributionRequest, GetOutputDistributionResponse},
     misc::RequestedInfo,
 };
-use cuprate_types::BlockCompleteEntry;
+use cuprate_types::{BlockCompleteEntry, PoolInfoExtent};
 
 use crate::rpc::{helper, request::blockchain, CupratedRpcHandler};
 
@@ -61,14 +61,44 @@ async fn get_blocks(
         RequestedInfo::PoolOnly => (false, true),
     };
 
+    let pool_info_extent = PoolInfoExtent::None;
+
     if get_pool {
+        let allow_sensitive = !state.is_restricted();
         let max_tx_count = if state.is_restricted() {
             RESTRICTED_TRANSACTIONS_COUNT
         } else {
             usize::MAX
         };
 
-        todo!();
+        //   bool incremental;
+        //   std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>> added_pool_txs;
+        //   bool success = m_core.get_pool_info((time_t)req.pool_info_since, allow_sensitive, max_tx_count, added_pool_txs, res.remaining_added_pool_txids, res.removed_pool_txids, incremental);
+        //   if (success)
+        //   {
+        //     res.added_pool_txs.clear();
+        //     if (m_rpc_payment)
+        //     {
+        //       CHECK_PAYMENT_SAME_TS(req, res, added_pool_txs.size() * COST_PER_TX + (res.remaining_added_pool_txids.size() + res.removed_pool_txids.size()) * COST_PER_POOL_HASH);
+        //     }
+        //     for (const auto &added_pool_tx: added_pool_txs)
+        //     {
+        //       COMMAND_RPC_GET_BLOCKS_FAST::pool_tx_info info;
+        //       info.tx_hash = added_pool_tx.first;
+        //       std::stringstream oss;
+        //       binary_archive<true> ar(oss);
+        //       bool r = req.prune
+        //         ? const_cast<cryptonote::transaction&>(added_pool_tx.second.tx).serialize_base(ar)
+        //         : ::serialization::serialize(ar, const_cast<cryptonote::transaction&>(added_pool_tx.second.tx));
+        //       if (!r)
+        //       {
+        //         res.status = "Failed to serialize transaction";
+        //         return true;
+        //       }
+        //       info.tx_blob = oss.str();
+        //       info.double_spend_seen = added_pool_tx.second.double_spend_seen;
+        //       res.added_pool_txs.push_back(std::move(info));
+        //     }
     }
 
     if get_blocks {
@@ -79,11 +109,15 @@ async fn get_blocks(
         todo!();
     }
 
-    // Ok(GetBlocksResponse {
-    //     base: ResponseBase::OK,
-    //     ..todo!()
-    // })
-    Ok(todo!())
+    Ok(GetBlocksResponse {
+        base: AccessResponseBase::OK,
+        blocks: todo!(),
+        start_height: todo!(),
+        current_height: todo!(),
+        output_indices: todo!(),
+        daemon_time: todo!(),
+        pool_info: todo!(),
+    })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L817-L857>

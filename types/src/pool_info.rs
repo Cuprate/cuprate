@@ -2,25 +2,20 @@
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "epee")]
-use crate::misc::PoolInfoExtent;
+use crate::pool_info_extent::PoolInfoExtent;
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::{
-    epee_object, error,
+    error,
     macros::bytes::{Buf, BufMut},
     read_epee_value, write_field, EpeeObject, EpeeObjectBuilder,
 };
 
 use cuprate_fixed_bytes::ByteArrayVec;
 
-use crate::misc::PoolTxInfo;
+use crate::rpc::{PoolInfoFull, PoolInfoIncremental, PoolTxInfo};
 
 //---------------------------------------------------------------------------------------------------- PoolInfo
-#[doc = crate::macros::monero_definition_link!(
-    cc73fe71162d564ffda8e549b79a350bca53c454,
-    "rpc/core_rpc_server_commands_defs.h",
-    223..=228
-)]
-/// Used in [`crate::bin::GetBlocksResponse`].
+/// Used in RPC's `get_blocks.bin`.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
@@ -29,39 +24,6 @@ pub enum PoolInfo {
     None,
     Incremental(PoolInfoIncremental),
     Full(PoolInfoFull),
-}
-
-//---------------------------------------------------------------------------------------------------- Internal data
-/// Data within [`PoolInfo::Incremental`].
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct PoolInfoIncremental {
-    pub added_pool_txs: Vec<PoolTxInfo>,
-    pub remaining_added_pool_txids: ByteArrayVec<32>,
-    pub removed_pool_txids: ByteArrayVec<32>,
-}
-
-#[cfg(feature = "epee")]
-epee_object! {
-    PoolInfoIncremental,
-    added_pool_txs: Vec<PoolTxInfo>,
-    remaining_added_pool_txids: ByteArrayVec<32>,
-    removed_pool_txids: ByteArrayVec<32>,
-}
-
-/// Data within [`PoolInfo::Full`].
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct PoolInfoFull {
-    pub added_pool_txs: Vec<PoolTxInfo>,
-    pub remaining_added_pool_txids: ByteArrayVec<32>,
-}
-
-#[cfg(feature = "epee")]
-epee_object! {
-    PoolInfoFull,
-    added_pool_txs: Vec<PoolTxInfo>,
-    remaining_added_pool_txids: ByteArrayVec<32>,
 }
 
 //---------------------------------------------------------------------------------------------------- PoolInfo epee impl

@@ -3,10 +3,11 @@
 //! This module contains `cuprate_txpool`'s [`tower::Service`] request and response enums.
 use std::{
     collections::{HashMap, HashSet},
+    num::NonZero,
     sync::Arc,
 };
 
-use cuprate_types::TransactionVerificationData;
+use cuprate_types::{PoolInfo, TransactionVerificationData};
 
 use crate::{
     tx::TxEntry,
@@ -39,6 +40,17 @@ pub enum TxpoolReadRequest {
         /// If this is [`true`], the size returned will
         /// include private transactions in the pool.
         include_sensitive_txs: bool,
+    },
+
+    /// Get general information on the txpool.
+    PoolInfo {
+        /// If this is [`true`], the size returned will
+        /// include private transactions in the pool.
+        include_sensitive_txs: bool,
+        /// TODO
+        max_tx_count: usize,
+        /// TODO
+        start_time: Option<NonZero<usize>>,
     },
 }
 
@@ -79,6 +91,9 @@ pub enum TxpoolReadResponse {
     /// The inner value is the amount of
     /// transactions currently in the pool.
     Size(usize),
+
+    /// Response to [`TxpoolReadRequest::PoolInfo`].
+    PoolInfo(Vec<PoolInfo>),
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteRequest

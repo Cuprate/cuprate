@@ -8,7 +8,10 @@ use cuprate_consensus_context::{
     BlockChainContext, BlockChainContextRequest, BlockChainContextResponse,
     BlockChainContextService,
 };
-use cuprate_types::{FeeEstimate, HardFork, HardForkInfo};
+use cuprate_types::{
+    rpc::{FeeEstimate, HardForkInfo},
+    HardFork,
+};
 
 // FIXME: use `anyhow::Error` over `tower::BoxError` in blockchain context.
 

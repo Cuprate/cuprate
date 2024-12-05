@@ -1,26 +1,52 @@
-//! Miscellaneous types.
+//! Various types (in)directly used in RPC.
 //!
-//! These are `struct`s that appear in request/response types.
-//! For example, [`crate::json::GetConnectionsResponse`] contains
-//! the [`crate::misc::ConnectionInfo`] struct defined here.
+//! These types map very closely to types within `cuprate-rpc-types`,
+//! however they use more canonical types when appropriate, for example,
+//! instead of `hash: String`, this module's types would use something like
+//! `hash: [u8; 32]`.
+//!
+//! - TODO: finish making fields canonical after <https://github.com/Cuprate/cuprate/pull/355>
+//! - TODO: can epee handle `u128`? there are a lot of `(top_64 | low_64)` fields
 
-//---------------------------------------------------------------------------------------------------- Import
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use cuprate_fixed_bytes::ByteArrayVec;
 
-#[cfg(feature = "epee")]
-use cuprate_epee_encoding::epee_object;
+use crate::{AddressType, ConnectionState};
 
-#[cfg(any(feature = "epee", feature = "serde"))]
-use crate::defaults::default_zero;
+const fn default_string() -> String {
+    String::new()
+}
 
-use crate::macros::monero_definition_link;
+fn default_zero<T: From<u8>>() -> T {
+    T::from(0)
+}
 
-//---------------------------------------------------------------------------------------------------- Macros
+/// Output a string link to `monerod` source code.
+macro_rules! monero_definition_link {
+    (
+        $commit:literal, // Git commit hash
+        $file_path:literal, // File path within `monerod`'s `src/`, e.g. `rpc/core_rpc_server_commands_defs.h`
+        $start:literal$(..=$end:literal)? // File lines, e.g. `0..=123` or `0`
+    ) => {
+        concat!(
+            "[Definition](https://github.com/monero-project/monero/blob/",
+            stringify!($commit),
+            "/src/",
+            $file_path,
+            "#L",
+            stringify!($start),
+            $(
+                "-L",
+                stringify!($end),
+            )?
+            ")."
+        )
+    };
+}
+
 /// This macro (local to this file) defines all the misc types.
 ///
 /// This macro:
-/// 1. Defines a `pub struct` with all `pub` fields
+/// 1. Defines a `struct` with all `pub` fields
 /// 2. Implements `serde` on the struct
 /// 3. Implements `epee` on the struct
 ///
@@ -28,7 +54,7 @@ use crate::macros::monero_definition_link;
 /// - The original Monero definition site with [`monero_definition_link`]
 /// - The request/responses where the `struct` is used
 macro_rules! define_struct_and_impl_epee {
-    (
+    ($(
         // Optional `struct` attributes.
         $( #[$struct_attr:meta] )*
         // The `struct`'s name.
@@ -40,41 +66,35 @@ macro_rules! define_struct_and_impl_epee {
                 $field_name:ident: $field_type:ty $(= $field_default:expr_2021)?,
             )*
         }
-    ) => {
-        #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-        $( #[$struct_attr] )*
-        pub struct $struct_name {
-            $(
-                $( #[$field_attr] )*
-                pub $field_name: $field_type,
-            )*
-        }
+    )*) => {
+        $(
+            #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+            #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+            $( #[$struct_attr] )*
+            pub struct $struct_name {
+                $(
+                    $( #[$field_attr] )*
+                    pub $field_name: $field_type,
+                )*
+            }
 
-        #[cfg(feature = "epee")]
-        epee_object! {
-            $struct_name,
-            $(
-                $field_name: $field_type $(= $field_default)?,
-            )*
-        }
+            #[cfg(feature = "epee")]
+            cuprate_epee_encoding::epee_object! {
+                $struct_name,
+                $(
+                    $field_name: $field_type $(= $field_default)?,
+                )*
+            }
+        )*
     };
 }
 
-//---------------------------------------------------------------------------------------------------- Type Definitions
 define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         1163..=1212
     )]
-    ///
-    /// Used in:
-    /// - [`crate::json::GetLastBlockHeaderResponse`]
-    /// - [`crate::json::GetBlockHeaderByHashResponse`]
-    /// - [`crate::json::GetBlockHeaderByHeightResponse`]
-    /// - [`crate::json::GetBlockHeadersRangeResponse`]
-    /// - [`crate::json::GetBlockResponse`]
     BlockHeader {
         block_size: u64,
         block_weight: u64,
@@ -99,18 +119,15 @@ define_struct_and_impl_epee! {
         wide_cumulative_difficulty: String,
         wide_difficulty: String,
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "cryptonote_protocol/cryptonote_protocol_defs.h",
         47..=116
     )]
-    /// Used in [`crate::json::GetConnectionsResponse`].
     ConnectionInfo {
         address: String,
-        address_type: cuprate_types::AddressType,
+        address_type: AddressType,
         avg_download: u64,
         avg_upload: u64,
         connection_id: String,
@@ -135,110 +152,88 @@ define_struct_and_impl_epee! {
         // Exists in the original definition, but isn't
         // used or (de)serialized for RPC purposes.
         // ssl: bool,
-        state: cuprate_types::ConnectionState,
+        state: ConnectionState,
         support_flags: u32,
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         2034..=2047
     )]
-    /// Used in [`crate::json::SetBansRequest`].
     SetBan {
-        #[cfg_attr(feature = "serde", serde(default = "crate::defaults::default_string"))]
+        #[cfg_attr(feature = "serde", serde(default = "default_string"))]
         host: String,
         #[cfg_attr(feature = "serde", serde(default = "default_zero"))]
         ip: u32,
         ban: bool,
         seconds: u32,
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         1999..=2010
     )]
-    /// Used in [`crate::json::GetBansResponse`].
     GetBan {
         host: String,
         ip: u32,
         seconds: u32,
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         2139..=2156
     )]
     #[derive(Copy)]
-    /// Used in [`crate::json::GetOutputHistogramResponse`].
     HistogramEntry {
         amount: u64,
         total_instances: u64,
         unlocked_instances: u64,
         recent_instances: u64,
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         2180..=2191
     )]
     #[derive(Copy)]
-    /// Used in [`crate::json::GetVersionResponse`].
     HardforkEntry {
         height: u64,
         hf_version: u8,
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         2289..=2310
     )]
-    /// Used in [`crate::json::GetAlternateChainsResponse`].
     ChainInfo {
-        block_hash: String,
-        block_hashes: Vec<String>,
-        difficulty: u64,
+        block_hash: [u8; 32],
+        block_hashes: Vec<[u8; 32]>,
         difficulty_top64: u64,
+        difficulty_low64: u64,
         height: u64,
         length: u64,
-        main_chain_parent_block: String,
-        wide_difficulty: String,
+        main_chain_parent_block: [u8; 32],
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         2393..=2400
     )]
-    /// Used in [`crate::json::SyncInfoResponse`].
     SyncInfoPeer {
         info: ConnectionInfo,
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         2402..=2421
     )]
-    /// Used in [`crate::json::SyncInfoResponse`].
     Span {
         connection_id: String,
         nblocks: u64,
@@ -248,129 +243,85 @@ define_struct_and_impl_epee! {
         speed: u32,
         start_block_height: u64,
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         1637..=1642
     )]
     #[derive(Copy)]
-    /// Used in [`crate::json::GetTransactionPoolBacklogResponse`].
     TxBacklogEntry {
         weight: u64,
         fee: u64,
         time_in_pool: u64,
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/rpc_handler.h",
         45..=50
     )]
-    /// Used in [`crate::json::GetOutputDistributionResponse`].
     OutputDistributionData {
         distribution: Vec<u64>,
         start_height: u64,
         base: u64,
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         1016..=1027
     )]
-    /// Used in [`crate::json::GetMinerDataResponse`].
-    ///
-    /// Note that this is different than [`crate::misc::TxBacklogEntry`].
     GetMinerDataTxBacklogEntry {
         id: String,
         weight: u64,
         fee: u64,
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         1070..=1079
     )]
-    /// Used in [`crate::json::AddAuxPowRequest`].
     AuxPow {
-        id: String,
-        hash: String,
+        id: [u8; 32],
+        hash: [u8; 32],
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         192..=199
     )]
-    /// Used in [`crate::bin::GetBlocksResponse`].
     TxOutputIndices {
         indices: Vec<u64>,
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         201..=208
     )]
-    /// Used in [`crate::bin::GetBlocksResponse`].
     BlockOutputIndices {
         indices: Vec<TxOutputIndices>,
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
-        "rpc/core_rpc_server_commands_defs.h",
-        210..=221
-    )]
-    /// Used in [`crate::bin::GetBlocksResponse`].
-    PoolTxInfo {
-        tx_hash: [u8; 32],
-        tx_blob: String,
-        double_spend_seen: bool,
-    }
-}
-
-define_struct_and_impl_epee! {
-    #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         512..=521
     )]
     #[derive(Copy)]
-    ///
-    /// Used in:
-    /// - [`crate::bin::GetOutsRequest`]
-    /// - [`crate::other::GetOutsRequest`]
     GetOutputsOut {
         amount: u64,
         index: u64,
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         538..=553
     )]
-    #[derive(Copy)]
-    /// Used in [`crate::bin::GetOutsRequest`].
     OutKeyBin {
         key: [u8; 32],
         mask: [u8; 32],
@@ -378,15 +329,12 @@ define_struct_and_impl_epee! {
         height: u64,
         txid: [u8; 32],
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         1335..=1367
     )]
-    /// Used in [`crate::other::GetPeerListResponse`].
     Peer {
         id: u64,
         host: String,
@@ -400,33 +348,24 @@ define_struct_and_impl_epee! {
         #[cfg_attr(feature = "serde", serde(default = "default_zero"))]
         pruning_seed: u32 = default_zero::<u32>(),
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         1398..=1417
     )]
-    ///
-    /// Used in:
-    /// - [`crate::other::GetPeerListResponse`]
-    /// - [`crate::other::GetPublicNodesResponse`]
     PublicNode {
         host: String,
         last_seen: u64,
         rpc_port: u16,
         rpc_credits_per_hash: u32,
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         1519..=1556
     )]
-    /// Used in [`crate::other::GetTransactionPoolResponse`].
     TxInfo {
         blob_size: u64,
         do_not_relay: bool,
@@ -446,42 +385,33 @@ define_struct_and_impl_epee! {
         #[cfg_attr(feature = "serde", serde(default = "default_zero"))]
         weight: u64 = default_zero::<u64>(),
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         1558..=1567
     )]
-    /// Used in [`crate::other::GetTransactionPoolResponse`].
     SpentKeyImageInfo {
         id_hash: String,
         txs_hashes: Vec<String>,
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         1666..=1675
     )]
     #[derive(Copy)]
-    /// Used in [`crate::other::GetTransactionPoolStatsResponse`].
     TxpoolHisto {
         txs: u32,
         bytes: u64,
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         1677..=1710
     )]
-    /// Used in [`crate::other::GetTransactionPoolStatsResponse`].
     TxpoolStats {
         bytes_max: u32,
         bytes_med: u32,
@@ -497,15 +427,12 @@ define_struct_and_impl_epee! {
         oldest: u64,
         txs_total: u32,
     }
-}
 
-define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         582..=597
     )]
-    /// Used in [`crate::other::GetOutsResponse`].
     OutKey {
         key: String,
         mask: String,
@@ -513,8 +440,147 @@ define_struct_and_impl_epee! {
         height: u64,
         txid: String,
     }
+
+    #[doc = monero_definition_link!(
+        "893916ad091a92e765ce3241b94e706ad012b62a",
+        "blockchain_db/lmdb/db_lmdb.cpp",
+        4222
+    )]
+    OutputHistogramInput {
+        amounts: Vec<u64>,
+        min_count: u64,
+        max_count: u64,
+        unlocked: bool,
+        recent_cutoff: u64,
+    }
+
+    #[doc = monero_definition_link!(
+        "893916ad091a92e765ce3241b94e706ad012b62a",
+        "rpc/core_rpc_server_commands_defs.h",
+        2139..=2156
+    )]
+    OutputHistogramEntry {
+        amount: u64,
+        total_instances: u64,
+        unlocked_instances: u64,
+        recent_instances: u64,
+    }
+
+    #[doc = monero_definition_link!(
+        "893916ad091a92e765ce3241b94e706ad012b62a",
+        "rpc/core_rpc_server_commands_defs.h",
+        2228..=2247
+    )]
+    CoinbaseTxSum {
+        emission_amount_top64: u64,
+        emission_amount_low64: u64,
+        fee_amount_top64: u64,
+        fee_amount_low64: u64,
+    }
+
+    #[doc = monero_definition_link!(
+        "893916ad091a92e765ce3241b94e706ad012b62a",
+        "rpc/core_rpc_server_commands_defs.h",
+        1027..=1033
+    )]
+    MinerData {
+        major_version: u8,
+        height: u64,
+        prev_id: [u8; 32],
+        seed_hash: [u8; 32],
+        difficulty_top64: u64,
+        difficulty_low64: u64,
+        median_weight: u64,
+        already_generated_coins: u64,
+        tx_backlog: Vec<MinerDataTxBacklogEntry>,
+    }
+
+    #[doc = monero_definition_link!(
+        "893916ad091a92e765ce3241b94e706ad012b62a",
+        "rpc/core_rpc_server_commands_defs.h",
+        1037..=1039
+    )]
+    MinerDataTxBacklogEntry {
+        id: [u8; 32],
+        weight: u64,
+        fee: u64,
+    }
+
+    #[doc = monero_definition_link!(
+        "893916ad091a92e765ce3241b94e706ad012b62a",
+        "rpc/core_rpc_server_commands_defs.h",
+        1973..=1980
+    )]
+    HardForkInfo {
+        earliest_height: u64,
+        enabled: bool,
+        state: u32,
+        threshold: u32,
+        version: u8,
+        votes: u32,
+        voting: u8,
+        window: u32,
+    }
+
+    #[doc = monero_definition_link!(
+        "893916ad091a92e765ce3241b94e706ad012b62a",
+        "rpc/core_rpc_server_commands_defs.h",
+        2264..=2267
+    )]
+    FeeEstimate {
+        fee: u64,
+        fees: Vec<u64>,
+        quantization_mask: u64,
+    }
+
+    #[doc = monero_definition_link!(
+        "893916ad091a92e765ce3241b94e706ad012b62a",
+        "rpc/core_rpc_server_commands_defs.h",
+        1115..=1119
+    )]
+    AddAuxPow {
+        blocktemplate_blob: Vec<u8>,
+        blockhashing_blob: Vec<u8>,
+        merkle_root: [u8; 32],
+        merkle_tree_depth: u64,
+        aux_pow: Vec<AuxPow>,
+    }
+
+    #[doc = monero_definition_link!(
+        "893916ad091a92e765ce3241b94e706ad012b62a",
+        "rpc/core_rpc_server_commands_defs.h",
+        227..=229
+    )]
+    PoolTxInfo {
+        tx_hash: [u8; 32],
+        tx_blob: Vec<u8>,
+        double_spend_seen: bool,
+    }
+
+    #[doc = monero_definition_link!(
+        "893916ad091a92e765ce3241b94e706ad012b62a",
+        "rpc/core_rpc_server_commands_defs.h",
+        254..=256
+    )]
+    PoolInfoIncremental {
+        added_pool_txs: Vec<PoolTxInfo>,
+        remaining_added_pool_txids: ByteArrayVec<32>,
+        removed_pool_txids: ByteArrayVec<32>,
+    }
+
+    #[doc = monero_definition_link!(
+        "893916ad091a92e765ce3241b94e706ad012b62a",
+        "rpc/core_rpc_server_commands_defs.h",
+        254..=256
+    )]
+    PoolInfoFull {
+        added_pool_txs: Vec<PoolTxInfo>,
+        remaining_added_pool_txids: ByteArrayVec<32>,
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-mod test {}
+mod test {
+    // use super::*;
+}

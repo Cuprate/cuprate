@@ -20,9 +20,9 @@ json       = ["hex", "dep:cuprate-helper"]
 hex        = ["serde", "dep:hex"]
 
 [dependencies]
-cuprate-epee-encoding   = { workspace = true, optional = true, features = ["std"] }
-cuprate-helper          = { workspace = true, optional = true, features = ["cast"] }
-cuprate-fixed-bytes     = { workspace = true, features = ["std", "serde"] }
+cuprate-epee-encoding = { workspace = true, optional = true, features = ["std"] }
+cuprate-helper        = { workspace = true, optional = true, features = ["cast"] }
+cuprate-fixed-bytes   = { workspace = true, features = ["std", "serde"] }
 
 bytes            = { workspace = true }
 curve25519-dalek = { workspace = true }

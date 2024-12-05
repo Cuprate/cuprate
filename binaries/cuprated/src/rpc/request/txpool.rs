@@ -1,6 +1,6 @@
 //! Functions to send [`TxpoolReadRequest`]s.
 
-use std::convert::Infallible;
+use std::{convert::Infallible, num::NonZero};
 
 use anyhow::{anyhow, Error};
 use tower::{Service, ServiceExt};
@@ -12,6 +12,10 @@ use cuprate_txpool::{
         TxpoolReadHandle,
     },
     TxEntry,
+};
+use cuprate_types::{
+    rpc::{PoolInfoFull, PoolInfoIncremental, PoolTxInfo},
+    PoolInfo,
 };
 
 // FIXME: use `anyhow::Error` over `tower::BoxError` in txpool.
@@ -51,6 +55,31 @@ pub(crate) async fn size(
     };
 
     Ok(usize_to_u64(size))
+}
+
+/// TODO
+pub(crate) async fn pool_info(
+    txpool_read: &mut TxpoolReadHandle,
+    include_sensitive_txs: bool,
+    max_tx_count: usize,
+    start_time: Option<NonZero<usize>>,
+) -> Result<Vec<PoolInfo>, Error> {
+    let TxpoolReadResponse::PoolInfo(vec) = txpool_read
+        .ready()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .call(TxpoolReadRequest::PoolInfo {
+            include_sensitive_txs,
+            max_tx_count,
+            start_time,
+        })
+        .await
+        .map_err(|e| anyhow!(e))?
+    else {
+        unreachable!();
+    };
+
+    Ok(vec)
 }
 
 /// TODO

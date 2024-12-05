@@ -669,7 +669,7 @@ async fn get_output_histogram(
     mut state: CupratedRpcHandler,
     request: GetOutputHistogramRequest,
 ) -> Result<GetOutputHistogramResponse, Error> {
-    let input = cuprate_types::OutputHistogramInput {
+    let input = cuprate_types::rpc::OutputHistogramInput {
         amounts: request.amounts,
         min_count: request.min_count,
         max_count: request.max_count,
@@ -1042,7 +1042,7 @@ fn add_aux_pow_inner(
         .map(|aux| {
             let id = helper::hex_to_hash(aux.id)?;
             let hash = helper::hex_to_hash(aux.hash)?;
-            Ok(cuprate_types::AuxPow { id, hash })
+            Ok(cuprate_types::rpc::AuxPow { id, hash })
         })
         .collect::<Result<Box<[_]>, Error>>()?;
     // Some of the code below requires that the
@@ -1058,7 +1058,7 @@ fn add_aux_pow_inner(
     // }
 
     fn find_nonce(
-        aux_pow: &[cuprate_types::AuxPow],
+        aux_pow: &[cuprate_types::rpc::AuxPow],
         non_zero_len: NonZero<usize>,
         aux_pow_len: usize,
     ) -> Result<(u32, Box<[u32]>), Error> {

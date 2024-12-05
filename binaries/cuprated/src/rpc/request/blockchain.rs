@@ -13,8 +13,8 @@ use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, ChainInfo, CoinbaseTxSum, ExtendedBlockHeader, OutputHistogramEntry,
-    OutputHistogramInput, OutputOnChain,
+    rpc::{ChainInfo, CoinbaseTxSum, OutputHistogramEntry, OutputHistogramInput},
+    Chain, ExtendedBlockHeader, OutputOnChain,
 };
 
 /// [`BlockchainReadRequest::Block`].
