@@ -15,7 +15,7 @@ cuprate-consensus-context = { workspace = true }
 cuprate-consensus-rules   = { workspace = true }
 cuprate-constants         = { workspace = true, features = ["build", "rpc"] }
 cuprate-cryptonight       = { workspace = true }
-cuprate-helper            = { workspace = true, features = ["serde"] }
+cuprate-helper            = { workspace = true, features = ["serde", "time"] }
 cuprate-epee-encoding     = { workspace = true }
 cuprate-fixed-bytes       = { workspace = true }
 cuprate-levin             = { workspace = true }

@@ -19,6 +19,7 @@ mod key_image_spent_status;
 mod misc;
 mod pool_info;
 mod pool_info_extent;
+mod requested_info;
 mod status;
 mod tx_entry;
 
@@ -33,5 +34,6 @@ pub use misc::{
 };
 pub use pool_info::PoolInfo;
 pub use pool_info_extent::PoolInfoExtent;
+pub use requested_info::RequestedInfo;
 pub use status::Status;
 pub use tx_entry::TxEntry;
