@@ -2,7 +2,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::sync::Arc;
 
-use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError, TxRw};
+use cuprate_database::{ConcreteEnv, DatabaseRo, DbResult, Env, EnvInner, TxRw};
 use cuprate_database_service::DatabaseWriteHandle;
 use cuprate_types::{
     blockchain::{BlockchainResponse, BlockchainWriteRequest},
@@ -36,7 +36,7 @@ pub fn init_write_service(env: Arc<ConcreteEnv>) -> BlockchainWriteHandle {
 fn handle_blockchain_request(
     env: &ConcreteEnv,
     req: &BlockchainWriteRequest,
-) -> Result<BlockchainResponse, RuntimeError> {
+) -> DbResult<BlockchainResponse> {
     match req {
         BlockchainWriteRequest::WriteBlock(block) => write_block(env, block),
         BlockchainWriteRequest::WriteAltBlock(alt_block) => write_alt_block(env, alt_block),

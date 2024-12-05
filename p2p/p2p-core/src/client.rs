@@ -27,9 +27,11 @@ mod connector;
 pub mod handshaker;
 mod request_handler;
 mod timeout_monitor;
+mod weak;
 
 pub use connector::{ConnectRequest, Connector};
 pub use handshaker::{DoHandshakeRequest, HandshakeError, HandshakerBuilder};
+pub use weak::WeakClient;
 
 /// An internal identifier for a given peer, will be their address if known
 /// or a random u128 if not.
@@ -127,6 +129,17 @@ impl<Z: NetworkZone> Client<Z> {
             Err(e) => e.to_string(),
         }
         .into()
+    }
+
+    /// Create a [`WeakClient`] for this [`Client`].
+    pub fn downgrade(&self) -> WeakClient<Z> {
+        WeakClient {
+            info: self.info.clone(),
+            connection_tx: self.connection_tx.downgrade(),
+            semaphore: self.semaphore.clone(),
+            permit: None,
+            error: self.error.clone(),
+        }
     }
 }
 

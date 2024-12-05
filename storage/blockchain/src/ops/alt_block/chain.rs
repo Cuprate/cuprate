@@ -1,6 +1,6 @@
 use std::cmp::{max, min};
 
-use cuprate_database::{DatabaseRo, DatabaseRw, RuntimeError};
+use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError};
 use cuprate_types::{Chain, ChainId};
 
 use crate::{
@@ -21,7 +21,7 @@ pub fn update_alt_chain_info(
     alt_block_height: &AltBlockHeight,
     prev_hash: &BlockHash,
     tables: &mut impl TablesMut,
-) -> Result<(), RuntimeError> {
+) -> DbResult<()> {
     let parent_chain = match tables.alt_block_heights().get(prev_hash) {
         Ok(alt_parent_height) => Chain::Alt(alt_parent_height.chain_id.into()),
         Err(RuntimeError::KeyNotFound) => Chain::Main,
@@ -74,7 +74,7 @@ pub fn get_alt_chain_history_ranges(
     range: std::ops::Range<BlockHeight>,
     alt_chain: ChainId,
     alt_chain_infos: &impl DatabaseRo<AltChainInfos>,
-) -> Result<Vec<(Chain, std::ops::Range<BlockHeight>)>, RuntimeError> {
+) -> DbResult<Vec<(Chain, std::ops::Range<BlockHeight>)>> {
     let mut ranges = Vec::with_capacity(5);
 
     let mut i = range.end;

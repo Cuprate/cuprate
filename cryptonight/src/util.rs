@@ -49,7 +49,7 @@ pub(crate) fn subarray_copy<T: AsRef<[U]> + ?Sized, U: Copy, const LEN: usize>(
 /// A mutable reference to a fixed-size subarray of type `[U; LEN]`.
 ///
 /// # Panics
-/// Panics if `start + LEN > array.as_ref().len()`.
+/// Panics if `start + LEN > array.as_mut().len()`.
 #[inline]
 pub(crate) fn subarray_mut<T: AsMut<[U]> + ?Sized, U, const LEN: usize>(
     array: &mut T,

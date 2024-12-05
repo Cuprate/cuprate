@@ -50,7 +50,7 @@ pub use constants::{
 };
 pub use database::{DatabaseIter, DatabaseRo, DatabaseRw};
 pub use env::{Env, EnvInner};
-pub use error::{InitError, RuntimeError};
+pub use error::{DbResult, InitError, RuntimeError};
 pub use key::{Key, KeyCompare};
 pub use storable::{Storable, StorableBytes, StorableStr, StorableVec};
 pub use table::Table;

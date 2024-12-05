@@ -1,7 +1,7 @@
 //! Database transaction abstraction; `trait TxRo`, `trait TxRw`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::error::RuntimeError;
+use crate::error::DbResult;
 
 //---------------------------------------------------------------------------------------------------- TxRo
 /// Read-only database transaction.
@@ -16,7 +16,7 @@ pub trait TxRo<'tx> {
     ///
     /// # Errors
     /// This operation will always return `Ok(())` with the `redb` backend.
-    fn commit(self) -> Result<(), RuntimeError>;
+    fn commit(self) -> DbResult<()>;
 }
 
 //---------------------------------------------------------------------------------------------------- TxRw
@@ -32,12 +32,12 @@ pub trait TxRw<'tx> {
     /// This operation will always return `Ok(())` with the `redb` backend.
     ///
     /// If `Env::MANUAL_RESIZE == true`,
-    /// [`RuntimeError::ResizeNeeded`] may be returned.
-    fn commit(self) -> Result<(), RuntimeError>;
+    /// [`crate::RuntimeError::ResizeNeeded`] may be returned.
+    fn commit(self) -> DbResult<()>;
 
     /// Abort the transaction, erasing any writes that have occurred.
     ///
     /// # Errors
     /// This operation will always return `Ok(())` with the `heed` backend.
-    fn abort(self) -> Result<(), RuntimeError>;
+    fn abort(self) -> DbResult<()>;
 }

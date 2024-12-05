@@ -1,8 +1,9 @@
-use bytes::Buf;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 
-use cuprate_epee_encoding::{epee_object, EpeeObjectBuilder};
+use bytes::Buf;
 use thiserror::Error;
+
+use cuprate_epee_encoding::{epee_object, EpeeObjectBuilder};
 
 use crate::NetworkAddress;
 
@@ -77,7 +78,7 @@ impl From<NetworkAddress> for TaggedNetworkAddress {
                 SocketAddr::V4(addr) => Self {
                     ty: Some(1),
                     addr: Some(AllFieldsNetworkAddress {
-                        m_ip: Some(u32::from_be_bytes(addr.ip().octets())),
+                        m_ip: Some(u32::from_le_bytes(addr.ip().octets())),
                         m_port: Some(addr.port()),
                         addr: None,
                     }),
@@ -112,7 +113,10 @@ epee_object!(
 impl AllFieldsNetworkAddress {
     fn try_into_network_address(self, ty: u8) -> Option<NetworkAddress> {
         Some(match ty {
-            1 => NetworkAddress::from(SocketAddrV4::new(Ipv4Addr::from(self.m_ip?), self.m_port?)),
+            1 => NetworkAddress::from(SocketAddrV4::new(
+                Ipv4Addr::from(self.m_ip?.to_le_bytes()),
+                self.m_port?,
+            )),
             2 => NetworkAddress::from(SocketAddrV6::new(
                 Ipv6Addr::from(self.addr?),
                 self.m_port?,

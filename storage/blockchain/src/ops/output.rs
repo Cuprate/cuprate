@@ -5,7 +5,7 @@ use curve25519_dalek::edwards::CompressedEdwardsY;
 use monero_serai::transaction::Timelock;
 
 use cuprate_database::{
-    RuntimeError, {DatabaseRo, DatabaseRw},
+    DbResult, RuntimeError, {DatabaseRo, DatabaseRw},
 };
 use cuprate_helper::crypto::compute_zero_commitment;
 use cuprate_helper::map::u64_to_timelock;
@@ -30,7 +30,7 @@ pub fn add_output(
     amount: Amount,
     output: &Output,
     tables: &mut impl TablesMut,
-) -> Result<PreRctOutputId, RuntimeError> {
+) -> DbResult<PreRctOutputId> {
     // FIXME: this would be much better expressed with a
     // `btree_map::Entry`-like API, fix `trait DatabaseRw`.
     let num_outputs = match tables.num_outputs().get(&amount) {
@@ -61,7 +61,7 @@ pub fn add_output(
 pub fn remove_output(
     pre_rct_output_id: &PreRctOutputId,
     tables: &mut impl TablesMut,
-) -> Result<(), RuntimeError> {
+) -> DbResult<()> {
     // Decrement the amount index by 1, or delete the entry out-right.
     // FIXME: this would be much better expressed with a
     // `btree_map::Entry`-like API, fix `trait DatabaseRw`.
@@ -86,7 +86,7 @@ pub fn remove_output(
 pub fn get_output(
     pre_rct_output_id: &PreRctOutputId,
     table_outputs: &impl DatabaseRo<Outputs>,
-) -> Result<Output, RuntimeError> {
+) -> DbResult<Output> {
     table_outputs.get(pre_rct_output_id)
 }
 
@@ -95,7 +95,7 @@ pub fn get_output(
 /// This returns the amount of pre-RCT outputs currently stored.
 #[doc = doc_error!()]
 #[inline]
-pub fn get_num_outputs(table_outputs: &impl DatabaseRo<Outputs>) -> Result<u64, RuntimeError> {
+pub fn get_num_outputs(table_outputs: &impl DatabaseRo<Outputs>) -> DbResult<u64> {
     table_outputs.len()
 }
 
@@ -110,7 +110,7 @@ pub fn get_num_outputs(table_outputs: &impl DatabaseRo<Outputs>) -> Result<u64, 
 pub fn add_rct_output(
     rct_output: &RctOutput,
     table_rct_outputs: &mut impl DatabaseRw<RctOutputs>,
-) -> Result<AmountIndex, RuntimeError> {
+) -> DbResult<AmountIndex> {
     let amount_index = get_rct_num_outputs(table_rct_outputs)?;
     table_rct_outputs.put(&amount_index, rct_output)?;
     Ok(amount_index)
@@ -123,7 +123,7 @@ pub fn add_rct_output(
 pub fn remove_rct_output(
     amount_index: &AmountIndex,
     table_rct_outputs: &mut impl DatabaseRw<RctOutputs>,
-) -> Result<(), RuntimeError> {
+) -> DbResult<()> {
     table_rct_outputs.delete(amount_index)
 }
 
@@ -133,7 +133,7 @@ pub fn remove_rct_output(
 pub fn get_rct_output(
     amount_index: &AmountIndex,
     table_rct_outputs: &impl DatabaseRo<RctOutputs>,
-) -> Result<RctOutput, RuntimeError> {
+) -> DbResult<RctOutput> {
     table_rct_outputs.get(amount_index)
 }
 
@@ -142,9 +142,7 @@ pub fn get_rct_output(
 /// This returns the amount of RCT outputs currently stored.
 #[doc = doc_error!()]
 #[inline]
-pub fn get_rct_num_outputs(
-    table_rct_outputs: &impl DatabaseRo<RctOutputs>,
-) -> Result<u64, RuntimeError> {
+pub fn get_rct_num_outputs(table_rct_outputs: &impl DatabaseRo<RctOutputs>) -> DbResult<u64> {
     table_rct_outputs.len()
 }
 
@@ -155,7 +153,7 @@ pub fn output_to_output_on_chain(
     output: &Output,
     amount: Amount,
     table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
-) -> Result<OutputOnChain, RuntimeError> {
+) -> DbResult<OutputOnChain> {
     let commitment = compute_zero_commitment(amount);
 
     let time_lock = if output
@@ -191,7 +189,7 @@ pub fn output_to_output_on_chain(
 pub fn rct_output_to_output_on_chain(
     rct_output: &RctOutput,
     table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
-) -> Result<OutputOnChain, RuntimeError> {
+) -> DbResult<OutputOnChain> {
     // INVARIANT: Commitments stored are valid when stored by the database.
     let commitment = CompressedEdwardsY::from_slice(&rct_output.commitment)
         .unwrap()
@@ -223,10 +221,7 @@ pub fn rct_output_to_output_on_chain(
 ///
 /// Note that this still support RCT outputs, in that case, [`PreRctOutputId::amount`] should be `0`.
 #[doc = doc_error!()]
-pub fn id_to_output_on_chain(
-    id: &PreRctOutputId,
-    tables: &impl Tables,
-) -> Result<OutputOnChain, RuntimeError> {
+pub fn id_to_output_on_chain(id: &PreRctOutputId, tables: &impl Tables) -> DbResult<OutputOnChain> {
     // v2 transactions.
     if id.amount == 0 {
         let rct_output = get_rct_output(&id.amount_index, tables.rct_outputs())?;

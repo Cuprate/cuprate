@@ -9,7 +9,6 @@
 //! based on these values.
 
 //---------------------------------------------------------------------------------------------------- Import
-
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 

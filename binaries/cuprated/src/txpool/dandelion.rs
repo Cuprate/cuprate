@@ -59,7 +59,7 @@ pub fn dandelion_router(clear_net: NetworkInterface<ClearNet>) -> ConcreteDandel
         diffuse_service::DiffuseService {
             clear_net_broadcast_service: clear_net.broadcast_svc(),
         },
-        stem_service::OutboundPeerStream { clear_net },
+        stem_service::OutboundPeerStream::new(clear_net),
         DANDELION_CONFIG,
     )
 }
