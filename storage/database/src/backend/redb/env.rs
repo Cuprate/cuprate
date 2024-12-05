@@ -6,7 +6,7 @@ use crate::{
     config::{Config, SyncMode},
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::{Env, EnvInner},
-    error::{InitError, RuntimeError},
+    error::{DbResult, InitError, RuntimeError},
     table::Table,
     TxRw,
 };
@@ -56,8 +56,9 @@ impl Env for ConcreteEnv {
             // <https://docs.rs/redb/1.5.0/redb/enum.Durability.html#variant.Paranoid>
             // should we use that instead of Immediate?
             SyncMode::Safe => redb::Durability::Immediate,
-            SyncMode::Async => redb::Durability::Eventual,
-            SyncMode::Fast => redb::Durability::None,
+            // FIXME: `Fast` maps to `Eventual` instead of `None` because of:
+            // <https://github.com/Cuprate/cuprate/issues/149>
+            SyncMode::Async | SyncMode::Fast => redb::Durability::Eventual,
             // SOMEDAY: dynamic syncs are not implemented.
             SyncMode::FastThenSafe | SyncMode::Threshold(_) => unimplemented!(),
         };
@@ -104,7 +105,7 @@ impl Env for ConcreteEnv {
         &self.config
     }
 
-    fn sync(&self) -> Result<(), RuntimeError> {
+    fn sync(&self) -> DbResult<()> {
         // `redb`'s syncs are tied with write transactions,
         // so just create one, don't do anything and commit.
         let mut tx_rw = self.env.begin_write()?;
@@ -118,18 +119,20 @@ impl Env for ConcreteEnv {
 }
 
 //---------------------------------------------------------------------------------------------------- EnvInner Impl
-impl<'env> EnvInner<'env, redb::ReadTransaction, redb::WriteTransaction>
-    for (&'env redb::Database, redb::Durability)
+impl<'env> EnvInner<'env> for (&'env redb::Database, redb::Durability)
 where
     Self: 'env,
 {
+    type Ro<'a> = redb::ReadTransaction;
+    type Rw<'a> = redb::WriteTransaction;
+
     #[inline]
-    fn tx_ro(&'env self) -> Result<redb::ReadTransaction, RuntimeError> {
+    fn tx_ro(&self) -> DbResult<redb::ReadTransaction> {
         Ok(self.0.begin_read()?)
     }
 
     #[inline]
-    fn tx_rw(&'env self) -> Result<redb::WriteTransaction, RuntimeError> {
+    fn tx_rw(&self) -> DbResult<redb::WriteTransaction> {
         // `redb` has sync modes on the TX level, unlike heed,
         // which sets it at the Environment level.
         //
@@ -142,8 +145,8 @@ where
     #[inline]
     fn open_db_ro<T: Table>(
         &self,
-        tx_ro: &redb::ReadTransaction,
-    ) -> Result<impl DatabaseRo<T> + DatabaseIter<T>, RuntimeError> {
+        tx_ro: &Self::Ro<'_>,
+    ) -> DbResult<impl DatabaseRo<T> + DatabaseIter<T>> {
         // Open up a read-only database using our `T: Table`'s const metadata.
         let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
             redb::TableDefinition::new(T::NAME);
@@ -152,10 +155,7 @@ where
     }
 
     #[inline]
-    fn open_db_rw<T: Table>(
-        &self,
-        tx_rw: &redb::WriteTransaction,
-    ) -> Result<impl DatabaseRw<T>, RuntimeError> {
+    fn open_db_rw<T: Table>(&self, tx_rw: &Self::Rw<'_>) -> DbResult<impl DatabaseRw<T>> {
         // Open up a read/write database using our `T: Table`'s const metadata.
         let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
             redb::TableDefinition::new(T::NAME);
@@ -165,14 +165,14 @@ where
         Ok(tx_rw.open_table(table)?)
     }
 
-    fn create_db<T: Table>(&self, tx_rw: &redb::WriteTransaction) -> Result<(), RuntimeError> {
+    fn create_db<T: Table>(&self, tx_rw: &redb::WriteTransaction) -> DbResult<()> {
         // INVARIANT: `redb` creates tables if they don't exist.
         self.open_db_rw::<T>(tx_rw)?;
         Ok(())
     }
 
     #[inline]
-    fn clear_db<T: Table>(&self, tx_rw: &mut redb::WriteTransaction) -> Result<(), RuntimeError> {
+    fn clear_db<T: Table>(&self, tx_rw: &mut redb::WriteTransaction) -> DbResult<()> {
         let table: redb::TableDefinition<
             'static,
             StorableRedb<<T as Table>::Key>,

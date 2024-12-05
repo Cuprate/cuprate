@@ -5,6 +5,8 @@
 //! for more control over what is actually sent over the wire at certain times.
 use bytes::{Bytes, BytesMut};
 
+use cuprate_helper::cast::usize_to_u64;
+
 use crate::{
     header::{Flags, HEADER_SIZE},
     Bucket, BucketBuilder, BucketError, BucketHead, LevinBody, LevinCommand, Protocol,
@@ -31,13 +33,13 @@ pub enum LevinMessage<T: LevinBody> {
 
 impl<T: LevinBody> From<T> for LevinMessage<T> {
     fn from(value: T) -> Self {
-        LevinMessage::Body(value)
+        Self::Body(value)
     }
 }
 
 impl<T: LevinBody> From<Bucket<T::Command>> for LevinMessage<T> {
     fn from(value: Bucket<T::Command>) -> Self {
-        LevinMessage::Bucket(value)
+        Self::Bucket(value)
     }
 }
 
@@ -56,7 +58,7 @@ pub struct Dummy(pub usize);
 
 impl<T: LevinBody> From<Dummy> for LevinMessage<T> {
     fn from(value: Dummy) -> Self {
-        LevinMessage::Dummy(value.0)
+        Self::Dummy(value.0)
     }
 }
 
@@ -74,12 +76,11 @@ pub fn make_fragmented_messages<T: LevinBody>(
     fragment_size: usize,
     message: T,
 ) -> Result<Vec<Bucket<T::Command>>, BucketError> {
-    if fragment_size * 2 < HEADER_SIZE {
-        panic!(
-            "Fragment size: {fragment_size}, is too small, must be at least {}",
-            2 * HEADER_SIZE
-        );
-    }
+    assert!(
+        fragment_size * 2 >= HEADER_SIZE,
+        "Fragment size: {fragment_size}, is too small, must be at least {}",
+        2 * HEADER_SIZE
+    );
 
     let mut builder = BucketBuilder::new(protocol);
     message.encode(&mut builder)?;
@@ -106,9 +107,7 @@ pub fn make_fragmented_messages<T: LevinBody>(
             new_body.resize(fragment_size - HEADER_SIZE, 0);
 
             bucket.body = new_body.freeze();
-            bucket.header.size = (fragment_size - HEADER_SIZE)
-                .try_into()
-                .expect("Bucket size does not fit into u64");
+            bucket.header.size = usize_to_u64(fragment_size - HEADER_SIZE);
         }
 
         return Ok(vec![bucket]);
@@ -118,9 +117,7 @@ pub fn make_fragmented_messages<T: LevinBody>(
     // The first fragment will set the START flag, the last will set the END flag.
     let fragment_head = BucketHead {
         signature: protocol.signature,
-        size: (fragment_size - HEADER_SIZE)
-            .try_into()
-            .expect("Bucket size does not fit into u64"),
+        size: usize_to_u64(fragment_size - HEADER_SIZE),
         have_to_return_data: false,
         // Just use a default command.
         command: T::Command::from(0),
@@ -191,7 +188,7 @@ pub(crate) fn make_dummy_message<T: LevinCommand>(protocol: &Protocol, size: usi
     // A header to put on the dummy message.
     let header = BucketHead {
         signature: protocol.signature,
-        size: size.try_into().expect("Bucket size does not fit into u64"),
+        size: usize_to_u64(size),
         have_to_return_data: false,
         // Just use a default command.
         command: T::from(0),

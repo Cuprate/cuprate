@@ -8,12 +8,18 @@ use core::{
     ops::{Add, Div, Mul, Sub},
 };
 
+#[cfg(feature = "std")]
+mod rolling_median;
+
 //---------------------------------------------------------------------------------------------------- Types
 // INVARIANT: must be private.
 // Protects against outside-crate implementations.
 mod private {
     pub trait Sealed: Copy + PartialOrd<Self> + core::fmt::Display {}
 }
+
+#[cfg(feature = "std")]
+pub use rolling_median::RollingMedian;
 
 /// Non-floating point numbers
 ///
@@ -83,8 +89,9 @@ where
 /// assert_eq!(median(vec), 5);
 /// ```
 ///
-/// # Safety
+/// # Invariant
 /// If not sorted the output will be invalid.
+#[expect(clippy::debug_assert_with_mut_call)]
 pub fn median<T>(array: impl AsRef<[T]>) -> T
 where
     T: Add<Output = T>

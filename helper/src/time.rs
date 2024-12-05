@@ -55,7 +55,7 @@ pub const fn unix_clock(seconds_after_unix_epoch: u64) -> u32 {
 /// - The seconds returned is guaranteed to be `0..=59`
 /// - The minutes returned is guaranteed to be `0..=59`
 /// - The hours returned can be over `23`, as this is not a clock function,
-/// see [`secs_to_clock`] for clock-like behavior that wraps around on `24`
+///   see [`secs_to_clock`] for clock-like behavior that wraps around on `24`
 ///
 /// ```rust
 /// # use cuprate_helper::time::*;
@@ -129,6 +129,7 @@ pub const fn secs_to_clock(seconds: u32) -> (u8, u8, u8) {
     debug_assert!(m < 60);
     debug_assert!(s < 60);
 
+    #[expect(clippy::cast_possible_truncation, reason = "checked above")]
     (h as u8, m, s)
 }
 
@@ -153,6 +154,7 @@ pub fn time() -> u32 {
 ///
 /// This is guaranteed to return a value between `0..=86399`
 pub fn time_utc() -> u32 {
+    #[expect(clippy::cast_sign_loss, reason = "checked in function calls")]
     unix_clock(chrono::offset::Local::now().timestamp() as u64)
 }
 

@@ -34,12 +34,12 @@ macro_rules! const_block_blob {
         #[doc = ""]
         #[doc = concat!("let block = Block::read(&mut ", stringify!($name), ").unwrap();")]
         #[doc = ""]
-        #[doc = concat!("assert_eq!(block.header.major_version, ", $major_version, ");")]
-        #[doc = concat!("assert_eq!(block.header.minor_version, ", $minor_version, ");")]
+        #[doc = concat!("assert_eq!(block.header.hardfork_version, ", $major_version, ");")]
+        #[doc = concat!("assert_eq!(block.header.hardfork_signal, ", $minor_version, ");")]
         #[doc = concat!("assert_eq!(block.header.timestamp, ", $timestamp, ");")]
         #[doc = concat!("assert_eq!(block.header.nonce, ", $nonce, ");")]
-        #[doc = concat!("assert!(matches!(block.miner_tx.prefix.inputs[0], Input::Gen(", $height, ")));")]
-        #[doc = concat!("assert_eq!(block.txs.len(), ", $tx_len, ");")]
+        #[doc = concat!("assert!(matches!(block.miner_transaction.prefix().inputs[0], Input::Gen(", $height, ")));")]
+        #[doc = concat!("assert_eq!(block.transactions.len(), ", $tx_len, ");")]
         #[doc = concat!("assert_eq!(hex::encode(block.hash()), \"", $hash, "\")")]
         /// ```
         pub const $name: &[u8] = include_bytes!($data_path);
@@ -104,10 +104,9 @@ macro_rules! const_tx_blob {
         hash: $hash:literal, // Transaction hash
         data_path: $data_path:literal, // Path to the transaction blob
         version: $version:literal, // Transaction version
-        timelock: $timelock:expr, // Transaction's timelock (use the real type `Timelock`)
+        timelock: $timelock:expr_2021, // Transaction's timelock (use the real type `Timelock`)
         input_len: $input_len:literal, // Amount of inputs
         output_len: $output_len:literal, // Amount of outputs
-        signatures_len: $signatures_len:literal, // Amount of signatures
     ) => {
         #[doc = concat!("Transaction with hash `", $hash, "`.")]
         ///
@@ -117,11 +116,10 @@ macro_rules! const_tx_blob {
         #[doc = ""]
         #[doc = concat!("let tx = Transaction::read(&mut ", stringify!($name), ").unwrap();")]
         #[doc = ""]
-        #[doc = concat!("assert_eq!(tx.prefix.version, ", $version, ");")]
-        #[doc = concat!("assert_eq!(tx.prefix.timelock, ", stringify!($timelock), ");")]
-        #[doc = concat!("assert_eq!(tx.prefix.inputs.len(), ", $input_len, ");")]
-        #[doc = concat!("assert_eq!(tx.prefix.outputs.len(), ", $output_len, ");")]
-        #[doc = concat!("assert_eq!(tx.signatures.len(), ", $signatures_len, ");")]
+        #[doc = concat!("assert_eq!(tx.version(), ", $version, ");")]
+        #[doc = concat!("assert_eq!(tx.prefix().additional_timelock, ", stringify!($timelock), ");")]
+        #[doc = concat!("assert_eq!(tx.prefix().inputs.len(), ", $input_len, ");")]
+        #[doc = concat!("assert_eq!(tx.prefix().outputs.len(), ", $output_len, ");")]
         #[doc = concat!("assert_eq!(hex::encode(tx.hash()), \"", $hash, "\")")]
         /// ```
         pub const $name: &[u8] = include_bytes!($data_path);
@@ -136,7 +134,6 @@ const_tx_blob! {
     timelock: Timelock::Block(100_081),
     input_len: 1,
     output_len: 5,
-    signatures_len: 0,
 }
 
 const_tx_blob! {
@@ -147,7 +144,6 @@ const_tx_blob! {
     timelock: Timelock::None,
     input_len: 19,
     output_len: 61,
-    signatures_len: 19,
 }
 
 const_tx_blob! {
@@ -158,7 +154,6 @@ const_tx_blob! {
     timelock: Timelock::None,
     input_len: 46,
     output_len: 46,
-    signatures_len: 46,
 }
 
 const_tx_blob! {
@@ -169,7 +164,6 @@ const_tx_blob! {
     timelock: Timelock::None,
     input_len: 1,
     output_len: 2,
-    signatures_len: 0,
 }
 
 const_tx_blob! {
@@ -180,7 +174,6 @@ const_tx_blob! {
     timelock: Timelock::None,
     input_len: 1,
     output_len: 2,
-    signatures_len: 0,
 }
 
 const_tx_blob! {
@@ -191,7 +184,6 @@ const_tx_blob! {
     timelock: Timelock::None,
     input_len: 2,
     output_len: 2,
-    signatures_len: 0,
 }
 
 const_tx_blob! {
@@ -202,7 +194,6 @@ const_tx_blob! {
     timelock: Timelock::None,
     input_len: 2,
     output_len: 5,
-    signatures_len: 2,
 }
 
 const_tx_blob! {
@@ -213,7 +204,6 @@ const_tx_blob! {
     timelock: Timelock::None,
     input_len: 2,
     output_len: 2,
-    signatures_len: 0,
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

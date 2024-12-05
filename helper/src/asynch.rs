@@ -19,7 +19,7 @@ pub struct InfallibleOneshotReceiver<T>(oneshot::Receiver<T>);
 
 impl<T> From<oneshot::Receiver<T>> for InfallibleOneshotReceiver<T> {
     fn from(value: oneshot::Receiver<T>) -> Self {
-        InfallibleOneshotReceiver(value)
+        Self(value)
     }
 }
 
@@ -43,7 +43,7 @@ where
 {
     let (tx, rx) = oneshot::channel();
     rayon::spawn(move || {
-        let _ = tx.send(f());
+        drop(tx.send(f()));
     });
     rx.await.expect("The sender must not be dropped")
 }
@@ -62,7 +62,7 @@ mod test {
     #[tokio::test]
     // Assert that basic channel operations work.
     async fn infallible_oneshot_receiver() {
-        let (tx, rx) = futures::channel::oneshot::channel::<String>();
+        let (tx, rx) = oneshot::channel::<String>();
         let msg = "hello world!".to_string();
 
         tx.send(msg.clone()).unwrap();
@@ -84,7 +84,7 @@ mod test {
         let barrier = Arc::new(Barrier::new(2));
         let task = |barrier: &Barrier| barrier.wait();
 
-        let b_2 = barrier.clone();
+        let b_2 = Arc::clone(&barrier);
 
         let (tx, rx) = std::sync::mpsc::channel();
 

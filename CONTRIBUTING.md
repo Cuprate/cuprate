@@ -120,12 +120,15 @@ Before pushing your code, please run the following at the root of the repository
 
 After that, ensure all other CI passes by running:
 
-| Command                                                                | Does what |
-|------------------------------------------------------------------------|-----------|
-| `RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features`      | Checks documentation is OK
-| `cargo clippy --workspace --all-features --all-targets -- -D warnings` | Checks clippy lints are satisfied
-| `cargo test --all-features --workspace`                                | Runs all tests
-| `cargo build --all-features --all-targets --workspace`                 | Builds all code
+| Command                                                                | Does what                                                               |
+|------------------------------------------------------------------------|-------------------------------------------------------------------------|
+| `RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features`      | Checks documentation is OK                                              |
+| `cargo clippy --workspace --all-features --all-targets -- -D warnings` | Checks clippy lints are satisfied                                       |
+| `cargo test --all-features --workspace`                                | Runs all tests                                                          |
+| `cargo build --all-features --all-targets --workspace`                 | Builds all code                                                         |
+| `cargo hack --workspace check --feature-powerset --no-dev-deps`        | Uses `cargo hack` to check our crates build with different features set |
+
+`cargo hack` can be installed with `cargo` from: https://github.com/taiki-e/cargo-hack.
 
 **Note: in order for some tests to work, you will need to place a [`monerod`](https://www.getmonero.org/downloads/) binary at the root of the repository.**
 
@@ -216,9 +219,9 @@ The description of pull requests should generally follow the template laid out i
 If your pull request is long and/or has sections that need clarifying, consider leaving a review on your own PR with comments explaining the changes.
 
 ## 5. Documentation
-Cuprate's crates (libraries) have inline documentation.
+Cuprate's crates (libraries) have inline documentation, they are published from the `main` branch at https://doc.cuprate.org.
 
-These can be built and viewed using the `cargo` tool. For example, to build and view a specific crate's documentation, run the following command at the repository's root:
+Documentation can be built and viewed using the `cargo` tool. For example, to build and view a specific crate's documentation, run the following command at the repository's root:
 ```bash
 cargo doc --open --package $CRATE
 ```

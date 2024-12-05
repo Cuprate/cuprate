@@ -1,16 +1,12 @@
-use std::{mem, sync::Arc};
+use std::mem;
 
-use rand::prelude::SliceRandom;
-use rand::thread_rng;
 use tokio::{task::JoinSet, time::timeout};
-use tower::{Service, ServiceExt};
+use tower::{util::BoxCloneService, Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
 use cuprate_p2p_core::{
-    client::InternalPeerID,
-    handles::ConnectionHandle,
-    services::{PeerSyncRequest, PeerSyncResponse},
-    NetworkZone, PeerRequest, PeerResponse, PeerSyncSvc,
+    client::InternalPeerID, handles::ConnectionHandle, NetworkZone, PeerRequest, PeerResponse,
+    ProtocolRequest, ProtocolResponse,
 };
 use cuprate_wire::protocol::{ChainRequest, ChainResponse};
 
@@ -19,28 +15,30 @@ use crate::{
         chain_tracker::{ChainEntry, ChainTracker},
         BlockDownloadError, ChainSvcRequest, ChainSvcResponse,
     },
-    client_pool::{ClientPool, ClientPoolDropGuard},
     constants::{
         BLOCK_DOWNLOADER_REQUEST_TIMEOUT, INITIAL_CHAIN_REQUESTS_TO_SEND,
         MAX_BLOCKS_IDS_IN_CHAIN_ENTRY, MEDIUM_BAN,
     },
+    peer_set::{ClientDropGuard, PeerSetRequest, PeerSetResponse},
 };
 
 /// Request a chain entry from a peer.
 ///
 /// Because the block downloader only follows and downloads one chain we only have to send the block hash of
 /// top block we have found and the genesis block, this is then called `short_history`.
-pub async fn request_chain_entry_from_peer<N: NetworkZone>(
-    mut client: ClientPoolDropGuard<N>,
+pub(crate) async fn request_chain_entry_from_peer<N: NetworkZone>(
+    mut client: ClientDropGuard<N>,
     short_history: [[u8; 32]; 2],
-) -> Result<(ClientPoolDropGuard<N>, ChainEntry<N>), BlockDownloadError> {
-    let PeerResponse::GetChain(chain_res) = client
+) -> Result<(ClientDropGuard<N>, ChainEntry<N>), BlockDownloadError> {
+    let PeerResponse::Protocol(ProtocolResponse::GetChain(chain_res)) = client
         .ready()
         .await?
-        .call(PeerRequest::GetChain(ChainRequest {
-            block_ids: short_history.into(),
-            prune: true,
-        }))
+        .call(PeerRequest::Protocol(ProtocolRequest::GetChain(
+            ChainRequest {
+                block_ids: short_history.into(),
+                prune: true,
+            },
+        )))
         .await?
     else {
         panic!("Connection task returned wrong response!");
@@ -81,13 +79,11 @@ pub async fn request_chain_entry_from_peer<N: NetworkZone>(
 ///
 /// We then wait for their response and choose the peer who claims the highest cumulative difficulty.
 #[instrument(level = "error", skip_all)]
-pub async fn initial_chain_search<N: NetworkZone, S, C>(
-    client_pool: &Arc<ClientPool<N>>,
-    mut peer_sync_svc: S,
+pub async fn initial_chain_search<N: NetworkZone, C>(
+    peer_set: &mut BoxCloneService<PeerSetRequest, PeerSetResponse<N>, tower::BoxError>,
     mut our_chain_svc: C,
 ) -> Result<ChainTracker<N>, BlockDownloadError>
 where
-    S: PeerSyncSvc<N>,
     C: Service<ChainSvcRequest, Response = ChainSvcResponse, Error = tower::BoxError>,
 {
     tracing::debug!("Getting our chain history");
@@ -106,36 +102,22 @@ where
 
     let our_genesis = *block_ids.last().expect("Blockchain had no genesis block.");
 
-    tracing::debug!("Getting a list of peers with higher cumulative difficulty");
-
-    let PeerSyncResponse::PeersToSyncFrom(mut peers) = peer_sync_svc
+    let PeerSetResponse::PeersWithMorePoW(clients) = peer_set
         .ready()
         .await?
-        .call(PeerSyncRequest::PeersToSyncFrom {
-            block_needed: None,
-            current_cumulative_difficulty: cumulative_difficulty,
-        })
+        .call(PeerSetRequest::PeersWithMorePoW(cumulative_difficulty))
         .await?
     else {
-        panic!("peer sync service sent wrong response.");
+        unreachable!();
     };
-
-    tracing::debug!(
-        "{} peers claim they have a higher cumulative difficulty",
-        peers.len()
-    );
-
-    // Shuffle the list to remove any possibility of peers being able to prioritize getting picked.
-    peers.shuffle(&mut thread_rng());
-
-    let mut peers = client_pool.borrow_clients(&peers);
+    let mut peers = clients.into_iter();
 
     let mut futs = JoinSet::new();
 
-    let req = PeerRequest::GetChain(ChainRequest {
+    let req = PeerRequest::Protocol(ProtocolRequest::GetChain(ChainRequest {
         block_ids: block_ids.into(),
         prune: false,
-    });
+    }));
 
     tracing::debug!("Sending requests for chain entries.");
 
@@ -149,7 +131,7 @@ where
         futs.spawn(timeout(
             BLOCK_DOWNLOADER_REQUEST_TIMEOUT,
             async move {
-                let PeerResponse::GetChain(chain_res) =
+                let PeerResponse::Protocol(ProtocolResponse::GetChain(chain_res)) =
                     next_peer.ready().await?.call(cloned_req).await?
                 else {
                     panic!("connection task returned wrong response!");
@@ -177,7 +159,7 @@ where
             Some(res) => {
                 // res has already been set, replace it if this peer claims higher cumulative difficulty
                 if res.0.cumulative_difficulty() < task_res.0.cumulative_difficulty() {
-                    let _ = mem::replace(res, task_res);
+                    drop(mem::replace(res, task_res));
                 }
             }
             None => {
@@ -198,7 +180,7 @@ where
     tracing::debug!("Highest chin entry contained {} block Ids", hashes.len());
 
     // Find the first unknown block in the batch.
-    let ChainSvcResponse::FindFirstUnknown(first_unknown, expected_height) = our_chain_svc
+    let ChainSvcResponse::FindFirstUnknown(first_unknown_ret) = our_chain_svc
         .ready()
         .await?
         .call(ChainSvcRequest::FindFirstUnknown(hashes.clone()))
@@ -207,16 +189,16 @@ where
         panic!("chain service sent wrong response.");
     };
 
+    // We know all the blocks already
+    // TODO: The peer could still be on a different chain, however the chain might just be too far split.
+    let Some((first_unknown, expected_height)) = first_unknown_ret else {
+        return Err(BlockDownloadError::FailedToFindAChainToFollow);
+    };
+
     // The peer must send at least one block we already know.
     if first_unknown == 0 {
         peer_handle.ban_peer(MEDIUM_BAN);
         return Err(BlockDownloadError::PeerSentNoOverlappingBlocks);
-    }
-
-    // We know all the blocks already
-    // TODO: The peer could still be on a different chain, however the chain might just be too far split.
-    if first_unknown == hashes.len() {
-        return Err(BlockDownloadError::FailedToFindAChainToFollow);
     }
 
     let previous_id = hashes[first_unknown - 1];

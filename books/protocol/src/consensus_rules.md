@@ -24,11 +24,12 @@ an Ed25519 point which is not the negative identity and with y coordinate fully 
 
 Prime Order Point:
 a point in the prime subgroup.
+
 PoW Hash:
-the hash calculated by using the active proof of work function.
+the hash calculated from the block hashing blob by using the active proof of work function.
 
 Block Hash:
-the keccak hash of the block.
+the keccak hash of the block hashing blob, this is a slightly different hashing blob than the one used to calculate the `PoW Hash`.
 
 Transaction Blob:
 the raw bytes of a serialized transaction.

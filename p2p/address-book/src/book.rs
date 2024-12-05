@@ -27,13 +27,16 @@ use cuprate_p2p_core::{
 };
 use cuprate_pruning::PruningSeed;
 
-use crate::{peer_list::PeerList, store::save_peers_to_disk, AddressBookConfig, AddressBookError};
+use crate::{
+    peer_list::PeerList, store::save_peers_to_disk, AddressBookConfig, AddressBookError,
+    BorshNetworkZone,
+};
 
 #[cfg(test)]
 mod tests;
 
 /// An entry in the connected list.
-pub struct ConnectionPeerEntry<Z: NetworkZone> {
+pub(crate) struct ConnectionPeerEntry<Z: NetworkZone> {
     addr: Option<Z::Addr>,
     id: u64,
     handle: ConnectionHandle,
@@ -45,7 +48,7 @@ pub struct ConnectionPeerEntry<Z: NetworkZone> {
     rpc_credits_per_hash: u32,
 }
 
-pub struct AddressBook<Z: NetworkZone> {
+pub struct AddressBook<Z: BorshNetworkZone> {
     /// Our white peers - the peers we have previously connected to.
     white_list: PeerList<Z>,
     /// Our gray peers - the peers we have been told about but haven't connected to.
@@ -66,7 +69,7 @@ pub struct AddressBook<Z: NetworkZone> {
     cfg: AddressBookConfig,
 }
 
-impl<Z: NetworkZone> AddressBook<Z> {
+impl<Z: BorshNetworkZone> AddressBook<Z> {
     pub fn new(
         cfg: AddressBookConfig,
         white_peers: Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>,
@@ -106,14 +109,14 @@ impl<Z: NetworkZone> AddressBook<Z> {
             match handle.poll_unpin(cx) {
                 Poll::Pending => return,
                 Poll::Ready(Ok(Err(e))) => {
-                    tracing::error!("Could not save peer list to disk, got error: {}", e)
+                    tracing::error!("Could not save peer list to disk, got error: {e}");
                 }
                 Poll::Ready(Err(e)) => {
                     if e.is_panic() {
                         panic::resume_unwind(e.into_panic())
                     }
                 }
-                _ => (),
+                Poll::Ready(_) => (),
             }
         }
         // the task is finished.
@@ -141,6 +144,7 @@ impl<Z: NetworkZone> AddressBook<Z> {
         let mut internal_addr_disconnected = Vec::new();
         let mut addrs_to_ban = Vec::new();
 
+        #[expect(clippy::iter_over_hash_type, reason = "ordering doesn't matter here")]
         for (internal_addr, peer) in &mut self.connected_peers {
             if let Some(time) = peer.handle.check_should_ban() {
                 match internal_addr {
@@ -155,7 +159,7 @@ impl<Z: NetworkZone> AddressBook<Z> {
             }
         }
 
-        for (addr, time) in addrs_to_ban.into_iter() {
+        for (addr, time) in addrs_to_ban {
             self.ban_peer(addr, time);
         }
 
@@ -169,12 +173,7 @@ impl<Z: NetworkZone> AddressBook<Z> {
                     .remove(&addr);
 
                 // If the amount of peers with this ban id is 0 remove the whole set.
-                if self
-                    .connected_peers_ban_id
-                    .get(&addr.ban_id())
-                    .unwrap()
-                    .is_empty()
-                {
+                if self.connected_peers_ban_id[&addr.ban_id()].is_empty() {
                     self.connected_peers_ban_id.remove(&addr.ban_id());
                 }
                 // remove the peer from the anchor list.
@@ -185,7 +184,7 @@ impl<Z: NetworkZone> AddressBook<Z> {
 
     fn ban_peer(&mut self, addr: Z::Addr, time: Duration) {
         if self.banned_peers.contains_key(&addr.ban_id()) {
-            tracing::error!("Tried to ban peer twice, this shouldn't happen.")
+            tracing::error!("Tried to ban peer twice, this shouldn't happen.");
         }
 
         if let Some(connected_peers_with_ban_id) = self.connected_peers_ban_id.get(&addr.ban_id()) {
@@ -230,6 +229,15 @@ impl<Z: NetworkZone> AddressBook<Z> {
         self.banned_peers.contains_key(&peer.ban_id())
     }
 
+    /// Checks when a peer will be unbanned.
+    ///
+    /// - If the peer is banned, this returns [`Some`] containing
+    ///   the [`Instant`] the peer will be unbanned
+    /// - If the peer is not banned, this returns [`None`]
+    fn peer_unban_instant(&self, peer: &Z::Addr) -> Option<Instant> {
+        self.banned_peers.get(&peer.ban_id()).copied()
+    }
+
     fn handle_incoming_peer_list(
         &mut self,
         mut peer_list: Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>,
@@ -239,10 +247,10 @@ impl<Z: NetworkZone> AddressBook<Z> {
         peer_list.retain_mut(|peer| {
             peer.adr.make_canonical();
 
-            if !peer.adr.should_add_to_peer_list() {
-                false
-            } else {
+            if peer.adr.should_add_to_peer_list() {
                 !self.is_peer_banned(&peer.adr)
+            } else {
+                false
             }
             // TODO: check rpc/ p2p ports not the same
         });
@@ -257,7 +265,7 @@ impl<Z: NetworkZone> AddressBook<Z> {
 
     fn take_random_white_peer(
         &mut self,
-        block_needed: Option<u64>,
+        block_needed: Option<usize>,
     ) -> Option<ZoneSpecificPeerListEntryBase<Z::Addr>> {
         tracing::debug!("Retrieving random white peer");
         self.white_list
@@ -266,7 +274,7 @@ impl<Z: NetworkZone> AddressBook<Z> {
 
     fn take_random_gray_peer(
         &mut self,
-        block_needed: Option<u64>,
+        block_needed: Option<usize>,
     ) -> Option<ZoneSpecificPeerListEntryBase<Z::Addr>> {
         tracing::debug!("Retrieving random gray peer");
         self.gray_list
@@ -351,7 +359,7 @@ impl<Z: NetworkZone> AddressBook<Z> {
     }
 }
 
-impl<Z: NetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
+impl<Z: BorshNetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
     type Response = AddressBookResponse<Z>;
     type Error = AddressBookError;
     type Future = Ready<Result<Self::Response, Self::Error>>;
@@ -388,7 +396,7 @@ impl<Z: NetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
                         rpc_credits_per_hash,
                     },
                 )
-                .map(|_| AddressBookResponse::Ok),
+                .map(|()| AddressBookResponse::Ok),
             AddressBookRequest::IncomingPeerList(peer_list) => {
                 self.handle_incoming_peer_list(peer_list);
                 Ok(AddressBookResponse::Ok)
@@ -409,9 +417,16 @@ impl<Z: NetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
             AddressBookRequest::GetWhitePeers(len) => {
                 Ok(AddressBookResponse::Peers(self.get_white_peers(len)))
             }
-            AddressBookRequest::IsPeerBanned(addr) => Ok(AddressBookResponse::IsPeerBanned(
-                self.is_peer_banned(&addr),
-            )),
+            AddressBookRequest::GetBan(addr) => Ok(AddressBookResponse::GetBan {
+                unban_instant: self.peer_unban_instant(&addr).map(Instant::into_std),
+            }),
+            AddressBookRequest::PeerlistSize
+            | AddressBookRequest::ConnectionCount
+            | AddressBookRequest::SetBan(_)
+            | AddressBookRequest::GetBans
+            | AddressBookRequest::ConnectionInfo => {
+                todo!("finish https://github.com/Cuprate/cuprate/pull/297")
+            }
         };
 
         ready(response)

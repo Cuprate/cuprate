@@ -1,12 +1,12 @@
 //! Blockchain functions - chain height, generated coins, etc.
 
 //---------------------------------------------------------------------------------------------------- Import
-use cuprate_database::{DatabaseRo, RuntimeError};
+use cuprate_database::{DatabaseRo, DbResult, RuntimeError};
 
 use crate::{
-    ops::macros::doc_error,
+    ops::{block::block_exists, macros::doc_error},
     tables::{BlockHeights, BlockInfos},
-    types::BlockHeight,
+    types::{BlockHash, BlockHeight},
 };
 
 //---------------------------------------------------------------------------------------------------- Free Functions
@@ -22,10 +22,9 @@ use crate::{
 /// So the height of a new block would be `chain_height()`.
 #[doc = doc_error!()]
 #[inline]
-pub fn chain_height(
-    table_block_heights: &impl DatabaseRo<BlockHeights>,
-) -> Result<BlockHeight, RuntimeError> {
-    table_block_heights.len()
+pub fn chain_height(table_block_heights: &impl DatabaseRo<BlockHeights>) -> DbResult<BlockHeight> {
+    #[expect(clippy::cast_possible_truncation, reason = "we enforce 64-bit")]
+    table_block_heights.len().map(|height| height as usize)
 }
 
 /// Retrieve the height of the top block.
@@ -44,10 +43,11 @@ pub fn chain_height(
 #[inline]
 pub fn top_block_height(
     table_block_heights: &impl DatabaseRo<BlockHeights>,
-) -> Result<BlockHeight, RuntimeError> {
+) -> DbResult<BlockHeight> {
     match table_block_heights.len()? {
         0 => Err(RuntimeError::KeyNotFound),
-        height => Ok(height - 1),
+        #[expect(clippy::cast_possible_truncation, reason = "we enforce 64-bit")]
+        height => Ok(height as usize - 1),
     }
 }
 
@@ -68,12 +68,50 @@ pub fn top_block_height(
 pub fn cumulative_generated_coins(
     block_height: &BlockHeight,
     table_block_infos: &impl DatabaseRo<BlockInfos>,
-) -> Result<u64, RuntimeError> {
+) -> DbResult<u64> {
     match table_block_infos.get(block_height) {
         Ok(block_info) => Ok(block_info.cumulative_generated_coins),
         Err(RuntimeError::KeyNotFound) if block_height == &0 => Ok(0),
         Err(e) => Err(e),
     }
+}
+
+/// Find the split point between our chain and a list of [`BlockHash`]s from another chain.
+///
+/// This function accepts chains in chronological and reverse chronological order, however
+/// if the wrong order is specified the return value is meaningless.
+///
+/// For chronologically ordered chains this will return the index of the first unknown, for reverse
+/// chronologically ordered chains this will return the index of the first known.
+///
+/// If all blocks are known for chronologically ordered chains or unknown for reverse chronologically
+/// ordered chains then the length of the chain will be returned.
+#[doc = doc_error!()]
+#[inline]
+pub fn find_split_point(
+    block_ids: &[BlockHash],
+    chronological_order: bool,
+    table_block_heights: &impl DatabaseRo<BlockHeights>,
+) -> Result<usize, RuntimeError> {
+    let mut err = None;
+
+    // Do a binary search to find the first unknown/known block in the batch.
+    let idx = block_ids.partition_point(|block_id| {
+        match block_exists(block_id, table_block_heights) {
+            Ok(exists) => exists == chronological_order,
+            Err(e) => {
+                err.get_or_insert(e);
+                // if this happens the search is scrapped, just return `false` back.
+                false
+            }
+        }
+    });
+
+    if let Some(e) = err {
+        return Err(e);
+    }
+
+    Ok(idx)
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
@@ -82,14 +120,13 @@ mod test {
     use pretty_assertions::assert_eq;
 
     use cuprate_database::{Env, EnvInner, TxRw};
-    use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx2, block_v9_tx3};
+    use cuprate_test_utils::data::{BLOCK_V16_TX0, BLOCK_V1_TX2, BLOCK_V9_TX3};
 
     use super::*;
 
     use crate::{
-        open_tables::OpenTables,
         ops::block::add_block,
-        tables::Tables,
+        tables::{OpenTables, Tables},
         tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
     };
 
@@ -107,11 +144,11 @@ mod test {
         assert_all_tables_are_empty(&env);
 
         let mut blocks = [
-            block_v1_tx2().clone(),
-            block_v9_tx3().clone(),
-            block_v16_tx0().clone(),
+            BLOCK_V1_TX2.clone(),
+            BLOCK_V9_TX3.clone(),
+            BLOCK_V16_TX0.clone(),
         ];
-        let blocks_len = u64::try_from(blocks.len()).unwrap();
+        let blocks_len = blocks.len();
 
         // Add blocks.
         {
@@ -128,7 +165,6 @@ mod test {
             );
 
             for (i, block) in blocks.iter_mut().enumerate() {
-                let i = u64::try_from(i).unwrap();
                 // HACK: `add_block()` asserts blocks with non-sequential heights
                 // cannot be added, to get around this, manually edit the block height.
                 block.height = i;
@@ -138,7 +174,8 @@ mod test {
             // Assert reads are correct.
             AssertTableLen {
                 block_infos: 3,
-                block_blobs: 3,
+                block_header_blobs: 3,
+                block_txs_hashes: 3,
                 block_heights: 3,
                 key_images: 69,
                 num_outputs: 41,

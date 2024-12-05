@@ -1,8 +1,10 @@
 //! This file contains a test for a handshake with monerod but uses fragmented messages.
+
+#![expect(unused_crate_dependencies, reason = "external test module")]
+
 use std::{
     net::SocketAddr,
     pin::Pin,
-    sync::Arc,
     task::{Context, Poll},
     time::Duration,
 };
@@ -13,7 +15,6 @@ use tokio::{
         tcp::{OwnedReadHalf, OwnedWriteHalf},
         TcpListener, TcpStream,
     },
-    sync::Semaphore,
     time::timeout,
 };
 use tokio_util::{
@@ -23,21 +24,20 @@ use tokio_util::{
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::network::Network;
-use cuprate_p2p_core::{
-    client::{ConnectRequest, Connector, DoHandshakeRequest, HandShaker, InternalPeerID},
-    network_zones::ClearNetServerCfg,
-    ConnectionDirection, NetworkZone,
-};
+use cuprate_test_utils::monerod::monerod;
 use cuprate_wire::{
     common::PeerSupportFlags,
     levin::{message::make_fragmented_messages, LevinMessage, Protocol},
     BasicNodeData, Message, MoneroWireCodec,
 };
 
-use cuprate_test_utils::monerod::monerod;
-
-mod utils;
-use utils::*;
+use cuprate_p2p_core::{
+    client::{
+        handshaker::HandshakerBuilder, ConnectRequest, Connector, DoHandshakeRequest,
+        InternalPeerID,
+    },
+    ClearNetServerCfg, ConnectionDirection, NetworkZone,
+};
 
 /// A network zone equal to clear net where every message sent is turned into a fragmented message.
 /// Does not support sending fragmented or dummy messages manually.
@@ -47,9 +47,6 @@ pub enum FragNet {}
 #[async_trait::async_trait]
 impl NetworkZone for FragNet {
     const NAME: &'static str = "FragNet";
-    const SEEDS: &'static [Self::Addr] = &[];
-    const ALLOW_SYNC: bool = true;
-    const DANDELION_PP: bool = true;
     const CHECK_NODE_ID: bool = true;
 
     type Addr = SocketAddr;
@@ -135,9 +132,6 @@ impl Encoder<LevinMessage<Message>> for FragmentCodec {
 
 #[tokio::test]
 async fn fragmented_handshake_cuprate_to_monerod() {
-    let semaphore = Arc::new(Semaphore::new(10));
-    let permit = semaphore.acquire_owned().await.unwrap();
-
     let monerod = monerod(["--fixed-difficulty=1", "--out-peers=0"]).await;
 
     let our_basic_node_data = BasicNodeData {
@@ -149,14 +143,7 @@ async fn fragmented_handshake_cuprate_to_monerod() {
         rpc_credits_per_hash: 0,
     };
 
-    let handshaker = HandShaker::<FragNet, _, _, _, _, _>::new(
-        DummyAddressBook,
-        DummyPeerSyncSvc,
-        DummyCoreSyncSvc,
-        DummyPeerRequestHandlerSvc,
-        |_| futures::stream::pending(),
-        our_basic_node_data,
-    );
+    let handshaker = HandshakerBuilder::<FragNet>::new(our_basic_node_data).build();
 
     let mut connector = Connector::new(handshaker);
 
@@ -166,7 +153,7 @@ async fn fragmented_handshake_cuprate_to_monerod() {
         .unwrap()
         .call(ConnectRequest {
             addr: monerod.p2p_addr(),
-            permit,
+            permit: None,
         })
         .await
         .unwrap();
@@ -174,9 +161,6 @@ async fn fragmented_handshake_cuprate_to_monerod() {
 
 #[tokio::test]
 async fn fragmented_handshake_monerod_to_cuprate() {
-    let semaphore = Arc::new(Semaphore::new(10));
-    let permit = semaphore.acquire_owned().await.unwrap();
-
     let our_basic_node_data = BasicNodeData {
         my_port: 18081,
         network_id: Network::Mainnet.network_id(),
@@ -186,14 +170,7 @@ async fn fragmented_handshake_monerod_to_cuprate() {
         rpc_credits_per_hash: 0,
     };
 
-    let mut handshaker = HandShaker::<FragNet, _, _, _, _, _>::new(
-        DummyAddressBook,
-        DummyPeerSyncSvc,
-        DummyCoreSyncSvc,
-        DummyPeerRequestHandlerSvc,
-        |_| futures::stream::pending(),
-        our_basic_node_data,
-    );
+    let mut handshaker = HandshakerBuilder::<FragNet>::new(our_basic_node_data).build();
 
     let ip = "127.0.0.1".parse().unwrap();
 
@@ -207,7 +184,7 @@ async fn fragmented_handshake_monerod_to_cuprate() {
     let next_connection_fut = timeout(Duration::from_secs(30), listener.next());
 
     if let Some(Ok((addr, stream, sink))) = next_connection_fut.await.unwrap() {
-        let _ = handshaker
+        handshaker
             .ready()
             .await
             .unwrap()
@@ -215,8 +192,8 @@ async fn fragmented_handshake_monerod_to_cuprate() {
                 addr: InternalPeerID::KnownAddr(addr.unwrap()), // This is clear net all addresses are known.
                 peer_stream: stream,
                 peer_sink: sink,
-                direction: ConnectionDirection::InBound,
-                permit,
+                direction: ConnectionDirection::Inbound,
+                permit: None,
             })
             .await
             .unwrap();

@@ -7,6 +7,9 @@ use std::fmt::Debug;
 /// Alias for a thread-safe boxed error.
 type BoxError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
+/// [`Result`] with [`RuntimeError`] as the error.
+pub type DbResult<T> = Result<T, RuntimeError>;
+
 //---------------------------------------------------------------------------------------------------- InitError
 /// Errors that occur during ([`Env::open`](crate::env::Env::open)).
 ///
@@ -59,18 +62,16 @@ pub enum InitError {
 }
 
 //---------------------------------------------------------------------------------------------------- RuntimeError
-/// Errors that occur _after_ successful ([`Env::open`](crate::env::Env::open)).
+/// Errors that occur _after_ successful [`Env::open`](crate::env::Env::open).
 ///
 /// There are no errors for:
 /// 1. Missing tables
 /// 2. (De)serialization
-/// 3. Shutdown errors
 ///
 /// as `cuprate_database` upholds the invariant that:
 ///
 /// 1. All tables exist
 /// 2. (De)serialization never fails
-/// 3. The database (thread-pool) only shuts down when all channels are dropped
 #[derive(thiserror::Error, Debug)]
 pub enum RuntimeError {
     /// The given key already existed in the database.

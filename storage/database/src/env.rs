@@ -6,7 +6,7 @@ use std::num::NonZeroUsize;
 use crate::{
     config::Config,
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
-    error::{InitError, RuntimeError},
+    error::{DbResult, InitError},
     resize::ResizeAlgorithm,
     table::Table,
     transaction::{TxRo, TxRw},
@@ -24,15 +24,14 @@ use crate::{
 ///
 /// # Lifetimes
 /// The lifetimes associated with `Env` have a sequential flow:
-/// 1. `ConcreteEnv`
-/// 2. `'env`
-/// 3. `'tx`
-/// 4. `'db`
+/// ```text
+/// Env -> Tx -> Database
+/// ```
 ///
 /// As in:
 /// - open database tables only live as long as...
 /// - transactions which only live as long as the...
-/// - environment ([`EnvInner`])
+/// - database environment
 pub trait Env: Sized {
     //------------------------------------------------ Constants
     /// Does the database backend need to be manually
@@ -40,7 +39,7 @@ pub trait Env: Sized {
     ///
     /// # Invariant
     /// If this is `false`, that means this [`Env`]
-    /// must _never_ return a [`RuntimeError::ResizeNeeded`].
+    /// must _never_ return a [`crate::RuntimeError::ResizeNeeded`].
     ///
     /// If this is `true`, [`Env::resize_map`] & [`Env::current_map_size`]
     /// _must_ be re-implemented, as it just panics by default.
@@ -62,17 +61,17 @@ pub trait Env: Sized {
     // For `heed`, this is just `heed::Env`, for `redb` this is
     // `(redb::Database, redb::Durability)` as each transaction
     // needs the sync mode set during creation.
-    type EnvInner<'env>: EnvInner<'env, Self::TxRo<'env>, Self::TxRw<'env>>
+    type EnvInner<'env>: EnvInner<'env>
     where
         Self: 'env;
 
     /// The read-only transaction type of the backend.
-    type TxRo<'env>: TxRo<'env> + 'env
+    type TxRo<'env>: TxRo<'env>
     where
         Self: 'env;
 
     /// The read/write transaction type of the backend.
-    type TxRw<'env>: TxRw<'env> + 'env
+    type TxRw<'env>: TxRw<'env>
     where
         Self: 'env;
 
@@ -89,7 +88,7 @@ pub trait Env: Sized {
     /// This will error if the database file could not be opened.
     ///
     /// This is the only [`Env`] function that will return
-    /// an [`InitError`] instead of a [`RuntimeError`].
+    /// an [`InitError`] instead of a [`crate::RuntimeError`].
     fn open(config: Config) -> Result<Self, InitError>;
 
     /// Return the [`Config`] that this database was [`Env::open`]ed with.
@@ -108,7 +107,7 @@ pub trait Env: Sized {
     ///
     /// # Errors
     /// If there is a synchronization error, this should return an error.
-    fn sync(&self) -> Result<(), RuntimeError>;
+    fn sync(&self) -> DbResult<()>;
 
     /// Resize the database's memory map to a
     /// new (bigger) size using a [`ResizeAlgorithm`].
@@ -123,7 +122,7 @@ pub trait Env: Sized {
     /// This function _must_ be re-implemented if [`Env::MANUAL_RESIZE`] is `true`.
     ///
     /// Otherwise, this function will panic with `unreachable!()`.
-    #[allow(unused_variables)]
+    #[expect(unused_variables)]
     fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) -> NonZeroUsize {
         unreachable!()
     }
@@ -164,7 +163,7 @@ pub trait Env: Sized {
         // We have the direct PATH to the file,
         // no need to use backend-specific functions.
         //
-        // SAFETY: as we are only accessing the metadata of
+        // INVARIANT: as we are only accessing the metadata of
         // the file and not reading the bytes, it should be
         // fine even with a memory mapped file being actively
         // written to.
@@ -202,30 +201,31 @@ Subsequent table opens will follow the flags/ordering, but only if
 /// Note that when opening tables with [`EnvInner::open_db_ro`],
 /// they must be created first or else it will return error.
 ///
-/// Note that when opening tables with [`EnvInner::open_db_ro`],
-/// they must be created first or else it will return error.
-///
 /// See [`EnvInner::create_db`] for creating tables.
 ///
 /// # Invariant
 #[doc = doc_heed_create_db_invariant!()]
-pub trait EnvInner<'env, Ro, Rw>
-where
-    Self: 'env,
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-{
+pub trait EnvInner<'env> {
+    /// The read-only transaction type of the backend.
+    ///
+    /// `'tx` is the lifetime of the transaction itself.
+    type Ro<'tx>: TxRo<'tx>;
+    /// The read-write transaction type of the backend.
+    ///
+    /// `'tx` is the lifetime of the transaction itself.
+    type Rw<'tx>: TxRw<'tx>;
+
     /// Create a read-only transaction.
     ///
     /// # Errors
-    /// This will only return [`RuntimeError::Io`] if it errors.
-    fn tx_ro(&'env self) -> Result<Ro, RuntimeError>;
+    /// This will only return [`crate::RuntimeError::Io`] if it errors.
+    fn tx_ro(&self) -> DbResult<Self::Ro<'_>>;
 
     /// Create a read/write transaction.
     ///
     /// # Errors
-    /// This will only return [`RuntimeError::Io`] if it errors.
-    fn tx_rw(&'env self) -> Result<Rw, RuntimeError>;
+    /// This will only return [`crate::RuntimeError::Io`] if it errors.
+    fn tx_rw(&self) -> DbResult<Self::Rw<'_>>;
 
     /// Open a database in read-only mode.
     ///
@@ -235,25 +235,51 @@ where
     /// This will open the database [`Table`]
     /// passed as a generic to this function.
     ///
-    /// ```rust,ignore
-    /// let db = env.open_db_ro::<Table>(&tx_ro);
-    /// //  ^                     ^
-    /// // database table       table metadata
-    /// //                      (name, key/value type)
+    /// ```rust
+    /// # use cuprate_database::{
+    /// #     ConcreteEnv,
+    /// #     config::ConfigBuilder,
+    /// #     Env, EnvInner,
+    /// #     DatabaseRo, DatabaseRw, TxRo, TxRw,
+    /// # };
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let tmp_dir = tempfile::tempdir()?;
+    /// # let db_dir = tmp_dir.path().to_owned();
+    /// # let config = ConfigBuilder::new(db_dir.into()).build();
+    /// # let env = ConcreteEnv::open(config)?;
+    /// #
+    /// # struct Table;
+    /// # impl cuprate_database::Table for Table {
+    /// #     const NAME: &'static str = "table";
+    /// #     type Key = u8;
+    /// #     type Value = u64;
+    /// # }
+    /// #
+    /// # let env_inner = env.env_inner();
+    /// # let tx_rw = env_inner.tx_rw()?;
+    /// # env_inner.create_db::<Table>(&tx_rw)?;
+    /// # TxRw::commit(tx_rw);
+    /// #
+    /// # let tx_ro = env_inner.tx_ro()?;
+    /// let db = env_inner.open_db_ro::<Table>(&tx_ro);
+    /// //  ^                           ^
+    /// // database table             table metadata
+    /// //                            (name, key/value type)
+    /// # Ok(()) }
     /// ```
     ///
     /// # Errors
-    /// This will only return [`RuntimeError::Io`] on normal errors.
+    /// This will only return [`crate::RuntimeError::Io`] on normal errors.
     ///
     /// If the specified table is not created upon before this function is called,
-    /// this will return [`RuntimeError::TableNotFound`].
+    /// this will return [`crate::RuntimeError::TableNotFound`].
     ///
     /// # Invariant
     #[doc = doc_heed_create_db_invariant!()]
     fn open_db_ro<T: Table>(
         &self,
-        tx_ro: &Ro,
-    ) -> Result<impl DatabaseRo<T> + DatabaseIter<T>, RuntimeError>;
+        tx_ro: &Self::Ro<'_>,
+    ) -> DbResult<impl DatabaseRo<T> + DatabaseIter<T>>;
 
     /// Open a database in read/write mode.
     ///
@@ -267,22 +293,22 @@ where
     /// passed as a generic to this function.
     ///
     /// # Errors
-    /// This will only return [`RuntimeError::Io`] on errors.
+    /// This will only return [`crate::RuntimeError::Io`] on errors.
     ///
     /// # Invariant
     #[doc = doc_heed_create_db_invariant!()]
-    fn open_db_rw<T: Table>(&self, tx_rw: &Rw) -> Result<impl DatabaseRw<T>, RuntimeError>;
+    fn open_db_rw<T: Table>(&self, tx_rw: &Self::Rw<'_>) -> DbResult<impl DatabaseRw<T>>;
 
     /// Create a database table.
     ///
     /// This will create the database [`Table`] passed as a generic to this function.
     ///
     /// # Errors
-    /// This will only return [`RuntimeError::Io`] on errors.
+    /// This will only return [`crate::RuntimeError::Io`] on errors.
     ///
     /// # Invariant
     #[doc = doc_heed_create_db_invariant!()]
-    fn create_db<T: Table>(&self, tx_rw: &Rw) -> Result<(), RuntimeError>;
+    fn create_db<T: Table>(&self, tx_rw: &Self::Rw<'_>) -> DbResult<()>;
 
     /// Clear all `(key, value)`'s from a database table.
     ///
@@ -293,9 +319,9 @@ where
     /// function's effects can be aborted using [`TxRw::abort`].
     ///
     /// # Errors
-    /// This will return [`RuntimeError::Io`] on normal errors.
+    /// This will return [`crate::RuntimeError::Io`] on normal errors.
     ///
     /// If the specified table is not created upon before this function is called,
-    /// this will return [`RuntimeError::TableNotFound`].
-    fn clear_db<T: Table>(&self, tx_rw: &mut Rw) -> Result<(), RuntimeError>;
+    /// this will return [`crate::RuntimeError::TableNotFound`].
+    fn clear_db<T: Table>(&self, tx_rw: &mut Self::Rw<'_>) -> DbResult<()>;
 }

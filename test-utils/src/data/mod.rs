@@ -15,21 +15,21 @@
 //! let tx: Transaction = Transaction::read(&mut TX_E57440).unwrap();
 //! ```
 //!
-//! ## Functions
-//! The free functions provide access to typed data found in `cuprate_types`:
+//! ## Statics
+//! The statics provide access to typed data found in `cuprate_types`:
 //! ```rust
 //! # use cuprate_test_utils::data::*;
 //! use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
 //!
-//! let block: VerifiedBlockInformation = block_v16_tx0().clone();
-//! let tx: VerifiedTransactionInformation = tx_v1_sig0().clone();
+//! let block: VerifiedBlockInformation = BLOCK_V16_TX0.clone();
+//! let tx: VerifiedTransactionInformation = TX_V1_SIG0.clone();
 //! ```
 
-mod constants;
 pub use constants::{
     BLOCK_43BD1F, BLOCK_5ECB7E, BLOCK_BBD604, BLOCK_F91043, TX_2180A8, TX_3BC7FF, TX_84D48D,
     TX_9E3F73, TX_B6B439, TX_D7FEBD, TX_E2D393, TX_E57440,
 };
+pub use statics::{BLOCK_V16_TX0, BLOCK_V1_TX2, BLOCK_V9_TX3, TX_V1_SIG0, TX_V1_SIG2, TX_V2_RCT3};
 
-mod free;
-pub use free::{block_v16_tx0, block_v1_tx2, block_v9_tx3, tx_v1_sig0, tx_v1_sig2, tx_v2_rct3};
+mod constants;
+mod statics;

@@ -1,7 +1,7 @@
 //! Key image functions.
 
 //---------------------------------------------------------------------------------------------------- Import
-use cuprate_database::{DatabaseRo, DatabaseRw, RuntimeError};
+use cuprate_database::{DatabaseRo, DatabaseRw, DbResult};
 
 use crate::{
     ops::macros::{doc_add_block_inner_invariant, doc_error},
@@ -17,7 +17,7 @@ use crate::{
 pub fn add_key_image(
     key_image: &KeyImage,
     table_key_images: &mut impl DatabaseRw<KeyImages>,
-) -> Result<(), RuntimeError> {
+) -> DbResult<()> {
     table_key_images.put(key_image, &())
 }
 
@@ -28,7 +28,7 @@ pub fn add_key_image(
 pub fn remove_key_image(
     key_image: &KeyImage,
     table_key_images: &mut impl DatabaseRw<KeyImages>,
-) -> Result<(), RuntimeError> {
+) -> DbResult<()> {
     table_key_images.delete(key_image)
 }
 
@@ -38,7 +38,7 @@ pub fn remove_key_image(
 pub fn key_image_exists(
     key_image: &KeyImage,
     table_key_images: &impl DatabaseRo<KeyImages>,
-) -> Result<bool, RuntimeError> {
+) -> DbResult<bool> {
     table_key_images.contains(key_image)
 }
 
@@ -52,8 +52,7 @@ mod test {
     use super::*;
 
     use crate::{
-        open_tables::OpenTables,
-        tables::{Tables, TablesMut},
+        tables::{OpenTables, Tables, TablesMut},
         tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
     };
 

@@ -1,83 +1,6 @@
-//! Cuprate shared data types.
-//!
-//! This crate is a kitchen-sink for data types that are shared across `Cuprate`.
-//!
-//! # Features flags
-//! The [`blockchain`] module, containing the blockchain database request/response
-//! types, must be enabled with the `blockchain` feature (on by default).
-
-//---------------------------------------------------------------------------------------------------- Lints
-// Forbid lints.
-// Our code, and code generated (e.g macros) cannot overrule these.
-#![forbid(
-	// `unsafe` is allowed but it _must_ be
-	// commented with `SAFETY: reason`.
-	clippy::undocumented_unsafe_blocks,
-
-	// Never.
-	unused_unsafe,
-	redundant_semicolons,
-	unused_allocation,
-	coherence_leak_check,
-	single_use_lifetimes,
-	while_true,
-	clippy::missing_docs_in_private_items,
-
-	// Maybe can be put into `#[deny]`.
-	unconditional_recursion,
-	for_loops_over_fallibles,
-	unused_braces,
-	unused_doc_comments,
-	unused_labels,
-	keyword_idents,
-	non_ascii_idents,
-	variant_size_differences,
-
-	// Probably can be put into `#[deny]`.
-	future_incompatible,
-	let_underscore,
-	break_with_label_and_loop,
-	duplicate_macro_attributes,
-	exported_private_dependencies,
-	large_assignments,
-	overlapping_range_endpoints,
-	semicolon_in_expressions_from_macros,
-	noop_method_call,
-	unreachable_pub,
-)]
-// Deny lints.
-// Some of these are `#[allow]`'ed on a per-case basis.
-#![deny(
-    clippy::all,
-    clippy::correctness,
-    clippy::suspicious,
-    clippy::style,
-    clippy::complexity,
-    clippy::perf,
-    clippy::pedantic,
-    clippy::nursery,
-    clippy::cargo,
-    unused_mut,
-    missing_docs,
-    deprecated,
-    unused_comparisons,
-    nonstandard_style
-)]
-#![allow(
-	// FIXME: this lint affects crates outside of
-	// `database/` for some reason, allow for now.
-	clippy::cargo_common_metadata,
-
-	// FIXME: adding `#[must_use]` onto everything
-	// might just be more annoying than useful...
-	// although it is sometimes nice.
-	clippy::must_use_candidate,
-
-	clippy::module_name_repetitions,
-	clippy::module_inception,
-	clippy::redundant_pub_crate,
-	clippy::option_if_let_else,
-)]
+#![doc = include_str!("../README.md")]
+// `proptest` needs this internally.
+#![cfg_attr(any(feature = "proptest"), allow(non_local_definitions))]
 // Allow some lints when running in debug mode.
 #![cfg_attr(debug_assertions, allow(clippy::todo, clippy::multiple_crate_versions))]
 
@@ -86,13 +9,35 @@
 //
 // Documentation for each module is located in the respective file.
 
+mod address_type;
+mod block_complete_entry;
+mod connection_state;
+mod hard_fork;
+mod transaction_verification_data;
 mod types;
+
+pub use address_type::AddressType;
+pub use block_complete_entry::{BlockCompleteEntry, PrunedTxBlobEntry, TransactionBlobs};
+pub use connection_state::ConnectionState;
+pub use hard_fork::{HardFork, HardForkError};
+pub use transaction_verification_data::{
+    CachedVerificationState, TransactionVerificationData, TxVersion,
+};
 pub use types::{
-    ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation, VerifiedTransactionInformation,
+    AddAuxPow, AltBlockInformation, AuxPow, Chain, ChainId, ChainInfo, CoinbaseTxSum,
+    ExtendedBlockHeader, FeeEstimate, HardForkInfo, MinerData, MinerDataTxBacklogEntry,
+    OutputHistogramEntry, OutputHistogramInput, OutputOnChain, TxsInBlock,
+    VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 
 //---------------------------------------------------------------------------------------------------- Feature-gated
 #[cfg(feature = "blockchain")]
 pub mod blockchain;
+
+#[cfg(feature = "json")]
+pub mod json;
+
+#[cfg(feature = "hex")]
+pub mod hex;
 
 //---------------------------------------------------------------------------------------------------- Private

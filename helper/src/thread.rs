@@ -6,7 +6,6 @@
 use std::{cmp::max, num::NonZeroUsize};
 
 //---------------------------------------------------------------------------------------------------- Thread Count & Percent
-#[allow(non_snake_case)]
 /// Get the total amount of system threads.
 ///
 /// ```rust
@@ -28,10 +27,15 @@ macro_rules! impl_thread_percent {
 		$(
 			$(#[$doc])*
 			pub fn $fn_name() -> NonZeroUsize {
-		        // SAFETY:
-		        // unwrap here is okay because:
-		        // - THREADS().get() is always non-zero
-		        // - max() guards against 0
+                // unwrap here is okay because:
+                // - THREADS().get() is always non-zero
+                // - max() guards against 0
+                #[expect(
+                    clippy::cast_possible_truncation,
+                    clippy::cast_sign_loss,
+                    clippy::cast_precision_loss,
+                    reason = "we need to round integers"
+                )]
 		        NonZeroUsize::new(max(1, (threads().get() as f64 * $percent).floor() as usize)).unwrap()
 		    }
 		)*
@@ -58,10 +62,10 @@ impl_thread_percent! {
 /// Originally from <https://docs.rs/lpt>.
 ///
 /// # Windows
-/// Uses SetThreadPriority() with THREAD_PRIORITY_IDLE (-15).
+/// Uses `SetThreadPriority()` with `THREAD_PRIORITY_IDLE` (-15).
 ///
 /// # Unix
-/// Uses libc::nice() with the max nice level.
+/// Uses `libc::nice()` with the max nice level.
 ///
 /// On macOS and *BSD: +20
 /// On Linux: +19
@@ -74,7 +78,7 @@ pub fn low_priority_thread() {
         // SAFETY: calling C.
         // We are _lowering_ our priority, not increasing, so this function should never fail.
         unsafe {
-            let _ = SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_IDLE);
+            drop(SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_IDLE));
         }
     }
 
@@ -87,7 +91,7 @@ pub fn low_priority_thread() {
         // SAFETY: calling C.
         // We are _lowering_ our priority, not increasing, so this function should never fail.
         unsafe {
-            let _ = libc::nice(NICE_MAX);
+            libc::nice(NICE_MAX);
         }
     }
 }

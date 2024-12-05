@@ -133,7 +133,12 @@ jobs:
     - name: Test
       run: |
         cargo test --all-features --workspace
-        cargo test --package cuprate-blockchain --no-default-features --features redb --features service
+        cargo test --package cuprate-blockchain --no-default-features --features redb
+
+    - name: Hack Check
+      run: |
+        cargo install cargo-hack --locked
+        cargo hack --workspace check --feature-powerset --no-dev-deps
 
     # TODO: upload binaries with `actions/upload-artifact@v3`
     - name: Build

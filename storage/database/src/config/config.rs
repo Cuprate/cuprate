@@ -160,7 +160,7 @@ pub struct Config {
     /// Set the number of slots in the reader table.
     ///
     /// This is only used in LMDB, see
-    /// <https://github.com/LMDB/lmdb/blob/b8e54b4c31378932b69f1298972de54a565185b1/libraries/liblmdb/mdb.c#L794-L799>.
+    /// [here](https://github.com/LMDB/lmdb/blob/b8e54b4c31378932b69f1298972de54a565185b1/libraries/liblmdb/mdb.c#L794-L799).
     ///
     /// By default, this value is [`READER_THREADS_DEFAULT`].
     pub reader_threads: NonZeroUsize,

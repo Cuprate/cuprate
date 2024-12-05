@@ -21,7 +21,6 @@ use cuprate_p2p_core::{
 };
 
 use crate::{
-    client_pool::ClientPool,
     config::P2PConfig,
     constants::{HANDSHAKE_TIMEOUT, MAX_SEED_CONNECTIONS, OUTBOUND_CONNECTION_ATTEMPT_TIMEOUT},
 };
@@ -38,7 +37,7 @@ enum OutboundConnectorError {
 /// set needs specific data that none of the currently connected peers have.
 pub struct MakeConnectionRequest {
     /// The block needed that no connected peers have due to pruning.
-    block_needed: Option<u64>,
+    block_needed: Option<usize>,
 }
 
 /// The outbound connection count keeper.
@@ -46,7 +45,7 @@ pub struct MakeConnectionRequest {
 /// This handles maintaining a minimum number of connections and making extra connections when needed, upto a maximum.
 pub struct OutboundConnectionKeeper<N: NetworkZone, A, C> {
     /// The pool of currently connected peers.
-    pub client_pool: Arc<ClientPool<N>>,
+    pub new_peers_tx: mpsc::Sender<Client<N>>,
     /// The channel that tells us to make new _extra_ outbound connections.
     pub make_connection_rx: mpsc::Receiver<MakeConnectionRequest>,
     /// The address book service
@@ -77,7 +76,7 @@ where
 {
     pub fn new(
         config: P2PConfig<N>,
-        client_pool: Arc<ClientPool<N>>,
+        new_peers_tx: mpsc::Sender<Client<N>>,
         make_connection_rx: mpsc::Receiver<MakeConnectionRequest>,
         address_book_svc: A,
         connector_svc: C,
@@ -86,7 +85,7 @@ where
             .expect("Gray peer percent is incorrect should be 0..=1");
 
         Self {
-            client_pool,
+            new_peers_tx,
             make_connection_rx,
             address_book_svc,
             connector_svc,
@@ -99,16 +98,17 @@ where
 
     /// Connects to random seeds to get peers and immediately disconnects
     #[instrument(level = "info", skip(self))]
+    #[expect(
+        clippy::significant_drop_in_scrutinee,
+        clippy::significant_drop_tightening
+    )]
     async fn connect_to_random_seeds(&mut self) -> Result<(), OutboundConnectorError> {
-        let seeds = N::SEEDS.choose_multiple(&mut thread_rng(), MAX_SEED_CONNECTIONS);
+        let seeds = self
+            .config
+            .seeds
+            .choose_multiple(&mut thread_rng(), MAX_SEED_CONNECTIONS);
 
-        if seeds.len() == 0 {
-            panic!("No seed nodes available to get peers from");
-        }
-
-        // This isn't really needed here to limit connections as the seed nodes will be dropped when we have got
-        // peers from them.
-        let semaphore = Arc::new(Semaphore::new(seeds.len()));
+        assert_ne!(seeds.len(), 0, "No seed nodes available to get peers from");
 
         let mut allowed_errors = seeds.len();
 
@@ -125,10 +125,7 @@ where
                     .expect("Connector had an error in `poll_ready`")
                     .call(ConnectRequest {
                         addr: *seed,
-                        permit: semaphore
-                            .clone()
-                            .try_acquire_owned()
-                            .expect("This must have enough permits as we just set the amount."),
+                        permit: None,
                     }),
             );
             // Spawn the handshake on a separate task with a timeout, so we don't get stuck connecting to a peer.
@@ -136,7 +133,7 @@ where
         }
 
         while let Some(res) = handshake_futs.join_next().await {
-            if matches!(res, Err(_) | Ok(Err(_)) | Ok(Ok(Err(_)))) {
+            if matches!(res, Err(_) | Ok(Err(_) | Ok(Err(_)))) {
                 allowed_errors -= 1;
             }
         }
@@ -151,18 +148,22 @@ where
     /// Connects to a given outbound peer.
     #[instrument(level = "info", skip_all)]
     async fn connect_to_outbound_peer(&mut self, permit: OwnedSemaphorePermit, addr: N::Addr) {
-        let client_pool = self.client_pool.clone();
+        let new_peers_tx = self.new_peers_tx.clone();
         let connection_fut = self
             .connector_svc
             .ready()
             .await
             .expect("Connector had an error in `poll_ready`")
-            .call(ConnectRequest { addr, permit });
+            .call(ConnectRequest {
+                addr,
+                permit: Some(permit),
+            });
 
         tokio::spawn(
             async move {
+                #[expect(clippy::significant_drop_in_scrutinee)]
                 if let Ok(Ok(peer)) = timeout(HANDSHAKE_TIMEOUT, connection_fut).await {
-                    client_pool.add_new_client(peer);
+                    drop(new_peers_tx.send(peer).await);
                 }
             }
             .instrument(Span::current()),
@@ -170,14 +171,16 @@ where
     }
 
     /// Handles a request from the peer set for more peers.
+    #[expect(
+        clippy::significant_drop_tightening,
+        reason = "we need to hold onto a permit"
+    )]
     async fn handle_peer_request(
         &mut self,
         req: &MakeConnectionRequest,
     ) -> Result<(), OutboundConnectorError> {
         // try to get a permit.
-        let permit = self
-            .outbound_semaphore
-            .clone()
+        let permit = Arc::clone(&self.outbound_semaphore)
             .try_acquire_owned()
             .or_else(|_| {
                 // if we can't get a permit add one if we are below the max number of connections.
@@ -187,7 +190,9 @@ where
                 } else {
                     self.outbound_semaphore.add_permits(1);
                     self.extra_peers += 1;
-                    Ok(self.outbound_semaphore.clone().try_acquire_owned().unwrap())
+                    Ok(Arc::clone(&self.outbound_semaphore)
+                        .try_acquire_owned()
+                        .unwrap())
                 }
             })?;
 
@@ -276,12 +281,12 @@ where
                         tracing::info!("Shutting down outbound connector, make connection channel closed.");
                         return;
                     };
-                    // We can't really do much about errors in this function.
+                    #[expect(clippy::let_underscore_must_use, reason = "We can't really do much about errors in this function.")]
                     let _ = self.handle_peer_request(&peer_req).await;
                 },
                 // This future is not cancellation safe as you will lose your space in the queue but as we are the only place
                 // that actually requires permits that should be ok.
-                Ok(permit) = self.outbound_semaphore.clone().acquire_owned() => {
+                Ok(permit) = Arc::clone(&self.outbound_semaphore).acquire_owned() => {
                     if self.handle_free_permit(permit).await.is_err() {
                         // if we got an error then we still have a permit free so to prevent this from just looping
                         // uncontrollably add a timeout.

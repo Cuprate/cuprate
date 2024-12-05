@@ -33,10 +33,22 @@
 #![deny(unused_mut)]
 //#![deny(missing_docs)]
 
+cfg_if::cfg_if! {
+    // Used in `tests/`.
+    if #[cfg(test)] {
+        use futures as _;
+        use proptest as _;
+        use rand as _;
+        use tokio as _;
+    }
+}
+
 use std::fmt::Debug;
 
 use bytes::{Buf, Bytes};
 use thiserror::Error;
+
+use cuprate_helper::cast::usize_to_u64;
 
 pub mod codec;
 pub mod header;
@@ -97,7 +109,7 @@ pub struct Protocol {
 
 impl Default for Protocol {
     fn default() -> Self {
-        Protocol {
+        Self {
             version: MONERO_PROTOCOL_VERSION,
             signature: MONERO_LEVIN_SIGNATURE,
             max_packet_size_before_handshake: MONERO_MAX_PACKET_SIZE_BEFORE_HANDSHAKE,
@@ -128,22 +140,22 @@ pub enum MessageType {
 
 impl MessageType {
     /// Returns if the message requires a response
-    pub fn have_to_return_data(&self) -> bool {
+    pub const fn have_to_return_data(&self) -> bool {
         match self {
-            MessageType::Request => true,
-            MessageType::Response | MessageType::Notification => false,
+            Self::Request => true,
+            Self::Response | Self::Notification => false,
         }
     }
 
-    /// Returns the `MessageType` given the flags and have_to_return_data fields
-    pub fn from_flags_and_have_to_return(
+    /// Returns the `MessageType` given the flags and `have_to_return_data` fields
+    pub const fn from_flags_and_have_to_return(
         flags: Flags,
         have_to_return: bool,
     ) -> Result<Self, BucketError> {
         Ok(match (flags, have_to_return) {
-            (Flags::REQUEST, true) => MessageType::Request,
-            (Flags::REQUEST, false) => MessageType::Notification,
-            (Flags::RESPONSE, false) => MessageType::Response,
+            (Flags::REQUEST, true) => Self::Request,
+            (Flags::REQUEST, false) => Self::Notification,
+            (Flags::RESPONSE, false) => Self::Response,
             _ => {
                 return Err(BucketError::InvalidHeaderFlags(
                     "Unable to assign a message type to this bucket",
@@ -152,10 +164,10 @@ impl MessageType {
         })
     }
 
-    pub fn as_flags(&self) -> header::Flags {
+    pub const fn as_flags(&self) -> Flags {
         match self {
-            MessageType::Request | MessageType::Notification => header::Flags::REQUEST,
-            MessageType::Response => header::Flags::RESPONSE,
+            Self::Request | Self::Notification => Flags::REQUEST,
+            Self::Response => Flags::RESPONSE,
         }
     }
 }
@@ -171,7 +183,7 @@ pub struct BucketBuilder<C> {
 }
 
 impl<C: LevinCommand> BucketBuilder<C> {
-    pub fn new(protocol: &Protocol) -> Self {
+    pub const fn new(protocol: &Protocol) -> Self {
         Self {
             signature: Some(protocol.signature),
             ty: None,
@@ -183,27 +195,27 @@ impl<C: LevinCommand> BucketBuilder<C> {
     }
 
     pub fn set_signature(&mut self, sig: u64) {
-        self.signature = Some(sig)
+        self.signature = Some(sig);
     }
 
     pub fn set_message_type(&mut self, ty: MessageType) {
-        self.ty = Some(ty)
+        self.ty = Some(ty);
     }
 
     pub fn set_command(&mut self, command: C) {
-        self.command = Some(command)
+        self.command = Some(command);
     }
 
     pub fn set_return_code(&mut self, code: i32) {
-        self.return_code = Some(code)
+        self.return_code = Some(code);
     }
 
     pub fn set_protocol_version(&mut self, version: u32) {
-        self.protocol_version = Some(version)
+        self.protocol_version = Some(version);
     }
 
     pub fn set_body(&mut self, body: Bytes) {
-        self.body = Some(body)
+        self.body = Some(body);
     }
 
     pub fn finish(self) -> Bucket<C> {
@@ -212,7 +224,7 @@ impl<C: LevinCommand> BucketBuilder<C> {
         Bucket {
             header: BucketHead {
                 signature: self.signature.unwrap(),
-                size: body.len().try_into().unwrap(),
+                size: usize_to_u64(body.len()),
                 have_to_return_data: ty.have_to_return_data(),
                 command: self.command.unwrap(),
                 return_code: self.return_code.unwrap(),

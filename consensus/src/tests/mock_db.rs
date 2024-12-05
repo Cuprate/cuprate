@@ -16,7 +16,7 @@ use proptest_derive::Arbitrary;
 use tower::{BoxError, Service};
 
 use cuprate_types::{
-    blockchain::{BCReadRequest, BCResponse},
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
     ExtendedBlockHeader,
 };
 
@@ -60,9 +60,9 @@ pub struct DummyBlockExtendedHeader {
 
 impl From<DummyBlockExtendedHeader> for ExtendedBlockHeader {
     fn from(value: DummyBlockExtendedHeader) -> Self {
-        ExtendedBlockHeader {
-            version: value.version.unwrap_or(HardFork::V1) as u8,
-            vote: value.vote.unwrap_or(HardFork::V1) as u8,
+        Self {
+            version: value.version.unwrap_or(HardFork::V1),
+            vote: value.vote.unwrap_or(HardFork::V1).as_u8(),
             timestamp: value.timestamp.unwrap_or_default(),
             cumulative_difficulty: value.cumulative_difficulty.unwrap_or_default(),
             block_weight: value.block_weight.unwrap_or_default(),
@@ -72,31 +72,23 @@ impl From<DummyBlockExtendedHeader> for ExtendedBlockHeader {
 }
 
 impl DummyBlockExtendedHeader {
-    pub fn with_weight_into(
-        mut self,
-        weight: usize,
-        long_term_weight: usize,
-    ) -> DummyBlockExtendedHeader {
+    pub const fn with_weight_into(mut self, weight: usize, long_term_weight: usize) -> Self {
         self.block_weight = Some(weight);
         self.long_term_weight = Some(long_term_weight);
         self
     }
 
-    pub fn with_hard_fork_info(
-        mut self,
-        version: HardFork,
-        vote: HardFork,
-    ) -> DummyBlockExtendedHeader {
+    pub const fn with_hard_fork_info(mut self, version: HardFork, vote: HardFork) -> Self {
         self.vote = Some(vote);
         self.version = Some(version);
         self
     }
 
-    pub fn with_difficulty_info(
+    pub const fn with_difficulty_info(
         mut self,
         timestamp: u64,
         cumulative_difficulty: u128,
-    ) -> DummyBlockExtendedHeader {
+    ) -> Self {
         self.timestamp = Some(timestamp);
         self.cumulative_difficulty = Some(cumulative_difficulty);
         self
@@ -104,16 +96,16 @@ impl DummyBlockExtendedHeader {
 }
 
 #[derive(Debug, Default)]
-pub struct DummyDatabaseBuilder {
+pub(crate) struct DummyDatabaseBuilder {
     blocks: Vec<DummyBlockExtendedHeader>,
 }
 
 impl DummyDatabaseBuilder {
-    pub fn add_block(&mut self, block: DummyBlockExtendedHeader) {
+    pub(crate) fn add_block(&mut self, block: DummyBlockExtendedHeader) {
         self.blocks.push(block);
     }
 
-    pub fn finish(self, dummy_height: Option<usize>) -> DummyDatabase {
+    pub(crate) fn finish(self, dummy_height: Option<usize>) -> DummyDatabase {
         DummyDatabase {
             blocks: Arc::new(self.blocks.into()),
             dummy_height,
@@ -122,13 +114,20 @@ impl DummyDatabaseBuilder {
 }
 
 #[derive(Clone, Debug)]
-pub struct DummyDatabase {
+pub(crate) struct DummyDatabase {
     blocks: Arc<RwLock<Vec<DummyBlockExtendedHeader>>>,
     dummy_height: Option<usize>,
 }
 
-impl Service<BCReadRequest> for DummyDatabase {
-    type Response = BCResponse;
+impl DummyDatabase {
+    #[expect(clippy::needless_pass_by_ref_mut)]
+    pub(crate) fn add_block(&mut self, block: DummyBlockExtendedHeader) {
+        self.blocks.write().unwrap().push(block);
+    }
+}
+
+impl Service<BlockchainReadRequest> for DummyDatabase {
+    type Response = BlockchainResponse;
     type Error = BoxError;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
@@ -137,21 +136,21 @@ impl Service<BCReadRequest> for DummyDatabase {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: BCReadRequest) -> Self::Future {
-        let blocks = self.blocks.clone();
+    fn call(&mut self, req: BlockchainReadRequest) -> Self::Future {
+        let blocks = Arc::clone(&self.blocks);
         let dummy_height = self.dummy_height;
 
         async move {
             Ok(match req {
-                BCReadRequest::BlockExtendedHeader(id) => {
-                    let mut id = usize::try_from(id).unwrap();
+                BlockchainReadRequest::BlockExtendedHeader(id) => {
+                    let mut id = id;
                     if let Some(dummy_height) = dummy_height {
                         let block_len = blocks.read().unwrap().len();
 
                         id -= dummy_height - block_len;
                     }
 
-                    BCResponse::BlockExtendedHeader(
+                    BlockchainResponse::BlockExtendedHeader(
                         blocks
                             .read()
                             .unwrap()
@@ -161,14 +160,14 @@ impl Service<BCReadRequest> for DummyDatabase {
                             .ok_or("block not in database!")?,
                     )
                 }
-                BCReadRequest::BlockHash(id) => {
+                BlockchainReadRequest::BlockHash(id, _) => {
                     let mut hash = [0; 32];
                     hash[0..8].copy_from_slice(&id.to_le_bytes());
-                    BCResponse::BlockHash(hash)
+                    BlockchainResponse::BlockHash(hash)
                 }
-                BCReadRequest::BlockExtendedHeaderInRange(range) => {
-                    let mut end = usize::try_from(range.end).unwrap();
-                    let mut start = usize::try_from(range.start).unwrap();
+                BlockchainReadRequest::BlockExtendedHeaderInRange(range, _) => {
+                    let mut end = range.end;
+                    let mut start = range.start;
 
                     if let Some(dummy_height) = dummy_height {
                         let block_len = blocks.read().unwrap().len();
@@ -177,7 +176,7 @@ impl Service<BCReadRequest> for DummyDatabase {
                         start -= dummy_height - block_len;
                     }
 
-                    BCResponse::BlockExtendedHeaderInRange(
+                    BlockchainResponse::BlockExtendedHeaderInRange(
                         blocks
                             .read()
                             .unwrap()
@@ -189,18 +188,15 @@ impl Service<BCReadRequest> for DummyDatabase {
                             .collect(),
                     )
                 }
-                BCReadRequest::ChainHeight => {
-                    let height: u64 = dummy_height
-                        .unwrap_or(blocks.read().unwrap().len())
-                        .try_into()
-                        .unwrap();
+                BlockchainReadRequest::ChainHeight => {
+                    let height = dummy_height.unwrap_or(blocks.read().unwrap().len());
 
                     let mut top_hash = [0; 32];
                     top_hash[0..8].copy_from_slice(&height.to_le_bytes());
 
-                    BCResponse::ChainHeight(height, top_hash)
+                    BlockchainResponse::ChainHeight(height, top_hash)
                 }
-                BCReadRequest::GeneratedCoins => BCResponse::GeneratedCoins(0),
+                BlockchainReadRequest::GeneratedCoins(_) => BlockchainResponse::GeneratedCoins(0),
                 _ => unimplemented!("the context svc should not need these requests!"),
             })
         }

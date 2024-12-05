@@ -1,3 +1,4 @@
+use alloc::string::{String, ToString};
 use core::{
     fmt::{Debug, Formatter},
     num::TryFromIntError,
@@ -7,6 +8,7 @@ use core::{
 pub type Result<T> = core::result::Result<T, Error>;
 
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
+#[expect(clippy::error_impl_error, reason = "FIXME: rename this type")]
 pub enum Error {
     #[cfg_attr(feature = "std", error("IO error: {0}"))]
     IO(&'static str),
@@ -17,19 +19,18 @@ pub enum Error {
 }
 
 impl Error {
-    fn field_name(&self) -> &'static str {
+    const fn field_name(&self) -> &'static str {
         match self {
-            Error::IO(_) => "io",
-            Error::Format(_) => "format",
-            Error::Value(_) => "value",
+            Self::IO(_) => "io",
+            Self::Format(_) => "format",
+            Self::Value(_) => "value",
         }
     }
 
     fn field_data(&self) -> &str {
         match self {
-            Error::IO(data) => data,
-            Error::Format(data) => data,
-            Error::Value(data) => data,
+            Self::IO(data) | Self::Format(data) => data,
+            Self::Value(data) => data,
         }
     }
 }
@@ -44,12 +45,12 @@ impl Debug for Error {
 
 impl From<TryFromIntError> for Error {
     fn from(_: TryFromIntError) -> Self {
-        Error::Value("Int is too large".to_string())
+        Self::Value("Int is too large".to_string())
     }
 }
 
 impl From<Utf8Error> for Error {
     fn from(_: Utf8Error) -> Self {
-        Error::Value("Invalid utf8 str".to_string())
+        Self::Value("Invalid utf8 str".to_string())
     }
 }

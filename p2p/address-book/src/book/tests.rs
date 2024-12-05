@@ -1,7 +1,7 @@
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{path::PathBuf, time::Duration};
 
 use futures::StreamExt;
-use tokio::{sync::Semaphore, time::interval};
+use tokio::time::interval;
 
 use cuprate_p2p_core::handles::HandleBuilder;
 use cuprate_pruning::PruningSeed;
@@ -15,15 +15,12 @@ fn test_cfg() -> AddressBookConfig {
     AddressBookConfig {
         max_white_list_length: 100,
         max_gray_list_length: 500,
-        peer_store_file: PathBuf::new(),
+        peer_store_directory: PathBuf::new(),
         peer_save_period: Duration::from_secs(60),
     }
 }
 
-fn make_fake_address_book(
-    numb_white: u32,
-    numb_gray: u32,
-) -> AddressBook<TestNetZone<true, true, true>> {
+fn make_fake_address_book(numb_white: u32, numb_gray: u32) -> AddressBook<TestNetZone<true>> {
     let white_list = make_fake_peer_list(0, numb_white);
     let gray_list = make_fake_peer_list(numb_white, numb_gray);
 
@@ -78,11 +75,7 @@ async fn get_white_peers() {
 async fn add_new_peer_already_connected() {
     let mut address_book = make_fake_address_book(0, 0);
 
-    let semaphore = Arc::new(Semaphore::new(10));
-
-    let (_, handle) = HandleBuilder::default()
-        .with_permit(semaphore.clone().try_acquire_owned().unwrap())
-        .build();
+    let (_, handle) = HandleBuilder::default().build();
 
     address_book
         .handle_new_connection(
@@ -98,9 +91,7 @@ async fn add_new_peer_already_connected() {
         )
         .unwrap();
 
-    let (_, handle) = HandleBuilder::default()
-        .with_permit(semaphore.try_acquire_owned().unwrap())
-        .build();
+    let (_, handle) = HandleBuilder::default().build();
 
     assert_eq!(
         address_book.handle_new_connection(
@@ -115,7 +106,7 @@ async fn add_new_peer_already_connected() {
             },
         ),
         Err(AddressBookError::PeerAlreadyConnected)
-    )
+    );
 }
 
 #[tokio::test]
@@ -149,5 +140,5 @@ async fn banned_peer_removed_from_peer_lists() {
             .unwrap()
             .into_inner(),
         TestNetZoneAddr(1)
-    )
+    );
 }

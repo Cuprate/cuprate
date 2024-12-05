@@ -1,3 +1,6 @@
+#![expect(unused_crate_dependencies, reason = "external test module")]
+#![expect(clippy::allow_attributes, reason = "usage inside macro")]
+
 use std::{
     collections::{BTreeMap, HashMap},
     future::ready,
@@ -12,7 +15,7 @@ use cuprate_consensus::{
     TxVerifierService, VerifyTxRequest, VerifyTxResponse, __private::Database,
 };
 use cuprate_types::{
-    blockchain::{BCReadRequest, BCResponse},
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
     OutputOnChain,
 };
 
@@ -23,13 +26,13 @@ use cuprate_test_utils::data::TX_E2D393;
 fn dummy_database(outputs: BTreeMap<u64, OutputOnChain>) -> impl Database + Clone {
     let outputs = Arc::new(outputs);
 
-    service_fn(move |req: BCReadRequest| {
+    service_fn(move |req: BlockchainReadRequest| {
         ready(Ok(match req {
-            BCReadRequest::NumberOutputsWithAmount(_) => {
-                BCResponse::NumberOutputsWithAmount(HashMap::new())
+            BlockchainReadRequest::NumberOutputsWithAmount(_) => {
+                BlockchainResponse::NumberOutputsWithAmount(HashMap::new())
             }
-            BCReadRequest::Outputs(outs) => {
-                let idxs = outs.get(&0).unwrap();
+            BlockchainReadRequest::Outputs(outs) => {
+                let idxs = &outs[&0];
 
                 let mut ret = HashMap::new();
 
@@ -40,9 +43,9 @@ fn dummy_database(outputs: BTreeMap<u64, OutputOnChain>) -> impl Database + Clon
                         .collect::<HashMap<_, _>>(),
                 );
 
-                BCResponse::Outputs(ret)
+                BlockchainResponse::Outputs(ret)
             }
-            BCReadRequest::KeyImagesSpent(_) => BCResponse::KeyImagesSpent(false),
+            BlockchainReadRequest::KeyImagesSpent(_) => BlockchainResponse::KeyImagesSpent(false),
             _ => panic!("Database request not needed for this test"),
         }))
     })

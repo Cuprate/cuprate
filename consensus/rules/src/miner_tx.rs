@@ -1,9 +1,9 @@
-use monero_serai::{
-    ringct::RctType,
-    transaction::{Input, Output, Timelock, Transaction},
-};
+use monero_serai::transaction::{Input, Output, Timelock, Transaction};
 
-use crate::{is_decomposed_amount, transactions::check_output_types, HardFork, TxVersion};
+use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
+use cuprate_types::TxVersion;
+
+use crate::{is_decomposed_amount, transactions::check_output_types, HardFork};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum MinerTxError {
@@ -35,13 +35,13 @@ const MONEY_SUPPLY: u64 = u64::MAX;
 /// The minimum block reward per minute, "tail-emission"
 const MINIMUM_REWARD_PER_MIN: u64 = 3 * 10_u64.pow(11);
 /// The value which `lock_time` should be for a coinbase output.
-const MINER_TX_TIME_LOCKED_BLOCKS: u64 = 60;
+const MINER_TX_TIME_LOCKED_BLOCKS: usize = 60;
 
 /// Calculates the base block reward without taking away the penalty for expanding
 /// the block.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/reward.html#calculating-base-block-reward>
-fn calculate_base_reward(already_generated_coins: u64, hf: &HardFork) -> u64 {
+fn calculate_base_reward(already_generated_coins: u64, hf: HardFork) -> u64 {
     let target_mins = hf.block_time().as_secs() / 60;
     let emission_speed_factor = 20 - (target_mins - 1);
     ((MONEY_SUPPLY - already_generated_coins) >> emission_speed_factor)
@@ -55,7 +55,7 @@ pub fn calculate_block_reward(
     block_weight: usize,
     median_bw: usize,
     already_generated_coins: u64,
-    hf: &HardFork,
+    hf: HardFork,
 ) -> u64 {
     let base_reward = calculate_base_reward(already_generated_coins, hf);
 
@@ -68,7 +68,7 @@ pub fn calculate_block_reward(
         .unwrap();
     let effective_median_bw: u128 = median_bw.try_into().unwrap();
 
-    (((base_reward as u128 * multiplicand) / effective_median_bw) / effective_median_bw)
+    (((u128::from(base_reward) * multiplicand) / effective_median_bw) / effective_median_bw)
         .try_into()
         .unwrap()
 }
@@ -76,9 +76,9 @@ pub fn calculate_block_reward(
 /// Checks the miner transactions version.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#version>
-fn check_miner_tx_version(tx_version: &TxVersion, hf: &HardFork) -> Result<(), MinerTxError> {
+fn check_miner_tx_version(tx_version: TxVersion, hf: HardFork) -> Result<(), MinerTxError> {
     // The TxVersion enum checks if the version is not 1 or 2
-    if hf >= &HardFork::V12 && tx_version != &TxVersion::RingCT {
+    if hf >= HardFork::V12 && tx_version != TxVersion::RingCT {
         Err(MinerTxError::VersionInvalid)
     } else {
         Ok(())
@@ -88,38 +88,38 @@ fn check_miner_tx_version(tx_version: &TxVersion, hf: &HardFork) -> Result<(), M
 /// Checks the miner transactions inputs.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#input>
-fn check_inputs(inputs: &[Input], chain_height: u64) -> Result<(), MinerTxError> {
+fn check_inputs(inputs: &[Input], chain_height: usize) -> Result<(), MinerTxError> {
     if inputs.len() != 1 {
         return Err(MinerTxError::IncorrectNumbOfInputs);
     }
 
     match &inputs[0] {
         Input::Gen(height) => {
-            if height != &chain_height {
-                Err(MinerTxError::InputsHeightIncorrect)
-            } else {
+            if height == &chain_height {
                 Ok(())
+            } else {
+                Err(MinerTxError::InputsHeightIncorrect)
             }
         }
-        _ => Err(MinerTxError::InputNotOfTypeGen),
+        Input::ToKey { .. } => Err(MinerTxError::InputNotOfTypeGen),
     }
 }
 
 /// Checks the miner transaction has a correct time lock.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#unlock-time>
-fn check_time_lock(time_lock: &Timelock, chain_height: u64) -> Result<(), MinerTxError> {
+const fn check_time_lock(time_lock: &Timelock, chain_height: usize) -> Result<(), MinerTxError> {
     match time_lock {
-        Timelock::Block(till_height) => {
+        &Timelock::Block(till_height) => {
             // Lock times above this amount are timestamps not blocks.
             // This is just for safety though and shouldn't actually be hit.
-            if till_height > &500_000_000 {
-                Err(MinerTxError::InvalidLockTime)?;
+            if till_height > MAX_BLOCK_HEIGHT_USIZE {
+                return Err(MinerTxError::InvalidLockTime);
             }
-            if u64::try_from(*till_height).unwrap() != chain_height + MINER_TX_TIME_LOCKED_BLOCKS {
-                Err(MinerTxError::InvalidLockTime)
-            } else {
+            if till_height == chain_height + MINER_TX_TIME_LOCKED_BLOCKS {
                 Ok(())
+            } else {
+                Err(MinerTxError::InvalidLockTime)
             }
         }
         _ => Err(MinerTxError::InvalidLockTime),
@@ -132,18 +132,18 @@ fn check_time_lock(time_lock: &Timelock, chain_height: u64) -> Result<(), MinerT
 /// &&   <https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#zero-amount-v1-output>
 fn sum_outputs(
     outputs: &[Output],
-    hf: &HardFork,
-    tx_version: &TxVersion,
+    hf: HardFork,
+    tx_version: TxVersion,
 ) -> Result<u64, MinerTxError> {
     let mut sum: u64 = 0;
     for out in outputs {
         let amt = out.amount.unwrap_or(0);
 
-        if tx_version == &TxVersion::RingSignatures && amt == 0 {
+        if tx_version == TxVersion::RingSignatures && amt == 0 {
             return Err(MinerTxError::OutputAmountIncorrect);
         }
 
-        if hf == &HardFork::V3 && !is_decomposed_amount(&amt) {
+        if hf == HardFork::V3 && !is_decomposed_amount(&amt) {
             return Err(MinerTxError::OutputNotDecomposed);
         }
         sum = sum.checked_add(amt).ok_or(MinerTxError::OutputsOverflow)?;
@@ -158,9 +158,9 @@ fn check_total_output_amt(
     total_output: u64,
     reward: u64,
     fees: u64,
-    hf: &HardFork,
+    hf: HardFork,
 ) -> Result<u64, MinerTxError> {
-    if hf == &HardFork::V1 || hf >= &HardFork::V12 {
+    if hf == HardFork::V1 || hf >= HardFork::V12 {
         if total_output != reward + fees {
             return Err(MinerTxError::OutputAmountIncorrect);
         }
@@ -182,28 +182,33 @@ fn check_total_output_amt(
 pub fn check_miner_tx(
     tx: &Transaction,
     total_fees: u64,
-    chain_height: u64,
+    chain_height: usize,
     block_weight: usize,
     median_bw: usize,
     already_generated_coins: u64,
-    hf: &HardFork,
+    hf: HardFork,
 ) -> Result<u64, MinerTxError> {
-    let tx_version = TxVersion::from_raw(tx.prefix.version).ok_or(MinerTxError::VersionInvalid)?;
-    check_miner_tx_version(&tx_version, hf)?;
+    let tx_version = TxVersion::from_raw(tx.version()).ok_or(MinerTxError::VersionInvalid)?;
+    check_miner_tx_version(tx_version, hf)?;
 
     // ref: <https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#ringct-type>
-    if hf >= &HardFork::V12 && tx.rct_signatures.rct_type() != RctType::Null {
-        return Err(MinerTxError::RCTTypeNotNULL);
+    match tx {
+        Transaction::V1 { .. } => (),
+        Transaction::V2 { proofs, .. } => {
+            if hf >= HardFork::V12 && proofs.is_some() {
+                return Err(MinerTxError::RCTTypeNotNULL);
+            }
+        }
     }
 
-    check_time_lock(&tx.prefix.timelock, chain_height)?;
+    check_time_lock(&tx.prefix().additional_timelock, chain_height)?;
 
-    check_inputs(&tx.prefix.inputs, chain_height)?;
+    check_inputs(&tx.prefix().inputs, chain_height)?;
 
-    check_output_types(&tx.prefix.outputs, hf).map_err(|_| MinerTxError::InvalidOutputType)?;
+    check_output_types(&tx.prefix().outputs, hf).map_err(|_| MinerTxError::InvalidOutputType)?;
 
     let reward = calculate_block_reward(block_weight, median_bw, already_generated_coins, hf);
-    let total_outs = sum_outputs(&tx.prefix.outputs, hf, &tx_version)?;
+    let total_outs = sum_outputs(&tx.prefix().outputs, hf, tx_version)?;
 
     check_total_output_amt(total_outs, reward, total_fees, hf)
 }
@@ -217,7 +222,7 @@ mod tests {
     proptest! {
         #[test]
         fn tail_emission(generated_coins in any::<u64>(), hf in any::<HardFork>()) {
-            prop_assert!(calculate_base_reward(generated_coins, &hf) >= MINIMUM_REWARD_PER_MIN * hf.block_time().as_secs() / 60)
+            prop_assert!(calculate_base_reward(generated_coins, hf) >= MINIMUM_REWARD_PER_MIN * hf.block_time().as_secs() / 60);
         }
     }
 }

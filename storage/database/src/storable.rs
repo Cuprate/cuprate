@@ -109,7 +109,7 @@ impl<T> Storable for T
 where
     Self: Pod + Debug,
 {
-    const BYTE_LENGTH: Option<usize> = Some(std::mem::size_of::<T>());
+    const BYTE_LENGTH: Option<usize> = Some(size_of::<T>());
 
     #[inline]
     fn as_bytes(&self) -> &[u8] {
@@ -129,7 +129,7 @@ where
 ///
 /// Slice types are owned both:
 /// - when returned from the database
-/// - in `put()`
+/// - in [`crate::DatabaseRw::put()`]
 ///
 /// This is needed as `impl Storable for Vec<T>` runs into impl conflicts.
 ///

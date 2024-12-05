@@ -1,0 +1,40 @@
+# This action attempts to build the architecture book, if changed.
+
+name: Architecture mdBook
+
+on:
+  push:
+    branches: ['main']
+    paths: ['books/architecture/**']
+  pull_request:
+    paths: ['books/architecture/**']
+  workflow_dispatch:
+
+env:
+  # Version of `mdbook` to install.
+  MDBOOK_VERSION: 0.4.36
+  # Version of `mdbook-last-changed` to install.
+  # <https://github.com/badboy/mdbook-last-changed>.
+  MDBOOK_LAST_CHANGED_VERSION: 0.1.4
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/mdbook
+            ~/.cargo/bin/mdbook-last-changed
+          key: architecture-book
+
+      - name: Install mdBook
+        run: |
+          cargo install --locked --version ${MDBOOK_VERSION} mdbook || echo "mdbook already exists"
+          cargo install --locked --version ${MDBOOK_LAST_CHANGED_VERSION} mdbook-last-changed || echo "mdbook-last-changed already exists"
+
+      - name: Build
+        run: mdbook build books/architecture

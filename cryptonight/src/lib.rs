@@ -1,63 +1,40 @@
-#[link(name = "cryptonight")]
-extern "C" {
-    fn cn_slow_hash(
-        data: *const u8,
-        length: usize,
-        hash: *mut u8,
-        variant: i32,
-        pre_hashed: i32,
-        height: u64,
-    );
-}
+mod blake256;
+mod cnaes;
+mod hash_v2;
+mod hash_v4;
+mod slow_hash;
+mod util;
 
-/// Calculates the CryptoNight v0 hash of buf.
-///
+use slow_hash::cn_slow_hash;
+
+/// Calculates the `CryptoNight` v0 hash of buf.
 pub fn cryptonight_hash_v0(buf: &[u8]) -> [u8; 32] {
-    let mut hash = [0; 32];
-    unsafe {
-        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 0, 0, 0);
-    }
-    hash
+    cn_slow_hash(buf, slow_hash::Variant::V0, 0)
 }
 
 #[derive(thiserror::Error, Debug, Copy, Clone, Eq, PartialEq)]
 #[error("Data can't be hashed")]
 pub struct DataCanNotBeHashed;
 
-/// Calculates the CryptoNight v1 hash of buf.
+/// Calculates the `CryptoNight` v1 hash of buf.
 ///
-/// This will return an error if buf is less than43 bytes.
-///
+/// This will return an error if buf is less than 43 bytes.
 pub fn cryptonight_hash_v1(buf: &[u8]) -> Result<[u8; 32], DataCanNotBeHashed> {
     if buf.len() < 43 {
         return Err(DataCanNotBeHashed);
     }
 
-    let mut hash = [0; 32];
-    unsafe {
-        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 1, 0, 0);
-    }
-    Ok(hash)
+    Ok(cn_slow_hash(buf, slow_hash::Variant::V1, 0))
 }
 
-/// Calculates the CryptoNight v2 hash of buf.
-///
+/// Calculates the `CryptoNight` v2 hash of buf.
 pub fn cryptonight_hash_v2(buf: &[u8]) -> [u8; 32] {
-    let mut hash = [0; 32];
-    unsafe {
-        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 2, 0, 0);
-    }
-    hash
+    cn_slow_hash(buf, slow_hash::Variant::V2, 0)
 }
 
-/// Calculates the CryptoNight R hash of buf.
-///
+/// Calculates the `CryptoNight` R hash of buf.
 pub fn cryptonight_hash_r(buf: &[u8], height: u64) -> [u8; 32] {
-    let mut hash = [0; 32];
-    unsafe {
-        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 4, 0, height);
-    }
-    hash
+    cn_slow_hash(buf, slow_hash::Variant::R, height)
 }
 
 #[cfg(test)]
@@ -66,10 +43,11 @@ mod tests {
 
     #[test]
     fn slow_hash_0() {
-        let test = |inp: &str, exp: &str| {
+        fn test(inp: &str, exp: &str) {
             let res = hex::encode(cryptonight_hash_v0(&hex::decode(inp).unwrap()));
             assert_eq!(&res, exp);
-        };
+        }
+
         // https://github.com/monero-project/monero/blob/67d190ce7c33602b6a3b804f633ee1ddb7fbb4a1/tests/hash/tests-slow.txt
         test(
             "6465206f6d6e69627573206475626974616e64756d",
@@ -91,10 +69,11 @@ mod tests {
 
     #[test]
     fn slow_hash_1() {
-        let test = |inp: &str, exp: &str| {
+        fn test(inp: &str, exp: &str) {
             let res = hex::encode(cryptonight_hash_v1(&hex::decode(inp).unwrap()).unwrap());
             assert_eq!(&res, exp);
-        };
+        }
+
         // https://github.com/monero-project/monero/blob/67d190ce7c33602b6a3b804f633ee1ddb7fbb4a1/tests/hash/tests-slow-1.txt
         test(
             "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
@@ -120,10 +99,11 @@ mod tests {
 
     #[test]
     fn slow_hash_2() {
-        let test = |inp: &str, exp: &str| {
+        fn test(inp: &str, exp: &str) {
             let res = hex::encode(cryptonight_hash_v2(&hex::decode(inp).unwrap()));
             assert_eq!(&res, exp);
-        };
+        }
+
         // https://github.com/monero-project/monero/blob/67d190ce7c33602b6a3b804f633ee1ddb7fbb4a1/tests/hash/tests-slow-2.txt
         test(
             "5468697320697320612074657374205468697320697320612074657374205468697320697320612074657374",
@@ -169,66 +149,66 @@ mod tests {
 
     #[test]
     fn slow_hash_r() {
-        let test = |inp: &str, exp: &str, height: u64| {
+        fn test(inp: &str, exp: &str, height: u64) {
             let res = hex::encode(cryptonight_hash_r(&hex::decode(inp).unwrap(), height));
             assert_eq!(&res, exp);
-        };
+        }
 
         // https://github.com/monero-project/monero/blob/67d190ce7c33602b6a3b804f633ee1ddb7fbb4a1/tests/hash/tests-slow-4.txt
         test(
             "5468697320697320612074657374205468697320697320612074657374205468697320697320612074657374",
             "f759588ad57e758467295443a9bd71490abff8e9dad1b95b6bf2f5d0d78387bc",
-            1806260
+            1806260,
         );
         test(
             "4c6f72656d20697073756d20646f6c6f722073697420616d65742c20636f6e73656374657475722061646970697363696e67",
             "5bb833deca2bdd7252a9ccd7b4ce0b6a4854515794b56c207262f7a5b9bdb566",
-            1806261
+            1806261,
         );
         test(
             "656c69742c2073656420646f20656975736d6f642074656d706f7220696e6369646964756e74207574206c61626f7265",
             "1ee6728da60fbd8d7d55b2b1ade487a3cf52a2c3ac6f520db12c27d8921f6cab",
-            1806262
+            1806262,
         );
         test(
             "657420646f6c6f7265206d61676e6120616c697175612e20557420656e696d206164206d696e696d2076656e69616d2c",
             "6969fe2ddfb758438d48049f302fc2108a4fcc93e37669170e6db4b0b9b4c4cb",
-            1806263
+            1806263,
         );
         test(
             "71756973206e6f737472756420657865726369746174696f6e20756c6c616d636f206c61626f726973206e697369",
             "7f3048b4e90d0cbe7a57c0394f37338a01fae3adfdc0e5126d863a895eb04e02",
-            1806264
+            1806264,
         );
         test(
             "757420616c697175697020657820656120636f6d6d6f646f20636f6e7365717561742e20447569732061757465",
             "1d290443a4b542af04a82f6b2494a6ee7f20f2754c58e0849032483a56e8e2ef",
-            1806265
+            1806265,
         );
         test(
             "757420616c697175697020657820656120636f6d6d6f646f20636f6e7365717561742e20447569732061757465",
             "1d290443a4b542af04a82f6b2494a6ee7f20f2754c58e0849032483a56e8e2ef",
-            1806265
+            1806265,
         );
         test(
             "697275726520646f6c6f7220696e20726570726568656e646572697420696e20766f6c7570746174652076656c6974",
             "c43cc6567436a86afbd6aa9eaa7c276e9806830334b614b2bee23cc76634f6fd",
-            1806266
+            1806266,
         );
         test(
             "657373652063696c6c756d20646f6c6f726520657520667567696174206e756c6c612070617269617475722e",
             "87be2479c0c4e8edfdfaa5603e93f4265b3f8224c1c5946feb424819d18990a4",
-            1806267
+            1806267,
         );
         test(
             "4578636570746575722073696e74206f6363616563617420637570696461746174206e6f6e2070726f6964656e742c",
             "dd9d6a6d8e47465cceac0877ef889b93e7eba979557e3935d7f86dce11b070f3",
-            1806268
+            1806268,
         );
         test(
             "73756e7420696e2063756c706120717569206f666669636961206465736572756e74206d6f6c6c697420616e696d20696420657374206c61626f72756d2e",
             "75c6f2ae49a20521de97285b431e717125847fb8935ed84a61e7f8d36a2c3d8e",
-            1806269
+            1806269,
         );
     }
 }

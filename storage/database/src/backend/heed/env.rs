@@ -18,7 +18,7 @@ use crate::{
     config::{Config, SyncMode},
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::{Env, EnvInner},
-    error::{InitError, RuntimeError},
+    error::{DbResult, InitError, RuntimeError},
     key::{Key, KeyCompare},
     resize::ResizeAlgorithm,
     table::Table,
@@ -70,7 +70,7 @@ impl Drop for ConcreteEnv {
         // We need to do `mdb_env_set_flags(&env, MDB_NOSYNC|MDB_ASYNCMAP, 0)`
         // to clear the no sync and async flags such that the below `self.sync()`
         // _actually_ synchronously syncs.
-        if let Err(_e) = crate::Env::sync(self) {
+        if let Err(_e) = Env::sync(self) {
             // TODO: log error?
         }
 
@@ -144,7 +144,7 @@ impl Env for ConcreteEnv {
         // (current disk size) + (a bit of leeway)
         // to account for empty databases where we
         // need to write same tables.
-        #[allow(clippy::cast_possible_truncation)] // only 64-bit targets
+        #[expect(clippy::cast_possible_truncation, reason = "only 64-bit targets")]
         let disk_size_bytes = match std::fs::File::open(&config.db_file) {
             Ok(file) => file.metadata()?.len() as usize,
             // The database file doesn't exist, 0 bytes.
@@ -203,7 +203,7 @@ impl Env for ConcreteEnv {
         &self.config
     }
 
-    fn sync(&self) -> Result<(), RuntimeError> {
+    fn sync(&self) -> DbResult<()> {
         Ok(self.env.read().unwrap().force_sync()?)
     }
 
@@ -244,26 +244,29 @@ impl Env for ConcreteEnv {
 }
 
 //---------------------------------------------------------------------------------------------------- EnvInner Impl
-impl<'env> EnvInner<'env, heed::RoTxn<'env>, RefCell<heed::RwTxn<'env>>>
-    for RwLockReadGuard<'env, heed::Env>
+impl<'env> EnvInner<'env> for RwLockReadGuard<'env, heed::Env>
 where
     Self: 'env,
 {
+    type Ro<'a> = heed::RoTxn<'a>;
+
+    type Rw<'a> = RefCell<heed::RwTxn<'a>>;
+
     #[inline]
-    fn tx_ro(&'env self) -> Result<heed::RoTxn<'env>, RuntimeError> {
+    fn tx_ro(&self) -> DbResult<Self::Ro<'_>> {
         Ok(self.read_txn()?)
     }
 
     #[inline]
-    fn tx_rw(&'env self) -> Result<RefCell<heed::RwTxn<'env>>, RuntimeError> {
+    fn tx_rw(&self) -> DbResult<Self::Rw<'_>> {
         Ok(RefCell::new(self.write_txn()?))
     }
 
     #[inline]
     fn open_db_ro<T: Table>(
         &self,
-        tx_ro: &heed::RoTxn<'env>,
-    ) -> Result<impl DatabaseRo<T> + DatabaseIter<T>, RuntimeError> {
+        tx_ro: &Self::Ro<'_>,
+    ) -> DbResult<impl DatabaseRo<T> + DatabaseIter<T>> {
         // Open up a read-only database using our table's const metadata.
         //
         // INVARIANT: LMDB caches the ordering / comparison function from [`EnvInner::create_db`],
@@ -278,10 +281,7 @@ where
     }
 
     #[inline]
-    fn open_db_rw<T: Table>(
-        &self,
-        tx_rw: &RefCell<heed::RwTxn<'env>>,
-    ) -> Result<impl DatabaseRw<T>, RuntimeError> {
+    fn open_db_rw<T: Table>(&self, tx_rw: &Self::Rw<'_>) -> DbResult<impl DatabaseRw<T>> {
         // Open up a read/write database using our table's const metadata.
         //
         // INVARIANT: LMDB caches the ordering / comparison function from [`EnvInner::create_db`],
@@ -293,7 +293,7 @@ where
         })
     }
 
-    fn create_db<T: Table>(&self, tx_rw: &RefCell<heed::RwTxn<'env>>) -> Result<(), RuntimeError> {
+    fn create_db<T: Table>(&self, tx_rw: &Self::Rw<'_>) -> DbResult<()> {
         // Create a database using our:
         // - [`Table`]'s const metadata.
         // - (potentially) our [`Key`] comparison function
@@ -325,10 +325,7 @@ where
     }
 
     #[inline]
-    fn clear_db<T: Table>(
-        &self,
-        tx_rw: &mut RefCell<heed::RwTxn<'env>>,
-    ) -> Result<(), RuntimeError> {
+    fn clear_db<T: Table>(&self, tx_rw: &mut Self::Rw<'_>) -> DbResult<()> {
         let tx_rw = tx_rw.get_mut();
 
         // Open the table. We don't care about flags or key

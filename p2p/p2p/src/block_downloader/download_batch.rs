@@ -8,13 +8,16 @@ use tracing::instrument;
 
 use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_p2p_core::{handles::ConnectionHandle, NetworkZone, PeerRequest, PeerResponse};
+use cuprate_p2p_core::{
+    handles::ConnectionHandle, NetworkZone, PeerRequest, PeerResponse, ProtocolRequest,
+    ProtocolResponse,
+};
 use cuprate_wire::protocol::{GetObjectsRequest, GetObjectsResponse};
 
 use crate::{
     block_downloader::{BlockBatch, BlockDownloadError, BlockDownloadTaskResponse},
-    client_pool::ClientPoolDropGuard,
     constants::{BLOCK_DOWNLOADER_REQUEST_TIMEOUT, MAX_TRANSACTION_BLOB_SIZE, MEDIUM_BAN},
+    peer_set::ClientDropGuard,
 };
 
 /// Attempts to request a batch of blocks from a peer, returning [`BlockDownloadTaskResponse`].
@@ -27,11 +30,12 @@ use crate::{
         attempt = _attempt
     )
 )]
+#[expect(clippy::used_underscore_binding)]
 pub async fn download_batch_task<N: NetworkZone>(
-    client: ClientPoolDropGuard<N>,
+    client: ClientDropGuard<N>,
     ids: ByteArrayVec<32>,
     previous_id: [u8; 32],
-    expected_start_height: u64,
+    expected_start_height: usize,
     _attempt: usize,
 ) -> BlockDownloadTaskResponse<N> {
     BlockDownloadTaskResponse {
@@ -45,21 +49,20 @@ pub async fn download_batch_task<N: NetworkZone>(
 /// This function will validate the blocks that were downloaded were the ones asked for and that they match
 /// the expected height.
 async fn request_batch_from_peer<N: NetworkZone>(
-    mut client: ClientPoolDropGuard<N>,
+    mut client: ClientDropGuard<N>,
     ids: ByteArrayVec<32>,
     previous_id: [u8; 32],
-    expected_start_height: u64,
-) -> Result<(ClientPoolDropGuard<N>, BlockBatch), BlockDownloadError> {
-    // Request the blocks.
+    expected_start_height: usize,
+) -> Result<(ClientDropGuard<N>, BlockBatch), BlockDownloadError> {
+    let request = PeerRequest::Protocol(ProtocolRequest::GetObjects(GetObjectsRequest {
+        blocks: ids.clone(),
+        pruned: false,
+    }));
+
+    // Request the blocks and add a timeout to the request
     let blocks_response = timeout(BLOCK_DOWNLOADER_REQUEST_TIMEOUT, async {
-        let PeerResponse::GetObjects(blocks_response) = client
-            .ready()
-            .await?
-            .call(PeerRequest::GetObjects(GetObjectsRequest {
-                blocks: ids.clone(),
-                pruned: false,
-            }))
-            .await?
+        let PeerResponse::Protocol(ProtocolResponse::GetObjects(blocks_response)) =
+            client.ready().await?.call(request).await?
         else {
             panic!("Connection task returned wrong response.");
         };
@@ -101,9 +104,10 @@ async fn request_batch_from_peer<N: NetworkZone>(
     Ok((client, batch))
 }
 
+#[expect(clippy::needless_pass_by_value)]
 fn deserialize_batch(
     blocks_response: GetObjectsResponse,
-    expected_start_height: u64,
+    expected_start_height: usize,
     requested_ids: ByteArrayVec<32>,
     previous_id: [u8; 32],
     peer_handle: ConnectionHandle,
@@ -113,7 +117,7 @@ fn deserialize_batch(
         .into_par_iter()
         .enumerate()
         .map(|(i, block_entry)| {
-            let expected_height = u64::try_from(i).unwrap() + expected_start_height;
+            let expected_height = i + expected_start_height;
 
             let mut size = block_entry.block.len();
 
@@ -123,7 +127,7 @@ fn deserialize_batch(
             let block_hash = block.hash();
 
             // Check the block matches the one requested and the peer sent enough transactions.
-            if requested_ids[i] != block_hash || block.txs.len() != block_entry.txs.len() {
+            if requested_ids[i] != block_hash || block.transactions.len() != block_entry.txs.len() {
                 return Err(BlockDownloadError::PeersResponseWasInvalid);
             }
 
@@ -142,9 +146,9 @@ fn deserialize_batch(
 
             // Check the height lines up as expected.
             // This must happen after the hash check.
-            if !block
+            if block
                 .number()
-                .is_some_and(|height| height == expected_height)
+                .is_none_or(|height| height != expected_height)
             {
                 tracing::warn!(
                     "Invalid chain, expected height: {expected_height}, got height: {:?}",
@@ -175,7 +179,7 @@ fn deserialize_batch(
                 .collect::<Result<Vec<_>, _>>()?;
 
             // Make sure the transactions in the block were the ones the peer sent.
-            let mut expected_txs = block.txs.iter().collect::<HashSet<_>>();
+            let mut expected_txs = block.transactions.iter().collect::<HashSet<_>>();
 
             for tx in &txs {
                 if !expected_txs.remove(&tx.hash()) {

@@ -13,9 +13,9 @@ use super::{BlockBatch, BlockDownloadError};
 ///
 /// Also, the [`Ord`] impl is reversed so older blocks (lower height) come first in a [`BinaryHeap`].
 #[derive(Debug, Clone)]
-pub struct ReadyQueueBatch {
+pub(crate) struct ReadyQueueBatch {
     /// The start height of the batch.
-    pub start_height: u64,
+    pub start_height: usize,
     /// The batch of blocks.
     pub block_batch: BlockBatch,
 }
@@ -43,7 +43,7 @@ impl Ord for ReadyQueueBatch {
 
 /// The block queue that holds downloaded block batches, adding them to the [`async_buffer`] when the
 /// oldest batch has been downloaded.
-pub struct BlockQueue {
+pub(crate) struct BlockQueue {
     /// A queue of ready batches.
     ready_batches: BinaryHeap<ReadyQueueBatch>,
     /// The size, in bytes, of all the batches in [`Self::ready_batches`].
@@ -55,8 +55,8 @@ pub struct BlockQueue {
 
 impl BlockQueue {
     /// Creates a new [`BlockQueue`].
-    pub fn new(buffer_appender: BufferAppender<BlockBatch>) -> BlockQueue {
-        BlockQueue {
+    pub(crate) const fn new(buffer_appender: BufferAppender<BlockBatch>) -> Self {
+        Self {
             ready_batches: BinaryHeap::new(),
             ready_batches_size: 0,
             buffer_appender,
@@ -64,12 +64,12 @@ impl BlockQueue {
     }
 
     /// Returns the oldest batch that has not been put in the [`async_buffer`] yet.
-    pub fn oldest_ready_batch(&self) -> Option<u64> {
+    pub(crate) fn oldest_ready_batch(&self) -> Option<usize> {
         self.ready_batches.peek().map(|batch| batch.start_height)
     }
 
     /// Returns the size of all the batches that have not been put into the [`async_buffer`] yet.
-    pub fn size(&self) -> usize {
+    pub(crate) const fn size(&self) -> usize {
         self.ready_batches_size
     }
 
@@ -77,16 +77,16 @@ impl BlockQueue {
     ///
     /// `oldest_in_flight_start_height` should be the start height of the oldest batch that is still inflight, if
     /// there are no batches inflight then this should be [`None`].
-    pub async fn add_incoming_batch(
+    pub(crate) async fn add_incoming_batch(
         &mut self,
         new_batch: ReadyQueueBatch,
-        oldest_in_flight_start_height: Option<u64>,
+        oldest_in_flight_start_height: Option<usize>,
     ) -> Result<(), BlockDownloadError> {
         self.ready_batches_size += new_batch.block_batch.size;
         self.ready_batches.push(new_batch);
 
         // The height to stop pushing batches into the buffer.
-        let height_to_stop_at = oldest_in_flight_start_height.unwrap_or(u64::MAX);
+        let height_to_stop_at = oldest_in_flight_start_height.unwrap_or(usize::MAX);
 
         while self
             .ready_batches
@@ -113,27 +113,26 @@ impl BlockQueue {
 
 #[cfg(test)]
 mod tests {
-    use futures::StreamExt;
-    use std::{collections::BTreeSet, sync::Arc};
+    use std::collections::BTreeSet;
 
+    use futures::StreamExt;
     use proptest::{collection::vec, prelude::*};
-    use tokio::sync::Semaphore;
     use tokio_test::block_on;
 
+    use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
     use cuprate_p2p_core::handles::HandleBuilder;
 
     use super::*;
 
     prop_compose! {
-        fn ready_batch_strategy()(start_height in 0_u64..500_000_000) -> ReadyQueueBatch {
-            // TODO: The permit will not be needed here when
-            let (_, peer_handle)  = HandleBuilder::new().with_permit(Arc::new(Semaphore::new(1)).try_acquire_owned().unwrap()).build();
+        fn ready_batch_strategy()(start_height in 0..MAX_BLOCK_HEIGHT_USIZE) -> ReadyQueueBatch {
+            let (_, peer_handle)  = HandleBuilder::new().build();
 
             ReadyQueueBatch {
                 start_height,
                 block_batch: BlockBatch {
                     blocks: vec![],
-                    size: start_height as usize,
+                    size: start_height,
                     peer_handle,
                 },
             }
@@ -142,6 +141,7 @@ mod tests {
 
     proptest! {
         #[test]
+        #[allow(clippy::mutable_key_type)]
         fn block_queue_returns_items_in_order(batches in vec(ready_batch_strategy(), 0..10_000)) {
             block_on(async move {
                 let (buffer_tx, mut buffer_rx) = cuprate_async_buffer::new_buffer(usize::MAX);

@@ -5,9 +5,6 @@
 //---------------------------------------------------------------------------------------------------- Use
 use crossbeam::atomic::AtomicCell;
 
-#[allow(unused_imports)] // docs
-use std::sync::atomic::{Ordering, Ordering::Acquire, Ordering::Release};
-
 //---------------------------------------------------------------------------------------------------- Atomic Float
 /// Compile-time assertion that our floats are
 /// lock-free for the target we're building for.
@@ -31,9 +28,13 @@ const _: () = {
 /// This is an alias for
 /// [`crossbeam::atomic::AtomicCell<f32>`](https://docs.rs/crossbeam/latest/crossbeam/atomic/struct.AtomicCell.html).
 ///
-/// Note that there are no [`Ordering`] parameters,
-/// atomic loads use [`Acquire`],
-/// and atomic stores use [`Release`].
+/// Note that there are no [Ordering] parameters,
+/// atomic loads use [Acquire],
+/// and atomic stores use [Release].
+///
+/// [Ordering]: std::sync::atomic::Ordering
+/// [Acquire]: std::sync::atomic::Ordering::Acquire
+/// [Release]: std::sync::atomic::Ordering::Release
 pub type AtomicF32 = AtomicCell<f32>;
 
 /// An atomic [`f64`].
@@ -41,14 +42,20 @@ pub type AtomicF32 = AtomicCell<f32>;
 /// This is an alias for
 /// [`crossbeam::atomic::AtomicCell<f64>`](https://docs.rs/crossbeam/latest/crossbeam/atomic/struct.AtomicCell.html).
 ///
-/// Note that there are no [`Ordering`] parameters,
-/// atomic loads use [`Acquire`],
-/// and atomic stores use [`Release`].
+/// Note that there are no [Ordering] parameters,
+/// atomic loads use [Acquire],
+/// and atomic stores use [Release].
+///
+/// [Ordering]: std::sync::atomic::Ordering
+/// [Acquire]: std::sync::atomic::Ordering::Acquire
+/// [Release]: std::sync::atomic::Ordering::Release
 pub type AtomicF64 = AtomicCell<f64>;
 
 //---------------------------------------------------------------------------------------------------- TESTS
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)]
+
     use super::*;
 
     #[test]

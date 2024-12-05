@@ -5,6 +5,10 @@ This documentation is mostly for practical usage of `cuprate_blockchain`.
 For a high-level overview, see the database section in
 [Cuprate's architecture book](https://architecture.cuprate.org).
 
+If you're looking for a database crate, consider using the lower-level
+[`cuprate-database`](https://doc.cuprate.org/cuprate_database)
+crate that this crate is built on-top of.
+
 # Purpose
 This crate does 3 things:
 1. Uses [`cuprate_database`] as a base database layer
@@ -28,9 +32,6 @@ use cuprate_blockchain::{
 This ensures the types/traits used from `cuprate_database` are the same ones used by `cuprate_blockchain` internally.
 
 # Feature flags
-The `service` module requires the `service` feature to be enabled.
-See the module for more documentation.
-
 Different database backends are enabled by the feature flags:
 - `heed` (LMDB)
 - `redb`
@@ -41,17 +42,17 @@ The default is `heed`.
 <!-- FIXME: tracing should be behind a feature flag -->
 
 # Invariants when not using `service`
-`cuprate_blockchain` can be used without the `service` feature enabled but
+`cuprate_blockchain` can be used without the `service` module but
 there are some things that must be kept in mind when doing so.
 
 Failing to uphold these invariants may cause panics.
 
 1. `LMDB` requires the user to resize the memory map resizing (see [`cuprate_database::RuntimeError::ResizeNeeded`]
-1. `LMDB` has a maximum reader transaction count, currently it is set to `128`
+1. `LMDB` has a maximum reader transaction count, currently, [it is set to `126`](https://github.com/LMDB/lmdb/blob/b8e54b4c31378932b69f1298972de54a565185b1/libraries/liblmdb/mdb.c#L794-L799)
 1. `LMDB` has [maximum key/value byte size](http://www.lmdb.tech/doc/group__internal.html#gac929399f5d93cef85f874b9e9b1d09e0) which must not be exceeded
 
 # Examples
-The below is an example of using `cuprate_blockchain`
+The below is an example of using `cuprate_blockchain`'s
 lowest API, i.e. using a mix of this crate and `cuprate_database`'s traits directly -
 **this is NOT recommended.**
 
@@ -67,8 +68,7 @@ use cuprate_blockchain::{
         DatabaseRo, DatabaseRw, TxRo, TxRw,
     },
     config::ConfigBuilder,
-    tables::{Tables, TablesMut},
-	OpenTables,
+    tables::{Tables, TablesMut, OpenTables},
 };
 
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -76,7 +76,7 @@ use cuprate_blockchain::{
 let tmp_dir = tempfile::tempdir()?;
 let db_dir = tmp_dir.path().to_owned();
 let config = ConfigBuilder::new()
-    .db_directory(db_dir.into())
+    .data_directory(db_dir.into())
     .build();
 
 // Initialize the database environment.

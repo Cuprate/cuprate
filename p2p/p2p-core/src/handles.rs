@@ -18,15 +18,14 @@ pub struct HandleBuilder {
 
 impl HandleBuilder {
     /// Create a new builder.
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self { permit: None }
     }
 
     /// Sets the permit for this connection.
-    ///
-    /// This must be called at least once.
-    pub fn with_permit(mut self, permit: OwnedSemaphorePermit) -> Self {
-        self.permit = Some(permit);
+    #[must_use]
+    pub fn with_permit(mut self, permit: Option<OwnedSemaphorePermit>) -> Self {
+        self.permit = permit;
         self
     }
 
@@ -39,10 +38,10 @@ impl HandleBuilder {
         (
             ConnectionGuard {
                 token: token.clone(),
-                _permit: self.permit.expect("connection permit was not set!"),
+                _permit: self.permit,
             },
             ConnectionHandle {
-                token: token.clone(),
+                token,
                 ban: Arc::new(OnceLock::new()),
             },
         )
@@ -56,7 +55,7 @@ pub struct BanPeer(pub Duration);
 /// A struct given to the connection task.
 pub struct ConnectionGuard {
     token: CancellationToken,
-    _permit: OwnedSemaphorePermit,
+    _permit: Option<OwnedSemaphorePermit>,
 }
 
 impl ConnectionGuard {
@@ -68,13 +67,13 @@ impl ConnectionGuard {
     ///
     /// This will be called on [`Drop::drop`].
     pub fn connection_closed(&self) {
-        self.token.cancel()
+        self.token.cancel();
     }
 }
 
 impl Drop for ConnectionGuard {
     fn drop(&mut self) {
-        self.token.cancel()
+        self.token.cancel();
     }
 }
 
@@ -92,6 +91,10 @@ impl ConnectionHandle {
     }
     /// Bans the peer for the given `duration`.
     pub fn ban_peer(&self, duration: Duration) {
+        #[expect(
+            clippy::let_underscore_must_use,
+            reason = "error means peer is already banned; fine to ignore"
+        )]
         let _ = self.ban.set(BanPeer(duration));
         self.token.cancel();
     }
@@ -105,6 +108,6 @@ impl ConnectionHandle {
     }
     /// Sends the signal to the connection task to disconnect.
     pub fn send_close_signal(&self) {
-        self.token.cancel()
+        self.token.cancel();
     }
 }
