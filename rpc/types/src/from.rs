@@ -1,380 +1,230 @@
 //! [`From`] implementations from other crate's types into [`crate`] types.
+//!
+//! Only non-crate types are imported, all crate types use `crate::`.
 
 #![allow(unused_variables, unreachable_code, reason = "TODO")]
 
-use cuprate_types::rpc::{
-    AuxPow, BlockHeader, BlockOutputIndices, ChainInfo, ConnectionInfo, GetBan,
-    GetMinerDataTxBacklogEntry, GetOutputsOut, HardforkEntry, HistogramEntry, OutKey, OutKeyBin,
-    OutputDistributionData, Peer, PublicNode, SetBan, Span, SpentKeyImageInfo, SyncInfoPeer,
-    TxBacklogEntry, TxInfo, TxOutputIndices, TxpoolHisto, TxpoolStats,
+use std::{
+    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
+    time::Duration,
 };
+
+use cuprate_helper::map::combine_low_high_bits_to_u128;
+use cuprate_p2p_core::{
+    types::{BanState, ConnectionId, ConnectionInfo, SetBan, Span},
+    ClearNet, NetZoneAddress, NetworkZone,
+};
+use cuprate_types::{
+    hex::Hex,
+    rpc::{
+        AuxPow, BlockHeader, BlockOutputIndices, ChainInfo, GetBan, GetMinerDataTxBacklogEntry,
+        GetOutputsOut, HardforkEntry, HistogramEntry, OutKey, OutKeyBin, OutputDistributionData,
+        Peer, PublicNode, SpentKeyImageInfo, TxBacklogEntry, TxInfo, TxOutputIndices, TxpoolHisto,
+        TxpoolStats,
+    },
+};
+
+/// <https://architecture.cuprate.org/oddities/le-ipv4.html>
+const fn ipv4_from_u32(ip: u32) -> Ipv4Addr {
+    let [a, b, c, d] = ip.to_le_bytes();
+    Ipv4Addr::new(a, b, c, d)
+}
+
+/// Format two [`u64`]'s as a [`u128`] as a hexadecimal string prefixed with `0x`.
+fn hex_prefix_u128(low: u64, high: u64) -> String {
+    format!("{:#x}", combine_low_high_bits_to_u128(low, high))
+}
 
 impl From<BlockHeader> for crate::misc::BlockHeader {
     fn from(x: BlockHeader) -> Self {
-        todo!();
-
-        // Self {
-        // 	block_size: u64,
-        // 	block_weight: u64,
-        // 	cumulative_difficulty_top64: u64,
-        // 	cumulative_difficulty: u64,
-        // 	depth: u64,
-        // 	difficulty_top64: u64,
-        // 	difficulty: u64,
-        // 	hash: String,
-        // 	height: u64,
-        // 	long_term_weight: u64,
-        // 	major_version: u8,
-        // 	miner_tx_hash: String,
-        // 	minor_version: u8,
-        // 	nonce: u32,
-        // 	num_txes: u64,
-        // 	orphan_status: bool,
-        // 	pow_hash: String,
-        // 	prev_hash: String,
-        // 	reward: u64,
-        // 	timestamp: u64,
-        // 	wide_cumulative_difficulty: String,
-        // 	wide_difficulty: String,
-        // }
+        Self {
+            block_size: x.block_weight,
+            block_weight: x.block_weight,
+            cumulative_difficulty_top64: x.cumulative_difficulty_top64,
+            cumulative_difficulty: x.cumulative_difficulty,
+            depth: x.depth,
+            difficulty_top64: x.difficulty_top64,
+            difficulty: x.difficulty,
+            hash: Hex(x.hash),
+            height: x.height,
+            long_term_weight: x.long_term_weight,
+            major_version: x.major_version,
+            miner_tx_hash: Hex(x.miner_tx_hash),
+            minor_version: x.minor_version,
+            nonce: x.nonce,
+            num_txes: x.num_txes,
+            orphan_status: x.orphan_status,
+            pow_hash: Hex(x.pow_hash),
+            prev_hash: Hex(x.prev_hash),
+            reward: x.reward,
+            timestamp: x.timestamp,
+            // FIXME: if we made a type that automatically did `hex_prefix_u128`,
+            //  we wouldn't need `crate::misc::BlockHeader`.
+            wide_cumulative_difficulty: hex_prefix_u128(
+                x.cumulative_difficulty,
+                x.cumulative_difficulty_top64,
+            ),
+            wide_difficulty: hex_prefix_u128(x.difficulty, x.difficulty_top64),
+        }
     }
 }
 
-impl From<ConnectionInfo> for crate::misc::ConnectionInfo {
-    fn from(x: ConnectionInfo) -> Self {
-        todo!();
+impl<A: NetZoneAddress> From<ConnectionInfo<A>> for crate::misc::ConnectionInfo {
+    fn from(x: ConnectionInfo<A>) -> Self {
+        let (ip, port) = match x.socket_addr {
+            Some(socket) => (socket.ip().to_string(), socket.port().to_string()),
+            None => (String::new(), String::new()),
+        };
 
-        // Self {
-        // 	address: String,
-        // 	address_type: AddressType,
-        // 	avg_download: u64,
-        // 	avg_upload: u64,
-        // 	connection_id: String,
-        // 	current_download: u64,
-        // 	current_upload: u64,
-        // 	height: u64,
-        // 	host: String,
-        // 	incoming: bool,
-        // 	ip: String,
-        // 	live_time: u64,
-        // 	localhost: bool,
-        // 	local_ip: bool,
-        // 	peer_id: String,
-        // 	port: String,
-        // 	pruning_seed: u32,
-        // 	recv_count: u64,
-        // 	recv_idle_time: u64,
-        // 	rpc_credits_per_hash: u32,
-        // 	rpc_port: u16,
-        // 	send_count: u64,
-        // 	send_idle_time: u64,
-        // 	// Exists in the original definition, but isn't
-        // 	// used or (de)serialized for RPC purposes.
-        // 	// ssl: bool,
-        // 	state: ConnectionState,
-        // 	support_flags: u32,
-        // }
+        Self {
+            address: x.address.to_string(),
+            address_type: x.address_type,
+            avg_download: x.avg_download,
+            avg_upload: x.avg_upload,
+            connection_id: String::from(ConnectionId::DEFAULT_STR),
+            current_download: x.current_download,
+            current_upload: x.current_upload,
+            height: x.height,
+            host: x.host,
+            incoming: x.incoming,
+            ip,
+            live_time: x.live_time,
+            localhost: x.localhost,
+            local_ip: x.local_ip,
+            peer_id: hex::encode(x.peer_id.to_ne_bytes()),
+            port,
+            pruning_seed: x.pruning_seed.compress(),
+            recv_count: x.recv_count,
+            recv_idle_time: x.recv_idle_time,
+            rpc_credits_per_hash: x.rpc_credits_per_hash,
+            rpc_port: x.rpc_port,
+            send_count: x.send_count,
+            send_idle_time: x.send_idle_time,
+            state: x.state,
+            support_flags: x.support_flags,
+        }
     }
 }
 
-impl From<SetBan> for crate::misc::SetBan {
-    fn from(x: SetBan) -> Self {
-        todo!();
+// TODO: support non-clearnet addresses.
+impl From<crate::misc::SetBan> for SetBan<SocketAddr> {
+    fn from(x: crate::misc::SetBan) -> Self {
+        let address = SocketAddr::V4(SocketAddrV4::new(ipv4_from_u32(x.ip), 0));
 
-        // Self {
-        // 	#[cfg_attr(feature = "serde", serde(default = "default_string"))]
-        // 	host: String,
-        // 	#[cfg_attr(feature = "serde", serde(default = "default_zero"))]
-        // 	ip: u32,
-        // 	ban: bool,
-        // 	seconds: u32,
-        // }
+        let ban = if x.ban {
+            Some(Duration::from_secs(x.seconds.into()))
+        } else {
+            None
+        };
+
+        Self { address, ban }
     }
 }
 
-impl From<GetBan> for crate::misc::GetBan {
-    fn from(x: GetBan) -> Self {
-        todo!();
-
-        // Self {
-        // 	host: String,
-        // 	ip: u32,
-        // 	seconds: u32,
-        // }
-    }
-}
-
+// TODO: do we need this type?
 impl From<HistogramEntry> for crate::misc::HistogramEntry {
     fn from(x: HistogramEntry) -> Self {
-        todo!();
-
-        // Self {
-        // 	amount: u64,
-        // 	total_instances: u64,
-        // 	unlocked_instances: u64,
-        // 	recent_instances: u64,
-        // }
+        Self {
+            amount: x.amount,
+            total_instances: x.total_instances,
+            unlocked_instances: x.unlocked_instances,
+            recent_instances: x.recent_instances,
+        }
     }
 }
 
-impl From<HardforkEntry> for crate::misc::HardforkEntry {
-    fn from(x: HardforkEntry) -> Self {
-        todo!();
-
-        // Self {
-        // 	height: u64,
-        // 	hf_version: u8,
-        // }
-    }
-}
+// impl From<HardforkEntry> for crate::misc::HardforkEntry {
+//     fn from(x: HardforkEntry) -> Self {
+//         Self {
+//             height: x.height,
+//             hf_version: x.hf_version,
+//         }
+//     }
+// }
 
 impl From<ChainInfo> for crate::misc::ChainInfo {
     fn from(x: ChainInfo) -> Self {
-        todo!();
-
-        // Self {
-        // 	block_hash: [u8; 32],
-        // 	block_hashes: Vec<[u8; 32]>,
-        // 	difficulty_top64: u64,
-        // 	difficulty_low64: u64,
-        // 	height: u64,
-        // 	length: u64,
-        // 	main_chain_parent_block: [u8; 32],
-        // }
+        Self {
+            block_hash: Hex(x.block_hash),
+            block_hashes: x.block_hashes.into_iter().map(hex::encode).collect(),
+            difficulty_top64: x.difficulty_top64,
+            difficulty: x.difficulty,
+            height: x.height,
+            length: x.length,
+            main_chain_parent_block: Hex(x.main_chain_parent_block),
+            wide_difficulty: hex_prefix_u128(x.difficulty, x.difficulty_top64),
+        }
     }
 }
 
-impl From<SyncInfoPeer> for crate::misc::SyncInfoPeer {
-    fn from(x: SyncInfoPeer) -> Self {
-        todo!();
-
-        // Self {
-        // 	info: ConnectionInfo,
-        // }
+// TODO: support non-clearnet addresses.
+impl From<Span<SocketAddr>> for crate::misc::Span {
+    fn from(x: Span<SocketAddr>) -> Self {
+        Self {
+            connection_id: String::from(ConnectionId::DEFAULT_STR),
+            nblocks: x.nblocks,
+            rate: x.rate,
+            remote_address: x.remote_address.to_string(),
+            size: x.size,
+            speed: x.speed,
+            start_block_height: x.start_block_height,
+        }
     }
 }
 
-impl From<Span> for crate::misc::Span {
-    fn from(x: Span) -> Self {
-        todo!();
+// impl From<OutputDistributionData> for crate::misc::OutputDistributionData {
+//     fn from(x: OutputDistributionData) -> Self {
+//         todo!();
 
-        // Self {
-        // 	connection_id: String,
-        // 	nblocks: u64,
-        // 	rate: u32,
-        // 	remote_address: String,
-        // 	size: u64,
-        // 	speed: u32,
-        // 	start_block_height: u64,
-        // }
-    }
-}
+//         // Self {
+//         // 	distribution: Vec<u64>,
+//         // 	start_height: u64,
+//         // 	base: u64,
+//         // }
+//     }
+// }
 
-impl From<TxBacklogEntry> for crate::misc::TxBacklogEntry {
-    fn from(x: TxBacklogEntry) -> Self {
-        todo!();
-
-        // Self {
-        // 	weight: u64,
-        // 	fee: u64,
-        // 	time_in_pool: u64,
-        // }
-    }
-}
-
-impl From<OutputDistributionData> for crate::misc::OutputDistributionData {
-    fn from(x: OutputDistributionData) -> Self {
-        todo!();
-
-        // Self {
-        // 	distribution: Vec<u64>,
-        // 	start_height: u64,
-        // 	base: u64,
-        // }
-    }
-}
-
-impl From<GetMinerDataTxBacklogEntry> for crate::misc::GetMinerDataTxBacklogEntry {
-    fn from(x: GetMinerDataTxBacklogEntry) -> Self {
-        todo!();
-
-        // Self {
-        // 	id: String,
-        // 	weight: u64,
-        // 	fee: u64,
-        // }
+impl From<TxInfo> for crate::misc::TxInfo {
+    fn from(x: TxInfo) -> Self {
+        Self {
+            blob_size: x.blob_size,
+            do_not_relay: x.do_not_relay,
+            double_spend_seen: x.double_spend_seen,
+            fee: x.fee,
+            id_hash: Hex(x.id_hash),
+            kept_by_block: x.kept_by_block,
+            last_failed_height: x.last_failed_height,
+            last_failed_id_hash: Hex(x.last_failed_id_hash),
+            last_relayed_time: x.last_relayed_time,
+            max_used_block_height: x.max_used_block_height,
+            max_used_block_id_hash: Hex(x.max_used_block_id_hash),
+            receive_time: x.receive_time,
+            relayed: x.relayed,
+            tx_blob: hex::encode(x.tx_blob),
+            tx_json: x.tx_json,
+            weight: x.weight,
+        }
     }
 }
 
 impl From<AuxPow> for crate::misc::AuxPow {
     fn from(x: AuxPow) -> Self {
-        todo!();
-
-        // Self {
-        // 	id: [u8; 32],
-        // 	hash: [u8; 32],
-        // }
+        Self {
+            id: Hex(x.id),
+            hash: Hex(x.hash),
+        }
     }
 }
 
-impl From<TxOutputIndices> for crate::misc::TxOutputIndices {
-    fn from(x: TxOutputIndices) -> Self {
-        todo!();
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-        // Self {
-        // 	indices: Vec<u64>,
-        // }
-    }
-}
-
-impl From<BlockOutputIndices> for crate::misc::BlockOutputIndices {
-    fn from(x: BlockOutputIndices) -> Self {
-        todo!();
-
-        // Self {
-        // 	indices: Vec<TxOutputIndices>,
-        // }
-    }
-}
-
-impl From<GetOutputsOut> for crate::misc::GetOutputsOut {
-    fn from(x: GetOutputsOut) -> Self {
-        todo!();
-
-        // Self {
-        // 	amount: u64,
-        // 	index: u64,
-        // }
-    }
-}
-
-impl From<OutKeyBin> for crate::misc::OutKeyBin {
-    fn from(x: OutKeyBin) -> Self {
-        todo!();
-
-        // Self {
-        // 	key: [u8; 32],
-        // 	mask: [u8; 32],
-        // 	unlocked: bool,
-        // 	height: u64,
-        // 	txid: [u8; 32],
-        // }
-    }
-}
-
-impl From<Peer> for crate::misc::Peer {
-    fn from(x: Peer) -> Self {
-        todo!();
-
-        // Self {
-        // 	id: u64,
-        // 	host: String,
-        // 	ip: u32,
-        // 	port: u16,
-        // 	#[cfg_attr(feature = "serde", serde(default = "default_zero"))]
-        // 	rpc_port: u16 = default_zero::<u16>(),
-        // 	#[cfg_attr(feature = "serde", serde(default = "default_zero"))]
-        // 	rpc_credits_per_hash: u32 = default_zero::<u32>(),
-        // 	last_seen: u64,
-        // 	#[cfg_attr(feature = "serde", serde(default = "default_zero"))]
-        // 	pruning_seed: u32 = default_zero::<u32>(),
-        // }
-    }
-}
-
-impl From<PublicNode> for crate::misc::PublicNode {
-    fn from(x: PublicNode) -> Self {
-        todo!();
-
-        // Self {
-        // 	host: String,
-        // 	last_seen: u64,
-        // 	rpc_port: u16,
-        // 	rpc_credits_per_hash: u32,
-        // }
-    }
-}
-
-impl From<TxInfo> for crate::misc::TxInfo {
-    fn from(x: TxInfo) -> Self {
-        todo!();
-
-        // Self {
-        // 	blob_size: u64,
-        // 	do_not_relay: bool,
-        // 	double_spend_seen: bool,
-        // 	fee: u64,
-        // 	id_hash: String,
-        // 	kept_by_block: bool,
-        // 	last_failed_height: u64,
-        // 	last_failed_id_hash: String,
-        // 	last_relayed_time: u64,
-        // 	max_used_block_height: u64,
-        // 	max_used_block_id_hash: String,
-        // 	receive_time: u64,
-        // 	relayed: bool,
-        // 	tx_blob: String,
-        // 	tx_json: String, // TODO: this should be another struct
-        // 	#[cfg_attr(feature = "serde", serde(default = "default_zero"))]
-        // 	weight: u64 = default_zero::<u64>(),
-        // }
-    }
-}
-
-impl From<SpentKeyImageInfo> for crate::misc::SpentKeyImageInfo {
-    fn from(x: SpentKeyImageInfo) -> Self {
-        todo!();
-
-        // Self {
-        // 	id_hash: String,
-        // 	txs_hashes: Vec<String>,
-        // }
-    }
-}
-
-impl From<TxpoolHisto> for crate::misc::TxpoolHisto {
-    fn from(x: TxpoolHisto) -> Self {
-        todo!();
-
-        // Self {
-        // 	txs: u32,
-        // 	bytes: u64,
-        // }
-    }
-}
-
-impl From<TxpoolStats> for crate::misc::TxpoolStats {
-    fn from(x: TxpoolStats) -> Self {
-        todo!();
-
-        // Self {
-        // 	bytes_max: u32,
-        // 	bytes_med: u32,
-        // 	bytes_min: u32,
-        // 	bytes_total: u64,
-        // 	fee_total: u64,
-        // 	histo_98pc: u64,
-        // 	histo: Vec<TxpoolHisto>,
-        // 	num_10m: u32,
-        // 	num_double_spends: u32,
-        // 	num_failing: u32,
-        // 	num_not_relayed: u32,
-        // 	oldest: u64,
-        // 	txs_total: u32,
-        // }
-    }
-}
-
-impl From<OutKey> for crate::misc::OutKey {
-    fn from(x: OutKey) -> Self {
-        todo!();
-
-        // Self {
-        // 	key: String,
-        // 	mask: String,
-        // 	unlocked: bool,
-        // 	height: u64,
-        // 	txid: String,
-        // }
+    #[test]
+    fn hex() {
+        assert_eq!(hex_prefix_u128(0, 0), "0x0");
+        assert_eq!(hex_prefix_u128(0, u64::MAX), "0x0");
+        assert_eq!(hex_prefix_u128(u64::MAX, 0), "0x0");
+        assert_eq!(hex_prefix_u128(u64::MAX, u64::MAX), "0x0");
     }
 }

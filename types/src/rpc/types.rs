@@ -1,16 +1,8 @@
 //! Various types (in)directly used in RPC.
-//!
-//! These types map very closely to types within `cuprate-rpc-types`,
-//! however they use more canonical types when appropriate, for example,
-//! instead of `hash: String`, this module's types would use something like
-//! `hash: [u8; 32]`.
-//!
-//! - TODO: finish making fields canonical after <https://github.com/Cuprate/cuprate/pull/355>
-//! - TODO: can epee handle `u128`? there are a lot of `(top_64 | low_64)` fields
 
 use cuprate_fixed_bytes::ByteArrayVec;
 
-use crate::{AddressType, ConnectionState};
+use crate::{hex::Hex, AddressType, ConnectionState, HardFork};
 
 const fn default_string() -> String {
     String::new()
@@ -96,28 +88,25 @@ define_struct_and_impl_epee! {
         1163..=1212
     )]
     BlockHeader {
-        block_size: u64,
         block_weight: u64,
         cumulative_difficulty_top64: u64,
         cumulative_difficulty: u64,
         depth: u64,
         difficulty_top64: u64,
         difficulty: u64,
-        hash: String,
+        hash: [u8; 32],
         height: u64,
         long_term_weight: u64,
-        major_version: u8,
-        miner_tx_hash: String,
+        major_version: HardFork,
+        miner_tx_hash: [u8; 32],
         minor_version: u8,
         nonce: u32,
         num_txes: u64,
         orphan_status: bool,
-        pow_hash: String,
-        prev_hash: String,
+        pow_hash: [u8; 32],
+        prev_hash: [u8; 32],
         reward: u64,
         timestamp: u64,
-        wide_cumulative_difficulty: String,
-        wide_difficulty: String,
     }
 
     #[doc = monero_definition_link!(
@@ -202,7 +191,7 @@ define_struct_and_impl_epee! {
     #[derive(Copy)]
     HardforkEntry {
         height: u64,
-        hf_version: u8,
+        hf_version: HardFork,
     }
 
     #[doc = monero_definition_link!(
@@ -214,7 +203,7 @@ define_struct_and_impl_epee! {
         block_hash: [u8; 32],
         block_hashes: Vec<[u8; 32]>,
         difficulty_top64: u64,
-        difficulty_low64: u64,
+        difficulty: u64,
         height: u64,
         length: u64,
         main_chain_parent_block: [u8; 32],
@@ -371,17 +360,17 @@ define_struct_and_impl_epee! {
         do_not_relay: bool,
         double_spend_seen: bool,
         fee: u64,
-        id_hash: String,
+        id_hash: [u8; 32],
         kept_by_block: bool,
         last_failed_height: u64,
-        last_failed_id_hash: String,
+        last_failed_id_hash: [u8; 32],
         last_relayed_time: u64,
         max_used_block_height: u64,
-        max_used_block_id_hash: String,
+        max_used_block_id_hash: [u8; 32],
         receive_time: u64,
         relayed: bool,
-        tx_blob: String,
-        tx_json: String, // TODO: this should be another struct
+        tx_blob: Vec<u8>,
+        tx_json: crate::json::tx::Transaction,
         #[cfg_attr(feature = "serde", serde(default = "default_zero"))]
         weight: u64 = default_zero::<u64>(),
     }
@@ -434,11 +423,11 @@ define_struct_and_impl_epee! {
         582..=597
     )]
     OutKey {
-        key: String,
-        mask: String,
+        key: Hex<32>,
+        mask: Hex<32>,
         unlocked: bool,
         height: u64,
-        txid: String,
+        txid: Hex<32>,
     }
 
     #[doc = monero_definition_link!(
@@ -473,9 +462,9 @@ define_struct_and_impl_epee! {
     )]
     CoinbaseTxSum {
         emission_amount_top64: u64,
-        emission_amount_low64: u64,
+        emission_amount: u64,
         fee_amount_top64: u64,
-        fee_amount_low64: u64,
+        fee_amount: u64,
     }
 
     #[doc = monero_definition_link!(
@@ -489,7 +478,7 @@ define_struct_and_impl_epee! {
         prev_id: [u8; 32],
         seed_hash: [u8; 32],
         difficulty_top64: u64,
-        difficulty_low64: u64,
+        difficulty: u64,
         median_weight: u64,
         already_generated_coins: u64,
         tx_backlog: Vec<MinerDataTxBacklogEntry>,

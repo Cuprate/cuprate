@@ -24,28 +24,28 @@ use crate::macros::monero_definition_link;
 // Note that these are _distinct_ from the ones in ZMQ:
 // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/message.cpp#L40-L44>.
 
-#[doc = monero_definition_link!(cc73fe71162d564ffda8e549b79a350bca53c454, "/rpc/core_rpc_server_commands_defs.h", 78)]
+#[doc = monero_definition_link!("cc73fe71162d564ffda8e549b79a350bca53c454", "/rpc/core_rpc_server_commands_defs.h", 78)]
 pub const CORE_RPC_STATUS_OK: &str = "OK";
 
-#[doc = monero_definition_link!(cc73fe71162d564ffda8e549b79a350bca53c454, "/rpc/core_rpc_server_commands_defs.h", 79)]
+#[doc = monero_definition_link!("cc73fe71162d564ffda8e549b79a350bca53c454", "/rpc/core_rpc_server_commands_defs.h", 79)]
 pub const CORE_RPC_STATUS_BUSY: &str = "BUSY";
 
-#[doc = monero_definition_link!(cc73fe71162d564ffda8e549b79a350bca53c454, "/rpc/core_rpc_server_commands_defs.h", 80)]
+#[doc = monero_definition_link!("cc73fe71162d564ffda8e549b79a350bca53c454", "/rpc/core_rpc_server_commands_defs.h", 80)]
 pub const CORE_RPC_STATUS_NOT_MINING: &str = "NOT MINING";
 
-#[doc = monero_definition_link!(cc73fe71162d564ffda8e549b79a350bca53c454, "/rpc/core_rpc_server_commands_defs.h", 81)]
+#[doc = monero_definition_link!("cc73fe71162d564ffda8e549b79a350bca53c454", "/rpc/core_rpc_server_commands_defs.h", 81)]
 pub const CORE_RPC_STATUS_PAYMENT_REQUIRED: &str = "PAYMENT REQUIRED";
 
 //---------------------------------------------------------------------------------------------------- Versions
-#[doc = monero_definition_link!(cc73fe71162d564ffda8e549b79a350bca53c454, "/rpc/core_rpc_server_commands_defs.h", 90)]
+#[doc = monero_definition_link!("cc73fe71162d564ffda8e549b79a350bca53c454", "/rpc/core_rpc_server_commands_defs.h", 90)]
 /// RPC major version.
 pub const CORE_RPC_VERSION_MAJOR: u32 = 3;
 
-#[doc = monero_definition_link!(cc73fe71162d564ffda8e549b79a350bca53c454, "/rpc/core_rpc_server_commands_defs.h", 91)]
+#[doc = monero_definition_link!("cc73fe71162d564ffda8e549b79a350bca53c454", "/rpc/core_rpc_server_commands_defs.h", 91)]
 /// RPC miror version.
 pub const CORE_RPC_VERSION_MINOR: u32 = 14;
 
-#[doc = monero_definition_link!(cc73fe71162d564ffda8e549b79a350bca53c454, "/rpc/core_rpc_server_commands_defs.h", 92..=93)]
+#[doc = monero_definition_link!("cc73fe71162d564ffda8e549b79a350bca53c454", "/rpc/core_rpc_server_commands_defs.h", 92..=93)]
 /// RPC version.
 pub const CORE_RPC_VERSION: u32 = (CORE_RPC_VERSION_MAJOR << 16) | CORE_RPC_VERSION_MINOR;
 

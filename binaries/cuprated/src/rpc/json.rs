@@ -47,13 +47,13 @@ use cuprate_rpc_types::{
         SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse, SyncInfoRequest,
         SyncInfoResponse,
     },
-    misc::{
-        AuxPow, BlockHeader, ChainInfo, Distribution, GetBan, GetMinerDataTxBacklogEntry,
-        HardforkEntry, HistogramEntry, Status, SyncInfoPeer, TxBacklogEntry,
-    },
+    misc::{BlockHeader, ChainInfo, Distribution, GetBan, HistogramEntry, Status, SyncInfoPeer},
     CORE_RPC_VERSION,
 };
-use cuprate_types::HardFork;
+use cuprate_types::{
+    rpc::{AuxPow, CoinbaseTxSum, GetMinerDataTxBacklogEntry, HardforkEntry, TxBacklogEntry},
+    HardFork,
+};
 
 use crate::{
     constants::VERSION_BUILD,
@@ -699,17 +699,17 @@ async fn get_coinbase_tx_sum(
     mut state: CupratedRpcHandler,
     request: GetCoinbaseTxSumRequest,
 ) -> Result<GetCoinbaseTxSumResponse, Error> {
-    let sum =
-        blockchain::coinbase_tx_sum(&mut state.blockchain_read, request.height, request.count)
-            .await?;
+    let CoinbaseTxSum {
+        emission_amount_top64,
+        emission_amount,
+        fee_amount_top64,
+        fee_amount,
+    } = blockchain::coinbase_tx_sum(&mut state.blockchain_read, request.height, request.count)
+        .await?;
 
     // Formats `u128` as hexadecimal strings.
-    let wide_emission_amount = format!("{:#x}", sum.fee_amount);
-    let wide_fee_amount = format!("{:#x}", sum.emission_amount);
-
-    let (emission_amount, emission_amount_top64) =
-        split_u128_into_low_high_bits(sum.emission_amount);
-    let (fee_amount, fee_amount_top64) = split_u128_into_low_high_bits(sum.fee_amount);
+    let wide_emission_amount = format!("{fee_amount:#x}");
+    let wide_fee_amount = format!("{emission_amount:#x}");
 
     Ok(GetCoinbaseTxSumResponse {
         base: AccessResponseBase::OK,
@@ -738,7 +738,8 @@ async fn get_version(
         {
             let entry = HardforkEntry {
                 height: hf.earliest_height,
-                hf_version: hf.version,
+                hf_version: HardFork::from_version(hf.version)
+                    .expect("blockchain context should not be responding with invalid hardforks"),
             };
 
             hard_forks.push(entry);
@@ -780,21 +781,7 @@ async fn get_alternate_chains(
     let chains = blockchain::alt_chains(&mut state.blockchain_read)
         .await?
         .into_iter()
-        .map(|info| {
-            let block_hashes = info.block_hashes.into_iter().map(hex::encode).collect();
-            let (difficulty, difficulty_top64) = split_u128_into_low_high_bits(info.difficulty);
-
-            ChainInfo {
-                block_hash: hex::encode(info.block_hash),
-                block_hashes,
-                difficulty,
-                difficulty_top64,
-                height: info.height,
-                length: info.length,
-                main_chain_parent_block: hex::encode(info.main_chain_parent_block),
-                wide_difficulty: hex::encode(u128::to_ne_bytes(info.difficulty)),
-            }
-        })
+        .map(Into::into)
         .collect();
 
     Ok(GetAlternateChainsResponse {
@@ -1036,19 +1023,11 @@ fn add_aux_pow_inner(
         return Err(anyhow!("Empty `aux_pow` vector"));
     };
 
-    let aux_pow = request
-        .aux_pow
-        .into_iter()
-        .map(|aux| {
-            let id = helper::hex_to_hash(aux.id)?;
-            let hash = helper::hex_to_hash(aux.hash)?;
-            Ok(cuprate_types::rpc::AuxPow { id, hash })
-        })
-        .collect::<Result<Box<[_]>, Error>>()?;
     // Some of the code below requires that the
     // `.len()` of certain containers are the same.
     // Boxed slices are used over `Vec` to slightly
     // safe-guard against accidently pushing to it.
+    let aux_pow = request.aux_pow.into_boxed_slice();
 
     // TODO: why is this here? it does nothing:
     // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2110-L2112>
@@ -1058,7 +1037,7 @@ fn add_aux_pow_inner(
     // }
 
     fn find_nonce(
-        aux_pow: &[cuprate_types::rpc::AuxPow],
+        aux_pow: &[AuxPow],
         non_zero_len: NonZero<usize>,
         aux_pow_len: usize,
     ) -> Result<(u32, Box<[u32]>), Error> {
@@ -1219,11 +1198,8 @@ fn add_aux_pow_inner(
     let blockhashing_blob = hex::encode(blockhashing_blob);
     let merkle_root = hex::encode(merkle_root);
     let aux_pow = IntoIterator::into_iter(aux_pow) // must be explicit due to `boxed_slice_into_iter`
-        .map(|aux| AuxPow {
-            id: hex::encode(aux.id),
-            hash: hex::encode(aux.hash),
-        })
-        .collect::<Vec<AuxPow>>();
+        .map(Into::into)
+        .collect::<Vec<cuprate_rpc_types::misc::AuxPow>>();
 
     Ok(AddAuxPowResponse {
         base: ResponseBase::OK,

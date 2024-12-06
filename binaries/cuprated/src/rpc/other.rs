@@ -11,7 +11,7 @@ use cuprate_helper::cast::usize_to_u64;
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
     base::{AccessResponseBase, ResponseBase},
-    misc::{KeyImageSpentStatus, OutKey, Status},
+    misc::{KeyImageSpentStatus, Status},
     other::{
         GetAltBlocksHashesRequest, GetAltBlocksHashesResponse, GetHeightRequest, GetHeightResponse,
         GetLimitRequest, GetLimitResponse, GetNetStatsRequest, GetNetStatsResponse, GetOutsRequest,
@@ -30,6 +30,7 @@ use cuprate_rpc_types::{
         UpdateRequest, UpdateResponse,
     },
 };
+use cuprate_types::rpc::OutKey;
 
 use crate::{
     rpc::CupratedRpcHandler,

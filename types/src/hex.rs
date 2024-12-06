@@ -18,12 +18,12 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "serde", derive(Serialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 #[repr(transparent)]
-pub struct HexBytes<const N: usize>(
+pub struct Hex<const N: usize>(
     #[cfg_attr(feature = "serde", serde(with = "hex::serde"))] pub [u8; N],
 );
 
 #[cfg(feature = "serde")]
-impl<'de, const N: usize> Deserialize<'de> for HexBytes<N>
+impl<'de, const N: usize> Deserialize<'de> for Hex<N>
 where
     [u8; N]: hex::FromHex,
     <[u8; N] as hex::FromHex>::Error: std::fmt::Display,
@@ -37,7 +37,7 @@ where
 }
 
 #[cfg(feature = "epee")]
-impl<const N: usize> EpeeValue for HexBytes<N> {
+impl<const N: usize> EpeeValue for Hex<N> {
     const MARKER: Marker = <[u8; N] as EpeeValue>::MARKER;
 
     fn read<B: bytes::Buf>(r: &mut B, marker: &Marker) -> error::Result<Self> {
@@ -50,7 +50,7 @@ impl<const N: usize> EpeeValue for HexBytes<N> {
 }
 
 // Default is not implemented for arrays >32, so we must do it manually.
-impl<const N: usize> Default for HexBytes<N> {
+impl<const N: usize> Default for Hex<N> {
     fn default() -> Self {
         Self([0; N])
     }
@@ -63,13 +63,13 @@ mod test {
     #[test]
     fn hex_bytes_32() {
         let hash = [1; 32];
-        let hex_bytes = HexBytes::<32>(hash);
+        let hex_bytes = Hex::<32>(hash);
         let expected_json = r#""0101010101010101010101010101010101010101010101010101010101010101""#;
 
         let to_string = serde_json::to_string(&hex_bytes).unwrap();
         assert_eq!(to_string, expected_json);
 
-        let from_str = serde_json::from_str::<HexBytes<32>>(expected_json).unwrap();
+        let from_str = serde_json::from_str::<Hex<32>>(expected_json).unwrap();
         assert_eq!(hex_bytes, from_str);
     }
 }

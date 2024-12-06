@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "epee")]
-use crate::pool_info_extent::PoolInfoExtent;
+use crate::rpc::PoolInfoExtent;
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::{
     error,

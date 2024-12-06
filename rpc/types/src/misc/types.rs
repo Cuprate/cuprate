@@ -5,6 +5,8 @@
 //! the [`crate::misc::ConnectionInfo`] struct defined here.
 
 //---------------------------------------------------------------------------------------------------- Import
+use cuprate_types::{hex::Hex, HardFork};
+
 #[cfg(any(feature = "epee", feature = "serde"))]
 use crate::defaults::default_zero;
 
@@ -60,7 +62,7 @@ macro_rules! define_struct_and_impl_epee {
 //---------------------------------------------------------------------------------------------------- Type Definitions
 define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         1163..=1212
     )]
@@ -79,17 +81,17 @@ define_struct_and_impl_epee! {
         depth: u64,
         difficulty_top64: u64,
         difficulty: u64,
-        hash: String,
+        hash: Hex<32>,
         height: u64,
         long_term_weight: u64,
-        major_version: u8,
-        miner_tx_hash: String,
+        major_version: HardFork,
+        miner_tx_hash: Hex<32>,
         minor_version: u8,
         nonce: u32,
         num_txes: u64,
         orphan_status: bool,
-        pow_hash: String,
-        prev_hash: String,
+        pow_hash: Hex<32>,
+        prev_hash: Hex<32>,
         reward: u64,
         timestamp: u64,
         wide_cumulative_difficulty: String,
@@ -99,7 +101,7 @@ define_struct_and_impl_epee! {
 
 define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "cryptonote_protocol/cryptonote_protocol_defs.h",
         47..=116
     )]
@@ -138,7 +140,7 @@ define_struct_and_impl_epee! {
 
 define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         2034..=2047
     )]
@@ -155,7 +157,7 @@ define_struct_and_impl_epee! {
 
 define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         1999..=2010
     )]
@@ -169,7 +171,7 @@ define_struct_and_impl_epee! {
 
 define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         2139..=2156
     )]
@@ -185,40 +187,26 @@ define_struct_and_impl_epee! {
 
 define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
-        "rpc/core_rpc_server_commands_defs.h",
-        2180..=2191
-    )]
-    #[derive(Copy)]
-    /// Used in [`crate::json::GetVersionResponse`].
-    HardforkEntry {
-        height: u64,
-        hf_version: u8,
-    }
-}
-
-define_struct_and_impl_epee! {
-    #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         2289..=2310
     )]
     /// Used in [`crate::json::GetAlternateChainsResponse`].
     ChainInfo {
-        block_hash: String,
-        block_hashes: Vec<String>,
+        block_hash: Hex<32>,
+        block_hashes: Vec<String>, // TODO: Vec<Hex<32>> when it has epee
         difficulty: u64,
         difficulty_top64: u64,
         height: u64,
         length: u64,
-        main_chain_parent_block: String,
+        main_chain_parent_block: Hex<32>,
         wide_difficulty: String,
     }
 }
 
 define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         2393..=2400
     )]
@@ -230,7 +218,7 @@ define_struct_and_impl_epee! {
 
 define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         2402..=2421
     )]
@@ -248,89 +236,7 @@ define_struct_and_impl_epee! {
 
 define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
-        "rpc/core_rpc_server_commands_defs.h",
-        1637..=1642
-    )]
-    #[derive(Copy)]
-    /// Used in [`crate::json::GetTransactionPoolBacklogResponse`].
-    TxBacklogEntry {
-        weight: u64,
-        fee: u64,
-        time_in_pool: u64,
-    }
-}
-
-define_struct_and_impl_epee! {
-    #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
-        "rpc/rpc_handler.h",
-        45..=50
-    )]
-    /// Used in [`crate::json::GetOutputDistributionResponse`].
-    OutputDistributionData {
-        distribution: Vec<u64>,
-        start_height: u64,
-        base: u64,
-    }
-}
-
-define_struct_and_impl_epee! {
-    #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
-        "rpc/core_rpc_server_commands_defs.h",
-        1016..=1027
-    )]
-    /// Used in [`crate::json::GetMinerDataResponse`].
-    ///
-    /// Note that this is different than [`crate::misc::TxBacklogEntry`].
-    GetMinerDataTxBacklogEntry {
-        id: String,
-        weight: u64,
-        fee: u64,
-    }
-}
-
-define_struct_and_impl_epee! {
-    #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
-        "rpc/core_rpc_server_commands_defs.h",
-        1070..=1079
-    )]
-    /// Used in [`crate::json::AddAuxPowRequest`].
-    AuxPow {
-        id: String,
-        hash: String,
-    }
-}
-
-define_struct_and_impl_epee! {
-    #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
-        "rpc/core_rpc_server_commands_defs.h",
-        192..=199
-    )]
-    /// Used in [`crate::bin::GetBlocksResponse`].
-    TxOutputIndices {
-        indices: Vec<u64>,
-    }
-}
-
-define_struct_and_impl_epee! {
-    #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
-        "rpc/core_rpc_server_commands_defs.h",
-        201..=208
-    )]
-    /// Used in [`crate::bin::GetBlocksResponse`].
-    BlockOutputIndices {
-        indices: Vec<TxOutputIndices>,
-    }
-}
-
-define_struct_and_impl_epee! {
-    #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         512..=521
     )]
@@ -347,7 +253,7 @@ define_struct_and_impl_epee! {
 
 define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         538..=553
     )]
@@ -364,47 +270,7 @@ define_struct_and_impl_epee! {
 
 define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
-        "rpc/core_rpc_server_commands_defs.h",
-        1335..=1367
-    )]
-    /// Used in [`crate::other::GetPeerListResponse`].
-    Peer {
-        id: u64,
-        host: String,
-        ip: u32,
-        port: u16,
-        #[cfg_attr(feature = "serde", serde(default = "default_zero"))]
-        rpc_port: u16 = default_zero::<u16>(),
-        #[cfg_attr(feature = "serde", serde(default = "default_zero"))]
-        rpc_credits_per_hash: u32 = default_zero::<u32>(),
-        last_seen: u64,
-        #[cfg_attr(feature = "serde", serde(default = "default_zero"))]
-        pruning_seed: u32 = default_zero::<u32>(),
-    }
-}
-
-define_struct_and_impl_epee! {
-    #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
-        "rpc/core_rpc_server_commands_defs.h",
-        1398..=1417
-    )]
-    ///
-    /// Used in:
-    /// - [`crate::other::GetPeerListResponse`]
-    /// - [`crate::other::GetPublicNodesResponse`]
-    PublicNode {
-        host: String,
-        last_seen: u64,
-        rpc_port: u16,
-        rpc_credits_per_hash: u32,
-    }
-}
-
-define_struct_and_impl_epee! {
-    #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         1519..=1556
     )]
@@ -414,17 +280,17 @@ define_struct_and_impl_epee! {
         do_not_relay: bool,
         double_spend_seen: bool,
         fee: u64,
-        id_hash: String,
+        id_hash: Hex<32>,
         kept_by_block: bool,
         last_failed_height: u64,
-        last_failed_id_hash: String,
+        last_failed_id_hash: Hex<32>,
         last_relayed_time: u64,
         max_used_block_height: u64,
-        max_used_block_id_hash: String,
+        max_used_block_id_hash: Hex<32>,
         receive_time: u64,
         relayed: bool,
         tx_blob: String,
-        tx_json: String, // TODO: this should be another struct
+        tx_json: cuprate_types::json::tx::Transaction,
         #[cfg_attr(feature = "serde", serde(default = "default_zero"))]
         weight: u64 = default_zero::<u64>(),
     }
@@ -432,68 +298,26 @@ define_struct_and_impl_epee! {
 
 define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
         1558..=1567
     )]
     /// Used in [`crate::other::GetTransactionPoolResponse`].
     SpentKeyImageInfo {
-        id_hash: String,
-        txs_hashes: Vec<String>,
+        id_hash: Hex<32>,
+        txs_hashes: Vec<String>, // TODO: Vec<Hex<32>> when it has epee
     }
 }
 
 define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
-        1666..=1675
+        1070..=1079
     )]
-    #[derive(Copy)]
-    /// Used in [`crate::other::GetTransactionPoolStatsResponse`].
-    TxpoolHisto {
-        txs: u32,
-        bytes: u64,
-    }
-}
-
-define_struct_and_impl_epee! {
-    #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
-        "rpc/core_rpc_server_commands_defs.h",
-        1677..=1710
-    )]
-    /// Used in [`crate::other::GetTransactionPoolStatsResponse`].
-    TxpoolStats {
-        bytes_max: u32,
-        bytes_med: u32,
-        bytes_min: u32,
-        bytes_total: u64,
-        fee_total: u64,
-        histo_98pc: u64,
-        histo: Vec<TxpoolHisto>,
-        num_10m: u32,
-        num_double_spends: u32,
-        num_failing: u32,
-        num_not_relayed: u32,
-        oldest: u64,
-        txs_total: u32,
-    }
-}
-
-define_struct_and_impl_epee! {
-    #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
-        "rpc/core_rpc_server_commands_defs.h",
-        582..=597
-    )]
-    /// Used in [`crate::other::GetOutsResponse`].
-    OutKey {
-        key: String,
-        mask: String,
-        unlocked: bool,
-        height: u64,
-        txid: String,
+    AuxPow {
+        id: Hex<32>,
+        hash: Hex<32>,
     }
 }
 

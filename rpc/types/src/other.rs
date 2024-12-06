@@ -6,13 +6,12 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use cuprate_types::rpc::{OutKey, Peer, PublicNode, TxpoolStats};
+
 use crate::{
     base::{AccessResponseBase, ResponseBase},
     macros::define_request_and_response,
-    misc::{
-        GetOutputsOut, OutKey, Peer, PublicNode, SpentKeyImageInfo, Status, TxEntry, TxInfo,
-        TxpoolStats,
-    },
+    misc::{GetOutputsOut, SpentKeyImageInfo, Status, TxEntry, TxInfo},
     RpcCallValue,
 };
 

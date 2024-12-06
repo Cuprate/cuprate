@@ -13,7 +13,7 @@ use cuprate_epee_encoding::{
 
 //---------------------------------------------------------------------------------------------------- RequestedInfo
 #[doc = crate::macros::monero_definition_link!(
-    cc73fe71162d564ffda8e549b79a350bca53c454,
+    "cc73fe71162d564ffda8e549b79a350bca53c454",
     "rpc/core_rpc_server_commands_defs.h",
     178..=183
 )]

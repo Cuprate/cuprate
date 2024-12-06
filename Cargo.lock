@@ -1067,8 +1067,11 @@ version = "0.0.0"
 dependencies = [
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
+ "cuprate-helper",
+ "cuprate-p2p-core",
  "cuprate-test-utils",
  "cuprate-types",
+ "hex",
  "paste",
  "serde",
  "serde_json",
@@ -1127,6 +1130,7 @@ name = "cuprate-types"
 version = "0.0.0"
 dependencies = [
  "bytes",
+ "cfg-if",
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
  "cuprate-helper",

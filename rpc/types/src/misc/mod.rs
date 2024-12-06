@@ -27,8 +27,6 @@ pub use requested_info::RequestedInfo;
 pub use status::Status;
 pub use tx_entry::TxEntry;
 pub use types::{
-    AuxPow, BlockHeader, BlockOutputIndices, ChainInfo, ConnectionInfo, GetBan,
-    GetMinerDataTxBacklogEntry, GetOutputsOut, HardforkEntry, HistogramEntry, OutKey, OutKeyBin,
-    OutputDistributionData, Peer, PublicNode, SetBan, Span, SpentKeyImageInfo, SyncInfoPeer,
-    TxBacklogEntry, TxInfo, TxOutputIndices, TxpoolHisto, TxpoolStats,
+    AuxPow, BlockHeader, ChainInfo, ConnectionInfo, GetBan, GetOutputsOut, HistogramEntry,
+    OutKeyBin, SetBan, Span, SpentKeyImageInfo, SyncInfoPeer, TxInfo,
 };

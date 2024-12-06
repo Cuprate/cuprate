@@ -65,9 +65,9 @@ pub(super) async fn block_header(
         )
         .await?;
 
-        hex::encode(pow_hash)
+        pow_hash
     } else {
-        String::new()
+        [0; 32]
     };
 
     let block_weight = usize_to_u64(header.block_weight);
@@ -86,30 +86,28 @@ pub(super) async fn block_header(
         .map(|o| o.amount.expect("coinbase is transparent"))
         .sum::<u64>();
 
-    Ok(BlockHeader {
-        block_size: block_weight,
+    Ok(cuprate_types::rpc::BlockHeader {
         block_weight,
         cumulative_difficulty_top64,
         cumulative_difficulty,
         depth,
         difficulty_top64,
         difficulty,
-        hash: hex::encode(block.hash()),
+        hash: block.hash(),
         height,
         long_term_weight: usize_to_u64(header.long_term_weight),
-        major_version: header.version.as_u8(),
-        miner_tx_hash: hex::encode(block.miner_transaction.hash()),
+        major_version: header.version,
+        miner_tx_hash: block.miner_transaction.hash(),
         minor_version: header.vote,
         nonce: block.header.nonce,
         num_txes: usize_to_u64(block.transactions.len()),
         orphan_status,
         pow_hash,
-        prev_hash: hex::encode(block.header.previous),
+        prev_hash: block.header.previous,
         reward,
         timestamp: block.header.timestamp,
-        wide_cumulative_difficulty: hex::encode(u128::to_le_bytes(header.cumulative_difficulty)),
-        wide_difficulty,
-    })
+    }
+    .into())
 }
 
 /// Same as [`block_header`] but with the block's hash.

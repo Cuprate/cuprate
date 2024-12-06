@@ -13,10 +13,7 @@ use cuprate_txpool::{
     },
     TxEntry,
 };
-use cuprate_types::{
-    rpc::{PoolInfoFull, PoolInfoIncremental, PoolTxInfo},
-    PoolInfo,
-};
+use cuprate_types::rpc::{PoolInfo, PoolInfoFull, PoolInfoIncremental, PoolTxInfo};
 
 // FIXME: use `anyhow::Error` over `tower::BoxError` in txpool.
 

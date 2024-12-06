@@ -15,7 +15,7 @@ use cuprate_rpc_types::{
     json::{GetOutputDistributionRequest, GetOutputDistributionResponse},
     misc::RequestedInfo,
 };
-use cuprate_types::{BlockCompleteEntry, PoolInfoExtent};
+use cuprate_types::{rpc::PoolInfoExtent, BlockCompleteEntry};
 
 use crate::rpc::{helper, request::blockchain, CupratedRpcHandler};
 

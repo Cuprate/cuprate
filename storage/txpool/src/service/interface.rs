@@ -7,7 +7,7 @@ use std::{
     sync::Arc,
 };
 
-use cuprate_types::{PoolInfo, TransactionVerificationData};
+use cuprate_types::{rpc::PoolInfo, TransactionVerificationData};
 
 use crate::{
     tx::TxEntry,
