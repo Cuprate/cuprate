@@ -2,38 +2,23 @@
 //!
 //! Only non-crate types are imported, all crate types use `crate::`.
 
-#![allow(unused_variables, unreachable_code, reason = "TODO")]
-
 use std::{
     net::{Ipv4Addr, SocketAddr, SocketAddrV4},
     time::Duration,
 };
 
-use cuprate_helper::map::combine_low_high_bits_to_u128;
+use cuprate_helper::{
+    fmt::hex_prefix_u128,
+    map::{combine_low_high_bits_to_u128, ipv4_from_u32},
+};
 use cuprate_p2p_core::{
-    types::{BanState, ConnectionId, ConnectionInfo, SetBan, Span},
-    ClearNet, NetZoneAddress, NetworkZone,
+    types::{ConnectionId, ConnectionInfo, SetBan, Span},
+    NetZoneAddress,
 };
 use cuprate_types::{
     hex::Hex,
-    rpc::{
-        AuxPow, BlockHeader, BlockOutputIndices, ChainInfo, GetBan, GetMinerDataTxBacklogEntry,
-        GetOutputsOut, HardforkEntry, HistogramEntry, OutKey, OutKeyBin, OutputDistributionData,
-        Peer, PublicNode, SpentKeyImageInfo, TxBacklogEntry, TxInfo, TxOutputIndices, TxpoolHisto,
-        TxpoolStats,
-    },
+    rpc::{BlockHeader, ChainInfo, HistogramEntry, TxInfo},
 };
-
-/// <https://architecture.cuprate.org/oddities/le-ipv4.html>
-const fn ipv4_from_u32(ip: u32) -> Ipv4Addr {
-    let [a, b, c, d] = ip.to_le_bytes();
-    Ipv4Addr::new(a, b, c, d)
-}
-
-/// Format two [`u64`]'s as a [`u128`] as a hexadecimal string prefixed with `0x`.
-fn hex_prefix_u128(low: u64, high: u64) -> String {
-    format!("{:#x}", combine_low_high_bits_to_u128(low, high))
-}
 
 impl From<BlockHeader> for crate::misc::BlockHeader {
     fn from(x: BlockHeader) -> Self {
@@ -54,7 +39,7 @@ impl From<BlockHeader> for crate::misc::BlockHeader {
             nonce: x.nonce,
             num_txes: x.num_txes,
             orphan_status: x.orphan_status,
-            pow_hash: Hex(x.pow_hash),
+            pow_hash: x.pow_hash.map_or_else(String::new, hex::encode),
             prev_hash: Hex(x.prev_hash),
             reward: x.reward,
             timestamp: x.timestamp,
@@ -204,27 +189,5 @@ impl From<TxInfo> for crate::misc::TxInfo {
             tx_json: x.tx_json,
             weight: x.weight,
         }
-    }
-}
-
-impl From<AuxPow> for crate::misc::AuxPow {
-    fn from(x: AuxPow) -> Self {
-        Self {
-            id: Hex(x.id),
-            hash: Hex(x.hash),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn hex() {
-        assert_eq!(hex_prefix_u128(0, 0), "0x0");
-        assert_eq!(hex_prefix_u128(0, u64::MAX), "0x0");
-        assert_eq!(hex_prefix_u128(u64::MAX, 0), "0x0");
-        assert_eq!(hex_prefix_u128(u64::MAX, u64::MAX), "0x0");
     }
 }

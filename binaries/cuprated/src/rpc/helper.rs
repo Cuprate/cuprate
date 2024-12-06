@@ -57,17 +57,17 @@ pub(super) async fn block_header(
         )
         .await?;
 
-        let pow_hash = blockchain_context::calculate_pow(
-            &mut state.blockchain_context,
-            hardfork,
-            block,
-            seed_hash,
+        Some(
+            blockchain_context::calculate_pow(
+                &mut state.blockchain_context,
+                hardfork,
+                block,
+                seed_hash,
+            )
+            .await?,
         )
-        .await?;
-
-        pow_hash
     } else {
-        [0; 32]
+        None
     };
 
     let block_weight = usize_to_u64(header.block_weight);

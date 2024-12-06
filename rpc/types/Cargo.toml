@@ -12,7 +12,13 @@ keywords    = ["cuprate", "rpc", "types", "monero"]
 default = ["serde", "epee", "from"]
 serde   = ["dep:serde", "cuprate-fixed-bytes/serde", "cuprate-types/serde"]
 epee    = ["dep:cuprate-epee-encoding", "cuprate-types/epee"]
-from    = ["dep:cuprate-helper", "cuprate-helper/map", "dep:cuprate-p2p-core", "dep:hex"]
+from    = [
+	"dep:cuprate-helper",
+	"cuprate-helper/map",
+	"cuprate-helper/fmt",
+	"dep:cuprate-p2p-core",
+	"dep:hex"
+]
 
 [dependencies]
 cuprate-epee-encoding = { workspace = true, optional = true }

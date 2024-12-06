@@ -1073,7 +1073,7 @@ fn add_aux_pow_inner(
         for nonce in 0..=MAX_NONCE {
             for i in &mut slots {
                 let slot_u32 = get_aux_slot(
-                    &aux_pow[u32_to_usize(*i)].id,
+                    &aux_pow[u32_to_usize(*i)].id.0,
                     nonce,
                     non_zero_len.try_into().unwrap(),
                 );
@@ -1117,8 +1117,8 @@ fn add_aux_pow_inner(
                 return Err(anyhow!("Slot value out of range"));
             }
 
-            aux_pow_id_raw.push(aux_pow.id);
-            aux_pow_raw.push(aux_pow.hash);
+            aux_pow_id_raw.push(aux_pow.id.0);
+            aux_pow_raw.push(aux_pow.hash.0);
         }
 
         assert_eq!(
@@ -1139,8 +1139,8 @@ fn add_aux_pow_inner(
                 return Err(anyhow!("Slot value out of range"));
             }
 
-            aux_pow_raw[slot] = aux_pow.hash;
-            aux_pow_id_raw[slot] = aux_pow.id;
+            aux_pow_raw[slot] = aux_pow.hash.0;
+            aux_pow_id_raw[slot] = aux_pow.id.0;
         }
 
         (
@@ -1197,9 +1197,7 @@ fn add_aux_pow_inner(
     let blocktemplate_blob = hex::encode(blocktemplate_blob);
     let blockhashing_blob = hex::encode(blockhashing_blob);
     let merkle_root = hex::encode(merkle_root);
-    let aux_pow = IntoIterator::into_iter(aux_pow) // must be explicit due to `boxed_slice_into_iter`
-        .map(Into::into)
-        .collect::<Vec<cuprate_rpc_types::misc::AuxPow>>();
+    let aux_pow = aux_pow.into_vec();
 
     Ok(AddAuxPowResponse {
         base: ResponseBase::OK,

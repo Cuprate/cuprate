@@ -103,7 +103,8 @@ define_struct_and_impl_epee! {
         nonce: u32,
         num_txes: u64,
         orphan_status: bool,
-        pow_hash: [u8; 32],
+        /// This is [`None`] if the `fill_pow_hash` param is `false`.
+        pow_hash: Option<[u8; 32]>,
         prev_hash: [u8; 32],
         reward: u64,
         timestamp: u64,
@@ -273,8 +274,8 @@ define_struct_and_impl_epee! {
         1070..=1079
     )]
     AuxPow {
-        id: [u8; 32],
-        hash: [u8; 32],
+        id: Hex<32>,
+        hash: Hex<32>,
     }
 
     #[doc = monero_definition_link!(

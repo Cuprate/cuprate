@@ -34,7 +34,7 @@ cuprate-test-utils        = { workspace = true }
 cuprate-types             = { workspace = true, features = ["json"] }
 cuprate-json-rpc          = { workspace = true }
 cuprate-rpc-interface     = { workspace = true }
-cuprate-rpc-types         = { workspace = true }
+cuprate-rpc-types         = { workspace = true, features = ["from"] }
 
 
 # TODO: after v1.0.0, remove unneeded dependencies.

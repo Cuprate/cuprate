@@ -90,7 +90,8 @@ define_struct_and_impl_epee! {
         nonce: u32,
         num_txes: u64,
         orphan_status: bool,
-        pow_hash: Hex<32>,
+        /// This is an empty string if the `fill_pow_hash` param is `false`.
+        pow_hash: String,
         prev_hash: Hex<32>,
         reward: u64,
         timestamp: u64,
@@ -306,18 +307,6 @@ define_struct_and_impl_epee! {
     SpentKeyImageInfo {
         id_hash: Hex<32>,
         txs_hashes: Vec<String>, // TODO: Vec<Hex<32>> when it has epee
-    }
-}
-
-define_struct_and_impl_epee! {
-    #[doc = monero_definition_link!(
-        "cc73fe71162d564ffda8e549b79a350bca53c454",
-        "rpc/core_rpc_server_commands_defs.h",
-        1070..=1079
-    )]
-    AuxPow {
-        id: Hex<32>,
-        hash: Hex<32>,
     }
 }
 

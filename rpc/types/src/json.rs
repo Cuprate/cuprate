@@ -6,14 +6,14 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use cuprate_types::rpc::{GetMinerDataTxBacklogEntry, HardforkEntry, TxBacklogEntry};
+use cuprate_types::rpc::{AuxPow, GetMinerDataTxBacklogEntry, HardforkEntry, TxBacklogEntry};
 
 use crate::{
     base::{AccessResponseBase, ResponseBase},
     macros::define_request_and_response,
     misc::{
-        AuxPow, BlockHeader, ChainInfo, ConnectionInfo, Distribution, GetBan, HistogramEntry,
-        SetBan, Span, Status, SyncInfoPeer,
+        BlockHeader, ChainInfo, ConnectionInfo, Distribution, GetBan, HistogramEntry, SetBan, Span,
+        Status, SyncInfoPeer,
     },
     rpc_call::RpcCallValue,
 };

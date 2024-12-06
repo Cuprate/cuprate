@@ -27,6 +27,6 @@ pub use requested_info::RequestedInfo;
 pub use status::Status;
 pub use tx_entry::TxEntry;
 pub use types::{
-    AuxPow, BlockHeader, ChainInfo, ConnectionInfo, GetBan, GetOutputsOut, HistogramEntry,
-    OutKeyBin, SetBan, Span, SpentKeyImageInfo, SyncInfoPeer, TxInfo,
+    BlockHeader, ChainInfo, ConnectionInfo, GetBan, GetOutputsOut, HistogramEntry, OutKeyBin,
+    SetBan, Span, SpentKeyImageInfo, SyncInfoPeer, TxInfo,
 };
