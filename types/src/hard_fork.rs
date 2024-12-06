@@ -59,6 +59,7 @@ pub enum HardForkError {
 )]
 #[cfg_attr(any(feature = "proptest"), derive(proptest_derive::Arbitrary))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(try_from = "u8", into = "u8"))]
 #[repr(u8)]
 pub enum HardFork {
     #[default]
@@ -200,6 +201,19 @@ impl HardFork {
     /// ```
     pub const fn is_latest(self) -> bool {
         matches!(self, Self::LATEST)
+    }
+}
+
+impl TryFrom<u8> for HardFork {
+    type Error = HardForkError;
+    fn try_from(version: u8) -> Result<Self, Self::Error> {
+        Self::from_version(version)
+    }
+}
+
+impl From<HardFork> for u8 {
+    fn from(value: HardFork) -> Self {
+        value.as_u8()
     }
 }
 

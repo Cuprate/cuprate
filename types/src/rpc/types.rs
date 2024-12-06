@@ -190,7 +190,7 @@ define_struct_and_impl_epee! {
         2180..=2191
     )]
     #[derive(Copy)]
-    HardforkEntry {
+    HardForkEntry {
         height: u64,
         hf_version: HardFork,
     }

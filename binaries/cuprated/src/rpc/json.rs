@@ -34,24 +34,25 @@ use cuprate_rpc_types::{
         GetBlockCountRequest, GetBlockCountResponse, GetBlockHeaderByHashRequest,
         GetBlockHeaderByHashResponse, GetBlockHeaderByHeightRequest,
         GetBlockHeaderByHeightResponse, GetBlockHeadersRangeRequest, GetBlockHeadersRangeResponse,
-        GetBlockRequest, GetBlockResponse, GetCoinbaseTxSumRequest, GetCoinbaseTxSumResponse,
-        GetConnectionsRequest, GetConnectionsResponse, GetFeeEstimateRequest,
-        GetFeeEstimateResponse, GetInfoRequest, GetInfoResponse, GetLastBlockHeaderRequest,
-        GetLastBlockHeaderResponse, GetMinerDataRequest, GetMinerDataResponse,
-        GetOutputDistributionRequest, GetOutputDistributionResponse, GetOutputHistogramRequest,
-        GetOutputHistogramResponse, GetTransactionPoolBacklogRequest,
-        GetTransactionPoolBacklogResponse, GetTxIdsLooseRequest, GetTxIdsLooseResponse,
-        GetVersionRequest, GetVersionResponse, HardForkInfoRequest, HardForkInfoResponse,
-        JsonRpcRequest, JsonRpcResponse, OnGetBlockHashRequest, OnGetBlockHashResponse,
-        PruneBlockchainRequest, PruneBlockchainResponse, RelayTxRequest, RelayTxResponse,
-        SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse, SyncInfoRequest,
-        SyncInfoResponse,
+        GetBlockRequest, GetBlockResponse, GetBlockTemplateRequest, GetBlockTemplateResponse,
+        GetCoinbaseTxSumRequest, GetCoinbaseTxSumResponse, GetConnectionsRequest,
+        GetConnectionsResponse, GetFeeEstimateRequest, GetFeeEstimateResponse, GetInfoRequest,
+        GetInfoResponse, GetLastBlockHeaderRequest, GetLastBlockHeaderResponse,
+        GetMinerDataRequest, GetMinerDataResponse, GetOutputDistributionRequest,
+        GetOutputDistributionResponse, GetOutputHistogramRequest, GetOutputHistogramResponse,
+        GetTransactionPoolBacklogRequest, GetTransactionPoolBacklogResponse, GetTxIdsLooseRequest,
+        GetTxIdsLooseResponse, GetVersionRequest, GetVersionResponse, HardForkInfoRequest,
+        HardForkInfoResponse, JsonRpcRequest, JsonRpcResponse, OnGetBlockHashRequest,
+        OnGetBlockHashResponse, PruneBlockchainRequest, PruneBlockchainResponse, RelayTxRequest,
+        RelayTxResponse, SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse,
+        SyncInfoRequest, SyncInfoResponse,
     },
     misc::{BlockHeader, ChainInfo, Distribution, GetBan, HistogramEntry, Status, SyncInfoPeer},
     CORE_RPC_VERSION,
 };
 use cuprate_types::{
-    rpc::{AuxPow, CoinbaseTxSum, GetMinerDataTxBacklogEntry, HardforkEntry, TxBacklogEntry},
+    hex::Hex,
+    rpc::{AuxPow, CoinbaseTxSum, GetMinerDataTxBacklogEntry, HardForkEntry, TxBacklogEntry},
     HardFork,
 };
 
@@ -76,6 +77,7 @@ pub(super) async fn map_request(
     use JsonRpcResponse as Resp;
 
     Ok(match request {
+        Req::GetBlockTemplate(r) => Resp::GetBlockTemplate(get_block_template(state, r).await?),
         Req::GetBlockCount(r) => Resp::GetBlockCount(get_block_count(state, r).await?),
         Req::OnGetBlockHash(r) => Resp::OnGetBlockHash(on_get_block_hash(state, r).await?),
         Req::SubmitBlock(r) => Resp::SubmitBlock(submit_block(state, r).await?),
@@ -125,6 +127,101 @@ pub(super) async fn map_request(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1911-L2005>
+async fn get_block_template(
+    mut state: CupratedRpcHandler,
+    request: GetBlockTemplateRequest,
+) -> Result<GetBlockTemplateResponse, Error> {
+    if request.reserve_size > 255 {
+        return Err(anyhow!("Too big reserved size, maximum 255"));
+    }
+
+    if request.reserve_size != 0 && !request.extra_nonce.is_empty() {
+        return Err(anyhow!(
+            "Cannot specify both a reserve_size and an extra_nonce"
+        ));
+    }
+
+    if request.extra_nonce.len() > 510 {
+        return Err(anyhow!("Too big extra_nonce size"));
+    }
+
+    // cryptonote::address_parse_info info;
+
+    if request.wallet_address.is_empty()
+        || todo!(
+            "!cryptonote::get_account_address_from_str(info, nettype(), request.wallet_address))"
+        )
+    {
+        return Err(anyhow!("Failed to parse wallet address"));
+    }
+
+    if todo!("info.is_subaddress") {
+        return Err(anyhow!("Mining to subaddress is not supported yet"));
+    }
+
+    // block b;
+    // cryptonote::blobdata blob_reserve;
+    // size_t reserved_offset;
+    // if(!request.extra_nonce.empty())
+    // {
+    //   if(!string_tools::parse_hexstr_to_binbuff(request.extra_nonce, blob_reserve))
+    //   {
+    //     error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+    //     error_resp.message = "Parameter extra_nonce should be a hex string";
+    //     return false;
+    //   }
+    // }
+    // else
+    //   blob_reserve.resize(request.reserve_size, 0);
+    // cryptonote::difficulty_type wdiff;
+    // crypto::hash prev_block;
+    // if (!request.prev_block.empty())
+    // {
+    //   if (!epee::string_tools::hex_to_pod(request.prev_block, prev_block))
+    //   {
+    //     error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+    //     error_resp.message = "Invalid prev_block";
+    //     return false;
+    //   }
+    // }
+    // crypto::hash seed_hash, next_seed_hash;
+    // if (!get_block_template(info.address, request.prev_block.empty() ? NULL : &prev_block, blob_reserve, reserved_offset, wdiff, res.height, res.expected_reward, res.cumulative_weight, b, res.seed_height, seed_hash, next_seed_hash, error_resp))
+    //   return false;
+    // if (b.major_version >= RX_BLOCK_VERSION)
+    // {
+    //   res.seed_hash = string_tools::pod_to_hex(seed_hash);
+    //   if (seed_hash != next_seed_hash)
+    //     res.next_seed_hash = string_tools::pod_to_hex(next_seed_hash);
+    // }
+
+    // res.reserved_offset = reserved_offset;
+    // store_difficulty(wdiff, res.difficulty, res.wide_difficulty, res.difficulty_top64);
+    // blobdata block_blob = t_serializable_object_to_blob(b);
+    // blobdata hashing_blob = get_block_hashing_blob(b);
+    // res.prev_hash = string_tools::pod_to_hex(b.prev_id);
+    // res.blocktemplate_blob = string_tools::buff_to_hex_nodelimer(block_blob);
+    // res.blockhashing_blob =  string_tools::buff_to_hex_nodelimer(hashing_blob);
+    // res.status = CORE_RPC_STATUS_OK;
+    // return true;
+
+    Ok(GetBlockTemplateResponse {
+        base: ResponseBase::OK,
+        blockhashing_blob: todo!(),
+        blocktemplate_blob: todo!(),
+        difficulty_top64: todo!(),
+        difficulty: todo!(),
+        expected_reward: todo!(),
+        height: todo!(),
+        next_seed_hash: todo!(),
+        prev_hash: todo!(),
+        reserved_offset: todo!(),
+        seed_hash: todo!(),
+        seed_height: todo!(),
+        wide_difficulty: todo!(),
+    })
+}
+
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1790-L1804>
 async fn get_block_count(
     mut state: CupratedRpcHandler,
@@ -148,9 +245,10 @@ async fn on_get_block_hash(
         todo!("access to `cuprated`'s Chain"),
     )
     .await?;
-    let block_hash = hex::encode(hash);
 
-    Ok(OnGetBlockHashResponse { block_hash })
+    Ok(OnGetBlockHashResponse {
+        block_hash: Hex(hash),
+    })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2209-L2266>
@@ -232,19 +330,19 @@ async fn get_block_header_by_hash(
 
     async fn get(
         state: &mut CupratedRpcHandler,
-        hex: String,
+        hash: [u8; 32],
         fill_pow_hash: bool,
     ) -> Result<BlockHeader, Error> {
-        let hash = helper::hex_to_hash(hex)?;
         let block_header = helper::block_header_by_hash(state, hash, fill_pow_hash).await?;
         Ok(block_header)
     }
 
-    let block_header = get(&mut state, request.hash, request.fill_pow_hash).await?;
+    let block_header = get(&mut state, request.hash.0, request.fill_pow_hash).await?;
 
     // FIXME PERF: could make a `Vec` on await on all tasks at the same time.
     let mut block_headers = Vec::with_capacity(request.hashes.len());
     for hash in request.hashes {
+        let hash = helper::hex_to_hash(hash)?;
         let hash = get(&mut state, hash, request.fill_pow_hash).await?;
         block_headers.push(hash);
     }
@@ -736,7 +834,7 @@ async fn get_version(
     for hf in HardFork::VARIANTS {
         if let Ok(hf) = blockchain_context::hard_fork_info(&mut state.blockchain_context, *hf).await
         {
-            let entry = HardforkEntry {
+            let entry = HardForkEntry {
                 height: hf.earliest_height,
                 hf_version: HardFork::from_version(hf.version)
                     .expect("blockchain context should not be responding with invalid hardforks"),
@@ -1196,7 +1294,7 @@ fn add_aux_pow_inner(
 
     let blocktemplate_blob = hex::encode(blocktemplate_blob);
     let blockhashing_blob = hex::encode(blockhashing_blob);
-    let merkle_root = hex::encode(merkle_root);
+    let merkle_root = Hex(merkle_root);
     let aux_pow = aux_pow.into_vec();
 
     Ok(AddAuxPowResponse {

@@ -59,6 +59,7 @@ impl Service<JsonRpcRequest> for RpcHandlerDummy {
 
         #[expect(clippy::default_trait_access)]
         let resp = match req {
+            Req::GetBlockTemplate(_) => Resp::GetBlockTemplate(Default::default()),
             Req::GetBlockCount(_) => Resp::GetBlockCount(Default::default()),
             Req::OnGetBlockHash(_) => Resp::OnGetBlockHash(Default::default()),
             Req::SubmitBlock(_) => Resp::SubmitBlock(Default::default()),

@@ -56,6 +56,37 @@ impl<const N: usize> Default for Hex<N> {
     }
 }
 
+impl<const N: usize> From<Hex<N>> for [u8; N] {
+    fn from(hex: Hex<N>) -> Self {
+        hex.0
+    }
+}
+
+impl<const N: usize> From<[u8; N]> for Hex<N> {
+    fn from(value: [u8; N]) -> Self {
+        Self(value)
+    }
+}
+
+impl<const N: usize> TryFrom<String> for Hex<N> {
+    type Error = hex::FromHexError;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let vec = hex::decode(value)?;
+        match <[u8; N]>::try_from(vec) {
+            Ok(s) => Ok(Self(s)),
+            Err(_) => Err(hex::FromHexError::InvalidStringLength),
+        }
+    }
+}
+
+impl<const N: usize> TryFrom<&str> for Hex<N> {
+    type Error = hex::FromHexError;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let mut bytes = [0; N];
+        hex::decode_to_slice(value, &mut bytes).map(|()| Self(bytes))
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

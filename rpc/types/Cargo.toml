@@ -16,6 +16,7 @@ from    = [
 	"dep:cuprate-helper",
 	"cuprate-helper/map",
 	"cuprate-helper/fmt",
+	"cuprate-types/rpc",
 	"dep:cuprate-p2p-core",
 	"dep:hex"
 ]
@@ -34,8 +35,10 @@ hex        = { workspace = true, optional = true }
 [dev-dependencies]
 cuprate-test-utils = { workspace = true }
 
-serde      = { workspace = true }
-serde_json = { workspace = true }
+hex-literal       = { workspace = true }
+pretty_assertions = { workspace = true }
+serde             = { workspace = true }
+serde_json        = { workspace = true }
 
 [lints]
 workspace = true

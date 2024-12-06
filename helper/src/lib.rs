@@ -11,7 +11,7 @@ pub mod atomic;
 #[cfg(feature = "cast")]
 pub mod cast;
 
-#[cfg(all(feature = "fs", feature = "std"))]
+#[cfg(feature = "fs")]
 pub mod fs;
 
 pub mod network;

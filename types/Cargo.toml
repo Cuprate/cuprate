@@ -18,7 +18,7 @@ json       = ["hex", "dep:cuprate-helper"]
 # We sadly have no choice but to enable serde here as otherwise we will get warnings from the `hex` dep being unused.
 # This isn't too bad as `Hex` only makes sense with serde anyway.
 hex        = ["serde", "dep:hex"]
-rpc        = ["hex"]
+rpc        = ["hex", "json"]
 
 [dependencies]
 cuprate-epee-encoding = { workspace = true, optional = true, features = ["std"] }

@@ -76,7 +76,6 @@ pub(super) async fn block_header(
     let (cumulative_difficulty_top64, cumulative_difficulty) =
         split_u128_into_low_high_bits(header.cumulative_difficulty);
     let (difficulty_top64, difficulty) = split_u128_into_low_high_bits(difficulty);
-    let wide_difficulty = hex::encode(difficulty.to_ne_bytes());
 
     let reward = block
         .miner_transaction

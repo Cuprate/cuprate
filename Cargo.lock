@@ -1072,7 +1072,9 @@ dependencies = [
  "cuprate-test-utils",
  "cuprate-types",
  "hex",
+ "hex-literal",
  "paste",
+ "pretty_assertions",
  "serde",
  "serde_json",
 ]
