@@ -3,14 +3,11 @@
 //! Only non-crate types are imported, all crate types use `crate::`.
 
 use std::{
-    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
+    net::{SocketAddr, SocketAddrV4},
     time::Duration,
 };
 
-use cuprate_helper::{
-    fmt::hex_prefix_u128,
-    map::{combine_low_high_bits_to_u128, ipv4_from_u32},
-};
+use cuprate_helper::{fmt::hex_prefix_u128, map::ipv4_from_u32};
 use cuprate_p2p_core::{
     types::{ConnectionId, ConnectionInfo, SetBan, Span},
     NetZoneAddress,
