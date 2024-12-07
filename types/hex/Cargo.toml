@@ -9,12 +9,11 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/types"
 keywords    = ["cuprate", "hex"]
 
 [features]
-default = ["serde"]
-serde   = ["dep:serde", "hex/serde"]
+default = []
 
 [dependencies]
-hex   = { workspace = true, features = ["alloc"] }
-serde = { workspace = true, features = ["std", "derive"], optional = true }
+hex   = { workspace = true, features = ["alloc", "serde"] }
+serde = { workspace = true, features = ["std", "derive"] }
 
 [dev-dependencies]
 serde_json = { workspace = true, features = ["std"] }

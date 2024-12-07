@@ -22,6 +22,7 @@ use cuprate_helper::{
     cast::{u32_to_usize, u64_to_usize, usize_to_u64},
     map::split_u128_into_low_high_bits,
 };
+use cuprate_hex::Hex;
 use cuprate_p2p_core::{client::handshaker::builder::DummyAddressBook, ClearNet, Network};
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
@@ -51,7 +52,6 @@ use cuprate_rpc_types::{
     CORE_RPC_VERSION,
 };
 use cuprate_types::{
-    hex::Hex,
     rpc::{AuxPow, CoinbaseTxSum, GetMinerDataTxBacklogEntry, HardForkEntry, TxBacklogEntry},
     HardFork,
 };

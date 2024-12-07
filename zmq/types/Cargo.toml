@@ -10,7 +10,7 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/zmq/types"
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
 hex = { workspace = true, features = ["std", "serde"] }
-cuprate-hex = { workspace = true, features = ["serde"] }
+cuprate-hex = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true, features = ["std"] }

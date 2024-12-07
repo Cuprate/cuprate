@@ -3,8 +3,8 @@
 //! This module provides transparent wrapper types for
 //! arrays that (de)serialize from hexadecimal input/output.
 
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use hex::{FromHex, FromHexError};
+use serde::{Deserialize, Deserializer, Serialize};
 
 /// Wrapper type for a byte array that (de)serializes from/to hexadecimal strings.
 ///
@@ -23,25 +23,21 @@ use serde::{Deserialize, Serialize};
 ///
 /// # Deserialization
 /// This struct has a custom deserialization that only applies to certain
-/// `N` lengths because [`hex::FromHex`] does not implement for a generic `N`:
+/// `N` lengths because [`FromHex`] does not implement for a generic `N`:
 /// <https://docs.rs/hex/0.4.3/src/hex/lib.rs.html#220-230>
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize))]
-#[cfg_attr(feature = "serde", serde(transparent))]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[serde(transparent)]
 #[repr(transparent)]
-pub struct Hex<const N: usize>(
-    #[cfg_attr(feature = "serde", serde(with = "hex::serde"))] pub [u8; N],
-);
+pub struct Hex<const N: usize>(#[serde(with = "hex::serde")] pub [u8; N]);
 
-#[cfg(feature = "serde")]
 impl<'de, const N: usize> Deserialize<'de> for Hex<N>
 where
-    [u8; N]: hex::FromHex,
-    <[u8; N] as hex::FromHex>::Error: std::fmt::Display,
+    [u8; N]: FromHex,
+    <[u8; N] as FromHex>::Error: std::fmt::Display,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         Ok(Self(hex::serde::deserialize(deserializer)?))
     }
@@ -67,18 +63,18 @@ impl<const N: usize> From<[u8; N]> for Hex<N> {
 }
 
 impl<const N: usize> TryFrom<String> for Hex<N> {
-    type Error = hex::FromHexError;
+    type Error = FromHexError;
     fn try_from(value: String) -> Result<Self, Self::Error> {
         let vec = hex::decode(value)?;
         match <[u8; N]>::try_from(vec) {
             Ok(s) => Ok(Self(s)),
-            Err(_) => Err(hex::FromHexError::InvalidStringLength),
+            Err(_) => Err(FromHexError::InvalidStringLength),
         }
     }
 }
 
 impl<const N: usize> TryFrom<&str> for Hex<N> {
-    type Error = hex::FromHexError;
+    type Error = FromHexError;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let mut bytes = [0; N];
         hex::decode_to_slice(value, &mut bytes).map(|()| Self(bytes))

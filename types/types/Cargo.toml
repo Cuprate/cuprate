@@ -21,7 +21,7 @@ rpc        = ["dep:cuprate-hex", "json"]
 cuprate-epee-encoding = { workspace = true, optional = true, features = ["std"] }
 cuprate-helper        = { workspace = true, optional = true, features = ["cast"] }
 cuprate-fixed-bytes   = { workspace = true, features = ["std", "serde"] }
-cuprate-hex           = { workspace = true, optional = true, features = ["serde"] }
+cuprate-hex           = { workspace = true, optional = true }
 
 bytes            = { workspace = true }
 cfg-if           = { workspace = true }

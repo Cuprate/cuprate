@@ -32,6 +32,7 @@ cuprate-database          = { workspace = true, features = ["serde"] }
 cuprate-pruning           = { workspace = true }
 cuprate-test-utils        = { workspace = true }
 cuprate-types             = { workspace = true, features = ["json"] }
+cuprate-hex               = { workspace = true }
 cuprate-json-rpc          = { workspace = true }
 cuprate-rpc-interface     = { workspace = true }
 cuprate-rpc-types         = { workspace = true, features = ["from"] }

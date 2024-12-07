@@ -1217,6 +1217,7 @@ dependencies = [
  "cuprate-fast-sync",
  "cuprate-fixed-bytes",
  "cuprate-helper",
+ "cuprate-hex",
  "cuprate-json-rpc",
  "cuprate-levin",
  "cuprate-p2p",
