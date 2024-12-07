@@ -55,11 +55,6 @@ define_request_and_response! {
 
     // The request type.
     //
-    // If `Request {/* fields */}` is provided, a struct is generate as-is.
-    //
-    // If `Request {}` is specified here, it will create a `pub type YOUR_REQUEST_TYPE = ()`
-    // instead of a `struct`, see below in other macro definitions for an example.
-    //
     // If there are any additional attributes (`/// docs` or `#[derive]`s)
     // for the struct, they go here.
     Request {
@@ -145,9 +140,6 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 919..=933,
     GetBlockCount (empty),
 
-    // There are no request fields specified,
-    // this will cause the macro to generate a
-    // type alias to `()` instead of a `struct`.
     Request {},
 
     ResponseBase {
@@ -166,8 +158,8 @@ define_request_and_response! {
     #[repr(transparent)]
     #[derive(Copy)]
     Request {
-        // This is `std::vector<u64>` in `monerod` but
-        // it must be a 1 length array or else it will error.
+        /// This is `std::vector<u64>` in `monerod` but
+        /// it must be a 1 length array or else it will error.
         block_height: [u64; 1],
     },
 
@@ -195,7 +187,7 @@ define_request_and_response! {
 
     // FIXME: `cuprate_test_utils` only has an `error` response for this.
     ResponseBase {
-        block_id: String,
+        block_id: Hex<32>,
     }
 }
 
@@ -214,7 +206,7 @@ define_request_and_response! {
     },
 
     ResponseBase {
-        blocks: Vec<String>,
+        blocks: Vec<Hex<32>>,
         height: u64,
     }
 }
@@ -244,7 +236,7 @@ define_request_and_response! {
 
     Request {
         hash: Hex<32>,
-        hashes: Vec<String> = default_vec::<String>(), "default_vec",
+        hashes: Vec<Hex<32>> = default_vec::<Hex<32>>(), "default_vec",
         fill_pow_hash: bool = default_false(), "default_false",
     },
 
@@ -309,11 +301,11 @@ define_request_and_response! {
     AccessResponseBase {
         blob: String,
         block_header: BlockHeader,
-        /// `cuprate_rpc_types::json::block::Block` should be used
+        /// `cuprate_types::json::block::Block` should be used
         /// to create this JSON string in a type-safe manner.
         json: String,
-        miner_tx_hash: String,
-        tx_hashes: Vec<String> = default_vec::<String>(), "default_vec",
+        miner_tx_hash: Hex<32>,
+        tx_hashes: Vec<Hex<32>> = default_vec::<Hex<32>>(), "default_vec",
     }
 }
 
@@ -370,7 +362,7 @@ define_request_and_response! {
         target_height: u64,
         target: u64,
         testnet: bool,
-        top_block_hash: String,
+        top_block_hash: Hex<32>,
         tx_count: u64,
         tx_pool_size: u64,
         update_available: bool,
@@ -457,7 +449,7 @@ define_request_and_response! {
     FlushTransactionPool (restricted),
 
     Request {
-        txids: Vec<String> = default_vec::<String>(), "default_vec",
+        txids: Vec<Hex<32>> = default_vec::<Hex<32>>(), "default_vec",
     },
 
     #[repr(transparent)]
@@ -562,7 +554,7 @@ define_request_and_response! {
     RelayTx (restricted),
 
     Request {
-        txids: Vec<String>,
+        txids: Vec<Hex<32>>,
     },
 
     #[repr(transparent)]
@@ -639,8 +631,8 @@ define_request_and_response! {
     ResponseBase {
         major_version: u8,
         height: u64,
-        prev_id: String,
-        seed_hash: String,
+        prev_id: Hex<32>,
+        seed_hash: Hex<32>,
         difficulty: String,
         median_weight: u64,
         already_generated_coins: u64,
@@ -677,13 +669,13 @@ define_request_and_response! {
         major_version: u8,
         height: u64,
         block_blob: String,
-        seed_hash: String,
+        seed_hash: Hex<32>,
     },
 
     #[cfg_attr(feature = "serde", serde(transparent))]
     #[repr(transparent)]
     Response {
-        pow_hash: String,
+        pow_hash: Hex<32>,
     }
 }
 
@@ -1053,9 +1045,9 @@ mod test {
             json::GENERATE_BLOCKS_RESPONSE,
             GenerateBlocksResponse {
                 base: ResponseBase::OK,
-                blocks: vec![
-                    "49b712db7760e3728586f8434ee8bc8d7b3d410dac6bb6e98bf5845c83b917e4".into(),
-                ],
+                blocks: vec![Hex(hex!(
+                    "49b712db7760e3728586f8434ee8bc8d7b3d410dac6bb6e98bf5845c83b917e4"
+                ))],
                 height: 9783,
             },
         );
@@ -1297,7 +1289,7 @@ mod test {
             json::GET_BLOCK_REQUEST,
             GetBlockRequest {
                 height: 2751506,
-                hash: String::default(),
+                hash: String::new(),
                 fill_pow_hash: false,
             },
         );
@@ -1333,7 +1325,7 @@ mod test {
                 wide_difficulty: "0x490be69168".into()
             },
             json: "{\n  \"major_version\": 16, \n  \"minor_version\": 16, \n  \"timestamp\": 1667941829, \n  \"prev_id\": \"b27bdecfc6cd0a46172d136c08831cf67660377ba992332363228b1b722781e7\", \n  \"nonce\": 4110909056, \n  \"miner_tx\": {\n    \"version\": 2, \n    \"unlock_time\": 2751566, \n    \"vin\": [ {\n        \"gen\": {\n          \"height\": 2751506\n        }\n      }\n    ], \n    \"vout\": [ {\n        \"amount\": 600000000000, \n        \"target\": {\n          \"tagged_key\": {\n            \"key\": \"d7cbf826b665d7a532c316982dc8dbc24f285cbc18bbcc27c7164cd9b3277a85\", \n            \"view_tag\": \"d0\"\n          }\n        }\n      }\n    ], \n    \"extra\": [ 1, 159, 98, 157, 139, 54, 189, 22, 162, 191, 206, 62, 168, 12, 49, 220, 77, 135, 98, 198, 113, 101, 174, 194, 24, 69, 73, 78, 50, 183, 88, 47, 224, 2, 17, 0, 0, 0, 41, 122, 120, 122, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0\n    ], \n    \"rct_signatures\": {\n      \"type\": 0\n    }\n  }, \n  \"tx_hashes\": [ ]\n}".into(),
-            miner_tx_hash: "e49b854c5f339d7410a77f2a137281d8042a0ffc7ef9ab24cd670b67139b24cd".into(),
+            miner_tx_hash: Hex(hex!("e49b854c5f339d7410a77f2a137281d8042a0ffc7ef9ab24cd670b67139b24cd")),
             tx_hashes: vec![],
         });
     }
@@ -1446,8 +1438,9 @@ mod test {
                 target: 120,
                 target_height: 0,
                 testnet: false,
-                top_block_hash: "bdf06d18ed1931a8ee62654e9b6478cc459bc7072628b8e36f4524d339552946"
-                    .into(),
+                top_block_hash: Hex(hex!(
+                    "bdf06d18ed1931a8ee62654e9b6478cc459bc7072628b8e36f4524d339552946"
+                )),
                 tx_count: 43205750,
                 tx_pool_size: 12,
                 update_available: false,
@@ -1560,9 +1553,9 @@ mod test {
         test_json_request(
             json::FLUSH_TRANSACTION_POOL_REQUEST,
             FlushTransactionPoolRequest {
-                txids: vec![
-                    "dc16fa8eaffe1484ca9014ea050e13131d3acf23b419f33bb4cc0b32b6c49308".into(),
-                ],
+                txids: vec![Hex(hex!(
+                    "dc16fa8eaffe1484ca9014ea050e13131d3acf23b419f33bb4cc0b32b6c49308"
+                ))],
             },
         );
     }
@@ -1691,10 +1684,9 @@ mod test {
                         block_hash: Hex(hex!(
                             "4826c7d45d7cf4f02985b5c405b0e5d7f92c8d25e015492ce19aa3b209295dce"
                         )),
-                        block_hashes: vec![
+                        block_hashes: vec![Hex(hex!(
                             "4826c7d45d7cf4f02985b5c405b0e5d7f92c8d25e015492ce19aa3b209295dce"
-                                .into(),
-                        ],
+                        ))],
                         difficulty: 357404825113208373,
                         difficulty_top64: 0,
                         height: 3167471,
@@ -1708,10 +1700,9 @@ mod test {
                         block_hash: Hex(hex!(
                             "33ee476f5a1c5b9d889274cbbe171f5e0112df7ed69021918042525485deb401"
                         )),
-                        block_hashes: vec![
+                        block_hashes: vec![Hex(hex!(
                             "33ee476f5a1c5b9d889274cbbe171f5e0112df7ed69021918042525485deb401"
-                                .into(),
-                        ],
+                        ))],
                         difficulty: 354736121711617293,
                         difficulty_top64: 0,
                         height: 3157465,
@@ -1731,9 +1722,9 @@ mod test {
         test_json_request(
             json::RELAY_TX_REQUEST,
             RelayTxRequest {
-                txids: vec![
-                    "9fd75c429cbe52da9a52f2ffc5fbd107fe7fd2099c0d8de274dc8a67e0c98613".into(),
-                ],
+                txids: vec![Hex(hex!(
+                    "9fd75c429cbe52da9a52f2ffc5fbd107fe7fd2099c0d8de274dc8a67e0c98613"
+                ))],
             },
         );
     }
@@ -1868,20 +1859,25 @@ mod test {
                 height: 2731375,
                 major_version: 16,
                 median_weight: 300000,
-                prev_id: "78d50c5894d187c4946d54410990ca59a75017628174a9e8c7055fa4ca5c7c6d".into(),
-                seed_hash: "a6b869d50eca3a43ec26fe4c369859cf36ae37ce6ecb76457d31ffeb8a6ca8a6"
-                    .into(),
+                prev_id: Hex(hex!(
+                    "78d50c5894d187c4946d54410990ca59a75017628174a9e8c7055fa4ca5c7c6d"
+                )),
+                seed_hash: Hex(hex!(
+                    "a6b869d50eca3a43ec26fe4c369859cf36ae37ce6ecb76457d31ffeb8a6ca8a6"
+                )),
                 tx_backlog: vec![
                     GetMinerDataTxBacklogEntry {
                         fee: 30700000,
-                        id: "9868490d6bb9207fdd9cf17ca1f6c791b92ca97de0365855ea5c089f67c22208"
-                            .into(),
+                        id: Hex(hex!(
+                            "9868490d6bb9207fdd9cf17ca1f6c791b92ca97de0365855ea5c089f67c22208"
+                        )),
                         weight: 1535,
                     },
                     GetMinerDataTxBacklogEntry {
                         fee: 44280000,
-                        id: "b6000b02bbec71e18ad704bcae09fb6e5ae86d897ced14a718753e76e86c0a0a"
-                            .into(),
+                        id: Hex(hex!(
+                            "b6000b02bbec71e18ad704bcae09fb6e5ae86d897ced14a718753e76e86c0a0a"
+                        )),
                         weight: 2214,
                     },
                 ],
@@ -1915,7 +1911,7 @@ mod test {
             major_version: 14,
             height: 2286447,
             block_blob: "0e0ed286da8006ecdc1aab3033cf1716c52f13f9d8ae0051615a2453643de94643b550d543becd0000000002abc78b0101ffefc68b0101fcfcf0d4b422025014bb4a1eade6622fd781cb1063381cad396efa69719b41aa28b4fce8c7ad4b5f019ce1dc670456b24a5e03c2d9058a2df10fec779e2579753b1847b74ee644f16b023c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000051399a1bc46a846474f5b33db24eae173a26393b976054ee14f9feefe99925233802867097564c9db7a36af5bb5ed33ab46e63092bd8d32cef121608c3258edd55562812e21cc7e3ac73045745a72f7d74581d9a0849d6f30e8b2923171253e864f4e9ddea3acb5bc755f1c4a878130a70c26297540bc0b7a57affb6b35c1f03d8dbd54ece8457531f8cba15bb74516779c01193e212050423020e45aa2c15dcb".into(),
-            seed_hash: "d432f499205150873b2572b5f033c9c6e4b7c6f3394bd2dd93822cd7085e7307".into(),
+            seed_hash: Hex(hex!("d432f499205150873b2572b5f033c9c6e4b7c6f3394bd2dd93822cd7085e7307")),
         });
     }
 
@@ -1924,7 +1920,9 @@ mod test {
         test_json_response(
             json::CALC_POW_RESPONSE,
             CalcPowResponse {
-                pow_hash: "d0402d6834e26fb94a9ce38c6424d27d2069896a9b8b1ce685d79936bca6e0a8".into(),
+                pow_hash: Hex(hex!(
+                    "d0402d6834e26fb94a9ce38c6424d27d2069896a9b8b1ce685d79936bca6e0a8"
+                )),
             },
         );
     }

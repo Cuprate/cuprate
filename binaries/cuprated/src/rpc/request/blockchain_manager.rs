@@ -149,7 +149,7 @@ pub(crate) async fn target_height(
 pub(crate) async fn generate_blocks(
     blockchain_manager: &mut BlockchainManagerHandle,
     amount_of_blocks: u64,
-    prev_block: [u8; 32],
+    prev_block: Option<[u8; 32]>,
     starting_nonce: u32,
     wallet_address: String,
 ) -> Result<(Vec<[u8; 32]>, u64), Error> {

@@ -260,7 +260,7 @@ async fn submit_block(
     let [blob] = request.block_blob;
     let bytes = hex::decode(blob)?;
     let block = Block::read(&mut bytes.as_slice())?;
-    let block_id = hex::encode(block.hash());
+    let block_id = Hex(block.hash());
 
     // Attempt to relay the block.
     blockchain_manager::relay_block(&mut state.blockchain_manager, Box::new(block)).await?;
@@ -283,7 +283,11 @@ async fn generate_blocks(
     // FIXME:
     // is this field only used as a local variable in the handler in `monerod`?
     // It may not be needed in the request type.
-    let prev_block = helper::hex_to_hash(request.prev_block)?;
+    let prev_block = if request.prev_block.is_empty() {
+        None
+    } else {
+        Some(helper::hex_to_hash(request.prev_block)?)
+    };
 
     let (blocks, height) = blockchain_manager::generate_blocks(
         &mut state.blockchain_manager,
@@ -294,7 +298,7 @@ async fn generate_blocks(
     )
     .await?;
 
-    let blocks = blocks.into_iter().map(hex::encode).collect();
+    let blocks = blocks.into_iter().map(Hex).collect();
 
     Ok(GenerateBlocksResponse {
         base: ResponseBase::OK,
@@ -342,8 +346,7 @@ async fn get_block_header_by_hash(
     // FIXME PERF: could make a `Vec` on await on all tasks at the same time.
     let mut block_headers = Vec::with_capacity(request.hashes.len());
     for hash in request.hashes {
-        let hash = helper::hex_to_hash(hash)?;
-        let hash = get(&mut state, hash, request.fill_pow_hash).await?;
+        let hash = get(&mut state, hash.0, request.fill_pow_hash).await?;
         block_headers.push(hash);
     }
 
@@ -444,8 +447,8 @@ async fn get_block(
     };
 
     let blob = hex::encode(block.serialize());
-    let miner_tx_hash = hex::encode(block.miner_transaction.hash());
-    let tx_hashes = block.transactions.iter().map(hex::encode).collect();
+    let miner_tx_hash = Hex(block.miner_transaction.hash());
+    let tx_hashes = block.transactions.iter().map(|a| Hex(*a)).collect();
     let json = {
         let block = cuprate_types::json::block::Block::from(block);
         serde_json::to_string_pretty(&block)?
@@ -545,7 +548,7 @@ async fn get_info(
     let target = blockchain_manager::target(&mut state.blockchain_manager)
         .await?
         .as_secs();
-    let top_block_hash = hex::encode(c.top_hash);
+    let top_block_hash = Hex(c.top_hash);
     let tx_count = blockchain::total_tx_count(&mut state.blockchain_read).await?;
     let tx_pool_size = txpool::size(&mut state.txpool_read, !restricted).await?;
     let update_available = if restricted {
@@ -754,8 +757,8 @@ async fn flush_transaction_pool(
     let tx_hashes = request
         .txids
         .into_iter()
-        .map(helper::hex_to_hash)
-        .collect::<Result<Vec<[u8; 32]>, _>>()?;
+        .map(|h| h.0)
+        .collect::<Vec<[u8; 32]>>();
 
     txpool::flush(&mut state.txpool_manager, tx_hashes).await?;
 
@@ -896,8 +899,8 @@ async fn relay_tx(
     let tx_hashes = request
         .txids
         .into_iter()
-        .map(helper::hex_to_hash)
-        .collect::<Result<Vec<[u8; 32]>, _>>()?;
+        .map(|h| h.0)
+        .collect::<Vec<[u8; 32]>>();
 
     txpool::relay(&mut state.txpool_manager, tx_hashes).await?;
 
@@ -1009,8 +1012,8 @@ async fn get_miner_data(
 
     let major_version = c.current_hf.as_u8();
     let height = usize_to_u64(c.chain_height);
-    let prev_id = hex::encode(c.top_hash);
-    let seed_hash = hex::encode(c.top_hash);
+    let prev_id = Hex(c.top_hash);
+    let seed_hash = Hex(c.top_hash);
     let difficulty = format!("{:#x}", c.next_difficulty);
     let median_weight = usize_to_u64(c.median_weight_for_block_reward);
     let already_generated_coins = c.already_generated_coins;
@@ -1018,7 +1021,7 @@ async fn get_miner_data(
         .await?
         .into_iter()
         .map(|entry| GetMinerDataTxBacklogEntry {
-            id: hex::encode(entry.id),
+            id: Hex(entry.id),
             weight: entry.weight,
             fee: entry.fee,
         })
@@ -1062,7 +1065,7 @@ async fn calc_pow(
     let hardfork = HardFork::from_version(request.major_version)?;
     let block_blob: Vec<u8> = hex::decode(request.block_blob)?;
     let block = Block::read(&mut block_blob.as_slice())?;
-    let seed_hash = helper::hex_to_hash(request.seed_hash)?;
+    let seed_hash = request.seed_hash.0;
 
     // let block_weight = todo!();
 
@@ -1087,9 +1090,9 @@ async fn calc_pow(
     )
     .await?;
 
-    let pow_hash = hex::encode(pow_hash);
-
-    Ok(CalcPowResponse { pow_hash })
+    Ok(CalcPowResponse {
+        pow_hash: Hex(pow_hash),
+    })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3542-L3551>

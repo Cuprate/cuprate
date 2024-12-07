@@ -66,7 +66,7 @@ pub enum BlockchainManagerRequest {
         /// Number of the blocks to be generated.
         amount_of_blocks: u64,
         /// The previous block's hash.
-        prev_block: [u8; 32],
+        prev_block: Option<[u8; 32]>,
         /// The starting value for the nonce.
         starting_nonce: u32,
         /// The address that will receive the coinbase reward.

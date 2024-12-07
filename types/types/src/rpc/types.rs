@@ -264,7 +264,7 @@ define_struct_and_impl_epee! {
         1016..=1027
     )]
     GetMinerDataTxBacklogEntry {
-        id: String,
+        id: Hex<32>,
         weight: u64,
         fee: u64,
     }

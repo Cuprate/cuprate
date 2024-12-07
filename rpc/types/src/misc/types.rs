@@ -196,7 +196,7 @@ define_struct_and_impl_epee! {
     /// Used in [`crate::json::GetAlternateChainsResponse`].
     ChainInfo {
         block_hash: Hex<32>,
-        block_hashes: Vec<String>, // TODO: Vec<Hex<32>> when it has epee
+        block_hashes: Vec<Hex<32>>,
         difficulty: u64,
         difficulty_top64: u64,
         height: u64,
@@ -307,7 +307,7 @@ define_struct_and_impl_epee! {
     /// Used in [`crate::other::GetTransactionPoolResponse`].
     SpentKeyImageInfo {
         id_hash: Hex<32>,
-        txs_hashes: Vec<String>, // TODO: Vec<Hex<32>> when it has epee
+        txs_hashes: Vec<Hex<32>>,
     }
 }
 

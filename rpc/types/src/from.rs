@@ -126,7 +126,7 @@ impl From<ChainInfo> for crate::misc::ChainInfo {
     fn from(x: ChainInfo) -> Self {
         Self {
             block_hash: Hex(x.block_hash),
-            block_hashes: x.block_hashes.into_iter().map(hex::encode).collect(),
+            block_hashes: x.block_hashes.into_iter().map(Hex).collect(),
             difficulty_top64: x.difficulty_top64,
             difficulty: x.difficulty,
             height: x.height,
