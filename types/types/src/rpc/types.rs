@@ -22,7 +22,7 @@ macro_rules! monero_definition_link {
     ) => {
         concat!(
             "[Definition](https://github.com/monero-project/monero/blob/",
-            stringify!($commit),
+            $commit,
             "/src/",
             $file_path,
             "#L",

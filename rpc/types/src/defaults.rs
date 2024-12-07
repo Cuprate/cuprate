@@ -8,7 +8,6 @@
 //! `height`, it will use [`default_height`] to fill that in.
 
 //---------------------------------------------------------------------------------------------------- Import
-// use cuprate_types::hex::Hex;
 
 //---------------------------------------------------------------------------------------------------- TODO
 /// Default [`bool`] type used in request/response types, `false`.
@@ -28,12 +27,6 @@ pub(crate) const fn default_true() -> bool {
 pub(crate) const fn default_string() -> String {
     String::new()
 }
-
-// /// Default [`Hex`] type used in request/response types.
-// #[inline]
-// pub(crate) const fn default_hex<const N: usize>() -> Hex<N> {
-//     Hex([0; N])
-// }
 
 /// Default block height used in request/response types.
 #[inline]

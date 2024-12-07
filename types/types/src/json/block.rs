@@ -32,13 +32,13 @@ impl From<block::Block> for Block {
             unreachable!("input is a miner tx, this should never fail");
         };
 
-        let tx_hashes = b.transactions.into_iter().map(Hex::<32>).collect();
+        let tx_hashes = b.transactions.into_iter().map(Hex).collect();
 
         Self {
             major_version: b.header.hardfork_version,
             minor_version: b.header.hardfork_signal,
             timestamp: b.header.timestamp,
-            prev_id: Hex::<32>(b.header.previous),
+            prev_id: Hex(b.header.previous),
             nonce: b.header.nonce,
             miner_tx,
             tx_hashes,
@@ -99,15 +99,13 @@ impl TryFrom<transaction::Transaction> for MinerTransaction {
                     let target = match o.view_tag {
                         Some(view_tag) => {
                             let tagged_key = TaggedKey {
-                                key: Hex::<32>(o.key.0),
-                                view_tag: Hex::<1>([view_tag]),
+                                key: Hex(o.key.0),
+                                view_tag: Hex([view_tag]),
                             };
 
                             Target::TaggedKey { tagged_key }
                         }
-                        None => Target::Key {
-                            key: Hex::<32>(o.key.0),
-                        },
+                        None => Target::Key { key: Hex(o.key.0) },
                     };
 
                     Output { amount, target }
@@ -220,7 +218,7 @@ mod test {
             major_version: 1,
             minor_version: 0,
             timestamp: 1415690591,
-            prev_id: Hex::<32>(hex!(
+            prev_id: Hex(hex!(
                 "e97a0ab6307de9b9f9a9872263ef3e957976fb227eb9422c6854e989e5d5d34c"
             )),
             nonce: 2147484616,
@@ -235,25 +233,25 @@ mod test {
                       Output {
                         amount: 47019296802,
                         target: Target::Key {
-                          key: Hex::<32>(hex!("3c1dcbf5b485987ecef4596bb700e32cbc7bd05964e3888ffc05f8a46bf5fc33")),
+                          key: Hex(hex!("3c1dcbf5b485987ecef4596bb700e32cbc7bd05964e3888ffc05f8a46bf5fc33")),
                         }
                       },
                       Output {
                         amount: 200000000000,
                         target: Target::Key {
-                          key: Hex::<32>(hex!("5810afc7a1b01a1c913eb6aab15d4a851cbc4a8cf0adf90bb80ac1a7ca9928aa")),
+                          key: Hex(hex!("5810afc7a1b01a1c913eb6aab15d4a851cbc4a8cf0adf90bb80ac1a7ca9928aa")),
                         }
                       },
                       Output {
                         amount: 3000000000000,
                         target: Target::Key {
-                          key: Hex::<32>(hex!("520f49c5f2ce8456dc1a565f35ed3a5ccfff3a1210b340870a57d2749a81a2df")),
+                          key: Hex(hex!("520f49c5f2ce8456dc1a565f35ed3a5ccfff3a1210b340870a57d2749a81a2df")),
                         }
                       },
                       Output {
                         amount: 10000000000000,
                         target: Target::Key {
-                          key: Hex::<32>(hex!("44d7705e62c76c2e349a474df6724aa1d9932092002b03a94f9c19d9d12b9427")),
+                          key: Hex(hex!("44d7705e62c76c2e349a474df6724aa1d9932092002b03a94f9c19d9d12b9427")),
                         }
                       }
                     ],
@@ -279,7 +277,7 @@ mod test {
             major_version: 16,
             minor_version: 16,
             timestamp: 1727293028,
-            prev_id: Hex::<32>(hex!(
+            prev_id: Hex(hex!(
                 "41b56c273d69def3294e56179de71c61808042d54c1e085078d21dbe99e81b6f"
             )),
             nonce: 311,
@@ -294,10 +292,10 @@ mod test {
                         amount: 601012280000,
                         target: Target::TaggedKey {
                             tagged_key: TaggedKey {
-                                key: Hex::<32>(hex!(
+                                key: Hex(hex!(
                                 "8c0b16c6df02b9944b49f375d96a958a0fc5431c048879bb5bf25f64a1163b9e"
                             )),
-                                view_tag: Hex::<1>(hex!("88")),
+                                view_tag: Hex(hex!("88")),
                             },
                         },
                     }],
@@ -310,43 +308,43 @@ mod test {
                 rct_signatures: MinerTransactionRctSignatures { r#type: 0 },
             },
             tx_hashes: vec![
-                Hex::<32>(hex!(
+                Hex(hex!(
                     "eab76986a0cbcae690d8499f0f616f783fd2c89c6f611417f18011950dbdab2e"
                 )),
-                Hex::<32>(hex!(
+                Hex(hex!(
                     "57b19aa8c2cdbb6836cf13dd1e321a67860965c12e4418f3c30f58c8899a851e"
                 )),
-                Hex::<32>(hex!(
+                Hex(hex!(
                     "5340185432ab6b74fb21379f7e8d8f0e37f0882b2a7121fd7c08736f079e2edc"
                 )),
-                Hex::<32>(hex!(
+                Hex(hex!(
                     "01dc6d31db56d68116f5294c1b4f80b33b048b5cdfefcd904f23e6c0de3daff5"
                 )),
-                Hex::<32>(hex!(
+                Hex(hex!(
                     "c9fb6a2730678203948fef2a49fa155b63f35a3649f3d32ed405a6806f3bbd56"
                 )),
-                Hex::<32>(hex!(
+                Hex(hex!(
                     "af965cdd2a2315baf1d4a3d242f44fe07b1fd606d5f4853c9ff546ca6c12a5af"
                 )),
-                Hex::<32>(hex!(
+                Hex(hex!(
                     "97bc9e047d25fae8c14ce6ec882224e7b722f5e79b62a2602a6bacebdac8547b"
                 )),
-                Hex::<32>(hex!(
+                Hex(hex!(
                     "28c46992eaf10dc0cceb313c30572d023432b7bd26e85e679bc8fe419533a7bf"
                 )),
-                Hex::<32>(hex!(
+                Hex(hex!(
                     "c32e3acde2ff2885c9cc87253b40d6827d167dfcc3022c72f27084fd98788062"
                 )),
-                Hex::<32>(hex!(
+                Hex(hex!(
                     "19e66a47f075c7cccde8a7b52803119e089e33e3a4847cace0bd1d17b0d22bab"
                 )),
-                Hex::<32>(hex!(
+                Hex(hex!(
                     "8e8ac560e77a1ee72e82a5eb6887adbe5979a10cd29cb2c2a3720ce87db43a70"
                 )),
-                Hex::<32>(hex!(
+                Hex(hex!(
                     "b7ff5141524b5cca24de6780a5dbfdf71e7de1e062fd85f557fb3b43b8e285dc"
                 )),
-                Hex::<32>(hex!(
+                Hex(hex!(
                     "f09df0f113763ef9b9a2752ac293b478102f7cab03ef803a3d9db7585aea8912"
                 )),
             ],
