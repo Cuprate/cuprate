@@ -886,6 +886,7 @@ dependencies = [
  "bytes",
  "cuprate-fixed-bytes",
  "cuprate-helper",
+ "cuprate-hex",
  "hex",
  "paste",
  "ref-cast",
@@ -938,6 +939,15 @@ dependencies = [
  "serde",
  "tokio",
  "windows",
+]
+
+[[package]]
+name = "cuprate-hex"
+version = "0.0.0"
+dependencies = [
+ "hex",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1068,6 +1078,7 @@ dependencies = [
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
  "cuprate-helper",
+ "cuprate-hex",
  "cuprate-p2p-core",
  "cuprate-test-utils",
  "cuprate-types",
@@ -1136,8 +1147,8 @@ dependencies = [
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
  "cuprate-helper",
+ "cuprate-hex",
  "curve25519-dalek",
- "hex",
  "hex-literal",
  "monero-serai",
  "pretty_assertions",
@@ -1169,7 +1180,7 @@ name = "cuprate-zmq-types"
 version = "0.1.0"
 dependencies = [
  "assert-json-diff",
- "cuprate-types",
+ "cuprate-hex",
  "hex",
  "serde",
  "serde_json",

@@ -8,6 +8,7 @@ use bytes::{Buf, BufMut, Bytes, BytesMut};
 
 use cuprate_fixed_bytes::{ByteArray, ByteArrayVec};
 use cuprate_helper::cast::u64_to_usize;
+use cuprate_hex::Hex;
 
 use crate::{
     io::{checked_read_primitive, checked_write_primitive},
@@ -386,6 +387,41 @@ impl<const N: usize> EpeeValue for Vec<[u8; N]> {
             res.push(<[u8; N]>::read(r, &individual_marker)?);
         }
         Ok(res)
+    }
+
+    fn should_write(&self) -> bool {
+        !self.is_empty()
+    }
+
+    fn epee_default_value() -> Option<Self> {
+        Some(Self::new())
+    }
+
+    fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
+        write_iterator(self.into_iter(), w)
+    }
+}
+
+impl<const N: usize> EpeeValue for Hex<N> {
+    const MARKER: Marker = <[u8; N] as EpeeValue>::MARKER;
+
+    fn read<B: Buf>(r: &mut B, marker: &Marker) -> Result<Self> {
+        Ok(Self(<[u8; N] as EpeeValue>::read(r, marker)?))
+    }
+
+    fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
+        <[u8; N] as EpeeValue>::write(self.0, w)
+    }
+}
+
+impl<const N: usize> EpeeValue for Vec<Hex<N>> {
+    const MARKER: Marker = Vec::<[u8; N]>::MARKER;
+
+    fn read<B: Buf>(r: &mut B, marker: &Marker) -> Result<Self> {
+        Ok(Vec::<[u8; N]>::read(r, marker)?
+            .into_iter()
+            .map(Hex)
+            .collect())
     }
 
     fn should_write(&self) -> bool {

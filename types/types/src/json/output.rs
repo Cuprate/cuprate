@@ -7,7 +7,7 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::hex::Hex;
+use cuprate_hex::Hex;
 
 /// JSON representation of an output.
 #[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

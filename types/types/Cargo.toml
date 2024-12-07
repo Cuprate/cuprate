@@ -9,27 +9,24 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/types"
 keywords    = ["cuprate", "types"]
 
 [features]
-default    = ["blockchain", "epee", "serde", "json", "hex", "rpc"]
+default    = ["blockchain", "epee", "serde", "json", "rpc"]
 blockchain = ["rpc"]
 epee       = ["dep:cuprate-epee-encoding"]
-serde      = ["dep:serde", "hex"]
+serde      = ["dep:serde"]
 proptest   = ["dep:proptest",  "dep:proptest-derive"]
-json       = ["hex", "dep:cuprate-helper"]
-# We sadly have no choice but to enable serde here as otherwise we will get warnings from the `hex` dep being unused.
-# This isn't too bad as `Hex` only makes sense with serde anyway.
-hex        = ["serde", "dep:hex"]
-rpc        = ["hex", "json"]
+json       = ["dep:cuprate-hex", "dep:cuprate-helper"]
+rpc        = ["dep:cuprate-hex", "json"]
 
 [dependencies]
 cuprate-epee-encoding = { workspace = true, optional = true, features = ["std"] }
 cuprate-helper        = { workspace = true, optional = true, features = ["cast"] }
 cuprate-fixed-bytes   = { workspace = true, features = ["std", "serde"] }
+cuprate-hex           = { workspace = true, optional = true, features = ["serde"] }
 
 bytes            = { workspace = true }
 cfg-if           = { workspace = true }
 curve25519-dalek = { workspace = true }
 monero-serai     = { workspace = true }
-hex              = { workspace = true, features = ["serde", "alloc"], optional = true }
 serde            = { workspace = true, features = ["std", "derive"], optional = true }
 strum            = { workspace = true, features = ["derive"] }
 thiserror        = { workspace = true }

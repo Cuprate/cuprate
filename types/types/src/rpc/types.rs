@@ -1,8 +1,9 @@
 //! Various types (in)directly used in RPC.
 
 use cuprate_fixed_bytes::ByteArrayVec;
+use cuprate_hex::Hex;
 
-use crate::{hex::Hex, AddressType, ConnectionState, HardFork};
+use crate::{AddressType, ConnectionState, HardFork};
 
 const fn default_string() -> String {
     String::new()

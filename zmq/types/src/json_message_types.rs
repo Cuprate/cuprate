@@ -8,7 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use cuprate_types::hex::Hex;
+use cuprate_hex::Hex;
 
 /// ZMQ `json-full-txpool_add` packets contain an array of `TxPoolAdd`.
 ///

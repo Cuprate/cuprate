@@ -8,14 +8,12 @@ use std::{
 };
 
 use cuprate_helper::{fmt::hex_prefix_u128, map::ipv4_from_u32};
+use cuprate_hex::Hex;
 use cuprate_p2p_core::{
     types::{ConnectionId, ConnectionInfo, SetBan, Span},
     NetZoneAddress,
 };
-use cuprate_types::{
-    hex::Hex,
-    rpc::{BlockHeader, ChainInfo, HistogramEntry, TxInfo},
-};
+use cuprate_types::rpc::{BlockHeader, ChainInfo, HistogramEntry, TxInfo};
 
 impl From<BlockHeader> for crate::misc::BlockHeader {
     fn from(x: BlockHeader) -> Self {

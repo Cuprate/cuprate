@@ -16,13 +16,11 @@ use cuprate_epee_encoding::{
 };
 
 use cuprate_helper::cast::usize_to_u64;
+use cuprate_hex::Hex;
 
 use monero_serai::{ringct, transaction};
 
-use crate::{
-    hex::Hex,
-    json::output::{Output, TaggedKey, Target},
-};
+use crate::json::output::{Output, TaggedKey, Target};
 
 /// JSON representation of a non-miner transaction.
 ///

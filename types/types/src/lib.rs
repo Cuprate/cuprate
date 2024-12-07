@@ -35,9 +35,6 @@ pub mod blockchain;
 #[cfg(feature = "json")]
 pub mod json;
 
-#[cfg(feature = "hex")]
-pub mod hex;
-
 cfg_if::cfg_if! {
     if #[cfg(feature = "rpc")] {
         pub mod rpc;

@@ -3,12 +3,23 @@
 //! This module provides transparent wrapper types for
 //! arrays that (de)serialize from hexadecimal input/output.
 
-#[cfg(feature = "epee")]
-use cuprate_epee_encoding::{error, macros::bytes, EpeeValue, Marker};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Wrapper type for a byte array that (de)serializes from/to hexadecimal strings.
+///
+/// ```rust
+/// # use cuprate_types::hex::Hex;
+/// let hash = [1; 32];
+/// let hex_bytes = Hex::<32>(hash);
+/// let expected_json = r#""0101010101010101010101010101010101010101010101010101010101010101""#;
+///
+/// let to_string = serde_json::to_string(&hex_bytes).unwrap();
+/// assert_eq!(to_string, expected_json);
+///
+/// let from_str = serde_json::from_str::<Hex<32>>(expected_json).unwrap();
+/// assert_eq!(hex_bytes, from_str);
+/// ```
 ///
 /// # Deserialization
 /// This struct has a custom deserialization that only applies to certain
@@ -33,19 +44,6 @@ where
         D: serde::Deserializer<'de>,
     {
         Ok(Self(hex::serde::deserialize(deserializer)?))
-    }
-}
-
-#[cfg(feature = "epee")]
-impl<const N: usize> EpeeValue for Hex<N> {
-    const MARKER: Marker = <[u8; N] as EpeeValue>::MARKER;
-
-    fn read<B: bytes::Buf>(r: &mut B, marker: &Marker) -> error::Result<Self> {
-        Ok(Self(<[u8; N] as EpeeValue>::read(r, marker)?))
-    }
-
-    fn write<B: bytes::BufMut>(self, w: &mut B) -> error::Result<()> {
-        <[u8; N] as EpeeValue>::write(self.0, w)
     }
 }
 
@@ -92,10 +90,10 @@ mod test {
     use super::*;
 
     #[test]
-    fn hex_bytes_32() {
-        let hash = [1; 32];
+    fn asdf() {
+        let hash = [0; 32];
         let hex_bytes = Hex::<32>(hash);
-        let expected_json = r#""0101010101010101010101010101010101010101010101010101010101010101""#;
+        let expected_json = r#""0000000000000000000000000000000000000000000000000000000000000000""#;
 
         let to_string = serde_json::to_string(&hex_bytes).unwrap();
         assert_eq!(to_string, expected_json);

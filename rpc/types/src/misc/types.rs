@@ -5,7 +5,8 @@
 //! the [`crate::misc::ConnectionInfo`] struct defined here.
 
 //---------------------------------------------------------------------------------------------------- Import
-use cuprate_types::{hex::Hex, HardFork};
+use cuprate_hex::Hex;
+use cuprate_types::HardFork;
 
 #[cfg(any(feature = "epee", feature = "serde"))]
 use crate::defaults::default_zero;

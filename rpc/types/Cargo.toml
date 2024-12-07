@@ -10,7 +10,7 @@ keywords    = ["cuprate", "rpc", "types", "monero"]
 
 [features]
 default = ["serde", "epee", "from"]
-serde   = ["dep:serde", "cuprate-fixed-bytes/serde", "cuprate-types/serde"]
+serde   = ["dep:serde", "cuprate-fixed-bytes/serde", "cuprate-types/serde", "cuprate-hex/serde"]
 epee    = ["dep:cuprate-epee-encoding", "cuprate-types/epee"]
 from    = [
 	"dep:cuprate-helper",
@@ -22,8 +22,9 @@ from    = [
 ]
 
 [dependencies]
-cuprate-epee-encoding = { workspace = true, optional = true }
 cuprate-fixed-bytes   = { workspace = true }
+cuprate-hex           = { workspace = true }
+cuprate-epee-encoding = { workspace = true, optional = true }
 cuprate-types         = { workspace = true, default-features = false }
 cuprate-helper        = { workspace = true, optional = true, default-features = false }
 cuprate-p2p-core      = { workspace = true, optional = true, default-features = false }

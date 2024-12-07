@@ -6,10 +6,8 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use cuprate_types::{
-    hex::Hex,
-    rpc::{AuxPow, GetMinerDataTxBacklogEntry, HardForkEntry, TxBacklogEntry},
-};
+use cuprate_hex::Hex;
+use cuprate_types::rpc::{AuxPow, GetMinerDataTxBacklogEntry, HardForkEntry, TxBacklogEntry};
 
 use crate::{
     base::{AccessResponseBase, ResponseBase},

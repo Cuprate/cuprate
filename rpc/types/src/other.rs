@@ -39,7 +39,7 @@ define_request_and_response! {
     GetTransactions,
 
     Request {
-        txs_hashes: Vec<String>,
+        txs_hashes: Vec<String> = default_vec::<String>(), "default_vec",
         // FIXME: this is documented as optional but it isn't serialized as an optional
         // but it is set _somewhere_ to false in `monerod`
         // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L382>
@@ -648,19 +648,18 @@ mod test {
     use hex_literal::hex;
     use pretty_assertions::assert_eq;
     use serde::de::DeserializeOwned;
-    use serde_json::{from_str, from_value, Value};
 
+    use cuprate_hex::Hex;
     use cuprate_test_utils::rpc::data::other;
-    use cuprate_types::HardFork;
+    use cuprate_types::rpc::TxpoolHisto;
 
     use super::*;
 
-    #[expect(clippy::needless_pass_by_value)]
     fn test_json<T: DeserializeOwned + PartialEq + Debug>(
         cuprate_test_utils_example_data: &str,
         expected_type: Option<T>,
     ) {
-        let string = from_str::<T>(cuprate_test_utils_example_data).unwrap();
+        let string = serde_json::from_str::<T>(cuprate_test_utils_example_data).unwrap();
 
         // This is `Option` for structs that have values
         // that are complicated to provide/test, e.g. `GET_TRANSACTIONS_RESPONSE`.
@@ -802,7 +801,7 @@ mod test {
     }
 
     #[test]
-    fn STOP_MINING_RESPONSE() {
+    fn stop_mining_response() {
         test_json(
             other::STOP_MINING_RESPONSE,
             Some(StopMiningResponse {
@@ -812,7 +811,7 @@ mod test {
     }
 
     #[test]
-    fn MINING_STATUS_RESPONSE() {
+    fn mining_status_response() {
         test_json(
             other::MINING_STATUS_RESPONSE,
             Some(MiningStatusResponse {
@@ -837,7 +836,7 @@ mod test {
     }
 
     #[test]
-    fn SAVE_BC_RESPONSE() {
+    fn save_bc_response() {
         test_json(
             other::SAVE_BC_RESPONSE,
             Some(SaveBcResponse {
@@ -847,7 +846,7 @@ mod test {
     }
 
     #[test]
-    fn GET_PEER_LIST_REQUEST() {
+    fn get_peer_list_request() {
         test_json(
             other::GET_PEER_LIST_REQUEST,
             Some(GetPeerListRequest {
@@ -858,7 +857,7 @@ mod test {
     }
 
     #[test]
-    fn GET_PEER_LIST_RESPONSE() {
+    fn get_peer_list_response() {
         test_json(
             other::GET_PEER_LIST_RESPONSE,
             Some(GetPeerListResponse {
@@ -922,7 +921,7 @@ mod test {
     }
 
     #[test]
-    fn SET_LOG_HASH_RATE_REQUEST() {
+    fn set_log_hash_rate_request() {
         test_json(
             other::SET_LOG_HASH_RATE_REQUEST,
             Some(SetLogHashRateRequest { visible: true }),
@@ -930,7 +929,7 @@ mod test {
     }
 
     #[test]
-    fn SET_LOG_HASH_RATE_RESPONSE() {
+    fn set_log_hash_rate_response() {
         test_json(
             other::SET_LOG_HASH_RATE_RESPONSE,
             Some(SetLogHashRateResponse {
@@ -940,7 +939,7 @@ mod test {
     }
 
     #[test]
-    fn SET_LOG_LEVEL_REQUEST() {
+    fn set_log_level_request() {
         test_json(
             other::SET_LOG_LEVEL_REQUEST,
             Some(SetLogLevelRequest { level: 1 }),
@@ -948,7 +947,7 @@ mod test {
     }
 
     #[test]
-    fn SET_LOG_LEVEL_RESPONSE() {
+    fn set_log_level_response() {
         test_json(
             other::SET_LOG_LEVEL_RESPONSE,
             Some(SetLogLevelResponse {
@@ -958,7 +957,7 @@ mod test {
     }
 
     #[test]
-    fn SET_LOG_CATEGORIES_REQUEST() {
+    fn set_log_categories_request() {
         test_json(
             other::SET_LOG_CATEGORIES_REQUEST,
             Some(SetLogCategoriesRequest {
@@ -968,7 +967,7 @@ mod test {
     }
 
     #[test]
-    fn SET_LOG_CATEGORIES_RESPONSE() {
+    fn set_log_categories_response() {
         test_json(
             other::SET_LOG_CATEGORIES_RESPONSE,
             Some(SetLogCategoriesResponse {
@@ -979,7 +978,7 @@ mod test {
     }
 
     #[test]
-    fn SET_BOOTSTRAP_DAEMON_REQUEST() {
+    fn set_bootstrap_daemon_request() {
         test_json(
             other::SET_BOOTSTRAP_DAEMON_REQUEST,
             Some(SetBootstrapDaemonRequest {
@@ -992,7 +991,7 @@ mod test {
     }
 
     #[test]
-    fn SET_BOOTSTRAP_DAEMON_RESPONSE() {
+    fn set_bootstrap_daemon_response() {
         test_json(
             other::SET_BOOTSTRAP_DAEMON_RESPONSE,
             Some(SetBootstrapDaemonResponse { status: Status::Ok }),
@@ -1000,7 +999,7 @@ mod test {
     }
 
     #[test]
-    fn GET_TRANSACTION_POOL_STATS_RESPONSE() {
+    fn get_transaction_pool_stats_response() {
         test_json(
             other::GET_TRANSACTION_POOL_STATS_RESPONSE,
             Some(GetTransactionPoolStatsResponse {
@@ -1066,7 +1065,7 @@ mod test {
     }
 
     #[test]
-    fn STOP_DAEMON_RESPONSE() {
+    fn stop_daemon_response() {
         test_json(
             other::STOP_DAEMON_RESPONSE,
             Some(StopDaemonResponse { status: Status::Ok }),
@@ -1074,7 +1073,7 @@ mod test {
     }
 
     #[test]
-    fn GET_LIMIT_RESPONSE() {
+    fn get_limit_response() {
         test_json(
             other::GET_LIMIT_RESPONSE,
             Some(GetLimitResponse {
@@ -1086,7 +1085,7 @@ mod test {
     }
 
     #[test]
-    fn SET_LIMIT_REQUEST() {
+    fn set_limit_request() {
         test_json(
             other::SET_LIMIT_REQUEST,
             Some(SetLimitRequest {
@@ -1097,7 +1096,7 @@ mod test {
     }
 
     #[test]
-    fn SET_LIMIT_RESPONSE() {
+    fn set_limit_response() {
         test_json(
             other::SET_LIMIT_RESPONSE,
             Some(SetLimitResponse {
@@ -1109,7 +1108,7 @@ mod test {
     }
 
     #[test]
-    fn OUT_PEERS_REQUEST() {
+    fn out_peers_request() {
         test_json(
             other::OUT_PEERS_REQUEST,
             Some(OutPeersRequest {
@@ -1120,7 +1119,7 @@ mod test {
     }
 
     #[test]
-    fn OUT_PEERS_RESPONSE() {
+    fn out_peers_response() {
         test_json(
             other::OUT_PEERS_RESPONSE,
             Some(OutPeersResponse {
@@ -1131,7 +1130,7 @@ mod test {
     }
 
     #[test]
-    fn GET_NET_STATS_RESPONSE() {
+    fn get_net_stats_response() {
         test_json(
             other::GET_NET_STATS_RESPONSE,
             Some(GetNetStatsResponse {
@@ -1146,7 +1145,7 @@ mod test {
     }
 
     #[test]
-    fn GET_OUTS_REQUEST() {
+    fn get_outs_request() {
         test_json(
             other::GET_OUTS_REQUEST,
             Some(GetOutsRequest {
@@ -1166,7 +1165,7 @@ mod test {
     }
 
     #[test]
-    fn GET_OUTS_RESPONSE() {
+    fn get_outs_response() {
         test_json(
             other::GET_OUTS_RESPONSE,
             Some(GetOutsResponse {
@@ -1174,22 +1173,28 @@ mod test {
                 outs: vec![
                     OutKey {
                         height: 51941,
-                        key: "08980d939ec297dd597119f498ad69fed9ca55e3a68f29f2782aae887ef0cf8e"
-                            .into(),
-                        mask: "1738eb7a677c6149228a2beaa21bea9e3370802d72a3eec790119580e02bd522"
-                            .into(),
-                        txid: "9d651903b80fb70b9935b72081cd967f543662149aed3839222511acd9100601"
-                            .into(),
+                        key: Hex(hex!(
+                            "08980d939ec297dd597119f498ad69fed9ca55e3a68f29f2782aae887ef0cf8e"
+                        )),
+                        mask: Hex(hex!(
+                            "1738eb7a677c6149228a2beaa21bea9e3370802d72a3eec790119580e02bd522"
+                        )),
+                        txid: Hex(hex!(
+                            "9d651903b80fb70b9935b72081cd967f543662149aed3839222511acd9100601"
+                        )),
                         unlocked: true,
                     },
                     OutKey {
                         height: 51945,
-                        key: "454fe46c405be77625fa7e3389a04d3be392346983f27603561ac3a3a74f4a75"
-                            .into(),
-                        mask: "1738eb7a677c6149228a2beaa21bea9e3370802d72a3eec790119580e02bd522"
-                            .into(),
-                        txid: "230bff732dc5f225df14fff82aadd1bf11b3fb7ad3a03413c396a617e843f7d0"
-                            .into(),
+                        key: Hex(hex!(
+                            "454fe46c405be77625fa7e3389a04d3be392346983f27603561ac3a3a74f4a75"
+                        )),
+                        mask: Hex(hex!(
+                            "1738eb7a677c6149228a2beaa21bea9e3370802d72a3eec790119580e02bd522"
+                        )),
+                        txid: Hex(hex!(
+                            "230bff732dc5f225df14fff82aadd1bf11b3fb7ad3a03413c396a617e843f7d0"
+                        )),
                         unlocked: true,
                     },
                 ],
@@ -1198,7 +1203,7 @@ mod test {
     }
 
     #[test]
-    fn UPDATE_REQUEST() {
+    fn update_request() {
         test_json(
             other::UPDATE_REQUEST,
             Some(UpdateRequest {
@@ -1209,7 +1214,7 @@ mod test {
     }
 
     #[test]
-    fn UPDATE_RESPONSE() {
+    fn update_response() {
         test_json(
             other::UPDATE_RESPONSE,
             Some(UpdateResponse {
@@ -1225,7 +1230,7 @@ mod test {
     }
 
     #[test]
-    fn POP_BLOCKS_REQUEST() {
+    fn pop_blocks_request() {
         test_json(
             other::POP_BLOCKS_REQUEST,
             Some(PopBlocksRequest { nblocks: 6 }),
@@ -1233,7 +1238,7 @@ mod test {
     }
 
     #[test]
-    fn POP_BLOCKS_RESPONSE() {
+    fn pop_blocks_response() {
         test_json(
             other::POP_BLOCKS_RESPONSE,
             Some(PopBlocksResponse {
@@ -1244,7 +1249,7 @@ mod test {
     }
 
     #[test]
-    fn GET_TRANSACTION_POOL_HASHES_RESPONSE() {
+    fn get_transaction_pool_hashes_response() {
         test_json(
             other::GET_TRANSACTION_POOL_HASHES_RESPONSE,
             Some(GetTransactionPoolHashesResponse {
@@ -1274,7 +1279,7 @@ mod test {
     }
 
     #[test]
-    fn GET_PUBLIC_NODES_REQUEST() {
+    fn get_public_nodes_request() {
         test_json(
             other::GET_PUBLIC_NODES_REQUEST,
             Some(GetPublicNodesRequest {
@@ -1286,7 +1291,7 @@ mod test {
     }
 
     #[test]
-    fn GET_PUBLIC_NODES_RESPONSE() {
+    fn get_publics_nodes_response() {
         test_json(
             other::GET_PUBLIC_NODES_RESPONSE,
             Some(GetPublicNodesResponse {
