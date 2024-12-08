@@ -27,7 +27,7 @@ impl PoolInfoExtent {
     /// Convert [`Self`] to a [`u8`].
     ///
     /// ```rust
-    /// use cuprate_rpc_types::misc::PoolInfoExtent as P;
+    /// use cuprate_types::rpc::PoolInfoExtent as P;
     ///
     /// assert_eq!(P::None.to_u8(), 0);
     /// assert_eq!(P::Incremental.to_u8(), 1);
@@ -47,7 +47,7 @@ impl PoolInfoExtent {
     /// This returns [`None`] if `u > 2`.
     ///
     /// ```rust
-    /// use cuprate_rpc_types::misc::PoolInfoExtent as P;
+    /// use cuprate_types::rpc::PoolInfoExtent as P;
     ///
     /// assert_eq!(P::from_u8(0), Some(P::None));
     /// assert_eq!(P::from_u8(1), Some(P::Incremental));

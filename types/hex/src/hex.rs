@@ -9,7 +9,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 /// Wrapper type for a byte array that (de)serializes from/to hexadecimal strings.
 ///
 /// ```rust
-/// # use cuprate_types::hex::Hex;
+/// # use cuprate_hex::Hex;
 /// let hash = [1; 32];
 /// let hex_bytes = Hex::<32>(hash);
 /// let expected_json = r#""0101010101010101010101010101010101010101010101010101010101010101""#;

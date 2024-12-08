@@ -4,9 +4,6 @@
 //! however they use more canonical types when appropriate, for example,
 //! instead of `hash: String`, this module's types would use something like
 //! `hash: [u8; 32]`.
-//!
-//! - TODO: finish making fields canonical after <https://github.com/Cuprate/cuprate/pull/355>
-//! - TODO: can epee handle `u128`? there are a lot of `(top_64 | low_64)` fields
 
 mod pool_info;
 mod pool_info_extent;
