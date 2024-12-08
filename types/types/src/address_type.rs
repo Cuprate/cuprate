@@ -16,7 +16,7 @@ use strum::{
 
 /// An enumeration of address types.
 ///
-/// Used in `cuprate_p2p` and `cuprate_types`
+/// Used in `cuprate-p2p`, `cuprate-rpc-types`.
 ///
 /// Original definition:
 /// - <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/epee/include/net/enums.h/#L49>

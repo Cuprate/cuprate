@@ -12,9 +12,10 @@ use monero_serai::block::Block;
 
 use crate::{
     types::{Chain, ExtendedBlockHeader, OutputOnChain, TxsInBlock, VerifiedBlockInformation},
-    AltBlockInformation, BlockCompleteEntry, ChainId, ChainInfo, CoinbaseTxSum,
-    OutputHistogramEntry, OutputHistogramInput,
+    AltBlockInformation, BlockCompleteEntry, ChainId,
 };
+
+use crate::rpc::{ChainInfo, CoinbaseTxSum, OutputHistogramEntry, OutputHistogramInput};
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
 /// A read request to the blockchain database.

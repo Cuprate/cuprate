@@ -1,4 +1,4 @@
-//! Functions for [`BlockchainManagerRequest`] & [`BlockchainManagerResponse`].
+//! Functions to send [`BlockchainManagerRequest`]s.
 
 use anyhow::Error;
 use monero_serai::block::Block;
@@ -8,11 +8,9 @@ use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_p2p_core::{types::ConnectionId, NetworkZone};
 use cuprate_pruning::PruningSeed;
 use cuprate_rpc_types::misc::Span;
-use cuprate_types::{AddAuxPow, AuxPow, HardFork};
 
-use crate::rpc::{
-    constants::FIELD_NOT_SUPPORTED,
-    handler::{BlockchainManagerHandle, BlockchainManagerRequest, BlockchainManagerResponse},
+use crate::rpc::handler::{
+    BlockchainManagerHandle, BlockchainManagerRequest, BlockchainManagerResponse,
 };
 
 /// [`BlockchainManagerRequest::PopBlocks`]
@@ -69,7 +67,7 @@ pub(crate) async fn pruned(
 /// [`BlockchainManagerRequest::RelayBlock`]
 pub(crate) async fn relay_block(
     blockchain_manager: &mut BlockchainManagerHandle,
-    block: Block,
+    block: Box<Block>,
 ) -> Result<(), Error> {
     let BlockchainManagerResponse::Ok = blockchain_manager
         .ready()
@@ -151,7 +149,7 @@ pub(crate) async fn target_height(
 pub(crate) async fn generate_blocks(
     blockchain_manager: &mut BlockchainManagerHandle,
     amount_of_blocks: u64,
-    prev_block: [u8; 32],
+    prev_block: Option<[u8; 32]>,
     starting_nonce: u32,
     wallet_address: String,
 ) -> Result<(Vec<[u8; 32]>, u64), Error> {
@@ -185,7 +183,8 @@ pub(crate) async fn spans<Z: NetworkZone>(
     //     unreachable!();
     // };
 
-    let vec: Vec<cuprate_p2p_core::types::Span<Z::Addr>> = todo!();
+    let vec: Vec<cuprate_p2p_core::types::Span<Z::Addr>> =
+        todo!("waiting on blockchain downloader/syncer: <https://github.com/Cuprate/cuprate/pull/320#discussion_r1811089758>");
 
     // FIXME: impl this map somewhere instead of inline.
     let vec = vec
