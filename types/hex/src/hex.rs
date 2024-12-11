@@ -19,6 +19,17 @@ use serde::{Deserialize, Deserializer, Serialize};
 ///
 /// let from_str = serde_json::from_str::<Hex<32>>(expected_json).unwrap();
 /// assert_eq!(hex_bytes, from_str);
+///
+/// //------
+///
+/// let vec = vec![hex_bytes; 2];
+/// let expected_json = r#"["0101010101010101010101010101010101010101010101010101010101010101","0101010101010101010101010101010101010101010101010101010101010101"]"#;
+///
+/// let to_string = serde_json::to_string(&vec).unwrap();
+/// assert_eq!(to_string, expected_json);
+///
+/// let from_str = serde_json::from_str::<Vec<Hex<32>>>(expected_json).unwrap();
+/// assert_eq!(vec, from_str);
 /// ```
 ///
 /// # Deserialization
@@ -29,6 +40,19 @@ use serde::{Deserialize, Deserializer, Serialize};
 #[serde(transparent)]
 #[repr(transparent)]
 pub struct Hex<const N: usize>(#[serde(with = "hex::serde")] pub [u8; N]);
+
+impl<const N: usize> Hex<N> {
+    /// Returns `true` if the inner array is zeroed.
+    ///
+    /// ```rust
+    /// # use cuprate_hex::Hex;
+    /// assert!(Hex([0; 32]).is_zeroed());
+    /// assert!(!Hex([1; 32]).is_zeroed());
+    /// ```
+    pub fn is_zeroed(&self) -> bool {
+        *self == Self([0; N])
+    }
+}
 
 impl<'de, const N: usize> Deserialize<'de> for Hex<N>
 where

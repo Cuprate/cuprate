@@ -78,15 +78,15 @@ define_request_and_response! {
         //
         // This is a HACK since `serde`'s default attribute only takes in
         // string literals and macros (stringify) within attributes do not work.
-        extra_nonce: String,
-        prev_block: String,
+        extra_nonce: String = default::<String>(), "default",
+        prev_block: String = default::<String>(), "default",
 
         // Another optional expression:
         // This indicates to the macro to (de)serialize
         // this field as another type in epee.
         //
         // See `cuprate_epee_encoding::epee_object` for info.
-        reserve_size: u64,
+        reserve_size: u64 /* as Type */,
 
         wallet_address: String,
     },
@@ -197,7 +197,7 @@ define_request_and_response! {
 
     Request {
         amount_of_blocks: u64,
-        prev_block: String,
+        prev_block: String = default::<String>(), "default",
         starting_nonce: u32,
         wallet_address: String,
     },
@@ -217,7 +217,7 @@ define_request_and_response! {
 
     #[derive(Copy)]
     Request {
-        fill_pow_hash: bool,
+        fill_pow_hash: bool = default::<bool>(), "default",
     },
 
     AccessResponseBase {
@@ -232,9 +232,9 @@ define_request_and_response! {
     GetBlockHeaderByHash,
 
     Request {
-        hash: Hex<32>,
-        hashes: Vec<Hex<32>>,
-        fill_pow_hash: bool,
+        hash: Hex<32> = default::<Hex<32>>(), "default",
+        hashes: Vec<Hex<32>> = default::<Vec<Hex<32>>>(), "default",
+        fill_pow_hash: bool = default::<bool>(), "default",
     },
 
     AccessResponseBase {
@@ -253,7 +253,7 @@ define_request_and_response! {
     #[derive(Copy)]
     Request {
         height: u64,
-        fill_pow_hash: bool,
+        fill_pow_hash: bool = default::<bool>(), "default",
     },
 
     AccessResponseBase {
@@ -272,7 +272,7 @@ define_request_and_response! {
     Request {
         start_height: u64,
         end_height: u64,
-        fill_pow_hash: bool,
+        fill_pow_hash: bool = default::<bool>(), "default",
     },
 
     AccessResponseBase {
@@ -290,9 +290,9 @@ define_request_and_response! {
         // `monerod` has both `hash` and `height` fields.
         // In the RPC handler, if `hash.is_empty()`, it will use it, else, it uses `height`.
         // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2674>
-        hash: String,
-        height: u64,
-        fill_pow_hash: bool,
+        hash: String = default::<String>(), "default",
+        height: u64 = default::<u64>(), "default",
+        fill_pow_hash: bool = default::<bool>(), "default",
     },
 
     AccessResponseBase {
@@ -445,7 +445,7 @@ define_request_and_response! {
     FlushTransactionPool (restricted),
 
     Request {
-        txids: Vec<Hex<32>>,
+        txids: Vec<Hex<32>> = default::<Vec<Hex<32>>>(), "default",
     },
 
     #[repr(transparent)]
@@ -461,11 +461,11 @@ define_request_and_response! {
     GetOutputHistogram,
 
     Request {
-        amounts: Vec<u64>,
-        min_count: u64,
-        max_count: u64,
-        unlocked: bool,
-        recent_cutoff: u64,
+        amounts: Vec<u64> = default::<Vec<u64>>(), "default",
+        min_count: u64 = default::<u64>(), "default",
+        max_count: u64 = default::<u64>(), "default",
+        unlocked: bool = default::<bool>(), "default",
+        recent_cutoff: u64 = default::<u64>(), "default",
     },
 
     AccessResponseBase {
@@ -520,7 +520,7 @@ define_request_and_response! {
     GetFeeEstimate,
 
     Request {
-        grace_blocks: u64,
+        grace_blocks: u64 = default::<u64>(), "default",
     },
 
     AccessResponseBase {
@@ -550,7 +550,7 @@ define_request_and_response! {
     RelayTx (restricted),
 
     Request {
-        txids: Vec<Hex<32>>,
+        txids: Vec<Hex<32>> = default::<Vec<Hex<32>>>(), "default",
     },
 
     #[repr(transparent)]
@@ -604,10 +604,10 @@ define_request_and_response! {
     Request {
         amounts: Vec<u64>,
         binary: bool = default_true(), "default_true",
-        compress: bool,
-        cumulative: bool,
-        from_height: u64,
-        to_height: u64,
+        compress: bool = default::<bool>(), "default",
+        cumulative: bool = default::<bool>(), "default",
+        from_height: u64 = default::<u64>(), "default",
+        to_height: u64 = default::<u64>(), "default",
     },
 
     AccessResponseBase {
@@ -643,7 +643,7 @@ define_request_and_response! {
 
     #[derive(Copy)]
     Request {
-        check: bool,
+        check: bool = default::<bool>(), "default",
     },
 
     ResponseBase {

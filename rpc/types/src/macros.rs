@@ -238,7 +238,6 @@ macro_rules! define_request {
     ) => {
         #[allow(dead_code, missing_docs, reason = "inside a macro")]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-        #[cfg_attr(feature = "serde", serde(default))] // TODO: link epee field not serializing oddity
         #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
         $( #[$attr] )*
         pub struct $t {
@@ -292,6 +291,7 @@ macro_rules! define_response {
         }
     ) => {
         $( #[$attr] )*
+        #[cfg_attr(feature = "serde", serde(default))] // TODO: link epee field not serializing oddity
         pub struct $t {
             $(
                 $( #[$field_attr] )*
@@ -329,6 +329,7 @@ macro_rules! define_response {
         }
     ) => {
         $( #[$attr] )*
+        #[cfg_attr(feature = "serde", serde(default))] // TODO: link epee field not serializing oddity
         pub struct $t {
             #[cfg_attr(feature = "serde", serde(flatten))]
             pub base: $base,

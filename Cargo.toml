@@ -27,8 +27,8 @@ members = [
 	"p2p/p2p-core",
 	"p2p/bucket",
 	"p2p/dandelion-tower",
-	"p2p/address-book",
 	"p2p/async-buffer",
+	"p2p/address-book",
 
 	# Storage
 	"storage/blockchain",

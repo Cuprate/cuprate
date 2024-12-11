@@ -12,12 +12,12 @@ use cuprate_types::rpc::{OutKey, Peer, PublicNode, TxpoolStats};
 use crate::{
     base::{AccessResponseBase, ResponseBase},
     macros::define_request_and_response,
-    misc::{GetOutputsOut, KeyImageSpentStatus, SpentKeyImageInfo, Status, TxEntry, TxInfo},
+    misc::{GetOutputsOut, SpentKeyImageInfo, Status, TxEntry, TxInfo},
     RpcCallValue,
 };
 
 #[cfg(any(feature = "serde", feature = "epee"))]
-use crate::defaults::default_true;
+use crate::defaults::{default, default_true};
 
 //---------------------------------------------------------------------------------------------------- Definitions
 define_request_and_response! {
@@ -44,9 +44,9 @@ define_request_and_response! {
         // FIXME: this is documented as optional but it isn't serialized as an optional
         // but it is set _somewhere_ to false in `monerod`
         // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L382>
-        decode_as_json: bool,
-        prune: bool,
-        split: bool,
+        decode_as_json: bool = default::<bool>(), "default",
+        prune: bool = default::<bool>(), "default",
+        split: bool = default::<bool>(), "default",
     },
 
     AccessResponseBase {
@@ -83,7 +83,8 @@ define_request_and_response! {
     },
 
     AccessResponseBase {
-        spent_status: Vec<KeyImageSpentStatus>,
+        /// These [`u8`]s are [`crate::misc::KeyImageSpentStatus`].
+        spent_status: Vec<u8>,
     }
 }
 
@@ -96,7 +97,7 @@ define_request_and_response! {
 
     Request {
         tx_as_hex: String,
-        do_not_relay: bool,
+        do_not_relay: bool = default::<bool>(), "default",
         do_sanity_checks: bool = default_true(), "default_true",
     },
 
@@ -189,7 +190,7 @@ define_request_and_response! {
 
     Request {
         public_only: bool = default_true(), "default_true",
-        include_blocked: bool,
+        include_blocked: bool = default::<bool>(), "default",
     },
 
     ResponseBase {
@@ -236,7 +237,7 @@ define_request_and_response! {
     SetLogCategories (restricted),
 
     Request {
-        categories: String,
+        categories: String = default::<String>(), "default",
     },
 
     ResponseBase {
@@ -253,9 +254,9 @@ define_request_and_response! {
 
     Request {
         address: String,
-        username: String,
-        password: String,
-        proxy: String,
+        username: String = default::<String>(), "default",
+        password: String = default::<String>(), "default",
+        proxy: String = default::<String>(), "default",
     },
 
     Response {
@@ -325,8 +326,8 @@ define_request_and_response! {
     SetLimit (restricted),
 
     Request {
-        limit_down: i64,
-        limit_up: i64,
+        limit_down: i64 = default::<i64>(), "default",
+        limit_up: i64 = default::<i64>(), "default",
     },
 
     ResponseBase {
@@ -408,7 +409,7 @@ define_request_and_response! {
 
     Request {
         command: String,
-        path: String,
+        path: String = default::<String>(), "default",
     },
     ResponseBase {
         auto_uri: String,
@@ -458,9 +459,9 @@ define_request_and_response! {
     GetPublicNodes (restricted),
 
     Request {
-        gray: bool,
+        gray: bool = default::<bool>(), "default",
         white: bool = default_true(), "default_true",
-        include_blocked: bool,
+        include_blocked: bool = default::<bool>(), "default",
     },
 
     ResponseBase {
@@ -698,7 +699,7 @@ mod test {
 
     #[test]
     fn get_transactions_response() {
-        test_json::<GetTransactionsRequest>(other::GET_TRANSACTIONS_RESPONSE, None);
+        test_json::<GetTransactionsResponse>(other::GET_TRANSACTIONS_RESPONSE, None);
     }
 
     #[test]
@@ -737,7 +738,7 @@ mod test {
             other::IS_KEY_IMAGE_SPENT_RESPONSE,
             Some(IsKeyImageSpentResponse {
                 base: AccessResponseBase::OK,
-                spent_status: vec![KeyImageSpentStatus::SpentInBlockchain; 2],
+                spent_status: vec![1, 1],
             }),
         );
     }
