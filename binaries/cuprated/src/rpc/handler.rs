@@ -3,6 +3,7 @@
 use std::task::{Context, Poll};
 
 use anyhow::Error;
+use cuprate_types::BlockTemplate;
 use futures::future::BoxFuture;
 use monero_serai::block::Block;
 use tower::Service;
@@ -84,6 +85,13 @@ pub enum BlockchainManagerRequest {
     //
     /// Get the next [`PruningSeed`] needed for a pruned sync.
     NextNeededPruningSeed,
+
+    /// TODO
+    CreateBlockTemplate {
+        prev_block: [u8; 32],
+        account_public_address: String,
+        extra_nonce: Vec<u8>,
+    },
 }
 
 /// TODO: use real type when public.
@@ -129,6 +137,9 @@ pub enum BlockchainManagerResponse {
     //    Spans(Vec<Span<Z::Addr>>),
     /// Response to [`BlockchainManagerRequest::NextNeededPruningSeed`].
     NextNeededPruningSeed(PruningSeed),
+
+    /// Response to [`BlockchainManagerRequest::CreateBlockTemplate`].
+    CreateBlockTemplate(Box<BlockTemplate>),
 }
 
 /// TODO: use real type when public.

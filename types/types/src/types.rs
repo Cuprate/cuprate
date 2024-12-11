@@ -154,6 +154,19 @@ pub struct TxsInBlock {
     pub txs: Vec<Vec<u8>>,
 }
 
+/// A block template, used in RPC's `get_block_template`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BlockTemplate {
+    pub block: Block,
+    pub reserved_offset: u64,
+    pub difficulty: u128,
+    pub height: u64,
+    pub expected_reward: u64,
+    pub seed_height: u64,
+    pub seed_hash: [u8; 32],
+    pub next_seed_hash: [u8; 32],
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {

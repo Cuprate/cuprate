@@ -7,7 +7,7 @@ use std::{
     time::Duration,
 };
 
-use cuprate_helper::{fmt::hex_prefix_u128, map::ipv4_from_u32};
+use cuprate_helper::{fmt::HexPrefix, map::ipv4_from_u32};
 use cuprate_hex::Hex;
 use cuprate_p2p_core::{
     types::{ConnectionId, ConnectionInfo, SetBan, Span},
@@ -40,11 +40,9 @@ impl From<BlockHeader> for crate::misc::BlockHeader {
             timestamp: x.timestamp,
             // FIXME: if we made a type that automatically did `hex_prefix_u128`,
             //  we wouldn't need `crate::misc::BlockHeader`.
-            wide_cumulative_difficulty: hex_prefix_u128(
-                x.cumulative_difficulty,
-                x.cumulative_difficulty_top64,
-            ),
-            wide_difficulty: hex_prefix_u128(x.difficulty, x.difficulty_top64),
+            wide_cumulative_difficulty: (x.cumulative_difficulty, x.cumulative_difficulty_top64)
+                .hex_prefix(),
+            wide_difficulty: (x.difficulty, x.difficulty_top64).hex_prefix(),
         }
     }
 }
@@ -132,7 +130,7 @@ impl From<ChainInfo> for crate::misc::ChainInfo {
             height: x.height,
             length: x.length,
             main_chain_parent_block: Hex(x.main_chain_parent_block),
-            wide_difficulty: hex_prefix_u128(x.difficulty, x.difficulty_top64),
+            wide_difficulty: (x.difficulty, x.difficulty_top64).hex_prefix(),
         }
     }
 }

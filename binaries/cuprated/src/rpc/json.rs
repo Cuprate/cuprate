@@ -20,6 +20,7 @@ use cuprate_constants::{
 };
 use cuprate_helper::{
     cast::{u32_to_usize, u64_to_usize, usize_to_u64},
+    fmt::HexPrefix,
     map::split_u128_into_low_high_bits,
 };
 use cuprate_hex::Hex;
@@ -53,7 +54,7 @@ use cuprate_rpc_types::{
 };
 use cuprate_types::{
     rpc::{AuxPow, CoinbaseTxSum, GetMinerDataTxBacklogEntry, HardForkEntry, TxBacklogEntry},
-    HardFork,
+    BlockTemplate, HardFork,
 };
 
 use crate::{
@@ -160,65 +161,50 @@ async fn get_block_template(
         return Err(anyhow!("Mining to subaddress is not supported yet"));
     }
 
-    // block b;
-    // cryptonote::blobdata blob_reserve;
-    // size_t reserved_offset;
-    // if(!request.extra_nonce.empty())
-    // {
-    //   if(!string_tools::parse_hexstr_to_binbuff(request.extra_nonce, blob_reserve))
-    //   {
-    //     error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
-    //     error_resp.message = "Parameter extra_nonce should be a hex string";
-    //     return false;
-    //   }
-    // }
-    // else
-    //   blob_reserve.resize(request.reserve_size, 0);
-    // cryptonote::difficulty_type wdiff;
-    // crypto::hash prev_block;
-    // if (!request.prev_block.empty())
-    // {
-    //   if (!epee::string_tools::hex_to_pod(request.prev_block, prev_block))
-    //   {
-    //     error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
-    //     error_resp.message = "Invalid prev_block";
-    //     return false;
-    //   }
-    // }
-    // crypto::hash seed_hash, next_seed_hash;
-    // if (!get_block_template(info.address, request.prev_block.empty() ? NULL : &prev_block, blob_reserve, reserved_offset, wdiff, res.height, res.expected_reward, res.cumulative_weight, b, res.seed_height, seed_hash, next_seed_hash, error_resp))
-    //   return false;
-    // if (b.major_version >= RX_BLOCK_VERSION)
-    // {
-    //   res.seed_hash = string_tools::pod_to_hex(seed_hash);
-    //   if (seed_hash != next_seed_hash)
-    //     res.next_seed_hash = string_tools::pod_to_hex(next_seed_hash);
-    // }
+    let blob_reserve = hex::decode(request.extra_nonce)?;
+    let prev_block = helper::hex_to_hash(request.prev_block)?;
+    let extra_nonce = hex::decode(request.extra_nonce)?;
 
-    // res.reserved_offset = reserved_offset;
-    // store_difficulty(wdiff, res.difficulty, res.wide_difficulty, res.difficulty_top64);
-    // blobdata block_blob = t_serializable_object_to_blob(b);
-    // blobdata hashing_blob = get_block_hashing_blob(b);
-    // res.prev_hash = string_tools::pod_to_hex(b.prev_id);
-    // res.blocktemplate_blob = string_tools::buff_to_hex_nodelimer(block_blob);
-    // res.blockhashing_blob =  string_tools::buff_to_hex_nodelimer(hashing_blob);
-    // res.status = CORE_RPC_STATUS_OK;
-    // return true;
+    let BlockTemplate {
+        block,
+        reserved_offset,
+        difficulty,
+        height,
+        expected_reward,
+        seed_height,
+        seed_hash,
+        next_seed_hash,
+    } = *blockchain_manager::create_block_template(
+        &mut state.blockchain_manager,
+        prev_block,
+        request.wallet_address,
+        extra_nonce,
+    )
+    .await?;
+
+    let blockhashing_blob = hex::encode(block.serialize_pow_hash());
+    let blocktemplate_blob = hex::encode(block.serialize());
+    let (difficulty, difficulty_top64) = split_u128_into_low_high_bits(difficulty);
+    // let next_seed_hash = Hex(next_seed_hash);
+    let next_seed_hash = hex::encode(next_seed_hash);
+    let prev_hash = Hex(block.header.previous);
+    let seed_hash = Hex(seed_hash);
+    let wide_difficulty = (difficulty, difficulty_top64).hex_prefix();
 
     Ok(GetBlockTemplateResponse {
         base: ResponseBase::OK,
-        blockhashing_blob: todo!(),
-        blocktemplate_blob: todo!(),
-        difficulty_top64: todo!(),
-        difficulty: todo!(),
-        expected_reward: todo!(),
-        height: todo!(),
-        next_seed_hash: todo!(),
-        prev_hash: todo!(),
-        reserved_offset: todo!(),
-        seed_hash: todo!(),
-        seed_height: todo!(),
-        wide_difficulty: todo!(),
+        blockhashing_blob,
+        blocktemplate_blob,
+        difficulty_top64,
+        difficulty,
+        expected_reward,
+        height,
+        next_seed_hash,
+        prev_hash,
+        reserved_offset,
+        seed_hash,
+        seed_height,
+        wide_difficulty,
     })
 }
 

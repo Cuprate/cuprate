@@ -8,6 +8,7 @@ use cuprate_constants::rpc::{
     MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT, RESTRICTED_SPENT_KEY_IMAGES_COUNT,
 };
 use cuprate_helper::cast::usize_to_u64;
+use cuprate_hex::Hex;
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
     base::{AccessResponseBase, ResponseBase},
@@ -100,7 +101,7 @@ async fn get_height(
     request: GetHeightRequest,
 ) -> Result<GetHeightResponse, Error> {
     let (height, hash) = helper::top_height(&mut state).await?;
-    let hash = hex::encode(hash);
+    let hash = Hex(hash);
 
     Ok(GetHeightResponse {
         base: ResponseBase::OK,
@@ -142,9 +143,8 @@ async fn is_key_image_spent(
 
     let mut spent_status = Vec::with_capacity(request.key_images.len());
 
-    for hex in request.key_images {
-        let key_image = helper::hex_to_hash(hex)?;
-        let status = helper::key_image_spent(&mut state, key_image).await?;
+    for key_image in request.key_images {
+        let status = helper::key_image_spent(&mut state, key_image.0).await?;
         spent_status.push(status.to_u8());
     }
 

@@ -24,8 +24,8 @@ pub use transaction_verification_data::{
     CachedVerificationState, TransactionVerificationData, TxVersion,
 };
 pub use types::{
-    AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, OutputOnChain, TxsInBlock,
-    VerifiedBlockInformation, VerifiedTransactionInformation,
+    AltBlockInformation, BlockTemplate, Chain, ChainId, ExtendedBlockHeader, OutputOnChain,
+    TxsInBlock, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 
 //---------------------------------------------------------------------------------------------------- Feature-gated

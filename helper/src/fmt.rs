@@ -1,18 +1,41 @@
 //! Formatting.
 
-use crate::map::combine_low_high_bits_to_u128;
+pub trait HexPrefix {
+    fn hex_prefix(self) -> String;
+}
 
-/// Format two [`u64`]'s as a [`u128`] as a lower-case hexadecimal string prefixed with `0x`.
-///
-/// ```rust
-/// # use cuprate_helper::fmt::hex_prefix_u128;
-/// assert_eq!(hex_prefix_u128(0, 0), "0x0");
-/// assert_eq!(hex_prefix_u128(0, u64::MAX), "0xffffffffffffffff0000000000000000");
-/// assert_eq!(hex_prefix_u128(u64::MAX, 0), "0xffffffffffffffff");
-/// assert_eq!(hex_prefix_u128(u64::MAX, u64::MAX), "0xffffffffffffffffffffffffffffffff");
-/// ```
-pub fn hex_prefix_u128(low_bits: u64, high_bits: u64) -> String {
-    format!("{:#x}", combine_low_high_bits_to_u128(low_bits, high_bits))
+macro_rules! impl_hex_prefix {
+    ($(
+        $t:ty
+    ),*) => {
+        $(
+            impl HexPrefix for $t {
+                fn hex_prefix(self) -> String {
+                    format!("{:#x}", self)
+                }
+            }
+        )*
+    };
+}
+
+impl_hex_prefix!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, usize, isize);
+
+impl HexPrefix for (u64, u64) {
+    /// Combine the low and high bits of a [`u128`] as a lower-case hexadecimal string prefixed with `0x`.
+    ///
+    /// ```rust
+    /// # use cuprate_helper::fmt::HexPrefix;
+    /// assert_eq!((0, 0).hex_prefix(), "0x0");
+    /// assert_eq!((0, u64::MAX).hex_prefix(), "0xffffffffffffffff0000000000000000");
+    /// assert_eq!((u64::MAX, 0).hex_prefix(), "0xffffffffffffffff");
+    /// assert_eq!((u64::MAX, u64::MAX).hex_prefix(), "0xffffffffffffffffffffffffffffffff");
+    /// ```
+    fn hex_prefix(self) -> String {
+        format!(
+            "{:#x}",
+            crate::map::combine_low_high_bits_to_u128(self.0, self.1)
+        )
+    }
 }
 
 #[cfg(test)]

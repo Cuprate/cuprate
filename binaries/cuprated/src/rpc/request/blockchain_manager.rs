@@ -1,6 +1,7 @@
 //! Functions to send [`BlockchainManagerRequest`]s.
 
 use anyhow::Error;
+use cuprate_types::BlockTemplate;
 use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 
@@ -217,4 +218,27 @@ pub(crate) async fn next_needed_pruning_seed(
     };
 
     Ok(seed)
+}
+
+/// [`BlockchainManagerRequest::CreateBlockTemplate`]
+pub(crate) async fn create_block_template(
+    blockchain_manager: &mut BlockchainManagerHandle,
+    prev_block: [u8; 32],
+    account_public_address: String,
+    extra_nonce: Vec<u8>,
+) -> Result<Box<BlockTemplate>, Error> {
+    let BlockchainManagerResponse::CreateBlockTemplate(block_template) = blockchain_manager
+        .ready()
+        .await?
+        .call(BlockchainManagerRequest::CreateBlockTemplate {
+            prev_block,
+            account_public_address,
+            extra_nonce,
+        })
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(block_template)
 }
