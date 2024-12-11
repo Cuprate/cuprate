@@ -75,7 +75,7 @@ macro_rules! generate_endpoints_inner {
         paste::paste! {
             {
                 // Check if restricted.
-                if [<$variant Request>]::IS_RESTRICTED && $handler.restricted() {
+                if [<$variant Request>]::IS_RESTRICTED && $handler.is_restricted() {
                     // TODO: mimic `monerod` behavior.
                     return Err(StatusCode::FORBIDDEN);
                 }

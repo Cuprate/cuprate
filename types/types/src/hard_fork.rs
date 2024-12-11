@@ -7,6 +7,13 @@ use strum::{
 
 use monero_serai::block::BlockHeader;
 
+#[cfg(feature = "epee")]
+use cuprate_epee_encoding::{
+    error,
+    macros::bytes::{Buf, BufMut},
+    EpeeValue, Marker,
+};
+
 /// Target block time for hf 1.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/difficulty.html#target-seconds>
@@ -51,6 +58,8 @@ pub enum HardForkError {
     VariantArray,
 )]
 #[cfg_attr(any(feature = "proptest"), derive(proptest_derive::Arbitrary))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(try_from = "u8", into = "u8"))]
 #[repr(u8)]
 pub enum HardFork {
     #[default]
@@ -192,5 +201,34 @@ impl HardFork {
     /// ```
     pub const fn is_latest(self) -> bool {
         matches!(self, Self::LATEST)
+    }
+}
+
+impl TryFrom<u8> for HardFork {
+    type Error = HardForkError;
+    fn try_from(version: u8) -> Result<Self, Self::Error> {
+        Self::from_version(version)
+    }
+}
+
+impl From<HardFork> for u8 {
+    fn from(value: HardFork) -> Self {
+        value.as_u8()
+    }
+}
+
+#[cfg(feature = "epee")]
+impl EpeeValue for HardFork {
+    const MARKER: Marker = u8::MARKER;
+
+    fn read<B: Buf>(r: &mut B, marker: &Marker) -> error::Result<Self> {
+        let u = u8::read(r, marker)?;
+        Self::from_repr(u).ok_or(error::Error::Format("unknown hardfork"))
+    }
+
+    fn write<B: BufMut>(self, w: &mut B) -> error::Result<()> {
+        let u = self.as_u8();
+        u8::write(u, w)?;
+        Ok(())
     }
 }

@@ -1,4 +1,4 @@
-//! Dummy implementation of [`RpcHandler`].
+//! `cuprated`'s implementation of [`RpcHandler`].
 
 use std::task::{Context, Poll};
 
@@ -7,7 +7,7 @@ use futures::future::BoxFuture;
 use monero_serai::block::Block;
 use tower::Service;
 
-use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
+use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::BlockChainContextService;
 use cuprate_pruning::PruningSeed;
 use cuprate_rpc_interface::RpcHandler;
@@ -16,14 +16,12 @@ use cuprate_rpc_types::{
     json::{JsonRpcRequest, JsonRpcResponse},
     other::{OtherRequest, OtherResponse},
 };
-use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
-use cuprate_types::{AddAuxPow, AuxPow, HardFork};
+use cuprate_txpool::service::TxpoolReadHandle;
 
 use crate::rpc::{bin, json, other};
 
 /// TODO: use real type when public.
 #[derive(Clone)]
-#[expect(clippy::large_enum_variant)]
 pub enum BlockchainManagerRequest {
     /// Pop blocks off the top of the blockchain.
     ///
@@ -37,7 +35,10 @@ pub enum BlockchainManagerRequest {
     Pruned,
 
     /// Relay a block to the network.
-    RelayBlock(Block),
+    RelayBlock(
+        /// This is [`Box`]ed due to `clippy::large_enum_variant`.
+        Box<Block>,
+    ),
 
     /// Is the blockchain in the middle of syncing?
     ///
@@ -65,7 +66,7 @@ pub enum BlockchainManagerRequest {
         /// Number of the blocks to be generated.
         amount_of_blocks: u64,
         /// The previous block's hash.
-        prev_block: [u8; 32],
+        prev_block: Option<[u8; 32]>,
         /// The starting value for the nonce.
         starting_nonce: u32,
         /// The address that will receive the coinbase reward.
@@ -139,7 +140,7 @@ pub type BlockchainManagerHandle = cuprate_database_service::DatabaseReadService
 /// TODO
 #[derive(Clone)]
 pub struct CupratedRpcHandler {
-    /// Should this RPC server be [restricted](RpcHandler::restricted)?
+    /// Should this RPC server be [restricted](RpcHandler::is_restricted)?
     ///
     /// This is not `pub` on purpose, as it should not be mutated after [`Self::new`].
     restricted: bool,
@@ -182,7 +183,7 @@ impl CupratedRpcHandler {
 }
 
 impl RpcHandler for CupratedRpcHandler {
-    fn restricted(&self) -> bool {
+    fn is_restricted(&self) -> bool {
         self.restricted
     }
 }

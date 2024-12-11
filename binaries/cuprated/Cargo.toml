@@ -12,28 +12,30 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/binaries/cuprated"
 cuprate-consensus         = { workspace = true }
 cuprate-fast-sync         = { workspace = true }
 cuprate-consensus-context = { workspace = true }
-cuprate-consensus-rules  = { workspace = true }
-cuprate-cryptonight      = { workspace = true }
-cuprate-helper           = { workspace = true, features = ["serde"] }
-cuprate-epee-encoding    = { workspace = true }
-cuprate-fixed-bytes      = { workspace = true }
-cuprate-levin            = { workspace = true }
-cuprate-wire             = { workspace = true }
-cuprate-p2p              = { workspace = true }
-cuprate-p2p-core         = { workspace = true }
-cuprate-dandelion-tower  = { workspace = true, features = ["txpool"] }
-cuprate-async-buffer     = { workspace = true }
-cuprate-address-book     = { workspace = true }
-cuprate-blockchain       = { workspace = true }
-cuprate-database-service = { workspace = true, features = ["serde"] }
-cuprate-txpool           = { workspace = true }
-cuprate-database         = { workspace = true, features = ["serde"] }
-cuprate-pruning          = { workspace = true }
-cuprate-test-utils       = { workspace = true }
-cuprate-types            = { workspace = true }
-cuprate-json-rpc         = { workspace = true }
-cuprate-rpc-interface    = { workspace = true }
-cuprate-rpc-types        = { workspace = true }
+cuprate-consensus-rules   = { workspace = true }
+cuprate-constants         = { workspace = true, features = ["build", "rpc"] }
+cuprate-cryptonight       = { workspace = true }
+cuprate-helper            = { workspace = true, features = ["serde", "time"] }
+cuprate-epee-encoding     = { workspace = true }
+cuprate-fixed-bytes       = { workspace = true }
+cuprate-levin             = { workspace = true }
+cuprate-wire              = { workspace = true }
+cuprate-p2p               = { workspace = true }
+cuprate-p2p-core          = { workspace = true }
+cuprate-dandelion-tower   = { workspace = true, features = ["txpool"] }
+cuprate-async-buffer      = { workspace = true }
+cuprate-address-book      = { workspace = true }
+cuprate-blockchain        = { workspace = true }
+cuprate-database-service  = { workspace = true, features = ["serde"] }
+cuprate-txpool            = { workspace = true }
+cuprate-database          = { workspace = true, features = ["serde"] }
+cuprate-pruning           = { workspace = true }
+cuprate-test-utils        = { workspace = true }
+cuprate-types             = { workspace = true, features = ["json"] }
+cuprate-hex               = { workspace = true }
+cuprate-json-rpc          = { workspace = true }
+cuprate-rpc-interface     = { workspace = true }
+cuprate-rpc-types         = { workspace = true, features = ["from"] }
 
 
 # TODO: after v1.0.0, remove unneeded dependencies.
@@ -66,6 +68,7 @@ rayon                 = { workspace = true }
 serde_bytes           = { workspace = true }
 serde_json            = { workspace = true }
 serde                 = { workspace = true }
+strum                 = { workspace = true }
 thiserror             = { workspace = true }
 thread_local          = { workspace = true }
 tokio-util            = { workspace = true }

@@ -1,0 +1,22 @@
+[package]
+name        = "cuprate-hex"
+version     = "0.0.0"
+edition     = "2021"
+description = "Cuprate's hexadecimal data types"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/types"
+keywords    = ["cuprate", "hex"]
+
+[features]
+default = []
+
+[dependencies]
+hex   = { workspace = true, features = ["alloc", "serde"] }
+serde = { workspace = true, features = ["std", "derive"] }
+
+[dev-dependencies]
+serde_json = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true

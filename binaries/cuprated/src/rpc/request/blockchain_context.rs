@@ -1,6 +1,4 @@
-//! Functions for [`BlockChainContextRequest`] and [`BlockChainContextResponse`].
-
-use std::convert::Infallible;
+//! Functions to send [`BlockChainContextRequest`]s.
 
 use anyhow::{anyhow, Error};
 use monero_serai::block::Block;
@@ -10,8 +8,10 @@ use cuprate_consensus_context::{
     BlockChainContext, BlockChainContextRequest, BlockChainContextResponse,
     BlockChainContextService,
 };
-use cuprate_helper::cast::u64_to_usize;
-use cuprate_types::{FeeEstimate, HardFork, HardForkInfo};
+use cuprate_types::{
+    rpc::{FeeEstimate, HardForkInfo},
+    HardFork,
+};
 
 // FIXME: use `anyhow::Error` over `tower::BoxError` in blockchain context.
 
@@ -75,17 +75,22 @@ pub(crate) async fn fee_estimate(
 pub(crate) async fn calculate_pow(
     blockchain_context: &mut BlockChainContextService,
     hardfork: HardFork,
-    height: u64,
-    block: Box<Block>,
+    block: Block,
     seed_hash: [u8; 32],
 ) -> Result<[u8; 32], Error> {
+    let Some(height) = block.number() else {
+        return Err(anyhow!("Block is missing height"));
+    };
+
+    let block = Box::new(block);
+
     let BlockChainContextResponse::CalculatePow(hash) = blockchain_context
         .ready()
         .await
         .map_err(|e| anyhow!(e))?
         .call(BlockChainContextRequest::CalculatePow {
             hardfork,
-            height: u64_to_usize(height),
+            height,
             block,
             seed_hash,
         })
@@ -96,4 +101,23 @@ pub(crate) async fn calculate_pow(
     };
 
     Ok(hash)
+}
+
+/// [`BlockChainContextRequest::BatchGetDifficulties`]
+pub(crate) async fn batch_get_difficulties(
+    blockchain_context: &mut BlockChainContextService,
+    difficulties: Vec<(u64, HardFork)>,
+) -> Result<Vec<u128>, Error> {
+    let BlockChainContextResponse::BatchDifficulties(resp) = blockchain_context
+        .ready()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .call(BlockChainContextRequest::BatchGetDifficulties(difficulties))
+        .await
+        .map_err(|e| anyhow!(e))?
+    else {
+        unreachable!();
+    };
+
+    Ok(resp)
 }

@@ -6,6 +6,7 @@
 )]
 use std::{
     collections::{HashMap, HashSet},
+    num::NonZero,
     sync::Arc,
 };
 
@@ -74,6 +75,11 @@ fn map_request(
         TxpoolReadRequest::Size {
             include_sensitive_txs,
         } => size(env, include_sensitive_txs),
+        TxpoolReadRequest::PoolInfo {
+            include_sensitive_txs,
+            max_tx_count,
+            start_time,
+        } => pool_info(include_sensitive_txs, max_tx_count, start_time),
     }
 }
 
@@ -205,4 +211,13 @@ fn backlog(env: &ConcreteEnv) -> ReadResponseResult {
 #[inline]
 fn size(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
     Ok(TxpoolReadResponse::Size(todo!()))
+}
+
+/// [`TxpoolReadRequest::PoolInfo`].
+fn pool_info(
+    include_sensitive_txs: bool,
+    max_tx_count: usize,
+    start_time: Option<NonZero<usize>>,
+) -> ReadResponseResult {
+    Ok(TxpoolReadResponse::PoolInfo(todo!()))
 }

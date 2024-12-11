@@ -11,4 +11,3 @@ This crate is a kitchen-sink for data types that are shared across Cuprate.
 | `epee`       | Enables `cuprate-epee-encoding` on types where applicable
 | `proptest`   | Enables `proptest::arbitrary::Arbitrary` on some types
 | `json`       | Enables the `json` module, containing JSON representations of common Monero types
-| `hex`        | Enables the `hex` module, containing the `HexBytes` type
