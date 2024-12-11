@@ -6,17 +6,18 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use cuprate_hex::Hex;
 use cuprate_types::rpc::{OutKey, Peer, PublicNode, TxpoolStats};
 
 use crate::{
     base::{AccessResponseBase, ResponseBase},
     macros::define_request_and_response,
-    misc::{GetOutputsOut, SpentKeyImageInfo, Status, TxEntry, TxInfo},
+    misc::{GetOutputsOut, KeyImageSpentStatus, SpentKeyImageInfo, Status, TxEntry, TxInfo},
     RpcCallValue,
 };
 
 #[cfg(any(feature = "serde", feature = "epee"))]
-use crate::defaults::{default_false, default_string, default_true, default_vec, default_zero};
+use crate::defaults::default_true;
 
 //---------------------------------------------------------------------------------------------------- Definitions
 define_request_and_response! {
@@ -27,7 +28,7 @@ define_request_and_response! {
     Request {},
 
     ResponseBase {
-        hash: String,
+        hash: Hex<32>,
         height: u64,
     }
 }
@@ -39,22 +40,22 @@ define_request_and_response! {
     GetTransactions,
 
     Request {
-        txs_hashes: Vec<String> = default_vec::<String>(), "default_vec",
+        txs_hashes: Vec<Hex<32>>,
         // FIXME: this is documented as optional but it isn't serialized as an optional
         // but it is set _somewhere_ to false in `monerod`
         // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L382>
-        decode_as_json: bool = default_false(), "default_false",
-        prune: bool = default_false(), "default_false",
-        split: bool = default_false(), "default_false",
+        decode_as_json: bool,
+        prune: bool,
+        split: bool,
     },
 
     AccessResponseBase {
-        txs_as_hex: Vec<String> = default_vec::<String>(), "default_vec",
+        txs_as_hex: Vec<String>,
         /// `cuprate_rpc_types::json::tx::Transaction` should be used
         /// to create this JSON string in a type-safe manner.
-        txs_as_json: Vec<String> = default_vec::<String>(), "default_vec",
-        missed_tx: Vec<String> = default_vec::<String>(), "default_vec",
-        txs: Vec<TxEntry> = default_vec::<TxEntry>(), "default_vec",
+        txs_as_json: Vec<String>,
+        missed_tx: Vec<Hex<32>>,
+        txs: Vec<TxEntry>,
     }
 }
 
@@ -66,7 +67,7 @@ define_request_and_response! {
     Request {},
 
     AccessResponseBase {
-        blks_hashes: Vec<String>,
+        blks_hashes: Vec<Hex<32>>,
     }
 }
 
@@ -78,12 +79,11 @@ define_request_and_response! {
     IsKeyImageSpent,
 
     Request {
-        key_images: Vec<String>,
+        key_images: Vec<Hex<32>>,
     },
 
     AccessResponseBase {
-        /// FIXME: These are [`KeyImageSpentStatus`](crate::misc::KeyImageSpentStatus) in [`u8`] form.
-        spent_status: Vec<u8>,
+        spent_status: Vec<KeyImageSpentStatus>,
     }
 }
 
@@ -96,7 +96,7 @@ define_request_and_response! {
 
     Request {
         tx_as_hex: String,
-        do_not_relay: bool = default_false(), "default_false",
+        do_not_relay: bool,
         do_sanity_checks: bool = default_true(), "default_true",
     },
 
@@ -106,7 +106,7 @@ define_request_and_response! {
         invalid_input: bool,
         invalid_output: bool,
         low_mixin: bool,
-        nonzero_unlock_time: bool = default_false(), "default_false",
+        nonzero_unlock_time: bool,
         not_relayed: bool,
         overspend: bool,
         reason: String,
@@ -189,7 +189,7 @@ define_request_and_response! {
 
     Request {
         public_only: bool = default_true(), "default_true",
-        include_blocked: bool = default_false(), "default_false",
+        include_blocked: bool,
     },
 
     ResponseBase {
@@ -207,7 +207,7 @@ define_request_and_response! {
 
     #[derive(Copy)]
     Request {
-        visible: bool = default_false(), "default_false",
+        visible: bool,
     },
 
     ResponseBase {}
@@ -236,7 +236,7 @@ define_request_and_response! {
     SetLogCategories (restricted),
 
     Request {
-        categories: String = default_string(), "default_string",
+        categories: String,
     },
 
     ResponseBase {
@@ -253,9 +253,9 @@ define_request_and_response! {
 
     Request {
         address: String,
-        username: String = default_string(), "default_string",
-        password: String = default_string(), "default_string",
-        proxy: String = default_string(), "default_string",
+        username: String,
+        password: String,
+        proxy: String,
     },
 
     Response {
@@ -325,9 +325,8 @@ define_request_and_response! {
     SetLimit (restricted),
 
     Request {
-        // FIXME: These may need to be `Option<i64>`.
-        limit_down: i64 = default_zero::<i64>(), "default_zero",
-        limit_up: i64 = default_zero::<i64>(), "default_zero",
+        limit_down: i64,
+        limit_up: i64,
     },
 
     ResponseBase {
@@ -409,7 +408,7 @@ define_request_and_response! {
 
     Request {
         command: String,
-        path: String = default_string(), "default_string",
+        path: String,
     },
     ResponseBase {
         auto_uri: String,
@@ -447,7 +446,7 @@ define_request_and_response! {
     Request {},
 
     ResponseBase {
-        tx_hashes: Vec<String>,
+        tx_hashes: Vec<Hex<32>>,
     }
 }
 
@@ -459,14 +458,14 @@ define_request_and_response! {
     GetPublicNodes (restricted),
 
     Request {
-        gray: bool = default_false(), "default_false",
+        gray: bool,
         white: bool = default_true(), "default_true",
-        include_blocked: bool = default_false(), "default_false",
+        include_blocked: bool,
     },
 
     ResponseBase {
-        gray: Vec<PublicNode> = default_vec::<PublicNode>(), "default_vec",
-        white: Vec<PublicNode> = default_vec::<PublicNode>(), "default_vec",
+        gray: Vec<PublicNode>,
+        white: Vec<PublicNode>,
     }
 }
 
@@ -674,7 +673,9 @@ mod test {
             other::GET_HEIGHT_RESPONSE,
             Some(GetHeightResponse {
                 base: ResponseBase::OK,
-                hash: "68bb1a1cff8e2a44c3221e8e1aff80bc6ca45d06fa8eff4d2a3a7ac31d4efe3f".into(),
+                hash: Hex(hex!(
+                    "68bb1a1cff8e2a44c3221e8e1aff80bc6ca45d06fa8eff4d2a3a7ac31d4efe3f"
+                )),
                 height: 3195160,
             }),
         );
@@ -685,9 +686,9 @@ mod test {
         test_json(
             other::GET_TRANSACTIONS_REQUEST,
             Some(GetTransactionsRequest {
-                txs_hashes: vec![
-                    "d6e48158472848e6687173a91ae6eebfa3e1d778e65252ee99d7515d63090408".into(),
-                ],
+                txs_hashes: vec![Hex(hex!(
+                    "d6e48158472848e6687173a91ae6eebfa3e1d778e65252ee99d7515d63090408"
+                ))],
                 decode_as_json: false,
                 prune: false,
                 split: false,
@@ -706,9 +707,9 @@ mod test {
             other::GET_ALT_BLOCKS_HASHES_RESPONSE,
             Some(GetAltBlocksHashesResponse {
                 base: AccessResponseBase::OK,
-                blks_hashes: vec![
-                    "8ee10db35b1baf943f201b303890a29e7d45437bd76c2bd4df0d2f2ee34be109".into(),
-                ],
+                blks_hashes: vec![Hex(hex!(
+                    "8ee10db35b1baf943f201b303890a29e7d45437bd76c2bd4df0d2f2ee34be109"
+                ))],
             }),
         );
     }
@@ -719,8 +720,12 @@ mod test {
             other::IS_KEY_IMAGE_SPENT_REQUEST,
             Some(IsKeyImageSpentRequest {
                 key_images: vec![
-                    "8d1bd8181bf7d857bdb281e0153d84cd55a3fcaa57c3e570f4a49f935850b5e3".into(),
-                    "7319134bfc50668251f5b899c66b005805ee255c136f0e1cecbb0f3a912e09d4".into(),
+                    Hex(hex!(
+                        "8d1bd8181bf7d857bdb281e0153d84cd55a3fcaa57c3e570f4a49f935850b5e3"
+                    )),
+                    Hex(hex!(
+                        "7319134bfc50668251f5b899c66b005805ee255c136f0e1cecbb0f3a912e09d4"
+                    )),
                 ],
             }),
         );
@@ -732,7 +737,7 @@ mod test {
             other::IS_KEY_IMAGE_SPENT_RESPONSE,
             Some(IsKeyImageSpentResponse {
                 base: AccessResponseBase::OK,
-                spent_status: vec![1, 1],
+                spent_status: vec![KeyImageSpentStatus::SpentInBlockchain; 2],
             }),
         );
     }
@@ -1255,24 +1260,60 @@ mod test {
             Some(GetTransactionPoolHashesResponse {
                 base: ResponseBase::OK,
                 tx_hashes: vec![
-                    "aa928aed888acd6152c60194d50a4df29b0b851be6169acf11b6a8e304dd6c03".into(),
-                    "794345f321a98f3135151f3056c0fdf8188646a8dab27de971428acf3551dd11".into(),
-                    "1e9d2ae11f2168a228942077483e70940d34e8658c972bbc3e7f7693b90edf17".into(),
-                    "7375c928f261d00f07197775eb0bfa756e5f23319819152faa0b3c670fe54c1b".into(),
-                    "2e4d5f8c5a45498f37fb8b6ca4ebc1efa0c371c38c901c77e66b08c072287329".into(),
-                    "eee6d596cf855adfb10e1597d2018e3a61897ac467ef1d4a5406b8d20bfbd52f".into(),
-                    "59c574d7ba9bb4558470f74503c7518946a85ea22c60fccfbdec108ce7d8f236".into(),
-                    "0d57bec1e1075a9e1ac45cf3b3ced1ad95ccdf2a50ce360190111282a0178655".into(),
-                    "60d627b2369714a40009c07d6185ebe7fa4af324fdfa8d95a37a936eb878d062".into(),
-                    "661d7e728a901a8cb4cf851447d9cd5752462687ed0b776b605ba706f06bdc7d".into(),
-                    "b80e1f09442b00b3fffe6db5d263be6267c7586620afff8112d5a8775a6fc58e".into(),
-                    "974063906d1ddfa914baf85176b0f689d616d23f3d71ed4798458c8b4f9b9d8f".into(),
-                    "d2575ae152a180be4981a9d2fc009afcd073adaa5c6d8b022c540a62d6c905bb".into(),
-                    "3d78aa80ee50f506683bab9f02855eb10257a08adceda7cbfbdfc26b10f6b1bb".into(),
-                    "8b5bc125bdb73b708500f734501d55088c5ac381a0879e1141634eaa72b6a4da".into(),
-                    "11c06f4d2f00c912ca07313ed2ea5366f3cae914a762bed258731d3d9e3706df".into(),
-                    "b3644dc7c9a3a53465fe80ad3769e516edaaeb7835e16fdd493aac110d472ae1".into(),
-                    "ed2478ad793b923dbf652c8612c40799d764e5468897021234a14a37346bc6ee".into(),
+                    Hex(hex!(
+                        "aa928aed888acd6152c60194d50a4df29b0b851be6169acf11b6a8e304dd6c03"
+                    )),
+                    Hex(hex!(
+                        "794345f321a98f3135151f3056c0fdf8188646a8dab27de971428acf3551dd11"
+                    )),
+                    Hex(hex!(
+                        "1e9d2ae11f2168a228942077483e70940d34e8658c972bbc3e7f7693b90edf17"
+                    )),
+                    Hex(hex!(
+                        "7375c928f261d00f07197775eb0bfa756e5f23319819152faa0b3c670fe54c1b"
+                    )),
+                    Hex(hex!(
+                        "2e4d5f8c5a45498f37fb8b6ca4ebc1efa0c371c38c901c77e66b08c072287329"
+                    )),
+                    Hex(hex!(
+                        "eee6d596cf855adfb10e1597d2018e3a61897ac467ef1d4a5406b8d20bfbd52f"
+                    )),
+                    Hex(hex!(
+                        "59c574d7ba9bb4558470f74503c7518946a85ea22c60fccfbdec108ce7d8f236"
+                    )),
+                    Hex(hex!(
+                        "0d57bec1e1075a9e1ac45cf3b3ced1ad95ccdf2a50ce360190111282a0178655"
+                    )),
+                    Hex(hex!(
+                        "60d627b2369714a40009c07d6185ebe7fa4af324fdfa8d95a37a936eb878d062"
+                    )),
+                    Hex(hex!(
+                        "661d7e728a901a8cb4cf851447d9cd5752462687ed0b776b605ba706f06bdc7d"
+                    )),
+                    Hex(hex!(
+                        "b80e1f09442b00b3fffe6db5d263be6267c7586620afff8112d5a8775a6fc58e"
+                    )),
+                    Hex(hex!(
+                        "974063906d1ddfa914baf85176b0f689d616d23f3d71ed4798458c8b4f9b9d8f"
+                    )),
+                    Hex(hex!(
+                        "d2575ae152a180be4981a9d2fc009afcd073adaa5c6d8b022c540a62d6c905bb"
+                    )),
+                    Hex(hex!(
+                        "3d78aa80ee50f506683bab9f02855eb10257a08adceda7cbfbdfc26b10f6b1bb"
+                    )),
+                    Hex(hex!(
+                        "8b5bc125bdb73b708500f734501d55088c5ac381a0879e1141634eaa72b6a4da"
+                    )),
+                    Hex(hex!(
+                        "11c06f4d2f00c912ca07313ed2ea5366f3cae914a762bed258731d3d9e3706df"
+                    )),
+                    Hex(hex!(
+                        "b3644dc7c9a3a53465fe80ad3769e516edaaeb7835e16fdd493aac110d472ae1"
+                    )),
+                    Hex(hex!(
+                        "ed2478ad793b923dbf652c8612c40799d764e5468897021234a14a37346bc6ee"
+                    )),
                 ],
             }),
         );

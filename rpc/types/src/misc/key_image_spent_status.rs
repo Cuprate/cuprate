@@ -20,6 +20,7 @@ use cuprate_epee_encoding::{
 /// Used in [`crate::other::IsKeyImageSpentResponse`].
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(try_from = "u8", into = "u8"))]
 #[repr(u8)]
 pub enum KeyImageSpentStatus {
     Unspent = 0,
@@ -65,6 +66,19 @@ impl KeyImageSpentStatus {
             2 => Self::SpentInPool,
             _ => return None,
         })
+    }
+}
+
+impl From<KeyImageSpentStatus> for u8 {
+    fn from(value: KeyImageSpentStatus) -> Self {
+        value.to_u8()
+    }
+}
+
+impl TryFrom<u8> for KeyImageSpentStatus {
+    type Error = u8;
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        Self::from_u8(value).ok_or(value)
     }
 }
 

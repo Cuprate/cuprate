@@ -10,34 +10,10 @@
 //---------------------------------------------------------------------------------------------------- Import
 
 //---------------------------------------------------------------------------------------------------- TODO
-/// Default [`bool`] type used in request/response types, `false`.
-#[inline]
-pub(crate) const fn default_false() -> bool {
-    false
-}
-
 /// Default [`bool`] type used in _some_ request/response types, `true`.
 #[inline]
 pub(crate) const fn default_true() -> bool {
     true
-}
-
-/// Default [`String`] type used in request/response types.
-#[inline]
-pub(crate) const fn default_string() -> String {
-    String::new()
-}
-
-/// Default block height used in request/response types.
-#[inline]
-pub(crate) const fn default_height() -> u64 {
-    0
-}
-
-/// Default [`Vec`] used in request/response types.
-#[inline]
-pub(crate) const fn default_vec<T>() -> Vec<T> {
-    Vec::new()
 }
 
 /// Default `0` value used in request/response types.
@@ -50,6 +26,12 @@ pub(crate) fn default_zero<T: From<u8>>() -> T {
 #[inline]
 pub(crate) fn default_one<T: From<u8>>() -> T {
     T::from(1)
+}
+
+/// Generate a default `T` to be used in request/response types.
+#[inline]
+pub(crate) fn default<T: Default>() -> T {
+    T::default()
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

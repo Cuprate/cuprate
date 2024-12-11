@@ -20,6 +20,7 @@ use cuprate_epee_encoding::{
 /// Used in [`crate::bin::GetBlocksRequest`].
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(try_from = "u8", into = "u8"))]
 #[repr(u8)]
 pub enum RequestedInfo {
     #[default]
@@ -66,6 +67,19 @@ impl RequestedInfo {
             2 => Self::PoolOnly,
             _ => return None,
         })
+    }
+}
+
+impl From<RequestedInfo> for u8 {
+    fn from(value: RequestedInfo) -> Self {
+        value.to_u8()
+    }
+}
+
+impl TryFrom<u8> for RequestedInfo {
+    type Error = u8;
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        Self::from_u8(value).ok_or(value)
     }
 }
 

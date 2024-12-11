@@ -20,10 +20,7 @@ use crate::{
 };
 
 #[cfg(any(feature = "epee", feature = "serde"))]
-use crate::defaults::{
-    default_false, default_height, default_one, default_string, default_true, default_vec,
-    default_zero,
-};
+use crate::defaults::{default, default_one, default_true};
 
 //---------------------------------------------------------------------------------------------------- Definitions
 // This generates 2 structs:
@@ -81,15 +78,15 @@ define_request_and_response! {
         //
         // This is a HACK since `serde`'s default attribute only takes in
         // string literals and macros (stringify) within attributes do not work.
-        extra_nonce: String = default_string(), "default_string",
-        prev_block: String = default_string(), "default_string",
+        extra_nonce: String,
+        prev_block: String,
 
         // Another optional expression:
         // This indicates to the macro to (de)serialize
         // this field as another type in epee.
         //
         // See `cuprate_epee_encoding::epee_object` for info.
-        reserve_size: u64 = default_zero::<u64>(), "default_zero" /* as Type */,
+        reserve_size: u64,
 
         wallet_address: String,
     },
@@ -125,7 +122,7 @@ define_request_and_response! {
         difficulty: u64,
         expected_reward: u64,
         height: u64,
-        next_seed_hash: String = default_string(), "default_string",
+        next_seed_hash: String,
         prev_hash: Hex<32>,
         reserved_offset: u64,
         seed_hash: Hex<32>,
@@ -200,7 +197,7 @@ define_request_and_response! {
 
     Request {
         amount_of_blocks: u64,
-        prev_block: String = default_string(), "default_string",
+        prev_block: String,
         starting_nonce: u32,
         wallet_address: String,
     },
@@ -220,7 +217,7 @@ define_request_and_response! {
 
     #[derive(Copy)]
     Request {
-        fill_pow_hash: bool = default_false(), "default_false",
+        fill_pow_hash: bool,
     },
 
     AccessResponseBase {
@@ -236,13 +233,13 @@ define_request_and_response! {
 
     Request {
         hash: Hex<32>,
-        hashes: Vec<Hex<32>> = default_vec::<Hex<32>>(), "default_vec",
-        fill_pow_hash: bool = default_false(), "default_false",
+        hashes: Vec<Hex<32>>,
+        fill_pow_hash: bool,
     },
 
     AccessResponseBase {
         block_header: BlockHeader,
-        block_headers: Vec<BlockHeader> = default_vec::<BlockHeader>(), "default_vec",
+        block_headers: Vec<BlockHeader>,
     }
 }
 
@@ -256,7 +253,7 @@ define_request_and_response! {
     #[derive(Copy)]
     Request {
         height: u64,
-        fill_pow_hash: bool = default_false(), "default_false",
+        fill_pow_hash: bool,
     },
 
     AccessResponseBase {
@@ -275,7 +272,7 @@ define_request_and_response! {
     Request {
         start_height: u64,
         end_height: u64,
-        fill_pow_hash: bool = default_false(), "default_false",
+        fill_pow_hash: bool,
     },
 
     AccessResponseBase {
@@ -293,9 +290,9 @@ define_request_and_response! {
         // `monerod` has both `hash` and `height` fields.
         // In the RPC handler, if `hash.is_empty()`, it will use it, else, it uses `height`.
         // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2674>
-        hash: String = default_string(), "default_string",
-        height: u64 = default_height(), "default_height",
-        fill_pow_hash: bool = default_false(), "default_false",
+        hash: String,
+        height: u64,
+        fill_pow_hash: bool,
     },
 
     AccessResponseBase {
@@ -305,7 +302,7 @@ define_request_and_response! {
         /// to create this JSON string in a type-safe manner.
         json: String,
         miner_tx_hash: Hex<32>,
-        tx_hashes: Vec<Hex<32>> = default_vec::<Hex<32>>(), "default_vec",
+        tx_hashes: Vec<Hex<32>>,
     }
 }
 
@@ -319,7 +316,6 @@ define_request_and_response! {
     Request {},
 
     ResponseBase {
-        // FIXME: This is a `std::list` in `monerod` because...?
         connections: Vec<ConnectionInfo>,
     }
 }
@@ -449,7 +445,7 @@ define_request_and_response! {
     FlushTransactionPool (restricted),
 
     Request {
-        txids: Vec<Hex<32>> = default_vec::<Hex<32>>(), "default_vec",
+        txids: Vec<Hex<32>>,
     },
 
     #[repr(transparent)]
@@ -466,10 +462,10 @@ define_request_and_response! {
 
     Request {
         amounts: Vec<u64>,
-        min_count: u64 = default_zero::<u64>(), "default_zero",
-        max_count: u64 = default_zero::<u64>(), "default_zero",
-        unlocked: bool = default_false(), "default_false",
-        recent_cutoff: u64 = default_zero::<u64>(), "default_zero",
+        min_count: u64,
+        max_count: u64,
+        unlocked: bool,
+        recent_cutoff: u64,
     },
 
     AccessResponseBase {
@@ -510,9 +506,9 @@ define_request_and_response! {
     ResponseBase {
         version: u32,
         release: bool,
-        current_height: u64 = default_zero::<u64>(), "default_zero",
-        target_height: u64 = default_zero::<u64>(), "default_zero",
-        hard_forks: Vec<HardForkEntry> = default_vec(), "default_vec",
+        current_height: u64,
+        target_height: u64,
+        hard_forks: Vec<HardForkEntry>,
     }
 }
 
@@ -524,7 +520,7 @@ define_request_and_response! {
     GetFeeEstimate,
 
     Request {
-        grace_blocks: u64 = default_zero::<u64>(), "default_zero",
+        grace_blocks: u64,
     },
 
     AccessResponseBase {
@@ -576,10 +572,8 @@ define_request_and_response! {
         height: u64,
         next_needed_pruning_seed: u32,
         overview: String,
-        // FIXME: This is a `std::list` in `monerod` because...?
-        peers: Vec<SyncInfoPeer> = default_vec::<SyncInfoPeer>(), "default_vec",
-        // FIXME: This is a `std::list` in `monerod` because...?
-        spans: Vec<Span> = default_vec::<Span>(), "default_vec",
+        peers: Vec<SyncInfoPeer>,
+        spans: Vec<Span>,
         target_height: u64,
     }
 }
@@ -610,10 +604,10 @@ define_request_and_response! {
     Request {
         amounts: Vec<u64>,
         binary: bool = default_true(), "default_true",
-        compress: bool = default_false(), "default_false",
-        cumulative: bool = default_false(), "default_false",
-        from_height: u64 = default_zero::<u64>(), "default_zero",
-        to_height: u64 = default_zero::<u64>(), "default_zero",
+        compress: bool,
+        cumulative: bool,
+        from_height: u64,
+        to_height: u64,
     },
 
     AccessResponseBase {
@@ -649,7 +643,7 @@ define_request_and_response! {
 
     #[derive(Copy)]
     Request {
-        check: bool = default_false(), "default_false",
+        check: bool,
     },
 
     ResponseBase {
@@ -688,8 +682,8 @@ define_request_and_response! {
 
     #[derive(Copy)]
     Request {
-        bad_txs: bool = default_false(), "default_false",
-        bad_blocks: bool = default_false(), "default_false",
+        bad_txs: bool,
+        bad_blocks: bool,
     },
 
     ResponseBase {}

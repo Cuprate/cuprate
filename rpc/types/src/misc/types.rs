@@ -9,7 +9,7 @@ use cuprate_hex::Hex;
 use cuprate_types::HardFork;
 
 #[cfg(any(feature = "epee", feature = "serde"))]
-use crate::defaults::default_zero;
+use crate::defaults::default;
 
 use crate::macros::monero_definition_link;
 
@@ -41,6 +41,7 @@ macro_rules! define_struct_and_impl_epee {
         $(
             #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
             #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+            #[cfg_attr(feature = "serde", serde(default))]
             $( #[$struct_attr] )*
             pub struct $struct_name {
                 $(
@@ -148,9 +149,7 @@ define_struct_and_impl_epee! {
     )]
     /// Used in [`crate::json::SetBansRequest`].
     SetBan {
-        #[cfg_attr(feature = "serde", serde(default = "crate::defaults::default_string"))]
         host: String,
-        #[cfg_attr(feature = "serde", serde(default = "default_zero"))]
         ip: u32,
         ban: bool,
         seconds: u32,
@@ -293,8 +292,7 @@ define_struct_and_impl_epee! {
         relayed: bool,
         tx_blob: String,
         tx_json: cuprate_types::json::tx::Transaction,
-        #[cfg_attr(feature = "serde", serde(default = "default_zero"))]
-        weight: u64 = default_zero::<u64>(),
+        weight: u64 = default::<u64>(),
     }
 }
 

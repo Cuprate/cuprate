@@ -238,6 +238,7 @@ macro_rules! define_request {
     ) => {
         #[allow(dead_code, missing_docs, reason = "inside a macro")]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+        #[cfg_attr(feature = "serde", serde(default))] // TODO: link epee field not serializing oddity
         #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
         $( #[$attr] )*
         pub struct $t {
