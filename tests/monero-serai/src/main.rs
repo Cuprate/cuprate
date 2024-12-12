@@ -1,5 +1,4 @@
 use std::{
-    io::Write,
     sync::atomic::{AtomicUsize, Ordering},
     time::{Duration, Instant},
 };
