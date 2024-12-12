@@ -167,6 +167,30 @@ pub struct BlockTemplate {
     pub next_seed_hash: [u8; 32],
 }
 
+/// TODO
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TxInBlockchain {
+    pub block_height: u64,
+    pub block_timestamp: u64,
+    pub confirmations: u64,
+    pub output_indices: Vec<u64>,
+    pub tx_hash: [u8; 32],
+    pub tx_blob: Vec<u8>,
+    pub pruned_blob: Vec<u8>,
+    pub prunable_blob: Vec<u8>,
+    pub prunable_hash: [u8; 32],
+}
+
+/// TODO
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TxInPool {
+    pub tx_blob: Vec<u8>,
+    pub tx_hash: [u8; 32],
+    pub double_spend_seen: bool,
+    pub received_timestamp: u64,
+    pub relayed: bool,
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {

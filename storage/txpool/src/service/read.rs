@@ -2,6 +2,7 @@
     unreachable_code,
     unused_variables,
     clippy::unnecessary_wraps,
+    clippy::needless_pass_by_value,
     reason = "TODO: finish implementing the signatures from <https://github.com/Cuprate/cuprate/pull/297>"
 )]
 use std::{
@@ -79,7 +80,11 @@ fn map_request(
             include_sensitive_txs,
             max_tx_count,
             start_time,
-        } => pool_info(include_sensitive_txs, max_tx_count, start_time),
+        } => pool_info(env, include_sensitive_txs, max_tx_count, start_time),
+        TxpoolReadRequest::TxsByHash {
+            tx_hashes,
+            include_sensitive_txs,
+        } => txs_by_hash(env, tx_hashes, include_sensitive_txs),
     }
 }
 
@@ -215,9 +220,19 @@ fn size(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
 
 /// [`TxpoolReadRequest::PoolInfo`].
 fn pool_info(
+    env: &ConcreteEnv,
     include_sensitive_txs: bool,
     max_tx_count: usize,
     start_time: Option<NonZero<usize>>,
 ) -> ReadResponseResult {
     Ok(TxpoolReadResponse::PoolInfo(todo!()))
+}
+
+/// [`TxpoolReadRequest::TxsByHash`].
+fn txs_by_hash(
+    env: &ConcreteEnv,
+    tx_hashes: Vec<[u8; 32]>,
+    include_sensitive_txs: bool,
+) -> ReadResponseResult {
+    Ok(TxpoolReadResponse::TxsByHash(todo!()))
 }

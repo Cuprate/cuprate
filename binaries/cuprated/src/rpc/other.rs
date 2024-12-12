@@ -1,18 +1,19 @@
 //! RPC request handler functions (other JSON endpoints).
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use anyhow::{anyhow, Error};
 
 use cuprate_constants::rpc::{
     MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT, RESTRICTED_SPENT_KEY_IMAGES_COUNT,
+    RESTRICTED_TRANSACTIONS_COUNT,
 };
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_hex::Hex;
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
     base::{AccessResponseBase, ResponseBase},
-    misc::{KeyImageSpentStatus, Status},
+    misc::{KeyImageSpentStatus, Status, TxEntry, TxEntryType},
     other::{
         GetAltBlocksHashesRequest, GetAltBlocksHashesResponse, GetHeightRequest, GetHeightResponse,
         GetLimitRequest, GetLimitResponse, GetNetStatsRequest, GetNetStatsResponse, GetOutsRequest,
@@ -31,14 +32,19 @@ use cuprate_rpc_types::{
         UpdateRequest, UpdateResponse,
     },
 };
-use cuprate_types::rpc::OutKey;
+use cuprate_types::{
+    rpc::{OutKey, PoolInfo, PoolTxInfo},
+    TxInPool,
+};
+use monero_serai::transaction::Transaction;
 
 use crate::{
     rpc::CupratedRpcHandler,
-    rpc::{helper, request::blockchain},
+    rpc::{
+        helper,
+        request::{blockchain, blockchain_context, blockchain_manager, txpool},
+    },
 };
-
-use super::request::blockchain_manager;
 
 /// Map a [`OtherRequest`] to the function that will lead to a [`OtherResponse`].
 pub(super) async fn map_request(
@@ -112,12 +118,131 @@ async fn get_height(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L979-L1227>
 async fn get_transactions(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: GetTransactionsRequest,
 ) -> Result<GetTransactionsResponse, Error> {
+    if state.is_restricted() && request.txs_hashes.len() > RESTRICTED_TRANSACTIONS_COUNT {
+        return Err(anyhow!(
+            "Too many transactions requested in restricted mode"
+        ));
+    }
+
+    let requested_txs = request.txs_hashes.into_iter().map(|tx| tx.0).collect();
+
+    let (txs_in_blockchain, missed_txs) =
+        blockchain::transactions(&mut state.blockchain_read, requested_txs).await?;
+
+    let missed_tx = missed_txs.clone().into_iter().map(Hex).collect();
+
+    // Check the txpool for missed transactions.
+    let txs_in_pool = if missed_txs.is_empty() {
+        vec![]
+    } else {
+        let include_sensitive_txs = !state.is_restricted();
+        txpool::txs_by_hash(&mut state.txpool_read, missed_txs, include_sensitive_txs).await?
+    };
+
+    let (txs, txs_as_json) = {
+        // Prepare the final JSON output.
+        let len = txs_in_blockchain.len() + txs_in_pool.len();
+        let mut txs = Vec::with_capacity(len);
+        let mut txs_as_json = Vec::with_capacity(if request.decode_as_json { len } else { 0 });
+
+        // Map all blockchain transactions.
+        for tx in txs_in_blockchain {
+            let tx_hash = Hex(tx.tx_hash);
+            let pruned_as_hex = hex::encode(tx.pruned_blob);
+            let prunable_as_hex = hex::encode(tx.prunable_blob);
+            let prunable_hash = Hex(tx.prunable_hash);
+
+            let as_json = if request.decode_as_json {
+                let tx = Transaction::read(&mut tx.tx_blob.as_slice())?;
+                let json_type = cuprate_types::json::tx::Transaction::from(tx);
+                let json = serde_json::to_string(&json_type).unwrap();
+                txs_as_json.push(json.clone());
+                json
+            } else {
+                String::new()
+            };
+
+            let tx_entry_type = TxEntryType::Blockchain {
+                block_height: tx.block_height,
+                block_timestamp: tx.block_timestamp,
+                confirmations: tx.confirmations,
+                output_indices: tx.output_indices,
+                in_pool: false,
+            };
+
+            let tx = TxEntry {
+                as_hex: String::new(),
+                as_json,
+                double_spend_seen: false,
+                tx_hash,
+                prunable_as_hex,
+                prunable_hash,
+                pruned_as_hex,
+                tx_entry_type,
+            };
+
+            txs.push(tx);
+        }
+
+        // Map all txpool transactions.
+        for tx_in_pool in txs_in_pool {
+            let TxInPool {
+                tx_blob,
+                tx_hash,
+                double_spend_seen,
+                received_timestamp,
+                relayed,
+            } = tx_in_pool;
+
+            let tx_hash = Hex(tx_hash);
+            let tx = Transaction::read(&mut tx_blob.as_slice())?;
+
+            // TODO: pruned data.
+            let pruned_as_hex = String::new();
+            let prunable_as_hex = String::new();
+            let prunable_hash = Hex([0; 32]);
+
+            let as_json = if request.decode_as_json {
+                let json_type = cuprate_types::json::tx::Transaction::from(tx);
+                let json = serde_json::to_string(&json_type).unwrap();
+                txs_as_json.push(json.clone());
+                json
+            } else {
+                String::new()
+            };
+
+            let tx_entry_type = TxEntryType::Pool {
+                relayed,
+                received_timestamp,
+                in_pool: true,
+            };
+
+            let tx = TxEntry {
+                as_hex: String::new(),
+                as_json,
+                double_spend_seen,
+                tx_hash,
+                prunable_as_hex,
+                prunable_hash,
+                pruned_as_hex,
+                tx_entry_type,
+            };
+
+            txs.push(tx);
+        }
+
+        (txs, txs_as_json)
+    };
+
     Ok(GetTransactionsResponse {
         base: AccessResponseBase::OK,
-        ..todo!()
+        txs_as_hex: vec![],
+        txs_as_json,
+        missed_tx,
+        txs,
     })
 }
 

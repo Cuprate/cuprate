@@ -25,7 +25,7 @@ pub use distribution::{Distribution, DistributionCompressedBinary, DistributionU
 pub use key_image_spent_status::KeyImageSpentStatus;
 pub use requested_info::RequestedInfo;
 pub use status::Status;
-pub use tx_entry::TxEntry;
+pub use tx_entry::{TxEntry, TxEntryType};
 pub use types::{
     BlockHeader, ChainInfo, ConnectionInfo, GetBan, GetOutputsOut, HistogramEntry, OutKeyBin,
     SetBan, Span, SpentKeyImageInfo, SyncInfoPeer, TxInfo,

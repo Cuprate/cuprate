@@ -13,7 +13,10 @@ use cuprate_txpool::{
     },
     TxEntry,
 };
-use cuprate_types::rpc::{PoolInfo, PoolInfoFull, PoolInfoIncremental, PoolTxInfo};
+use cuprate_types::{
+    rpc::{PoolInfo, PoolInfoFull, PoolInfoIncremental, PoolTxInfo},
+    TxInPool,
+};
 
 // FIXME: use `anyhow::Error` over `tower::BoxError` in txpool.
 
@@ -60,8 +63,8 @@ pub(crate) async fn pool_info(
     include_sensitive_txs: bool,
     max_tx_count: usize,
     start_time: Option<NonZero<usize>>,
-) -> Result<Vec<PoolInfo>, Error> {
-    let TxpoolReadResponse::PoolInfo(vec) = txpool_read
+) -> Result<PoolInfo, Error> {
+    let TxpoolReadResponse::PoolInfo(pool_info) = txpool_read
         .ready()
         .await
         .map_err(|e| anyhow!(e))?
@@ -76,7 +79,30 @@ pub(crate) async fn pool_info(
         unreachable!();
     };
 
-    Ok(vec)
+    Ok(pool_info)
+}
+
+/// TODO
+pub(crate) async fn txs_by_hash(
+    txpool_read: &mut TxpoolReadHandle,
+    tx_hashes: Vec<[u8; 32]>,
+    include_sensitive_txs: bool,
+) -> Result<Vec<TxInPool>, Error> {
+    let TxpoolReadResponse::TxsByHash(txs_in_pool) = txpool_read
+        .ready()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .call(TxpoolReadRequest::TxsByHash {
+            tx_hashes,
+            include_sensitive_txs,
+        })
+        .await
+        .map_err(|e| anyhow!(e))?
+    else {
+        unreachable!();
+    };
+
+    Ok(txs_in_pool)
 }
 
 /// TODO

@@ -11,7 +11,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     cmp::min,
-    collections::{HashMap, HashSet},
+    collections::{BTreeSet, HashMap, HashSet},
     sync::Arc,
 };
 
@@ -134,6 +134,7 @@ fn map_request(
         R::CoinbaseTxSum { height, count } => coinbase_tx_sum(env, height, count),
         R::AltChains => alt_chains(env),
         R::AltChainCount => alt_chain_count(env),
+        R::Transactions { tx_hashes } => transactions(env, tx_hashes),
     }
 
     /* SOMEDAY: post-request handling, run some code for each request? */
@@ -782,4 +783,12 @@ fn alt_chains(env: &ConcreteEnv) -> ResponseResult {
 /// [`BlockchainReadRequest::AltChainCount`]
 fn alt_chain_count(env: &ConcreteEnv) -> ResponseResult {
     Ok(BlockchainResponse::AltChainCount(todo!()))
+}
+
+/// [`BlockchainReadRequest::Transactions`]
+fn transactions(env: &ConcreteEnv, tx_hashes: BTreeSet<[u8; 32]>) -> ResponseResult {
+    Ok(BlockchainResponse::Transactions {
+        txs: todo!(),
+        missed_txs: todo!(),
+    })
 }

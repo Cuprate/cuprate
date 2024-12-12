@@ -4,7 +4,7 @@
 //! responses are also tested in Cuprate's blockchain database crate.
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeSet, HashMap, HashSet},
     ops::Range,
 };
 
@@ -12,7 +12,7 @@ use monero_serai::block::Block;
 
 use crate::{
     types::{Chain, ExtendedBlockHeader, OutputOnChain, TxsInBlock, VerifiedBlockInformation},
-    AltBlockInformation, BlockCompleteEntry, ChainId,
+    AltBlockInformation, BlockCompleteEntry, ChainId, TxInBlockchain,
 };
 
 use crate::rpc::{ChainInfo, CoinbaseTxSum, OutputHistogramEntry, OutputHistogramInput};
@@ -161,6 +161,9 @@ pub enum BlockchainReadRequest {
 
     /// Get the amount of alternative chains that exist.
     AltChainCount,
+
+    /// TODO
+    Transactions { tx_hashes: BTreeSet<[u8; 32]> },
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
@@ -347,6 +350,14 @@ pub enum BlockchainResponse {
 
     /// Response to [`BlockchainReadRequest::AltChainCount`].
     AltChainCount(usize),
+
+    /// Response to [`BlockchainReadRequest::Transactions`].
+    Transactions {
+        /// The transaction blobs found.
+        txs: Vec<TxInBlockchain>,
+        /// The hashes of any transactions that could not be found.
+        missed_txs: Vec<[u8; 32]>,
+    },
 
     //------------------------------------------------------ Writes
     /// A generic Ok response to indicate a request was successfully handled.

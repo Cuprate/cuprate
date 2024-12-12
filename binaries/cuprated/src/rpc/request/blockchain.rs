@@ -1,7 +1,7 @@
 //! Functions to send [`BlockchainReadRequest`]s.
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeSet, HashMap, HashSet},
     ops::Range,
 };
 
@@ -14,7 +14,7 @@ use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     rpc::{ChainInfo, CoinbaseTxSum, OutputHistogramEntry, OutputHistogramInput},
-    Chain, ExtendedBlockHeader, OutputOnChain,
+    Chain, ExtendedBlockHeader, OutputOnChain, TxInBlockchain,
 };
 
 /// [`BlockchainReadRequest::Block`].
@@ -374,4 +374,21 @@ pub(crate) async fn alt_chain_count(
     };
 
     Ok(usize_to_u64(count))
+}
+
+/// [`BlockchainReadRequest::Transactions`].
+pub(crate) async fn transactions(
+    blockchain_read: &mut BlockchainReadHandle,
+    tx_hashes: BTreeSet<[u8; 32]>,
+) -> Result<(Vec<TxInBlockchain>, Vec<[u8; 32]>), Error> {
+    let BlockchainResponse::Transactions { txs, missed_txs } = blockchain_read
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::Transactions { tx_hashes })
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok((txs, missed_txs))
 }

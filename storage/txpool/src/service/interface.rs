@@ -5,9 +5,10 @@ use std::{
     collections::{HashMap, HashSet},
     num::NonZero,
     sync::Arc,
+    time::Instant,
 };
 
-use cuprate_types::{rpc::PoolInfo, TransactionVerificationData};
+use cuprate_types::{rpc::PoolInfo, TransactionVerificationData, TxInPool};
 
 use crate::{
     tx::TxEntry,
@@ -52,6 +53,11 @@ pub enum TxpoolReadRequest {
         /// TODO
         start_time: Option<NonZero<usize>>,
     },
+
+    TxsByHash {
+        tx_hashes: Vec<[u8; 32]>,
+        include_sensitive_txs: bool,
+    },
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadResponse
@@ -93,7 +99,10 @@ pub enum TxpoolReadResponse {
     Size(usize),
 
     /// Response to [`TxpoolReadRequest::PoolInfo`].
-    PoolInfo(Vec<PoolInfo>),
+    PoolInfo(PoolInfo),
+
+    /// Response to [`TxpoolReadRequest::TxsByHash`].
+    TxsByHash(Vec<TxInPool>),
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteRequest
