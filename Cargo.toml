@@ -54,6 +54,7 @@ members = [
 	"types",
 
 	# Tests
+	"tests/pow",
 	"tests/monero-serai",
 ]
 

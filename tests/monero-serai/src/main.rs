@@ -56,7 +56,7 @@ async fn main() {
             count = c;
 
             println!(
-                "blocks processed ... {c} ({:.2}%)",
+                "blocks processed ... {c}/{top_height} ({:.2}%)",
                 (c as f64 / top_height as f64) * 100.0
             );
 
