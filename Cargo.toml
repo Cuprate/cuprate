@@ -52,6 +52,9 @@ members = [
 	"pruning",
 	"test-utils",
 	"types",
+
+	# Tests
+	"tests/monero-serai",
 ]
 
 [profile.release]
