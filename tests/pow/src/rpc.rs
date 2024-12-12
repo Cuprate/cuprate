@@ -41,12 +41,12 @@ struct BlockHeader {
 #[derive(Debug, Clone)]
 pub(crate) struct RpcClient {
     client: Client,
-    rpc_node_url: String,
-    top_height: usize,
+    rpc_url: String,
+    pub top_height: usize,
 }
 
 impl RpcClient {
-    pub(crate) async fn new(rpc_node_url: String) -> Self {
+    pub(crate) async fn new(rpc_url: String) -> Self {
         let headers = {
             let mut h = HeaderMap::new();
             h.insert("Content-Type", HeaderValue::from_static("application/json"));
@@ -66,7 +66,7 @@ impl RpcClient {
         });
 
         let top_height = client
-            .get(&rpc_node_url)
+            .get(&rpc_url)
             .json(&request)
             .send()
             .await
@@ -90,7 +90,7 @@ impl RpcClient {
 
         Self {
             client,
-            rpc_node_url,
+            rpc_url,
             top_height,
         }
     }
@@ -103,7 +103,7 @@ impl RpcClient {
             "params": {"height": height, "fill_pow_hash": true}
         });
 
-        tokio::task::spawn(self.client.get(&self.rpc_node_url).json(&request).send())
+        tokio::task::spawn(self.client.get(&self.rpc_url).json(&request).send())
             .await
             .unwrap()
             .unwrap()
@@ -167,7 +167,7 @@ impl RpcClient {
                     "\nheight: {height}\nheader: {header:#?}\nblock: {block:#?}"
                 );
 
-                let count = TESTED_BLOCK_COUNT.fetch_add(1, Ordering::Release);
+                let count = TESTED_BLOCK_COUNT.fetch_add(1, Ordering::Release) + 1;
 
                 let hex_header = hex::encode(header.pow_hash);
                 let hex_hash = hex::encode(pow_hash);
