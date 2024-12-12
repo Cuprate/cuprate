@@ -4,18 +4,17 @@
 //! responses are also tested in Cuprate's blockchain database crate.
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
-    collections::{BTreeSet, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     ops::Range,
 };
 
 use monero_serai::block::Block;
 
 use crate::{
+    rpc::{ChainInfo, CoinbaseTxSum, OutputHistogramEntry, OutputHistogramInput},
     types::{Chain, ExtendedBlockHeader, OutputOnChain, TxsInBlock, VerifiedBlockInformation},
     AltBlockInformation, BlockCompleteEntry, ChainId, TxInBlockchain,
 };
-
-use crate::rpc::{ChainInfo, CoinbaseTxSum, OutputHistogramEntry, OutputHistogramInput};
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
 /// A read request to the blockchain database.
@@ -94,10 +93,10 @@ pub enum BlockchainReadRequest {
     /// The input is a list of output amounts.
     NumberOutputsWithAmount(Vec<u64>),
 
-    /// Check that all key images within a set are not spent.
+    /// Check the spend status of key images.
     ///
     /// Input is a set of key images.
-    KeyImagesSpent(HashSet<[u8; 32]>),
+    KeyImagesSpent(Vec<[u8; 32]>),
 
     /// A request for the compact chain history.
     CompactChainHistory,
@@ -163,7 +162,7 @@ pub enum BlockchainReadRequest {
     AltChainCount,
 
     /// TODO
-    Transactions { tx_hashes: BTreeSet<[u8; 32]> },
+    Transactions { tx_hashes: HashSet<[u8; 32]> },
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
@@ -271,11 +270,11 @@ pub enum BlockchainResponse {
 
     /// Response to [`BlockchainReadRequest::KeyImagesSpent`].
     ///
-    /// The inner value is `true` if _any_ of the key images
-    /// were spent (existed in the database already).
+    /// Inner value is a `Vec` the same length as the input.
     ///
-    /// The inner value is `false` if _none_ of the key images were spent.
-    KeyImagesSpent(bool),
+    /// The index of each entry corresponds with the request.
+    /// `true` means that the key image was spent.
+    KeyImagesSpent(Vec<bool>),
 
     /// Response to [`BlockchainReadRequest::CompactChainHistory`].
     CompactChainHistory {

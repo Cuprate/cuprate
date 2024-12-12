@@ -11,7 +11,7 @@ use cuprate_helper::{
     cast::{u64_to_usize, usize_to_u64},
     map::split_u128_into_low_high_bits,
 };
-use cuprate_rpc_types::misc::{BlockHeader, KeyImageSpentStatus};
+use cuprate_rpc_types::misc::BlockHeader;
 use cuprate_types::HardFork;
 
 use crate::{
@@ -165,19 +165,4 @@ pub(super) async fn top_height(state: &mut CupratedRpcHandler) -> Result<(u64, [
     let (chain_height, hash) = blockchain::chain_height(&mut state.blockchain_read).await?;
     let height = chain_height.saturating_sub(1);
     Ok((height, hash))
-}
-
-/// Check if a key image is spent.
-pub(super) async fn key_image_spent(
-    state: &mut CupratedRpcHandler,
-    key_image: [u8; 32],
-) -> Result<KeyImageSpentStatus, Error> {
-    todo!("impl key image vec check responding KeyImageSpentStatus")
-    // if blockchain::key_image_spent(state, key_image).await? {
-    //     Ok(KeyImageSpentStatus::SpentInBlockchain)
-    // } else if todo!("key image is spent in tx pool") {
-    //     Ok(KeyImageSpentStatus::SpentInPool)
-    // } else {
-    //     Ok(KeyImageSpentStatus::Unspent)
-    // }
 }

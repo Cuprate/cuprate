@@ -83,7 +83,7 @@ define_request_and_response! {
     },
 
     AccessResponseBase {
-        /// These [`u8`]s are [`crate::misc::KeyImageSpentStatus`].
+        /// These [`u8`]s are [`cuprate_types::rpc::KeyImageSpentStatus`].
         spent_status: Vec<u8>,
     }
 }

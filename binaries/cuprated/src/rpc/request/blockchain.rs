@@ -13,7 +13,9 @@ use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    rpc::{ChainInfo, CoinbaseTxSum, OutputHistogramEntry, OutputHistogramInput},
+    rpc::{
+        ChainInfo, CoinbaseTxSum, KeyImageSpentStatus, OutputHistogramEntry, OutputHistogramInput,
+    },
     Chain, ExtendedBlockHeader, OutputOnChain, TxInBlockchain,
 };
 
@@ -221,9 +223,9 @@ pub(crate) async fn number_outputs_with_amount(
 /// [`BlockchainReadRequest::KeyImagesSpent`]
 pub(crate) async fn key_images_spent(
     blockchain_read: &mut BlockchainReadHandle,
-    key_images: HashSet<[u8; 32]>,
-) -> Result<bool, Error> {
-    let BlockchainResponse::KeyImagesSpent(is_spent) = blockchain_read
+    key_images: Vec<[u8; 32]>,
+) -> Result<Vec<bool>, Error> {
+    let BlockchainResponse::KeyImagesSpent(status) = blockchain_read
         .ready()
         .await?
         .call(BlockchainReadRequest::KeyImagesSpent(key_images))
@@ -232,7 +234,7 @@ pub(crate) async fn key_images_spent(
         unreachable!();
     };
 
-    Ok(is_spent)
+    Ok(status)
 }
 
 /// [`BlockchainReadRequest::CompactChainHistory`]
@@ -379,7 +381,7 @@ pub(crate) async fn alt_chain_count(
 /// [`BlockchainReadRequest::Transactions`].
 pub(crate) async fn transactions(
     blockchain_read: &mut BlockchainReadHandle,
-    tx_hashes: BTreeSet<[u8; 32]>,
+    tx_hashes: HashSet<[u8; 32]>,
 ) -> Result<(Vec<TxInBlockchain>, Vec<[u8; 32]>), Error> {
     let BlockchainResponse::Transactions { txs, missed_txs } = blockchain_read
         .ready()

@@ -13,7 +13,7 @@ use cuprate_hex::Hex;
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
     base::{AccessResponseBase, ResponseBase},
-    misc::{KeyImageSpentStatus, Status, TxEntry, TxEntryType},
+    misc::{Status, TxEntry, TxEntryType},
     other::{
         GetAltBlocksHashesRequest, GetAltBlocksHashesResponse, GetHeightRequest, GetHeightResponse,
         GetLimitRequest, GetLimitResponse, GetNetStatsRequest, GetNetStatsResponse, GetOutsRequest,
@@ -33,7 +33,7 @@ use cuprate_rpc_types::{
     },
 };
 use cuprate_types::{
-    rpc::{OutKey, PoolInfo, PoolTxInfo},
+    rpc::{KeyImageSpentStatus, OutKey, PoolInfo, PoolTxInfo},
     TxInPool,
 };
 use monero_serai::transaction::Transaction;
@@ -127,10 +127,10 @@ async fn get_transactions(
         ));
     }
 
-    let requested_txs = request.txs_hashes.into_iter().map(|tx| tx.0).collect();
-
-    let (txs_in_blockchain, missed_txs) =
-        blockchain::transactions(&mut state.blockchain_read, requested_txs).await?;
+    let (txs_in_blockchain, missed_txs) = {
+        let requested_txs = request.txs_hashes.into_iter().map(|tx| tx.0).collect();
+        blockchain::transactions(&mut state.blockchain_read, requested_txs).await?
+    };
 
     let missed_tx = missed_txs.clone().into_iter().map(Hex).collect();
 
@@ -248,12 +248,18 @@ async fn get_transactions(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L790-L815>
 async fn get_alt_blocks_hashes(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: GetAltBlocksHashesRequest,
 ) -> Result<GetAltBlocksHashesResponse, Error> {
+    let blks_hashes = blockchain::alt_chains(&mut state.blockchain_read)
+        .await?
+        .into_iter()
+        .map(|info| Hex(info.block_hash))
+        .collect();
+
     Ok(GetAltBlocksHashesResponse {
         base: AccessResponseBase::OK,
-        ..todo!()
+        blks_hashes,
     })
 }
 
@@ -262,16 +268,41 @@ async fn is_key_image_spent(
     mut state: CupratedRpcHandler,
     request: IsKeyImageSpentRequest,
 ) -> Result<IsKeyImageSpentResponse, Error> {
-    if state.is_restricted() && request.key_images.len() > RESTRICTED_SPENT_KEY_IMAGES_COUNT {
+    let restricted = state.is_restricted();
+
+    if restricted && request.key_images.len() > RESTRICTED_SPENT_KEY_IMAGES_COUNT {
         return Err(anyhow!("Too many key images queried in restricted mode"));
     }
 
-    let mut spent_status = Vec::with_capacity(request.key_images.len());
+    let key_images = request
+        .key_images
+        .into_iter()
+        .map(|k| k.0)
+        .collect::<Vec<[u8; 32]>>();
 
-    for key_image in request.key_images {
-        let status = helper::key_image_spent(&mut state, key_image.0).await?;
-        spent_status.push(status.to_u8());
-    }
+    let mut spent_status = Vec::with_capacity(key_images.len());
+
+    blockchain::key_images_spent(&mut state.blockchain_read, key_images.clone())
+        .await?
+        .into_iter()
+        .for_each(|ki| {
+            if ki {
+                spent_status.push(KeyImageSpentStatus::SpentInBlockchain.to_u8());
+            } else {
+                spent_status.push(KeyImageSpentStatus::Unspent.to_u8());
+            }
+        });
+
+    txpool::key_images_spent(&mut state.txpool_read, key_images, !restricted)
+        .await?
+        .into_iter()
+        .for_each(|ki| {
+            if ki {
+                spent_status.push(KeyImageSpentStatus::SpentInPool.to_u8());
+            } else {
+                spent_status.push(KeyImageSpentStatus::Unspent.to_u8());
+            }
+        });
 
     Ok(IsKeyImageSpentResponse {
         base: AccessResponseBase::OK,

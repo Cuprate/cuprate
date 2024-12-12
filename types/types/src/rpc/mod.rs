@@ -5,10 +5,12 @@
 //! instead of `hash: String`, this module's types would use something like
 //! `hash: [u8; 32]`.
 
+mod key_image_spent_status;
 mod pool_info;
 mod pool_info_extent;
 mod types;
 
+pub use key_image_spent_status::KeyImageSpentStatus;
 pub use pool_info::PoolInfo;
 pub use pool_info_extent::PoolInfoExtent;
 pub use types::{

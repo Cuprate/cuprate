@@ -14,7 +14,6 @@
 //---------------------------------------------------------------------------------------------------- Mod
 mod binary_string;
 mod distribution;
-mod key_image_spent_status;
 mod requested_info;
 mod status;
 mod tx_entry;
@@ -22,7 +21,6 @@ mod types;
 
 pub use binary_string::BinaryString;
 pub use distribution::{Distribution, DistributionCompressedBinary, DistributionUncompressed};
-pub use key_image_spent_status::KeyImageSpentStatus;
 pub use requested_info::RequestedInfo;
 pub use status::Status;
 pub use tx_entry::{TxEntry, TxEntryType};

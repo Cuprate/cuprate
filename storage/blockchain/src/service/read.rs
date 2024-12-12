@@ -11,7 +11,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     cmp::min,
-    collections::{BTreeSet, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     sync::Arc,
 };
 
@@ -507,7 +507,7 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
 
 /// [`BlockchainReadRequest::KeyImagesSpent`].
 #[inline]
-fn key_images_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> ResponseResult {
+fn key_images_spent(env: &ConcreteEnv, key_images: Vec<KeyImage>) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
     let tx_ro = thread_local(env);
@@ -520,26 +520,13 @@ fn key_images_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Respons
         key_image_exists(&key_image, tables.key_images())
     };
 
-    // FIXME:
-    // Create/use `enum cuprate_types::Exist { Does, DoesNot }`
-    // or similar instead of `bool` for clarity.
-    // <https://github.com/Cuprate/cuprate/pull/113#discussion_r1581536526>
-    //
     // Collect results using `rayon`.
-    match key_images
-        .into_par_iter()
-        .map(key_image_exists)
-        // If the result is either:
-        // `Ok(true)` => a key image was found, return early
-        // `Err` => an error was found, return early
-        //
-        // Else, `Ok(false)` will continue the iterator.
-        .find_any(|result| !matches!(result, Ok(false)))
-    {
-        None | Some(Ok(false)) => Ok(BlockchainResponse::KeyImagesSpent(false)), // Key image was NOT found.
-        Some(Ok(true)) => Ok(BlockchainResponse::KeyImagesSpent(true)), // Key image was found.
-        Some(Err(e)) => Err(e), // A database error occurred.
-    }
+    Ok(BlockchainResponse::KeyImagesSpent(
+        key_images
+            .into_par_iter()
+            .map(key_image_exists)
+            .collect::<DbResult<_>>()?,
+    ))
 }
 
 /// [`BlockchainReadRequest::CompactChainHistory`]
@@ -786,7 +773,7 @@ fn alt_chain_count(env: &ConcreteEnv) -> ResponseResult {
 }
 
 /// [`BlockchainReadRequest::Transactions`]
-fn transactions(env: &ConcreteEnv, tx_hashes: BTreeSet<[u8; 32]>) -> ResponseResult {
+fn transactions(env: &ConcreteEnv, tx_hashes: HashSet<[u8; 32]>) -> ResponseResult {
     Ok(BlockchainResponse::Transactions {
         txs: todo!(),
         missed_txs: todo!(),

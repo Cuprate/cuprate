@@ -106,6 +106,29 @@ pub(crate) async fn txs_by_hash(
 }
 
 /// TODO
+pub(crate) async fn key_images_spent(
+    txpool_read: &mut TxpoolReadHandle,
+    key_images: Vec<[u8; 32]>,
+    include_sensitive_txs: bool,
+) -> Result<Vec<bool>, Error> {
+    let TxpoolReadResponse::KeyImagesSpent(status) = txpool_read
+        .ready()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .call(TxpoolReadRequest::KeyImagesSpent {
+            key_images,
+            include_sensitive_txs,
+        })
+        .await
+        .map_err(|e| anyhow!(e))?
+    else {
+        unreachable!();
+    };
+
+    Ok(status)
+}
+
+/// TODO
 pub(crate) async fn flush(
     txpool_manager: &mut Infallible,
     tx_hashes: Vec<[u8; 32]>,
