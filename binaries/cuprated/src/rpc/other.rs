@@ -142,18 +142,25 @@ async fn get_transactions(
         txpool::txs_by_hash(&mut state.txpool_read, missed_txs, include_sensitive_txs).await?
     };
 
-    let (txs, txs_as_json) = {
+    let (txs, txs_as_json, txs_as_hex) = {
         // Prepare the final JSON output.
         let len = txs_in_blockchain.len() + txs_in_pool.len();
         let mut txs = Vec::with_capacity(len);
         let mut txs_as_json = Vec::with_capacity(if request.decode_as_json { len } else { 0 });
+        let mut txs_as_hex = vec![];
 
         // Map all blockchain transactions.
         for tx in txs_in_blockchain {
             let tx_hash = Hex(tx.tx_hash);
-            let pruned_as_hex = hex::encode(tx.pruned_blob);
-            let prunable_as_hex = hex::encode(tx.prunable_blob);
             let prunable_hash = Hex(tx.prunable_hash);
+
+            let (pruned_as_hex, prunable_as_hex) = if tx.pruned_blob.is_empty() {
+                (String::new(), String::new())
+            } else {
+                (hex::encode(tx.pruned_blob), hex::encode(tx.prunable_blob))
+            };
+
+            txs_as_hex.push(pruned_as_hex.clone());
 
             let as_json = if request.decode_as_json {
                 let tx = Transaction::read(&mut tx.tx_blob.as_slice())?;
@@ -204,6 +211,7 @@ async fn get_transactions(
             let pruned_as_hex = String::new();
             let prunable_as_hex = String::new();
             let prunable_hash = Hex([0; 32]);
+            txs_as_hex.push(pruned_as_hex.clone());
 
             let as_json = if request.decode_as_json {
                 let json_type = cuprate_types::json::tx::Transaction::from(tx);
@@ -234,12 +242,12 @@ async fn get_transactions(
             txs.push(tx);
         }
 
-        (txs, txs_as_json)
+        (txs, txs_as_json, txs_as_hex)
     };
 
     Ok(GetTransactionsResponse {
         base: AccessResponseBase::OK,
-        txs_as_hex: vec![],
+        txs_as_hex,
         txs_as_json,
         missed_tx,
         txs,
