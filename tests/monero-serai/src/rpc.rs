@@ -1,4 +1,7 @@
-use std::{collections::BTreeSet, sync::atomic::Ordering};
+use std::{
+    collections::{BTreeSet, HashSet},
+    sync::{atomic::Ordering, LazyLock},
+};
 
 use hex::serde::deserialize;
 use monero_serai::{block::Block, transaction::Transaction};
@@ -9,6 +12,7 @@ use reqwest::{
 };
 use serde::Deserialize;
 use serde_json::json;
+use tokio::sync::Mutex;
 
 use crate::{TESTED_BLOCK_COUNT, TESTED_TX_COUNT};
 
@@ -141,6 +145,7 @@ impl RpcClient {
             .collect()
     }
 
+    #[expect(clippy::significant_drop_tightening)]
     pub(crate) async fn get_block_test_batch(&self, heights: BTreeSet<usize>) {
         #[derive(Debug, Clone, Deserialize)]
         struct JsonRpcResponse {
@@ -193,6 +198,23 @@ impl RpcClient {
             let txs = self.get_transactions(tx_hashes.clone()).await;
             assert_eq!(tx_hashes.len(), txs.len());
 
+            // Test all transactions are unique.
+            {
+                static TX_SET: LazyLock<Mutex<HashSet<[u8; 32]>>> =
+                    LazyLock::new(|| Mutex::new(HashSet::new()));
+
+                let tx_hashes = tx_hashes.clone();
+                let mut tx_set = TX_SET.lock().await;
+
+                for hash in tx_hashes {
+                    assert!(
+                        tx_set.insert(hash),
+                        "duplicated tx hash: {}\n{info}",
+                        hex::encode(hash),
+                    );
+                }
+            }
+
             let top_height = self.top_height;
 
             #[expect(clippy::cast_precision_loss)]
@@ -214,7 +236,6 @@ impl RpcClient {
                     .sum::<u64>();
                 assert_ne!(block_reward, 0, "block reward is 0\n{info}");
 
-                // Test fields are correct.
                 let BlockHeader {
                     block_weight,
                     hash,
@@ -242,6 +263,7 @@ impl RpcClient {
                         assert!(matches!(tx.version(), 1 | 2), "{info}, tx: {tx:#?}");
                     });
 
+                // Test block fields are correct.
                 assert_eq!(block_weight, total_block_weight, "{info}");
                 assert_ne!(block.miner_transaction.weight(), 0, "{info}");
                 assert_eq!(hash, block.hash(), "{info}");
