@@ -13,14 +13,29 @@ async fn main() {
     let now = Instant::now();
 
     let rpc_url = if let Ok(url) = std::env::var("RPC_URL") {
+        println!("RPC_URL (found): {url}");
         url
     } else {
-        "http://127.0.0.1:18081".to_string()
+        let rpc_url = "http://127.0.0.1:18081".to_string();
+        println!("RPC_URL (off, using default): {rpc_url}");
+        rpc_url
     };
-    println!("rpc_url: {rpc_url}");
+    if std::env::var("VERBOSE").is_ok() {
+        println!("VERBOSE: true");
+    } else {
+        println!("VERBOSE: false");
+    }
 
-    let client = rpc::RpcClient::new(rpc_url).await;
-    let top_height = client.top_height;
+    let mut client = rpc::RpcClient::new(rpc_url).await;
+
+    let top_height = if let Ok(Ok(h)) = std::env::var("TOP_HEIGHT").map(|s| s.parse()) {
+        client.top_height = h;
+        println!("TOP_HEIGHT (found): {h}");
+        h
+    } else {
+        println!("TOP_HEIGHT (off, using latest): {}", client.top_height);
+        client.top_height
+    };
 
     let ranges = (0..top_height)
         .collect::<Vec<usize>>()
@@ -28,10 +43,16 @@ async fn main() {
         .map(<[usize]>::to_vec)
         .collect::<Vec<Vec<usize>>>();
 
-    println!("ranges: ");
+    println!("ranges: [");
     for range in &ranges {
-        println!("[{}..{}]", range.first().unwrap(), range.last().unwrap());
+        println!(
+            "    ({}..{}),",
+            range.first().unwrap(),
+            range.last().unwrap()
+        );
     }
+
+    println!("]\n");
 
     let iter = ranges.into_iter().map(move |range| {
         let c = client.clone();

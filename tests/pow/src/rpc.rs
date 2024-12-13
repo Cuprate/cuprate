@@ -85,7 +85,6 @@ impl RpcClient {
             .try_into()
             .unwrap();
 
-        println!("top_height: {top_height}");
         assert!(top_height > 3301441, "node is behind");
 
         Self {
@@ -170,6 +169,10 @@ impl RpcClient {
                 );
 
                 let count = TESTED_BLOCK_COUNT.fetch_add(1, Ordering::Release) + 1;
+
+                if std::env::var("VERBOSE").is_err() && count % 500 != 0 {
+                    return;
+                }
 
                 let hash = hex::encode(pow_hash);
                 let percent = (count as f64 / top_height as f64) * 100.0;

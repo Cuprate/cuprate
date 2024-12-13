@@ -3319,7 +3319,7 @@ dependencies = [
 
 [[package]]
 name = "tests-monero-serai"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "futures",
  "hex",
@@ -3333,7 +3333,7 @@ dependencies = [
 
 [[package]]
 name = "tests-pow"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "cuprate-consensus-rules",
  "cuprate-cryptonight",
