@@ -142,12 +142,12 @@ async fn get_transactions(
         txpool::txs_by_hash(&mut state.txpool_read, missed_txs, include_sensitive_txs).await?
     };
 
-    let (txs, txs_as_json, txs_as_hex) = {
+    let (txs, txs_as_hex, txs_as_json) = {
         // Prepare the final JSON output.
         let len = txs_in_blockchain.len() + txs_in_pool.len();
         let mut txs = Vec::with_capacity(len);
+        let mut txs_as_hex = Vec::with_capacity(len);
         let mut txs_as_json = Vec::with_capacity(if request.decode_as_json { len } else { 0 });
-        let mut txs_as_hex = vec![];
 
         // Map all blockchain transactions.
         for tx in txs_in_blockchain {
@@ -160,7 +160,15 @@ async fn get_transactions(
                 (hex::encode(tx.pruned_blob), hex::encode(tx.prunable_blob))
             };
 
-            txs_as_hex.push(pruned_as_hex.clone());
+            let as_hex = if pruned_as_hex.is_empty() {
+                // `monerod` will insert a `""` into the `txs_as_hex` array for pruned transactions.
+                // curl http://127.0.0.1:18081/get_transactions -d '{"txs_hashes":["4c8b98753d1577d225a497a50f453827cff3aa023a4add60ec4ce4f923f75de8"]}' -H 'Content-Type: application/json'
+                String::new()
+            } else {
+                hex::encode(&tx.tx_blob)
+            };
+
+            txs_as_hex.push(as_hex.clone());
 
             let as_json = if request.decode_as_json {
                 let tx = Transaction::read(&mut tx.tx_blob.as_slice())?;
@@ -181,7 +189,7 @@ async fn get_transactions(
             };
 
             let tx = TxEntry {
-                as_hex: String::new(),
+                as_hex,
                 as_json,
                 double_spend_seen: false,
                 tx_hash,
@@ -207,11 +215,12 @@ async fn get_transactions(
             let tx_hash = Hex(tx_hash);
             let tx = Transaction::read(&mut tx_blob.as_slice())?;
 
-            // TODO: pruned data.
             let pruned_as_hex = String::new();
             let prunable_as_hex = String::new();
             let prunable_hash = Hex([0; 32]);
-            txs_as_hex.push(pruned_as_hex.clone());
+
+            let as_hex = hex::encode(tx_blob);
+            txs_as_hex.push(as_hex.clone());
 
             let as_json = if request.decode_as_json {
                 let json_type = cuprate_types::json::tx::Transaction::from(tx);
@@ -229,7 +238,7 @@ async fn get_transactions(
             };
 
             let tx = TxEntry {
-                as_hex: String::new(),
+                as_hex,
                 as_json,
                 double_spend_seen,
                 tx_hash,
@@ -242,7 +251,7 @@ async fn get_transactions(
             txs.push(tx);
         }
 
-        (txs, txs_as_json, txs_as_hex)
+        (txs, txs_as_hex, txs_as_json)
     };
 
     Ok(GetTransactionsResponse {
