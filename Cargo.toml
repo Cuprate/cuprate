@@ -163,6 +163,7 @@ pretty_assertions         = { version = "1" }
 proptest                  = { version = "1" }
 proptest-derive           = { version = "0.5" }
 tokio-test                = { version = "0.4" }
+reqwest                   = { version = "0.12" }
 
 ## TODO:
 ## Potential dependencies.

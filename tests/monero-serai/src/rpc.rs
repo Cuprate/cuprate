@@ -256,12 +256,12 @@ impl RpcClient {
                 assert_eq!(reward, block_reward, "{info}");
                 assert_eq!(timestamp, block.header.timestamp, "{info}");
 
-                let block_count = TESTED_BLOCK_COUNT.fetch_add(1, Ordering::Release) + 1;
+                let progress = TESTED_BLOCK_COUNT.fetch_add(1, Ordering::Release) + 1;
                 let tx_count = TESTED_TX_COUNT.fetch_add(num_txes, Ordering::Release) + 1;
-                let percent = (block_count as f64 / top_height as f64) * 100.0;
+                let percent = (progress as f64 / top_height as f64) * 100.0;
 
                 println!(
-                    "block_count     | {block_count}/{top_height} ({percent:.2}%)
+                    "progress        | {progress}/{top_height} ({percent:.2}%)
 tx_count        | {tx_count}
 hash            | {}
 miner_tx_hash   | {}

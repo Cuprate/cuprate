@@ -66,7 +66,7 @@ impl RpcClient {
         });
 
         let top_height = client
-            .get(&rpc_url)
+            .get(format!("{rpc_url}/json_rpc"))
             .json(&request)
             .send()
             .await
@@ -103,7 +103,9 @@ impl RpcClient {
             "params": {"height": height, "fill_pow_hash": true}
         });
 
-        tokio::task::spawn(self.client.get(&self.rpc_url).json(&request).send())
+        let rpc_url = format!("{}/json_rpc", self.rpc_url);
+
+        tokio::task::spawn(self.client.get(rpc_url).json(&request).send())
             .await
             .unwrap()
             .unwrap()
@@ -169,16 +171,14 @@ impl RpcClient {
 
                 let count = TESTED_BLOCK_COUNT.fetch_add(1, Ordering::Release) + 1;
 
-                let hex_header = hex::encode(header.pow_hash);
-                let hex_hash = hex::encode(pow_hash);
+                let hash = hex::encode(pow_hash);
                 let percent = (count as f64 / top_height as f64) * 100.0;
 
                 println!(
                     "progress | {count}/{top_height} ({percent:.2}%)
 height   | {height}
 algo     | {name}
-header   | {hex_header}
-hash     | {hex_hash}\n"
+hash     | {hash}\n"
                 );
             });
         }
