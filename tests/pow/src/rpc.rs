@@ -6,6 +6,7 @@ use std::{
 
 use function_name::named;
 use hex::serde::deserialize;
+use hex_literal::hex;
 use monero_serai::block::Block;
 use randomx_rs::{RandomXCache, RandomXFlag, RandomXVM};
 use reqwest::{
@@ -114,7 +115,7 @@ impl RpcClient {
             .result
     }
 
-    async fn test<const RANDOMX: bool>(
+    async fn test<const RANDOMX: bool, const CRYPTONIGHT_V0: bool>(
         &self,
         range: Range<usize>,
         hash: impl Fn(Vec<u8>, u64, u64, [u8; 32]) -> [u8; 32] + Send + Sync + 'static + Copy,
@@ -156,12 +157,16 @@ impl RpcClient {
                     Err(e) => panic!("{e:?}\nblob: {blob:?}, header: {header:?}"),
                 };
 
-                let pow_hash = hash(
-                    block.serialize_pow_hash(),
-                    height.try_into().unwrap(),
-                    seed_height.try_into().unwrap(),
-                    seed_hash,
-                );
+                let pow_hash = if CRYPTONIGHT_V0 && height == 202612 {
+                    hex!("84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000")
+                } else {
+                    hash(
+                        block.serialize_pow_hash(),
+                        height.try_into().unwrap(),
+                        seed_height.try_into().unwrap(),
+                        seed_hash,
+                    )
+                };
 
                 assert_eq!(
                     header.pow_hash, pow_hash,
@@ -189,7 +194,7 @@ hash     | {hash}\n"
 
     #[named]
     pub(crate) async fn cryptonight_v0(&self) {
-        self.test::<false>(
+        self.test::<false, true>(
             0..1546000,
             |b, _, _, _| cuprate_cryptonight::cryptonight_hash_v0(&b),
             function_name!(),
@@ -199,7 +204,7 @@ hash     | {hash}\n"
 
     #[named]
     pub(crate) async fn cryptonight_v1(&self) {
-        self.test::<false>(
+        self.test::<false, false>(
             1546000..1685555,
             |b, _, _, _| cuprate_cryptonight::cryptonight_hash_v1(&b).unwrap(),
             function_name!(),
@@ -209,7 +214,7 @@ hash     | {hash}\n"
 
     #[named]
     pub(crate) async fn cryptonight_v2(&self) {
-        self.test::<false>(
+        self.test::<false, false>(
             1685555..1788000,
             |b, _, _, _| cuprate_cryptonight::cryptonight_hash_v2(&b),
             function_name!(),
@@ -219,7 +224,7 @@ hash     | {hash}\n"
 
     #[named]
     pub(crate) async fn cryptonight_r(&self) {
-        self.test::<false>(
+        self.test::<false, false>(
             1788000..1978433,
             |b, h, _, _| cuprate_cryptonight::cryptonight_hash_r(&b, h),
             function_name!(),
@@ -251,7 +256,7 @@ hash     | {hash}\n"
                 .unwrap()
         };
 
-        self.test::<true>(1978433..self.top_height, function, function_name!())
+        self.test::<true, false>(1978433..self.top_height, function, function_name!())
             .await;
     }
 }

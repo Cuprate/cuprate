@@ -3339,6 +3339,7 @@ dependencies = [
  "cuprate-cryptonight",
  "function_name",
  "hex",
+ "hex-literal",
  "monero-serai",
  "randomx-rs",
  "rayon",
