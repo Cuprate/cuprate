@@ -3,6 +3,7 @@
 use std::{convert::Infallible, num::NonZero};
 
 use anyhow::{anyhow, Error};
+use monero_serai::transaction::Transaction;
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::cast::usize_to_u64;
@@ -15,7 +16,7 @@ use cuprate_txpool::{
 };
 use cuprate_types::{
     rpc::{PoolInfo, PoolInfoFull, PoolInfoIncremental, PoolTxInfo},
-    TxInPool,
+    TxInPool, TxRelayChecks,
 };
 
 // FIXME: use `anyhow::Error` over `tower::BoxError` in txpool.
@@ -144,4 +145,13 @@ pub(crate) async fn relay(
 ) -> Result<(), Error> {
     todo!();
     Ok(())
+}
+
+/// TODO
+pub(crate) async fn check_maybe_relay_local(
+    txpool_manager: &mut Infallible,
+    tx: Transaction,
+    relay: bool,
+) -> Result<TxRelayChecks, Error> {
+    Ok(todo!())
 }

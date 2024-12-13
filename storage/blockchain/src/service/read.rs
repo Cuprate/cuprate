@@ -51,7 +51,9 @@ use crate::{
         free::{compact_history_genesis_not_included, compact_history_index_to_height_offset},
         types::{BlockchainReadHandle, ResponseResult},
     },
-    tables::{AltBlockHeights, BlockHeights, BlockInfos, OpenTables, Tables, TablesIter},
+    tables::{
+        AltBlockHeights, BlockHeights, BlockInfos, OpenTables, RctOutputs, Tables, TablesIter,
+    },
     types::{
         AltBlockHeight, Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId,
     },
@@ -135,6 +137,7 @@ fn map_request(
         R::AltChains => alt_chains(env),
         R::AltChainCount => alt_chain_count(env),
         R::Transactions { tx_hashes } => transactions(env, tx_hashes),
+        R::TotalRctOutputs => total_rct_outputs(env),
     }
 
     /* SOMEDAY: post-request handling, run some code for each request? */
@@ -778,4 +781,14 @@ fn transactions(env: &ConcreteEnv, tx_hashes: HashSet<[u8; 32]>) -> ResponseResu
         txs: todo!(),
         missed_txs: todo!(),
     })
+}
+
+/// [`BlockchainReadRequest::TotalRctOutputs`]
+fn total_rct_outputs(env: &ConcreteEnv) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+    let len = env_inner.open_db_ro::<RctOutputs>(&tx_ro)?.len()?;
+
+    Ok(BlockchainResponse::TotalRctOutputs(len))
 }

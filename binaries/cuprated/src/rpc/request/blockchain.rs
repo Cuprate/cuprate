@@ -394,3 +394,19 @@ pub(crate) async fn transactions(
 
     Ok((txs, missed_txs))
 }
+
+/// [`BlockchainReadRequest::TotalRctOutputs`].
+pub(crate) async fn total_rct_outputs(
+    blockchain_read: &mut BlockchainReadHandle,
+) -> Result<u64, Error> {
+    let BlockchainResponse::TotalRctOutputs(total_rct_outputs) = blockchain_read
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::TotalRctOutputs)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(total_rct_outputs)
+}

@@ -191,6 +191,21 @@ pub struct TxInPool {
     pub relayed: bool,
 }
 
+bitflags::bitflags! {
+    pub struct TxRelayChecks: u16 {
+        const DOUBLE_SPEND        = 1;
+        const FEE_TOO_LOW         = 1 << 1;
+        const INVALID_INPUT       = 1 << 2;
+        const INVALID_OUTPUT      = 1 << 3;
+        const LOW_MIXIN           = 1 << 4;
+        const NONZERO_UNLOCK_TIME = 1 << 5;
+        const OVERSPEND           = 1 << 6;
+        const TOO_BIG             = 1 << 7;
+        const TOO_FEW_OUTPUTS     = 1 << 8;
+        const TX_EXTRA_TOO_BIG    = 1 << 9;
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {

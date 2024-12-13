@@ -34,15 +34,16 @@ use cuprate_rpc_types::{
 };
 use cuprate_types::{
     rpc::{KeyImageSpentStatus, OutKey, PoolInfo, PoolTxInfo},
-    TxInPool,
+    TxInPool, TxRelayChecks,
 };
-use monero_serai::transaction::Transaction;
+use monero_serai::transaction::{Input, Transaction};
 
 use crate::{
-    rpc::CupratedRpcHandler,
+    constants::UNSUPPORTED_RPC_CALL,
     rpc::{
         helper,
         request::{blockchain, blockchain_context, blockchain_manager, txpool},
+        CupratedRpcHandler,
     },
 };
 
@@ -84,7 +85,6 @@ pub(super) async fn map_request(
         Req::InPeers(r) => Resp::InPeers(in_peers(state, r).await?),
         Req::GetNetStats(r) => Resp::GetNetStats(get_net_stats(state, r).await?),
         Req::GetOuts(r) => Resp::GetOuts(get_outs(state, r).await?),
-        Req::Update(r) => Resp::Update(update(state, r).await?),
         Req::PopBlocks(r) => Resp::PopBlocks(pop_blocks(state, r).await?),
         Req::GetTransactionPoolHashes(r) => {
             Resp::GetTransactionPoolHashes(get_transaction_pool_hashes(state, r).await?)
@@ -92,12 +92,11 @@ pub(super) async fn map_request(
         Req::GetPublicNodes(r) => Resp::GetPublicNodes(get_public_nodes(state, r).await?),
 
         // Unsupported requests.
-        Req::StartMining(_)
+        Req::Update(_)
+        | Req::StartMining(_)
         | Req::StopMining(_)
         | Req::MiningStatus(_)
-        | Req::SetLogHashRate(_) => {
-            return Err(anyhow!("Mining RPC calls are not supported by Cuprate"))
-        }
+        | Req::SetLogHashRate(_) => return Err(anyhow!(UNSUPPORTED_RPC_CALL)),
     })
 }
 
@@ -329,13 +328,134 @@ async fn is_key_image_spent(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1307-L1411>
 async fn send_raw_transaction(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: SendRawTransactionRequest,
 ) -> Result<SendRawTransactionResponse, Error> {
-    Ok(SendRawTransactionResponse {
+    let mut resp = SendRawTransactionResponse {
         base: AccessResponseBase::OK,
-        ..todo!()
-    })
+        double_spend: false,
+        fee_too_low: false,
+        invalid_input: false,
+        invalid_output: false,
+        low_mixin: false,
+        nonzero_unlock_time: false,
+        not_relayed: request.do_not_relay,
+        overspend: false,
+        reason: String::new(),
+        sanity_check_failed: false,
+        too_big: false,
+        too_few_outputs: false,
+        tx_extra_too_big: false,
+    };
+
+    let tx = {
+        let blob = hex::decode(request.tx_as_hex)?;
+        Transaction::read(&mut blob.as_slice())?
+    };
+
+    if request.do_sanity_checks {
+        // FIXME: these checks could be defined elsewhere.
+        //
+        // <https://github.com/monero-project/monero/blob/893916ad091a92e765ce3241b94e706ad012b62a/src/cryptonote_core/tx_sanity_check.cpp#L42>
+        fn tx_sanity_check(tx: &Transaction, rct_outs_available: u64) -> Result<(), &'static str> {
+            let Some(input) = tx.prefix().inputs.get(0) else {
+                return Err("No inputs");
+            };
+
+            let mut rct_indices = BTreeSet::new();
+            let n_indices: usize = 0;
+
+            for input in tx.prefix().inputs {
+                match input {
+                    Input::Gen(_) => return Err("Transaction is coinbase"),
+                    Input::ToKey {
+                        amount,
+                        key_offsets,
+                        key_image,
+                    } => {
+                        let Some(amount) = amount else {
+                            continue;
+                        };
+
+                        n_indices += key_offsets.len();
+                        let absolute = todo!();
+                        rct_indices.extend(absolute);
+                    }
+                }
+            }
+
+            if n_indices <= 10 {
+                return Ok(());
+            }
+
+            if rct_outs_available < 10_000 {
+                return Ok(());
+            }
+
+            let rct_indices_len = rct_indices.len();
+            if rct_indices_len < n_indices * 8 / 10 {
+                return Err("amount of unique indices is too low (amount of rct indices is {rct_indices_len} out of total {n_indices} indices.");
+            }
+
+            let offsets = Vec::with_capacity(rct_indices_len);
+            let median = todo!();
+            if median < rct_outs_available * 6 / 10 {
+                return Err("median offset index is too low (median is {median} out of total {rct_outs_available} offsets). Transactions should contain a higher fraction of recent outputs.");
+            }
+
+            Ok(())
+        }
+
+        let rct_outs_available = blockchain::total_rct_outputs(&mut state.blockchain_read).await?;
+
+        if let Err(e) = tx_sanity_check(&tx, rct_outs_available) {
+            resp.base.response_base.status = Status::Failed;
+            resp.reason.push_str(&format!("Sanity check failed: {e}"));
+            resp.sanity_check_failed = true;
+            return Ok(resp);
+        }
+    }
+
+    let tx_relay_checks =
+        txpool::check_maybe_relay_local(&mut state.txpool_manager, tx, !request.do_not_relay)
+            .await?;
+
+    if tx_relay_checks.is_empty() {
+        return Ok(resp);
+    }
+
+    // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L124>
+    fn add_reason(reasons: &mut String, reason: &'static str) {
+        if !reasons.is_empty() {
+            reasons.push_str(", ");
+        }
+        reasons.push_str(reason);
+    }
+
+    let mut reasons = String::new();
+
+    #[rustfmt::skip]
+    let array = [
+        (&mut resp.double_spend, TxRelayChecks::DOUBLE_SPEND, "double spend"),
+        (&mut resp.fee_too_low, TxRelayChecks::FEE_TOO_LOW, "fee too low"),
+        (&mut resp.invalid_input, TxRelayChecks::INVALID_INPUT, "invalid input"),
+        (&mut resp.invalid_output, TxRelayChecks::INVALID_OUTPUT, "invalid output"),
+        (&mut resp.low_mixin, TxRelayChecks::LOW_MIXIN, "bad ring size"),
+        (&mut resp.nonzero_unlock_time, TxRelayChecks::NONZERO_UNLOCK_TIME, "tx unlock time is not zero"),
+        (&mut resp.overspend, TxRelayChecks::OVERSPEND, "overspend"),
+        (&mut resp.too_big, TxRelayChecks::TOO_BIG, "too big"),
+        (&mut resp.too_few_outputs, TxRelayChecks::TOO_FEW_OUTPUTS, "too few outputs"),
+        (&mut resp.tx_extra_too_big, TxRelayChecks::TX_EXTRA_TOO_BIG, "tx-extra too big"),
+    ];
+
+    for (field, flag, reason) in array {
+        if tx_relay_checks.contains(flag) {
+            *field = true;
+            add_reason(&mut reasons, reason);
+        }
+    }
+
+    Ok(resp)
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1413-L1462>

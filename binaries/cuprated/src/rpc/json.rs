@@ -58,7 +58,7 @@ use cuprate_types::{
 };
 
 use crate::{
-    constants::VERSION_BUILD,
+    constants::{UNSUPPORTED_RPC_CALL, VERSION_BUILD},
     rpc::{
         helper,
         request::{address_book, blockchain, blockchain_context, blockchain_manager, txpool},
@@ -122,9 +122,10 @@ pub(super) async fn map_request(
         Req::GetMinerData(r) => Resp::GetMinerData(get_miner_data(state, r).await?),
         Req::PruneBlockchain(r) => Resp::PruneBlockchain(prune_blockchain(state, r).await?),
         Req::CalcPow(r) => Resp::CalcPow(calc_pow(state, r).await?),
-        Req::FlushCache(r) => Resp::FlushCache(flush_cache(state, r).await?),
         Req::AddAuxPow(r) => Resp::AddAuxPow(add_aux_pow(state, r).await?),
-        Req::GetTxIdsLoose(r) => Resp::GetTxIdsLoose(get_tx_ids_loose(state, r).await?),
+
+        // Unsupported RPC calls.
+        Req::GetTxIdsLoose(_) | Req::FlushCache(_) => return Err(anyhow!(UNSUPPORTED_RPC_CALL)),
     })
 }
 

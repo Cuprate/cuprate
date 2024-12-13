@@ -18,6 +18,9 @@ pub const VERSION_BUILD: &str = if cfg!(debug_assertions) {
 pub const PANIC_CRITICAL_SERVICE_ERROR: &str =
     "A service critical to Cuprate's function returned an unexpected error.";
 
+/// The error message returned when an unsupported RPC call is requested.
+pub const UNSUPPORTED_RPC_CALL: &str = "This RPC call is not supported by Cuprate.";
+
 pub const EXAMPLE_CONFIG: &str = include_str!("../Cuprated.toml");
 
 #[cfg(test)]

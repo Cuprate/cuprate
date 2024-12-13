@@ -163,6 +163,9 @@ pub enum BlockchainReadRequest {
 
     /// TODO
     Transactions { tx_hashes: HashSet<[u8; 32]> },
+
+    /// TODO
+    TotalRctOutputs,
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
@@ -357,6 +360,9 @@ pub enum BlockchainResponse {
         /// The hashes of any transactions that could not be found.
         missed_txs: Vec<[u8; 32]>,
     },
+
+    /// Response to [`BlockchainReadRequest::TotalRctOutputs`].
+    TotalRctOutputs(u64),
 
     //------------------------------------------------------ Writes
     /// A generic Ok response to indicate a request was successfully handled.

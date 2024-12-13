@@ -23,6 +23,7 @@ cuprate-helper        = { workspace = true, optional = true, features = ["cast"]
 cuprate-fixed-bytes   = { workspace = true, features = ["std", "serde"] }
 cuprate-hex           = { workspace = true, optional = true }
 
+bitflags         = { workspace = true }
 bytes            = { workspace = true }
 cfg-if           = { workspace = true }
 curve25519-dalek = { workspace = true }
