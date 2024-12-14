@@ -517,9 +517,13 @@ async fn get_transaction_pool_stats(
     mut state: CupratedRpcHandler,
     _: GetTransactionPoolStatsRequest,
 ) -> Result<GetTransactionPoolStatsResponse, Error> {
+    let include_sensitive_txs = !state.is_restricted();
+
+    let pool_stats = txpool::pool_stats(&mut state.txpool_read, include_sensitive_txs).await?;
+
     Ok(GetTransactionPoolStatsResponse {
         base: helper::access_response_base(false),
-        ..todo!()
+        pool_stats,
     })
 }
 

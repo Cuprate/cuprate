@@ -16,7 +16,7 @@ use cuprate_txpool::{
     TxEntry,
 };
 use cuprate_types::{
-    rpc::{PoolInfo, PoolInfoFull, PoolInfoIncremental, PoolTxInfo},
+    rpc::{PoolInfo, PoolInfoFull, PoolInfoIncremental, PoolTxInfo, TxpoolStats},
     TxInPool, TxRelayChecks,
 };
 
@@ -155,6 +155,27 @@ pub(crate) async fn pool(
     let spent_key_images = spent_key_images.into_iter().map(Into::into).collect();
 
     Ok((txs, spent_key_images))
+}
+
+/// TODO
+pub(crate) async fn pool_stats(
+    txpool_read: &mut TxpoolReadHandle,
+    include_sensitive_txs: bool,
+) -> Result<TxpoolStats, Error> {
+    let TxpoolReadResponse::PoolStats(txpool_stats) = txpool_read
+        .ready()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .call(TxpoolReadRequest::PoolStats {
+            include_sensitive_txs,
+        })
+        .await
+        .map_err(|e| anyhow!(e))?
+    else {
+        unreachable!();
+    };
+
+    Ok(txpool_stats)
 }
 
 /// TODO

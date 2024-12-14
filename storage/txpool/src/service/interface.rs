@@ -8,7 +8,7 @@ use std::{
 };
 
 use cuprate_types::{
-    rpc::{PoolInfo, SpentKeyImageInfo, TxInfo},
+    rpc::{PoolInfo, SpentKeyImageInfo, TxInfo, TxpoolStats},
     TransactionVerificationData, TxInPool,
 };
 
@@ -70,6 +70,9 @@ pub enum TxpoolReadRequest {
 
     /// TODO
     Pool { include_sensitive_txs: bool },
+
+    /// TODO
+    PoolStats { include_sensitive_txs: bool },
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadResponse
@@ -124,6 +127,9 @@ pub enum TxpoolReadResponse {
         txs: Vec<TxInfo>,
         spent_key_images: Vec<SpentKeyImageInfo>,
     },
+
+    /// Response to [`TxpoolReadRequest::PoolStats`].
+    PoolStats(TxpoolStats),
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteRequest

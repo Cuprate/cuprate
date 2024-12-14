@@ -92,6 +92,9 @@ fn map_request(
         TxpoolReadRequest::Pool {
             include_sensitive_txs,
         } => pool(env, include_sensitive_txs),
+        TxpoolReadRequest::PoolStats {
+            include_sensitive_txs,
+        } => pool_stats(env, include_sensitive_txs),
     }
 }
 
@@ -259,4 +262,9 @@ fn pool(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
         txs: todo!(),
         spent_key_images: todo!(),
     })
+}
+
+/// [`TxpoolReadRequest::PoolStats`].
+fn pool_stats(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
+    Ok(TxpoolReadResponse::PoolStats(todo!()))
 }
