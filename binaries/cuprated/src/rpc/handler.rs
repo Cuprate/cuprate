@@ -41,6 +41,9 @@ pub enum BlockchainManagerRequest {
         Box<Block>,
     ),
 
+    /// TODO
+    Sync,
+
     /// Is the blockchain in the middle of syncing?
     ///
     /// This returning `false` does not necessarily
@@ -102,6 +105,7 @@ pub enum BlockchainManagerResponse {
     /// Response to:
     /// - [`BlockchainManagerRequest::Prune`]
     /// - [`BlockchainManagerRequest::RelayBlock`]
+    /// - [`BlockchainManagerRequest::Sync`]
     Ok,
 
     /// Response to [`BlockchainManagerRequest::PopBlocks`]

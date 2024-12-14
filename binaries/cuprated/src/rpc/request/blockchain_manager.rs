@@ -242,3 +242,17 @@ pub(crate) async fn create_block_template(
 
     Ok(block_template)
 }
+
+/// [`BlockchainManagerRequest::Sync`]
+pub(crate) async fn sync(blockchain_manager: &mut BlockchainManagerHandle) -> Result<(), Error> {
+    let BlockchainManagerResponse::Ok = blockchain_manager
+        .ready()
+        .await?
+        .call(BlockchainManagerRequest::Sync)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(())
+}

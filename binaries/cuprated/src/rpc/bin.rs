@@ -110,7 +110,7 @@ async fn get_blocks(
     }
 
     Ok(GetBlocksResponse {
-        base: AccessResponseBase::OK,
+        base: helper::access_response_base(false),
         blocks: todo!(),
         start_height: todo!(),
         current_height: todo!(),
@@ -136,7 +136,7 @@ async fn get_blocks_by_height(
         .collect::<Result<Vec<BlockCompleteEntry>, Error>>()?;
 
     Ok(GetBlocksByHeightResponse {
-        base: AccessResponseBase::OK,
+        base: helper::access_response_base(false),
         blocks,
     })
 }
@@ -178,7 +178,7 @@ async fn get_hashes(
     let m_blocks_ids = bytes.split_off(index);
 
     Ok(GetHashesResponse {
-        base: AccessResponseBase::OK,
+        base: helper::access_response_base(false),
         m_blocks_ids,
         start_height,
         current_height,
@@ -191,7 +191,7 @@ async fn get_output_indexes(
     request: GetOutputIndexesRequest,
 ) -> Result<GetOutputIndexesResponse, Error> {
     Ok(GetOutputIndexesResponse {
-        base: AccessResponseBase::OK,
+        base: helper::access_response_base(false),
         ..todo!()
     })
 }
@@ -202,7 +202,7 @@ async fn get_outs(
     request: GetOutsRequest,
 ) -> Result<GetOutsResponse, Error> {
     Ok(GetOutsResponse {
-        base: AccessResponseBase::OK,
+        base: helper::access_response_base(false),
         ..todo!()
     })
 }
@@ -213,7 +213,7 @@ async fn get_transaction_pool_hashes(
     request: GetTransactionPoolHashesRequest,
 ) -> Result<GetTransactionPoolHashesResponse, Error> {
     Ok(GetTransactionPoolHashesResponse {
-        base: AccessResponseBase::OK,
+        base: helper::access_response_base(false),
         ..todo!()
     })
 }
@@ -224,7 +224,7 @@ async fn get_output_distribution(
     request: GetOutputDistributionRequest,
 ) -> Result<GetOutputDistributionResponse, Error> {
     Ok(GetOutputDistributionResponse {
-        base: AccessResponseBase::OK,
+        base: helper::access_response_base(false),
         ..todo!()
     })
 }
