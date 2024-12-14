@@ -13,6 +13,7 @@ use cuprate_constants::rpc::{
 };
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_hex::Hex;
+use cuprate_p2p_core::{client::handshaker::builder::DummyAddressBook, ClearNet};
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
     base::{AccessResponseBase, ResponseBase},
@@ -49,6 +50,8 @@ use crate::{
         CupratedRpcHandler,
     },
 };
+
+use super::request::address_book;
 
 /// Map a [`OtherRequest`] to the function that will lead to a [`OtherResponse`].
 pub(super) async fn map_request(
@@ -483,9 +486,12 @@ async fn get_peer_list(
     state: CupratedRpcHandler,
     request: GetPeerListRequest,
 ) -> Result<GetPeerListResponse, Error> {
+    let (white_list, gray_list) = address_book::peerlist::<ClearNet>(&mut DummyAddressBook).await?;
+
     Ok(GetPeerListResponse {
         base: helper::response_base(false),
-        ..todo!()
+        white_list,
+        gray_list,
     })
 }
 

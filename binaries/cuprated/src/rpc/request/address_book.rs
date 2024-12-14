@@ -1,11 +1,14 @@
 //! Functions to send [`AddressBookRequest`]s.
 
+use std::net::SocketAddrV4;
+
 use anyhow::{anyhow, Error};
+use cuprate_types::rpc::Peer;
 use tower::ServiceExt;
 
-use cuprate_helper::cast::usize_to_u64;
+use cuprate_helper::{cast::usize_to_u64, map::u32_from_ipv4};
 use cuprate_p2p_core::{
-    services::{AddressBookRequest, AddressBookResponse},
+    services::{AddressBookRequest, AddressBookResponse, ZoneSpecificPeerListEntryBase},
     types::{BanState, ConnectionId},
     AddressBook, NetworkZone,
 };
@@ -160,4 +163,63 @@ pub(crate) async fn get_bans<Z: NetworkZone>(
     };
 
     Ok(bans)
+}
+
+/// [`AddressBookRequest::Peerlist`]
+pub(crate) async fn peerlist<Z: NetworkZone>(
+    address_book: &mut impl AddressBook<Z>,
+) -> Result<(Vec<Peer>, Vec<Peer>), Error> {
+    let AddressBookResponse::Peerlist(peerlist) = address_book
+        .ready()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .call(AddressBookRequest::Peerlist)
+        .await
+        .map_err(|e| anyhow!(e))?
+    else {
+        unreachable!();
+    };
+
+    fn map<Z: NetworkZone>(peers: Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>) -> Vec<Peer> {
+        peers
+            .into_iter()
+            .map(|peer| {
+                let ZoneSpecificPeerListEntryBase {
+                    adr,
+                    id,
+                    last_seen,
+                    pruning_seed,
+                    rpc_port,
+                    rpc_credits_per_hash,
+                } = peer;
+
+                let host = adr.to_string();
+
+                let (ip, port) = if let Ok(socket_addr) = host.parse::<SocketAddrV4>() {
+                    (u32_from_ipv4(*socket_addr.ip()), socket_addr.port())
+                } else {
+                    (0, 0)
+                };
+
+                let last_seen = last_seen.try_into().unwrap_or(0);
+                let pruning_seed = pruning_seed.compress();
+
+                Peer {
+                    id,
+                    host,
+                    ip,
+                    port,
+                    rpc_port,
+                    rpc_credits_per_hash,
+                    last_seen,
+                    pruning_seed,
+                }
+            })
+            .collect()
+    }
+
+    let white = map::<Z>(peerlist.white);
+    let grey = map::<Z>(peerlist.grey);
+
+    Ok((white, grey))
 }
