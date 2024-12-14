@@ -13,7 +13,7 @@ use cuprate_p2p_core::{
     types::{ConnectionId, ConnectionInfo, SetBan, Span},
     NetZoneAddress,
 };
-use cuprate_types::rpc::{BlockHeader, ChainInfo, HistogramEntry, TxInfo};
+use cuprate_types::rpc::{BlockHeader, ChainInfo, HistogramEntry, SpentKeyImageInfo, TxInfo};
 
 impl From<BlockHeader> for crate::misc::BlockHeader {
     fn from(x: BlockHeader) -> Self {
@@ -181,6 +181,15 @@ impl From<TxInfo> for crate::misc::TxInfo {
             tx_blob: hex::encode(x.tx_blob),
             tx_json: x.tx_json,
             weight: x.weight,
+        }
+    }
+}
+
+impl From<SpentKeyImageInfo> for crate::misc::SpentKeyImageInfo {
+    fn from(x: SpentKeyImageInfo) -> Self {
+        Self {
+            id_hash: Hex(x.id_hash),
+            txs_hashes: x.txs_hashes.into_iter().map(Hex).collect(),
         }
     }
 }

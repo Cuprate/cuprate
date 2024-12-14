@@ -383,8 +383,8 @@ define_struct_and_impl_epee! {
         1558..=1567
     )]
     SpentKeyImageInfo {
-        id_hash: String,
-        txs_hashes: Vec<String>,
+        id_hash: [u8; 32],
+        txs_hashes: Vec<[u8; 32]>,
     }
 
     #[doc = monero_definition_link!(

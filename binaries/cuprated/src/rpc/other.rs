@@ -483,7 +483,7 @@ async fn save_bc(mut state: CupratedRpcHandler, _: SaveBcRequest) -> Result<Save
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1537-L1582>
 async fn get_peer_list(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: GetPeerListRequest,
 ) -> Result<GetPeerListResponse, Error> {
     let (white_list, gray_list) = address_book::peerlist::<ClearNet>(&mut DummyAddressBook).await?;
@@ -495,54 +495,27 @@ async fn get_peer_list(
     })
 }
 
-/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1626-L1639>
-async fn set_log_hash_rate(
-    state: CupratedRpcHandler,
-    request: SetLogHashRateRequest,
-) -> Result<SetLogHashRateResponse, Error> {
-    unreachable!();
-    Ok(SetLogHashRateResponse {
-        base: helper::response_base(false),
-    })
-}
-
-/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1641-L1652>
-async fn set_log_level(
-    state: CupratedRpcHandler,
-    request: SetLogLevelRequest,
-) -> Result<SetLogLevelResponse, Error> {
-    todo!();
-    Ok(SetLogLevelResponse {
-        base: helper::response_base(false),
-    })
-}
-
-/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1654-L1661>
-async fn set_log_categories(
-    state: CupratedRpcHandler,
-    request: SetLogCategoriesRequest,
-) -> Result<SetLogCategoriesResponse, Error> {
-    Ok(SetLogCategoriesResponse {
-        base: helper::response_base(false),
-        ..todo!()
-    })
-}
-
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1663-L1687>
 async fn get_transaction_pool(
-    state: CupratedRpcHandler,
-    request: GetTransactionPoolRequest,
+    mut state: CupratedRpcHandler,
+    _: GetTransactionPoolRequest,
 ) -> Result<GetTransactionPoolResponse, Error> {
+    let include_sensitive_txs = !state.is_restricted();
+
+    let (transactions, spent_key_images) =
+        txpool::pool(&mut state.txpool_read, include_sensitive_txs).await?;
+
     Ok(GetTransactionPoolResponse {
         base: helper::access_response_base(false),
-        ..todo!()
+        transactions,
+        spent_key_images,
     })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1741-L1756>
 async fn get_transaction_pool_stats(
-    state: CupratedRpcHandler,
-    request: GetTransactionPoolStatsRequest,
+    mut state: CupratedRpcHandler,
+    _: GetTransactionPoolStatsRequest,
 ) -> Result<GetTransactionPoolStatsResponse, Error> {
     Ok(GetTransactionPoolStatsResponse {
         base: helper::access_response_base(false),
@@ -552,17 +525,17 @@ async fn get_transaction_pool_stats(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1780-L1788>
 async fn stop_daemon(
-    state: CupratedRpcHandler,
-    request: StopDaemonRequest,
+    mut state: CupratedRpcHandler,
+    _: StopDaemonRequest,
 ) -> Result<StopDaemonResponse, Error> {
-    todo!();
+    blockchain_manager::stop(&mut state.blockchain_manager).await?;
     Ok(StopDaemonResponse { status: Status::Ok })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3066-L3077>
 async fn get_limit(
-    state: CupratedRpcHandler,
-    request: GetLimitRequest,
+    mut state: CupratedRpcHandler,
+    _: GetLimitRequest,
 ) -> Result<GetLimitResponse, Error> {
     Ok(GetLimitResponse {
         base: helper::response_base(false),
@@ -572,7 +545,7 @@ async fn get_limit(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3079-L3117>
 async fn set_limit(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: SetLimitRequest,
 ) -> Result<SetLimitResponse, Error> {
     Ok(SetLimitResponse {
@@ -583,7 +556,7 @@ async fn set_limit(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3119-L3127>
 async fn out_peers(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: OutPeersRequest,
 ) -> Result<OutPeersResponse, Error> {
     Ok(OutPeersResponse {
@@ -594,7 +567,7 @@ async fn out_peers(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3129-L3137>
 async fn in_peers(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: InPeersRequest,
 ) -> Result<InPeersResponse, Error> {
     Ok(InPeersResponse {
@@ -605,8 +578,8 @@ async fn in_peers(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L584-L599>
 async fn get_net_stats(
-    state: CupratedRpcHandler,
-    request: GetNetStatsRequest,
+    mut state: CupratedRpcHandler,
+    _: GetNetStatsRequest,
 ) -> Result<GetNetStatsResponse, Error> {
     Ok(GetNetStatsResponse {
         base: helper::response_base(false),
@@ -671,8 +644,8 @@ async fn pop_blocks(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1713-L1739>
 async fn get_transaction_pool_hashes(
-    state: CupratedRpcHandler,
-    request: GetTransactionPoolHashesRequest,
+    mut state: CupratedRpcHandler,
+    _: GetTransactionPoolHashesRequest,
 ) -> Result<GetTransactionPoolHashesResponse, Error> {
     Ok(GetTransactionPoolHashesResponse {
         base: helper::response_base(false),
@@ -682,7 +655,7 @@ async fn get_transaction_pool_hashes(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L193-L225>
 async fn get_public_nodes(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: GetPublicNodesRequest,
 ) -> Result<GetPublicNodesResponse, Error> {
     Ok(GetPublicNodesResponse {
@@ -691,7 +664,7 @@ async fn get_public_nodes(
     })
 }
 
-//---------------------------------------------------------------------------------------------------- Unsupported RPC calls
+//---------------------------------------------------------------------------------------------------- Unsupported RPC calls (for now)
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1758-L1778>
 async fn set_bootstrap_daemon(
@@ -708,6 +681,24 @@ async fn update(
 ) -> Result<UpdateResponse, Error> {
     todo!();
 }
+
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1641-L1652>
+async fn set_log_level(
+    state: CupratedRpcHandler,
+    request: SetLogLevelRequest,
+) -> Result<SetLogLevelResponse, Error> {
+    todo!()
+}
+
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1654-L1661>
+async fn set_log_categories(
+    state: CupratedRpcHandler,
+    request: SetLogCategoriesRequest,
+) -> Result<SetLogCategoriesResponse, Error> {
+    todo!()
+}
+
+//---------------------------------------------------------------------------------------------------- Unsupported RPC calls (forever)
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1413-L1462>
 async fn start_mining(
@@ -730,5 +721,13 @@ async fn mining_status(
     state: CupratedRpcHandler,
     request: MiningStatusRequest,
 ) -> Result<MiningStatusResponse, Error> {
+    unreachable!();
+}
+
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1626-L1639>
+async fn set_log_hash_rate(
+    state: CupratedRpcHandler,
+    request: SetLogHashRateRequest,
+) -> Result<SetLogHashRateResponse, Error> {
     unreachable!();
 }

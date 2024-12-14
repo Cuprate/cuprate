@@ -95,6 +95,9 @@ pub enum BlockchainManagerRequest {
         account_public_address: String,
         extra_nonce: Vec<u8>,
     },
+
+    /// TODO
+    Stop,
 }
 
 /// TODO: use real type when public.

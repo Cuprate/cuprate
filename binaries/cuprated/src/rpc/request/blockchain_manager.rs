@@ -256,3 +256,17 @@ pub(crate) async fn sync(blockchain_manager: &mut BlockchainManagerHandle) -> Re
 
     Ok(())
 }
+
+/// [`BlockchainManagerRequest::Stop`]
+pub(crate) async fn stop(blockchain_manager: &mut BlockchainManagerHandle) -> Result<(), Error> {
+    let BlockchainManagerResponse::Ok = blockchain_manager
+        .ready()
+        .await?
+        .call(BlockchainManagerRequest::Stop)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(())
+}

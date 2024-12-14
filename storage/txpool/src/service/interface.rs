@@ -7,7 +7,10 @@ use std::{
     sync::Arc,
 };
 
-use cuprate_types::{rpc::PoolInfo, TransactionVerificationData, TxInPool};
+use cuprate_types::{
+    rpc::{PoolInfo, SpentKeyImageInfo, TxInfo},
+    TransactionVerificationData, TxInPool,
+};
 
 use crate::{
     tx::TxEntry,
@@ -64,6 +67,9 @@ pub enum TxpoolReadRequest {
         key_images: Vec<[u8; 32]>,
         include_sensitive_txs: bool,
     },
+
+    /// TODO
+    Pool { include_sensitive_txs: bool },
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadResponse
@@ -112,6 +118,12 @@ pub enum TxpoolReadResponse {
 
     /// Response to [`TxpoolReadRequest::KeyImagesSpent`].
     KeyImagesSpent(Vec<bool>),
+
+    /// Response to [`TxpoolReadRequest::Pool`].
+    Pool {
+        txs: Vec<TxInfo>,
+        spent_key_images: Vec<SpentKeyImageInfo>,
+    },
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteRequest

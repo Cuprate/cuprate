@@ -89,6 +89,9 @@ fn map_request(
             key_images,
             include_sensitive_txs,
         } => key_images_spent(env, key_images, include_sensitive_txs),
+        TxpoolReadRequest::Pool {
+            include_sensitive_txs,
+        } => pool(env, include_sensitive_txs),
     }
 }
 
@@ -248,4 +251,12 @@ fn key_images_spent(
     include_sensitive_txs: bool,
 ) -> ReadResponseResult {
     Ok(TxpoolReadResponse::KeyImagesSpent(todo!()))
+}
+
+/// [`TxpoolReadRequest::Pool`].
+fn pool(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
+    Ok(TxpoolReadResponse::Pool {
+        txs: todo!(),
+        spent_key_images: todo!(),
+    })
 }

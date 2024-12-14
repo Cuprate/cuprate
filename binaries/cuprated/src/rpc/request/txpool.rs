@@ -7,6 +7,7 @@ use monero_serai::transaction::Transaction;
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::cast::usize_to_u64;
+use cuprate_rpc_types::misc::{SpentKeyImageInfo, TxInfo};
 use cuprate_txpool::{
     service::{
         interface::{TxpoolReadRequest, TxpoolReadResponse},
@@ -127,6 +128,33 @@ pub(crate) async fn key_images_spent(
     };
 
     Ok(status)
+}
+
+/// TODO
+pub(crate) async fn pool(
+    txpool_read: &mut TxpoolReadHandle,
+    include_sensitive_txs: bool,
+) -> Result<(Vec<TxInfo>, Vec<SpentKeyImageInfo>), Error> {
+    let TxpoolReadResponse::Pool {
+        txs,
+        spent_key_images,
+    } = txpool_read
+        .ready()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .call(TxpoolReadRequest::Pool {
+            include_sensitive_txs,
+        })
+        .await
+        .map_err(|e| anyhow!(e))?
+    else {
+        unreachable!();
+    };
+
+    let txs = txs.into_iter().map(Into::into).collect();
+    let spent_key_images = spent_key_images.into_iter().map(Into::into).collect();
+
+    Ok((txs, spent_key_images))
 }
 
 /// TODO
