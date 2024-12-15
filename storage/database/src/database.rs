@@ -4,6 +4,7 @@
 use std::ops::RangeBounds;
 
 use crate::{
+    entry::Entry,
     error::{DbResult, RuntimeError},
     table::Table,
 };
@@ -151,7 +152,7 @@ pub unsafe trait DatabaseRo<T: Table> {
 /// Database (key-value store) read/write abstraction.
 ///
 /// All [`DatabaseRo`] functions are also callable by [`DatabaseRw`].
-pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
+pub trait DatabaseRw<T: Table>: DatabaseRo<T> + Sized {
     /// Insert a key-value pair into the database.
     ///
     /// This will overwrite any existing key-value pairs.
@@ -211,4 +212,7 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     ///
     #[doc = doc_database!()]
     fn pop_last(&mut self) -> DbResult<(T::Key, T::Value)>;
+
+    /// TODO
+    fn entry<'a>(&'a mut self, key: &'a T::Key) -> DbResult<Entry<'a, T, Self>>;
 }
