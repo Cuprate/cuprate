@@ -28,10 +28,10 @@ pub fn update_alt_chain_info(
         Err(e) => return Err(e),
     };
 
-    // try update the info if one exists for this chain.
-    let update = tables
+    tables
         .alt_chain_infos_mut()
-        .update(&alt_block_height.chain_id, |mut info| {
+        .entry(&alt_block_height.chain_id)?
+        .and_update(|info| {
             if info.chain_height < alt_block_height.height + 1 {
                 // If the chain height is increasing we only need to update the chain height.
                 info.chain_height = alt_block_height.height + 1;
@@ -43,25 +43,12 @@ pub fn update_alt_chain_info(
             }
 
             info.chain_height = alt_block_height.height + 1;
-            Some(info)
-        });
-
-    match update {
-        Ok(()) => return Ok(()),
-        Err(RuntimeError::KeyNotFound) => (),
-        Err(e) => return Err(e),
-    }
-
-    // If one doesn't already exist add it.
-
-    tables.alt_chain_infos_mut().put(
-        &alt_block_height.chain_id,
-        &AltChainInfo {
+        })?
+        .or_insert_with(|| AltChainInfo {
             parent_chain: parent_chain.into(),
             common_ancestor_height: alt_block_height.height.checked_sub(1).unwrap(),
             chain_height: alt_block_height.height + 1,
-        },
-    )
+        })
 }
 
 /// Get the height history of an alt-chain in reverse chronological order.

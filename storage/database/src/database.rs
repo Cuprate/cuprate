@@ -171,6 +171,14 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> + Sized {
     /// This will never [`RuntimeError::KeyExists`].
     fn delete(&mut self, key: &T::Key) -> DbResult<()>;
 
+    /// Delete and return a key-value pair in the database.
+    ///
+    /// This is the same as [`DatabaseRw::delete`], however,
+    /// it will serialize the `T::Value` and return it.
+    ///
+    #[doc = doc_database!()]
+    fn take(&mut self, key: &T::Key) -> DbResult<T::Value>;
+
     /// Removes and returns the first `(key, value)` pair in the database.
     ///
     #[doc = doc_database!()]

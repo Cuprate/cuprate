@@ -67,14 +67,9 @@ pub fn remove_output(
     // `btree_map::Entry`-like API, fix `trait DatabaseRw`.
     tables
         .num_outputs_mut()
-        .update(&pre_rct_output_id.amount, |num_outputs| {
-            // INVARIANT: Should never be 0.
-            if num_outputs == 1 {
-                None
-            } else {
-                Some(num_outputs - 1)
-            }
-        })?;
+        .entry(&pre_rct_output_id.amount)?
+        .and_remove(|num_outputs| *num_outputs == 1)?
+        .and_update(|num_outputs| *num_outputs -= 1)?;
 
     // Delete the output data itself.
     tables.outputs_mut().delete(pre_rct_output_id)

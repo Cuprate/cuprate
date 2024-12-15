@@ -293,11 +293,11 @@ fn db_read_write() {
         assert_value(value);
     }
 
-    // Assert `Entry` returns the correct value.
+    // Assert `take()` works.
     {
         let mut key = KEY;
         key += 1;
-        let value = table.entry(&key).unwrap().and_remove().unwrap();
+        let value = table.take(&key).unwrap();
         assert_eq!(value, VALUE);
 
         let get = table.get(&KEY);

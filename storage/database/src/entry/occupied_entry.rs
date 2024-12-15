@@ -2,6 +2,8 @@
 
 use crate::{DatabaseRw, DbResult, Table};
 
+use super::{Entry, VacantEntry};
+
 /// A view into an occupied entry in a [`DatabaseRw`]. It is part of [`crate::entry::Entry`].
 pub struct OccupiedEntry<'a, T, D>
 where
@@ -13,7 +15,7 @@ where
     pub(crate) value: T::Value,
 }
 
-impl<T, D> OccupiedEntry<'_, T, D>
+impl<'a, T, D> OccupiedEntry<'a, T, D>
 where
     T: Table,
     D: DatabaseRw<T>,
@@ -52,7 +54,18 @@ where
     }
 
     /// Remove this entry.
-    pub fn remove(self) -> DbResult<T::Value> {
-        DatabaseRw::delete(self.db, self.key).map(|()| Ok(self.value))?
+    ///
+    /// The returns values are:
+    /// - An [`Entry::VacantEntry`]
+    /// - The value that was removed
+    pub fn remove(self) -> DbResult<(Entry<'a, T, D>, T::Value)> {
+        DatabaseRw::delete(self.db, self.key)?;
+        Ok((
+            Entry::Vacant(VacantEntry {
+                db: self.db,
+                key: self.key,
+            }),
+            self.value,
+        ))
     }
 }

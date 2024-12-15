@@ -114,10 +114,11 @@ fn promote(env: &ConcreteEnv, tx_hash: &TransactionHash) -> DbResult<TxpoolWrite
     let res = || {
         let mut tx_infos = env_inner.open_db_rw::<TransactionInfos>(&tx_rw)?;
 
-        tx_infos.update(tx_hash, |mut info| {
+        tx_infos.entry(tx_hash)?.and_update(|info| {
             info.flags.remove(TxStateFlags::STATE_STEM);
-            Some(info)
-        })
+        })?;
+
+        Ok(())
     };
 
     if let Err(e) = res() {

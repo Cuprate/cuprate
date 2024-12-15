@@ -29,6 +29,16 @@ where
     T: Table,
     D: DatabaseRw<T>,
 {
+    /// TODO
+    pub const fn is_occupied(&self) -> bool {
+        matches!(self, Self::Occupied(_))
+    }
+
+    /// TODO
+    pub const fn is_vacant(&self) -> bool {
+        matches!(self, Self::Vacant(_))
+    }
+
     /// Ensures a value is in the entry by inserting the `default` if empty.
     ///
     /// This only inserts if the entry is [`VacantEntry`].
@@ -44,24 +54,24 @@ where
     /// This only inserts if the entry is [`VacantEntry`].
     pub fn or_insert_with<F>(self, default: F) -> DbResult<()>
     where
-        F: FnOnce() -> &'a T::Value,
+        F: FnOnce() -> T::Value,
     {
         match self {
             Self::Occupied(_) => Ok(()),
-            Self::Vacant(entry) => entry.insert(default()),
+            Self::Vacant(entry) => entry.insert(&default()),
         }
     }
 
     /// Same as [`Self::or_insert_with`] but gives access to the key.
     pub fn or_insert_with_key<F>(self, default: F) -> DbResult<()>
     where
-        F: FnOnce(&'a T::Key) -> &'a T::Value,
+        F: FnOnce(&'a T::Key) -> T::Value,
     {
         match self {
             Self::Occupied(_) => Ok(()),
             Self::Vacant(entry) => {
                 let key = entry.key;
-                entry.insert(default(key))
+                entry.insert(&default(key))
             }
         }
     }
@@ -96,15 +106,23 @@ where
         }
     }
 
-    /// [`OccupiedEntry::remove`] the value if it already exists, else do nothing.
+    /// Conditionally [`OccupiedEntry::remove`] the value if it already exists.
     ///
-    /// # Errors
-    /// This returns [`RuntimeError::KeyNotFound`] if the entry is [`VacantEntry`].
-    pub fn and_remove(self) -> DbResult<T::Value> {
-        match self {
-            Self::Occupied(entry) => entry.remove(),
-            Self::Vacant(_) => Err(RuntimeError::KeyNotFound),
-        }
+    /// This functions does nothing if the entry is [`VacantEntry`].
+    pub fn and_remove<F>(self, f: F) -> DbResult<Self>
+    where
+        F: FnOnce(&T::Value) -> bool,
+    {
+        Ok(match self {
+            Self::Occupied(entry) => {
+                if f(&entry.value) {
+                    entry.remove()?.0
+                } else {
+                    Self::Occupied(entry)
+                }
+            }
+            Self::Vacant(entry) => Self::Vacant(entry),
+        })
     }
 
     /// [`OccupiedEntry::update`] the value if it already exists
