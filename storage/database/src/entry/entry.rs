@@ -2,7 +2,7 @@
 
 use crate::{
     entry::{OccupiedEntry, VacantEntry},
-    DatabaseRw, DbResult, Table,
+    DatabaseRw, DbResult, RuntimeError, Table,
 };
 
 /// A view into a single entry in a [`DatabaseRw`], which may either be vacant or occupied.
@@ -74,15 +74,42 @@ where
         }
     }
 
-    /// Returns a reference to this entry's key (if the entry is [`OccupiedEntry`]).
-    pub const fn value(&self) -> Option<&T::Value> {
+    /// Returns a reference to this entry's value (if the entry is [`OccupiedEntry`]).
+    ///
+    /// # Errors
+    /// This returns [`RuntimeError::KeyNotFound`] if the entry is [`VacantEntry`].
+    pub const fn value(&self) -> DbResult<&T::Value> {
         match self {
-            Self::Occupied(entry) => Some(entry.value()),
-            Self::Vacant(_) => None,
+            Self::Occupied(entry) => Ok(entry.value()),
+            Self::Vacant(_) => Err(RuntimeError::KeyNotFound),
         }
     }
 
-    /// Provides in-place mutable access to an occupied entry before any potential inserts.
+    /// Take ownership of entry's value (if the entry is [`OccupiedEntry`]).
+    ///
+    /// # Errors
+    /// This returns [`RuntimeError::KeyNotFound`] if the entry is [`VacantEntry`].
+    pub fn into_value(self) -> DbResult<T::Value> {
+        match self {
+            Self::Occupied(entry) => Ok(entry.into_value()),
+            Self::Vacant(_) => Err(RuntimeError::KeyNotFound),
+        }
+    }
+
+    /// [`OccupiedEntry::remove`] the value if it already exists, else do nothing.
+    ///
+    /// # Errors
+    /// This returns [`RuntimeError::KeyNotFound`] if the entry is [`VacantEntry`].
+    pub fn and_remove(self) -> DbResult<T::Value> {
+        match self {
+            Self::Occupied(entry) => entry.remove(),
+            Self::Vacant(_) => Err(RuntimeError::KeyNotFound),
+        }
+    }
+
+    /// [`OccupiedEntry::update`] the value if it already exists
+    ///
+    /// This functions does nothing if the entry is [`VacantEntry`].
     pub fn and_update<F>(self, f: F) -> DbResult<Self>
     where
         F: FnOnce(&mut T::Value),
