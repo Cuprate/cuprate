@@ -189,6 +189,8 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> + Sized {
     #[doc = doc_database!()]
     fn pop_last(&mut self) -> DbResult<(T::Key, T::Value)>;
 
-    /// TODO
+    /// Gets the given key's corresponding entry for in-place manipulation.
+    ///
+    #[doc = doc_database!()]
     fn entry<'a>(&'a mut self, key: &'a T::Key) -> DbResult<Entry<'a, T, Self>>;
 }
