@@ -1,11 +1,25 @@
+mod cryptonight;
+mod randomx;
 mod rpc;
+mod verify;
 
 use std::{
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::atomic::{AtomicU64, Ordering},
     time::{Duration, Instant},
 };
 
-pub static TESTED_BLOCK_COUNT: AtomicUsize = AtomicUsize::new(0);
+use crate::rpc::GetBlockResponse;
+
+pub const RANDOMX_START_HEIGHT: u64 = 1978433;
+pub static TESTED_BLOCK_COUNT: AtomicU64 = AtomicU64::new(0);
+
+#[derive(Debug)]
+pub struct VerifyData {
+    pub get_block_response: GetBlockResponse,
+    pub height: u64,
+    pub seed_height: u64,
+    pub seed_hash: [u8; 32],
+}
 
 #[tokio::main]
 async fn main() {
@@ -25,32 +39,32 @@ async fn main() {
         println!("VERBOSE: false");
     }
 
-    let mut client = rpc::RpcClient::new(rpc_url).await;
+    let client = rpc::RpcClient::new(rpc_url).await;
+    let top_height = client.top_height;
+    println!("top_height: {top_height}");
 
-    let top_height = if let Ok(Ok(h)) = std::env::var("TOP_HEIGHT").map(|s| s.parse()) {
-        client.top_height = h;
-        println!("TOP_HEIGHT (found): {h}");
-        h
+    let threads = if let Ok(Ok(c)) = std::env::var("THREADS").map(|s| s.parse()) {
+        println!("THREADS (found): {c}");
+        c
     } else {
-        println!("TOP_HEIGHT (off, using latest): {}", client.top_height);
-        client.top_height
+        let c = std::thread::available_parallelism().unwrap().get();
+        println!("THREADS (off): {c}");
+        c
     };
 
     println!();
 
-    tokio::join!(
-        client.cryptonight_v0(),
-        client.cryptonight_v1(),
-        client.cryptonight_v2(),
-        client.cryptonight_r(),
-        client.randomx(),
-    );
+    // Test RandomX.
+    let (tx, rx) = crossbeam::channel::unbounded();
+    verify::spawn_verify_pool(threads, top_height, rx);
+    client.test(top_height, tx).await;
 
+    // Wait for other threads to finish.
     loop {
         let count = TESTED_BLOCK_COUNT.load(Ordering::Acquire);
 
         if top_height == count {
-            println!("finished all PoW, took {}s", now.elapsed().as_secs());
+            println!("finished, took {}s", now.elapsed().as_secs());
             std::process::exit(0);
         }
 

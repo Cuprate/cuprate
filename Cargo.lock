@@ -3335,18 +3335,17 @@ dependencies = [
 name = "tests-pow"
 version = "0.0.0"
 dependencies = [
+ "crossbeam",
  "cuprate-consensus-rules",
  "cuprate-cryptonight",
- "function_name",
+ "futures",
  "hex",
  "hex-literal",
  "monero-serai",
  "randomx-rs",
- "rayon",
  "reqwest",
  "serde",
  "serde_json",
- "thread_local",
  "tokio",
 ]
 

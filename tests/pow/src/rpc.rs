@@ -1,23 +1,15 @@
-use std::{
-    collections::BTreeMap,
-    ops::Range,
-    sync::{atomic::Ordering, Mutex},
-};
+use std::time::Duration;
 
-use function_name::named;
+use crossbeam::channel::Sender;
 use hex::serde::deserialize;
-use hex_literal::hex;
-use monero_serai::block::Block;
-use randomx_rs::{RandomXCache, RandomXFlag, RandomXVM};
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     Client, ClientBuilder,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
-use thread_local::ThreadLocal;
 
-use crate::TESTED_BLOCK_COUNT;
+use crate::{VerifyData, RANDOMX_START_HEIGHT};
 
 #[derive(Debug, Clone, Deserialize)]
 struct JsonRpcResponse {
@@ -25,14 +17,14 @@ struct JsonRpcResponse {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-struct GetBlockResponse {
+pub struct GetBlockResponse {
     #[serde(deserialize_with = "deserialize")]
     pub blob: Vec<u8>,
     pub block_header: BlockHeader,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-struct BlockHeader {
+pub struct BlockHeader {
     #[serde(deserialize_with = "deserialize")]
     pub pow_hash: Vec<u8>,
     #[serde(deserialize_with = "deserialize")]
@@ -42,8 +34,8 @@ struct BlockHeader {
 #[derive(Debug, Clone)]
 pub(crate) struct RpcClient {
     client: Client,
-    rpc_url: String,
-    pub top_height: usize,
+    json_rpc_url: String,
+    pub top_height: u64,
 }
 
 impl RpcClient {
@@ -66,8 +58,10 @@ impl RpcClient {
             "params": {}
         });
 
+        let json_rpc_url = format!("{rpc_url}/json_rpc");
+
         let top_height = client
-            .get(format!("{rpc_url}/json_rpc"))
+            .get(&json_rpc_url)
             .json(&request)
             .send()
             .await
@@ -82,20 +76,18 @@ impl RpcClient {
             .get("height")
             .unwrap()
             .as_u64()
-            .unwrap()
-            .try_into()
             .unwrap();
 
         assert!(top_height > 3301441, "node is behind");
 
         Self {
             client,
-            rpc_url,
+            json_rpc_url,
             top_height,
         }
     }
 
-    async fn get_block(&self, height: usize) -> GetBlockResponse {
+    async fn get_block(&self, height: u64) -> GetBlockResponse {
         let request = json!({
             "jsonrpc": "2.0",
             "id": 0,
@@ -103,11 +95,11 @@ impl RpcClient {
             "params": {"height": height, "fill_pow_hash": true}
         });
 
-        let rpc_url = format!("{}/json_rpc", self.rpc_url);
-
-        tokio::task::spawn(self.client.get(rpc_url).json(&request).send())
+        self.client
+            .get(&self.json_rpc_url)
+            .json(&request)
+            .send()
             .await
-            .unwrap()
             .unwrap()
             .json::<JsonRpcResponse>()
             .await
@@ -115,148 +107,50 @@ impl RpcClient {
             .result
     }
 
-    async fn test<const RANDOMX: bool, const CRYPTONIGHT_V0: bool>(
-        &self,
-        range: Range<usize>,
-        hash: impl Fn(Vec<u8>, u64, u64, [u8; 32]) -> [u8; 32] + Send + Sync + 'static + Copy,
-        name: &'static str,
-    ) {
-        let tasks = range.map(|height| {
-            let task = self.get_block(height);
-            (height, task)
-        });
+    pub(crate) async fn test(self, top_height: u64, tx: Sender<VerifyData>) {
+        use futures::StreamExt;
 
-        for (height, task) in tasks {
-            let result = task.await;
+        let iter = (0..top_height).map(|height| {
+            let this = &self;
+            let tx = tx.clone();
 
-            let (seed_height, seed_hash) = if RANDOMX {
-                let seed_height = cuprate_consensus_rules::blocks::randomx_seed_height(height);
+            async move {
+                let get_block_response = this.get_block(height).await;
 
-                let seed_hash: [u8; 32] = self
-                    .get_block(seed_height)
-                    .await
-                    .block_header
-                    .hash
+                let (seed_height, seed_hash) = if height < RANDOMX_START_HEIGHT {
+                    (0, [0; 32])
+                } else {
+                    let seed_height = cuprate_consensus_rules::blocks::randomx_seed_height(
+                        height.try_into().unwrap(),
+                    )
                     .try_into()
                     .unwrap();
 
-                (seed_height, seed_hash)
-            } else {
-                (0, [0; 32])
-            };
+                    let seed_hash = this
+                        .get_block(seed_height)
+                        .await
+                        .block_header
+                        .hash
+                        .try_into()
+                        .unwrap();
 
-            let top_height = self.top_height;
-
-            #[expect(clippy::cast_precision_loss)]
-            rayon::spawn(move || {
-                let GetBlockResponse { blob, block_header } = result;
-                let header = block_header;
-
-                let block = match Block::read(&mut blob.as_slice()) {
-                    Ok(b) => b,
-                    Err(e) => panic!("{e:?}\nblob: {blob:?}, header: {header:?}"),
+                    (seed_height, seed_hash)
                 };
 
-                let pow_hash = if CRYPTONIGHT_V0 && height == 202612 {
-                    hex!("84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000")
-                } else {
-                    hash(
-                        block.serialize_pow_hash(),
-                        height.try_into().unwrap(),
-                        seed_height.try_into().unwrap(),
-                        seed_hash,
-                    )
+                let data = VerifyData {
+                    get_block_response,
+                    height,
+                    seed_height,
+                    seed_hash,
                 };
 
-                assert_eq!(
-                    header.pow_hash, pow_hash,
-                    "\nheight: {height}\nheader: {header:#?}\nblock: {block:#?}"
-                );
+                tx.send(data).unwrap();
+            }
+        });
 
-                let count = TESTED_BLOCK_COUNT.fetch_add(1, Ordering::Release) + 1;
-
-                if std::env::var("VERBOSE").is_err() && count % 500 != 0 {
-                    return;
-                }
-
-                let hash = hex::encode(pow_hash);
-                let percent = (count as f64 / top_height as f64) * 100.0;
-
-                println!(
-                    "progress | {count}/{top_height} ({percent:.2}%)
-height   | {height}
-algo     | {name}
-hash     | {hash}\n"
-                );
-            });
-        }
-    }
-
-    #[named]
-    pub(crate) async fn cryptonight_v0(&self) {
-        self.test::<false, true>(
-            0..1546000,
-            |b, _, _, _| cuprate_cryptonight::cryptonight_hash_v0(&b),
-            function_name!(),
-        )
-        .await;
-    }
-
-    #[named]
-    pub(crate) async fn cryptonight_v1(&self) {
-        self.test::<false, false>(
-            1546000..1685555,
-            |b, _, _, _| cuprate_cryptonight::cryptonight_hash_v1(&b).unwrap(),
-            function_name!(),
-        )
-        .await;
-    }
-
-    #[named]
-    pub(crate) async fn cryptonight_v2(&self) {
-        self.test::<false, false>(
-            1685555..1788000,
-            |b, _, _, _| cuprate_cryptonight::cryptonight_hash_v2(&b),
-            function_name!(),
-        )
-        .await;
-    }
-
-    #[named]
-    pub(crate) async fn cryptonight_r(&self) {
-        self.test::<false, false>(
-            1788000..1978433,
-            |b, h, _, _| cuprate_cryptonight::cryptonight_hash_r(&b, h),
-            function_name!(),
-        )
-        .await;
-    }
-
-    #[named]
-    pub(crate) async fn randomx(&self) {
-        #[expect(clippy::significant_drop_tightening)]
-        let function = move |bytes: Vec<u8>, _, seed_height, seed_hash: [u8; 32]| {
-            static RANDOMX_VM: ThreadLocal<Mutex<BTreeMap<u64, RandomXVM>>> = ThreadLocal::new();
-
-            let mut thread_local = RANDOMX_VM
-                .get_or(|| Mutex::new(BTreeMap::new()))
-                .lock()
-                .unwrap();
-
-            let randomx_vm = thread_local.entry(seed_height).or_insert_with(|| {
-                let flag = RandomXFlag::get_recommended_flags();
-                let cache = RandomXCache::new(flag, &seed_hash).unwrap();
-                RandomXVM::new(flag, Some(cache), None).unwrap()
-            });
-
-            randomx_vm
-                .calculate_hash(&bytes)
-                .unwrap()
-                .try_into()
-                .unwrap()
-        };
-
-        self.test::<true, false>(1978433..self.top_height, function, function_name!())
+        futures::stream::iter(iter)
+            .buffer_unordered(4) // This can't be too high or else we get bottlenecked by `monerod`
+            .for_each(|()| async {})
             .await;
     }
 }

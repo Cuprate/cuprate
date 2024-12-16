@@ -1,6 +1,7 @@
 use std::{
     collections::{BTreeSet, HashSet},
     sync::{atomic::Ordering, LazyLock},
+    time::Instant,
 };
 
 use hex::serde::deserialize;
@@ -39,6 +40,8 @@ pub(crate) struct BlockHeader {
 pub(crate) struct RpcClient {
     client: Client,
     rpc_url: String,
+    json_rpc_url: String,
+    get_transactions_url: String,
     pub top_height: usize,
 }
 
@@ -72,8 +75,11 @@ impl RpcClient {
             "params": {}
         });
 
+        let json_rpc_url = format!("{rpc_url}/json_rpc");
+        let get_transactions_url = format!("{rpc_url}/get_transactions");
+
         let top_height = client
-            .get(format!("{rpc_url}/json_rpc"))
+            .get(&json_rpc_url)
             .json(&request)
             .send()
             .await
@@ -90,6 +96,8 @@ impl RpcClient {
         Self {
             client,
             rpc_url,
+            json_rpc_url,
+            get_transactions_url,
             top_height,
         }
     }
@@ -108,20 +116,16 @@ impl RpcClient {
             pub pruned_as_hex: String,
         }
 
-        let url = format!("{}/get_transactions", self.rpc_url);
-
         let txs_hashes = tx_hashes
             .into_iter()
             .map(hex::encode)
             .collect::<Vec<String>>();
 
-        let request = json!({
-            "txs_hashes": txs_hashes,
-        });
+        let request = json!({"txs_hashes":txs_hashes});
 
         let txs = self
             .client
-            .get(&url)
+            .get(&self.get_transactions_url)
             .json(&request)
             .send()
             .await
@@ -145,7 +149,11 @@ impl RpcClient {
             .collect()
     }
 
-    #[expect(clippy::significant_drop_tightening)]
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        clippy::significant_drop_tightening
+    )]
     pub(crate) async fn get_block_test_batch(&self, heights: BTreeSet<usize>) {
         #[derive(Debug, Clone, Deserialize)]
         struct JsonRpcResponse {
@@ -159,9 +167,9 @@ impl RpcClient {
             pub block_header: BlockHeader,
         }
 
-        let tasks = heights.into_iter().map(|height| {
-            let json_rpc_url = format!("{}/json_rpc", self.rpc_url);
+        let now = Instant::now();
 
+        let tasks = heights.into_iter().map(|height| {
             let request = json!({
                 "jsonrpc": "2.0",
                 "id": 0,
@@ -169,7 +177,9 @@ impl RpcClient {
                 "params": {"height": height}
             });
 
-            let task = tokio::task::spawn(self.client.get(&json_rpc_url).json(&request).send());
+            let task =
+                tokio::task::spawn(self.client.get(&self.json_rpc_url).json(&request).send());
+            // tokio::task::spawn(self.client.get(&*self.nodes.rand()).json(&request).send());
 
             (height, task)
         });
@@ -286,8 +296,16 @@ impl RpcClient {
 
                 let percent = (progress as f64 / top_height as f64) * 100.0;
 
+                let elapsed = now.elapsed().as_secs_f64();
+                let secs_per_hash = elapsed / progress as f64;
+                let bps = progress as f64 / elapsed;
+                let remaining_secs = (top_height as f64 - progress as f64) * secs_per_hash;
+                let h = (remaining_secs / 60.0 / 60.0) as u64;
+                let m = (remaining_secs / 60.0 % 60.0) as u64;
+                let s = (remaining_secs % 60.0) as u64;
+
                 println!(
-                    "progress        | {progress}/{top_height} ({percent:.2}%)
+                    "progress        | {progress}/{top_height} ({percent:.2}%, {bps:.2} blocks/sec, {h}h {m}m {s}s left)
 tx_count        | {tx_count}
 hash            | {}
 miner_tx_hash   | {}
