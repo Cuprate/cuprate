@@ -37,10 +37,10 @@ use cuprate_rpc_types::{
     },
 };
 use cuprate_types::{
-    rpc::{KeyImageSpentStatus, OutKey, PoolInfo, PoolTxInfo},
+    rpc::{KeyImageSpentStatus, OutKey, PoolInfo, PoolTxInfo, PublicNode},
     TxInPool, TxRelayChecks,
 };
-use monero_serai::transaction::{Input, Transaction};
+use monero_serai::transaction::{Input, Timelock, Transaction};
 
 use crate::{
     constants::UNSUPPORTED_RPC_CALL,
@@ -49,6 +49,7 @@ use crate::{
         request::{blockchain, blockchain_context, blockchain_manager, txpool},
         CupratedRpcHandler,
     },
+    statics::START_INSTANT_UNIX,
 };
 
 use super::request::address_book;
@@ -541,9 +542,12 @@ async fn get_limit(
     mut state: CupratedRpcHandler,
     _: GetLimitRequest,
 ) -> Result<GetLimitResponse, Error> {
+    todo!("waiting on p2p service");
+
     Ok(GetLimitResponse {
         base: helper::response_base(false),
-        ..todo!()
+        limit_down: todo!(),
+        limit_up: todo!(),
     })
 }
 
@@ -552,9 +556,12 @@ async fn set_limit(
     mut state: CupratedRpcHandler,
     request: SetLimitRequest,
 ) -> Result<SetLimitResponse, Error> {
+    todo!("waiting on p2p service");
+
     Ok(SetLimitResponse {
         base: helper::response_base(false),
-        ..todo!()
+        limit_down: todo!(),
+        limit_up: todo!(),
     })
 }
 
@@ -563,9 +570,11 @@ async fn out_peers(
     mut state: CupratedRpcHandler,
     request: OutPeersRequest,
 ) -> Result<OutPeersResponse, Error> {
+    todo!("waiting on p2p service");
+
     Ok(OutPeersResponse {
         base: helper::response_base(false),
-        ..todo!()
+        out_peers: todo!(),
     })
 }
 
@@ -574,9 +583,11 @@ async fn in_peers(
     mut state: CupratedRpcHandler,
     request: InPeersRequest,
 ) -> Result<InPeersResponse, Error> {
+    todo!("waiting on p2p service");
+
     Ok(InPeersResponse {
         base: helper::response_base(false),
-        ..todo!()
+        in_peers: todo!(),
     })
 }
 
@@ -585,9 +596,15 @@ async fn get_net_stats(
     mut state: CupratedRpcHandler,
     _: GetNetStatsRequest,
 ) -> Result<GetNetStatsResponse, Error> {
+    todo!("waiting on p2p service");
+
     Ok(GetNetStatsResponse {
         base: helper::response_base(false),
-        ..todo!()
+        start_time: *START_INSTANT_UNIX,
+        total_packets_in: todo!(),
+        total_bytes_in: todo!(),
+        total_packets_out: todo!(),
+        total_bytes_out: todo!(),
     })
 }
 
@@ -600,31 +617,38 @@ async fn get_outs(
         return Err(anyhow!("Too many outs requested"));
     }
 
-    let mut outputs = HashMap::<u64, HashSet<u64>>::with_capacity(request.outputs.len());
-    for out in request.outputs {
+    let outputs = {
+        let mut outputs = HashMap::<u64, HashSet<u64>>::with_capacity(request.outputs.len());
+
+        for out in request.outputs {
+            outputs
+                .entry(out.amount)
+                .and_modify(|set| {
+                    set.insert(out.index);
+                })
+                .or_insert_with(|| HashSet::from([out.index]));
+        }
+
         outputs
-            .entry(out.amount)
-            .and_modify(|set| {
-                set.insert(out.index);
-            })
-            .or_insert_with(|| HashSet::from([out.index]));
-    }
+    };
 
     let outs = blockchain::outputs(&mut state.blockchain_read, outputs)
         .await?
         .into_iter()
         .flat_map(|(amount, index_map)| {
             index_map.into_iter().map(|(index, out)| OutKey {
-                key: todo!(),
-                mask: todo!(),
-                unlocked: todo!(),
+                key: out.key.map_or(Hex([0; 32]), |e| Hex(e.compress().0)),
+                mask: Hex(out.commitment.compress().0),
+                unlocked: matches!(out.time_lock, Timelock::None),
                 height: usize_to_u64(out.height),
-                txid: todo!(),
+                txid: if request.get_txid {
+                    hex::encode(out.txid)
+                } else {
+                    String::new()
+                },
             })
         })
         .collect::<Vec<OutKey>>();
-
-    // TODO: check txpool
 
     Ok(GetOutsResponse {
         base: helper::response_base(false),
@@ -651,9 +675,20 @@ async fn get_transaction_pool_hashes(
     mut state: CupratedRpcHandler,
     _: GetTransactionPoolHashesRequest,
 ) -> Result<GetTransactionPoolHashesResponse, Error> {
+    let include_sensitive_txs = !state.is_restricted();
+
+    // FIXME: this request is a bit overkill, we only need the hashes.
+    // We could create a separate request for this.
+    let tx_hashes = txpool::pool(&mut state.txpool_read, include_sensitive_txs)
+        .await?
+        .0
+        .into_iter()
+        .map(|tx| tx.id_hash)
+        .collect();
+
     Ok(GetTransactionPoolHashesResponse {
         base: helper::response_base(false),
-        ..todo!()
+        tx_hashes,
     })
 }
 
@@ -662,9 +697,37 @@ async fn get_public_nodes(
     mut state: CupratedRpcHandler,
     request: GetPublicNodesRequest,
 ) -> Result<GetPublicNodesResponse, Error> {
+    let (white, gray) = address_book::peerlist::<ClearNet>(&mut DummyAddressBook).await?;
+
+    fn map(peers: Vec<cuprate_types::rpc::Peer>) -> Vec<PublicNode> {
+        peers
+            .into_iter()
+            .map(|peer| {
+                let cuprate_types::rpc::Peer {
+                    host,
+                    rpc_port,
+                    rpc_credits_per_hash,
+                    last_seen,
+                    ..
+                } = peer;
+
+                PublicNode {
+                    host,
+                    rpc_port,
+                    rpc_credits_per_hash,
+                    last_seen,
+                }
+            })
+            .collect()
+    }
+
+    let white = map(white);
+    let gray = map(gray);
+
     Ok(GetPublicNodesResponse {
         base: helper::response_base(false),
-        ..todo!()
+        white,
+        gray,
     })
 }
 

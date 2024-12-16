@@ -429,7 +429,8 @@ define_struct_and_impl_epee! {
         mask: Hex<32>,
         unlocked: bool,
         height: u64,
-        txid: Hex<32>,
+        // Optionally empty with `/get_outs`'s `"get_txid": false`.
+        txid: String,
     }
 
     #[doc = monero_definition_link!(

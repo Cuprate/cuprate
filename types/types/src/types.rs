@@ -145,6 +145,8 @@ pub struct OutputOnChain {
     pub key: Option<EdwardsPoint>,
     /// The output's commitment.
     pub commitment: EdwardsPoint,
+    /// The transaction ID this output belongs to.
+    pub txid: [u8; 32],
 }
 
 /// The inner response for a request for txs in a block.
