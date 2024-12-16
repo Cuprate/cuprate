@@ -47,7 +47,7 @@ pub struct GetBlockResponse {
     pub block_header: BlockHeader,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Copy, Clone, Deserialize)]
 pub(crate) struct BlockHeader {
     #[serde(deserialize_with = "deserialize")]
     pub hash: [u8; 32],

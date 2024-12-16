@@ -40,7 +40,7 @@ async fn main() {
         let count = constants::TESTED_BLOCK_COUNT.load(Ordering::Acquire);
 
         if top_height == count {
-            println!("finished, took {}s", now.elapsed().as_secs());
+            println!("Finished, took {}s", now.elapsed().as_secs());
             std::process::exit(0);
         }
 

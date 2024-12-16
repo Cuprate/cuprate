@@ -9,27 +9,12 @@ pub fn randomx_vm_default(seed_hash: &[u8; 32]) -> RandomXVM {
 }
 
 /// Returns a [`RandomXVM`] with most optimization flags.
+#[expect(dead_code)]
 pub fn randomx_vm_optimized(seed_hash: &[u8; 32]) -> RandomXVM {
     // TODO: conditional FLAG_LARGE_PAGES, FLAG_JIT
 
-    let mut vm_flag = RandomXFlag::FLAG_FULL_MEM;
-    let mut cache_flag = RandomXFlag::empty();
-
-    #[cfg(target_arch = "x86_64")]
-    for flag in [&mut vm_flag, &mut cache_flag] {
-        if is_x86_feature_detected!("aes") {
-            *flag |= RandomXFlag::FLAG_HARD_AES;
-        }
-
-        match (
-            is_x86_feature_detected!("ssse3"),
-            is_x86_feature_detected!("avx2"),
-        ) {
-            (true, _) => *flag |= RandomXFlag::FLAG_ARGON2_SSSE3,
-            (_, true) => *flag |= RandomXFlag::FLAG_ARGON2_AVX2,
-            (_, _) => *flag |= RandomXFlag::FLAG_ARGON2,
-        }
-    }
+    let vm_flag = RandomXFlag::get_recommended_flags() | RandomXFlag::FLAG_FULL_MEM;
+    let cache_flag = RandomXFlag::get_recommended_flags();
 
     let hash = hex::encode(seed_hash);
 

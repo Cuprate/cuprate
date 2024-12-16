@@ -180,13 +180,7 @@ impl RpcClient {
                     .try_into()
                     .unwrap();
 
-                    let seed_hash = this
-                        .get_block(seed_height)
-                        .await
-                        .block_header
-                        .hash
-                        .try_into()
-                        .unwrap();
+                    let seed_hash = this.get_block(seed_height).await.block_header.hash;
 
                     (seed_height, seed_hash)
                 };
