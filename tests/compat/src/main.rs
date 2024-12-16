@@ -1,7 +1,3 @@
-#![allow(
-    clippy::doc_markdown,
-    reason = "TODO: add exception to doc clippy for `RandomX`"
-)]
 #![allow(unreachable_pub, reason = "This is a binary, everything `pub` is ok")]
 
 mod cli;

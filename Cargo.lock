@@ -1151,6 +1151,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-tests-compat"
+version = "0.0.0"
+dependencies = [
+ "clap",
+ "crossbeam",
+ "cuprate-consensus-rules",
+ "cuprate-constants",
+ "cuprate-cryptonight",
+ "futures",
+ "hex",
+ "hex-literal",
+ "monero-serai",
+ "randomx-rs",
+ "rayon",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "cuprate-txpool"
 version = "0.0.0"
 dependencies = [
@@ -3378,26 +3399,6 @@ checksum = "4f599bd7ca042cfdf8f4512b277c02ba102247820f9d9d4a9f521f496751a6ef"
 dependencies = [
  "rustix",
  "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "tests-compat"
-version = "0.0.0"
-dependencies = [
- "clap",
- "crossbeam",
- "cuprate-consensus-rules",
- "cuprate-cryptonight",
- "futures",
- "hex",
- "hex-literal",
- "monero-serai",
- "randomx-rs",
- "rayon",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
 ]
 
 [[package]]

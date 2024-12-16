@@ -1,5 +1,5 @@
 [package]
-name        = "tests-compat"
+name        = "cuprate-tests-compat"
 version     = "0.0.0"
 edition     = "2021"
 description = "Compatability tests between `cuprated` and `monerod`"
@@ -10,10 +10,11 @@ keywords    = ["cuprate", "tests", "compat"]
 
 
 [dependencies]
+cuprate-constants       = { workspace = true, features = ["build",] }
 cuprate-consensus-rules = { workspace = true }
 cuprate-cryptonight     = { workspace = true }
 
-clap         = { workspace = true, features = ["cargo", "derive", "default"] }
+clap         = { workspace = true, features = ["cargo", "derive", "default", "string"] }
 crossbeam    = { workspace = true, features = ["std"] }
 futures      = { workspace = true, features = ["std"] }
 monero-serai = { workspace = true }
@@ -28,10 +29,3 @@ randomx-rs   = { workspace = true }
 
 [lints]
 workspace = true
-
-[profile.release]
-panic         = "unwind"
-lto           = true
-strip         = "none"
-codegen-units = 1
-opt-level     = 3

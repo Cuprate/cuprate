@@ -2,9 +2,17 @@ use std::num::{NonZeroU64, NonZeroUsize};
 
 use clap::Parser;
 
-/// `cuprate` <-> `monerod` compatability tester.
+/// `cuprate` <-> `monerod` compatibility tester.
 #[derive(Parser, Debug)]
-#[command(about, long_about = None)]
+#[command(
+    about,
+    long_about = None,
+    long_version = format!(
+        "{} {}",
+        clap::crate_version!(),
+        cuprate_constants::build::COMMIT
+    ),
+)]
 pub struct Args {
     /// Name of the person to greet
     #[arg(short, long, default_value_t = String::from("http://127.0.0.1:18081"))]
