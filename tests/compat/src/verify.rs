@@ -23,7 +23,6 @@ struct Verifier {
     top_height: u64,
     rx: Receiver<RpcBlockData>,
     seed_hash: [u8; 32],
-    timestamp: u64,
     randomx_vm: Option<RandomXVM>,
 }
 
@@ -47,7 +46,6 @@ pub fn spawn_verify_pool(
                 top_height,
                 rx,
                 seed_hash: [0; 32],
-                timestamp: 0,
                 randomx_vm: None,
             }
             .loop_listen_verify();
@@ -78,6 +76,7 @@ impl Verifier {
             seed_height,
             seed_hash,
             txs,
+            blocks_per_sec,
         } = data;
         let GetBlockResponse { blob, block_header } = get_block_response;
 
@@ -101,7 +100,7 @@ impl Verifier {
         Self::verify_all_transactions_are_unique(&txs, &p);
         Self::verify_transaction_properties(txs, &p);
 
-        self.verify_block_fields(
+        Self::verify_block_fields(
             calculated_block_weight,
             calculated_block_reward,
             &block,
@@ -118,7 +117,13 @@ impl Verifier {
         );
 
         //----------------------------------------------- Print progress.
-        self.print_progress(algo, seed_height, miner_tx_weight, block_header);
+        self.print_progress(
+            algo,
+            seed_height,
+            miner_tx_weight,
+            blocks_per_sec,
+            block_header,
+        );
     }
 
     fn verify_block_properties(
@@ -171,7 +176,6 @@ impl Verifier {
     }
 
     fn verify_block_fields(
-        &mut self,
         calculated_block_weight: usize,
         calculated_block_reward: u64,
         block: &Block,
@@ -208,11 +212,6 @@ impl Verifier {
         assert_eq!(prev_hash, block.header.previous, "{p}");
         assert_eq!(reward, calculated_block_reward, "{p}");
         assert_eq!(timestamp, block.header.timestamp, "{p}");
-
-        if timestamp != 0 {
-            assert!(timestamp > self.timestamp, "{p}");
-            self.timestamp = timestamp;
-        }
     }
 
     fn verify_pow(
@@ -245,7 +244,7 @@ impl Verifier {
             ("randomx", pow_hash)
         };
 
-        assert_eq!(calculated_pow_hash, pow_hash, "{p}",);
+        assert_eq!(calculated_pow_hash, pow_hash, "{p}");
 
         algo
     }
@@ -260,6 +259,7 @@ impl Verifier {
         algo: &'static str,
         seed_height: u64,
         miner_tx_weight: usize,
+        download_bps: f64,
         BlockHeader {
             block_weight,
             hash,
@@ -282,14 +282,29 @@ impl Verifier {
             return;
         }
 
-        let top_height = self.top_height;
+        const fn find_count_relative_to_pow_activation(height: u64) -> u64 {
+            if height <= 1546000 {
+                height
+            } else if height <= 1685555 {
+                height - 1546000
+            } else if height <= 1788000 {
+                height - 1685555
+            } else if height <= 1978433 {
+                height - 1788000
+            } else {
+                height - 1978433
+            }
+        }
 
+        let top_height = self.top_height;
         let percent = (count as f64 / top_height as f64) * 100.0;
+        let relative_count = find_count_relative_to_pow_activation(height);
+        let block_buffer = self.rx.len();
 
         let elapsed = self.now.elapsed().as_secs_f64();
-        let secs_per_hash = elapsed / count as f64;
-        let bps = count as f64 / elapsed;
-        let remaining_secs = (top_height as f64 - count as f64) * secs_per_hash;
+        let secs_per_hash = elapsed / relative_count as f64;
+        let verify_bps = relative_count as f64 / elapsed;
+        let remaining_secs = (top_height as f64 - relative_count as f64) * secs_per_hash;
         let h = (remaining_secs / 60.0 / 60.0) as u64;
         let m = (remaining_secs / 60.0 % 60.0) as u64;
         let s = (remaining_secs % 60.0) as u64;
@@ -300,7 +315,10 @@ impl Verifier {
         let miner_tx_hash = hex::encode(miner_tx_hash);
         let prev_hash = hex::encode(prev_hash);
 
-        println!("progress        | {count}/{top_height} ({percent:.2}%, {algo}, {bps:.2} blocks/sec, {h}h {m}m {s}s left)
+        println!(
+            "progress        | {count}/{top_height} ({percent:.2}%)
+remaining       | [{h}h {m}m {s}s] left for [{algo}]
+block_pipeline  | [download {download_bps:.2}/sec] -> [buffer {block_buffer}] -> [verify {verify_bps:.2}/sec]
 seed_hash       | {seed_hash}
 pow_hash        | {pow_hash}
 block_hash      | {block_hash}
@@ -317,6 +335,6 @@ miner_tx_weight | {miner_tx_weight}
 major_version   | {major_version}
 minor_version   | {minor_version}
 num_txes        | {num_txes}\n",
-                );
+        );
     }
 }

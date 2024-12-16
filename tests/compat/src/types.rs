@@ -20,6 +20,9 @@ pub struct RpcBlockData {
     /// This vec is:
     /// - the original transaction blobs
     pub txs: Vec<RpcTxData>,
+
+    // Amount of blocks downloaded from RPC per second.
+    pub blocks_per_sec: f64,
 }
 
 /// Data of a transaction.

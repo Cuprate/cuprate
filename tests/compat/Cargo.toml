@@ -2,7 +2,7 @@
 name        = "cuprate-tests-compat"
 version     = "0.0.0"
 edition     = "2021"
-description = "Compatability tests between `cuprated` and `monerod`"
+description = "Compatibility tests between `cuprated` and `monerod`"
 license     = "MIT"
 authors     = ["hinto-janai"]
 repository  = "https://github.com/Cuprate/cuprate/tree/main/tests/compat"

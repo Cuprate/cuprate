@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use crossbeam::channel::Sender;
 use monero_serai::{block::Block, transaction::Transaction};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
@@ -144,8 +146,11 @@ impl RpcClient {
             .collect()
     }
 
+    #[expect(clippy::cast_precision_loss)]
     pub async fn test(self, top_height: u64, tx: Sender<RpcBlockData>) {
         use futures::StreamExt;
+
+        let now = Instant::now();
 
         let iter = (0..top_height).map(|height| {
             let this = self.clone();
@@ -185,12 +190,16 @@ impl RpcClient {
                     (seed_height, seed_hash)
                 };
 
+                let elapsed = now.elapsed().as_secs_f64();
+                let blocks_per_sec = height as f64 / elapsed;
+
                 let data = RpcBlockData {
                     get_block_response,
                     block,
                     seed_height,
                     seed_hash,
                     txs,
+                    blocks_per_sec,
                 };
 
                 tx.send(data).unwrap();

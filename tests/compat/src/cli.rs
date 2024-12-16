@@ -14,7 +14,9 @@ use clap::Parser;
     ),
 )]
 pub struct Args {
-    /// Name of the person to greet
+    /// Base URL to use for `monerod` RPC.
+    ///
+    /// This must be a non-restricted RPC.
     #[arg(short, long, default_value_t = String::from("http://127.0.0.1:18081"))]
     pub rpc_url: String,
 
