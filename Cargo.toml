@@ -54,12 +54,11 @@ members = [
 	"types",
 
 	# Tests
-	"tests/pow",
-	"tests/monero-serai",
+	"tests/compat",
 ]
 
 [profile.release]
-panic         = "abort" 
+panic         = "abort"
 lto           = true   # Build with LTO
 strip         = "none" # Keep panic stack traces
 codegen-units = 1      # Optimize for binary speed over compile times

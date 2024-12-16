@@ -1,7 +1,7 @@
 use randomx_rs::{RandomXCache, RandomXDataset, RandomXFlag, RandomXVM};
 
 /// Returns a [`RandomXVM`] with no optimization flags (default, light-verification).
-pub(crate) fn randomx_vm_default(seed_hash: &[u8; 32]) -> RandomXVM {
+pub fn randomx_vm_default(seed_hash: &[u8; 32]) -> RandomXVM {
     const FLAG: RandomXFlag = RandomXFlag::FLAG_DEFAULT;
 
     let cache = RandomXCache::new(FLAG, seed_hash).unwrap();
@@ -9,7 +9,7 @@ pub(crate) fn randomx_vm_default(seed_hash: &[u8; 32]) -> RandomXVM {
 }
 
 /// Returns a [`RandomXVM`] with most optimization flags.
-pub(crate) fn randomx_vm_optimized(seed_hash: &[u8; 32]) -> RandomXVM {
+pub fn randomx_vm_optimized(seed_hash: &[u8; 32]) -> RandomXVM {
     // TODO: conditional FLAG_LARGE_PAGES, FLAG_JIT
 
     let mut vm_flag = RandomXFlag::FLAG_FULL_MEM;

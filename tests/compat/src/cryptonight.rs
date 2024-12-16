@@ -3,7 +3,7 @@ use std::fmt::Display;
 use hex_literal::hex;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum CryptoNightHash {
+pub enum CryptoNightHash {
     V0,
     V1,
     V2,
@@ -12,7 +12,7 @@ pub(crate) enum CryptoNightHash {
 
 impl CryptoNightHash {
     /// The last height this hash function is used for proof-of-work.
-    pub(crate) const fn from_height(height: u64) -> Self {
+    pub const fn from_height(height: u64) -> Self {
         if height < 1546000 {
             Self::V0
         } else if height < 1685555 {
@@ -26,7 +26,7 @@ impl CryptoNightHash {
         }
     }
 
-    pub(crate) fn hash(data: &[u8], height: u64) -> (&'static str, [u8; 32]) {
+    pub fn hash(data: &[u8], height: u64) -> (&'static str, [u8; 32]) {
         let this = Self::from_height(height);
 
         let hash = match Self::from_height(height) {
@@ -45,7 +45,7 @@ impl CryptoNightHash {
         (this.as_str(), hash)
     }
 
-    pub(crate) const fn as_str(self) -> &'static str {
+    pub const fn as_str(self) -> &'static str {
         match self {
             Self::V0 => "cryptonight_v0",
             Self::V1 => "cryptonight_v1",

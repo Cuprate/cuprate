@@ -1,15 +1,23 @@
 [package]
-name = "tests-pow"
-version = "0.0.0"
-edition = "2021"
+name        = "tests-compat"
+version     = "0.0.0"
+edition     = "2021"
+description = "Compatability tests between `cuprated` and `monerod`"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/tests/compat"
+keywords    = ["cuprate", "tests", "compat"]
+
 
 [dependencies]
 cuprate-consensus-rules = { workspace = true }
-cuprate-cryptonight = { workspace = true }
+cuprate-cryptonight     = { workspace = true }
 
+clap         = { workspace = true, features = ["cargo", "derive", "default"] }
 crossbeam    = { workspace = true, features = ["std"] }
 futures      = { workspace = true, features = ["std"] }
 monero-serai = { workspace = true }
+rayon        = { workspace = true }
 hex          = { workspace = true, features = ["serde", "std"] }
 hex-literal  = { workspace = true }
 serde        = { workspace = true, features = ["derive"] }
@@ -20,3 +28,10 @@ randomx-rs   = { workspace = true }
 
 [lints]
 workspace = true
+
+[profile.release]
+panic         = "unwind"
+lto           = true
+strip         = "none"
+codegen-units = 1
+opt-level     = 3
