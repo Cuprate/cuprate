@@ -179,7 +179,6 @@ impl RpcClient {
 
             let task =
                 tokio::task::spawn(self.client.get(&self.json_rpc_url).json(&request).send());
-            // tokio::task::spawn(self.client.get(&*self.nodes.rand()).json(&request).send());
 
             (height, task)
         });

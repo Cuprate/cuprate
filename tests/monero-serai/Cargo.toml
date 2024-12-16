@@ -11,7 +11,6 @@ serde_json   = { workspace = true, features = ["std"] }
 tokio        = { workspace = true, features = ["full"] }
 reqwest      = { workspace = true, features = ["json"] }
 rayon        = { workspace = true }
-# rand        = { workspace = true, features = ["std", "std_rng"] }
 futures      = { workspace = true, features = ["std"] }
 
 [lints]

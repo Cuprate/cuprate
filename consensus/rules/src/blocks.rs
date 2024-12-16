@@ -60,10 +60,10 @@ pub const fn is_randomx_seed_height(height: usize) -> bool {
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#randomx-seed>
 pub const fn randomx_seed_height(height: usize) -> usize {
-    if height <= 2048 + 64 {
+    if height <= RX_SEEDHASH_EPOCH_BLOCKS + RX_SEEDHASH_EPOCH_LAG {
         0
     } else {
-        (height - 64 - 1) & !(2048 - 1)
+        (height - RX_SEEDHASH_EPOCH_LAG - 1) & !(RX_SEEDHASH_EPOCH_BLOCKS - 1)
     }
 }
 
