@@ -1,0 +1,31 @@
+[package]
+name        = "cuprate-tests-compat"
+version     = "0.0.0"
+edition     = "2021"
+description = "Compatibility tests between `cuprated` and `monerod`"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/tests/compat"
+keywords    = ["cuprate", "tests", "compat"]
+
+
+[dependencies]
+cuprate-constants       = { workspace = true, features = ["build",] }
+cuprate-consensus-rules = { workspace = true }
+cuprate-cryptonight     = { workspace = true }
+
+clap         = { workspace = true, features = ["cargo", "derive", "default", "string"] }
+crossbeam    = { workspace = true, features = ["std"] }
+futures      = { workspace = true, features = ["std"] }
+monero-serai = { workspace = true }
+rayon        = { workspace = true }
+hex          = { workspace = true, features = ["serde", "std"] }
+hex-literal  = { workspace = true }
+serde        = { workspace = true, features = ["derive"] }
+serde_json   = { workspace = true, features = ["std"] }
+tokio        = { workspace = true, features = ["full"] }
+reqwest      = { workspace = true, features = ["json"] }
+randomx-rs   = { workspace = true }
+
+[lints]
+workspace = true
