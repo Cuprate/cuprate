@@ -71,12 +71,13 @@ macro_rules! generate_endpoints_inner {
     ($variant:ident, $handler:ident, $request:expr_2021) => {
         paste::paste! {
             {
-                // INVARIANT:
-                // The handler functions in `cuprated` depend on this line existing,
-                // the functions themselves do not check if they are being called
-                // from an (un)restricted context.
+                // Check if restricted.
                 //
-                // This line must be here or all methods will be allowed to be called freely.
+                // INVARIANT:
+                // The RPC handler functions in `cuprated` depend on this line existing,
+                // the functions themselves do not check if they are being called
+                // from an (un)restricted context. This line must be here or all
+                // methods will be allowed to be called freely.
                 if [<$variant Request>]::IS_RESTRICTED && $handler.is_restricted() {
                     // TODO: mimic `monerod` behavior.
                     return Err(StatusCode::FORBIDDEN);
