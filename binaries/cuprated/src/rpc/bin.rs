@@ -1,10 +1,13 @@
 //! RPC request handler functions (binary endpoints).
 
+use std::num::NonZero;
+
 use anyhow::{anyhow, Error};
 use bytes::Bytes;
 
 use cuprate_constants::rpc::{RESTRICTED_BLOCK_COUNT, RESTRICTED_TRANSACTIONS_COUNT};
 use cuprate_fixed_bytes::ByteArrayVec;
+use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
     base::{AccessResponseBase, ResponseBase},
@@ -17,7 +20,10 @@ use cuprate_rpc_types::{
     json::{GetOutputDistributionRequest, GetOutputDistributionResponse},
     misc::RequestedInfo,
 };
-use cuprate_types::{rpc::PoolInfoExtent, BlockCompleteEntry};
+use cuprate_types::{
+    rpc::{PoolInfo, PoolInfoExtent},
+    BlockCompleteEntry,
+};
 
 use crate::rpc::{
     helper,
@@ -50,7 +56,7 @@ pub(super) async fn map_request(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L611-L789>
 async fn get_blocks(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: GetBlocksRequest,
 ) -> Result<GetBlocksResponse, Error> {
     // Time should be set early:
@@ -58,7 +64,7 @@ async fn get_blocks(
     let daemon_time = cuprate_helper::time::current_unix_timestamp();
 
     let Some(requested_info) = RequestedInfo::from_u8(request.requested_info) else {
-        return Err(anyhow!("Failed, wrong requested info"));
+        return Err(anyhow!("Wrong requested info"));
     };
 
     let (get_blocks, get_pool) = match requested_info {
@@ -69,60 +75,66 @@ async fn get_blocks(
 
     let pool_info_extent = PoolInfoExtent::None;
 
-    if get_pool {
-        let allow_sensitive = !state.is_restricted();
+    let pool_info = if get_pool {
+        let include_sensitive_txs = !state.is_restricted();
         let max_tx_count = if state.is_restricted() {
             RESTRICTED_TRANSACTIONS_COUNT
         } else {
             usize::MAX
         };
 
-        //   bool incremental;
-        //   std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>> added_pool_txs;
-        //   bool success = m_core.get_pool_info((time_t)req.pool_info_since, allow_sensitive, max_tx_count, added_pool_txs, res.remaining_added_pool_txids, res.removed_pool_txids, incremental);
-        //   if (success)
-        //   {
-        //     res.added_pool_txs.clear();
-        //     if (m_rpc_payment)
-        //     {
-        //       CHECK_PAYMENT_SAME_TS(req, res, added_pool_txs.size() * COST_PER_TX + (res.remaining_added_pool_txids.size() + res.removed_pool_txids.size()) * COST_PER_POOL_HASH);
-        //     }
-        //     for (const auto &added_pool_tx: added_pool_txs)
-        //     {
-        //       COMMAND_RPC_GET_BLOCKS_FAST::pool_tx_info info;
-        //       info.tx_hash = added_pool_tx.first;
-        //       std::stringstream oss;
-        //       binary_archive<true> ar(oss);
-        //       bool r = req.prune
-        //         ? const_cast<cryptonote::transaction&>(added_pool_tx.second.tx).serialize_base(ar)
-        //         : ::serialization::serialize(ar, const_cast<cryptonote::transaction&>(added_pool_tx.second.tx));
-        //       if (!r)
-        //       {
-        //         res.status = "Failed to serialize transaction";
-        //         return true;
-        //       }
-        //       info.tx_blob = oss.str();
-        //       info.double_spend_seen = added_pool_tx.second.double_spend_seen;
-        //       res.added_pool_txs.push_back(std::move(info));
-        //     }
+        txpool::pool_info(
+            &mut state.txpool_read,
+            include_sensitive_txs,
+            max_tx_count,
+            NonZero::new(u64_to_usize(request.pool_info_since)),
+        )
+        .await?
+    } else {
+        PoolInfo::None
+    };
+
+    let resp = GetBlocksResponse {
+        base: helper::access_response_base(false),
+        blocks: vec![],
+        start_height: 0,
+        current_height: 0,
+        output_indices: vec![],
+        daemon_time,
+        pool_info,
+    };
+
+    if !get_blocks {
+        return Ok(resp);
     }
 
-    if get_blocks {
-        if !request.block_ids.is_empty() {
-            todo!();
-        }
+    // FIXME: impl `first()`
+    if !request.block_ids.is_empty() {
+        let block_id = request.block_ids[0];
 
-        todo!();
+        let (height, hash) = helper::top_height(&mut state).await?;
+
+        if hash == block_id {
+            return Ok(GetBlocksResponse {
+                current_height: height + 1,
+                ..resp
+            });
+        }
+    }
+
+    let block_hashes: Vec<[u8; 32]> = (&request.block_ids).into();
+
+    let (blocks, missing_hashes, blockchain_height) =
+        blockchain::block_complete_entries(&mut state.blockchain_read, block_hashes).await?;
+
+    if !missing_hashes.is_empty() {
+        return Err(anyhow!("Missing blocks"));
     }
 
     Ok(GetBlocksResponse {
-        base: helper::access_response_base(false),
-        blocks: todo!(),
-        start_height: todo!(),
-        current_height: todo!(),
-        output_indices: todo!(),
-        daemon_time: todo!(),
-        pool_info: todo!(),
+        blocks,
+        current_height: usize_to_u64(blockchain_height),
+        ..resp
     })
 }
 

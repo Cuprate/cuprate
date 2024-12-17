@@ -411,6 +411,27 @@ pub(crate) async fn total_rct_outputs(
     Ok(n)
 }
 
+/// [`BlockchainReadRequest::BlockCompleteEntries`].
+pub(crate) async fn block_complete_entries(
+    blockchain_read: &mut BlockchainReadHandle,
+    block_hashes: Vec<[u8; 32]>,
+) -> Result<(Vec<BlockCompleteEntry>, Vec<[u8; 32]>, usize), Error> {
+    let BlockchainResponse::BlockCompleteEntries {
+        blocks,
+        missing_hashes,
+        blockchain_height,
+    } = blockchain_read
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::BlockCompleteEntries(block_hashes))
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok((blocks, missing_hashes, blockchain_height))
+}
+
 /// [`BlockchainReadRequest::BlockCompleteEntriesByHeight`].
 pub(crate) async fn block_complete_entries_by_height(
     blockchain_read: &mut BlockchainReadHandle,
