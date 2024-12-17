@@ -37,6 +37,13 @@ pub(crate) async fn json_rpc<H: RpcHandler>(
 
     // Return early if this RPC server is restricted and
     // the requested method is only for non-restricted RPC.
+    //
+    // INVARIANT:
+    // The handler functions in `cuprated` depend on this line existing,
+    // the functions themselves do not check if they are being called
+    // from an (un)restricted context.
+    //
+    // This line must be here or all methods will be allowed to be called freely.
     if request.body.is_restricted() && handler.is_restricted() {
         let error_object = ErrorObject {
             code: ErrorCode::ServerError(-1 /* TODO */),
