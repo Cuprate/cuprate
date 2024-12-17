@@ -1,6 +1,7 @@
 //! RPC request handler functions (binary endpoints).
 
 use anyhow::{anyhow, Error};
+use bytes::Bytes;
 
 use cuprate_constants::rpc::{RESTRICTED_BLOCK_COUNT, RESTRICTED_TRANSACTIONS_COUNT};
 use cuprate_rpc_interface::RpcHandler;
@@ -17,7 +18,7 @@ use cuprate_rpc_types::{
 };
 use cuprate_types::{rpc::PoolInfoExtent, BlockCompleteEntry};
 
-use crate::rpc::{helper, request::blockchain, CupratedRpcHandler};
+use crate::rpc::{helper, request::blockchain, shared, CupratedRpcHandler};
 
 /// Map a [`BinRequest`] to the function that will lead to a [`BinResponse`].
 pub(super) async fn map_request(
@@ -122,18 +123,16 @@ async fn get_blocks(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L817-L857>
 async fn get_blocks_by_height(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: GetBlocksByHeightRequest,
 ) -> Result<GetBlocksByHeightResponse, Error> {
     if state.is_restricted() && request.heights.len() > RESTRICTED_BLOCK_COUNT {
         return Err(anyhow!("Too many blocks requested in restricted mode"));
     }
 
-    let blocks = request
-        .heights
-        .into_iter()
-        .map(|height| Ok(todo!()))
-        .collect::<Result<Vec<BlockCompleteEntry>, Error>>()?;
+    let blocks =
+        blockchain::block_complete_entries_by_height(&mut state.blockchain_read, request.heights)
+            .await?;
 
     Ok(GetBlocksByHeightResponse {
         base: helper::access_response_base(false),
@@ -156,13 +155,6 @@ async fn get_hashes(
 
         request.block_ids[len - 1]
     };
-
-    const GENESIS_BLOCK_HASH: [u8; 32] = [0; 32]; // TODO
-    if last != GENESIS_BLOCK_HASH {
-        return Err(anyhow!(
-            "genesis block mismatch, found: {last:?}, expected: {GENESIS_BLOCK_HASH:?}"
-        ));
-    }
 
     let mut bytes = request.block_ids;
     let hashes: Vec<[u8; 32]> = (&bytes).into();
@@ -201,10 +193,7 @@ async fn get_outs(
     state: CupratedRpcHandler,
     request: GetOutsRequest,
 ) -> Result<GetOutsResponse, Error> {
-    Ok(GetOutsResponse {
-        base: helper::access_response_base(false),
-        ..todo!()
-    })
+    shared::get_outs(state, request).await
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1689-L1711>

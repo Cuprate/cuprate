@@ -256,6 +256,23 @@ define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
         "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
+        582..=597
+    )]
+    /// Used in [`crate::other::GetOutsRequest`].
+    OutKey {
+        key: Hex<32>,
+        mask: Hex<32>,
+        unlocked: bool,
+        height: u64,
+        /// Optionally empty with `/get_outs`'s `"get_txid": false`.
+        txid: String,
+    }
+}
+
+define_struct_and_impl_epee! {
+    #[doc = monero_definition_link!(
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
+        "rpc/core_rpc_server_commands_defs.h",
         538..=553
     )]
     #[derive(Copy)]

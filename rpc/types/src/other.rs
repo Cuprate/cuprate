@@ -7,12 +7,12 @@
 use serde::{Deserialize, Serialize};
 
 use cuprate_hex::Hex;
-use cuprate_types::rpc::{OutKey, Peer, PublicNode, TxpoolStats};
+use cuprate_types::rpc::{Peer, PublicNode, TxpoolStats};
 
 use crate::{
     base::{AccessResponseBase, ResponseBase},
     macros::define_request_and_response,
-    misc::{GetOutputsOut, SpentKeyImageInfo, Status, TxEntry, TxInfo},
+    misc::{GetOutputsOut, OutKey, SpentKeyImageInfo, Status, TxEntry, TxInfo},
     RpcCallValue,
 };
 
@@ -1206,9 +1206,8 @@ mod test {
                         mask: Hex(hex!(
                             "1738eb7a677c6149228a2beaa21bea9e3370802d72a3eec790119580e02bd522"
                         )),
-                        txid: Hex(hex!(
-                            "9d651903b80fb70b9935b72081cd967f543662149aed3839222511acd9100601"
-                        )),
+                        txid: "9d651903b80fb70b9935b72081cd967f543662149aed3839222511acd9100601"
+                            .into(),
                         unlocked: true,
                     },
                     OutKey {
@@ -1219,9 +1218,8 @@ mod test {
                         mask: Hex(hex!(
                             "1738eb7a677c6149228a2beaa21bea9e3370802d72a3eec790119580e02bd522"
                         )),
-                        txid: Hex(hex!(
-                            "230bff732dc5f225df14fff82aadd1bf11b3fb7ad3a03413c396a617e843f7d0"
-                        )),
+                        txid: "230bff732dc5f225df14fff82aadd1bf11b3fb7ad3a03413c396a617e843f7d0"
+                            .into(),
                         unlocked: true,
                     },
                 ],

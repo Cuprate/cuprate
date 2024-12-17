@@ -16,7 +16,7 @@ pub use pool_info_extent::PoolInfoExtent;
 pub use types::{
     AddAuxPow, AuxPow, BlockHeader, BlockOutputIndices, ChainInfo, CoinbaseTxSum, ConnectionInfo,
     FeeEstimate, GetBan, GetMinerDataTxBacklogEntry, GetOutputsOut, HardForkEntry, HardForkInfo,
-    HistogramEntry, MinerData, MinerDataTxBacklogEntry, OutKey, OutKeyBin, OutputDistributionData,
+    HistogramEntry, MinerData, MinerDataTxBacklogEntry, OutputDistributionData,
     OutputHistogramEntry, OutputHistogramInput, Peer, PoolInfoFull, PoolInfoIncremental,
     PoolTxInfo, PublicNode, SetBan, Span, SpentKeyImageInfo, SyncInfoPeer, TxBacklogEntry, TxInfo,
     TxOutputIndices, TxpoolHisto, TxpoolStats,

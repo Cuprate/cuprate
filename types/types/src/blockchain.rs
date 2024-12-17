@@ -32,6 +32,11 @@ pub enum BlockchainReadRequest {
     /// The input is the block hashes.
     BlockCompleteEntries(Vec<[u8; 32]>),
 
+    /// Request [`BlockCompleteEntry`]s.
+    ///
+    /// The input is the block heights.
+    BlockCompleteEntriesByHeight(Vec<usize>),
+
     /// Request a block's extended header.
     ///
     /// The input is the block's height.
@@ -222,6 +227,9 @@ pub enum BlockchainResponse {
         /// Our blockchain height.
         blockchain_height: usize,
     },
+
+    /// Response to [`BlockchainReadRequest::BlockCompleteEntriesByHeight`].
+    BlockCompleteEntriesByHeight(Vec<BlockCompleteEntry>),
 
     /// Response to [`BlockchainReadRequest::BlockExtendedHeader`].
     ///

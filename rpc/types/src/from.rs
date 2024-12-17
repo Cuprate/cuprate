@@ -193,3 +193,15 @@ impl From<SpentKeyImageInfo> for crate::misc::SpentKeyImageInfo {
         }
     }
 }
+
+impl From<crate::misc::OutKeyBin> for crate::misc::OutKey {
+    fn from(x: crate::misc::OutKeyBin) -> Self {
+        Self {
+            key: Hex(x.key),
+            mask: Hex(x.mask),
+            unlocked: x.unlocked,
+            height: x.height,
+            txid: hex::encode(x.txid),
+        }
+    }
+}

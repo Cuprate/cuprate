@@ -311,19 +311,6 @@ define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
         "cc73fe71162d564ffda8e549b79a350bca53c454",
         "rpc/core_rpc_server_commands_defs.h",
-        538..=553
-    )]
-    OutKeyBin {
-        key: [u8; 32],
-        mask: [u8; 32],
-        unlocked: bool,
-        height: u64,
-        txid: [u8; 32],
-    }
-
-    #[doc = monero_definition_link!(
-        "cc73fe71162d564ffda8e549b79a350bca53c454",
-        "rpc/core_rpc_server_commands_defs.h",
         1335..=1367
     )]
     Peer {
@@ -417,20 +404,6 @@ define_struct_and_impl_epee! {
         num_not_relayed: u32,
         oldest: u64,
         txs_total: u32,
-    }
-
-    #[doc = monero_definition_link!(
-        "cc73fe71162d564ffda8e549b79a350bca53c454",
-        "rpc/core_rpc_server_commands_defs.h",
-        582..=597
-    )]
-    OutKey {
-        key: Hex<32>,
-        mask: Hex<32>,
-        unlocked: bool,
-        height: u64,
-        // Optionally empty with `/get_outs`'s `"get_txid": false`.
-        txid: String,
     }
 
     #[doc = monero_definition_link!(

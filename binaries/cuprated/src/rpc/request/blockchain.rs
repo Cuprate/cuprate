@@ -16,7 +16,7 @@ use cuprate_types::{
     rpc::{
         ChainInfo, CoinbaseTxSum, KeyImageSpentStatus, OutputHistogramEntry, OutputHistogramInput,
     },
-    Chain, ExtendedBlockHeader, OutputOnChain, TxInBlockchain,
+    BlockCompleteEntry, Chain, ExtendedBlockHeader, OutputOnChain, TxInBlockchain,
 };
 
 /// [`BlockchainReadRequest::Block`].
@@ -399,7 +399,7 @@ pub(crate) async fn transactions(
 pub(crate) async fn total_rct_outputs(
     blockchain_read: &mut BlockchainReadHandle,
 ) -> Result<u64, Error> {
-    let BlockchainResponse::TotalRctOutputs(total_rct_outputs) = blockchain_read
+    let BlockchainResponse::TotalRctOutputs(n) = blockchain_read
         .ready()
         .await?
         .call(BlockchainReadRequest::TotalRctOutputs)
@@ -408,5 +408,24 @@ pub(crate) async fn total_rct_outputs(
         unreachable!();
     };
 
-    Ok(total_rct_outputs)
+    Ok(n)
+}
+
+/// [`BlockchainReadRequest::BlockCompleteEntriesByHeight`].
+pub(crate) async fn block_complete_entries_by_height(
+    blockchain_read: &mut BlockchainReadHandle,
+    block_heights: Vec<u64>,
+) -> Result<Vec<BlockCompleteEntry>, Error> {
+    let BlockchainResponse::BlockCompleteEntriesByHeight(blocks) = blockchain_read
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::BlockCompleteEntriesByHeight(
+            block_heights.into_iter().map(u64_to_usize).collect(),
+        ))
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(blocks)
 }

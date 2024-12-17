@@ -120,7 +120,6 @@ define_request_and_response! {
 
     Request {
         requested_info: u8 = default::<u8>(), "default",
-        // FIXME: This is a `std::list` in `monerod` because...?
         block_ids: ByteArrayVec<32> = default::<ByteArrayVec<32>>(), "default",
         start_height: u64,
         prune: bool,

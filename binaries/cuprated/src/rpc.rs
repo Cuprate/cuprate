@@ -9,5 +9,6 @@ mod helper;
 mod json;
 mod other;
 mod request;
+mod shared;
 
 pub use handler::CupratedRpcHandler;

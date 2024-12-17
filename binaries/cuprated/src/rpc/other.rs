@@ -37,7 +37,7 @@ use cuprate_rpc_types::{
     },
 };
 use cuprate_types::{
-    rpc::{KeyImageSpentStatus, OutKey, PoolInfo, PoolTxInfo, PublicNode},
+    rpc::{KeyImageSpentStatus, PoolInfo, PoolTxInfo, PublicNode},
     TxInPool, TxRelayChecks,
 };
 use monero_serai::transaction::{Input, Timelock, Transaction};
@@ -47,7 +47,7 @@ use crate::{
     rpc::{
         helper,
         request::{blockchain, blockchain_context, blockchain_manager, txpool},
-        CupratedRpcHandler,
+        shared, CupratedRpcHandler,
     },
     statics::START_INSTANT_UNIX,
 };
@@ -610,45 +610,21 @@ async fn get_net_stats(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L912-L957>
 async fn get_outs(
-    mut state: CupratedRpcHandler,
+    state: CupratedRpcHandler,
     request: GetOutsRequest,
 ) -> Result<GetOutsResponse, Error> {
-    if state.is_restricted() && request.outputs.len() > MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT {
-        return Err(anyhow!("Too many outs requested"));
-    }
-
-    let outputs = {
-        let mut outputs = HashMap::<u64, HashSet<u64>>::with_capacity(request.outputs.len());
-
-        for out in request.outputs {
-            outputs
-                .entry(out.amount)
-                .and_modify(|set| {
-                    set.insert(out.index);
-                })
-                .or_insert_with(|| HashSet::from([out.index]));
-        }
-
-        outputs
-    };
-
-    let outs = blockchain::outputs(&mut state.blockchain_read, outputs)
-        .await?
-        .into_iter()
-        .flat_map(|(amount, index_map)| {
-            index_map.into_iter().map(|(index, out)| OutKey {
-                key: out.key.map_or(Hex([0; 32]), |e| Hex(e.compress().0)),
-                mask: Hex(out.commitment.compress().0),
-                unlocked: matches!(out.time_lock, Timelock::None),
-                height: usize_to_u64(out.height),
-                txid: if request.get_txid {
-                    hex::encode(out.txid)
-                } else {
-                    String::new()
-                },
-            })
-        })
-        .collect::<Vec<OutKey>>();
+    let outs = shared::get_outs(
+        state,
+        cuprate_rpc_types::bin::GetOutsRequest {
+            outputs: request.outputs,
+            get_txid: request.get_txid,
+        },
+    )
+    .await?
+    .outs
+    .into_iter()
+    .map(Into::into)
+    .collect();
 
     Ok(GetOutsResponse {
         base: helper::response_base(false),
