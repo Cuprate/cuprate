@@ -4,6 +4,7 @@ use anyhow::{anyhow, Error};
 use bytes::Bytes;
 
 use cuprate_constants::rpc::{RESTRICTED_BLOCK_COUNT, RESTRICTED_TRANSACTIONS_COUNT};
+use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
     base::{AccessResponseBase, ResponseBase},
@@ -18,7 +19,11 @@ use cuprate_rpc_types::{
 };
 use cuprate_types::{rpc::PoolInfoExtent, BlockCompleteEntry};
 
-use crate::rpc::{helper, request::blockchain, shared, CupratedRpcHandler};
+use crate::rpc::{
+    helper,
+    request::{blockchain, txpool},
+    shared, CupratedRpcHandler,
+};
 
 /// Map a [`BinRequest`] to the function that will lead to a [`BinResponse`].
 pub(super) async fn map_request(
@@ -179,14 +184,12 @@ async fn get_hashes(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L959-L977>
 async fn get_output_indexes(
-    state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: GetOutputIndexesRequest,
 ) -> Result<GetOutputIndexesResponse, Error> {
-    let o_indexes = blockchain::tx_output_indexes(&mut state.blockchain_read, request.txid).await?;
-
     Ok(GetOutputIndexesResponse {
         base: helper::access_response_base(false),
-        o_indexes,
+        o_indexes: blockchain::tx_output_indexes(&mut state.blockchain_read, request.txid).await?,
     })
 }
 
@@ -200,12 +203,14 @@ async fn get_outs(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1689-L1711>
 async fn get_transaction_pool_hashes(
-    state: CupratedRpcHandler,
-    request: GetTransactionPoolHashesRequest,
+    mut state: CupratedRpcHandler,
+    _: GetTransactionPoolHashesRequest,
 ) -> Result<GetTransactionPoolHashesResponse, Error> {
     Ok(GetTransactionPoolHashesResponse {
         base: helper::access_response_base(false),
-        ..todo!()
+        tx_hashes: shared::get_transaction_pool_hashes(state)
+            .await
+            .map(ByteArrayVec::from)?,
     })
 }
 
@@ -214,8 +219,5 @@ async fn get_output_distribution(
     state: CupratedRpcHandler,
     request: GetOutputDistributionRequest,
 ) -> Result<GetOutputDistributionResponse, Error> {
-    Ok(GetOutputDistributionResponse {
-        base: helper::access_response_base(false),
-        ..todo!()
-    })
+    shared::get_output_distribution(state, request).await
 }

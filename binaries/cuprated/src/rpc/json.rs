@@ -62,7 +62,7 @@ use crate::{
     rpc::{
         helper,
         request::{address_book, blockchain, blockchain_context, blockchain_manager, txpool},
-        CupratedRpcHandler,
+        shared, CupratedRpcHandler,
     },
     statics::START_INSTANT_UNIX,
 };
@@ -958,35 +958,10 @@ async fn get_transaction_pool_backlog(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3352-L3398>
 async fn get_output_distribution(
-    mut state: CupratedRpcHandler,
+    state: CupratedRpcHandler,
     request: GetOutputDistributionRequest,
 ) -> Result<GetOutputDistributionResponse, Error> {
-    if state.is_restricted() && request.amounts != [1, 0] {
-        return Err(anyhow!(
-            "Restricted RPC can only get output distribution for RCT outputs. Use your own node."
-        ));
-    }
-
-    // 0 is placeholder for the whole chain
-    let req_to_height = if request.to_height == 0 {
-        helper::top_height(&mut state).await?.0.saturating_sub(1)
-    } else {
-        request.to_height
-    };
-
-    let distributions = request.amounts.into_iter().map(|amount| {
-        fn get_output_distribution() -> Result<Distribution, Error> {
-            todo!("https://github.com/monero-project/monero/blob/893916ad091a92e765ce3241b94e706ad012b62a/src/rpc/rpc_handler.cpp#L29");
-            Err(anyhow!("Failed to get output distribution"))
-        }
-
-        get_output_distribution()
-    }).collect::<Result<Vec<Distribution>, _>>()?;
-
-    Ok(GetOutputDistributionResponse {
-        base: helper::access_response_base(false),
-        distributions,
-    })
+    shared::get_output_distribution(state, request).await
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1998-L2033>

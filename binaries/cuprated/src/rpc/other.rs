@@ -651,20 +651,13 @@ async fn get_transaction_pool_hashes(
     mut state: CupratedRpcHandler,
     _: GetTransactionPoolHashesRequest,
 ) -> Result<GetTransactionPoolHashesResponse, Error> {
-    let include_sensitive_txs = !state.is_restricted();
-
-    // FIXME: this request is a bit overkill, we only need the hashes.
-    // We could create a separate request for this.
-    let tx_hashes = txpool::pool(&mut state.txpool_read, include_sensitive_txs)
-        .await?
-        .0
-        .into_iter()
-        .map(|tx| tx.id_hash)
-        .collect();
-
     Ok(GetTransactionPoolHashesResponse {
         base: helper::response_base(false),
-        tx_hashes,
+        tx_hashes: shared::get_transaction_pool_hashes(state)
+            .await?
+            .into_iter()
+            .map(Hex)
+            .collect(),
     })
 }
 

@@ -438,7 +438,7 @@ pub(crate) async fn tx_output_indexes(
     let BlockchainResponse::TxOutputIndexes(o_indexes) = blockchain_read
         .ready()
         .await?
-        .call(BlockchainReadRequest::TxOutputIndexes(tx_hash))
+        .call(BlockchainReadRequest::TxOutputIndexes { tx_hash })
         .await?
     else {
         unreachable!();
