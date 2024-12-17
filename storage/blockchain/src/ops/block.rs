@@ -274,7 +274,7 @@ pub fn get_block_complete_entry_from_height(
     tables: &impl TablesIter,
 ) -> Result<BlockCompleteEntry, RuntimeError> {
     let (block_blob, miner_tx_idx, numb_non_miner_txs) =
-        get_block_blob_with_tx_indexes(&block_height, tables)?;
+        get_block_blob_with_tx_indexes(block_height, tables)?;
 
     let first_tx_idx = miner_tx_idx + 1;
 

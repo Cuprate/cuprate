@@ -264,8 +264,7 @@ fn block_complete_entries_by_height(
         .map(|height| {
             let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
             let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
-
-            Ok(get_block_complete_entry_from_height(&height, tables)?)
+            get_block_complete_entry_from_height(&height, tables)
         })
         .collect::<DbResult<_>>()?;
 
