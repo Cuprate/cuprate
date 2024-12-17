@@ -17,7 +17,7 @@ use crate::{
 
 struct Verifier {
     id: usize,
-    now: Instant,
+    start_of_new_pow: Instant,
     thread_count: NonZeroUsize,
     update: NonZeroU64,
     top_height: u64,
@@ -33,14 +33,12 @@ pub fn spawn_verify_pool(
     top_height: u64,
     rx: Receiver<RpcBlockData>,
 ) {
-    let now = Instant::now();
-
-    for id in 0..thread_count.get() {
+    for id in 1..=thread_count.get() {
         let rx = rx.clone();
         std::thread::spawn(move || {
             Verifier {
                 id,
-                now,
+                start_of_new_pow: Instant::now(),
                 thread_count,
                 update,
                 top_height,
@@ -80,39 +78,14 @@ impl Verifier {
         } = data;
         let GetBlockResponse { blob, block_header } = get_block_response;
 
-        //----------------------------------------------- Calculate some data.
-        let calculated_block_reward = block
-            .miner_transaction
-            .prefix()
-            .outputs
-            .iter()
-            .map(|o| o.amount.unwrap())
-            .sum::<u64>();
-        let calculated_block_weight = txs
-            .iter()
-            .map(|RpcTxData { tx, .. }| tx.weight())
-            .sum::<usize>();
-        let calculated_pow_data = block.serialize_pow_hash();
-        let miner_tx_weight = block.miner_transaction.weight();
-
         //----------------------------------------------- Verify.
-        Self::verify_block_properties(&blob, &block, calculated_block_reward, &p);
-        Self::verify_all_transactions_are_unique(&txs, &p);
-        Self::verify_transaction_properties(txs, &p);
-
-        Self::verify_block_fields(
-            calculated_block_weight,
-            calculated_block_reward,
-            &block,
-            &p,
-            block_header,
-        );
-
+        Self::verify_blocks(&blob, &block, &txs, &p, block_header);
+        Self::verify_transactions(txs, &p);
         let algo = self.verify_pow(
             block_header.height,
             seed_hash,
             block_header.pow_hash,
-            &calculated_pow_data,
+            &block.serialize_pow_hash(),
             &p,
         );
 
@@ -120,27 +93,79 @@ impl Verifier {
         self.print_progress(
             algo,
             seed_height,
-            miner_tx_weight,
+            block.miner_transaction.weight(),
             blocks_per_sec,
             block_header,
         );
     }
 
-    fn verify_block_properties(
+    fn verify_blocks(
         block_blob: &[u8],
         block: &Block,
-        calculated_block_reward: u64,
+        txs: &[RpcTxData],
         p: &str,
+        BlockHeader {
+            block_weight,
+            hash,
+            pow_hash: _,
+            height,
+            major_version,
+            minor_version,
+            miner_tx_hash,
+            nonce,
+            num_txes,
+            prev_hash,
+            reward,
+            timestamp,
+        }: BlockHeader,
     ) {
-        // Test block properties.
+        let calculated_block_reward = block
+            .miner_transaction
+            .prefix()
+            .outputs
+            .iter()
+            .map(|o| o.amount.unwrap())
+            .sum::<u64>();
+
+        let calculated_block_weight = txs
+            .iter()
+            .map(|RpcTxData { tx, .. }| tx.weight())
+            .sum::<usize>();
+
+        let block_number = u64::try_from(block.number().unwrap()).unwrap();
+
+        assert!(!block.miner_transaction.prefix().outputs.is_empty(), "{p}");
+        assert_ne!(calculated_block_reward, 0, "{p}");
+        assert_ne!(block.miner_transaction.weight(), 0, "{p}");
         assert_eq!(block_blob, block.serialize(), "{p}");
+        assert_eq!(block_weight, calculated_block_weight, "{p}");
+        assert_eq!(hash, block.hash(), "{p}");
+        assert_eq!(height, block_number, "{p}");
+        assert_eq!(major_version, block.header.hardfork_version, "{p}");
+        assert_eq!(minor_version, block.header.hardfork_signal, "{p}");
+        assert_eq!(miner_tx_hash, block.miner_transaction.hash(), "{p}");
+        assert_eq!(nonce, block.header.nonce, "{p}");
+        assert_eq!(num_txes, block.transactions.len(), "{p}");
+        assert_eq!(prev_hash, block.header.previous, "{p}");
+        assert_eq!(reward, calculated_block_reward, "{p}");
+        assert_eq!(timestamp, block.header.timestamp, "{p}");
+    }
 
-        assert!(
-            !block.miner_transaction.prefix().outputs.is_empty(),
-            "miner_tx has no outputs\n{p}"
-        );
+    fn verify_transactions(txs: Vec<RpcTxData>, p: &str) {
+        Self::verify_all_transactions_are_unique(&txs, p);
 
-        assert_ne!(calculated_block_reward, 0, "block reward is 0\n{p}");
+        for RpcTxData {
+            tx,
+            tx_blob,
+            tx_hash,
+        } in txs
+        {
+            assert_eq!(tx_hash, tx.hash(), "{p}, tx: {tx:#?}");
+            assert_ne!(tx.weight(), 0, "{p}, tx: {tx:#?}");
+            assert!(!tx.prefix().inputs.is_empty(), "{p}, tx: {tx:#?}");
+            assert_eq!(tx_blob, tx.serialize(), "{p}, tx: {tx:#?}");
+            assert!(matches!(tx.version(), 1 | 2), "{p}, tx: {tx:#?}");
+        }
     }
 
     #[expect(clippy::significant_drop_tightening)]
@@ -159,61 +184,6 @@ impl Verifier {
         }
     }
 
-    fn verify_transaction_properties(txs: Vec<RpcTxData>, p: &str) {
-        // Test transaction properties.
-        for RpcTxData {
-            tx,
-            tx_blob,
-            tx_hash,
-        } in txs
-        {
-            assert_eq!(tx_hash, tx.hash(), "{p}, tx: {tx:#?}");
-            assert_ne!(tx.weight(), 0, "{p}, tx: {tx:#?}");
-            assert!(!tx.prefix().inputs.is_empty(), "{p}, tx: {tx:#?}");
-            assert_eq!(tx_blob, tx.serialize(), "{p}, tx: {tx:#?}");
-            assert!(matches!(tx.version(), 1 | 2), "{p}, tx: {tx:#?}");
-        }
-    }
-
-    fn verify_block_fields(
-        calculated_block_weight: usize,
-        calculated_block_reward: u64,
-        block: &Block,
-        p: &str,
-        BlockHeader {
-            block_weight,
-            hash,
-            pow_hash: _,
-            height,
-            major_version,
-            minor_version,
-            miner_tx_hash,
-            nonce,
-            num_txes,
-            prev_hash,
-            reward,
-            timestamp,
-        }: BlockHeader,
-    ) {
-        // Test block fields are correct.
-        assert_eq!(block_weight, calculated_block_weight, "{p}");
-        assert_ne!(block.miner_transaction.weight(), 0, "{p}");
-        assert_eq!(hash, block.hash(), "{p}");
-        assert_eq!(
-            height,
-            u64::try_from(block.number().unwrap()).unwrap(),
-            "{p}"
-        );
-        assert_eq!(major_version, block.header.hardfork_version, "{p}");
-        assert_eq!(minor_version, block.header.hardfork_signal, "{p}");
-        assert_eq!(miner_tx_hash, block.miner_transaction.hash(), "{p}");
-        assert_eq!(nonce, block.header.nonce, "{p}");
-        assert_eq!(num_txes, block.transactions.len(), "{p}");
-        assert_eq!(prev_hash, block.header.previous, "{p}");
-        assert_eq!(reward, calculated_block_reward, "{p}");
-        assert_eq!(timestamp, block.header.timestamp, "{p}");
-    }
-
     fn verify_pow(
         &mut self,
         height: u64,
@@ -222,6 +192,10 @@ impl Verifier {
         calculated_pow_data: &[u8],
         p: &str,
     ) -> &'static str {
+        if matches!(height, 1546000 | 1685555 | 1788000 | 1978433) {
+            self.start_of_new_pow = Instant::now();
+        }
+
         let (algo, calculated_pow_hash) = if height < RANDOMX_START_HEIGHT {
             CryptoNightHash::hash(calculated_pow_data, height)
         } else {
@@ -301,7 +275,7 @@ impl Verifier {
         let relative_count = find_count_relative_to_pow_activation(height);
         let block_buffer = self.rx.len();
 
-        let elapsed = self.now.elapsed().as_secs_f64();
+        let elapsed = self.start_of_new_pow.elapsed().as_secs_f64();
         let secs_per_hash = elapsed / relative_count as f64;
         let verify_bps = relative_count as f64 / elapsed;
         let remaining_secs = (top_height as f64 - relative_count as f64) * secs_per_hash;
