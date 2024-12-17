@@ -21,17 +21,23 @@ async fn main() {
     let cli::Args {
         rpc_url,
         update,
+        rpc_tasks,
+        buffer_limit,
         threads,
     } = cli::Args::get();
 
     // Set-up RPC client.
-    let client = rpc::RpcClient::new(rpc_url).await;
+    let client = rpc::RpcClient::new(rpc_url, rpc_tasks).await;
     let top_height = client.top_height;
     println!("top_height: {top_height}");
     println!();
 
     // Test.
-    let (tx, rx) = crossbeam::channel::unbounded();
+    let (tx, rx) = if buffer_limit == 0 {
+        crossbeam::channel::unbounded()
+    } else {
+        crossbeam::channel::bounded(buffer_limit)
+    };
     verify::spawn_verify_pool(threads, update, top_height, rx);
     client.test(top_height, tx).await;
 

@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::{num::NonZeroUsize, time::Instant};
 
 use crossbeam::channel::Sender;
 use monero_serai::{block::Block, transaction::Transaction};
@@ -20,11 +20,12 @@ pub struct RpcClient {
     client: Client,
     json_rpc_url: String,
     get_transactions_url: String,
+    rpc_tasks: NonZeroUsize,
     pub top_height: u64,
 }
 
 impl RpcClient {
-    pub async fn new(rpc_url: String) -> Self {
+    pub async fn new(rpc_url: String, rpc_tasks: NonZeroUsize) -> Self {
         let headers = {
             let mut h = HeaderMap::new();
             h.insert("Content-Type", HeaderValue::from_static("application/json"));
@@ -70,6 +71,7 @@ impl RpcClient {
             client,
             json_rpc_url,
             get_transactions_url,
+            rpc_tasks,
             top_height,
         }
     }
@@ -207,7 +209,7 @@ impl RpcClient {
         });
 
         futures::stream::iter(iter)
-            .buffer_unordered(4) // This can't be too high or else we get bottlenecked by `monerod`
+            .buffer_unordered(self.rpc_tasks.get()) // This can't be too high or else we get bottlenecked by `monerod`
             .for_each(|()| async {})
             .await;
     }
