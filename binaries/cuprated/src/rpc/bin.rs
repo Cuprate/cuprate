@@ -182,9 +182,11 @@ async fn get_output_indexes(
     state: CupratedRpcHandler,
     request: GetOutputIndexesRequest,
 ) -> Result<GetOutputIndexesResponse, Error> {
+    let o_indexes = blockchain::tx_output_indexes(&mut state.blockchain_read, request.txid).await?;
+
     Ok(GetOutputIndexesResponse {
         base: helper::access_response_base(false),
-        ..todo!()
+        o_indexes,
     })
 }
 

@@ -54,6 +54,7 @@ use crate::{
     },
     tables::{
         AltBlockHeights, BlockHeights, BlockInfos, OpenTables, RctOutputs, Tables, TablesIter,
+        TxIds, TxOutputs,
     },
     types::{
         AltBlockHeight, Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId,
@@ -140,6 +141,7 @@ fn map_request(
         R::AltChainCount => alt_chain_count(env),
         R::Transactions { tx_hashes } => transactions(env, tx_hashes),
         R::TotalRctOutputs => total_rct_outputs(env),
+        R::TxOutputIndexes { tx_hash } => tx_output_indexes(env, &tx_hash),
     }
 
     /* SOMEDAY: post-request handling, run some code for each request? */
@@ -819,4 +821,15 @@ fn total_rct_outputs(env: &ConcreteEnv) -> ResponseResult {
     let len = env_inner.open_db_ro::<RctOutputs>(&tx_ro)?.len()?;
 
     Ok(BlockchainResponse::TotalRctOutputs(len))
+}
+
+/// [`BlockchainReadRequest::TxOutputIndexes`]
+fn tx_output_indexes(env: &ConcreteEnv, tx_hash: &[u8; 32]) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+    let tx_id = env_inner.open_db_ro::<TxIds>(&tx_ro)?.get(tx_hash)?;
+    let o_indexes = env_inner.open_db_ro::<TxOutputs>(&tx_ro)?.get(&tx_id)?;
+
+    Ok(BlockchainResponse::TxOutputIndexes(o_indexes.0))
 }

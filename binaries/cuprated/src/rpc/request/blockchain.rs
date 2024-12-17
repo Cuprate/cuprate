@@ -429,3 +429,20 @@ pub(crate) async fn block_complete_entries_by_height(
 
     Ok(blocks)
 }
+
+/// [`BlockchainReadRequest::TxOutputIndexes`].
+pub(crate) async fn tx_output_indexes(
+    blockchain_read: &mut BlockchainReadHandle,
+    tx_hash: [u8; 32],
+) -> Result<Vec<u64>, Error> {
+    let BlockchainResponse::TxOutputIndexes(o_indexes) = blockchain_read
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::TxOutputIndexes(tx_hash))
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(o_indexes)
+}

@@ -171,6 +171,9 @@ pub enum BlockchainReadRequest {
 
     /// TODO
     TotalRctOutputs,
+
+    /// TODO
+    TxOutputIndexes { tx_hash: [u8; 32] },
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
@@ -371,6 +374,9 @@ pub enum BlockchainResponse {
 
     /// Response to [`BlockchainReadRequest::TotalRctOutputs`].
     TotalRctOutputs(u64),
+
+    /// Response to [`BlockchainReadRequest::TxOutputIndexes`].
+    TxOutputIndexes(Vec<u64>),
 
     //------------------------------------------------------ Writes
     /// A generic Ok response to indicate a request was successfully handled.
