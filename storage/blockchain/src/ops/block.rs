@@ -269,7 +269,6 @@ pub fn get_block_complete_entry(
     let first_tx_idx = miner_tx_idx + 1;
 
     let tx_blobs = (first_tx_idx..(usize_to_u64(numb_non_miner_txs) + first_tx_idx))
-        .into_iter()
         .map(|idx| {
             let tx_blob = tables.tx_blobs().get(&idx)?.0;
 

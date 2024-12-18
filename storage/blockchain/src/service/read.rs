@@ -615,7 +615,6 @@ fn next_chain_entry(
     let last_height_in_chain_entry = min(first_known_height + next_entry_size, chain_height);
 
     let (block_ids, block_weights) = (first_known_height..last_height_in_chain_entry)
-        .into_iter()
         .map(|height| {
             let block_info = table_block_infos.get(&height)?;
 
