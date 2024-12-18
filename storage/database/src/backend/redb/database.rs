@@ -65,6 +65,7 @@ fn is_empty<T: Table>(
 
 //---------------------------------------------------------------------------------------------------- DatabaseIter
 impl<T: Table + 'static> DatabaseIter<T> for RedbTableRo<T::Key, T::Value> {
+    /*
     #[inline]
     fn get_range<'a, Range>(
         &'a self,
@@ -78,6 +79,8 @@ impl<T: Table + 'static> DatabaseIter<T> for RedbTableRo<T::Key, T::Value> {
             Ok(value.value())
         }))
     }
+
+     */
 
     #[inline]
     fn iter(&self) -> DbResult<impl Iterator<Item = DbResult<(T::Key, T::Value)>> + '_> {
