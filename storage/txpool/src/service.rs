@@ -128,5 +128,5 @@ mod read;
 mod types;
 mod write;
 
-pub use free::init;
+pub use free::{init, init_with_pool};
 pub use types::{TxpoolReadHandle, TxpoolWriteHandle};
