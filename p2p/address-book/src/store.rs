@@ -39,10 +39,15 @@ pub(crate) fn save_peers_to_disk<Z: BorshNetworkZone>(
     })
     .unwrap();
 
-    let file = cfg
-        .peer_store_directory
+    let dir = cfg
+        .peer_store_directory.clone();
+    let file = dir
         .join(format!("{}_p2p_state", Z::NAME));
-    spawn_blocking(move || fs::write(&file, &data))
+
+    spawn_blocking(move || {
+        fs::create_dir_all(dir)?;
+        fs::write(&file, &data) }
+    )
 }
 
 pub(crate) async fn read_peers_from_disk<Z: BorshNetworkZone>(
