@@ -208,6 +208,17 @@ bitflags::bitflags! {
     }
 }
 
+/// Used in RPC's `get_output_distribution`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OutputDistributionInput {
+    pub amounts: Vec<u64>,
+    pub cumulative: bool,
+    pub from_height: u64,
+
+    /// [`None`] means the entire blockchain.
+    pub to_height: Option<NonZero<u64>>,
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {

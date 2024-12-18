@@ -253,6 +253,7 @@ define_struct_and_impl_epee! {
         45..=50
     )]
     OutputDistributionData {
+        amount: u64,
         distribution: Vec<u64>,
         start_height: u64,
         base: u64,

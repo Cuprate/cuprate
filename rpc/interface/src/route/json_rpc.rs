@@ -1,15 +1,10 @@
 //! JSON-RPC 2.0 endpoint route functions.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::borrow::Cow;
-
 use axum::{extract::State, http::StatusCode, Json};
 use tower::ServiceExt;
 
-use cuprate_json_rpc::{
-    error::{ErrorCode, ErrorObject},
-    Id, Response,
-};
+use cuprate_json_rpc::{Id, Response};
 use cuprate_rpc_types::{
     json::{JsonRpcRequest, JsonRpcResponse},
     RpcCallValue,

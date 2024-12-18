@@ -30,7 +30,7 @@ use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     rpc::OutputHistogramInput,
-    Chain, ChainId, ExtendedBlockHeader, OutputOnChain, TxsInBlock,
+    Chain, ChainId, ExtendedBlockHeader, OutputDistributionInput, OutputOnChain, TxsInBlock,
 };
 
 use crate::{
@@ -142,6 +142,7 @@ fn map_request(
         R::Transactions { tx_hashes } => transactions(env, tx_hashes),
         R::TotalRctOutputs => total_rct_outputs(env),
         R::TxOutputIndexes { tx_hash } => tx_output_indexes(env, &tx_hash),
+        R::OutputDistribution(input) => output_distribution(env, input),
     }
 
     /* SOMEDAY: post-request handling, run some code for each request? */
@@ -831,4 +832,9 @@ fn tx_output_indexes(env: &ConcreteEnv, tx_hash: &[u8; 32]) -> ResponseResult {
     let o_indexes = env_inner.open_db_ro::<TxOutputs>(&tx_ro)?.get(&tx_id)?;
 
     Ok(BlockchainResponse::TxOutputIndexes(o_indexes.0))
+}
+
+/// [`BlockchainReadRequest::OutputDistribution`]
+fn output_distribution(env: &ConcreteEnv, input: OutputDistributionInput) -> ResponseResult {
+    Ok(BlockchainResponse::OutputDistribution(todo!()))
 }

@@ -1,8 +1,12 @@
 //! RPC handler functions that are shared between different endpoint/methods.
 
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    num::NonZero,
+};
 
 use anyhow::{anyhow, Error};
+use cuprate_types::OutputDistributionInput;
 use monero_serai::transaction::Timelock;
 
 use cuprate_constants::rpc::MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT;
@@ -97,36 +101,35 @@ pub(super) async fn get_transaction_pool_hashes(
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3352-L3398>
 ///
 /// Shared between:
-/// - JSON-RPC's `get_output_distribution`
+/// - Other JSON's `/get_output_distribution`
 /// - Binary's `/get_output_distribution.bin`
+///
+/// Returns transaction hashes.
 pub(super) async fn get_output_distribution(
     mut state: CupratedRpcHandler,
     request: GetOutputDistributionRequest,
 ) -> Result<GetOutputDistributionResponse, Error> {
-    if state.is_restricted() && request.amounts != [1, 0] {
+    if state.is_restricted() && request.amounts != [0] {
         return Err(anyhow!(
             "Restricted RPC can only get output distribution for RCT outputs. Use your own node."
         ));
     }
 
-    // 0 is placeholder for the whole chain
-    let req_to_height = if request.to_height == 0 {
-        helper::top_height(&mut state).await?.0.saturating_sub(1)
-    } else {
-        request.to_height
+    let input = OutputDistributionInput {
+        amounts: request.amounts,
+        cumulative: request.cumulative,
+        from_height: request.from_height,
+
+        // 0 / `None` is placeholder for the whole chain
+        to_height: NonZero::new(request.to_height),
     };
 
-    let distributions = request.amounts.into_iter().map(|amount| {
-        fn get_output_distribution() -> Result<Distribution, Error> {
-            todo!("https://github.com/monero-project/monero/blob/893916ad091a92e765ce3241b94e706ad012b62a/src/rpc/rpc_handler.cpp#L29");
-            Err(anyhow!("Failed to get output distribution"))
-        }
-
-        get_output_distribution()
-    }).collect::<Result<Vec<Distribution>, _>>()?;
+    let distributions = blockchain::output_distribution(&mut state.blockchain_read, input).await?;
 
     Ok(GetOutputDistributionResponse {
         base: helper::access_response_base(false),
-        distributions,
+        distributions: todo!(
+            "This type contains binary strings: <https://github.com/monero-project/monero/issues/9422>"
+        ),
     })
 }

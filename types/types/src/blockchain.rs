@@ -11,9 +11,12 @@ use std::{
 use monero_serai::block::Block;
 
 use crate::{
-    rpc::{ChainInfo, CoinbaseTxSum, OutputHistogramEntry, OutputHistogramInput},
+    rpc::{
+        ChainInfo, CoinbaseTxSum, OutputDistributionData, OutputHistogramEntry,
+        OutputHistogramInput,
+    },
     types::{Chain, ExtendedBlockHeader, OutputOnChain, TxsInBlock, VerifiedBlockInformation},
-    AltBlockInformation, BlockCompleteEntry, ChainId, TxInBlockchain,
+    AltBlockInformation, BlockCompleteEntry, ChainId, OutputDistributionInput, TxInBlockchain,
 };
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
@@ -153,6 +156,12 @@ pub enum BlockchainReadRequest {
     ///
     /// TODO: document fields after impl.
     OutputHistogram(OutputHistogramInput),
+
+    /// Get the distribution for an output amount.
+    ///
+    /// - TODO: document fields after impl.
+    /// - TODO: <https://github.com/monero-project/monero/blob/893916ad091a92e765ce3241b94e706ad012b62a/src/rpc/rpc_handler.cpp#L29>
+    OutputDistribution(OutputDistributionInput),
 
     /// Get the coinbase amount and the fees amount for
     /// `N` last blocks starting at particular height.
@@ -351,6 +360,9 @@ pub enum BlockchainResponse {
         /// the disk where the database is located.
         free_space: u64,
     },
+
+    /// Response to [`BlockchainReadRequest::OutputDistribution`].
+    OutputDistribution(Vec<OutputDistributionData>),
 
     /// Response to [`BlockchainReadRequest::OutputHistogram`].
     OutputHistogram(Vec<OutputHistogramEntry>),
