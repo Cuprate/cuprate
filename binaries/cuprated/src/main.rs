@@ -18,8 +18,13 @@
 
 use crate::commands::Command;
 use crate::config::Config;
+use crate::constants::PANIC_CRITICAL_SERVICE_ERROR;
+use cuprate_consensus_context::{
+    BlockChainContextRequest, BlockChainContextResponse, BlockChainContextService,
+};
 use cuprate_helper::time::secs_to_hms;
 use tokio::sync::mpsc;
+use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::reload::Handle;
@@ -100,7 +105,7 @@ fn main() {
             blockchain_write_handle,
             blockchain_read_handle,
             txpool_write_handle,
-            context_svc,
+            context_svc.clone(),
             block_verifier,
             config.block_downloader_config(),
         )
@@ -109,7 +114,7 @@ fn main() {
         let (command_tx, command_rx) = mpsc::channel(1);
         std::thread::spawn(|| commands::command_listener(command_tx));
 
-        io_loop(command_rx).await;
+        io_loop(command_rx, context_svc).await;
     });
 }
 
@@ -128,7 +133,10 @@ fn init_global_rayon_pool(config: &Config) {
         .unwrap()
 }
 
-async fn io_loop(mut incoming_commands: mpsc::Receiver<Command>) -> ! {
+async fn io_loop(
+    mut incoming_commands: mpsc::Receiver<Command>,
+    mut context_service: BlockChainContextService,
+) -> ! {
     while let Some(command) = incoming_commands.recv().await {
         match command {
             Command::SetLog { level } => {
@@ -137,10 +145,22 @@ async fn io_loop(mut incoming_commands: mpsc::Receiver<Command>) -> ! {
                 println!("LOG LEVEL CHANGED: {level}");
             }
             Command::Status => {
+                let BlockChainContextResponse::Context(blockchain_context) = context_service
+                    .ready()
+                    .await
+                    .expect(PANIC_CRITICAL_SERVICE_ERROR)
+                    .call(BlockChainContextRequest::Context)
+                    .await
+                    .expect(PANIC_CRITICAL_SERVICE_ERROR)
+                else {
+                    unreachable!();
+                };
+                let context = blockchain_context.unchecked_blockchain_context();
+
                 let uptime = statics::START_INSTANT.elapsed().unwrap_or_default();
                 let (hours, minutes, second) = secs_to_hms(uptime.as_secs());
 
-                println!("STATUS:\n  uptime: {hours}h {minutes}m {second}s");
+                println!("STATUS:\n  uptime: {hours}h {minutes}m {second}s,\n  height: {},\n  top_hash: {}", context.chain_height, hex::encode(context.top_hash));
             }
         }
     }

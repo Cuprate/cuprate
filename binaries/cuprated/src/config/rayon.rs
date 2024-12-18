@@ -13,5 +13,3 @@ impl Default for RayonConfig {
         }
     }
 }
-
-
