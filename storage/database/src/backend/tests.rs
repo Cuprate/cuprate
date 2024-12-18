@@ -235,10 +235,7 @@ fn db_read_write() {
         assert_eq!(i, N);
     }
 
-    // `get_range()` tests.
-    let mut key = KEY;
-    key += N;
-    let range = KEY..key;
+    // iter tests.
 
     // Assert count is correct.
     assert_eq!(N as usize, table_ro.values().unwrap().count());
