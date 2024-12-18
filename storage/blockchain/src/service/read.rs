@@ -22,9 +22,7 @@ use rayon::{
 };
 use thread_local::ThreadLocal;
 
-use cuprate_database::{
-    ConcreteEnv, DatabaseIter, DatabaseRo, DbResult, Env, EnvInner, RuntimeError,
-};
+use cuprate_database::{ConcreteEnv, DatabaseRo, DbResult, Env, EnvInner, RuntimeError};
 use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
@@ -616,10 +614,9 @@ fn next_chain_entry(
     let chain_height = crate::ops::blockchain::chain_height(table_block_heights)?;
     let last_height_in_chain_entry = min(first_known_height + next_entry_size, chain_height);
 
-    let (block_ids, block_weights) = table_block_infos
-        .get_range(first_known_height..last_height_in_chain_entry)?
-        .map(|block_info| {
-            let block_info = block_info?;
+    let (block_ids, block_weights) = (first_known_height..last_height_in_chain_entry)
+        .map(|height| {
+            let block_info = table_block_infos.get(&height)?;
 
             Ok((block_info.block_hash, block_info.weight))
         })
