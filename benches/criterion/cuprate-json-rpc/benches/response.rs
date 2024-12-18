@@ -82,7 +82,7 @@ impl_from_str_benchmark! {
 macro_rules! impl_to_string_pretty_benchmark {
     (
         $(
-            $fn_name:ident => $request_constructor:expr,
+            $fn_name:ident => $request_constructor:expr_2021,
         )*
     ) => {
         $(

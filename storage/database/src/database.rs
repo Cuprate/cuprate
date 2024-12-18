@@ -1,7 +1,10 @@
 //! Abstracted database table operations; `trait DatabaseRo` & `trait DatabaseRw`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::{error::RuntimeError, table::Table};
+use crate::{
+    error::{DbResult, RuntimeError},
+    table::Table,
+};
 
 //---------------------------------------------------------------------------------------------------- DatabaseIter
 /// Generic post-fix documentation for `DatabaseIter` methods.
@@ -49,7 +52,7 @@ pub trait DatabaseIter<T: Table> {
     fn get_range<'a, Range>(
         &'a self,
         range: Range,
-    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError>
+    ) -> DbResult<impl Iterator<Item = DbResult<T::Value>> + 'a>
     where
         Range: RangeBounds<T::Key> + 'a;
 
@@ -58,20 +61,15 @@ pub trait DatabaseIter<T: Table> {
     /// Get an [`Iterator`] that returns the `(key, value)` types for this database.
     #[doc = doc_iter!()]
     #[expect(clippy::iter_not_returning_iterator)]
-    fn iter(
-        &self,
-    ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + '_, RuntimeError>;
+    fn iter(&self) -> DbResult<impl Iterator<Item = DbResult<(T::Key, T::Value)>> + '_>;
 
     /// Get an [`Iterator`] that returns _only_ the `key` type for this database.
     #[doc = doc_iter!()]
-    fn keys(&self)
-        -> Result<impl Iterator<Item = Result<T::Key, RuntimeError>> + '_, RuntimeError>;
+    fn keys(&self) -> DbResult<impl Iterator<Item = DbResult<T::Key>> + '_>;
 
     /// Get an [`Iterator`] that returns _only_ the `value` type for this database.
     #[doc = doc_iter!()]
-    fn values(
-        &self,
-    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError>;
+    fn values(&self) -> DbResult<impl Iterator<Item = DbResult<T::Value>> + '_>;
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
@@ -79,7 +77,7 @@ pub trait DatabaseIter<T: Table> {
 macro_rules! doc_database {
     () => {
         r"# Errors
-This will return [`RuntimeError::KeyNotFound`] if:
+This will return [`crate::RuntimeError::KeyNotFound`] if:
 - Input does not exist OR
 - Database is empty"
     };
@@ -114,7 +112,7 @@ This will return [`RuntimeError::KeyNotFound`] if:
 pub unsafe trait DatabaseRo<T: Table> {
     /// Get the value corresponding to a key.
     #[doc = doc_database!()]
-    fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError>;
+    fn get(&self, key: &T::Key) -> DbResult<T::Value>;
 
     /// Returns `true` if the database contains a value for the specified key.
     ///
@@ -123,7 +121,7 @@ pub unsafe trait DatabaseRo<T: Table> {
     /// as in that case, `Ok(false)` will be returned.
     ///
     /// Other errors may still occur.
-    fn contains(&self, key: &T::Key) -> Result<bool, RuntimeError> {
+    fn contains(&self, key: &T::Key) -> DbResult<bool> {
         match self.get(key) {
             Ok(_) => Ok(true),
             Err(RuntimeError::KeyNotFound) => Ok(false),
@@ -135,21 +133,21 @@ pub unsafe trait DatabaseRo<T: Table> {
     ///
     /// # Errors
     /// This will never return [`RuntimeError::KeyNotFound`].
-    fn len(&self) -> Result<u64, RuntimeError>;
+    fn len(&self) -> DbResult<u64>;
 
     /// Returns the first `(key, value)` pair in the database.
     #[doc = doc_database!()]
-    fn first(&self) -> Result<(T::Key, T::Value), RuntimeError>;
+    fn first(&self) -> DbResult<(T::Key, T::Value)>;
 
     /// Returns the last `(key, value)` pair in the database.
     #[doc = doc_database!()]
-    fn last(&self) -> Result<(T::Key, T::Value), RuntimeError>;
+    fn last(&self) -> DbResult<(T::Key, T::Value)>;
 
     /// Returns `true` if the database contains no `(key, value)` pairs.
     ///
     /// # Errors
     /// This can only return [`RuntimeError::Io`] on errors.
-    fn is_empty(&self) -> Result<bool, RuntimeError>;
+    fn is_empty(&self) -> DbResult<bool>;
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
@@ -164,7 +162,7 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     #[doc = doc_database!()]
     ///
     /// This will never [`RuntimeError::KeyExists`].
-    fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError>;
+    fn put(&mut self, key: &T::Key, value: &T::Value) -> DbResult<()>;
 
     /// Delete a key-value pair in the database.
     ///
@@ -173,7 +171,7 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     #[doc = doc_database!()]
     ///
     /// This will never [`RuntimeError::KeyExists`].
-    fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError>;
+    fn delete(&mut self, key: &T::Key) -> DbResult<()>;
 
     /// Delete and return a key-value pair in the database.
     ///
@@ -181,7 +179,7 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     /// it will serialize the `T::Value` and return it.
     ///
     #[doc = doc_database!()]
-    fn take(&mut self, key: &T::Key) -> Result<T::Value, RuntimeError>;
+    fn take(&mut self, key: &T::Key) -> DbResult<T::Value>;
 
     /// Fetch the value, and apply a function to it - or delete the entry.
     ///
@@ -195,7 +193,7 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     /// - If `f` returns `None`, the entry will be [`DatabaseRw::delete`]d
     ///
     #[doc = doc_database!()]
-    fn update<F>(&mut self, key: &T::Key, mut f: F) -> Result<(), RuntimeError>
+    fn update<F>(&mut self, key: &T::Key, mut f: F) -> DbResult<()>
     where
         F: FnMut(T::Value) -> Option<T::Value>,
     {
@@ -210,10 +208,10 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     /// Removes and returns the first `(key, value)` pair in the database.
     ///
     #[doc = doc_database!()]
-    fn pop_first(&mut self) -> Result<(T::Key, T::Value), RuntimeError>;
+    fn pop_first(&mut self) -> DbResult<(T::Key, T::Value)>;
 
     /// Removes and returns the last `(key, value)` pair in the database.
     ///
     #[doc = doc_database!()]
-    fn pop_last(&mut self) -> Result<(T::Key, T::Value), RuntimeError>;
+    fn pop_last(&mut self) -> DbResult<(T::Key, T::Value)>;
 }

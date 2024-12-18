@@ -37,7 +37,7 @@ macro_rules! define_struct_and_impl_epee {
             $(
                 $( #[$field_attr:meta] )* // Field attributes
                 // Field name => the type => optional `epee_object` default value.
-                $field_name:ident: $field_type:ty $(= $field_default:expr)?,
+                $field_name:ident: $field_type:ty $(= $field_default:expr_2021)?,
             )*
         }
     ) => {

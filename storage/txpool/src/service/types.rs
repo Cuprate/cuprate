@@ -2,7 +2,7 @@
 //!
 //! Only used internally for our [`tower::Service`] impls.
 
-use cuprate_database::RuntimeError;
+use cuprate_database::DbResult;
 use cuprate_database_service::{DatabaseReadService, DatabaseWriteHandle};
 
 use crate::service::interface::{
@@ -12,7 +12,7 @@ use crate::service::interface::{
 /// The actual type of the response.
 ///
 /// Either our [`TxpoolReadResponse`], or a database error occurred.
-pub(super) type ReadResponseResult = Result<TxpoolReadResponse, RuntimeError>;
+pub(super) type ReadResponseResult = DbResult<TxpoolReadResponse>;
 
 /// The transaction pool database write service.
 pub type TxpoolWriteHandle = DatabaseWriteHandle<TxpoolWriteRequest, TxpoolWriteResponse>;

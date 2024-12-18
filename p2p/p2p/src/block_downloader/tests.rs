@@ -66,11 +66,11 @@ proptest! {
                         genesis: *blockchain.blocks.first().unwrap().0
                     },
                     BlockDownloaderConfig {
-                        buffer_size: 1_000,
-                        in_progress_queue_size: 10_000,
+                        buffer_bytes: 1_000,
+                        in_progress_queue_bytes: 10_000,
                         check_client_pool_interval: Duration::from_secs(5),
-                        target_batch_size: 5_000,
-                        initial_batch_size: 1,
+                        target_batch_bytes: 5_000,
+                        initial_batch_len: 1,
                 });
 
                 let blocks = stream.map(|blocks| blocks.blocks).concat().await;

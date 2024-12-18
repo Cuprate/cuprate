@@ -11,7 +11,7 @@ use crate::{
         types::{RedbTableRo, RedbTableRw},
     },
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
-    error::RuntimeError,
+    error::{DbResult, RuntimeError},
     table::Table,
 };
 
@@ -25,7 +25,7 @@ use crate::{
 fn get<T: Table + 'static>(
     db: &impl ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
     key: &T::Key,
-) -> Result<T::Value, RuntimeError> {
+) -> DbResult<T::Value> {
     Ok(db.get(key)?.ok_or(RuntimeError::KeyNotFound)?.value())
 }
 
@@ -33,7 +33,7 @@ fn get<T: Table + 'static>(
 #[inline]
 fn len<T: Table>(
     db: &impl ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
-) -> Result<u64, RuntimeError> {
+) -> DbResult<u64> {
     Ok(db.len()?)
 }
 
@@ -41,7 +41,7 @@ fn len<T: Table>(
 #[inline]
 fn first<T: Table>(
     db: &impl ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
-) -> Result<(T::Key, T::Value), RuntimeError> {
+) -> DbResult<(T::Key, T::Value)> {
     let (key, value) = db.first()?.ok_or(RuntimeError::KeyNotFound)?;
     Ok((key.value(), value.value()))
 }
@@ -50,7 +50,7 @@ fn first<T: Table>(
 #[inline]
 fn last<T: Table>(
     db: &impl ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
-) -> Result<(T::Key, T::Value), RuntimeError> {
+) -> DbResult<(T::Key, T::Value)> {
     let (key, value) = db.last()?.ok_or(RuntimeError::KeyNotFound)?;
     Ok((key.value(), value.value()))
 }
@@ -59,7 +59,7 @@ fn last<T: Table>(
 #[inline]
 fn is_empty<T: Table>(
     db: &impl ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
-) -> Result<bool, RuntimeError> {
+) -> DbResult<bool> {
     Ok(db.is_empty()?)
 }
 
@@ -70,7 +70,7 @@ impl<T: Table + 'static> DatabaseIter<T> for RedbTableRo<T::Key, T::Value> {
     fn get_range<'a, Range>(
         &'a self,
         range: Range,
-    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError>
+    ) -> DbResult<impl Iterator<Item = DbResult<T::Value>> + 'a>
     where
         Range: RangeBounds<T::Key> + 'a,
     {
@@ -83,10 +83,7 @@ impl<T: Table + 'static> DatabaseIter<T> for RedbTableRo<T::Key, T::Value> {
      */
 
     #[inline]
-    fn iter(
-        &self,
-    ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + '_, RuntimeError>
-    {
+    fn iter(&self) -> DbResult<impl Iterator<Item = DbResult<(T::Key, T::Value)>> + '_> {
         Ok(ReadableTable::iter(self)?.map(|result| {
             let (key, value) = result?;
             Ok((key.value(), value.value()))
@@ -94,9 +91,7 @@ impl<T: Table + 'static> DatabaseIter<T> for RedbTableRo<T::Key, T::Value> {
     }
 
     #[inline]
-    fn keys(
-        &self,
-    ) -> Result<impl Iterator<Item = Result<T::Key, RuntimeError>> + '_, RuntimeError> {
+    fn keys(&self) -> DbResult<impl Iterator<Item = DbResult<T::Key>> + '_> {
         Ok(ReadableTable::iter(self)?.map(|result| {
             let (key, _value) = result?;
             Ok(key.value())
@@ -104,9 +99,7 @@ impl<T: Table + 'static> DatabaseIter<T> for RedbTableRo<T::Key, T::Value> {
     }
 
     #[inline]
-    fn values(
-        &self,
-    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError> {
+    fn values(&self) -> DbResult<impl Iterator<Item = DbResult<T::Value>> + '_> {
         Ok(ReadableTable::iter(self)?.map(|result| {
             let (_key, value) = result?;
             Ok(value.value())
@@ -118,27 +111,27 @@ impl<T: Table + 'static> DatabaseIter<T> for RedbTableRo<T::Key, T::Value> {
 // SAFETY: Both `redb`'s transaction and table types are `Send + Sync`.
 unsafe impl<T: Table + 'static> DatabaseRo<T> for RedbTableRo<T::Key, T::Value> {
     #[inline]
-    fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
+    fn get(&self, key: &T::Key) -> DbResult<T::Value> {
         get::<T>(self, key)
     }
 
     #[inline]
-    fn len(&self) -> Result<u64, RuntimeError> {
+    fn len(&self) -> DbResult<u64> {
         len::<T>(self)
     }
 
     #[inline]
-    fn first(&self) -> Result<(T::Key, T::Value), RuntimeError> {
+    fn first(&self) -> DbResult<(T::Key, T::Value)> {
         first::<T>(self)
     }
 
     #[inline]
-    fn last(&self) -> Result<(T::Key, T::Value), RuntimeError> {
+    fn last(&self) -> DbResult<(T::Key, T::Value)> {
         last::<T>(self)
     }
 
     #[inline]
-    fn is_empty(&self) -> Result<bool, RuntimeError> {
+    fn is_empty(&self) -> DbResult<bool> {
         is_empty::<T>(self)
     }
 }
@@ -147,27 +140,27 @@ unsafe impl<T: Table + 'static> DatabaseRo<T> for RedbTableRo<T::Key, T::Value> 
 // SAFETY: Both `redb`'s transaction and table types are `Send + Sync`.
 unsafe impl<T: Table + 'static> DatabaseRo<T> for RedbTableRw<'_, T::Key, T::Value> {
     #[inline]
-    fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
+    fn get(&self, key: &T::Key) -> DbResult<T::Value> {
         get::<T>(self, key)
     }
 
     #[inline]
-    fn len(&self) -> Result<u64, RuntimeError> {
+    fn len(&self) -> DbResult<u64> {
         len::<T>(self)
     }
 
     #[inline]
-    fn first(&self) -> Result<(T::Key, T::Value), RuntimeError> {
+    fn first(&self) -> DbResult<(T::Key, T::Value)> {
         first::<T>(self)
     }
 
     #[inline]
-    fn last(&self) -> Result<(T::Key, T::Value), RuntimeError> {
+    fn last(&self) -> DbResult<(T::Key, T::Value)> {
         last::<T>(self)
     }
 
     #[inline]
-    fn is_empty(&self) -> Result<bool, RuntimeError> {
+    fn is_empty(&self) -> DbResult<bool> {
         is_empty::<T>(self)
     }
 }
@@ -176,19 +169,19 @@ impl<T: Table + 'static> DatabaseRw<T> for RedbTableRw<'_, T::Key, T::Value> {
     // `redb` returns the value after function calls so we end with Ok(()) instead.
 
     #[inline]
-    fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {
+    fn put(&mut self, key: &T::Key, value: &T::Value) -> DbResult<()> {
         redb::Table::insert(self, key, value)?;
         Ok(())
     }
 
     #[inline]
-    fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError> {
+    fn delete(&mut self, key: &T::Key) -> DbResult<()> {
         redb::Table::remove(self, key)?;
         Ok(())
     }
 
     #[inline]
-    fn take(&mut self, key: &T::Key) -> Result<T::Value, RuntimeError> {
+    fn take(&mut self, key: &T::Key) -> DbResult<T::Value> {
         if let Some(value) = redb::Table::remove(self, key)? {
             Ok(value.value())
         } else {
@@ -197,13 +190,13 @@ impl<T: Table + 'static> DatabaseRw<T> for RedbTableRw<'_, T::Key, T::Value> {
     }
 
     #[inline]
-    fn pop_first(&mut self) -> Result<(T::Key, T::Value), RuntimeError> {
+    fn pop_first(&mut self) -> DbResult<(T::Key, T::Value)> {
         let (key, value) = redb::Table::pop_first(self)?.ok_or(RuntimeError::KeyNotFound)?;
         Ok((key.value(), value.value()))
     }
 
     #[inline]
-    fn pop_last(&mut self) -> Result<(T::Key, T::Value), RuntimeError> {
+    fn pop_last(&mut self) -> DbResult<(T::Key, T::Value)> {
         let (key, value) = redb::Table::pop_last(self)?.ok_or(RuntimeError::KeyNotFound)?;
         Ok((key.value(), value.value()))
     }

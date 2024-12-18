@@ -13,7 +13,7 @@ use std::{
 macro_rules! define_init_lazylock_statics {
     ($(
         $( #[$attr:meta] )*
-        $name:ident: $t:ty = $init_fn:expr;
+        $name:ident: $t:ty = $init_fn:expr_2021;
     )*) => {
         /// Initialize global static `LazyLock` data.
         pub fn init_lazylock_statics() {

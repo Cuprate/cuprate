@@ -4,7 +4,7 @@
 use bytemuck::TransparentWrapper;
 use monero_serai::transaction::{Input, Timelock, Transaction};
 
-use cuprate_database::{DatabaseRo, DatabaseRw, RuntimeError, StorableVec};
+use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableVec};
 use cuprate_helper::crypto::compute_zero_commitment;
 
 use crate::{
@@ -52,7 +52,7 @@ pub fn add_tx(
     tx_hash: &TxHash,
     block_height: &BlockHeight,
     tables: &mut impl TablesMut,
-) -> Result<TxId, RuntimeError> {
+) -> DbResult<TxId> {
     let tx_id = get_num_tx(tables.tx_ids_mut())?;
 
     //------------------------------------------------------ Transaction data
@@ -129,7 +129,7 @@ pub fn add_tx(
                 )?
                 .amount_index)
             })
-            .collect::<Result<Vec<_>, RuntimeError>>()?,
+            .collect::<DbResult<Vec<_>>>()?,
         Transaction::V2 { prefix, proofs } => prefix
             .outputs
             .iter()
@@ -186,10 +186,7 @@ pub fn add_tx(
 ///
 #[doc = doc_error!()]
 #[inline]
-pub fn remove_tx(
-    tx_hash: &TxHash,
-    tables: &mut impl TablesMut,
-) -> Result<(TxId, Transaction), RuntimeError> {
+pub fn remove_tx(tx_hash: &TxHash, tables: &mut impl TablesMut) -> DbResult<(TxId, Transaction)> {
     //------------------------------------------------------ Transaction data
     let tx_id = tables.tx_ids_mut().take(tx_hash)?;
     let tx_blob = tables.tx_blobs_mut().take(&tx_id)?;
@@ -267,7 +264,7 @@ pub fn get_tx(
     tx_hash: &TxHash,
     table_tx_ids: &impl DatabaseRo<TxIds>,
     table_tx_blobs: &impl DatabaseRo<TxBlobs>,
-) -> Result<Transaction, RuntimeError> {
+) -> DbResult<Transaction> {
     get_tx_from_id(&table_tx_ids.get(tx_hash)?, table_tx_blobs)
 }
 
@@ -277,7 +274,7 @@ pub fn get_tx(
 pub fn get_tx_from_id(
     tx_id: &TxId,
     table_tx_blobs: &impl DatabaseRo<TxBlobs>,
-) -> Result<Transaction, RuntimeError> {
+) -> DbResult<Transaction> {
     let tx_blob = table_tx_blobs.get(tx_id)?.0;
     Ok(Transaction::read(&mut tx_blob.as_slice())?)
 }
@@ -294,7 +291,7 @@ pub fn get_tx_from_id(
 /// - etc
 #[doc = doc_error!()]
 #[inline]
-pub fn get_num_tx(table_tx_ids: &impl DatabaseRo<TxIds>) -> Result<u64, RuntimeError> {
+pub fn get_num_tx(table_tx_ids: &impl DatabaseRo<TxIds>) -> DbResult<u64> {
     table_tx_ids.len()
 }
 
@@ -304,10 +301,7 @@ pub fn get_num_tx(table_tx_ids: &impl DatabaseRo<TxIds>) -> Result<u64, RuntimeE
 /// Returns `true` if it does, else `false`.
 #[doc = doc_error!()]
 #[inline]
-pub fn tx_exists(
-    tx_hash: &TxHash,
-    table_tx_ids: &impl DatabaseRo<TxIds>,
-) -> Result<bool, RuntimeError> {
+pub fn tx_exists(tx_hash: &TxHash, table_tx_ids: &impl DatabaseRo<TxIds>) -> DbResult<bool> {
     table_tx_ids.contains(tx_hash)
 }
 

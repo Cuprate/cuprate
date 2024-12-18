@@ -57,6 +57,7 @@ impl Default for BroadcastConfig {
 /// - The [`BroadcastSvc`]
 /// - A function that takes in [`InternalPeerID`]s and produces [`BroadcastMessageStream`]s to give to **outbound** peers.
 /// - A function that takes in [`InternalPeerID`]s and produces [`BroadcastMessageStream`]s to give to **inbound** peers.
+#[expect(clippy::type_complexity)]
 pub(crate) fn init_broadcast_channels<N: NetworkZone>(
     config: BroadcastConfig,
 ) -> (
