@@ -21,12 +21,16 @@ mod args;
 mod fs;
 mod p2p;
 mod storage;
+mod tokio;
 mod tracing_config;
+mod rayon;
 
 use crate::config::fs::FileSystemConfig;
+use crate::config::tokio::TokioConfig;
 use p2p::P2PConfig;
 use storage::StorageConfig;
 use tracing_config::TracingConfig;
+use crate::config::rayon::RayonConfig;
 
 /// Reads the args & config file, returning a [`Config`].
 pub fn read_config_and_args() -> Config {
@@ -73,6 +77,10 @@ pub struct Config {
 
     /// [`tracing`] config.
     pub tracing: TracingConfig,
+
+    pub tokio: TokioConfig,
+
+    pub rayon: RayonConfig,
 
     /// The P2P network config.
     p2p: P2PConfig,

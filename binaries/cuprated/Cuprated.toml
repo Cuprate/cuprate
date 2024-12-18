@@ -52,7 +52,7 @@ check_client_pool_interval = { secs = 30, nanos = 0 }
 ## Storage config
 [storage]
 ## The amount of reader threads to spawn.
-reader_threads = "OnePerThread"
+reader_threads = "Percent(0.25)"
 
 ## Txpool storage config.
 [storage.txpool]

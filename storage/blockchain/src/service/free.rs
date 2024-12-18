@@ -1,15 +1,15 @@
 //! General free functions used (related to `cuprate_blockchain::service`).
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::sync::Arc;
-use rayon::ThreadPool;
 use cuprate_database::{ConcreteEnv, InitError};
 use cuprate_types::{AltBlockInformation, VerifiedBlockInformation};
+use rayon::ThreadPool;
+use std::sync::Arc;
 
 use crate::{
     config::Config,
     service::{
-        init_read_service, init_write_service, init_read_service_with_pool,
+        init_read_service, init_read_service_with_pool, init_write_service,
         types::{BlockchainReadHandle, BlockchainWriteHandle},
     },
 };

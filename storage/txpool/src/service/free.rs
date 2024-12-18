@@ -4,6 +4,7 @@ use rayon::ThreadPool;
 
 use cuprate_database::{ConcreteEnv, InitError};
 
+use crate::service::read::init_read_service_with_pool;
 use crate::{
     service::{
         read::init_read_service,
@@ -12,7 +13,6 @@ use crate::{
     },
     Config,
 };
-use crate::service::read::init_read_service_with_pool;
 
 //---------------------------------------------------------------------------------------------------- Init
 #[cold]
@@ -52,4 +52,3 @@ pub fn init_with_pool(
 
     Ok((readers, writer, db))
 }
-

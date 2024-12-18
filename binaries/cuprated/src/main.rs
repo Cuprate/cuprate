@@ -43,14 +43,22 @@ fn main() {
 
     let config = config::read_config_and_args();
 
+    init_global_rayon_pool(&config);
+
     logging::init_logging(&config);
 
-    let rt = init_tokio_rt();
+    let rt = init_tokio_rt(&config);
 
-    let db_thread_pool = cuprate_database_service::init_thread_pool(cuprate_database_service::ReaderThreads::Percent(0.3));
+    let db_thread_pool = cuprate_database_service::init_thread_pool(
+        cuprate_database_service::ReaderThreads::Percent(0.3),
+    );
 
     let (mut blockchain_read_handle, mut blockchain_write_handle, _) =
-        cuprate_blockchain::service::init_with_pool(config.blockchain_config(), db_thread_pool.clone()).unwrap();
+        cuprate_blockchain::service::init_with_pool(
+            config.blockchain_config(),
+            db_thread_pool.clone(),
+        )
+        .unwrap();
     let (txpool_read_handle, txpool_write_handle, _) =
         cuprate_txpool::service::init_with_pool(config.txpool_config(), db_thread_pool).unwrap();
 
@@ -105,11 +113,18 @@ fn main() {
     });
 }
 
-fn init_tokio_rt() -> tokio::runtime::Runtime {
+fn init_tokio_rt(config: &Config) -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(13)
+        .worker_threads(config.tokio.threads)
         .enable_all()
         .build()
+        .unwrap()
+}
+
+fn init_global_rayon_pool(config: &Config) {
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(config.rayon.threads)
+        .build_global()
         .unwrap()
 }
 
