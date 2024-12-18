@@ -1,7 +1,7 @@
 //! Implementation of `trait Database` for `heed`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{cell::RefCell, ops::RangeBounds};
+use std::cell::RefCell;
 
 use crate::{
     backend::heed::types::HeedDb,
@@ -96,6 +96,7 @@ fn is_empty<T: Table>(
 
 //---------------------------------------------------------------------------------------------------- DatabaseIter Impl
 impl<T: Table> DatabaseIter<T> for HeedTableRo<'_, T> {
+    /*
     #[inline]
     fn get_range<'a, Range>(
         &'a self,
@@ -106,6 +107,8 @@ impl<T: Table> DatabaseIter<T> for HeedTableRo<'_, T> {
     {
         Ok(self.db.range(self.tx_ro, &range)?.map(|res| Ok(res?.1)))
     }
+
+     */
 
     #[inline]
     fn iter(

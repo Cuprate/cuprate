@@ -225,7 +225,7 @@ fn db_read_write() {
 
     // Assert the whole range is there.
     {
-        let range = table_ro.get_range(..).unwrap();
+        let range = table_ro.values().unwrap();
         let mut i = 0;
         for result in range {
             let value = result.unwrap();
@@ -241,14 +241,11 @@ fn db_read_write() {
     let range = KEY..key;
 
     // Assert count is correct.
-    assert_eq!(
-        N as usize,
-        table_ro.get_range(range.clone()).unwrap().count()
-    );
+    assert_eq!(N as usize, table_ro.values().unwrap().count());
 
     // Assert each returned value from the iterator is owned.
     {
-        let mut iter = table_ro.get_range(range.clone()).unwrap();
+        let mut iter = table_ro.values().unwrap();
         let value = iter.next().unwrap().unwrap(); // 1. take value out
         drop(iter); // 2. drop the `impl Iterator + 'a`
         assert_value(value); // 3. assert even without the iterator, the value is alive
@@ -256,7 +253,7 @@ fn db_read_write() {
 
     // Assert each value is the same.
     {
-        let mut iter = table_ro.get_range(range).unwrap();
+        let mut iter = table_ro.values().unwrap();
         for _ in 0..N {
             let value = iter.next().unwrap().unwrap();
             assert_value(value);

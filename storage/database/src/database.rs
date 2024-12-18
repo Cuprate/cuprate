@@ -1,8 +1,6 @@
 //! Abstracted database table operations; `trait DatabaseRo` & `trait DatabaseRw`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::ops::RangeBounds;
-
 use crate::{error::RuntimeError, table::Table};
 
 //---------------------------------------------------------------------------------------------------- DatabaseIter
@@ -32,6 +30,9 @@ Each iteration of the iterator has the potential to error as well."
 /// - <https://github.com/Cuprate/cuprate/pull/102#discussion_r1548695610>
 /// - <https://github.com/Cuprate/cuprate/pull/104>
 pub trait DatabaseIter<T: Table> {
+    /*
+    FIXME: <https://github.com/Cuprate/cuprate/issues/348>
+
     /// Get an [`Iterator`] of value's corresponding to a range of keys.
     ///
     /// For example:
@@ -51,6 +52,8 @@ pub trait DatabaseIter<T: Table> {
     ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError>
     where
         Range: RangeBounds<T::Key> + 'a;
+
+     */
 
     /// Get an [`Iterator`] that returns the `(key, value)` types for this database.
     #[doc = doc_iter!()]
