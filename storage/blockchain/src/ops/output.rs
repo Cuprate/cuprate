@@ -2,7 +2,7 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use curve25519_dalek::edwards::CompressedEdwardsY;
-use monero_serai::transaction::Timelock;
+use monero_serai::transaction::{Timelock, Transaction};
 
 use cuprate_database::{
     DbResult, RuntimeError, {DatabaseRo, DatabaseRw},
@@ -13,7 +13,9 @@ use cuprate_types::OutputOnChain;
 
 use crate::{
     ops::macros::{doc_add_block_inner_invariant, doc_error},
-    tables::{BlockTxsHashes, Outputs, RctOutputs, Tables, TablesMut, TxUnlockTime},
+    tables::{
+        BlockInfos, BlockTxsHashes, Outputs, RctOutputs, Tables, TablesMut, TxBlobs, TxUnlockTime,
+    },
     types::{Amount, AmountIndex, Output, OutputFlags, PreRctOutputId, RctOutput},
 };
 
@@ -154,6 +156,8 @@ pub fn output_to_output_on_chain(
     amount: Amount,
     table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
     table_block_txs_hashes: &impl DatabaseRo<BlockTxsHashes>,
+    table_block_infos: &impl DatabaseRo<BlockInfos>,
+    table_tx_blobs: &impl DatabaseRo<TxBlobs>,
 ) -> DbResult<OutputOnChain> {
     let commitment = compute_zero_commitment(amount);
 
@@ -173,7 +177,13 @@ pub fn output_to_output_on_chain(
     let txid = {
         let height = u32_to_usize(output.height);
         let tx_idx = u64_to_usize(output.tx_idx);
-        table_block_txs_hashes.get(&height)?[tx_idx]
+        if let Some(hash) = table_block_txs_hashes.get(&height)?.get(tx_idx) {
+            *hash
+        } else {
+            let miner_tx_id = table_block_infos.get(&height)?.mining_tx_index;
+            let tx_blob = table_tx_blobs.get(&miner_tx_id)?;
+            Transaction::read(&mut tx_blob.0.as_slice())?.hash()
+        }
     };
 
     Ok(OutputOnChain {
@@ -198,6 +208,8 @@ pub fn rct_output_to_output_on_chain(
     rct_output: &RctOutput,
     table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
     table_block_txs_hashes: &impl DatabaseRo<BlockTxsHashes>,
+    table_block_infos: &impl DatabaseRo<BlockInfos>,
+    table_tx_blobs: &impl DatabaseRo<TxBlobs>,
 ) -> DbResult<OutputOnChain> {
     // INVARIANT: Commitments stored are valid when stored by the database.
     let commitment = CompressedEdwardsY::from_slice(&rct_output.commitment)
@@ -221,7 +233,13 @@ pub fn rct_output_to_output_on_chain(
     let txid = {
         let height = u32_to_usize(rct_output.height);
         let tx_idx = u64_to_usize(rct_output.tx_idx);
-        table_block_txs_hashes.get(&height)?[tx_idx]
+        if let Some(hash) = table_block_txs_hashes.get(&height)?.get(tx_idx) {
+            *hash
+        } else {
+            let miner_tx_id = table_block_infos.get(&height)?.mining_tx_index;
+            let tx_blob = table_tx_blobs.get(&miner_tx_id)?;
+            Transaction::read(&mut tx_blob.0.as_slice())?.hash()
+        }
     };
 
     Ok(OutputOnChain {
@@ -245,6 +263,8 @@ pub fn id_to_output_on_chain(id: &PreRctOutputId, tables: &impl Tables) -> DbRes
             &rct_output,
             tables.tx_unlock_time(),
             tables.block_txs_hashes(),
+            tables.block_infos(),
+            tables.tx_blobs(),
         )?;
 
         Ok(output_on_chain)
@@ -256,6 +276,8 @@ pub fn id_to_output_on_chain(id: &PreRctOutputId, tables: &impl Tables) -> DbRes
             id.amount,
             tables.tx_unlock_time(),
             tables.block_txs_hashes(),
+            tables.block_infos(),
+            tables.tx_blobs(),
         )?;
 
         Ok(output_on_chain)

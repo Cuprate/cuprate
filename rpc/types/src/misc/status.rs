@@ -47,8 +47,11 @@ use crate::constants::{
 /// assert_eq!(to_string(&other).unwrap(),                   r#""OTHER""#);
 ///
 /// assert_eq!(Status::Ok.as_ref(),              CORE_RPC_STATUS_OK);
+/// assert_eq!("Ok",                             CORE_RPC_STATUS_OK);
 /// assert_eq!(Status::Failed.as_ref(),          CORE_RPC_STATUS_FAILED);
+/// assert_eq!("FAILED",                         CORE_RPC_STATUS_FAILED);
 /// assert_eq!(Status::Busy.as_ref(),            CORE_RPC_STATUS_BUSY);
+/// assert_eq!("Busy",                           CORE_RPC_STATUS_BUSY);
 /// assert_eq!(Status::NotMining.as_ref(),       CORE_RPC_STATUS_NOT_MINING);
 /// assert_eq!(Status::PaymentRequired.as_ref(), CORE_RPC_STATUS_PAYMENT_REQUIRED);
 /// assert_eq!(other.as_ref(),                   "OTHER");
@@ -74,16 +77,16 @@ pub enum Status {
     // `#[serde(rename = "")]` only takes raw string literals?
     // We have to re-type the constants here...
     /// Successful RPC response, everything is OK; [`CORE_RPC_STATUS_OK`].
-    #[cfg_attr(feature = "serde", serde(rename = "OK"))]
+    #[cfg_attr(feature = "serde", serde(rename = "OK", alias = "Ok"))]
     #[default]
     Ok,
 
     /// Generic request failure.
-    #[cfg_attr(feature = "serde", serde(rename = "Failed"))]
+    #[cfg_attr(feature = "serde", serde(alias = "FAILED"))]
     Failed,
 
     /// The daemon is busy, try later; [`CORE_RPC_STATUS_BUSY`].
-    #[cfg_attr(feature = "serde", serde(rename = "BUSY"))]
+    #[cfg_attr(feature = "serde", serde(rename = "BUSY", alias = "Busy"))]
     Busy,
 
     /// The daemon is not mining; [`CORE_RPC_STATUS_NOT_MINING`].

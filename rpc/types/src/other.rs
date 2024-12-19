@@ -785,7 +785,7 @@ mod test {
             SendRawTransactionResponse {
                 base: AccessResponseBase {
                     response_base: ResponseBase {
-                        status: Status::Other("Failed".into()),
+                        status: Status::Failed,
                         untrusted: false,
                     },
                     credits: 0,
