@@ -9,7 +9,7 @@ use monero_serai::{
 };
 
 use cuprate_database::{
-    DbResult, RuntimeError, StorableVec, {DatabaseIter, DatabaseRo, DatabaseRw},
+    DbResult, RuntimeError, StorableVec, {DatabaseRo, DatabaseRw},
 };
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_helper::{
@@ -268,10 +268,12 @@ pub fn get_block_complete_entry(
 
     let first_tx_idx = miner_tx_idx + 1;
 
-    let tx_blobs = tables
-        .tx_blobs_iter()
-        .get_range(first_tx_idx..(usize_to_u64(numb_non_miner_txs) + first_tx_idx))?
-        .map(|tx_blob| Ok(Bytes::from(tx_blob?.0)))
+    let tx_blobs = (first_tx_idx..(usize_to_u64(numb_non_miner_txs) + first_tx_idx))
+        .map(|idx| {
+            let tx_blob = tables.tx_blobs().get(&idx)?.0;
+
+            Ok(Bytes::from(tx_blob))
+        })
         .collect::<Result<_, RuntimeError>>()?;
 
     Ok(BlockCompleteEntry {
