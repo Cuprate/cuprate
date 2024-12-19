@@ -16,7 +16,7 @@ use cuprate_types::{
 // FIXME: use `anyhow::Error` over `tower::BoxError` in blockchain context.
 
 /// [`BlockChainContextRequest::Context`].
-pub(crate) async fn context(
+pub async fn context(
     blockchain_context: &mut BlockChainContextService,
 ) -> Result<BlockChainContext, Error> {
     let BlockChainContextResponse::Context(context) = blockchain_context
@@ -34,7 +34,7 @@ pub(crate) async fn context(
 }
 
 /// [`BlockChainContextRequest::HardForkInfo`].
-pub(crate) async fn hard_fork_info(
+pub async fn hard_fork_info(
     blockchain_context: &mut BlockChainContextService,
     hard_fork: HardFork,
 ) -> Result<HardForkInfo, Error> {
@@ -53,7 +53,7 @@ pub(crate) async fn hard_fork_info(
 }
 
 /// [`BlockChainContextRequest::FeeEstimate`].
-pub(crate) async fn fee_estimate(
+pub async fn fee_estimate(
     blockchain_context: &mut BlockChainContextService,
     grace_blocks: u64,
 ) -> Result<FeeEstimate, Error> {
@@ -72,7 +72,7 @@ pub(crate) async fn fee_estimate(
 }
 
 /// [`BlockChainContextRequest::CalculatePow`]
-pub(crate) async fn calculate_pow(
+pub async fn calculate_pow(
     blockchain_context: &mut BlockChainContextService,
     hardfork: HardFork,
     block: Block,
@@ -104,7 +104,7 @@ pub(crate) async fn calculate_pow(
 }
 
 /// [`BlockChainContextRequest::BatchGetDifficulties`]
-pub(crate) async fn batch_get_difficulties(
+pub async fn batch_get_difficulties(
     blockchain_context: &mut BlockChainContextService,
     difficulties: Vec<(u64, HardFork)>,
 ) -> Result<Vec<u128>, Error> {

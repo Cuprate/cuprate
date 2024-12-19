@@ -10,12 +10,12 @@ use cuprate_p2p_core::{types::ConnectionId, NetworkZone};
 use cuprate_pruning::PruningSeed;
 use cuprate_rpc_types::misc::Span;
 
-use crate::rpc::handler::{
+use crate::rpc::rpc_handler::{
     BlockchainManagerHandle, BlockchainManagerRequest, BlockchainManagerResponse,
 };
 
 /// [`BlockchainManagerRequest::PopBlocks`]
-pub(crate) async fn pop_blocks(
+pub async fn pop_blocks(
     blockchain_manager: &mut BlockchainManagerHandle,
     amount: u64,
 ) -> Result<u64, Error> {
@@ -34,9 +34,7 @@ pub(crate) async fn pop_blocks(
 }
 
 /// [`BlockchainManagerRequest::Prune`]
-pub(crate) async fn prune(
-    blockchain_manager: &mut BlockchainManagerHandle,
-) -> Result<PruningSeed, Error> {
+pub async fn prune(blockchain_manager: &mut BlockchainManagerHandle) -> Result<PruningSeed, Error> {
     let BlockchainManagerResponse::Prune(seed) = blockchain_manager
         .ready()
         .await?
@@ -50,9 +48,7 @@ pub(crate) async fn prune(
 }
 
 /// [`BlockchainManagerRequest::Pruned`]
-pub(crate) async fn pruned(
-    blockchain_manager: &mut BlockchainManagerHandle,
-) -> Result<bool, Error> {
+pub async fn pruned(blockchain_manager: &mut BlockchainManagerHandle) -> Result<bool, Error> {
     let BlockchainManagerResponse::Pruned(pruned) = blockchain_manager
         .ready()
         .await?
@@ -66,7 +62,7 @@ pub(crate) async fn pruned(
 }
 
 /// [`BlockchainManagerRequest::RelayBlock`]
-pub(crate) async fn relay_block(
+pub async fn relay_block(
     blockchain_manager: &mut BlockchainManagerHandle,
     block: Box<Block>,
 ) -> Result<(), Error> {
@@ -83,9 +79,7 @@ pub(crate) async fn relay_block(
 }
 
 /// [`BlockchainManagerRequest::Syncing`]
-pub(crate) async fn syncing(
-    blockchain_manager: &mut BlockchainManagerHandle,
-) -> Result<bool, Error> {
+pub async fn syncing(blockchain_manager: &mut BlockchainManagerHandle) -> Result<bool, Error> {
     let BlockchainManagerResponse::Syncing(syncing) = blockchain_manager
         .ready()
         .await?
@@ -99,9 +93,7 @@ pub(crate) async fn syncing(
 }
 
 /// [`BlockchainManagerRequest::Synced`]
-pub(crate) async fn synced(
-    blockchain_manager: &mut BlockchainManagerHandle,
-) -> Result<bool, Error> {
+pub async fn synced(blockchain_manager: &mut BlockchainManagerHandle) -> Result<bool, Error> {
     let BlockchainManagerResponse::Synced(syncing) = blockchain_manager
         .ready()
         .await?
@@ -115,7 +107,7 @@ pub(crate) async fn synced(
 }
 
 /// [`BlockchainManagerRequest::Target`]
-pub(crate) async fn target(
+pub async fn target(
     blockchain_manager: &mut BlockchainManagerHandle,
 ) -> Result<std::time::Duration, Error> {
     let BlockchainManagerResponse::Target(target) = blockchain_manager
@@ -131,9 +123,7 @@ pub(crate) async fn target(
 }
 
 /// [`BlockchainManagerRequest::TargetHeight`]
-pub(crate) async fn target_height(
-    blockchain_manager: &mut BlockchainManagerHandle,
-) -> Result<u64, Error> {
+pub async fn target_height(blockchain_manager: &mut BlockchainManagerHandle) -> Result<u64, Error> {
     let BlockchainManagerResponse::TargetHeight { height } = blockchain_manager
         .ready()
         .await?
@@ -147,7 +137,7 @@ pub(crate) async fn target_height(
 }
 
 /// [`BlockchainManagerRequest::GenerateBlocks`]
-pub(crate) async fn generate_blocks(
+pub async fn generate_blocks(
     blockchain_manager: &mut BlockchainManagerHandle,
     amount_of_blocks: u64,
     prev_block: Option<[u8; 32]>,
@@ -172,7 +162,7 @@ pub(crate) async fn generate_blocks(
 }
 
 // [`BlockchainManagerRequest::Spans`]
-pub(crate) async fn spans<Z: NetworkZone>(
+pub async fn spans<Z: NetworkZone>(
     blockchain_manager: &mut BlockchainManagerHandle,
 ) -> Result<Vec<Span>, Error> {
     // let BlockchainManagerResponse::Spans(vec) = blockchain_manager
@@ -205,7 +195,7 @@ pub(crate) async fn spans<Z: NetworkZone>(
 }
 
 /// [`BlockchainManagerRequest::NextNeededPruningSeed`]
-pub(crate) async fn next_needed_pruning_seed(
+pub async fn next_needed_pruning_seed(
     blockchain_manager: &mut BlockchainManagerHandle,
 ) -> Result<PruningSeed, Error> {
     let BlockchainManagerResponse::NextNeededPruningSeed(seed) = blockchain_manager
@@ -221,7 +211,7 @@ pub(crate) async fn next_needed_pruning_seed(
 }
 
 /// [`BlockchainManagerRequest::CreateBlockTemplate`]
-pub(crate) async fn create_block_template(
+pub async fn create_block_template(
     blockchain_manager: &mut BlockchainManagerHandle,
     prev_block: [u8; 32],
     account_public_address: String,
@@ -244,7 +234,7 @@ pub(crate) async fn create_block_template(
 }
 
 /// [`BlockchainManagerRequest::Sync`]
-pub(crate) async fn sync(blockchain_manager: &mut BlockchainManagerHandle) -> Result<(), Error> {
+pub async fn sync(blockchain_manager: &mut BlockchainManagerHandle) -> Result<(), Error> {
     let BlockchainManagerResponse::Ok = blockchain_manager
         .ready()
         .await?
@@ -258,7 +248,7 @@ pub(crate) async fn sync(blockchain_manager: &mut BlockchainManagerHandle) -> Re
 }
 
 /// [`BlockchainManagerRequest::Stop`]
-pub(crate) async fn stop(blockchain_manager: &mut BlockchainManagerHandle) -> Result<(), Error> {
+pub async fn stop(blockchain_manager: &mut BlockchainManagerHandle) -> Result<(), Error> {
     let BlockchainManagerResponse::Ok = blockchain_manager
         .ready()
         .await?

@@ -22,7 +22,7 @@ use cuprate_types::{
 };
 
 /// [`BlockchainReadRequest::Block`].
-pub(crate) async fn block(
+pub async fn block(
     blockchain_read: &mut BlockchainReadHandle,
     height: u64,
 ) -> Result<Block, Error> {
@@ -41,7 +41,7 @@ pub(crate) async fn block(
 }
 
 /// [`BlockchainReadRequest::BlockByHash`].
-pub(crate) async fn block_by_hash(
+pub async fn block_by_hash(
     blockchain_read: &mut BlockchainReadHandle,
     hash: [u8; 32],
 ) -> Result<Block, Error> {
@@ -58,7 +58,7 @@ pub(crate) async fn block_by_hash(
 }
 
 /// [`BlockchainReadRequest::BlockExtendedHeader`].
-pub(crate) async fn block_extended_header(
+pub async fn block_extended_header(
     blockchain_read: &mut BlockchainReadHandle,
     height: u64,
 ) -> Result<ExtendedBlockHeader, Error> {
@@ -77,7 +77,7 @@ pub(crate) async fn block_extended_header(
 }
 
 /// [`BlockchainReadRequest::BlockHash`].
-pub(crate) async fn block_hash(
+pub async fn block_hash(
     blockchain_read: &mut BlockchainReadHandle,
     height: u64,
     chain: Chain,
@@ -98,7 +98,7 @@ pub(crate) async fn block_hash(
 }
 
 /// [`BlockchainReadRequest::FindBlock`].
-pub(crate) async fn find_block(
+pub async fn find_block(
     blockchain_read: &mut BlockchainReadHandle,
     block_hash: [u8; 32],
 ) -> Result<Option<(Chain, usize)>, Error> {
@@ -115,7 +115,7 @@ pub(crate) async fn find_block(
 }
 
 /// [`BlockchainReadRequest::FilterUnknownHashes`].
-pub(crate) async fn filter_unknown_hashes(
+pub async fn filter_unknown_hashes(
     blockchain_read: &mut BlockchainReadHandle,
     block_hashes: HashSet<[u8; 32]>,
 ) -> Result<HashSet<[u8; 32]>, Error> {
@@ -132,7 +132,7 @@ pub(crate) async fn filter_unknown_hashes(
 }
 
 /// [`BlockchainReadRequest::BlockExtendedHeaderInRange`]
-pub(crate) async fn block_extended_header_in_range(
+pub async fn block_extended_header_in_range(
     blockchain_read: &mut BlockchainReadHandle,
     range: Range<usize>,
     chain: Chain,
@@ -152,7 +152,7 @@ pub(crate) async fn block_extended_header_in_range(
 }
 
 /// [`BlockchainReadRequest::ChainHeight`].
-pub(crate) async fn chain_height(
+pub async fn chain_height(
     blockchain_read: &mut BlockchainReadHandle,
 ) -> Result<(u64, [u8; 32]), Error> {
     let BlockchainResponse::ChainHeight(height, hash) = blockchain_read
@@ -168,7 +168,7 @@ pub(crate) async fn chain_height(
 }
 
 /// [`BlockchainReadRequest::GeneratedCoins`].
-pub(crate) async fn generated_coins(
+pub async fn generated_coins(
     blockchain_read: &mut BlockchainReadHandle,
     block_height: u64,
 ) -> Result<u64, Error> {
@@ -187,7 +187,7 @@ pub(crate) async fn generated_coins(
 }
 
 /// [`BlockchainReadRequest::Outputs`]
-pub(crate) async fn outputs(
+pub async fn outputs(
     blockchain_read: &mut BlockchainReadHandle,
     outputs: HashMap<u64, HashSet<u64>>,
 ) -> Result<HashMap<u64, HashMap<u64, OutputOnChain>>, Error> {
@@ -204,7 +204,7 @@ pub(crate) async fn outputs(
 }
 
 /// [`BlockchainReadRequest::NumberOutputsWithAmount`]
-pub(crate) async fn number_outputs_with_amount(
+pub async fn number_outputs_with_amount(
     blockchain_read: &mut BlockchainReadHandle,
     output_amounts: Vec<u64>,
 ) -> Result<HashMap<u64, usize>, Error> {
@@ -223,7 +223,7 @@ pub(crate) async fn number_outputs_with_amount(
 }
 
 /// [`BlockchainReadRequest::KeyImagesSpent`]
-pub(crate) async fn key_images_spent(
+pub async fn key_images_spent(
     blockchain_read: &mut BlockchainReadHandle,
     key_images: Vec<[u8; 32]>,
 ) -> Result<Vec<bool>, Error> {
@@ -240,7 +240,7 @@ pub(crate) async fn key_images_spent(
 }
 
 /// [`BlockchainReadRequest::CompactChainHistory`]
-pub(crate) async fn compact_chain_history(
+pub async fn compact_chain_history(
     blockchain_read: &mut BlockchainReadHandle,
 ) -> Result<(Vec<[u8; 32]>, u128), Error> {
     let BlockchainResponse::CompactChainHistory {
@@ -259,7 +259,7 @@ pub(crate) async fn compact_chain_history(
 }
 
 /// [`BlockchainReadRequest::FindFirstUnknown`]
-pub(crate) async fn find_first_unknown(
+pub async fn find_first_unknown(
     blockchain_read: &mut BlockchainReadHandle,
     hashes: Vec<[u8; 32]>,
 ) -> Result<Option<(usize, u64)>, Error> {
@@ -276,9 +276,7 @@ pub(crate) async fn find_first_unknown(
 }
 
 /// [`BlockchainReadRequest::TotalTxCount`]
-pub(crate) async fn total_tx_count(
-    blockchain_read: &mut BlockchainReadHandle,
-) -> Result<u64, Error> {
+pub async fn total_tx_count(blockchain_read: &mut BlockchainReadHandle) -> Result<u64, Error> {
     let BlockchainResponse::TotalTxCount(tx_count) = blockchain_read
         .ready()
         .await?
@@ -292,7 +290,7 @@ pub(crate) async fn total_tx_count(
 }
 
 /// [`BlockchainReadRequest::DatabaseSize`]
-pub(crate) async fn database_size(
+pub async fn database_size(
     blockchain_read: &mut BlockchainReadHandle,
 ) -> Result<(u64, u64), Error> {
     let BlockchainResponse::DatabaseSize {
@@ -311,7 +309,7 @@ pub(crate) async fn database_size(
 }
 
 /// [`BlockchainReadRequest::OutputDistribution`]
-pub(crate) async fn output_distribution(
+pub async fn output_distribution(
     blockchain_read: &mut BlockchainReadHandle,
     input: OutputDistributionInput,
 ) -> Result<Vec<OutputDistributionData>, Error> {
@@ -328,7 +326,7 @@ pub(crate) async fn output_distribution(
 }
 
 /// [`BlockchainReadRequest::OutputHistogram`]
-pub(crate) async fn output_histogram(
+pub async fn output_histogram(
     blockchain_read: &mut BlockchainReadHandle,
     input: OutputHistogramInput,
 ) -> Result<Vec<OutputHistogramEntry>, Error> {
@@ -345,7 +343,7 @@ pub(crate) async fn output_histogram(
 }
 
 /// [`BlockchainReadRequest::CoinbaseTxSum`]
-pub(crate) async fn coinbase_tx_sum(
+pub async fn coinbase_tx_sum(
     blockchain_read: &mut BlockchainReadHandle,
     height: u64,
     count: u64,
@@ -366,7 +364,7 @@ pub(crate) async fn coinbase_tx_sum(
 }
 
 /// [`BlockchainReadRequest::AltChains`]
-pub(crate) async fn alt_chains(
+pub async fn alt_chains(
     blockchain_read: &mut BlockchainReadHandle,
 ) -> Result<Vec<ChainInfo>, Error> {
     let BlockchainResponse::AltChains(vec) = blockchain_read
@@ -382,9 +380,7 @@ pub(crate) async fn alt_chains(
 }
 
 /// [`BlockchainReadRequest::AltChainCount`]
-pub(crate) async fn alt_chain_count(
-    blockchain_read: &mut BlockchainReadHandle,
-) -> Result<u64, Error> {
+pub async fn alt_chain_count(blockchain_read: &mut BlockchainReadHandle) -> Result<u64, Error> {
     let BlockchainResponse::AltChainCount(count) = blockchain_read
         .ready()
         .await?
@@ -398,7 +394,7 @@ pub(crate) async fn alt_chain_count(
 }
 
 /// [`BlockchainReadRequest::Transactions`].
-pub(crate) async fn transactions(
+pub async fn transactions(
     blockchain_read: &mut BlockchainReadHandle,
     tx_hashes: HashSet<[u8; 32]>,
 ) -> Result<(Vec<TxInBlockchain>, Vec<[u8; 32]>), Error> {
@@ -415,9 +411,7 @@ pub(crate) async fn transactions(
 }
 
 /// [`BlockchainReadRequest::TotalRctOutputs`].
-pub(crate) async fn total_rct_outputs(
-    blockchain_read: &mut BlockchainReadHandle,
-) -> Result<u64, Error> {
+pub async fn total_rct_outputs(blockchain_read: &mut BlockchainReadHandle) -> Result<u64, Error> {
     let BlockchainResponse::TotalRctOutputs(n) = blockchain_read
         .ready()
         .await?
@@ -431,7 +425,7 @@ pub(crate) async fn total_rct_outputs(
 }
 
 /// [`BlockchainReadRequest::BlockCompleteEntries`].
-pub(crate) async fn block_complete_entries(
+pub async fn block_complete_entries(
     blockchain_read: &mut BlockchainReadHandle,
     block_hashes: Vec<[u8; 32]>,
 ) -> Result<(Vec<BlockCompleteEntry>, Vec<[u8; 32]>, usize), Error> {
@@ -452,7 +446,7 @@ pub(crate) async fn block_complete_entries(
 }
 
 /// [`BlockchainReadRequest::BlockCompleteEntriesByHeight`].
-pub(crate) async fn block_complete_entries_by_height(
+pub async fn block_complete_entries_by_height(
     blockchain_read: &mut BlockchainReadHandle,
     block_heights: Vec<u64>,
 ) -> Result<Vec<BlockCompleteEntry>, Error> {
@@ -471,7 +465,7 @@ pub(crate) async fn block_complete_entries_by_height(
 }
 
 /// [`BlockchainReadRequest::TxOutputIndexes`].
-pub(crate) async fn tx_output_indexes(
+pub async fn tx_output_indexes(
     blockchain_read: &mut BlockchainReadHandle,
     tx_hash: [u8; 32],
 ) -> Result<Vec<u64>, Error> {

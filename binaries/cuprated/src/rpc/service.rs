@@ -1,4 +1,4 @@
-//! Convenience functions for requests/responses.
+//! Convenience functions for Cuprate's various [`tower::Service`] requests/responses.
 //!
 //! This module implements many methods for
 //! [`CupratedRpcHandler`](crate::rpc::CupratedRpcHandler)

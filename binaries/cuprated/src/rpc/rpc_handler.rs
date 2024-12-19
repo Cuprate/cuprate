@@ -19,7 +19,7 @@ use cuprate_rpc_types::{
 };
 use cuprate_txpool::service::TxpoolReadHandle;
 
-use crate::rpc::{bin, json, other};
+use crate::rpc::handlers;
 
 /// TODO: use real type when public.
 #[derive(Clone)]
@@ -217,7 +217,7 @@ impl Service<JsonRpcRequest> for CupratedRpcHandler {
 
     fn call(&mut self, request: JsonRpcRequest) -> Self::Future {
         let state = self.clone();
-        Box::pin(json::map_request(state, request))
+        Box::pin(handlers::json_rpc::map_request(state, request))
     }
 }
 
@@ -232,7 +232,7 @@ impl Service<BinRequest> for CupratedRpcHandler {
 
     fn call(&mut self, request: BinRequest) -> Self::Future {
         let state = self.clone();
-        Box::pin(bin::map_request(state, request))
+        Box::pin(handlers::bin::map_request(state, request))
     }
 }
 
@@ -247,6 +247,6 @@ impl Service<OtherRequest> for CupratedRpcHandler {
 
     fn call(&mut self, request: OtherRequest) -> Self::Future {
         let state = self.clone();
-        Box::pin(other::map_request(state, request))
+        Box::pin(handlers::other_json::map_request(state, request))
     }
 }

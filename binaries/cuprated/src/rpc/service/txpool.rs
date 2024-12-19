@@ -23,7 +23,7 @@ use cuprate_types::{
 // FIXME: use `anyhow::Error` over `tower::BoxError` in txpool.
 
 /// [`TxpoolReadRequest::Backlog`]
-pub(crate) async fn backlog(txpool_read: &mut TxpoolReadHandle) -> Result<Vec<TxEntry>, Error> {
+pub async fn backlog(txpool_read: &mut TxpoolReadHandle) -> Result<Vec<TxEntry>, Error> {
     let TxpoolReadResponse::Backlog(tx_entries) = txpool_read
         .ready()
         .await
@@ -39,7 +39,7 @@ pub(crate) async fn backlog(txpool_read: &mut TxpoolReadHandle) -> Result<Vec<Tx
 }
 
 /// [`TxpoolReadRequest::Size`]
-pub(crate) async fn size(
+pub async fn size(
     txpool_read: &mut TxpoolReadHandle,
     include_sensitive_txs: bool,
 ) -> Result<u64, Error> {
@@ -60,7 +60,7 @@ pub(crate) async fn size(
 }
 
 /// TODO
-pub(crate) async fn pool_info(
+pub async fn pool_info(
     txpool_read: &mut TxpoolReadHandle,
     include_sensitive_txs: bool,
     max_tx_count: usize,
@@ -85,7 +85,7 @@ pub(crate) async fn pool_info(
 }
 
 /// TODO
-pub(crate) async fn txs_by_hash(
+pub async fn txs_by_hash(
     txpool_read: &mut TxpoolReadHandle,
     tx_hashes: Vec<[u8; 32]>,
     include_sensitive_txs: bool,
@@ -108,7 +108,7 @@ pub(crate) async fn txs_by_hash(
 }
 
 /// TODO
-pub(crate) async fn key_images_spent(
+pub async fn key_images_spent(
     txpool_read: &mut TxpoolReadHandle,
     key_images: Vec<[u8; 32]>,
     include_sensitive_txs: bool,
@@ -131,7 +131,7 @@ pub(crate) async fn key_images_spent(
 }
 
 /// TODO
-pub(crate) async fn pool(
+pub async fn pool(
     txpool_read: &mut TxpoolReadHandle,
     include_sensitive_txs: bool,
 ) -> Result<(Vec<TxInfo>, Vec<SpentKeyImageInfo>), Error> {
@@ -158,7 +158,7 @@ pub(crate) async fn pool(
 }
 
 /// TODO
-pub(crate) async fn pool_stats(
+pub async fn pool_stats(
     txpool_read: &mut TxpoolReadHandle,
     include_sensitive_txs: bool,
 ) -> Result<TxpoolStats, Error> {
@@ -179,25 +179,19 @@ pub(crate) async fn pool_stats(
 }
 
 /// TODO
-pub(crate) async fn flush(
-    txpool_manager: &mut Infallible,
-    tx_hashes: Vec<[u8; 32]>,
-) -> Result<(), Error> {
+pub async fn flush(txpool_manager: &mut Infallible, tx_hashes: Vec<[u8; 32]>) -> Result<(), Error> {
     todo!();
     Ok(())
 }
 
 /// TODO
-pub(crate) async fn relay(
-    txpool_manager: &mut Infallible,
-    tx_hashes: Vec<[u8; 32]>,
-) -> Result<(), Error> {
+pub async fn relay(txpool_manager: &mut Infallible, tx_hashes: Vec<[u8; 32]>) -> Result<(), Error> {
     todo!();
     Ok(())
 }
 
 /// TODO
-pub(crate) async fn check_maybe_relay_local(
+pub async fn check_maybe_relay_local(
     txpool_manager: &mut Infallible,
     tx: Transaction,
     relay: bool,

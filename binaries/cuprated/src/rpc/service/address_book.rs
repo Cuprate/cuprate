@@ -17,7 +17,7 @@ use cuprate_rpc_types::misc::ConnectionInfo;
 // FIXME: use `anyhow::Error` over `tower::BoxError` in address book.
 
 /// [`AddressBookRequest::PeerlistSize`]
-pub(crate) async fn peerlist_size<Z: NetworkZone>(
+pub async fn peerlist_size<Z: NetworkZone>(
     address_book: &mut impl AddressBook<Z>,
 ) -> Result<(u64, u64), Error> {
     let AddressBookResponse::PeerlistSize { white, grey } = address_book
@@ -35,7 +35,7 @@ pub(crate) async fn peerlist_size<Z: NetworkZone>(
 }
 
 /// [`AddressBookRequest::ConnectionInfo`]
-pub(crate) async fn connection_info<Z: NetworkZone>(
+pub async fn connection_info<Z: NetworkZone>(
     address_book: &mut impl AddressBook<Z>,
 ) -> Result<Vec<ConnectionInfo>, Error> {
     let AddressBookResponse::ConnectionInfo(vec) = address_book
@@ -92,7 +92,7 @@ pub(crate) async fn connection_info<Z: NetworkZone>(
 }
 
 /// [`AddressBookRequest::ConnectionCount`]
-pub(crate) async fn connection_count<Z: NetworkZone>(
+pub async fn connection_count<Z: NetworkZone>(
     address_book: &mut impl AddressBook<Z>,
 ) -> Result<(u64, u64), Error> {
     let AddressBookResponse::ConnectionCount { incoming, outgoing } = address_book
@@ -110,7 +110,7 @@ pub(crate) async fn connection_count<Z: NetworkZone>(
 }
 
 /// [`AddressBookRequest::SetBan`]
-pub(crate) async fn set_ban<Z: NetworkZone>(
+pub async fn set_ban<Z: NetworkZone>(
     address_book: &mut impl AddressBook<Z>,
     set_ban: cuprate_p2p_core::types::SetBan<Z::Addr>,
 ) -> Result<(), Error> {
@@ -129,7 +129,7 @@ pub(crate) async fn set_ban<Z: NetworkZone>(
 }
 
 /// [`AddressBookRequest::GetBan`]
-pub(crate) async fn get_ban<Z: NetworkZone>(
+pub async fn get_ban<Z: NetworkZone>(
     address_book: &mut impl AddressBook<Z>,
     peer: Z::Addr,
 ) -> Result<Option<std::time::Instant>, Error> {
@@ -148,7 +148,7 @@ pub(crate) async fn get_ban<Z: NetworkZone>(
 }
 
 /// [`AddressBookRequest::GetBans`]
-pub(crate) async fn get_bans<Z: NetworkZone>(
+pub async fn get_bans<Z: NetworkZone>(
     address_book: &mut impl AddressBook<Z>,
 ) -> Result<Vec<BanState<Z::Addr>>, Error> {
     let AddressBookResponse::GetBans(bans) = address_book
@@ -166,7 +166,7 @@ pub(crate) async fn get_bans<Z: NetworkZone>(
 }
 
 /// [`AddressBookRequest::Peerlist`]
-pub(crate) async fn peerlist<Z: NetworkZone>(
+pub async fn peerlist<Z: NetworkZone>(
     address_book: &mut impl AddressBook<Z>,
 ) -> Result<(Vec<Peer>, Vec<Peer>), Error> {
     let AddressBookResponse::Peerlist(peerlist) = address_book

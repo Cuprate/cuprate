@@ -3,7 +3,7 @@
 //! Many of the handlers have bodies with only small differences,
 //! the identical code is extracted and reused here in these functions.
 //!
-//! These build on-top of [`crate::rpc::request`] functions.
+//! These build on-top of [`crate::rpc::service`] functions.
 
 use anyhow::{anyhow, Error};
 
@@ -17,9 +17,9 @@ use cuprate_rpc_types::{
 };
 use cuprate_types::HardFork;
 
-use crate::{
-    rpc::request::{blockchain, blockchain_context},
-    rpc::CupratedRpcHandler,
+use crate::rpc::{
+    service::{blockchain, blockchain_context},
+    CupratedRpcHandler,
 };
 
 /// Map some data into a [`BlockHeader`].

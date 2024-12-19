@@ -23,8 +23,8 @@ use cuprate_rpc_types::{
 };
 
 use crate::rpc::{
-    helper,
-    request::{blockchain, txpool},
+    handlers::helper,
+    service::{blockchain, txpool},
     CupratedRpcHandler,
 };
 

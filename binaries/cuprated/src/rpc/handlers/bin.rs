@@ -26,13 +26,13 @@ use cuprate_types::{
 };
 
 use crate::rpc::{
-    helper,
-    request::{blockchain, txpool},
-    shared, CupratedRpcHandler,
+    handlers::{helper, shared},
+    service::{blockchain, txpool},
+    CupratedRpcHandler,
 };
 
 /// Map a [`BinRequest`] to the function that will lead to a [`BinResponse`].
-pub(super) async fn map_request(
+pub async fn map_request(
     state: CupratedRpcHandler,
     request: BinRequest,
 ) -> Result<BinResponse, Error> {

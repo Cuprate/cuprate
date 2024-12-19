@@ -58,19 +58,18 @@ use cuprate_types::{
 };
 
 use crate::{
-    constants::{UNSUPPORTED_RPC_CALL, VERSION_BUILD},
+    constants::VERSION_BUILD,
     rpc::{
-        helper,
-        request::{address_book, blockchain, blockchain_context, blockchain_manager, txpool},
-        shared, CupratedRpcHandler,
+        constants::{FIELD_NOT_SUPPORTED, UNSUPPORTED_RPC_CALL},
+        handlers::{helper, shared},
+        service::{address_book, blockchain, blockchain_context, blockchain_manager, txpool},
+        CupratedRpcHandler,
     },
     statics::START_INSTANT_UNIX,
 };
 
-use super::constants::FIELD_NOT_SUPPORTED;
-
 /// Map a [`JsonRpcRequest`] to the function that will lead to a [`JsonRpcResponse`].
-pub(super) async fn map_request(
+pub async fn map_request(
     state: CupratedRpcHandler,
     request: JsonRpcRequest,
 ) -> Result<JsonRpcResponse, Error> {

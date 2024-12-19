@@ -43,19 +43,17 @@ use cuprate_types::{
 use monero_serai::transaction::{Input, Timelock, Transaction};
 
 use crate::{
-    constants::UNSUPPORTED_RPC_CALL,
     rpc::{
-        helper,
-        request::{blockchain, blockchain_context, blockchain_manager, txpool},
-        shared, CupratedRpcHandler,
+        constants::UNSUPPORTED_RPC_CALL,
+        handlers::{helper, shared},
+        service::{address_book, blockchain, blockchain_context, blockchain_manager, txpool},
+        CupratedRpcHandler,
     },
     statics::START_INSTANT_UNIX,
 };
 
-use super::request::address_book;
-
 /// Map a [`OtherRequest`] to the function that will lead to a [`OtherResponse`].
-pub(super) async fn map_request(
+pub async fn map_request(
     state: CupratedRpcHandler,
     request: OtherRequest,
 ) -> Result<OtherResponse, Error> {
