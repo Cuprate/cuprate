@@ -33,9 +33,9 @@ use crate::constants::{
 /// use cuprate_rpc_types::{
 ///     misc::Status,
 ///     CORE_RPC_STATUS_BUSY, CORE_RPC_STATUS_NOT_MINING, CORE_RPC_STATUS_OK,
-///     CORE_RPC_STATUS_PAYMENT_REQUIRED
+///     CORE_RPC_STATUS_PAYMENT_REQUIRED, CORE_RPC_STATUS_FAILED
 /// };
-/// use serde_json::to_string;
+/// use serde_json::{to_string, from_str};
 ///
 /// let other = Status::Other("OTHER".into());
 ///
@@ -46,12 +46,19 @@ use crate::constants::{
 /// assert_eq!(to_string(&Status::PaymentRequired).unwrap(), r#""PAYMENT REQUIRED""#);
 /// assert_eq!(to_string(&other).unwrap(),                   r#""OTHER""#);
 ///
+/// assert_eq!(from_str::<Status>(r#""Ok""#).unwrap(),               Status::Ok);
+/// assert_eq!(from_str::<Status>(r#""OK""#).unwrap(),               Status::Ok);
+/// assert_eq!(from_str::<Status>(r#""Failed""#).unwrap(),           Status::Failed);
+/// assert_eq!(from_str::<Status>(r#""FAILED""#).unwrap(),           Status::Failed);
+/// assert_eq!(from_str::<Status>(r#""Busy""#).unwrap(),             Status::Busy);
+/// assert_eq!(from_str::<Status>(r#""BUSY""#).unwrap(),             Status::Busy);
+/// assert_eq!(from_str::<Status>(r#""NOT MINING""#).unwrap(),       Status::NotMining);
+/// assert_eq!(from_str::<Status>(r#""PAYMENT REQUIRED""#).unwrap(), Status::PaymentRequired);
+/// assert_eq!(from_str::<Status>(r#""OTHER""#).unwrap(),            other);
+///
 /// assert_eq!(Status::Ok.as_ref(),              CORE_RPC_STATUS_OK);
-/// assert_eq!("Ok",                             CORE_RPC_STATUS_OK);
 /// assert_eq!(Status::Failed.as_ref(),          CORE_RPC_STATUS_FAILED);
-/// assert_eq!("FAILED",                         CORE_RPC_STATUS_FAILED);
 /// assert_eq!(Status::Busy.as_ref(),            CORE_RPC_STATUS_BUSY);
-/// assert_eq!("Busy",                           CORE_RPC_STATUS_BUSY);
 /// assert_eq!(Status::NotMining.as_ref(),       CORE_RPC_STATUS_NOT_MINING);
 /// assert_eq!(Status::PaymentRequired.as_ref(), CORE_RPC_STATUS_PAYMENT_REQUIRED);
 /// assert_eq!(other.as_ref(),                   "OTHER");

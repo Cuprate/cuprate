@@ -11,7 +11,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 /// ```rust
 /// # use cuprate_hex::HexVec;
 /// let hash = [1; 32];
-/// let hex_vec = HexVec(hash);
+/// let hex_vec = HexVec::from(hash);
 /// let expected_json = r#""0101010101010101010101010101010101010101010101010101010101010101""#;
 ///
 /// let to_string = serde_json::to_string(&hex_vec).unwrap();
@@ -51,7 +51,7 @@ impl HexVec {
     ///
     /// ```rust
     /// # use cuprate_hex::HexVec;
-    /// assert_eq!(HexVec::empty_if_zeroed([1; 32]), [1; 32]);
+    /// assert_eq!(HexVec::empty_if_zeroed([1; 32]).0, [1; 32]);
     /// assert_eq!(HexVec::empty_if_zeroed([0; 32]), HexVec(vec![]));
     /// assert!(HexVec::empty_if_zeroed([0; 32]).is_empty());
     /// ```
