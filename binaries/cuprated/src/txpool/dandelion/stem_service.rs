@@ -53,6 +53,8 @@ impl Stream for OutboundPeerStream {
                 OutboundPeerStreamState::AwaitingPeer(fut) => {
                     let res = ready!(fut.poll_unpin(cx));
 
+                    self.state = OutboundPeerStreamState::Standby;
+
                     return Poll::Ready(Some(res.map(|res| {
                         let PeerSetResponse::StemPeer(stem_peer) = res else {
                             unreachable!()

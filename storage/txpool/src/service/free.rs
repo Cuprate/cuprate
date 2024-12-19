@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
+use rayon::ThreadPool;
+
 use cuprate_database::{ConcreteEnv, InitError};
 
+use crate::service::read::init_read_service_with_pool;
 use crate::{
     service::{
         read::init_read_service,
@@ -31,6 +34,20 @@ pub fn init(
 
     // Spawn the Reader thread pool and Writer.
     let readers = init_read_service(Arc::clone(&db), reader_threads);
+    let writer = init_write_service(Arc::clone(&db));
+
+    Ok((readers, writer, db))
+}
+
+pub fn init_with_pool(
+    config: Config,
+    pool: Arc<ThreadPool>,
+) -> Result<(TxpoolReadHandle, TxpoolWriteHandle, Arc<ConcreteEnv>), InitError> {
+    // Initialize the database itself.
+    let db = Arc::new(crate::open(config)?);
+
+    // Spawn the Reader thread pool and Writer.
+    let readers = init_read_service_with_pool(Arc::clone(&db), pool);
     let writer = init_write_service(Arc::clone(&db));
 
     Ok((readers, writer, db))
