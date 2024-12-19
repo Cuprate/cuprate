@@ -73,6 +73,9 @@ pub enum TxpoolReadRequest {
 
     /// TODO
     PoolStats { include_sensitive_txs: bool },
+
+    /// TODO
+    AllHashes { include_sensitive_txs: bool },
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadResponse
@@ -130,6 +133,9 @@ pub enum TxpoolReadResponse {
 
     /// Response to [`TxpoolReadRequest::PoolStats`].
     PoolStats(TxpoolStats),
+
+    /// Response to [`TxpoolReadRequest::AllHashes`].
+    AllHashes(Vec<[u8; 32]>),
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteRequest

@@ -95,6 +95,9 @@ fn map_request(
         TxpoolReadRequest::PoolStats {
             include_sensitive_txs,
         } => pool_stats(env, include_sensitive_txs),
+        TxpoolReadRequest::AllHashes {
+            include_sensitive_txs,
+        } => all_hashes(env, include_sensitive_txs),
     }
 }
 
@@ -267,4 +270,9 @@ fn pool(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
 /// [`TxpoolReadRequest::PoolStats`].
 fn pool_stats(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
     Ok(TxpoolReadResponse::PoolStats(todo!()))
+}
+
+/// [`TxpoolReadRequest::AllHashes`].
+fn all_hashes(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
+    Ok(TxpoolReadResponse::AllHashes(todo!()))
 }

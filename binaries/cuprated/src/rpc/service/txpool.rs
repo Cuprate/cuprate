@@ -179,6 +179,27 @@ pub async fn pool_stats(
 }
 
 /// TODO
+pub async fn all_hashes(
+    txpool_read: &mut TxpoolReadHandle,
+    include_sensitive_txs: bool,
+) -> Result<Vec<[u8; 32]>, Error> {
+    let TxpoolReadResponse::AllHashes(hashes) = txpool_read
+        .ready()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .call(TxpoolReadRequest::AllHashes {
+            include_sensitive_txs,
+        })
+        .await
+        .map_err(|e| anyhow!(e))?
+    else {
+        unreachable!();
+    };
+
+    Ok(hashes)
+}
+
+/// TODO
 pub async fn flush(txpool_manager: &mut Infallible, tx_hashes: Vec<[u8; 32]>) -> Result<(), Error> {
     todo!();
     Ok(())
