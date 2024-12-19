@@ -12,7 +12,7 @@ use cuprate_constants::rpc::{
     RESTRICTED_TRANSACTIONS_COUNT,
 };
 use cuprate_helper::cast::usize_to_u64;
-use cuprate_hex::Hex;
+use cuprate_hex::{Hex, HexVec};
 use cuprate_p2p_core::{client::handshaker::builder::DummyAddressBook, ClearNet};
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
@@ -157,23 +157,23 @@ async fn get_transactions(
             let prunable_hash = Hex(tx.prunable_hash);
 
             let (pruned_as_hex, prunable_as_hex) = if tx.pruned_blob.is_empty() {
-                (String::new(), String::new())
+                (HexVec::new(), HexVec::new())
             } else {
-                (hex::encode(tx.pruned_blob), hex::encode(tx.prunable_blob))
+                (HexVec(tx.pruned_blob), HexVec(tx.prunable_blob))
             };
 
             let as_hex = if pruned_as_hex.is_empty() {
                 // `monerod` will insert a `""` into the `txs_as_hex` array for pruned transactions.
                 // curl http://127.0.0.1:18081/get_transactions -d '{"txs_hashes":["4c8b98753d1577d225a497a50f453827cff3aa023a4add60ec4ce4f923f75de8"]}' -H 'Content-Type: application/json'
-                String::new()
+                HexVec::new()
             } else {
-                hex::encode(&tx.tx_blob)
+                HexVec(tx.tx_blob)
             };
 
             txs_as_hex.push(as_hex.clone());
 
             let as_json = if request.decode_as_json {
-                let tx = Transaction::read(&mut tx.tx_blob.as_slice())?;
+                let tx = Transaction::read(&mut as_hex.0.as_slice())?;
                 let json_type = cuprate_types::json::tx::Transaction::from(tx);
                 let json = serde_json::to_string(&json_type).unwrap();
                 txs_as_json.push(json.clone());
@@ -217,11 +217,11 @@ async fn get_transactions(
             let tx_hash = Hex(tx_hash);
             let tx = Transaction::read(&mut tx_blob.as_slice())?;
 
-            let pruned_as_hex = String::new();
-            let prunable_as_hex = String::new();
+            let pruned_as_hex = HexVec::new();
+            let prunable_as_hex = HexVec::new();
             let prunable_hash = Hex([0; 32]);
 
-            let as_hex = hex::encode(tx_blob);
+            let as_hex = HexVec(tx_blob);
             txs_as_hex.push(as_hex.clone());
 
             let as_json = if request.decode_as_json {
@@ -351,10 +351,7 @@ async fn send_raw_transaction(
         tx_extra_too_big: false,
     };
 
-    let tx = {
-        let blob = hex::decode(request.tx_as_hex)?;
-        Transaction::read(&mut blob.as_slice())?
-    };
+    let tx = Transaction::read(&mut request.tx_as_hex.0.as_slice())?;
 
     if request.do_sanity_checks {
         /// FIXME: these checks could be defined elsewhere.

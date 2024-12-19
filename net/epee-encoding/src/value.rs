@@ -8,7 +8,7 @@ use bytes::{Buf, BufMut, Bytes, BytesMut};
 
 use cuprate_fixed_bytes::{ByteArray, ByteArrayVec};
 use cuprate_helper::cast::u64_to_usize;
-use cuprate_hex::Hex;
+use cuprate_hex::{Hex, HexVec};
 
 use crate::{
     io::{checked_read_primitive, checked_write_primitive},
@@ -437,6 +437,18 @@ impl<const N: usize> EpeeValue for Vec<Hex<N>> {
     }
 }
 
+impl EpeeValue for HexVec {
+    const MARKER: Marker = <Vec<u8> as EpeeValue>::MARKER;
+
+    fn read<B: Buf>(r: &mut B, marker: &Marker) -> Result<Self> {
+        Ok(Self(<Vec<u8> as EpeeValue>::read(r, marker)?))
+    }
+
+    fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
+        <Vec<u8> as EpeeValue>::write(self.0, w)
+    }
+}
+
 macro_rules! epee_seq {
     ($val:ty) => {
         impl EpeeValue for Vec<$val> {
@@ -503,6 +515,7 @@ epee_seq!(u16);
 epee_seq!(f64);
 epee_seq!(bool);
 epee_seq!(Vec<u8>);
+epee_seq!(HexVec);
 epee_seq!(String);
 epee_seq!(Bytes);
 epee_seq!(BytesMut);

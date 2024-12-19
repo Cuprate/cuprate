@@ -23,7 +23,7 @@ use cuprate_helper::{
     fmt::HexPrefix,
     map::split_u128_into_low_high_bits,
 };
-use cuprate_hex::Hex;
+use cuprate_hex::{Hex, HexVec};
 use cuprate_p2p_core::{client::handshaker::builder::DummyAddressBook, ClearNet, Network};
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
@@ -162,7 +162,7 @@ async fn get_block_template(
     }
 
     let blob_reserve = hex::decode(request.extra_nonce)?;
-    let prev_block = helper::hex_to_hash(request.prev_block)?;
+    let prev_block: [u8; 32] = request.prev_block.try_into()?;
     let extra_nonce = hex::decode(request.extra_nonce)?;
 
     let BlockTemplate {
@@ -182,11 +182,11 @@ async fn get_block_template(
     )
     .await?;
 
-    let blockhashing_blob = hex::encode(block.serialize_pow_hash());
-    let blocktemplate_blob = hex::encode(block.serialize());
+    let blockhashing_blob = HexVec(block.serialize_pow_hash());
+    let blocktemplate_blob = HexVec(block.serialize());
     let (difficulty, difficulty_top64) = split_u128_into_low_high_bits(difficulty);
     // let next_seed_hash = Hex(next_seed_hash);
-    let next_seed_hash = hex::encode(next_seed_hash);
+    let next_seed_hash = HexVec::empty_if_zeroed(next_seed_hash);
     let prev_hash = Hex(block.header.previous);
     let seed_hash = Hex(seed_hash);
     let wide_difficulty = (difficulty, difficulty_top64).hex_prefix();
@@ -215,7 +215,10 @@ async fn get_block_count(
 ) -> Result<GetBlockCountResponse, Error> {
     Ok(GetBlockCountResponse {
         base: helper::response_base(false),
-        count: helper::top_height(&mut state).await?.0,
+        // Block count starts at 1
+        count: blockchain::chain_height(&mut state.blockchain_read)
+            .await?
+            .0,
     })
 }
 
@@ -244,8 +247,7 @@ async fn submit_block(
 ) -> Result<SubmitBlockResponse, Error> {
     // Parse hex into block.
     let [blob] = request.block_blob;
-    let bytes = hex::decode(blob)?;
-    let block = Block::read(&mut bytes.as_slice())?;
+    let block = Block::read(&mut blob.0.as_slice())?;
     let block_id = Hex(block.hash());
 
     // Attempt to relay the block.
@@ -272,7 +274,7 @@ async fn generate_blocks(
     let prev_block = if request.prev_block.is_empty() {
         None
     } else {
-        Some(helper::hex_to_hash(request.prev_block)?)
+        Some(request.prev_block.try_into()?)
     };
 
     let (blocks, height) = blockchain_manager::generate_blocks(
@@ -318,21 +320,13 @@ async fn get_block_header_by_hash(
         ));
     }
 
-    async fn get(
-        state: &mut CupratedRpcHandler,
-        hash: [u8; 32],
-        fill_pow_hash: bool,
-    ) -> Result<BlockHeader, Error> {
-        let block_header = helper::block_header_by_hash(state, hash, fill_pow_hash).await?;
-        Ok(block_header)
-    }
-
-    let block_header = get(&mut state, request.hash.0, request.fill_pow_hash).await?;
+    let block_header =
+        helper::block_header_by_hash(&mut state, request.hash.0, request.fill_pow_hash).await?;
 
     // FIXME PERF: could make a `Vec` on await on all tasks at the same time.
     let mut block_headers = Vec::with_capacity(request.hashes.len());
     for hash in request.hashes {
-        let hash = get(&mut state, hash.0, request.fill_pow_hash).await?;
+        let hash = helper::block_header_by_hash(&mut state, hash.0, request.fill_pow_hash).await?;
         block_headers.push(hash);
     }
 
@@ -425,14 +419,14 @@ async fn get_block(
             helper::block_header(&mut state, request.height, request.fill_pow_hash).await?;
         (block, block_header)
     } else {
-        let hash = helper::hex_to_hash(request.hash)?;
+        let hash: [u8; 32] = request.hash.try_into()?;
         let block = blockchain::block_by_hash(&mut state.blockchain_read, hash).await?;
         let block_header =
             helper::block_header_by_hash(&mut state, hash, request.fill_pow_hash).await?;
         (block, block_header)
     };
 
-    let blob = hex::encode(block.serialize());
+    let blob = HexVec(block.serialize());
     let miner_tx_hash = Hex(block.miner_transaction.hash());
     let tx_hashes = block.transactions.iter().map(|a| Hex(*a)).collect();
     let json = {
@@ -1024,8 +1018,7 @@ async fn calc_pow(
     request: CalcPowRequest,
 ) -> Result<CalcPowResponse, Error> {
     let hardfork = HardFork::from_version(request.major_version)?;
-    let block_blob: Vec<u8> = hex::decode(request.block_blob)?;
-    let block = Block::read(&mut block_blob.as_slice())?;
+    let block = Block::read(&mut request.block_blob.0.as_slice())?;
     let seed_hash = request.seed_hash.0;
 
     // let block_weight = todo!();
@@ -1222,10 +1215,7 @@ fn add_aux_pow_inner(
     let merkle_root = tree_hash(aux_pow_raw.as_ref());
     let merkle_tree_depth = encode_mm_depth(len, nonce);
 
-    let block_template = {
-        let hex = hex::decode(request.blocktemplate_blob)?;
-        Block::read(&mut hex.as_slice())?
-    };
+    let block_template = Block::read(&mut request.blocktemplate_blob.0.as_slice())?;
 
     fn remove_field_from_tx_extra() -> Result<(), ()> {
         todo!("https://github.com/monero-project/monero/blob/master/src/cryptonote_basic/cryptonote_format_utils.cpp#L767")
@@ -1256,8 +1246,8 @@ fn add_aux_pow_inner(
     let blocktemplate_blob = block_template.serialize();
     let blockhashing_blob = block_template.serialize_pow_hash();
 
-    let blocktemplate_blob = hex::encode(blocktemplate_blob);
-    let blockhashing_blob = hex::encode(blockhashing_blob);
+    let blocktemplate_blob = HexVec(blocktemplate_blob);
+    let blockhashing_blob = HexVec(blockhashing_blob);
     let merkle_root = Hex(merkle_root);
     let aux_pow = aux_pow.into_vec();
 

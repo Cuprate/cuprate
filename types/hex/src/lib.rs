@@ -2,6 +2,8 @@
 // Allow some lints when running in debug mode.
 #![cfg_attr(debug_assertions, allow(clippy::todo, clippy::multiple_crate_versions))]
 
-mod hex;
+mod array;
+mod vec;
 
-pub use hex::Hex;
+pub use array::Hex;
+pub use vec::HexVec;

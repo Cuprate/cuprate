@@ -11,7 +11,7 @@ use cuprate_epee_encoding::{
     EpeeObject, EpeeObjectBuilder,
 };
 
-use cuprate_hex::Hex;
+use cuprate_hex::{Hex, HexVec};
 
 #[cfg(feature = "serde")]
 use crate::serde::{serde_false, serde_true};
@@ -37,12 +37,12 @@ pub struct TxEntry {
     /// to create this JSON string in a type-safe manner.
     pub as_json: String,
 
-    pub as_hex: String,
+    pub as_hex: HexVec,
     pub double_spend_seen: bool,
     pub tx_hash: Hex<32>,
-    pub prunable_as_hex: String,
+    pub prunable_as_hex: HexVec,
     pub prunable_hash: Hex<32>,
-    pub pruned_as_hex: String,
+    pub pruned_as_hex: HexVec,
 
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub tx_entry_type: TxEntryType,

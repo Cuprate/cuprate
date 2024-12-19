@@ -8,7 +8,7 @@ use std::{
 };
 
 use cuprate_helper::{fmt::HexPrefix, map::ipv4_from_u32};
-use cuprate_hex::Hex;
+use cuprate_hex::{Hex, HexVec};
 use cuprate_p2p_core::{
     types::{ConnectionId, ConnectionInfo, SetBan, Span},
     NetZoneAddress,
@@ -34,7 +34,7 @@ impl From<BlockHeader> for crate::misc::BlockHeader {
             nonce: x.nonce,
             num_txes: x.num_txes,
             orphan_status: x.orphan_status,
-            pow_hash: x.pow_hash.map_or_else(String::new, hex::encode),
+            pow_hash: x.pow_hash.map_or_else(HexVec::new, |a| HexVec(a.into())),
             prev_hash: Hex(x.prev_hash),
             reward: x.reward,
             timestamp: x.timestamp,
@@ -178,7 +178,7 @@ impl From<TxInfo> for crate::misc::TxInfo {
             max_used_block_id_hash: Hex(x.max_used_block_id_hash),
             receive_time: x.receive_time,
             relayed: x.relayed,
-            tx_blob: hex::encode(x.tx_blob),
+            tx_blob: HexVec(x.tx_blob),
             tx_json: x.tx_json,
             weight: x.weight,
         }
@@ -201,7 +201,11 @@ impl From<crate::misc::OutKeyBin> for crate::misc::OutKey {
             mask: Hex(x.mask),
             unlocked: x.unlocked,
             height: x.height,
-            txid: hex::encode(x.txid),
+            txid: if x.txid == [0; 32] {
+                HexVec::new()
+            } else {
+                HexVec::from(x.txid)
+            },
         }
     }
 }

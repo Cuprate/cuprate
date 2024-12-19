@@ -5,7 +5,7 @@
 //! the [`crate::misc::ConnectionInfo`] struct defined here.
 
 //---------------------------------------------------------------------------------------------------- Import
-use cuprate_hex::Hex;
+use cuprate_hex::{Hex, HexVec};
 use cuprate_types::HardFork;
 
 #[cfg(any(feature = "epee", feature = "serde"))]
@@ -92,8 +92,8 @@ define_struct_and_impl_epee! {
         nonce: u32,
         num_txes: u64,
         orphan_status: bool,
-        /// This is an empty string if the `fill_pow_hash` param is `false`.
-        pow_hash: String,
+        /// This is a [`Hex<32>`] that is sometimes empty.
+        pow_hash: HexVec,
         prev_hash: Hex<32>,
         reward: u64,
         timestamp: u64,
@@ -264,8 +264,8 @@ define_struct_and_impl_epee! {
         mask: Hex<32>,
         unlocked: bool,
         height: u64,
-        /// Optionally empty with `/get_outs`'s `"get_txid": false`.
-        txid: String,
+        /// This is a [`Hex<32>`] that is sometimes empty.
+        txid: HexVec,
     }
 }
 
@@ -307,7 +307,7 @@ define_struct_and_impl_epee! {
         max_used_block_id_hash: Hex<32>,
         receive_time: u64,
         relayed: bool,
-        tx_blob: String,
+        tx_blob: HexVec,
         tx_json: cuprate_types::json::tx::Transaction,
         weight: u64 = default::<u64>(),
     }
