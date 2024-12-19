@@ -45,7 +45,9 @@ fn dummy_database(outputs: BTreeMap<u64, OutputOnChain>) -> impl Database + Clon
 
                 BlockchainResponse::Outputs(ret)
             }
-            BlockchainReadRequest::KeyImagesSpent(_) => BlockchainResponse::KeyImagesSpent(false),
+            BlockchainReadRequest::KeyImagesSpent(_) => {
+                BlockchainResponse::KeyImagesSpent(vec![false])
+            }
             _ => panic!("Database request not needed for this test"),
         }))
     })
@@ -76,6 +78,7 @@ macro_rules! test_verify_valid_v2_tx {
                     key: CompressedEdwardsY::from_slice(&hex_literal::hex!($ring_member))
                         .unwrap()
                         .decompress(),
+                    txid: [0; 32],
                 }),)+)+
             ];
 
@@ -105,6 +108,7 @@ macro_rules! test_verify_valid_v2_tx {
                     key: CompressedEdwardsY::from_slice(&hex_literal::hex!($ring_member))
                         .unwrap()
                         .decompress(),
+                    txid: [0; 32],
                 }),)+)+
             ];
 

@@ -232,16 +232,18 @@ where
         })
     })?;
 
-    let BlockchainResponse::KeyImagesSpent(kis_spent) = database
+    let BlockchainResponse::KeyImagesSpent(kis_status) = database
         .ready()
         .await?
-        .call(BlockchainReadRequest::KeyImagesSpent(spent_kis))
+        .call(BlockchainReadRequest::KeyImagesSpent(
+            spent_kis.into_iter().collect(),
+        ))
         .await?
     else {
         panic!("Database sent incorrect response!");
     };
 
-    if kis_spent {
+    if kis_status.contains(&true) {
         tracing::debug!("One or more key images in batch already spent.");
         return Err(ConsensusError::Transaction(TransactionError::KeyImageSpent).into());
     }

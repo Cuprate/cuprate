@@ -3,10 +3,14 @@
 //! This module contains `cuprate_txpool`'s [`tower::Service`] request and response enums.
 use std::{
     collections::{HashMap, HashSet},
+    num::NonZero,
     sync::Arc,
 };
 
-use cuprate_types::TransactionVerificationData;
+use cuprate_types::{
+    rpc::{PoolInfo, SpentKeyImageInfo, TxInfo, TxpoolStats},
+    TransactionVerificationData, TxInPool,
+};
 
 use crate::{
     tx::TxEntry,
@@ -40,6 +44,38 @@ pub enum TxpoolReadRequest {
         /// include private transactions in the pool.
         include_sensitive_txs: bool,
     },
+
+    /// Get general information on the txpool.
+    PoolInfo {
+        /// If this is [`true`], the size returned will
+        /// include private transactions in the pool.
+        include_sensitive_txs: bool,
+        /// TODO
+        max_tx_count: usize,
+        /// TODO
+        start_time: Option<NonZero<usize>>,
+    },
+
+    /// TODO
+    TxsByHash {
+        tx_hashes: Vec<[u8; 32]>,
+        include_sensitive_txs: bool,
+    },
+
+    /// TODO
+    KeyImagesSpent {
+        key_images: Vec<[u8; 32]>,
+        include_sensitive_txs: bool,
+    },
+
+    /// TODO
+    Pool { include_sensitive_txs: bool },
+
+    /// TODO
+    PoolStats { include_sensitive_txs: bool },
+
+    /// TODO
+    AllHashes { include_sensitive_txs: bool },
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadResponse
@@ -79,6 +115,27 @@ pub enum TxpoolReadResponse {
     /// The inner value is the amount of
     /// transactions currently in the pool.
     Size(usize),
+
+    /// Response to [`TxpoolReadRequest::PoolInfo`].
+    PoolInfo(PoolInfo),
+
+    /// Response to [`TxpoolReadRequest::TxsByHash`].
+    TxsByHash(Vec<TxInPool>),
+
+    /// Response to [`TxpoolReadRequest::KeyImagesSpent`].
+    KeyImagesSpent(Vec<bool>),
+
+    /// Response to [`TxpoolReadRequest::Pool`].
+    Pool {
+        txs: Vec<TxInfo>,
+        spent_key_images: Vec<SpentKeyImageInfo>,
+    },
+
+    /// Response to [`TxpoolReadRequest::PoolStats`].
+    PoolStats(TxpoolStats),
+
+    /// Response to [`TxpoolReadRequest::AllHashes`].
+    AllHashes(Vec<[u8; 32]>),
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteRequest

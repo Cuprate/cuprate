@@ -7,13 +7,13 @@ use monero_serai::transaction::Timelock;
 use cuprate_database::{
     DbResult, RuntimeError, {DatabaseRo, DatabaseRw},
 };
-use cuprate_helper::crypto::compute_zero_commitment;
-use cuprate_helper::map::u64_to_timelock;
+use cuprate_helper::{cast::u32_to_usize, crypto::compute_zero_commitment};
+use cuprate_helper::{cast::u64_to_usize, map::u64_to_timelock};
 use cuprate_types::OutputOnChain;
 
 use crate::{
     ops::macros::{doc_add_block_inner_invariant, doc_error},
-    tables::{Outputs, RctOutputs, Tables, TablesMut, TxUnlockTime},
+    tables::{BlockTxsHashes, Outputs, RctOutputs, Tables, TablesMut, TxUnlockTime},
     types::{Amount, AmountIndex, Output, OutputFlags, PreRctOutputId, RctOutput},
 };
 
@@ -153,6 +153,7 @@ pub fn output_to_output_on_chain(
     output: &Output,
     amount: Amount,
     table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
+    table_block_txs_hashes: &impl DatabaseRo<BlockTxsHashes>,
 ) -> DbResult<OutputOnChain> {
     let commitment = compute_zero_commitment(amount);
 
@@ -169,11 +170,18 @@ pub fn output_to_output_on_chain(
         .map(|y| y.decompress())
         .unwrap_or(None);
 
+    let txid = {
+        let height = u32_to_usize(output.height);
+        let tx_idx = u64_to_usize(output.tx_idx);
+        table_block_txs_hashes.get(&height)?[tx_idx]
+    };
+
     Ok(OutputOnChain {
         height: output.height as usize,
         time_lock,
         key,
         commitment,
+        txid,
     })
 }
 
@@ -189,6 +197,7 @@ pub fn output_to_output_on_chain(
 pub fn rct_output_to_output_on_chain(
     rct_output: &RctOutput,
     table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
+    table_block_txs_hashes: &impl DatabaseRo<BlockTxsHashes>,
 ) -> DbResult<OutputOnChain> {
     // INVARIANT: Commitments stored are valid when stored by the database.
     let commitment = CompressedEdwardsY::from_slice(&rct_output.commitment)
@@ -209,11 +218,18 @@ pub fn rct_output_to_output_on_chain(
         .map(|y| y.decompress())
         .unwrap_or(None);
 
+    let txid = {
+        let height = u32_to_usize(rct_output.height);
+        let tx_idx = u64_to_usize(rct_output.tx_idx);
+        table_block_txs_hashes.get(&height)?[tx_idx]
+    };
+
     Ok(OutputOnChain {
         height: rct_output.height as usize,
         time_lock,
         key,
         commitment,
+        txid,
     })
 }
 
@@ -225,14 +241,22 @@ pub fn id_to_output_on_chain(id: &PreRctOutputId, tables: &impl Tables) -> DbRes
     // v2 transactions.
     if id.amount == 0 {
         let rct_output = get_rct_output(&id.amount_index, tables.rct_outputs())?;
-        let output_on_chain = rct_output_to_output_on_chain(&rct_output, tables.tx_unlock_time())?;
+        let output_on_chain = rct_output_to_output_on_chain(
+            &rct_output,
+            tables.tx_unlock_time(),
+            tables.block_txs_hashes(),
+        )?;
 
         Ok(output_on_chain)
     } else {
         // v1 transactions.
         let output = get_output(id, tables.outputs())?;
-        let output_on_chain =
-            output_to_output_on_chain(&output, id.amount, tables.tx_unlock_time())?;
+        let output_on_chain = output_to_output_on_chain(
+            &output,
+            id.amount,
+            tables.tx_unlock_time(),
+            tables.block_txs_hashes(),
+        )?;
 
         Ok(output_on_chain)
     }
