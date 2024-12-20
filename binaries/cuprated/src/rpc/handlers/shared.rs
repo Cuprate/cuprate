@@ -87,15 +87,7 @@ pub(super) async fn get_transaction_pool_hashes(
     mut state: CupratedRpcHandler,
 ) -> Result<Vec<[u8; 32]>, Error> {
     let include_sensitive_txs = !state.is_restricted();
-
-    // FIXME: this request is a bit overkill, we only need the hashes.
-    // We could create a separate request for this.
-    Ok(txpool::pool(&mut state.txpool_read, include_sensitive_txs)
-        .await?
-        .0
-        .into_iter()
-        .map(|tx| tx.id_hash.0)
-        .collect())
+    txpool::all_hashes(&mut state.txpool_read, include_sensitive_txs).await
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3352-L3398>
