@@ -59,7 +59,7 @@ pub async fn size(
     Ok(usize_to_u64(size))
 }
 
-/// TODO
+/// [`TxpoolReadRequest::PoolInfo`]
 pub async fn pool_info(
     txpool_read: &mut TxpoolReadHandle,
     include_sensitive_txs: bool,
@@ -84,7 +84,7 @@ pub async fn pool_info(
     Ok(pool_info)
 }
 
-/// TODO
+/// [`TxpoolReadRequest::TxsByHash`]
 pub async fn txs_by_hash(
     txpool_read: &mut TxpoolReadHandle,
     tx_hashes: Vec<[u8; 32]>,
@@ -107,7 +107,7 @@ pub async fn txs_by_hash(
     Ok(txs_in_pool)
 }
 
-/// TODO
+/// [`TxpoolReadRequest::KeyImagesSpent`]
 pub async fn key_images_spent(
     txpool_read: &mut TxpoolReadHandle,
     key_images: Vec<[u8; 32]>,
@@ -130,7 +130,7 @@ pub async fn key_images_spent(
     Ok(status)
 }
 
-/// TODO
+/// [`TxpoolReadRequest::Pool`]
 pub async fn pool(
     txpool_read: &mut TxpoolReadHandle,
     include_sensitive_txs: bool,
@@ -157,7 +157,7 @@ pub async fn pool(
     Ok((txs, spent_key_images))
 }
 
-/// TODO
+/// [`TxpoolReadRequest::PoolStats`]
 pub async fn pool_stats(
     txpool_read: &mut TxpoolReadHandle,
     include_sensitive_txs: bool,
@@ -178,7 +178,7 @@ pub async fn pool_stats(
     Ok(txpool_stats)
 }
 
-/// TODO
+/// [`TxpoolReadRequest::AllHashes`]
 pub async fn all_hashes(
     txpool_read: &mut TxpoolReadHandle,
     include_sensitive_txs: bool,
@@ -199,19 +199,19 @@ pub async fn all_hashes(
     Ok(hashes)
 }
 
-/// TODO
+/// TODO: impl txpool manager.
 pub async fn flush(txpool_manager: &mut Infallible, tx_hashes: Vec<[u8; 32]>) -> Result<(), Error> {
     todo!();
     Ok(())
 }
 
-/// TODO
+/// TODO: impl txpool manager.
 pub async fn relay(txpool_manager: &mut Infallible, tx_hashes: Vec<[u8; 32]>) -> Result<(), Error> {
     todo!();
     Ok(())
 }
 
-/// TODO
+/// TODO: impl txpool manager.
 pub async fn check_maybe_relay_local(
     txpool_manager: &mut Infallible,
     tx: Transaction,

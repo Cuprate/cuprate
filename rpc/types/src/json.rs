@@ -7,7 +7,9 @@
 use serde::{Deserialize, Serialize};
 
 use cuprate_hex::{Hex, HexVec};
-use cuprate_types::rpc::{AuxPow, GetMinerDataTxBacklogEntry, HardForkEntry, TxBacklogEntry};
+use cuprate_types::rpc::{
+    AuxPow, GetMinerDataTxBacklogEntry, HardForkEntry, HardForkInfo, TxBacklogEntry,
+};
 
 use crate::{
     base::{AccessResponseBase, ResponseBase},
@@ -385,14 +387,9 @@ define_request_and_response! {
     },
 
     AccessResponseBase {
-        earliest_height: u64,
-        enabled: bool,
-        state: u32,
-        threshold: u32,
-        version: u8,
-        votes: u32,
-        voting: u8,
-        window: u32,
+        /// This field is [flattened](https://serde.rs/field-attrs.html#flatten).
+        #[cfg_attr(feature = "serde", serde(flatten))]
+        hard_fork_info: HardForkInfo,
     }
 }
 
@@ -1464,14 +1461,16 @@ mod test {
             json::HARD_FORK_INFO_RESPONSE,
             HardForkInfoResponse {
                 base: AccessResponseBase::OK,
-                earliest_height: 2689608,
-                enabled: true,
-                state: 0,
-                threshold: 0,
-                version: 16,
-                votes: 10080,
-                voting: 16,
-                window: 10080,
+                hard_fork_info: HardForkInfo {
+                    earliest_height: 2689608,
+                    enabled: true,
+                    state: 0,
+                    threshold: 0,
+                    version: 16,
+                    votes: 10080,
+                    voting: 16,
+                    window: 10080,
+                },
             },
         );
     }

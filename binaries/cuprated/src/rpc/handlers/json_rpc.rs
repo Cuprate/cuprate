@@ -54,7 +54,7 @@ use cuprate_rpc_types::{
 };
 use cuprate_types::{
     rpc::{AuxPow, CoinbaseTxSum, GetMinerDataTxBacklogEntry, HardForkEntry, TxBacklogEntry},
-    BlockTemplate, HardFork,
+    BlockTemplate, Chain, HardFork,
 };
 
 use crate::{
@@ -228,12 +228,7 @@ async fn on_get_block_hash(
     request: OnGetBlockHashRequest,
 ) -> Result<OnGetBlockHashResponse, Error> {
     let [height] = request.block_height;
-    let hash = blockchain::block_hash(
-        &mut state.blockchain_read,
-        height,
-        todo!("access to `cuprated`'s Chain"),
-    )
-    .await?;
+    let hash = blockchain::block_hash(&mut state.blockchain_read, height, Chain::Main).await?;
 
     Ok(OnGetBlockHashResponse {
         block_hash: Hex(hash),
@@ -428,7 +423,7 @@ async fn get_block(
 
     let blob = HexVec(block.serialize());
     let miner_tx_hash = Hex(block.miner_transaction.hash());
-    let tx_hashes = block.transactions.iter().map(|a| Hex(*a)).collect();
+    let tx_hashes = block.transactions.iter().copied().map(Hex).collect();
     let json = {
         let block = cuprate_types::json::block::Block::from(block);
         serde_json::to_string_pretty(&block)?
@@ -467,8 +462,7 @@ async fn get_info(
 
     let c = context.unchecked_blockchain_context();
     let cumulative_difficulty = c.cumulative_difficulty;
-    let adjusted_time = c.current_adjusted_timestamp_for_time_lock(); // TODO: is this correct?
-
+    let adjusted_time = c.current_adjusted_timestamp_for_time_lock();
     let c = &c.context_to_verify_block;
 
     let alt_blocks_count = if restricted {
@@ -476,76 +470,98 @@ async fn get_info(
     } else {
         blockchain::alt_chain_count(&mut state.blockchain_read).await?
     };
-    let block_weight_limit = usize_to_u64(c.effective_median_weight); // TODO: is this correct?
-    let block_weight_median = usize_to_u64(c.median_weight_for_block_reward); // TODO: is this correct?
+
+    let block_weight_limit = usize_to_u64(c.effective_median_weight);
+    let block_weight_median = usize_to_u64(c.median_weight_for_block_reward);
     let block_size_limit = block_weight_limit;
     let block_size_median = block_weight_median;
+
+    #[expect(clippy::if_same_then_else, reason = "TODO: support bootstrap")]
     let (bootstrap_daemon_address, was_bootstrap_ever_used) = if restricted {
         (String::new(), false)
     } else {
-        todo!("support bootstrap daemon")
+        (String::new(), false)
     };
+
     let busy_syncing = blockchain_manager::syncing(&mut state.blockchain_manager).await?;
+
     let (cumulative_difficulty, cumulative_difficulty_top64) =
         split_u128_into_low_high_bits(cumulative_difficulty);
+
     let (database_size, free_space) = blockchain::database_size(&mut state.blockchain_read).await?;
     let (database_size, free_space) = if restricted {
         // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L131-L134>
         const fn round_up(value: u64, quantum: u64) -> u64 {
             value.div_ceil(quantum)
         }
+
         let database_size = round_up(database_size, 5 * 1024 * 1024 * 1024);
         (database_size, u64::MAX)
     } else {
         (database_size, free_space)
     };
+
     let (difficulty, difficulty_top64) = split_u128_into_low_high_bits(c.next_difficulty);
+
     let height = usize_to_u64(c.chain_height);
     let height_without_bootstrap = if restricted { 0 } else { height };
+
     let (incoming_connections_count, outgoing_connections_count) = if restricted {
         (0, 0)
     } else {
         address_book::connection_count::<ClearNet>(&mut DummyAddressBook).await?
     };
-    let (mainnet, testnet, stagenet) = match todo!("access to `cuprated`'s `Network`") {
+
+    // TODO: This should be `cuprated`'s active network.
+    let network = Network::Mainnet;
+
+    let (mainnet, testnet, stagenet) = match network {
         Network::Mainnet => (true, false, false),
         Network::Testnet => (false, true, false),
         Network::Stagenet => (false, false, true),
     };
-    // TODO: make sure this is:
-    // - the same case as `monerod`
-    // - untagged (no `Network::`)
-    let nettype = todo!("access to `cuprated`'s `Network`").to_string();
-    let offline = todo!("access to CLI/config's `--offline`");
-    let rpc_connections_count = if restricted {
-        0
-    } else {
-        todo!("implement a connection counter in axum/RPC")
-    };
+
+    let nettype = network.to_string();
+    // TODO: access to CLI/config's `--offline`
+    let offline = false;
+
+    #[expect(
+        clippy::if_same_then_else,
+        reason = "TODO: implement a connection counter in axum/RPC"
+    )]
+    let rpc_connections_count = if restricted { 0 } else { 0 };
+
     let start_time = if restricted { 0 } else { *START_INSTANT_UNIX };
     let synchronized = blockchain_manager::synced(&mut state.blockchain_manager).await?;
+
     let target_height = blockchain_manager::target_height(&mut state.blockchain_manager).await?;
     let target = blockchain_manager::target(&mut state.blockchain_manager)
         .await?
         .as_secs();
     let top_block_hash = Hex(c.top_hash);
+
     let tx_count = blockchain::total_tx_count(&mut state.blockchain_read).await?;
     let tx_pool_size = txpool::size(&mut state.txpool_read, !restricted).await?;
-    let update_available = if restricted {
-        false
-    } else {
-        todo!("implement an update checker for `cuprated`")
-    };
+
+    #[expect(
+        clippy::if_same_then_else,
+        clippy::needless_bool,
+        reason = "TODO: implement an update checker for `cuprated`?"
+    )]
+    let update_available = if restricted { false } else { false };
+
     let version = if restricted {
         String::new()
     } else {
         VERSION_BUILD.to_string()
     };
+
     let (white_peerlist_size, grey_peerlist_size) = if restricted {
         (0, 0)
     } else {
         address_book::peerlist_size::<ClearNet>(&mut DummyAddressBook).await?
     };
+
     let wide_cumulative_difficulty = format!("{cumulative_difficulty:#x}");
     let wide_difficulty = format!("{:#x}", c.next_difficulty);
 
@@ -607,18 +623,12 @@ async fn hard_fork_info(
             .current_hf
     };
 
-    let info = blockchain_context::hard_fork_info(&mut state.blockchain_context, hard_fork).await?;
+    let hard_fork_info =
+        blockchain_context::hard_fork_info(&mut state.blockchain_context, hard_fork).await?;
 
     Ok(HardForkInfoResponse {
         base: helper::access_response_base(false),
-        earliest_height: info.earliest_height,
-        enabled: info.enabled,
-        state: info.state,
-        threshold: info.threshold,
-        version: info.version,
-        votes: info.votes,
-        voting: info.voting,
-        window: info.window,
+        hard_fork_info,
     })
 }
 
@@ -1036,6 +1046,7 @@ async fn calc_pow(
     // }
 
     // TODO: will `CalculatePow` do the above checks?
+
     let pow_hash = blockchain_context::calculate_pow(
         &mut state.blockchain_context,
         hardfork,
@@ -1049,23 +1060,16 @@ async fn calc_pow(
     })
 }
 
-/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3542-L3551>
-async fn flush_cache(
-    state: CupratedRpcHandler,
-    request: FlushCacheRequest,
-) -> Result<FlushCacheResponse, Error> {
-    // TODO: cuprated doesn't need this call; decide behavior.
-
-    Ok(FlushCacheResponse {
-        base: helper::response_base(false),
-    })
-}
-
 /// An async-friendly wrapper for [`add_aux_pow_inner`].
 async fn add_aux_pow(
     state: CupratedRpcHandler,
     request: AddAuxPowRequest,
 ) -> Result<AddAuxPowResponse, Error> {
+    // This method can be a bit heavy, so rate-limit restricted use.
+    if state.is_restricted() {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+
     tokio::task::spawn_blocking(|| add_aux_pow_inner(state, request)).await?
 }
 
@@ -1261,16 +1265,25 @@ fn add_aux_pow_inner(
     })
 }
 
+//---------------------------------------------------------------------------------------------------- Unsupported RPC calls (for now)
+
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3553-L3627>
 async fn get_tx_ids_loose(
     state: CupratedRpcHandler,
     request: GetTxIdsLooseRequest,
 ) -> Result<GetTxIdsLooseResponse, Error> {
-    // TODO: this RPC call is not yet in the v0.18 branch.
-    return Err(anyhow!("Not implemented"));
-
     Ok(GetTxIdsLooseResponse {
         base: helper::response_base(false),
-        txids: todo!(),
+        txids: todo!("this RPC call is not yet in the v0.18 branch."),
     })
+}
+
+//---------------------------------------------------------------------------------------------------- Unsupported RPC calls (forever)
+
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3542-L3551>
+async fn flush_cache(
+    state: CupratedRpcHandler,
+    request: FlushCacheRequest,
+) -> Result<FlushCacheResponse, Error> {
+    unreachable!()
 }
