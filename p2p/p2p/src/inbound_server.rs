@@ -119,7 +119,7 @@ where
                     match client {
                         Ok(Ok(peer)) => drop(new_connection_tx.send(peer).await),
                         Err(_) => tracing::debug!("Timed out"),
-                        Ok(Err(e)) => tracing::debug!("error: {e:?}")
+                        Ok(Err(e)) => tracing::debug!("error: {e:?}"),
                     }
                 }
                 .instrument(Span::current()),

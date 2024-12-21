@@ -21,7 +21,10 @@ pub struct StorageConfig {
 impl Default for StorageConfig {
     fn default() -> Self {
         Self {
-            reader_threads: std::thread::available_parallelism().unwrap().get().div_ceil(4),
+            reader_threads: std::thread::available_parallelism()
+                .unwrap()
+                .get()
+                .div_ceil(4),
             txpool: Default::default(),
             blockchain: Default::default(),
         }

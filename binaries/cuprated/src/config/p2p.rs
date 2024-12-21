@@ -56,7 +56,7 @@ impl Default for BlockDownloaderConfig {
 }
 
 /// The config values for P2P clear-net.
-#[derive(Debug,Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields, default)]
 pub struct ClearNetConfig {
     /// The server config.

@@ -86,7 +86,7 @@ pub struct Config {
     p2p: P2PConfig,
 
     /// The storage config.
-    storage: StorageConfig,
+    pub storage: StorageConfig,
 
     pub fs: FileSystemConfig,
 }

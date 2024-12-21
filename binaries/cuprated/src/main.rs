@@ -16,20 +16,17 @@
     reason = "TODO: remove after v1.0.0"
 )]
 
-use crate::commands::Command;
-use crate::config::Config;
-use crate::constants::PANIC_CRITICAL_SERVICE_ERROR;
+use tokio::sync::mpsc;
+use tower::{Service, ServiceExt};
+use tracing::level_filters::LevelFilter;
+use tracing_subscriber::{Registry, util::SubscriberInitExt, reload::Handle, layer::SubscriberExt};
+
 use cuprate_consensus_context::{
     BlockChainContextRequest, BlockChainContextResponse, BlockChainContextService,
 };
 use cuprate_helper::time::secs_to_hms;
-use tokio::sync::mpsc;
-use tower::{Service, ServiceExt};
-use tracing::level_filters::LevelFilter;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::reload::Handle;
-use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::Registry;
+
+use crate::{commands::Command, config::Config, constants::PANIC_CRITICAL_SERVICE_ERROR};
 
 mod blockchain;
 mod commands;
@@ -48,15 +45,20 @@ fn main() {
 
     let config = config::read_config_and_args();
 
-    init_global_rayon_pool(&config);
-
+    // Initialize logging.
     logging::init_logging(&config);
+
+    // Initialize the thread-pools
+
+    init_global_rayon_pool(&config);
 
     let rt = init_tokio_rt(&config);
 
     let db_thread_pool = cuprate_database_service::init_thread_pool(
-        cuprate_database_service::ReaderThreads::Percent(0.3),
+        cuprate_database_service::ReaderThreads::Number(config.storage.reader_threads),
     );
+
+    // Start the blockchain & tx-pool databases.
 
     let (mut blockchain_read_handle, mut blockchain_write_handle, _) =
         cuprate_blockchain::service::init_with_pool(
@@ -67,7 +69,10 @@ fn main() {
     let (txpool_read_handle, txpool_write_handle, _) =
         cuprate_txpool::service::init_with_pool(config.txpool_config(), db_thread_pool).unwrap();
 
+    // Initialize async tasks.
+
     rt.block_on(async move {
+        // Check add the genesis block to the blockchain.
         blockchain::check_add_genesis(
             &mut blockchain_read_handle,
             &mut blockchain_write_handle,
@@ -75,11 +80,13 @@ fn main() {
         )
         .await;
 
+        // Start the context service and the block/tx verifier.
         let (block_verifier, tx_verifier, context_svc) =
             blockchain::init_consensus(blockchain_read_handle.clone(), config.context_config())
                 .await
                 .unwrap();
 
+        // Start clearnet P2P.
         let (clearnet, incoming_tx_handler_tx) = p2p::start_clearnet_p2p(
             blockchain_read_handle.clone(),
             context_svc.clone(),
@@ -89,6 +96,7 @@ fn main() {
         .await
         .unwrap();
 
+        // Create the incoming tx handler service.
         let tx_handler = txpool::IncomingTxHandler::init(
             clearnet.clone(),
             txpool_write_handle.clone(),
@@ -100,6 +108,7 @@ fn main() {
             unreachable!()
         }
 
+        // Initialize the blockchain manager.
         blockchain::init_blockchain_manager(
             clearnet,
             blockchain_write_handle,
@@ -111,13 +120,18 @@ fn main() {
         )
         .await;
 
+        // Start the command listener.
         let (command_tx, command_rx) = mpsc::channel(1);
         std::thread::spawn(|| commands::command_listener(command_tx));
 
-        io_loop(command_rx, context_svc).await;
+        // Wait on the io_loop, spawned on a separate task as this improves performance.
+        tokio::spawn(io_loop(command_rx, context_svc))
+            .await
+            .unwrap();
     });
 }
 
+/// Initialize the [`tokio`] runtime.
 fn init_tokio_rt(config: &Config) -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_multi_thread()
         .worker_threads(config.tokio.threads)
@@ -126,6 +140,7 @@ fn init_tokio_rt(config: &Config) -> tokio::runtime::Runtime {
         .unwrap()
 }
 
+/// Initialize the global [`rayon`] thread-pool.
 fn init_global_rayon_pool(config: &Config) {
     rayon::ThreadPoolBuilder::new()
         .num_threads(config.rayon.threads)
@@ -133,6 +148,7 @@ fn init_global_rayon_pool(config: &Config) {
         .unwrap()
 }
 
+/// The [`Command`] handler loop.
 async fn io_loop(
     mut incoming_commands: mpsc::Receiver<Command>,
     mut context_service: BlockChainContextService,
