@@ -1,6 +1,8 @@
-use std::{mem::forget, sync::OnceLock};
-
-use cuprate_helper::fs::logs_path;
+use std::{
+    fmt::{Display, Formatter},
+    mem::forget,
+    sync::OnceLock,
+};
 
 use tracing::{
     instrument::WithSubscriber, level_filters::LevelFilter, subscriber::Interest, Metadata,
@@ -18,6 +20,8 @@ use tracing_subscriber::{
     util::SubscriberInitExt,
     Layer, Registry,
 };
+
+use cuprate_helper::fs::logs_path;
 
 use crate::config::Config;
 
@@ -48,6 +52,14 @@ static STDOUT_FILTER_HANDLE: OnceLock<
 /// The [`Filter`] used to alter cuprated's log output.
 pub struct CupratedTracingFilter {
     pub level: LevelFilter,
+}
+
+impl Display for CupratedTracingFilter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Filter")
+            .field("minimum_level", &self.level.to_string())
+            .finish()
+    }
 }
 
 impl<S> Filter<S> for CupratedTracingFilter {

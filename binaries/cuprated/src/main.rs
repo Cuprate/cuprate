@@ -19,7 +19,7 @@
 use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
-use tracing_subscriber::{Registry, util::SubscriberInitExt, reload::Handle, layer::SubscriberExt};
+use tracing_subscriber::{layer::SubscriberExt, reload::Handle, util::SubscriberInitExt, Registry};
 
 use cuprate_consensus_context::{
     BlockChainContextRequest, BlockChainContextResponse, BlockChainContextService,
@@ -156,9 +156,10 @@ async fn io_loop(
     while let Some(command) = incoming_commands.recv().await {
         match command {
             Command::SetLog { level } => {
-                logging::modify_stdout_output(|filter| filter.level = level);
-
-                println!("LOG LEVEL CHANGED: {level}");
+                logging::modify_stdout_output(|filter| {
+                    filter.level = level;
+                    println!("NEW LOG FILTER: {filter}");
+                });
             }
             Command::Status => {
                 let BlockChainContextResponse::Context(blockchain_context) = context_service
