@@ -238,7 +238,7 @@ async fn get_chain(
         split_u128_into_low_high_bits(cumulative_difficulty);
 
     Ok(ProtocolResponse::GetChain(ChainResponse {
-        start_height: usize_to_u64(std::num::NonZero::get(start_height)),
+        start_height: usize_to_u64(start_height),
         total_height: usize_to_u64(chain_height),
         cumulative_difficulty_low64,
         cumulative_difficulty_top64,

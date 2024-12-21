@@ -69,7 +69,7 @@ pub fn read_config_and_args() -> Config {
 }
 
 /// The config for all of Cuprate.
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields, default)]
 pub struct Config {
     /// The network we should run on.

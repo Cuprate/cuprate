@@ -115,8 +115,11 @@ where
             tokio::spawn(
                 async move {
                     let client = timeout(HANDSHAKE_TIMEOUT, fut).await;
-                    if let Ok(Ok(peer)) = client {
-                        drop(new_connection_tx.send(peer).await);
+
+                    match client {
+                        Ok(Ok(peer)) => drop(new_connection_tx.send(peer).await),
+                        Err(_) => tracing::debug!("Timed out"),
+                        Ok(Err(e)) => tracing::debug!("error: {e:?}")
                     }
                 }
                 .instrument(Span::current()),

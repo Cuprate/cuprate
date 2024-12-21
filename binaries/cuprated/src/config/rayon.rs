@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields, default)]
 pub struct RayonConfig {
     pub threads: usize,

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use cuprate_helper::{fs::address_book_path, network::Network};
 
 /// P2P config.
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields, default)]
 pub struct P2PConfig {
     /// Clear-net config.
@@ -18,7 +18,7 @@ pub struct P2PConfig {
     pub block_downloader: BlockDownloaderConfig,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields, default)]
 pub struct BlockDownloaderConfig {
     /// The size in bytes of the buffer between the block downloader and the place which
@@ -56,7 +56,7 @@ impl Default for BlockDownloaderConfig {
 }
 
 /// The config values for P2P clear-net.
-#[derive(Deserialize, Serialize)]
+#[derive(Debug,Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields, default)]
 pub struct ClearNetConfig {
     /// The server config.
@@ -75,7 +75,7 @@ impl Default for ClearNetConfig {
 }
 
 /// Network config values shared between all network zones.
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields, default)]
 pub struct SharedNetConfig {
     /// The number of outbound connections to make and try keep.
@@ -111,7 +111,7 @@ impl SharedNetConfig {
 impl Default for SharedNetConfig {
     fn default() -> Self {
         Self {
-            outbound_connections: 64,
+            outbound_connections: 32,
             extra_outbound_connections: 8,
             max_inbound_connections: 128,
             gray_peers_percent: 0.7,
@@ -121,7 +121,7 @@ impl Default for SharedNetConfig {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields, default)]
 pub struct AddressBookConfig {
     max_white_list_length: usize,
@@ -134,7 +134,7 @@ impl Default for AddressBookConfig {
         Self {
             max_white_list_length: 1_000,
             max_gray_list_length: 5_000,
-            peer_save_period: Duration::from_secs(30),
+            peer_save_period: Duration::from_secs(90),
         }
     }
 }
