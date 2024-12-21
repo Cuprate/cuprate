@@ -3,7 +3,6 @@
 use std::task::{Context, Poll};
 
 use anyhow::Error;
-use cuprate_types::BlockTemplate;
 use futures::future::BoxFuture;
 use monero_serai::block::Block;
 use tower::Service;
@@ -18,6 +17,7 @@ use cuprate_rpc_types::{
     other::{OtherRequest, OtherResponse},
 };
 use cuprate_txpool::service::TxpoolReadHandle;
+use cuprate_types::BlockTemplate;
 
 use crate::rpc::handlers;
 
@@ -41,7 +41,7 @@ pub enum BlockchainManagerRequest {
         Box<Block>,
     ),
 
-    /// TODO
+    /// Sync/flush the blockchain database to disk.
     Sync,
 
     /// Is the blockchain in the middle of syncing?
@@ -89,14 +89,14 @@ pub enum BlockchainManagerRequest {
     /// Get the next [`PruningSeed`] needed for a pruned sync.
     NextNeededPruningSeed,
 
-    /// TODO
+    /// Create a block template.
     CreateBlockTemplate {
         prev_block: [u8; 32],
         account_public_address: String,
         extra_nonce: Vec<u8>,
     },
 
-    /// TODO
+    /// Safely shutdown `cuprated`.
     Stop,
 }
 
@@ -140,8 +140,6 @@ pub enum BlockchainManagerResponse {
         height: usize,
     },
 
-    //    /// Response to [`BlockchainManagerRequest::Spans`].
-    //    Spans(Vec<Span<Z::Addr>>),
     /// Response to [`BlockchainManagerRequest::NextNeededPruningSeed`].
     NextNeededPruningSeed(PruningSeed),
 

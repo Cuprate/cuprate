@@ -3,7 +3,6 @@
 use std::net::SocketAddrV4;
 
 use anyhow::{anyhow, Error};
-use cuprate_types::rpc::Peer;
 use tower::ServiceExt;
 
 use cuprate_helper::{cast::usize_to_u64, map::u32_from_ipv4};
@@ -13,6 +12,7 @@ use cuprate_p2p_core::{
     AddressBook, NetworkZone,
 };
 use cuprate_rpc_types::misc::ConnectionInfo;
+use cuprate_types::rpc::Peer;
 
 // FIXME: use `anyhow::Error` over `tower::BoxError` in address book.
 

@@ -170,7 +170,7 @@ pub(super) async fn top_height(state: &mut CupratedRpcHandler) -> Result<(u64, [
     Ok((height, hash))
 }
 
-/// TODO
+/// TODO: impl bootstrap
 pub const fn response_base(is_bootstrap: bool) -> ResponseBase {
     if is_bootstrap {
         ResponseBase::OK_UNTRUSTED
@@ -179,7 +179,7 @@ pub const fn response_base(is_bootstrap: bool) -> ResponseBase {
     }
 }
 
-/// TODO
+/// TODO: impl bootstrap
 pub const fn access_response_base(is_bootstrap: bool) -> AccessResponseBase {
     if is_bootstrap {
         AccessResponseBase::OK_UNTRUSTED

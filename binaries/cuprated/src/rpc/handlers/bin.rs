@@ -1,4 +1,8 @@
 //! RPC request handler functions (binary endpoints).
+//!
+//! TODO:
+//! Some handlers have `todo!()`s for other Cuprate internals that must be completed, see:
+//! <https://github.com/Cuprate/cuprate/pull/355>
 
 use std::num::NonZero;
 

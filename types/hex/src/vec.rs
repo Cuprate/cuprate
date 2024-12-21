@@ -3,6 +3,11 @@
 //! This module provides transparent wrapper types for
 //! arrays that (de)serialize from hexadecimal input/output.
 
+use std::{
+    borrow::Borrow,
+    ops::{Deref, DerefMut},
+};
+
 use hex::FromHexError;
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -42,11 +47,6 @@ impl HexVec {
         Self(Vec::new())
     }
 
-    /// [`Vec::is_empty`].
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
     /// Returns an empty [`Self`] if `array` is all `0`s.
     ///
     /// ```rust
@@ -70,6 +70,31 @@ impl<'de> Deserialize<'de> for HexVec {
         D: Deserializer<'de>,
     {
         Ok(Self(hex::serde::deserialize(deserializer)?))
+    }
+}
+
+impl Deref for HexVec {
+    type Target = Vec<u8>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for HexVec {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Borrow<Vec<u8>> for HexVec {
+    fn borrow(&self) -> &Vec<u8> {
+        &self.0
+    }
+}
+
+impl AsRef<Vec<u8>> for HexVec {
+    fn as_ref(&self) -> &Vec<u8> {
+        &self.0
     }
 }
 

@@ -175,13 +175,13 @@ pub enum BlockchainReadRequest {
     /// Get the amount of alternative chains that exist.
     AltChainCount,
 
-    /// TODO
+    /// Get transaction blobs by their hashes.
     Transactions { tx_hashes: HashSet<[u8; 32]> },
 
-    /// TODO
+    /// Get the total amount of RCT outputs in the blockchain.
     TotalRctOutputs,
 
-    /// TODO
+    /// Get the output indexes of a transaction.
     TxOutputIndexes { tx_hash: [u8; 32] },
 }
 

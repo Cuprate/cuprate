@@ -1,6 +1,8 @@
-//! Formatting.
+//! String formatting.
 
+/// A type that can be represented in hexadecimal (with a `0x` prefix).
 pub trait HexPrefix {
+    /// Turn `self` into a hexadecimal string prefixed with `0x`.
     fn hex_prefix(self) -> String;
 }
 

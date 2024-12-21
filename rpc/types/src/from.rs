@@ -111,15 +111,6 @@ impl From<HistogramEntry> for crate::misc::HistogramEntry {
     }
 }
 
-// impl From<HardforkEntry> for crate::misc::HardforkEntry {
-//     fn from(x: HardforkEntry) -> Self {
-//         Self {
-//             height: x.height,
-//             hf_version: x.hf_version,
-//         }
-//     }
-// }
-
 impl From<ChainInfo> for crate::misc::ChainInfo {
     fn from(x: ChainInfo) -> Self {
         Self {
@@ -149,18 +140,6 @@ impl From<Span<SocketAddr>> for crate::misc::Span {
         }
     }
 }
-
-// impl From<OutputDistributionData> for crate::misc::OutputDistributionData {
-//     fn from(x: OutputDistributionData) -> Self {
-//         todo!();
-
-//         // Self {
-//         // 	distribution: Vec<u64>,
-//         // 	start_height: u64,
-//         // 	base: u64,
-//         // }
-//     }
-// }
 
 impl From<TxInfo> for crate::misc::TxInfo {
     fn from(x: TxInfo) -> Self {

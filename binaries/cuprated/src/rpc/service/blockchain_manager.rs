@@ -1,7 +1,6 @@
 //! Functions to send [`BlockchainManagerRequest`]s.
 
 use anyhow::Error;
-use cuprate_types::BlockTemplate;
 use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 
@@ -9,6 +8,7 @@ use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_p2p_core::{types::ConnectionId, NetworkZone};
 use cuprate_pruning::PruningSeed;
 use cuprate_rpc_types::misc::Span;
+use cuprate_types::BlockTemplate;
 
 use crate::rpc::rpc_handler::{
     BlockchainManagerHandle, BlockchainManagerRequest, BlockchainManagerResponse,

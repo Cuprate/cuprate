@@ -19,6 +19,10 @@ use crate::{
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadRequest
 /// The transaction pool [`tower::Service`] read request type.
+///
+/// ### `include_sensitive_txs`
+/// This field exists in many requests.
+/// If this is [`true`], the request will include private (local) transactions in the response.
 #[derive(Clone)]
 pub enum TxpoolReadRequest {
     /// Get the blob (raw bytes) of a transaction with the given hash.
@@ -39,42 +43,38 @@ pub enum TxpoolReadRequest {
     Backlog,
 
     /// Get the number of transactions in the pool.
-    Size {
-        /// If this is [`true`], the size returned will
-        /// include private transactions in the pool.
-        include_sensitive_txs: bool,
-    },
+    Size { include_sensitive_txs: bool },
 
     /// Get general information on the txpool.
     PoolInfo {
-        /// If this is [`true`], the size returned will
-        /// include private transactions in the pool.
         include_sensitive_txs: bool,
-        /// TODO
+        /// The maximum amount of transactions to retrieve.
         max_tx_count: usize,
-        /// TODO
+        /// Fetch transactions that start from this time.
+        ///
+        /// [`None`] means all transactions.
         start_time: Option<NonZero<usize>>,
     },
 
-    /// TODO
+    /// Get transactions by their hashes.
     TxsByHash {
         tx_hashes: Vec<[u8; 32]>,
         include_sensitive_txs: bool,
     },
 
-    /// TODO
+    /// Check if certain key images exist in the txpool.
     KeyImagesSpent {
         key_images: Vec<[u8; 32]>,
         include_sensitive_txs: bool,
     },
 
-    /// TODO
+    /// Get txpool info.
     Pool { include_sensitive_txs: bool },
 
-    /// TODO
+    /// Get txpool stats.
     PoolStats { include_sensitive_txs: bool },
 
-    /// TODO
+    /// Get the hashes of all transaction in the pool.
     AllHashes { include_sensitive_txs: bool },
 }
 

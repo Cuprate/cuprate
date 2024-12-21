@@ -1,8 +1,8 @@
 //! RPC request handler functions (JSON-RPC).
 //!
 //! TODO:
-//! Many handlers have `todo!()`s for other Cuprate internals that must be completed, see:
-//! <https://github.com/Cuprate/cuprate/pull/308>
+//! Some handlers have `todo!()`s for other Cuprate internals that must be completed, see:
+//! <https://github.com/Cuprate/cuprate/pull/355>
 
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4},
@@ -147,23 +147,26 @@ async fn get_block_template(
         return Err(anyhow!("Too big extra_nonce size"));
     }
 
-    // cryptonote::address_parse_info info;
+    // TODO: this is hardcoded for the current address scheme + mainnet,
+    // create/use a more well-defined wallet lib.
+    let parse_wallet_address = || {
+        if request.wallet_address.len() == 95 {
+            Ok(())
+        } else {
+            Err(())
+        }
+    };
+    let is_correct_address_type = || !request.wallet_address.starts_with("4");
 
-    if request.wallet_address.is_empty()
-        || todo!(
-            "!cryptonote::get_account_address_from_str(info, nettype(), request.wallet_address))"
-        )
-    {
+    if parse_wallet_address().is_err() {
         return Err(anyhow!("Failed to parse wallet address"));
     }
 
-    if todo!("info.is_subaddress") {
-        return Err(anyhow!("Mining to subaddress is not supported yet"));
+    if is_correct_address_type() {
+        return Err(anyhow!("Incorrect address type"));
     }
 
-    let blob_reserve = hex::decode(request.extra_nonce)?;
-    let prev_block: [u8; 32] = request.prev_block.try_into()?;
-    let extra_nonce = hex::decode(request.extra_nonce)?;
+    let prev_block = request.prev_block.try_into().unwrap_or([0; 32]);
 
     let BlockTemplate {
         block,
@@ -178,14 +181,13 @@ async fn get_block_template(
         &mut state.blockchain_manager,
         prev_block,
         request.wallet_address,
-        extra_nonce,
+        request.extra_nonce.0,
     )
     .await?;
 
     let blockhashing_blob = HexVec(block.serialize_pow_hash());
     let blocktemplate_blob = HexVec(block.serialize());
     let (difficulty, difficulty_top64) = split_u128_into_low_high_bits(difficulty);
-    // let next_seed_hash = Hex(next_seed_hash);
     let next_seed_hash = HexVec::empty_if_zeroed(next_seed_hash);
     let prev_hash = Hex(block.header.previous);
     let seed_hash = Hex(seed_hash);
@@ -242,7 +244,7 @@ async fn submit_block(
 ) -> Result<SubmitBlockResponse, Error> {
     // Parse hex into block.
     let [blob] = request.block_blob;
-    let block = Block::read(&mut blob.0.as_slice())?;
+    let block = Block::read(&mut blob.as_slice())?;
     let block_id = Hex(block.hash());
 
     // Attempt to relay the block.
@@ -562,8 +564,8 @@ async fn get_info(
         address_book::peerlist_size::<ClearNet>(&mut DummyAddressBook).await?
     };
 
-    let wide_cumulative_difficulty = format!("{cumulative_difficulty:#x}");
-    let wide_difficulty = format!("{:#x}", c.next_difficulty);
+    let wide_cumulative_difficulty = cumulative_difficulty.hex_prefix();
+    let wide_difficulty = c.next_difficulty.hex_prefix();
 
     Ok(GetInfoResponse {
         base: helper::access_response_base(false),
@@ -799,8 +801,8 @@ async fn get_coinbase_tx_sum(
         .await?;
 
     // Formats `u128` as hexadecimal strings.
-    let wide_emission_amount = format!("{fee_amount:#x}");
-    let wide_fee_amount = format!("{emission_amount:#x}");
+    let wide_emission_amount = fee_amount.hex_prefix();
+    let wide_fee_amount = emission_amount.hex_prefix();
 
     Ok(GetCoinbaseTxSumResponse {
         base: helper::access_response_base(false),
@@ -979,7 +981,7 @@ async fn get_miner_data(
     let height = usize_to_u64(c.chain_height);
     let prev_id = Hex(c.top_hash);
     let seed_hash = Hex(c.top_hash);
-    let difficulty = format!("{:#x}", c.next_difficulty);
+    let difficulty = c.next_difficulty.hex_prefix();
     let median_weight = usize_to_u64(c.median_weight_for_block_reward);
     let already_generated_coins = c.already_generated_coins;
     let tx_backlog = txpool::backlog(&mut state.txpool_read)
@@ -1028,7 +1030,7 @@ async fn calc_pow(
     request: CalcPowRequest,
 ) -> Result<CalcPowResponse, Error> {
     let hardfork = HardFork::from_version(request.major_version)?;
-    let block = Block::read(&mut request.block_blob.0.as_slice())?;
+    let block = Block::read(&mut request.block_blob.as_slice())?;
     let seed_hash = request.seed_hash.0;
 
     // let block_weight = todo!();
@@ -1219,7 +1221,7 @@ fn add_aux_pow_inner(
     let merkle_root = tree_hash(aux_pow_raw.as_ref());
     let merkle_tree_depth = encode_mm_depth(len, nonce);
 
-    let block_template = Block::read(&mut request.blocktemplate_blob.0.as_slice())?;
+    let block_template = Block::read(&mut request.blocktemplate_blob.as_slice())?;
 
     fn remove_field_from_tx_extra() -> Result<(), ()> {
         todo!("https://github.com/monero-project/monero/blob/master/src/cryptonote_basic/cryptonote_format_utils.cpp#L767")

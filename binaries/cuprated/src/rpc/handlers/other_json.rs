@@ -1,4 +1,8 @@
 //! RPC request handler functions (other JSON endpoints).
+//!
+//! TODO:
+//! Some handlers have `todo!()`s for other Cuprate internals that must be completed, see:
+//! <https://github.com/Cuprate/cuprate/pull/355>
 
 use std::{
     borrow::Cow,
@@ -6,6 +10,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Error};
+use monero_serai::transaction::{Input, Timelock, Transaction};
 
 use cuprate_constants::rpc::{
     MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT, RESTRICTED_SPENT_KEY_IMAGES_COUNT,
@@ -40,7 +45,6 @@ use cuprate_types::{
     rpc::{KeyImageSpentStatus, PoolInfo, PoolTxInfo, PublicNode},
     TxInPool, TxRelayChecks,
 };
-use monero_serai::transaction::{Input, Timelock, Transaction};
 
 use crate::{
     rpc::{
@@ -173,7 +177,7 @@ async fn get_transactions(
             txs_as_hex.push(as_hex.clone());
 
             let as_json = if request.decode_as_json {
-                let tx = Transaction::read(&mut as_hex.0.as_slice())?;
+                let tx = Transaction::read(&mut as_hex.as_slice())?;
                 let json_type = cuprate_types::json::tx::Transaction::from(tx);
                 let json = serde_json::to_string(&json_type).unwrap();
                 txs_as_json.push(json.clone());
@@ -351,7 +355,7 @@ async fn send_raw_transaction(
         tx_extra_too_big: false,
     };
 
-    let tx = Transaction::read(&mut request.tx_as_hex.0.as_slice())?;
+    let tx = Transaction::read(&mut request.tx_as_hex.as_slice())?;
 
     if request.do_sanity_checks {
         /// FIXME: these checks could be defined elsewhere.

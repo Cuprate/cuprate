@@ -76,11 +76,11 @@ define_request_and_response! {
         // 1. As an expression
         // 2. As a string literal
         //
-        // For example: `extra_nonce: String /* = default_string(), "default_string" */,`
+        // For example: `extra_nonce: HexVec /* = default::<HexVec>(), "default" */,`
         //
         // This is a HACK since `serde`'s default attribute only takes in
         // string literals and macros (stringify) within attributes do not work.
-        extra_nonce: String = default::<String>(), "default",
+        extra_nonce: HexVec = default::<HexVec>(), "default",
         prev_block: HexVec = default::<HexVec>(), "default",
 
         // Another optional expression:
@@ -958,7 +958,7 @@ mod test {
     fn get_block_template_request() {
         test_json_request(json::GET_BLOCK_TEMPLATE_REQUEST, GetBlockTemplateRequest {
             reserve_size: 60,
-            extra_nonce: String::default(),
+            extra_nonce: HexVec::default(),
             prev_block: HexVec::default(),
             wallet_address: "44GBHzv6ZyQdJkjqZje6KLZ3xSyN1hBSFAnLP6EAqJtCRVzMzZmeXTC2AHKDS9aEDTRKmo6a6o9r9j86pYfhCWDkKjbtcns".into(),
         });

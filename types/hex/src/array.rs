@@ -3,6 +3,11 @@
 //! This module provides transparent wrapper types for
 //! arrays that (de)serialize from hexadecimal input/output.
 
+use std::{
+    borrow::Borrow,
+    ops::{Deref, DerefMut},
+};
+
 use hex::{FromHex, FromHexError};
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -71,6 +76,31 @@ where
 impl<const N: usize> Default for Hex<N> {
     fn default() -> Self {
         Self([0; N])
+    }
+}
+
+impl<const N: usize> Deref for Hex<N> {
+    type Target = [u8; N];
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<const N: usize> DerefMut for Hex<N> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<const N: usize> Borrow<[u8; N]> for Hex<N> {
+    fn borrow(&self) -> &[u8; N] {
+        &self.0
+    }
+}
+
+impl<const N: usize> AsRef<[u8; N]> for Hex<N> {
+    fn as_ref(&self) -> &[u8; N] {
+        &self.0
     }
 }
 
