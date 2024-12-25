@@ -8,7 +8,7 @@
 macro_rules! doc_error {
     () => {
         r#"# Errors
-This function returns [`RuntimeError::KeyNotFound`] if the input (if applicable) doesn't exist or other `RuntimeError`'s on database errors."#
+This function returns [`cuprate_database::RuntimeError::KeyNotFound`] if the input (if applicable) doesn't exist or other `RuntimeError`'s on database errors."#
     };
 }
 pub(super) use doc_error;

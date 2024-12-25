@@ -14,8 +14,8 @@ use monero_serai::{
     transaction::{Input, Timelock, Transaction, TransactionPrefix},
 };
 use proptest::{collection::vec, prelude::*};
-use tokio::time::timeout;
-use tower::{service_fn, Service};
+use tokio::{sync::mpsc, time::timeout};
+use tower::{buffer::Buffer, service_fn, Service, ServiceExt};
 
 use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_p2p_core::{
@@ -31,7 +31,7 @@ use cuprate_wire::{
 
 use crate::{
     block_downloader::{download_blocks, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
-    client_pool::ClientPool,
+    peer_set::PeerSet,
 };
 
 proptest! {
@@ -48,28 +48,29 @@ proptest! {
 
         let tokio_pool = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap();
 
-        #[expect(clippy::significant_drop_tightening)]
         tokio_pool.block_on(async move {
             timeout(Duration::from_secs(600), async move {
-                let client_pool = ClientPool::new();
+                let (new_connection_tx, new_connection_rx) = mpsc::channel(peers);
+
+                let peer_set = PeerSet::new(new_connection_rx);
 
                 for _ in 0..peers {
                     let client = mock_block_downloader_client(Arc::clone(&blockchain));
 
-                    client_pool.add_new_client(client);
+                    new_connection_tx.try_send(client).unwrap();
                 }
 
                 let stream = download_blocks(
-                    client_pool,
+                    Buffer::new(peer_set, 10).boxed_clone(),
                     OurChainSvc {
                         genesis: *blockchain.blocks.first().unwrap().0
                     },
                     BlockDownloaderConfig {
-                        buffer_size: 1_000,
-                        in_progress_queue_size: 10_000,
+                        buffer_bytes: 1_000,
+                        in_progress_queue_bytes: 10_000,
                         check_client_pool_interval: Duration::from_secs(5),
-                        target_batch_size: 5_000,
-                        initial_batch_size: 1,
+                        target_batch_bytes: 5_000,
+                        initial_batch_len: 1,
                 });
 
                 let blocks = stream.map(|blocks| blocks.blocks).concat().await;

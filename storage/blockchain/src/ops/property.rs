@@ -3,9 +3,8 @@
 //! SOMEDAY: the database `properties` table is not yet implemented.
 
 //---------------------------------------------------------------------------------------------------- Import
+use cuprate_database::DbResult;
 use cuprate_pruning::PruningSeed;
-
-use cuprate_database::RuntimeError;
 
 use crate::ops::macros::doc_error;
 
@@ -20,7 +19,7 @@ use crate::ops::macros::doc_error;
 /// // SOMEDAY
 /// ```
 #[inline]
-pub const fn get_blockchain_pruning_seed() -> Result<PruningSeed, RuntimeError> {
+pub const fn get_blockchain_pruning_seed() -> DbResult<PruningSeed> {
     // SOMEDAY: impl pruning.
     // We need a DB properties table.
     Ok(PruningSeed::NotPruned)
@@ -36,7 +35,7 @@ pub const fn get_blockchain_pruning_seed() -> Result<PruningSeed, RuntimeError> 
 /// // SOMEDAY
 /// ```
 #[inline]
-pub const fn db_version() -> Result<u64, RuntimeError> {
+pub const fn db_version() -> DbResult<u64> {
     // SOMEDAY: We need a DB properties table.
     Ok(crate::constants::DATABASE_VERSION)
 }

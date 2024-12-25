@@ -211,7 +211,7 @@ macro_rules! define_tables {
             ///
             /// # Errors
             /// This returns errors on regular database errors.
-            fn all_tables_empty(&self) -> Result<bool, $crate::RuntimeError>;
+            fn all_tables_empty(&self) -> $crate::DbResult<bool>;
         }
 
         /// Object containing all opened [`Table`](cuprate_database::Table)s in read + iter mode.
@@ -293,7 +293,7 @@ macro_rules! define_tables {
                 }
             )*
 
-            fn all_tables_empty(&self) -> Result<bool, $crate::RuntimeError> {
+            fn all_tables_empty(&self) -> $crate::DbResult<bool> {
                 $(
                      if !$crate::DatabaseRo::is_empty(&self.$index)? {
                         return Ok(false);
@@ -369,7 +369,7 @@ macro_rules! define_tables {
             ///
             /// # Errors
             /// This will only return [`cuprate_database::RuntimeError::Io`] if it errors.
-            fn open_tables(&self, tx_ro: &Self::Ro<'_>) -> Result<impl TablesIter, $crate::RuntimeError>;
+            fn open_tables(&self, tx_ro: &Self::Ro<'_>) -> $crate::DbResult<impl TablesIter>;
 
             /// Open all tables in read-write mode.
             ///
@@ -378,7 +378,7 @@ macro_rules! define_tables {
             ///
             /// # Errors
             /// This will only return [`cuprate_database::RuntimeError::Io`] on errors.
-            fn open_tables_mut(&self, tx_rw: &Self::Rw<'_>) -> Result<impl TablesMut, $crate::RuntimeError>;
+            fn open_tables_mut(&self, tx_rw: &Self::Rw<'_>) -> $crate::DbResult<impl TablesMut>;
 
             /// Create all database tables.
             ///
@@ -386,7 +386,7 @@ macro_rules! define_tables {
             ///
             /// # Errors
             /// This will only return [`cuprate_database::RuntimeError::Io`] on errors.
-            fn create_tables(&self, tx_rw: &Self::Rw<'_>) -> Result<(), $crate::RuntimeError>;
+            fn create_tables(&self, tx_rw: &Self::Rw<'_>) -> $crate::DbResult<()>;
         }
 
         impl<'env, Ei> OpenTables<'env> for Ei
@@ -396,19 +396,19 @@ macro_rules! define_tables {
             type Ro<'tx> = <Ei as $crate::EnvInner<'env>>::Ro<'tx>;
             type Rw<'tx> = <Ei as $crate::EnvInner<'env>>::Rw<'tx>;
 
-            fn open_tables(&self, tx_ro: &Self::Ro<'_>) -> Result<impl TablesIter, $crate::RuntimeError> {
+            fn open_tables(&self, tx_ro: &Self::Ro<'_>) -> $crate::DbResult<impl TablesIter> {
                 Ok(($(
                     Self::open_db_ro::<[<$table:camel>]>(self, tx_ro)?,
                 )*))
             }
 
-            fn open_tables_mut(&self, tx_rw: &Self::Rw<'_>) -> Result<impl TablesMut, $crate::RuntimeError> {
+            fn open_tables_mut(&self, tx_rw: &Self::Rw<'_>) -> $crate::DbResult<impl TablesMut> {
                 Ok(($(
                     Self::open_db_rw::<[<$table:camel>]>(self, tx_rw)?,
                 )*))
             }
 
-            fn create_tables(&self, tx_rw: &Self::Rw<'_>) -> Result<(), $crate::RuntimeError> {
+            fn create_tables(&self, tx_rw: &Self::Rw<'_>) -> $crate::DbResult<()> {
                 let result = Ok(($(
                     Self::create_db::<[<$table:camel>]>(self, tx_rw),
                 )*));

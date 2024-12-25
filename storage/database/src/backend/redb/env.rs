@@ -6,7 +6,7 @@ use crate::{
     config::{Config, SyncMode},
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::{Env, EnvInner},
-    error::{InitError, RuntimeError},
+    error::{DbResult, InitError, RuntimeError},
     table::Table,
     TxRw,
 };
@@ -105,7 +105,7 @@ impl Env for ConcreteEnv {
         &self.config
     }
 
-    fn sync(&self) -> Result<(), RuntimeError> {
+    fn sync(&self) -> DbResult<()> {
         // `redb`'s syncs are tied with write transactions,
         // so just create one, don't do anything and commit.
         let mut tx_rw = self.env.begin_write()?;
@@ -127,12 +127,12 @@ where
     type Rw<'a> = redb::WriteTransaction;
 
     #[inline]
-    fn tx_ro(&self) -> Result<redb::ReadTransaction, RuntimeError> {
+    fn tx_ro(&self) -> DbResult<redb::ReadTransaction> {
         Ok(self.0.begin_read()?)
     }
 
     #[inline]
-    fn tx_rw(&self) -> Result<redb::WriteTransaction, RuntimeError> {
+    fn tx_rw(&self) -> DbResult<redb::WriteTransaction> {
         // `redb` has sync modes on the TX level, unlike heed,
         // which sets it at the Environment level.
         //
@@ -146,7 +146,7 @@ where
     fn open_db_ro<T: Table>(
         &self,
         tx_ro: &Self::Ro<'_>,
-    ) -> Result<impl DatabaseRo<T> + DatabaseIter<T>, RuntimeError> {
+    ) -> DbResult<impl DatabaseRo<T> + DatabaseIter<T>> {
         // Open up a read-only database using our `T: Table`'s const metadata.
         let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
             redb::TableDefinition::new(T::NAME);
@@ -155,10 +155,7 @@ where
     }
 
     #[inline]
-    fn open_db_rw<T: Table>(
-        &self,
-        tx_rw: &Self::Rw<'_>,
-    ) -> Result<impl DatabaseRw<T>, RuntimeError> {
+    fn open_db_rw<T: Table>(&self, tx_rw: &Self::Rw<'_>) -> DbResult<impl DatabaseRw<T>> {
         // Open up a read/write database using our `T: Table`'s const metadata.
         let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
             redb::TableDefinition::new(T::NAME);
@@ -168,14 +165,14 @@ where
         Ok(tx_rw.open_table(table)?)
     }
 
-    fn create_db<T: Table>(&self, tx_rw: &redb::WriteTransaction) -> Result<(), RuntimeError> {
+    fn create_db<T: Table>(&self, tx_rw: &redb::WriteTransaction) -> DbResult<()> {
         // INVARIANT: `redb` creates tables if they don't exist.
         self.open_db_rw::<T>(tx_rw)?;
         Ok(())
     }
 
     #[inline]
-    fn clear_db<T: Table>(&self, tx_rw: &mut redb::WriteTransaction) -> Result<(), RuntimeError> {
+    fn clear_db<T: Table>(&self, tx_rw: &mut redb::WriteTransaction) -> DbResult<()> {
         let table: redb::TableDefinition<
             'static,
             StorableRedb<<T as Table>::Key>,

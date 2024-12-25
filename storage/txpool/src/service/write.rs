@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use cuprate_database::{ConcreteEnv, DatabaseRo, DatabaseRw, Env, EnvInner, RuntimeError, TxRw};
+use cuprate_database::{
+    ConcreteEnv, DatabaseRo, DatabaseRw, DbResult, Env, EnvInner, RuntimeError, TxRw,
+};
 use cuprate_database_service::DatabaseWriteHandle;
 use cuprate_types::TransactionVerificationData;
 
@@ -25,7 +27,7 @@ pub(super) fn init_write_service(env: Arc<ConcreteEnv>) -> TxpoolWriteHandle {
 fn handle_txpool_request(
     env: &ConcreteEnv,
     req: &TxpoolWriteRequest,
-) -> Result<TxpoolWriteResponse, RuntimeError> {
+) -> DbResult<TxpoolWriteResponse> {
     match req {
         TxpoolWriteRequest::AddTransaction { tx, state_stem } => {
             add_transaction(env, tx, *state_stem)
@@ -50,7 +52,7 @@ fn add_transaction(
     env: &ConcreteEnv,
     tx: &TransactionVerificationData,
     state_stem: bool,
-) -> Result<TxpoolWriteResponse, RuntimeError> {
+) -> DbResult<TxpoolWriteResponse> {
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw()?;
 
@@ -83,7 +85,7 @@ fn add_transaction(
 fn remove_transaction(
     env: &ConcreteEnv,
     tx_hash: &TransactionHash,
-) -> Result<TxpoolWriteResponse, RuntimeError> {
+) -> DbResult<TxpoolWriteResponse> {
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw()?;
 
@@ -105,10 +107,7 @@ fn remove_transaction(
 }
 
 /// [`TxpoolWriteRequest::Promote`]
-fn promote(
-    env: &ConcreteEnv,
-    tx_hash: &TransactionHash,
-) -> Result<TxpoolWriteResponse, RuntimeError> {
+fn promote(env: &ConcreteEnv, tx_hash: &TransactionHash) -> DbResult<TxpoolWriteResponse> {
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw()?;
 
@@ -134,10 +133,7 @@ fn promote(
 }
 
 /// [`TxpoolWriteRequest::NewBlock`]
-fn new_block(
-    env: &ConcreteEnv,
-    spent_key_images: &[KeyImage],
-) -> Result<TxpoolWriteResponse, RuntimeError> {
+fn new_block(env: &ConcreteEnv, spent_key_images: &[KeyImage]) -> DbResult<TxpoolWriteResponse> {
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw()?;
 

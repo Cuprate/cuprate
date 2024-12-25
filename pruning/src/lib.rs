@@ -327,7 +327,7 @@ impl DecompressedPruningSeed {
     ///
     /// This function will also error if `block_height` > `blockchain_height`
     ///
-    pub fn get_next_unpruned_block(
+    pub const fn get_next_unpruned_block(
         &self,
         block_height: usize,
         blockchain_height: usize,

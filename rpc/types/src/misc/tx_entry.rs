@@ -2,8 +2,6 @@
 
 //---------------------------------------------------------------------------------------------------- Use
 #[cfg(feature = "serde")]
-use crate::serde::{serde_false, serde_true};
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "epee")]
@@ -12,6 +10,9 @@ use cuprate_epee_encoding::{
     macros::bytes::{Buf, BufMut},
     EpeeObject, EpeeObjectBuilder,
 };
+
+#[cfg(feature = "serde")]
+use crate::serde::{serde_false, serde_true};
 
 //---------------------------------------------------------------------------------------------------- TxEntry
 #[doc = crate::macros::monero_definition_link!(

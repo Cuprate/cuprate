@@ -25,7 +25,7 @@
 //!
 //! let config = ConfigBuilder::new()
 //!      // Use a custom database directory.
-//!     .db_directory(db_dir.into())
+//!     .data_directory(db_dir.into())
 //!     // Use as many reader threads as possible (when using `service`).
 //!     .reader_threads(ReaderThreads::OnePerThread)
 //!     // Use the fastest sync mode.
@@ -41,13 +41,16 @@
 //! ```
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{borrow::Cow, path::Path};
+use std::{borrow::Cow, path::PathBuf};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use cuprate_database::{config::SyncMode, resize::ResizeAlgorithm};
-use cuprate_helper::fs::CUPRATE_BLOCKCHAIN_DIR;
+use cuprate_helper::{
+    fs::{blockchain_path, CUPRATE_DATA_DIR},
+    network::Network,
+};
 
 // re-exports
 pub use cuprate_database_service::ReaderThreads;
@@ -59,8 +62,9 @@ pub use cuprate_database_service::ReaderThreads;
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ConfigBuilder {
-    /// [`Config::db_directory`].
-    db_directory: Option<Cow<'static, Path>>,
+    network: Network,
+
+    data_dir: Option<PathBuf>,
 
     /// [`Config::cuprate_database_config`].
     db_config: cuprate_database::config::ConfigBuilder,
@@ -76,10 +80,12 @@ impl ConfigBuilder {
     /// after this function to use default values.
     pub fn new() -> Self {
         Self {
-            db_directory: None,
-            db_config: cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(
-                &*CUPRATE_BLOCKCHAIN_DIR,
-            )),
+            network: Network::default(),
+            data_dir: None,
+            db_config: cuprate_database::config::ConfigBuilder::new(Cow::Owned(blockchain_path(
+                &CUPRATE_DATA_DIR,
+                Network::Mainnet,
+            ))),
             reader_threads: None,
         }
     }
@@ -87,21 +93,21 @@ impl ConfigBuilder {
     /// Build into a [`Config`].
     ///
     /// # Default values
-    /// If [`ConfigBuilder::db_directory`] was not called,
-    /// the default [`CUPRATE_BLOCKCHAIN_DIR`] will be used.
+    /// If [`ConfigBuilder::data_directory`] was not called,
+    /// [`blockchain_path`] with [`CUPRATE_DATA_DIR`] [`Network::Mainnet`] will be used.
     ///
     /// For all other values, [`Default::default`] is used.
     pub fn build(self) -> Config {
         // INVARIANT: all PATH safety checks are done
         // in `helper::fs`. No need to do them here.
-        let db_directory = self
-            .db_directory
-            .unwrap_or_else(|| Cow::Borrowed(&*CUPRATE_BLOCKCHAIN_DIR));
+        let data_dir = self
+            .data_dir
+            .unwrap_or_else(|| CUPRATE_DATA_DIR.to_path_buf());
 
         let reader_threads = self.reader_threads.unwrap_or_default();
         let db_config = self
             .db_config
-            .db_directory(db_directory)
+            .db_directory(Cow::Owned(blockchain_path(&data_dir, self.network)))
             .reader_threads(reader_threads.as_threads())
             .build();
 
@@ -111,10 +117,17 @@ impl ConfigBuilder {
         }
     }
 
-    /// Set a custom database directory (and file) [`Path`].
+    /// Change the network this blockchain database is for.
     #[must_use]
-    pub fn db_directory(mut self, db_directory: Cow<'static, Path>) -> Self {
-        self.db_directory = Some(db_directory);
+    pub const fn network(mut self, network: Network) -> Self {
+        self.network = network;
+        self
+    }
+
+    /// Set a custom database directory (and file) [`PathBuf`].
+    #[must_use]
+    pub fn data_directory(mut self, db_directory: PathBuf) -> Self {
+        self.data_dir = Some(db_directory);
         self
     }
 
@@ -145,9 +158,7 @@ impl ConfigBuilder {
     /// Good default for testing, and resource-available machines.
     #[must_use]
     pub fn fast(mut self) -> Self {
-        self.db_config =
-            cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(&*CUPRATE_BLOCKCHAIN_DIR))
-                .fast();
+        self.db_config = self.db_config.fast();
 
         self.reader_threads = Some(ReaderThreads::OnePerThread);
         self
@@ -159,9 +170,7 @@ impl ConfigBuilder {
     /// Good default for resource-limited machines, e.g. a cheap VPS.
     #[must_use]
     pub fn low_power(mut self) -> Self {
-        self.db_config =
-            cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(&*CUPRATE_BLOCKCHAIN_DIR))
-                .low_power();
+        self.db_config = self.db_config.low_power();
 
         self.reader_threads = Some(ReaderThreads::One);
         self
@@ -170,10 +179,13 @@ impl ConfigBuilder {
 
 impl Default for ConfigBuilder {
     fn default() -> Self {
-        let db_directory = Cow::Borrowed(&**CUPRATE_BLOCKCHAIN_DIR);
         Self {
-            db_directory: Some(db_directory.clone()),
-            db_config: cuprate_database::config::ConfigBuilder::new(db_directory),
+            network: Network::default(),
+            data_dir: Some(CUPRATE_DATA_DIR.to_path_buf()),
+            db_config: cuprate_database::config::ConfigBuilder::new(Cow::Owned(blockchain_path(
+                &CUPRATE_DATA_DIR,
+                Network::default(),
+            ))),
             reader_threads: Some(ReaderThreads::default()),
         }
     }
@@ -201,7 +213,7 @@ impl Config {
     /// Create a new [`Config`] with sane default settings.
     ///
     /// The [`cuprate_database::config::Config::db_directory`]
-    /// will be set to [`CUPRATE_BLOCKCHAIN_DIR`].
+    /// will be set to [`blockchain_path`] with [`CUPRATE_DATA_DIR`] [`Network::Mainnet`].
     ///
     /// All other values will be [`Default::default`].
     ///
@@ -213,14 +225,14 @@ impl Config {
     ///     resize::ResizeAlgorithm,
     ///     DATABASE_DATA_FILENAME,
     /// };
-    /// use cuprate_helper::fs::*;
+    /// use cuprate_helper::{fs::*, network::Network};
     ///
     /// use cuprate_blockchain::config::*;
     ///
     /// let config = Config::new();
     ///
-    /// assert_eq!(config.db_config.db_directory(), &*CUPRATE_BLOCKCHAIN_DIR);
-    /// assert!(config.db_config.db_file().starts_with(&*CUPRATE_BLOCKCHAIN_DIR));
+    /// assert_eq!(config.db_config.db_directory().as_ref(), blockchain_path(&CUPRATE_DATA_DIR, Network::Mainnet).as_path());
+    /// assert!(config.db_config.db_file().starts_with(&*CUPRATE_DATA_DIR));
     /// assert!(config.db_config.db_file().ends_with(DATABASE_DATA_FILENAME));
     /// assert_eq!(config.db_config.sync_mode, SyncMode::default());
     /// assert_eq!(config.db_config.resize_algorithm, ResizeAlgorithm::default());

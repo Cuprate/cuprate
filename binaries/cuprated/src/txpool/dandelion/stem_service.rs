@@ -1,14 +1,15 @@
 use std::{
+    future::Future,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 
 use bytes::Bytes;
-use futures::Stream;
+use futures::{future::BoxFuture, FutureExt, Stream};
 use tower::Service;
 
 use cuprate_dandelion_tower::{traits::StemRequest, OutboundPeer};
-use cuprate_p2p::{ClientPoolDropGuard, NetworkInterface};
+use cuprate_p2p::{ClientDropGuard, NetworkInterface, PeerSetRequest, PeerSetResponse};
 use cuprate_p2p_core::{
     client::{Client, InternalPeerID},
     ClearNet, NetworkZone, PeerRequest, ProtocolRequest,
@@ -19,7 +20,17 @@ use crate::{p2p::CrossNetworkInternalPeerId, txpool::dandelion::DandelionTx};
 
 /// The dandelion outbound peer stream.
 pub struct OutboundPeerStream {
-    pub clear_net: NetworkInterface<ClearNet>,
+    clear_net: NetworkInterface<ClearNet>,
+    state: OutboundPeerStreamState,
+}
+
+impl OutboundPeerStream {
+    pub const fn new(clear_net: NetworkInterface<ClearNet>) -> Self {
+        Self {
+            clear_net,
+            state: OutboundPeerStreamState::Standby,
+        }
+    }
 }
 
 impl Stream for OutboundPeerStream {
@@ -28,23 +39,49 @@ impl Stream for OutboundPeerStream {
         tower::BoxError,
     >;
 
-    fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        // TODO: make the outbound peer choice random.
-        Poll::Ready(Some(Ok(self
-            .clear_net
-            .client_pool()
-            .outbound_client()
-            .map_or(OutboundPeer::Exhausted, |client| {
-                OutboundPeer::Peer(
-                    CrossNetworkInternalPeerId::ClearNet(client.info.id),
-                    StemPeerService(client),
-                )
-            }))))
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        loop {
+            match &mut self.state {
+                OutboundPeerStreamState::Standby => {
+                    let peer_set = self.clear_net.peer_set();
+                    let res = ready!(peer_set.poll_ready(cx));
+
+                    self.state = OutboundPeerStreamState::AwaitingPeer(
+                        peer_set.call(PeerSetRequest::StemPeer).boxed(),
+                    );
+                }
+                OutboundPeerStreamState::AwaitingPeer(fut) => {
+                    let res = ready!(fut.poll_unpin(cx));
+
+                    return Poll::Ready(Some(res.map(|res| {
+                        let PeerSetResponse::StemPeer(stem_peer) = res else {
+                            unreachable!()
+                        };
+
+                        match stem_peer {
+                            Some(peer) => OutboundPeer::Peer(
+                                CrossNetworkInternalPeerId::ClearNet(peer.info.id),
+                                StemPeerService(peer),
+                            ),
+                            None => OutboundPeer::Exhausted,
+                        }
+                    })));
+                }
+            }
+        }
     }
 }
 
+/// The state of the [`OutboundPeerStream`].
+enum OutboundPeerStreamState {
+    /// Standby state.
+    Standby,
+    /// Awaiting a response from the peer-set.
+    AwaitingPeer(BoxFuture<'static, Result<PeerSetResponse<ClearNet>, tower::BoxError>>),
+}
+
 /// The stem service, used to send stem txs.
-pub struct StemPeerService<N: NetworkZone>(ClientPoolDropGuard<N>);
+pub struct StemPeerService<N: NetworkZone>(ClientDropGuard<N>);
 
 impl<N: NetworkZone> Service<StemRequest<DandelionTx>> for StemPeerService<N> {
     type Response = <Client<N> as Service<PeerRequest>>::Response;

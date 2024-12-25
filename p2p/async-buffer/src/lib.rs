@@ -157,7 +157,7 @@ pub struct BufferSinkSend<'a, T> {
     item: Option<T>,
 }
 
-impl<'a, T> Future for BufferSinkSend<'a, T> {
+impl<T> Future for BufferSinkSend<'_, T> {
     type Output = Result<(), BufferError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -183,7 +183,7 @@ pub struct BufferSinkReady<'a, T> {
     size_needed: usize,
 }
 
-impl<'a, T> Future for BufferSinkReady<'a, T> {
+impl<T> Future for BufferSinkReady<'_, T> {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
