@@ -16,7 +16,6 @@ from    = [
 	"dep:cuprate-helper",
 	"cuprate-helper/map",
 	"cuprate-helper/fmt",
-	"cuprate-types/rpc",
 	"dep:cuprate-p2p-core",
 	"dep:hex"
 ]
@@ -25,7 +24,7 @@ from    = [
 cuprate-fixed-bytes   = { workspace = true }
 cuprate-hex           = { workspace = true }
 cuprate-epee-encoding = { workspace = true, optional = true }
-cuprate-types         = { workspace = true, default-features = false }
+cuprate-types         = { workspace = true, default-features = false, features = ["rpc", "json"] }
 cuprate-helper        = { workspace = true, optional = true, default-features = false }
 cuprate-p2p-core      = { workspace = true, optional = true, default-features = false }
 
