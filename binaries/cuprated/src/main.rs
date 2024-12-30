@@ -26,7 +26,12 @@ use cuprate_consensus_context::{
 };
 use cuprate_helper::time::secs_to_hms;
 
-use crate::{commands::Command, config::Config, constants::PANIC_CRITICAL_SERVICE_ERROR};
+use crate::{
+    commands::{Command, OutputTarget},
+    config::Config,
+    constants::PANIC_CRITICAL_SERVICE_ERROR,
+    logging::CupratedTracingFilter,
+};
 
 mod blockchain;
 mod commands;
@@ -135,6 +140,7 @@ fn main() {
 fn init_tokio_rt(config: &Config) -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_multi_thread()
         .worker_threads(config.tokio.threads)
+        .thread_name("cuprated-tokio")
         .enable_all()
         .build()
         .unwrap()
@@ -144,6 +150,7 @@ fn init_tokio_rt(config: &Config) -> tokio::runtime::Runtime {
 fn init_global_rayon_pool(config: &Config) {
     rayon::ThreadPoolBuilder::new()
         .num_threads(config.rayon.threads)
+        .thread_name(|index| format!("cuprated-rayon-{}", index))
         .build_global()
         .unwrap()
 }
@@ -155,11 +162,21 @@ async fn io_loop(
 ) -> ! {
     while let Some(command) = incoming_commands.recv().await {
         match command {
-            Command::SetLog { level } => {
-                logging::modify_stdout_output(|filter| {
-                    filter.level = level;
+            Command::SetLog {
+                level,
+                output_target,
+            } => {
+                let modify_output = |filter: &mut CupratedTracingFilter| {
+                    if let Some(level) = level {
+                        filter.level = level;
+                    }
                     println!("NEW LOG FILTER: {filter}");
-                });
+                };
+
+                match output_target {
+                    OutputTarget::File => logging::modify_file_output(modify_output),
+                    OutputTarget::Stdout => logging::modify_stdout_output(modify_output),
+                }
             }
             Command::Status => {
                 let BlockChainContextResponse::Context(blockchain_context) = context_service

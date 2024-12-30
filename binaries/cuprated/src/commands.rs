@@ -1,27 +1,25 @@
-use clap::{builder::TypedValueParser, Parser};
-use std::io;
-use std::io::Stdin;
-use std::iter::once;
-use std::thread::sleep;
-use std::time::Duration;
+use std::{io, thread::sleep, time::Duration};
+
+use clap::{builder::TypedValueParser, Parser, ValueEnum};
+
 use tokio::sync::mpsc;
 use tracing::level_filters::LevelFilter;
 
-// strip out usage
-const PARSER_TEMPLATE: &str = "\
-        {all-args}
-    ";
-// strip out name/version
-const APPLET_TEMPLATE: &str = "\
-        {about-with-newline}\n\
-        {all-args}\
-    ";
+const PARSER_TEMPLATE: &str = "{all-args}";
 
+/// A command received from [`io::stdin`].
 #[derive(Debug, Parser)]
-#[command(multicall = true, subcommand_required = true, rename_all = "snake_case", help_template = PARSER_TEMPLATE, arg_required_else_help = true, disable_help_flag = true)]
+#[command(
+    multicall = true,
+    subcommand_required = true,
+    rename_all = "snake_case",
+    help_template = PARSER_TEMPLATE,
+    arg_required_else_help = true,
+    disable_help_flag = true
+)]
 pub enum Command {
     /// Change the log output.
-    #[command(arg_required_else_help = true, help_template = APPLET_TEMPLATE)]
+    #[command(arg_required_else_help = true)]
     SetLog {
         /// The minimum log level that will be displayed.
         #[arg(
@@ -29,13 +27,25 @@ pub enum Command {
           value_parser = clap::builder::PossibleValuesParser::new(["off", "trace", "debug", "info", "warn", "error"])
             .map(|s| s.parse::<LevelFilter>().unwrap()),
         )]
-        level: LevelFilter,
+        level: Option<LevelFilter>,
+        /// The logging output target to change.
+        #[arg(value_enum, default_value_t = OutputTarget::Stdout)]
+        output_target: OutputTarget,
     },
     /// Print status information on `cuprated`.
-    #[command(help_template = APPLET_TEMPLATE)]
     Status,
 }
 
+/// The log output target.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+pub enum OutputTarget {
+    /// The stdout logging output.
+    Stdout,
+    /// The file appender logging output.
+    File,
+}
+
+/// The [`Command`] listener loop.
 pub fn command_listener(incoming_commands: mpsc::Sender<Command>) -> ! {
     let mut stdin = io::stdin();
     let mut line = String::new();

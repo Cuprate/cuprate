@@ -3,7 +3,6 @@ use std::{collections::HashMap, sync::Arc};
 use futures::StreamExt;
 use monero_serai::block::Block;
 use tokio::sync::{mpsc, oneshot, Notify};
-use tokio_util::sync::CancellationToken;
 use tower::{Service, ServiceExt};
 use tracing::error;
 

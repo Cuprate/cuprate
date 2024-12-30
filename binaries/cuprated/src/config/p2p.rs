@@ -50,7 +50,7 @@ impl Default for BlockDownloaderConfig {
             buffer_bytes: 50_000_000,
             in_progress_queue_bytes: 50_000_000,
             check_client_pool_interval: Duration::from_secs(30),
-            target_batch_bytes: 5_000_000,
+            target_batch_bytes: 15_000_000,
         }
     }
 }

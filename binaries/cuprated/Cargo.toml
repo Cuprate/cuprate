@@ -44,7 +44,7 @@ borsh                 = { workspace = true }
 bytemuck              = { workspace = true }
 bytes                 = { workspace = true }
 cfg-if                = { workspace = true }
-clap                  = { workspace = true, features = ["cargo", "help", "wrap_help"] }
+clap                  = { workspace = true, features = ["cargo", "help", "wrap_help", "usage", "error-context", "suggestions"] }
 chrono                = { workspace = true }
 crypto-bigint         = { workspace = true }
 crossbeam             = { workspace = true }

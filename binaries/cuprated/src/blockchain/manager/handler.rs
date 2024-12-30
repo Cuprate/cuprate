@@ -147,8 +147,6 @@ impl super::BlockchainManager {
     /// This function will panic if any internal service returns an unexpected error that we cannot
     /// recover from or if the incoming batch contains no blocks.
     async fn handle_incoming_block_batch_main_chain(&mut self, batch: BlockBatch) {
-        let start_height = batch.blocks.first().unwrap().0.number().unwrap();
-
         let batch_prep_res = self
             .block_verifier_service
             .ready()
