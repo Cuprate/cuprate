@@ -19,7 +19,7 @@ file = { level = "debug", max_log_files = 7 }
 ## Clear-net config.
 [p2p.clear_net]
 ## The number of outbound connections we should make and maintain.
-outbound_connections = 32
+outbound_connections = 64
 ## The number of extra connections we should make under load from the rest of Cuprate, i.e. when syncing.
 extra_outbound_connections = 8
 ## The maximum number of incoming we should allow.
@@ -47,7 +47,7 @@ buffer_bytes = 50_000_000
 ## The size of the queue of blocks which are waiting for a parent block to be downloaded (bytes).
 in_progress_queue_bytes = 50_000_000
 ## The target size of a batch of blocks (bytes), must not exceed 100MB.
-target_batch_bytes = 15_000_000
+target_batch_bytes = 10_000_000
 ## The amount of time between checking the pool of connected peers for free peers to download blocks.
 check_client_pool_interval = { secs = 30, nanos = 0 }
 

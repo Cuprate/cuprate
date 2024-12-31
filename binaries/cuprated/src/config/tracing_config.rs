@@ -31,7 +31,8 @@ pub struct FileTracingConfig {
     /// The default minimum log level.
     #[serde(with = "level_filter_serde")]
     pub level: LevelFilter,
-
+    /// The maximum amount of log files to keep, once this number is passed the oldest file
+    /// will be deleted.
     pub max_log_files: usize,
 }
 

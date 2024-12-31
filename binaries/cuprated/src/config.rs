@@ -25,11 +25,11 @@ mod storage;
 mod tokio;
 mod tracing_config;
 
-use crate::config::fs::FileSystemConfig;
-use crate::config::rayon::RayonConfig;
-use crate::config::tokio::TokioConfig;
+use fs::FileSystemConfig;
 use p2p::P2PConfig;
+use rayon::RayonConfig;
 use storage::StorageConfig;
+use tokio::TokioConfig;
 use tracing_config::TracingConfig;
 
 /// Reads the args & config file, returning a [`Config`].

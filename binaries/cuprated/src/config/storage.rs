@@ -21,6 +21,7 @@ pub struct StorageConfig {
 impl Default for StorageConfig {
     fn default() -> Self {
         Self {
+            // 25% available threads.
             reader_threads: std::thread::available_parallelism()
                 .unwrap()
                 .get()
