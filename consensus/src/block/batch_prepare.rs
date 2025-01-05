@@ -20,8 +20,6 @@ use crate::{
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
     VerifyBlockResponse,
 };
-use crate::batch_verifier::MultiThreadedBatchVerifier;
-use crate::transactions::verify_tx_semantic;
 
 /// Batch prepares a list of blocks for verification.
 #[instrument(level = "debug", name = "batch_prep_blocks", skip_all, fields(amt = blocks.len()))]
@@ -170,9 +168,7 @@ where
     tracing::debug!("Calculating PoW and prepping transaction");
 
     let blocks = rayon_spawn_async(move || {
-        let batch_verifier = MultiThreadedBatchVerifier::new(rayon::current_num_threads());
-
-        let res = blocks
+        blocks
             .into_par_iter()
             .zip(difficulties)
             .zip(txs)
@@ -187,16 +183,11 @@ where
                 // Check the PoW
                 check_block_pow(&block.pow_hash, difficultly).map_err(ConsensusError::Block)?;
 
-                let hf = block.hf_version;
-
                 // Now setup the txs.
                 let txs = txs
                     .into_par_iter()
                     .map(|tx| {
-                        let mut tx = new_tx_verification_data(tx)?;
-
-                        verify_tx_semantic(&mut tx, hf, &batch_verifier)?;
-
+                        let tx = new_tx_verification_data(tx)?;
                         Ok::<_, ConsensusError>((tx.tx_hash, tx))
                     })
                     .collect::<Result<HashMap<_, _>, _>>()?;
@@ -210,13 +201,7 @@ where
 
                 Ok((block, ordered_txs))
             })
-            .collect::<Result<Vec<_>, ExtendedConsensusError>>()?;
-
-        if !batch_verifier.verify() {
-            return Err(ExtendedConsensusError::OneOrMoreBatchVerificationStatementsInvalid);
-        }
-
-        Ok(res)
+            .collect::<Result<Vec<_>, ExtendedConsensusError>>()
     })
     .await?;
 

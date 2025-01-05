@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex as StdMutex};
+use std::sync::Mutex as StdMutex;
 
 use monero_serai::{
     ringct::{bulletproofs::Bulletproof, RctType},
@@ -6,8 +6,7 @@ use monero_serai::{
 };
 
 use cuprate_consensus_rules::{transactions::TransactionError, ConsensusError};
-use cuprate_types::{CachedVerificationState, HardFork, TransactionVerificationData, TxVersion};
-use crate::batch_verifier::MultiThreadedBatchVerifier;
+use cuprate_types::{CachedVerificationState, TransactionVerificationData, TxVersion};
 
 /// Creates a new [`TransactionVerificationData`] from a [`Transaction`].
 ///
@@ -35,18 +34,6 @@ pub fn new_tx_verification_data(
         cached_verification_state: StdMutex::new(CachedVerificationState::NotVerified),
         tx,
     })
-}
-
-pub fn verify_tx_semantic(
-    tx: &mut TransactionVerificationData,
-    hf: HardFork,
-    multi_threaded_batch_verifier: &MultiThreadedBatchVerifier,
-) -> Result<(), ConsensusError> {
-    cuprate_consensus_rules::transactions::check_transaction_semantic(&tx.tx, tx.tx_blob.len(), tx.tx_weight, &tx.tx_hash, hf, multi_threaded_batch_verifier)?;
-
-    *tx.cached_verification_state.get_mut().unwrap() = CachedVerificationState::SemanticallyValidAtHF(hf);
-
-    Ok(())
 }
 
 /// Calculates the weight of a [`Transaction`].
