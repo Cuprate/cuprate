@@ -16,6 +16,7 @@
     reason = "TODO: remove after v1.0.0"
 )]
 
+use std::sync::Arc;
 use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
@@ -68,7 +69,7 @@ fn main() {
     let (mut blockchain_read_handle, mut blockchain_write_handle, _) =
         cuprate_blockchain::service::init_with_pool(
             config.blockchain_config(),
-            db_thread_pool.clone(),
+            Arc::clone(&db_thread_pool),
         )
         .unwrap();
     let (txpool_read_handle, txpool_write_handle, _) =
@@ -150,9 +151,9 @@ fn init_tokio_rt(config: &Config) -> tokio::runtime::Runtime {
 fn init_global_rayon_pool(config: &Config) {
     rayon::ThreadPoolBuilder::new()
         .num_threads(config.rayon.threads)
-        .thread_name(|index| format!("cuprated-rayon-{}", index))
+        .thread_name(|index| format!("cuprated-rayon-{index}"))
         .build_global()
-        .unwrap()
+        .unwrap();
 }
 
 /// The [`Command`] handler loop.

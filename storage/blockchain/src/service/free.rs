@@ -1,10 +1,12 @@
 //! General free functions used (related to `cuprate_blockchain::service`).
 
 //---------------------------------------------------------------------------------------------------- Import
+use std::sync::Arc;
+
+use rayon::ThreadPool;
+
 use cuprate_database::{ConcreteEnv, InitError};
 use cuprate_types::{AltBlockInformation, VerifiedBlockInformation};
-use rayon::ThreadPool;
-use std::sync::Arc;
 
 use crate::{
     config::Config,

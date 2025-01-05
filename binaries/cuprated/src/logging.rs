@@ -34,6 +34,7 @@ static FILE_WRITER_FILTER_HANDLE: OnceLock<Handle<CupratedTracingFilter, Registr
 /// A [`OnceLock`] which holds the [`Handle`] to update the stdout logging output.
 ///
 /// Initialized in [`init_logging`].
+#[expect(clippy::type_complexity)] // factoring out isn't going to help readability.
 static STDOUT_FILTER_HANDLE: OnceLock<
     Handle<
         CupratedTracingFilter,

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use cuprate_helper::fs::{CUPRATE_CACHE_DIR, CUPRATE_DATA_DIR};
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, default)]
 pub struct FileSystemConfig {
     pub data_directory: PathBuf,

@@ -4,10 +4,9 @@ use rayon::ThreadPool;
 
 use cuprate_database::{ConcreteEnv, InitError};
 
-use crate::service::read::init_read_service_with_pool;
 use crate::{
     service::{
-        read::init_read_service,
+        read::{init_read_service, init_read_service_with_pool},
         types::{TxpoolReadHandle, TxpoolWriteHandle},
         write::init_write_service,
     },

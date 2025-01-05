@@ -7,7 +7,7 @@ use cuprate_database_service::ReaderThreads;
 use cuprate_helper::fs::CUPRATE_DATA_DIR;
 
 /// The storage config.
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, default)]
 pub struct StorageConfig {
     /// The amount of reader threads to spawn between the tx-pool and blockchain.
@@ -33,7 +33,7 @@ impl Default for StorageConfig {
 }
 
 /// The blockchain config.
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, default)]
 pub struct BlockchainConfig {
     #[serde(flatten)]
@@ -51,7 +51,7 @@ impl Default for BlockchainConfig {
 }
 
 /// The tx-pool config.
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, default)]
 pub struct TxpoolConfig {
     #[serde(flatten)]
@@ -73,7 +73,7 @@ impl Default for TxpoolConfig {
 }
 
 /// Config values shared between the tx-pool and blockchain.
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, default)]
 pub struct SharedStorageConfig {
     /// The [`SyncMode`] of the database.
