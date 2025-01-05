@@ -38,7 +38,7 @@ use crate::{
 pub mod contextual_data;
 mod free;
 
-pub use free::new_tx_verification_data;
+pub use free::{new_tx_verification_data, verify_tx_semantic};
 
 /// A struct representing the type of validation that needs to be completed for this transaction.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -331,6 +331,19 @@ fn transactions_needing_verification(
                 drop(guard);
                 full_validation_transactions
                     .push((Arc::clone(tx), VerificationNeeded::SemanticAndContextual));
+                continue;
+            }
+            CachedVerificationState::SemanticallyValidAtHF(hf) => {
+                if current_hf != *hf {
+                    drop(guard);
+                    full_validation_transactions
+                        .push((Arc::clone(tx), VerificationNeeded::SemanticAndContextual));
+                    continue;
+                }
+
+                drop(guard);
+                full_validation_transactions
+                    .push((Arc::clone(tx), VerificationNeeded::Contextual));
                 continue;
             }
             CachedVerificationState::ValidAtHashAndHF { block_hash, hf } => {

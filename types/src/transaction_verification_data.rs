@@ -37,6 +37,7 @@ impl TxVersion {
 pub enum CachedVerificationState {
     /// The transaction has not been validated.
     NotVerified,
+    SemanticallyValidAtHF(HardFork),
     /// The transaction is valid* if the block represented by this hash is in the blockchain and the [`HardFork`]
     /// is the same.
     ///
@@ -68,6 +69,7 @@ impl CachedVerificationState {
     pub const fn verified_at_block_hash(&self) -> Option<[u8; 32]> {
         match self {
             Self::NotVerified => None,
+            Self::SemanticallyValidAtHF(_) => None,
             Self::ValidAtHashAndHF { block_hash, .. }
             | Self::ValidAtHashAndHFWithTimeBasedLock { block_hash, .. } => Some(*block_hash),
         }
