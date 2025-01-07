@@ -46,11 +46,14 @@ jobs:
     - name: Spell Check
       uses: crate-ci/typos@master
 
+  # Run 32-bit support check separately.
   bit-32-support:
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
+        # The list of crates to check for 32 bit support
+        #  TODO: check features.
         crate: [
             cuprate-epee-encoding,
             cuprate-rpc-types,
