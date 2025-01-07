@@ -1,9 +1,20 @@
 use std::{io, thread::sleep, time::Duration};
 
 use clap::{builder::TypedValueParser, Parser, ValueEnum};
-
 use tokio::sync::mpsc;
+use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
+
+use cuprate_consensus_context::{
+    BlockChainContextRequest, BlockChainContextResponse, BlockChainContextService,
+};
+use cuprate_helper::time::secs_to_hms;
+
+use crate::{
+    constants::PANIC_CRITICAL_SERVICE_ERROR,
+    logging::{self, CupratedTracingFilter},
+    statics,
+};
 
 const PARSER_TEMPLATE: &str = "{all-args}";
 
@@ -65,4 +76,51 @@ pub fn command_listener(incoming_commands: mpsc::Sender<Command>) -> ! {
 
         line.clear();
     }
+}
+
+/// The [`Command`] handler loop.
+pub async fn io_loop(
+    mut incoming_commands: mpsc::Receiver<Command>,
+    mut context_service: BlockChainContextService,
+) -> ! {
+    while let Some(command) = incoming_commands.recv().await {
+        match command {
+            Command::SetLog {
+                level,
+                output_target,
+            } => {
+                let modify_output = |filter: &mut CupratedTracingFilter| {
+                    if let Some(level) = level {
+                        filter.level = level;
+                    }
+                    println!("NEW LOG FILTER: {filter}");
+                };
+
+                match output_target {
+                    OutputTarget::File => logging::modify_file_output(modify_output),
+                    OutputTarget::Stdout => logging::modify_stdout_output(modify_output),
+                }
+            }
+            Command::Status => {
+                let BlockChainContextResponse::Context(blockchain_context) = context_service
+                    .ready()
+                    .await
+                    .expect(PANIC_CRITICAL_SERVICE_ERROR)
+                    .call(BlockChainContextRequest::Context)
+                    .await
+                    .expect(PANIC_CRITICAL_SERVICE_ERROR)
+                else {
+                    unreachable!();
+                };
+                let context = blockchain_context.unchecked_blockchain_context();
+
+                let uptime = statics::START_INSTANT.elapsed().unwrap_or_default();
+                let (hours, minutes, second) = secs_to_hms(uptime.as_secs());
+
+                println!("STATUS:\n  uptime: {hours}h {minutes}m {second}s,\n  height: {},\n  top_hash: {}", context.chain_height, hex::encode(context.top_hash));
+            }
+        }
+    }
+
+    unreachable!()
 }

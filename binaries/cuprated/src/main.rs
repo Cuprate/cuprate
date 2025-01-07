@@ -28,10 +28,7 @@ use cuprate_consensus_context::{
 use cuprate_helper::time::secs_to_hms;
 
 use crate::{
-    commands::{Command, OutputTarget},
-    config::Config,
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
-    logging::CupratedTracingFilter,
+    config::Config, constants::PANIC_CRITICAL_SERVICE_ERROR, logging::CupratedTracingFilter,
 };
 
 mod blockchain;
@@ -131,7 +128,7 @@ fn main() {
         std::thread::spawn(|| commands::command_listener(command_tx));
 
         // Wait on the io_loop, spawned on a separate task as this improves performance.
-        tokio::spawn(io_loop(command_rx, context_svc))
+        tokio::spawn(commands::io_loop(command_rx, context_svc))
             .await
             .unwrap();
     });
@@ -154,51 +151,4 @@ fn init_global_rayon_pool(config: &Config) {
         .thread_name(|index| format!("cuprated-rayon-{index}"))
         .build_global()
         .unwrap();
-}
-
-/// The [`Command`] handler loop.
-async fn io_loop(
-    mut incoming_commands: mpsc::Receiver<Command>,
-    mut context_service: BlockChainContextService,
-) -> ! {
-    while let Some(command) = incoming_commands.recv().await {
-        match command {
-            Command::SetLog {
-                level,
-                output_target,
-            } => {
-                let modify_output = |filter: &mut CupratedTracingFilter| {
-                    if let Some(level) = level {
-                        filter.level = level;
-                    }
-                    println!("NEW LOG FILTER: {filter}");
-                };
-
-                match output_target {
-                    OutputTarget::File => logging::modify_file_output(modify_output),
-                    OutputTarget::Stdout => logging::modify_stdout_output(modify_output),
-                }
-            }
-            Command::Status => {
-                let BlockChainContextResponse::Context(blockchain_context) = context_service
-                    .ready()
-                    .await
-                    .expect(PANIC_CRITICAL_SERVICE_ERROR)
-                    .call(BlockChainContextRequest::Context)
-                    .await
-                    .expect(PANIC_CRITICAL_SERVICE_ERROR)
-                else {
-                    unreachable!();
-                };
-                let context = blockchain_context.unchecked_blockchain_context();
-
-                let uptime = statics::START_INSTANT.elapsed().unwrap_or_default();
-                let (hours, minutes, second) = secs_to_hms(uptime.as_secs());
-
-                println!("STATUS:\n  uptime: {hours}h {minutes}m {second}s,\n  height: {},\n  top_hash: {}", context.chain_height, hex::encode(context.top_hash));
-            }
-        }
-    }
-
-    unreachable!()
 }
