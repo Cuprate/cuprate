@@ -34,8 +34,14 @@ impl<T> redb::Value for StorableRedb<T>
 where
     T: Storable + 'static,
 {
-    type SelfType<'a> = T where Self: 'a;
-    type AsBytes<'a> = &'a [u8] where Self: 'a;
+    type SelfType<'a>
+        = T
+    where
+        Self: 'a;
+    type AsBytes<'a>
+        = &'a [u8]
+    where
+        Self: 'a;
 
     #[inline]
     fn fixed_width() -> Option<usize> {

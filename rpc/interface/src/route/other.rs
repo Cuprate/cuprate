@@ -71,7 +71,7 @@ macro_rules! generate_endpoints_with_no_input {
 /// - [`generate_endpoints_with_input`]
 /// - [`generate_endpoints_with_no_input`]
 macro_rules! generate_endpoints_inner {
-    ($variant:ident, $handler:ident, $request:expr) => {
+    ($variant:ident, $handler:ident, $request:expr_2021) => {
         paste::paste! {
             {
                 // Check if restricted.

@@ -104,7 +104,7 @@ macro_rules! const_tx_blob {
         hash: $hash:literal, // Transaction hash
         data_path: $data_path:literal, // Path to the transaction blob
         version: $version:literal, // Transaction version
-        timelock: $timelock:expr, // Transaction's timelock (use the real type `Timelock`)
+        timelock: $timelock:expr_2021, // Transaction's timelock (use the real type `Timelock`)
         input_len: $input_len:literal, // Amount of inputs
         output_len: $output_len:literal, // Amount of outputs
     ) => {

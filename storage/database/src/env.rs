@@ -6,7 +6,7 @@ use std::num::NonZeroUsize;
 use crate::{
     config::Config,
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
-    error::{InitError, RuntimeError},
+    error::{DbResult, InitError},
     resize::ResizeAlgorithm,
     table::Table,
     transaction::{TxRo, TxRw},
@@ -39,7 +39,7 @@ pub trait Env: Sized {
     ///
     /// # Invariant
     /// If this is `false`, that means this [`Env`]
-    /// must _never_ return a [`RuntimeError::ResizeNeeded`].
+    /// must _never_ return a [`crate::RuntimeError::ResizeNeeded`].
     ///
     /// If this is `true`, [`Env::resize_map`] & [`Env::current_map_size`]
     /// _must_ be re-implemented, as it just panics by default.
@@ -88,7 +88,7 @@ pub trait Env: Sized {
     /// This will error if the database file could not be opened.
     ///
     /// This is the only [`Env`] function that will return
-    /// an [`InitError`] instead of a [`RuntimeError`].
+    /// an [`InitError`] instead of a [`crate::RuntimeError`].
     fn open(config: Config) -> Result<Self, InitError>;
 
     /// Return the [`Config`] that this database was [`Env::open`]ed with.
@@ -107,7 +107,7 @@ pub trait Env: Sized {
     ///
     /// # Errors
     /// If there is a synchronization error, this should return an error.
-    fn sync(&self) -> Result<(), RuntimeError>;
+    fn sync(&self) -> DbResult<()>;
 
     /// Resize the database's memory map to a
     /// new (bigger) size using a [`ResizeAlgorithm`].
@@ -218,14 +218,14 @@ pub trait EnvInner<'env> {
     /// Create a read-only transaction.
     ///
     /// # Errors
-    /// This will only return [`RuntimeError::Io`] if it errors.
-    fn tx_ro(&self) -> Result<Self::Ro<'_>, RuntimeError>;
+    /// This will only return [`crate::RuntimeError::Io`] if it errors.
+    fn tx_ro(&self) -> DbResult<Self::Ro<'_>>;
 
     /// Create a read/write transaction.
     ///
     /// # Errors
-    /// This will only return [`RuntimeError::Io`] if it errors.
-    fn tx_rw(&self) -> Result<Self::Rw<'_>, RuntimeError>;
+    /// This will only return [`crate::RuntimeError::Io`] if it errors.
+    fn tx_rw(&self) -> DbResult<Self::Rw<'_>>;
 
     /// Open a database in read-only mode.
     ///
@@ -269,17 +269,17 @@ pub trait EnvInner<'env> {
     /// ```
     ///
     /// # Errors
-    /// This will only return [`RuntimeError::Io`] on normal errors.
+    /// This will only return [`crate::RuntimeError::Io`] on normal errors.
     ///
     /// If the specified table is not created upon before this function is called,
-    /// this will return [`RuntimeError::TableNotFound`].
+    /// this will return [`crate::RuntimeError::TableNotFound`].
     ///
     /// # Invariant
     #[doc = doc_heed_create_db_invariant!()]
     fn open_db_ro<T: Table>(
         &self,
         tx_ro: &Self::Ro<'_>,
-    ) -> Result<impl DatabaseRo<T> + DatabaseIter<T>, RuntimeError>;
+    ) -> DbResult<impl DatabaseRo<T> + DatabaseIter<T>>;
 
     /// Open a database in read/write mode.
     ///
@@ -293,25 +293,22 @@ pub trait EnvInner<'env> {
     /// passed as a generic to this function.
     ///
     /// # Errors
-    /// This will only return [`RuntimeError::Io`] on errors.
+    /// This will only return [`crate::RuntimeError::Io`] on errors.
     ///
     /// # Invariant
     #[doc = doc_heed_create_db_invariant!()]
-    fn open_db_rw<T: Table>(
-        &self,
-        tx_rw: &Self::Rw<'_>,
-    ) -> Result<impl DatabaseRw<T>, RuntimeError>;
+    fn open_db_rw<T: Table>(&self, tx_rw: &Self::Rw<'_>) -> DbResult<impl DatabaseRw<T>>;
 
     /// Create a database table.
     ///
     /// This will create the database [`Table`] passed as a generic to this function.
     ///
     /// # Errors
-    /// This will only return [`RuntimeError::Io`] on errors.
+    /// This will only return [`crate::RuntimeError::Io`] on errors.
     ///
     /// # Invariant
     #[doc = doc_heed_create_db_invariant!()]
-    fn create_db<T: Table>(&self, tx_rw: &Self::Rw<'_>) -> Result<(), RuntimeError>;
+    fn create_db<T: Table>(&self, tx_rw: &Self::Rw<'_>) -> DbResult<()>;
 
     /// Clear all `(key, value)`'s from a database table.
     ///
@@ -322,9 +319,9 @@ pub trait EnvInner<'env> {
     /// function's effects can be aborted using [`TxRw::abort`].
     ///
     /// # Errors
-    /// This will return [`RuntimeError::Io`] on normal errors.
+    /// This will return [`crate::RuntimeError::Io`] on normal errors.
     ///
     /// If the specified table is not created upon before this function is called,
-    /// this will return [`RuntimeError::TableNotFound`].
-    fn clear_db<T: Table>(&self, tx_rw: &mut Self::Rw<'_>) -> Result<(), RuntimeError>;
+    /// this will return [`crate::RuntimeError::TableNotFound`].
+    fn clear_db<T: Table>(&self, tx_rw: &mut Self::Rw<'_>) -> DbResult<()>;
 }

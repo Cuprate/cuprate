@@ -1,7 +1,7 @@
 use bytemuck::TransparentWrapper;
 use monero_serai::transaction::Transaction;
 
-use cuprate_database::{DatabaseRo, DatabaseRw, RuntimeError, StorableVec};
+use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableVec};
 use cuprate_types::VerifiedTransactionInformation;
 
 use crate::{
@@ -22,7 +22,7 @@ use crate::{
 pub fn add_alt_transaction_blob(
     tx: &VerifiedTransactionInformation,
     tables: &mut impl TablesMut,
-) -> Result<(), RuntimeError> {
+) -> DbResult<()> {
     tables.alt_transaction_infos_mut().put(
         &tx.tx_hash,
         &AltTransactionInfo {
@@ -51,7 +51,7 @@ pub fn add_alt_transaction_blob(
 pub fn get_alt_transaction(
     tx_hash: &TxHash,
     tables: &impl Tables,
-) -> Result<VerifiedTransactionInformation, RuntimeError> {
+) -> DbResult<VerifiedTransactionInformation> {
     let tx_info = tables.alt_transaction_infos().get(tx_hash)?;
 
     let tx_blob = match tables.alt_transaction_blobs().get(tx_hash) {

@@ -23,7 +23,7 @@ indexmap = { workspace = true, features = ["std"] }
 
 rand = { workspace = true, features = ["std", "std_rng"] }
 
-borsh = { workspace = true, features = ["derive", "std"]}
+borsh = { workspace = true, features = ["derive", "std"] }
 
 [dev-dependencies]
 cuprate-test-utils = { workspace = true }

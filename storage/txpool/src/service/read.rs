@@ -11,7 +11,7 @@ use std::{
 
 use rayon::ThreadPool;
 
-use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
+use cuprate_database::{ConcreteEnv, DatabaseRo, DbResult, Env, EnvInner, RuntimeError};
 use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
 
 use crate::{
@@ -71,7 +71,9 @@ fn map_request(
         }
         TxpoolReadRequest::TxsForBlock(txs_needed) => txs_for_block(env, txs_needed),
         TxpoolReadRequest::Backlog => backlog(env),
-        TxpoolReadRequest::Size => size(env),
+        TxpoolReadRequest::Size {
+            include_sensitive_txs,
+        } => size(env, include_sensitive_txs),
     }
 }
 
@@ -135,7 +137,7 @@ fn filter_known_tx_blob_hashes(
 
     // A closure that returns `true` if a tx with a certain blob hash is unknown.
     // This also fills in `stem_tx_hashes`.
-    let mut tx_unknown = |blob_hash| -> Result<bool, RuntimeError> {
+    let mut tx_unknown = |blob_hash| -> DbResult<bool> {
         match tx_blob_hashes.get(&blob_hash) {
             Ok(tx_hash) => {
                 if in_stem_pool(&tx_hash, &tx_infos)? {
@@ -201,6 +203,6 @@ fn backlog(env: &ConcreteEnv) -> ReadResponseResult {
 
 /// [`TxpoolReadRequest::Size`].
 #[inline]
-fn size(env: &ConcreteEnv) -> ReadResponseResult {
+fn size(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
     Ok(TxpoolReadResponse::Size(todo!()))
 }

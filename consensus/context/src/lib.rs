@@ -18,6 +18,7 @@ use std::{
 };
 
 use futures::{channel::oneshot, FutureExt};
+use monero_serai::block::Block;
 use tokio::sync::mpsc;
 use tokio_util::sync::PollSender;
 use tower::Service;
@@ -267,6 +268,21 @@ pub enum BlockChainContextRequest {
         grace_blocks: u64,
     },
 
+    /// Calculate proof-of-work for this block.
+    CalculatePow {
+        /// The hardfork of the protocol at this block height.
+        hardfork: HardFork,
+        /// The height of the block.
+        height: usize,
+        /// The block data.
+        ///
+        /// This is boxed because [`Block`] causes this enum to be 1200 bytes,
+        /// where the 2nd variant is only 96 bytes.
+        block: Box<Block>,
+        /// The seed hash for the proof-of-work.
+        seed_hash: [u8; 32],
+    },
+
     /// Clear the alt chain context caches.
     ClearAltCache,
 
@@ -363,6 +379,9 @@ pub enum BlockChainContextResponse {
 
     /// Response to [`BlockChainContextRequest::FeeEstimate`]
     FeeEstimate(FeeEstimate),
+
+    /// Response to [`BlockChainContextRequest::CalculatePow`]
+    CalculatePow([u8; 32]),
 
     /// Response to [`BlockChainContextRequest::AltChains`]
     ///

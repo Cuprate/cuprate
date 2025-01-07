@@ -75,7 +75,6 @@ use cuprate_wire::{
     NetworkAddress,
 };
 
-pub mod ban;
 pub mod client;
 mod constants;
 pub mod error;
@@ -83,6 +82,7 @@ pub mod handles;
 mod network_zones;
 pub mod protocol;
 pub mod services;
+pub mod types;
 
 pub use error::*;
 pub use network_zones::{ClearNet, ClearNetServerCfg};
@@ -121,7 +121,6 @@ pub trait NetZoneAddress:
     ///
     /// - TODO: IP zone banning?
     /// - TODO: rename this to Host.
-
     type BanID: Debug + Hash + Eq + Clone + Copy + Send + 'static;
 
     /// Changes the port of this address to `port`.

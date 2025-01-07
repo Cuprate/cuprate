@@ -116,6 +116,7 @@ pub enum ProtocolResponse {
     GetChain(ChainResponse),
     NewFluffyBlock(NewFluffyBlock),
     NewTransactions(NewTransactions),
+    FluffyMissingTransactionsRequest(FluffyMissingTransactionsRequest),
     NA,
 }
 
@@ -139,6 +140,9 @@ impl PeerResponse {
                 ProtocolResponse::GetChain(_) => MessageID::GetChain,
                 ProtocolResponse::NewFluffyBlock(_) => MessageID::NewBlock,
                 ProtocolResponse::NewTransactions(_) => MessageID::NewFluffyBlock,
+                ProtocolResponse::FluffyMissingTransactionsRequest(_) => {
+                    MessageID::FluffyMissingTxs
+                }
 
                 ProtocolResponse::NA => return None,
             },

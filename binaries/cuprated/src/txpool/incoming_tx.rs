@@ -43,9 +43,13 @@ use crate::{
 };
 
 /// An error that can happen handling an incoming tx.
+#[derive(Debug, thiserror::Error)]
 pub enum IncomingTxError {
+    #[error("Error parsing tx: {0}")]
     Parse(std::io::Error),
+    #[error(transparent)]
     Consensus(ExtendedConsensusError),
+    #[error("Duplicate tx in message")]
     DuplicateTransaction,
 }
 
@@ -67,6 +71,7 @@ pub(super) type TxId = [u8; 32];
 /// The service than handles incoming transaction pool transactions.
 ///
 /// This service handles everything including verifying the tx, adding it to the pool and routing it to other nodes.
+#[derive(Clone)]
 pub struct IncomingTxHandler {
     /// A store of txs currently being handled in incoming tx requests.
     pub(super) txs_being_handled: TxsBeingHandled,

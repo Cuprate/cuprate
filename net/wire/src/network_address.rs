@@ -17,9 +17,11 @@
 //! Monero network. Core Monero has 4 main addresses: IPv4, IPv6, Tor,
 //! I2p. Currently this module only has IPv(4/6).
 //!
-use bytes::BufMut;
-use cuprate_epee_encoding::EpeeObject;
 use std::{hash::Hash, net, net::SocketAddr};
+
+use bytes::BufMut;
+
+use cuprate_epee_encoding::EpeeObject;
 
 mod epee_builder;
 use epee_builder::*;

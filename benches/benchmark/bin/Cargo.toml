@@ -1,0 +1,43 @@
+[package]
+name        = "cuprate-benchmark"
+version     = "0.0.0"
+edition     = "2021"
+description = "Cuprate's benchmarking binary"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/benches/benchmark/bin"
+keywords    = ["cuprate", "benchmarking", "binary"]
+
+[features]
+# All new benchmarks should be added here!
+all = ["example"]
+
+# Non-benchmark features.
+default = []
+json    = []
+trace   = []
+debug   = []
+warn    = []
+info    = []
+error   = []
+
+# Benchmark features.
+# New benchmarks should be added here!
+example = [
+	"dep:cuprate-benchmark-example"
+]
+
+[dependencies]
+cuprate-benchmark-lib     = { workspace = true }
+cuprate-benchmark-example = { workspace = true, optional = true }
+
+cfg-if             = { workspace = true }
+serde              = { workspace = true, features = ["derive"] }
+serde_json         = { workspace = true, features = ["std"] }
+tracing            = { workspace = true, features = ["std", "attributes"] }
+tracing-subscriber = { workspace = true, features = ["fmt", "std", "env-filter"] }
+
+[dev-dependencies]
+
+[lints]
+workspace = true

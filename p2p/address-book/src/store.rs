@@ -39,7 +39,9 @@ pub(crate) fn save_peers_to_disk<Z: BorshNetworkZone>(
     })
     .unwrap();
 
-    let file = cfg.peer_store_file.clone();
+    let file = cfg
+        .peer_store_directory
+        .join(format!("{}_p2p_state", Z::NAME));
     spawn_blocking(move || fs::write(&file, &data))
 }
 
@@ -52,7 +54,12 @@ pub(crate) async fn read_peers_from_disk<Z: BorshNetworkZone>(
     ),
     std::io::Error,
 > {
-    let file = cfg.peer_store_file.clone();
+    let file = cfg
+        .peer_store_directory
+        .join(format!("{}_p2p_state", Z::NAME));
+
+    tracing::info!("Loading peers from file: {} ", file.display());
+
     let data = spawn_blocking(move || fs::read(file)).await.unwrap()?;
 
     let de_ser: DeserPeerDataV1<Z::Addr> = from_slice(&data)?;

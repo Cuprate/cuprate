@@ -17,6 +17,7 @@ mod distribution;
 mod key_image_spent_status;
 #[expect(clippy::module_inception)]
 mod misc;
+mod pool_info;
 mod pool_info_extent;
 mod status;
 mod tx_entry;
@@ -30,6 +31,7 @@ pub use misc::{
     OutputDistributionData, Peer, PoolTxInfo, PublicNode, SetBan, Span, SpentKeyImageInfo,
     SyncInfoPeer, TxBacklogEntry, TxInfo, TxOutputIndices, TxpoolHisto, TxpoolStats,
 };
+pub use pool_info::PoolInfo;
 pub use pool_info_extent::PoolInfoExtent;
 pub use status::Status;
 pub use tx_entry::TxEntry;
