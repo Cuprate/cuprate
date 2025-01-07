@@ -55,7 +55,6 @@ jobs:
             cuprate-epee-encoding,
             cuprate-rpc-types,
             cuprate-fixed-bytes,
-            cuprate-types
         ]
 
     steps:
