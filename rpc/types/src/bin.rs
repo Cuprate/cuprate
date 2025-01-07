@@ -132,8 +132,8 @@ define_request_and_response! {
         start_height: u64,
         current_height: u64,
         output_indices: Vec<BlockOutputIndices>,
-        daemon_time: u64,
-        pool_info: PoolInfo,
+        daemon_time: u64 = default_zero::<u64>(), "default_zero",
+        pool_info: PoolInfo = PoolInfo::None, "PoolInfo::default",
     }
 }
 
