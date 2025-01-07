@@ -46,6 +46,33 @@ jobs:
     - name: Spell Check
       uses: crate-ci/typos@master
 
+  bit-32-support:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        crate: [
+            cuprate-epee-encoding,
+            cuprate-rpc-types,
+            cuprate-fixed-bytes,
+            cuprate-types
+        ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+
+      - name: Build 32 bit
+        run: cargo build --target wasm32-unknown-unknown -p ${{ matrix.crate }}
+
   # All other CI.
   ci:
     runs-on: ${{ matrix.os }}
