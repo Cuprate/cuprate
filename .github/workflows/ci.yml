@@ -46,13 +46,13 @@ jobs:
     - name: Spell Check
       uses: crate-ci/typos@master
 
-  # Run 32-bit support check separately.
-  bit-32-support:
+  # Run 32-bit WASM support check separately.
+  wasm-32-bit-support:
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        # The list of crates to check for 32 bit support
+        # The list of crates to check for WASM 32 bit support
         #  TODO: check features.
         crate: [
             cuprate-epee-encoding,
@@ -72,7 +72,7 @@ jobs:
           toolchain: stable
           targets: wasm32-unknown-unknown
 
-      - name: Build 32 bit
+      - name: Build WASM 32-bit
         run: cargo build --target wasm32-unknown-unknown -p ${{ matrix.crate }}
 
   # All other CI.
