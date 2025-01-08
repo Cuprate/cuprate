@@ -133,6 +133,7 @@ define_request_and_response! {
         current_height: u64,
         output_indices: Vec<BlockOutputIndices>,
         daemon_time: u64 = default_zero::<u64>(), "default_zero",
+        // FIXME: use `default()` after <https://github.com/Cuprate/cuprate/pull/355>
         pool_info: PoolInfo = PoolInfo::None, "PoolInfo::default",
     }
 }
