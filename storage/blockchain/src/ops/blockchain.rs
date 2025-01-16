@@ -4,9 +4,9 @@
 use cuprate_database::{DatabaseRo, DbResult, RuntimeError};
 
 use crate::{
-    ops::macros::doc_error,
+    ops::{block::block_exists, macros::doc_error},
     tables::{BlockHeights, BlockInfos},
-    types::BlockHeight,
+    types::{BlockHash, BlockHeight},
 };
 
 //---------------------------------------------------------------------------------------------------- Free Functions
@@ -74,6 +74,44 @@ pub fn cumulative_generated_coins(
         Err(RuntimeError::KeyNotFound) if block_height == &0 => Ok(0),
         Err(e) => Err(e),
     }
+}
+
+/// Find the split point between our chain and a list of [`BlockHash`]s from another chain.
+///
+/// This function accepts chains in chronological and reverse chronological order, however
+/// if the wrong order is specified the return value is meaningless.
+///
+/// For chronologically ordered chains this will return the index of the first unknown, for reverse
+/// chronologically ordered chains this will return the index of the first known.
+///
+/// If all blocks are known for chronologically ordered chains or unknown for reverse chronologically
+/// ordered chains then the length of the chain will be returned.
+#[doc = doc_error!()]
+#[inline]
+pub fn find_split_point(
+    block_ids: &[BlockHash],
+    chronological_order: bool,
+    table_block_heights: &impl DatabaseRo<BlockHeights>,
+) -> Result<usize, RuntimeError> {
+    let mut err = None;
+
+    // Do a binary search to find the first unknown/known block in the batch.
+    let idx = block_ids.partition_point(|block_id| {
+        match block_exists(block_id, table_block_heights) {
+            Ok(exists) => exists == chronological_order,
+            Err(e) => {
+                err.get_or_insert(e);
+                // if this happens the search is scrapped, just return `false` back.
+                false
+            }
+        }
+    });
+
+    if let Some(e) = err {
+        return Err(e);
+    }
+
+    Ok(idx)
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

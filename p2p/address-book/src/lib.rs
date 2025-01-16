@@ -29,8 +29,8 @@ pub struct AddressBookConfig {
     ///
     /// Gray peers are peers we are yet to make a connection to.
     pub max_gray_list_length: usize,
-    /// The location to store the address book.
-    pub peer_store_file: PathBuf,
+    /// The location to store the peer store files.
+    pub peer_store_directory: PathBuf,
     /// The amount of time between saving the address book to disk.
     pub peer_save_period: Duration,
 }
@@ -63,11 +63,6 @@ pub enum AddressBookError {
 pub async fn init_address_book<Z: BorshNetworkZone>(
     cfg: AddressBookConfig,
 ) -> Result<book::AddressBook<Z>, std::io::Error> {
-    tracing::info!(
-        "Loading peers from file: {} ",
-        cfg.peer_store_file.display()
-    );
-
     let (white_list, gray_list) = match store::read_peers_from_disk::<Z>(&cfg).await {
         Ok(res) => res,
         Err(e) if e.kind() == ErrorKind::NotFound => (vec![], vec![]),

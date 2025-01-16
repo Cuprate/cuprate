@@ -10,12 +10,13 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
+    cmp::min,
     collections::{HashMap, HashSet},
     sync::Arc,
 };
 
 use rayon::{
-    iter::{IntoParallelIterator, ParallelIterator},
+    iter::{Either, IntoParallelIterator, ParallelIterator},
     prelude::*,
     ThreadPool,
 };
@@ -26,7 +27,7 @@ use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThre
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, ChainId, ExtendedBlockHeader, OutputHistogramInput, OutputOnChain,
+    Chain, ChainId, ExtendedBlockHeader, OutputHistogramInput, OutputOnChain, TxsInBlock,
 };
 
 use crate::{
@@ -36,9 +37,10 @@ use crate::{
             get_alt_chain_history_ranges,
         },
         block::{
-            block_exists, get_block_extended_header_from_height, get_block_height, get_block_info,
+            block_exists, get_block_blob_with_tx_indexes, get_block_complete_entry,
+            get_block_extended_header_from_height, get_block_height, get_block_info,
         },
-        blockchain::{cumulative_generated_coins, top_block_height},
+        blockchain::{cumulative_generated_coins, find_split_point, top_block_height},
         key_image::key_image_exists,
         output::id_to_output_on_chain,
     },
@@ -46,7 +48,7 @@ use crate::{
         free::{compact_history_genesis_not_included, compact_history_index_to_height_offset},
         types::{BlockchainReadHandle, ResponseResult},
     },
-    tables::{AltBlockHeights, BlockHeights, BlockInfos, OpenTables, Tables},
+    tables::{AltBlockHeights, BlockHeights, BlockInfos, OpenTables, Tables, TablesIter},
     types::{
         AltBlockHeight, Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId,
     },
@@ -100,6 +102,7 @@ fn map_request(
     /* SOMEDAY: pre-request handling, run some code for each request? */
 
     match request {
+        R::BlockCompleteEntries(block_hashes) => block_complete_entries(env, block_hashes),
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
         R::BlockHash(block, chain) => block_hash(env, block, chain),
         R::FindBlock(block_hash) => find_block(env, block_hash),
@@ -113,7 +116,12 @@ fn map_request(
         R::NumberOutputsWithAmount(vec) => number_outputs_with_amount(env, vec),
         R::KeyImagesSpent(set) => key_images_spent(env, set),
         R::CompactChainHistory => compact_chain_history(env),
+        R::NextChainEntry(block_hashes, amount) => next_chain_entry(env, &block_hashes, amount),
         R::FindFirstUnknown(block_ids) => find_first_unknown(env, &block_ids),
+        R::TxsInBlock {
+            block_hash,
+            tx_indexes,
+        } => txs_in_block(env, block_hash, tx_indexes),
         R::AltBlocksInChain(chain_id) => alt_blocks_in_chain(env, chain_id),
         R::Block { height } => block(env, height),
         R::BlockByHash(hash) => block_by_hash(env, hash),
@@ -197,6 +205,38 @@ macro_rules! get_tables {
 
 // TODO: The overhead of parallelism may be too much for every request, perfomace test to find optimal
 // amount of parallelism.
+
+/// [`BlockchainReadRequest::BlockCompleteEntries`].
+fn block_complete_entries(env: &ConcreteEnv, block_hashes: Vec<BlockHash>) -> ResponseResult {
+    // Prepare tx/tables in `ThreadLocal`.
+    let env_inner = env.env_inner();
+    let tx_ro = thread_local(env);
+    let tables = thread_local(env);
+
+    let (missing_hashes, blocks) = block_hashes
+        .into_par_iter()
+        .map(|block_hash| {
+            let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+            let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+
+            match get_block_complete_entry(&block_hash, tables) {
+                Err(RuntimeError::KeyNotFound) => Ok(Either::Left(block_hash)),
+                res => res.map(Either::Right),
+            }
+        })
+        .collect::<DbResult<_>>()?;
+
+    let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+    let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+
+    let blockchain_height = crate::ops::blockchain::chain_height(tables.block_heights())?;
+
+    Ok(BlockchainResponse::BlockCompleteEntries {
+        blocks,
+        missing_hashes,
+        blockchain_height,
+    })
+}
 
 /// [`BlockchainReadRequest::BlockExtendedHeader`].
 #[inline]
@@ -335,7 +375,7 @@ fn block_extended_header_in_range(
                         }
                     })
                 })
-                .collect::<Result<Vec<_>, _>>()?
+                .collect::<DbResult<Vec<_>>>()?
         }
     };
 
@@ -534,6 +574,75 @@ fn compact_chain_history(env: &ConcreteEnv) -> ResponseResult {
     })
 }
 
+/// [`BlockchainReadRequest::NextChainEntry`]
+///
+/// # Invariant
+/// `block_ids` must be sorted in reverse chronological block order, or else
+/// the returned result is unspecified and meaningless, as this function
+/// performs a binary search.
+fn next_chain_entry(
+    env: &ConcreteEnv,
+    block_ids: &[BlockHash],
+    next_entry_size: usize,
+) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+
+    let tables = env_inner.open_tables(&tx_ro)?;
+    let table_block_heights = tables.block_heights();
+    let table_block_infos = tables.block_infos_iter();
+
+    let idx = find_split_point(block_ids, false, table_block_heights)?;
+
+    // This will happen if we have a different genesis block.
+    if idx == block_ids.len() {
+        return Ok(BlockchainResponse::NextChainEntry {
+            start_height: None,
+            chain_height: 0,
+            block_ids: vec![],
+            block_weights: vec![],
+            cumulative_difficulty: 0,
+            first_block_blob: None,
+        });
+    }
+
+    // The returned chain entry must overlap with one of the blocks  we were told about.
+    let first_known_block_hash = block_ids[idx];
+    let first_known_height = table_block_heights.get(&first_known_block_hash)?;
+
+    let chain_height = crate::ops::blockchain::chain_height(table_block_heights)?;
+    let last_height_in_chain_entry = min(first_known_height + next_entry_size, chain_height);
+
+    let (block_ids, block_weights) = (first_known_height..last_height_in_chain_entry)
+        .map(|height| {
+            let block_info = table_block_infos.get(&height)?;
+
+            Ok((block_info.block_hash, block_info.weight))
+        })
+        .collect::<DbResult<(Vec<_>, Vec<_>)>>()?;
+
+    let top_block_info = table_block_infos.get(&(chain_height - 1))?;
+
+    let first_block_blob = if block_ids.len() >= 2 {
+        Some(get_block_blob_with_tx_indexes(&(first_known_height + 1), &tables)?.0)
+    } else {
+        None
+    };
+
+    Ok(BlockchainResponse::NextChainEntry {
+        start_height: std::num::NonZero::new(first_known_height),
+        chain_height,
+        block_ids,
+        block_weights,
+        cumulative_difficulty: combine_low_high_bits_to_u128(
+            top_block_info.cumulative_difficulty_low,
+            top_block_info.cumulative_difficulty_high,
+        ),
+        first_block_blob,
+    })
+}
+
 /// [`BlockchainReadRequest::FindFirstUnknown`]
 ///
 /// # Invariant
@@ -546,24 +655,7 @@ fn find_first_unknown(env: &ConcreteEnv, block_ids: &[BlockHash]) -> ResponseRes
 
     let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
 
-    let mut err = None;
-
-    // Do a binary search to find the first unknown block in the batch.
-    let idx =
-        block_ids.partition_point(
-            |block_id| match block_exists(block_id, &table_block_heights) {
-                Ok(exists) => exists,
-                Err(e) => {
-                    err.get_or_insert(e);
-                    // if this happens the search is scrapped, just return `false` back.
-                    false
-                }
-            },
-        );
-
-    if let Some(e) = err {
-        return Err(e);
-    }
+    let idx = find_split_point(block_ids, true, &table_block_heights)?;
 
     Ok(if idx == block_ids.len() {
         BlockchainResponse::FindFirstUnknown(None)
@@ -574,6 +666,33 @@ fn find_first_unknown(env: &ConcreteEnv, block_ids: &[BlockHash]) -> ResponseRes
 
         BlockchainResponse::FindFirstUnknown(Some((idx, last_known_height + 1)))
     })
+}
+
+/// [`BlockchainReadRequest::TxsInBlock`]
+fn txs_in_block(env: &ConcreteEnv, block_hash: [u8; 32], missing_txs: Vec<u64>) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+    let tables = env_inner.open_tables(&tx_ro)?;
+
+    let block_height = tables.block_heights().get(&block_hash)?;
+
+    let (block, miner_tx_index, numb_txs) = get_block_blob_with_tx_indexes(&block_height, &tables)?;
+    let first_tx_index = miner_tx_index + 1;
+
+    if numb_txs < missing_txs.len() {
+        return Ok(BlockchainResponse::TxsInBlock(None));
+    }
+
+    let txs = missing_txs
+        .into_iter()
+        .map(|index_offset| Ok(tables.tx_blobs().get(&(first_tx_index + index_offset))?.0))
+        .collect::<DbResult<_>>()?;
+
+    Ok(BlockchainResponse::TxsInBlock(Some(TxsInBlock {
+        block,
+        txs,
+    })))
 }
 
 /// [`BlockchainReadRequest::AltBlocksInChain`]
@@ -613,7 +732,7 @@ fn alt_blocks_in_chain(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
                 )
             })
         })
-        .collect::<Result<_, _>>()?;
+        .collect::<DbResult<_>>()?;
 
     Ok(BlockchainResponse::AltBlocksInChain(blocks))
 }

@@ -48,6 +48,7 @@ members = [
 ]
 
 [profile.release]
+panic         = "abort" 
 lto           = true   # Build with LTO
 strip         = "none" # Keep panic stack traces
 codegen-units = 1      # Optimize for binary speed over compile times
@@ -135,6 +136,7 @@ tokio-util            = { version = "0.7", default-features = false }
 tokio-stream          = { version = "0.1", default-features = false }
 tokio                 = { version = "1", default-features = false }
 tower                 = { git = "https://github.com/Cuprate/tower.git", rev = "6c7faf0", default-features = false } # <https://github.com/tower-rs/tower/pull/796>
+toml                  = { version = "0.8", default-features = false }
 tracing-subscriber    = { version = "0.3", default-features = false }
 tracing               = { version = "0.1", default-features = false }
 
@@ -363,7 +365,6 @@ unused_lifetimes = "deny"
 unused_macro_rules = "deny"
 ambiguous_glob_imports = "deny"
 unused_unsafe = "deny"
-rust_2024_compatibility = "deny"
 
 # Warm
 let_underscore = { level = "deny", priority = -1 }

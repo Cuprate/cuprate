@@ -2,7 +2,7 @@
 name = "cuprated"
 version = "0.0.1"
 edition = "2021"
-description = "The Cuprate Monero Rust node."
+description = "The Cuprate Rust Monero node."
 license = "AGPL-3.0-only"
 authors = ["Boog900", "hinto-janai", "SyntheticBird45"]
 repository = "https://github.com/Cuprate/cuprate/tree/main/binaries/cuprated"
@@ -12,29 +12,29 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/binaries/cuprated"
 cuprate-consensus         = { workspace = true }
 cuprate-fast-sync         = { workspace = true }
 cuprate-consensus-context = { workspace = true }
-cuprate-consensus-rules   = { workspace = true }
-cuprate-constants         = { workspace = true }
-cuprate-cryptonight       = { workspace = true }
-cuprate-helper            = { workspace = true }
-cuprate-epee-encoding     = { workspace = true }
-cuprate-fixed-bytes       = { workspace = true }
-cuprate-levin             = { workspace = true }
-cuprate-wire              = { workspace = true }
-cuprate-p2p               = { workspace = true }
-cuprate-p2p-core          = { workspace = true }
-cuprate-dandelion-tower   = { workspace = true, features = ["txpool"] }
-cuprate-async-buffer      = { workspace = true }
-cuprate-address-book      = { workspace = true }
-cuprate-blockchain        = { workspace = true }
-cuprate-database-service  = { workspace = true }
-cuprate-txpool            = { workspace = true }
-cuprate-database          = { workspace = true }
-cuprate-pruning           = { workspace = true }
-cuprate-test-utils        = { workspace = true }
-cuprate-types             = { workspace = true }
-cuprate-json-rpc          = { workspace = true }
-cuprate-rpc-interface     = { workspace = true }
-cuprate-rpc-types         = { workspace = true }
+cuprate-consensus-rules  = { workspace = true }
+cuprate-cryptonight      = { workspace = true }
+cuprate-helper           = { workspace = true, features = ["serde"] }
+cuprate-epee-encoding    = { workspace = true }
+cuprate-fixed-bytes      = { workspace = true }
+cuprate-levin            = { workspace = true }
+cuprate-wire             = { workspace = true }
+cuprate-p2p              = { workspace = true }
+cuprate-p2p-core         = { workspace = true }
+cuprate-dandelion-tower  = { workspace = true, features = ["txpool"] }
+cuprate-async-buffer     = { workspace = true }
+cuprate-address-book     = { workspace = true }
+cuprate-blockchain       = { workspace = true }
+cuprate-database-service = { workspace = true, features = ["serde"] }
+cuprate-txpool           = { workspace = true }
+cuprate-database         = { workspace = true, features = ["serde"] }
+cuprate-pruning          = { workspace = true }
+cuprate-test-utils       = { workspace = true }
+cuprate-types            = { workspace = true }
+cuprate-json-rpc         = { workspace = true }
+cuprate-rpc-interface    = { workspace = true }
+cuprate-rpc-types        = { workspace = true }
+
 
 # TODO: after v1.0.0, remove unneeded dependencies.
 anyhow                = { workspace = true }
@@ -44,7 +44,7 @@ borsh                 = { workspace = true }
 bytemuck              = { workspace = true }
 bytes                 = { workspace = true }
 cfg-if                = { workspace = true }
-clap                  = { workspace = true, features = ["cargo"] }
+clap                  = { workspace = true, features = ["cargo", "help", "wrap_help"] }
 chrono                = { workspace = true }
 crypto-bigint         = { workspace = true }
 crossbeam             = { workspace = true }
@@ -71,15 +71,10 @@ thread_local          = { workspace = true }
 tokio-util            = { workspace = true }
 tokio-stream          = { workspace = true }
 tokio                 = { workspace = true }
+toml                  = { workspace = true, features = ["parse", "display"]}
 tower                 = { workspace = true }
 tracing-subscriber    = { workspace = true, features = ["std", "fmt", "default"] }
-tracing               = { workspace = true }
+tracing               = { workspace = true, features = ["default"] }
 
 [lints]
 workspace = true
-
-[profile.dev]
-panic = "abort"
-
-[profile.release]
-panic = "abort"
