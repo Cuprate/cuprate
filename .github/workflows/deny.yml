@@ -25,9 +25,16 @@ jobs:
           ~/.cargo
           target
         key: deny
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: stable
+
     - uses: actions/checkout@v4
       with:
         submodules: recursive
+
     - name: Install dependencies
       run: cargo install cargo-deny --locked
     - name: Deny
