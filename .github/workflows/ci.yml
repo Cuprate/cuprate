@@ -29,12 +29,15 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
-    - name: Format
-      run: cargo fmt --all --check
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: rustfmt
+      - name: Format
+        run: cargo fmt --all --check
 
   # Run typo checker separately.
   # This will fast-cancel other CI early if this fails.
