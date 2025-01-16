@@ -7,7 +7,6 @@ use core::fmt::Debug;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
 use cuprate_fixed_bytes::{ByteArray, ByteArrayVec};
-use cuprate_helper::cast::u64_to_usize;
 use cuprate_hex::{Hex, HexVec};
 
 use crate::{
@@ -68,7 +67,7 @@ impl<T: EpeeObject> EpeeValue for Vec<T> {
                 "Marker is not sequence when a sequence was expected",
             ));
         }
-        let len = u64_to_usize(read_varint(r)?);
+        let len = read_varint(r)?;
 
         let individual_marker = Marker::new(marker.inner_marker);
 
@@ -169,8 +168,6 @@ impl EpeeValue for Vec<u8> {
             return Err(Error::Format("Byte array exceeded max length"));
         }
 
-        let len = u64_to_usize(len);
-
         if r.remaining() < len {
             return Err(Error::IO("Not enough bytes to fill object"));
         }
@@ -207,8 +204,6 @@ impl EpeeValue for Bytes {
             return Err(Error::Format("Byte array exceeded max length"));
         }
 
-        let len = u64_to_usize(len);
-
         if r.remaining() < len {
             return Err(Error::IO("Not enough bytes to fill object"));
         }
@@ -242,8 +237,6 @@ impl EpeeValue for BytesMut {
             return Err(Error::Format("Byte array exceeded max length"));
         }
 
-        let len = u64_to_usize(len);
-
         if r.remaining() < len {
             return Err(Error::IO("Not enough bytes to fill object"));
         }
@@ -275,12 +268,10 @@ impl<const N: usize> EpeeValue for ByteArrayVec<N> {
             return Err(Error::Format("Marker does not match expected Marker"));
         }
 
-        let len = read_varint(r)?;
+        let len = read_varint::<_, usize>(r)?;
         if len > MAX_STRING_LEN_POSSIBLE {
             return Err(Error::Format("Byte array exceeded max length"));
         }
-
-        let len = u64_to_usize(len);
 
         if r.remaining() < len {
             return Err(Error::IO("Not enough bytes to fill object"));
@@ -311,7 +302,7 @@ impl<const N: usize> EpeeValue for ByteArray<N> {
             return Err(Error::Format("Marker does not match expected Marker"));
         }
 
-        let len = u64_to_usize(read_varint(r)?);
+        let len = read_varint::<_, usize>(r)?;
         if len != N {
             return Err(Error::Format("Byte array has incorrect length"));
         }
@@ -378,7 +369,7 @@ impl<const N: usize> EpeeValue for Vec<[u8; N]> {
             ));
         }
 
-        let len = u64_to_usize(read_varint(r)?);
+        let len = read_varint(r)?;
 
         let individual_marker = Marker::new(marker.inner_marker);
 
@@ -461,7 +452,7 @@ macro_rules! epee_seq {
                     ));
                 }
 
-                let len = u64_to_usize(read_varint(r)?);
+                let len = read_varint(r)?;
 
                 let individual_marker = Marker::new(marker.inner_marker.clone());
 
