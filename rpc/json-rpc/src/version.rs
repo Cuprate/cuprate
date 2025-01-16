@@ -82,13 +82,13 @@ impl Serialize for Version {
 
 impl std::fmt::Display for Version {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, r#"{}"#, Self::TWO)
+        write!(f, "{}", Self::TWO)
     }
 }
 
 impl std::fmt::Debug for Version {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, r#"{}"#, Self::TWO)
+        write!(f, "{}", Self::TWO)
     }
 }
 

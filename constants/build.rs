@@ -24,7 +24,7 @@ fn set_commit_env() {
         .to_lowercase();
 
     // Commit hash should always be 40 bytes long.
-    assert_eq!(commit.as_bytes().len(), 40);
+    assert_eq!(commit.len(), 40);
 
     println!("cargo:rustc-env=COMMIT={commit}");
 }
