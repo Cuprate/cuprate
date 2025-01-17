@@ -27,14 +27,16 @@ async fn read_batch(
     let mut block_ids = Vec::<BlockId>::with_capacity(BATCH_SIZE);
 
     for height in height_from..(height_from + BATCH_SIZE) {
-        let request = BlockchainReadRequest::BlockHash(height, Chain::Main);
-        let response_channel = handle.ready().await?.call(request);
-        let response = response_channel.await?;
+        let BlockchainResponse::BlockHash(block_id) = handle
+            .ready()
+            .await?
+            .call(BlockchainReadRequest::BlockHash(height, Chain::Main))
+            .await?
+        else {
+            unreachable!();
+        };
 
-        match response {
-            BlockchainResponse::BlockHash(block_id) => block_ids.push(block_id),
-            _ => unreachable!(),
-        }
+        block_ids.push(block_id);
     }
 
     Ok(block_ids)

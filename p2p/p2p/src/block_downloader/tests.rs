@@ -241,7 +241,7 @@ fn mock_block_downloader_client(blockchain: Arc<MockBlockchain>) -> Client<Clear
                         },
                     )))
                 }
-                _ => panic!(),
+                PeerRequest::Admin(_) | PeerRequest::Protocol(_) => panic!(),
             }
         }
         .boxed()

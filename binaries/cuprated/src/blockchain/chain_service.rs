@@ -24,6 +24,10 @@ impl Service<ChainSvcRequest> for ChainService {
     }
 
     fn call(&mut self, req: ChainSvcRequest) -> Self::Future {
+        #[expect(
+            clippy::wildcard_enum_match_arm,
+            reason = "other requests should be unreachable"
+        )]
         let map_res = |res: BlockchainResponse| match res {
             BlockchainResponse::CompactChainHistory {
                 block_ids,
