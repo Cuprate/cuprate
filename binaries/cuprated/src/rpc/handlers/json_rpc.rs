@@ -493,11 +493,7 @@ async fn get_info(
     let (database_size, free_space) = blockchain::database_size(&mut state.blockchain_read).await?;
     let (database_size, free_space) = if restricted {
         // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L131-L134>
-        const fn round_up(value: u64, quantum: u64) -> u64 {
-            value.div_ceil(quantum)
-        }
-
-        let database_size = round_up(database_size, 5 * 1024 * 1024 * 1024);
+        let database_size = database_size.div_ceil(5 * 1024 * 1024 * 1024);
         (database_size, u64::MAX)
     } else {
         (database_size, free_space)
