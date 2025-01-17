@@ -45,9 +45,7 @@ fn dummy_database(outputs: BTreeMap<u64, OutputOnChain>) -> impl Database + Clon
 
                 BlockchainResponse::Outputs(ret)
             }
-            BlockchainReadRequest::KeyImagesSpent(_) => {
-                BlockchainResponse::KeyImagesSpent(vec![false])
-            }
+            BlockchainReadRequest::KeyImagesSpent(_) => BlockchainResponse::KeyImagesSpent(false),
             _ => panic!("Database request not needed for this test"),
         }))
     })

@@ -1,6 +1,6 @@
 //! Functions to send [`TxpoolReadRequest`]s.
 
-use std::{convert::Infallible, num::NonZero};
+use std::{collections::HashSet, convert::Infallible, num::NonZero};
 
 use anyhow::{anyhow, Error};
 use monero_serai::transaction::Transaction;
@@ -109,6 +109,29 @@ pub async fn txs_by_hash(
 
 /// [`TxpoolReadRequest::KeyImagesSpent`]
 pub async fn key_images_spent(
+    txpool_read: &mut TxpoolReadHandle,
+    key_images: HashSet<[u8; 32]>,
+    include_sensitive_txs: bool,
+) -> Result<bool, Error> {
+    let TxpoolReadResponse::KeyImagesSpent(status) = txpool_read
+        .ready()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .call(TxpoolReadRequest::KeyImagesSpent {
+            key_images,
+            include_sensitive_txs,
+        })
+        .await
+        .map_err(|e| anyhow!(e))?
+    else {
+        unreachable!();
+    };
+
+    Ok(status)
+}
+
+/// [`TxpoolReadRequest::KeyImagesSpentVec`]
+pub async fn key_images_spent_vec(
     txpool_read: &mut TxpoolReadHandle,
     key_images: Vec<[u8; 32]>,
     include_sensitive_txs: bool,

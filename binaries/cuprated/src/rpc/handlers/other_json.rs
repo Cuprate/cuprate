@@ -306,7 +306,7 @@ async fn is_key_image_spent(
     let mut spent_status = Vec::with_capacity(key_images.len());
 
     // Check the blockchain for key image spend status.
-    blockchain::key_images_spent(&mut state.blockchain_read, key_images.clone())
+    blockchain::key_images_spent_vec(&mut state.blockchain_read, key_images.clone())
         .await?
         .into_iter()
         .for_each(|ki| {
@@ -332,7 +332,7 @@ async fn is_key_image_spent(
 
     // Check if the remaining unspent key images exist in the transaction pool.
     if !key_images.is_empty() {
-        txpool::key_images_spent(&mut state.txpool_read, key_images, !restricted)
+        txpool::key_images_spent_vec(&mut state.txpool_read, key_images, !restricted)
             .await?
             .into_iter()
             .for_each(|ki| {

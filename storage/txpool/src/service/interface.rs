@@ -62,8 +62,16 @@ pub enum TxpoolReadRequest {
         include_sensitive_txs: bool,
     },
 
-    /// Check if certain key images exist in the txpool.
+    /// Check if any individual key images of a set exist in the txpool.
     KeyImagesSpent {
+        key_images: HashSet<[u8; 32]>,
+        include_sensitive_txs: bool,
+    },
+
+    /// Same as [`TxpoolReadRequest::KeyImagesSpent`] but with a [`Vec`].
+    ///
+    /// The response will be in the same order as the request.
+    KeyImagesSpentVec {
         key_images: Vec<[u8; 32]>,
         include_sensitive_txs: bool,
     },
@@ -123,7 +131,15 @@ pub enum TxpoolReadResponse {
     TxsByHash(Vec<TxInPool>),
 
     /// Response to [`TxpoolReadRequest::KeyImagesSpent`].
-    KeyImagesSpent(Vec<bool>),
+    KeyImagesSpent(bool),
+
+    /// Response to [`TxpoolReadRequest::KeyImagesSpentVec`].
+    ///
+    /// Inner value is a `Vec` the same length as the input.
+    ///
+    /// The index of each entry corresponds with the request.
+    /// `true` means that the key image was spent.
+    KeyImagesSpentVec(Vec<bool>),
 
     /// Response to [`TxpoolReadRequest::Pool`].
     Pool {

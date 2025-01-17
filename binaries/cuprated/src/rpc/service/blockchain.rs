@@ -124,7 +124,7 @@ pub async fn next_chain_entry(
     blockchain_read: &mut BlockchainReadHandle,
     block_hashes: Vec<[u8; 32]>,
     len: usize,
-) -> Result<(Vec<[u8; 32]>, Option<std::num::NonZero<usize>>), Error> {
+) -> Result<(Vec<[u8; 32]>, usize), Error> {
     let BlockchainResponse::NextChainEntry {
         block_ids,
         chain_height,
@@ -274,12 +274,29 @@ pub async fn number_outputs_with_amount(
 /// [`BlockchainReadRequest::KeyImagesSpent`]
 pub async fn key_images_spent(
     blockchain_read: &mut BlockchainReadHandle,
-    key_images: Vec<[u8; 32]>,
-) -> Result<Vec<bool>, Error> {
+    key_images: HashSet<[u8; 32]>,
+) -> Result<bool, Error> {
     let BlockchainResponse::KeyImagesSpent(status) = blockchain_read
         .ready()
         .await?
         .call(BlockchainReadRequest::KeyImagesSpent(key_images))
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(status)
+}
+
+/// [`BlockchainReadRequest::KeyImagesSpentVec`]
+pub async fn key_images_spent_vec(
+    blockchain_read: &mut BlockchainReadHandle,
+    key_images: Vec<[u8; 32]>,
+) -> Result<Vec<bool>, Error> {
+    let BlockchainResponse::KeyImagesSpentVec(status) = blockchain_read
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::KeyImagesSpentVec(key_images))
         .await?
     else {
         unreachable!();
