@@ -96,7 +96,16 @@ impl TransactionBlobs {
         match marker.inner_marker {
             InnerMarker::Object => Ok(Self::Pruned(Vec::read(b, &marker)?)),
             InnerMarker::String => Ok(Self::Normal(Vec::read(b, &marker)?)),
-            _ => Err(cuprate_epee_encoding::Error::Value(
+            InnerMarker::I64
+            | InnerMarker::I32
+            | InnerMarker::I16
+            | InnerMarker::I8
+            | InnerMarker::U64
+            | InnerMarker::U32
+            | InnerMarker::U16
+            | InnerMarker::U8
+            | InnerMarker::F64
+            | InnerMarker::Bool => Err(cuprate_epee_encoding::Error::Value(
                 "Invalid marker for tx blobs".to_string(),
             )),
         }

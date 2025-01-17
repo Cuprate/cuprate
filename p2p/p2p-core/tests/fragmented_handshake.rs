@@ -124,7 +124,9 @@ impl Encoder<LevinMessage<Message>> for FragmentCodec {
                     self.0.encode(frag.into(), dst)?;
                 }
             }
-            _ => unreachable!("Handshakes should only send bucket bodys"),
+            LevinMessage::Bucket(_) | LevinMessage::Dummy(_) => {
+                unreachable!("Handshakes should only send bucket bodys")
+            }
         }
         Ok(())
     }

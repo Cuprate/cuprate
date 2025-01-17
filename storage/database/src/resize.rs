@@ -246,16 +246,14 @@ pub fn fixed_bytes(current_size_bytes: usize, add_bytes: usize) -> NonZeroUsize 
 /// ```
 pub fn percent(current_size_bytes: usize, percent: f32) -> NonZeroUsize {
     // Guard against bad floats.
-    use std::num::FpCategory;
-    let percent = match percent.classify() {
-        FpCategory::Normal => {
-            if percent <= 1.0 {
-                1.0
-            } else {
-                percent
-            }
+    let percent = if percent.classify() == std::num::FpCategory::Normal {
+        if percent <= 1.0 {
+            1.0
+        } else {
+            percent
         }
-        _ => 1.0,
+    } else {
+        1.0
     };
 
     let page_size = *PAGE_SIZE;
