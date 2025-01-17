@@ -9,7 +9,7 @@ use rayon::prelude::*;
 use std::ops::ControlFlow;
 use std::{collections::HashMap, sync::Arc};
 use tower::{Service, ServiceExt};
-use tracing::info;
+use tracing::{info, instrument};
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{
@@ -120,6 +120,15 @@ impl super::BlockchainManager {
     ///
     /// This function will panic if the batch is empty or if any internal service returns an unexpected
     /// error that we cannot recover from or if the incoming batch contains no blocks.
+    #[instrument(
+        name = "incoming_block_batch",
+        skip_all,
+        level = "info",
+        fields(
+            start_height = batch.blocks.first().unwrap().0.number().unwrap(),
+            len = batch.blocks.len()
+        )
+    )]
     pub async fn handle_incoming_block_batch(&mut self, batch: BlockBatch) {
         let (first_block, _) = batch
             .blocks
@@ -146,11 +155,6 @@ impl super::BlockchainManager {
     /// This function will panic if any internal service returns an unexpected error that we cannot
     /// recover from or if the incoming batch contains no blocks.
     async fn handle_incoming_block_batch_main_chain(&mut self, batch: BlockBatch) {
-        info!(
-            "Handling batch to main chain height: {}",
-            batch.blocks.first().unwrap().0.number().unwrap()
-        );
-
         let batch_prep_res = self
             .block_verifier_service
             .ready()
@@ -192,6 +196,7 @@ impl super::BlockchainManager {
 
             self.add_valid_block_to_main_chain(verified_block).await;
         }
+        info!("Successfully added block batch");
     }
 
     /// Handles an incoming [`BlockBatch`] that does not follow the main-chain.

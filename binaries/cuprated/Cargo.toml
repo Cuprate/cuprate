@@ -13,29 +13,28 @@ cuprate-constants         = { workspace = true, features = ["build"] }
 cuprate-consensus         = { workspace = true }
 cuprate-fast-sync         = { workspace = true }
 cuprate-consensus-context = { workspace = true }
-cuprate-consensus-rules  = { workspace = true }
-cuprate-cryptonight      = { workspace = true }
-cuprate-helper           = { workspace = true, features = ["serde", "time"] }
-cuprate-epee-encoding    = { workspace = true }
-cuprate-fixed-bytes      = { workspace = true }
-cuprate-levin            = { workspace = true }
-cuprate-wire             = { workspace = true }
-cuprate-p2p              = { workspace = true }
-cuprate-p2p-core         = { workspace = true }
-cuprate-dandelion-tower  = { workspace = true, features = ["txpool"] }
-cuprate-async-buffer     = { workspace = true }
-cuprate-address-book     = { workspace = true }
-cuprate-blockchain       = { workspace = true }
-cuprate-database-service = { workspace = true, features = ["serde"] }
-cuprate-txpool           = { workspace = true }
-cuprate-database         = { workspace = true, features = ["serde"] }
-cuprate-pruning          = { workspace = true }
-cuprate-test-utils       = { workspace = true }
-cuprate-types            = { workspace = true }
-cuprate-json-rpc         = { workspace = true }
-cuprate-rpc-interface    = { workspace = true }
-cuprate-rpc-types        = { workspace = true }
-
+cuprate-consensus-rules   = { workspace = true }
+cuprate-cryptonight       = { workspace = true }
+cuprate-helper            = { workspace = true, features = ["std", "serde", "time"] }
+cuprate-epee-encoding     = { workspace = true }
+cuprate-fixed-bytes       = { workspace = true }
+cuprate-levin             = { workspace = true }
+cuprate-wire              = { workspace = true }
+cuprate-p2p               = { workspace = true }
+cuprate-p2p-core          = { workspace = true }
+cuprate-dandelion-tower   = { workspace = true, features = ["txpool"] }
+cuprate-async-buffer      = { workspace = true }
+cuprate-address-book      = { workspace = true }
+cuprate-blockchain        = { workspace = true }
+cuprate-database-service  = { workspace = true, features = ["serde"] }
+cuprate-txpool            = { workspace = true }
+cuprate-database          = { workspace = true, features = ["serde"] }
+cuprate-pruning           = { workspace = true }
+cuprate-test-utils        = { workspace = true }
+cuprate-types             = { workspace = true }
+cuprate-json-rpc          = { workspace = true }
+cuprate-rpc-interface     = { workspace = true }
+cuprate-rpc-types         = { workspace = true }
 
 # TODO: after v1.0.0, remove unneeded dependencies.
 anyhow                = { workspace = true }
@@ -45,7 +44,7 @@ borsh                 = { workspace = true }
 bytemuck              = { workspace = true }
 bytes                 = { workspace = true }
 cfg-if                = { workspace = true }
-clap                  = { workspace = true, features = ["cargo", "help", "wrap_help"] }
+clap                  = { workspace = true, features = ["cargo", "help", "wrap_help", "usage", "error-context", "suggestions"] }
 chrono                = { workspace = true }
 crypto-bigint         = { workspace = true }
 crossbeam             = { workspace = true }
@@ -69,11 +68,12 @@ serde_json            = { workspace = true }
 serde                 = { workspace = true }
 thiserror             = { workspace = true }
 thread_local          = { workspace = true }
-tokio-util            = { workspace = true }
+tokio-util            = { workspace = true, features = ["rt"] }
 tokio-stream          = { workspace = true }
 tokio                 = { workspace = true }
 toml                  = { workspace = true, features = ["parse", "display"]}
 tower                 = { workspace = true }
+tracing-appender      = { workspace = true }
 tracing-subscriber    = { workspace = true, features = ["std", "fmt", "default"] }
 tracing               = { workspace = true, features = ["default"] }
 

@@ -20,12 +20,16 @@ use cuprate_p2p_core::{ClearNet, ClearNetServerCfg};
 mod args;
 mod fs;
 mod p2p;
+mod rayon;
 mod storage;
+mod tokio;
 mod tracing_config;
 
-use crate::config::fs::FileSystemConfig;
+use fs::FileSystemConfig;
 use p2p::P2PConfig;
+use rayon::RayonConfig;
 use storage::StorageConfig;
+use tokio::TokioConfig;
 use tracing_config::TracingConfig;
 
 /// Reads the args & config file, returning a [`Config`].
@@ -65,22 +69,26 @@ pub fn read_config_and_args() -> Config {
 }
 
 /// The config for all of Cuprate.
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields, default)]
 pub struct Config {
     /// The network we should run on.
     network: Network,
 
     /// [`tracing`] config.
-    tracing: TracingConfig,
+    pub tracing: TracingConfig,
+
+    pub tokio: TokioConfig,
+
+    pub rayon: RayonConfig,
 
     /// The P2P network config.
     p2p: P2PConfig,
 
     /// The storage config.
-    storage: StorageConfig,
+    pub storage: StorageConfig,
 
-    fs: FileSystemConfig,
+    pub fs: FileSystemConfig,
 }
 
 impl Config {
@@ -149,6 +157,18 @@ impl Config {
             .network(self.network)
             .data_directory(self.fs.data_directory.clone())
             .sync_mode(blockchain.shared.sync_mode)
+            .build()
+    }
+
+    /// The [`cuprate_txpool`] config.
+    pub fn txpool_config(&self) -> cuprate_txpool::config::Config {
+        let txpool = &self.storage.txpool;
+
+        // We don't set reader threads as we manually make the reader threadpool.
+        cuprate_txpool::config::ConfigBuilder::default()
+            .network(self.network)
+            .data_directory(self.fs.data_directory.clone())
+            .sync_mode(txpool.shared.sync_mode)
             .build()
     }
 
