@@ -87,7 +87,9 @@ pub mod types;
 pub use error::*;
 pub use network_zones::{ClearNet, ClearNetServerCfg};
 pub use protocol::*;
-use services::{AddressBookRequest, AddressBookResponse, CoreSyncDataRequest, CoreSyncDataResponse};
+use services::{
+    AddressBookRequest, AddressBookResponse, CoreSyncDataRequest, CoreSyncDataResponse,
+};
 //re-export
 pub use cuprate_helper::network::Network;
 pub use cuprate_wire::CoreSyncData;
