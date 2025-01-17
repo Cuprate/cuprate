@@ -48,13 +48,14 @@ members = [
 ]
 
 [profile.release]
-panic         = "abort" 
+panic         = "abort"
 lto           = true   # Build with LTO
 strip         = "none" # Keep panic stack traces
 codegen-units = 1      # Optimize for binary speed over compile times
 opt-level     = 3
 
 [profile.dev]
+panic         = "abort"
 lto           = false
 strip         = "none"
 # Not much slower compile times than opt-level 0, but much faster code.
@@ -119,7 +120,7 @@ futures               = { version = "0.3", default-features = false }
 hex                   = { version = "0.4", default-features = false }
 hex-literal           = { version = "0.4", default-features = false }
 indexmap              = { version = "2", default-features = false }
-monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "d5205ce", default-features = false }
+monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "e6fdef6", default-features = false }
 paste                 = { version = "1", default-features = false }
 pin-project           = { version = "1", default-features = false }
 randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev = "0028464", default-features = false }
@@ -137,12 +138,13 @@ tokio-stream          = { version = "0.1", default-features = false }
 tokio                 = { version = "1", default-features = false }
 tower                 = { git = "https://github.com/Cuprate/tower.git", rev = "6c7faf0", default-features = false } # <https://github.com/tower-rs/tower/pull/796>
 toml                  = { version = "0.8", default-features = false }
+tracing-appender      = { version = "0.2", default-features = false }
 tracing-subscriber    = { version = "0.3", default-features = false }
 tracing               = { version = "0.1", default-features = false }
 
 ## workspace.dev-dependencies
-monero-rpc                = { git = "https://github.com/Cuprate/serai.git", rev = "d5205ce" }
-monero-simple-request-rpc = { git = "https://github.com/Cuprate/serai.git", rev = "d5205ce" }
+monero-rpc                = { git = "https://github.com/Cuprate/serai.git", rev = "e6fdef6" }
+monero-simple-request-rpc = { git = "https://github.com/Cuprate/serai.git", rev = "e6fdef6" }
 tempfile                  = { version = "3" }
 pretty_assertions         = { version = "1" }
 proptest                  = { version = "1" }

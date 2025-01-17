@@ -42,5 +42,7 @@ mod test {
     #[test]
     fn generate_config_text_is_valid() {
         let config: Config = toml::from_str(EXAMPLE_CONFIG).unwrap();
+
+        assert_eq!(config, Config::default());
     }
 }

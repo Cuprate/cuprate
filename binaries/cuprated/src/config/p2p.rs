@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use cuprate_helper::{fs::address_book_path, network::Network};
 
 /// P2P config.
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields, default)]
 pub struct P2PConfig {
     /// Clear-net config.
@@ -18,7 +18,7 @@ pub struct P2PConfig {
     pub block_downloader: BlockDownloaderConfig,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields, default)]
 pub struct BlockDownloaderConfig {
     /// The size in bytes of the buffer between the block downloader and the place which
@@ -50,13 +50,13 @@ impl Default for BlockDownloaderConfig {
             buffer_bytes: 50_000_000,
             in_progress_queue_bytes: 50_000_000,
             check_client_pool_interval: Duration::from_secs(30),
-            target_batch_bytes: 5_000_000,
+            target_batch_bytes: 10_000_000,
         }
     }
 }
 
 /// The config values for P2P clear-net.
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields, default)]
 pub struct ClearNetConfig {
     /// The server config.
@@ -75,7 +75,7 @@ impl Default for ClearNetConfig {
 }
 
 /// Network config values shared between all network zones.
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields, default)]
 pub struct SharedNetConfig {
     /// The number of outbound connections to make and try keep.
@@ -121,7 +121,7 @@ impl Default for SharedNetConfig {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields, default)]
 pub struct AddressBookConfig {
     max_white_list_length: usize,
@@ -134,7 +134,7 @@ impl Default for AddressBookConfig {
         Self {
             max_white_list_length: 1_000,
             max_gray_list_length: 5_000,
-            peer_save_period: Duration::from_secs(30),
+            peer_save_period: Duration::from_secs(90),
         }
     }
 }

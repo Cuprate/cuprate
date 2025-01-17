@@ -288,7 +288,7 @@ pub enum BlockchainResponse {
     /// If all blocks were unknown `start_height` will be [`None`], the other fields will be meaningless.
     NextChainEntry {
         /// The start height of this entry, [`None`] if we could not find the split point.
-        start_height: Option<std::num::NonZero<usize>>,
+        start_height: Option<usize>,
         /// The current chain height.
         chain_height: usize,
         /// The next block hashes in the entry.
