@@ -1,5 +1,5 @@
 [workspace]
-resolver = "2"
+resolver = "3"
 members = [
 	# Binaries
 	"binaries/cuprated",
@@ -286,6 +286,9 @@ zero_repeat_side_effects = "deny"
 non_zero_suggestions = "deny"
 manual_is_power_of_two = "deny"
 used_underscore_items = "deny"
+unnecessary_map_or = "deny"
+map_all_any_identity = "deny"
+unnecessary_literal_bound = "deny"
 
 # Warm
 cast_possible_truncation = "deny"
