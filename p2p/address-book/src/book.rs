@@ -302,9 +302,6 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
             if peb.pruning_seed != peer.pruning_seed {
                 return Err(AddressBookError::PeersDataChanged("Pruning seed"));
             }
-            if Z::CHECK_NODE_ID && peb.id != peer.id {
-                return Err(AddressBookError::PeersDataChanged("peer ID"));
-            }
             // TODO: cuprate doesn't need last seen timestamps but should we have them anyway?
             peb.last_seen = 0;
             peb.rpc_port = peer.rpc_port;

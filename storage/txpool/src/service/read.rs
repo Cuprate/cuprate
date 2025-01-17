@@ -46,7 +46,10 @@ pub(super) fn init_read_service(env: Arc<ConcreteEnv>, threads: ReaderThreads) -
 /// Should be called _once_ per actual database.
 #[cold]
 #[inline(never)] // Only called once.
-fn init_read_service_with_pool(env: Arc<ConcreteEnv>, pool: Arc<ThreadPool>) -> TxpoolReadHandle {
+pub(super) fn init_read_service_with_pool(
+    env: Arc<ConcreteEnv>,
+    pool: Arc<ThreadPool>,
+) -> TxpoolReadHandle {
     DatabaseReadService::new(env, pool, map_request)
 }
 
