@@ -136,11 +136,11 @@ pub async fn key_images_spent_vec(
     key_images: Vec<[u8; 32]>,
     include_sensitive_txs: bool,
 ) -> Result<Vec<bool>, Error> {
-    let TxpoolReadResponse::KeyImagesSpent(status) = txpool_read
+    let TxpoolReadResponse::KeyImagesSpentVec(status) = txpool_read
         .ready()
         .await
         .map_err(|e| anyhow!(e))?
-        .call(TxpoolReadRequest::KeyImagesSpent {
+        .call(TxpoolReadRequest::KeyImagesSpentVec {
             key_images,
             include_sensitive_txs,
         })

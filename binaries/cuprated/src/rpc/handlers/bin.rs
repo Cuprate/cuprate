@@ -166,33 +166,32 @@ async fn get_hashes(
     mut state: CupratedRpcHandler,
     request: GetHashesRequest,
 ) -> Result<GetHashesResponse, Error> {
+    let GetHashesRequest {
+        start_height,
+        block_ids,
+    } = request;
+
     // FIXME: impl `last()`
     let last = {
-        let len = request.block_ids.len();
+        let len = block_ids.len();
 
         if len == 0 {
             return Err(anyhow!("block_ids empty"));
         }
 
-        request.block_ids[len - 1]
+        block_ids[len - 1]
     };
-
-    let GetHashesRequest {
-        start_height,
-        block_ids,
-        ..
-    } = request;
 
     let hashes: Vec<[u8; 32]> = (&block_ids).into();
 
-    let (m_block_ids, current_height) =
+    let (m_blocks_ids, current_height) =
         blockchain::next_chain_entry(&mut state.blockchain_read, hashes, start_height).await?;
 
     Ok(GetHashesResponse {
         base: helper::access_response_base(false),
-        m_blocks_ids,
+        m_blocks_ids: m_blocks_ids.into(),
+        current_height: usize_to_u64(current_height),
         start_height,
-        current_height,
     })
 }
 

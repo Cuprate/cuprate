@@ -328,7 +328,7 @@ async fn is_key_image_spent(
             KeyImageSpentStatus::SpentInBlockchain => None,
             KeyImageSpentStatus::SpentInPool => unreachable!(),
         })
-        .collect();
+        .collect::<Vec<[u8; 32]>>();
 
     // Check if the remaining unspent key images exist in the transaction pool.
     if !key_images.is_empty() {
@@ -346,7 +346,7 @@ async fn is_key_image_spent(
 
     let spent_status = spent_status
         .into_iter()
-        .map(|status| status.to_u8())
+        .map(KeyImageSpentStatus::to_u8)
         .collect();
 
     Ok(IsKeyImageSpentResponse {

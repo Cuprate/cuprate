@@ -89,6 +89,10 @@ fn map_request(
             key_images,
             include_sensitive_txs,
         } => key_images_spent(env, key_images, include_sensitive_txs),
+        TxpoolReadRequest::KeyImagesSpentVec {
+            key_images,
+            include_sensitive_txs,
+        } => key_images_spent_vec(env, key_images, include_sensitive_txs),
         TxpoolReadRequest::Pool {
             include_sensitive_txs,
         } => pool(env, include_sensitive_txs),
@@ -252,6 +256,15 @@ fn txs_by_hash(
 
 /// [`TxpoolReadRequest::KeyImagesSpent`].
 fn key_images_spent(
+    env: &ConcreteEnv,
+    key_images: HashSet<[u8; 32]>,
+    include_sensitive_txs: bool,
+) -> ReadResponseResult {
+    Ok(TxpoolReadResponse::KeyImagesSpent(todo!()))
+}
+
+/// [`TxpoolReadRequest::KeyImagesSpentVec`].
+fn key_images_spent_vec(
     env: &ConcreteEnv,
     key_images: Vec<[u8; 32]>,
     include_sensitive_txs: bool,
