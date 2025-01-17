@@ -639,8 +639,7 @@ async fn set_bans(
         // TODO: support non-clearnet addresses.
 
         // <https://architecture.cuprate.org/oddities/le-ipv4.html>
-        let [a, b, c, d] = peer.ip.to_le_bytes();
-        let ip = Ipv4Addr::new(a, b, c, d);
+        let ip = Ipv4Addr::from(peer.ip.to_le_bytes());
         let address = SocketAddr::V4(SocketAddrV4::new(ip, 0));
 
         let ban = if peer.ban {
