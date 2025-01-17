@@ -9,6 +9,7 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/binaries/cuprated"
 
 [dependencies]
 # TODO: after v1.0.0, remove unneeded dependencies.
+cuprate-constants         = { workspace = true, features = ["build"] }
 cuprate-consensus         = { workspace = true }
 cuprate-fast-sync         = { workspace = true }
 cuprate-consensus-context = { workspace = true }

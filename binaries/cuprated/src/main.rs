@@ -25,6 +25,7 @@ mod rpc;
 mod signals;
 mod statics;
 mod txpool;
+mod version;
 
 fn main() {
     // Initialize the killswitch.

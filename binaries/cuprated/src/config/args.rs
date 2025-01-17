@@ -3,12 +3,13 @@ use std::{io::Write, path::PathBuf, process::exit};
 use clap::builder::TypedValueParser;
 
 use cuprate_helper::network::Network;
+use serde_json::Value;
 
-use crate::{config::Config, constants::EXAMPLE_CONFIG};
+use crate::{config::Config, constants::EXAMPLE_CONFIG, version::CupratedVersionInfo};
 
 /// Cuprate Args.
 #[derive(clap::Parser, Debug)]
-#[command(version, about)]
+#[command(about)]
 pub struct Args {
     /// The network to run on.
     #[arg(
@@ -27,6 +28,9 @@ pub struct Args {
     /// Generate a config file and print it to stdout.
     #[arg(long)]
     pub generate_config: bool,
+    /// Print misc version information in JSON.
+    #[arg(short, long)]
+    pub version: bool,
 }
 
 impl Args {
@@ -34,6 +38,13 @@ impl Args {
     ///
     /// May cause the process to [`exit`].
     pub fn do_quick_requests(&self) {
+        if self.version {
+            let version_info = CupratedVersionInfo::new();
+            let json = serde_json::to_string_pretty(&version_info).unwrap();
+            println!("{json}");
+            exit(0);
+        }
+
         if self.generate_config {
             println!("{EXAMPLE_CONFIG}");
             exit(0);

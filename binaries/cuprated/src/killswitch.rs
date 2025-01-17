@@ -18,11 +18,8 @@ use cuprate_helper::time::current_unix_timestamp;
 
 /// Assert that this is not a v1 release and an alpha release.
 pub const _: () = {
-    /// Major version number of `cuprated`.
-    const MAJOR_VERSION: &str = const_format::str_get!(env!("CARGO_PKG_VERSION"), 0..1).unwrap();
-
     const_format::assertcp_ne!(
-        MAJOR_VERSION,
+        crate::constants::MAJOR_VERSION,
         "1",
         "`cuprated` major version is 1, killswitch module should be deleted."
     );
@@ -31,7 +28,7 @@ pub const _: () = {
 /// The killswitch activates if the current timestamp is ahead of this timestamp.
 ///
 /// Sat Mar 01 2025 05:00:00 GMT+0000
-const KILLSWITCH_ACTIVATION_TIMESTAMP: u64 = 1740805200;
+pub const KILLSWITCH_ACTIVATION_TIMESTAMP: u64 = 1740805200;
 
 /// Check if the system clock is past a certain timestamp,
 /// if so, exit the entire program.
