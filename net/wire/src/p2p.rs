@@ -29,9 +29,9 @@ pub mod admin;
 pub mod common;
 pub mod protocol;
 
-use admin::*;
+use admin::{HandshakeRequest, HandshakeResponse, PingResponse, SupportFlagsResponse, TimedSyncRequest, TimedSyncResponse};
 pub use common::{BasicNodeData, CoreSyncData, PeerListEntryBase};
-use protocol::*;
+use protocol::{ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest, GetObjectsResponse, GetTxPoolCompliment, NewBlock, NewFluffyBlock, NewTransactions};
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum LevinCommand {

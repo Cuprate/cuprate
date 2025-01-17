@@ -24,7 +24,7 @@ use bytes::BufMut;
 use cuprate_epee_encoding::EpeeObject;
 
 mod epee_builder;
-use epee_builder::*;
+use epee_builder::TaggedNetworkAddress;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum NetZone {
