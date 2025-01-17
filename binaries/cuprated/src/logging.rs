@@ -1,3 +1,6 @@
+//! Logging
+//!
+//! `cuprated` log filtering settings and related functionality.
 use std::ops::BitAnd;
 use std::{
     fmt::{Display, Formatter},

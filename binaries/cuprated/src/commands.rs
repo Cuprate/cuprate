@@ -1,3 +1,6 @@
+//! Commands
+//!
+//! `cuprated` [`Command`] definition and handling.
 use std::{io, thread::sleep, time::Duration};
 
 use clap::{builder::TypedValueParser, Parser, ValueEnum};

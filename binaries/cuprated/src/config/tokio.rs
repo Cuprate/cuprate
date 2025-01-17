@@ -11,8 +11,7 @@ pub struct TokioConfig {
 impl Default for TokioConfig {
     fn default() -> Self {
         Self {
-            // 75% available threads.
-            threads: (std::thread::available_parallelism().unwrap().get() * 3).div_ceil(4),
+            threads: cuprate_helper::thread::threads_75().get(),
         }
     }
 }
