@@ -18,9 +18,11 @@ use cuprate_helper::time::current_unix_timestamp;
 
 /// Assert that this is not a v1 release and an alpha release.
 pub const _: () = {
-    let major_version = const_format::str_get!(env!("CARGO_PKG_VERSION"), 0..1).unwrap();
+    /// Major version number of `cuprated`.
+    const MAJOR_VERSION: &str = const_format::str_get!(env!("CARGO_PKG_VERSION"), 0..1).unwrap();
+
     const_format::assertcp_ne!(
-        major_version,
+        MAJOR_VERSION,
         "1",
         "`cuprated` major version is 1, killswitch module should be deleted."
     );
