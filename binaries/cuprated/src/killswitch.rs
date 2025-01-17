@@ -32,7 +32,7 @@ pub const KILLSWITCH_ACTIVATION_TIMESTAMP: u64 = 1740805200;
 
 /// Check if the system clock is past a certain timestamp,
 /// if so, exit the entire program.
-pub fn killswitch() {
+fn killswitch() {
     /// A timestamp known to have been passed.
     ///
     /// This is an arbitrary timestamp used for
@@ -42,20 +42,20 @@ pub fn killswitch() {
     /// Fri Jan 17 2025 14:19:10 GMT+0000
     const SYSTEM_CLOCK_SANITY_TIMESTAMP: u64 = 1737123550;
 
-    /// Print a generic killswitch message.
-    fn print_killswitch_msg(msg: String) {
-        eprintln!("killswitch: {msg}. `cuprated` will now exit. For more details on why this exists, see: <https://github.com/Cuprate/cuprate/blob/main/binaries/cuprated/src/killswitch.rs>.");
-    }
-
     let current_ts = current_unix_timestamp();
 
+    // Prints a generic killswitch message.
+    let print_killswitch_msg = |msg| {
+        eprintln!("killswitch: {msg}. (current_ts: {current_ts}, killswitch_activation_timestamp: {KILLSWITCH_ACTIVATION_TIMESTAMP}). `cuprated` will now exit. For more details on why this exists, see: <https://github.com/Cuprate/cuprate/blob/main/binaries/cuprated/src/killswitch.rs>.");
+    };
+
     if current_ts < SYSTEM_CLOCK_SANITY_TIMESTAMP {
-        print_killswitch_msg(format!("The system clock is too far behind (current_ts: {current_ts}) and is not reliable to use"));
+        print_killswitch_msg("The system clock is too far behind and is not reliable to use");
         exit(66);
     }
 
     if current_ts > KILLSWITCH_ACTIVATION_TIMESTAMP {
-        print_killswitch_msg(format!("The killswitch activation timestamp for alpha builds has passed (current_ts: {current_ts}, killswitch_activation_timestamp: {KILLSWITCH_ACTIVATION_TIMESTAMP})"));
+        print_killswitch_msg("The killswitch activation timestamp for alpha builds has passed.");
         exit(88);
     }
 }
