@@ -19,15 +19,19 @@ pub struct Args {
             .map(|s| s.parse::<Network>().unwrap()),
     )]
     pub network: Network,
+
     /// The amount of outbound clear-net connections to maintain.
     #[arg(long)]
     pub outbound_connections: Option<usize>,
+
     /// The PATH of the `cuprated` config file.
     #[arg(long)]
     pub config_file: Option<PathBuf>,
+
     /// Generate a config file and print it to stdout.
     #[arg(long)]
     pub generate_config: bool,
+
     /// Print misc version information in JSON.
     #[arg(short, long)]
     pub version: bool,
