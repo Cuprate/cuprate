@@ -4,13 +4,6 @@ members = [
 	# Binaries
 	"binaries/cuprated",
 
-	# Benchmarks
-	"benches/benchmark/bin",
-	"benches/benchmark/lib",
-	"benches/benchmark/example",
-	"benches/criterion/example",
-	"benches/criterion/cuprate-json-rpc",
-
 	# Consensus
 	"consensus",
 	"consensus/context",
@@ -79,8 +72,6 @@ opt-level = 3
 
 [workspace.dependencies]
 # Cuprate members
-cuprate-benchmark-lib     = { path = "benches/benchmark/lib",     default-features = false }
-cuprate-benchmark-example = { path = "benches/benchmark/example", default-features = false }
 cuprate-fast-sync         = { path = "consensus/fast-sync",       default-features = false }
 cuprate-consensus-rules   = { path = "consensus/rules",           default-features = false }
 cuprate-constants         = { path = "constants",                 default-features = false }
@@ -157,8 +148,6 @@ tracing-subscriber    = { version = "0.3", default-features = false }
 tracing               = { version = "0.1", default-features = false }
 
 ## workspace.dev-dependencies
-criterion                 = { version = "0.5" }
-function_name             = { version = "0.3" }
 monero-rpc                = { git = "https://github.com/Cuprate/serai.git", rev = "e6fdef6" }
 monero-simple-request-rpc = { git = "https://github.com/Cuprate/serai.git", rev = "e6fdef6" }
 tempfile                  = { version = "3" }
