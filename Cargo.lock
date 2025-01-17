@@ -1235,6 +1235,7 @@ dependencies = [
  "hex",
  "hex-literal",
  "indexmap",
+ "monero-address",
  "monero-serai",
  "paste",
  "pin-project",

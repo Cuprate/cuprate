@@ -58,6 +58,7 @@ futures               = { workspace = true }
 hex                   = { workspace = true }
 hex-literal           = { workspace = true }
 indexmap              = { workspace = true }
+monero-address        = { workspace = true }
 monero-serai          = { workspace = true }
 paste                 = { workspace = true }
 pin-project           = { workspace = true }

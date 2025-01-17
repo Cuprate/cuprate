@@ -147,22 +147,16 @@ async fn get_block_template(
         return Err(anyhow!("Too big extra_nonce size"));
     }
 
-    // TODO: this is hardcoded for the current address scheme + mainnet,
-    // create/use a more well-defined wallet lib.
-    let parse_wallet_address = || {
-        if request.wallet_address.len() == 95 {
-            Ok(())
-        } else {
-            Err(())
-        }
+    // TODO: This should be `cuprated`'s active network.
+    let network = match Network::Mainnet {
+        Network::Mainnet => monero_address::Network::Mainnet,
+        Network::Stagenet => monero_address::Network::Stagenet,
+        Network::Testnet => monero_address::Network::Testnet,
     };
-    let is_correct_address_type = || !request.wallet_address.starts_with("4");
 
-    if parse_wallet_address().is_err() {
-        return Err(anyhow!("Failed to parse wallet address"));
-    }
+    let address = monero_address::MoneroAddress::from_str(network, &request.wallet_address)?;
 
-    if is_correct_address_type() {
+    if *address.kind() != monero_address::AddressType::Legacy {
         return Err(anyhow!("Incorrect address type"));
     }
 
