@@ -305,27 +305,49 @@ async fn is_key_image_spent(
 
     let mut spent_status = Vec::with_capacity(key_images.len());
 
+    // Check the blockchain for key image spend status.
     blockchain::key_images_spent(&mut state.blockchain_read, key_images.clone())
         .await?
         .into_iter()
         .for_each(|ki| {
             if ki {
-                spent_status.push(KeyImageSpentStatus::SpentInBlockchain.to_u8());
+                spent_status.push(KeyImageSpentStatus::SpentInBlockchain);
             } else {
-                spent_status.push(KeyImageSpentStatus::Unspent.to_u8());
+                spent_status.push(KeyImageSpentStatus::Unspent);
             }
         });
 
-    txpool::key_images_spent(&mut state.txpool_read, key_images, !restricted)
-        .await?
+    assert_eq!(spent_status.len(), key_images.len(), "key_images_spent() should be returning a Vec with an equal length to the input, the below zip() relies on this.");
+
+    // Filter the remaining unspent key images out from the vector.
+    let key_images = key_images
         .into_iter()
-        .for_each(|ki| {
-            if ki {
-                spent_status.push(KeyImageSpentStatus::SpentInPool.to_u8());
-            } else {
-                spent_status.push(KeyImageSpentStatus::Unspent.to_u8());
-            }
-        });
+        .zip(&spent_status)
+        .filter_map(|(ki, status)| match status {
+            KeyImageSpentStatus::Unspent => Some(ki),
+            KeyImageSpentStatus::SpentInBlockchain => None,
+            KeyImageSpentStatus::SpentInPool => unreachable!(),
+        })
+        .collect();
+
+    // Check if the remaining unspent key images exist in the transaction pool.
+    if !key_images.is_empty() {
+        txpool::key_images_spent(&mut state.txpool_read, key_images, !restricted)
+            .await?
+            .into_iter()
+            .for_each(|ki| {
+                if ki {
+                    spent_status.push(KeyImageSpentStatus::SpentInPool);
+                } else {
+                    spent_status.push(KeyImageSpentStatus::Unspent);
+                }
+            });
+    }
+
+    let spent_status = spent_status
+        .into_iter()
+        .map(|status| status.to_u8())
+        .collect();
 
     Ok(IsKeyImageSpentResponse {
         base: helper::access_response_base(false),
