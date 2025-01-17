@@ -69,7 +69,7 @@ pub fn init_killswitch() {
     killswitch();
 
     // Else spawn a thread that waits until we should.
-    std::thread::spawn(|| {
+    std::thread::spawn(|| -> ! {
         // Sleep until killswitch activation.
         let current_ts = current_unix_timestamp();
         let sleep_duration = Duration::from_secs(KILLSWITCH_ACTIVATION_TIMESTAMP - current_ts);
