@@ -14,7 +14,7 @@ cuprate-fast-sync         = { workspace = true }
 cuprate-consensus-context = { workspace = true }
 cuprate-consensus-rules  = { workspace = true }
 cuprate-cryptonight      = { workspace = true }
-cuprate-helper           = { workspace = true, features = ["serde"] }
+cuprate-helper           = { workspace = true, features = ["serde", "time"] }
 cuprate-epee-encoding    = { workspace = true }
 cuprate-fixed-bytes      = { workspace = true }
 cuprate-levin            = { workspace = true }
@@ -49,7 +49,7 @@ chrono                = { workspace = true }
 crypto-bigint         = { workspace = true }
 crossbeam             = { workspace = true }
 curve25519-dalek      = { workspace = true }
-const_format          = { workspace = true }
+const_format          = { workspace = true, features = ["all"] }
 dashmap               = { workspace = true }
 dirs                  = { workspace = true }
 futures               = { workspace = true }

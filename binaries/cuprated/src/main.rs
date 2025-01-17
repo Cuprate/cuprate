@@ -19,6 +19,7 @@
 mod blockchain;
 mod config;
 mod constants;
+mod killswitch;
 mod p2p;
 mod rpc;
 mod signals;
@@ -26,6 +27,9 @@ mod statics;
 mod txpool;
 
 fn main() {
+    // Initialize the killswitch.
+    killswitch::init_killswitch();
+
     // Initialize global static `LazyLock` data.
     statics::init_lazylock_statics();
 
