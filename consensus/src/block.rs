@@ -14,9 +14,7 @@ use monero_serai::{
 };
 use tower::{Service, ServiceExt};
 
-use cuprate_consensus_context::{
-    BlockChainContextRequest, BlockChainContextResponse, RawBlockChainContext,
-};
+use cuprate_consensus_context::{BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService};
 use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_types::{
     AltBlockInformation, TransactionVerificationData, VerifiedBlockInformation,
@@ -242,9 +240,9 @@ pub enum VerifyBlockResponse {
 }
 
 /// The block verifier service.
-pub struct BlockVerifierService<C, TxV, D> {
+pub struct BlockVerifierService<TxV, D> {
     /// The context service.
-    context_svc: C,
+    context_svc: BlockchainContextService,
     /// The tx verifier service.
     tx_verifier_svc: TxV,
     /// The database.
@@ -252,12 +250,8 @@ pub struct BlockVerifierService<C, TxV, D> {
     _database: D,
 }
 
-impl<C, TxV, D> BlockVerifierService<C, TxV, D>
+impl<TxV, D> BlockVerifierService<TxV, D>
 where
-    C: Service<BlockChainContextRequest, Response = BlockChainContextResponse>
-        + Clone
-        + Send
-        + 'static,
     TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ExtendedConsensusError>
         + Clone
         + Send
@@ -266,7 +260,7 @@ where
     D::Future: Send + 'static,
 {
     /// Creates a new block verifier.
-    pub(crate) const fn new(context_svc: C, tx_verifier_svc: TxV, database: D) -> Self {
+    pub(crate) const fn new(context_svc: BlockchainContextService, tx_verifier_svc: TxV, database: D) -> Self {
         Self {
             context_svc,
             tx_verifier_svc,
@@ -275,17 +269,8 @@ where
     }
 }
 
-impl<C, TxV, D> Service<VerifyBlockRequest> for BlockVerifierService<C, TxV, D>
+impl<TxV, D> Service<VerifyBlockRequest> for BlockVerifierService<TxV, D>
 where
-    C: Service<
-            BlockChainContextRequest,
-            Response = BlockChainContextResponse,
-            Error = tower::BoxError,
-        > + Clone
-        + Send
-        + 'static,
-    C::Future: Send + 'static,
-
     TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ExtendedConsensusError>
         + Clone
         + Send
@@ -305,7 +290,7 @@ where
     }
 
     fn call(&mut self, req: VerifyBlockRequest) -> Self::Future {
-        let context_svc = self.context_svc.clone();
+        let mut context_svc = self.context_svc.clone();
         let tx_verifier_svc = self.tx_verifier_svc.clone();
 
         async move {
@@ -314,13 +299,13 @@ where
                     block,
                     prepared_txs,
                 } => {
-                    verify_main_chain_block(block, prepared_txs, context_svc, tx_verifier_svc).await
+                    verify_main_chain_block(block, prepared_txs, &mut context_svc, tx_verifier_svc).await
                 }
                 VerifyBlockRequest::MainChainBatchPrepareBlocks { blocks } => {
-                    batch_prepare_main_chain_block(blocks, context_svc).await
+                    batch_prepare_main_chain_block(blocks, &mut context_svc).await
                 }
                 VerifyBlockRequest::MainChainPrepped { block, txs } => {
-                    verify_prepped_main_chain_block(block, txs, context_svc, tx_verifier_svc, None)
+                    verify_prepped_main_chain_block(block, txs, &mut context_svc, tx_verifier_svc)
                         .await
                 }
                 VerifyBlockRequest::AltChain {
@@ -334,32 +319,16 @@ where
 }
 
 /// Verifies a prepared block.
-async fn verify_main_chain_block<C, TxV>(
+async fn verify_main_chain_block<TxV>(
     block: Block,
     txs: HashMap<[u8; 32], TransactionVerificationData>,
-    mut context_svc: C,
+    context_svc: &mut BlockchainContextService,
     tx_verifier_svc: TxV,
 ) -> Result<VerifyBlockResponse, ExtendedConsensusError>
 where
-    C: Service<
-            BlockChainContextRequest,
-            Response = BlockChainContextResponse,
-            Error = tower::BoxError,
-        > + Send
-        + 'static,
-    C::Future: Send + 'static,
     TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ExtendedConsensusError>,
 {
-    let BlockChainContextResponse::Context(checked_context) = context_svc
-        .ready()
-        .await?
-        .call(BlockChainContextRequest::Context)
-        .await?
-    else {
-        panic!("Context service returned wrong response!");
-    };
-
-    let context = checked_context.unchecked_blockchain_context().clone();
+    let context = context_svc.blockchain_context().clone();
     tracing::debug!("got blockchain context: {:?}", context);
 
     tracing::debug!(
@@ -409,44 +378,20 @@ where
         ordered_txs,
         context_svc,
         tx_verifier_svc,
-        Some(context),
     )
     .await
 }
 
-async fn verify_prepped_main_chain_block<C, TxV>(
+async fn verify_prepped_main_chain_block<TxV>(
     prepped_block: PreparedBlock,
     txs: Vec<Arc<TransactionVerificationData>>,
-    context_svc: C,
+    context_svc: &mut BlockchainContextService,
     tx_verifier_svc: TxV,
-    cached_context: Option<RawBlockChainContext>,
 ) -> Result<VerifyBlockResponse, ExtendedConsensusError>
 where
-    C: Service<
-            BlockChainContextRequest,
-            Response = BlockChainContextResponse,
-            Error = tower::BoxError,
-        > + Send
-        + 'static,
-    C::Future: Send + 'static,
     TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ExtendedConsensusError>,
 {
-    let context = if let Some(context) = cached_context {
-        context
-    } else {
-        let BlockChainContextResponse::Context(checked_context) = context_svc
-            .oneshot(BlockChainContextRequest::Context)
-            .await?
-        else {
-            panic!("Context service returned wrong response!");
-        };
-
-        let context = checked_context.unchecked_blockchain_context().clone();
-
-        tracing::debug!("got blockchain context: {context:?}");
-
-        context
-    };
+    let context = context_svc.blockchain_context();
 
     tracing::debug!("verifying block: {}", hex::encode(prepped_block.block_hash));
 

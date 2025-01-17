@@ -1,6 +1,6 @@
 //! # Blockchain Context
 //!
-//! This crate contains a service to get cached context from the blockchain: [`BlockChainContext`].
+//! This crate contains a service to get cached context from the blockchain: [`BlockchainContext`].
 //! This is used during contextual validation, this does not have all the data for contextual validation
 //! (outputs) for that you will need a [`Database`].
 
@@ -8,6 +8,9 @@
 // FIXME: should we pull in a dependency just to link docs?
 use monero_serai as _;
 
+use arc_swap::Cache;
+use futures::{channel::oneshot, FutureExt};
+use monero_serai::block::Block;
 use std::{
     cmp::min,
     collections::HashMap,
@@ -16,9 +19,6 @@ use std::{
     sync::Arc,
     task::{Context, Poll},
 };
-
-use futures::{channel::oneshot, FutureExt};
-use monero_serai::block::Block;
 use tokio::sync::mpsc;
 use tokio_util::sync::PollSender;
 use tower::Service;
@@ -34,7 +34,6 @@ pub mod weight;
 
 mod alt_chains;
 mod task;
-mod tokens;
 
 use cuprate_types::{Chain, ChainInfo, FeeEstimate, HardForkInfo};
 use difficulty::DifficultyCache;
@@ -44,7 +43,6 @@ use weight::BlockWeightsCache;
 pub use alt_chains::{sealed::AltChainRequestToken, AltChainContextCache};
 pub use difficulty::DifficultyCacheConfig;
 pub use hardforks::HardForkConfig;
-pub use tokens::*;
 pub use weight::BlockWeightsCacheConfig;
 
 pub const BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW: u64 = 60;
@@ -96,27 +94,29 @@ impl ContextConfig {
 pub async fn initialize_blockchain_context<D>(
     cfg: ContextConfig,
     database: D,
-) -> Result<BlockChainContextService, ContextCacheError>
+) -> Result<BlockchainContextService, ContextCacheError>
 where
     D: Database + Clone + Send + Sync + 'static,
     D::Future: Send + 'static,
 {
-    let context_task = task::ContextTask::init_context(cfg, database).await?;
+    let (context_task, context_cache) = task::ContextTask::init_context(cfg, database).await?;
 
     // TODO: make buffer size configurable.
     let (tx, rx) = mpsc::channel(15);
 
     tokio::spawn(context_task.run(rx));
 
-    Ok(BlockChainContextService {
+    Ok(BlockchainContextService {
+        cached_context: Cache::new(context_cache),
+
         channel: PollSender::new(tx),
     })
 }
 
-/// Raw blockchain context, gotten from [`BlockChainContext`]. This data may turn invalid so is not ok to keep
-/// around. You should keep around [`BlockChainContext`] instead.
+/// Raw blockchain context, gotten from [`BlockchainContext`]. This data may turn invalid so is not ok to keep
+/// around. You should keep around [`BlockchainContext`] instead.
 #[derive(Debug, Clone)]
-pub struct RawBlockChainContext {
+pub struct BlockchainContext {
     /// The current cumulative difficulty.
     pub cumulative_difficulty: u128,
     /// Context to verify a block, as needed by [`cuprate-consensus-rules`]
@@ -127,14 +127,14 @@ pub struct RawBlockChainContext {
     top_block_timestamp: Option<u64>,
 }
 
-impl std::ops::Deref for RawBlockChainContext {
+impl std::ops::Deref for BlockchainContext {
     type Target = ContextToVerifyBlock;
     fn deref(&self) -> &Self::Target {
         &self.context_to_verify_block
     }
 }
 
-impl RawBlockChainContext {
+impl BlockchainContext {
     /// Returns the timestamp the should be used when checking locked outputs.
     ///
     /// ref: <https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#getting-the-current-time>
@@ -167,40 +167,6 @@ impl RawBlockChainContext {
     }
 }
 
-/// Blockchain context which keeps a token of validity so users will know when the data is no longer valid.
-#[derive(Debug, Clone)]
-pub struct BlockChainContext {
-    /// A token representing this data's validity.
-    validity_token: ValidityToken,
-    /// The actual block chain context.
-    raw: RawBlockChainContext,
-}
-
-#[derive(Debug, Clone, Copy, thiserror::Error)]
-#[error("data is no longer valid")]
-pub struct DataNoLongerValid;
-
-impl BlockChainContext {
-    /// Checks if the data is still valid.
-    pub fn is_still_valid(&self) -> bool {
-        self.validity_token.is_data_valid()
-    }
-
-    /// Checks if the data is valid returning an Err if not and a reference to the blockchain context if
-    /// it is.
-    pub fn blockchain_context(&self) -> Result<&RawBlockChainContext, DataNoLongerValid> {
-        if !self.is_still_valid() {
-            return Err(DataNoLongerValid);
-        }
-        Ok(&self.raw)
-    }
-
-    /// Returns the blockchain context without checking the validity token.
-    pub const fn unchecked_blockchain_context(&self) -> &RawBlockChainContext {
-        &self.raw
-    }
-}
-
 /// Data needed from a new block to add it to the context cache.
 #[derive(Debug, Clone)]
 pub struct NewBlockData {
@@ -225,9 +191,6 @@ pub struct NewBlockData {
 /// A request to the blockchain context cache.
 #[derive(Debug, Clone)]
 pub enum BlockChainContextRequest {
-    /// Get the current blockchain context.
-    Context,
-
     /// Gets all the current  `RandomX` VMs.
     CurrentRxVms,
 
@@ -363,9 +326,6 @@ pub enum BlockChainContextResponse {
     /// - [`BlockChainContextRequest::AddAltChainContextCache`]
     Ok,
 
-    /// Response to [`BlockChainContextRequest::Context`]
-    Context(BlockChainContext),
-
     /// Response to [`BlockChainContextRequest::CurrentRxVms`]
     ///
     /// A map of seed height to `RandomX` VMs.
@@ -403,11 +363,19 @@ pub enum BlockChainContextResponse {
 
 /// The blockchain context service.
 #[derive(Clone)]
-pub struct BlockChainContextService {
+pub struct BlockchainContextService {
+    cached_context: Cache<Arc<arc_swap::ArcSwap<BlockchainContext>>, Arc<BlockchainContext>>,
+
     channel: PollSender<task::ContextTaskRequest>,
 }
 
-impl Service<BlockChainContextRequest> for BlockChainContextService {
+impl BlockchainContextService {
+    pub fn blockchain_context(&mut self) -> &BlockchainContext {
+        self.cached_context.load()
+    }
+}
+
+impl Service<BlockChainContextRequest> for BlockchainContextService {
     type Response = BlockChainContextResponse;
     type Error = tower::BoxError;
     type Future =

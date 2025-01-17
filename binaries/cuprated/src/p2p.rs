@@ -6,7 +6,7 @@ use tokio::sync::oneshot;
 use tower::ServiceExt;
 
 use cuprate_blockchain::service::BlockchainReadHandle;
-use cuprate_consensus::BlockChainContextService;
+use cuprate_consensus::BlockchainContextService;
 use cuprate_p2p::{NetworkInterface, P2PConfig};
 use cuprate_p2p_core::ClearNet;
 use cuprate_txpool::service::TxpoolReadHandle;
@@ -25,7 +25,7 @@ pub use network_address::CrossNetworkInternalPeerId;
 /// handshakes can not be completed.
 pub async fn start_clearnet_p2p(
     blockchain_read_handle: BlockchainReadHandle,
-    blockchain_context_service: BlockChainContextService,
+    blockchain_context_service: BlockchainContextService,
     txpool_read_handle: TxpoolReadHandle,
     config: P2PConfig<ClearNet>,
 ) -> Result<

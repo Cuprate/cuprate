@@ -11,7 +11,7 @@ use tower::{Service, ServiceExt};
 
 use cuprate_consensus::{
     transactions::new_tx_verification_data, BlockChainContextRequest, BlockChainContextResponse,
-    BlockChainContextService, ExtendedConsensusError, VerifyTxRequest,
+    BlockchainContextService, ExtendedConsensusError, VerifyTxRequest,
 };
 use cuprate_dandelion_tower::{
     pool::{DandelionPoolService, IncomingTxBuilder},
@@ -76,7 +76,7 @@ pub struct IncomingTxHandler {
     /// A store of txs currently being handled in incoming tx requests.
     pub(super) txs_being_handled: TxsBeingHandled,
     /// The blockchain context cache.
-    pub(super) blockchain_context_cache: BlockChainContextService,
+    pub(super) blockchain_context_cache: BlockchainContextService,
     /// The dandelion txpool manager.
     pub(super) dandelion_pool_manager:
         DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
@@ -95,7 +95,7 @@ impl IncomingTxHandler {
         clear_net: NetworkInterface<ClearNet>,
         txpool_write_handle: TxpoolWriteHandle,
         txpool_read_handle: TxpoolReadHandle,
-        blockchain_context_cache: BlockChainContextService,
+        blockchain_context_cache: BlockchainContextService,
         tx_verifier_service: ConcreteTxVerifierService,
     ) -> Self {
         let dandelion_router = dandelion::dandelion_router(clear_net);
@@ -144,7 +144,7 @@ impl Service<IncomingTxs> for IncomingTxHandler {
 async fn handle_incoming_txs(
     IncomingTxs { txs, state }: IncomingTxs,
     txs_being_handled: TxsBeingHandled,
-    mut blockchain_context_cache: BlockChainContextService,
+    mut blockchain_context_cache: BlockchainContextService,
     mut tx_verifier_service: ConcreteTxVerifierService,
     mut txpool_write_handle: TxpoolWriteHandle,
     mut txpool_read_handle: TxpoolReadHandle,
@@ -155,18 +155,7 @@ async fn handle_incoming_txs(
     let (txs, stem_pool_txs, txs_being_handled_guard) =
         prepare_incoming_txs(txs, txs_being_handled, &mut txpool_read_handle).await?;
 
-    let BlockChainContextResponse::Context(context) = blockchain_context_cache
-        .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
-        .call(BlockChainContextRequest::Context)
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
-    else {
-        unreachable!()
-    };
-
-    let context = context.unchecked_blockchain_context();
+    let context = blockchain_context_cache.blockchain_context();
 
     tx_verifier_service
         .ready()

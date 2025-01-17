@@ -9,7 +9,8 @@ use tokio::{
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
-use cuprate_consensus::{BlockChainContext, BlockChainContextRequest, BlockChainContextResponse};
+use cuprate_consensus::{BlockChainContextRequest, BlockChainContextResponse, BlockchainContext};
+use cuprate_consensus_context::BlockchainContextService;
 use cuprate_p2p::{
     block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
     NetworkInterface, PeerSetRequest, PeerSetResponse,
@@ -29,8 +30,8 @@ pub enum SyncerError {
 
 /// The syncer tasks that makes sure we are fully synchronised with our connected peers.
 #[instrument(level = "debug", skip_all)]
-pub async fn syncer<C, CN>(
-    mut context_svc: C,
+pub async fn syncer<CN>(
+    mut context_svc: BlockchainContextService,
     our_chain: CN,
     mut clearnet_interface: NetworkInterface<ClearNet>,
     incoming_block_batch_tx: mpsc::Sender<BlockBatch>,
@@ -38,12 +39,6 @@ pub async fn syncer<C, CN>(
     block_downloader_config: BlockDownloaderConfig,
 ) -> Result<(), SyncerError>
 where
-    C: Service<
-        BlockChainContextRequest,
-        Response = BlockChainContextResponse,
-        Error = tower::BoxError,
-    >,
-    C::Future: Send + 'static,
     CN: Service<ChainSvcRequest, Response = ChainSvcResponse, Error = tower::BoxError>
         + Clone
         + Send
@@ -54,15 +49,6 @@ where
 
     let mut check_sync_interval = interval(CHECK_SYNC_FREQUENCY);
 
-    let BlockChainContextResponse::Context(mut blockchain_ctx) = context_svc
-        .ready()
-        .await?
-        .call(BlockChainContextRequest::Context)
-        .await?
-    else {
-        unreachable!();
-    };
-
     tracing::debug!("Waiting for new sync info in top sync channel");
 
     loop {
@@ -70,8 +56,7 @@ where
 
         tracing::trace!("Checking connected peers to see if we are behind",);
 
-        check_update_blockchain_context(&mut context_svc, &mut blockchain_ctx).await?;
-        let raw_blockchain_context = blockchain_ctx.unchecked_blockchain_context();
+        let blockchain_context = context_svc.blockchain_context();
 
         let PeerSetResponse::MostPoWSeen {
             cumulative_difficulty,
@@ -86,7 +71,7 @@ where
             unreachable!();
         };
 
-        if cumulative_difficulty <= raw_blockchain_context.cumulative_difficulty {
+        if cumulative_difficulty <= blockchain_context.cumulative_difficulty {
             continue;
         }
 
@@ -115,33 +100,4 @@ where
             }
         }
     }
-}
-
-/// Checks if we should update the given [`BlockChainContext`] and updates it if needed.
-async fn check_update_blockchain_context<C>(
-    context_svc: C,
-    old_context: &mut BlockChainContext,
-) -> Result<(), tower::BoxError>
-where
-    C: Service<
-        BlockChainContextRequest,
-        Response = BlockChainContextResponse,
-        Error = tower::BoxError,
-    >,
-    C::Future: Send + 'static,
-{
-    if old_context.blockchain_context().is_ok() {
-        return Ok(());
-    }
-
-    let BlockChainContextResponse::Context(ctx) = context_svc
-        .oneshot(BlockChainContextRequest::Context)
-        .await?
-    else {
-        unreachable!();
-    };
-
-    *old_context = ctx;
-
-    Ok(())
 }

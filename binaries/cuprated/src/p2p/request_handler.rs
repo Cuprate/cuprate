@@ -18,7 +18,7 @@ use tower::{Service, ServiceExt};
 use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::{
     transactions::new_tx_verification_data, BlockChainContextRequest, BlockChainContextResponse,
-    BlockChainContextService,
+    BlockchainContextService,
 };
 use cuprate_dandelion_tower::TxState;
 use cuprate_fixed_bytes::ByteArrayVec;
@@ -56,7 +56,7 @@ use crate::{
 #[derive(Clone)]
 pub struct P2pProtocolRequestHandlerMaker {
     pub blockchain_read_handle: BlockchainReadHandle,
-    pub blockchain_context_service: BlockChainContextService,
+    pub blockchain_context_service: BlockchainContextService,
     pub txpool_read_handle: TxpoolReadHandle,
 
     /// The [`IncomingTxHandler`], wrapped in an [`Option`] as there is a cyclic reference between [`P2pProtocolRequestHandlerMaker`]
@@ -114,7 +114,7 @@ where
 pub struct P2pProtocolRequestHandler<N: NetZoneAddress> {
     peer_information: PeerInformation<N>,
     blockchain_read_handle: BlockchainReadHandle,
-    blockchain_context_service: BlockChainContextService,
+    blockchain_context_service: BlockchainContextService,
     txpool_read_handle: TxpoolReadHandle,
     incoming_tx_handler: IncomingTxHandler,
 }
@@ -366,25 +366,14 @@ async fn new_fluffy_block<A: NetZoneAddress>(
 async fn new_transactions<A>(
     peer_information: PeerInformation<A>,
     request: NewTransactions,
-    mut blockchain_context_service: BlockChainContextService,
+    mut blockchain_context_service: BlockchainContextService,
     mut incoming_tx_handler: IncomingTxHandler,
 ) -> anyhow::Result<ProtocolResponse>
 where
     A: NetZoneAddress,
     InternalPeerID<A>: Into<CrossNetworkInternalPeerId>,
 {
-    let BlockChainContextResponse::Context(context) = blockchain_context_service
-        .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
-        .call(BlockChainContextRequest::Context)
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
-    else {
-        unreachable!()
-    };
-
-    let context = context.unchecked_blockchain_context();
+    let context = blockchain_context_service.blockchain_context();
 
     // If we are more than 2 blocks behind the peer then ignore the txs - we are probably still syncing.
     if usize_to_u64(context.chain_height + 2)

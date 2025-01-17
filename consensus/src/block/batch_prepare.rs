@@ -4,7 +4,7 @@ use monero_serai::{block::Block, transaction::Transaction};
 use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
-
+use cuprate_consensus_context::BlockchainContextService;
 use cuprate_consensus_context::rx_vms::RandomXVm;
 use cuprate_consensus_rules::{
     blocks::{check_block_pow, is_randomx_seed_height, randomx_seed_height, BlockError},
@@ -23,18 +23,10 @@ use crate::{
 
 /// Batch prepares a list of blocks for verification.
 #[instrument(level = "debug", name = "batch_prep_blocks", skip_all, fields(amt = blocks.len()))]
-pub(crate) async fn batch_prepare_main_chain_block<C>(
+pub(crate) async fn batch_prepare_main_chain_block(
     blocks: Vec<(Block, Vec<Transaction>)>,
-    mut context_svc: C,
+    context_svc: &mut BlockchainContextService,
 ) -> Result<VerifyBlockResponse, ExtendedConsensusError>
-where
-    C: Service<
-            BlockChainContextRequest,
-            Response = BlockChainContextResponse,
-            Error = tower::BoxError,
-        > + Send
-        + 'static,
-    C::Future: Send + 'static,
 {
     let (blocks, txs): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
 
@@ -89,16 +81,6 @@ where
         timestamps_hfs.push((block_0.block.header.timestamp, block_0.hf_version));
     }
 
-    // Get the current blockchain context.
-    let BlockChainContextResponse::Context(checked_context) = context_svc
-        .ready()
-        .await?
-        .call(BlockChainContextRequest::Context)
-        .await?
-    else {
-        panic!("Context service returned wrong response!");
-    };
-
     // Calculate the expected difficulties for each block in the batch.
     let BlockChainContextResponse::BatchDifficulties(difficulties) = context_svc
         .ready()
@@ -111,7 +93,8 @@ where
         panic!("Context service returned wrong response!");
     };
 
-    let context = checked_context.unchecked_blockchain_context().clone();
+    // Get the current blockchain context.
+    let context = context_svc.blockchain_context();
 
     // Make sure the blocks follow the main chain.
 
