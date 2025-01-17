@@ -42,7 +42,7 @@ pub struct CupratedVersionInfo {
 }
 
 impl CupratedVersionInfo {
-    /// TODO
+    /// Generate version info.
     pub fn new() -> Self {
         Self {
             major_version: MAJOR_VERSION.parse().unwrap(),
@@ -63,7 +63,7 @@ impl CupratedVersionInfo {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::CupratedVersionInfo;
 
     /// Tests that [`CupratedVersionInfo`] can be generated.
     #[test]

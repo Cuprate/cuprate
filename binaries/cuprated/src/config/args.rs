@@ -1,9 +1,9 @@
 use std::{io::Write, path::PathBuf, process::exit};
 
 use clap::builder::TypedValueParser;
+use serde_json::Value;
 
 use cuprate_helper::network::Network;
-use serde_json::Value;
 
 use crate::{config::Config, constants::EXAMPLE_CONFIG, version::CupratedVersionInfo};
 

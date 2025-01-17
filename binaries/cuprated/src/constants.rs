@@ -2,7 +2,7 @@
 
 use const_format::formatcp;
 
-/// `cuprated`'s semantic version (`MAJOR.MINOR.PATCH-PRE`) as string.
+/// `cuprated`'s semantic version (`MAJOR.MINOR.PATCH`) as string.
 pub const VERSION: &str = clap::crate_version!();
 
 /// Major version number of `cuprated`.
