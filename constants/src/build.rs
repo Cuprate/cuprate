@@ -10,7 +10,7 @@
 /// ```rust
 /// # use cuprate_constants::build::*;
 /// assert!(COMMIT.is_ascii());
-/// assert_eq!(COMMIT.as_bytes().len(), 40);
+/// assert_eq!(COMMIT.len(), 40);
 /// assert_eq!(COMMIT.to_lowercase(), COMMIT);
 /// ```
 pub const COMMIT: &str = core::env!("COMMIT"); // Set in `constants/build.rs`.
