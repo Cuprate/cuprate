@@ -38,6 +38,18 @@ pub fn init(
     Ok((readers, writer, db))
 }
 
+#[cold]
+#[inline(never)] // Only called once (?)
+/// Initialize a database, and return a read/write handle to it.
+///
+/// Unlike [`init`] this will not create a thread-pool, instead using
+/// the one passed in.
+///
+/// Once the returned handles are [`Drop::drop`]ed, the reader
+/// thread-pool and writer thread will exit automatically.
+///
+/// # Errors
+/// This will forward the error if [`crate::open`] failed.
 pub fn init_with_pool(
     config: Config,
     pool: Arc<ThreadPool>,

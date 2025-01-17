@@ -95,7 +95,7 @@ where
                         check_update_blockchain_context(&mut context_svc, &mut blockchain_ctx).await?;
                         let raw_blockchain_context = blockchain_ctx.unchecked_blockchain_context();
 
-                        if check_behind_peers(raw_blockchain_context, &mut clearnet_interface).await? {
+                        if !check_behind_peers(raw_blockchain_context, &mut clearnet_interface).await? {
                             tracing::info!("Synchronised with the network.");
                         }
 
@@ -112,7 +112,7 @@ where
     }
 }
 
-/// Returns if we are behind the current connected network peers.
+/// Returns `true` if we are behind the current connected network peers.
 async fn check_behind_peers(
     raw_blockchain_context: &RawBlockChainContext,
     mut clearnet_interface: &mut NetworkInterface<ClearNet>,

@@ -1,9 +1,9 @@
+use std::ops::BitAnd;
 use std::{
     fmt::{Display, Formatter},
     mem::forget,
     sync::OnceLock,
 };
-
 use tracing::{
     instrument::WithSubscriber, level_filters::LevelFilter, subscriber::Interest, Metadata,
 };
@@ -51,10 +51,12 @@ static STDOUT_FILTER_HANDLE: OnceLock<
 > = OnceLock::new();
 
 /// The [`Filter`] used to alter cuprated's log output.
+#[derive(Debug)]
 pub struct CupratedTracingFilter {
     pub level: LevelFilter,
 }
 
+// Custom display behavior for command output.
 impl Display for CupratedTracingFilter {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Filter")
@@ -84,7 +86,7 @@ pub fn init_logging(config: &Config) {
         level: config.tracing.stdout.level,
     });
 
-    drop(STDOUT_FILTER_HANDLE.set(stdout_handle));
+    STDOUT_FILTER_HANDLE.set(stdout_handle).unwrap();
 
     let stdout_layer = FmtLayer::default()
         .with_target(false)
@@ -107,7 +109,7 @@ pub fn init_logging(config: &Config) {
     let (appender_filter, appender_handle) = ReloadLayer::new(CupratedTracingFilter {
         level: appender_config.level,
     });
-    drop(FILE_WRITER_FILTER_HANDLE.set(appender_handle));
+    FILE_WRITER_FILTER_HANDLE.set(appender_handle).unwrap();
 
     let appender_layer = fmt::layer()
         .with_target(false)

@@ -11,7 +11,7 @@ network = "Mainnet"
 
 ## Tracing config.
 [tracing]
-## The stdout loggig config.
+## The stdout logging config.
 stdout = { level = "info" }
 ## The file output logging config.
 file = { level = "debug", max_log_files = 7 }

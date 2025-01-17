@@ -62,7 +62,7 @@ codegen-units = 1      # Optimize for binary speed over compile times
 opt-level     = 3
 
 [profile.dev]
-panic = "abort"
+panic         = "abort"
 lto           = false
 strip         = "none"
 # Not much slower compile times than opt-level 0, but much faster code.

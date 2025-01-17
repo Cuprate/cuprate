@@ -120,7 +120,15 @@ impl super::BlockchainManager {
     ///
     /// This function will panic if the batch is empty or if any internal service returns an unexpected
     /// error that we cannot recover from or if the incoming batch contains no blocks.
-    #[instrument(name = "incoming_block_batch" skip_all, level = "info", fields(start_height = batch.blocks.first().unwrap().0.number().unwrap(), len = batch.blocks.len()))]
+    #[instrument(
+        name = "incoming_block_batch",
+        skip_all,
+        level = "info",
+        fields(
+            start_height = batch.blocks.first().unwrap().0.number().unwrap(),
+            len = batch.blocks.len()
+        )
+    )]
     pub async fn handle_incoming_block_batch(&mut self, batch: BlockBatch) {
         let (first_block, _) = batch
             .blocks

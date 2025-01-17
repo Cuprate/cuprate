@@ -16,15 +16,13 @@ use crate::{
     statics,
 };
 
-const PARSER_TEMPLATE: &str = "{all-args}";
-
 /// A command received from [`io::stdin`].
 #[derive(Debug, Parser)]
 #[command(
     multicall = true,
     subcommand_required = true,
     rename_all = "snake_case",
-    help_template = PARSER_TEMPLATE,
+    help_template = "{all-args}",
     arg_required_else_help = true,
     disable_help_flag = true
 )]
@@ -40,17 +38,19 @@ pub enum Command {
         )]
         level: Option<LevelFilter>,
         /// The logging output target to change.
-        #[arg(value_enum, default_value_t = OutputTarget::Stdout)]
+        #[arg(value_enum, default_value_t)]
         output_target: OutputTarget,
     },
+
     /// Print status information on `cuprated`.
     Status,
 }
 
 /// The log output target.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum OutputTarget {
     /// The stdout logging output.
+    #[default]
     Stdout,
     /// The file appender logging output.
     File,
@@ -62,19 +62,22 @@ pub fn command_listener(incoming_commands: mpsc::Sender<Command>) -> ! {
     let mut line = String::new();
 
     loop {
-        match stdin.read_line(&mut line) {
-            Ok(_) => match Command::try_parse_from(line.trim().split(' ')) {
-                Ok(command) => incoming_commands.blocking_send(command).unwrap(),
-                Err(err) => err.print().unwrap(),
-            },
-            Err(e) => {
-                println!("Failed to read from stdin: {e}");
+        line.clear();
 
-                sleep(Duration::from_secs(1));
-            }
+        if let Err(e) = stdin.read_line(&mut line) {
+            eprintln!("Failed to read from stdin: {e}");
+            sleep(Duration::from_secs(1));
+            continue;
         }
 
-        line.clear();
+        match Command::try_parse_from(line.split_whitespace()) {
+            Ok(command) => drop(
+                incoming_commands
+                    .blocking_send(command)
+                    .inspect_err(|err| eprintln!("Failed to send command: {err}")),
+            ),
+            Err(err) => err.print().unwrap(),
+        }
     }
 }
 
@@ -82,8 +85,13 @@ pub fn command_listener(incoming_commands: mpsc::Sender<Command>) -> ! {
 pub async fn io_loop(
     mut incoming_commands: mpsc::Receiver<Command>,
     mut context_service: BlockChainContextService,
-) -> ! {
-    while let Some(command) = incoming_commands.recv().await {
+) {
+    loop {
+        let Some(command) = incoming_commands.recv().await else {
+            tracing::warn!("Shutting down io_loop command channel closed.");
+            return;
+        };
+
         match command {
             Command::SetLog {
                 level,
@@ -113,14 +121,14 @@ pub async fn io_loop(
                     unreachable!();
                 };
                 let context = blockchain_context.unchecked_blockchain_context();
-
                 let uptime = statics::START_INSTANT.elapsed().unwrap_or_default();
-                let (hours, minutes, second) = secs_to_hms(uptime.as_secs());
 
-                println!("STATUS:\n  uptime: {hours}h {minutes}m {second}s,\n  height: {},\n  top_hash: {}", context.chain_height, hex::encode(context.top_hash));
+                let (h, m, s) = secs_to_hms(uptime.as_secs());
+                let height = context.chain_height;
+                let top_hash = hex::encode(context.top_hash);
+
+                println!("STATUS:\n  uptime: {h}h {m}m {s}s,\n  height: {height},\n  top_hash: {top_hash}");
             }
         }
     }
-
-    unreachable!()
 }
