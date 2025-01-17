@@ -17,7 +17,7 @@ use std::{process::exit, time::Duration};
 use cuprate_helper::time::current_unix_timestamp;
 
 /// Assert that this is not a v1 release and an alpha release.
-pub const _: () = {
+const _: () = {
     const_format::assertcp_ne!(
         crate::constants::MAJOR_VERSION,
         "1",
@@ -46,7 +46,7 @@ fn killswitch() {
 
     // Prints a generic killswitch message.
     let print_killswitch_msg = |msg| {
-        eprintln!("killswitch: {msg}. (current_ts: {current_ts}, killswitch_activation_timestamp: {KILLSWITCH_ACTIVATION_TIMESTAMP}). `cuprated` will now exit. For more details on why this exists, see: <https://github.com/Cuprate/cuprate/blob/main/binaries/cuprated/src/killswitch.rs>.");
+        eprintln!("killswitch: {msg}. (current_ts: {current_ts}, killswitch_activation_timestamp: {KILLSWITCH_ACTIVATION_TIMESTAMP}). `cuprated` will now exit. For more details on why this exists, see: <https://github.com/Cuprate/cuprate/pull/365>.");
     };
 
     if current_ts < SYSTEM_CLOCK_SANITY_TIMESTAMP {
