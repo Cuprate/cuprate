@@ -40,7 +40,7 @@ pub(crate) fn save_peers_to_disk<Z: BorshNetworkZone>(
     .unwrap();
 
     let dir = cfg.peer_store_directory.clone();
-    let file = dir.join(format!("{}", Z::NAME));
+    let file = dir.join(Z::NAME);
 
     spawn_blocking(move || {
         fs::create_dir_all(dir)?;
@@ -57,9 +57,7 @@ pub(crate) async fn read_peers_from_disk<Z: BorshNetworkZone>(
     ),
     std::io::Error,
 > {
-    let file = cfg
-        .peer_store_directory
-        .join(format!("{}", Z::NAME));
+    let file = cfg.peer_store_directory.join(Z::NAME);
 
     tracing::info!("Loading peers from file: {} ", file.display());
 
