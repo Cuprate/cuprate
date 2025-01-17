@@ -177,18 +177,16 @@ async fn get_hashes(
         request.block_ids[len - 1]
     };
 
-    let mut bytes = request.block_ids;
-    let hashes: Vec<[u8; 32]> = (&bytes).into();
+    let GetHashesRequest {
+        start_height,
+        block_ids,
+        ..
+    } = request;
 
-    let (current_height, _) = helper::top_height(&mut state).await?;
+    let hashes: Vec<[u8; 32]> = (&block_ids).into();
 
-    let Some((index, start_height)) =
-        blockchain::find_first_unknown(&mut state.blockchain_read, hashes).await?
-    else {
-        return Err(anyhow!("Failed"));
-    };
-
-    let m_blocks_ids = bytes.split_off(index);
+    let (m_block_ids, current_height) =
+        blockchain::next_chain_entry(&mut state.blockchain_read, hashes, start_height).await?;
 
     Ok(GetHashesResponse {
         base: helper::access_response_base(false),
