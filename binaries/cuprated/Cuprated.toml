@@ -11,8 +11,10 @@ network = "Mainnet"
 
 ## Tracing config.
 [tracing]
-## The minimum level for log events to be displayed.
-level = "info"
+## The stdout logging config.
+stdout = { level = "info" }
+## The file output logging config.
+file = { level = "debug", max_log_files = 7 }
 
 ## Clear-net config.
 [p2p.clear_net]
@@ -45,14 +47,9 @@ buffer_bytes = 50_000_000
 ## The size of the queue of blocks which are waiting for a parent block to be downloaded (bytes).
 in_progress_queue_bytes = 50_000_000
 ## The target size of a batch of blocks (bytes), must not exceed 100MB.
-target_batch_bytes= 5_000_000
+target_batch_bytes = 10_000_000
 ## The amount of time between checking the pool of connected peers for free peers to download blocks.
 check_client_pool_interval = { secs = 30, nanos = 0 }
-
-## Storage config
-[storage]
-## The amount of reader threads to spawn.
-reader_threads = "OnePerThread"
 
 ## Txpool storage config.
 [storage.txpool]
