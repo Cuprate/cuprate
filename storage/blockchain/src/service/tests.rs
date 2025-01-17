@@ -180,7 +180,7 @@ async fn test_template(
 
     // Contains a fake non-spent key-image.
     let ki_req = vec![[0; 32]];
-    let ki_resp = Ok(BlockchainResponse::KeyImagesSpent(vec![false]));
+    let ki_resp = Ok(BlockchainResponse::KeyImagesSpentVec(vec![false]));
 
     //----------------------------------------------------------------------- Assert expected response
     // Assert read requests lead to the expected responses.
@@ -218,7 +218,7 @@ async fn test_template(
             BlockchainReadRequest::NumberOutputsWithAmount(num_req),
             num_resp,
         ),
-        (BlockchainReadRequest::KeyImagesSpent(ki_req), ki_resp),
+        (BlockchainReadRequest::KeyImagesSpentVec(ki_req), ki_resp),
     ] {
         let response = reader.clone().oneshot(request).await;
         println!("response: {response:#?}, expected_response: {expected_response:#?}");
@@ -232,12 +232,12 @@ async fn test_template(
     // Assert each key image we inserted comes back as "spent".
     for key_image in tables.key_images_iter().keys().unwrap() {
         let key_image = key_image.unwrap();
-        let request = BlockchainReadRequest::KeyImagesSpent(vec![key_image]);
+        let request = BlockchainReadRequest::KeyImagesSpentVec(vec![key_image]);
         let response = reader.clone().oneshot(request).await;
         println!("response: {response:#?}, key_image: {key_image:#?}");
         assert_eq!(
             response.unwrap(),
-            BlockchainResponse::KeyImagesSpent(vec![true])
+            BlockchainResponse::KeyImagesSpentVec(vec![true])
         );
     }
 

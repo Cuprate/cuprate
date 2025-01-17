@@ -45,34 +45,22 @@ pub(super) async fn get_outs(
         return Err(anyhow!("Too many outs requested"));
     }
 
-    let outputs = {
-        let mut outputs = HashMap::<u64, HashSet<u64>>::with_capacity(request.outputs.len());
+    let outputs = blockchain::outputs_vec(&mut state.blockchain_read, request.outputs).await?;
+    let mut outs = Vec::<OutKeyBin>::with_capacity(outputs.len());
 
-        for out in request.outputs {
-            outputs
-                .entry(out.amount)
-                .and_modify(|set| {
-                    set.insert(out.index);
-                })
-                .or_insert_with(|| HashSet::from([out.index]));
-        }
-
-        outputs
-    };
-
-    let outs = blockchain::outputs(&mut state.blockchain_read, outputs)
-        .await?
-        .into_iter()
-        .flat_map(|(amount, index_map)| {
-            index_map.into_values().map(|out| OutKeyBin {
+    for (_, index_vec) in outputs {
+        for (_, out) in index_vec {
+            let out_key = OutKeyBin {
                 key: out.key.map_or([0; 32], |e| e.compress().0),
                 mask: out.commitment.compress().0,
-                unlocked: matches!(out.time_lock, Timelock::None),
+                unlocked: helper::timelock_is_unlocked(&mut state, out.time_lock).await?,
                 height: usize_to_u64(out.height),
                 txid: if request.get_txid { out.txid } else { [0; 32] },
-            })
-        })
-        .collect::<Vec<OutKeyBin>>();
+            };
+
+            outs.push(out_key);
+        }
+    }
 
     Ok(GetOutsResponse {
         base: helper::access_response_base(false),

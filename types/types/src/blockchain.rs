@@ -96,6 +96,13 @@ pub enum BlockchainReadRequest {
     /// RCT output indices.
     Outputs(HashMap<u64, HashSet<u64>>),
 
+    /// This is the same as [`BlockchainReadRequest::Outputs`] but with a [`Vec`] container.
+    ///
+    /// The input [`Vec`] values are `(amount, amount_index)`.
+    ///
+    /// The response will be in the same order as the request.
+    OutputsVec(Vec<(u64, u64)>),
+
     /// Request the amount of outputs with a certain amount.
     ///
     /// The input is a list of output amounts.
@@ -104,7 +111,12 @@ pub enum BlockchainReadRequest {
     /// Check the spend status of key images.
     ///
     /// Input is a set of key images.
-    KeyImagesSpent(Vec<[u8; 32]>),
+    KeyImagesSpent(HashSet<[u8; 32]>),
+
+    /// Same as [`BlockchainReadRequest::KeyImagesSpent`] but with a [`Vec`].
+    ///
+    /// The response will be in the same order as the request.
+    KeyImagesSpentVec(Vec<[u8; 32]>),
 
     /// A request for the compact chain history.
     CompactChainHistory,
@@ -284,6 +296,9 @@ pub enum BlockchainResponse {
     /// associated with their amount and amount index.
     Outputs(HashMap<u64, HashMap<u64, OutputOnChain>>),
 
+    /// Response to [`BlockchainReadRequest::OutputsVec`].
+    OutputsVec(Vec<(u64, Vec<(u64, OutputOnChain)>)>),
+
     /// Response to [`BlockchainReadRequest::NumberOutputsWithAmount`].
     ///
     /// Inner value is a `HashMap` of all the outputs requested where:
@@ -293,11 +308,19 @@ pub enum BlockchainResponse {
 
     /// Response to [`BlockchainReadRequest::KeyImagesSpent`].
     ///
+    /// The inner value is `true` if _any_ of the key images
+    /// were spent (existed in the database already).
+    ///
+    /// The inner value is `false` if _none_ of the key images were spent.
+    KeyImagesSpent(bool),
+
+    /// Response to [`BlockchainReadRequest::KeyImagesSpentVec`].
+    ///
     /// Inner value is a `Vec` the same length as the input.
     ///
     /// The index of each entry corresponds with the request.
     /// `true` means that the key image was spent.
-    KeyImagesSpent(Vec<bool>),
+    KeyImagesSpentVec(Vec<bool>),
 
     /// Response to [`BlockchainReadRequest::CompactChainHistory`].
     CompactChainHistory {

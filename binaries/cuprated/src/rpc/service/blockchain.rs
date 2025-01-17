@@ -6,6 +6,7 @@ use std::{
 };
 
 use anyhow::Error;
+use cuprate_rpc_types::misc::GetOutputsOut;
 use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 
@@ -195,6 +196,28 @@ pub async fn outputs(
         .ready()
         .await?
         .call(BlockchainReadRequest::Outputs(outputs))
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(outputs)
+}
+
+/// [`BlockchainReadRequest::OutputsVec`]
+pub async fn outputs_vec(
+    blockchain_read: &mut BlockchainReadHandle,
+    outputs: Vec<GetOutputsOut>,
+) -> Result<Vec<(u64, Vec<(u64, OutputOnChain)>)>, Error> {
+    let outputs = outputs
+        .into_iter()
+        .map(|output| (output.amount, output.index))
+        .collect();
+
+    let BlockchainResponse::OutputsVec(outputs) = blockchain_read
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::OutputsVec(outputs))
         .await?
     else {
         unreachable!();

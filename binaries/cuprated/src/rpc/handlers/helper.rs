@@ -16,6 +16,7 @@ use cuprate_rpc_types::{
     misc::BlockHeader,
 };
 use cuprate_types::HardFork;
+use monero_serai::transaction::Timelock;
 
 use crate::rpc::{
     service::{blockchain, blockchain_context},
@@ -168,6 +169,23 @@ pub(super) async fn top_height(state: &mut CupratedRpcHandler) -> Result<(u64, [
     let (chain_height, hash) = blockchain::chain_height(&mut state.blockchain_read).await?;
     let height = chain_height.saturating_sub(1);
     Ok((height, hash))
+}
+
+/// Returns `true` if the `timelock` is unlocked.
+pub(super) async fn timelock_is_unlocked(
+    state: &mut CupratedRpcHandler,
+    timelock: Timelock,
+) -> Result<bool, Error> {
+    let unlocked = match timelock {
+        Timelock::None => true,
+        Timelock::Block(height) => {
+            let (top_height, _) = top_height(state).await?;
+            top_height > usize_to_u64(height)
+        }
+        Timelock::Time(timestamp) => cuprate_helper::time::current_unix_timestamp() > timestamp,
+    };
+
+    Ok(unlocked)
 }
 
 /// TODO: impl bootstrap

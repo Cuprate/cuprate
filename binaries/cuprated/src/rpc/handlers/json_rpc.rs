@@ -467,8 +467,10 @@ async fn get_info(
         blockchain::alt_chain_count(&mut state.blockchain_read).await?
     };
 
-    let block_weight_limit = usize_to_u64(c.effective_median_weight);
-    let block_weight_median = usize_to_u64(c.median_weight_for_block_reward);
+    // TODO: these values are incorrectly calculated in `monerod` and copied in `cuprated`
+    // <https://github.com/Cuprate/cuprate/pull/355#discussion_r1906273007>
+    let block_weight_limit = usize_to_u64(c.effective_median_weight * 2);
+    let block_weight_median = usize_to_u64(c.effective_median_weight);
     let block_size_limit = block_weight_limit;
     let block_size_median = block_weight_median;
 
@@ -969,9 +971,11 @@ async fn get_miner_data(
     let major_version = c.current_hf.as_u8();
     let height = usize_to_u64(c.chain_height);
     let prev_id = Hex(c.top_hash);
-    let seed_hash = Hex(c.top_hash);
+    // TODO: RX seed hash <https://github.com/Cuprate/cuprate/pull/355#discussion_r1911814320>.
+    let seed_hash = Hex([0; 32]);
     let difficulty = c.next_difficulty.hex_prefix();
-    let median_weight = usize_to_u64(c.median_weight_for_block_reward);
+    // TODO: <https://github.com/Cuprate/cuprate/pull/355#discussion_r1911821515>
+    let median_weight = usize_to_u64(c.effective_median_weight);
     let already_generated_coins = c.already_generated_coins;
     let tx_backlog = txpool::backlog(&mut state.txpool_read)
         .await?
@@ -1061,7 +1065,7 @@ async fn add_aux_pow(
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
 
-    tokio::task::spawn_blocking(|| add_aux_pow_inner(state, request)).await?
+    cuprate_helper::asynch::rayon_spawn_async(|| add_aux_pow_inner(state, request)).await
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2072-L2207>

@@ -119,8 +119,10 @@ fn map_request(
         R::ChainHeight => chain_height(env),
         R::GeneratedCoins(height) => generated_coins(env, height),
         R::Outputs(map) => outputs(env, map),
+        R::OutputsVec(vec) => outputs_vec(env, vec),
         R::NumberOutputsWithAmount(vec) => number_outputs_with_amount(env, vec),
         R::KeyImagesSpent(set) => key_images_spent(env, set),
+        R::KeyImagesSpentVec(set) => key_images_spent_vec(env, set),
         R::CompactChainHistory => compact_chain_history(env),
         R::NextChainEntry(block_hashes, amount) => next_chain_entry(env, &block_hashes, amount),
         R::FindFirstUnknown(block_ids) => find_first_unknown(env, &block_ids),
@@ -487,6 +489,12 @@ fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) ->
     Ok(BlockchainResponse::Outputs(map))
 }
 
+/// [`BlockchainReadRequest::OutputsVec`].
+#[inline]
+fn outputs_vec(env: &ConcreteEnv, outputs: Vec<(Amount, AmountIndex)>) -> ResponseResult {
+    Ok(BlockchainResponse::OutputsVec(todo!()))
+}
+
 /// [`BlockchainReadRequest::NumberOutputsWithAmount`].
 #[inline]
 fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> ResponseResult {
@@ -538,7 +546,43 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
 
 /// [`BlockchainReadRequest::KeyImagesSpent`].
 #[inline]
-fn key_images_spent(env: &ConcreteEnv, key_images: Vec<KeyImage>) -> ResponseResult {
+fn key_images_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> ResponseResult {
+    // Prepare tx/tables in `ThreadLocal`.
+    let env_inner = env.env_inner();
+    let tx_ro = thread_local(env);
+    let tables = thread_local(env);
+
+    // Key image check function.
+    let key_image_exists = |key_image| {
+        let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+        let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+        key_image_exists(&key_image, tables.key_images())
+    };
+
+    // FIXME:
+    // Create/use `enum cuprate_types::Exist { Does, DoesNot }`
+    // or similar instead of `bool` for clarity.
+    // <https://github.com/Cuprate/cuprate/pull/113#discussion_r1581536526>
+    //
+    // Collect results using `rayon`.
+    match key_images
+        .into_par_iter()
+        .map(key_image_exists)
+        // If the result is either:
+        // `Ok(true)` => a key image was found, return early
+        // `Err` => an error was found, return early
+        //
+        // Else, `Ok(false)` will continue the iterator.
+        .find_any(|result| !matches!(result, Ok(false)))
+    {
+        None | Some(Ok(false)) => Ok(BlockchainResponse::KeyImagesSpent(false)), // Key image was NOT found.
+        Some(Ok(true)) => Ok(BlockchainResponse::KeyImagesSpent(true)), // Key image was found.
+        Some(Err(e)) => Err(e), // A database error occurred.
+    }
+}
+
+/// [`BlockchainReadRequest::KeyImagesSpentVec`].
+fn key_images_spent_vec(env: &ConcreteEnv, key_images: Vec<KeyImage>) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
     let tx_ro = thread_local(env);
@@ -552,7 +596,7 @@ fn key_images_spent(env: &ConcreteEnv, key_images: Vec<KeyImage>) -> ResponseRes
     };
 
     // Collect results using `rayon`.
-    Ok(BlockchainResponse::KeyImagesSpent(
+    Ok(BlockchainResponse::KeyImagesSpentVec(
         key_images
             .into_par_iter()
             .map(key_image_exists)
