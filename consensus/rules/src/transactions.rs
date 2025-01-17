@@ -396,7 +396,9 @@ fn check_inputs_sorted(inputs: &[Input], hf: HardFork) -> Result<(), Transaction
         for inps in inputs.windows(2) {
             match get_ki(&inps[0])?.cmp(&get_ki(&inps[1])?) {
                 Ordering::Greater => (),
-                _ => return Err(TransactionError::InputsAreNotOrdered),
+                Ordering::Less | Ordering::Equal => {
+                    return Err(TransactionError::InputsAreNotOrdered)
+                }
             }
         }
     }

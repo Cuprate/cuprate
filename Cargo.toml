@@ -346,7 +346,7 @@ allow_attributes = "deny"
 undocumented_unsafe_blocks = "deny"
 # multiple_unsafe_ops_per_block = "deny"
 # single_char_lifetime_names = "deny"
-# wildcard_enum_match_arm = "deny"
+wildcard_enum_match_arm = "deny"
 
 [workspace.lints.rust]
 # Cold
