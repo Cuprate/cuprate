@@ -73,4 +73,3 @@ cargo doc --open --package cuprate-blockchain
 | [`cuprate-pruning`](https://doc.cuprate.org/cuprate_pruning) | [`pruning/`](https://github.com/Cuprate/cuprate/tree/main/pruning) | Monero pruning logic/types
 | [`cuprate-helper`](https://doc.cuprate.org/cuprate_helper) | [`helper/`](https://github.com/Cuprate/cuprate/tree/main/helper) | Kitchen-sink helper crate for Cuprate
 | [`cuprate-test-utils`](https://doc.cuprate.org/cuprate_test_utils) | [`test-utils/`](https://github.com/Cuprate/cuprate/tree/main/test-utils) | Testing utilities for Cuprate
-| [`cuprate-types`](https://doc.cuprate.org/cuprate_types) | [`types/`](https://github.com/Cuprate/cuprate/tree/main/types) | Shared types across Cuprate
