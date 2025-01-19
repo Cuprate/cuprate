@@ -103,6 +103,7 @@ impl From<CachedVerificationState> for RawCachedVerificationState {
                 raw_hf: 0,
                 raw_valid_past_timestamp: [0; 8],
             },
+            CachedVerificationState::JustSemantic(hf) => todo!(),
             CachedVerificationState::ValidAtHashAndHF { block_hash, hf } => Self {
                 raw_valid_at_hash: block_hash,
                 raw_hf: hf.as_u8(),

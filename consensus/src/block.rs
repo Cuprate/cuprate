@@ -14,7 +14,9 @@ use monero_serai::{
 };
 use tower::{Service, ServiceExt};
 
-use cuprate_consensus_context::{BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService};
+use cuprate_consensus_context::{
+    BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
+};
 use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_types::{
     AltBlockInformation, TransactionVerificationData, VerifiedBlockInformation,
@@ -260,7 +262,11 @@ where
     D::Future: Send + 'static,
 {
     /// Creates a new block verifier.
-    pub(crate) const fn new(context_svc: BlockchainContextService, tx_verifier_svc: TxV, database: D) -> Self {
+    pub(crate) const fn new(
+        context_svc: BlockchainContextService,
+        tx_verifier_svc: TxV,
+        database: D,
+    ) -> Self {
         Self {
             context_svc,
             tx_verifier_svc,
@@ -299,7 +305,8 @@ where
                     block,
                     prepared_txs,
                 } => {
-                    verify_main_chain_block(block, prepared_txs, &mut context_svc, tx_verifier_svc).await
+                    verify_main_chain_block(block, prepared_txs, &mut context_svc, tx_verifier_svc)
+                        .await
                 }
                 VerifyBlockRequest::MainChainBatchPrepareBlocks { blocks } => {
                     batch_prepare_main_chain_block(blocks, &mut context_svc).await
@@ -373,13 +380,7 @@ where
         .map(Arc::new)
         .collect();
 
-    verify_prepped_main_chain_block(
-        prepped_block,
-        ordered_txs,
-        context_svc,
-        tx_verifier_svc,
-    )
-    .await
+    verify_prepped_main_chain_block(prepped_block, ordered_txs, context_svc, tx_verifier_svc).await
 }
 
 async fn verify_prepped_main_chain_block<TxV>(

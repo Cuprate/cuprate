@@ -25,7 +25,7 @@ impl Service<CoreSyncDataRequest> for CoreSyncService {
     }
 
     fn call(&mut self, _: CoreSyncDataRequest) -> Self::Future {
-        let context  = self.0.blockchain_context();
+        let context = self.0.blockchain_context();
 
         let (cumulative_difficulty, cumulative_difficulty_top64) =
             split_u128_into_low_high_bits(context.cumulative_difficulty);

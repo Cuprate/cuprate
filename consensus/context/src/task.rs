@@ -4,9 +4,9 @@
 //! It holds all the context caches and handles [`tower::Service`] requests.
 //!
 
+use arc_swap::ArcSwap;
 use futures::channel::oneshot;
 use std::sync::Arc;
-use arc_swap::ArcSwap;
 use tokio::sync::mpsc;
 use tower::ServiceExt;
 use tracing::Instrument;
@@ -23,9 +23,8 @@ use crate::hardforks::HardForkState;
 use crate::weight::BlockWeightsCache;
 use crate::{
     alt_chains::{get_alt_chain_difficulty_cache, get_alt_chain_weight_cache, AltChainMap},
-    rx_vms, BlockChainContextRequest, BlockChainContextResponse,
-    BlockchainContext, ContextCacheError, ContextConfig, Database,
-    BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
+    rx_vms, BlockChainContextRequest, BlockChainContextResponse, BlockchainContext,
+    ContextCacheError, ContextConfig, Database, BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
 };
 
 /// A request from the context service to the context task.
@@ -103,24 +102,14 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
 
         let db = database.clone();
         let difficulty_cache_handle = tokio::spawn(async move {
-            DifficultyCache::init_from_chain_height(
-                chain_height,
-                difficulty_cfg,
-                db,
-                Chain::Main,
-            )
-            .await
+            DifficultyCache::init_from_chain_height(chain_height, difficulty_cfg, db, Chain::Main)
+                .await
         });
 
         let db = database.clone();
         let weight_cache_handle = tokio::spawn(async move {
-            BlockWeightsCache::init_from_chain_height(
-                chain_height,
-                weights_config,
-                db,
-                Chain::Main,
-            )
-            .await
+            BlockWeightsCache::init_from_chain_height(chain_height, weights_config, db, Chain::Main)
+                .await
         });
 
         // Wait for the hardfork state to finish first as we need it to start the randomX VM cache.
@@ -145,7 +134,6 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
         );
 
         let context_cache = Arc::new(ArcSwap::from_pointee(blockchain_context));
-
 
         let context_svc = Self {
             context_cache: Arc::clone(&context_cache),

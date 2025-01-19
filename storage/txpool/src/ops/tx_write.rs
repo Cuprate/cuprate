@@ -48,7 +48,7 @@ pub fn add_transaction(
     )?;
 
     // Add the cached verification state to table 2.
-    let cached_verification_state = (*tx.cached_verification_state.lock().unwrap()).into();
+    let cached_verification_state = tx.cached_verification_state.into();
     tables
         .cached_verification_state_mut()
         .put(&tx.tx_hash, &cached_verification_state)?;

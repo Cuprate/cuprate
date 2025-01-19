@@ -114,16 +114,14 @@ pub struct FastSyncService {
     context_svc: BlockchainContextService,
 }
 
-impl FastSyncService
-{
+impl FastSyncService {
     #[expect(dead_code)]
     pub(crate) const fn new(context_svc: BlockchainContextService) -> Self {
         Self { context_svc }
     }
 }
 
-impl Service<FastSyncRequest> for FastSyncService
-{
+impl Service<FastSyncRequest> for FastSyncService {
     type Response = FastSyncResponse;
     type Error = FastSyncError;
     type Future =
@@ -198,8 +196,7 @@ async fn validate_block(
     block: Block,
     mut txs: HashMap<[u8; 32], Transaction>,
     token: ValidBlockId,
-) -> Result<FastSyncResponse, FastSyncError>
-{
+) -> Result<FastSyncResponse, FastSyncError> {
     let block_chain_ctx = context_svc.blockchain_context().clone();
 
     let block_hash = block.hash();

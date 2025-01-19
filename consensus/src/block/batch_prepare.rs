@@ -1,11 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
-use monero_serai::{block::Block, transaction::Transaction};
-use rayon::prelude::*;
-use tower::{Service, ServiceExt};
-use tracing::instrument;
-use cuprate_consensus_context::BlockchainContextService;
 use cuprate_consensus_context::rx_vms::RandomXVm;
+use cuprate_consensus_context::BlockchainContextService;
 use cuprate_consensus_rules::{
     blocks::{check_block_pow, is_randomx_seed_height, randomx_seed_height, BlockError},
     hard_forks::HardForkError,
@@ -13,6 +9,10 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
+use monero_serai::{block::Block, transaction::Transaction};
+use rayon::prelude::*;
+use tower::{Service, ServiceExt};
+use tracing::instrument;
 
 use crate::{
     block::{free::pull_ordered_transactions, PreparedBlock, PreparedBlockExPow},
@@ -26,8 +26,7 @@ use crate::{
 pub(crate) async fn batch_prepare_main_chain_block(
     blocks: Vec<(Block, Vec<Transaction>)>,
     context_svc: &mut BlockchainContextService,
-) -> Result<VerifyBlockResponse, ExtendedConsensusError>
-{
+) -> Result<VerifyBlockResponse, ExtendedConsensusError> {
     let (blocks, txs): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
 
     tracing::debug!("Calculating block hashes.");

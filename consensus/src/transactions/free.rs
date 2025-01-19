@@ -31,7 +31,7 @@ pub fn new_tx_verification_data(
         tx_blob,
         tx_weight,
         fee,
-        cached_verification_state: StdMutex::new(CachedVerificationState::NotVerified),
+        cached_verification_state: CachedVerificationState::NotVerified,
         tx,
     })
 }

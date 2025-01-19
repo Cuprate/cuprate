@@ -8,8 +8,8 @@ use tracing::error;
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{
-    BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
-    BlockVerifierService, ExtendedConsensusError, TxVerifierService, VerifyBlockRequest,
+    BlockChainContextRequest, BlockChainContextResponse, BlockVerifierService,
+    BlockchainContextService, ExtendedConsensusError, TxVerifierService, VerifyBlockRequest,
     VerifyBlockResponse, VerifyTxRequest, VerifyTxResponse,
 };
 use cuprate_p2p::{

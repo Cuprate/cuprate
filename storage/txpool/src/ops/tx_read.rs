@@ -34,7 +34,7 @@ pub fn get_transaction_verification_data(
         tx_weight: tx_info.weight,
         fee: tx_info.fee,
         tx_hash: *tx_hash,
-        cached_verification_state: Mutex::new(cached_verification_state),
+        cached_verification_state,
     })
 }
 

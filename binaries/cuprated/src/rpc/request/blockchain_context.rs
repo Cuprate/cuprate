@@ -7,8 +7,8 @@ use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 
 use cuprate_consensus_context::{
-    BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
-    BlockchainContext,
+    BlockChainContextRequest, BlockChainContextResponse, BlockchainContext,
+    BlockchainContextService,
 };
 use cuprate_helper::cast::u64_to_usize;
 use cuprate_types::{FeeEstimate, HardFork, HardForkInfo};

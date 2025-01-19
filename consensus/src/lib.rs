@@ -31,7 +31,7 @@ pub mod transactions;
 pub use block::{BlockVerifierService, VerifyBlockRequest, VerifyBlockResponse};
 pub use cuprate_consensus_context::{
     initialize_blockchain_context, BlockChainContextRequest, BlockChainContextResponse,
-    BlockchainContextService, BlockchainContext, ContextConfig,
+    BlockchainContext, BlockchainContextService, ContextConfig,
 };
 pub use transactions::{TxVerifierService, VerifyTxRequest, VerifyTxResponse};
 

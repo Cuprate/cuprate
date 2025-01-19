@@ -83,7 +83,12 @@ impl super::BlockchainManager {
         block: Block,
         prepared_txs: HashMap<[u8; 32], TransactionVerificationData>,
     ) -> Result<IncomingBlockOk, anyhow::Error> {
-        if block.header.previous != self.blockchain_context_service.blockchain_context().top_hash {
+        if block.header.previous
+            != self
+                .blockchain_context_service
+                .blockchain_context()
+                .top_hash
+        {
             self.handle_incoming_alt_block(block, prepared_txs).await?;
             return Ok(IncomingBlockOk::AddedToAltChain);
         }
@@ -105,10 +110,12 @@ impl super::BlockchainManager {
         let block_blob = Bytes::copy_from_slice(&verified_block.block_blob);
         self.add_valid_block_to_main_chain(verified_block).await;
 
-        let chain_height = self.blockchain_context_service.blockchain_context().chain_height;
+        let chain_height = self
+            .blockchain_context_service
+            .blockchain_context()
+            .chain_height;
 
-        self.broadcast_block(block_blob, chain_height)
-            .await;
+        self.broadcast_block(block_blob, chain_height).await;
 
         Ok(IncomingBlockOk::AddedToMainChain)
     }
@@ -128,7 +135,12 @@ impl super::BlockchainManager {
             .first()
             .expect("Block batch should not be empty");
 
-        if first_block.header.previous == self.blockchain_context_service.blockchain_context().top_hash {
+        if first_block.header.previous
+            == self
+                .blockchain_context_service
+                .blockchain_context()
+                .top_hash
+        {
             self.handle_incoming_block_batch_main_chain(batch).await;
         } else {
             self.handle_incoming_block_batch_alt_chain(batch).await;
@@ -287,7 +299,10 @@ impl super::BlockchainManager {
 
         // If this alt chain
         if alt_block_info.cumulative_difficulty
-            > self.blockchain_context_service.blockchain_context().cumulative_difficulty
+            > self
+                .blockchain_context_service
+                .blockchain_context()
+                .cumulative_difficulty
         {
             self.try_do_reorg(alt_block_info).await?;
             return Ok(AddAltBlock::Reorged);
@@ -340,7 +355,10 @@ impl super::BlockchainManager {
         alt_blocks.push(top_alt_block);
 
         let split_height = alt_blocks[0].height;
-        let current_main_chain_height = self.blockchain_context_service.blockchain_context().chain_height;
+        let current_main_chain_height = self
+            .blockchain_context_service
+            .blockchain_context()
+            .chain_height;
 
         let BlockchainResponse::PopBlocks(old_main_chain_id) = self
             .blockchain_write_handle
