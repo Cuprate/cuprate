@@ -33,9 +33,7 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork,
 };
 
-use crate::{
-    Database, ExtendedConsensusError,
-};
+use crate::{Database, ExtendedConsensusError};
 
 mod alt_block;
 mod batch_prepare;
@@ -44,7 +42,7 @@ mod free;
 use crate::block::free::order_transactions;
 use crate::transactions::PrepTransactionsState;
 pub use alt_block::sanity_check_alt_block;
-use batch_prepare::batch_prepare_main_chain_block;
+pub use batch_prepare::batch_prepare_main_chain_blocks;
 use free::pull_ordered_transactions;
 
 /// A pre-prepared block with all data needed to verify it, except the block's proof of work.
@@ -317,14 +315,12 @@ where
         block_blob: prepped_block.block_blob,
         txs: txs
             .into_iter()
-            .map(|tx| {
-                VerifiedTransactionInformation {
-                    tx_blob: tx.tx_blob,
-                    tx_weight: tx.tx_weight,
-                    fee: tx.fee,
-                    tx_hash: tx.tx_hash,
-                    tx: tx.tx,
-                }
+            .map(|tx| VerifiedTransactionInformation {
+                tx_blob: tx.tx_blob,
+                tx_weight: tx.tx_weight,
+                fee: tx.fee,
+                tx_hash: tx.tx_hash,
+                tx: tx.tx,
             })
             .collect(),
         pow_hash: prepped_block.pow_hash,

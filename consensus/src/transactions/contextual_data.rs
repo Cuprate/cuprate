@@ -206,10 +206,10 @@ pub async fn batch_get_ring_member_info<D: Database>(
 /// should not be needed for V1.
 #[instrument(level = "debug", skip_all)]
 pub async fn batch_get_decoy_info<'a, D: Database>(
-    txs_verification_data: impl Iterator<Item = &'a TransactionVerificationData> + Clone + 'a,
+    txs_verification_data: impl Iterator<Item = &'a TransactionVerificationData> + Clone,
     hf: HardFork,
     mut database: D,
-) -> Result<impl Iterator<Item = Result<DecoyInfo, ConsensusError>> + 'a, ExtendedConsensusError> {
+) -> Result<impl Iterator<Item = Result<DecoyInfo, ConsensusError>> + Captures<&'a ()>, ExtendedConsensusError> {
     // decoy info is not needed for V1.
     assert_ne!(hf, HardFork::V1);
 
@@ -249,3 +249,6 @@ pub async fn batch_get_decoy_info<'a, D: Database>(
         .map_err(ConsensusError::Transaction)
     }))
 }
+
+pub trait Captures<U> {}
+impl<T: ?Sized, U> Captures<U> for T {}

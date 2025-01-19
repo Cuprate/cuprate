@@ -3,14 +3,13 @@ use std::{collections::HashMap, sync::Arc};
 use futures::StreamExt;
 use monero_serai::block::Block;
 use tokio::sync::{mpsc, oneshot, Notify};
-use tower::{Service, ServiceExt};
+use tower::{BoxError, Service, ServiceExt};
 use tracing::error;
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{
-    BlockChainContextRequest, BlockChainContextResponse, BlockVerifierService,
-    BlockchainContextService, ExtendedConsensusError, TxVerifierService, VerifyBlockRequest,
-    VerifyBlockResponse, VerifyTxRequest, VerifyTxResponse,
+    BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
+    ExtendedConsensusError,
 };
 use cuprate_p2p::{
     block_downloader::{BlockBatch, BlockDownloaderConfig},
@@ -25,10 +24,8 @@ use cuprate_types::{
 
 use crate::{
     blockchain::{
-        chain_service::ChainService,
-        interface::COMMAND_TX,
-        syncer,
-        types::{ConcreteBlockVerifierService, ConsensusBlockchainReadHandle},
+        chain_service::ChainService, interface::COMMAND_TX, syncer,
+        types::ConsensusBlockchainReadHandle,
     },
     constants::PANIC_CRITICAL_SERVICE_ERROR,
 };
@@ -48,7 +45,6 @@ pub async fn init_blockchain_manager(
     blockchain_read_handle: BlockchainReadHandle,
     txpool_write_handle: TxpoolWriteHandle,
     mut blockchain_context_service: BlockchainContextService,
-    block_verifier_service: ConcreteBlockVerifierService,
     block_downloader_config: BlockDownloaderConfig,
 ) {
     // TODO: find good values for these size limits
@@ -69,10 +65,12 @@ pub async fn init_blockchain_manager(
 
     let manager = BlockchainManager {
         blockchain_write_handle,
-        blockchain_read_handle,
+        blockchain_read_handle: ConsensusBlockchainReadHandle::new(
+            blockchain_read_handle,
+            BoxError::from,
+        ),
         txpool_write_handle,
         blockchain_context_service,
-        block_verifier_service,
         stop_current_block_downloader,
         broadcast_svc: clearnet_interface.broadcast_svc(),
     };
@@ -91,14 +89,12 @@ pub struct BlockchainManager {
     /// is held.
     blockchain_write_handle: BlockchainWriteHandle,
     /// A [`BlockchainReadHandle`].
-    blockchain_read_handle: BlockchainReadHandle,
+    blockchain_read_handle: ConsensusBlockchainReadHandle,
     /// A [`TxpoolWriteHandle`].
     txpool_write_handle: TxpoolWriteHandle,
     /// The blockchain context cache, this caches the current state of the blockchain to quickly calculate/retrieve
     /// values without needing to go to a [`BlockchainReadHandle`].
     blockchain_context_service: BlockchainContextService,
-    /// The block verifier service, to verify incoming blocks.
-    block_verifier_service: ConcreteBlockVerifierService,
     /// A [`Notify`] to tell the [syncer](syncer::syncer) that we want to cancel this current download
     /// attempt.
     stop_current_block_downloader: Arc<Notify>,

@@ -77,13 +77,15 @@ impl PrepTransactionsState {
     }
 
     pub fn prepare(mut self) -> Result<BlockchainDataState, ConsensusError> {
-        self.prepped_txs.append(
-            &mut self
-                .txs
-                .into_par_iter()
-                .map(|tx| new_tx_verification_data(tx))
-                .collect::<Result<_, _>>()?,
-        );
+        if !self.txs.is_empty() {
+            self.prepped_txs.append(
+                &mut self
+                    .txs
+                    .into_par_iter()
+                    .map(|tx| new_tx_verification_data(tx))
+                    .collect::<Result<_, _>>()?,
+            );
+        }
 
         Ok(BlockchainDataState {
             prepped_txs: self.prepped_txs,
@@ -103,7 +105,7 @@ impl BlockchainDataState {
         }
     }
 
-    pub fn full<D: Database + Clone + Send + 'static>(
+    pub fn full<D: Database>(
         self,
         current_chain_height: usize,
         top_hash: [u8; 32],
@@ -163,7 +165,7 @@ pub struct FullVerificationState<D> {
     database: D,
 }
 
-impl<D: Database + Clone + Send + 'static> FullVerificationState<D> {
+impl<D: Database + Clone> FullVerificationState<D> {
     pub async fn verify(
         mut self,
     ) -> Result<Vec<TransactionVerificationData>, ExtendedConsensusError> {
@@ -354,13 +356,13 @@ fn verification_needed(
     Ok((verification_needed, any_v1_decoy_checks))
 }
 
-async fn verify_transactions_decoy_info<'a, D>(
-    txs: impl Iterator<Item = &'a TransactionVerificationData> + Clone + 'a,
+async fn verify_transactions_decoy_info<D>(
+    txs: impl Iterator<Item = &TransactionVerificationData> + Clone,
     hf: HardFork,
     database: D,
 ) -> Result<(), ExtendedConsensusError>
 where
-    D: Database + Clone + Send + 'static,
+    D: Database,
 {
     // Decoy info is not validated for V1 txs.
     if hf == HardFork::V1 {
@@ -384,7 +386,7 @@ async fn verify_transactions<D>(
     database: D,
 ) -> Result<Vec<TransactionVerificationData>, ExtendedConsensusError>
 where
-    D: Database + Clone + Send + 'static,
+    D: Database,
 {
     fn tx_filter<T>((_, needed): &(T, &VerificationNeeded)) -> bool {
         if matches!(

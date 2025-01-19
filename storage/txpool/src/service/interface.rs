@@ -90,7 +90,7 @@ pub enum TxpoolWriteRequest {
     /// Returns [`TxpoolWriteResponse::AddTransaction`].
     AddTransaction {
         /// The tx to add.
-        tx: Arc<TransactionVerificationData>,
+        tx: TransactionVerificationData,
         /// A [`bool`] denoting the routing state of this tx.
         ///
         /// [`true`] if this tx is in the stem state.

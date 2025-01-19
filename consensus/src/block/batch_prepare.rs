@@ -1,5 +1,13 @@
 use std::{collections::HashMap, sync::Arc};
 
+use crate::batch_verifier::MultiThreadedBatchVerifier;
+use crate::block::free::order_transactions;
+use crate::transactions::PrepTransactionsState;
+use crate::{
+    block::{free::pull_ordered_transactions, PreparedBlock, PreparedBlockExPow},
+    transactions::new_tx_verification_data,
+    BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
+};
 use cuprate_consensus_context::rx_vms::RandomXVm;
 use cuprate_consensus_context::BlockchainContextService;
 use cuprate_consensus_rules::{
@@ -9,23 +17,15 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
+use cuprate_types::TransactionVerificationData;
 use monero_serai::{block::Block, transaction::Transaction};
 use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
-use cuprate_types::TransactionVerificationData;
-use crate::batch_verifier::MultiThreadedBatchVerifier;
-use crate::block::free::order_transactions;
-use crate::transactions::PrepTransactionsState;
-use crate::{
-    block::{free::pull_ordered_transactions, PreparedBlock, PreparedBlockExPow},
-    transactions::new_tx_verification_data,
-    BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
-};
 
 /// Batch prepares a list of blocks for verification.
 #[instrument(level = "debug", name = "batch_prep_blocks", skip_all, fields(amt = blocks.len()))]
-pub(crate) async fn batch_prepare_main_chain_block(
+pub async fn batch_prepare_main_chain_blocks(
     blocks: Vec<(Block, Vec<Transaction>)>,
     context_svc: &mut BlockchainContextService,
 ) -> Result<Vec<(PreparedBlock, Vec<TransactionVerificationData>)>, ExtendedConsensusError> {

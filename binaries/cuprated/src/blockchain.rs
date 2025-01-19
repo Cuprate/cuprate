@@ -25,9 +25,7 @@ mod manager;
 mod syncer;
 mod types;
 
-pub use types::{
-    ConcreteBlockVerifierService, ConcreteTxVerifierService, ConsensusBlockchainReadHandle,
-};
+pub use types::ConsensusBlockchainReadHandle;
 
 /// Checks if the genesis block is in the blockchain and adds it if not.
 pub async fn check_add_genesis(

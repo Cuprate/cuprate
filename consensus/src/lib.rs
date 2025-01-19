@@ -80,10 +80,9 @@ pub mod __private {
         BlockchainReadRequest,
         Response = BlockchainResponse,
         Error = tower::BoxError,
-        Future = Self::Future2,
+        Future: Send + 'static,
     >
     {
-        type Future2: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static;
     }
 
     impl<
@@ -91,11 +90,8 @@ pub mod __private {
                 BlockchainReadRequest,
                 Response = BlockchainResponse,
                 Error = tower::BoxError,
+                Future: Send + 'static,
             >,
-        > Database for T
-    where
-        T::Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
-    {
-        type Future2 = T::Future;
+        > Database for T {
     }
 }

@@ -76,7 +76,7 @@ impl CachedVerificationState {
 }
 
 /// Data needed to verify a transaction.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TransactionVerificationData {
     /// The transaction we are verifying
     pub tx: Transaction,

@@ -6,8 +6,6 @@ use cuprate_p2p::NetworkInterface;
 use cuprate_p2p_core::ClearNet;
 use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
 
-use crate::blockchain::ConcreteTxVerifierService;
-
 mod dandelion;
 mod incoming_tx;
 mod txs_being_handled;
