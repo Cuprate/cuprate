@@ -25,6 +25,7 @@ mod manager;
 mod syncer;
 mod types;
 
+pub use manager::init_blockchain_manager;
 pub use types::ConsensusBlockchainReadHandle;
 
 /// Checks if the genesis block is in the blockchain and adds it if not.

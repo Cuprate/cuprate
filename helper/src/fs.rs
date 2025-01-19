@@ -200,6 +200,21 @@ pub fn txpool_path(data_dir: &Path, network: Network) -> PathBuf {
     path_with_network(data_dir, network).join("txpool")
 }
 
+/// Cuprate's logs directory.
+///
+/// This is the PATH used for all Cuprate log files.
+///
+/// ```rust
+/// use cuprate_helper::{network::Network, fs::{CUPRATE_DATA_DIR, logs_path}};
+///
+/// assert_eq!(logs_path(&**CUPRATE_DATA_DIR, Network::Mainnet).as_path(), CUPRATE_DATA_DIR.join("logs"));
+/// assert_eq!(logs_path(&**CUPRATE_DATA_DIR, Network::Stagenet).as_path(), CUPRATE_DATA_DIR.join(Network::Stagenet.to_string()).join("logs"));
+/// assert_eq!(logs_path(&**CUPRATE_DATA_DIR, Network::Testnet).as_path(), CUPRATE_DATA_DIR.join(Network::Testnet.to_string()).join("logs"));
+/// ```
+pub fn logs_path(data_dir: &Path, network: Network) -> PathBuf {
+    path_with_network(data_dir, network).join("logs")
+}
+
 /// Cuprate's address-book directory.
 ///
 /// This is the PATH used for any Cuprate address-book files.

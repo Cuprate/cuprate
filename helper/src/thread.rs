@@ -36,21 +36,21 @@ macro_rules! impl_thread_percent {
                     clippy::cast_precision_loss,
                     reason = "we need to round integers"
                 )]
-		        NonZeroUsize::new(max(1, (threads().get() as f64 * $percent).floor() as usize)).unwrap()
+		        NonZeroUsize::new(max(1, (threads().get() as f64 * $percent).ceil() as usize)).unwrap()
 		    }
 		)*
     }
 }
 impl_thread_percent! {
-    /// Get 90% (rounded down) of available amount of system threads.
+    /// Get 90% (rounded up) of available amount of system threads.
     threads_90 => 0.90,
-    /// Get 75% (rounded down) of available amount of system threads.
+    /// Get 75% (rounded up) of available amount of system threads.
     threads_75 => 0.75,
-    /// Get 50% (rounded down) of available amount of system threads.
+    /// Get 50% (rounded up) of available amount of system threads.
     threads_50 => 0.50,
-    /// Get 25% (rounded down) of available amount of system threads.
+    /// Get 25% (rounded up) of available amount of system threads.
     threads_25 => 0.25,
-    /// Get 10% (rounded down) of available amount of system threads.
+    /// Get 10% (rounded up) of available amount of system threads.
     threads_10 => 0.10,
 }
 

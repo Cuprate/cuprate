@@ -58,20 +58,7 @@ where
 
         let blockchain_context = context_svc.blockchain_context();
 
-        let PeerSetResponse::MostPoWSeen {
-            cumulative_difficulty,
-            ..
-        } = clearnet_interface
-            .peer_set()
-            .ready()
-            .await?
-            .call(PeerSetRequest::MostPoWSeen)
-            .await?
-        else {
-            unreachable!();
-        };
-
-        if cumulative_difficulty <= blockchain_context.cumulative_difficulty {
+        if !check_behind_peers(blockchain_context, &mut clearnet_interface).await? {
             continue;
         }
 
@@ -84,11 +71,17 @@ where
         loop {
             tokio::select! {
                 () = stop_current_block_downloader.notified() => {
-                    tracing::info!("Stopping block downloader");
+                    tracing::info!("Received stop signal, stopping block downloader");
                     break;
                 }
                 batch = block_batch_stream.next() => {
                     let Some(batch) = batch else {
+                        let blockchain_context = context_svc.blockchain_context();
+
+                        if !check_behind_peers(blockchain_context, &mut clearnet_interface).await? {
+                            tracing::info!("Synchronised with the network.");
+                        }
+
                         break;
                     };
 
@@ -100,4 +93,29 @@ where
             }
         }
     }
+}
+
+/// Returns `true` if we are behind the current connected network peers.
+async fn check_behind_peers(
+    raw_blockchain_context: &BlockchainContext,
+    mut clearnet_interface: &mut NetworkInterface<ClearNet>,
+) -> Result<bool, tower::BoxError> {
+    let PeerSetResponse::MostPoWSeen {
+        cumulative_difficulty,
+        ..
+    } = clearnet_interface
+        .peer_set()
+        .ready()
+        .await?
+        .call(PeerSetRequest::MostPoWSeen)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    if cumulative_difficulty <= raw_blockchain_context.cumulative_difficulty {
+        return Ok(false);
+    }
+
+    Ok(true)
 }

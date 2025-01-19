@@ -69,8 +69,6 @@ use core::str::from_utf8 as str_from_utf8;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
-use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
-
 pub mod container_as_blob;
 pub mod error;
 mod io;
@@ -89,7 +87,7 @@ pub use varint::{read_varint, write_varint};
 /// this binary serialization format.
 const HEADER: &[u8] = b"\x01\x11\x01\x01\x01\x01\x02\x01\x01";
 /// The maximum length a byte array (marked as a string) can be.
-const MAX_STRING_LEN_POSSIBLE: u64 = 2000000000;
+const MAX_STRING_LEN_POSSIBLE: usize = 2000000000;
 /// The maximum depth of skipped objects.
 const MAX_DEPTH_OF_SKIPPED_OBJECTS: u8 = 20;
 /// The maximum number of fields in an object.
@@ -248,7 +246,7 @@ pub fn write_bytes<T: AsRef<[u8]>, B: BufMut>(t: T, w: &mut B) -> Result<()> {
     let bytes = t.as_ref();
     let len = bytes.len();
 
-    write_varint(usize_to_u64(len), w)?;
+    write_varint(len, w)?;
 
     if w.remaining_mut() < len {
         return Err(Error::IO("Not enough capacity to write bytes"));
@@ -292,7 +290,7 @@ where
     I: Iterator<Item = T> + ExactSizeIterator,
     B: BufMut,
 {
-    write_varint(usize_to_u64(iterator.len()), w)?;
+    write_varint(iterator.len(), w)?;
     for item in iterator {
         item.write(w)?;
     }
@@ -337,7 +335,7 @@ fn skip_epee_value<B: Buf>(r: &mut B, skipped_objects: &mut u8) -> Result<()> {
 
     if let Some(size) = marker.inner_marker.size() {
         let bytes_to_skip = size
-            .checked_mul(u64_to_usize(len))
+            .checked_mul(len.try_into()?)
             .ok_or(Error::Value("List is too big".to_string()))?;
         return advance(bytes_to_skip, r);
     };
@@ -355,7 +353,7 @@ fn skip_epee_value<B: Buf>(r: &mut B, skipped_objects: &mut u8) -> Result<()> {
             | InnerMarker::U8
             | InnerMarker::Bool => unreachable!("These types are constant size."),
             InnerMarker::String => {
-                let len = u64_to_usize(read_varint(r)?);
+                let len = read_varint(r)?;
                 advance(len, r)?;
             }
             InnerMarker::Object => {
