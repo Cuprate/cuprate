@@ -2,19 +2,11 @@
 //!
 //! This module contains the [`TxVerifierService`] which handles consensus validation of transactions.
 //!
-use std::{
-    collections::HashSet,
-    future::Future,
-    pin::Pin,
-    sync::Arc,
-    task::{Context, Poll},
-};
+use std::collections::HashSet;
 
-use futures::FutureExt;
 use monero_serai::transaction::{Input, Timelock, Transaction};
 use rayon::prelude::*;
-use tower::{Service, ServiceExt};
-use tracing::instrument;
+use tower::ServiceExt;
 
 use cuprate_consensus_rules::{
     transactions::{

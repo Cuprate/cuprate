@@ -1,7 +1,5 @@
 //! Contains [`TransactionVerificationData`] and the related types.
 
-use std::sync::Mutex;
-
 use monero_serai::transaction::{Timelock, Transaction};
 
 use crate::{HardFork, VerifiedTransactionInformation};

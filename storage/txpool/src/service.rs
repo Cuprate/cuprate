@@ -92,7 +92,7 @@
 //! // Prepare a request to write block.
 //! let tx = TX_V1_SIG2.clone();
 //! let request = TxpoolWriteRequest::AddTransaction {
-//!     tx: Arc::new(tx.try_into().unwrap()),
+//!     tx: tx.try_into().unwrap(),
 //!     state_stem: false,
 //! };
 //!
@@ -103,7 +103,7 @@
 //! let response_channel = write_handle.ready().await?.call(request);
 //!
 //! // Block write was OK.
-//! let TxpoolWriteResponse::AddTransaction(double_spent) = response_channel.await? else {
+//! let TxpoolWriteResponse::AddTrans\action(double_spent) = response_channel.await? else {
 //!     panic!("tx-pool returned wrong response!");
 //! };
 //! assert!(double_spent.is_none());

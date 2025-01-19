@@ -115,7 +115,7 @@ where
 
 /// Raw blockchain context, gotten from [`BlockchainContext`]. This data may turn invalid so is not ok to keep
 /// around. You should keep around [`BlockchainContext`] instead.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BlockchainContext {
     /// The current cumulative difficulty.
     pub cumulative_difficulty: u128,

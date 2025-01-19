@@ -10,10 +10,7 @@
 //!
 //! Because this data is unique for *every* transaction and the context service is just for blockchain state data.
 //!
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::collections::{HashMap, HashSet};
 
 use monero_serai::transaction::{Input, Timelock};
 use tower::ServiceExt;
@@ -209,7 +206,10 @@ pub async fn batch_get_decoy_info<'a, D: Database>(
     txs_verification_data: impl Iterator<Item = &'a TransactionVerificationData> + Clone,
     hf: HardFork,
     mut database: D,
-) -> Result<impl Iterator<Item = Result<DecoyInfo, ConsensusError>> + Captures<&'a ()>, ExtendedConsensusError> {
+) -> Result<
+    impl Iterator<Item = Result<DecoyInfo, ConsensusError>> + Captures<&'a ()>,
+    ExtendedConsensusError,
+> {
     // decoy info is not needed for V1.
     assert_ne!(hf, HardFork::V1);
 

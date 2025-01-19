@@ -1,11 +1,9 @@
 use std::{collections::HashMap, sync::Arc};
 
 use crate::batch_verifier::MultiThreadedBatchVerifier;
-use crate::block::free::order_transactions;
 use crate::transactions::PrepTransactionsState;
 use crate::{
-    block::{free::pull_ordered_transactions, PreparedBlock, PreparedBlockExPow},
-    transactions::new_tx_verification_data,
+    block::{free::order_transactions, PreparedBlock, PreparedBlockExPow},
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
 };
 use cuprate_consensus_context::rx_vms::RandomXVm;

@@ -1,5 +1,3 @@
-use std::sync::Mutex as StdMutex;
-
 use monero_serai::{
     ringct::{bulletproofs::Bulletproof, RctType},
     transaction::{Input, Transaction},

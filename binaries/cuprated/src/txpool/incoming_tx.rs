@@ -5,10 +5,7 @@ use std::{
 };
 
 use bytes::Bytes;
-use futures::{future::BoxFuture, FutureExt};
-use monero_serai::transaction::Transaction;
-use tower::{Service, ServiceExt};
-
+use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::transactions::PrepTransactionsState;
 use cuprate_consensus::{
     transactions::new_tx_verification_data, BlockChainContextRequest, BlockChainContextResponse,
@@ -31,6 +28,9 @@ use cuprate_txpool::{
     transaction_blob_hash,
 };
 use cuprate_types::TransactionVerificationData;
+use futures::{future::BoxFuture, FutureExt};
+use monero_serai::transaction::Transaction;
+use tower::{BoxError, Service, ServiceExt};
 
 use crate::blockchain::ConsensusBlockchainReadHandle;
 use crate::{
@@ -96,7 +96,7 @@ impl IncomingTxHandler {
         txpool_write_handle: TxpoolWriteHandle,
         txpool_read_handle: TxpoolReadHandle,
         blockchain_context_cache: BlockchainContextService,
-        blockchain_read_handle: ConsensusBlockchainReadHandle,
+        blockchain_read_handle: BlockchainReadHandle,
     ) -> Self {
         let dandelion_router = dandelion::dandelion_router(clear_net);
 
@@ -112,7 +112,10 @@ impl IncomingTxHandler {
             dandelion_pool_manager,
             txpool_write_handle,
             txpool_read_handle,
-            blockchain_read_handle,
+            blockchain_read_handle: ConsensusBlockchainReadHandle::new(
+                blockchain_read_handle,
+                BoxError::from,
+            ),
         }
     }
 }

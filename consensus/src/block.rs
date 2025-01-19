@@ -1,18 +1,7 @@
 //! Block Verifier Service.
-use std::{
-    collections::HashMap,
-    future::Future,
-    mem,
-    pin::Pin,
-    sync::Arc,
-    task::{Context, Poll},
-};
-
-use futures::FutureExt;
-use monero_serai::{
-    block::Block,
-    transaction::{Input, Transaction},
-};
+use monero_serai::{block::Block, transaction::Input};
+use std::collections::HashMap;
+use std::mem;
 use tower::{Service, ServiceExt};
 
 use cuprate_consensus_context::{
@@ -39,7 +28,6 @@ mod alt_block;
 mod batch_prepare;
 mod free;
 
-use crate::block::free::order_transactions;
 use crate::transactions::PrepTransactionsState;
 pub use alt_block::sanity_check_alt_block;
 pub use batch_prepare::batch_prepare_main_chain_blocks;

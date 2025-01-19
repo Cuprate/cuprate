@@ -17,6 +17,7 @@ cfg_if::cfg_if! {
         use cuprate_test_utils as _;
         use curve25519_dalek as _;
         use hex_literal as _;
+        use futures as _;
     }
 }
 
@@ -64,8 +65,6 @@ pub enum ExtendedConsensusError {
 use __private::Database;
 
 pub mod __private {
-    use std::future::Future;
-
     use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
 
     /// A type alias trait used to represent a database, so we don't have to write [`tower::Service`] bounds
@@ -92,6 +91,7 @@ pub mod __private {
                 Error = tower::BoxError,
                 Future: Send + 'static,
             >,
-        > Database for T {
+        > Database for T
+    {
     }
 }

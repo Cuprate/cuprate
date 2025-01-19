@@ -1,10 +1,7 @@
 //! Tx-pool [`service`](super) interface.
 //!
 //! This module contains `cuprate_txpool`'s [`tower::Service`] request and response enums.
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::collections::{HashMap, HashSet};
 
 use cuprate_types::TransactionVerificationData;
 

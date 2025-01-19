@@ -1,8 +1,6 @@
 //! Transaction read ops.
 //!
 //! This module handles reading full transaction data, like getting a transaction from the pool.
-use std::sync::Mutex;
-
 use monero_serai::transaction::Transaction;
 
 use cuprate_database::{DatabaseRo, DbResult};
