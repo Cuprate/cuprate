@@ -1,0 +1,18 @@
+[package]
+name        = "cuprate-changelog"
+version     = "0.0.1"
+edition     = "2021"
+description = "Generate Cuprate release changelog templates"
+license     = "AGPL-3.0-only"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/binaries/cuprate-changelog"
+
+[dependencies]
+clap       = { workspace = true, features = ["cargo", "help", "wrap_help", "usage", "error-context", "suggestions"] }
+chrono     = { workspace = true }
+serde_json = { workspace = true }
+serde      = { workspace = true }
+ureq       = { version = "2", features = ["json", "charset"] }
+
+[lints]
+workspace = true

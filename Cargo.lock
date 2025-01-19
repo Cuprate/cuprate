@@ -614,6 +614,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-changelog"
+version = "0.0.1"
+dependencies = [
+ "chrono",
+ "clap",
+ "serde",
+ "serde_json",
+ "ureq",
+]
+
+[[package]]
 name = "cuprate-consensus"
 version = "0.1.0"
 dependencies = [
@@ -1249,6 +1260,15 @@ name = "either"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60b1af1c220855b6ceac025d3f6ecdd2b7c4894bfe9cd9bda4fbb4bc7c0d4cf0"
+
+[[package]]
+name = "encoding_rs"
+version = "0.8.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75030f3c4f45dafd7586dd6780965a8c7e8e285a5ecb86713e63a79c5b2766f3"
+dependencies = [
+ "cfg-if",
+]
 
 [[package]]
 name = "equivalent"
@@ -3371,6 +3391,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02d1a66277ed75f640d608235660df48c8e3c19f3b4edb6a263315626cc3c01d"
 dependencies = [
  "base64",
+ "encoding_rs",
  "flate2",
  "log",
  "once_cell",
