@@ -80,22 +80,12 @@ pub async fn check_add_genesis(
 pub async fn init_consensus(
     blockchain_read_handle: BlockchainReadHandle,
     context_config: ContextConfig,
-) -> Result<
-    (
-        ConcreteBlockVerifierService,
-        ConcreteTxVerifierService,
-        BlockchainContextService,
-    ),
-    BoxError,
-> {
+) -> Result<BlockchainContextService, BoxError> {
     let read_handle = ConsensusBlockchainReadHandle::new(blockchain_read_handle, BoxError::from);
 
     let ctx_service =
         cuprate_consensus::initialize_blockchain_context(context_config, read_handle.clone())
             .await?;
 
-    let (block_verifier_svc, tx_verifier_svc) =
-        cuprate_consensus::initialize_verifier(read_handle, ctx_service.clone());
-
-    Ok((block_verifier_svc, tx_verifier_svc, ctx_service))
+    Ok(ctx_service)
 }

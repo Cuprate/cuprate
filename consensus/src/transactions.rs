@@ -51,18 +51,29 @@ enum VerificationNeeded {
     None,
 }
 
-struct PrepTransactionsState {
+pub struct PrepTransactionsState {
     txs: Vec<Transaction>,
     prepped_txs: Vec<TransactionVerificationData>,
 }
 
 impl PrepTransactionsState {
-    pub fn push_tx(&mut self, tx: Transaction) {
-        self.txs.push(tx);
+    pub fn new() -> Self {
+        Self {
+            txs: vec![],
+            prepped_txs: vec![],
+        }
     }
 
-    pub fn push_prepped_tx(&mut self, tx: TransactionVerificationData) {
-        self.prepped_txs.push(tx);
+    pub fn append_txs(mut self, mut txs: Vec<Transaction>) -> Self {
+        self.txs.append(&mut txs);
+
+        self
+    }
+
+    pub fn append_prepped_txs(mut self, mut txs: Vec<TransactionVerificationData>) -> Self {
+        self.prepped_txs.append(&mut txs);
+
+        self
     }
 
     pub fn prepare(mut self) -> Result<BlockchainDataState, ConsensusError> {
@@ -70,8 +81,8 @@ impl PrepTransactionsState {
             &mut self
                 .txs
                 .into_par_iter()
-                .map(|tx| new_tx_verification_data(tx).map(Arc::new))
-                .collect()?,
+                .map(|tx| new_tx_verification_data(tx))
+                .collect::<Result<_, _>>()?,
         );
 
         Ok(BlockchainDataState {
@@ -80,7 +91,7 @@ impl PrepTransactionsState {
     }
 }
 
-struct BlockchainDataState {
+pub struct BlockchainDataState {
     prepped_txs: Vec<TransactionVerificationData>,
 }
 
@@ -111,7 +122,7 @@ impl BlockchainDataState {
     }
 }
 
-struct SemanticVerificationState {
+pub struct SemanticVerificationState {
     prepped_txs: Vec<TransactionVerificationData>,
     hf: HardFork,
 }
@@ -142,7 +153,7 @@ impl SemanticVerificationState {
     }
 }
 
-struct FullVerificationState<D> {
+pub struct FullVerificationState<D> {
     prepped_txs: Vec<TransactionVerificationData>,
 
     current_chain_height: usize,
@@ -153,7 +164,9 @@ struct FullVerificationState<D> {
 }
 
 impl<D: Database + Clone + Send + 'static> FullVerificationState<D> {
-    async fn verify(mut self) -> Result<Vec<TransactionVerificationData>, ExtendedConsensusError> {
+    pub async fn verify(
+        mut self,
+    ) -> Result<Vec<TransactionVerificationData>, ExtendedConsensusError> {
         check_kis_unique(&self.prepped_txs, &mut self.database).await?;
 
         let hashes_in_main_chain =
@@ -180,7 +193,7 @@ impl<D: Database + Clone + Send + 'static> FullVerificationState<D> {
                         }
                     }),
                 self.hf,
-                self.database,
+                self.database.clone(),
             )
             .await?;
         }
@@ -371,7 +384,7 @@ async fn verify_transactions<D>(
     database: D,
 ) -> Result<Vec<TransactionVerificationData>, ExtendedConsensusError>
 where
-    D: Database + Clone + Sync + Send + 'static,
+    D: Database + Clone + Send + 'static,
 {
     fn tx_filter<T>((_, needed): &(T, &VerificationNeeded)) -> bool {
         if matches!(

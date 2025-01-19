@@ -11,7 +11,7 @@ use tower::{Service, ServiceExt};
 
 use cuprate_consensus::{
     transactions::new_tx_verification_data, BlockChainContextRequest, BlockChainContextResponse,
-    BlockchainContextService, ExtendedConsensusError, VerifyTxRequest,
+    BlockchainContextService, ExtendedConsensusError,
 };
 use cuprate_dandelion_tower::{
     pool::{DandelionPoolService, IncomingTxBuilder},

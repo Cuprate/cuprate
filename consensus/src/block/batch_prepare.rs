@@ -13,12 +13,14 @@ use monero_serai::{block::Block, transaction::Transaction};
 use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
-
+use cuprate_types::TransactionVerificationData;
+use crate::batch_verifier::MultiThreadedBatchVerifier;
+use crate::block::free::order_transactions;
+use crate::transactions::PrepTransactionsState;
 use crate::{
     block::{free::pull_ordered_transactions, PreparedBlock, PreparedBlockExPow},
     transactions::new_tx_verification_data,
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
-    VerifyBlockResponse,
 };
 
 /// Batch prepares a list of blocks for verification.
@@ -26,7 +28,7 @@ use crate::{
 pub(crate) async fn batch_prepare_main_chain_block(
     blocks: Vec<(Block, Vec<Transaction>)>,
     context_svc: &mut BlockchainContextService,
-) -> Result<VerifyBlockResponse, ExtendedConsensusError> {
+) -> Result<Vec<(PreparedBlock, Vec<TransactionVerificationData>)>, ExtendedConsensusError> {
     let (blocks, txs): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
 
     tracing::debug!("Calculating block hashes.");
@@ -150,7 +152,9 @@ pub(crate) async fn batch_prepare_main_chain_block(
     tracing::debug!("Calculating PoW and prepping transaction");
 
     let blocks = rayon_spawn_async(move || {
-        blocks
+        let batch_verifier = MultiThreadedBatchVerifier::new(rayon::current_num_threads());
+
+        let res = blocks
             .into_par_iter()
             .zip(difficulties)
             .zip(txs)
@@ -165,27 +169,26 @@ pub(crate) async fn batch_prepare_main_chain_block(
                 // Check the PoW
                 check_block_pow(&block.pow_hash, difficultly).map_err(ConsensusError::Block)?;
 
-                // Now setup the txs.
-                let txs = txs
-                    .into_par_iter()
-                    .map(|tx| {
-                        let tx = new_tx_verification_data(tx)?;
-                        Ok::<_, ConsensusError>((tx.tx_hash, tx))
-                    })
-                    .collect::<Result<HashMap<_, _>, _>>()?;
+                let mut txs = PrepTransactionsState::new()
+                    .append_txs(txs)
+                    .prepare()?
+                    .just_semantic(block.hf_version)
+                    .queue(&batch_verifier)?;
 
                 // Order the txs correctly.
-                // TODO: Remove the Arc here
-                let ordered_txs = pull_ordered_transactions(&block.block, txs)?
-                    .into_iter()
-                    .map(Arc::new)
-                    .collect();
+                order_transactions(&block.block, &mut txs)?;
 
-                Ok((block, ordered_txs))
+                Ok((block, txs))
             })
-            .collect::<Result<Vec<_>, ExtendedConsensusError>>()
+            .collect::<Result<Vec<_>, ExtendedConsensusError>>()?;
+
+        if !batch_verifier.verify() {
+            return Err(ExtendedConsensusError::OneOrMoreBatchVerificationStatementsInvalid);
+        }
+
+        Ok(res)
     })
     .await?;
 
-    Ok(VerifyBlockResponse::MainChainBatchPrepped(blocks))
+    Ok(blocks)
 }

@@ -7,6 +7,34 @@ use cuprate_types::TransactionVerificationData;
 
 use crate::ExtendedConsensusError;
 
+pub(crate) fn order_transactions(
+    block: &Block,
+    txs: &mut Vec<TransactionVerificationData>,
+) -> Result<(), ExtendedConsensusError> {
+    if block.transactions.len() != txs.len() {
+        return Err(ExtendedConsensusError::TxsIncludedWithBlockIncorrect);
+    }
+
+    for (i, tx_hash) in block.transactions.iter().enumerate() {
+        if tx_hash != &txs[i].tx_hash {
+            let at_index = txs[i..]
+                .iter()
+                .position(|tx| &tx.tx_hash == tx_hash)
+                .ok_or(ExtendedConsensusError::TxsIncludedWithBlockIncorrect)?;
+
+            txs.swap(i, at_index);
+        }
+    }
+
+    debug_assert!(block
+        .transactions
+        .iter()
+        .zip(txs.iter())
+        .all(|(tx_hash, tx)| tx_hash == &tx.tx_hash));
+
+    Ok(())
+}
+
 /// Returns a list of transactions, pulled from `txs` in the order they are in the [`Block`].
 ///
 /// Will error if a tx need is not in `txs` or if `txs` contain more txs than needed.

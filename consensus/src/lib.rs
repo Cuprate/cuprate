@@ -28,12 +28,10 @@ pub mod block;
 mod tests;
 pub mod transactions;
 
-pub use block::{BlockVerifierService, VerifyBlockRequest, VerifyBlockResponse};
 pub use cuprate_consensus_context::{
     initialize_blockchain_context, BlockChainContextRequest, BlockChainContextResponse,
     BlockchainContext, BlockchainContextService, ContextConfig,
 };
-pub use transactions::{TxVerifierService, VerifyTxRequest, VerifyTxResponse};
 
 // re-export.
 pub use cuprate_consensus_rules::genesis::generate_genesis_block;
@@ -61,23 +59,6 @@ pub enum ExtendedConsensusError {
     /// A request to verify a batch of blocks had no blocks in the batch.
     #[error("A request to verify a batch of blocks had no blocks in the batch.")]
     NoBlocksToVerify,
-}
-
-/// Initialize the 2 verifier [`tower::Service`]s (block and transaction).
-pub fn initialize_verifier<D>(
-    database: D,
-    ctx_svc: BlockchainContextService,
-) -> (
-    BlockVerifierService<TxVerifierService<D>, D>,
-    TxVerifierService<D>,
-)
-where
-    D: Database + Clone + Send + Sync + 'static,
-    D::Future: Send + 'static,
-{
-    let tx_svc = TxVerifierService::new(database.clone());
-    let block_svc = BlockVerifierService::new(ctx_svc, tx_svc.clone(), database);
-    (block_svc, tx_svc)
 }
 
 use __private::Database;
