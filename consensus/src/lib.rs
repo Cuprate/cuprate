@@ -1,10 +1,6 @@
 //! Cuprate Consensus
 //!
-//! This crate contains 3 [`tower::Service`]s that implement Monero's consensus rules:
-//!
-//! - [`BlockchainContextService`] Which handles keeping the current state of the blockchain.
-//! - [`BlockVerifierService`] Which handles block verification.
-//! - [`TxVerifierService`] Which handles transaction verification.
+//! This crate contains Monero [`block`] and [`transactions`] verification functionality.
 //!
 //! This crate is generic over the database which is implemented as a [`tower::Service`]. To
 //! implement a database you need to have a service which accepts [`BlockchainReadRequest`] and responds

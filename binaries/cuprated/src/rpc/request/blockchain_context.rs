@@ -15,7 +15,6 @@ use cuprate_types::{FeeEstimate, HardFork, HardForkInfo};
 
 // FIXME: use `anyhow::Error` over `tower::BoxError` in blockchain context.
 
-/// [`BlockChainContextRequest::Context`].
 pub(crate) async fn context(
     blockchain_context: &mut BlockchainContextService,
 ) -> Result<BlockchainContext, Error> {

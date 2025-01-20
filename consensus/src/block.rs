@@ -1,4 +1,11 @@
-//! Block Verifier Service.
+//! Block Verification.
+//!
+//! This module contains functions for verifying blocks:
+//! - [`verify_main_chain_block`]
+//! - [`batch_prepare_main_chain_blocks`]
+//! - [`verify_prepped_main_chain_block`]
+//! - [`sanity_check_alt_block`]
+//!
 use std::{collections::HashMap, mem};
 
 use monero_serai::{block::Block, transaction::Input};

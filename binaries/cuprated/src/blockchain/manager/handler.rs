@@ -415,8 +415,7 @@ impl super::BlockchainManager {
 
     /// Adds a [`VerifiedBlockInformation`] to the main-chain.
     ///
-    /// This function will update the blockchain database and the context cache, it will also
-    /// update [`Self::cached_blockchain_context`].
+    /// This function will update the blockchain database and the context cache.
     ///
     /// # Panics
     ///
