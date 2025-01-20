@@ -69,7 +69,7 @@ enum VerificationNeeded {
 }
 
 /// Start the transaction verification process.
-pub fn start_tx_verification() -> PrepTransactions {
+pub const fn start_tx_verification() -> PrepTransactions {
     PrepTransactions {
         txs: vec![],
         prepped_txs: vec![],
@@ -88,6 +88,7 @@ pub struct PrepTransactions {
 
 impl PrepTransactions {
     /// Append some new transactions to prepare.
+    #[must_use]
     pub fn append_txs(mut self, mut txs: Vec<Transaction>) -> Self {
         self.txs.append(&mut txs);
 
@@ -95,6 +96,7 @@ impl PrepTransactions {
     }
 
     /// Append some already prepped transactions.
+    #[must_use]
     pub fn append_prepped_txs(mut self, mut txs: Vec<TransactionVerificationData>) -> Self {
         self.prepped_txs.append(&mut txs);
 
@@ -113,7 +115,7 @@ impl PrepTransactions {
                 &mut self
                     .txs
                     .into_par_iter()
-                    .map(|tx| new_tx_verification_data(tx))
+                    .map(new_tx_verification_data)
                     .collect::<Result<_, _>>()?,
             );
         }
@@ -419,7 +421,7 @@ fn verification_needed(
             continue;
         }
 
-        verification_needed.push(VerificationNeeded::None)
+        verification_needed.push(VerificationNeeded::None);
     }
 
     Ok((verification_needed, any_v1_decoy_checks))
@@ -462,15 +464,11 @@ where
 {
     /// A filter each tx not [`VerificationNeeded::Contextual`] or
     /// [`VerificationNeeded::SemanticAndContextual`]
-    fn tx_filter<T>((_, needed): &(T, &VerificationNeeded)) -> bool {
-        if matches!(
+    const fn tx_filter<T>((_, needed): &(T, &VerificationNeeded)) -> bool {
+        matches!(
             needed,
             VerificationNeeded::Contextual | VerificationNeeded::SemanticAndContextual
-        ) {
-            true
-        } else {
-            false
-        }
+        )
     }
 
     let txs_ring_member_info = batch_get_ring_member_info(

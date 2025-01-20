@@ -81,6 +81,7 @@ pub enum TxpoolReadResponse {
 //---------------------------------------------------------------------------------------------------- TxpoolWriteRequest
 /// The transaction pool [`tower::Service`] write request type.
 #[derive(Clone)]
+#[expect(clippy::large_enum_variant)]
 pub enum TxpoolWriteRequest {
     /// Add a transaction to the pool.
     ///

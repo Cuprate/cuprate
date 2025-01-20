@@ -10,7 +10,7 @@ use crate::ExtendedConsensusError;
 /// Orders the [`TransactionVerificationData`] list the same as it appears in [`Block::transactions`]
 pub(crate) fn order_transactions(
     block: &Block,
-    txs: &mut Vec<TransactionVerificationData>,
+    txs: &mut [TransactionVerificationData],
 ) -> Result<(), ExtendedConsensusError> {
     if block.transactions.len() != txs.len() {
         return Err(ExtendedConsensusError::TxsIncludedWithBlockIncorrect);

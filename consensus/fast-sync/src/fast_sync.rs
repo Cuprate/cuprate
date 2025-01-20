@@ -141,7 +141,7 @@ impl Service<FastSyncRequest> for FastSyncService {
                     block_ids,
                 } => validate_hashes(start_height, &block_ids),
                 FastSyncRequest::ValidateBlock { block, txs, token } => {
-                    validate_block(&mut context_svc, block, txs, token).await
+                    validate_block(&mut context_svc, block, txs, &token)
                 }
             }
         })
@@ -191,11 +191,11 @@ fn validate_hashes(
     })
 }
 
-async fn validate_block(
+fn validate_block(
     context_svc: &mut BlockchainContextService,
     block: Block,
     mut txs: HashMap<[u8; 32], Transaction>,
-    token: ValidBlockId,
+    token: &ValidBlockId,
 ) -> Result<FastSyncResponse, FastSyncError> {
     let block_chain_ctx = context_svc.blockchain_context().clone();
 
