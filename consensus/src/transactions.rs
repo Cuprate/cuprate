@@ -302,7 +302,7 @@ async fn check_kis_unique<D: Database>(
     Ok(())
 }
 
-/// Returns a [`HashSet`] of all the hashes referanced in each transaction's [`CachedVerificationState`], that
+/// Returns a [`HashSet`] of all the hashes referenced in each transaction's [`CachedVerificationState`], that
 /// are also in the main chain.
 async fn hashes_referenced_in_main_chain<D: Database>(
     txs: &[TransactionVerificationData],
@@ -430,8 +430,7 @@ async fn verify_transactions_decoy_info<D: Database>(
     txs: impl Iterator<Item = &TransactionVerificationData> + Clone,
     hf: HardFork,
     database: D,
-) -> Result<(), ExtendedConsensusError>
-{
+) -> Result<(), ExtendedConsensusError> {
     // Decoy info is not validated for V1 txs.
     if hf == HardFork::V1 {
         return Ok(());

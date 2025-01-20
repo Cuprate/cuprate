@@ -22,7 +22,7 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork,
 };
 
-use crate::{Database, ExtendedConsensusError, transactions::start_tx_verification};
+use crate::{transactions::start_tx_verification, Database, ExtendedConsensusError};
 
 mod alt_block;
 mod batch_prepare;
