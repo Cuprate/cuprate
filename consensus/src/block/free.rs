@@ -7,6 +7,7 @@ use cuprate_types::TransactionVerificationData;
 
 use crate::ExtendedConsensusError;
 
+/// Orders the [`TransactionVerificationData`] list the same as it appears in [`Block::transactions`]
 pub(crate) fn order_transactions(
     block: &Block,
     txs: &mut Vec<TransactionVerificationData>,

@@ -11,7 +11,7 @@ use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEd
 use monero_serai::transaction::{Timelock, Transaction};
 use tower::service_fn;
 
-use cuprate_consensus::{__private::Database, transactions::PrepTransactionsState};
+use cuprate_consensus::{__private::Database, transactions::start_tx_verification};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     OutputOnChain,
@@ -81,7 +81,7 @@ macro_rules! test_verify_valid_v2_tx {
             let database = dummy_database(map);
 
             assert!(
-                PrepTransactionsState::new()
+                start_tx_verification()
                 .append_txs(
                     vec![Transaction::read(&mut $tx).unwrap()]
                 )
@@ -110,7 +110,7 @@ macro_rules! test_verify_valid_v2_tx {
             let database = dummy_database(map);
 
             assert!(
-                PrepTransactionsState::new()
+                start_tx_verification()
                 .append_txs(
                     vec![Transaction::read(&mut $tx).unwrap()]
                 )

@@ -323,7 +323,8 @@ impl super::BlockchainManager {
             .call(BlockchainReadRequest::AltBlocksInChain(
                 top_alt_block.chain_id,
             ))
-            .await.expect("TODO")
+            .await
+            .expect("TODO")
         else {
             unreachable!();
         };

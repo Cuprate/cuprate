@@ -1,7 +1,7 @@
 //! Block Verifier Service.
+use std::{collections::HashMap, mem};
+
 use monero_serai::{block::Block, transaction::Input};
-use std::collections::HashMap;
-use std::mem;
 use tower::{Service, ServiceExt};
 
 use cuprate_consensus_context::{
@@ -22,13 +22,12 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork,
 };
 
-use crate::{Database, ExtendedConsensusError};
+use crate::{Database, ExtendedConsensusError, transactions::start_tx_verification};
 
 mod alt_block;
 mod batch_prepare;
 mod free;
 
-use crate::transactions::PrepTransactionsState;
 pub use alt_block::sanity_check_alt_block;
 pub use batch_prepare::batch_prepare_main_chain_blocks;
 use free::pull_ordered_transactions;
@@ -186,7 +185,7 @@ impl PreparedBlock {
     }
 }
 
-/// Verifies a prepared block.
+/// Fully verify a block and all its transactions.
 pub async fn verify_main_chain_block<D>(
     block: Block,
     txs: HashMap<[u8; 32], TransactionVerificationData>,
@@ -240,6 +239,7 @@ where
     verify_prepped_main_chain_block(prepped_block, ordered_txs, context_svc, database).await
 }
 
+/// Fully verify a block that has already been prepared using [`batch_prepare_main_chain_blocks`].
 pub async fn verify_prepped_main_chain_block<D>(
     prepped_block: PreparedBlock,
     mut txs: Vec<TransactionVerificationData>,
@@ -267,7 +267,7 @@ where
             }
         }
 
-        let temp = PrepTransactionsState::new()
+        let temp = start_tx_verification()
             .append_prepped_txs(mem::take(&mut txs))
             .prepare()?
             .full(

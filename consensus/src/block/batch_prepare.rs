@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use crate::batch_verifier::MultiThreadedBatchVerifier;
-use crate::transactions::PrepTransactionsState;
+use crate::transactions::start_tx_verification;
 use crate::{
     block::{free::order_transactions, PreparedBlock, PreparedBlockExPow},
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
@@ -167,7 +167,7 @@ pub async fn batch_prepare_main_chain_blocks(
                 // Check the PoW
                 check_block_pow(&block.pow_hash, difficultly).map_err(ConsensusError::Block)?;
 
-                let mut txs = PrepTransactionsState::new()
+                let mut txs = start_tx_verification()
                     .append_txs(txs)
                     .prepare()?
                     .just_semantic(block.hf_version)

@@ -1,7 +1,30 @@
 //! # Transaction Verifier Service.
 //!
-//! This module contains the [`TxVerifierService`] which handles consensus validation of transactions.
+//! This module contains the transaction validation interface, which can be accessed with [`start_tx_verification`].
 //!
+//! Transaction verification states will be cached to prevent doing the expensive checks multiple times.
+//!
+//! ## Example Semantic Verification
+//!
+//! ```rust
+//! # use cuprate_test_utils::data::TX_E2D393;
+//! # use monero_serai::transaction::Transaction;
+//! use cuprate_consensus::{transactions::start_tx_verification, HardFork, batch_verifier::MultiThreadedBatchVerifier};
+//!
+//! # fn main() -> Result<(), tower::BoxError> {
+//! # let tx = Transaction::read(&mut TX_E2D393).unwrap();
+//! let batch_verifier = MultiThreadedBatchVerifier::new(rayon::current_num_threads());
+//!
+//! let tx = start_tx_verification()
+//!              .append_txs(vec![tx])
+//!              .prepare()?
+//!              .just_semantic(HardFork::V9)
+//!              .queue(&batch_verifier)?;
+//!
+//! assert!(batch_verifier.verify());
+//! Ok(())
+//! # }
+//! ```
 use std::collections::HashSet;
 
 use monero_serai::transaction::{Input, Timelock, Transaction};
@@ -32,43 +55,59 @@ mod free;
 
 pub use free::new_tx_verification_data;
 
-/// A struct representing the type of validation that needs to be completed for this transaction.
+/// An enum representing the type of validation that needs to be completed for this transaction.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum VerificationNeeded {
+    /// Decoy check on a v1 transaction.
     V1DecoyCheck,
     /// Both semantic validation and contextual validation are needed.
     SemanticAndContextual,
     /// Only contextual validation is needed.
     Contextual,
+    /// No verification needed.
     None,
 }
 
-pub struct PrepTransactionsState {
-    txs: Vec<Transaction>,
-    prepped_txs: Vec<TransactionVerificationData>,
+/// Start the transaction verification process.
+pub fn start_tx_verification() -> PrepTransactions {
+    PrepTransactions {
+        txs: vec![],
+        prepped_txs: vec![],
+    }
 }
 
-impl PrepTransactionsState {
-    pub fn new() -> Self {
-        Self {
-            txs: vec![],
-            prepped_txs: vec![],
-        }
-    }
+/// The preparation phase of transaction verification.
+///
+/// The order of transactions will be kept throughout the verification process, transactions
+/// inserted with [`PrepTransactions::append_prepped_txs`] will be put before transactions given
+/// in [`PrepTransactions::append_txs`]
+pub struct PrepTransactions {
+    prepped_txs: Vec<TransactionVerificationData>,
+    txs: Vec<Transaction>,
+}
 
+impl PrepTransactions {
+    /// Append some new transactions to prepare.
     pub fn append_txs(mut self, mut txs: Vec<Transaction>) -> Self {
         self.txs.append(&mut txs);
 
         self
     }
 
+    /// Append some already prepped transactions.
     pub fn append_prepped_txs(mut self, mut txs: Vec<TransactionVerificationData>) -> Self {
         self.prepped_txs.append(&mut txs);
 
         self
     }
 
-    pub fn prepare(mut self) -> Result<BlockchainDataState, ConsensusError> {
+    /// Prepare the transactions and advance to the next step: [`VerificationWanted`].
+    ///
+    /// # [`rayon`]
+    ///
+    /// This function will use [`rayon`] to parallelize the preparation process, so should not be called
+    /// in an async function, unless all the transactions given were already prepared, i.e. [`Self::append_prepped_txs`].
+    pub fn prepare(mut self) -> Result<VerificationWanted, ConsensusError> {
         if !self.txs.is_empty() {
             self.prepped_txs.append(
                 &mut self
@@ -79,24 +118,34 @@ impl PrepTransactionsState {
             );
         }
 
-        Ok(BlockchainDataState {
+        Ok(VerificationWanted {
             prepped_txs: self.prepped_txs,
         })
     }
 }
 
-pub struct BlockchainDataState {
+/// The step where the type of verification is decided.
+pub struct VerificationWanted {
     prepped_txs: Vec<TransactionVerificationData>,
 }
 
-impl BlockchainDataState {
-    pub fn just_semantic(self, hf: HardFork) -> SemanticVerificationState {
-        SemanticVerificationState {
+impl VerificationWanted {
+    /// Only semantic verification.
+    ///
+    /// Semantic verification is verification that can done without other blockchain data. The [`HardFork`]
+    /// is technically other blockchain data but excluding it reduces the amount of things that can be checked
+    /// significantly, and it is easy to get compared to other blockchain data needed for contextual validation.
+    pub fn just_semantic(self, hf: HardFork) -> SemanticVerification {
+        SemanticVerification {
             prepped_txs: self.prepped_txs,
             hf,
         }
     }
 
+    /// Full verification.
+    ///
+    /// Fully verify the transactions, all checks will be performed, if they were already performed then they
+    /// won't be done again unless necessary.
     pub fn full<D: Database>(
         self,
         current_chain_height: usize,
@@ -104,8 +153,8 @@ impl BlockchainDataState {
         time_for_time_lock: u64,
         hf: HardFork,
         database: D,
-    ) -> FullVerificationState<D> {
-        FullVerificationState {
+    ) -> FullVerification<D> {
+        FullVerification {
             prepped_txs: self.prepped_txs,
             current_chain_height,
             top_hash,
@@ -116,12 +165,19 @@ impl BlockchainDataState {
     }
 }
 
-pub struct SemanticVerificationState {
+/// Semantic transaction verification.
+///
+/// [`VerificationWanted::just_semantic`]
+pub struct SemanticVerification {
     prepped_txs: Vec<TransactionVerificationData>,
     hf: HardFork,
 }
 
-impl SemanticVerificationState {
+impl SemanticVerification {
+    /// Perform the semantic checks and queue any checks that can be batched into the batch verifier.
+    ///
+    /// If this function returns [`Ok`] the transaction(s) could still be semantically invalid,
+    /// [`MultiThreadedBatchVerifier::verify`] must be called on the `batch_verifier` after.
     pub fn queue(
         mut self,
         batch_verifier: &MultiThreadedBatchVerifier,
@@ -147,7 +203,10 @@ impl SemanticVerificationState {
     }
 }
 
-pub struct FullVerificationState<D> {
+/// Full transaction verification.
+///
+/// [`VerificationWanted::full`]
+pub struct FullVerification<D> {
     prepped_txs: Vec<TransactionVerificationData>,
 
     current_chain_height: usize,
@@ -157,7 +216,8 @@ pub struct FullVerificationState<D> {
     database: D,
 }
 
-impl<D: Database + Clone> FullVerificationState<D> {
+impl<D: Database + Clone> FullVerification<D> {
+    /// Fully verify each transaction.
     pub async fn verify(
         mut self,
     ) -> Result<Vec<TransactionVerificationData>, ExtendedConsensusError> {
@@ -205,6 +265,7 @@ impl<D: Database + Clone> FullVerificationState<D> {
     }
 }
 
+/// Check that each key image used in each transaction is unique in the whole chain.
 async fn check_kis_unique<D: Database>(
     txs: &[TransactionVerificationData],
     database: &mut D,
@@ -241,6 +302,8 @@ async fn check_kis_unique<D: Database>(
     Ok(())
 }
 
+/// Returns a [`HashSet`] of all the hashes referanced in each transaction's [`CachedVerificationState`], that
+/// are also in the main chain.
 async fn hashes_referenced_in_main_chain<D: Database>(
     txs: &[TransactionVerificationData],
     database: &mut D,
@@ -274,6 +337,10 @@ async fn hashes_referenced_in_main_chain<D: Database>(
     Ok(verified_at_block_hashes)
 }
 
+/// Returns a list of [`VerificationNeeded`] for each transaction passed in. The returned
+/// [`Vec`] will be the same length as the inputted transactions.
+///
+/// A [`bool`] is also returned, which will be true if any transactions need [`VerificationNeeded::V1DecoyCheck`].
 fn verification_needed(
     txs: &[TransactionVerificationData],
     hashes_in_main_chain: &HashSet<[u8; 32]>,
@@ -282,32 +349,37 @@ fn verification_needed(
     time_for_time_lock: u64,
 ) -> Result<(Vec<VerificationNeeded>, bool), ConsensusError> {
     // txs needing full validation: semantic and/or contextual
-    let mut verification_needed = Vec::new();
+    let mut verification_needed = Vec::with_capacity(txs.len());
 
     let mut any_v1_decoy_checks = false;
 
     for tx in txs {
         match &tx.cached_verification_state {
             CachedVerificationState::NotVerified => {
+                // Tx not verified at all need all checks.
                 verification_needed.push(VerificationNeeded::SemanticAndContextual);
                 continue;
             }
             CachedVerificationState::JustSemantic(hf) => {
                 if current_hf != *hf {
+                    // HF changed must do semantic checks again.
                     verification_needed.push(VerificationNeeded::SemanticAndContextual);
                     continue;
                 }
-
+                // Tx already semantically valid for this HF only contextual checks needed.
                 verification_needed.push(VerificationNeeded::Contextual);
                 continue;
             }
             CachedVerificationState::ValidAtHashAndHF { block_hash, hf } => {
                 if current_hf != *hf {
+                    // HF changed must do all checks again.
                     verification_needed.push(VerificationNeeded::SemanticAndContextual);
                     continue;
                 }
 
                 if !hashes_in_main_chain.contains(block_hash) {
+                    // The block we know this transaction was valid at is no longer in the chain do
+                    // contextual checks again.
                     verification_needed.push(VerificationNeeded::Contextual);
                     continue;
                 }
@@ -318,16 +390,20 @@ fn verification_needed(
                 time_lock,
             } => {
                 if current_hf != *hf {
+                    // HF changed must do all checks again.
                     verification_needed.push(VerificationNeeded::SemanticAndContextual);
                     continue;
                 }
 
                 if !hashes_in_main_chain.contains(block_hash) {
+                    // The block we know this transaction was valid at is no longer in the chain do
+                    // contextual checks again.
                     verification_needed.push(VerificationNeeded::Contextual);
                     continue;
                 }
 
                 // If the time lock is still locked then the transaction is invalid.
+                // Time is not monotonic in Monero so these can become invalid with new blocks.
                 if !output_unlocked(time_lock, current_chain_height, time_for_time_lock, *hf) {
                     return Err(ConsensusError::Transaction(
                         TransactionError::OneOrMoreRingMembersLocked,
@@ -337,6 +413,7 @@ fn verification_needed(
         }
 
         if tx.version == TxVersion::RingSignatures {
+            // v1 txs always need at least decoy checks as they can become invalid with new blocks.
             verification_needed.push(VerificationNeeded::V1DecoyCheck);
             any_v1_decoy_checks = true;
             continue;
@@ -348,13 +425,12 @@ fn verification_needed(
     Ok((verification_needed, any_v1_decoy_checks))
 }
 
-async fn verify_transactions_decoy_info<D>(
+/// Do [`VerificationNeeded::V1DecoyCheck`] on each tx passed in.
+async fn verify_transactions_decoy_info<D: Database>(
     txs: impl Iterator<Item = &TransactionVerificationData> + Clone,
     hf: HardFork,
     database: D,
 ) -> Result<(), ExtendedConsensusError>
-where
-    D: Database,
 {
     // Decoy info is not validated for V1 txs.
     if hf == HardFork::V1 {
@@ -368,6 +444,11 @@ where
     Ok(())
 }
 
+/// Do [`VerificationNeeded::Contextual`] or [`VerificationNeeded::SemanticAndContextual`].
+///
+/// The inputs to this function are the txs wanted to be verified and a list of [`VerificationNeeded`],
+/// if any other [`VerificationNeeded`] is specified other than [`VerificationNeeded::Contextual`] or
+/// [`VerificationNeeded::SemanticAndContextual`], nothing will be verified for that tx.
 async fn verify_transactions<D>(
     mut txs: Vec<TransactionVerificationData>,
     verification_needed: Vec<VerificationNeeded>,
@@ -380,6 +461,8 @@ async fn verify_transactions<D>(
 where
     D: Database,
 {
+    /// A filter each tx not [`VerificationNeeded::Contextual`] or
+    /// [`VerificationNeeded::SemanticAndContextual`]
     fn tx_filter<T>((_, needed): &(T, &VerificationNeeded)) -> bool {
         if matches!(
             needed,

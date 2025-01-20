@@ -103,7 +103,7 @@
 //! let response_channel = write_handle.ready().await?.call(request);
 //!
 //! // Block write was OK.
-//! let TxpoolWriteResponse::AddTrans\action(double_spent) = response_channel.await? else {
+//! let TxpoolWriteResponse::AddTransaction(double_spent) = response_channel.await? else {
 //!     panic!("tx-pool returned wrong response!");
 //! };
 //! assert!(double_spent.is_none());

@@ -6,7 +6,7 @@ use std::{
 
 use bytes::Bytes;
 use cuprate_blockchain::service::BlockchainReadHandle;
-use cuprate_consensus::transactions::PrepTransactionsState;
+use cuprate_consensus::transactions::{start_tx_verification, PrepTransactions};
 use cuprate_consensus::{
     transactions::new_tx_verification_data, BlockChainContextRequest, BlockChainContextResponse,
     BlockchainContextService, ExtendedConsensusError,
@@ -160,7 +160,7 @@ async fn handle_incoming_txs(
 
     let context = blockchain_context_cache.blockchain_context();
 
-    let txs = PrepTransactionsState::new()
+    let txs = start_tx_verification()
         .append_prepped_txs(txs)
         .prepare()
         .map_err(|e| IncomingTxError::Consensus(e.into()))?

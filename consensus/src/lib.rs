@@ -23,7 +23,7 @@ cfg_if::cfg_if! {
 
 use cuprate_consensus_rules::ConsensusError;
 
-mod batch_verifier;
+pub mod batch_verifier;
 pub mod block;
 #[cfg(test)]
 mod tests;
