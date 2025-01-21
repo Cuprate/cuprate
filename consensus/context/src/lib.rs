@@ -371,6 +371,7 @@ pub struct BlockchainContextService {
 }
 
 impl BlockchainContextService {
+    /// Get the current [`BlockchainContext`] from the cache.
     pub fn blockchain_context(&mut self) -> &BlockchainContext {
         self.cached_context.load()
     }
