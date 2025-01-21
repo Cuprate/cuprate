@@ -92,7 +92,7 @@
 //! // Prepare a request to write block.
 //! let tx = TX_V1_SIG2.clone();
 //! let request = TxpoolWriteRequest::AddTransaction {
-//!     tx: tx.try_into().unwrap(),
+//!     tx: Box::new(tx.try_into().unwrap()),
 //!     state_stem: false,
 //! };
 //!
