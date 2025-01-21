@@ -5,14 +5,19 @@ use const_format::formatcp;
 /// `cuprated`'s semantic version (`MAJOR.MINOR.PATCH`) as string.
 pub const VERSION: &str = clap::crate_version!();
 
+/// Major version number of `cuprated`.
+pub const MAJOR_VERSION: &str = env!("CARGO_PKG_VERSION_MAJOR");
+
+/// Major version number of `cuprated`.
+pub const MINOR_VERSION: &str = env!("CARGO_PKG_VERSION_MINOR");
+
+/// Patch version number of `cuprated`.
+pub const PATCH_VERSION: &str = env!("CARGO_PKG_VERSION_PATCH");
+
 /// [`VERSION`] + the build type.
 ///
 /// If a debug build, the suffix is `-debug`, else it is `-release`.
-pub const VERSION_BUILD: &str = if cfg!(debug_assertions) {
-    formatcp!("{VERSION}-debug")
-} else {
-    formatcp!("{VERSION}-release")
-};
+pub const VERSION_BUILD: &str = formatcp!("{VERSION}-{}", cuprate_constants::build::BUILD);
 
 /// The panic message used when cuprated encounters a critical service error.
 pub const PANIC_CRITICAL_SERVICE_ERROR: &str =
@@ -27,6 +32,8 @@ mod test {
 
     #[test]
     fn version() {
+        let semantic_version = format!("{MAJOR_VERSION}.{MINOR_VERSION}.{PATCH_VERSION}");
+        assert_eq!(VERSION, VERSION);
         assert_eq!(VERSION, "0.0.1");
     }
 
