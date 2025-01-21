@@ -3,10 +3,10 @@
 //! This module contains the async task that handles keeping track of blockchain context.
 //! It holds all the context caches and handles [`tower::Service`] requests.
 //!
+use std::sync::Arc;
 
 use arc_swap::ArcSwap;
 use futures::channel::oneshot;
-use std::sync::Arc;
 use tokio::sync::mpsc;
 use tower::ServiceExt;
 use tracing::Instrument;
@@ -18,13 +18,14 @@ use cuprate_types::{
     Chain, HardFork,
 };
 
-use crate::difficulty::DifficultyCache;
-use crate::hardforks::HardForkState;
-use crate::weight::BlockWeightsCache;
 use crate::{
     alt_chains::{get_alt_chain_difficulty_cache, get_alt_chain_weight_cache, AltChainMap},
-    rx_vms, BlockChainContextRequest, BlockChainContextResponse, BlockchainContext,
-    ContextCacheError, ContextConfig, Database, BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
+    difficulty::DifficultyCache,
+    hardforks::HardForkState,
+    rx_vms,
+    weight::BlockWeightsCache,
+    BlockChainContextRequest, BlockChainContextResponse, BlockchainContext, ContextCacheError,
+    ContextConfig, Database, BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
 };
 
 /// A request from the context service to the context task.

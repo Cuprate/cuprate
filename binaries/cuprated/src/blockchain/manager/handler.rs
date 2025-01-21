@@ -324,7 +324,7 @@ impl super::BlockchainManager {
                 top_alt_block.chain_id,
             ))
             .await
-            .expect("TODO")
+            .map_err(|e| anyhow::anyhow!(e))?
         else {
             unreachable!();
         };

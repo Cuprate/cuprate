@@ -5,6 +5,10 @@ use std::{
 };
 
 use bytes::Bytes;
+use futures::{future::BoxFuture, FutureExt};
+use monero_serai::transaction::Transaction;
+use tower::{BoxError, Service, ServiceExt};
+
 use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::transactions::{start_tx_verification, PrepTransactions};
 use cuprate_consensus::{
@@ -28,12 +32,9 @@ use cuprate_txpool::{
     transaction_blob_hash,
 };
 use cuprate_types::TransactionVerificationData;
-use futures::{future::BoxFuture, FutureExt};
-use monero_serai::transaction::Transaction;
-use tower::{BoxError, Service, ServiceExt};
 
-use crate::blockchain::ConsensusBlockchainReadHandle;
 use crate::{
+    blockchain::ConsensusBlockchainReadHandle,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     p2p::CrossNetworkInternalPeerId,
     signals::REORG_LOCK,
@@ -85,6 +86,7 @@ pub struct IncomingTxHandler {
     pub(super) txpool_write_handle: TxpoolWriteHandle,
     /// The txpool read handle.
     pub(super) txpool_read_handle: TxpoolReadHandle,
+    /// The blockchain read handle.
     pub(super) blockchain_read_handle: ConsensusBlockchainReadHandle,
 }
 
@@ -305,7 +307,7 @@ async fn handle_valid_tx(
         .await
         .expect(PANIC_CRITICAL_SERVICE_ERROR)
         .call(TxpoolWriteRequest::AddTransaction {
-            tx,
+            tx: Box::new(tx),
             state_stem: state.is_stem_stage(),
         })
         .await

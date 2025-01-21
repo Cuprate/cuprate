@@ -81,14 +81,13 @@ pub enum TxpoolReadResponse {
 //---------------------------------------------------------------------------------------------------- TxpoolWriteRequest
 /// The transaction pool [`tower::Service`] write request type.
 #[derive(Clone)]
-#[expect(clippy::large_enum_variant)]
 pub enum TxpoolWriteRequest {
     /// Add a transaction to the pool.
     ///
     /// Returns [`TxpoolWriteResponse::AddTransaction`].
     AddTransaction {
         /// The tx to add.
-        tx: TransactionVerificationData,
+        tx: Box<TransactionVerificationData>,
         /// A [`bool`] denoting the routing state of this tx.
         ///
         /// [`true`] if this tx is in the stem state.

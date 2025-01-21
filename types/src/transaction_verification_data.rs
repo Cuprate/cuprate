@@ -35,6 +35,7 @@ impl TxVersion {
 pub enum CachedVerificationState {
     /// The transaction has not been validated.
     NotVerified,
+    /// The transaction was only validated semantically.
     JustSemantic(HardFork),
     /// The transaction is valid* if the block represented by this hash is in the blockchain and the [`HardFork`]
     /// is the same.

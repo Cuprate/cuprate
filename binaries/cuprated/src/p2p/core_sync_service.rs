@@ -1,5 +1,7 @@
-use std::future::{ready, Ready};
-use std::task::{Context, Poll};
+use std::{
+    future::{ready, Ready},
+    task::{Context, Poll},
+};
 
 use futures::{future::BoxFuture, FutureExt, TryFutureExt};
 use tower::Service;

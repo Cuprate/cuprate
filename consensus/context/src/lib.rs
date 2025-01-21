@@ -8,9 +8,6 @@
 // FIXME: should we pull in a dependency just to link docs?
 use monero_serai as _;
 
-use arc_swap::Cache;
-use futures::{channel::oneshot, FutureExt};
-use monero_serai::block::Block;
 use std::{
     cmp::min,
     collections::HashMap,
@@ -19,6 +16,10 @@ use std::{
     sync::Arc,
     task::{Context, Poll},
 };
+
+use arc_swap::Cache;
+use futures::{channel::oneshot, FutureExt};
+use monero_serai::block::Block;
 use tokio::sync::mpsc;
 use tokio_util::sync::PollSender;
 use tower::Service;
