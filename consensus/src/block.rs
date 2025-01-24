@@ -37,6 +37,7 @@ mod free;
 
 pub use alt_block::sanity_check_alt_block;
 pub use batch_prepare::batch_prepare_main_chain_blocks;
+use cuprate_types::output_cache::OutputCache;
 use free::pull_ordered_transactions;
 
 /// A pre-prepared block with all data needed to verify it, except the block's proof of work.
@@ -243,7 +244,7 @@ where
     // Check that the txs included are what we need and that there are not any extra.
     let ordered_txs = pull_ordered_transactions(&prepped_block.block, txs)?;
 
-    verify_prepped_main_chain_block(prepped_block, ordered_txs, context_svc, database).await
+    verify_prepped_main_chain_block(prepped_block, ordered_txs, context_svc, database, None).await
 }
 
 /// Fully verify a block that has already been prepared using [`batch_prepare_main_chain_blocks`].
@@ -252,6 +253,7 @@ pub async fn verify_prepped_main_chain_block<D>(
     mut txs: Vec<TransactionVerificationData>,
     context_svc: &mut BlockchainContextService,
     database: D,
+    output_cache: Option<&mut OutputCache>,
 ) -> Result<VerifiedBlockInformation, ExtendedConsensusError>
 where
     D: Database + Clone + Send + 'static,
@@ -283,6 +285,7 @@ where
                 context.current_adjusted_timestamp_for_time_lock(),
                 context.current_hf,
                 database,
+                output_cache.as_ref().map(|o| &**o)
             )
             .verify()
             .await?;
@@ -304,7 +307,7 @@ where
     )
     .map_err(ConsensusError::Block)?;
 
-    Ok(VerifiedBlockInformation {
+    let block = VerifiedBlockInformation {
         block_hash: prepped_block.block_hash,
         block: prepped_block.block,
         block_blob: prepped_block.block_blob,
@@ -324,5 +327,11 @@ where
         height: context.chain_height,
         long_term_weight: context.next_block_long_term_weight(block_weight),
         cumulative_difficulty: context.cumulative_difficulty + context.next_difficulty,
-    })
+    };
+
+    if let Some(output_cache) = output_cache {
+        output_cache.add_block_to_cache(&block);
+    }
+
+    Ok(block)
 }

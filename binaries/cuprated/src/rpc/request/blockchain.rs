@@ -196,7 +196,7 @@ pub(crate) async fn outputs(
         unreachable!();
     };
 
-    Ok(outputs)
+    Ok(todo!())
 }
 
 /// [`BlockchainReadRequest::NumberOutputsWithAmount`]

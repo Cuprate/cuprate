@@ -43,7 +43,7 @@ use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     CachedVerificationState, TransactionVerificationData, TxVersion,
 };
-
+use cuprate_types::output_cache::OutputCache;
 use crate::{
     batch_verifier::MultiThreadedBatchVerifier,
     transactions::contextual_data::{batch_get_decoy_info, batch_get_ring_member_info},
@@ -155,6 +155,7 @@ impl VerificationWanted {
         time_for_time_lock: u64,
         hf: HardFork,
         database: D,
+        output_cache: Option<&OutputCache>
     ) -> FullVerification<D> {
         FullVerification {
             prepped_txs: self.prepped_txs,
@@ -163,6 +164,7 @@ impl VerificationWanted {
             time_for_time_lock,
             hf,
             database,
+            output_cache
         }
     }
 }
@@ -208,7 +210,7 @@ impl SemanticVerification {
 /// Full transaction verification.
 ///
 /// [`VerificationWanted::full`]
-pub struct FullVerification<D> {
+pub struct FullVerification<'a, D> {
     prepped_txs: Vec<TransactionVerificationData>,
 
     current_chain_height: usize,
@@ -216,9 +218,10 @@ pub struct FullVerification<D> {
     time_for_time_lock: u64,
     hf: HardFork,
     database: D,
+    output_cache: Option<&'a OutputCache>
 }
 
-impl<D: Database + Clone> FullVerification<D> {
+impl<D: Database + Clone> FullVerification<'_, D> {
     /// Fully verify each transaction.
     pub async fn verify(
         mut self,
@@ -262,6 +265,7 @@ impl<D: Database + Clone> FullVerification<D> {
             self.time_for_time_lock,
             self.hf,
             self.database,
+            self.output_cache
         )
         .await
     }
@@ -458,6 +462,7 @@ async fn verify_transactions<D>(
     current_time_lock_timestamp: u64,
     hf: HardFork,
     database: D,
+    output_cache: Option<&OutputCache>
 ) -> Result<Vec<TransactionVerificationData>, ExtendedConsensusError>
 where
     D: Database,
@@ -478,6 +483,7 @@ where
             .map(|(tx, _)| tx),
         hf,
         database,
+        output_cache
     )
     .await?;
 

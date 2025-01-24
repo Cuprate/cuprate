@@ -9,26 +9,18 @@
 )]
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    cmp::min,
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
-
+use indexmap::{IndexMap, IndexSet};
 use rayon::{
     iter::{Either, IntoParallelIterator, ParallelIterator},
     prelude::*,
     ThreadPool,
 };
-use thread_local::ThreadLocal;
-
-use cuprate_database::{ConcreteEnv, DatabaseRo, DbResult, Env, EnvInner, RuntimeError};
-use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
-use cuprate_helper::map::combine_low_high_bits_to_u128;
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, ChainId, ExtendedBlockHeader, OutputHistogramInput, OutputOnChain, TxsInBlock,
+use std::{
+    cmp::min,
+    collections::{HashMap, HashSet},
+    sync::Arc,
 };
+use thread_local::ThreadLocal;
 
 use crate::{
     ops::{
@@ -52,6 +44,14 @@ use crate::{
     types::{
         AltBlockHeight, Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId,
     },
+};
+use cuprate_database::{ConcreteEnv, DatabaseRo, DbResult, Env, EnvInner, RuntimeError};
+use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
+use cuprate_helper::map::combine_low_high_bits_to_u128;
+use cuprate_types::output_cache::OutputCache;
+use cuprate_types::{
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
+    Chain, ChainId, ExtendedBlockHeader, OutputHistogramInput, OutputOnChain, TxsInBlock,
 };
 
 //---------------------------------------------------------------------------------------------------- init_read_service
@@ -419,9 +419,34 @@ fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) ->
     let tx_ro = thread_local(env);
     let tables = thread_local(env);
 
+    let amount_of_outs = outputs
+        .par_iter()
+        .map(|(&amount, _)| {
+            let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+            let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+
+            if amount == 0 {
+                Ok((amount, tables.rct_outputs().len()?))
+            } else {
+                // v1 transactions.
+                match tables.num_outputs().get(&amount) {
+                    #[expect(
+                        clippy::cast_possible_truncation,
+                        reason = "INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`"
+                    )]
+                    Ok(count) => Ok((amount, count)),
+                    // If we get a request for an `amount` that doesn't exist,
+                    // we return `0` instead of an error.
+                    Err(RuntimeError::KeyNotFound) => Ok((amount, 0)),
+                    Err(e) => Err(e),
+                }
+            }
+        })
+        .collect::<Result<_, _>>()?;
+
     // The 2nd mapping function.
     // This is pulled out from the below `map()` for readability.
-    let inner_map = |amount, amount_index| -> DbResult<(AmountIndex, OutputOnChain)> {
+    let inner_map = |amount, amount_index| {
         let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
         let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
 
@@ -430,26 +455,36 @@ fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) ->
             amount_index,
         };
 
-        let output_on_chain = id_to_output_on_chain(&id, tables)?;
+        let output_on_chain = match id_to_output_on_chain(&id, tables) {
+            Ok(output) => output,
+            Err(RuntimeError::KeyNotFound) => return Ok(Either::Right(amount_index)),
+            Err(e) => return Err(e),
+        };
 
-        Ok((amount_index, output_on_chain))
+        Ok(Either::Left((amount_index, output_on_chain)))
     };
 
     // Collect results using `rayon`.
-    let map = outputs
+    let (map, wanted_outputs) = outputs
         .into_par_iter()
         .map(|(amount, amount_index_set)| {
+            let (left, right) = amount_index_set
+                .into_par_iter()
+                .map(|amount_index| inner_map(amount, amount_index))
+                .collect::<Result<_, _>>()?;
+
             Ok((
-                amount,
-                amount_index_set
-                    .into_par_iter()
-                    .map(|amount_index| inner_map(amount, amount_index))
-                    .collect::<DbResult<HashMap<AmountIndex, OutputOnChain>>>()?,
+                (amount,
+                left),
+                (amount,
+                right)
             ))
         })
-        .collect::<DbResult<HashMap<Amount, HashMap<AmountIndex, OutputOnChain>>>>()?;
+        .collect::<DbResult<(IndexMap<_, IndexMap<_, _>>, IndexMap<_, IndexSet<_>>)>>()?;
 
-    Ok(BlockchainResponse::Outputs(map))
+    let cache = OutputCache::new(map, amount_of_outs, wanted_outputs);
+
+    Ok(BlockchainResponse::Outputs(cache))
 }
 
 /// [`BlockchainReadRequest::NumberOutputsWithAmount`].

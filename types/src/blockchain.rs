@@ -10,6 +10,7 @@ use std::{
 
 use monero_serai::block::Block;
 
+use crate::output_cache::OutputCache;
 use crate::{
     types::{Chain, ExtendedBlockHeader, OutputOnChain, TxsInBlock, VerifiedBlockInformation},
     AltBlockInformation, BlockCompleteEntry, ChainId, ChainInfo, CoinbaseTxSum,
@@ -256,7 +257,7 @@ pub enum BlockchainResponse {
     ///
     /// Inner value is all the outputs requested,
     /// associated with their amount and amount index.
-    Outputs(HashMap<u64, HashMap<u64, OutputOnChain>>),
+    Outputs(OutputCache),
 
     /// Response to [`BlockchainReadRequest::NumberOutputsWithAmount`].
     ///

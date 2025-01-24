@@ -13,6 +13,7 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
+use cuprate_types::output_cache::OutputCache;
 use cuprate_types::TransactionVerificationData;
 
 use crate::{
@@ -21,13 +22,16 @@ use crate::{
     transactions::start_tx_verification,
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
 };
+use crate::__private::Database;
+use crate::transactions::contextual_data::get_output_cache;
 
 /// Batch prepares a list of blocks for verification.
 #[instrument(level = "debug", name = "batch_prep_blocks", skip_all, fields(amt = blocks.len()))]
-pub async fn batch_prepare_main_chain_blocks(
+pub async fn batch_prepare_main_chain_blocks<D: Database>(
     blocks: Vec<(Block, Vec<Transaction>)>,
     context_svc: &mut BlockchainContextService,
-) -> Result<Vec<(PreparedBlock, Vec<TransactionVerificationData>)>, ExtendedConsensusError> {
+    database: D
+) -> Result<(Vec<(PreparedBlock, Vec<TransactionVerificationData>)>, OutputCache), ExtendedConsensusError> {
     let (blocks, txs): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
 
     tracing::debug!("Calculating block hashes.");
@@ -189,5 +193,7 @@ pub async fn batch_prepare_main_chain_blocks(
     })
     .await?;
 
-    Ok(blocks)
+    let output_cache = get_output_cache(blocks.iter().flat_map(|(_, txs)| txs.iter()), database).await?;
+
+    Ok((blocks, output_cache))
 }
