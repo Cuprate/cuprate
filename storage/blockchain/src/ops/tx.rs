@@ -96,7 +96,7 @@ pub fn add_tx(
         match inputs {
             // Key images.
             Input::ToKey { key_image, .. } => {
-                add_key_image(key_image.compress().as_bytes(), tables.key_images_mut())?;
+                add_key_image(key_image.as_bytes(), tables.key_images_mut())?;
             }
             // This is a miner transaction, set it for later use.
             Input::Gen(_) => miner_tx = true,
@@ -138,7 +138,7 @@ pub fn add_tx(
                 // Create commitment.
 
                 let commitment = if miner_tx {
-                    compute_zero_commitment(output.amount.unwrap_or(0))
+                    compute_zero_commitment(output.amount.unwrap_or(0)).compress()
                 } else {
                     proofs
                         .as_ref()
@@ -154,7 +154,7 @@ pub fn add_tx(
                         height,
                         output_flags,
                         tx_idx: tx_id,
-                        commitment: commitment.compress().0,
+                        commitment: commitment.0,
                     },
                     tables.rct_outputs_mut(),
                 )
@@ -219,7 +219,7 @@ pub fn remove_tx(tx_hash: &TxHash, tables: &mut impl TablesMut) -> DbResult<(TxI
         match inputs {
             // Key images.
             Input::ToKey { key_image, .. } => {
-                remove_key_image(key_image.compress().as_bytes(), tables.key_images_mut())?;
+                remove_key_image(key_image.as_bytes(), tables.key_images_mut())?;
             }
             // This is a miner transaction, set it for later use.
             Input::Gen(_) => miner_tx = true,

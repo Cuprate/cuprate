@@ -74,9 +74,9 @@ fn simple_type_balances(rct_sig: &RctProofs) -> Result<(), RingCTError> {
         }
     };
 
-    let sum_inputs = pseudo_outs.iter().sum::<EdwardsPoint>();
+    let sum_inputs = pseudo_outs.iter().map(|p| p.decompress().unwrap()).sum::<EdwardsPoint>();
     let sum_outputs =
-        rct_sig.base.commitments.iter().sum::<EdwardsPoint>() + Scalar::from(rct_sig.base.fee) * *H;
+        rct_sig.base.commitments.iter().map(|p| p.decompress().unwrap()).sum::<EdwardsPoint>() + Scalar::from(rct_sig.base.fee) * *H;
 
     if sum_inputs == sum_outputs {
         Ok(())
@@ -101,7 +101,7 @@ fn check_output_range_proofs(
         | RctPrunable::AggregateMlsagBorromean { borromean, .. } => try_par_iter(borromean)
             .zip(commitments)
             .try_for_each(|(borro, commitment)| {
-                if borro.verify(commitment) {
+                if borro.verify(&commitment.decompress().unwrap()) {
                     Ok(())
                 } else {
                     Err(RingCTError::BorromeanRangeInvalid)
@@ -173,12 +173,12 @@ pub(crate) fn check_input_signatures(
                     let Input::ToKey { key_image, .. } = inp else {
                         panic!("How did we build a ring with no decoys?");
                     };
-                    *key_image
+                    key_image.decompress().unwrap()
                 })
                 .collect::<Vec<_>>();
 
             let mut matrix =
-                AggregateRingMatrixBuilder::new(&proofs.base.commitments, proofs.base.fee);
+                AggregateRingMatrixBuilder::new(&proofs.base.commitments.iter().map(|p| p.decompress().unwrap()).collect::<Vec<_>>(), proofs.base.fee);
 
             rings.iter().try_for_each(|ring| matrix.push_ring(ring))?;
 
@@ -195,10 +195,11 @@ pub(crate) fn check_input_signatures(
                     panic!("How did we build a ring with no decoys?");
                 };
 
+                // TODO: change monero-serai API
                 Ok(mlsag.verify(
                     msg,
-                    &RingMatrix::individual(ring, *pseudo_out)?,
-                    &[*key_image],
+                    &RingMatrix::individual(ring, pseudo_out.decompress().unwrap())?,
+                    &[key_image.decompress().unwrap()],
                 )?)
             }),
         RctPrunable::Clsag { clsags, .. } => try_par_iter(clsags)
