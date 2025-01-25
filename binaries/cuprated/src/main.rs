@@ -77,6 +77,7 @@ fn main() {
     // Initialize async tasks.
 
     rt.block_on(async move {
+
         // Check add the genesis block to the blockchain.
         blockchain::check_add_genesis(
             &mut blockchain_read_handle,

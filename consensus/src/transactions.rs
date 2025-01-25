@@ -253,6 +253,7 @@ impl<D: Database + Clone> FullVerification<'_, D> {
                     }),
                 self.hf,
                 self.database.clone(),
+                self.output_cache,
             )
             .await?;
         }
@@ -436,13 +437,14 @@ async fn verify_transactions_decoy_info<D: Database>(
     txs: impl Iterator<Item = &TransactionVerificationData> + Clone,
     hf: HardFork,
     database: D,
+    output_cache: Option<&OutputCache>
 ) -> Result<(), ExtendedConsensusError> {
     // Decoy info is not validated for V1 txs.
     if hf == HardFork::V1 {
         return Ok(());
     }
 
-    batch_get_decoy_info(txs, hf, database)
+    batch_get_decoy_info(txs, hf, database, output_cache)
         .await?
         .try_for_each(|decoy_info| decoy_info.and_then(|di| Ok(check_decoy_info(&di, hf)?)))?;
 

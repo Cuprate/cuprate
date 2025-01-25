@@ -225,12 +225,13 @@ pub async fn batch_get_ring_member_info<D: Database>(
 /// This functions panics if `hf == HardFork::V1` as decoy info
 /// should not be needed for V1.
 #[instrument(level = "debug", skip_all)]
-pub async fn batch_get_decoy_info<'a, D: Database>(
+pub async fn batch_get_decoy_info<'a, 'b, D: Database>(
     txs_verification_data: impl Iterator<Item = &'a TransactionVerificationData> + Clone,
     hf: HardFork,
     mut database: D,
+    cache: Option<&'b OutputCache>,
 ) -> Result<
-    impl Iterator<Item = Result<DecoyInfo, ConsensusError>> + Captures<&'a ()>,
+    impl Iterator<Item = Result<DecoyInfo, ConsensusError>> + Captures<(&'a (), &'b ())>,
     ExtendedConsensusError,
 > {
     // decoy info is not needed for V1.
@@ -252,15 +253,23 @@ pub async fn batch_get_decoy_info<'a, D: Database>(
         unique_input_amounts.len()
     );
 
-    let BlockchainResponse::NumberOutputsWithAmount(outputs_with_amount) = database
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::NumberOutputsWithAmount(
-            unique_input_amounts.into_iter().collect(),
-        ))
-        .await?
-    else {
-        panic!("Database sent incorrect response!")
+    let outputs_with_amount= if let Some(cache) = cache {
+        unique_input_amounts.into_iter().map(|amount| {
+            (amount, cache.number_outs_with_amount(amount))
+        }).collect()
+    } else {
+        let BlockchainResponse::NumberOutputsWithAmount(outputs_with_amount) = database
+            .ready()
+            .await?
+            .call(BlockchainReadRequest::NumberOutputsWithAmount(
+                unique_input_amounts.into_iter().collect(),
+            ))
+            .await?
+        else {
+            panic!("Database sent incorrect response!")
+        };
+
+        outputs_with_amount
     };
 
     Ok(txs_verification_data.map(move |tx_v_data| {

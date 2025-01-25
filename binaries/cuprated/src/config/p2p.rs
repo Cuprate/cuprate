@@ -39,7 +39,7 @@ impl From<BlockDownloaderConfig> for cuprate_p2p::block_downloader::BlockDownloa
             in_progress_queue_bytes: value.in_progress_queue_bytes,
             check_client_pool_interval: value.check_client_pool_interval,
             target_batch_bytes: value.target_batch_bytes,
-            initial_batch_len: 20,
+            initial_batch_len: 1,
         }
     }
 }
