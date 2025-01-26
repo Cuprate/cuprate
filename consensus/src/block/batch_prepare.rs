@@ -171,7 +171,7 @@ pub async fn batch_prepare_main_chain_blocks(
                 let mut txs = start_tx_verification()
                     .append_txs(txs)
                     .prepare()?
-                    .just_semantic(block.hf_version)
+                    .only_semantic(block.hf_version)
                     .queue(&batch_verifier)?;
 
                 // Order the txs correctly.

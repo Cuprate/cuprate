@@ -18,7 +18,7 @@
 //! let tx = start_tx_verification()
 //!              .append_txs(vec![tx])
 //!              .prepare()?
-//!              .just_semantic(HardFork::V9)
+//!              .only_semantic(HardFork::V9)
 //!              .queue(&batch_verifier)?;
 //!
 //! assert!(batch_verifier.verify());
@@ -137,7 +137,7 @@ impl VerificationWanted {
     /// Semantic verification is verification that can done without other blockchain data. The [`HardFork`]
     /// is technically other blockchain data but excluding it reduces the amount of things that can be checked
     /// significantly, and it is easy to get compared to other blockchain data needed for contextual validation.
-    pub fn just_semantic(self, hf: HardFork) -> SemanticVerification {
+    pub fn only_semantic(self, hf: HardFork) -> SemanticVerification {
         SemanticVerification {
             prepped_txs: self.prepped_txs,
             hf,
@@ -196,7 +196,7 @@ impl SemanticVerification {
             // make sure we calculated the right fee.
             assert_eq!(fee, tx.fee);
 
-            tx.cached_verification_state = CachedVerificationState::JustSemantic(self.hf);
+            tx.cached_verification_state = CachedVerificationState::OnlySemantic(self.hf);
 
             Ok::<_, ConsensusError>(())
         })?;
@@ -362,7 +362,7 @@ fn verification_needed(
                 verification_needed.push(VerificationNeeded::SemanticAndContextual);
                 continue;
             }
-            CachedVerificationState::JustSemantic(hf) => {
+            CachedVerificationState::OnlySemantic(hf) => {
                 if current_hf != *hf {
                     // HF changed must do semantic checks again.
                     verification_needed.push(VerificationNeeded::SemanticAndContextual);

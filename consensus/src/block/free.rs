@@ -23,7 +23,8 @@ pub(crate) fn order_transactions(
                 .position(|tx| &tx.tx_hash == tx_hash)
                 .ok_or(ExtendedConsensusError::TxsIncludedWithBlockIncorrect)?;
 
-            txs.swap(i, at_index);
+            // The above `position` will give an index from inside its view of the slice so we need to add the difference.
+            txs.swap(i, i + at_index);
         }
     }
 

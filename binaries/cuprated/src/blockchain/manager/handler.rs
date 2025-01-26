@@ -273,7 +273,7 @@ impl super::BlockchainManager {
 
         // TODO: check in consensus crate if alt block with this hash already exists.
 
-        // If this alt chain has more cumulative difficulty reorg.
+        // If this alt chain has more cumulative difficulty, reorg.
         if alt_block_info.cumulative_difficulty
             > self
                 .blockchain_context_service
