@@ -36,7 +36,7 @@ mod batch_prepare;
 mod free;
 
 pub use alt_block::sanity_check_alt_block;
-pub use batch_prepare::batch_prepare_main_chain_blocks;
+pub use batch_prepare::{batch_prepare_main_chain_blocks, BatchPrepareCache};
 use cuprate_types::output_cache::OutputCache;
 use free::pull_ordered_transactions;
 
@@ -253,7 +253,7 @@ pub async fn verify_prepped_main_chain_block<D>(
     mut txs: Vec<TransactionVerificationData>,
     context_svc: &mut BlockchainContextService,
     database: D,
-    output_cache: Option<&mut OutputCache>,
+    batch_prep_cache: Option<&mut BatchPrepareCache>,
 ) -> Result<VerifiedBlockInformation, ExtendedConsensusError>
 where
     D: Database + Clone + Send + 'static,
@@ -285,7 +285,7 @@ where
                 context.current_adjusted_timestamp_for_time_lock(),
                 context.current_hf,
                 database,
-                output_cache.as_ref().map(|o| &**o)
+                batch_prep_cache.as_ref().map(|o| &**o)
             )
             .verify()
             .await?;
@@ -329,8 +329,8 @@ where
         cumulative_difficulty: context.cumulative_difficulty + context.next_difficulty,
     };
 
-    if let Some(output_cache) = output_cache {
-        output_cache.add_block_to_cache(&block);
+    if let Some(batch_prep_cache) = batch_prep_cache {
+        batch_prep_cache.output_cache.add_block_to_cache(&block);
     }
 
     Ok(block)
