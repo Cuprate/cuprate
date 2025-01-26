@@ -169,7 +169,7 @@ impl VerificationWanted {
 
 /// Semantic transaction verification.
 ///
-/// [`VerificationWanted::just_semantic`]
+/// [`VerificationWanted::only_semantic`]
 pub struct SemanticVerification {
     prepped_txs: Vec<TransactionVerificationData>,
     hf: HardFork,
