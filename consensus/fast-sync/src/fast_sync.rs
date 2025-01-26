@@ -41,13 +41,14 @@ fn max_height() -> u64 {
     (HASHES_OF_HASHES.len() * BATCH_SIZE) as u64
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub struct ValidBlockId(BlockId);
 
 fn valid_block_ids(block_ids: &[BlockId]) -> Vec<ValidBlockId> {
     block_ids.iter().map(|b| ValidBlockId(*b)).collect()
 }
 
+#[derive(Debug)]
 #[expect(clippy::large_enum_variant)]
 pub enum FastSyncRequest {
     ValidateHashes {
@@ -110,6 +111,7 @@ impl From<tower::BoxError> for FastSyncError {
     }
 }
 
+#[derive(Debug)]
 pub struct FastSyncService<C> {
     context_svc: C,
 }

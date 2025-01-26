@@ -59,6 +59,13 @@
 //!
 //! ```
 
+#![forbid(
+    clippy::missing_assert_message,
+    clippy::should_panic_without_expect,
+    unsafe_code,
+    reason = "Crate-specific lints. There should be good reasoning when removing these."
+)]
+
 #[cfg(test)]
 use hex as _;
 

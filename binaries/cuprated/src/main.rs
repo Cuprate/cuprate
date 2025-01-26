@@ -1,5 +1,9 @@
 #![doc = include_str!("../README.md")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![forbid(
+    unsafe_code,
+    reason = "Crate-specific lints. There should be good reasoning when removing these."
+)]
 #![allow(
     unused_imports,
     unreachable_pub,

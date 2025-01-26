@@ -3,6 +3,19 @@
 #![cfg_attr(any(feature = "proptest"), allow(non_local_definitions))]
 // Allow some lints when running in debug mode.
 #![cfg_attr(debug_assertions, allow(clippy::todo, clippy::multiple_crate_versions))]
+#![forbid(
+    clippy::missing_assert_message,
+    clippy::missing_docs_in_private_items,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::should_panic_without_expect,
+    clippy::single_char_lifetime_names,
+    unsafe_code,
+    unused_results,
+    missing_copy_implementations,
+    missing_debug_implementations,
+    reason = "Crate-specific lints. There should be good reasoning when removing these."
+)]
 
 //---------------------------------------------------------------------------------------------------- Public API
 // Import private modules, export public types.

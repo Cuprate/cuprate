@@ -58,6 +58,17 @@
 //! When removing data, for example because of a new block, you can remove from both pools provided it doesn't leak
 //! any data about stem transactions. You will probably want to set up a task that monitors the tx pool for stuck transactions,
 //! transactions that slipped in just as one was removed etc, this crate does not handle that.
+
+#![forbid(
+    clippy::missing_assert_message,
+    clippy::missing_errors_doc,
+    clippy::should_panic_without_expect,
+    clippy::single_char_lifetime_names,
+    unsafe_code,
+    missing_copy_implementations,
+    reason = "Crate-specific lints. There should be good reasoning when removing these."
+)]
+
 mod config;
 #[cfg(feature = "txpool")]
 pub mod pool;
