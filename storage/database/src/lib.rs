@@ -12,7 +12,8 @@
     // Rust thinks `env_inner` can be dropped earlier
     // but it cannot, we need it for the lifetime of
     // the database transaction + tables.
-    clippy::significant_drop_tightening
+    clippy::significant_drop_tightening,
+    unsafe_code,
 )]
 #![forbid(
     clippy::missing_assert_message,

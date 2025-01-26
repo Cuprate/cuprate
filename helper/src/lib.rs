@@ -5,6 +5,7 @@
     clippy::single_char_lifetime_names,
     reason = "Crate-specific lints. There should be good reasoning when removing these."
 )]
+#![deny(unsafe_code)]
 
 //---------------------------------------------------------------------------------------------------- Public API
 #[cfg(feature = "asynch")]
