@@ -108,6 +108,7 @@ impl<T: Table + 'static> DatabaseIter<T> for RedbTableRo<T::Key, T::Value> {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
+#[expect(unsafe_code)]
 // SAFETY: Both `redb`'s transaction and table types are `Send + Sync`.
 unsafe impl<T: Table + 'static> DatabaseRo<T> for RedbTableRo<T::Key, T::Value> {
     #[inline]
@@ -137,6 +138,7 @@ unsafe impl<T: Table + 'static> DatabaseRo<T> for RedbTableRo<T::Key, T::Value> 
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
+#[expect(unsafe_code)]
 // SAFETY: Both `redb`'s transaction and table types are `Send + Sync`.
 unsafe impl<T: Table + 'static> DatabaseRo<T> for RedbTableRw<'_, T::Key, T::Value> {
     #[inline]

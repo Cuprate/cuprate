@@ -109,6 +109,7 @@ This will return [`crate::RuntimeError::KeyNotFound`] if:
 ///
 /// - <https://doc.rust-lang.org/std/marker/trait.Sync.html>
 /// - <https://doc.rust-lang.org/nomicon/send-and-sync.html>
+#[expect(unsafe_code)]
 pub unsafe trait DatabaseRo<T: Table> {
     /// Get the value corresponding to a key.
     #[doc = doc_database!()]

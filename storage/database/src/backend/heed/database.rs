@@ -121,6 +121,7 @@ impl<T: Table> DatabaseIter<T> for HeedTableRo<'_, T> {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo Impl
+#[expect(unsafe_code)]
 // SAFETY: `HeedTableRo: !Send` as it holds a reference to `heed::RoTxn: Send + !Sync`.
 unsafe impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
     #[inline]
@@ -150,6 +151,7 @@ unsafe impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw Impl
+#[expect(unsafe_code)]
 // SAFETY: The `Send` bound only applies to `HeedTableRo`.
 // `HeedTableRw`'s write transaction is `!Send`.
 unsafe impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, '_, T> {
