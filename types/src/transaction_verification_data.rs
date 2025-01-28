@@ -1,7 +1,5 @@
 //! Contains [`TransactionVerificationData`] and the related types.
 
-use std::sync::Mutex;
-
 use monero_serai::transaction::{Timelock, Transaction};
 
 use crate::{HardFork, VerifiedTransactionInformation};
@@ -37,6 +35,8 @@ impl TxVersion {
 pub enum CachedVerificationState {
     /// The transaction has not been validated.
     NotVerified,
+    /// The transaction was only validated semantically.
+    OnlySemantic(HardFork),
     /// The transaction is valid* if the block represented by this hash is in the blockchain and the [`HardFork`]
     /// is the same.
     ///
@@ -67,7 +67,7 @@ impl CachedVerificationState {
     /// Returns the block hash this is valid for if in state [`CachedVerificationState::ValidAtHashAndHF`] or [`CachedVerificationState::ValidAtHashAndHFWithTimeBasedLock`].
     pub const fn verified_at_block_hash(&self) -> Option<[u8; 32]> {
         match self {
-            Self::NotVerified => None,
+            Self::NotVerified | Self::OnlySemantic(_) => None,
             Self::ValidAtHashAndHF { block_hash, .. }
             | Self::ValidAtHashAndHFWithTimeBasedLock { block_hash, .. } => Some(*block_hash),
         }
@@ -75,7 +75,7 @@ impl CachedVerificationState {
 }
 
 /// Data needed to verify a transaction.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TransactionVerificationData {
     /// The transaction we are verifying
     pub tx: Transaction,
@@ -90,7 +90,7 @@ pub struct TransactionVerificationData {
     /// The hash of this transaction.
     pub tx_hash: [u8; 32],
     /// The verification state of this transaction.
-    pub cached_verification_state: Mutex<CachedVerificationState>,
+    pub cached_verification_state: CachedVerificationState,
 }
 
 #[derive(Debug, Copy, Clone, thiserror::Error)]
@@ -108,7 +108,7 @@ impl TryFrom<VerifiedTransactionInformation> for TransactionVerificationData {
             tx_weight: value.tx_weight,
             fee: value.fee,
             tx_hash: value.tx_hash,
-            cached_verification_state: Mutex::new(CachedVerificationState::NotVerified),
+            cached_verification_state: CachedVerificationState::NotVerified,
         })
     }
 }

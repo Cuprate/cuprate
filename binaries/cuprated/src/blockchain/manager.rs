@@ -3,16 +3,14 @@ use std::{collections::HashMap, sync::Arc};
 use futures::StreamExt;
 use monero_serai::block::Block;
 use tokio::sync::{mpsc, oneshot, Notify};
-use tower::{Service, ServiceExt};
+use tower::{BoxError, Service, ServiceExt};
 use tracing::error;
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{
-    BlockChainContextRequest, BlockChainContextResponse, BlockChainContextService,
-    BlockVerifierService, ExtendedConsensusError, TxVerifierService, VerifyBlockRequest,
-    VerifyBlockResponse, VerifyTxRequest, VerifyTxResponse,
+    BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
+    ExtendedConsensusError,
 };
-use cuprate_consensus_context::RawBlockChainContext;
 use cuprate_p2p::{
     block_downloader::{BlockBatch, BlockDownloaderConfig},
     BroadcastSvc, NetworkInterface,
@@ -26,10 +24,8 @@ use cuprate_types::{
 
 use crate::{
     blockchain::{
-        chain_service::ChainService,
-        interface::COMMAND_TX,
-        syncer,
-        types::{ConcreteBlockVerifierService, ConsensusBlockchainReadHandle},
+        chain_service::ChainService, interface::COMMAND_TX, syncer,
+        types::ConsensusBlockchainReadHandle,
     },
     constants::PANIC_CRITICAL_SERVICE_ERROR,
 };
@@ -48,8 +44,7 @@ pub async fn init_blockchain_manager(
     blockchain_write_handle: BlockchainWriteHandle,
     blockchain_read_handle: BlockchainReadHandle,
     txpool_write_handle: TxpoolWriteHandle,
-    mut blockchain_context_service: BlockChainContextService,
-    block_verifier_service: ConcreteBlockVerifierService,
+    mut blockchain_context_service: BlockchainContextService,
     block_downloader_config: BlockDownloaderConfig,
 ) {
     // TODO: find good values for these size limits
@@ -68,24 +63,14 @@ pub async fn init_blockchain_manager(
         block_downloader_config,
     ));
 
-    let BlockChainContextResponse::Context(blockchain_context) = blockchain_context_service
-        .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
-        .call(BlockChainContextRequest::Context)
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
-    else {
-        unreachable!()
-    };
-
     let manager = BlockchainManager {
         blockchain_write_handle,
-        blockchain_read_handle,
+        blockchain_read_handle: ConsensusBlockchainReadHandle::new(
+            blockchain_read_handle,
+            BoxError::from,
+        ),
         txpool_write_handle,
         blockchain_context_service,
-        cached_blockchain_context: blockchain_context.unchecked_blockchain_context().clone(),
-        block_verifier_service,
         stop_current_block_downloader,
         broadcast_svc: clearnet_interface.broadcast_svc(),
     };
@@ -104,18 +89,12 @@ pub struct BlockchainManager {
     /// is held.
     blockchain_write_handle: BlockchainWriteHandle,
     /// A [`BlockchainReadHandle`].
-    blockchain_read_handle: BlockchainReadHandle,
+    blockchain_read_handle: ConsensusBlockchainReadHandle,
     /// A [`TxpoolWriteHandle`].
     txpool_write_handle: TxpoolWriteHandle,
-    // TODO: Improve the API of the cache service.
-    // TODO: rename the cache service -> `BlockchainContextService`.
     /// The blockchain context cache, this caches the current state of the blockchain to quickly calculate/retrieve
     /// values without needing to go to a [`BlockchainReadHandle`].
-    blockchain_context_service: BlockChainContextService,
-    /// A cached context representing the current state.
-    cached_blockchain_context: RawBlockChainContext,
-    /// The block verifier service, to verify incoming blocks.
-    block_verifier_service: ConcreteBlockVerifierService,
+    blockchain_context_service: BlockchainContextService,
     /// A [`Notify`] to tell the [syncer](syncer::syncer) that we want to cancel this current download
     /// attempt.
     stop_current_block_downloader: Arc<Notify>,

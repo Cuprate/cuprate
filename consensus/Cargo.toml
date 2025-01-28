@@ -17,7 +17,6 @@ cfg-if = { workspace = true }
 thiserror = { workspace = true }
 tower = { workspace = true, features = ["util"] }
 tracing = { workspace = true, features = ["std", "attributes"] }
-futures = { workspace = true, features = ["std", "async-await"] }
 
 monero-serai = { workspace = true, features = ["std"] }
 
@@ -35,6 +34,7 @@ hex-literal = { workspace = true }
 curve25519-dalek = { workspace = true }
 
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"]}
+futures = { workspace = true, features = ["std", "async-await"] }
 tokio-test = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }

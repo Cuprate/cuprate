@@ -7,11 +7,13 @@ use std::{
 use bytes::Bytes;
 use futures::{future::BoxFuture, FutureExt};
 use monero_serai::transaction::Transaction;
-use tower::{Service, ServiceExt};
+use tower::{BoxError, Service, ServiceExt};
 
+use cuprate_blockchain::service::BlockchainReadHandle;
+use cuprate_consensus::transactions::{start_tx_verification, PrepTransactions};
 use cuprate_consensus::{
     transactions::new_tx_verification_data, BlockChainContextRequest, BlockChainContextResponse,
-    BlockChainContextService, ExtendedConsensusError, VerifyTxRequest,
+    BlockchainContextService, ExtendedConsensusError,
 };
 use cuprate_dandelion_tower::{
     pool::{DandelionPoolService, IncomingTxBuilder},
@@ -32,7 +34,7 @@ use cuprate_txpool::{
 use cuprate_types::TransactionVerificationData;
 
 use crate::{
-    blockchain::ConcreteTxVerifierService,
+    blockchain::ConsensusBlockchainReadHandle,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     p2p::CrossNetworkInternalPeerId,
     signals::REORG_LOCK,
@@ -76,16 +78,16 @@ pub struct IncomingTxHandler {
     /// A store of txs currently being handled in incoming tx requests.
     pub(super) txs_being_handled: TxsBeingHandled,
     /// The blockchain context cache.
-    pub(super) blockchain_context_cache: BlockChainContextService,
+    pub(super) blockchain_context_cache: BlockchainContextService,
     /// The dandelion txpool manager.
     pub(super) dandelion_pool_manager:
         DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
-    /// The transaction verifier service.
-    pub(super) tx_verifier_service: ConcreteTxVerifierService,
     /// The txpool write handle.
     pub(super) txpool_write_handle: TxpoolWriteHandle,
     /// The txpool read handle.
     pub(super) txpool_read_handle: TxpoolReadHandle,
+    /// The blockchain read handle.
+    pub(super) blockchain_read_handle: ConsensusBlockchainReadHandle,
 }
 
 impl IncomingTxHandler {
@@ -95,8 +97,8 @@ impl IncomingTxHandler {
         clear_net: NetworkInterface<ClearNet>,
         txpool_write_handle: TxpoolWriteHandle,
         txpool_read_handle: TxpoolReadHandle,
-        blockchain_context_cache: BlockChainContextService,
-        tx_verifier_service: ConcreteTxVerifierService,
+        blockchain_context_cache: BlockchainContextService,
+        blockchain_read_handle: BlockchainReadHandle,
     ) -> Self {
         let dandelion_router = dandelion::dandelion_router(clear_net);
 
@@ -110,9 +112,12 @@ impl IncomingTxHandler {
             txs_being_handled: TxsBeingHandled::new(),
             blockchain_context_cache,
             dandelion_pool_manager,
-            tx_verifier_service,
             txpool_write_handle,
             txpool_read_handle,
+            blockchain_read_handle: ConsensusBlockchainReadHandle::new(
+                blockchain_read_handle,
+                BoxError::from,
+            ),
         }
     }
 }
@@ -131,7 +136,7 @@ impl Service<IncomingTxs> for IncomingTxHandler {
             req,
             self.txs_being_handled.clone(),
             self.blockchain_context_cache.clone(),
-            self.tx_verifier_service.clone(),
+            self.blockchain_read_handle.clone(),
             self.txpool_write_handle.clone(),
             self.txpool_read_handle.clone(),
             self.dandelion_pool_manager.clone(),
@@ -144,8 +149,8 @@ impl Service<IncomingTxs> for IncomingTxHandler {
 async fn handle_incoming_txs(
     IncomingTxs { txs, state }: IncomingTxs,
     txs_being_handled: TxsBeingHandled,
-    mut blockchain_context_cache: BlockChainContextService,
-    mut tx_verifier_service: ConcreteTxVerifierService,
+    mut blockchain_context_cache: BlockchainContextService,
+    blockchain_read_handle: ConsensusBlockchainReadHandle,
     mut txpool_write_handle: TxpoolWriteHandle,
     mut txpool_read_handle: TxpoolReadHandle,
     mut dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
@@ -155,30 +160,20 @@ async fn handle_incoming_txs(
     let (txs, stem_pool_txs, txs_being_handled_guard) =
         prepare_incoming_txs(txs, txs_being_handled, &mut txpool_read_handle).await?;
 
-    let BlockChainContextResponse::Context(context) = blockchain_context_cache
-        .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
-        .call(BlockChainContextRequest::Context)
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
-    else {
-        unreachable!()
-    };
+    let context = blockchain_context_cache.blockchain_context();
 
-    let context = context.unchecked_blockchain_context();
-
-    tx_verifier_service
-        .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
-        .call(VerifyTxRequest::Prepped {
-            txs: txs.clone(),
-            current_chain_height: context.chain_height,
-            top_hash: context.top_hash,
-            time_for_time_lock: context.current_adjusted_timestamp_for_time_lock(),
-            hf: context.current_hf,
-        })
+    let txs = start_tx_verification()
+        .append_prepped_txs(txs)
+        .prepare()
+        .map_err(|e| IncomingTxError::Consensus(e.into()))?
+        .full(
+            context.chain_height,
+            context.top_hash,
+            context.current_adjusted_timestamp_for_time_lock(),
+            context.current_hf,
+            blockchain_read_handle,
+        )
+        .verify()
         .await
         .map_err(IncomingTxError::Consensus)?;
 
@@ -220,7 +215,7 @@ async fn prepare_incoming_txs(
     txpool_read_handle: &mut TxpoolReadHandle,
 ) -> Result<
     (
-        Vec<Arc<TransactionVerificationData>>,
+        Vec<TransactionVerificationData>,
         Vec<TxId>,
         TxsBeingHandledLocally,
     ),
@@ -282,7 +277,7 @@ async fn prepare_incoming_txs(
                 let tx = new_tx_verification_data(tx)
                     .map_err(|e| IncomingTxError::Consensus(e.into()))?;
 
-                Ok(Arc::new(tx))
+                Ok(tx)
             })
             .collect::<Result<Vec<_>, IncomingTxError>>()?;
 
@@ -295,7 +290,7 @@ async fn prepare_incoming_txs(
 ///
 /// This will add the tx to the txpool and route it to the network.
 async fn handle_valid_tx(
-    tx: Arc<TransactionVerificationData>,
+    tx: TransactionVerificationData,
     state: TxState<CrossNetworkInternalPeerId>,
     txpool_write_handle: &mut TxpoolWriteHandle,
     dandelion_pool_manager: &mut DandelionPoolService<
@@ -312,7 +307,7 @@ async fn handle_valid_tx(
         .await
         .expect(PANIC_CRITICAL_SERVICE_ERROR)
         .call(TxpoolWriteRequest::AddTransaction {
-            tx,
+            tx: Box::new(tx),
             state_stem: state.is_stem_stage(),
         })
         .await

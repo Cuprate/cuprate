@@ -9,7 +9,7 @@ use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
 
 use cuprate_consensus_context::{
-    BlockChainContextRequest, BlockChainContextResponse, BlockChainContextService,
+    BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
 };
 use cuprate_helper::time::secs_to_hms;
 
@@ -87,7 +87,7 @@ pub fn command_listener(incoming_commands: mpsc::Sender<Command>) -> ! {
 /// The [`Command`] handler loop.
 pub async fn io_loop(
     mut incoming_commands: mpsc::Receiver<Command>,
-    mut context_service: BlockChainContextService,
+    mut context_service: BlockchainContextService,
 ) {
     loop {
         let Some(command) = incoming_commands.recv().await else {
@@ -113,17 +113,8 @@ pub async fn io_loop(
                 }
             }
             Command::Status => {
-                let BlockChainContextResponse::Context(blockchain_context) = context_service
-                    .ready()
-                    .await
-                    .expect(PANIC_CRITICAL_SERVICE_ERROR)
-                    .call(BlockChainContextRequest::Context)
-                    .await
-                    .expect(PANIC_CRITICAL_SERVICE_ERROR)
-                else {
-                    unreachable!();
-                };
-                let context = blockchain_context.unchecked_blockchain_context();
+                let context = context_service.blockchain_context();
+
                 let uptime = statics::START_INSTANT.elapsed().unwrap_or_default();
 
                 let (h, m, s) = secs_to_hms(uptime.as_secs());
