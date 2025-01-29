@@ -5,8 +5,8 @@ use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 
 use cuprate_consensus_context::{
-    BlockChainContext, BlockChainContextRequest, BlockChainContextResponse,
-    BlockChainContextService,
+    BlockChainContextRequest, BlockChainContextResponse, BlockchainContext,
+    BlockchainContextService,
 };
 use cuprate_types::{
     rpc::{FeeEstimate, HardForkInfo},
@@ -15,27 +15,16 @@ use cuprate_types::{
 
 // FIXME: use `anyhow::Error` over `tower::BoxError` in blockchain context.
 
-/// [`BlockChainContextRequest::Context`].
-pub async fn context(
-    blockchain_context: &mut BlockChainContextService,
-) -> Result<BlockChainContext, Error> {
-    let BlockChainContextResponse::Context(context) = blockchain_context
-        .ready()
-        .await
-        .map_err(|e| anyhow!(e))?
-        .call(BlockChainContextRequest::Context)
-        .await
-        .map_err(|e| anyhow!(e))?
-    else {
-        unreachable!();
-    };
-
-    Ok(context)
+/// TODO: Remove this whole function just call directly in all usages.
+pub(crate) async fn context(
+    blockchain_context: &mut BlockchainContextService,
+) -> Result<BlockchainContext, Error> {
+    Ok(blockchain_context.blockchain_context().clone())
 }
 
 /// [`BlockChainContextRequest::HardForkInfo`].
-pub async fn hard_fork_info(
-    blockchain_context: &mut BlockChainContextService,
+pub(crate) async fn hard_fork_info(
+    blockchain_context: &mut BlockchainContextService,
     hard_fork: HardFork,
 ) -> Result<HardForkInfo, Error> {
     let BlockChainContextResponse::HardForkInfo(hf_info) = blockchain_context
@@ -53,8 +42,8 @@ pub async fn hard_fork_info(
 }
 
 /// [`BlockChainContextRequest::FeeEstimate`].
-pub async fn fee_estimate(
-    blockchain_context: &mut BlockChainContextService,
+pub(crate) async fn fee_estimate(
+    blockchain_context: &mut BlockchainContextService,
     grace_blocks: u64,
 ) -> Result<FeeEstimate, Error> {
     let BlockChainContextResponse::FeeEstimate(fee) = blockchain_context
@@ -72,8 +61,8 @@ pub async fn fee_estimate(
 }
 
 /// [`BlockChainContextRequest::CalculatePow`]
-pub async fn calculate_pow(
-    blockchain_context: &mut BlockChainContextService,
+pub(crate) async fn calculate_pow(
+    blockchain_context: &mut BlockchainContextService,
     hardfork: HardFork,
     block: Block,
     seed_hash: [u8; 32],
@@ -105,7 +94,7 @@ pub async fn calculate_pow(
 
 /// [`BlockChainContextRequest::BatchGetDifficulties`]
 pub async fn batch_get_difficulties(
-    blockchain_context: &mut BlockChainContextService,
+    blockchain_context: &mut BlockchainContextService,
     difficulties: Vec<(u64, HardFork)>,
 ) -> Result<Vec<u128>, Error> {
     let BlockChainContextResponse::BatchDifficulties(resp) = blockchain_context

@@ -7,7 +7,7 @@ use futures::future::BoxFuture;
 use monero_serai::block::Block;
 use tower::Service;
 
-use cuprate_blockchain::service::BlockchainReadHandle;
+use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::BlockChainContextService;
 use cuprate_pruning::PruningSeed;
 use cuprate_rpc_interface::RpcHandler;
@@ -165,7 +165,7 @@ pub struct CupratedRpcHandler {
     pub blockchain_read: BlockchainReadHandle,
 
     /// Handle to the blockchain context service.
-    pub blockchain_context: BlockChainContextService,
+    pub blockchain_context: BlockchainContextService,
 
     /// Handle to the blockchain manager.
     pub blockchain_manager: BlockchainManagerHandle,
@@ -182,7 +182,7 @@ impl CupratedRpcHandler {
     pub const fn new(
         restricted: bool,
         blockchain_read: BlockchainReadHandle,
-        blockchain_context: BlockChainContextService,
+        blockchain_context: BlockchainContextService,
         blockchain_manager: BlockchainManagerHandle,
         txpool_read: TxpoolReadHandle,
         txpool_manager: std::convert::Infallible,

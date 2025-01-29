@@ -9,11 +9,9 @@ use std::{
 
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY};
 use monero_serai::transaction::{Timelock, Transaction};
-use tower::{service_fn, Service, ServiceExt};
+use tower::service_fn;
 
-use cuprate_consensus::{
-    TxVerifierService, VerifyTxRequest, VerifyTxResponse, __private::Database,
-};
+use cuprate_consensus::{__private::Database, transactions::start_tx_verification};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     OutputOnChain,
@@ -83,17 +81,17 @@ macro_rules! test_verify_valid_v2_tx {
             let map = BTreeMap::from_iter(members);
             let database = dummy_database(map);
 
-            let mut tx_verifier = TxVerifierService::new(database);
-
-            assert!(matches!(tx_verifier.ready().await.unwrap().call(
-                VerifyTxRequest::New {
-                    txs: vec![Transaction::read(&mut $tx).unwrap()].into(),
-                    current_chain_height: 10,
-                    top_hash: [0; 32],
-                    hf: HardFork::$hf,
-                    time_for_time_lock: u64::MAX
-                }
-            ).await.unwrap(), VerifyTxResponse::OkPrepped(_)));
+            assert!(
+                start_tx_verification()
+                .append_txs(
+                    vec![Transaction::read(&mut $tx).unwrap()]
+                )
+                .prepare()
+                .unwrap()
+                .full(10, [0; 32], u64::MAX, HardFork::$hf, database.clone())
+                .verify()
+                .await.is_ok()
+            );
 
             // Check verification fails if we put random ring members
 
@@ -113,17 +111,17 @@ macro_rules! test_verify_valid_v2_tx {
             let map = BTreeMap::from_iter(members);
             let database = dummy_database(map);
 
-            let mut tx_verifier = TxVerifierService::new(database);
-
-            assert!(tx_verifier.ready().await.unwrap().call(
-                VerifyTxRequest::New {
-                    txs: vec![Transaction::read(&mut $tx).unwrap()].into(),
-                    current_chain_height: 10,
-                    top_hash: [0; 32],
-                    hf: HardFork::$hf,
-                    time_for_time_lock: u64::MAX
-                }
-            ).await.is_err());
+            assert!(
+                start_tx_verification()
+                .append_txs(
+                    vec![Transaction::read(&mut $tx).unwrap()]
+                )
+                .prepare()
+                .unwrap()
+                .full(10, [0; 32], u64::MAX, HardFork::$hf, database.clone())
+                .verify()
+                .await.is_err()
+            );
 
         }
     };
