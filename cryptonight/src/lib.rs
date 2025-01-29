@@ -1,3 +1,14 @@
+#![forbid(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::should_panic_without_expect,
+    clippy::single_char_lifetime_names,
+    unsafe_code,
+    missing_copy_implementations,
+    missing_debug_implementations,
+    reason = "Crate-specific lints. There should be good reasoning when removing these."
+)]
+
 mod blake256;
 mod cnaes;
 mod hash_v2;
@@ -18,6 +29,7 @@ pub struct DataCanNotBeHashed;
 
 /// Calculates the `CryptoNight` v1 hash of buf.
 ///
+/// # Errors
 /// This will return an error if buf is less than 43 bytes.
 pub fn cryptonight_hash_v1(buf: &[u8]) -> Result<[u8; 32], DataCanNotBeHashed> {
     if buf.len() < 43 {

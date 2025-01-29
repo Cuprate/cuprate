@@ -7,6 +7,12 @@
 //! with [`BlockchainResponse`].
 //!
 
+#![forbid(
+    unsafe_code,
+    missing_copy_implementations,
+    reason = "Crate-specific lints. There should be good reasoning when removing these."
+)]
+
 cfg_if::cfg_if! {
     // Used in external `tests/`.
     if #[cfg(test)] {

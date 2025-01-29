@@ -4,6 +4,13 @@
 //! This is used during contextual validation, this does not have all the data for contextual validation
 //! (outputs) for that you will need a [`Database`].
 
+#![forbid(
+    clippy::should_panic_without_expect,
+    clippy::single_char_lifetime_names,
+    unsafe_code,
+    reason = "Crate-specific lints. There should be good reasoning when removing these."
+)]
+
 // Used in documentation references for [`BlockChainContextRequest`]
 // FIXME: should we pull in a dependency just to link docs?
 use monero_serai as _;
@@ -363,7 +370,7 @@ pub enum BlockChainContextResponse {
 }
 
 /// The blockchain context service.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BlockchainContextService {
     cached_context: Cache<Arc<arc_swap::ArcSwap<BlockchainContext>>, Arc<BlockchainContext>>,
 

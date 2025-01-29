@@ -1,5 +1,10 @@
 #![doc = include_str!("../README.md")]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![forbid(
+    clippy::should_panic_without_expect,
+    clippy::single_char_lifetime_names,
+    reason = "Crate-specific lints. There should be good reasoning when removing these."
+)]
 
 //---------------------------------------------------------------------------------------------------- Public API
 #[cfg(feature = "asynch")]

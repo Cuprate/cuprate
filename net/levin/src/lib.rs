@@ -27,7 +27,13 @@
 //! This project is licensed under the MIT License.
 
 // Coding conventions
-#![forbid(unsafe_code)]
+#![forbid(
+    clippy::missing_assert_message,
+    clippy::should_panic_without_expect,
+    unsafe_code,
+    unused_results,
+    reason = "Crate-specific lints. There should be good reasoning when removing these."
+)]
 #![deny(non_upper_case_globals)]
 #![deny(non_camel_case_types)]
 #![deny(unused_mut)]

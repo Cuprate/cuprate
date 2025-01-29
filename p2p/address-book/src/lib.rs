@@ -10,6 +10,15 @@
 //! clear net peers getting linked to their dark counterparts
 //! and so peers will only get told about peers they can
 //! connect to.
+
+#![forbid(
+    clippy::missing_assert_message,
+    clippy::should_panic_without_expect,
+    missing_docs,
+    unsafe_code,
+    reason = "Crate-specific lints. There should be good reasoning when removing these."
+)]
+
 use std::{io::ErrorKind, path::PathBuf, time::Duration};
 
 use cuprate_p2p_core::{NetZoneAddress, NetworkZone};

@@ -2,6 +2,16 @@
 //!
 //! This crate contains a [`NetworkInterface`] which allows interacting with the Monero P2P network on
 //! a certain [`NetworkZone`]
+
+#![forbid(
+    clippy::missing_assert_message,
+    clippy::missing_errors_doc,
+    clippy::should_panic_without_expect,
+    clippy::single_char_lifetime_names,
+    unsafe_code,
+    reason = "Crate-specific lints. There should be good reasoning when removing these."
+)]
+
 use std::sync::Arc;
 
 use futures::FutureExt;

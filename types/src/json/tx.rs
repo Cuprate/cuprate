@@ -343,7 +343,7 @@ pub struct Clsag {
 }
 
 /// [`RctSignatures::NonCoinbase::ecdhInfo`].
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 #[expect(variant_size_differences)]

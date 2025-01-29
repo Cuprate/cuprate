@@ -197,7 +197,7 @@ pub struct MinerData {
 /// A transaction in the txpool.
 ///
 /// Used in [`MinerData::tx_backlog`].
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MinerDataTxBacklogEntry {
     pub id: [u8; 32],
     pub weight: u64,
@@ -243,7 +243,7 @@ pub struct ChainInfo {
 }
 
 /// Used in RPC's `add_aux_pow`.
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AuxPow {
     pub id: [u8; 32],
     pub hash: [u8; 32],

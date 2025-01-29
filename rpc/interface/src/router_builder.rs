@@ -69,7 +69,7 @@ macro_rules! generate_router_builder {
         ///     .all()
         ///     .build();
         /// ```
-        #[derive(Clone)]
+        #[derive(Debug, Clone)]
         pub struct RouterBuilder<H: RpcHandler> {
             router: Router<H>,
         }

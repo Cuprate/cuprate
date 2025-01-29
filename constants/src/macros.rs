@@ -1,3 +1,5 @@
+//! General macros.
+
 /// Output a string link to `monerod` source code.
 #[allow(
     clippy::allow_attributes,

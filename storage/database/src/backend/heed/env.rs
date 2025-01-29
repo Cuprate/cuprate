@@ -112,6 +112,7 @@ impl Env for ConcreteEnv {
 
     #[cold]
     #[inline(never)] // called once.
+    #[expect(unsafe_code, reason = "LMDB/heed invariants")]
     fn open(config: Config) -> Result<Self, InitError> {
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
 
@@ -220,6 +221,7 @@ impl Env for ConcreteEnv {
         // and we have a WriteGuard to it, so we're safe.
         //
         // <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
+        #[expect(unsafe_code)]
         unsafe {
             // INVARIANT: `resize()` returns a valid `usize` to resize to.
             self.env

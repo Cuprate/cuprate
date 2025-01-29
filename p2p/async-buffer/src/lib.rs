@@ -4,6 +4,15 @@
 //!
 //! Weight is used to bound the channel, on creation you specify a max weight and for each value you
 //! specify a weight.
+
+#![forbid(
+    clippy::missing_errors_doc,
+    clippy::should_panic_without_expect,
+    unsafe_code,
+    missing_copy_implementations,
+    reason = "Crate-specific lints. There should be good reasoning when removing these."
+)]
+
 use std::{
     cmp::min,
     future::Future,

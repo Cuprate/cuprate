@@ -3,6 +3,13 @@
     // See `cuprate-database` for reasoning.
     clippy::significant_drop_tightening
 )]
+#![forbid(
+    clippy::missing_assert_message,
+    clippy::should_panic_without_expect,
+    clippy::single_char_lifetime_names,
+    unsafe_code,
+    reason = "Crate-specific lints. There should be good reasoning when removing these."
+)]
 
 // Used in docs: <https://github.com/Cuprate/cuprate/pull/170#discussion_r1823644357>.
 use tower as _;

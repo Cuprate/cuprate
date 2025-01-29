@@ -3,6 +3,13 @@
     // See `cuprate-database` for reasoning.
     clippy::significant_drop_tightening
 )]
+#![forbid(
+    clippy::should_panic_without_expect,
+    missing_docs,
+    missing_copy_implementations,
+    missing_debug_implementations,
+    reason = "Crate-specific lints. There should be good reasoning when removing these."
+)]
 
 // Only allow building 64-bit targets.
 //

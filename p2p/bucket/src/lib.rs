@@ -38,10 +38,22 @@
 //!
 //! ```
 
-use arrayvec::{ArrayVec, CapacityError};
-use rand::random;
+#![forbid(
+    clippy::missing_assert_message,
+    clippy::missing_docs_in_private_items,
+    clippy::missing_errors_doc,
+    clippy::should_panic_without_expect,
+    clippy::single_char_lifetime_names,
+    missing_docs,
+    unsafe_code,
+    missing_copy_implementations,
+    reason = "Crate-specific lints. There should be good reasoning when removing these."
+)]
 
 use std::{collections::BTreeMap, net::Ipv4Addr};
+
+use arrayvec::{ArrayVec, CapacityError};
+use rand::random;
 
 /// A discriminant that can be computed from the type.
 pub trait Bucketable: Sized + Eq + Clone {

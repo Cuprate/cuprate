@@ -22,6 +22,14 @@
 //!
 //! This project is licensed under the MIT License.
 
+#![forbid(
+    clippy::missing_assert_message,
+    clippy::missing_panics_doc,
+    clippy::should_panic_without_expect,
+    unsafe_code,
+    reason = "Crate-specific lints. There should be good reasoning when removing these."
+)]
+
 pub mod network_address;
 pub mod p2p;
 

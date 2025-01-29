@@ -57,6 +57,14 @@
 //! # });
 //! ```
 
+#![forbid(
+    clippy::missing_assert_message,
+    clippy::should_panic_without_expect,
+    clippy::single_char_lifetime_names,
+    unsafe_code,
+    reason = "Crate-specific lints. There should be good reasoning when removing these."
+)]
+
 cfg_if::cfg_if! {
     // Used in `tests/`
     if #[cfg(test)] {

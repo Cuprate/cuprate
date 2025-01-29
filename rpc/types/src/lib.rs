@@ -4,6 +4,17 @@
     clippy::allow_attributes,
     reason = "macros (internal + serde) make this lint hard to satisfy"
 )]
+#![forbid(
+    clippy::missing_assert_message,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::should_panic_without_expect,
+    clippy::single_char_lifetime_names,
+    unsafe_code,
+    unused_results,
+    missing_debug_implementations,
+    reason = "Crate-specific lints. There should be good reasoning when removing these."
+)]
 
 mod constants;
 #[cfg(any(feature = "serde", feature = "epee"))]

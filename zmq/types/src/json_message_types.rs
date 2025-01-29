@@ -39,7 +39,7 @@ pub struct TxPoolAdd {
 /// ZMQ `json-minimal-txpool_add` subscriber messages contain an array of
 /// `TxPoolAddMin` JSON objects. See `TxPoolAdd` for information on which
 /// transactions are published to subscribers.
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Copy, Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TxPoolAddMin {
     /// transaction ID
     pub id: HexBytes<32>,
@@ -128,7 +128,7 @@ pub struct ToKey {
 }
 
 /// Holds the block height of the coinbase transaction.
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Copy, Debug, Default, Clone, Serialize, Deserialize)]
 pub struct MinerInput {
     /// namespace layer around the block height
     pub r#gen: Gen,
@@ -136,7 +136,7 @@ pub struct MinerInput {
 
 /// Additional namespace layer around the block height in `ChainMain`; gen is
 /// another name for a coinbase transaction
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Copy, Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Gen {
     /// block height when the coinbase transaction was created
     pub height: u64,
@@ -266,7 +266,7 @@ pub struct MinerTx {
 }
 
 /// Holds a transaction entry in the `MinerData` `tx_backlog` field.
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Copy, Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TxBacklog {
     /// transaction ID
     pub id: HexBytes<32>,

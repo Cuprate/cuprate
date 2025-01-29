@@ -69,6 +69,7 @@ impl_thread_percent! {
 ///
 /// On macOS and *BSD: +20
 /// On Linux: +19
+#[expect(unsafe_code, reason = "Must call C")]
 pub fn low_priority_thread() {
     #[cfg(target_os = "windows")]
     {
