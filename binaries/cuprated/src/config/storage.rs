@@ -29,21 +29,11 @@ impl Default for StorageConfig {
 }
 
 /// The blockchain config.
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Default, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, default)]
 pub struct BlockchainConfig {
     #[serde(flatten)]
     pub shared: SharedStorageConfig,
-}
-
-impl Default for BlockchainConfig {
-    fn default() -> Self {
-        Self {
-            shared: SharedStorageConfig {
-                sync_mode: SyncMode::Async,
-            },
-        }
-    }
 }
 
 /// The tx-pool config.
@@ -60,9 +50,7 @@ pub struct TxpoolConfig {
 impl Default for TxpoolConfig {
     fn default() -> Self {
         Self {
-            shared: SharedStorageConfig {
-                sync_mode: SyncMode::Async,
-            },
+            shared: SharedStorageConfig::default(),
             max_txpool_byte_size: 100_000_000,
         }
     }

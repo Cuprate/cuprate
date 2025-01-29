@@ -54,11 +54,11 @@ check_client_pool_interval = { secs = 30, nanos = 0 }
 ## Txpool storage config.
 [storage.txpool]
 ## The database sync mode for the txpool.
-sync_mode = "Async"
+sync_mode = "Fast"
 ## The maximum size of all the txs in the pool (bytes).
 max_txpool_byte_size = 100_000_000
 
 ## Blockchain storage config.
 [storage.blockchain]
 ## The database sync mode for the blockchain.
-sync_mode = "Async"
+sync_mode = "Fast"
