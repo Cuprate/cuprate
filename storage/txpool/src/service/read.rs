@@ -2,10 +2,12 @@
     unreachable_code,
     unused_variables,
     clippy::unnecessary_wraps,
+    clippy::needless_pass_by_value,
     reason = "TODO: finish implementing the signatures from <https://github.com/Cuprate/cuprate/pull/297>"
 )]
 use std::{
     collections::{HashMap, HashSet},
+    num::NonZero,
     sync::Arc,
 };
 
@@ -77,6 +79,32 @@ fn map_request(
         TxpoolReadRequest::Size {
             include_sensitive_txs,
         } => size(env, include_sensitive_txs),
+        TxpoolReadRequest::PoolInfo {
+            include_sensitive_txs,
+            max_tx_count,
+            start_time,
+        } => pool_info(env, include_sensitive_txs, max_tx_count, start_time),
+        TxpoolReadRequest::TxsByHash {
+            tx_hashes,
+            include_sensitive_txs,
+        } => txs_by_hash(env, tx_hashes, include_sensitive_txs),
+        TxpoolReadRequest::KeyImagesSpent {
+            key_images,
+            include_sensitive_txs,
+        } => key_images_spent(env, key_images, include_sensitive_txs),
+        TxpoolReadRequest::KeyImagesSpentVec {
+            key_images,
+            include_sensitive_txs,
+        } => key_images_spent_vec(env, key_images, include_sensitive_txs),
+        TxpoolReadRequest::Pool {
+            include_sensitive_txs,
+        } => pool(env, include_sensitive_txs),
+        TxpoolReadRequest::PoolStats {
+            include_sensitive_txs,
+        } => pool_stats(env, include_sensitive_txs),
+        TxpoolReadRequest::AllHashes {
+            include_sensitive_txs,
+        } => all_hashes(env, include_sensitive_txs),
     }
 }
 
@@ -208,4 +236,59 @@ fn backlog(env: &ConcreteEnv) -> ReadResponseResult {
 #[inline]
 fn size(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
     Ok(TxpoolReadResponse::Size(todo!()))
+}
+
+/// [`TxpoolReadRequest::PoolInfo`].
+fn pool_info(
+    env: &ConcreteEnv,
+    include_sensitive_txs: bool,
+    max_tx_count: usize,
+    start_time: Option<NonZero<usize>>,
+) -> ReadResponseResult {
+    Ok(TxpoolReadResponse::PoolInfo(todo!()))
+}
+
+/// [`TxpoolReadRequest::TxsByHash`].
+fn txs_by_hash(
+    env: &ConcreteEnv,
+    tx_hashes: Vec<[u8; 32]>,
+    include_sensitive_txs: bool,
+) -> ReadResponseResult {
+    Ok(TxpoolReadResponse::TxsByHash(todo!()))
+}
+
+/// [`TxpoolReadRequest::KeyImagesSpent`].
+fn key_images_spent(
+    env: &ConcreteEnv,
+    key_images: HashSet<[u8; 32]>,
+    include_sensitive_txs: bool,
+) -> ReadResponseResult {
+    Ok(TxpoolReadResponse::KeyImagesSpent(todo!()))
+}
+
+/// [`TxpoolReadRequest::KeyImagesSpentVec`].
+fn key_images_spent_vec(
+    env: &ConcreteEnv,
+    key_images: Vec<[u8; 32]>,
+    include_sensitive_txs: bool,
+) -> ReadResponseResult {
+    Ok(TxpoolReadResponse::KeyImagesSpent(todo!()))
+}
+
+/// [`TxpoolReadRequest::Pool`].
+fn pool(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
+    Ok(TxpoolReadResponse::Pool {
+        txs: todo!(),
+        spent_key_images: todo!(),
+    })
+}
+
+/// [`TxpoolReadRequest::PoolStats`].
+fn pool_stats(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
+    Ok(TxpoolReadResponse::PoolStats(todo!()))
+}
+
+/// [`TxpoolReadRequest::AllHashes`].
+fn all_hashes(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
+    Ok(TxpoolReadResponse::AllHashes(todo!()))
 }

@@ -11,17 +11,20 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::container_as_blob::ContainerAsBlob;
 
-use cuprate_types::BlockCompleteEntry;
+use cuprate_types::{
+    rpc::{BlockOutputIndices, PoolInfo},
+    BlockCompleteEntry,
+};
 
 use crate::{
     base::AccessResponseBase,
     macros::define_request_and_response,
-    misc::{BlockOutputIndices, GetOutputsOut, OutKeyBin, PoolInfo},
+    misc::{GetOutputsOut, OutKeyBin},
     rpc_call::RpcCallValue,
 };
 
 #[cfg(any(feature = "epee", feature = "serde"))]
-use crate::defaults::{default_false, default_zero};
+use crate::defaults::default;
 
 //---------------------------------------------------------------------------------------------------- Definitions
 define_request_and_response! {
@@ -33,7 +36,7 @@ define_request_and_response! {
         heights: Vec<u64>,
     },
     AccessResponseBase {
-        blocks: Vec<BlockCompleteEntry>,
+        blocks: Vec<BlockCompleteEntry> = default::<Vec<BlockCompleteEntry>>(), "default",
     }
 }
 
@@ -43,11 +46,11 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 309..=338,
     GetHashes,
     Request {
-        block_ids: ByteArrayVec<32>,
+        block_ids: ByteArrayVec<32> = default::<ByteArrayVec<32>>(), "default",
         start_height: u64,
     },
     AccessResponseBase {
-        m_blocks_ids: ByteArrayVec<32>,
+        m_blocks_ids: ByteArrayVec<32> = default::<ByteArrayVec<32>>(), "default",
         start_height: u64,
         current_height: u64,
     }
@@ -64,7 +67,7 @@ define_request_and_response! {
         txid: [u8; 32],
     },
     AccessResponseBase {
-        o_indexes: Vec<u64>,
+        o_indexes: Vec<u64> = default::<Vec<u64>>(), "default",
     }
 }
 
@@ -89,11 +92,11 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 512..=565,
     GetOuts,
     Request {
-        outputs: Vec<GetOutputsOut>,
-        get_txid: bool = default_false(), "default_false",
+        outputs: Vec<GetOutputsOut> = default::<Vec<GetOutputsOut>>(), "default",
+        get_txid: bool,
     },
     AccessResponseBase {
-        outs: Vec<OutKeyBin>,
+        outs: Vec<OutKeyBin> = default::<Vec<OutKeyBin>>(), "default",
     }
 }
 
@@ -104,7 +107,7 @@ define_request_and_response! {
     GetTransactionPoolHashes,
     Request {},
     AccessResponseBase {
-        tx_hashes: ByteArrayVec<32>,
+        tx_hashes: ByteArrayVec<32> = default::<ByteArrayVec<32>>(), "default",
     }
 }
 
@@ -116,25 +119,23 @@ define_request_and_response! {
     GetBlocks,
 
     Request {
-        requested_info: u8 = default_zero::<u8>(), "default_zero",
-        // FIXME: This is a `std::list` in `monerod` because...?
-        block_ids: ByteArrayVec<32>,
+        requested_info: u8 = default::<u8>(), "default",
+        block_ids: ByteArrayVec<32> = default::<ByteArrayVec<32>>(), "default",
         start_height: u64,
         prune: bool,
-        no_miner_tx: bool = default_false(), "default_false",
-        pool_info_since: u64 = default_zero::<u64>(), "default_zero",
+        no_miner_tx: bool,
+        pool_info_since: u64 = default::<u64>(), "default",
     },
 
     // TODO: add `top_block_hash` field
     // <https://github.com/monero-project/monero/blame/893916ad091a92e765ce3241b94e706ad012b62a/src/rpc/core_rpc_server_commands_defs.h#L263>
     AccessResponseBase {
-        blocks: Vec<BlockCompleteEntry>,
+        blocks: Vec<BlockCompleteEntry> = default::<Vec<BlockCompleteEntry>>(), "default",
         start_height: u64,
         current_height: u64,
-        output_indices: Vec<BlockOutputIndices>,
-        daemon_time: u64 = default_zero::<u64>(), "default_zero",
-        // FIXME: use `default()` after <https://github.com/Cuprate/cuprate/pull/355>
-        pool_info: PoolInfo = PoolInfo::None, "PoolInfo::default",
+        output_indices: Vec<BlockOutputIndices> = default::<Vec<BlockOutputIndices>>(), "default",
+        daemon_time: u64 = default::<u64>(), "default",
+        pool_info: PoolInfo = default::<PoolInfo>(), "default",
     }
 }
 
