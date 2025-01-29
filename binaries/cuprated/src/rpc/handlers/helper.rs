@@ -171,23 +171,6 @@ pub(super) async fn top_height(state: &mut CupratedRpcHandler) -> Result<(u64, [
     Ok((height, hash))
 }
 
-/// Returns `true` if the `timelock` is unlocked.
-pub(super) async fn timelock_is_unlocked(
-    state: &mut CupratedRpcHandler,
-    timelock: Timelock,
-) -> Result<bool, Error> {
-    let unlocked = match timelock {
-        Timelock::None => true,
-        Timelock::Block(height) => {
-            let (top_height, _) = top_height(state).await?;
-            top_height > usize_to_u64(height)
-        }
-        Timelock::Time(timestamp) => cuprate_helper::time::current_unix_timestamp() > timestamp,
-    };
-
-    Ok(unlocked)
-}
-
 /// TODO: impl bootstrap
 pub const fn response_base(is_bootstrap: bool) -> ResponseBase {
     if is_bootstrap {

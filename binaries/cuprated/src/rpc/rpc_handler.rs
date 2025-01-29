@@ -8,7 +8,7 @@ use monero_serai::block::Block;
 use tower::Service;
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
-use cuprate_consensus::BlockChainContextService;
+use cuprate_consensus::BlockchainContextService;
 use cuprate_pruning::PruningSeed;
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{

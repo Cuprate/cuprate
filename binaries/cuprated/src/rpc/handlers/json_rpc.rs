@@ -454,9 +454,8 @@ async fn get_info(
     _: GetInfoRequest,
 ) -> Result<GetInfoResponse, Error> {
     let restricted = state.is_restricted();
-    let context = blockchain_context::context(&mut state.blockchain_context).await?;
+    let c = state.blockchain_context.blockchain_context();
 
-    let c = context.unchecked_blockchain_context();
     let cumulative_difficulty = c.cumulative_difficulty;
     let adjusted_time = c.current_adjusted_timestamp_for_time_lock();
     let c = &c.context_to_verify_block;
@@ -611,10 +610,7 @@ async fn hard_fork_info(
     let hard_fork = if request.version > 0 {
         HardFork::from_version(request.version)?
     } else {
-        blockchain_context::context(&mut state.blockchain_context)
-            .await?
-            .unchecked_blockchain_context()
-            .current_hf
+        state.blockchain_context.blockchain_context().current_hf
     };
 
     let hard_fork_info =
@@ -895,12 +891,7 @@ async fn sync_info(
     mut state: CupratedRpcHandler,
     _: SyncInfoRequest,
 ) -> Result<SyncInfoResponse, Error> {
-    let height = usize_to_u64(
-        blockchain_context::context(&mut state.blockchain_context)
-            .await?
-            .unchecked_blockchain_context()
-            .chain_height,
-    );
+    let height = usize_to_u64(state.blockchain_context.blockchain_context().chain_height);
 
     let target_height = blockchain_manager::target_height(&mut state.blockchain_manager).await?;
 
@@ -965,8 +956,7 @@ async fn get_miner_data(
     mut state: CupratedRpcHandler,
     _: GetMinerDataRequest,
 ) -> Result<GetMinerDataResponse, Error> {
-    let context = blockchain_context::context(&mut state.blockchain_context).await?;
-    let c = context.unchecked_blockchain_context();
+    let c = state.blockchain_context.blockchain_context();
 
     let major_version = c.current_hf.as_u8();
     let height = usize_to_u64(c.chain_height);

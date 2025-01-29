@@ -15,13 +15,6 @@ use cuprate_types::{
 
 // FIXME: use `anyhow::Error` over `tower::BoxError` in blockchain context.
 
-/// TODO: Remove this whole function just call directly in all usages.
-pub(crate) async fn context(
-    blockchain_context: &mut BlockchainContextService,
-) -> Result<BlockchainContext, Error> {
-    Ok(blockchain_context.blockchain_context().clone())
-}
-
 /// [`BlockChainContextRequest::HardForkInfo`].
 pub(crate) async fn hard_fork_info(
     blockchain_context: &mut BlockchainContextService,
