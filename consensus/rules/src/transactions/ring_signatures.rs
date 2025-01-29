@@ -39,8 +39,7 @@ pub(crate) fn check_input_signatures(
                         panic!("How did we build a ring with no decoys?");
                     };
 
-                    // TODO: change monero-serai API
-                    if !sig.verify(tx_sig_hash, ring, &key_image.decompress().unwrap()) {
+                    if !sig.verify(tx_sig_hash, ring, key_image) {
                         return Err(TransactionError::RingSignatureIncorrect);
                     }
                     Ok(())

@@ -285,7 +285,7 @@ pub(crate) async fn check_kis_unique<D: Database>(
     txs.try_for_each(|tx| {
         tx.tx.prefix().inputs.iter().try_for_each(|input| {
             if let Input::ToKey { key_image, .. } = input {
-                if !spent_kis.insert(key_image.0) {
+                if !spent_kis.insert(key_image.compress().0) {
                     tracing::debug!("Duplicate key image found in batch.");
                     return Err(ConsensusError::Transaction(TransactionError::KeyImageSpent));
                 }

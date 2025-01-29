@@ -71,7 +71,7 @@ impl From<transaction::Transaction> for Transaction {
                         let key = Key {
                             amount: amount.unwrap_or(0),
                             key_offsets,
-                            k_image: HexBytes::<32>(key_image.0),
+                            k_image: HexBytes::<32>(key_image.compress().0),
                         };
 
                         Some(Input { key })
@@ -169,7 +169,7 @@ impl From<transaction::Transaction> for Transaction {
                     .base
                     .commitments
                     .into_iter()
-                    .map(|point| HexBytes::<32>(point.0))
+                    .map(|point| HexBytes::<32>(point.compress().0))
                     .collect();
 
                 let rct_signatures = RctSignatures::NonCoinbase {

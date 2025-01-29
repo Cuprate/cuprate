@@ -128,7 +128,7 @@ fn get_output_commitment(tx: &Transaction, i: usize) -> EdwardsPoint {
                 .as_ref()
                 .expect("A V2 transaction with no RCT proofs is a miner tx")
                 .base
-                .commitments[i].decompress().unwrap()
+                .commitments[i]
         }
     }
 }

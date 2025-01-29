@@ -170,7 +170,6 @@ impl super::BlockchainManager {
             batch_prepare_main_chain_blocks(batch.blocks, &mut self.blockchain_context_service, self.blockchain_read_handle.clone())
                 .await
         else {
-            panic!();
             batch.peer_handle.ban_peer(LONG_BAN);
             self.stop_current_block_downloader.notify_one();
             return;
@@ -186,7 +185,6 @@ impl super::BlockchainManager {
             )
             .await
             else {
-                panic!();
                 batch.peer_handle.ban_peer(LONG_BAN);
                 self.stop_current_block_downloader.notify_one();
                 return;
@@ -435,7 +433,7 @@ impl super::BlockchainManager {
             .iter()
             .flat_map(|tx| {
                 tx.tx.prefix().inputs.iter().map(|input| match input {
-                    Input::ToKey { key_image, .. } => key_image.0,
+                    Input::ToKey { key_image, .. } => key_image.compress().0,
                     Input::Gen(_) => unreachable!(),
                 })
             })
