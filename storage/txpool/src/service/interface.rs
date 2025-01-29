@@ -1,10 +1,7 @@
 //! Tx-pool [`service`](super) interface.
 //!
 //! This module contains `cuprate_txpool`'s [`tower::Service`] request and response enums.
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::collections::{HashMap, HashSet};
 
 use cuprate_types::TransactionVerificationData;
 
@@ -90,7 +87,7 @@ pub enum TxpoolWriteRequest {
     /// Returns [`TxpoolWriteResponse::AddTransaction`].
     AddTransaction {
         /// The tx to add.
-        tx: Arc<TransactionVerificationData>,
+        tx: Box<TransactionVerificationData>,
         /// A [`bool`] denoting the routing state of this tx.
         ///
         /// [`true`] if this tx is in the stem state.

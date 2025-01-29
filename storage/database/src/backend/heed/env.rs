@@ -123,10 +123,10 @@ impl Env for ConcreteEnv {
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
         let flags = match config.sync_mode {
             SyncMode::Safe => EnvFlags::empty(),
-            SyncMode::Async => EnvFlags::MAP_ASYNC,
-            SyncMode::Fast => EnvFlags::NO_SYNC | EnvFlags::WRITE_MAP | EnvFlags::MAP_ASYNC,
-            // SOMEDAY: dynamic syncs are not implemented.
-            SyncMode::FastThenSafe | SyncMode::Threshold(_) => unimplemented!(),
+            // TODO: impl `FastThenSafe`
+            SyncMode::FastThenSafe | SyncMode::Fast => {
+                EnvFlags::NO_SYNC | EnvFlags::WRITE_MAP | EnvFlags::MAP_ASYNC
+            }
         };
 
         // SAFETY: the flags we're setting are 'unsafe'

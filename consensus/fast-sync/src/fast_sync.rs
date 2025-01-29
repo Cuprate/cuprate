@@ -10,10 +10,10 @@ use monero_serai::{
     block::Block,
     transaction::{Input, Transaction},
 };
-use tower::{Service, ServiceExt};
+use tower::Service;
 
 use cuprate_consensus::transactions::new_tx_verification_data;
-use cuprate_consensus_context::{BlockChainContextRequest, BlockChainContextResponse};
+use cuprate_consensus_context::BlockchainContextService;
 use cuprate_consensus_rules::{miner_tx::MinerTxError, ConsensusError};
 use cuprate_helper::cast::u64_to_usize;
 use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
@@ -112,37 +112,18 @@ impl From<tower::BoxError> for FastSyncError {
 }
 
 #[derive(Debug)]
-pub struct FastSyncService<C> {
-    context_svc: C,
+pub struct FastSyncService {
+    context_svc: BlockchainContextService,
 }
 
-impl<C> FastSyncService<C>
-where
-    C: Service<
-            BlockChainContextRequest,
-            Response = BlockChainContextResponse,
-            Error = tower::BoxError,
-        > + Clone
-        + Send
-        + 'static,
-{
+impl FastSyncService {
     #[expect(dead_code)]
-    pub(crate) const fn new(context_svc: C) -> Self {
+    pub(crate) const fn new(context_svc: BlockchainContextService) -> Self {
         Self { context_svc }
     }
 }
 
-impl<C> Service<FastSyncRequest> for FastSyncService<C>
-where
-    C: Service<
-            BlockChainContextRequest,
-            Response = BlockChainContextResponse,
-            Error = tower::BoxError,
-        > + Clone
-        + Send
-        + 'static,
-    C::Future: Send + 'static,
-{
+impl Service<FastSyncRequest> for FastSyncService {
     type Response = FastSyncResponse;
     type Error = FastSyncError;
     type Future =
@@ -153,7 +134,7 @@ where
     }
 
     fn call(&mut self, req: FastSyncRequest) -> Self::Future {
-        let context_svc = self.context_svc.clone();
+        let mut context_svc = self.context_svc.clone();
 
         Box::pin(async move {
             match req {
@@ -162,7 +143,7 @@ where
                     block_ids,
                 } => validate_hashes(start_height, &block_ids),
                 FastSyncRequest::ValidateBlock { block, txs, token } => {
-                    validate_block(context_svc, block, txs, token).await
+                    validate_block(&mut context_svc, block, txs, &token)
                 }
             }
         })
@@ -212,31 +193,13 @@ fn validate_hashes(
     })
 }
 
-async fn validate_block<C>(
-    mut context_svc: C,
+fn validate_block(
+    context_svc: &mut BlockchainContextService,
     block: Block,
     mut txs: HashMap<[u8; 32], Transaction>,
-    token: ValidBlockId,
-) -> Result<FastSyncResponse, FastSyncError>
-where
-    C: Service<
-            BlockChainContextRequest,
-            Response = BlockChainContextResponse,
-            Error = tower::BoxError,
-        > + Send
-        + 'static,
-    C::Future: Send + 'static,
-{
-    let BlockChainContextResponse::Context(checked_context) = context_svc
-        .ready()
-        .await?
-        .call(BlockChainContextRequest::Context)
-        .await?
-    else {
-        panic!("Context service returned wrong response!");
-    };
-
-    let block_chain_ctx = checked_context.unchecked_blockchain_context().clone();
+    token: &ValidBlockId,
+) -> Result<FastSyncResponse, FastSyncError> {
+    let block_chain_ctx = context_svc.blockchain_context().clone();
 
     let block_hash = block.hash();
     if block_hash != token.0 {

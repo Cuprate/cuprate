@@ -29,7 +29,6 @@ use cuprate_types::{
 use crate::{
     block::{free::pull_ordered_transactions, PreparedBlock},
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
-    VerifyBlockResponse,
 };
 
 /// This function sanity checks an alt-block.
@@ -37,11 +36,11 @@ use crate::{
 /// Returns [`AltBlockInformation`], which contains the cumulative difficulty of the alt chain.
 ///
 /// This function only checks the block's proof-of-work and its weight.
-pub(crate) async fn sanity_check_alt_block<C>(
+pub async fn sanity_check_alt_block<C>(
     block: Block,
     txs: HashMap<[u8; 32], TransactionVerificationData>,
     mut context_svc: C,
-) -> Result<VerifyBlockResponse, ExtendedConsensusError>
+) -> Result<AltBlockInformation, ExtendedConsensusError>
 where
     C: Service<
             BlockChainContextRequest,
@@ -185,7 +184,7 @@ where
         })
         .await?;
 
-    Ok(VerifyBlockResponse::AltChain(block_info))
+    Ok(block_info)
 }
 
 /// Retrieves the alt RX VM for the chosen block height.

@@ -3,8 +3,7 @@ use proptest::{strategy::Strategy, test_runner::TestRunner};
 use tower::ServiceExt;
 
 use cuprate_consensus_context::{
-    initialize_blockchain_context, BlockChainContextRequest, BlockChainContextResponse,
-    ContextConfig, NewBlockData,
+    initialize_blockchain_context, BlockChainContextRequest, ContextConfig, NewBlockData,
 };
 
 use crate::{tests::mock_db::*, HardFork};
@@ -35,21 +34,12 @@ async fn context_invalidated_on_new_block() -> Result<(), tower::BoxError> {
         .unwrap()
         .current();
 
-    let ctx_svc = initialize_blockchain_context(TEST_CONTEXT_CONFIG, db).await?;
+    let mut ctx_svc = initialize_blockchain_context(TEST_CONTEXT_CONFIG, db).await?;
 
-    let BlockChainContextResponse::Context(context) = ctx_svc
-        .clone()
-        .oneshot(BlockChainContextRequest::Context)
-        .await?
-    else {
-        panic!("Context service returned wrong response!");
-    };
-
-    assert!(context.is_still_valid());
-    assert!(context.is_still_valid());
-    assert!(context.is_still_valid());
+    let context = ctx_svc.blockchain_context().clone();
 
     ctx_svc
+        .clone()
         .oneshot(BlockChainContextRequest::Update(NewBlockData {
             block_hash: [0; 32],
             height: BLOCKCHAIN_HEIGHT,
@@ -62,7 +52,7 @@ async fn context_invalidated_on_new_block() -> Result<(), tower::BoxError> {
         }))
         .await?;
 
-    assert!(!context.is_still_valid());
+    assert_ne!(&context, ctx_svc.blockchain_context());
 
     Ok(())
 }
@@ -77,18 +67,11 @@ async fn context_height_correct() -> Result<(), tower::BoxError> {
         .unwrap()
         .current();
 
-    let ctx_svc = initialize_blockchain_context(TEST_CONTEXT_CONFIG, db).await?;
+    let mut ctx_svc = initialize_blockchain_context(TEST_CONTEXT_CONFIG, db).await?;
 
-    let BlockChainContextResponse::Context(context) =
-        ctx_svc.oneshot(BlockChainContextRequest::Context).await?
-    else {
-        panic!("context service returned incorrect response!")
-    };
+    let context = ctx_svc.blockchain_context();
 
-    assert_eq!(
-        context.blockchain_context().unwrap().chain_height,
-        BLOCKCHAIN_HEIGHT
-    );
+    assert_eq!(context.chain_height, BLOCKCHAIN_HEIGHT);
 
     Ok(())
 }

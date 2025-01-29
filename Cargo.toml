@@ -100,6 +100,7 @@ cuprate-zmq-types         = { path = "zmq/types",                 default-featur
 
 # External dependencies
 anyhow                = { version = "1", default-features = false }
+arc-swap              = { version = "1", default-features = false }
 arrayvec              = { version = "0.7", default-features = false }
 async-trait           = { version = "0.1", default-features = false }
 bitflags              = { version = "2", default-features = false }
@@ -153,7 +154,6 @@ tokio-test                = { version = "0.4" }
 
 ## TODO:
 ## Potential dependencies.
-# arc-swap  = { version = "1.6.0" }  # Atomically swappable Arc<T>          | https://github.com/vorner/arc-swap
 # itoa      = { version = "1.0.9" }  # Fast integer to string formatting    | https://github.com/dtolnay/itoa
 # notify    = { version = "6.1.1" }  # Filesystem watching                  | https://github.com/notify-rs/notify
 # once_cell = { version = "1.18.0" } # Lazy/one-time initialization         | https://github.com/matklad/once_cell
