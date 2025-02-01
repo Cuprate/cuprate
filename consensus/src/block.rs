@@ -154,7 +154,7 @@ impl PreparedBlock {
     ///
     /// # Panics
     /// This function will panic if `randomx_vm` is
-    /// [`None`] even though `RandomX` is needed.
+    /// [`None`] even though RandomX is needed.
     fn new_prepped<R: RandomX>(
         block: PreparedBlockExPow,
         randomx_vm: Option<&R>,
