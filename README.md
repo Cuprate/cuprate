@@ -12,7 +12,8 @@ _(work-in-progress)_
 ## Contents
 
 - [About](#about)
-- [Documentation](#documentation)
+- [Books](#books)
+- [Crates](#crates)
 - [Contributing](#contributing)
 - [Security](#security)
 - [License](#license)
