@@ -23,14 +23,14 @@ use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{layer::SubscriberExt, reload::Handle, util::SubscriberInitExt, Registry};
 
+use crate::{
+    config::Config, constants::PANIC_CRITICAL_SERVICE_ERROR, logging::CupratedTracingFilter,
+};
 use cuprate_consensus_context::{
     BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
 };
 use cuprate_helper::time::secs_to_hms;
 use cuprate_types::blockchain::BlockchainWriteRequest;
-use crate::{
-    config::Config, constants::PANIC_CRITICAL_SERVICE_ERROR, logging::CupratedTracingFilter,
-};
 
 mod blockchain;
 mod commands;
@@ -77,7 +77,6 @@ fn main() {
     // Initialize async tasks.
 
     rt.block_on(async move {
-
         // Check add the genesis block to the blockchain.
         blockchain::check_add_genesis(
             &mut blockchain_read_handle,

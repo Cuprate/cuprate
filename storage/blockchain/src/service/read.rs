@@ -51,7 +51,7 @@ use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::output_cache::OutputCache;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, ChainId, ExtendedBlockHeader, OutputHistogramInput, OutputOnChain, TxsInBlock,
+    Chain, ChainId, ExtendedBlockHeader, OutputHistogramInput, TxsInBlock,
 };
 
 //---------------------------------------------------------------------------------------------------- init_read_service
@@ -413,7 +413,7 @@ fn generated_coins(env: &ConcreteEnv, height: usize) -> ResponseResult {
 
 /// [`BlockchainReadRequest::Outputs`].
 #[inline]
-fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) -> ResponseResult {
+fn outputs(env: &ConcreteEnv, outputs: IndexMap<Amount, IndexSet<AmountIndex>>) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
     let tx_ro = thread_local(env);
@@ -473,12 +473,7 @@ fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) ->
                 .map(|amount_index| inner_map(amount, amount_index))
                 .collect::<Result<_, _>>()?;
 
-            Ok((
-                (amount,
-                left),
-                (amount,
-                right)
-            ))
+            Ok(((amount, left), (amount, right)))
         })
         .collect::<DbResult<(IndexMap<_, IndexMap<_, _>>, IndexMap<_, IndexSet<_>>)>>()?;
 

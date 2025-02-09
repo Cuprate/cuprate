@@ -37,7 +37,6 @@ mod free;
 
 pub use alt_block::sanity_check_alt_block;
 pub use batch_prepare::{batch_prepare_main_chain_blocks, BatchPrepareCache};
-use cuprate_types::output_cache::OutputCache;
 use free::pull_ordered_transactions;
 
 /// A pre-prepared block with all data needed to verify it, except the block's proof of work.
@@ -285,7 +284,7 @@ where
                 context.current_adjusted_timestamp_for_time_lock(),
                 context.current_hf,
                 database,
-                batch_prep_cache.as_ref().map(|o| &**o)
+                batch_prep_cache.as_ref().map(|o| &**o),
             )
             .verify()
             .await?;

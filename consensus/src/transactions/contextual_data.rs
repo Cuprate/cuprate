@@ -12,12 +12,13 @@
 //!
 
 use std::borrow::Cow;
-use std::collections::{HashMap, HashSet};
-
-use monero_serai::transaction::{Input, Timelock, Transaction};
+use std::collections::HashSet;
+use indexmap::IndexMap;
+use monero_serai::transaction::{Input, Timelock};
 use tower::ServiceExt;
 use tracing::instrument;
 
+use crate::{transactions::TransactionVerificationData, Database, ExtendedConsensusError};
 use cuprate_consensus_rules::{
     transactions::{
         get_absolute_offsets, insert_ring_member_ids, DecoyInfo, Rings, TransactionError,
@@ -25,12 +26,11 @@ use cuprate_consensus_rules::{
     },
     ConsensusError, HardFork, TxVersion,
 };
+use cuprate_types::output_cache::OutputCache;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     OutputOnChain,
 };
-use cuprate_types::output_cache::OutputCache;
-use crate::{transactions::TransactionVerificationData, Database, ExtendedConsensusError};
 
 /// Get the ring members for the inputs from the outputs on the chain.
 ///
@@ -140,7 +140,7 @@ pub async fn get_output_cache<D: Database>(
     txs_verification_data: impl Iterator<Item = &TransactionVerificationData>,
     mut database: D,
 ) -> Result<OutputCache, ExtendedConsensusError> {
-    let mut output_ids = HashMap::new();
+    let mut output_ids = IndexMap::new();
 
     for tx_v_data in txs_verification_data {
         insert_ring_member_ids(&tx_v_data.tx.prefix().inputs, &mut output_ids)
@@ -156,7 +156,6 @@ pub async fn get_output_cache<D: Database>(
         panic!("Database sent incorrect response!")
     };
 
-
     Ok(outputs)
 }
 
@@ -170,17 +169,16 @@ pub async fn batch_get_ring_member_info<D: Database>(
     mut database: D,
     cache: Option<&OutputCache>,
 ) -> Result<Vec<TxRingMembersInfo>, ExtendedConsensusError> {
-    let mut output_ids = HashMap::new();
+    let mut output_ids = IndexMap::new();
 
     for tx_v_data in txs_verification_data.clone() {
         insert_ring_member_ids(&tx_v_data.tx.prefix().inputs, &mut output_ids)
             .map_err(ConsensusError::Transaction)?;
     }
 
-    let outputs =if let Some(cache) = cache {
+    let outputs = if let Some(cache) = cache {
         Cow::Borrowed(cache)
     } else {
-
         let BlockchainResponse::Outputs(outputs) = database
             .ready()
             .await?
@@ -253,10 +251,11 @@ pub async fn batch_get_decoy_info<'a, 'b, D: Database>(
         unique_input_amounts.len()
     );
 
-    let outputs_with_amount= if let Some(cache) = cache {
-        unique_input_amounts.into_iter().map(|amount| {
-            (amount, cache.number_outs_with_amount(amount))
-        }).collect()
+    let outputs_with_amount = if let Some(cache) = cache {
+        unique_input_amounts
+            .into_iter()
+            .map(|amount| (amount, cache.number_outs_with_amount(amount)))
+            .collect()
     } else {
         let BlockchainResponse::NumberOutputsWithAmount(outputs_with_amount) = database
             .ready()

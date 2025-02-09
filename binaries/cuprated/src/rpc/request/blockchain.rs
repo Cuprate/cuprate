@@ -190,7 +190,7 @@ pub(crate) async fn outputs(
     let BlockchainResponse::Outputs(outputs) = blockchain_read
         .ready()
         .await?
-        .call(BlockchainReadRequest::Outputs(outputs))
+        .call(BlockchainReadRequest::Outputs(todo!()))
         .await?
     else {
         unreachable!();

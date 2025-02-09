@@ -109,7 +109,7 @@ impl Env for ConcreteEnv {
         // `redb`'s syncs are tied with write transactions,
         // so just create one, don't do anything and commit.
         let mut tx_rw = self.env.begin_write()?;
-        tx_rw.set_durability(redb::Durability::Paranoid);
+        tx_rw.set_durability(redb::Durability::Immediate);
         TxRw::commit(tx_rw)
     }
 

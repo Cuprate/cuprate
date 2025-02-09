@@ -1,52 +1,35 @@
-use crate::{OutputOnChain, VerifiedBlockInformation, VerifiedTransactionInformation};
+use crate::{OutputOnChain, VerifiedBlockInformation};
 use cuprate_helper::crypto::compute_zero_commitment;
 use curve25519_dalek::EdwardsPoint;
 use indexmap::{IndexMap, IndexSet};
 use monero_serai::transaction::Transaction;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct NumberOfOutputsTracker {
-    numb: IndexMap<u64, u64>,
-}
-
-impl NumberOfOutputsTracker {
-    fn add_number_outputs(&mut self, tx_output_amount: u64, number: u64) {
-        *self.numb.entry(tx_output_amount).or_default() = number;
-    }
-
-    fn new_output_with_amount(&mut self, tx_output_amount: u64) -> u64 {
-        let numb = self.numb.entry(tx_output_amount).or_insert(0);
-        let temp = *numb;
-        *numb += 1;
-        temp
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OutputCache {
     cached_outputs: IndexMap<u64, IndexMap<u64, OutputOnChain>>,
 
-    number_of_outputs_tracker: NumberOfOutputsTracker,
+    number_of_outputs: IndexMap<u64, u64>,
     wanted_outputs: IndexMap<u64, IndexSet<u64>>,
 }
 
 impl OutputCache {
     pub fn new(
         cached_outputs: IndexMap<u64, IndexMap<u64, OutputOnChain>>,
-        number_of_outputs_tracker: IndexMap<u64, u64>,
+        number_of_outputs: IndexMap<u64, u64>,
         wanted_outputs: IndexMap<u64, IndexSet<u64>>,
     ) -> OutputCache {
         OutputCache {
             cached_outputs,
-            number_of_outputs_tracker: NumberOfOutputsTracker {
-                numb: number_of_outputs_tracker
-            },
+            number_of_outputs,
             wanted_outputs,
         }
     }
 
     pub fn number_outs_with_amount(&self, amount: u64) -> usize {
-        self.number_of_outputs_tracker.numb.get(&amount).copied().unwrap_or_default() as usize
+        self.number_of_outputs
+            .get(&amount)
+            .copied()
+            .unwrap_or_default() as usize
     }
 
     pub fn get_output(&self, amount: u64, index: u64) -> Option<&OutputOnChain> {
@@ -65,9 +48,9 @@ impl OutputCache {
                 _ => panic!("Unknown transaction version {}", version),
             };
 
-            let amount_index_of_out = self
-                .number_of_outputs_tracker
-                .new_output_with_amount(amount);
+            let outputs_with_amount = self.number_of_outputs.entry(amount).or_default();
+            let amount_index_of_out = *outputs_with_amount;
+            *outputs_with_amount += 1;
 
             if let Some(set) = self.wanted_outputs.get_mut(&amount) {
                 if set.swap_remove(&amount_index_of_out) {
@@ -89,9 +72,9 @@ impl OutputCache {
         for (i, out) in tx.prefix().outputs.iter().enumerate() {
             let amount = out.amount.unwrap_or_default();
 
-            let amount_index_of_out = self
-                .number_of_outputs_tracker
-                .new_output_with_amount(amount);
+            let outputs_with_amount = self.number_of_outputs.entry(amount).or_default();
+            let amount_index_of_out = *outputs_with_amount;
+            *outputs_with_amount += 1;
 
             if let Some(set) = self.wanted_outputs.get_mut(&amount) {
                 if set.swap_remove(&amount_index_of_out) {
