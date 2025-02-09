@@ -137,7 +137,7 @@ impl Env for ConcreteEnv {
         // MAYBE: Set comparison functions for certain tables
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
         unsafe {
-            env_open_options.flags(flags);
+            env_open_options.flags(flags | EnvFlags::NO_READ_AHEAD);
         }
 
         // Set the memory map size to
