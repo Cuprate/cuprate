@@ -52,15 +52,9 @@ impl Env for ConcreteEnv {
     fn open(config: Config) -> Result<Self, InitError> {
         // SOMEDAY: dynamic syncs are not implemented.
         let durability = match config.sync_mode {
-            // FIXME: There's also `redb::Durability::Paranoid`:
-            // <https://docs.rs/redb/1.5.0/redb/enum.Durability.html#variant.Paranoid>
-            // should we use that instead of Immediate?
             SyncMode::Safe => redb::Durability::Immediate,
-            // FIXME: `Fast` maps to `Eventual` instead of `None` because of:
-            // <https://github.com/Cuprate/cuprate/issues/149>
-            SyncMode::Async | SyncMode::Fast => redb::Durability::Eventual,
-            // SOMEDAY: dynamic syncs are not implemented.
-            SyncMode::FastThenSafe | SyncMode::Threshold(_) => unimplemented!(),
+            // TODO: impl `FastThenSafe`
+            SyncMode::FastThenSafe | SyncMode::Fast => redb::Durability::Eventual,
         };
 
         let env_builder = redb::Builder::new();

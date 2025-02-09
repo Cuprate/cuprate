@@ -229,7 +229,7 @@ pub async fn batch_get_decoy_info<'a, 'b, D: Database>(
     mut database: D,
     cache: Option<&'b OutputCache>,
 ) -> Result<
-    impl Iterator<Item = Result<DecoyInfo, ConsensusError>> + Captures<(&'a (), &'b ())>,
+    impl Iterator<Item = Result<DecoyInfo, ConsensusError>> + sealed::Captures<(&'a (), &'b ())>,
     ExtendedConsensusError,
 > {
     // decoy info is not needed for V1.
@@ -281,5 +281,10 @@ pub async fn batch_get_decoy_info<'a, 'b, D: Database>(
     }))
 }
 
-pub trait Captures<U> {}
-impl<T: ?Sized, U> Captures<U> for T {}
+mod sealed {
+    /// TODO: Remove me when 2024 Rust
+    ///
+    /// <https://rust-lang.github.io/rfcs/3498-lifetime-capture-rules-2024.html#the-captures-trick>
+    pub trait Captures<U> {}
+    impl<T: ?Sized, U> Captures<U> for T {}
+}

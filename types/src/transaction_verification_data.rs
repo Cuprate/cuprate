@@ -36,7 +36,7 @@ pub enum CachedVerificationState {
     /// The transaction has not been validated.
     NotVerified,
     /// The transaction was only validated semantically.
-    JustSemantic(HardFork),
+    OnlySemantic(HardFork),
     /// The transaction is valid* if the block represented by this hash is in the blockchain and the [`HardFork`]
     /// is the same.
     ///
@@ -67,7 +67,7 @@ impl CachedVerificationState {
     /// Returns the block hash this is valid for if in state [`CachedVerificationState::ValidAtHashAndHF`] or [`CachedVerificationState::ValidAtHashAndHFWithTimeBasedLock`].
     pub const fn verified_at_block_hash(&self) -> Option<[u8; 32]> {
         match self {
-            Self::NotVerified | Self::JustSemantic(_) => None,
+            Self::NotVerified | Self::OnlySemantic(_) => None,
             Self::ValidAtHashAndHF { block_hash, .. }
             | Self::ValidAtHashAndHFWithTimeBasedLock { block_hash, .. } => Some(*block_hash),
         }

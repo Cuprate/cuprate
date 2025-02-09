@@ -98,7 +98,7 @@ where
 
 /// Returns `true` if we are behind the current connected network peers.
 async fn check_behind_peers(
-    raw_blockchain_context: &BlockchainContext,
+    blockchain_context: &BlockchainContext,
     mut clearnet_interface: &mut NetworkInterface<ClearNet>,
 ) -> Result<bool, tower::BoxError> {
     let PeerSetResponse::MostPoWSeen {
@@ -114,7 +114,7 @@ async fn check_behind_peers(
         unreachable!();
     };
 
-    if cumulative_difficulty <= raw_blockchain_context.cumulative_difficulty {
+    if cumulative_difficulty <= blockchain_context.cumulative_difficulty {
         return Ok(false);
     }
 

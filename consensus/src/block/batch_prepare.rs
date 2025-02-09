@@ -13,18 +13,15 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_types::output_cache::OutputCache;
-use cuprate_types::TransactionVerificationData;
+use cuprate_types::{output_cache::OutputCache, TransactionVerificationData};
 
-use crate::__private::Database;
-use crate::transactions::check_kis_unique;
-use crate::transactions::contextual_data::get_output_cache;
 use crate::{
-    batch_verifier::MultiThreadedBatchVerifier,
     block::{free::order_transactions, PreparedBlock, PreparedBlockExPow},
-    transactions::start_tx_verification,
+    transactions::{start_tx_verification, check_kis_unique, contextual_data::get_output_cache},
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
+    __private::Database,
 };
+use crate::batch_verifier::MultiThreadedBatchVerifier;
 
 pub struct BatchPrepareCache {
     pub(crate) output_cache: OutputCache,
@@ -187,7 +184,7 @@ pub async fn batch_prepare_main_chain_blocks<D: Database>(
                 let mut txs = start_tx_verification()
                     .append_txs(txs)
                     .prepare()?
-                    .just_semantic(block.hf_version)
+                    .only_semantic(block.hf_version)
                     .queue(&batch_verifier)?;
 
                 // Order the txs correctly.
