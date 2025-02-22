@@ -304,11 +304,10 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                     .await?,
             ),
             BlockChainContextRequest::AddAltChainContextCache {
-                prev_id,
                 cache,
                 _token,
             } => {
-                self.alt_chain_cache_map.add_alt_cache(prev_id, cache);
+                self.alt_chain_cache_map.add_alt_cache(cache);
                 BlockChainContextResponse::Ok
             }
             BlockChainContextRequest::HardForkInfo(_)
