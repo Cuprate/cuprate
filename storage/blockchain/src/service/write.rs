@@ -118,9 +118,8 @@ fn pop_blocks(env: &ConcreteEnv, numb_blocks: usize) -> ResponseResult {
         let old_main_chain_id = ChainId(rand::random());
 
         // pop the blocks
-        for i in 0..numb_blocks {
-            println!("{i}");
-            crate::ops::block::pop_block(None, &mut tables_mut)?;
+        for _ in 0..numb_blocks {
+            crate::ops::block::pop_block(Some(old_main_chain_id), &mut tables_mut)?;
         }
 
         Ok(old_main_chain_id)

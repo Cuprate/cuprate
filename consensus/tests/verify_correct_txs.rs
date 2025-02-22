@@ -8,12 +8,14 @@ use std::{
 };
 
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY};
+use indexmap::IndexMap;
 use monero_serai::transaction::{Timelock, Transaction};
 use tower::service_fn;
 
 use cuprate_consensus::{__private::Database, transactions::start_tx_verification};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
+    output_cache::OutputCache,
     OutputOnChain,
 };
 
@@ -32,14 +34,16 @@ fn dummy_database(outputs: BTreeMap<u64, OutputOnChain>) -> impl Database + Clon
             BlockchainReadRequest::Outputs(outs) => {
                 let idxs = &outs[&0];
 
-                let mut ret = HashMap::new();
+                let mut ret = IndexMap::new();
 
                 ret.insert(
                     0_u64,
                     idxs.iter()
                         .map(|idx| (*idx, *outputs.get(idx).unwrap()))
-                        .collect::<HashMap<_, _>>(),
+                        .collect::<IndexMap<_, _>>(),
                 );
+
+                let ret = OutputCache::new(ret, IndexMap::new(), IndexMap::new());
 
                 BlockchainResponse::Outputs(ret)
             }
@@ -87,7 +91,7 @@ macro_rules! test_verify_valid_v2_tx {
                 )
                 .prepare()
                 .unwrap()
-                .full(10, [0; 32], u64::MAX, HardFork::$hf, database.clone())
+                .full(10, [0; 32], u64::MAX, HardFork::$hf, database.clone(), None)
                 .verify()
                 .await.is_ok()
             );
@@ -116,7 +120,7 @@ macro_rules! test_verify_valid_v2_tx {
                 )
                 .prepare()
                 .unwrap()
-                .full(10, [0; 32], u64::MAX, HardFork::$hf, database.clone())
+                .full(10, [0; 32], u64::MAX, HardFork::$hf, database.clone(), None)
                 .verify()
                 .await.is_err()
             );

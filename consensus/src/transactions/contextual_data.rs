@@ -11,14 +11,13 @@
 //! Because this data is unique for *every* transaction and the context service is just for blockchain state data.
 //!
 
-use std::borrow::Cow;
-use std::collections::HashSet;
+use std::{borrow::Cow, collections::HashSet};
+
 use indexmap::IndexMap;
 use monero_serai::transaction::{Input, Timelock};
 use tower::ServiceExt;
 use tracing::instrument;
 
-use crate::{transactions::TransactionVerificationData, Database, ExtendedConsensusError};
 use cuprate_consensus_rules::{
     transactions::{
         get_absolute_offsets, insert_ring_member_ids, DecoyInfo, Rings, TransactionError,
@@ -26,11 +25,14 @@ use cuprate_consensus_rules::{
     },
     ConsensusError, HardFork, TxVersion,
 };
-use cuprate_types::output_cache::OutputCache;
+
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
+    output_cache::OutputCache,
     OutputOnChain,
 };
+
+use crate::{transactions::TransactionVerificationData, Database, ExtendedConsensusError};
 
 /// Get the ring members for the inputs from the outputs on the chain.
 ///
@@ -136,6 +138,9 @@ fn new_rings(
     })
 }
 
+/// Retrieves an [`OutputCache`] for the list of transactions.
+///
+/// The [`OutputCache`] will only contain the outputs currently in the blockchain.
 pub async fn get_output_cache<D: Database>(
     txs_verification_data: impl Iterator<Item = &TransactionVerificationData>,
     mut database: D,

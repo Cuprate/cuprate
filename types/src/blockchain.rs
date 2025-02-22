@@ -12,7 +12,8 @@ use indexmap::{IndexMap, IndexSet};
 use monero_serai::block::Block;
 
 use crate::{
-    types::{Chain, ExtendedBlockHeader, TxsInBlock, VerifiedBlockInformation},output_cache::OutputCache,
+    output_cache::OutputCache,
+    types::{Chain, ExtendedBlockHeader, TxsInBlock, VerifiedBlockInformation},
     AltBlockInformation, BlockCompleteEntry, ChainId, ChainInfo, CoinbaseTxSum,
     OutputHistogramEntry, OutputHistogramInput,
 };

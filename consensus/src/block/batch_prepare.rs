@@ -16,20 +16,27 @@ use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_types::{output_cache::OutputCache, TransactionVerificationData};
 
 use crate::{
+    batch_verifier::MultiThreadedBatchVerifier,
     block::{free::order_transactions, PreparedBlock, PreparedBlockExPow},
-    transactions::{start_tx_verification, check_kis_unique, contextual_data::get_output_cache},
+    transactions::{check_kis_unique, contextual_data::get_output_cache, start_tx_verification},
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
     __private::Database,
 };
-use crate::batch_verifier::MultiThreadedBatchVerifier;
 
+/// Cached state created when batch preparing a group of blocks.
+///
+/// This cache is only valid for the set of blocks it was created with, it should not be used for
+/// other blocks.
 pub struct BatchPrepareCache {
     pub(crate) output_cache: OutputCache,
+    /// [`true`] if all the key images in the batch have been checked for double spends in the batch and
+    /// the whole chain.
     pub(crate) key_images_spent_checked: bool,
 }
 
 /// Batch prepares a list of blocks for verification.
 #[instrument(level = "debug", name = "batch_prep_blocks", skip_all, fields(amt = blocks.len()))]
+#[expect(clippy::type_complexity)]
 pub async fn batch_prepare_main_chain_blocks<D: Database>(
     blocks: Vec<(Block, Vec<Transaction>)>,
     context_svc: &mut BlockchainContextService,

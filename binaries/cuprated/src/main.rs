@@ -16,21 +16,22 @@
     reason = "TODO: remove after v1.0.0"
 )]
 
-use std::mem;
-use std::sync::Arc;
+use std::{mem, sync::Arc};
+
 use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{layer::SubscriberExt, reload::Handle, util::SubscriberInitExt, Registry};
 
-use crate::{
-    config::Config, constants::PANIC_CRITICAL_SERVICE_ERROR, logging::CupratedTracingFilter,
-};
 use cuprate_consensus_context::{
     BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
 };
 use cuprate_helper::time::secs_to_hms;
 use cuprate_types::blockchain::BlockchainWriteRequest;
+
+use crate::{
+    config::Config, constants::PANIC_CRITICAL_SERVICE_ERROR, logging::CupratedTracingFilter,
+};
 
 mod blockchain;
 mod commands;

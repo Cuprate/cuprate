@@ -9,18 +9,28 @@
 )]
 
 //---------------------------------------------------------------------------------------------------- Import
+use std::{
+    cmp::min,
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
+
 use indexmap::{IndexMap, IndexSet};
 use rayon::{
     iter::{Either, IntoParallelIterator, ParallelIterator},
     prelude::*,
     ThreadPool,
 };
-use std::{
-    cmp::min,
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
 use thread_local::ThreadLocal;
+
+use cuprate_database::{ConcreteEnv, DatabaseRo, DbResult, Env, EnvInner, RuntimeError};
+use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
+use cuprate_helper::map::combine_low_high_bits_to_u128;
+use cuprate_types::{
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
+    output_cache::OutputCache,
+    Chain, ChainId, ExtendedBlockHeader, OutputHistogramInput, TxsInBlock,
+};
 
 use crate::{
     ops::{
@@ -44,14 +54,6 @@ use crate::{
     types::{
         AltBlockHeight, Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId,
     },
-};
-use cuprate_database::{ConcreteEnv, DatabaseRo, DbResult, Env, EnvInner, RuntimeError};
-use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
-use cuprate_helper::map::combine_low_high_bits_to_u128;
-use cuprate_types::output_cache::OutputCache;
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, ChainId, ExtendedBlockHeader, OutputHistogramInput, TxsInBlock,
 };
 
 //---------------------------------------------------------------------------------------------------- init_read_service
@@ -430,10 +432,6 @@ fn outputs(env: &ConcreteEnv, outputs: IndexMap<Amount, IndexSet<AmountIndex>>) 
             } else {
                 // v1 transactions.
                 match tables.num_outputs().get(&amount) {
-                    #[expect(
-                        clippy::cast_possible_truncation,
-                        reason = "INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`"
-                    )]
                     Ok(count) => Ok((amount, count)),
                     // If we get a request for an `amount` that doesn't exist,
                     // we return `0` instead of an error.

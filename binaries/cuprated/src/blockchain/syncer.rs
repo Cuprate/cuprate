@@ -3,10 +3,9 @@ use std::{sync::Arc, time::Duration};
 
 use futures::StreamExt;
 use tokio::{
-    sync::{mpsc, Notify},
+    sync::{mpsc, oneshot, Notify},
     time::interval,
 };
-use tokio::sync::oneshot;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 

@@ -31,11 +31,6 @@ use monero_serai::transaction::{Input, Timelock, Transaction};
 use rayon::prelude::*;
 use tower::ServiceExt;
 
-use crate::{
-    batch_verifier::MultiThreadedBatchVerifier,
-    transactions::contextual_data::{batch_get_decoy_info, batch_get_ring_member_info},
-    Database, ExtendedConsensusError,
-};
 use cuprate_consensus_rules::{
     transactions::{
         check_decoy_info, check_transaction_contextual, check_transaction_semantic,
@@ -44,16 +39,22 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_types::output_cache::OutputCache;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
+    output_cache::OutputCache,
     CachedVerificationState, TransactionVerificationData, TxVersion,
+};
+
+use crate::{
+    batch_verifier::MultiThreadedBatchVerifier,
+    block::BatchPrepareCache,
+    transactions::contextual_data::{batch_get_decoy_info, batch_get_ring_member_info},
+    Database, ExtendedConsensusError,
 };
 
 pub mod contextual_data;
 mod free;
 
-use crate::block::BatchPrepareCache;
 pub use free::new_tx_verification_data;
 
 /// An enum representing the type of validation that needs to be completed for this transaction.
@@ -172,7 +173,7 @@ impl VerificationWanted {
 
 /// Semantic transaction verification.
 ///
-/// [`VerificationWanted::just_semantic`]
+/// [`VerificationWanted::only_semantic`]
 pub struct SemanticVerification {
     prepped_txs: Vec<TransactionVerificationData>,
     hf: HardFork,
@@ -283,7 +284,7 @@ pub(crate) async fn check_kis_unique<D: Database>(
     mut txs: impl Iterator<Item = &TransactionVerificationData>,
     database: &mut D,
 ) -> Result<(), ExtendedConsensusError> {
-    let mut spent_kis = HashSet::with_capacity(txs.size_hint().1.unwrap_or(0));
+    let mut spent_kis = HashSet::with_capacity(txs.size_hint().1.unwrap_or(0) * 2);
 
     txs.try_for_each(|tx| {
         tx.tx.prefix().inputs.iter().try_for_each(|input| {
@@ -462,6 +463,7 @@ async fn verify_transactions_decoy_info<D: Database>(
 /// The inputs to this function are the txs wanted to be verified and a list of [`VerificationNeeded`],
 /// if any other [`VerificationNeeded`] is specified other than [`VerificationNeeded::Contextual`] or
 /// [`VerificationNeeded::SemanticAndContextual`], nothing will be verified for that tx.
+#[expect(clippy::too_many_arguments)]
 async fn verify_transactions<D>(
     mut txs: Vec<TransactionVerificationData>,
     verification_needed: Vec<VerificationNeeded>,

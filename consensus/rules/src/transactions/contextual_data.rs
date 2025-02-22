@@ -1,6 +1,4 @@
-use std::{
-    cmp::{max, min},
-};
+use std::cmp::{max, min};
 
 use curve25519_dalek::EdwardsPoint;
 use indexmap::{IndexMap, IndexSet};

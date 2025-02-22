@@ -284,7 +284,7 @@ where
                 context.current_adjusted_timestamp_for_time_lock(),
                 context.current_hf,
                 database,
-                batch_prep_cache.as_ref().map(|o| &**o),
+                batch_prep_cache.as_deref(),
             )
             .verify()
             .await?;

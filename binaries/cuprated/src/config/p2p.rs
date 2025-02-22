@@ -47,10 +47,10 @@ impl From<BlockDownloaderConfig> for cuprate_p2p::block_downloader::BlockDownloa
 impl Default for BlockDownloaderConfig {
     fn default() -> Self {
         Self {
-            buffer_bytes: 1_000_000_000,
-            in_progress_queue_bytes: 200_000_000,
+            buffer_bytes: 50_000_000,
+            in_progress_queue_bytes: 50_000_000,
             check_client_pool_interval: Duration::from_secs(30),
-            target_batch_bytes: 7_000_000,
+            target_batch_bytes: 10_000_000,
         }
     }
 }
@@ -111,7 +111,7 @@ impl SharedNetConfig {
 impl Default for SharedNetConfig {
     fn default() -> Self {
         Self {
-            outbound_connections: 128,
+            outbound_connections: 64,
             extra_outbound_connections: 8,
             max_inbound_connections: 128,
             gray_peers_percent: 0.7,

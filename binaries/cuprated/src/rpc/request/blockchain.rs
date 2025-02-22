@@ -6,6 +6,7 @@ use std::{
 };
 
 use anyhow::Error;
+use indexmap::{IndexMap, IndexSet};
 use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 
@@ -13,6 +14,7 @@ use cuprate_blockchain::{service::BlockchainReadHandle, types::AltChainInfo};
 use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
+    output_cache::OutputCache,
     Chain, ChainInfo, CoinbaseTxSum, ExtendedBlockHeader, HardFork, MinerData,
     OutputHistogramEntry, OutputHistogramInput, OutputOnChain,
 };
@@ -185,18 +187,18 @@ pub(crate) async fn generated_coins(
 /// [`BlockchainReadRequest::Outputs`]
 pub(crate) async fn outputs(
     blockchain_read: &mut BlockchainReadHandle,
-    outputs: HashMap<u64, HashSet<u64>>,
-) -> Result<HashMap<u64, HashMap<u64, OutputOnChain>>, Error> {
+    outputs: IndexMap<u64, IndexSet<u64>>,
+) -> Result<OutputCache, Error> {
     let BlockchainResponse::Outputs(outputs) = blockchain_read
         .ready()
         .await?
-        .call(BlockchainReadRequest::Outputs(todo!()))
+        .call(BlockchainReadRequest::Outputs(outputs))
         .await?
     else {
         unreachable!();
     };
 
-    Ok(todo!())
+    Ok(outputs)
 }
 
 /// [`BlockchainReadRequest::NumberOutputsWithAmount`]
