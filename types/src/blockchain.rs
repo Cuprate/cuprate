@@ -256,8 +256,8 @@ pub enum BlockchainResponse {
 
     /// Response to [`BlockchainReadRequest::Outputs`].
     ///
-    /// Inner value is all the outputs requested,
-    /// associated with their amount and amount index.
+    /// Inner value an [`OutputCache`], missing outputs won't trigger an error, they just will not be
+    /// in the cache until the cache is updated with the block containing those outputs.
     Outputs(OutputCache),
 
     /// Response to [`BlockchainReadRequest::NumberOutputsWithAmount`].

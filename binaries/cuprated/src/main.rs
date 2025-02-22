@@ -27,7 +27,6 @@ use cuprate_consensus_context::{
     BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
 };
 use cuprate_helper::time::secs_to_hms;
-use cuprate_types::blockchain::BlockchainWriteRequest;
 
 use crate::{
     config::Config, constants::PANIC_CRITICAL_SERVICE_ERROR, logging::CupratedTracingFilter,
