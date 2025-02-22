@@ -10,7 +10,7 @@ keywords    = ["cuprate", "types"]
 
 [features]
 default    = ["blockchain", "epee", "serde", "json", "hex"]
-blockchain = ["dep:indexmap"]
+blockchain = ["dep:indexmap", "dep:cuprate-helper", "cuprate-helper/crypto"]
 epee       = ["dep:cuprate-epee-encoding"]
 serde      = ["dep:serde", "hex"]
 proptest   = ["dep:proptest",  "dep:proptest-derive"]
