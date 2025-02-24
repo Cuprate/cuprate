@@ -1,7 +1,8 @@
 #![expect(unused_crate_dependencies, reason = "external test module")]
 
-use futures::FutureExt;
 use std::{sync::Arc, time::Duration};
+
+use futures::FutureExt;
 use tokio::sync::Semaphore;
 
 use cuprate_p2p_core::handles::HandleBuilder;

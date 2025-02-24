@@ -36,8 +36,8 @@ use crate::{
         timeout_monitor::connection_timeout_monitor_task, Client, InternalPeerID, PeerInformation,
     },
     constants::{
-        HANDSHAKE_TIMEOUT, MAX_EAGER_PROTOCOL_MESSAGES, MAX_PEERS_IN_PEER_LIST_MESSAGE,
-        PING_TIMEOUT,
+        CLIENT_QUEUE_SIZE, HANDSHAKE_TIMEOUT, MAX_EAGER_PROTOCOL_MESSAGES,
+        MAX_PEERS_IN_PEER_LIST_MESSAGE, PING_TIMEOUT,
     },
     handles::HandleBuilder,
     AddressBook, AddressBookRequest, AddressBookResponse, BroadcastMessage, ConnectionDirection,
@@ -47,7 +47,6 @@ use crate::{
 
 pub mod builder;
 pub use builder::HandshakerBuilder;
-use crate::constants::CLIENT_QUEUE_SIZE;
 
 #[derive(Debug, thiserror::Error)]
 pub enum HandshakeError {

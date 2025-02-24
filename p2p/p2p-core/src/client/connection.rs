@@ -18,10 +18,11 @@ use tokio_stream::wrappers::ReceiverStream;
 use cuprate_wire::{LevinCommand, Message, ProtocolMessage};
 
 use crate::{
-    constants::{REQUEST_TIMEOUT, SENDING_TIMEOUT, REQUEST_HANDLER_TIMEOUT},
+    client::request_handler::PeerRequestHandler,
+    constants::{REQUEST_HANDLER_TIMEOUT, REQUEST_TIMEOUT, SENDING_TIMEOUT},
     handles::ConnectionGuard,
     AddressBook, BroadcastMessage, CoreSyncSvc, MessageID, NetworkZone, PeerError, PeerRequest,
-    PeerResponse, ProtocolRequestHandler, ProtocolResponse, SharedError, client::request_handler::PeerRequestHandler
+    PeerResponse, ProtocolRequestHandler, ProtocolResponse, SharedError,
 };
 
 /// A request to the connection task from a [`Client`](crate::client::Client).
@@ -199,7 +200,10 @@ where
             self.peer_request_handler.handle_peer_request(req),
         )
         .await
-        .map_err(|_| PeerError::TimedOut)??;
+        .map_err(|_| {
+            tracing::warn!("Timed-out handling peer request, closing connection.");
+            PeerError::TimedOut
+        })??;
 
         // This will be an error if a response does not need to be sent
         if let Ok(res) = res.try_into() {
