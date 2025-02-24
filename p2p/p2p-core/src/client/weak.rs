@@ -42,6 +42,9 @@ impl<N: NetworkZone> WeakClient<N> {
         .into()
     }
 
+    /// Create a [`WeakBroadcastClient`] from this [`WeakClient`].
+    ///
+    /// See the docs for [`WeakBroadcastClient`] for what this type can do.
     pub fn broadcast_client(&mut self) -> WeakBroadcastClient<'_, N> {
         WeakBroadcastClient(self)
     }
@@ -98,6 +101,25 @@ impl<Z: NetworkZone> Service<PeerRequest> for WeakClient<Z> {
     }
 }
 
+/// A client used to send [`BroadcastMessage`]s directly to a single peer, although these messages
+/// can be sent using a [`WeakClient`] or [`Client`](super::Client), using this client type allows
+/// bypassing the single request being handled at a time.
+///
+/// This means that if another [`WeakClient`] has a request in progress [`WeakBroadcastClient`] can
+/// still send messages and does not need to wait for the other [`WeakClient`] to finish.
+///
+/// A thing to note is that a call to [`WeakBroadcastClient::poll_ready`] will still reserve a slot
+/// in the queue, this should be kept in mind as many [`WeakBroadcastClient`]s calling [`WeakBroadcastClient::poll_ready`]
+/// without [`WeakBroadcastClient::call`] will stop other [`WeakBroadcastClient`]s & the other types
+/// of clients.
+///
+/// This type keeps it state in the [`WeakClient`] it was produced from, allowing you to do this:
+///
+/// ```rust, ignore
+/// weak_client.broadcast_client().poll_ready(cx)
+///
+/// weak_client.broadcast_client().call(req)
+/// ```
 pub struct WeakBroadcastClient<'a, N: NetworkZone>(&'a mut WeakClient<N>);
 
 impl<N: NetworkZone> Service<BroadcastMessage> for WeakBroadcastClient<'_, N> {

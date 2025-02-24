@@ -47,6 +47,7 @@ use crate::{
 
 pub mod builder;
 pub use builder::HandshakerBuilder;
+use crate::constants::CLIENT_QUEUE_SIZE;
 
 #[derive(Debug, thiserror::Error)]
 pub enum HandshakeError {
@@ -448,7 +449,7 @@ where
 
     // Set up the connection data.
     let error_slot = SharedError::new();
-    let (connection_tx, client_rx) = mpsc::channel(5);
+    let (connection_tx, client_rx) = mpsc::channel(CLIENT_QUEUE_SIZE);
 
     let info = PeerInformation {
         id: addr,
