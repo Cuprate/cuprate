@@ -46,7 +46,7 @@ pub(crate) enum State {
         /// The channel to send the response down.
         tx: oneshot::Sender<Result<PeerResponse, tower::BoxError>>,
         /// A permit for this request.
-        _req_permit: Option<OwnedSemaphorePermit>,
+        _req_permit: OwnedSemaphorePermit,
     },
 }
 
@@ -141,7 +141,7 @@ where
                 self.send_message_to_peer(Message::Protocol(ProtocolMessage::NewFluffyBlock(block)))
                     .await
             }
-            BroadcastMessage::NewTransaction(txs) => {
+            BroadcastMessage::NewTransactions(txs) => {
                 self.send_message_to_peer(Message::Protocol(ProtocolMessage::NewTransactions(txs)))
                     .await
             }
@@ -153,10 +153,17 @@ where
         tracing::debug!("handling client request, id: {:?}", req.request.id());
 
         if req.request.needs_response() {
+            assert!(
+                !matches!(self.state, State::WaitingForResponse { .. }),
+                "cannot handle more than 1 request at the same time"
+            );
+
             self.state = State::WaitingForResponse {
                 request_id: req.request.id(),
                 tx: req.response_channel,
-                _req_permit: req.permit,
+                _req_permit: req
+                    .permit
+                    .expect("Client request should have a permit if a response is needed"),
             };
 
             self.send_message_to_peer(req.request.into()).await?;
@@ -165,7 +172,7 @@ where
             return Ok(());
         }
 
-        // INVARIANT: This function cannot exit early without sending a response back down the
+        // INVARIANT: From now this function cannot exit early without sending a response back down the
         // response channel.
         let res = self.send_message_to_peer(req.request.into()).await;
 
@@ -249,6 +256,10 @@ where
 
         tokio::select! {
             biased;
+            _ = self.connection_guard.should_shutdown() => {
+                tracing::debug!("connection guard has shutdown, shutting down connection.");
+                Err(PeerError::ConnectionClosed)
+            }
             broadcast_req = self.broadcast_stream.next() => {
                 if let Some(broadcast_req) = broadcast_req {
                     self.handle_client_broadcast(broadcast_req).await
@@ -282,6 +293,10 @@ where
 
         tokio::select! {
             biased;
+            _ = self.connection_guard.should_shutdown() => {
+                tracing::debug!("connection guard has shutdown, shutting down connection.");
+                Err(PeerError::ConnectionClosed)
+            }
             () = self.request_timeout.as_mut().expect("Request timeout was not set!") => {
                 Err(PeerError::ClientChannelClosed)
             }
@@ -292,11 +307,19 @@ where
                     Err(PeerError::ClientChannelClosed)
                 }
             }
-            // We don't wait for client requests as we are already handling one.
+            client_req = self.client_rx.next() => {
+                // Although we can only handle 1 request from the client at a time, this channel is also used
+                // for specific broadcasts to this peer so we need to handle those here as well.
+                if let Some(client_req) = client_req {
+                    self.handle_client_request(client_req).await
+                } else {
+                    Err(PeerError::ClientChannelClosed)
+                }
+            },
             peer_message = stream.next() => {
                 if let Some(peer_message) = peer_message {
                     self.handle_potential_response(peer_message?).await
-                }else {
+                } else {
                     Err(PeerError::ClientChannelClosed)
                 }
             },
@@ -331,11 +354,6 @@ where
         }
 
         loop {
-            if self.connection_guard.should_shutdown() {
-                tracing::debug!("connection guard has shutdown, shutting down connection.");
-                return self.shutdown(PeerError::ConnectionClosed);
-            }
-
             let res = match self.state {
                 State::WaitingForRequest => self.state_waiting_for_request(&mut stream).await,
                 State::WaitingForResponse { .. } => {

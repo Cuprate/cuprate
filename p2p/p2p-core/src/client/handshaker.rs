@@ -448,7 +448,7 @@ where
 
     // Set up the connection data.
     let error_slot = SharedError::new();
-    let (connection_tx, client_rx) = mpsc::channel(1);
+    let (connection_tx, client_rx) = mpsc::channel(5);
 
     let info = PeerInformation {
         id: addr,
