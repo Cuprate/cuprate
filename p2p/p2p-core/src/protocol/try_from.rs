@@ -3,7 +3,7 @@
 
 use cuprate_wire::{Message, ProtocolMessage};
 
-use crate::{PeerRequest, PeerResponse, ProtocolRequest, ProtocolResponse};
+use crate::{BroadcastMessage, PeerRequest, PeerResponse, ProtocolRequest, ProtocolResponse};
 
 #[derive(Debug)]
 pub struct MessageConversionError;
@@ -117,5 +117,34 @@ impl TryFrom<PeerResponse> for Message {
             PeerResponse::Admin(val) => Self::Response(val),
             PeerResponse::Protocol(val) => Self::Protocol(val.try_into()?),
         })
+    }
+}
+
+impl TryFrom<PeerRequest> for BroadcastMessage {
+    type Error = MessageConversionError;
+
+    fn try_from(value: PeerRequest) -> Result<Self, Self::Error> {
+        match value {
+            PeerRequest::Protocol(ProtocolRequest::NewTransactions(txs)) => {
+                Ok(Self::NewTransactions(txs))
+            }
+            PeerRequest::Protocol(ProtocolRequest::NewFluffyBlock(block)) => {
+                Ok(Self::NewFluffyBlock(block))
+            }
+            _ => Err(MessageConversionError),
+        }
+    }
+}
+
+impl From<BroadcastMessage> for PeerRequest {
+    fn from(value: BroadcastMessage) -> Self {
+        match value {
+            BroadcastMessage::NewTransactions(txs) => {
+                Self::Protocol(ProtocolRequest::NewTransactions(txs))
+            }
+            BroadcastMessage::NewFluffyBlock(block) => {
+                Self::Protocol(ProtocolRequest::NewFluffyBlock(block))
+            }
+        }
     }
 }

@@ -138,7 +138,7 @@ fn mul(a: u64, b: u64) -> u128 {
     let lo = product as u64;
 
     // swap hi and low, so this isn't just a multiply
-    u128::from(lo) << 64 | u128::from(hi)
+    (u128::from(lo) << 64) | u128::from(hi)
 }
 
 /// Original C code:
@@ -153,7 +153,7 @@ fn sum_half_blocks(a: u128, b: u128) -> u128 {
     let b_high = (b >> 64) as u64;
     let sum_high = a_high.wrapping_add(b_high);
 
-    u128::from(sum_high) << 64 | u128::from(sum_low)
+    (u128::from(sum_high) << 64) | u128::from(sum_low)
 }
 
 /// Original C code:
