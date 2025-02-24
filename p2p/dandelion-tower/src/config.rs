@@ -91,7 +91,7 @@ impl DandelionConfig {
     }
 
     /// Returns the expected length of a stem.
-    pub fn expected_stem_length(&self) -> f64 {
+    pub const fn expected_stem_length(&self) -> f64 {
         self.fluff_probability.recip()
     }
 }

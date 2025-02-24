@@ -256,7 +256,7 @@ where
 
         tokio::select! {
             biased;
-            _ = self.connection_guard.should_shutdown() => {
+            () = self.connection_guard.should_shutdown() => {
                 tracing::debug!("connection guard has shutdown, shutting down connection.");
                 Err(PeerError::ConnectionClosed)
             }
@@ -293,7 +293,7 @@ where
 
         tokio::select! {
             biased;
-            _ = self.connection_guard.should_shutdown() => {
+            () = self.connection_guard.should_shutdown() => {
                 tracing::debug!("connection guard has shutdown, shutting down connection.");
                 Err(PeerError::ConnectionClosed)
             }

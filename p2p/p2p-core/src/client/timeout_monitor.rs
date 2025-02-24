@@ -55,7 +55,7 @@ where
 
     loop {
         tokio::select! {
-            _ = peer_information.handle.closed() => {
+            () = peer_information.handle.closed() => {
                 tracing::debug!("Closing timeout monitor, connection disconnected.");
                 return Ok(());
             }

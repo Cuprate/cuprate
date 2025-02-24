@@ -1,7 +1,7 @@
 #![expect(unused_crate_dependencies, reason = "external test module")]
 
+use futures::FutureExt;
 use std::{sync::Arc, time::Duration};
-
 use tokio::sync::Semaphore;
 
 use cuprate_p2p_core::handles::HandleBuilder;
@@ -19,7 +19,7 @@ fn send_ban_signal() {
     assert_eq!(ban_time.0, Duration::from_secs(300));
 
     connection_handle.send_close_signal();
-    assert!(guard.should_shutdown());
+    assert!(guard.should_shutdown().now_or_never().is_some());
 
     guard.connection_closed();
     assert!(connection_handle.is_closed());
@@ -41,7 +41,7 @@ fn multiple_ban_signals() {
     assert_eq!(ban_time.0, Duration::from_secs(300));
 
     connection_handle.send_close_signal();
-    assert!(guard.should_shutdown());
+    assert!(guard.should_shutdown().now_or_never().is_some());
 
     guard.connection_closed();
     assert!(connection_handle.is_closed());

@@ -126,10 +126,10 @@ impl TryFrom<PeerRequest> for BroadcastMessage {
     fn try_from(value: PeerRequest) -> Result<Self, Self::Error> {
         match value {
             PeerRequest::Protocol(ProtocolRequest::NewTransactions(txs)) => {
-                Ok(BroadcastMessage::NewTransactions(txs))
+                Ok(Self::NewTransactions(txs))
             }
             PeerRequest::Protocol(ProtocolRequest::NewFluffyBlock(block)) => {
-                Ok(BroadcastMessage::NewFluffyBlock(block))
+                Ok(Self::NewFluffyBlock(block))
             }
             _ => Err(MessageConversionError),
         }
@@ -140,10 +140,10 @@ impl From<BroadcastMessage> for PeerRequest {
     fn from(value: BroadcastMessage) -> Self {
         match value {
             BroadcastMessage::NewTransactions(txs) => {
-                PeerRequest::Protocol(ProtocolRequest::NewTransactions(txs))
+                Self::Protocol(ProtocolRequest::NewTransactions(txs))
             }
             BroadcastMessage::NewFluffyBlock(block) => {
-                PeerRequest::Protocol(ProtocolRequest::NewFluffyBlock(block))
+                Self::Protocol(ProtocolRequest::NewFluffyBlock(block))
             }
         }
     }

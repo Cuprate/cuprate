@@ -72,7 +72,6 @@ impl<Z: NetworkZone> Service<PeerRequest> for WeakClient<Z> {
         Poll::Ready(Ok(()))
     }
 
-    #[expect(clippy::significant_drop_tightening)]
     fn call(&mut self, request: PeerRequest) -> Self::Future {
         let permit = self
             .permit
@@ -121,7 +120,6 @@ impl<N: NetworkZone> Service<BroadcastMessage> for WeakBroadcastClient<'_, N> {
         Poll::Ready(Ok(()))
     }
 
-    #[expect(clippy::significant_drop_tightening)]
     fn call(&mut self, request: BroadcastMessage) -> Self::Future {
         let (tx, rx) = oneshot::channel();
         let req = connection::ConnectionTaskRequest {

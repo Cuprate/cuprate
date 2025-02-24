@@ -401,8 +401,10 @@ pub(crate) fn variant4_random_math(
 
     v4_random_math(code, r);
 
-    *a1 ^=
-        u128::from(r[2]) | u128::from(r[3]) << 32 | u128::from(r[0]) << 64 | u128::from(r[1]) << 96;
+    *a1 ^= u128::from(r[2])
+        | (u128::from(r[3]) << 32)
+        | (u128::from(r[0]) << 64)
+        | (u128::from(r[1]) << 96);
 }
 
 #[cfg(test)]

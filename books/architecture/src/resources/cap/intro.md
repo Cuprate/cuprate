@@ -8,7 +8,7 @@ There are "synchronization primitives" that help with this, common ones being:
 - [Channels](https://en.wikipedia.org/wiki/Channel_(programming))
 - [Atomics](https://en.wikipedia.org/wiki/Linearizability#Primitive_atomic_instructions)
 
-These tools are relatively easy to use in isolation, but trickier to do so when considering the entire system. It is not uncommon for _the_ bottleneck to be the [poor orchastration](https://en.wikipedia.org/wiki/Starvation_(computer_science)) of these primitives.
+These tools are relatively easy to use in isolation, but trickier to do so when considering the entire system. It is not uncommon for _the_ bottleneck to be the [poor orchestration](https://en.wikipedia.org/wiki/Starvation_(computer_science)) of these primitives.
 
 ## Analogy
 A common analogy for a parallel system is an intersection.
