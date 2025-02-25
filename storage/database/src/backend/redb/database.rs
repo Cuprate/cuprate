@@ -1,8 +1,6 @@
 //! Implementation of `trait DatabaseR{o,w}` for `redb`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::ops::RangeBounds;
-
 use redb::ReadableTable;
 
 use crate::{
