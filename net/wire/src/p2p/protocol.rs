@@ -129,7 +129,7 @@ impl ChainResponse {
     #[inline]
     pub const fn cumulative_difficulty(&self) -> u128 {
         let cumulative_difficulty = self.cumulative_difficulty_top64 as u128;
-        cumulative_difficulty << 64 | self.cumulative_difficulty_low64 as u128
+        (cumulative_difficulty << 64) | self.cumulative_difficulty_low64 as u128
     }
 }
 
