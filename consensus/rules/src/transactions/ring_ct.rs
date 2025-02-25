@@ -1,5 +1,6 @@
 use curve25519_dalek::{EdwardsPoint, Scalar};
 use hex_literal::hex;
+use monero_serai::io::decompress_point;
 use monero_serai::{
     generators::H,
     ringct::{
@@ -9,7 +10,6 @@ use monero_serai::{
     },
     transaction::Input,
 };
-use monero_serai::io::decompress_point;
 use rand::thread_rng;
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
@@ -75,9 +75,21 @@ fn simple_type_balances(rct_sig: &RctProofs) -> Result<(), RingCTError> {
         }
     };
 
-    let sum_inputs = pseudo_outs.iter().copied().map(decompress_point).sum::<Option<EdwardsPoint>>().ok_or(RingCTError::SimpleAmountDoNotBalance)?;
-    let sum_outputs =
-        rct_sig.base.commitments.iter().copied().map(decompress_point).sum::<Option<EdwardsPoint>>().ok_or(RingCTError::SimpleAmountDoNotBalance)? + Scalar::from(rct_sig.base.fee) * *H;
+    let sum_inputs = pseudo_outs
+        .iter()
+        .copied()
+        .map(decompress_point)
+        .sum::<Option<EdwardsPoint>>()
+        .ok_or(RingCTError::SimpleAmountDoNotBalance)?;
+    let sum_outputs = rct_sig
+        .base
+        .commitments
+        .iter()
+        .copied()
+        .map(decompress_point)
+        .sum::<Option<EdwardsPoint>>()
+        .ok_or(RingCTError::SimpleAmountDoNotBalance)?
+        + Scalar::from(rct_sig.base.fee) * *H;
 
     if sum_inputs == sum_outputs {
         Ok(())

@@ -4,8 +4,11 @@
 use std::sync::LazyLock;
 
 use curve25519_dalek::{
-    constants::{ED25519_BASEPOINT_POINT, ED25519_BASEPOINT_COMPRESSED}, edwards::VartimeEdwardsPrecomputation,
-    traits::VartimePrecomputedMultiscalarMul, edwards::CompressedEdwardsY, Scalar,
+    constants::{ED25519_BASEPOINT_COMPRESSED, ED25519_BASEPOINT_POINT},
+    edwards::CompressedEdwardsY,
+    edwards::VartimeEdwardsPrecomputation,
+    traits::VartimePrecomputedMultiscalarMul,
+    Scalar,
 };
 use monero_serai::generators::H;
 
@@ -49,15 +52,16 @@ static H_PRECOMP: LazyLock<VartimeEdwardsPrecomputation> =
 /// # Invariant
 /// This function assumes that the [`ZERO_COMMITMENT_DECOMPOSED_AMOUNT`]
 /// table is sorted.
-pub static ZERO_COMMITMENT_LOOKUP_TABLE: LazyLock<[CompressedEdwardsY; 172]> = LazyLock::new(|| {
-    let mut lookup_table: [CompressedEdwardsY; 172] = [ED25519_BASEPOINT_COMPRESSED; 172];
+pub static ZERO_COMMITMENT_LOOKUP_TABLE: LazyLock<[CompressedEdwardsY; 172]> =
+    LazyLock::new(|| {
+        let mut lookup_table: [CompressedEdwardsY; 172] = [ED25519_BASEPOINT_COMPRESSED; 172];
 
-    for (i, amount) in ZERO_COMMITMENT_DECOMPOSED_AMOUNT.into_iter().enumerate() {
-        lookup_table[i] = (ED25519_BASEPOINT_POINT + *H * Scalar::from(amount)).compress();
-    }
+        for (i, amount) in ZERO_COMMITMENT_DECOMPOSED_AMOUNT.into_iter().enumerate() {
+            lookup_table[i] = (ED25519_BASEPOINT_POINT + *H * Scalar::from(amount)).compress();
+        }
 
-    lookup_table
-});
+        lookup_table
+    });
 
 //---------------------------------------------------------------------------------------------------- Free functions
 
@@ -89,7 +93,9 @@ pub fn compute_zero_commitment(amount: u64) -> CompressedEdwardsY {
     // there aren't only trailing zeroes behind the most significant digit.
     // The amount is not part of the table and can calculated apart.
     if most_significant_digit * div != amount {
-        return H_PRECOMP.vartime_multiscalar_mul([Scalar::from(amount), Scalar::ONE]).compress();
+        return H_PRECOMP
+            .vartime_multiscalar_mul([Scalar::from(amount), Scalar::ONE])
+            .compress();
     }
 
     // Calculating the index back by progressing within the powers of 10.
@@ -116,7 +122,10 @@ mod test {
     fn compare_lookup_with_computation() {
         for amount in ZERO_COMMITMENT_DECOMPOSED_AMOUNT {
             let commitment = H_PRECOMP.vartime_multiscalar_mul([Scalar::from(amount), Scalar::ONE]);
-            assert_eq!(commitment, compute_zero_commitment(amount).decompress().unwrap());
+            assert_eq!(
+                commitment,
+                compute_zero_commitment(amount).decompress().unwrap()
+            );
         }
     }
 }

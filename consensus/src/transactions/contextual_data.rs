@@ -102,20 +102,12 @@ pub fn new_ring_member_info(
 }
 
 /// Builds the [`Rings`] for the transaction inputs, from the given outputs.
-fn new_rings(
-    outputs: Vec<Vec<OutputOnChain>>,
-    tx_version: TxVersion,
-) -> Rings {
+fn new_rings(outputs: Vec<Vec<OutputOnChain>>, tx_version: TxVersion) -> Rings {
     match tx_version {
         TxVersion::RingSignatures => Rings::Legacy(
             outputs
                 .into_iter()
-                .map(|inp_outs| {
-                    inp_outs
-                        .into_iter()
-                        .map(|out| out.key)
-                        .collect::<Vec<_>>()
-                })
+                .map(|inp_outs| inp_outs.into_iter().map(|out| out.key).collect::<Vec<_>>())
                 .collect::<Vec<_>>(),
         ),
         TxVersion::RingCT => Rings::RingCT(
@@ -124,12 +116,7 @@ fn new_rings(
                 .map(|inp_outs| {
                     inp_outs
                         .into_iter()
-                        .map(|out| {
-                            [
-                                out.key,
-                                out.commitment,
-                            ]
-                        })
+                        .map(|out| [out.key, out.commitment])
                         .collect::<_>()
                 })
                 .collect::<_>(),

@@ -67,7 +67,7 @@ impl OutputCache {
     /// Adds a [`Transaction`] to the cache.
     fn add_tx<const MINER_TX: bool>(&mut self, height: usize, tx: &Transaction) {
         for (i, out) in tx.prefix().outputs.iter().enumerate() {
-            let amount = if MINER_TX {
+            let amount = if MINER_TX && tx.version() == 2 {
                 0
             } else {
                 out.amount.unwrap_or_default()

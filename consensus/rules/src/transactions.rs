@@ -1,11 +1,11 @@
-use std::cmp::Ordering;
+pub use cuprate_types::TxVersion;
 use curve25519_dalek::EdwardsPoint;
+use monero_serai::io::decompress_point;
 use monero_serai::{
     ringct::RctType,
     transaction::{Input, Output, Timelock, Transaction},
 };
-use monero_serai::io::decompress_point;
-pub use cuprate_types::TxVersion;
+use std::cmp::Ordering;
 
 use crate::{
     batch_verifier::BatchVerifier, blocks::penalty_free_zone, check_point_canonically_encoded,
@@ -327,7 +327,10 @@ fn check_key_images(input: &Input) -> Result<(), TransactionError> {
     match input {
         Input::ToKey { key_image, .. } => {
             // this happens in monero-serai but we may as well duplicate the check.
-            if !decompress_point(*key_image).as_ref().is_some_and(EdwardsPoint::is_torsion_free) {
+            if !decompress_point(*key_image)
+                .as_ref()
+                .is_some_and(EdwardsPoint::is_torsion_free)
+            {
                 return Err(TransactionError::KeyImageIsNotInPrimeSubGroup);
             }
         }
