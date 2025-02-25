@@ -452,7 +452,7 @@ impl super::BlockchainManager {
             .iter()
             .flat_map(|tx| {
                 tx.tx.prefix().inputs.iter().map(|input| match input {
-                    Input::ToKey { key_image, .. } => key_image.compress().0,
+                    Input::ToKey { key_image, .. } => key_image.0,
                     Input::Gen(_) => unreachable!(),
                 })
             })

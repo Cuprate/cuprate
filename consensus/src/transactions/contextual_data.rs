@@ -96,7 +96,7 @@ pub fn new_ring_member_info(
                     .collect::<Vec<_>>()
             })
             .collect(),
-        rings: new_rings(used_outs, tx_version)?,
+        rings: new_rings(used_outs, tx_version),
         decoy_info,
     })
 }
@@ -105,18 +105,18 @@ pub fn new_ring_member_info(
 fn new_rings(
     outputs: Vec<Vec<OutputOnChain>>,
     tx_version: TxVersion,
-) -> Result<Rings, TransactionError> {
-    Ok(match tx_version {
+) -> Rings {
+    match tx_version {
         TxVersion::RingSignatures => Rings::Legacy(
             outputs
                 .into_iter()
                 .map(|inp_outs| {
                     inp_outs
                         .into_iter()
-                        .map(|out| out.key.ok_or(TransactionError::RingMemberNotFoundOrInvalid))
-                        .collect::<Result<Vec<_>, TransactionError>>()
+                        .map(|out| out.key)
+                        .collect::<Vec<_>>()
                 })
-                .collect::<Result<Vec<_>, TransactionError>>()?,
+                .collect::<Vec<_>>(),
         ),
         TxVersion::RingCT => Rings::RingCT(
             outputs
@@ -125,17 +125,16 @@ fn new_rings(
                     inp_outs
                         .into_iter()
                         .map(|out| {
-                            Ok([
-                                out.key
-                                    .ok_or(TransactionError::RingMemberNotFoundOrInvalid)?,
+                            [
+                                out.key,
                                 out.commitment,
-                            ])
+                            ]
                         })
-                        .collect::<Result<_, TransactionError>>()
+                        .collect::<_>()
                 })
-                .collect::<Result<_, _>>()?,
+                .collect::<_>(),
         ),
-    })
+    }
 }
 
 /// Retrieves an [`OutputCache`] for the list of transactions.

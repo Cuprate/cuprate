@@ -9,6 +9,7 @@ use monero_serai::{
     },
     transaction::Input,
 };
+use monero_serai::io::decompress_point;
 use rand::thread_rng;
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
@@ -74,9 +75,9 @@ fn simple_type_balances(rct_sig: &RctProofs) -> Result<(), RingCTError> {
         }
     };
 
-    let sum_inputs = pseudo_outs.iter().sum::<EdwardsPoint>();
+    let sum_inputs = pseudo_outs.iter().copied().map(decompress_point).sum::<Option<EdwardsPoint>>().ok_or(RingCTError::SimpleAmountDoNotBalance)?;
     let sum_outputs =
-        rct_sig.base.commitments.iter().sum::<EdwardsPoint>() + Scalar::from(rct_sig.base.fee) * *H;
+        rct_sig.base.commitments.iter().copied().map(decompress_point).sum::<Option<EdwardsPoint>>().ok_or(RingCTError::SimpleAmountDoNotBalance)? + Scalar::from(rct_sig.base.fee) * *H;
 
     if sum_inputs == sum_outputs {
         Ok(())
@@ -178,7 +179,7 @@ pub(crate) fn check_input_signatures(
                 .collect::<Vec<_>>();
 
             let mut matrix =
-                AggregateRingMatrixBuilder::new(&proofs.base.commitments, proofs.base.fee);
+                AggregateRingMatrixBuilder::new(&proofs.base.commitments, proofs.base.fee)?;
 
             rings.iter().try_for_each(|ring| matrix.push_ring(ring))?;
 
@@ -210,7 +211,7 @@ pub(crate) fn check_input_signatures(
                     panic!("How did we build a ring with no decoys?");
                 };
 
-                Ok(clsags.verify(ring, key_image, pseudo_out, msg)?)
+                Ok(clsags.verify(ring.clone(), key_image, pseudo_out, msg)?)
             }),
     }
 }
