@@ -272,11 +272,14 @@ impl super::BlockchainManager {
         prepared_txs: HashMap<[u8; 32], TransactionVerificationData>,
     ) -> Result<AddAltBlock, anyhow::Error> {
         // Check if a block already exists.
-        let BlockchainResponse::FindBlock(chain) = self.blockchain_read_handle
+        let BlockchainResponse::FindBlock(chain) = self
+            .blockchain_read_handle
             .ready()
-            .await.expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
             .call(BlockchainReadRequest::FindBlock(block.hash()))
-            .await.expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
         else {
             unreachable!();
         };

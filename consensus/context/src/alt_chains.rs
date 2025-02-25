@@ -83,10 +83,7 @@ impl AltChainMap {
     }
 
     /// Add an alt chain cache to the map.
-    pub(crate) fn add_alt_cache(
-        &mut self,
-        alt_cache: Box<AltChainContextCache>,
-    ) {
+    pub(crate) fn add_alt_cache(&mut self, alt_cache: Box<AltChainContextCache>) {
         self.alt_cache_map.insert(alt_cache.top_hash, alt_cache);
     }
 
