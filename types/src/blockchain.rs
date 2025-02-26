@@ -8,10 +8,12 @@ use std::{
     ops::Range,
 };
 
+use indexmap::{IndexMap, IndexSet};
 use monero_serai::block::Block;
 
 use crate::{
-    types::{Chain, ExtendedBlockHeader, OutputOnChain, TxsInBlock, VerifiedBlockInformation},
+    output_cache::OutputCache,
+    types::{Chain, ExtendedBlockHeader, TxsInBlock, VerifiedBlockInformation},
     AltBlockInformation, BlockCompleteEntry, ChainId, ChainInfo, CoinbaseTxSum,
     OutputHistogramEntry, OutputHistogramInput,
 };
@@ -86,7 +88,7 @@ pub enum BlockchainReadRequest {
     /// For RCT outputs, the amounts would be `0` and
     /// the amount indices would represent the global
     /// RCT output indices.
-    Outputs(HashMap<u64, HashSet<u64>>),
+    Outputs(IndexMap<u64, IndexSet<u64>>),
 
     /// Request the amount of outputs with a certain amount.
     ///
@@ -256,7 +258,7 @@ pub enum BlockchainResponse {
     ///
     /// Inner value is all the outputs requested,
     /// associated with their amount and amount index.
-    Outputs(HashMap<u64, HashMap<u64, OutputOnChain>>),
+    Outputs(OutputCache),
 
     /// Response to [`BlockchainReadRequest::NumberOutputsWithAmount`].
     ///

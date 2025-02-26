@@ -35,18 +35,18 @@ pub(crate) fn variant2_shuffle_add(
     let chunk1 = &mut long_state[chunk1_start];
     let sum1 = chunk3_old.wrapping_add(b1) & U64_MASK;
     let sum2 = (chunk3_old >> 64).wrapping_add(b1 >> 64) & U64_MASK;
-    *chunk1 = sum2 << 64 | sum1; // TODO remove some shifting above
+    *chunk1 = (sum2 << 64) | sum1; // TODO remove some shifting above
 
     let chunk3 = &mut long_state[chunk3_start];
     let sum1 = chunk2_old.wrapping_add(a) & U64_MASK;
     let sum2 = (chunk2_old >> 64).wrapping_add(a >> 64) & U64_MASK;
-    *chunk3 = sum2 << 64 | sum1;
+    *chunk3 = (sum2 << 64) | sum1;
 
     let b0 = b[0];
     let chunk2 = &mut long_state[chunk2_start];
     let sum1 = chunk1_old.wrapping_add(b0) & U64_MASK;
     let sum2 = (chunk1_old >> 64).wrapping_add(b0 >> 64) & U64_MASK;
-    *chunk2 = sum2 << 64 | sum1;
+    *chunk2 = (sum2 << 64) | sum1;
 
     if variant == Variant::R {
         *c1 ^= chunk1_old ^ chunk2_old ^ chunk3_old;

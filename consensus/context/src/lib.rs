@@ -307,8 +307,6 @@ pub enum BlockChainContextRequest {
     /// This variant is private and is not callable from outside this crate, the block verifier service will
     /// handle returning the alt cache to the context service.
     AddAltChainContextCache {
-        /// The previous block field in a [`BlockHeader`](monero_serai::block::BlockHeader).
-        prev_id: [u8; 32],
         /// The cache.
         cache: Box<AltChainContextCache>,
         /// An internal token to prevent external crates calling this request.
