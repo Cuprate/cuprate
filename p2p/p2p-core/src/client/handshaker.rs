@@ -36,8 +36,8 @@ use crate::{
         timeout_monitor::connection_timeout_monitor_task, Client, InternalPeerID, PeerInformation,
     },
     constants::{
-        HANDSHAKE_TIMEOUT, MAX_EAGER_PROTOCOL_MESSAGES, MAX_PEERS_IN_PEER_LIST_MESSAGE,
-        PING_TIMEOUT,
+        CLIENT_QUEUE_SIZE, HANDSHAKE_TIMEOUT, MAX_EAGER_PROTOCOL_MESSAGES,
+        MAX_PEERS_IN_PEER_LIST_MESSAGE, PING_TIMEOUT,
     },
     handles::HandleBuilder,
     AddressBook, AddressBookRequest, AddressBookResponse, BroadcastMessage, ConnectionDirection,
@@ -448,7 +448,7 @@ where
 
     // Set up the connection data.
     let error_slot = SharedError::new();
-    let (connection_tx, client_rx) = mpsc::channel(1);
+    let (connection_tx, client_rx) = mpsc::channel(CLIENT_QUEUE_SIZE);
 
     let info = PeerInformation {
         id: addr,
