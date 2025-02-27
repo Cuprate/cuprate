@@ -21,6 +21,7 @@ curve25519-dalek = { workspace = true, features = ["alloc", "zeroize", "precompu
 
 rand = { workspace = true, features = ["std", "std_rng"] }
 
+indexmap = { workspace = true, features = ["std"] }
 hex = { workspace = true, features = ["std"] }
 hex-literal = { workspace = true }
 crypto-bigint = { workspace = true }

@@ -1,9 +1,7 @@
-use std::{
-    cmp::{max, min},
-    collections::{HashMap, HashSet},
-};
+use std::cmp::{max, min};
 
-use curve25519_dalek::EdwardsPoint;
+use curve25519_dalek::edwards::CompressedEdwardsY;
+use indexmap::{IndexMap, IndexSet};
 use monero_serai::transaction::{Input, Timelock};
 
 use crate::{transactions::TransactionError, HardFork};
@@ -33,7 +31,7 @@ pub fn get_absolute_offsets(relative_offsets: &[u64]) -> Result<Vec<u64>, Transa
 ///
 pub fn insert_ring_member_ids(
     inputs: &[Input],
-    output_ids: &mut HashMap<u64, HashSet<u64>>,
+    output_ids: &mut IndexMap<u64, IndexSet<u64>>,
 ) -> Result<(), TransactionError> {
     if inputs.is_empty() {
         return Err(TransactionError::NoInputs);
@@ -59,9 +57,9 @@ pub fn insert_ring_member_ids(
 #[derive(Debug)]
 pub enum Rings {
     /// Legacy, pre-ringCT, rings.
-    Legacy(Vec<Vec<EdwardsPoint>>),
+    Legacy(Vec<Vec<CompressedEdwardsY>>),
     /// `RingCT` rings, (outkey, amount commitment).
-    RingCT(Vec<Vec<[EdwardsPoint; 2]>>),
+    RingCT(Vec<Vec<[CompressedEdwardsY; 2]>>),
 }
 
 /// Information on the outputs the transaction is referencing for inputs (ring members).
