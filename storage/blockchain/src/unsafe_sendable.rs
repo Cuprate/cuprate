@@ -1,5 +1,7 @@
 //! Wrapper type for partially-`unsafe` usage of `T: !Send`.
 
+#![expect(unsafe_code)]
+
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     borrow::Borrow,

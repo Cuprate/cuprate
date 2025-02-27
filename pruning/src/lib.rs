@@ -18,6 +18,16 @@
 //! ```
 //!
 
+#![forbid(
+    clippy::missing_assert_message,
+    clippy::should_panic_without_expect,
+    clippy::single_char_lifetime_names,
+    unsafe_code,
+    unused_results,
+    missing_debug_implementations,
+    reason = "Crate-specific lints. There should be good reasoning when removing these."
+)]
+
 use std::cmp::Ordering;
 
 use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;

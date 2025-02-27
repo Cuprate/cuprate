@@ -12,7 +12,17 @@
     // Rust thinks `env_inner` can be dropped earlier
     // but it cannot, we need it for the lifetime of
     // the database transaction + tables.
-    clippy::significant_drop_tightening
+    clippy::significant_drop_tightening,
+)]
+#![forbid(
+    clippy::missing_assert_message,
+    clippy::missing_docs_in_private_items,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::should_panic_without_expect,
+    missing_docs,
+    missing_copy_implementations,
+    reason = "Crate-specific lints. There should be good reasoning when removing these."
 )]
 // Allow some lints in tests.
 #![cfg_attr(

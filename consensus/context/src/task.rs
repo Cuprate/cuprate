@@ -29,6 +29,7 @@ use crate::{
 };
 
 /// A request from the context service to the context task.
+#[derive(Debug)]
 pub(super) struct ContextTaskRequest {
     /// The request.
     pub req: BlockChainContextRequest,

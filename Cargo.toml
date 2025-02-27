@@ -377,6 +377,7 @@ unreachable_pub = "deny"
 unused_qualifications = "deny"
 variant_size_differences = "deny"
 non_camel_case_types = "deny"
+unsafe_code = "deny"
 
 # Hot
 # unused_results = "deny"

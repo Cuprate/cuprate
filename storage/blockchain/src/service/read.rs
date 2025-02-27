@@ -174,6 +174,7 @@ fn thread_local<T: Send>(env: &impl Env) -> ThreadLocal<T> {
 macro_rules! get_tables {
     ($env_inner:ident, $tx_ro:ident, $tables:ident) => {{
         $tables.get_or_try(|| {
+            #[expect(unsafe_code)]
             match $env_inner.open_tables($tx_ro) {
                 // SAFETY: see above macro doc comment.
                 Ok(tables) => Ok(unsafe { crate::unsafe_sendable::UnsafeSendable::new(tables) }),
