@@ -31,6 +31,7 @@ rand             = { workspace = true, features = ["std", "std_rng"] }
 monero-serai     = { workspace = true, features = ["std"] }
 serde            = { workspace = true, optional = true }
 
+indexmap     = { workspace = true, features = ["rayon"] }
 tower        = { workspace = true }
 thread_local = { workspace = true }
 rayon        = { workspace = true }
