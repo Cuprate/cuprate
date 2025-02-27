@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 use cuprate_pruning::PruningSeed;
 use cuprate_types::{AddressType, ConnectionState};
 
-use crate::NetZoneAddress;
+use crate::{NetZoneAddress, ZoneSpecificPeerListEntryBase};
 
 /// Data within [`crate::services::AddressBookRequest::SetBan`].
 pub struct SetBan<A: NetZoneAddress> {
@@ -93,4 +93,11 @@ pub struct Span<A: NetZoneAddress> {
     pub size: u64,
     pub speed: u32,
     pub start_block_height: u64,
+}
+
+/// Used in RPC's `/get_peer_list`.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Peerlist<A: NetZoneAddress> {
+    pub white: Vec<ZoneSpecificPeerListEntryBase<A>>,
+    pub grey: Vec<ZoneSpecificPeerListEntryBase<A>>,
 }

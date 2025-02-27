@@ -74,6 +74,7 @@ macro_rules! test_verify_valid_v2_tx {
                     key: CompressedEdwardsY::from_slice(&hex_literal::hex!($ring_member))
                         .unwrap()
                         .decompress(),
+                    txid: [0; 32],
                 }),)+)+
             ];
 
@@ -103,6 +104,7 @@ macro_rules! test_verify_valid_v2_tx {
                     key: CompressedEdwardsY::from_slice(&hex_literal::hex!($ring_member))
                         .unwrap()
                         .decompress(),
+                    txid: [0; 32],
                 }),)+)+
             ];
 
