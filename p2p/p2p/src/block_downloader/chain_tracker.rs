@@ -1,16 +1,16 @@
-use std::{cmp::min, collections::VecDeque};
-
 use cuprate_fixed_bytes::ByteArrayVec;
+use std::{cmp::min, collections::VecDeque, mem};
+use tower::{Service, ServiceExt};
 
+use crate::block_downloader::{ChainSvcRequest, ChainSvcResponse};
+use crate::constants::MEDIUM_BAN;
 use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
 use cuprate_p2p_core::{client::InternalPeerID, handles::ConnectionHandle, NetworkZone};
 use cuprate_pruning::PruningSeed;
 
-use crate::constants::MEDIUM_BAN;
-
 /// A new chain entry to add to our chain tracker.
 #[derive(Debug)]
-pub(crate) struct ChainEntry<N: NetworkZone> {
+pub struct ChainEntry<N: NetworkZone> {
     /// A list of block IDs.
     pub ids: Vec<[u8; 32]>,
     /// The peer who told us about this chain entry.
@@ -39,12 +39,15 @@ pub(crate) struct BlocksToRetrieve<N: NetworkZone> {
 }
 
 /// An error returned from the [`ChainTracker`].
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) enum ChainTrackerError {
     /// The new chain entry is invalid.
     NewEntryIsInvalid,
+    NewEntryIsEmpty,
     /// The new chain entry does not follow from the top of our chain tracker.
     NewEntryDoesNotFollowChain,
+
+    ChainSvcError(tower::BoxError),
 }
 
 /// # Chain Tracker
@@ -53,7 +56,8 @@ pub(crate) enum ChainTrackerError {
 /// allows getting [`BlocksToRetrieve`].
 pub(crate) struct ChainTracker<N: NetworkZone> {
     /// A list of [`ChainEntry`]s, in order.
-    entries: VecDeque<ChainEntry<N>>,
+    valid_entries: VecDeque<ChainEntry<N>>,
+    unknown_entries: VecDeque<ChainEntry<N>>,
     /// The height of the first block, in the first entry in [`Self::entries`].
     first_height: usize,
     /// The hash of the last block in the last entry.
@@ -66,23 +70,39 @@ pub(crate) struct ChainTracker<N: NetworkZone> {
 
 impl<N: NetworkZone> ChainTracker<N> {
     /// Creates a new chain tracker.
-    pub(crate) fn new(
+    pub(crate) async fn new<C>(
         new_entry: ChainEntry<N>,
         first_height: usize,
         our_genesis: [u8; 32],
         previous_hash: [u8; 32],
-    ) -> Self {
+        our_chain_svc: &mut C,
+    ) -> Result<Self, ChainTrackerError>
+    where
+        C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>,
+    {
         let top_seen_hash = *new_entry.ids.last().unwrap();
         let mut entries = VecDeque::with_capacity(1);
         entries.push_back(new_entry);
 
-        Self {
-            entries,
+        let ChainSvcResponse::ValidateEntries { valid, unknown } = our_chain_svc
+            .ready()
+            .await
+            .map_err(ChainTrackerError::ChainSvcError)?
+            .call(ChainSvcRequest::ValidateEntries(entries, first_height))
+            .await
+            .map_err(ChainTrackerError::ChainSvcError)?
+        else {
+            unreachable!()
+        };
+
+        Ok(Self {
+            valid_entries: valid,
+            unknown_entries: unknown,
             first_height,
             top_seen_hash,
             previous_hash,
             our_genesis,
-        }
+        })
     }
 
     /// Returns `true` if the peer is expected to have the next block after our highest seen block
@@ -99,8 +119,9 @@ impl<N: NetworkZone> ChainTracker<N> {
     /// Returns the height of the highest block we are tracking.
     pub(crate) fn top_height(&self) -> usize {
         let top_block_idx = self
-            .entries
+            .valid_entries
             .iter()
+            .chain(self.unknown_entries.iter())
             .map(|entry| entry.ids.len())
             .sum::<usize>();
 
@@ -112,17 +133,21 @@ impl<N: NetworkZone> ChainTracker<N> {
     /// # Panics
     /// This function panics if `batch_size` is `0`.
     pub(crate) fn block_requests_queued(&self, batch_size: usize) -> usize {
-        self.entries
+        self.valid_entries
             .iter()
             .map(|entry| entry.ids.len().div_ceil(batch_size))
             .sum()
     }
 
     /// Attempts to add an incoming [`ChainEntry`] to the chain tracker.
-    pub(crate) fn add_entry(
+    pub(crate) async fn add_entry<C>(
         &mut self,
         mut chain_entry: ChainEntry<N>,
-    ) -> Result<(), ChainTrackerError> {
+        our_chain_svc: &mut C,
+    ) -> Result<(), ChainTrackerError>
+    where
+        C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>,
+    {
         if chain_entry.ids.is_empty() {
             // The peer must send at lest one overlapping block.
             chain_entry.handle.ban_peer(MEDIUM_BAN);
@@ -130,14 +155,10 @@ impl<N: NetworkZone> ChainTracker<N> {
         }
 
         if chain_entry.ids.len() == 1 {
-            return Err(ChainTrackerError::NewEntryDoesNotFollowChain);
+            return Err(ChainTrackerError::NewEntryIsEmpty);
         }
 
-        if self
-            .entries
-            .back()
-            .is_some_and(|last_entry| last_entry.ids.last().unwrap() != &chain_entry.ids[0])
-        {
+        if self.top_seen_hash != chain_entry.ids[0] {
             return Err(ChainTrackerError::NewEntryDoesNotFollowChain);
         }
 
@@ -150,7 +171,29 @@ impl<N: NetworkZone> ChainTracker<N> {
 
         self.top_seen_hash = *new_entry.ids.last().unwrap();
 
-        self.entries.push_back(new_entry);
+        self.unknown_entries.push_back(new_entry);
+
+        let ChainSvcResponse::ValidateEntries { mut valid, unknown } = our_chain_svc
+            .ready()
+            .await
+            .map_err(ChainTrackerError::ChainSvcError)?
+            .call(ChainSvcRequest::ValidateEntries(
+                mem::take(&mut self.unknown_entries),
+                self.first_height
+                    + self
+                        .valid_entries
+                        .iter()
+                        .map(|e| e.ids.len())
+                        .sum::<usize>(),
+            ))
+            .await
+            .map_err(ChainTrackerError::ChainSvcError)?
+        else {
+            unreachable!()
+        };
+
+        self.valid_entries.append(&mut valid);
+        self.unknown_entries = unknown;
 
         Ok(())
     }
@@ -167,7 +210,7 @@ impl<N: NetworkZone> ChainTracker<N> {
             return None;
         }
 
-        let entry = self.entries.front_mut()?;
+        let entry = self.valid_entries.front_mut()?;
 
         // Calculate the ending index for us to get in this batch, it will be one of these:
         // - smallest out of `max_blocks`
@@ -204,7 +247,7 @@ impl<N: NetworkZone> ChainTracker<N> {
         self.previous_hash = blocks.ids[blocks.ids.len() - 1];
 
         if entry.ids.is_empty() {
-            self.entries.pop_front();
+            self.valid_entries.pop_front();
         }
 
         Some(blocks)

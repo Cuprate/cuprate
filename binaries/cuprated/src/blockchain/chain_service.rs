@@ -4,7 +4,9 @@ use futures::{future::BoxFuture, FutureExt, TryFutureExt};
 use tower::Service;
 
 use cuprate_blockchain::service::BlockchainReadHandle;
+use cuprate_fast_sync::fast_sync::validate_entries;
 use cuprate_p2p::block_downloader::{ChainSvcRequest, ChainSvcResponse};
+use cuprate_p2p_core::NetworkZone;
 use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
 
 /// That service that allows retrieving the chain state to give to the P2P crates, so we can figure out
@@ -14,8 +16,8 @@ use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
 #[derive(Clone)]
 pub struct ChainService(pub BlockchainReadHandle);
 
-impl Service<ChainSvcRequest> for ChainService {
-    type Response = ChainSvcResponse;
+impl<N: NetworkZone> Service<ChainSvcRequest<N>> for ChainService {
+    type Response = ChainSvcResponse<N>;
     type Error = tower::BoxError;
     type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
 
@@ -23,7 +25,7 @@ impl Service<ChainSvcRequest> for ChainService {
         self.0.poll_ready(cx).map_err(Into::into)
     }
 
-    fn call(&mut self, req: ChainSvcRequest) -> Self::Future {
+    fn call(&mut self, req: ChainSvcRequest<N>) -> Self::Future {
         let map_res = |res: BlockchainResponse| match res {
             BlockchainResponse::CompactChainHistory {
                 block_ids,
@@ -67,6 +69,18 @@ impl Service<ChainSvcRequest> for ChainService {
                 })
                 .map_err(Into::into)
                 .boxed(),
+            ChainSvcRequest::ValidateEntries(entries, start_height) => {
+                let mut blockchain_read_handle = self.0.clone();
+
+                async move {
+                    let (valid, unknown) =
+                        validate_entries(entries, start_height, &mut blockchain_read_handle)
+                            .await?;
+
+                    Ok(ChainSvcResponse::ValidateEntries { valid, unknown })
+                }
+                .boxed()
+            }
         }
     }
 }

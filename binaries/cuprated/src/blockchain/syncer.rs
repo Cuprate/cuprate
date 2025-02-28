@@ -15,7 +15,7 @@ use cuprate_p2p::{
     block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
     NetworkInterface, PeerSetRequest, PeerSetResponse,
 };
-use cuprate_p2p_core::ClearNet;
+use cuprate_p2p_core::{ClearNet, NetworkZone};
 
 const CHECK_SYNC_FREQUENCY: Duration = Duration::from_secs(30);
 
@@ -39,7 +39,7 @@ pub async fn syncer<CN>(
     block_downloader_config: BlockDownloaderConfig,
 ) -> Result<(), SyncerError>
 where
-    CN: Service<ChainSvcRequest, Response = ChainSvcResponse, Error = tower::BoxError>
+    CN: Service<ChainSvcRequest<ClearNet>, Response = ChainSvcResponse<ClearNet>, Error = tower::BoxError>
         + Clone
         + Send
         + 'static,

@@ -11,53 +11,31 @@ use tower::{Service, ServiceExt};
 use cuprate_blockchain::{
     config::ConfigBuilder, cuprate_database::DbResult, service::BlockchainReadHandle,
 };
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain,
-};
-
-use cuprate_fast_sync::{hash_of_hashes, BlockId, HashOfHashes};
+use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
+use cuprate_types::Chain;
 
 const BATCH_SIZE: usize = 512;
 
 async fn read_batch(
     handle: &mut BlockchainReadHandle,
     height_from: usize,
-) -> DbResult<Vec<BlockId>> {
-    let mut block_ids = Vec::<BlockId>::with_capacity(BATCH_SIZE);
+) -> DbResult<Vec<[u8; 32]>> {
+    let request = BlockchainReadRequest::BlockHashInRange(height_from..(height_from + BATCH_SIZE), Chain::Main);
+    let response_channel = handle.ready().await?.call(request);
+    let response = response_channel.await?;
 
-    for height in height_from..(height_from + BATCH_SIZE) {
-        let request = BlockchainReadRequest::BlockHash(height, Chain::Main);
-        let response_channel = handle.ready().await?.call(request);
-        let response = response_channel.await?;
-
-        match response {
-            BlockchainResponse::BlockHash(block_id) => block_ids.push(block_id),
-            _ => unreachable!(),
-        }
-    }
+    let block_ids = match response {
+        BlockchainResponse::BlockHashInRange(block_id) => block_id,
+        _ => unreachable!(),
+    };
 
     Ok(block_ids)
-}
-
-fn generate_hex(hashes: &[HashOfHashes]) -> String {
-    let mut s = String::new();
-
-    writeln!(&mut s, "[").unwrap();
-
-    for hash in hashes {
-        writeln!(&mut s, "\thex!(\"{}\"),", hex::encode(hash)).unwrap();
-    }
-
-    writeln!(&mut s, "]").unwrap();
-
-    s
 }
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Args {
-    #[arg(short, long)]
+    #[arg(long)]
     height: usize,
 }
 
@@ -74,7 +52,7 @@ async fn main() {
 
     let mut height = 0_usize;
 
-    while height < height_target {
+    while (height + BATCH_SIZE) < height_target {
         if let Ok(block_ids) = read_batch(&mut read_handle, height).await {
             let hash = hash_of_hashes(block_ids.as_slice());
             hashes_of_hashes.push(hash);
@@ -83,12 +61,18 @@ async fn main() {
             break;
         }
         height += BATCH_SIZE;
+
+        println!("height: {}", height);
     }
 
     drop(read_handle);
 
-    let generated = generate_hex(&hashes_of_hashes);
-    write("src/data/hashes_of_hashes", generated).expect("Could not write file");
+    write("data/fast_sync_hashes.bin", hashes_of_hashes.concat().as_slice())
+        .expect("Could not write file");
 
     println!("Generated hashes up to block height {height}");
+}
+
+pub fn hash_of_hashes(hashes: &[[u8; 32]]) -> [u8; 32] {
+    blake3::hash(hashes.concat().as_slice()).into()
 }

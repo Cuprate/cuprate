@@ -21,6 +21,7 @@ use cuprate_consensus::{
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
 };
 use cuprate_consensus_context::NewBlockData;
+use cuprate_fast_sync::fast_sync::{block_to_verified_block_information, FAST_SYNC_TOP_HEIGHT};
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p::{block_downloader::BlockBatch, constants::LONG_BAN, BroadcastRequest};
 use cuprate_txpool::service::interface::TxpoolWriteRequest;
@@ -136,6 +137,11 @@ impl super::BlockchainManager {
         )
     )]
     pub async fn handle_incoming_block_batch(&mut self, batch: BlockBatch) {
+        if batch.blocks[0].0.number().unwrap() <  FAST_SYNC_TOP_HEIGHT {
+            self.handle_incoming_block_batch_fast_sync(batch).await;
+            return;
+        }
+
         let (first_block, _) = batch
             .blocks
             .first()
@@ -197,6 +203,21 @@ impl super::BlockchainManager {
         }
         info!("Successfully added block batch");
     }
+
+    async fn handle_incoming_block_batch_fast_sync(&mut self, batch: BlockBatch) {
+        let mut valid_blocks = Vec::with_capacity(batch.blocks.len());
+        for (block, txs) in batch.blocks {
+            let block = block_to_verified_block_information(block, txs, self.blockchain_context_service.blockchain_context());
+            self.add_valid_block_to_blockchain_cache(&block).await;
+
+            valid_blocks.push(block);
+        }
+
+        self.batch_add_valid_block_to_blockchain_database(valid_blocks).await;
+
+        info!("Successfully added fast-sync block batch");
+    }
+
 
     /// Handles an incoming [`BlockBatch`] that does not follow the main-chain.
     ///
@@ -458,6 +479,26 @@ impl super::BlockchainManager {
             })
             .collect::<Vec<[u8; 32]>>();
 
+        self.add_valid_block_to_blockchain_cache(&verified_block).await;
+
+        self.blockchain_write_handle
+            .ready()
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .call(BlockchainWriteRequest::WriteBlock(verified_block))
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+
+        self.txpool_write_handle
+            .ready()
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .call(TxpoolWriteRequest::NewBlock { spent_key_images })
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+    }
+
+    async fn add_valid_block_to_blockchain_cache(&mut self, verified_block: &VerifiedBlockInformation) {
         self.blockchain_context_service
             .ready()
             .await
@@ -474,20 +515,17 @@ impl super::BlockchainManager {
             }))
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
+    }
 
+    async fn batch_add_valid_block_to_blockchain_database(
+        &mut self,
+        blocks: Vec<VerifiedBlockInformation>
+    ) {
         self.blockchain_write_handle
             .ready()
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR)
-            .call(BlockchainWriteRequest::WriteBlock(verified_block))
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR);
-
-        self.txpool_write_handle
-            .ready()
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
-            .call(TxpoolWriteRequest::NewBlock { spent_key_images })
+            .call(BlockchainWriteRequest::BatchWriteBlocks(blocks))
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
     }

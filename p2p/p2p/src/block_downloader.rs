@@ -7,7 +7,7 @@
 //! The block downloader is started by [`download_blocks`].
 use std::{
     cmp::{max, min, Reverse},
-    collections::{BTreeMap, BinaryHeap},
+    collections::{BTreeMap, BinaryHeap, VecDeque},
     time::Duration,
 };
 
@@ -30,7 +30,7 @@ use crate::{
         BLOCK_DOWNLOADER_REQUEST_TIMEOUT, EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED, LONG_BAN,
         MAX_BLOCK_BATCH_LEN, MAX_DOWNLOAD_FAILURES,
     },
-    peer_set::ClientDropGuard,
+    peer_set::{ClientDropGuard, PeerSetRequest, PeerSetResponse},
 };
 
 mod block_queue;
@@ -40,9 +40,9 @@ mod request_chain;
 #[cfg(test)]
 mod tests;
 
-use crate::peer_set::{PeerSetRequest, PeerSetResponse};
 use block_queue::{BlockQueue, ReadyQueueBatch};
-use chain_tracker::{BlocksToRetrieve, ChainEntry, ChainTracker};
+use chain_tracker::{BlocksToRetrieve, ChainTracker};
+pub use chain_tracker::ChainEntry;
 use download_batch::download_batch_task;
 use request_chain::{initial_chain_search, request_chain_entry_from_peer};
 
@@ -95,17 +95,19 @@ pub(crate) enum BlockDownloadError {
 }
 
 /// The request type for the chain service.
-pub enum ChainSvcRequest {
+pub enum ChainSvcRequest<N: NetworkZone> {
     /// A request for the current chain history.
     CompactHistory,
     /// A request to find the first unknown block ID in a list of block IDs.
     FindFirstUnknown(Vec<[u8; 32]>),
     /// A request for our current cumulative difficulty.
     CumulativeDifficulty,
+
+    ValidateEntries(VecDeque<ChainEntry<N>>, usize),
 }
 
 /// The response type for the chain service.
-pub enum ChainSvcResponse {
+pub enum ChainSvcResponse<N: NetworkZone> {
     /// The response for [`ChainSvcRequest::CompactHistory`].
     CompactHistory {
         /// A list of blocks IDs in our chain, starting with the most recent block, all the way to the genesis block.
@@ -123,6 +125,11 @@ pub enum ChainSvcResponse {
     ///
     /// The current cumulative difficulty of our chain.
     CumulativeDifficulty(u128),
+
+    ValidateEntries {
+        valid: VecDeque<ChainEntry<N>>,
+        unknown: VecDeque<ChainEntry<N>>,
+    },
 }
 
 /// This function starts the block downloader and returns a [`BufferStream`] that will produce
@@ -140,7 +147,7 @@ pub fn download_blocks<N: NetworkZone, C>(
     config: BlockDownloaderConfig,
 ) -> BufferStream<BlockBatch>
 where
-    C: Service<ChainSvcRequest, Response = ChainSvcResponse, Error = tower::BoxError>
+    C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>
         + Send
         + 'static,
     C::Future: Send + 'static,
@@ -191,10 +198,7 @@ struct BlockDownloader<N: NetworkZone, C> {
     /// The service that holds our current chain state.
     our_chain_svc: C,
 
-    /// The amount of blocks to request in the next batch.
-    amount_of_blocks_to_request: usize,
-    /// The height at which [`Self::amount_of_blocks_to_request`] was updated.
-    amount_of_blocks_to_request_updated_at: usize,
+    most_recent_batch_sizes: BinaryHeap<Reverse<(usize, BatchSizeInformation)>>,
 
     /// The amount of consecutive empty chain entries we received.
     ///
@@ -227,7 +231,7 @@ struct BlockDownloader<N: NetworkZone, C> {
 
 impl<N: NetworkZone, C> BlockDownloader<N, C>
 where
-    C: Service<ChainSvcRequest, Response = ChainSvcResponse, Error = tower::BoxError>
+    C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>
         + Send
         + 'static,
     C::Future: Send + 'static,
@@ -242,8 +246,7 @@ where
         Self {
             peer_set,
             our_chain_svc,
-            amount_of_blocks_to_request: config.initial_batch_len,
-            amount_of_blocks_to_request_updated_at: 0,
+            most_recent_batch_sizes: BinaryHeap::new(),
             amount_of_empty_chain_entries: 0,
             block_download_tasks: JoinSet::new(),
             chain_entry_task: JoinSet::new(),
@@ -278,6 +281,21 @@ where
                 }
             }
         }
+    }
+
+    fn amount_of_blocks_to_request(&self) -> usize {
+        let biggest_batch = self.most_recent_batch_sizes.iter().max_by(|batch_1, batch_2| {
+            let av1 = batch_1.0.1.byte_size / batch_1.0.1.len;
+            let av2 = batch_2.0.1.byte_size / batch_2.0.1.len;
+
+            av1.cmp(&av2)
+        });
+
+        let Some(biggest_batch) = biggest_batch else {
+            return self.config.initial_batch_len;
+        };
+
+        calculate_next_block_batch_size(biggest_batch.0.1.byte_size, biggest_batch.0.1.len, self.config.target_batch_bytes)
     }
 
     /// Attempts to send another request for an inflight batch
@@ -388,7 +406,7 @@ where
         // No failed requests that we can handle, request some new blocks.
 
         let Some(mut block_entry_to_get) = chain_tracker
-            .blocks_to_get(&client.info.pruning_seed, self.amount_of_blocks_to_request)
+            .blocks_to_get(&client.info.pruning_seed, self.amount_of_blocks_to_request())
         else {
             return Some(client);
         };
@@ -428,7 +446,7 @@ where
             && self.amount_of_empty_chain_entries <= EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED
             // Check we have a big buffer of pending block IDs to retrieve, we don't want to be waiting around
             // for a chain entry.
-            && chain_tracker.block_requests_queued(self.amount_of_blocks_to_request) < 500
+            && chain_tracker.block_requests_queued(self.amount_of_blocks_to_request()) < 500
             // Make sure this peer actually has the chain.
             && chain_tracker.should_ask_for_next_chain_entry(&client.info.pruning_seed)
         {
@@ -561,19 +579,16 @@ where
 
                 // If the batch is higher than the last time we updated `amount_of_blocks_to_request`, update it
                 // again.
-                if start_height > self.amount_of_blocks_to_request_updated_at {
-                    self.amount_of_blocks_to_request = calculate_next_block_batch_size(
-                        block_batch.size,
-                        block_batch.blocks.len(),
-                        self.config.target_batch_bytes,
-                    );
+                if start_height > self.most_recent_batch_sizes.peek().map(|Reverse((height, _))| *height).unwrap_or_default() {
+                    self.most_recent_batch_sizes.push(Reverse((start_height, BatchSizeInformation {
+                        len: block_batch.blocks.len(),
+                        byte_size: block_batch.size,
+                    })));
 
-                    tracing::debug!(
-                        "Updating batch size of new batches, new size: {}",
-                        self.amount_of_blocks_to_request
-                    );
 
-                    self.amount_of_blocks_to_request_updated_at = start_height;
+                    if self.most_recent_batch_sizes.len() > 100 {
+                        self.most_recent_batch_sizes.pop();
+                    }
                 }
 
                 self.block_queue
@@ -642,7 +657,7 @@ where
                 Some(Ok(res)) = self.chain_entry_task.join_next() => {
                     match res {
                         Ok((client, entry)) => {
-                            if chain_tracker.add_entry(entry).is_ok() {
+                            if chain_tracker.add_entry(entry, &mut self.our_chain_svc).await.is_ok() {
                                 tracing::debug!("Successfully added chain entry to chain tracker.");
                                 self.amount_of_empty_chain_entries = 0;
                             } else {
@@ -681,6 +696,12 @@ const fn client_has_block_in_range(
 ) -> bool {
     pruning_seed.has_full_block(start_height, MAX_BLOCK_HEIGHT_USIZE)
         && pruning_seed.has_full_block(start_height + length, MAX_BLOCK_HEIGHT_USIZE)
+}
+
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
+struct BatchSizeInformation {
+    len: usize,
+    byte_size: usize,
 }
 
 /// Calculates the next amount of blocks to request in a batch.
