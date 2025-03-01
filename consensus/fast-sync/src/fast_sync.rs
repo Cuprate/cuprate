@@ -31,7 +31,7 @@ pub async fn validate_entries<N: NetworkZone>(
     start_height: usize,
     blockchain_read_handle: &mut BlockchainReadHandle,
 ) -> Result<(VecDeque<ChainEntry<N>>, VecDeque<ChainEntry<N>>), tower::BoxError> {
-    if start_height > FAST_SYNC_TOP_HEIGHT {
+    if start_height >= FAST_SYNC_TOP_HEIGHT {
         return Ok((entries, VecDeque::new()));
     }
 
