@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 //---------------------------------------------------------------------------------------------------- Backend
 #[derive(Copy, Clone, Debug, Default, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
