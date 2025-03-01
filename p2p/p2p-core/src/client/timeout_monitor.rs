@@ -62,8 +62,6 @@ where
             _ = interval.tick() => ()
         }
 
-        interval.tick().await;
-
         tracing::trace!("timeout monitor tick.");
 
         let Some(connection_tx) = connection_tx_weak.upgrade() else {
