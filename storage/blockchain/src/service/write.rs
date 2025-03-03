@@ -108,7 +108,6 @@ fn write_blocks(env: &ConcreteEnv, block: &Vec<VerifiedBlockInformation>) -> Res
     }
 }
 
-
 /// [`BlockchainWriteRequest::WriteAltBlock`].
 #[inline]
 fn write_alt_block(env: &ConcreteEnv, block: &AltBlockInformation) -> ResponseResult {

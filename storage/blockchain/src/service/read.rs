@@ -9,17 +9,17 @@
 )]
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    cmp::min,
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
-use std::ops::Range;
 use indexmap::{IndexMap, IndexSet};
 use rayon::{
     iter::{Either, IntoParallelIterator, ParallelIterator},
     prelude::*,
     ThreadPool,
+};
+use std::ops::Range;
+use std::{
+    cmp::min,
+    collections::{HashMap, HashSet},
+    sync::Arc,
 };
 use thread_local::ThreadLocal;
 
@@ -279,20 +279,23 @@ fn block_hash_in_range(env: &ConcreteEnv, range: Range<usize>, chain: Chain) -> 
     let env_inner = env.env_inner();
     let tx_ro = thread_local(env);
 
-    let block_hash= range.into_par_iter().map(|block_height| {
-        let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+    let block_hash = range
+        .into_par_iter()
+        .map(|block_height| {
+            let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
 
-        let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
+            let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
 
-        let block_hash = match chain {
-            Chain::Main => get_block_info(&block_height, &table_block_infos)?.block_hash,
-            Chain::Alt(chain) => {
-                get_alt_block_hash(&block_height, chain, &env_inner.open_tables(&tx_ro)?)?
-            }
-        };
+            let block_hash = match chain {
+                Chain::Main => get_block_info(&block_height, &table_block_infos)?.block_hash,
+                Chain::Alt(chain) => {
+                    get_alt_block_hash(&block_height, chain, &env_inner.open_tables(&tx_ro)?)?
+                }
+            };
 
-        Ok(block_hash)
-    }).collect::<Result<_, RuntimeError>>()?;
+            Ok(block_hash)
+        })
+        .collect::<Result<_, RuntimeError>>()?;
 
     Ok(BlockchainResponse::BlockHashInRange(block_hash))
 }

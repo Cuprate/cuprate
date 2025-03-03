@@ -143,7 +143,7 @@ where
                     next_peer.info.handle.clone(),
                 ))
             }
-                .instrument(Span::current()),
+            .instrument(Span::current()),
         ));
     }
 
@@ -221,8 +221,8 @@ where
         previous_id,
         &mut our_chain_svc,
     )
-        .await
-        .map_err(|_| BlockDownloadError::ChainInvalid)?;
+    .await
+    .map_err(|_| BlockDownloadError::ChainInvalid)?;
 
     Ok(tracker)
 }

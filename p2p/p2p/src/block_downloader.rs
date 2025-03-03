@@ -41,8 +41,8 @@ mod request_chain;
 mod tests;
 
 use block_queue::{BlockQueue, ReadyQueueBatch};
-use chain_tracker::{BlocksToRetrieve, ChainTracker};
 pub use chain_tracker::ChainEntry;
+use chain_tracker::{BlocksToRetrieve, ChainTracker};
 use download_batch::download_batch_task;
 use request_chain::{initial_chain_search, request_chain_entry_from_peer};
 
@@ -284,18 +284,25 @@ where
     }
 
     fn amount_of_blocks_to_request(&self) -> usize {
-        let biggest_batch = self.most_recent_batch_sizes.iter().max_by(|batch_1, batch_2| {
-            let av1 = batch_1.0.1.byte_size / batch_1.0.1.len;
-            let av2 = batch_2.0.1.byte_size / batch_2.0.1.len;
+        let biggest_batch = self
+            .most_recent_batch_sizes
+            .iter()
+            .max_by(|batch_1, batch_2| {
+                let av1 = batch_1.0 .1.byte_size / batch_1.0 .1.len;
+                let av2 = batch_2.0 .1.byte_size / batch_2.0 .1.len;
 
-            av1.cmp(&av2)
-        });
+                av1.cmp(&av2)
+            });
 
         let Some(biggest_batch) = biggest_batch else {
             return self.config.initial_batch_len;
         };
 
-        calculate_next_block_batch_size(biggest_batch.0.1.byte_size, biggest_batch.0.1.len, self.config.target_batch_bytes)
+        calculate_next_block_batch_size(
+            biggest_batch.0 .1.byte_size,
+            biggest_batch.0 .1.len,
+            self.config.target_batch_bytes,
+        )
     }
 
     /// Attempts to send another request for an inflight batch
@@ -405,9 +412,10 @@ where
 
         // No failed requests that we can handle, request some new blocks.
 
-        let Some(mut block_entry_to_get) = chain_tracker
-            .blocks_to_get(&client.info.pruning_seed, self.amount_of_blocks_to_request())
-        else {
+        let Some(mut block_entry_to_get) = chain_tracker.blocks_to_get(
+            &client.info.pruning_seed,
+            self.amount_of_blocks_to_request(),
+        ) else {
             return Some(client);
         };
 
@@ -579,12 +587,20 @@ where
 
                 // If the batch is higher than the last time we updated `amount_of_blocks_to_request`, update it
                 // again.
-                if start_height > self.most_recent_batch_sizes.peek().map(|Reverse((height, _))| *height).unwrap_or_default() {
-                    self.most_recent_batch_sizes.push(Reverse((start_height, BatchSizeInformation {
-                        len: block_batch.blocks.len(),
-                        byte_size: block_batch.size,
-                    })));
-
+                if start_height
+                    > self
+                        .most_recent_batch_sizes
+                        .peek()
+                        .map(|Reverse((height, _))| *height)
+                        .unwrap_or_default()
+                {
+                    self.most_recent_batch_sizes.push(Reverse((
+                        start_height,
+                        BatchSizeInformation {
+                            len: block_batch.blocks.len(),
+                            byte_size: block_batch.size,
+                        },
+                    )));
 
                     if self.most_recent_batch_sizes.len() > 100 {
                         self.most_recent_batch_sizes.pop();

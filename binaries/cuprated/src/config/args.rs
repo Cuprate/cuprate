@@ -20,6 +20,13 @@ pub struct Args {
     )]
     pub network: Network,
 
+    /// Disable fast sync, all past blocks will undergo full verification when syncing.
+    ///
+    /// This significantly increases initial sync time. This provides no extra security, you just
+    /// have to trust the devs to insert the correct hashes (which are verifiable).
+    #[arg(long)]
+    no_fast_sync: bool,
+
     /// The amount of outbound clear-net connections to maintain.
     #[arg(long)]
     pub outbound_connections: Option<usize>,
@@ -60,6 +67,7 @@ impl Args {
     /// This may exit the program if a config value was set that requires an early exit.
     pub const fn apply_args(&self, mut config: Config) -> Config {
         config.network = self.network;
+        config.no_fast_sync = config.no_fast_sync || self.no_fast_sync;
 
         if let Some(outbound_connections) = self.outbound_connections {
             config.p2p.clear_net.general.outbound_connections = outbound_connections;

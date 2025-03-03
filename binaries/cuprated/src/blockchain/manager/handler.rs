@@ -9,7 +9,7 @@ use rayon::prelude::*;
 use std::ops::ControlFlow;
 use std::{collections::HashMap, sync::Arc};
 use tower::{Service, ServiceExt};
-use tracing::{info, instrument};
+use tracing::{info, instrument, Span};
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{
@@ -21,7 +21,7 @@ use cuprate_consensus::{
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
 };
 use cuprate_consensus_context::NewBlockData;
-use cuprate_fast_sync::fast_sync::{block_to_verified_block_information, FAST_SYNC_TOP_HEIGHT};
+use cuprate_fast_sync::fast_sync::{block_to_verified_block_information, fast_sync_top_height};
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p::{block_downloader::BlockBatch, constants::LONG_BAN, BroadcastRequest};
 use cuprate_txpool::service::interface::TxpoolWriteRequest;
@@ -137,11 +137,6 @@ impl super::BlockchainManager {
         )
     )]
     pub async fn handle_incoming_block_batch(&mut self, batch: BlockBatch) {
-        if batch.blocks[0].0.number().unwrap() <  FAST_SYNC_TOP_HEIGHT {
-            self.handle_incoming_block_batch_fast_sync(batch).await;
-            return;
-        }
-
         let (first_block, _) = batch
             .blocks
             .first()
@@ -172,6 +167,11 @@ impl super::BlockchainManager {
     /// This function will panic if any internal service returns an unexpected error that we cannot
     /// recover from or if the incoming batch contains no blocks.
     async fn handle_incoming_block_batch_main_chain(&mut self, batch: BlockBatch) {
+        if batch.blocks.last().unwrap().0.number().unwrap() < fast_sync_top_height() {
+            self.handle_incoming_block_batch_fast_sync(batch).await;
+            return;
+        }
+
         let Ok((prepped_blocks, mut output_cache)) = batch_prepare_main_chain_blocks(
             batch.blocks,
             &mut self.blockchain_context_service,
@@ -201,23 +201,27 @@ impl super::BlockchainManager {
 
             self.add_valid_block_to_main_chain(verified_block).await;
         }
-        info!("Successfully added block batch");
+        info!(fast_sync = false, "Successfully added block batch");
     }
 
     async fn handle_incoming_block_batch_fast_sync(&mut self, batch: BlockBatch) {
         let mut valid_blocks = Vec::with_capacity(batch.blocks.len());
         for (block, txs) in batch.blocks {
-            let block = block_to_verified_block_information(block, txs, self.blockchain_context_service.blockchain_context());
+            let block = block_to_verified_block_information(
+                block,
+                txs,
+                self.blockchain_context_service.blockchain_context(),
+            );
             self.add_valid_block_to_blockchain_cache(&block).await;
 
             valid_blocks.push(block);
         }
 
-        self.batch_add_valid_block_to_blockchain_database(valid_blocks).await;
+        self.batch_add_valid_block_to_blockchain_database(valid_blocks)
+            .await;
 
-        info!("Successfully added fast-sync block batch");
+        info!(fast_sync = true, "Successfully added block batch");
     }
-
 
     /// Handles an incoming [`BlockBatch`] that does not follow the main-chain.
     ///
@@ -233,7 +237,6 @@ impl super::BlockchainManager {
     /// recover from.
     async fn handle_incoming_block_batch_alt_chain(&mut self, mut batch: BlockBatch) {
         // TODO: this needs testing (this whole section does but alt-blocks specifically).
-
         let mut blocks = batch.blocks.into_iter();
 
         while let Some((block, txs)) = blocks.next() {
@@ -269,6 +272,8 @@ impl super::BlockchainManager {
                 Ok(AddAltBlock::Cached) => (),
             }
         }
+
+        info!(alt_chain = true, "Successfully added block batch");
     }
 
     /// Handles an incoming alt [`Block`].
@@ -479,7 +484,8 @@ impl super::BlockchainManager {
             })
             .collect::<Vec<[u8; 32]>>();
 
-        self.add_valid_block_to_blockchain_cache(&verified_block).await;
+        self.add_valid_block_to_blockchain_cache(&verified_block)
+            .await;
 
         self.blockchain_write_handle
             .ready()
@@ -498,7 +504,10 @@ impl super::BlockchainManager {
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
     }
 
-    async fn add_valid_block_to_blockchain_cache(&mut self, verified_block: &VerifiedBlockInformation) {
+    async fn add_valid_block_to_blockchain_cache(
+        &mut self,
+        verified_block: &VerifiedBlockInformation,
+    ) {
         self.blockchain_context_service
             .ready()
             .await
@@ -519,7 +528,7 @@ impl super::BlockchainManager {
 
     async fn batch_add_valid_block_to_blockchain_database(
         &mut self,
-        blocks: Vec<VerifiedBlockInformation>
+        blocks: Vec<VerifiedBlockInformation>,
     ) {
         self.blockchain_write_handle
             .ready()

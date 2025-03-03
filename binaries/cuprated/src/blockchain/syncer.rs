@@ -39,8 +39,11 @@ pub async fn syncer<CN>(
     block_downloader_config: BlockDownloaderConfig,
 ) -> Result<(), SyncerError>
 where
-    CN: Service<ChainSvcRequest<ClearNet>, Response = ChainSvcResponse<ClearNet>, Error = tower::BoxError>
-        + Clone
+    CN: Service<
+            ChainSvcRequest<ClearNet>,
+            Response = ChainSvcResponse<ClearNet>,
+            Error = tower::BoxError,
+        > + Clone
         + Send
         + 'static,
     CN::Future: Send + 'static,

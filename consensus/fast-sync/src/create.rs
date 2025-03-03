@@ -3,7 +3,7 @@
     reason = "binary shares same Cargo.toml as library"
 )]
 
-use std::{fmt::Write, fs::write};
+use std::fs::write;
 
 use clap::Parser;
 use tower::{Service, ServiceExt};
@@ -11,8 +11,10 @@ use tower::{Service, ServiceExt};
 use cuprate_blockchain::{
     config::ConfigBuilder, cuprate_database::DbResult, service::BlockchainReadHandle,
 };
-use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
-use cuprate_types::Chain;
+use cuprate_types::{
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
+    Chain,
+};
 
 const BATCH_SIZE: usize = 512;
 
@@ -20,7 +22,10 @@ async fn read_batch(
     handle: &mut BlockchainReadHandle,
     height_from: usize,
 ) -> DbResult<Vec<[u8; 32]>> {
-    let request = BlockchainReadRequest::BlockHashInRange(height_from..(height_from + BATCH_SIZE), Chain::Main);
+    let request = BlockchainReadRequest::BlockHashInRange(
+        height_from..(height_from + BATCH_SIZE),
+        Chain::Main,
+    );
     let response_channel = handle.ready().await?.call(request);
     let response = response_channel.await?;
 
@@ -67,8 +72,11 @@ async fn main() {
 
     drop(read_handle);
 
-    write("data/fast_sync_hashes.bin", hashes_of_hashes.concat().as_slice())
-        .expect("Could not write file");
+    write(
+        "data/fast_sync_hashes.bin",
+        hashes_of_hashes.concat().as_slice(),
+    )
+    .expect("Could not write file");
 
     println!("Generated hashes up to block height {height}");
 }

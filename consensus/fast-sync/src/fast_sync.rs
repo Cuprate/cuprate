@@ -1,37 +1,44 @@
-use blake3::Hasher;
+use std::{
+    cmp::min,
+    collections::{HashMap, VecDeque},
+    sync::OnceLock,
+};
+
 use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::transactions::new_tx_verification_data;
 use cuprate_consensus_context::BlockchainContext;
 use cuprate_p2p::block_downloader::ChainEntry;
 use cuprate_p2p_core::NetworkZone;
-use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
-use cuprate_types::{Chain, VerifiedBlockInformation, VerifiedTransactionInformation};
-use monero_serai::block::Block;
-use monero_serai::transaction::{Input, Transaction};
-use std::cmp::min;
-use std::collections::{HashMap, VecDeque};
-use std::slice;
+use cuprate_types::{
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
+    Chain, VerifiedBlockInformation, VerifiedTransactionInformation,
+};
+
+use blake3::Hasher;
+use monero_serai::{
+    block::Block,
+    transaction::{Input, Transaction},
+};
 use tower::{Service, ServiceExt};
 
-static FAST_SYNC_HASHES: &[[u8; 32]] = unsafe {
-    let bytes = include_bytes!("./data/fast_sync_hashes.bin");
-    if bytes.len() % 32 != 0 {
-        panic!()
-    }
-
-    slice::from_raw_parts(bytes.as_ptr().cast::<[u8; 32]>(), bytes.len() / 32)
-};
+static FAST_SYNC_HASHES: OnceLock<&[[u8; 32]]> = OnceLock::new();
 
 const FAST_SYNC_BATCH_LEN: usize = 512;
 
-pub static FAST_SYNC_TOP_HEIGHT: usize = FAST_SYNC_HASHES.len() * FAST_SYNC_BATCH_LEN;
+pub fn fast_sync_top_height() -> usize {
+    FAST_SYNC_HASHES.get().unwrap().len() * FAST_SYNC_BATCH_LEN
+}
+
+pub fn set_fast_sync_hashes(hashes: &'static [[u8; 32]]) {
+    FAST_SYNC_HASHES.set(hashes).unwrap();
+}
 
 pub async fn validate_entries<N: NetworkZone>(
     mut entries: VecDeque<ChainEntry<N>>,
     start_height: usize,
     blockchain_read_handle: &mut BlockchainReadHandle,
 ) -> Result<(VecDeque<ChainEntry<N>>, VecDeque<ChainEntry<N>>), tower::BoxError> {
-    if start_height >= FAST_SYNC_TOP_HEIGHT {
+    if start_height >= fast_sync_top_height() {
         return Ok((entries, VecDeque::new()));
     }
 
@@ -41,7 +48,7 @@ pub async fn validate_entries<N: NetworkZone>(
 
     let hashes_stop_height = min(
         (last_height / FAST_SYNC_BATCH_LEN) * FAST_SYNC_BATCH_LEN,
-        FAST_SYNC_TOP_HEIGHT,
+        fast_sync_top_height(),
     );
 
     let mut hashes_stop_diff_last_height = last_height - hashes_stop_height;
@@ -74,7 +81,7 @@ pub async fn validate_entries<N: NetworkZone>(
         .await?
         .call(BlockchainReadRequest::BlockHashInRange(
             hashes_start_height..start_height,
-            Chain::Main
+            Chain::Main,
         ))
         .await?
     else {
@@ -92,7 +99,7 @@ pub async fn validate_entries<N: NetworkZone>(
         if (i + 1) % FAST_SYNC_BATCH_LEN == 0 {
             let got_hash = hasher.finalize();
 
-            if got_hash != FAST_SYNC_HASHES[get_hash_index_for_height(hashes_start_height + i)] {
+            if got_hash != FAST_SYNC_HASHES.get().unwrap()[get_hash_index_for_height(hashes_start_height + i)] {
                 return Err("Hashes do not match".into());
             }
             hasher.reset();
