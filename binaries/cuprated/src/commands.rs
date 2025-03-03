@@ -49,7 +49,7 @@ pub enum Command {
     Status,
 
     /// Print the height last block contained in the fast sync hashes.
-    FastSyncTopHeight
+    FastSyncTopHeight,
 }
 
 /// The log output target.
@@ -127,7 +127,7 @@ pub async fn io_loop(
                 println!("STATUS:\n  uptime: {h}h {m}m {s}s,\n  height: {height},\n  top_hash: {top_hash}");
             }
             Command::FastSyncTopHeight => {
-                let top_height = cuprate_fast_sync::fast_sync::fast_sync_top_height();
+                let top_height = cuprate_fast_sync::fast_sync_top_height();
 
                 println!("{top_height}");
             }

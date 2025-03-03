@@ -21,23 +21,50 @@ use monero_serai::{
 };
 use tower::{Service, ServiceExt};
 
+/// A [`OnceLock`] representing the fast sync hashes.
 static FAST_SYNC_HASHES: OnceLock<&[[u8; 32]]> = OnceLock::new();
 
+/// The size of a batch of block hashes to hash to create a fast sync hash.
 const FAST_SYNC_BATCH_LEN: usize = 512;
 
+/// Returns the height of the last block included in the embedded hashes.
+///
+/// # Panics
+///
+/// This function will panic if [`set_fast_sync_hashes`] has not been called.
 pub fn fast_sync_top_height() -> usize {
     FAST_SYNC_HASHES.get().unwrap().len() * FAST_SYNC_BATCH_LEN
 }
 
+/// Sets the hashes to use for fast-sync.
+///
+/// # Panics
+///
+/// This will panic if this is called more than once.
 pub fn set_fast_sync_hashes(hashes: &'static [[u8; 32]]) {
     FAST_SYNC_HASHES.set(hashes).unwrap();
 }
 
+/// Validates that the given [`ChainEntry`]s are in the fast-sync hashes.
+///
+/// `entries` should be a list of sequential entries.
+/// `start_height` should be the height of the first block in the first entry.
+///
+/// Returns a tuple, the first element being the entries that are valid* the second
+/// the entries we do not know are valid and should be passed in again when we have more entries.
+///
+/// *once we are passed the fast sync blocks all entries will be returned as valid as
+/// we can not check their validity here.
+///
+/// # Panics
+///
+/// This will panic if [`set_fast_sync_hashes`] has not been called.
 pub async fn validate_entries<N: NetworkZone>(
     mut entries: VecDeque<ChainEntry<N>>,
     start_height: usize,
     blockchain_read_handle: &mut BlockchainReadHandle,
 ) -> Result<(VecDeque<ChainEntry<N>>, VecDeque<ChainEntry<N>>), tower::BoxError> {
+    // if we are past the top fast sync block return all entries as valid.
     if start_height >= fast_sync_top_height() {
         return Ok((entries, VecDeque::new()));
     }
@@ -99,7 +126,10 @@ pub async fn validate_entries<N: NetworkZone>(
         if (i + 1) % FAST_SYNC_BATCH_LEN == 0 {
             let got_hash = hasher.finalize();
 
-            if got_hash != FAST_SYNC_HASHES.get().unwrap()[get_hash_index_for_height(hashes_start_height + i)] {
+            if got_hash
+                != FAST_SYNC_HASHES.get().unwrap()
+                    [get_hash_index_for_height(hashes_start_height + i)]
+            {
                 return Err("Hashes do not match".into());
             }
             hasher.reset();
@@ -109,10 +139,16 @@ pub async fn validate_entries<N: NetworkZone>(
     Ok((entries, unknown))
 }
 
+/// Get the index of the hash that contains this block in the fast sync hashes.
 fn get_hash_index_for_height(height: usize) -> usize {
     height / FAST_SYNC_BATCH_LEN
 }
 
+/// Creates a [`VerifiedBlockInformation`] from a block known to be valid.
+///
+/// # Panics
+///
+/// This may panic if used on an invalid block.
 pub fn block_to_verified_block_information(
     block: Block,
     txs: Vec<Transaction>,

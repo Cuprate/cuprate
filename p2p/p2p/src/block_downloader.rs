@@ -673,12 +673,15 @@ where
                 Some(Ok(res)) = self.chain_entry_task.join_next() => {
                     match res {
                         Ok((client, entry)) => {
-                            if chain_tracker.add_entry(entry, &mut self.our_chain_svc).await.is_ok() {
-                                tracing::debug!("Successfully added chain entry to chain tracker.");
-                                self.amount_of_empty_chain_entries = 0;
-                            } else {
-                                tracing::debug!("Failed to add incoming chain entry to chain tracker.");
-                                self.amount_of_empty_chain_entries += 1;
+                            match chain_tracker.add_entry(entry, &mut self.our_chain_svc).await {
+                                Ok(()) => {
+                                    tracing::debug!("Successfully added chain entry to chain tracker.");
+                                    self.amount_of_empty_chain_entries = 0;
+                                }
+                                Err(e) => {
+                                    tracing::debug!("Failed to add incoming chain entry to chain tracker: {e:?}");
+                                    self.amount_of_empty_chain_entries += 1;
+                                }
                             }
 
                             pending_peers

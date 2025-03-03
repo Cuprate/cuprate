@@ -4,7 +4,7 @@ use futures::{future::BoxFuture, FutureExt, TryFutureExt};
 use tower::Service;
 
 use cuprate_blockchain::service::BlockchainReadHandle;
-use cuprate_fast_sync::fast_sync::validate_entries;
+use cuprate_fast_sync::validate_entries;
 use cuprate_p2p::block_downloader::{ChainSvcRequest, ChainSvcResponse};
 use cuprate_p2p_core::NetworkZone;
 use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};

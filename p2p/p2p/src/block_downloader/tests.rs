@@ -1,3 +1,11 @@
+use futures::{FutureExt, StreamExt};
+use indexmap::IndexMap;
+use monero_serai::{
+    block::{Block, BlockHeader},
+    transaction::{Input, Timelock, Transaction, TransactionPrefix},
+};
+use proptest::{collection::vec, prelude::*};
+use std::collections::VecDeque;
 use std::{
     fmt::{Debug, Formatter},
     future::Future,
@@ -6,14 +14,6 @@ use std::{
     task::{Context, Poll},
     time::Duration,
 };
-
-use futures::{FutureExt, StreamExt};
-use indexmap::IndexMap;
-use monero_serai::{
-    block::{Block, BlockHeader},
-    transaction::{Input, Timelock, Transaction, TransactionPrefix},
-};
-use proptest::{collection::vec, prelude::*};
 use tokio::{sync::mpsc, time::timeout};
 use tower::{buffer::Buffer, service_fn, Service, ServiceExt};
 
@@ -269,8 +269,8 @@ struct OurChainSvc {
     genesis: [u8; 32],
 }
 
-impl Service<ChainSvcRequest> for OurChainSvc {
-    type Response = ChainSvcResponse;
+impl Service<ChainSvcRequest<ClearNet>> for OurChainSvc {
+    type Response = ChainSvcResponse<ClearNet>;
     type Error = tower::BoxError;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
@@ -279,7 +279,7 @@ impl Service<ChainSvcRequest> for OurChainSvc {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: ChainSvcRequest) -> Self::Future {
+    fn call(&mut self, req: ChainSvcRequest<ClearNet>) -> Self::Future {
         let genesis = self.genesis;
 
         async move {
@@ -292,6 +292,10 @@ impl Service<ChainSvcRequest> for OurChainSvc {
                     ChainSvcResponse::FindFirstUnknown(Some((1, 1)))
                 }
                 ChainSvcRequest::CumulativeDifficulty => ChainSvcResponse::CumulativeDifficulty(1),
+                ChainSvcRequest::ValidateEntries(valid, _) => ChainSvcResponse::ValidateEntries {
+                    valid,
+                    unknown: VecDeque::new(),
+                },
             })
         }
         .boxed()

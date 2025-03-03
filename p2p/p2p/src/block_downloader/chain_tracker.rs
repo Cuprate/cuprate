@@ -46,7 +46,7 @@ pub(crate) enum ChainTrackerError {
     NewEntryIsEmpty,
     /// The new chain entry does not follow from the top of our chain tracker.
     NewEntryDoesNotFollowChain,
-
+    #[allow(dead_code)] // This is used for logging
     ChainSvcError(tower::BoxError),
 }
 
