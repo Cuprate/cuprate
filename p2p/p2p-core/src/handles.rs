@@ -60,8 +60,8 @@ pub struct ConnectionGuard {
 
 impl ConnectionGuard {
     /// Checks if we should close the connection.
-    pub fn should_shutdown(&self) -> bool {
-        self.token.is_cancelled()
+    pub fn should_shutdown(&self) -> WaitForCancellationFutureOwned {
+        self.token.clone().cancelled_owned()
     }
     /// Tell the corresponding [`ConnectionHandle`]s that this connection is closed.
     ///

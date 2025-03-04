@@ -57,7 +57,7 @@ pub enum MessageID {
 
 pub enum BroadcastMessage {
     NewFluffyBlock(NewFluffyBlock),
-    NewTransaction(NewTransactions),
+    NewTransactions(NewTransactions),
 }
 
 #[derive(Debug, Clone)]
