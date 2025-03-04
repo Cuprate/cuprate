@@ -48,7 +48,7 @@ pub enum Command {
     /// Print status information on `cuprated`.
     Status,
 
-    /// Print the height last block contained in the fast sync hashes.
+    /// Print the height of last block contained in the fast sync hashes.
     FastSyncTopHeight,
 }
 
