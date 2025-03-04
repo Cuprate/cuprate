@@ -111,10 +111,12 @@ impl BlockchainManager {
     ) {
         loop {
             tokio::select! {
-                Some((batch, _permit)) = block_batch_rx.recv() => {
+                Some((batch, permit)) = block_batch_rx.recv() => {
                     self.handle_incoming_block_batch(
                         batch,
                     ).await;
+
+                    drop(permit)
                 }
                 Some(incoming_command) = command_rx.recv() => {
                     self.handle_command(incoming_command).await;

@@ -57,8 +57,8 @@ where
 
     let semaphore = Arc::new(Semaphore::new(1));
 
+    let mut sync_permit = Arc::new(semaphore.clone().acquire_owned().await.unwrap());
     loop {
-        let sync_permit = Arc::new(semaphore.clone().acquire_owned().await.unwrap());
 
         check_sync_interval.tick().await;
 
@@ -80,10 +80,17 @@ where
             tokio::select! {
                 () = stop_current_block_downloader.notified() => {
                     tracing::info!("Received stop signal, stopping block downloader");
+
+                    drop(sync_permit);
+                    sync_permit = Arc::new(semaphore.clone().acquire_owned().await.unwrap());
+
                     break;
                 }
                 batch = block_batch_stream.next() => {
                     let Some(batch) = batch else {
+                        drop(sync_permit);
+                        sync_permit = Arc::new(semaphore.clone().acquire_owned().await.unwrap());
+
                         let blockchain_context = context_svc.blockchain_context();
 
                         if !check_behind_peers(blockchain_context, &mut clearnet_interface).await? {
