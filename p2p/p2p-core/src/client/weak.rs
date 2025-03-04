@@ -113,7 +113,7 @@ impl<Z: NetworkZone> Service<PeerRequest> for WeakClient<Z> {
 /// without [`WeakBroadcastClient::call`] will stop other [`WeakBroadcastClient`]s & the other types
 /// of clients.
 ///
-/// This type keeps it state in the [`WeakClient`] it was produced from, allowing you to do this:
+/// This type is kept in state with the [`WeakClient`] it was produced from, allowing you to do this:
 ///
 /// ```rust, ignore
 /// weak_client.broadcast_client().poll_ready(cx)
