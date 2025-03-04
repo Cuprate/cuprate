@@ -56,6 +56,8 @@ pub fn set_fast_sync_hashes(hashes: &'static [[u8; 32]]) {
 /// *once we are passed the fast sync blocks all entries will be returned as valid as
 /// we can not check their validity here.
 ///
+/// There may be more entries returned than passed in as entries could be split.
+///
 /// # Panics
 ///
 /// This will panic if [`set_fast_sync_hashes`] has not been called.
@@ -69,6 +71,22 @@ pub async fn validate_entries<N: NetworkZone>(
         return Ok((entries, VecDeque::new()));
     }
 
+    /*
+       The algorithm used here needs to preserve which peer told us about which blocks, so we cannot
+       simply join all the hashes together return all the ones that can be validated and the ones that
+       can't, we need to keep the batches separate.
+
+       The first step is to calculate how many hashes we need from the blockchain to make up the first
+       fast-sync hash.
+
+       Then will take out all the batches at the end for which we cannot make up a full fast-sync hash
+       for, we will split a batch if it can only be partially validated.
+
+       With the remaining hashes from the blockchain and the hashes in the batches we can validate we
+       work on calculating the fast sync hashes and comparing them to the ones in [`FAST_SYNC_HASHES`].
+    */
+
+    // First calculate the start and stop for this range of hashes.
     let hashes_start_height = (start_height / FAST_SYNC_BATCH_LEN) * FAST_SYNC_BATCH_LEN;
     let amount_of_hashes = entries.iter().map(|e| e.ids.len()).sum::<usize>();
     let last_height = amount_of_hashes + start_height;
@@ -82,10 +100,13 @@ pub async fn validate_entries<N: NetworkZone>(
 
     let mut unknown = VecDeque::new();
 
+    // start moving from the back of the batches taking enough hashes out so we are only left with hashes
+    // that can be verified.
     while !entries.is_empty() && hashes_stop_diff_last_height != 0 {
         let back = entries.back_mut().unwrap();
 
         if back.ids.len() >= hashes_stop_diff_last_height {
+            // This batch is partially valid so split it.
             unknown.push_front(ChainEntry {
                 ids: back
                     .ids
@@ -98,11 +119,13 @@ pub async fn validate_entries<N: NetworkZone>(
             break;
         }
 
+        // Add this batch to the front of the unknowns, we do not know its validity.
         let back = entries.pop_back().unwrap();
         hashes_stop_diff_last_height -= back.ids.len();
         unknown.push_front(back);
     }
 
+    // get the hashes we are missing to create the first fast-sync hash.
     let BlockchainResponse::BlockHashInRange(hashes) = blockchain_read_handle
         .ready()
         .await?
@@ -115,7 +138,9 @@ pub async fn validate_entries<N: NetworkZone>(
         unreachable!()
     };
 
+    // Start verifying the hashes.
     let mut hasher = Hasher::default();
+    let mut last_i = 1;
     for (i, hash) in hashes
         .iter()
         .chain(entries.iter().flat_map(|e| e.ids.iter()))
@@ -134,7 +159,11 @@ pub async fn validate_entries<N: NetworkZone>(
             }
             hasher.reset();
         }
+
+        last_i = i + 1;
     }
+    // Make sure we actually checked all hashes.
+    assert_eq!(last_i % FAST_SYNC_BATCH_LEN, 0);
 
     Ok((entries, unknown))
 }

@@ -27,7 +27,7 @@ use cuprate_p2p::{block_downloader::BlockBatch, constants::LONG_BAN, BroadcastRe
 use cuprate_txpool::service::interface::TxpoolWriteRequest;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
-    AltBlockInformation, HardFork, TransactionVerificationData, VerifiedBlockInformation,
+    AltBlockInformation, Chain, HardFork, TransactionVerificationData, VerifiedBlockInformation,
 };
 
 use crate::{
@@ -310,9 +310,10 @@ impl super::BlockchainManager {
             unreachable!();
         };
 
-        if chain.is_some() {
-            // The block could also be in the main-chain here under some circumstances.
-            return Ok(AddAltBlock::Cached);
+        match chain {
+            Some((Chain::Alt(_), _)) => return Ok(AddAltBlock::Cached),
+            Some((Chain::Main, _)) => anyhow::bail!("Alt block already in main chain"),
+            None => (),
         }
 
         let alt_block_info =
@@ -542,7 +543,7 @@ impl super::BlockchainManager {
 
 /// The result from successfully adding an alt-block.
 enum AddAltBlock {
-    /// The alt-block was cached or was already present in the DB.
+    /// The alt-block was cached.
     Cached,
     /// The chain was reorged.
     Reorged,

@@ -2,6 +2,7 @@
 use std::{sync::Arc, time::Duration};
 
 use futures::StreamExt;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio::{
     sync::{mpsc, oneshot, Notify},
     time::interval,
@@ -34,7 +35,7 @@ pub async fn syncer<CN>(
     mut context_svc: BlockchainContextService,
     our_chain: CN,
     mut clearnet_interface: NetworkInterface<ClearNet>,
-    incoming_block_batch_tx: mpsc::Sender<BlockBatch>,
+    incoming_block_batch_tx: mpsc::Sender<(BlockBatch, Arc<OwnedSemaphorePermit>)>,
     stop_current_block_downloader: Arc<Notify>,
     block_downloader_config: BlockDownloaderConfig,
 ) -> Result<(), SyncerError>
@@ -54,7 +55,11 @@ where
 
     tracing::debug!("Waiting for new sync info in top sync channel");
 
+    let semaphore = Arc::new(Semaphore::new(1));
+
     loop {
+        let sync_permit = Arc::new(semaphore.clone().acquire_owned().await.unwrap());
+
         check_sync_interval.tick().await;
 
         tracing::trace!("Checking connected peers to see if we are behind",);
@@ -89,7 +94,7 @@ where
                     };
 
                     tracing::debug!("Got batch, len: {}", batch.blocks.len());
-                    if incoming_block_batch_tx.send(batch).await.is_err() {
+                    if incoming_block_batch_tx.send((batch, Arc::clone(&sync_permit))).await.is_err() {
                         return Err(SyncerError::IncomingBlockChannelClosed);
                     }
                 }

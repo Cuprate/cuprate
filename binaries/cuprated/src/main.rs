@@ -55,6 +55,8 @@ fn main() {
 
     let config = config::read_config_and_args();
 
+    blockchain::set_fast_sync_hashes(!config.no_fast_sync, config.network());
+
     // Initialize logging.
     logging::init_logging(&config);
 
@@ -82,7 +84,14 @@ fn main() {
     // Initialize async tasks.
 
     rt.block_on(async move {
-        blockchain::set_fast_sync_hashes(!config.no_fast_sync, config.network());
+        // TODO: we could add an option for people to keep these like monerod?
+        blockchain_write_handle
+            .ready()
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .call(BlockchainWriteRequest::FlushAltBlocks)
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR);
 
         // Check add the genesis block to the blockchain.
         blockchain::check_add_genesis(

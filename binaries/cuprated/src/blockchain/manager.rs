@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use futures::StreamExt;
 use monero_serai::block::Block;
-use tokio::sync::{mpsc, oneshot, Notify};
+use tokio::sync::{mpsc, oneshot, Notify, OwnedSemaphorePermit};
 use tower::{BoxError, Service, ServiceExt};
 use tracing::error;
 
@@ -106,12 +106,12 @@ impl BlockchainManager {
     /// The [`BlockchainManager`] task.
     pub async fn run(
         mut self,
-        mut block_batch_rx: mpsc::Receiver<BlockBatch>,
+        mut block_batch_rx: mpsc::Receiver<(BlockBatch, Arc<OwnedSemaphorePermit>)>,
         mut command_rx: mpsc::Receiver<BlockchainManagerCommand>,
     ) {
         loop {
             tokio::select! {
-                Some(batch) = block_batch_rx.recv() => {
+                Some((batch, _permit)) = block_batch_rx.recv() => {
                     self.handle_incoming_block_batch(
                         batch,
                     ).await;
