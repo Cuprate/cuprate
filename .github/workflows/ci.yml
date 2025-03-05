@@ -112,7 +112,7 @@ jobs:
       uses: ./.github/actions/monerod-download
 
     - name: Install dependencies (Windows)
-      if: matrix.os == 'windows-2019'
+      if: matrix.os == 'windows-2022'
       uses: lukka/get-cmake@v3.31.6
 
     - name: Documentation
