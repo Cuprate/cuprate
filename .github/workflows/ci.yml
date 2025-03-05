@@ -84,7 +84,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        os: [windows-2019, macos-latest, ubuntu-latest]
 
     steps:
     - name: Checkout
@@ -108,12 +108,8 @@ jobs:
       uses: ./.github/actions/monerod-download
 
     - name: Install dependencies (Windows)
-      if: matrix.os == 'windows-latest'
-      uses: msys2/setup-msys2@v2
-      with:
-        path-type: inherit
-        update: true
-        install: mingw-w64-x86_64-toolchain msys2-runtime-devel git mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+      if: matrix.os == 'windows-2019'
+      uses: lukka/get-cmake@v3.31.6
 
     - name: Documentation
       run: cargo doc --workspace --all-features --no-deps
