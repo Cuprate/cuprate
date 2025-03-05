@@ -87,7 +87,7 @@ jobs:
         os: [
             windows-2022, # EOL = 2026-10-13 | <https://endoflife.date/windows-server>
             macos-15,     # EOL = 2027-09-16 | <https://endoflife.date/macos>
-            ubuntu-24.04  # EOL = 2029-04-25 | <https://endoflife.date/ubuntu>
+            ubuntu-22.04  # EOL = 2027-04-01 | <https://endoflife.date/ubuntu>
         ]
 
     steps:
@@ -113,7 +113,7 @@ jobs:
 
     - name: Install dependencies (Windows)
       if: matrix.os == 'windows-2022'
-      uses: lukka/get-cmake@v3.31.6
+      uses: lukka/get-cmake@v3.31.6 # Needed for `randomx-rs`
 
     - name: Documentation
       run: cargo doc --workspace --all-features --no-deps
