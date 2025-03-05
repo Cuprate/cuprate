@@ -86,10 +86,6 @@ jobs:
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
 
-    defaults:
-      run:
-        shell: ${{ matrix.shell }}
-
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -99,7 +95,7 @@ jobs:
     - name: Install Rust
       uses: dtolnay/rust-toolchain@master
       with:
-        toolchain: ${{ matrix.rust }}
+        toolchain: stable
         components: clippy
 
     - name: Cache
@@ -123,11 +119,10 @@ jobs:
         cargo test --all-features --workspace
         cargo test --package cuprate-blockchain --no-default-features --features redb
 
+    - name: Build
+      run: cargo build --all-features --all-targets --workspace
+
     - name: Hack Check
       run: |
         cargo install cargo-hack --locked
         cargo hack --workspace check --feature-powerset --no-dev-deps
-
-    # TODO: upload binaries with `actions/upload-artifact@v3`
-    - name: Build
-      run: cargo build --all-features --all-targets --workspace
