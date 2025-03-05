@@ -1094,6 +1094,7 @@ dependencies = [
  "hex-literal",
  "indexmap",
  "monero-serai",
+ "nu-ansi-term",
  "paste",
  "pin-project",
  "rand",

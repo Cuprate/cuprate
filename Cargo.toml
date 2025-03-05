@@ -122,6 +122,7 @@ hex                   = { version = "0.4", default-features = false }
 hex-literal           = { version = "0.4", default-features = false }
 indexmap              = { version = "2", default-features = false }
 monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "e6fdef6", default-features = false }
+nu-ansi-term          = { version = "0.46", default-features = false }
 paste                 = { version = "1", default-features = false }
 pin-project           = { version = "1", default-features = false }
 randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev = "e09955c", default-features = false }
