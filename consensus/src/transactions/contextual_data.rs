@@ -10,10 +10,7 @@
 //!
 //! Because this data is unique for *every* transaction and the context service is just for blockchain state data.
 //!
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::collections::{HashMap, HashSet};
 
 use monero_serai::transaction::{Input, Timelock};
 use tower::ServiceExt;
@@ -142,7 +139,7 @@ fn new_rings(
 /// This function batch gets all the ring members for the inputted transactions and fills in data about
 /// them.
 pub async fn batch_get_ring_member_info<D: Database>(
-    txs_verification_data: impl Iterator<Item = &Arc<TransactionVerificationData>> + Clone,
+    txs_verification_data: impl Iterator<Item = &TransactionVerificationData> + Clone,
     hf: HardFork,
     mut database: D,
 ) -> Result<Vec<TxRingMembersInfo>, ExtendedConsensusError> {
@@ -205,22 +202,20 @@ pub async fn batch_get_ring_member_info<D: Database>(
 /// This functions panics if `hf == HardFork::V1` as decoy info
 /// should not be needed for V1.
 #[instrument(level = "debug", skip_all)]
-pub async fn batch_get_decoy_info<'a, D: Database + Clone + Send + 'static>(
-    txs_verification_data: &'a [Arc<TransactionVerificationData>],
+pub async fn batch_get_decoy_info<'a, D: Database>(
+    txs_verification_data: impl Iterator<Item = &'a TransactionVerificationData> + Clone,
     hf: HardFork,
     mut database: D,
-) -> Result<impl Iterator<Item = Result<DecoyInfo, ConsensusError>> + 'a, ExtendedConsensusError> {
+) -> Result<
+    impl Iterator<Item = Result<DecoyInfo, ConsensusError>> + sealed::Captures<&'a ()>,
+    ExtendedConsensusError,
+> {
     // decoy info is not needed for V1.
     assert_ne!(hf, HardFork::V1);
 
-    tracing::debug!(
-        "Retrieving decoy info for {} txs.",
-        txs_verification_data.len()
-    );
-
     // Get all the different input amounts.
     let unique_input_amounts = txs_verification_data
-        .iter()
+        .clone()
         .flat_map(|tx_info| {
             tx_info.tx.prefix().inputs.iter().map(|input| match input {
                 Input::ToKey { amount, .. } => amount.unwrap_or(0),
@@ -245,7 +240,7 @@ pub async fn batch_get_decoy_info<'a, D: Database + Clone + Send + 'static>(
         panic!("Database sent incorrect response!")
     };
 
-    Ok(txs_verification_data.iter().map(move |tx_v_data| {
+    Ok(txs_verification_data.map(move |tx_v_data| {
         DecoyInfo::new(
             &tx_v_data.tx.prefix().inputs,
             |amt| outputs_with_amount.get(&amt).copied().unwrap_or(0),
@@ -253,4 +248,12 @@ pub async fn batch_get_decoy_info<'a, D: Database + Clone + Send + 'static>(
         )
         .map_err(ConsensusError::Transaction)
     }))
+}
+
+mod sealed {
+    /// TODO: Remove me when 2024 Rust
+    ///
+    /// <https://rust-lang.github.io/rfcs/3498-lifetime-capture-rules-2024.html#the-captures-trick>
+    pub trait Captures<U> {}
+    impl<T: ?Sized, U> Captures<U> for T {}
 }

@@ -24,7 +24,7 @@ use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{layer::SubscriberExt, reload::Handle, util::SubscriberInitExt, Registry};
 
 use cuprate_consensus_context::{
-    BlockChainContextRequest, BlockChainContextResponse, BlockChainContextService,
+    BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
 };
 use cuprate_helper::time::secs_to_hms;
 
@@ -36,14 +36,19 @@ mod blockchain;
 mod commands;
 mod config;
 mod constants;
+mod killswitch;
 mod logging;
 mod p2p;
 mod rpc;
 mod signals;
 mod statics;
 mod txpool;
+mod version;
 
 fn main() {
+    // Initialize the killswitch.
+    killswitch::init_killswitch();
+
     // Initialize global static `LazyLock` data.
     statics::init_lazylock_statics();
 
@@ -85,7 +90,7 @@ fn main() {
         .await;
 
         // Start the context service and the block/tx verifier.
-        let (block_verifier, tx_verifier, context_svc) =
+        let context_svc =
             blockchain::init_consensus(blockchain_read_handle.clone(), config.context_config())
                 .await
                 .unwrap();
@@ -106,7 +111,7 @@ fn main() {
             txpool_write_handle.clone(),
             txpool_read_handle,
             context_svc.clone(),
-            tx_verifier,
+            blockchain_read_handle.clone(),
         );
         if incoming_tx_handler_tx.send(tx_handler).is_err() {
             unreachable!()
@@ -119,7 +124,6 @@ fn main() {
             blockchain_read_handle,
             txpool_write_handle,
             context_svc.clone(),
-            block_verifier,
             config.block_downloader_config(),
         )
         .await;

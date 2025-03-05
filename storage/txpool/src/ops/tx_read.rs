@@ -1,8 +1,6 @@
 //! Transaction read ops.
 //!
 //! This module handles reading full transaction data, like getting a transaction from the pool.
-use std::sync::Mutex;
-
 use monero_serai::transaction::Transaction;
 
 use cuprate_database::{DatabaseRo, DbResult};
@@ -34,7 +32,7 @@ pub fn get_transaction_verification_data(
         tx_weight: tx_info.weight,
         fee: tx_info.fee,
         tx_hash: *tx_hash,
-        cached_verification_state: Mutex::new(cached_verification_state),
+        cached_verification_state,
     })
 }
 

@@ -210,7 +210,7 @@ fn check_txs_unique(txs: &[[u8; 32]]) -> Result<(), BlockError> {
 
 /// This struct contains the data needed to verify a block, implementers MUST make sure
 /// the data in this struct is calculated correctly.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ContextToVerifyBlock {
     /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/weights.html#median-weight-for-coinbase-checks>
     pub median_weight_for_block_reward: usize,
