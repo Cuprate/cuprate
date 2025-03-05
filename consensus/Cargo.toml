@@ -23,6 +23,7 @@ monero-serai = { workspace = true, features = ["std"] }
 rayon = { workspace = true }
 thread_local = { workspace = true }
 
+indexmap = { workspace = true, features = ["std"] }
 hex = { workspace = true }
 rand = { workspace = true }
 

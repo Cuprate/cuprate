@@ -2,7 +2,7 @@
 
 use std::num::NonZero;
 
-use curve25519_dalek::edwards::EdwardsPoint;
+use curve25519_dalek::edwards::CompressedEdwardsY;
 use monero_serai::{
     block::Block,
     transaction::{Timelock, Transaction},
@@ -142,9 +142,9 @@ pub struct OutputOnChain {
     /// The timelock of this output, if any.
     pub time_lock: Timelock,
     /// The public key of this output, if any.
-    pub key: Option<EdwardsPoint>,
+    pub key: CompressedEdwardsY,
     /// The output's commitment.
-    pub commitment: EdwardsPoint,
+    pub commitment: CompressedEdwardsY,
 }
 
 /// Input required to generate an output histogram.

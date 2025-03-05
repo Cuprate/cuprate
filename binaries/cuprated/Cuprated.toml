@@ -43,9 +43,9 @@ peer_save_period = { secs = 90, nanos = 0 }
 ## The block downloader config.
 [p2p.block_downloader]
 ## The size of the buffer of sequential blocks waiting to be verified and added to the chain (bytes).
-buffer_bytes = 50_000_000
+buffer_bytes = 1_000_000_000
 ## The size of the queue of blocks which are waiting for a parent block to be downloaded (bytes).
-in_progress_queue_bytes = 50_000_000
+in_progress_queue_bytes = 500_000_000
 ## The target size of a batch of blocks (bytes), must not exceed 100MB.
 target_batch_bytes = 10_000_000
 ## The amount of time between checking the pool of connected peers for free peers to download blocks.

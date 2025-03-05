@@ -39,6 +39,7 @@ fn handle_blockchain_request(
 ) -> DbResult<BlockchainResponse> {
     match req {
         BlockchainWriteRequest::WriteBlock(block) => write_block(env, block),
+        BlockchainWriteRequest::BatchWriteBlocks(blocks) => write_blocks(env, blocks),
         BlockchainWriteRequest::WriteAltBlock(alt_block) => write_alt_block(env, alt_block),
         BlockchainWriteRequest::PopBlocks(numb_blocks) => pop_blocks(env, *numb_blocks),
         BlockchainWriteRequest::ReverseReorg(old_main_chain_id) => {
@@ -66,6 +67,33 @@ fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseR
     let result = {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
         crate::ops::block::add_block(block, &mut tables_mut)
+    };
+
+    match result {
+        Ok(()) => {
+            TxRw::commit(tx_rw)?;
+            Ok(BlockchainResponse::Ok)
+        }
+        Err(e) => {
+            TxRw::abort(tx_rw).expect(TX_RW_ABORT_FAIL);
+            Err(e)
+        }
+    }
+}
+
+/// [`BlockchainWriteRequest::BatchWriteBlocks`].
+#[inline]
+fn write_blocks(env: &ConcreteEnv, block: &Vec<VerifiedBlockInformation>) -> ResponseResult {
+    let env_inner = env.env_inner();
+    let tx_rw = env_inner.tx_rw()?;
+
+    let result = {
+        let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
+        for block in block {
+            crate::ops::block::add_block(block, &mut tables_mut)?;
+        }
+
+        Ok(())
     };
 
     match result {

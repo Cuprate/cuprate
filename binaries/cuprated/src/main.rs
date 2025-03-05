@@ -16,8 +16,8 @@
     reason = "TODO: remove after v1.0.0"
 )]
 
-use std::mem;
-use std::sync::Arc;
+use std::{mem, sync::Arc};
+
 use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
@@ -27,6 +27,7 @@ use cuprate_consensus_context::{
     BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
 };
 use cuprate_helper::time::secs_to_hms;
+use cuprate_types::blockchain::BlockchainWriteRequest;
 
 use crate::{
     config::Config, constants::PANIC_CRITICAL_SERVICE_ERROR, logging::CupratedTracingFilter,
@@ -53,6 +54,8 @@ fn main() {
     statics::init_lazylock_statics();
 
     let config = config::read_config_and_args();
+
+    blockchain::set_fast_sync_hashes(!config.no_fast_sync, config.network());
 
     // Initialize logging.
     logging::init_logging(&config);
@@ -81,6 +84,15 @@ fn main() {
     // Initialize async tasks.
 
     rt.block_on(async move {
+        // TODO: we could add an option for people to keep these like monerod?
+        blockchain_write_handle
+            .ready()
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .call(BlockchainWriteRequest::FlushAltBlocks)
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+
         // Check add the genesis block to the blockchain.
         blockchain::check_add_genesis(
             &mut blockchain_read_handle,
