@@ -1,4 +1,5 @@
 //! General constants used throughout `cuprated`.
+use std::time::Duration;
 
 use const_format::formatcp;
 
@@ -22,6 +23,12 @@ pub const VERSION_BUILD: &str = formatcp!("{VERSION}-{}", cuprate_constants::bui
 /// The panic message used when cuprated encounters a critical service error.
 pub const PANIC_CRITICAL_SERVICE_ERROR: &str =
     "A service critical to Cuprate's function returned an unexpected error.";
+
+pub const DEFAULT_CONFIG_WARNING: &str = formatcp!( "WARNING: no config file found, using default config.\nThe default config may not be optimal for your hardware, see the user book here: <TODO>.\nPausing startup for {} seconds.",
+    DEFAULT_CONFIG_STARTUP_DELAY.as_secs()
+);
+
+pub const DEFAULT_CONFIG_STARTUP_DELAY: Duration = Duration::from_secs(15);
 
 pub const EXAMPLE_CONFIG: &str = include_str!("../Cuprated.toml");
 

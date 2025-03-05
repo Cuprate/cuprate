@@ -57,6 +57,7 @@ hex                   = { workspace = true }
 hex-literal           = { workspace = true }
 indexmap              = { workspace = true }
 monero-serai          = { workspace = true }
+nu-ansi-term          = { workspace = true }
 paste                 = { workspace = true }
 pin-project           = { workspace = true }
 randomx-rs            = { workspace = true }

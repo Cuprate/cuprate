@@ -25,6 +25,7 @@ mod storage;
 mod tokio;
 mod tracing_config;
 
+use crate::constants::{DEFAULT_CONFIG_STARTUP_DELAY, DEFAULT_CONFIG_WARNING};
 use fs::FileSystemConfig;
 use p2p::P2PConfig;
 use rayon::RayonConfig;
@@ -60,7 +61,13 @@ pub fn read_config_and_args() -> Config {
             })
             .inspect_err(|e| {
                 tracing::debug!("Failed to read config from config dir: {e}");
-                eprintln!("Failed to find/read config file, using default config.");
+                eprintln!(
+                    "{}",
+                    nu_ansi_term::Color::Red
+                        .bold()
+                        .paint(DEFAULT_CONFIG_WARNING)
+                );
+                std::thread::sleep(DEFAULT_CONFIG_STARTUP_DELAY);
             })
             .unwrap_or_default()
     };
