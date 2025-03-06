@@ -17,7 +17,10 @@ use cuprate_helper::{
 use cuprate_p2p::block_downloader::BlockDownloaderConfig;
 use cuprate_p2p_core::{ClearNet, ClearNetServerCfg};
 
-use crate::{constants::{DEFAULT_CONFIG_STARTUP_DELAY, DEFAULT_CONFIG_WARNING}, logging::eprintln_red};
+use crate::{
+    constants::{DEFAULT_CONFIG_STARTUP_DELAY, DEFAULT_CONFIG_WARNING},
+    logging::eprintln_red,
+};
 
 mod args;
 mod fs;
