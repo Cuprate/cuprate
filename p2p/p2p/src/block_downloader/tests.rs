@@ -1,12 +1,5 @@
-use futures::{FutureExt, StreamExt};
-use indexmap::IndexMap;
-use monero_serai::{
-    block::{Block, BlockHeader},
-    transaction::{Input, Timelock, Transaction, TransactionPrefix},
-};
-use proptest::{collection::vec, prelude::*};
-use std::collections::VecDeque;
 use std::{
+    collections::VecDeque,
     fmt::{Debug, Formatter},
     future::Future,
     pin::Pin,
@@ -14,6 +7,14 @@ use std::{
     task::{Context, Poll},
     time::Duration,
 };
+
+use futures::{FutureExt, StreamExt};
+use indexmap::IndexMap;
+use monero_serai::{
+    block::{Block, BlockHeader},
+    transaction::{Input, Timelock, Transaction, TransactionPrefix},
+};
+use proptest::{collection::vec, prelude::*};
 use tokio::{sync::mpsc, time::timeout};
 use tower::{buffer::Buffer, service_fn, Service, ServiceExt};
 

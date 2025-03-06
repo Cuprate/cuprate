@@ -28,7 +28,7 @@ use cuprate_pruning::PruningSeed;
 use crate::{
     constants::{
         BLOCK_DOWNLOADER_REQUEST_TIMEOUT, EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED, LONG_BAN,
-        MAX_BLOCK_BATCH_LEN, MAX_DOWNLOAD_FAILURES,
+        MAX_BLOCK_BATCH_LEN, MAX_DOWNLOAD_FAILURES, MOST_RECENT_BATCH_WEIGHTS_FOR_BATCH_SIZE,
     },
     peer_set::{ClientDropGuard, PeerSetRequest, PeerSetResponse},
 };
@@ -602,7 +602,8 @@ where
                         },
                     )));
 
-                    if self.most_recent_batch_sizes.len() > 100 {
+                    if self.most_recent_batch_sizes.len() > MOST_RECENT_BATCH_WEIGHTS_FOR_BATCH_SIZE
+                    {
                         self.most_recent_batch_sizes.pop();
                     }
                 }

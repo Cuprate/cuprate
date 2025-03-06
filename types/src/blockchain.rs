@@ -44,6 +44,9 @@ pub enum BlockchainReadRequest {
     /// The input is the block's height and the chain it is on.
     BlockHash(usize, Chain),
 
+    /// Request a range of block's hashes.
+    ///
+    /// The input is the range of block heights and the chain it is on.
     BlockHashInRange(Range<usize>, Chain),
 
     /// Request to check if we have a block and which [`Chain`] it is on.
@@ -137,9 +140,7 @@ pub enum BlockchainReadRequest {
     AltBlocksInChain(ChainId),
 
     /// Get a [`Block`] by its height.
-    Block {
-        height: usize,
-    },
+    Block { height: usize },
 
     /// Get a [`Block`] by its hash.
     BlockByHash([u8; 32]),
@@ -159,10 +160,7 @@ pub enum BlockchainReadRequest {
     /// `N` last blocks starting at particular height.
     ///
     /// TODO: document fields after impl.
-    CoinbaseTxSum {
-        height: usize,
-        count: u64,
-    },
+    CoinbaseTxSum { height: usize, count: u64 },
 
     /// Get information on all alternative chains.
     AltChains,
@@ -180,6 +178,9 @@ pub enum BlockchainWriteRequest {
     /// Input is an already verified block.
     WriteBlock(VerifiedBlockInformation),
 
+    /// Request that a batch of blocks be written to the database.
+    ///
+    /// Input is an already verified batch of blocks.
     BatchWriteBlocks(Vec<VerifiedBlockInformation>),
 
     /// Write an alternative block to the database,
@@ -238,6 +239,9 @@ pub enum BlockchainResponse {
     /// Inner value is the hash of the requested block.
     BlockHash([u8; 32]),
 
+    /// Response to [`BlockchainReadRequest::BlockHashInRange`].
+    ///
+    /// Inner value is the hashes of the requested blocks, in order.
     BlockHashInRange(Vec<[u8; 32]>),
 
     /// Response to [`BlockchainReadRequest::FindBlock`].

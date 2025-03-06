@@ -1,12 +1,16 @@
-use cuprate_fixed_bytes::ByteArrayVec;
 use std::{cmp::min, collections::VecDeque, mem};
+
+use cuprate_fixed_bytes::ByteArrayVec;
 use tower::{Service, ServiceExt};
 
-use crate::block_downloader::{ChainSvcRequest, ChainSvcResponse};
-use crate::constants::MEDIUM_BAN;
 use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
 use cuprate_p2p_core::{client::InternalPeerID, handles::ConnectionHandle, NetworkZone};
 use cuprate_pruning::PruningSeed;
+
+use crate::{
+    block_downloader::{ChainSvcRequest, ChainSvcResponse},
+    constants::MEDIUM_BAN,
+};
 
 /// A new chain entry to add to our chain tracker.
 #[derive(Debug)]
@@ -55,8 +59,9 @@ pub(crate) enum ChainTrackerError {
 /// This struct allows following a single chain. It takes in [`ChainEntry`]s and
 /// allows getting [`BlocksToRetrieve`].
 pub(crate) struct ChainTracker<N: NetworkZone> {
-    /// A list of [`ChainEntry`]s, in order.
+    /// A list of [`ChainEntry`]s, in order, that we should request.
     valid_entries: VecDeque<ChainEntry<N>>,
+    /// A list of [`ChainEntry`]s that are pending more [`ChainEntry`]s to check validity.
     unknown_entries: VecDeque<ChainEntry<N>>,
     /// The height of the first block, in the first entry in [`Self::entries`].
     first_height: usize,
