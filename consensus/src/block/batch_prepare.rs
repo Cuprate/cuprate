@@ -13,21 +13,41 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_types::TransactionVerificationData;
+use cuprate_types::{output_cache::OutputCache, TransactionVerificationData};
 
 use crate::{
     batch_verifier::MultiThreadedBatchVerifier,
     block::{free::order_transactions, PreparedBlock, PreparedBlockExPow},
-    transactions::start_tx_verification,
+    transactions::{check_kis_unique, contextual_data::get_output_cache, start_tx_verification},
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
+    __private::Database,
 };
+
+/// Cached state created when batch preparing a group of blocks.
+///
+/// This cache is only valid for the set of blocks it was created with, it should not be used for
+/// other blocks.
+pub struct BatchPrepareCache {
+    pub(crate) output_cache: OutputCache,
+    /// [`true`] if all the key images in the batch have been checked for double spends in the batch and
+    /// the whole chain.
+    pub(crate) key_images_spent_checked: bool,
+}
 
 /// Batch prepares a list of blocks for verification.
 #[instrument(level = "debug", name = "batch_prep_blocks", skip_all, fields(amt = blocks.len()))]
-pub async fn batch_prepare_main_chain_blocks(
+#[expect(clippy::type_complexity)]
+pub async fn batch_prepare_main_chain_blocks<D: Database>(
     blocks: Vec<(Block, Vec<Transaction>)>,
     context_svc: &mut BlockchainContextService,
-) -> Result<Vec<(PreparedBlock, Vec<TransactionVerificationData>)>, ExtendedConsensusError> {
+    mut database: D,
+) -> Result<
+    (
+        Vec<(PreparedBlock, Vec<TransactionVerificationData>)>,
+        BatchPrepareCache,
+    ),
+    ExtendedConsensusError,
+> {
     let (blocks, txs): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
 
     tracing::debug!("Calculating block hashes.");
@@ -189,5 +209,16 @@ pub async fn batch_prepare_main_chain_blocks(
     })
     .await?;
 
-    Ok(blocks)
+    check_kis_unique(blocks.iter().flat_map(|(_, txs)| txs.iter()), &mut database).await?;
+
+    let output_cache =
+        get_output_cache(blocks.iter().flat_map(|(_, txs)| txs.iter()), database).await?;
+
+    Ok((
+        blocks,
+        BatchPrepareCache {
+            output_cache,
+            key_images_spent_checked: true,
+        },
+    ))
 }

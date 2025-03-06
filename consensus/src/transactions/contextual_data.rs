@@ -10,8 +10,10 @@
 //!
 //! Because this data is unique for *every* transaction and the context service is just for blockchain state data.
 //!
-use std::collections::{HashMap, HashSet};
 
+use std::{borrow::Cow, collections::HashSet};
+
+use indexmap::IndexMap;
 use monero_serai::transaction::{Input, Timelock};
 use tower::ServiceExt;
 use tracing::instrument;
@@ -23,8 +25,10 @@ use cuprate_consensus_rules::{
     },
     ConsensusError, HardFork, TxVersion,
 };
+
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
+    output_cache::OutputCache,
     OutputOnChain,
 };
 
@@ -134,18 +138,16 @@ fn new_rings(
     })
 }
 
-/// Retrieves the [`TxRingMembersInfo`] for the inputted [`TransactionVerificationData`].
+/// Retrieves an [`OutputCache`] for the list of transactions.
 ///
-/// This function batch gets all the ring members for the inputted transactions and fills in data about
-/// them.
-pub async fn batch_get_ring_member_info<D: Database>(
-    txs_verification_data: impl Iterator<Item = &TransactionVerificationData> + Clone,
-    hf: HardFork,
+/// The [`OutputCache`] will only contain the outputs currently in the blockchain.
+pub async fn get_output_cache<D: Database>(
+    txs_verification_data: impl Iterator<Item = &TransactionVerificationData>,
     mut database: D,
-) -> Result<Vec<TxRingMembersInfo>, ExtendedConsensusError> {
-    let mut output_ids = HashMap::new();
+) -> Result<OutputCache, ExtendedConsensusError> {
+    let mut output_ids = IndexMap::new();
 
-    for tx_v_data in txs_verification_data.clone() {
+    for tx_v_data in txs_verification_data {
         insert_ring_member_ids(&tx_v_data.tx.prefix().inputs, &mut output_ids)
             .map_err(ConsensusError::Transaction)?;
     }
@@ -159,23 +161,47 @@ pub async fn batch_get_ring_member_info<D: Database>(
         panic!("Database sent incorrect response!")
     };
 
-    let BlockchainResponse::NumberOutputsWithAmount(outputs_with_amount) = database
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::NumberOutputsWithAmount(
-            outputs.keys().copied().collect(),
-        ))
-        .await?
-    else {
-        panic!("Database sent incorrect response!")
+    Ok(outputs)
+}
+
+/// Retrieves the [`TxRingMembersInfo`] for the inputted [`TransactionVerificationData`].
+///
+/// This function batch gets all the ring members for the inputted transactions and fills in data about
+/// them.
+pub async fn batch_get_ring_member_info<D: Database>(
+    txs_verification_data: impl Iterator<Item = &TransactionVerificationData> + Clone,
+    hf: HardFork,
+    mut database: D,
+    cache: Option<&OutputCache>,
+) -> Result<Vec<TxRingMembersInfo>, ExtendedConsensusError> {
+    let mut output_ids = IndexMap::new();
+
+    for tx_v_data in txs_verification_data.clone() {
+        insert_ring_member_ids(&tx_v_data.tx.prefix().inputs, &mut output_ids)
+            .map_err(ConsensusError::Transaction)?;
+    }
+
+    let outputs = if let Some(cache) = cache {
+        Cow::Borrowed(cache)
+    } else {
+        let BlockchainResponse::Outputs(outputs) = database
+            .ready()
+            .await?
+            .call(BlockchainReadRequest::Outputs(output_ids))
+            .await?
+        else {
+            unreachable!();
+        };
+
+        Cow::Owned(outputs)
     };
 
     Ok(txs_verification_data
         .map(move |tx_v_data| {
-            let numb_outputs = |amt| outputs_with_amount.get(&amt).copied().unwrap_or(0);
+            let numb_outputs = |amt| outputs.number_outs_with_amount(amt);
 
             let ring_members_for_tx = get_ring_members_for_inputs(
-                |amt, idx| outputs.get(&amt)?.get(&idx).copied(),
+                |amt, idx| outputs.get_output(amt, idx).copied(),
                 &tx_v_data.tx.prefix().inputs,
             )
             .map_err(ConsensusError::Transaction)?;
@@ -202,12 +228,13 @@ pub async fn batch_get_ring_member_info<D: Database>(
 /// This functions panics if `hf == HardFork::V1` as decoy info
 /// should not be needed for V1.
 #[instrument(level = "debug", skip_all)]
-pub async fn batch_get_decoy_info<'a, D: Database>(
+pub async fn batch_get_decoy_info<'a, 'b, D: Database>(
     txs_verification_data: impl Iterator<Item = &'a TransactionVerificationData> + Clone,
     hf: HardFork,
     mut database: D,
+    cache: Option<&'b OutputCache>,
 ) -> Result<
-    impl Iterator<Item = Result<DecoyInfo, ConsensusError>> + sealed::Captures<&'a ()>,
+    impl Iterator<Item = Result<DecoyInfo, ConsensusError>> + sealed::Captures<(&'a (), &'b ())>,
     ExtendedConsensusError,
 > {
     // decoy info is not needed for V1.
@@ -229,15 +256,24 @@ pub async fn batch_get_decoy_info<'a, D: Database>(
         unique_input_amounts.len()
     );
 
-    let BlockchainResponse::NumberOutputsWithAmount(outputs_with_amount) = database
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::NumberOutputsWithAmount(
-            unique_input_amounts.into_iter().collect(),
-        ))
-        .await?
-    else {
-        panic!("Database sent incorrect response!")
+    let outputs_with_amount = if let Some(cache) = cache {
+        unique_input_amounts
+            .into_iter()
+            .map(|amount| (amount, cache.number_outs_with_amount(amount)))
+            .collect()
+    } else {
+        let BlockchainResponse::NumberOutputsWithAmount(outputs_with_amount) = database
+            .ready()
+            .await?
+            .call(BlockchainReadRequest::NumberOutputsWithAmount(
+                unique_input_amounts.into_iter().collect(),
+            ))
+            .await?
+        else {
+            unreachable!();
+        };
+
+        outputs_with_amount
     };
 
     Ok(txs_verification_data.map(move |tx_v_data| {

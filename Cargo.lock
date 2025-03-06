@@ -609,6 +609,7 @@ dependencies = [
  "curve25519-dalek",
  "hex",
  "hex-literal",
+ "indexmap",
  "monero-serai",
  "pretty_assertions",
  "proptest",
@@ -635,6 +636,7 @@ dependencies = [
  "futures",
  "hex",
  "hex-literal",
+ "indexmap",
  "monero-serai",
  "proptest",
  "proptest-derive",
@@ -682,6 +684,7 @@ dependencies = [
  "curve25519-dalek",
  "hex",
  "hex-literal",
+ "indexmap",
  "monero-serai",
  "proptest",
  "proptest-derive",
@@ -1008,6 +1011,7 @@ dependencies = [
  "curve25519-dalek",
  "hex",
  "hex-literal",
+ "indexmap",
  "monero-serai",
  "pretty_assertions",
  "proptest",
@@ -1835,6 +1839,7 @@ checksum = "62f822373a4fe84d4bb149bf54e584a7f4abec90e072ed49cda0edea5b95471f"
 dependencies = [
  "equivalent",
  "hashbrown 0.15.2",
+ "rayon",
 ]
 
 [[package]]

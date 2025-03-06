@@ -16,8 +16,8 @@
     reason = "TODO: remove after v1.0.0"
 )]
 
-use std::mem;
-use std::sync::Arc;
+use std::{mem, sync::Arc};
+
 use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
