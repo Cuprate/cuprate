@@ -7,6 +7,8 @@ use std::{
 };
 
 use clap::Parser;
+use serde::{Deserialize, Serialize};
+
 use cuprate_consensus::ContextConfig;
 use cuprate_helper::{
     fs::{CUPRATE_CONFIG_DIR, DEFAULT_CONFIG_FILE_NAME},
@@ -14,8 +16,8 @@ use cuprate_helper::{
 };
 use cuprate_p2p::block_downloader::BlockDownloaderConfig;
 use cuprate_p2p_core::{ClearNet, ClearNetServerCfg};
-use serde::{Deserialize, Serialize};
-use thiserror::__private::AsDisplay;
+
+use crate::{constants::{DEFAULT_CONFIG_STARTUP_DELAY, DEFAULT_CONFIG_WARNING}, logging::eprintln_red};
 
 mod args;
 mod fs;
@@ -25,8 +27,6 @@ mod storage;
 mod tokio;
 mod tracing_config;
 
-use crate::constants::{DEFAULT_CONFIG_STARTUP_DELAY, DEFAULT_CONFIG_WARNING};
-use crate::logging::eprintln_red;
 use fs::FileSystemConfig;
 use p2p::P2PConfig;
 use rayon::RayonConfig;
