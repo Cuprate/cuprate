@@ -178,7 +178,6 @@ where
     // Add this alt cache back to the context service.
     context_svc
         .oneshot(BlockChainContextRequest::AddAltChainContextCache {
-            prev_id: block_info.block.header.previous,
             cache: alt_context_cache,
             _token: AltChainRequestToken,
         })

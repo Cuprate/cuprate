@@ -271,11 +271,27 @@ impl super::BlockchainManager {
         block: Block,
         prepared_txs: HashMap<[u8; 32], TransactionVerificationData>,
     ) -> Result<AddAltBlock, anyhow::Error> {
+        // Check if a block already exists.
+        let BlockchainResponse::FindBlock(chain) = self
+            .blockchain_read_handle
+            .ready()
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .call(BlockchainReadRequest::FindBlock(block.hash()))
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        else {
+            unreachable!();
+        };
+
+        if chain.is_some() {
+            // The block could also be in the main-chain here under some circumstances.
+            return Ok(AddAltBlock::Cached);
+        }
+
         let alt_block_info =
             sanity_check_alt_block(block, prepared_txs, self.blockchain_context_service.clone())
                 .await?;
-
-        // TODO: check in consensus crate if alt block with this hash already exists.
 
         // If this alt chain has more cumulative difficulty, reorg.
         if alt_block_info.cumulative_difficulty
@@ -479,7 +495,7 @@ impl super::BlockchainManager {
 
 /// The result from successfully adding an alt-block.
 enum AddAltBlock {
-    /// The alt-block was cached.
+    /// The alt-block was cached or was already present in the DB.
     Cached,
     /// The chain was reorged.
     Reorged,
