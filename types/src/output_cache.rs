@@ -87,7 +87,6 @@ impl OutputCache {
                         OutputOnChain {
                             height,
                             time_lock: tx.prefix().additional_timelock,
-                            // TODO: this needs to check the point is canonical.
                             key: out.key,
                             commitment: get_output_commitment(tx, i),
                         },

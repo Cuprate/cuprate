@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 
 use futures::StreamExt;
 use tokio::{
-    sync::{mpsc, oneshot, Notify, OwnedSemaphorePermit, Semaphore},
+    sync::{mpsc, Notify, OwnedSemaphorePermit, Semaphore},
     time::interval,
 };
 use tower::{Service, ServiceExt};

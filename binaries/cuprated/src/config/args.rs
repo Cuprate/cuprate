@@ -39,6 +39,10 @@ pub struct Args {
     #[arg(long)]
     pub generate_config: bool,
 
+    /// Stops the missing config warning and startup delay if a config file is missing.
+    #[arg(long)]
+    pub skip_config_warning: bool,
+
     /// Print misc version information in JSON.
     #[arg(short, long)]
     pub version: bool,

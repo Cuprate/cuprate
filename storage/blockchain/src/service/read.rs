@@ -9,17 +9,18 @@
 )]
 
 //---------------------------------------------------------------------------------------------------- Import
+use std::{
+    cmp::min,
+    ops::Range,
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
+
 use indexmap::{IndexMap, IndexSet};
 use rayon::{
     iter::{Either, IntoParallelIterator, ParallelIterator},
     prelude::*,
     ThreadPool,
-};
-use std::ops::Range;
-use std::{
-    cmp::min,
-    collections::{HashMap, HashSet},
-    sync::Arc,
 };
 use thread_local::ThreadLocal;
 

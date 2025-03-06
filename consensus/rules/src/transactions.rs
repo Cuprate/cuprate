@@ -1,16 +1,19 @@
-pub use cuprate_types::TxVersion;
+use std::cmp::Ordering;
+
 use curve25519_dalek::EdwardsPoint;
-use monero_serai::io::decompress_point;
 use monero_serai::{
+    io::decompress_point,
     ringct::RctType,
     transaction::{Input, Output, Timelock, Transaction},
 };
-use std::cmp::Ordering;
 
 use crate::{
     batch_verifier::BatchVerifier, blocks::penalty_free_zone, check_point_canonically_encoded,
     is_decomposed_amount, HardFork,
 };
+
+// re-export.
+pub use cuprate_types::TxVersion;
 
 mod contextual_data;
 mod ring_ct;

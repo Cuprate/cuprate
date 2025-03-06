@@ -104,6 +104,7 @@ impl Env for ConcreteEnv {
         // so just create one, don't do anything and commit.
         let mut tx_rw = self.env.begin_write()?;
         tx_rw.set_durability(redb::Durability::Immediate);
+        tx_rw.set_two_phase_commit(true);
         TxRw::commit(tx_rw)
     }
 
