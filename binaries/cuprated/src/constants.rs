@@ -24,7 +24,11 @@ pub const VERSION_BUILD: &str = formatcp!("{VERSION}-{}", cuprate_constants::bui
 pub const PANIC_CRITICAL_SERVICE_ERROR: &str =
     "A service critical to Cuprate's function returned an unexpected error.";
 
-pub const DEFAULT_CONFIG_WARNING: &str = formatcp!( "WARNING: no config file found, using default config.\nThe default config may not be optimal for your hardware, see the user book here: <TODO>.\nPausing startup for {} seconds.",
+pub const DEFAULT_CONFIG_WARNING: &str = formatcp!(
+    "WARNING: no config file found, using default config.\
+    \nThe default config may not be optimal for your setup, see the user book here: https://user.cuprate.org/.\
+    \nPausing startup for {} seconds. \
+    \nUse the `--skip-config-warning` arg to skip this delay if you relly want to use the default.",
     DEFAULT_CONFIG_STARTUP_DELAY.as_secs()
 );
 

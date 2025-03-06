@@ -27,6 +27,7 @@ use tracing_subscriber::{
 use cuprate_helper::fs::logs_path;
 
 use crate::config::Config;
+use crate::constants::DEFAULT_CONFIG_WARNING;
 
 /// A [`OnceLock`] which holds the [`Handle`] to update the file logging output.
 ///
@@ -139,4 +140,8 @@ pub fn modify_stdout_output(f: impl FnOnce(&mut CupratedTracingFilter)) {
 /// Must only be called after [`init_logging`].
 pub fn modify_file_output(f: impl FnOnce(&mut CupratedTracingFilter)) {
     FILE_WRITER_FILTER_HANDLE.get().unwrap().modify(f).unwrap();
+}
+
+pub fn eprintln_red(s: &str) {
+    eprintln!("{}", nu_ansi_term::Color::Red.bold().paint(s));
 }
