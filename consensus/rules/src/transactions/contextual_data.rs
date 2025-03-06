@@ -1,9 +1,7 @@
-use std::{
-    cmp::{max, min},
-    collections::{HashMap, HashSet},
-};
+use std::cmp::{max, min};
 
 use curve25519_dalek::EdwardsPoint;
+use indexmap::{IndexMap, IndexSet};
 use monero_serai::transaction::{Input, Timelock};
 
 use crate::{transactions::TransactionError, HardFork};
@@ -33,7 +31,7 @@ pub fn get_absolute_offsets(relative_offsets: &[u64]) -> Result<Vec<u64>, Transa
 ///
 pub fn insert_ring_member_ids(
     inputs: &[Input],
-    output_ids: &mut HashMap<u64, HashSet<u64>>,
+    output_ids: &mut IndexMap<u64, IndexSet<u64>>,
 ) -> Result<(), TransactionError> {
     if inputs.is_empty() {
         return Err(TransactionError::NoInputs);
