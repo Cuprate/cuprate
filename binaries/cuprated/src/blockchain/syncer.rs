@@ -2,9 +2,8 @@
 use std::{sync::Arc, time::Duration};
 
 use futures::StreamExt;
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio::{
-    sync::{mpsc, oneshot, Notify},
+    sync::{mpsc, oneshot, Notify, OwnedSemaphorePermit, Semaphore},
     time::interval,
 };
 use tower::{Service, ServiceExt};
@@ -59,7 +58,6 @@ where
 
     let mut sync_permit = Arc::new(semaphore.clone().acquire_owned().await.unwrap());
     loop {
-
         check_sync_interval.tick().await;
 
         tracing::trace!("Checking connected peers to see if we are behind",);
@@ -88,6 +86,8 @@ where
                 }
                 batch = block_batch_stream.next() => {
                     let Some(batch) = batch else {
+                        // Wait for all references to the permit have been dropped (which means all blocks in the queue
+                        // have been handled before checking if we are synced.
                         drop(sync_permit);
                         sync_permit = Arc::new(semaphore.clone().acquire_owned().await.unwrap());
 

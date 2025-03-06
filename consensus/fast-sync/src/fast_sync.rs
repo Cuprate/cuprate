@@ -4,6 +4,13 @@ use std::{
     sync::OnceLock,
 };
 
+use blake3::Hasher;
+use monero_serai::{
+    block::Block,
+    transaction::{Input, Transaction},
+};
+use tower::{Service, ServiceExt};
+
 use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::transactions::new_tx_verification_data;
 use cuprate_consensus_context::BlockchainContext;
@@ -13,13 +20,6 @@ use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
-
-use blake3::Hasher;
-use monero_serai::{
-    block::Block,
-    transaction::{Input, Transaction},
-};
-use tower::{Service, ServiceExt};
 
 /// A [`OnceLock`] representing the fast sync hashes.
 static FAST_SYNC_HASHES: OnceLock<&[[u8; 32]]> = OnceLock::new();

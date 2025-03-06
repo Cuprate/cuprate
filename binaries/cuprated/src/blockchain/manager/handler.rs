@@ -1,4 +1,6 @@
 //! The blockchain manager handler functions.
+use std::{collections::HashMap, sync::Arc};
+
 use bytes::Bytes;
 use futures::{TryFutureExt, TryStreamExt};
 use monero_serai::{
@@ -6,8 +8,6 @@ use monero_serai::{
     transaction::{Input, Transaction},
 };
 use rayon::prelude::*;
-use std::ops::ControlFlow;
-use std::{collections::HashMap, sync::Arc};
 use tower::{Service, ServiceExt};
 use tracing::{info, instrument, Span};
 
@@ -204,6 +204,12 @@ impl super::BlockchainManager {
         info!(fast_sync = false, "Successfully added block batch");
     }
 
+    /// Handles an incoming block batch while we are under the fast sync height.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// recover from.
     async fn handle_incoming_block_batch_fast_sync(&mut self, batch: BlockBatch) {
         let mut valid_blocks = Vec::with_capacity(batch.blocks.len());
         for (block, txs) in batch.blocks {
@@ -505,6 +511,12 @@ impl super::BlockchainManager {
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
     }
 
+    /// Adds a [`VerifiedBlockInformation`] to the blockchain context cache.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// recover from.
     async fn add_valid_block_to_blockchain_cache(
         &mut self,
         verified_block: &VerifiedBlockInformation,
@@ -527,6 +539,14 @@ impl super::BlockchainManager {
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
     }
 
+    /// Batch writes the [`VerifiedBlockInformation`]s to the database.
+    ///
+    /// The blocks must be sequential.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// recover from.
     async fn batch_add_valid_block_to_blockchain_database(
         &mut self,
         blocks: Vec<VerifiedBlockInformation>,
