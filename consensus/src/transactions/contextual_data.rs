@@ -190,7 +190,7 @@ pub async fn batch_get_ring_member_info<D: Database>(
             .call(BlockchainReadRequest::Outputs(output_ids))
             .await?
         else {
-            panic!("Database sent incorrect response!")
+            unreachable!();
         };
 
         Cow::Owned(outputs)
@@ -270,7 +270,7 @@ pub async fn batch_get_decoy_info<'a, 'b, D: Database>(
             ))
             .await?
         else {
-            panic!("Database sent incorrect response!")
+            unreachable!();
         };
 
         outputs_with_amount

@@ -243,7 +243,7 @@ pub trait LevinBody: Sized {
     /// Decodes the message from the data in the header
     fn decode_message<B: Buf>(
         body: &mut B,
-        typ: MessageType,
+        ty: MessageType,
         command: Self::Command,
     ) -> Result<Self, BucketError>;
 

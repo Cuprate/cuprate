@@ -395,10 +395,10 @@ impl LevinBody for Message {
 
     fn decode_message<B: Buf>(
         body: &mut B,
-        typ: MessageType,
+        ty: MessageType,
         command: LevinCommand,
     ) -> Result<Self, BucketError> {
-        Ok(match typ {
+        Ok(match ty {
             MessageType::Request => Self::Request(AdminRequestMessage::decode(body, command)?),
             MessageType::Response => Self::Response(AdminResponseMessage::decode(body, command)?),
             MessageType::Notification => Self::Protocol(ProtocolMessage::decode(body, command)?),

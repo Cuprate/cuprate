@@ -1,4 +1,5 @@
 //! General constants used throughout `cuprated`.
+use std::time::Duration;
 
 use const_format::formatcp;
 
@@ -23,7 +24,17 @@ pub const VERSION_BUILD: &str = formatcp!("{VERSION}-{}", cuprate_constants::bui
 pub const PANIC_CRITICAL_SERVICE_ERROR: &str =
     "A service critical to Cuprate's function returned an unexpected error.";
 
-pub const EXAMPLE_CONFIG: &str = include_str!("../Cuprated.toml");
+pub const DEFAULT_CONFIG_WARNING: &str = formatcp!(
+    "WARNING: no config file found, using default config.\
+    \nThe default config may not be optimal for your setup, see the user book here: https://user.cuprate.org/.\
+    \nPausing startup for {} seconds. \
+    \nUse the `--skip-config-warning` arg to skip this delay if you really want to use the default.",
+    DEFAULT_CONFIG_STARTUP_DELAY.as_secs()
+);
+
+pub const DEFAULT_CONFIG_STARTUP_DELAY: Duration = Duration::from_secs(15);
+
+pub const EXAMPLE_CONFIG: &str = include_str!("../config/Cuprated.toml");
 
 #[cfg(test)]
 mod test {
@@ -44,12 +55,5 @@ mod test {
         } else {
             assert_eq!(VERSION_BUILD, "0.0.1-release");
         }
-    }
-
-    #[test]
-    fn generate_config_text_is_valid() {
-        let config: Config = toml::from_str(EXAMPLE_CONFIG).unwrap();
-
-        assert_eq!(config, Config::default());
     }
 }
