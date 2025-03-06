@@ -193,7 +193,7 @@ mod test {
         assert_eq!(config, Config::default());
     }
 
-    /// Tests backwards compatability.
+    /// Tests backwards compatibility.
     #[test]
     fn config_backwards_compat() {
         // (De)serialization tests.
