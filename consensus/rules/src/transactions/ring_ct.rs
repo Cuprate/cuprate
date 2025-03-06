@@ -1,8 +1,8 @@
 use curve25519_dalek::{EdwardsPoint, Scalar};
 use hex_literal::hex;
-use monero_serai::io::decompress_point;
 use monero_serai::{
     generators::H,
+    io::decompress_point,
     ringct::{
         clsag::ClsagError,
         mlsag::{AggregateRingMatrixBuilder, MlsagError, RingMatrix},
