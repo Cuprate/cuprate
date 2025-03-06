@@ -609,6 +609,7 @@ dependencies = [
  "curve25519-dalek",
  "hex",
  "hex-literal",
+ "indexmap",
  "monero-serai",
  "pretty_assertions",
  "proptest",
@@ -635,6 +636,7 @@ dependencies = [
  "futures",
  "hex",
  "hex-literal",
+ "indexmap",
  "monero-serai",
  "proptest",
  "proptest-derive",
@@ -682,6 +684,7 @@ dependencies = [
  "curve25519-dalek",
  "hex",
  "hex-literal",
+ "indexmap",
  "monero-serai",
  "proptest",
  "proptest-derive",
@@ -1008,6 +1011,7 @@ dependencies = [
  "curve25519-dalek",
  "hex",
  "hex-literal",
+ "indexmap",
  "monero-serai",
  "pretty_assertions",
  "proptest",
@@ -1094,6 +1098,7 @@ dependencies = [
  "hex-literal",
  "indexmap",
  "monero-serai",
+ "nu-ansi-term",
  "paste",
  "pin-project",
  "rand",
@@ -1147,7 +1152,7 @@ dependencies = [
 [[package]]
 name = "dalek-ff-group"
 version = "0.4.1"
-source = "git+https://github.com/Cuprate/serai.git?rev=e6fdef6#e6fdef6d0b4481932ac9647796eb3fa56197ed66"
+source = "git+https://github.com/Cuprate/serai.git?rev=e6ae8c2#e6ae8c2b1f9d791f35ea225032cc0a3f79dec99d"
 dependencies = [
  "crypto-bigint",
  "curve25519-dalek",
@@ -1312,7 +1317,7 @@ dependencies = [
 [[package]]
 name = "flexible-transcript"
 version = "0.3.2"
-source = "git+https://github.com/Cuprate/serai.git?rev=e6fdef6#e6fdef6d0b4481932ac9647796eb3fa56197ed66"
+source = "git+https://github.com/Cuprate/serai.git?rev=e6ae8c2#e6ae8c2b1f9d791f35ea225032cc0a3f79dec99d"
 dependencies = [
  "blake2",
  "digest",
@@ -1834,6 +1839,7 @@ checksum = "62f822373a4fe84d4bb149bf54e584a7f4abec90e072ed49cda0edea5b95471f"
 dependencies = [
  "equivalent",
  "hashbrown 0.15.2",
+ "rayon",
 ]
 
 [[package]]
@@ -2017,7 +2023,7 @@ dependencies = [
 [[package]]
 name = "monero-address"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=e6fdef6#e6fdef6d0b4481932ac9647796eb3fa56197ed66"
+source = "git+https://github.com/Cuprate/serai.git?rev=e6ae8c2#e6ae8c2b1f9d791f35ea225032cc0a3f79dec99d"
 dependencies = [
  "curve25519-dalek",
  "monero-io",
@@ -2030,7 +2036,7 @@ dependencies = [
 [[package]]
 name = "monero-borromean"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=e6fdef6#e6fdef6d0b4481932ac9647796eb3fa56197ed66"
+source = "git+https://github.com/Cuprate/serai.git?rev=e6ae8c2#e6ae8c2b1f9d791f35ea225032cc0a3f79dec99d"
 dependencies = [
  "curve25519-dalek",
  "monero-generators",
@@ -2043,7 +2049,7 @@ dependencies = [
 [[package]]
 name = "monero-bulletproofs"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=e6fdef6#e6fdef6d0b4481932ac9647796eb3fa56197ed66"
+source = "git+https://github.com/Cuprate/serai.git?rev=e6ae8c2#e6ae8c2b1f9d791f35ea225032cc0a3f79dec99d"
 dependencies = [
  "curve25519-dalek",
  "monero-generators",
@@ -2058,7 +2064,7 @@ dependencies = [
 [[package]]
 name = "monero-clsag"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=e6fdef6#e6fdef6d0b4481932ac9647796eb3fa56197ed66"
+source = "git+https://github.com/Cuprate/serai.git?rev=e6ae8c2#e6ae8c2b1f9d791f35ea225032cc0a3f79dec99d"
 dependencies = [
  "curve25519-dalek",
  "dalek-ff-group",
@@ -2078,7 +2084,7 @@ dependencies = [
 [[package]]
 name = "monero-generators"
 version = "0.4.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=e6fdef6#e6fdef6d0b4481932ac9647796eb3fa56197ed66"
+source = "git+https://github.com/Cuprate/serai.git?rev=e6ae8c2#e6ae8c2b1f9d791f35ea225032cc0a3f79dec99d"
 dependencies = [
  "curve25519-dalek",
  "dalek-ff-group",
@@ -2092,7 +2098,7 @@ dependencies = [
 [[package]]
 name = "monero-io"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=e6fdef6#e6fdef6d0b4481932ac9647796eb3fa56197ed66"
+source = "git+https://github.com/Cuprate/serai.git?rev=e6ae8c2#e6ae8c2b1f9d791f35ea225032cc0a3f79dec99d"
 dependencies = [
  "curve25519-dalek",
  "std-shims",
@@ -2101,7 +2107,7 @@ dependencies = [
 [[package]]
 name = "monero-mlsag"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=e6fdef6#e6fdef6d0b4481932ac9647796eb3fa56197ed66"
+source = "git+https://github.com/Cuprate/serai.git?rev=e6ae8c2#e6ae8c2b1f9d791f35ea225032cc0a3f79dec99d"
 dependencies = [
  "curve25519-dalek",
  "monero-generators",
@@ -2115,7 +2121,7 @@ dependencies = [
 [[package]]
 name = "monero-primitives"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=e6fdef6#e6fdef6d0b4481932ac9647796eb3fa56197ed66"
+source = "git+https://github.com/Cuprate/serai.git?rev=e6ae8c2#e6ae8c2b1f9d791f35ea225032cc0a3f79dec99d"
 dependencies = [
  "curve25519-dalek",
  "monero-generators",
@@ -2128,7 +2134,7 @@ dependencies = [
 [[package]]
 name = "monero-rpc"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=e6fdef6#e6fdef6d0b4481932ac9647796eb3fa56197ed66"
+source = "git+https://github.com/Cuprate/serai.git?rev=e6ae8c2#e6ae8c2b1f9d791f35ea225032cc0a3f79dec99d"
 dependencies = [
  "curve25519-dalek",
  "hex",
@@ -2144,7 +2150,7 @@ dependencies = [
 [[package]]
 name = "monero-serai"
 version = "0.1.4-alpha"
-source = "git+https://github.com/Cuprate/serai.git?rev=e6fdef6#e6fdef6d0b4481932ac9647796eb3fa56197ed66"
+source = "git+https://github.com/Cuprate/serai.git?rev=e6ae8c2#e6ae8c2b1f9d791f35ea225032cc0a3f79dec99d"
 dependencies = [
  "curve25519-dalek",
  "hex-literal",
@@ -2162,7 +2168,7 @@ dependencies = [
 [[package]]
 name = "monero-simple-request-rpc"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=e6fdef6#e6fdef6d0b4481932ac9647796eb3fa56197ed66"
+source = "git+https://github.com/Cuprate/serai.git?rev=e6ae8c2#e6ae8c2b1f9d791f35ea225032cc0a3f79dec99d"
 dependencies = [
  "digest_auth",
  "hex",
@@ -2859,7 +2865,7 @@ dependencies = [
 [[package]]
 name = "simple-request"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=e6fdef6#e6fdef6d0b4481932ac9647796eb3fa56197ed66"
+source = "git+https://github.com/Cuprate/serai.git?rev=e6ae8c2#e6ae8c2b1f9d791f35ea225032cc0a3f79dec99d"
 dependencies = [
  "http-body-util",
  "hyper",
@@ -2925,7 +2931,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 [[package]]
 name = "std-shims"
 version = "0.1.1"
-source = "git+https://github.com/Cuprate/serai.git?rev=e6fdef6#e6fdef6d0b4481932ac9647796eb3fa56197ed66"
+source = "git+https://github.com/Cuprate/serai.git?rev=e6ae8c2#e6ae8c2b1f9d791f35ea225032cc0a3f79dec99d"
 dependencies = [
  "hashbrown 0.14.5",
  "spin",

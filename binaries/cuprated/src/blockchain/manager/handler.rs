@@ -166,9 +166,12 @@ impl super::BlockchainManager {
     /// This function will panic if any internal service returns an unexpected error that we cannot
     /// recover from or if the incoming batch contains no blocks.
     async fn handle_incoming_block_batch_main_chain(&mut self, batch: BlockBatch) {
-        let Ok(prepped_blocks) =
-            batch_prepare_main_chain_blocks(batch.blocks, &mut self.blockchain_context_service)
-                .await
+        let Ok((prepped_blocks, mut output_cache)) = batch_prepare_main_chain_blocks(
+            batch.blocks,
+            &mut self.blockchain_context_service,
+            self.blockchain_read_handle.clone(),
+        )
+        .await
         else {
             batch.peer_handle.ban_peer(LONG_BAN);
             self.stop_current_block_downloader.notify_one();
@@ -181,6 +184,7 @@ impl super::BlockchainManager {
                 txs,
                 &mut self.blockchain_context_service,
                 self.blockchain_read_handle.clone(),
+                Some(&mut output_cache),
             )
             .await
             else {
@@ -267,11 +271,27 @@ impl super::BlockchainManager {
         block: Block,
         prepared_txs: HashMap<[u8; 32], TransactionVerificationData>,
     ) -> Result<AddAltBlock, anyhow::Error> {
+        // Check if a block already exists.
+        let BlockchainResponse::FindBlock(chain) = self
+            .blockchain_read_handle
+            .ready()
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .call(BlockchainReadRequest::FindBlock(block.hash()))
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        else {
+            unreachable!();
+        };
+
+        if chain.is_some() {
+            // The block could also be in the main-chain here under some circumstances.
+            return Ok(AddAltBlock::Cached);
+        }
+
         let alt_block_info =
             sanity_check_alt_block(block, prepared_txs, self.blockchain_context_service.clone())
                 .await?;
-
-        // TODO: check in consensus crate if alt block with this hash already exists.
 
         // If this alt chain has more cumulative difficulty, reorg.
         if alt_block_info.cumulative_difficulty
@@ -404,6 +424,7 @@ impl super::BlockchainManager {
                 prepped_txs,
                 &mut self.blockchain_context_service,
                 self.blockchain_read_handle.clone(),
+                None,
             )
             .await?;
 
@@ -431,7 +452,7 @@ impl super::BlockchainManager {
             .iter()
             .flat_map(|tx| {
                 tx.tx.prefix().inputs.iter().map(|input| match input {
-                    Input::ToKey { key_image, .. } => key_image.compress().0,
+                    Input::ToKey { key_image, .. } => key_image.0,
                     Input::Gen(_) => unreachable!(),
                 })
             })
@@ -474,7 +495,7 @@ impl super::BlockchainManager {
 
 /// The result from successfully adding an alt-block.
 enum AddAltBlock {
-    /// The alt-block was cached.
+    /// The alt-block was cached or was already present in the DB.
     Cached,
     /// The chain was reorged.
     Reorged,

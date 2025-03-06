@@ -10,7 +10,7 @@ keywords    = ["cuprate", "types"]
 
 [features]
 default    = ["blockchain", "epee", "serde", "json", "hex"]
-blockchain = []
+blockchain = ["dep:indexmap", "dep:cuprate-helper", "cuprate-helper/crypto"]
 epee       = ["dep:cuprate-epee-encoding"]
 serde      = ["dep:serde", "hex"]
 proptest   = ["dep:proptest",  "dep:proptest-derive"]
@@ -31,6 +31,7 @@ hex              = { workspace = true, features = ["serde", "alloc"], optional =
 serde            = { workspace = true, features = ["std", "derive"], optional = true }
 strum            = { workspace = true, features = ["derive"] }
 thiserror        = { workspace = true }
+indexmap         = { workspace = true, features = ["std"], optional = true }
 
 proptest = { workspace = true, optional = true }
 proptest-derive  = { workspace = true, optional = true }

@@ -1,16 +1,19 @@
 use std::cmp::Ordering;
 
+use curve25519_dalek::EdwardsPoint;
 use monero_serai::{
+    io::decompress_point,
     ringct::RctType,
     transaction::{Input, Output, Timelock, Transaction},
 };
-
-pub use cuprate_types::TxVersion;
 
 use crate::{
     batch_verifier::BatchVerifier, blocks::penalty_free_zone, check_point_canonically_encoded,
     is_decomposed_amount, HardFork,
 };
+
+// re-export.
+pub use cuprate_types::TxVersion;
 
 mod contextual_data;
 mod ring_ct;
@@ -327,7 +330,10 @@ fn check_key_images(input: &Input) -> Result<(), TransactionError> {
     match input {
         Input::ToKey { key_image, .. } => {
             // this happens in monero-serai but we may as well duplicate the check.
-            if !key_image.is_torsion_free() {
+            if !decompress_point(*key_image)
+                .as_ref()
+                .is_some_and(EdwardsPoint::is_torsion_free)
+            {
                 return Err(TransactionError::KeyImageIsNotInPrimeSubGroup);
             }
         }
@@ -388,7 +394,7 @@ fn check_ring_members_unique(input: &Input, hf: HardFork) -> Result<(), Transact
 /// ref: <https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#sorted-inputs>
 fn check_inputs_sorted(inputs: &[Input], hf: HardFork) -> Result<(), TransactionError> {
     let get_ki = |inp: &Input| match inp {
-        Input::ToKey { key_image, .. } => Ok(key_image.compress().to_bytes()),
+        Input::ToKey { key_image, .. } => Ok(key_image.to_bytes()),
         Input::Gen(_) => Err(TransactionError::IncorrectInputType),
     };
 

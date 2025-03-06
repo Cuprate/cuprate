@@ -17,6 +17,11 @@ use cuprate_helper::{
 use cuprate_p2p::block_downloader::BlockDownloaderConfig;
 use cuprate_p2p_core::{ClearNet, ClearNetServerCfg};
 
+use crate::{
+    constants::{DEFAULT_CONFIG_STARTUP_DELAY, DEFAULT_CONFIG_WARNING},
+    logging::eprintln_red,
+};
+
 mod args;
 mod fs;
 mod p2p;
@@ -42,7 +47,7 @@ pub fn read_config_and_args() -> Config {
         match Config::read_from_path(config_file) {
             Ok(config) => config,
             Err(e) => {
-                eprintln!("Failed to read config from file: {e}");
+                eprintln_red(&format!("Failed to read config from file: {e}"));
                 std::process::exit(1);
             }
         }
@@ -60,7 +65,10 @@ pub fn read_config_and_args() -> Config {
             })
             .inspect_err(|e| {
                 tracing::debug!("Failed to read config from config dir: {e}");
-                eprintln!("Failed to find/read config file, using default config.");
+                if !args.skip_config_warning {
+                    eprintln_red(DEFAULT_CONFIG_WARNING);
+                    std::thread::sleep(DEFAULT_CONFIG_STARTUP_DELAY);
+                }
             })
             .unwrap_or_default()
     };
@@ -101,13 +109,14 @@ impl Config {
         let file_text = read_to_string(file.as_ref())?;
 
         Ok(toml::from_str(&file_text)
-            .inspect(|_| eprintln!("Using config at: {}", file.as_ref().to_string_lossy()))
+            .inspect(|_| println!("Using config at: {}", file.as_ref().to_string_lossy()))
             .inspect_err(|e| {
-                eprintln!("{e}");
-                eprintln!(
+                eprintln_red(&format!(
                     "Failed to parse config file at: {}",
                     file.as_ref().to_string_lossy()
-                );
+                ));
+                eprintln_red(&format!("{e}"));
+                std::process::exit(1);
             })?)
     }
 

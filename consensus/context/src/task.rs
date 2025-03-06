@@ -303,12 +303,8 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                     .get_alt_vm(height, chain, &mut self.database)
                     .await?,
             ),
-            BlockChainContextRequest::AddAltChainContextCache {
-                prev_id,
-                cache,
-                _token,
-            } => {
-                self.alt_chain_cache_map.add_alt_cache(prev_id, cache);
+            BlockChainContextRequest::AddAltChainContextCache { cache, _token } => {
+                self.alt_chain_cache_map.add_alt_cache(cache);
                 BlockChainContextResponse::Ok
             }
             BlockChainContextRequest::HardForkInfo(_)
