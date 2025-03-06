@@ -11,10 +11,11 @@
     - [Running](getting-started/run.md)
 
 - [Configuration](config.md)
-- [Command line](cli/intro.md)
+- [Command line](cli.md)
 
 - [Resources](resources/intro.md)
     - [Disk](resources/disk.md)
-    - [Ports](resources/ports/intro.md)
+    - [Ports](resources/ports.md)
+    - [IP](resources/ip.md)
 
 - [Platform support](platform.md)

@@ -28,12 +28,11 @@ Tier 2 targets can be thought of as "guaranteed to build".
 
 | Target                      | Notes  |
 |-----------------------------|--------|
-| `x86_64-apple-darwin`       | x64 macOS (10.12+)
 | `x86_64-pc-windows-msvc`    | x64 Windows (MSVC, Windows Server 2022+)
 
 ## Tier 3
 
-Tier 3 targets are those which the Cuprate codebase may likely have support for,
+Tier 3 targets are those which the Cuprate codebase likely can support,
 but which Cuprate does not build or test on a regular basis, so they may or may not work.
 Official builds are not available, but may eventually be planned.
 
@@ -41,6 +40,7 @@ Official builds are not available, but may eventually be planned.
 |------------------------------|--------|
 | `x86_64-unknown-linux-musl`  | x64 Linux (musl 1.2.3)
 | `aarch64-unknown-linux-musl` | ARM64 Linux (musl 1.2.3)
-| `aarch64-unknown-freebsd`    | ARM64 FreeBSD
 | `x86_64-unknown-freebsd` 	   | x64 FreeBSD
-| `aarch64-pc-windows-msvc`    | ARM64 Windows MSVC
+| `aarch64-unknown-freebsd`    | ARM64 FreeBSD
+| `aarch64-pc-windows-msvc`    | ARM64 Windows (MSVC, Windows Server 2022+)
+| `x86_64-apple-darwin`        | x64 macOS
