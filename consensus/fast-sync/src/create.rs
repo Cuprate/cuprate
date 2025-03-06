@@ -29,9 +29,8 @@ async fn read_batch(
     let response_channel = handle.ready().await?.call(request);
     let response = response_channel.await?;
 
-    let block_ids = match response {
-        BlockchainResponse::BlockHashInRange(block_id) => block_id,
-        _ => unreachable!(),
+    let BlockchainResponse::BlockHashInRange(block_ids) = response else {
+        unreachable!()
     };
 
     Ok(block_ids)
@@ -67,7 +66,7 @@ async fn main() {
         }
         height += BATCH_SIZE;
 
-        println!("height: {}", height);
+        println!("height: {height}");
     }
 
     drop(read_handle);

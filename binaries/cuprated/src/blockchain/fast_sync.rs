@@ -5,6 +5,8 @@ use cuprate_helper::network::Network;
 /// The hashes of the compiled in fast sync file.
 static FAST_SYNC_HASHES: &[[u8; 32]] = unsafe {
     let bytes = include_bytes!("./fast_sync/fast_sync_hashes.bin");
+
+    #[expect(clippy::manual_assert, reason = "assert is not const")]
     if bytes.len() % 32 != 0 {
         panic!()
     }

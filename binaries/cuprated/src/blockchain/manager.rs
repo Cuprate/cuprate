@@ -116,7 +116,7 @@ impl BlockchainManager {
                         batch,
                     ).await;
 
-                    drop(permit)
+                    drop(permit);
                 }
                 Some(incoming_command) = command_rx.recv() => {
                     self.handle_command(incoming_command).await;

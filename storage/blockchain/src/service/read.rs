@@ -285,12 +285,12 @@ fn block_hash_in_range(env: &ConcreteEnv, range: Range<usize>, chain: Chain) -> 
         .map(|block_height| {
             let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
 
-            let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
+            let table_block_infos = env_inner.open_db_ro::<BlockInfos>(tx_ro)?;
 
             let block_hash = match chain {
                 Chain::Main => get_block_info(&block_height, &table_block_infos)?.block_hash,
                 Chain::Alt(chain) => {
-                    get_alt_block_hash(&block_height, chain, &env_inner.open_tables(&tx_ro)?)?
+                    get_alt_block_hash(&block_height, chain, &env_inner.open_tables(tx_ro)?)?
                 }
             };
 

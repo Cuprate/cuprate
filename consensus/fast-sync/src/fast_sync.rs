@@ -112,7 +112,7 @@ pub async fn validate_entries<N: NetworkZone>(
                     .ids
                     .drain((back.ids.len() - hashes_stop_diff_last_height)..)
                     .collect(),
-                peer: back.peer.clone(),
+                peer: back.peer,
                 handle: back.handle.clone(),
             });
 
@@ -169,7 +169,7 @@ pub async fn validate_entries<N: NetworkZone>(
 }
 
 /// Get the index of the hash that contains this block in the fast sync hashes.
-fn get_hash_index_for_height(height: usize) -> usize {
+const fn get_hash_index_for_height(height: usize) -> usize {
     height / FAST_SYNC_BATCH_LEN
 }
 
@@ -191,9 +191,10 @@ pub fn block_to_verified_block_information(
         panic!("fast sync block invalid");
     };
 
-    if *height != blockchin_ctx.chain_height {
-        panic!("fast sync block invalid");
-    }
+    assert_eq!(
+        *height, blockchin_ctx.chain_height,
+        "fast sync block invalid"
+    );
 
     let mut txs = txs
         .into_iter()
