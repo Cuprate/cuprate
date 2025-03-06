@@ -83,12 +83,8 @@ impl AltChainMap {
     }
 
     /// Add an alt chain cache to the map.
-    pub(crate) fn add_alt_cache(
-        &mut self,
-        prev_id: [u8; 32],
-        alt_cache: Box<AltChainContextCache>,
-    ) {
-        self.alt_cache_map.insert(prev_id, alt_cache);
+    pub(crate) fn add_alt_cache(&mut self, alt_cache: Box<AltChainContextCache>) {
+        self.alt_cache_map.insert(alt_cache.top_hash, alt_cache);
     }
 
     /// Attempts to take an [`AltChainContextCache`] from the map, returning [`None`] if no cache is
@@ -119,7 +115,7 @@ impl AltChainMap {
             weight_cache: None,
             difficulty_cache: None,
             cached_rx_vm: None,
-            chain_height: top_height,
+            chain_height: top_height + 1,
             top_hash: prev_id,
             chain_id: None,
             parent_chain,
