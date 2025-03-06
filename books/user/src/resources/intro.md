@@ -1,2 +1,2 @@
 # Resources
-This section documents the system resouces `cuprated` uses.
+This section documents the system resources `cuprated` uses.
