@@ -1,4 +1,4 @@
-use curve25519_dalek::EdwardsPoint;
+use curve25519_dalek::edwards::CompressedEdwardsY;
 use indexmap::{IndexMap, IndexSet};
 use monero_serai::transaction::Transaction;
 
@@ -87,8 +87,7 @@ impl OutputCache {
                         OutputOnChain {
                             height,
                             time_lock: tx.prefix().additional_timelock,
-                            // TODO: this needs to check the point is canonical.
-                            key: out.key.decompress(),
+                            key: out.key,
                             commitment: get_output_commitment(tx, i),
                         },
                     );
@@ -111,7 +110,7 @@ impl OutputCache {
 }
 
 /// Returns the amount commitment for the output at the given index `i` in the [`Transaction`]
-fn get_output_commitment(tx: &Transaction, i: usize) -> EdwardsPoint {
+fn get_output_commitment(tx: &Transaction, i: usize) -> CompressedEdwardsY {
     match tx {
         Transaction::V1 { prefix, .. } => {
             compute_zero_commitment(prefix.outputs[i].amount.unwrap_or_default())

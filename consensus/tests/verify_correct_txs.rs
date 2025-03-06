@@ -7,7 +7,7 @@ use std::{
     sync::Arc,
 };
 
-use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY};
+use curve25519_dalek::{constants::ED25519_BASEPOINT_COMPRESSED, edwards::CompressedEdwardsY};
 use indexmap::IndexMap;
 use monero_serai::transaction::{Timelock, Transaction};
 use tower::service_fn;
@@ -71,13 +71,8 @@ macro_rules! test_verify_valid_v2_tx {
                 OutputOnChain {
                     height: 0,
                     time_lock: Timelock::None,
-                    commitment: CompressedEdwardsY::from_slice(&hex_literal::hex!($commitment))
-                        .unwrap()
-                        .decompress()
-                        .unwrap(),
-                    key: CompressedEdwardsY::from_slice(&hex_literal::hex!($ring_member))
-                        .unwrap()
-                        .decompress(),
+                    commitment: CompressedEdwardsY(hex_literal::hex!($commitment)),
+                    key: CompressedEdwardsY(hex_literal::hex!($ring_member)),
                 }),)+)+
             ];
 
@@ -103,10 +98,8 @@ macro_rules! test_verify_valid_v2_tx {
                 OutputOnChain {
                     height: 0,
                     time_lock: Timelock::None,
-                    commitment: ED25519_BASEPOINT_POINT,
-                    key: CompressedEdwardsY::from_slice(&hex_literal::hex!($ring_member))
-                        .unwrap()
-                        .decompress(),
+                    commitment: ED25519_BASEPOINT_COMPRESSED,
+                    key: CompressedEdwardsY(hex_literal::hex!($ring_member)),
                 }),)+)+
             ];
 

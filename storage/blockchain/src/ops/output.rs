@@ -165,9 +165,7 @@ pub fn output_to_output_on_chain(
         Timelock::None
     };
 
-    let key = CompressedEdwardsY::from_slice(&output.key)
-        .map(|y| y.decompress())
-        .unwrap_or(None);
+    let key = CompressedEdwardsY(output.key);
 
     Ok(OutputOnChain {
         height: output.height as usize,
@@ -191,10 +189,7 @@ pub fn rct_output_to_output_on_chain(
     table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
 ) -> DbResult<OutputOnChain> {
     // INVARIANT: Commitments stored are valid when stored by the database.
-    let commitment = CompressedEdwardsY::from_slice(&rct_output.commitment)
-        .unwrap()
-        .decompress()
-        .unwrap();
+    let commitment = CompressedEdwardsY(rct_output.commitment);
 
     let time_lock = if rct_output
         .output_flags
@@ -205,9 +200,7 @@ pub fn rct_output_to_output_on_chain(
         Timelock::None
     };
 
-    let key = CompressedEdwardsY::from_slice(&rct_output.key)
-        .map(|y| y.decompress())
-        .unwrap_or(None);
+    let key = CompressedEdwardsY(rct_output.key);
 
     Ok(OutputOnChain {
         height: rct_output.height as usize,

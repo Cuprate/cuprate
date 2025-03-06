@@ -35,7 +35,7 @@ pub fn tx_fee(tx: &Transaction) -> u64 {
 
 #[cfg(test)]
 mod test {
-    use curve25519_dalek::{edwards::CompressedEdwardsY, EdwardsPoint};
+    use curve25519_dalek::edwards::CompressedEdwardsY;
     use monero_serai::transaction::{NotPruned, Output, Timelock, TransactionPrefix};
 
     use super::*;
@@ -46,7 +46,7 @@ mod test {
         let input = Input::ToKey {
             amount: Some(u64::MAX),
             key_offsets: vec![],
-            key_image: EdwardsPoint::default(),
+            key_image: CompressedEdwardsY::default(),
         };
 
         let output = Output {

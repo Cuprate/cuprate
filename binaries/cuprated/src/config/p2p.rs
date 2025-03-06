@@ -47,8 +47,8 @@ impl From<BlockDownloaderConfig> for cuprate_p2p::block_downloader::BlockDownloa
 impl Default for BlockDownloaderConfig {
     fn default() -> Self {
         Self {
-            buffer_bytes: 50_000_000,
-            in_progress_queue_bytes: 50_000_000,
+            buffer_bytes: 1_000_000_000,
+            in_progress_queue_bytes: 500_000_000,
             check_client_pool_interval: Duration::from_secs(30),
             target_batch_bytes: 10_000_000,
         }
