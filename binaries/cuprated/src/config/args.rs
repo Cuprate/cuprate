@@ -32,7 +32,7 @@ pub struct Args {
     #[arg(long)]
     pub generate_config: bool,
 
-    /// Stops the missing config waring and startup delay if a config file is missing.
+    /// Stops the missing config warning and startup delay if a config file is missing.
     #[arg(long)]
     pub skip_config_warning: bool,
 

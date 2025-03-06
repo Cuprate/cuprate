@@ -28,7 +28,7 @@ pub const DEFAULT_CONFIG_WARNING: &str = formatcp!(
     "WARNING: no config file found, using default config.\
     \nThe default config may not be optimal for your setup, see the user book here: https://user.cuprate.org/.\
     \nPausing startup for {} seconds. \
-    \nUse the `--skip-config-warning` arg to skip this delay if you relly want to use the default.",
+    \nUse the `--skip-config-warning` arg to skip this delay if you really want to use the default.",
     DEFAULT_CONFIG_STARTUP_DELAY.as_secs()
 );
 
