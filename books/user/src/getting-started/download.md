@@ -1,7 +1,9 @@
-# Pre-built binaries
-Cuprate offers binaries for `cuprated` for the platforms listed in [`Platform support`](../platform.md).
+# Download
+Cuprate offers pre-built binaries for `cuprated` for the platforms listed in [`Platform support`](../platform.md).
 
 These are built using [GitHub CI](https://github.com/Cuprate/cuprate/blob/main/.github/workflows/ci.yml).
+
+All release files are archived and also available at <https://archive.cuprate.org>.
 
 To build `cuprated` from source code instead, continue to [`Building from source`](./source.md).
 

@@ -1,7 +1,7 @@
 <div align="center">
 <img src="images/CuprateLogo.svg" width="50%"/>
 
-[Cuprate](https://github.com/Cuprate/cuprate) is a [Monero](https://getmonero.org) node implementation that is focused on being fast, user-friendly, and backwards compatible with [`monerod`](https://github.com/monero-project/monero).
+[Cuprate](https://github.com/Cuprate/cuprate) is an alternative and independent [Monero](https://getmonero.org) node implementation that is focused on being fast, user-friendly, and backwards compatible with [`monerod`](https://github.com/monero-project/monero).
 
 This project is currently a work-in-progress; the `cuprated` node can be ran by users although it is not yet ready for production. This book contains brief sections documenting `cuprated` usage, however, be aware that it is **incomplete** and missing sections.
 
@@ -17,22 +17,33 @@ Frequently asked questions about Cuprate.
 ## Who?
 Cuprate was started by [SyntheticBird45](https://github.com/SyntheticBird45) in [early 2023](https://github.com/Cuprate/cuprate/commit/2c7cb27548c727550ce4684cb31d0eafcf852c8e) and was later joined by [boog900](https://github.com/boog900), [hinto-janai](https://github.com/hinto-janai), and [other contributors](https://github.com/Cuprate/cuprate/graphs/contributors).
 
-## Why?
-TODO
+A few Cuprate contributors are funded by Monero's [Community Crowdfunding System](http://ccs.getmonero.org) to work on Cuprate and occasionally `monerod`.
 
-- clearing technical debt
-- modern programming language improvements
-- modular libraries
-- node decentralization
+## What is `cuprated`?
+`monerod` is the [daemon](https://en.wikipedia.org/wiki/Daemon_(computing)) of the Monero project, the Monero node.
+
+`cuprated` is the daemon of the Cuprate project, the Cuprate node.
+
+Both operate on the same network, the Monero network, and are responsible for roughly the same tasks.
+
+For more information on the role of alternative node implementations, see:
+- <https://clientdiversity.org>
+- <https://bchfaq.com/knowledge-base/what-are-the-full-node-implementations-for-bitcoin-cash>
+- <https://zfnd.org/zebra-stable-release>
+
+## Does `cuprated` replace `monerod`?
+No.
+
+`cuprated` cannot currently replace `monerod` in production environments. With that said, there will be practical performance benefits for users to use `cuprated` eventually.
 
 ## Is it safe to run `cuprated`?
 **⚠️ This project is still in development; do NOT use `cuprated` for any serious purposes ⚠️**
 
-With that said, `cuprated` is fine to run currently for casual purposes and has a similar attack surface to other network connected services.
+`cuprated` is fine to run for casual purposes and has a similar attack surface to other network connected services.
 
 See [`Resources`](./resources/intro.md) for information on what system resources `cuprated` will use.
 
-## Where are files located?
+## What files does `cuprated` create?
 See [`Resources/Disk`](./resources/disk.md).
 
 ## What can `cuprated` currently do?
@@ -65,7 +76,7 @@ As of March 4th 2025, `cuprated`'s database is ~240GB in size.
 
 For reference, `monerod`'s database is ~200GB in size.
 
-This is planned to be improved in the future after other big features have been added.
+This is planned to be improved in the future.
 
 ## Is the database compatible with `monerod`?
 No.
