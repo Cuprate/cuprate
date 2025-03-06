@@ -140,3 +140,8 @@ pub fn modify_stdout_output(f: impl FnOnce(&mut CupratedTracingFilter)) {
 pub fn modify_file_output(f: impl FnOnce(&mut CupratedTracingFilter)) {
     FILE_WRITER_FILTER_HANDLE.get().unwrap().modify(f).unwrap();
 }
+
+/// Prints some text using [`eprintln`], with [`nu_ansi_term::Color::Red`] applied.
+pub fn eprintln_red(s: &str) {
+    eprintln!("{}", nu_ansi_term::Color::Red.bold().paint(s));
+}
