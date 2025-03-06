@@ -183,3 +183,35 @@ impl Config {
         self.p2p.block_downloader.clone().into()
     }
 }
+
+#[cfg(test)]
+mod test {
+    use toml::from_str;
+
+    use crate::constants::EXAMPLE_CONFIG;
+
+    use super::*;
+
+    /// Tests the latest config is the `Default`.
+    #[test]
+    fn config_latest() {
+        let config: Config = from_str(EXAMPLE_CONFIG).unwrap();
+        assert_eq!(config, Config::default());
+    }
+
+    /// Tests backwards compatibility.
+    #[test]
+    fn config_backwards_compat() {
+        // (De)serialization tests.
+        #[expect(
+            clippy::single_element_loop,
+            reason = "Remove after adding other versions"
+        )]
+        for version in ["0.0.1"] {
+            let path = format!("config/{version}.toml");
+            println!("Testing config serde backwards compat: {path}");
+            let string = read_to_string(path).unwrap();
+            from_str::<Config>(&string).unwrap();
+        }
+    }
+}
