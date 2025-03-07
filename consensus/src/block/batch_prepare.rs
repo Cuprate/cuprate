@@ -5,22 +5,22 @@ use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
-use cuprate_consensus_context::{rx_vms::RandomXVm, BlockchainContextService};
+use cuprate_consensus_context::{BlockchainContextService, rx_vms::RandomXVm};
 use cuprate_consensus_rules::{
-    blocks::{check_block_pow, is_randomx_seed_height, randomx_seed_height, BlockError},
+    ConsensusError, HardFork,
+    blocks::{BlockError, check_block_pow, is_randomx_seed_height, randomx_seed_height},
     hard_forks::HardForkError,
     miner_tx::MinerTxError,
-    ConsensusError, HardFork,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_types::{output_cache::OutputCache, TransactionVerificationData};
+use cuprate_types::{TransactionVerificationData, output_cache::OutputCache};
 
 use crate::{
-    batch_verifier::MultiThreadedBatchVerifier,
-    block::{free::order_transactions, PreparedBlock, PreparedBlockExPow},
-    transactions::{check_kis_unique, contextual_data::get_output_cache, start_tx_verification},
-    BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
     __private::Database,
+    BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
+    batch_verifier::MultiThreadedBatchVerifier,
+    block::{PreparedBlock, PreparedBlockExPow, free::order_transactions},
+    transactions::{check_kis_unique, contextual_data::get_output_cache, start_tx_verification},
 };
 
 /// Cached state created when batch preparing a group of blocks.

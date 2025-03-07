@@ -14,7 +14,7 @@
 //! # Traits
 //! This module also contains a set of traits for
 //! accessing _all_ tables defined here at once.
-use cuprate_database::{define_tables, StorableVec};
+use cuprate_database::{StorableVec, define_tables};
 
 use crate::types::{
     KeyImage, RawCachedVerificationState, TransactionBlobHash, TransactionHash, TransactionInfo,

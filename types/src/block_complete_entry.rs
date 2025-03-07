@@ -10,9 +10,8 @@ use cuprate_fixed_bytes::ByteArray;
 
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::{
-    epee_object,
+    EpeeValue, InnerMarker, epee_object,
     macros::bytes::{Buf, BufMut},
-    EpeeValue, InnerMarker,
 };
 
 //---------------------------------------------------------------------------------------------------- BlockCompleteEntry

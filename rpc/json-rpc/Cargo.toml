@@ -1,7 +1,7 @@
 [package]
 name        = "cuprate-json-rpc"
 version     = "0.0.0"
-edition     = "2021"
+edition     = "2024"
 description = "JSON-RPC 2.0 implementation"
 license     = "MIT"
 authors     = ["hinto-janai"]

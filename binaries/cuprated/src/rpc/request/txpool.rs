@@ -2,16 +2,16 @@
 
 use std::convert::Infallible;
 
-use anyhow::{anyhow, Error};
+use anyhow::{Error, anyhow};
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_txpool::{
-    service::{
-        interface::{TxpoolReadRequest, TxpoolReadResponse},
-        TxpoolReadHandle,
-    },
     TxEntry,
+    service::{
+        TxpoolReadHandle,
+        interface::{TxpoolReadRequest, TxpoolReadResponse},
+    },
 };
 
 // FIXME: use `anyhow::Error` over `tower::BoxError` in txpool.

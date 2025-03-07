@@ -1,18 +1,18 @@
 use std::{
     future::Future,
     pin::Pin,
-    task::{ready, Context, Poll},
+    task::{Context, Poll, ready},
 };
 
 use bytes::Bytes;
-use futures::{future::BoxFuture, FutureExt, Stream};
+use futures::{FutureExt, Stream, future::BoxFuture};
 use tower::Service;
 
-use cuprate_dandelion_tower::{traits::StemRequest, OutboundPeer};
+use cuprate_dandelion_tower::{OutboundPeer, traits::StemRequest};
 use cuprate_p2p::{ClientDropGuard, NetworkInterface, PeerSetRequest, PeerSetResponse};
 use cuprate_p2p_core::{
-    client::{Client, InternalPeerID},
     BroadcastMessage, ClearNet, NetworkZone, PeerRequest, ProtocolRequest,
+    client::{Client, InternalPeerID},
 };
 use cuprate_wire::protocol::NewTransactions;
 
@@ -98,7 +98,7 @@ impl<N: NetworkZone> Service<StemRequest<DandelionTx>> for StemPeerService<N> {
         self.0
             .broadcast_client()
             .call(BroadcastMessage::NewTransactions(NewTransactions {
-                txs: vec![req.0 .0],
+                txs: vec![req.0.0],
                 dandelionpp_fluff: false,
                 padding: Bytes::new(),
             }))

@@ -2,9 +2,9 @@
 //!
 //! This module handles broadcasting messages to multiple peers with the [`BroadcastSvc`].
 use std::{
-    future::{ready, Future, Ready},
-    pin::{pin, Pin},
-    task::{ready, Context, Poll},
+    future::{Future, Ready, ready},
+    pin::{Pin, pin},
+    task::{Context, Poll, ready},
     time::Duration,
 };
 
@@ -17,13 +17,13 @@ use tokio::{
         broadcast::{self, error::TryRecvError},
         watch,
     },
-    time::{sleep_until, Instant, Sleep},
+    time::{Instant, Sleep, sleep_until},
 };
 use tokio_stream::wrappers::WatchStream;
 use tower::Service;
 
 use cuprate_p2p_core::{
-    client::InternalPeerID, BroadcastMessage, ConnectionDirection, NetworkZone,
+    BroadcastMessage, ConnectionDirection, NetworkZone, client::InternalPeerID,
 };
 use cuprate_types::{BlockCompleteEntry, TransactionBlobs};
 use cuprate_wire::protocol::{NewFluffyBlock, NewTransactions};
@@ -402,10 +402,10 @@ mod tests {
     use tokio::time::timeout;
     use tower::{Service, ServiceExt};
 
-    use cuprate_p2p_core::{client::InternalPeerID, BroadcastMessage, ConnectionDirection};
+    use cuprate_p2p_core::{BroadcastMessage, ConnectionDirection, client::InternalPeerID};
     use cuprate_test_utils::test_netzone::TestNetZone;
 
-    use super::{init_broadcast_channels, BroadcastConfig, BroadcastRequest};
+    use super::{BroadcastConfig, BroadcastRequest, init_broadcast_channels};
 
     const TEST_CONFIG: BroadcastConfig = BroadcastConfig {
         diffusion_flush_average_seconds_outbound: Duration::from_millis(100),
@@ -533,11 +533,13 @@ mod tests {
         match_tx(next, &[Bytes::from_static(&[1])]);
 
         // Make sure the streams with the same id as the one we said sent the tx do not get the tx to broadcast.
-        assert!(timeout(
-            Duration::from_secs(2),
-            futures::future::select(inbound_stream_from.next(), outbound_stream_from.next())
-        )
-        .await
-        .is_err());
+        assert!(
+            timeout(
+                Duration::from_secs(2),
+                futures::future::select(inbound_stream_from.next(), outbound_stream_from.next())
+            )
+            .await
+            .is_err()
+        );
     }
 }

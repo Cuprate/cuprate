@@ -14,18 +14,18 @@ use tracing::Instrument;
 use cuprate_consensus_rules::blocks::ContextToVerifyBlock;
 use cuprate_helper::cast::u64_to_usize;
 use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain, HardFork,
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
 };
 
 use crate::{
-    alt_chains::{get_alt_chain_difficulty_cache, get_alt_chain_weight_cache, AltChainMap},
+    BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW, BlockChainContextRequest, BlockChainContextResponse,
+    BlockchainContext, ContextCacheError, ContextConfig, Database,
+    alt_chains::{AltChainMap, get_alt_chain_difficulty_cache, get_alt_chain_weight_cache},
     difficulty::DifficultyCache,
     hardforks::HardForkState,
     rx_vms,
     weight::BlockWeightsCache,
-    BlockChainContextRequest, BlockChainContextResponse, BlockchainContext, ContextCacheError,
-    ContextConfig, Database, BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
 };
 
 /// A request from the context service to the context task.

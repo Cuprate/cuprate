@@ -4,7 +4,7 @@ use cnaes::{AES_BLOCK_SIZE, CN_AES_KEY_SIZE};
 use digest::Digest as _;
 use groestl::Groestl256;
 use jh::Jh256;
-use skein::{consts::U32, Skein512};
+use skein::{Skein512, consts::U32};
 
 use crate::{
     blake256::{Blake256, Digest as _},
@@ -358,7 +358,7 @@ mod tests {
     #[test]
     fn test_keccak1600() {
         let input: [u8; 44] = hex_to_array(
-            "5468697320697320612074657374205468697320697320612074657374205468697320697320612074657374"
+            "5468697320697320612074657374205468697320697320612074657374205468697320697320612074657374",
         );
         let mut output = [0_u8; KECCAK1600_BYTE_SIZE];
         keccak1600(&input, &mut output);
@@ -399,7 +399,7 @@ mod tests {
     #[test]
     fn test_hash_permutations() {
         let mut state_bytes: [u8; KECCAK1600_BYTE_SIZE] = hex_to_array(
-            "af6fe96f8cb409bdd2a61fb837e346f1a28007b0f078a8d68bc1224b6fcfcc3c39f1244db8c0af06e94173db4a54038a2f7a6a9c729928b5ec79668a30cbf5f2622fea9d7982e587e6612c4e6a1d28fdbaba4af1aea99e63322a632d514f35b4fc5cf231e9a6328efb5eb22ad2cfabe571ee8b6ef7dbc64f63185d54a771bdccd207b75e10547b4928f5dcb309192d88bf313d8bc53c8fe71da7ea93355d266c5cc8d39a1273e44b074d143849a3b302edad73c2e61f936c502f6bbabb972b616062b66d56cd8136"
+            "af6fe96f8cb409bdd2a61fb837e346f1a28007b0f078a8d68bc1224b6fcfcc3c39f1244db8c0af06e94173db4a54038a2f7a6a9c729928b5ec79668a30cbf5f2622fea9d7982e587e6612c4e6a1d28fdbaba4af1aea99e63322a632d514f35b4fc5cf231e9a6328efb5eb22ad2cfabe571ee8b6ef7dbc64f63185d54a771bdccd207b75e10547b4928f5dcb309192d88bf313d8bc53c8fe71da7ea93355d266c5cc8d39a1273e44b074d143849a3b302edad73c2e61f936c502f6bbabb972b616062b66d56cd8136",
         );
         const EXPECTED: &str = "31e2fb6eb8e2e376d42a53bc88166378f2a23cf9be54645ff69e8ade3aa4b7ad35040d0e3ad0ee0d8562d53a51acdf14f44de5c097c48a29f63676346194b3af13c3c45af214335a14329491081068a32ea29b3a6856e0efa737dff49d3b5dbf3f7847f058bb41d36347c19d5cd5bdb354ac64a86156c8194e19b0f62d109a8112024a7734730a2bb221c137d3034204e1e57d9cec9689bc199de684f38aeed4624b84c39675a4755ce9b69fde9d36cabd12f1aef4a5b2bb6c6126900799f2109e9b6b55d7bb3ff5";
         hash_permutation(&mut state_bytes);

@@ -1,9 +1,9 @@
 use monero_serai::{
-    ringct::{bulletproofs::Bulletproof, RctType},
+    ringct::{RctType, bulletproofs::Bulletproof},
     transaction::{Input, Transaction},
 };
 
-use cuprate_consensus_rules::{transactions::TransactionError, ConsensusError};
+use cuprate_consensus_rules::{ConsensusError, transactions::TransactionError};
 use cuprate_types::{CachedVerificationState, TransactionVerificationData, TxVersion};
 
 /// Creates a new [`TransactionVerificationData`] from a [`Transaction`].

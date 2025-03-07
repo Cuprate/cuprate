@@ -211,7 +211,7 @@ mod tests {
     use std::num::NonZero;
 
     use cuprate_database::{Env, EnvInner, TxRw};
-    use cuprate_test_utils::data::{BLOCK_V16_TX0, BLOCK_V1_TX2, BLOCK_V9_TX3};
+    use cuprate_test_utils::data::{BLOCK_V1_TX2, BLOCK_V9_TX3, BLOCK_V16_TX0};
     use cuprate_types::{Chain, ChainId};
 
     use crate::{

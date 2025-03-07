@@ -27,11 +27,11 @@
 //!```
 //!
 use cuprate_wire::{
+    AdminRequestMessage, AdminResponseMessage,
     protocol::{
         ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest,
         GetObjectsResponse, GetTxPoolCompliment, NewBlock, NewFluffyBlock, NewTransactions,
     },
-    AdminRequestMessage, AdminResponseMessage,
 };
 
 mod try_from;

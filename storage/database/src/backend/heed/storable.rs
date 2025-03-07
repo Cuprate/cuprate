@@ -5,7 +5,7 @@ use std::{borrow::Cow, cmp::Ordering, marker::PhantomData};
 
 use heed::{BoxedError, BytesDecode, BytesEncode};
 
-use crate::{storable::Storable, Key};
+use crate::{Key, storable::Storable};
 
 //---------------------------------------------------------------------------------------------------- StorableHeed
 /// The glue struct that implements `heed`'s (de)serialization

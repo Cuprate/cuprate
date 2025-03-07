@@ -15,14 +15,14 @@ use cuprate_test_utils::{
     monerod::monerod,
     test_netzone::{TestNetZone, TestNetZoneAddr},
 };
-use cuprate_wire::{common::PeerSupportFlags, BasicNodeData, MoneroWireCodec};
+use cuprate_wire::{BasicNodeData, MoneroWireCodec, common::PeerSupportFlags};
 
 use cuprate_p2p_core::{
-    client::{
-        handshaker::HandshakerBuilder, ConnectRequest, Connector, DoHandshakeRequest,
-        InternalPeerID,
-    },
     ClearNet, ClearNetServerCfg, ConnectionDirection, NetworkZone,
+    client::{
+        ConnectRequest, Connector, DoHandshakeRequest, InternalPeerID,
+        handshaker::HandshakerBuilder,
+    },
 };
 
 #[tokio::test]

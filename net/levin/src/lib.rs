@@ -159,7 +159,7 @@ impl MessageType {
             _ => {
                 return Err(BucketError::InvalidHeaderFlags(
                     "Unable to assign a message type to this bucket",
-                ))
+                ));
             }
         })
     }

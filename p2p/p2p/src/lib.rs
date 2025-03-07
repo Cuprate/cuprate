@@ -6,14 +6,14 @@ use std::sync::Arc;
 
 use futures::FutureExt;
 use tokio::{sync::mpsc, task::JoinSet};
-use tower::{buffer::Buffer, util::BoxCloneService, Service, ServiceExt};
-use tracing::{instrument, Instrument, Span};
+use tower::{Service, ServiceExt, buffer::Buffer, util::BoxCloneService};
+use tracing::{Instrument, Span, instrument};
 
 use cuprate_async_buffer::BufferStream;
 use cuprate_p2p_core::{
+    CoreSyncSvc, NetworkZone, ProtocolRequestHandlerMaker,
     client::Connector,
     services::{AddressBookRequest, AddressBookResponse},
-    CoreSyncSvc, NetworkZone, ProtocolRequestHandlerMaker,
 };
 
 pub mod block_downloader;
@@ -168,7 +168,7 @@ impl<N: NetworkZone> NetworkInterface<N> {
         config: BlockDownloaderConfig,
     ) -> BufferStream<BlockBatch>
     where
-        C: Service<ChainSvcRequest, Response = ChainSvcResponse, Error = tower::BoxError>
+        C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>
             + Send
             + 'static,
         C::Future: Send + 'static,

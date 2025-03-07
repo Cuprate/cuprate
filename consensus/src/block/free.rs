@@ -28,11 +28,13 @@ pub(crate) fn order_transactions(
         }
     }
 
-    debug_assert!(block
-        .transactions
-        .iter()
-        .zip(txs.iter())
-        .all(|(tx_hash, tx)| tx_hash == &tx.tx_hash));
+    debug_assert!(
+        block
+            .transactions
+            .iter()
+            .zip(txs.iter())
+            .all(|(tx_hash, tx)| tx_hash == &tx.tx_hash)
+    );
 
     Ok(())
 }

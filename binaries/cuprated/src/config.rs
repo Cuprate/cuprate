@@ -1,6 +1,6 @@
 //! cuprated config
 use std::{
-    fs::{read_to_string, File},
+    fs::{File, read_to_string},
     io,
     path::Path,
     time::Duration,
@@ -82,6 +82,8 @@ pub fn read_config_and_args() -> Config {
 pub struct Config {
     /// The network we should run on.
     network: Network,
+
+    pub no_fast_sync: bool,
 
     /// [`tracing`] config.
     pub tracing: TracingConfig,

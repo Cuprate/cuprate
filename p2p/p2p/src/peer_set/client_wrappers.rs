@@ -1,14 +1,14 @@
 use std::{
     ops::{Deref, DerefMut},
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
 };
 
 use cuprate_p2p_core::{
-    client::{Client, WeakClient},
     NetworkZone,
+    client::{Client, WeakClient},
 };
 
 /// A client stored in the peer-set.

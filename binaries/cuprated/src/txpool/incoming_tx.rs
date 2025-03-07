@@ -5,29 +5,29 @@ use std::{
 };
 
 use bytes::Bytes;
-use futures::{future::BoxFuture, FutureExt};
+use futures::{FutureExt, future::BoxFuture};
 use monero_serai::transaction::Transaction;
 use tower::{BoxError, Service, ServiceExt};
 
 use cuprate_blockchain::service::BlockchainReadHandle;
-use cuprate_consensus::transactions::{start_tx_verification, PrepTransactions};
+use cuprate_consensus::transactions::{PrepTransactions, start_tx_verification};
 use cuprate_consensus::{
-    transactions::new_tx_verification_data, BlockChainContextRequest, BlockChainContextResponse,
-    BlockchainContextService, ExtendedConsensusError,
+    BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
+    ExtendedConsensusError, transactions::new_tx_verification_data,
 };
 use cuprate_dandelion_tower::{
-    pool::{DandelionPoolService, IncomingTxBuilder},
     State, TxState,
+    pool::{DandelionPoolService, IncomingTxBuilder},
 };
 use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_p2p::NetworkInterface;
 use cuprate_p2p_core::ClearNet;
 use cuprate_txpool::{
     service::{
+        TxpoolReadHandle, TxpoolWriteHandle,
         interface::{
             TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest, TxpoolWriteResponse,
         },
-        TxpoolReadHandle, TxpoolWriteHandle,
     },
     transaction_blob_hash,
 };

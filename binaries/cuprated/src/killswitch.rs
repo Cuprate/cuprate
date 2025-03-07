@@ -46,7 +46,9 @@ fn killswitch() {
 
     // Prints a generic killswitch message.
     let print_killswitch_msg = |msg| {
-        eprintln!("killswitch: {msg}. (current_ts: {current_ts}, killswitch_activation_timestamp: {KILLSWITCH_ACTIVATION_TIMESTAMP}). `cuprated` will now exit. For more details on why this exists, see: <https://github.com/Cuprate/cuprate/pull/365>.");
+        eprintln!(
+            "killswitch: {msg}. (current_ts: {current_ts}, killswitch_activation_timestamp: {KILLSWITCH_ACTIVATION_TIMESTAMP}). `cuprated` will now exit. For more details on why this exists, see: <https://github.com/Cuprate/cuprate/pull/365>."
+        );
     };
 
     if current_ts < SYSTEM_CLOCK_SANITY_TIMESTAMP {

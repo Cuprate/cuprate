@@ -1,7 +1,7 @@
 [package]
 name = "cuprate-cryptonight"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "A wrapper around Monero's CryptoNight hash function."
 license = "MIT"
 authors = ["dimalinux", "Boog900", "The Monero Project"]

@@ -1,10 +1,11 @@
 //! Other JSON endpoint route functions.
 
 //---------------------------------------------------------------------------------------------------- Import
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{Json, extract::State, http::StatusCode};
 use tower::ServiceExt;
 
 use cuprate_rpc_types::{
+    RpcCall,
     other::{
         GetAltBlocksHashesRequest, GetAltBlocksHashesResponse, GetHeightRequest, GetHeightResponse,
         GetLimitRequest, GetLimitResponse, GetNetStatsRequest, GetNetStatsResponse, GetOutsRequest,
@@ -22,7 +23,6 @@ use cuprate_rpc_types::{
         StopDaemonRequest, StopDaemonResponse, StopMiningRequest, StopMiningResponse,
         UpdateRequest, UpdateResponse,
     },
-    RpcCall,
 };
 
 use crate::rpc_handler::RpcHandler;

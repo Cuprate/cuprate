@@ -5,12 +5,12 @@
 
 use std::fs;
 
-use borsh::{from_slice, to_vec, BorshDeserialize, BorshSerialize};
-use tokio::task::{spawn_blocking, JoinHandle};
+use borsh::{BorshDeserialize, BorshSerialize, from_slice, to_vec};
+use tokio::task::{JoinHandle, spawn_blocking};
 
-use cuprate_p2p_core::{services::ZoneSpecificPeerListEntryBase, NetZoneAddress};
+use cuprate_p2p_core::{NetZoneAddress, services::ZoneSpecificPeerListEntryBase};
 
-use crate::{peer_list::PeerList, AddressBookConfig, BorshNetworkZone};
+use crate::{AddressBookConfig, BorshNetworkZone, peer_list::PeerList};
 
 // TODO: store anchor and ban list.
 
@@ -70,7 +70,7 @@ pub(crate) async fn read_peers_from_disk<Z: BorshNetworkZone>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::peer_list::{tests::make_fake_peer_list, PeerList};
+    use crate::peer_list::{PeerList, tests::make_fake_peer_list};
 
     use cuprate_test_utils::test_netzone::{TestNetZone, TestNetZoneAddr};
 

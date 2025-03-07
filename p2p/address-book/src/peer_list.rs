@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 use rand::prelude::*;
 
 use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
-use cuprate_p2p_core::{services::ZoneSpecificPeerListEntryBase, NetZoneAddress, NetworkZone};
+use cuprate_p2p_core::{NetZoneAddress, NetworkZone, services::ZoneSpecificPeerListEntryBase};
 use cuprate_pruning::PruningSeed;
 
 #[cfg(test)]

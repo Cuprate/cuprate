@@ -1,4 +1,5 @@
 use std::{
+    collections::VecDeque,
     fmt::{Debug, Formatter},
     future::Future,
     pin::Pin,
@@ -15,22 +16,22 @@ use monero_serai::{
 };
 use proptest::{collection::vec, prelude::*};
 use tokio::{sync::mpsc, time::timeout};
-use tower::{buffer::Buffer, service_fn, Service, ServiceExt};
+use tower::{Service, ServiceExt, buffer::Buffer, service_fn};
 
 use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_p2p_core::{
-    client::{mock_client, Client, InternalPeerID, PeerInformation},
     ClearNet, ConnectionDirection, PeerRequest, PeerResponse, ProtocolRequest, ProtocolResponse,
+    client::{Client, InternalPeerID, PeerInformation, mock_client},
 };
 use cuprate_pruning::PruningSeed;
 use cuprate_types::{BlockCompleteEntry, TransactionBlobs};
 use cuprate_wire::{
-    protocol::{ChainResponse, GetObjectsResponse},
     CoreSyncData,
+    protocol::{ChainResponse, GetObjectsResponse},
 };
 
 use crate::{
-    block_downloader::{download_blocks, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
+    block_downloader::{BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse, download_blocks},
     peer_set::PeerSet,
 };
 
@@ -269,8 +270,8 @@ struct OurChainSvc {
     genesis: [u8; 32],
 }
 
-impl Service<ChainSvcRequest> for OurChainSvc {
-    type Response = ChainSvcResponse;
+impl Service<ChainSvcRequest<ClearNet>> for OurChainSvc {
+    type Response = ChainSvcResponse<ClearNet>;
     type Error = tower::BoxError;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
@@ -279,7 +280,7 @@ impl Service<ChainSvcRequest> for OurChainSvc {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: ChainSvcRequest) -> Self::Future {
+    fn call(&mut self, req: ChainSvcRequest<ClearNet>) -> Self::Future {
         let genesis = self.genesis;
 
         async move {
@@ -292,6 +293,10 @@ impl Service<ChainSvcRequest> for OurChainSvc {
                     ChainSvcResponse::FindFirstUnknown(Some((1, 1)))
                 }
                 ChainSvcRequest::CumulativeDifficulty => ChainSvcResponse::CumulativeDifficulty(1),
+                ChainSvcRequest::ValidateEntries(valid, _) => ChainSvcResponse::ValidateEntries {
+                    valid,
+                    unknown: VecDeque::new(),
+                },
             })
         }
         .boxed()

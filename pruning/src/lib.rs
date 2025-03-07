@@ -538,12 +538,14 @@ mod tests {
         }
 
         // Block shouldn't be pruned
-        assert!(get_block_pruning_stripe(
-            blockchain_height - 5500,
-            blockchain_height,
-            CRYPTONOTE_PRUNING_LOG_STRIPES
-        )
-        .is_none());
+        assert!(
+            get_block_pruning_stripe(
+                blockchain_height - 5500,
+                blockchain_height,
+                CRYPTONOTE_PRUNING_LOG_STRIPES
+            )
+            .is_none()
+        );
     }
 
     #[test]

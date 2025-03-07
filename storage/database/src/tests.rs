@@ -7,7 +7,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::borrow::Cow;
 
-use crate::{config::ConfigBuilder, table::Table, ConcreteEnv, Env};
+use crate::{ConcreteEnv, Env, config::ConfigBuilder, table::Table};
 
 //---------------------------------------------------------------------------------------------------- struct
 /// A test table.

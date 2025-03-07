@@ -6,10 +6,9 @@ use monero_serai::block::Block;
 use cuprate_cryptonight::*;
 
 use crate::{
-    check_block_version_vote, current_unix_timestamp,
+    HardFork, check_block_version_vote, current_unix_timestamp,
     hard_forks::HardForkError,
-    miner_tx::{check_miner_tx, MinerTxError},
-    HardFork,
+    miner_tx::{MinerTxError, check_miner_tx},
 };
 
 const BLOCK_SIZE_SANITY_LEEWAY: usize = 100;

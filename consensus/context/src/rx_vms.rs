@@ -8,7 +8,7 @@ use std::{
     sync::Arc,
 };
 
-use futures::{stream::FuturesOrdered, StreamExt};
+use futures::{StreamExt, stream::FuturesOrdered};
 use randomx_rs::{RandomXCache, RandomXError, RandomXFlag, RandomXVM as VmInner};
 use rayon::prelude::*;
 use thread_local::ThreadLocal;
@@ -17,13 +17,13 @@ use tracing::instrument;
 
 use cuprate_consensus_rules::blocks::randomx_seed_height;
 use cuprate_consensus_rules::{
-    blocks::{is_randomx_seed_height, RandomX, RX_SEEDHASH_EPOCH_BLOCKS},
     HardFork,
+    blocks::{RX_SEEDHASH_EPOCH_BLOCKS, RandomX, is_randomx_seed_height},
 };
 use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain,
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
 };
 
 use crate::{ContextCacheError, Database};

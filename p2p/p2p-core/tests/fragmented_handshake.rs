@@ -12,8 +12,8 @@ use std::{
 use futures::{Stream, StreamExt};
 use tokio::{
     net::{
-        tcp::{OwnedReadHalf, OwnedWriteHalf},
         TcpListener, TcpStream,
+        tcp::{OwnedReadHalf, OwnedWriteHalf},
     },
     time::timeout,
 };
@@ -26,17 +26,17 @@ use tower::{Service, ServiceExt};
 use cuprate_helper::network::Network;
 use cuprate_test_utils::monerod::monerod;
 use cuprate_wire::{
-    common::PeerSupportFlags,
-    levin::{message::make_fragmented_messages, LevinMessage, Protocol},
     BasicNodeData, Message, MoneroWireCodec,
+    common::PeerSupportFlags,
+    levin::{LevinMessage, Protocol, message::make_fragmented_messages},
 };
 
 use cuprate_p2p_core::{
-    client::{
-        handshaker::HandshakerBuilder, ConnectRequest, Connector, DoHandshakeRequest,
-        InternalPeerID,
-    },
     ClearNetServerCfg, ConnectionDirection, NetworkZone,
+    client::{
+        ConnectRequest, Connector, DoHandshakeRequest, InternalPeerID,
+        handshaker::HandshakerBuilder,
+    },
 };
 
 /// A network zone equal to clear net where every message sent is turned into a fragmented message.

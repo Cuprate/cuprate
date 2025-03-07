@@ -7,7 +7,7 @@ use cuprate_p2p_core::handles::HandleBuilder;
 use cuprate_pruning::PruningSeed;
 
 use super::{AddressBook, ConnectionPeerEntry, InternalPeerID};
-use crate::{peer_list::tests::make_fake_peer_list, AddressBookConfig, AddressBookError};
+use crate::{AddressBookConfig, AddressBookError, peer_list::tests::make_fake_peer_list};
 
 use cuprate_test_utils::test_netzone::{TestNetZone, TestNetZoneAddr};
 

@@ -12,7 +12,7 @@ use std::{
 use rayon::ThreadPool;
 
 use cuprate_database::{ConcreteEnv, DatabaseRo, DbResult, Env, EnvInner, RuntimeError};
-use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
+use cuprate_database_service::{DatabaseReadService, ReaderThreads, init_thread_pool};
 
 use crate::{
     ops::{get_transaction_verification_data, in_stem_pool},

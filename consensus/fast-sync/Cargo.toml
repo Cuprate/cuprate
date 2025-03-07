@@ -1,27 +1,25 @@
 [package]
 name = "cuprate-fast-sync"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 
 [[bin]]
-name = "cuprate-fast-sync-create-hashes"
+name = "create-fs-file"
 path = "src/create.rs"
 
 [dependencies]
 cuprate-blockchain          = { workspace = true }
 cuprate-consensus           = { workspace = true }
-cuprate-consensus-rules     = { workspace = true }
 cuprate-consensus-context   = { workspace = true }
 cuprate-types               = { workspace = true }
-cuprate-helper              = { workspace = true, features = ["cast"] }
+cuprate-p2p                 = { workspace = true }
+cuprate-p2p-core            = { workspace = true }
 
 clap         = { workspace = true, features = ["derive", "std"] }
 hex          = { workspace = true }
-hex-literal  = { workspace = true }
 monero-serai = { workspace = true }
-sha3         = { version = "0.10.8" }
-thiserror    = { workspace = true }
+blake3        = { workspace = true }
 tokio        = { workspace = true, features = ["full"] }
 tower        = { workspace = true }
 

@@ -12,17 +12,17 @@ use std::{
     hash::Hash,
     marker::PhantomData,
     pin::Pin,
-    task::{ready, Context, Poll},
+    task::{Context, Poll, ready},
     time::Instant,
 };
 
-use futures::{future::BoxFuture, FutureExt, TryFutureExt, TryStream};
+use futures::{FutureExt, TryFutureExt, TryStream, future::BoxFuture};
 use rand::{distributions::Bernoulli, prelude::*, thread_rng};
 use tower::Service;
 
 use crate::{
-    traits::{DiffuseRequest, StemRequest},
     DandelionConfig,
+    traits::{DiffuseRequest, StemRequest},
 };
 
 /// An error returned from the [`DandelionRouter`]
@@ -176,18 +176,21 @@ where
         };
 
         while self.stem_peers.len() < peers_needed {
-            match ready!(self
-                .outbound_peer_discover
-                .as_mut()
-                .try_poll_next(cx)
-                .map_err(DandelionRouterError::OutboundPeerStreamError))
+            match ready!(
+                self.outbound_peer_discover
+                    .as_mut()
+                    .try_poll_next(cx)
+                    .map_err(DandelionRouterError::OutboundPeerStreamError)
+            )
             .ok_or(DandelionRouterError::OutboundPeerDiscoverExited)??
             {
                 OutboundPeer::Peer(key, svc) => {
                     self.stem_peers.insert(key, svc);
                 }
                 OutboundPeer::Exhausted => {
-                    tracing::warn!("Failed to retrieve enough outbound peers for optimal dandelion++, privacy may be degraded.");
+                    tracing::warn!(
+                        "Failed to retrieve enough outbound peers for optimal dandelion++, privacy may be degraded."
+                    );
                     return Poll::Ready(Ok(()));
                 }
             }
@@ -239,7 +242,9 @@ where
 
     fn stem_local_tx(&mut self, tx: Tx) -> BoxFuture<'static, Result<State, DandelionRouterError>> {
         if self.stem_peers.is_empty() {
-            tracing::warn!("Stem peers are empty, no outbound connections to stem local tx to, fluffing instead, privacy will be degraded.");
+            tracing::warn!(
+                "Stem peers are empty, no outbound connections to stem local tx to, fluffing instead, privacy will be degraded."
+            );
             return self.fluff_tx(tx);
         }
 
@@ -328,10 +333,11 @@ where
         // now we have removed the failed peers check if we still have enough for the graph chosen.
         ready!(self.poll_prepare_graph(cx)?);
 
-        ready!(self
-            .broadcast_svc
-            .poll_ready(cx)
-            .map_err(DandelionRouterError::BroadcastError)?);
+        ready!(
+            self.broadcast_svc
+                .poll_ready(cx)
+                .map_err(DandelionRouterError::BroadcastError)?
+        );
 
         Poll::Ready(Ok(()))
     }

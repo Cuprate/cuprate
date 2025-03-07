@@ -75,6 +75,9 @@ pub(crate) const MAX_DOWNLOAD_FAILURES: usize = 5;
 /// The amount of empty chain entries to receive before we assume we have found the top of the chain.
 pub(crate) const EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED: usize = 5;
 
+/// The amount of most recent block batches we use to calculate batch size.
+pub(crate) const MOST_RECENT_BATCH_WEIGHTS_FOR_BATCH_SIZE: usize = 100;
+
 #[cfg(test)]
 mod tests {
     use super::*;

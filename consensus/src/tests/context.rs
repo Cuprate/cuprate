@@ -3,10 +3,10 @@ use proptest::{strategy::Strategy, test_runner::TestRunner};
 use tower::ServiceExt;
 
 use cuprate_consensus_context::{
-    initialize_blockchain_context, BlockChainContextRequest, ContextConfig, NewBlockData,
+    BlockChainContextRequest, ContextConfig, NewBlockData, initialize_blockchain_context,
 };
 
-use crate::{tests::mock_db::*, HardFork};
+use crate::{HardFork, tests::mock_db::*};
 
 pub(crate) mod data;
 mod difficulty;

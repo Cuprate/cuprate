@@ -8,8 +8,8 @@ use tracing::instrument;
 use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_p2p_core::{
-    handles::ConnectionHandle, NetworkZone, PeerRequest, PeerResponse, ProtocolRequest,
-    ProtocolResponse,
+    NetworkZone, PeerRequest, PeerResponse, ProtocolRequest, ProtocolResponse,
+    handles::ConnectionHandle,
 };
 use cuprate_wire::protocol::{GetObjectsRequest, GetObjectsResponse};
 

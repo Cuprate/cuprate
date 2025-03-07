@@ -234,30 +234,38 @@ mod test {
                         r#gen: Gen { height: 300000 },
                     }],
                     vout: vec![
-                      Output {
-                        amount: 47019296802,
-                        target: Target::Key {
-                          key: HexBytes::<32>(hex!("3c1dcbf5b485987ecef4596bb700e32cbc7bd05964e3888ffc05f8a46bf5fc33")),
-                        }
-                      },
-                      Output {
-                        amount: 200000000000,
-                        target: Target::Key {
-                          key: HexBytes::<32>(hex!("5810afc7a1b01a1c913eb6aab15d4a851cbc4a8cf0adf90bb80ac1a7ca9928aa")),
-                        }
-                      },
-                      Output {
-                        amount: 3000000000000,
-                        target: Target::Key {
-                          key: HexBytes::<32>(hex!("520f49c5f2ce8456dc1a565f35ed3a5ccfff3a1210b340870a57d2749a81a2df")),
-                        }
-                      },
-                      Output {
-                        amount: 10000000000000,
-                        target: Target::Key {
-                          key: HexBytes::<32>(hex!("44d7705e62c76c2e349a474df6724aa1d9932092002b03a94f9c19d9d12b9427")),
-                        }
-                      }
+                        Output {
+                            amount: 47019296802,
+                            target: Target::Key {
+                                key: HexBytes::<32>(hex!(
+                                    "3c1dcbf5b485987ecef4596bb700e32cbc7bd05964e3888ffc05f8a46bf5fc33"
+                                )),
+                            },
+                        },
+                        Output {
+                            amount: 200000000000,
+                            target: Target::Key {
+                                key: HexBytes::<32>(hex!(
+                                    "5810afc7a1b01a1c913eb6aab15d4a851cbc4a8cf0adf90bb80ac1a7ca9928aa"
+                                )),
+                            },
+                        },
+                        Output {
+                            amount: 3000000000000,
+                            target: Target::Key {
+                                key: HexBytes::<32>(hex!(
+                                    "520f49c5f2ce8456dc1a565f35ed3a5ccfff3a1210b340870a57d2749a81a2df"
+                                )),
+                            },
+                        },
+                        Output {
+                            amount: 10000000000000,
+                            target: Target::Key {
+                                key: HexBytes::<32>(hex!(
+                                    "44d7705e62c76c2e349a474df6724aa1d9932092002b03a94f9c19d9d12b9427"
+                                )),
+                            },
+                        },
                     ],
                     extra: vec![
                         1, 251, 8, 189, 254, 12, 213, 173, 108, 61, 156, 198, 144, 151, 31, 130,
@@ -297,8 +305,8 @@ mod test {
                         target: Target::TaggedKey {
                             tagged_key: TaggedKey {
                                 key: HexBytes::<32>(hex!(
-                                "8c0b16c6df02b9944b49f375d96a958a0fc5431c048879bb5bf25f64a1163b9e"
-                            )),
+                                    "8c0b16c6df02b9944b49f375d96a958a0fc5431c048879bb5bf25f64a1163b9e"
+                                )),
                                 view_tag: HexBytes::<1>(hex!("88")),
                             },
                         },

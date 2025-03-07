@@ -2,20 +2,20 @@ use futures::TryFutureExt;
 use tower::ServiceExt;
 
 use cuprate_wire::{
-    admin::{
-        PingResponse, SupportFlagsResponse, TimedSyncRequest, TimedSyncResponse,
-        PING_OK_RESPONSE_STATUS_TEXT,
-    },
     AdminRequestMessage, AdminResponseMessage, BasicNodeData,
+    admin::{
+        PING_OK_RESPONSE_STATUS_TEXT, PingResponse, SupportFlagsResponse, TimedSyncRequest,
+        TimedSyncResponse,
+    },
 };
 
 use crate::{
+    AddressBook, CoreSyncSvc, NetworkZone, PeerRequest, PeerResponse, ProtocolRequestHandler,
     client::PeerInformation,
     constants::MAX_PEERS_IN_PEER_LIST_MESSAGE,
     services::{
         AddressBookRequest, AddressBookResponse, CoreSyncDataRequest, CoreSyncDataResponse,
     },
-    AddressBook, CoreSyncSvc, NetworkZone, PeerRequest, PeerResponse, ProtocolRequestHandler,
 };
 
 #[derive(thiserror::Error, Debug, Copy, Clone, Eq, PartialEq)]

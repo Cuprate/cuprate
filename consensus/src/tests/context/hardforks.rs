@@ -1,6 +1,6 @@
 use proptest::{collection::vec, prelude::*};
 
-use cuprate_consensus_context::{hardforks::HardForkState, HardForkConfig};
+use cuprate_consensus_context::{HardForkConfig, hardforks::HardForkState};
 use cuprate_consensus_rules::hard_forks::{HFInfo, HFsInfo, HardFork, NUMB_OF_HARD_FORKS};
 
 use crate::tests::{

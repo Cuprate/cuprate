@@ -18,14 +18,14 @@ use std::{
 };
 
 use arc_swap::Cache;
-use futures::{channel::oneshot, FutureExt};
+use futures::{FutureExt, channel::oneshot};
 use monero_serai::block::Block;
 use tokio::sync::mpsc;
 use tokio_util::sync::PollSender;
 use tower::Service;
 
 use cuprate_consensus_rules::{
-    blocks::ContextToVerifyBlock, current_unix_timestamp, ConsensusError, HardFork,
+    ConsensusError, HardFork, blocks::ContextToVerifyBlock, current_unix_timestamp,
 };
 
 pub mod difficulty;
@@ -41,7 +41,7 @@ use difficulty::DifficultyCache;
 use rx_vms::RandomXVm;
 use weight::BlockWeightsCache;
 
-pub use alt_chains::{sealed::AltChainRequestToken, AltChainContextCache};
+pub use alt_chains::{AltChainContextCache, sealed::AltChainRequestToken};
 pub use difficulty::DifficultyCacheConfig;
 pub use hardforks::HardForkConfig;
 pub use weight::BlockWeightsCacheConfig;
@@ -432,22 +432,22 @@ pub mod __private {
     /// ```
     pub trait Database:
         tower::Service<
-        BlockchainReadRequest,
-        Response = BlockchainResponse,
-        Error = tower::BoxError,
-        Future = Self::Future2,
-    >
+            BlockchainReadRequest,
+            Response = BlockchainResponse,
+            Error = tower::BoxError,
+            Future = Self::Future2,
+        >
     {
         type Future2: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static;
     }
 
     impl<
-            T: tower::Service<
+        T: tower::Service<
                 BlockchainReadRequest,
                 Response = BlockchainResponse,
                 Error = tower::BoxError,
             >,
-        > Database for T
+    > Database for T
     where
         T::Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
     {

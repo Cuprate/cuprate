@@ -9,27 +9,27 @@ use std::{
 };
 
 use futures::{
-    future::{ready, Ready},
     FutureExt,
+    future::{Ready, ready},
 };
 use tokio::{
     task::JoinHandle,
-    time::{interval, Instant, Interval, MissedTickBehavior},
+    time::{Instant, Interval, MissedTickBehavior, interval},
 };
 use tokio_util::time::DelayQueue;
 use tower::Service;
 
 use cuprate_p2p_core::{
+    NetZoneAddress, NetworkZone,
     client::InternalPeerID,
     handles::ConnectionHandle,
     services::{AddressBookRequest, AddressBookResponse, ZoneSpecificPeerListEntryBase},
-    NetZoneAddress, NetworkZone,
 };
 use cuprate_pruning::PruningSeed;
 
 use crate::{
-    peer_list::PeerList, store::save_peers_to_disk, AddressBookConfig, AddressBookError,
-    BorshNetworkZone,
+    AddressBookConfig, AddressBookError, BorshNetworkZone, peer_list::PeerList,
+    store::save_peers_to_disk,
 };
 
 #[cfg(test)]

@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use super::*;
 use crate::{
-    pool::{start_dandelion_pool_manager, IncomingTx},
     DandelionConfig, DandelionRouter, Graph, TxState,
+    pool::{IncomingTx, start_dandelion_pool_manager},
 };
 
 #[tokio::test]

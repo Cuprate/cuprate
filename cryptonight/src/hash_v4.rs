@@ -1,7 +1,7 @@
 use std::cmp::max;
 
-use seq_macro::seq;
 use InstructionList::{Add, Mul, Ret, Rol, Ror, Sub, Xor};
+use seq_macro::seq;
 
 use crate::{
     blake256::{Blake256, Digest},

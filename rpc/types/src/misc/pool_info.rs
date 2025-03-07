@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 use crate::misc::PoolInfoExtent;
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::{
-    epee_object, error,
+    EpeeObject, EpeeObjectBuilder, epee_object, error,
     macros::bytes::{Buf, BufMut},
-    read_epee_value, write_field, EpeeObject, EpeeObjectBuilder,
+    read_epee_value, write_field,
 };
 
 use cuprate_fixed_bytes::ByteArrayVec;

@@ -6,9 +6,8 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::{
-    error,
+    EpeeValue, Marker, error,
     macros::bytes::{Buf, BufMut},
-    EpeeValue, Marker,
 };
 
 //---------------------------------------------------------------------------------------------------- PoolInfoExtent

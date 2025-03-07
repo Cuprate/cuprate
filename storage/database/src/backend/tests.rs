@@ -15,13 +15,13 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
+    ConcreteEnv,
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::{Env, EnvInner},
     error::RuntimeError,
     resize::ResizeAlgorithm,
-    tests::{tmp_concrete_env, TestTable},
+    tests::{TestTable, tmp_concrete_env},
     transaction::{TxRo, TxRw},
-    ConcreteEnv,
 };
 
 //---------------------------------------------------------------------------------------------------- Tests

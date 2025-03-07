@@ -9,17 +9,17 @@ use std::{
     future::Future,
     pin::Pin,
     sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicUsize, Ordering},
     },
     task::{Context, Poll},
 };
 
 use futures::{
-    channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender},
+    Stream, StreamExt,
+    channel::mpsc::{UnboundedReceiver, UnboundedSender, unbounded},
     ready,
     task::AtomicWaker,
-    Stream, StreamExt,
 };
 
 #[derive(thiserror::Error, Debug, Copy, Clone, Eq, PartialEq)]

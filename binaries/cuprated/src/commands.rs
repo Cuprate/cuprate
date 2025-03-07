@@ -3,7 +3,7 @@
 //! `cuprated` [`Command`] definition and handling.
 use std::{io, thread::sleep, time::Duration};
 
-use clap::{builder::TypedValueParser, Parser, ValueEnum};
+use clap::{Parser, ValueEnum, builder::TypedValueParser};
 use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
@@ -47,6 +47,9 @@ pub enum Command {
 
     /// Print status information on `cuprated`.
     Status,
+
+    /// Print the height of last block contained in the fast sync hashes.
+    FastSyncTopHeight,
 }
 
 /// The log output target.
@@ -121,7 +124,14 @@ pub async fn io_loop(
                 let height = context.chain_height;
                 let top_hash = hex::encode(context.top_hash);
 
-                println!("STATUS:\n  uptime: {h}h {m}m {s}s,\n  height: {height},\n  top_hash: {top_hash}");
+                println!(
+                    "STATUS:\n  uptime: {h}h {m}m {s}s,\n  height: {height},\n  top_hash: {top_hash}"
+                );
+            }
+            Command::FastSyncTopHeight => {
+                let top_height = cuprate_fast_sync::fast_sync_top_height();
+
+                println!("{top_height}");
             }
         }
     }

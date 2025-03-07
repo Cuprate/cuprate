@@ -1,19 +1,19 @@
 use std::mem;
 
 use tokio::{task::JoinSet, time::timeout};
-use tower::{util::BoxCloneService, Service, ServiceExt};
-use tracing::{instrument, Instrument, Span};
+use tower::{Service, ServiceExt, util::BoxCloneService};
+use tracing::{Instrument, Span, instrument};
 
 use cuprate_p2p_core::{
-    client::InternalPeerID, handles::ConnectionHandle, NetworkZone, PeerRequest, PeerResponse,
-    ProtocolRequest, ProtocolResponse,
+    NetworkZone, PeerRequest, PeerResponse, ProtocolRequest, ProtocolResponse,
+    client::InternalPeerID, handles::ConnectionHandle,
 };
 use cuprate_wire::protocol::{ChainRequest, ChainResponse};
 
 use crate::{
     block_downloader::{
-        chain_tracker::{ChainEntry, ChainTracker},
         BlockDownloadError, ChainSvcRequest, ChainSvcResponse,
+        chain_tracker::{ChainEntry, ChainTracker},
     },
     constants::{
         BLOCK_DOWNLOADER_REQUEST_TIMEOUT, INITIAL_CHAIN_REQUESTS_TO_SEND,
@@ -84,7 +84,7 @@ pub async fn initial_chain_search<N: NetworkZone, C>(
     mut our_chain_svc: C,
 ) -> Result<ChainTracker<N>, BlockDownloadError>
 where
-    C: Service<ChainSvcRequest, Response = ChainSvcResponse, Error = tower::BoxError>,
+    C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>,
 {
     tracing::debug!("Getting our chain history");
     // Get our history.
@@ -214,7 +214,15 @@ where
         first_entry.ids.len()
     );
 
-    let tracker = ChainTracker::new(first_entry, expected_height, our_genesis, previous_id);
+    let tracker = ChainTracker::new(
+        first_entry,
+        expected_height,
+        our_genesis,
+        previous_id,
+        &mut our_chain_svc,
+    )
+    .await
+    .map_err(|_| BlockDownloadError::ChainInvalid)?;
 
     Ok(tracker)
 }

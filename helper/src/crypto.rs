@@ -4,11 +4,11 @@
 use std::sync::LazyLock;
 
 use curve25519_dalek::{
+    Scalar,
     constants::{ED25519_BASEPOINT_COMPRESSED, ED25519_BASEPOINT_POINT},
     edwards::CompressedEdwardsY,
     edwards::VartimeEdwardsPrecomputation,
     traits::VartimePrecomputedMultiscalarMul,
-    Scalar,
 };
 use monero_serai::generators::H;
 
@@ -110,9 +110,9 @@ pub fn compute_zero_commitment(amount: u64) -> CompressedEdwardsY {
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
-    use curve25519_dalek::{traits::VartimePrecomputedMultiscalarMul, Scalar};
+    use curve25519_dalek::{Scalar, traits::VartimePrecomputedMultiscalarMul};
 
-    use crate::crypto::{compute_zero_commitment, H_PRECOMP, ZERO_COMMITMENT_DECOMPOSED_AMOUNT};
+    use crate::crypto::{H_PRECOMP, ZERO_COMMITMENT_DECOMPOSED_AMOUNT, compute_zero_commitment};
 
     #[test]
     /// Compare the output of `compute_zero_commitment` for all

@@ -12,10 +12,10 @@ use indexmap::{IndexMap, IndexSet};
 use monero_serai::block::Block;
 
 use crate::{
-    output_cache::OutputCache,
-    types::{Chain, ExtendedBlockHeader, TxsInBlock, VerifiedBlockInformation},
     AltBlockInformation, BlockCompleteEntry, ChainId, ChainInfo, CoinbaseTxSum,
     OutputHistogramEntry, OutputHistogramInput,
+    output_cache::OutputCache,
+    types::{Chain, ExtendedBlockHeader, TxsInBlock, VerifiedBlockInformation},
 };
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
@@ -43,6 +43,11 @@ pub enum BlockchainReadRequest {
     ///
     /// The input is the block's height and the chain it is on.
     BlockHash(usize, Chain),
+
+    /// Request a range of block's hashes.
+    ///
+    /// The input is the range of block heights and the chain it is on.
+    BlockHashInRange(Range<usize>, Chain),
 
     /// Request to check if we have a block and which [`Chain`] it is on.
     ///
@@ -173,6 +178,11 @@ pub enum BlockchainWriteRequest {
     /// Input is an already verified block.
     WriteBlock(VerifiedBlockInformation),
 
+    /// Request that a batch of blocks be written to the database.
+    ///
+    /// Input is an already verified batch of blocks.
+    BatchWriteBlocks(Vec<VerifiedBlockInformation>),
+
     /// Write an alternative block to the database,
     ///
     /// Input is the alternative block.
@@ -228,6 +238,11 @@ pub enum BlockchainResponse {
     ///
     /// Inner value is the hash of the requested block.
     BlockHash([u8; 32]),
+
+    /// Response to [`BlockchainReadRequest::BlockHashInRange`].
+    ///
+    /// Inner value is the hashes of the requested blocks, in order.
+    BlockHashInRange(Vec<[u8; 32]>),
 
     /// Response to [`BlockchainReadRequest::FindBlock`].
     ///

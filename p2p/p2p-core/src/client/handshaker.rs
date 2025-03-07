@@ -14,35 +14,35 @@ use std::{
 
 use futures::{FutureExt, SinkExt, Stream, StreamExt};
 use tokio::{
-    sync::{mpsc, OwnedSemaphorePermit, Semaphore},
+    sync::{OwnedSemaphorePermit, Semaphore, mpsc},
     time::{error::Elapsed, timeout},
 };
 use tower::{Service, ServiceExt};
-use tracing::{info_span, Instrument, Span};
+use tracing::{Instrument, Span, info_span};
 
 use cuprate_pruning::{PruningError, PruningSeed};
 use cuprate_wire::{
+    AdminRequestMessage, AdminResponseMessage, BasicNodeData, BucketError, LevinCommand, Message,
     admin::{
-        HandshakeRequest, HandshakeResponse, PingResponse, SupportFlagsResponse,
-        PING_OK_RESPONSE_STATUS_TEXT,
+        HandshakeRequest, HandshakeResponse, PING_OK_RESPONSE_STATUS_TEXT, PingResponse,
+        SupportFlagsResponse,
     },
     common::PeerSupportFlags,
-    AdminRequestMessage, AdminResponseMessage, BasicNodeData, BucketError, LevinCommand, Message,
 };
 
 use crate::{
+    AddressBook, AddressBookRequest, AddressBookResponse, BroadcastMessage, ConnectionDirection,
+    CoreSyncDataRequest, CoreSyncDataResponse, CoreSyncSvc, NetZoneAddress, NetworkZone,
+    ProtocolRequestHandlerMaker, SharedError,
     client::{
-        connection::Connection, request_handler::PeerRequestHandler,
-        timeout_monitor::connection_timeout_monitor_task, Client, InternalPeerID, PeerInformation,
+        Client, InternalPeerID, PeerInformation, connection::Connection,
+        request_handler::PeerRequestHandler, timeout_monitor::connection_timeout_monitor_task,
     },
     constants::{
         CLIENT_QUEUE_SIZE, HANDSHAKE_TIMEOUT, MAX_EAGER_PROTOCOL_MESSAGES,
         MAX_PEERS_IN_PEER_LIST_MESSAGE, PING_TIMEOUT,
     },
     handles::HandleBuilder,
-    AddressBook, AddressBookRequest, AddressBookResponse, BroadcastMessage, ConnectionDirection,
-    CoreSyncDataRequest, CoreSyncDataResponse, CoreSyncSvc, NetZoneAddress, NetworkZone,
-    ProtocolRequestHandlerMaker, SharedError,
 };
 
 pub mod builder;

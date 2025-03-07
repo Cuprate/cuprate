@@ -2,13 +2,13 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
+    TxRw,
     backend::redb::storable::StorableRedb,
     config::{Config, SyncMode},
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::{Env, EnvInner},
     error::{DbResult, InitError, RuntimeError},
     table::Table,
-    TxRw,
 };
 
 //---------------------------------------------------------------------------------------------------- ConcreteEnv

@@ -21,22 +21,22 @@ use cuprate_types::{
 };
 
 use cuprate_consensus_rules::{
+    ConsensusError, HardFork,
     blocks::{
-        calculate_pow_hash, check_block, check_block_pow, randomx_seed_height, BlockError, RandomX,
+        BlockError, RandomX, calculate_pow_hash, check_block, check_block_pow, randomx_seed_height,
     },
     hard_forks::HardForkError,
     miner_tx::MinerTxError,
-    ConsensusError, HardFork,
 };
 
-use crate::{transactions::start_tx_verification, Database, ExtendedConsensusError};
+use crate::{Database, ExtendedConsensusError, transactions::start_tx_verification};
 
 mod alt_block;
 mod batch_prepare;
 mod free;
 
 pub use alt_block::sanity_check_alt_block;
-pub use batch_prepare::{batch_prepare_main_chain_blocks, BatchPrepareCache};
+pub use batch_prepare::{BatchPrepareCache, batch_prepare_main_chain_blocks};
 use free::pull_ordered_transactions;
 
 /// A pre-prepared block with all data needed to verify it, except the block's proof of work.

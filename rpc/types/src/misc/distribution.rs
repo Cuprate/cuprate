@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::{
-    epee_object, error,
+    EpeeObject, EpeeObjectBuilder, EpeeValue, epee_object, error,
     macros::bytes::{Buf, BufMut},
-    read_epee_value, write_field, EpeeObject, EpeeObjectBuilder, EpeeValue,
+    read_epee_value, write_field,
 };
 
 //---------------------------------------------------------------------------------------------------- Free

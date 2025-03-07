@@ -1,5 +1,5 @@
 use std::{
-    future::{ready, Ready},
+    future::{Ready, ready},
     task::{Context, Poll},
 };
 
@@ -8,10 +8,10 @@ use tower::Service;
 use cuprate_wire::CoreSyncData;
 
 use crate::{
+    NetworkZone, ProtocolRequest, ProtocolResponse,
     services::{
         AddressBookRequest, AddressBookResponse, CoreSyncDataRequest, CoreSyncDataResponse,
     },
-    NetworkZone, ProtocolRequest, ProtocolResponse,
 };
 
 /// A dummy core sync service that just returns static [`CoreSyncData`].

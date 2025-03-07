@@ -48,7 +48,7 @@ use serde::{Deserialize, Serialize};
 
 use cuprate_database::{config::SyncMode, resize::ResizeAlgorithm};
 use cuprate_helper::{
-    fs::{blockchain_path, CUPRATE_DATA_DIR},
+    fs::{CUPRATE_DATA_DIR, blockchain_path},
     network::Network,
 };
 

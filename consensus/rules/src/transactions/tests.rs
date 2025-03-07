@@ -1,9 +1,9 @@
 use std::ops::Range;
 
 use curve25519_dalek::{
+    EdwardsPoint,
     constants::{ED25519_BASEPOINT_COMPRESSED, EIGHT_TORSION},
     edwards::CompressedEdwardsY,
-    EdwardsPoint,
 };
 use proptest::{collection::vec, prelude::*};
 
@@ -91,12 +91,14 @@ fn test_decoy_info() {
 #[test]
 fn test_torsion_ki() {
     for &key_image in &EIGHT_TORSION[1..] {
-        assert!(check_key_images(&Input::ToKey {
-            key_image: key_image.compress(),
-            amount: None,
-            key_offsets: vec![],
-        })
-        .is_err());
+        assert!(
+            check_key_images(&Input::ToKey {
+                key_image: key_image.compress(),
+                amount: None,
+                key_offsets: vec![],
+            })
+            .is_err()
+        );
     }
 }
 

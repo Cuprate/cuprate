@@ -95,8 +95,8 @@ impl HttpRpcClient {
 
         // Make sure this is a trusted, `pow_hash` only works there.
         assert!(
-        	!result.block_header.pow_hash.is_empty(),
-        	"untrusted node detected, `pow_hash` will not show on these nodes - use a trusted node!"
+            !result.block_header.pow_hash.is_empty(),
+            "untrusted node detected, `pow_hash` will not show on these nodes - use a trusted node!"
         );
 
         let reward = result.block_header.reward;

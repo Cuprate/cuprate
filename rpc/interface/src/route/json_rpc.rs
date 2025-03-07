@@ -3,16 +3,16 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::borrow::Cow;
 
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{Json, extract::State, http::StatusCode};
 use tower::ServiceExt;
 
 use cuprate_json_rpc::{
-    error::{ErrorCode, ErrorObject},
     Id, Response,
+    error::{ErrorCode, ErrorObject},
 };
 use cuprate_rpc_types::{
-    json::{JsonRpcRequest, JsonRpcResponse},
     RpcCallValue,
+    json::{JsonRpcRequest, JsonRpcResponse},
 };
 
 use crate::rpc_handler::RpcHandler;

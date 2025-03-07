@@ -1,4 +1,6 @@
 //! The blockchain manager handler functions.
+use std::{collections::HashMap, sync::Arc};
+
 use bytes::Bytes;
 use futures::{TryFutureExt, TryStreamExt};
 use monero_serai::{
@@ -6,27 +8,26 @@ use monero_serai::{
     transaction::{Input, Transaction},
 };
 use rayon::prelude::*;
-use std::ops::ControlFlow;
-use std::{collections::HashMap, sync::Arc};
 use tower::{Service, ServiceExt};
-use tracing::{info, instrument};
+use tracing::{Span, info, instrument};
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{
+    BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
     block::{
-        batch_prepare_main_chain_blocks, sanity_check_alt_block, verify_main_chain_block,
-        verify_prepped_main_chain_block, PreparedBlock,
+        PreparedBlock, batch_prepare_main_chain_blocks, sanity_check_alt_block,
+        verify_main_chain_block, verify_prepped_main_chain_block,
     },
     transactions::new_tx_verification_data,
-    BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
 };
 use cuprate_consensus_context::NewBlockData;
+use cuprate_fast_sync::{block_to_verified_block_information, fast_sync_top_height};
 use cuprate_helper::cast::usize_to_u64;
-use cuprate_p2p::{block_downloader::BlockBatch, constants::LONG_BAN, BroadcastRequest};
+use cuprate_p2p::{BroadcastRequest, block_downloader::BlockBatch, constants::LONG_BAN};
 use cuprate_txpool::service::interface::TxpoolWriteRequest;
 use cuprate_types::{
+    AltBlockInformation, Chain, HardFork, TransactionVerificationData, VerifiedBlockInformation,
     blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
-    AltBlockInformation, HardFork, TransactionVerificationData, VerifiedBlockInformation,
 };
 
 use crate::{
@@ -166,6 +167,11 @@ impl super::BlockchainManager {
     /// This function will panic if any internal service returns an unexpected error that we cannot
     /// recover from or if the incoming batch contains no blocks.
     async fn handle_incoming_block_batch_main_chain(&mut self, batch: BlockBatch) {
+        if batch.blocks.last().unwrap().0.number().unwrap() < fast_sync_top_height() {
+            self.handle_incoming_block_batch_fast_sync(batch).await;
+            return;
+        }
+
         let Ok((prepped_blocks, mut output_cache)) = batch_prepare_main_chain_blocks(
             batch.blocks,
             &mut self.blockchain_context_service,
@@ -195,7 +201,32 @@ impl super::BlockchainManager {
 
             self.add_valid_block_to_main_chain(verified_block).await;
         }
-        info!("Successfully added block batch");
+        info!(fast_sync = false, "Successfully added block batch");
+    }
+
+    /// Handles an incoming block batch while we are under the fast sync height.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// recover from.
+    async fn handle_incoming_block_batch_fast_sync(&mut self, batch: BlockBatch) {
+        let mut valid_blocks = Vec::with_capacity(batch.blocks.len());
+        for (block, txs) in batch.blocks {
+            let block = block_to_verified_block_information(
+                block,
+                txs,
+                self.blockchain_context_service.blockchain_context(),
+            );
+            self.add_valid_block_to_blockchain_cache(&block).await;
+
+            valid_blocks.push(block);
+        }
+
+        self.batch_add_valid_block_to_blockchain_database(valid_blocks)
+            .await;
+
+        info!(fast_sync = true, "Successfully added block batch");
     }
 
     /// Handles an incoming [`BlockBatch`] that does not follow the main-chain.
@@ -212,7 +243,6 @@ impl super::BlockchainManager {
     /// recover from.
     async fn handle_incoming_block_batch_alt_chain(&mut self, mut batch: BlockBatch) {
         // TODO: this needs testing (this whole section does but alt-blocks specifically).
-
         let mut blocks = batch.blocks.into_iter();
 
         while let Some((block, txs)) = blocks.next() {
@@ -248,6 +278,8 @@ impl super::BlockchainManager {
                 Ok(AddAltBlock::Cached) => (),
             }
         }
+
+        info!(alt_chain = true, "Successfully added block batch");
     }
 
     /// Handles an incoming alt [`Block`].
@@ -284,9 +316,10 @@ impl super::BlockchainManager {
             unreachable!();
         };
 
-        if chain.is_some() {
-            // The block could also be in the main-chain here under some circumstances.
-            return Ok(AddAltBlock::Cached);
+        match chain {
+            Some((Chain::Alt(_), _)) => return Ok(AddAltBlock::Cached),
+            Some((Chain::Main, _)) => anyhow::bail!("Alt block already in main chain"),
+            None => (),
         }
 
         let alt_block_info =
@@ -458,22 +491,8 @@ impl super::BlockchainManager {
             })
             .collect::<Vec<[u8; 32]>>();
 
-        self.blockchain_context_service
-            .ready()
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
-            .call(BlockChainContextRequest::Update(NewBlockData {
-                block_hash: verified_block.block_hash,
-                height: verified_block.height,
-                timestamp: verified_block.block.header.timestamp,
-                weight: verified_block.weight,
-                long_term_weight: verified_block.long_term_weight,
-                generated_coins: verified_block.generated_coins,
-                vote: HardFork::from_vote(verified_block.block.header.hardfork_signal),
-                cumulative_difficulty: verified_block.cumulative_difficulty,
-            }))
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+        self.add_valid_block_to_blockchain_cache(&verified_block)
+            .await;
 
         self.blockchain_write_handle
             .ready()
@@ -491,11 +510,60 @@ impl super::BlockchainManager {
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
     }
+
+    /// Adds a [`VerifiedBlockInformation`] to the blockchain context cache.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// recover from.
+    async fn add_valid_block_to_blockchain_cache(
+        &mut self,
+        verified_block: &VerifiedBlockInformation,
+    ) {
+        self.blockchain_context_service
+            .ready()
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .call(BlockChainContextRequest::Update(NewBlockData {
+                block_hash: verified_block.block_hash,
+                height: verified_block.height,
+                timestamp: verified_block.block.header.timestamp,
+                weight: verified_block.weight,
+                long_term_weight: verified_block.long_term_weight,
+                generated_coins: verified_block.generated_coins,
+                vote: HardFork::from_vote(verified_block.block.header.hardfork_signal),
+                cumulative_difficulty: verified_block.cumulative_difficulty,
+            }))
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+    }
+
+    /// Batch writes the [`VerifiedBlockInformation`]s to the database.
+    ///
+    /// The blocks must be sequential.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// recover from.
+    async fn batch_add_valid_block_to_blockchain_database(
+        &mut self,
+        blocks: Vec<VerifiedBlockInformation>,
+    ) {
+        self.blockchain_write_handle
+            .ready()
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .call(BlockchainWriteRequest::BatchWriteBlocks(blocks))
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+    }
 }
 
 /// The result from successfully adding an alt-block.
 enum AddAltBlock {
-    /// The alt-block was cached or was already present in the DB.
+    /// The alt-block was cached.
     Cached,
     /// The chain was reorged.
     Reorged,

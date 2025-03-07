@@ -13,10 +13,10 @@ use tower::{Service, ServiceExt};
 use cuprate_blockchain::{service::BlockchainReadHandle, types::AltChainInfo};
 use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    output_cache::OutputCache,
     Chain, ChainInfo, CoinbaseTxSum, ExtendedBlockHeader, HardFork, MinerData,
     OutputHistogramEntry, OutputHistogramInput, OutputOnChain,
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
+    output_cache::OutputCache,
 };
 
 /// [`BlockchainReadRequest::Block`].

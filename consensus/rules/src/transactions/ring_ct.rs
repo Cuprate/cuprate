@@ -4,9 +4,9 @@ use monero_serai::{
     generators::H,
     io::decompress_point,
     ringct::{
+        RctProofs, RctPrunable, RctType,
         clsag::ClsagError,
         mlsag::{AggregateRingMatrixBuilder, MlsagError, RingMatrix},
-        RctProofs, RctPrunable, RctType,
     },
     transaction::Input,
 };
@@ -14,7 +14,7 @@ use rand::thread_rng;
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
 
-use crate::{batch_verifier::BatchVerifier, transactions::Rings, try_par_iter, HardFork};
+use crate::{HardFork, batch_verifier::BatchVerifier, transactions::Rings, try_par_iter};
 
 /// This constant contains the IDs of 2 transactions that should be allowed after the fork the ringCT
 /// type they used should be banned.
@@ -234,24 +234,30 @@ mod tests {
 
     #[test]
     fn grandfathered_bulletproofs2() {
-        assert!(check_rct_type(
-            RctType::MlsagBulletproofsCompactAmount,
-            HardFork::V14,
-            &[0; 32]
-        )
-        .is_err());
+        assert!(
+            check_rct_type(
+                RctType::MlsagBulletproofsCompactAmount,
+                HardFork::V14,
+                &[0; 32]
+            )
+            .is_err()
+        );
 
-        assert!(check_rct_type(
-            RctType::MlsagBulletproofsCompactAmount,
-            HardFork::V14,
-            &GRANDFATHERED_TRANSACTIONS[0]
-        )
-        .is_ok());
-        assert!(check_rct_type(
-            RctType::MlsagBulletproofsCompactAmount,
-            HardFork::V14,
-            &GRANDFATHERED_TRANSACTIONS[1]
-        )
-        .is_ok());
+        assert!(
+            check_rct_type(
+                RctType::MlsagBulletproofsCompactAmount,
+                HardFork::V14,
+                &GRANDFATHERED_TRANSACTIONS[0]
+            )
+            .is_ok()
+        );
+        assert!(
+            check_rct_type(
+                RctType::MlsagBulletproofsCompactAmount,
+                HardFork::V14,
+                &GRANDFATHERED_TRANSACTIONS[1]
+            )
+            .is_ok()
+        );
     }
 }

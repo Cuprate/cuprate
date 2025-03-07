@@ -14,8 +14,8 @@ use tower::{Service, ServiceExt};
 use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::transactions::new_tx_verification_data;
 use cuprate_txpool::service::{
-    interface::{TxpoolReadRequest, TxpoolReadResponse},
     TxpoolReadHandle,
+    interface::{TxpoolReadRequest, TxpoolReadResponse},
 };
 use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
 

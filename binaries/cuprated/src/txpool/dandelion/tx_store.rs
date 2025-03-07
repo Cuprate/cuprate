@@ -1,17 +1,17 @@
 use std::task::{Context, Poll};
 
 use bytes::Bytes;
-use futures::{future::BoxFuture, FutureExt};
+use futures::{FutureExt, future::BoxFuture};
 use tower::{Service, ServiceExt};
 
 use cuprate_dandelion_tower::{
-    traits::{TxStoreRequest, TxStoreResponse},
     State,
+    traits::{TxStoreRequest, TxStoreResponse},
 };
 use cuprate_database::RuntimeError;
 use cuprate_txpool::service::{
-    interface::{TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest},
     TxpoolReadHandle, TxpoolWriteHandle,
+    interface::{TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest},
 };
 
 use super::{DandelionTx, TxId};

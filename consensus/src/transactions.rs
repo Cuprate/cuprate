@@ -32,24 +32,24 @@ use rayon::prelude::*;
 use tower::ServiceExt;
 
 use cuprate_consensus_rules::{
-    transactions::{
-        check_decoy_info, check_transaction_contextual, check_transaction_semantic,
-        output_unlocked, TransactionError,
-    },
     ConsensusError, HardFork,
+    transactions::{
+        TransactionError, check_decoy_info, check_transaction_contextual,
+        check_transaction_semantic, output_unlocked,
+    },
 };
 use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_types::{
+    CachedVerificationState, TransactionVerificationData, TxVersion,
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     output_cache::OutputCache,
-    CachedVerificationState, TransactionVerificationData, TxVersion,
 };
 
 use crate::{
+    Database, ExtendedConsensusError,
     batch_verifier::MultiThreadedBatchVerifier,
     block::BatchPrepareCache,
     transactions::contextual_data::{batch_get_decoy_info, batch_get_ring_member_info},
-    Database, ExtendedConsensusError,
 };
 
 pub mod contextual_data;

@@ -5,8 +5,8 @@ use tracing::instrument;
 
 use cuprate_consensus_rules::{HFVotes, HFsInfo, HardFork};
 use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain,
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
 };
 
 use crate::{ContextCacheError, Database};

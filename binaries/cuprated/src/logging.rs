@@ -8,20 +8,19 @@ use std::{
     sync::OnceLock,
 };
 use tracing::{
-    instrument::WithSubscriber, level_filters::LevelFilter, subscriber::Interest, Metadata,
+    Metadata, instrument::WithSubscriber, level_filters::LevelFilter, subscriber::Interest,
 };
 use tracing_appender::{non_blocking::NonBlocking, rolling::Rotation};
 use tracing_subscriber::{
+    Layer, Registry,
     filter::Filtered,
     fmt::{
-        self,
+        self, Layer as FmtLayer,
         format::{DefaultFields, Format},
-        Layer as FmtLayer,
     },
     layer::{Context, Filter, Layered, SubscriberExt},
     reload::{Handle, Layer as ReloadLayer},
     util::SubscriberInitExt,
-    Layer, Registry,
 };
 
 use cuprate_helper::fs::logs_path;

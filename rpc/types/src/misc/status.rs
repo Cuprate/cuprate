@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::{
-    macros::bytes::{Buf, BufMut},
     EpeeValue, Marker,
+    macros::bytes::{Buf, BufMut},
 };
 
 use crate::constants::{

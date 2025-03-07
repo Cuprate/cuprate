@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 
 use futures::StreamExt;
 use tokio::{
-    sync::{mpsc, oneshot, Notify},
+    sync::{Notify, OwnedSemaphorePermit, Semaphore, mpsc},
     time::interval,
 };
 use tower::{Service, ServiceExt};
@@ -12,10 +12,10 @@ use tracing::instrument;
 use cuprate_consensus::{BlockChainContextRequest, BlockChainContextResponse, BlockchainContext};
 use cuprate_consensus_context::BlockchainContextService;
 use cuprate_p2p::{
-    block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
     NetworkInterface, PeerSetRequest, PeerSetResponse,
+    block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
 };
-use cuprate_p2p_core::ClearNet;
+use cuprate_p2p_core::{ClearNet, NetworkZone};
 
 const CHECK_SYNC_FREQUENCY: Duration = Duration::from_secs(30);
 
@@ -30,17 +30,21 @@ pub enum SyncerError {
 
 /// The syncer tasks that makes sure we are fully synchronised with our connected peers.
 #[instrument(level = "debug", skip_all)]
+#[expect(clippy::significant_drop_tightening)]
 pub async fn syncer<CN>(
     mut context_svc: BlockchainContextService,
     our_chain: CN,
     mut clearnet_interface: NetworkInterface<ClearNet>,
-    incoming_block_batch_tx: mpsc::Sender<BlockBatch>,
+    incoming_block_batch_tx: mpsc::Sender<(BlockBatch, Arc<OwnedSemaphorePermit>)>,
     stop_current_block_downloader: Arc<Notify>,
     block_downloader_config: BlockDownloaderConfig,
 ) -> Result<(), SyncerError>
 where
-    CN: Service<ChainSvcRequest, Response = ChainSvcResponse, Error = tower::BoxError>
-        + Clone
+    CN: Service<
+            ChainSvcRequest<ClearNet>,
+            Response = ChainSvcResponse<ClearNet>,
+            Error = tower::BoxError,
+        > + Clone
         + Send
         + 'static,
     CN::Future: Send + 'static,
@@ -51,6 +55,9 @@ where
 
     tracing::debug!("Waiting for new sync info in top sync channel");
 
+    let semaphore = Arc::new(Semaphore::new(1));
+
+    let mut sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
     loop {
         check_sync_interval.tick().await;
 
@@ -72,10 +79,19 @@ where
             tokio::select! {
                 () = stop_current_block_downloader.notified() => {
                     tracing::info!("Received stop signal, stopping block downloader");
+
+                    drop(sync_permit);
+                    sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
+
                     break;
                 }
                 batch = block_batch_stream.next() => {
                     let Some(batch) = batch else {
+                        // Wait for all references to the permit have been dropped (which means all blocks in the queue
+                        // have been handled before checking if we are synced.
+                        drop(sync_permit);
+                        sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
+
                         let blockchain_context = context_svc.blockchain_context();
 
                         if !check_behind_peers(blockchain_context, &mut clearnet_interface).await? {
@@ -86,7 +102,7 @@ where
                     };
 
                     tracing::debug!("Got batch, len: {}", batch.blocks.len());
-                    if incoming_block_batch_tx.send(batch).await.is_err() {
+                    if incoming_block_batch_tx.send((batch, Arc::clone(&sync_permit))).await.is_err() {
                         return Err(SyncerError::IncomingBlockChannelClosed);
                     }
                 }
