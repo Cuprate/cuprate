@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use rand::Rng;
 
-use cuprate_p2p_core::{services::ZoneSpecificPeerListEntryBase, NetZoneAddress};
+use cuprate_p2p_core::{NetZoneAddress, services::ZoneSpecificPeerListEntryBase};
 use cuprate_pruning::PruningSeed;
 use cuprate_test_utils::test_netzone::{TestNetZone, TestNetZoneAddr};
 
@@ -155,10 +155,11 @@ fn peer_list_get_peer_with_block() {
         .take_random_peer(&mut r, Some(1), &HashSet::new())
         .expect("We just added a peer with the correct seed");
 
-    assert!(peer
-        .pruning_seed
-        .get_next_unpruned_block(1, 1_000_000)
-        .is_ok());
+    assert!(
+        peer.pruning_seed
+            .get_next_unpruned_block(1, 1_000_000)
+            .is_ok()
+    );
 }
 
 #[test]

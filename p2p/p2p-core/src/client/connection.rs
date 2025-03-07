@@ -5,24 +5,24 @@
 use std::pin::Pin;
 
 use futures::{
+    SinkExt, Stream, StreamExt,
     channel::oneshot,
     stream::{Fuse, FusedStream},
-    SinkExt, Stream, StreamExt,
 };
 use tokio::{
-    sync::{mpsc, OwnedSemaphorePermit},
-    time::{sleep, timeout, Sleep},
+    sync::{OwnedSemaphorePermit, mpsc},
+    time::{Sleep, sleep, timeout},
 };
 use tokio_stream::wrappers::ReceiverStream;
 
 use cuprate_wire::{LevinCommand, Message, ProtocolMessage};
 
 use crate::{
+    AddressBook, BroadcastMessage, CoreSyncSvc, MessageID, NetworkZone, PeerError, PeerRequest,
+    PeerResponse, ProtocolRequestHandler, ProtocolResponse, SharedError,
     client::request_handler::PeerRequestHandler,
     constants::{REQUEST_HANDLER_TIMEOUT, REQUEST_TIMEOUT, SENDING_TIMEOUT},
     handles::ConnectionGuard,
-    AddressBook, BroadcastMessage, CoreSyncSvc, MessageID, NetworkZone, PeerError, PeerRequest,
-    PeerResponse, ProtocolRequestHandler, ProtocolResponse, SharedError,
 };
 
 /// A request to the connection task from a [`Client`](crate::client::Client).

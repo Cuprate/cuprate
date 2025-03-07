@@ -1,7 +1,7 @@
 [package]
 name = "cuprated"
 version = "0.0.1"
-edition = "2021"
+edition = "2024"
 description = "The Cuprate Rust Monero node."
 license = "AGPL-3.0-only"
 authors = ["Boog900", "hinto-janai", "SyntheticBird45"]

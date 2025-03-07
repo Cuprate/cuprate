@@ -7,13 +7,13 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    RpcCallValue,
     base::{AccessResponseBase, ResponseBase},
     macros::define_request_and_response,
     misc::{
         GetOutputsOut, OutKey, Peer, PublicNode, SpentKeyImageInfo, Status, TxEntry, TxInfo,
         TxpoolStats,
     },
-    RpcCallValue,
 };
 
 #[cfg(any(feature = "serde", feature = "epee"))]

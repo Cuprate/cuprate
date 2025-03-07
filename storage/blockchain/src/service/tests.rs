@@ -17,10 +17,10 @@ use rand::Rng;
 use tower::{Service, ServiceExt};
 
 use cuprate_database::{ConcreteEnv, DatabaseIter, DatabaseRo, Env, EnvInner, RuntimeError};
-use cuprate_test_utils::data::{BLOCK_V16_TX0, BLOCK_V1_TX2, BLOCK_V9_TX3};
+use cuprate_test_utils::data::{BLOCK_V1_TX2, BLOCK_V9_TX3, BLOCK_V16_TX0};
 use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
     Chain, ChainId, OutputOnChain, VerifiedBlockInformation,
+    blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
 };
 
 use crate::{
@@ -30,9 +30,9 @@ use crate::{
         blockchain::chain_height,
         output::id_to_output_on_chain,
     },
-    service::{init, BlockchainReadHandle, BlockchainWriteHandle},
+    service::{BlockchainReadHandle, BlockchainWriteHandle, init},
     tables::{OpenTables, Tables, TablesIter},
-    tests::{map_verified_block_to_alt, AssertTableLen},
+    tests::{AssertTableLen, map_verified_block_to_alt},
     types::{Amount, AmountIndex, PreRctOutputId},
 };
 

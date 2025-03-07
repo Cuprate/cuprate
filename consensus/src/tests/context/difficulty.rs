@@ -4,8 +4,8 @@ use proptest::collection::{size_range, vec};
 use proptest::{prelude::*, prop_assert_eq, prop_compose, proptest};
 
 use crate::{
-    tests::{context::data::DIF_3000000_3002000, mock_db::*},
     HardFork,
+    tests::{context::data::DIF_3000000_3002000, mock_db::*},
 };
 use cuprate_consensus_context::difficulty::*;
 use cuprate_helper::num::median;

@@ -8,8 +8,8 @@ use bytes::{Bytes, BytesMut};
 use cuprate_helper::cast::usize_to_u64;
 
 use crate::{
-    header::{Flags, HEADER_SIZE},
     Bucket, BucketBuilder, BucketError, BucketHead, LevinBody, LevinCommand, Protocol,
+    header::{Flags, HEADER_SIZE},
 };
 
 /// A levin message that can be sent to a peer.

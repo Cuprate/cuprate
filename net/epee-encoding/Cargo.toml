@@ -1,14 +1,13 @@
 [package]
 name = "cuprate-epee-encoding"
 version = "0.5.0"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 authors = ["Boog900"]
 readme = "README.md"
 keywords = ["monero", "epee", "no-std"]
 description = "Epee binary format library."
 repository = "https://github.com/Boog900/epee-encoding"
-rust-version = "1.60"
 
 [features]
 default = ["std"]

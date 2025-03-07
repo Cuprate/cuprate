@@ -108,11 +108,11 @@ mod test {
     use super::*;
     use crate::{
         id::Id,
-        tests::{assert_ser, Body},
+        tests::{Body, assert_ser},
     };
 
     use pretty_assertions::assert_eq;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
 
     /// Basic serde tests.
     #[test]

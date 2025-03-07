@@ -17,8 +17,8 @@ use cuprate_consensus_context::BlockchainContext;
 use cuprate_p2p::block_downloader::ChainEntry;
 use cuprate_p2p_core::NetworkZone;
 use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain, VerifiedBlockInformation, VerifiedTransactionInformation,
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
 };
 
 /// A [`OnceLock`] representing the fast sync hashes.

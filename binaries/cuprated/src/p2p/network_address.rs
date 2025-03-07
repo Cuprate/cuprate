@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use cuprate_p2p_core::{client::InternalPeerID, ClearNet, NetworkZone};
+use cuprate_p2p_core::{ClearNet, NetworkZone, client::InternalPeerID};
 
 /// An identifier for a P2P peer on any network.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

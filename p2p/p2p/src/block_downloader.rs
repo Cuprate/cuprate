@@ -6,7 +6,7 @@
 //!
 //! The block downloader is started by [`download_blocks`].
 use std::{
-    cmp::{max, min, Reverse},
+    cmp::{Reverse, max, min},
     collections::{BTreeMap, BinaryHeap, VecDeque},
     time::Duration,
 };
@@ -15,14 +15,14 @@ use futures::TryFutureExt;
 use monero_serai::{block::Block, transaction::Transaction};
 use tokio::{
     task::JoinSet,
-    time::{interval, timeout, MissedTickBehavior},
+    time::{MissedTickBehavior, interval, timeout},
 };
-use tower::{util::BoxCloneService, Service, ServiceExt};
-use tracing::{instrument, Instrument, Span};
+use tower::{Service, ServiceExt, util::BoxCloneService};
+use tracing::{Instrument, Span, instrument};
 
 use cuprate_async_buffer::{BufferAppender, BufferStream};
 use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
-use cuprate_p2p_core::{handles::ConnectionHandle, NetworkZone};
+use cuprate_p2p_core::{NetworkZone, handles::ConnectionHandle};
 use cuprate_pruning::PruningSeed;
 
 use crate::{
@@ -288,8 +288,8 @@ where
             .most_recent_batch_sizes
             .iter()
             .max_by(|batch_1, batch_2| {
-                let av1 = batch_1.0 .1.byte_size / batch_1.0 .1.len;
-                let av2 = batch_2.0 .1.byte_size / batch_2.0 .1.len;
+                let av1 = batch_1.0.1.byte_size / batch_1.0.1.len;
+                let av2 = batch_2.0.1.byte_size / batch_2.0.1.len;
 
                 av1.cmp(&av2)
             });
@@ -299,8 +299,8 @@ where
         };
 
         calculate_next_block_batch_size(
-            biggest_batch.0 .1.byte_size,
-            biggest_batch.0 .1.len,
+            biggest_batch.0.1.byte_size,
+            biggest_batch.0.1.len,
             self.config.target_batch_bytes,
         )
     }

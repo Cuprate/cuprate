@@ -23,9 +23,9 @@ use tokio_util::codec::{Decoder, Encoder};
 use cuprate_helper::cast::u64_to_usize;
 
 use crate::{
-    header::{Flags, HEADER_SIZE},
-    message::{make_dummy_message, LevinMessage},
     Bucket, BucketBuilder, BucketError, BucketHead, LevinBody, LevinCommand, MessageType, Protocol,
+    header::{Flags, HEADER_SIZE},
+    message::{LevinMessage, make_dummy_message},
 };
 
 #[derive(Debug, Clone)]

@@ -1,7 +1,7 @@
 //! JSON-RPC 2.0 response object.
 
 //---------------------------------------------------------------------------------------------------- Use
-use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeStruct};
 
 use crate::{error::ErrorObject, id::Id, version::Version};
 

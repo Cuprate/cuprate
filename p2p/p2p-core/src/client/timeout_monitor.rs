@@ -6,19 +6,19 @@ use std::sync::Arc;
 
 use futures::channel::oneshot;
 use tokio::{
-    sync::{mpsc, Semaphore},
-    time::{interval, MissedTickBehavior},
+    sync::{Semaphore, mpsc},
+    time::{MissedTickBehavior, interval},
 };
 use tower::ServiceExt;
 use tracing::instrument;
 
-use cuprate_wire::{admin::TimedSyncRequest, AdminRequestMessage, AdminResponseMessage};
+use cuprate_wire::{AdminRequestMessage, AdminResponseMessage, admin::TimedSyncRequest};
 
 use crate::{
-    client::{connection::ConnectionTaskRequest, PeerInformation},
+    AddressBook, CoreSyncSvc, NetworkZone, PeerRequest, PeerResponse,
+    client::{PeerInformation, connection::ConnectionTaskRequest},
     constants::{MAX_PEERS_IN_PEER_LIST_MESSAGE, TIMEOUT_INTERVAL},
     services::{AddressBookRequest, CoreSyncDataRequest, CoreSyncDataResponse},
-    AddressBook, CoreSyncSvc, NetworkZone, PeerRequest, PeerResponse,
 };
 
 /// The timeout monitor task, this task will send periodic timed sync requests to the peer to make sure it is still active.

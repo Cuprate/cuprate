@@ -1,6 +1,6 @@
 use std::task::{Context, Poll};
 
-use futures::{future::BoxFuture, FutureExt, TryFutureExt};
+use futures::{FutureExt, TryFutureExt, future::BoxFuture};
 use tower::Service;
 
 use cuprate_blockchain::service::BlockchainReadHandle;

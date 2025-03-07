@@ -2,7 +2,7 @@
 
 use std::convert::Infallible;
 
-use anyhow::{anyhow, Error};
+use anyhow::{Error, anyhow};
 use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 

@@ -9,7 +9,7 @@ use core::{
     task::{Context, Poll},
 };
 
-use futures::{channel::oneshot, FutureExt};
+use futures::{FutureExt, channel::oneshot};
 
 //---------------------------------------------------------------------------------------------------- InfallibleOneshotReceiver
 /// A oneshot receiver channel that doesn't return an Error.

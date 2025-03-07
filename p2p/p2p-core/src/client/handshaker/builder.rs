@@ -1,14 +1,14 @@
 use std::{convert::Infallible, marker::PhantomData};
 
-use futures::{stream, Stream};
+use futures::{Stream, stream};
 use tower::{make::Shared, util::MapErr};
 use tracing::Span;
 
 use cuprate_wire::BasicNodeData;
 
 use crate::{
-    client::{handshaker::HandShaker, InternalPeerID},
     AddressBook, BroadcastMessage, CoreSyncSvc, NetworkZone, ProtocolRequestHandlerMaker,
+    client::{InternalPeerID, handshaker::HandShaker},
 };
 
 mod dummy;

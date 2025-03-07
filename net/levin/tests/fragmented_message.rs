@@ -10,15 +10,15 @@ use proptest::{prelude::any_with, prop_assert_eq, proptest, sample::size_range};
 use rand::Fill;
 use tokio::{
     io::duplex,
-    time::{timeout, Duration},
+    time::{Duration, timeout},
 };
 use tokio_util::codec::{FramedRead, FramedWrite};
 
 use cuprate_helper::cast::u64_to_usize;
 
 use cuprate_levin::{
-    message::make_fragmented_messages, BucketBuilder, BucketError, LevinBody, LevinCommand,
-    LevinMessageCodec, MessageType, Protocol,
+    BucketBuilder, BucketError, LevinBody, LevinCommand, LevinMessageCodec, MessageType, Protocol,
+    message::make_fragmented_messages,
 };
 
 /// A timeout put on streams so tests don't stall.

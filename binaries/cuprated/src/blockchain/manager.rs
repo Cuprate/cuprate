@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use futures::StreamExt;
 use monero_serai::block::Block;
-use tokio::sync::{mpsc, oneshot, Notify, OwnedSemaphorePermit};
+use tokio::sync::{Notify, OwnedSemaphorePermit, mpsc, oneshot};
 use tower::{BoxError, Service, ServiceExt};
 use tracing::error;
 
@@ -12,14 +12,14 @@ use cuprate_consensus::{
     ExtendedConsensusError,
 };
 use cuprate_p2p::{
-    block_downloader::{BlockBatch, BlockDownloaderConfig},
     BroadcastSvc, NetworkInterface,
+    block_downloader::{BlockBatch, BlockDownloaderConfig},
 };
 use cuprate_p2p_core::ClearNet;
 use cuprate_txpool::service::TxpoolWriteHandle;
 use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain, TransactionVerificationData,
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
 };
 
 use crate::{

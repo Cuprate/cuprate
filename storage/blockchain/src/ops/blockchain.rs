@@ -120,14 +120,14 @@ mod test {
     use pretty_assertions::assert_eq;
 
     use cuprate_database::{Env, EnvInner, TxRw};
-    use cuprate_test_utils::data::{BLOCK_V16_TX0, BLOCK_V1_TX2, BLOCK_V9_TX3};
+    use cuprate_test_utils::data::{BLOCK_V1_TX2, BLOCK_V9_TX3, BLOCK_V16_TX0};
 
     use super::*;
 
     use crate::{
         ops::block::add_block,
         tables::{OpenTables, Tables},
-        tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
+        tests::{AssertTableLen, assert_all_tables_are_empty, tmp_concrete_env},
     };
 
     /// Tests all above functions.

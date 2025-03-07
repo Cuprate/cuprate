@@ -4,17 +4,17 @@
 use std::sync::Arc;
 
 use futures::FutureExt;
-use tokio::sync::{mpsc, Notify};
+use tokio::sync::{Notify, mpsc};
 use tower::{BoxError, Service, ServiceExt};
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
-use cuprate_consensus::{generate_genesis_block, BlockchainContextService, ContextConfig};
+use cuprate_consensus::{BlockchainContextService, ContextConfig, generate_genesis_block};
 use cuprate_cryptonight::cryptonight_hash_v0;
-use cuprate_p2p::{block_downloader::BlockDownloaderConfig, NetworkInterface};
+use cuprate_p2p::{NetworkInterface, block_downloader::BlockDownloaderConfig};
 use cuprate_p2p_core::{ClearNet, Network};
 use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainWriteRequest},
     VerifiedBlockInformation,
+    blockchain::{BlockchainReadRequest, BlockchainWriteRequest},
 };
 
 use crate::constants::PANIC_CRITICAL_SERVICE_ERROR;

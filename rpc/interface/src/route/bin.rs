@@ -6,12 +6,12 @@ use tower::ServiceExt;
 
 use cuprate_epee_encoding::from_bytes;
 use cuprate_rpc_types::{
+    RpcCall,
     bin::{
         BinRequest, BinResponse, GetBlocksByHeightRequest, GetBlocksRequest, GetHashesRequest,
         GetOutputIndexesRequest, GetOutsRequest, GetTransactionPoolHashesRequest,
     },
     json::GetOutputDistributionRequest,
-    RpcCall,
 };
 
 use crate::rpc_handler::RpcHandler;

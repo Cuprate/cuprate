@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use cuprate_dandelion_tower::{
-    pool::DandelionPoolService, DandelionConfig, DandelionRouter, Graph,
+    DandelionConfig, DandelionRouter, Graph, pool::DandelionPoolService,
 };
 use cuprate_p2p::NetworkInterface;
 use cuprate_p2p_core::ClearNet;

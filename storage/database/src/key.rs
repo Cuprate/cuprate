@@ -3,7 +3,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::{cmp::Ordering, fmt::Debug};
 
-use crate::{storable::Storable, StorableBytes, StorableStr, StorableVec};
+use crate::{StorableBytes, StorableStr, StorableVec, storable::Storable};
 
 //---------------------------------------------------------------------------------------------------- Table
 /// Database [`Table`](crate::table::Table) key metadata.
@@ -109,7 +109,9 @@ macro_rules! impl_number_key {
 
 impl_number_key!(u32, u64, usize);
 #[cfg(not(any(target_pointer_width = "32", target_pointer_width = "64")))]
-compile_error!("`cuprate_database`: `usize` must be equal to `u32` or `u64` for LMDB's `usize` key sorting to function correctly");
+compile_error!(
+    "`cuprate_database`: `usize` must be equal to `u32` or `u64` for LMDB's `usize` key sorting to function correctly"
+);
 
 /// Custom number comparison for other numbers.
 macro_rules! impl_custom_numbers_key {

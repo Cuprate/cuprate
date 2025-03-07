@@ -16,9 +16,9 @@ use tokio_util::time::DelayQueue;
 use tower::{Service, ServiceExt};
 
 use crate::{
+    DandelionConfig, DandelionRouteReq, DandelionRouterError, State, TxState,
     pool::IncomingTx,
     traits::{TxStoreRequest, TxStoreResponse},
-    DandelionConfig, DandelionRouteReq, DandelionRouterError, State, TxState,
 };
 
 #[derive(Copy, Clone, Debug, thiserror::Error)]

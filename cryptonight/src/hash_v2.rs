@@ -1,4 +1,4 @@
-use crate::slow_hash::{Variant, MEMORY_BLOCKS};
+use crate::slow_hash::{MEMORY_BLOCKS, Variant};
 
 const U64_MASK: u128 = u64::MAX as u128;
 

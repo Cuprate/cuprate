@@ -19,20 +19,20 @@ use tower::ServiceExt;
 use tracing::instrument;
 
 use cuprate_consensus_rules::{
-    transactions::{
-        get_absolute_offsets, insert_ring_member_ids, DecoyInfo, Rings, TransactionError,
-        TxRingMembersInfo,
-    },
     ConsensusError, HardFork, TxVersion,
+    transactions::{
+        DecoyInfo, Rings, TransactionError, TxRingMembersInfo, get_absolute_offsets,
+        insert_ring_member_ids,
+    },
 };
 
 use cuprate_types::{
+    OutputOnChain,
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     output_cache::OutputCache,
-    OutputOnChain,
 };
 
-use crate::{transactions::TransactionVerificationData, Database, ExtendedConsensusError};
+use crate::{Database, ExtendedConsensusError, transactions::TransactionVerificationData};
 
 /// Get the ring members for the inputs from the outputs on the chain.
 ///
@@ -214,15 +214,12 @@ pub async fn batch_get_ring_member_info<D: Database>(
 /// This functions panics if `hf == HardFork::V1` as decoy info
 /// should not be needed for V1.
 #[instrument(level = "debug", skip_all)]
-pub async fn batch_get_decoy_info<'a, 'b, D: Database>(
-    txs_verification_data: impl Iterator<Item = &'a TransactionVerificationData> + Clone,
+pub async fn batch_get_decoy_info<D: Database>(
+    txs_verification_data: impl Iterator<Item = &TransactionVerificationData> + Clone,
     hf: HardFork,
     mut database: D,
-    cache: Option<&'b OutputCache>,
-) -> Result<
-    impl Iterator<Item = Result<DecoyInfo, ConsensusError>> + sealed::Captures<(&'a (), &'b ())>,
-    ExtendedConsensusError,
-> {
+    cache: Option<&OutputCache>,
+) -> Result<impl Iterator<Item = Result<DecoyInfo, ConsensusError>>, ExtendedConsensusError> {
     // decoy info is not needed for V1.
     assert_ne!(hf, HardFork::V1);
 
@@ -270,12 +267,4 @@ pub async fn batch_get_decoy_info<'a, 'b, D: Database>(
         )
         .map_err(ConsensusError::Transaction)
     }))
-}
-
-mod sealed {
-    /// TODO: Remove me when 2024 Rust
-    ///
-    /// <https://rust-lang.github.io/rfcs/3498-lifetime-capture-rules-2024.html#the-captures-trick>
-    pub trait Captures<U> {}
-    impl<T: ?Sized, U> Captures<U> for T {}
 }

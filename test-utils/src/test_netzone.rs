@@ -16,8 +16,8 @@ use tokio::io::{DuplexStream, ReadHalf, WriteHalf};
 use tokio_util::codec::{FramedRead, FramedWrite};
 
 use cuprate_wire::{
-    network_address::{NetworkAddress, NetworkAddressIncorrectZone},
     MoneroWireCodec,
+    network_address::{NetworkAddress, NetworkAddressIncorrectZone},
 };
 
 use cuprate_p2p_core::{NetZoneAddress, NetworkZone};

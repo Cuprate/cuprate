@@ -35,7 +35,7 @@ impl TryFrom<ProtocolMessage> for ProtocolRequest {
             ProtocolMessage::NewFluffyBlock(val) => Self::NewFluffyBlock(val),
             ProtocolMessage::NewTransactions(val) => Self::NewTransactions(val),
             ProtocolMessage::GetObjectsResponse(_) | ProtocolMessage::ChainEntryResponse(_) => {
-                return Err(MessageConversionError)
+                return Err(MessageConversionError);
             }
         })
     }

@@ -5,7 +5,7 @@ use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
-use cuprate_p2p_core::{types::ConnectionId, NetworkZone};
+use cuprate_p2p_core::{NetworkZone, types::ConnectionId};
 use cuprate_pruning::PruningSeed;
 use cuprate_rpc_types::misc::Span;
 use cuprate_types::{AddAuxPow, AuxPow, HardFork};

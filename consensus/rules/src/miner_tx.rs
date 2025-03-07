@@ -3,7 +3,7 @@ use monero_serai::transaction::{Input, Output, Timelock, Transaction};
 use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
 use cuprate_types::TxVersion;
 
-use crate::{is_decomposed_amount, transactions::check_output_types, HardFork};
+use crate::{HardFork, is_decomposed_amount, transactions::check_output_types};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum MinerTxError {

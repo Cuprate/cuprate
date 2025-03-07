@@ -18,19 +18,19 @@ use std::{
 
 use indexmap::{IndexMap, IndexSet};
 use rayon::{
+    ThreadPool,
     iter::{Either, IntoParallelIterator, ParallelIterator},
     prelude::*,
-    ThreadPool,
 };
 use thread_local::ThreadLocal;
 
 use cuprate_database::{ConcreteEnv, DatabaseRo, DbResult, Env, EnvInner, RuntimeError};
-use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
+use cuprate_database_service::{DatabaseReadService, ReaderThreads, init_thread_pool};
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
+    Chain, ChainId, ExtendedBlockHeader, OutputHistogramInput, TxsInBlock,
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     output_cache::OutputCache,
-    Chain, ChainId, ExtendedBlockHeader, OutputHistogramInput, TxsInBlock,
 };
 
 use crate::{

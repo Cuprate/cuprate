@@ -16,22 +16,22 @@ use monero_serai::{
 };
 use proptest::{collection::vec, prelude::*};
 use tokio::{sync::mpsc, time::timeout};
-use tower::{buffer::Buffer, service_fn, Service, ServiceExt};
+use tower::{Service, ServiceExt, buffer::Buffer, service_fn};
 
 use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_p2p_core::{
-    client::{mock_client, Client, InternalPeerID, PeerInformation},
     ClearNet, ConnectionDirection, PeerRequest, PeerResponse, ProtocolRequest, ProtocolResponse,
+    client::{Client, InternalPeerID, PeerInformation, mock_client},
 };
 use cuprate_pruning::PruningSeed;
 use cuprate_types::{BlockCompleteEntry, TransactionBlobs};
 use cuprate_wire::{
-    protocol::{ChainResponse, GetObjectsResponse},
     CoreSyncData,
+    protocol::{ChainResponse, GetObjectsResponse},
 };
 
 use crate::{
-    block_downloader::{download_blocks, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
+    block_downloader::{BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse, download_blocks},
     peer_set::PeerSet,
 };
 

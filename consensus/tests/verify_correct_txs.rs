@@ -14,9 +14,9 @@ use tower::service_fn;
 
 use cuprate_consensus::{__private::Database, transactions::start_tx_verification};
 use cuprate_types::{
+    OutputOnChain,
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     output_cache::OutputCache,
-    OutputOnChain,
 };
 
 use cuprate_consensus_rules::HardFork;

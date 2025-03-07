@@ -10,8 +10,8 @@
 use std::borrow::Cow;
 
 use pretty_assertions::assert_eq;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json::{to_string, to_string_pretty, to_value, Value};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde_json::{Value, to_string, to_string_pretty, to_value};
 
 use crate::{Id, Request, Response};
 

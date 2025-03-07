@@ -1,10 +1,10 @@
 use std::{
-    future::{ready, Future, Ready},
-    pin::{pin, Pin},
+    future::{Future, Ready, ready},
+    pin::{Pin, pin},
     task::{Context, Poll},
 };
 
-use futures::{stream::FuturesUnordered, StreamExt};
+use futures::{StreamExt, stream::FuturesUnordered};
 use indexmap::{IndexMap, IndexSet};
 use rand::{seq::index::sample, thread_rng};
 use tokio::sync::mpsc::Receiver;
@@ -13,8 +13,8 @@ use tower::Service;
 
 use cuprate_helper::cast::u64_to_usize;
 use cuprate_p2p_core::{
-    client::{Client, InternalPeerID},
     ConnectionDirection, NetworkZone,
+    client::{Client, InternalPeerID},
 };
 
 mod client_wrappers;

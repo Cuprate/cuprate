@@ -2,14 +2,14 @@ use std::{collections::HashMap, sync::Arc};
 
 use tower::ServiceExt;
 
-use cuprate_consensus_rules::{blocks::BlockError, ConsensusError};
+use cuprate_consensus_rules::{ConsensusError, blocks::BlockError};
 use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain, ChainId,
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
 };
 
 use crate::{
-    ContextCacheError, __private::Database, difficulty::DifficultyCache, rx_vms::RandomXVm,
+    __private::Database, ContextCacheError, difficulty::DifficultyCache, rx_vms::RandomXVm,
     weight::BlockWeightsCache,
 };
 

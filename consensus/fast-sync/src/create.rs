@@ -12,8 +12,8 @@ use cuprate_blockchain::{
     config::ConfigBuilder, cuprate_database::DbResult, service::BlockchainReadHandle,
 };
 use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain,
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
 };
 
 const BATCH_SIZE: usize = 512;

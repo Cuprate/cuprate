@@ -5,11 +5,11 @@ use std::{collections::HashMap, future::Future, hash::Hash, sync::Arc};
 
 use futures::{Stream, StreamExt, TryStreamExt};
 use tokio::sync::mpsc::{self, UnboundedReceiver};
-use tower::{util::service_fn, Service, ServiceExt};
+use tower::{Service, ServiceExt, util::service_fn};
 
 use crate::{
-    traits::{TxStoreRequest, TxStoreResponse},
     OutboundPeer, State,
+    traits::{TxStoreRequest, TxStoreResponse},
 };
 
 #[expect(clippy::type_complexity)]
@@ -19,11 +19,11 @@ pub(crate) fn mock_discover_svc<Req: Send + 'static>() -> (
             OutboundPeer<
                 usize,
                 impl Service<
-                        Req,
-                        Future = impl Future<Output = Result<(), tower::BoxError>> + Send + 'static,
-                        Error = tower::BoxError,
-                    > + Send
-                    + 'static,
+                    Req,
+                    Future = impl Future<Output = Result<(), tower::BoxError>> + Send + 'static,
+                    Error = tower::BoxError,
+                > + Send
+                + 'static,
             >,
             tower::BoxError,
         >,
@@ -52,11 +52,11 @@ pub(crate) fn mock_discover_svc<Req: Send + 'static>() -> (
 
 pub(crate) fn mock_broadcast_svc<Req: Send + 'static>() -> (
     impl Service<
-            Req,
-            Future = impl Future<Output = Result<(), tower::BoxError>> + Send + 'static,
-            Error = tower::BoxError,
-        > + Send
-        + 'static,
+        Req,
+        Future = impl Future<Output = Result<(), tower::BoxError>> + Send + 'static,
+        Error = tower::BoxError,
+    > + Send
+    + 'static,
     UnboundedReceiver<Req>,
 ) {
     let (tx, rx) = mpsc::unbounded_channel();
@@ -77,12 +77,12 @@ pub(crate) fn mock_in_memory_backing_pool<
     TxID: Clone + Hash + Eq + Send + 'static,
 >() -> (
     impl Service<
-            TxStoreRequest<TxID>,
-            Response = TxStoreResponse<Tx>,
-            Future = impl Future<Output = Result<TxStoreResponse<Tx>, tower::BoxError>> + Send + 'static,
-            Error = tower::BoxError,
-        > + Send
-        + 'static,
+        TxStoreRequest<TxID>,
+        Response = TxStoreResponse<Tx>,
+        Future = impl Future<Output = Result<TxStoreResponse<Tx>, tower::BoxError>> + Send + 'static,
+        Error = tower::BoxError,
+    > + Send
+    + 'static,
     Arc<std::sync::Mutex<HashMap<TxID, (Tx, State)>>>,
 ) {
     let txs = Arc::new(std::sync::Mutex::new(HashMap::new()));

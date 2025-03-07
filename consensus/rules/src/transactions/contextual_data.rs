@@ -4,7 +4,7 @@ use curve25519_dalek::edwards::CompressedEdwardsY;
 use indexmap::{IndexMap, IndexSet};
 use monero_serai::transaction::{Input, Timelock};
 
-use crate::{transactions::TransactionError, HardFork};
+use crate::{HardFork, transactions::TransactionError};
 
 /// Gets the absolute offsets from the relative offsets.
 ///

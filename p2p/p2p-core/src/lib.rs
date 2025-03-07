@@ -71,8 +71,8 @@ use std::{fmt::Debug, hash::Hash};
 use futures::{Sink, Stream};
 
 use cuprate_wire::{
-    levin::LevinMessage, network_address::NetworkAddressIncorrectZone, BucketError, Message,
-    NetworkAddress,
+    BucketError, Message, NetworkAddress, levin::LevinMessage,
+    network_address::NetworkAddressIncorrectZone,
 };
 
 pub mod client;

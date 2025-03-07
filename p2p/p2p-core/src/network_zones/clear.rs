@@ -6,8 +6,8 @@ use std::{
 
 use futures::Stream;
 use tokio::net::{
-    tcp::{OwnedReadHalf, OwnedWriteHalf},
     TcpListener, TcpStream,
+    tcp::{OwnedReadHalf, OwnedWriteHalf},
 };
 use tokio_util::codec::{FramedRead, FramedWrite};
 

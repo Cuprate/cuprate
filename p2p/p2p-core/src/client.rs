@@ -1,12 +1,12 @@
 use std::{
     fmt::{Debug, Display, Formatter},
     sync::{Arc, Mutex},
-    task::{ready, Context, Poll},
+    task::{Context, Poll, ready},
 };
 
 use futures::channel::oneshot;
 use tokio::{
-    sync::{mpsc, OwnedSemaphorePermit, Semaphore},
+    sync::{OwnedSemaphorePermit, Semaphore, mpsc},
     task::JoinHandle,
 };
 use tokio_util::sync::{PollSemaphore, PollSender};
@@ -18,8 +18,8 @@ use cuprate_pruning::PruningSeed;
 use cuprate_wire::CoreSyncData;
 
 use crate::{
-    handles::{ConnectionGuard, ConnectionHandle},
     ConnectionDirection, NetworkZone, PeerError, PeerRequest, PeerResponse, SharedError,
+    handles::{ConnectionGuard, ConnectionHandle},
 };
 
 mod connection;

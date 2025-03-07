@@ -16,8 +16,8 @@ use proptest_derive::Arbitrary;
 use tower::{BoxError, Service};
 
 use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
     ExtendedBlockHeader,
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
 };
 
 use crate::HardFork;

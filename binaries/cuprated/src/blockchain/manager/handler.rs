@@ -9,25 +9,25 @@ use monero_serai::{
 };
 use rayon::prelude::*;
 use tower::{Service, ServiceExt};
-use tracing::{info, instrument, Span};
+use tracing::{Span, info, instrument};
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{
+    BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
     block::{
-        batch_prepare_main_chain_blocks, sanity_check_alt_block, verify_main_chain_block,
-        verify_prepped_main_chain_block, PreparedBlock,
+        PreparedBlock, batch_prepare_main_chain_blocks, sanity_check_alt_block,
+        verify_main_chain_block, verify_prepped_main_chain_block,
     },
     transactions::new_tx_verification_data,
-    BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
 };
 use cuprate_consensus_context::NewBlockData;
 use cuprate_fast_sync::{block_to_verified_block_information, fast_sync_top_height};
 use cuprate_helper::cast::usize_to_u64;
-use cuprate_p2p::{block_downloader::BlockBatch, constants::LONG_BAN, BroadcastRequest};
+use cuprate_p2p::{BroadcastRequest, block_downloader::BlockBatch, constants::LONG_BAN};
 use cuprate_txpool::service::interface::TxpoolWriteRequest;
 use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
     AltBlockInformation, Chain, HardFork, TransactionVerificationData, VerifiedBlockInformation,
+    blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
 };
 
 use crate::{

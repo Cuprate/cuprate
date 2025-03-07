@@ -1,4 +1,4 @@
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use futures::channel::oneshot;
 use tokio::sync::OwnedSemaphorePermit;
@@ -8,8 +8,8 @@ use tower::Service;
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
 use crate::{
-    client::{connection, PeerInformation},
     BroadcastMessage, NetworkZone, PeerError, PeerRequest, PeerResponse, SharedError,
+    client::{PeerInformation, connection},
 };
 
 /// A weak handle to a [`Client`](super::Client).

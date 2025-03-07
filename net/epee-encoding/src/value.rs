@@ -9,10 +9,10 @@ use bytes::{Buf, BufMut, Bytes, BytesMut};
 use cuprate_fixed_bytes::{ByteArray, ByteArrayVec};
 
 use crate::{
+    EpeeObject, Error, InnerMarker, MAX_STRING_LEN_POSSIBLE, Marker, Result,
     io::{checked_read_primitive, checked_write_primitive},
     varint::{read_varint, write_varint},
-    write_bytes, write_iterator, EpeeObject, Error, InnerMarker, Marker, Result,
-    MAX_STRING_LEN_POSSIBLE,
+    write_bytes, write_iterator,
 };
 
 /// A trait for epee values.

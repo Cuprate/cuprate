@@ -10,7 +10,7 @@ use cuprate_database::{
 };
 use cuprate_database_service::ReaderThreads;
 use cuprate_helper::{
-    fs::{txpool_path, CUPRATE_DATA_DIR},
+    fs::{CUPRATE_DATA_DIR, txpool_path},
     network::Network,
 };
 

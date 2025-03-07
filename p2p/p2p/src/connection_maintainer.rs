@@ -7,17 +7,17 @@ use std::sync::Arc;
 
 use rand::{distributions::Bernoulli, prelude::*};
 use tokio::{
-    sync::{mpsc, OwnedSemaphorePermit, Semaphore},
+    sync::{OwnedSemaphorePermit, Semaphore, mpsc},
     task::JoinSet,
     time::{sleep, timeout},
 };
 use tower::{Service, ServiceExt};
-use tracing::{instrument, Instrument, Span};
+use tracing::{Instrument, Span, instrument};
 
 use cuprate_p2p_core::{
+    AddressBook, NetworkZone,
     client::{Client, ConnectRequest, HandshakeError},
     services::{AddressBookRequest, AddressBookResponse},
-    AddressBook, NetworkZone,
 };
 
 use crate::{
@@ -210,7 +210,9 @@ where
         match peer {
             Err(_) => {
                 // TODO: We should probably send peer requests to our connected peers rather than go to seeds.
-                tracing::warn!("No peers in address book which are available and have the data we need. Getting peers from seed nodes.");
+                tracing::warn!(
+                    "No peers in address book which are available and have the data we need. Getting peers from seed nodes."
+                );
 
                 self.connect_to_random_seeds().await?;
                 Err(OutboundConnectorError::NoAvailablePeers)

@@ -14,11 +14,11 @@ use std::{
 use tower::ServiceExt;
 use tracing::instrument;
 
-use cuprate_consensus_rules::blocks::{penalty_free_zone, PENALTY_FREE_ZONE_5};
+use cuprate_consensus_rules::blocks::{PENALTY_FREE_ZONE_5, penalty_free_zone};
 use cuprate_helper::{asynch::rayon_spawn_async, num::RollingMedian};
 use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain,
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
 };
 
 use crate::{ContextCacheError, Database, HardFork};
@@ -97,7 +97,12 @@ impl BlockWeightsCache {
         )
         .await?;
 
-        tracing::info!("Initialized block weight cache, chain-height: {:?}, long term weights length: {:?}, short term weights length: {:?}", chain_height, long_term_weights.len(), short_term_block_weights.len());
+        tracing::info!(
+            "Initialized block weight cache, chain-height: {:?}, long term weights length: {:?}, short term weights length: {:?}",
+            chain_height,
+            long_term_weights.len(),
+            short_term_block_weights.len()
+        );
 
         Ok(Self {
             short_term_block_weights: rayon_spawn_async(move || {

@@ -4,7 +4,7 @@ use cuprate_fixed_bytes::ByteArrayVec;
 use tower::{Service, ServiceExt};
 
 use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
-use cuprate_p2p_core::{client::InternalPeerID, handles::ConnectionHandle, NetworkZone};
+use cuprate_p2p_core::{NetworkZone, client::InternalPeerID, handles::ConnectionHandle};
 use cuprate_pruning::PruningSeed;
 
 use crate::{

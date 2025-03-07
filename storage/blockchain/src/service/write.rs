@@ -5,8 +5,8 @@ use std::sync::Arc;
 use cuprate_database::{ConcreteEnv, DatabaseRo, DbResult, Env, EnvInner, TxRw};
 use cuprate_database_service::DatabaseWriteHandle;
 use cuprate_types::{
-    blockchain::{BlockchainResponse, BlockchainWriteRequest},
     AltBlockInformation, Chain, ChainId, VerifiedBlockInformation,
+    blockchain::{BlockchainResponse, BlockchainWriteRequest},
 };
 
 use crate::{

@@ -4,10 +4,10 @@ use cuprate_pruning::{PruningError, PruningSeed};
 use cuprate_wire::{CoreSyncData, PeerListEntryBase};
 
 use crate::{
+    NetZoneAddress, NetworkAddressIncorrectZone, NetworkZone,
     client::InternalPeerID,
     handles::ConnectionHandle,
     types::{BanState, ConnectionInfo, SetBan},
-    NetZoneAddress, NetworkAddressIncorrectZone, NetworkZone,
 };
 
 /// A request to the core sync service for our node's [`CoreSyncData`].

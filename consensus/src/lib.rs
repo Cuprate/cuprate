@@ -26,15 +26,15 @@ mod tests;
 pub mod transactions;
 
 pub use cuprate_consensus_context::{
-    initialize_blockchain_context, BlockChainContextRequest, BlockChainContextResponse,
-    BlockchainContext, BlockchainContextService, ContextConfig,
+    BlockChainContextRequest, BlockChainContextResponse, BlockchainContext,
+    BlockchainContextService, ContextConfig, initialize_blockchain_context,
 };
 
 // re-export.
 pub use cuprate_consensus_rules::genesis::generate_genesis_block;
 pub use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
     HardFork,
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
 };
 
 /// An Error returned from one of the consensus services.
@@ -72,22 +72,22 @@ pub mod __private {
     /// ```
     pub trait Database:
         tower::Service<
-        BlockchainReadRequest,
-        Response = BlockchainResponse,
-        Error = tower::BoxError,
-        Future: Send + 'static,
-    >
+            BlockchainReadRequest,
+            Response = BlockchainResponse,
+            Error = tower::BoxError,
+            Future: Send + 'static,
+        >
     {
     }
 
     impl<
-            T: tower::Service<
+        T: tower::Service<
                 BlockchainReadRequest,
                 Response = BlockchainResponse,
                 Error = tower::BoxError,
                 Future: Send + 'static,
             >,
-        > Database for T
+    > Database for T
     {
     }
 }

@@ -26,7 +26,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::{future::BoxFuture, FutureExt};
+use futures::{FutureExt, future::BoxFuture};
 use rand_distr::Exp;
 use tokio::{
     sync::{mpsc, oneshot},
@@ -37,9 +37,9 @@ use tower::Service;
 use tracing::Instrument;
 
 use crate::{
+    DandelionConfig, DandelionRouteReq, DandelionRouterError, State,
     pool::manager::DandelionPoolShutDown,
     traits::{TxStoreRequest, TxStoreResponse},
-    DandelionConfig, DandelionRouteReq, DandelionRouterError, State,
 };
 
 mod incoming_tx;

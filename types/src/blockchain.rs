@@ -12,10 +12,10 @@ use indexmap::{IndexMap, IndexSet};
 use monero_serai::block::Block;
 
 use crate::{
-    output_cache::OutputCache,
-    types::{Chain, ExtendedBlockHeader, TxsInBlock, VerifiedBlockInformation},
     AltBlockInformation, BlockCompleteEntry, ChainId, ChainInfo, CoinbaseTxSum,
     OutputHistogramEntry, OutputHistogramInput,
+    output_cache::OutputCache,
+    types::{Chain, ExtendedBlockHeader, TxsInBlock, VerifiedBlockInformation},
 };
 
 //---------------------------------------------------------------------------------------------------- ReadRequest

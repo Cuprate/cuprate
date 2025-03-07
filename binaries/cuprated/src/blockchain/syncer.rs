@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 
 use futures::StreamExt;
 use tokio::{
-    sync::{mpsc, Notify, OwnedSemaphorePermit, Semaphore},
+    sync::{Notify, OwnedSemaphorePermit, Semaphore, mpsc},
     time::interval,
 };
 use tower::{Service, ServiceExt};
@@ -12,8 +12,8 @@ use tracing::instrument;
 use cuprate_consensus::{BlockChainContextRequest, BlockChainContextResponse, BlockchainContext};
 use cuprate_consensus_context::BlockchainContextService;
 use cuprate_p2p::{
-    block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
     NetworkInterface, PeerSetRequest, PeerSetResponse,
+    block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
 };
 use cuprate_p2p_core::{ClearNet, NetworkZone};
 

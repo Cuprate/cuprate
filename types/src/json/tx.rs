@@ -489,9 +489,15 @@ mod test {
                 ],
             },
             signatures: vec![
-              HexBytes::<64>(hex!("318755c67c5d3379b0958a047f5439cf43dd251f64b6314c84b2edbf240d950abbeaad13233700e6b6c59bea178c6fbaa246b8fd84b5caf94d1affd520e6770b")),
-              HexBytes::<64>(hex!("a47e6a65e907e49442828db46475ecdf27f3c472f24688423ac97f0efbd8b90b164ed52c070f7a2a95b95398814b19c0befd14a4aab5520963daf3482604df01")),
-              HexBytes::<64>(hex!("fa6981c969c2a1b9d330a8901d2ef7def7f3ade8d9fba444e18e7e349e286a035ae1729a76e01bbbb3ccd010502af6c77049e3167cf108be69706a8674b0c508"))
+                HexBytes::<64>(hex!(
+                    "318755c67c5d3379b0958a047f5439cf43dd251f64b6314c84b2edbf240d950abbeaad13233700e6b6c59bea178c6fbaa246b8fd84b5caf94d1affd520e6770b"
+                )),
+                HexBytes::<64>(hex!(
+                    "a47e6a65e907e49442828db46475ecdf27f3c472f24688423ac97f0efbd8b90b164ed52c070f7a2a95b95398814b19c0befd14a4aab5520963daf3482604df01"
+                )),
+                HexBytes::<64>(hex!(
+                    "fa6981c969c2a1b9d330a8901d2ef7def7f3ade8d9fba444e18e7e349e286a035ae1729a76e01bbbb3ccd010502af6c77049e3167cf108be69706a8674b0c508"
+                )),
             ],
         };
 
@@ -1087,8 +1093,8 @@ mod test {
                         target: Target::TaggedKey {
                             tagged_key: TaggedKey {
                                 key: HexBytes::<32>(hex!(
-                                "570482299e724f78b8441d700aa63388a842c7f5dbcbe5fa859c2c0abad96b30"
-                            )),
+                                    "570482299e724f78b8441d700aa63388a842c7f5dbcbe5fa859c2c0abad96b30"
+                                )),
                                 view_tag: HexBytes::<1>(hex!("9f")),
                             },
                         },
@@ -1098,8 +1104,8 @@ mod test {
                         target: Target::TaggedKey {
                             tagged_key: TaggedKey {
                                 key: HexBytes::<32>(hex!(
-                                "50c1a24ef57aeba07beecd8ddbf294e2501d6fa90ad9712829c00b7293eead96"
-                            )),
+                                    "50c1a24ef57aeba07beecd8ddbf294e2501d6fa90ad9712829c00b7293eead96"
+                                )),
                                 view_tag: HexBytes::<1>(hex!("06")),
                             },
                         },

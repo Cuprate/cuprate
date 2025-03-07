@@ -7,11 +7,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::value::Value;
 
 use crate::error::{
+    ErrorCode,
     constants::{
         INTERNAL_ERROR, INVALID_PARAMS, INVALID_REQUEST, METHOD_NOT_FOUND, PARSE_ERROR,
         SERVER_ERROR,
     },
-    ErrorCode,
 };
 
 //---------------------------------------------------------------------------------------------------- ErrorObject

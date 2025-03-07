@@ -8,17 +8,17 @@ use monero_serai::{block::Block, transaction::Input};
 use tower::{Service, ServiceExt};
 
 use cuprate_consensus_context::{
+    AltChainContextCache, AltChainRequestToken, BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
     difficulty::DifficultyCache,
     rx_vms::RandomXVm,
     weight::{self, BlockWeightsCache},
-    AltChainContextCache, AltChainRequestToken, BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
 };
 use cuprate_consensus_rules::{
+    ConsensusError,
     blocks::{
-        check_block_pow, check_block_weight, check_timestamp, randomx_seed_height, BlockError,
+        BlockError, check_block_pow, check_block_weight, check_timestamp, randomx_seed_height,
     },
     miner_tx::MinerTxError,
-    ConsensusError,
 };
 use cuprate_helper::{asynch::rayon_spawn_async, cast::u64_to_usize};
 use cuprate_types::{
@@ -27,8 +27,8 @@ use cuprate_types::{
 };
 
 use crate::{
-    block::{free::pull_ordered_transactions, PreparedBlock},
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
+    block::{PreparedBlock, free::pull_ordered_transactions},
 };
 
 /// This function sanity checks an alt-block.

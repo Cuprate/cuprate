@@ -1,5 +1,5 @@
 use std::{
-    future::{ready, Ready},
+    future::{Ready, ready},
     task::{Context, Poll},
 };
 
@@ -33,7 +33,7 @@ impl Service<DiffuseRequest<DandelionTx>> for DiffuseService {
         let Ok(()) = self
             .clear_net_broadcast_service
             .call(BroadcastRequest::Transaction {
-                tx_bytes: req.0 .0,
+                tx_bytes: req.0.0,
                 direction: None,
                 received_from: None,
             })

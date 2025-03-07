@@ -1,14 +1,14 @@
 use std::{
     collections::HashSet,
-    future::{ready, Ready},
+    future::{Ready, ready},
     hash::Hash,
     task::{Context, Poll},
 };
 
 use bytes::Bytes;
 use futures::{
-    future::{BoxFuture, Shared},
     FutureExt,
+    future::{BoxFuture, Shared},
 };
 use monero_serai::{block::Block, transaction::Transaction};
 use tokio::sync::{broadcast, oneshot, watch};
@@ -17,8 +17,8 @@ use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::{
-    transactions::new_tx_verification_data, BlockChainContextRequest, BlockChainContextResponse,
-    BlockchainContextService,
+    BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
+    transactions::new_tx_verification_data,
 };
 use cuprate_dandelion_tower::TxState;
 use cuprate_fixed_bytes::ByteArrayVec;
@@ -29,16 +29,16 @@ use cuprate_helper::{
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
 };
 use cuprate_p2p::constants::{
-    MAX_BLOCKS_IDS_IN_CHAIN_ENTRY, MAX_BLOCK_BATCH_LEN, MAX_TRANSACTION_BLOB_SIZE, MEDIUM_BAN,
+    MAX_BLOCK_BATCH_LEN, MAX_BLOCKS_IDS_IN_CHAIN_ENTRY, MAX_TRANSACTION_BLOB_SIZE, MEDIUM_BAN,
 };
 use cuprate_p2p_core::{
-    client::{InternalPeerID, PeerInformation},
     NetZoneAddress, NetworkZone, ProtocolRequest, ProtocolResponse,
+    client::{InternalPeerID, PeerInformation},
 };
 use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
     BlockCompleteEntry, TransactionBlobs, TxsInBlock,
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
 };
 use cuprate_wire::protocol::{
     ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest,

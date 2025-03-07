@@ -15,7 +15,7 @@ use cuprate_helper::{map::combine_low_high_bits_to_u128, tx::tx_fee};
 use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
 
 use crate::data::constants::{
-    BLOCK_43BD1F, BLOCK_5ECB7E, BLOCK_F91043, TX_2180A8, TX_3BC7FF, TX_84D48D, TX_9E3F73,
+    BLOCK_5ECB7E, BLOCK_43BD1F, BLOCK_F91043, TX_3BC7FF, TX_9E3F73, TX_84D48D, TX_2180A8,
     TX_B6B439, TX_D7FEBD, TX_E2D393, TX_E57440,
 };
 

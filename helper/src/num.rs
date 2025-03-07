@@ -35,7 +35,9 @@ macro_rules! impl_number {
         )*
     };
 }
-impl_number!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
+impl_number!(
+    u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize
+);
 
 /// Floating point numbers
 ///
@@ -106,14 +108,16 @@ where
     let len = array.len();
 
     // TODO: use `is_sorted` when stable.
-    debug_assert!(array
-        .windows(2)
-        .try_for_each(|window| if window[0] <= window[1] {
-            Ok(())
-        } else {
-            Err(())
-        })
-        .is_ok());
+    debug_assert!(
+        array
+            .windows(2)
+            .try_for_each(|window| if window[0] <= window[1] {
+                Ok(())
+            } else {
+                Err(())
+            })
+            .is_ok()
+    );
 
     let mid = len / 2;
 

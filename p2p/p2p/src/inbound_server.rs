@@ -6,29 +6,29 @@ use std::{pin::pin, sync::Arc};
 
 use futures::{SinkExt, StreamExt};
 use tokio::{
-    sync::{mpsc, Semaphore},
+    sync::{Semaphore, mpsc},
     task::JoinSet,
     time::{sleep, timeout},
 };
 use tower::{Service, ServiceExt};
-use tracing::{instrument, Instrument, Span};
+use tracing::{Instrument, Span, instrument};
 
 use cuprate_p2p_core::{
+    AddressBook, ConnectionDirection, NetworkZone,
     client::{Client, DoHandshakeRequest, HandshakeError, InternalPeerID},
     services::{AddressBookRequest, AddressBookResponse},
-    AddressBook, ConnectionDirection, NetworkZone,
 };
 use cuprate_wire::{
-    admin::{PingResponse, PING_OK_RESPONSE_STATUS_TEXT},
     AdminRequestMessage, AdminResponseMessage, Message,
+    admin::{PING_OK_RESPONSE_STATUS_TEXT, PingResponse},
 };
 
 use crate::{
+    P2PConfig,
     constants::{
         HANDSHAKE_TIMEOUT, INBOUND_CONNECTION_COOL_DOWN, PING_REQUEST_CONCURRENCY,
         PING_REQUEST_TIMEOUT,
     },
-    P2PConfig,
 };
 
 /// Starts the inbound server. This function will listen to all incoming connections

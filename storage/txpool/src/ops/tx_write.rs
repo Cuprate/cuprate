@@ -10,8 +10,8 @@ use cuprate_types::TransactionVerificationData;
 use crate::{
     free::transaction_blob_hash,
     ops::{
-        key_images::{add_tx_key_images, remove_tx_key_images},
         TxPoolWriteError,
+        key_images::{add_tx_key_images, remove_tx_key_images},
     },
     tables::TablesMut,
     types::{TransactionHash, TransactionInfo, TxStateFlags},

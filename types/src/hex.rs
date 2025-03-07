@@ -4,7 +4,7 @@
 //! arrays that (de)serialize from hexadecimal input/output.
 
 #[cfg(feature = "epee")]
-use cuprate_epee_encoding::{error, macros::bytes, EpeeValue, Marker};
+use cuprate_epee_encoding::{EpeeValue, Marker, error, macros::bytes};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 

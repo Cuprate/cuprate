@@ -13,8 +13,8 @@ use tracing::instrument;
 
 use cuprate_helper::num::median;
 use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain,
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
 };
 
 use crate::{ContextCacheError, Database, HardFork};

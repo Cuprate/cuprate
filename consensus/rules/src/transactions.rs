@@ -8,8 +8,8 @@ use monero_serai::{
 };
 
 use crate::{
-    batch_verifier::BatchVerifier, blocks::penalty_free_zone, check_point_canonically_encoded,
-    is_decomposed_amount, HardFork,
+    HardFork, batch_verifier::BatchVerifier, blocks::penalty_free_zone,
+    check_point_canonically_encoded, is_decomposed_amount,
 };
 
 // re-export.
