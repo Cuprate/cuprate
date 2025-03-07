@@ -63,7 +63,7 @@ pub struct P2pProtocolRequestHandlerMaker {
     /// and the [`IncomingTxHandler`].
     pub incoming_tx_handler: Option<IncomingTxHandler>,
 
-    /// A [`Future`](std::future::Future) that produces the [`IncomingTxHandler`].
+    /// A [`Future`] that produces the [`IncomingTxHandler`].
     pub incoming_tx_handler_fut: Shared<oneshot::Receiver<IncomingTxHandler>>,
 }
 

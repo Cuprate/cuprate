@@ -51,7 +51,7 @@ request/response types are the 3 endpoint enums from [`cuprate_rpc_types`]:
 - [`BinRequest`](cuprate_rpc_types::bin::BinRequest) & [`BinResponse`](cuprate_rpc_types::bin::BinRequest)
 - [`OtherRequest`](cuprate_rpc_types::other::OtherRequest) & [`OtherResponse`](cuprate_rpc_types::other::OtherRequest)
 
-`RpcHandler`'s [`Future`](std::future::Future) is generic, _although_,
+`RpcHandler`'s [`Future`] is generic, _although_,
 it must output `Result<$RESPONSE, anyhow::Error>`.
 
 The error type must always be [`anyhow::Error`].
