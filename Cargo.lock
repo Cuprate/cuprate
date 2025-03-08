@@ -774,18 +774,16 @@ dependencies = [
 name = "cuprate-fast-sync"
 version = "0.1.0"
 dependencies = [
+ "blake3",
  "clap",
  "cuprate-blockchain",
  "cuprate-consensus",
  "cuprate-consensus-context",
- "cuprate-consensus-rules",
- "cuprate-helper",
+ "cuprate-p2p",
+ "cuprate-p2p-core",
  "cuprate-types",
  "hex",
- "hex-literal",
  "monero-serai",
- "sha3",
- "thiserror",
  "tokio",
  "tower 0.5.1",
 ]

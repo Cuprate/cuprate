@@ -12,6 +12,7 @@
 use std::{
     cmp::min,
     collections::{HashMap, HashSet},
+    ops::Range,
     sync::Arc,
 };
 
@@ -107,6 +108,7 @@ fn map_request(
         R::BlockCompleteEntries(block_hashes) => block_complete_entries(env, block_hashes),
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
         R::BlockHash(block, chain) => block_hash(env, block, chain),
+        R::BlockHashInRange(blocks, chain) => block_hash_in_range(env, blocks, chain),
         R::FindBlock(block_hash) => find_block(env, block_hash),
         R::FilterUnknownHashes(hashes) => filter_unknown_hashes(env, hashes),
         R::BlockExtendedHeaderInRange(range, chain) => {
@@ -271,6 +273,34 @@ fn block_hash(env: &ConcreteEnv, block_height: BlockHeight, chain: Chain) -> Res
     Ok(BlockchainResponse::BlockHash(block_hash))
 }
 
+/// [`BlockchainReadRequest::BlockHashInRange`].
+#[inline]
+fn block_hash_in_range(env: &ConcreteEnv, range: Range<usize>, chain: Chain) -> ResponseResult {
+    // Prepare tx/tables in `ThreadLocal`.
+    let env_inner = env.env_inner();
+    let tx_ro = thread_local(env);
+
+    let block_hash = range
+        .into_par_iter()
+        .map(|block_height| {
+            let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+
+            let table_block_infos = env_inner.open_db_ro::<BlockInfos>(tx_ro)?;
+
+            let block_hash = match chain {
+                Chain::Main => get_block_info(&block_height, &table_block_infos)?.block_hash,
+                Chain::Alt(chain) => {
+                    get_alt_block_hash(&block_height, chain, &env_inner.open_tables(tx_ro)?)?
+                }
+            };
+
+            Ok(block_hash)
+        })
+        .collect::<Result<_, RuntimeError>>()?;
+
+    Ok(BlockchainResponse::BlockHashInRange(block_hash))
+}
+
 /// [`BlockchainReadRequest::FindBlock`]
 fn find_block(env: &ConcreteEnv, block_hash: BlockHash) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
@@ -330,7 +360,7 @@ fn filter_unknown_hashes(env: &ConcreteEnv, mut hashes: HashSet<BlockHash>) -> R
 #[inline]
 fn block_extended_header_in_range(
     env: &ConcreteEnv,
-    range: std::ops::Range<BlockHeight>,
+    range: Range<BlockHeight>,
     chain: Chain,
 ) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.

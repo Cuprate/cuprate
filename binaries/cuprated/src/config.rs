@@ -83,6 +83,8 @@ pub struct Config {
     /// The network we should run on.
     network: Network,
 
+    pub no_fast_sync: bool,
+
     /// [`tracing`] config.
     pub tracing: TracingConfig,
 
