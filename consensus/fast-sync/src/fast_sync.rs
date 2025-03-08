@@ -27,12 +27,12 @@ static FAST_SYNC_HASHES: OnceLock<&[[u8; 32]]> = OnceLock::new();
 /// The size of a batch of block hashes to hash to create a fast sync hash.
 pub const FAST_SYNC_BATCH_LEN: usize = 512;
 
-/// Returns the height of the last block included in the embedded hashes.
+/// Returns the height of the first block not included in the embedded hashes.
 ///
 /// # Panics
 ///
 /// This function will panic if [`set_fast_sync_hashes`] has not been called.
-pub fn fast_sync_top_height() -> usize {
+pub fn fast_sync_stop_height() -> usize {
     FAST_SYNC_HASHES.get().unwrap().len() * FAST_SYNC_BATCH_LEN
 }
 
@@ -67,7 +67,7 @@ pub async fn validate_entries<N: NetworkZone>(
     blockchain_read_handle: &mut BlockchainReadHandle,
 ) -> Result<(VecDeque<ChainEntry<N>>, VecDeque<ChainEntry<N>>), tower::BoxError> {
     // if we are past the top fast sync block return all entries as valid.
-    if start_height >= fast_sync_top_height() {
+    if start_height >= fast_sync_stop_height() {
         return Ok((entries, VecDeque::new()));
     }
 
@@ -93,7 +93,7 @@ pub async fn validate_entries<N: NetworkZone>(
 
     let hashes_stop_height = min(
         (last_height / FAST_SYNC_BATCH_LEN) * FAST_SYNC_BATCH_LEN,
-        fast_sync_top_height(),
+        fast_sync_stop_height(),
     );
 
     let mut hashes_stop_diff_last_height = last_height - hashes_stop_height;

@@ -21,7 +21,7 @@ use cuprate_consensus::{
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
 };
 use cuprate_consensus_context::NewBlockData;
-use cuprate_fast_sync::{block_to_verified_block_information, fast_sync_top_height};
+use cuprate_fast_sync::{block_to_verified_block_information, fast_sync_stop_height};
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p::{block_downloader::BlockBatch, constants::LONG_BAN, BroadcastRequest};
 use cuprate_txpool::service::interface::TxpoolWriteRequest;
@@ -167,7 +167,7 @@ impl super::BlockchainManager {
     /// This function will panic if any internal service returns an unexpected error that we cannot
     /// recover from or if the incoming batch contains no blocks.
     async fn handle_incoming_block_batch_main_chain(&mut self, batch: BlockBatch) {
-        if batch.blocks.last().unwrap().0.number().unwrap() < fast_sync_top_height() {
+        if batch.blocks.last().unwrap().0.number().unwrap() < fast_sync_stop_height() {
             self.handle_incoming_block_batch_fast_sync(batch).await;
             return;
         }

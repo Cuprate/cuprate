@@ -127,9 +127,9 @@ pub async fn io_loop(
                 println!("STATUS:\n  uptime: {h}h {m}m {s}s,\n  height: {height},\n  top_hash: {top_hash}");
             }
             Command::FastSyncStopHeight => {
-                let top_height = cuprate_fast_sync::fast_sync_top_height();
+                let stop_height = cuprate_fast_sync::fast_sync_stop_height();
 
-                println!("{top_height}");
+                println!("{stop_height}");
             }
         }
     }
