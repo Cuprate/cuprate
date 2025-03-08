@@ -19,7 +19,7 @@ cuprate-p2p-core            = { workspace = true }
 clap         = { workspace = true, features = ["derive", "std"] }
 hex          = { workspace = true }
 monero-serai = { workspace = true }
-blake3        = { workspace = true }
+blake3       = { workspace = true }
 tokio        = { workspace = true, features = ["full"] }
 tower        = { workspace = true }
 

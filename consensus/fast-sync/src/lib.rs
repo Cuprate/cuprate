@@ -8,5 +8,5 @@ mod fast_sync;
 
 pub use fast_sync::{
     block_to_verified_block_information, fast_sync_top_height, set_fast_sync_hashes,
-    validate_entries,
+    validate_entries, FAST_SYNC_BATCH_LEN,
 };

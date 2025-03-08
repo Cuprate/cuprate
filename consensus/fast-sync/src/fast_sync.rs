@@ -25,7 +25,7 @@ use cuprate_types::{
 static FAST_SYNC_HASHES: OnceLock<&[[u8; 32]]> = OnceLock::new();
 
 /// The size of a batch of block hashes to hash to create a fast sync hash.
-const FAST_SYNC_BATCH_LEN: usize = 512;
+pub const FAST_SYNC_BATCH_LEN: usize = 512;
 
 /// Returns the height of the last block included in the embedded hashes.
 ///

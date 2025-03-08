@@ -16,14 +16,14 @@ use cuprate_types::{
     Chain,
 };
 
-const BATCH_SIZE: usize = 512;
+use cuprate_fast_sync::FAST_SYNC_BATCH_LEN;
 
 async fn read_batch(
     handle: &mut BlockchainReadHandle,
     height_from: usize,
 ) -> DbResult<Vec<[u8; 32]>> {
     let request = BlockchainReadRequest::BlockHashInRange(
-        height_from..(height_from + BATCH_SIZE),
+        height_from..(height_from + FAST_SYNC_BATCH_LEN),
         Chain::Main,
     );
     let response_channel = handle.ready().await?.call(request);
@@ -56,7 +56,7 @@ async fn main() {
 
     let mut height = 0_usize;
 
-    while (height + BATCH_SIZE) < height_target {
+    while (height + FAST_SYNC_BATCH_LEN) < height_target {
         if let Ok(block_ids) = read_batch(&mut read_handle, height).await {
             let hash = hash_of_hashes(block_ids.as_slice());
             hashes_of_hashes.push(hash);
@@ -64,7 +64,7 @@ async fn main() {
             println!("Failed to read next batch from database");
             break;
         }
-        height += BATCH_SIZE;
+        height += FAST_SYNC_BATCH_LEN;
 
         println!("height: {height}");
     }

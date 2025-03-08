@@ -153,17 +153,17 @@ impl<N: NetworkZone> ChainTracker<N> {
     where
         C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>,
     {
-        if chain_entry.ids.is_empty() {
-            // The peer must send at lest one overlapping block.
-            chain_entry.handle.ban_peer(MEDIUM_BAN);
-            return Err(ChainTrackerError::NewEntryIsInvalid);
-        }
-
         if chain_entry.ids.len() == 1 {
             return Err(ChainTrackerError::NewEntryIsEmpty);
         }
 
-        if self.top_seen_hash != chain_entry.ids[0] {
+        let Some(first) = chain_entry.ids.first() else {
+            // The peer must send at lest one overlapping block.
+            chain_entry.handle.ban_peer(MEDIUM_BAN);
+            return Err(ChainTrackerError::NewEntryIsInvalid);
+        };
+
+        if *first != self.top_seen_hash {
             return Err(ChainTrackerError::NewEntryDoesNotFollowChain);
         }
 

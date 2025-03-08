@@ -3,15 +3,15 @@ use std::slice;
 use cuprate_helper::network::Network;
 
 /// The hashes of the compiled in fast sync file.
-static FAST_SYNC_HASHES: &[[u8; 32]] = unsafe {
+static FAST_SYNC_HASHES: &[[u8; 32]] = {
     let bytes = include_bytes!("./fast_sync/fast_sync_hashes.bin");
 
-    #[expect(clippy::manual_assert, reason = "assert is not const")]
-    if bytes.len() % 32 != 0 {
-        panic!()
+    if bytes.len() % 32 == 0 {
+        // SAFETY: The file byte length must be perfectly divisible by 32, checked above.
+        unsafe { slice::from_raw_parts(bytes.as_ptr().cast::<[u8; 32]>(), bytes.len() / 32) }
+    } else {
+        panic!();
     }
-
-    slice::from_raw_parts(bytes.as_ptr().cast::<[u8; 32]>(), bytes.len() / 32)
 };
 
 /// Set the fast-sync hashes according to the provided values.
