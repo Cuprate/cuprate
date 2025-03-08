@@ -53,11 +53,11 @@ For crate (library) documentation, see: https://doc.cuprate.org. This site holds
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+See [`CONTRIBUTING.md`](misc/CONTRIBUTING.md).
 
 ## Security
 
-Cuprate has a responsible vulnerability disclosure policy, see [`SECURITY.md`](SECURITY.md).
+Cuprate has a responsible vulnerability disclosure policy, see [`SECURITY.md`](misc/SECURITY.md).
 
 ## License
 
