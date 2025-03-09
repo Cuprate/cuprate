@@ -79,7 +79,7 @@ pub async fn init_address_book<Z: BorshNetworkZone>(
 
 use sealed::BorshNetworkZone;
 mod sealed {
-    use super::*;
+    use super::{NetZoneAddress, NetworkZone};
 
     /// An internal trait for the address book for a [`NetworkZone`] that adds the requirement of [`borsh`] traits
     /// onto the network address.
