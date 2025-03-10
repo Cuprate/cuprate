@@ -257,17 +257,17 @@ fn db_read_write() {
         }
     }
 
-    // Assert `update()` works.
+    // Assert `Entry` works.
     {
         const NEW_VALUE: u64 = 999;
 
         assert_ne!(table.get(&KEY).unwrap(), NEW_VALUE);
 
-        #[expect(unused_assignments)]
         table
-            .update(&KEY, |mut value| {
-                value = NEW_VALUE;
-                Some(value)
+            .entry(&KEY)
+            .unwrap()
+            .and_update(|value| {
+                *value = NEW_VALUE;
             })
             .unwrap();
 
