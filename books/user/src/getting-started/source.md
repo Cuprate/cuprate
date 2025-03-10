@@ -11,6 +11,8 @@ To install Rust, follow [these instructions](https://www.rust-lang.org/learn/get
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
+<!-- TODO: Windows build instruction -->
+
 ## Linux
 Install the required system dependencies:
 

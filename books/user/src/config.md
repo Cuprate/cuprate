@@ -9,7 +9,7 @@
 ## `Cuprated.toml`
 This is the default configuration file `cuprated` creates and uses, sourced from [here](https://github.com/Cuprate/cuprate/blob/main/binaries/cuprated/config/Cuprated.toml).
 
-If `cuprated` is started with no [`--options`](./cli.md), then the configuration will be equivalent to this config file.
+If `cuprated` is started with no [`--options`](./cli.md), then the configuration used will be equivalent to this config file.
 
 ```toml
 {{#include ../../../binaries/cuprated/config/Cuprated.toml}}

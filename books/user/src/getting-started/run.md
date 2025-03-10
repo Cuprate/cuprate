@@ -1,5 +1,5 @@
 # Running
-To run `cuprated` (if on Windows, `cuprated.exe`):
+To run `cuprated`:
 
 ```bash
 ./cuprated --config-file Cuprated.toml

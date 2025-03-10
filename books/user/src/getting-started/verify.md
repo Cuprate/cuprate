@@ -3,6 +3,12 @@ Verification of release files is optional but highly recommended. This ensures t
 
 To verify release files of `cuprated`, follow these instructions:
 
+<!--
+TODO:
+add some pictures, make this process easier to understand in
+general e.g. similar to bitcoin/monero's verify section.
+-->
+
 ### Download verification files for latest release
 - Latest release: <https://github.com/Cuprate/cuprate/releases/latest>
 - Hashes: <https://github.com/Cuprate/cuprate/releases/download/v0.0.1/SHA256SUMS>
