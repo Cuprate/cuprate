@@ -44,8 +44,8 @@ fn killswitch() {
     /// sanity checking the system's clock to make
     /// sure it is not overly behind.
     ///
-    /// Wed Mar  5 12:03:20 AM UTC 2025
-    const SYSTEM_CLOCK_SANITY_TIMESTAMP: u64 = 1741133000;
+    /// Mon Mar 10 08:25:34 PM UTC 2025
+    const SYSTEM_CLOCK_SANITY_TIMESTAMP: u64 = 1741638334;
 
     let current_ts = current_unix_timestamp();
 
