@@ -1,5 +1,5 @@
 # Disk
-`cuprated` requires at least ~250 GB of disk storage for operation although 400+ GB is recommended.
+`cuprated` requires at least ~300 GB of disk storage for operation although 500+ GB is recommended.
 
 ## Cache
 The directory used for cache files is:
