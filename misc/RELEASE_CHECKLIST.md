@@ -4,7 +4,7 @@ This is a template checklist used to track releases.
 ---
 
 - Changelog
-  - [ ] Relevent changes added to `misc/changelogs/cuprated/${VERSION}.md`
+  - [ ] Relevant changes added to `misc/changelogs/cuprated/${VERSION}.md`
 - Fast sync
   - [ ] Update hashes, see `misc/FAST_SYNC_HASHES.md`
 - User Book
