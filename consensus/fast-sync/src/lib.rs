@@ -4,7 +4,9 @@ use cuprate_blockchain as _;
 use hex as _;
 use tokio as _;
 
-pub mod fast_sync;
-pub mod util;
+mod fast_sync;
 
-pub use util::{hash_of_hashes, BlockId, HashOfHashes};
+pub use fast_sync::{
+    block_to_verified_block_information, fast_sync_stop_height, set_fast_sync_hashes,
+    validate_entries, FAST_SYNC_BATCH_LEN,
+};

@@ -11,6 +11,7 @@ use std::{
     sync::Arc,
 };
 
+use indexmap::{IndexMap, IndexSet};
 use pretty_assertions::assert_eq;
 use rand::Rng;
 use tower::{Service, ServiceExt};
@@ -241,7 +242,7 @@ async fn test_template(
     //----------------------------------------------------------------------- Output checks
     // Create the map of amounts and amount indices.
     let (map, output_count) = {
-        let mut map = HashMap::<Amount, HashSet<AmountIndex>>::new();
+        let mut map = IndexMap::<Amount, IndexSet<AmountIndex>>::new();
 
         // Used later to compare the amount of Outputs
         // returned in the Response is equal to the amount
@@ -270,7 +271,7 @@ async fn test_template(
                     .and_modify(|set| {
                         set.insert(id.amount_index);
                     })
-                    .or_insert_with(|| HashSet::from([id.amount_index]));
+                    .or_insert_with(|| IndexSet::from([id.amount_index]));
             });
 
         (map, output_count)
@@ -300,22 +301,18 @@ async fn test_template(
     };
 
     // Assert amount of `Amount`'s are the same.
-    assert_eq!(map.len(), response.len());
+    assert_eq!(map.len(), response.cached_outputs().len());
 
     // Assert we get back the same map of
     // `Amount`'s and `AmountIndex`'s.
     let mut response_output_count = 0;
-    #[expect(
-        clippy::iter_over_hash_type,
-        reason = "order doesn't matter in this test"
-    )]
-    for (amount, output_map) in response {
-        let amount_index_set = &map[&amount];
+    for (amount, output_map) in response.cached_outputs() {
+        let amount_index_set = &map[amount];
 
         for (amount_index, output) in output_map {
             response_output_count += 1;
-            assert!(amount_index_set.contains(&amount_index));
-            assert!(outputs_on_chain.contains(&output));
+            assert!(amount_index_set.contains(amount_index));
+            assert!(outputs_on_chain.contains(output));
         }
     }
 
