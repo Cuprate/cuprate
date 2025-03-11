@@ -9,4 +9,4 @@ For convenience, Cuprate offers pre-built binaries for `cuprated` for the platfo
 | Linux x86_64 (glibc >= 2.36) | <https://github.com/Cuprate/cuprate/releases/download/v0.0.1/cuprated-0.0.1-linux-x64.tar.gz>
 | Linux ARM64 (glibc >= 2.36)  | <https://github.com/Cuprate/cuprate/releases/download/v0.0.1/cuprated-0.0.1-linux-arm64.tar.gz>
 
-All release files are archived and also available at <https://archive.cuprate.org>.
+All release files are archived and also available at <https://archive.hinto.rs>.
