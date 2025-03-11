@@ -67,7 +67,8 @@ jobs:
 
           # Generate archives for Linux.
           if [ "$RUNNER_OS" == "Linux" ]; then
-              cp binaries/cuprated/cuprated.service target/release/
+              # FIXME: <https://github.com/Cuprate/cuprate/issues/396>
+              # cp binaries/cuprated/cuprated.service target/release/
               cd target/release
 
               if [ "$OS" == "ubuntu-22.04" ]; then
@@ -76,7 +77,9 @@ jobs:
                   NAME="cuprated-${VERSION}-linux-arm64.tar.gz"
               fi
 
-              tar -czpf "$ARCHIVE/$NAME" cuprated LICENSE Cuprated.toml cuprated.service
+              # FIXME: #396
+              # tar -czpf "$ARCHIVE/$NAME" cuprated LICENSE Cuprated.toml cuprated.service
+              tar -czpf "$ARCHIVE/$NAME" cuprated LICENSE Cuprated.toml
           fi
 
           # Generate archives for macOS.
