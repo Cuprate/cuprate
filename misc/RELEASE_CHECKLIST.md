@@ -4,14 +4,13 @@ This is a template checklist used to track releases.
 ---
 
 - Changelog
-  - [ ] Relevent changes are added to `misc/changelogs/v${VERSION}.md`
+  - [ ] Relevent changes added to `misc/changelogs/cuprated/${VERSION}.md`
 - Fast sync
   - [ ] Update hashes, see `misc/FAST_SYNC_HASHES.md`
 - User Book
-  - [ ] Update nesscessary documentation
+  - [ ] Update necessary documentation
   - [ ] Book title reflects `cuprated`'s version
 - `cuprated`
-  - [ ] `--help` output to `binaries/cuprated/help.txt`
   - [ ] Killswitch timestamp updated
 - Repository
   - [ ] Decide specific commit
