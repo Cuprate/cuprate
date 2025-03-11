@@ -63,7 +63,7 @@ Various testing results can be found [here](https://github.com/Cuprate/cuprate/i
 ## How to see status of `cuprated`?
 In the terminal running `cuprated`, type `status`.
 
-Use the `help` to see the full list of commands.
+Use the `help` command to see the full list of commands.
 
 ## How to tell `cuprated` is fully synced?
 `cuprated` emits a message when it is fully synced: `synchronised with the network`.
