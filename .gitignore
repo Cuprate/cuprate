@@ -2,3 +2,4 @@ target/
 .vscode
 monerod
 books/*/book
+fast_sync_hashes.bin

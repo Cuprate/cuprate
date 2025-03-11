@@ -71,11 +71,8 @@ async fn main() {
 
     drop(read_handle);
 
-    write(
-        "data/fast_sync_hashes.bin",
-        hashes_of_hashes.concat().as_slice(),
-    )
-    .expect("Could not write file");
+    write("fast_sync_hashes.bin", hashes_of_hashes.concat().as_slice())
+        .expect("Could not write file");
 
     println!("Generated hashes up to block height {height}");
 }
