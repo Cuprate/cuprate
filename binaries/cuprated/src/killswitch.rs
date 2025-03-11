@@ -32,8 +32,8 @@ const _: () = {
 
 /// The killswitch activates if the current timestamp is ahead of this timestamp.
 ///
-/// Fri Apr 11 12:00:00 AM UTC 2025
-pub const KILLSWITCH_ACTIVATION_TIMESTAMP: u64 = 1744329600;
+/// Wed Apr  9 12:00:00 AM UTC 2025
+pub const KILLSWITCH_ACTIVATION_TIMESTAMP: u64 = 1744156800;
 
 /// Check if the system clock is past a certain timestamp,
 /// if so, exit the entire program.
@@ -44,8 +44,8 @@ fn killswitch() {
     /// sanity checking the system's clock to make
     /// sure it is not overly behind.
     ///
-    /// Mon Mar 10 08:25:34 PM UTC 2025
-    const SYSTEM_CLOCK_SANITY_TIMESTAMP: u64 = 1741638334;
+    /// Tue Mar 11 08:21:40 PM UTC 2025
+    const SYSTEM_CLOCK_SANITY_TIMESTAMP: u64 = 1741724500;
 
     let current_ts = current_unix_timestamp();
 
