@@ -14,10 +14,9 @@ Although not recommended, this directory can be deleted without major disruption
 
 The files in this directory are:
 
-| File                             | Purpose |
-|----------------------------------|---------|
-| `addressbook/ClearNet`           | Cache for clear-net
-| `addressbook/ClearNet_p2p_state` | P2P state for clear-net
+| File                   | Purpose |
+|------------------------|---------|
+| `addressbook/ClearNet` | P2P state for clear-net
 
 ## Configuration
 The directory used for files related to configuration is:

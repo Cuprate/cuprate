@@ -14,3 +14,4 @@
 Note that `cuprated`:
 - Benefits greatly from high-end hardware
 - Can run on weaker hardware (last tested on a `Raspberry Pi 4 (2GB RAM)` and `Raspberry Pi 5 (8 GB RAM)`)
+- Requires tweaking the config for your system, especially if you are at either extremes of the hardware scale

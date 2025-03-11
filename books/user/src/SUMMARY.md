@@ -6,7 +6,7 @@
     - [System requirements](getting-started/sys-req.md)
     - [Download](getting-started/download.md)
     - [Building from source](getting-started/source.md)
-    - [Verifying](getting-started/verify.md)
+    <!-- TODO: add after reproducible builds - [Verifying](getting-started/verify.md) -->
     - [Running](getting-started/run.md)
 
 - [Configuration](config.md)

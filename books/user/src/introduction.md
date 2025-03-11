@@ -54,14 +54,21 @@ Cuprate's node (`cuprated`) can currently:
 - Help other peers sync their blockchain
 
 ## How fast does `cuprated` sync?
-The current full verification sync timings are around 1.4x~3x faster than `monerod`.
+The current full verification sync timings are around ~7.5x faster than `monerod`.
 
-In real terms, 20 hour full verification syncs and 4 hour fast-sync syncs have been reported on consumer grade hardware. On faster hardware (14 threads, 10Gbps networking), sub 2 hour fast-syncs have been reported.
+In real terms, 16 hour full verification syncs and 4 hour fast-sync syncs have been reported on consumer grade hardware. On faster hardware (14 threads, 10Gbps networking), sub 2 hour fast-syncs have been reported.
 
 Various testing results can be found [here](https://github.com/Cuprate/cuprate/issues/195).
 
+## How to see status of `cuprated`?
+In the terminal running `cuprated`, type `status`.
+
+Use the `help` to see the full list of commands.
+
 ## How to tell `cuprated` is fully synced?
-`cuprated` does not currently emit a message indicating it is finished syncing, although it does log its block height status when syncing, for example:
+`cuprated` emits a message when it is fully synced: `synchronised with the network`.
+
+It also logs its block height status when syncing, for example:
 
 ```text
 2025-03-01T22:15:52.516944Z  INFO incoming_block_batch{start_height=3362022 len=29}: Successfully added block batch
