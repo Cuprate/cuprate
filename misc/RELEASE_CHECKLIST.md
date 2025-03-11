@@ -19,7 +19,6 @@ The scheme for release file name is `$BINARY-$VERSION-$OS-$ARCH.$EXTENSION`, for
   - [ ] Create draft release
   - [ ] Create version tag
   - [ ] Build CI binaries
-  - [ ] Collect binary hashes and PGP signatures
 - `cuprated` testing
   - Full-sync from scratch
     - [ ] x64 Windows
@@ -28,8 +27,6 @@ The scheme for release file name is `$BINARY-$VERSION-$OS-$ARCH.$EXTENSION`, for
     - [ ] ARM64 Linux
 - Release
     - [ ] Add binaries to release
-    - [ ] Verify hashes
-    - [ ] Verify PGP signatures
     - [ ] Publish `Cuprate/user-book`
     - [ ] Release
 - Release announcements
