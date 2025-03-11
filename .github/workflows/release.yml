@@ -1,5 +1,4 @@
-# This runs `cuprate-release` to verify.
-name: Release
+name: Release Builds
 
 on:
   workflow_dispatch:
@@ -10,17 +9,22 @@ on:
         type: string
 
 env:
-  # Show colored ${{ env.archive }} in CI.
+  # Show colored output in CI.
   CARGO_TERM_COLOR: always
-  # The archive folder that will be uploaded.
-  ARCHIVE: "ARCHIVE"
+  # The folder used to store release files - this will be uploaded.
+  ARCHIVE: "__ARCHIVE"
 
 jobs:
-  # All other CI.
   build:
     strategy:
       matrix:
-        os: [windows-2022, macos-14, ubuntu-22.04]
+        os: [
+            windows-2022, # EOL = 2026-10-13 | <https://endoflife.date/windows-server>
+            macos-15,     # EOL = 2027-09-16 | <https://endoflife.date/macos>
+            macos-13,     # EOL = 2025-10-24 | For x64.
+            ubuntu-22.04, # EOL = 2027-04-01 | <https://endoflife.date/ubuntu>
+            ubuntu-22.04-arm,
+        ]
 
     runs-on: ${{ matrix.os }}
 
@@ -29,73 +33,77 @@ jobs:
         shell: bash
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          ref: ${{ inputs.commit }}
 
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: stable
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
 
-    - name: Build
-      run: |
-        cargo build --release --package cuprated
-        if [ "$RUNNER_OS" == "Linux" ]; then
-          cargo build --release --package cuprated --target aarch64-unknown-linux-gnu
-        fi
+      - name: Build
+        run: cargo build --release --package cuprated
 
-    - name: Generate Archives
-      run: |
-        set -e -o pipefail # Exit on failures
-        umask 0022         # 755 permissions
-        export TZ=UTC      # UTC timezone
+      - name: Generate Archives
+        run: |
+          set -e -o pipefail # Exit on failures
+          umask 0022         # 755 permissions
+          export TZ=UTC      # UTC timezone
 
-        rm -rf ${{ env.archive }}
-        mkdir -p ${{ env.archive }}
+          # Reset archive directory in-case.
+          rm -rf ${{ env.ARCHIVE }}
+          mkdir -p ${{ env.ARCHIVE }}
+          ARCHIVE=$(realpath ${{ env.ARCHIVE }})
+          VERSION=$(grep version binaries/cuprated/Cargo.toml | grep -oE [0-9]+.[0-9]+.[0-9]+)
 
-        # All archives have these files.
-        cp LICENSE-AGPL target/release/LICENSE
-        cp binaries/cuprated/Cuprated.toml target/release/
+          # All archives have these files.
+          cp LICENSE-AGPL target/release/LICENSE
+          cp binaries/cuprated/config/Cuprated.toml target/release/
 
-        # Generate archives for Linux.
-        if [ "$RUNNER_OS" == "Linux" ]; then
-          cp binaries/cuprated/cuprated.service target/release/
-          cd target/release
+          OS=${{ matrix.os }}
 
-          NAME="cuprated-v${VERSION}-linux-x64.tar.gz"
-          file cuprated | grep x86-64
-          tar -czpf "$NAME" cuprated LICENSE Cuprated.toml cuprated.service
-          mv "$NAME" ../../${{ env.archive }}/
+          # Generate archives for Linux.
+          if [ "$RUNNER_OS" == "Linux" ]; then
+              cp binaries/cuprated/cuprated.service target/release/
+              cd target/release
 
-          NAME="cuprated-v${VERSION}-linux-arm64.tar.gz"
-          cp ../../aarch64-unknown-linux-gnu/release/cuprated .
-          file cuprated | grep arm64
-          tar -czpf "$NAME" cuprated LICENSE Cuprated.toml cuprated.service
-          mv "$NAME" ../../${{ env.archive }}/
-        fi
+              if [ "$OS" == "ubuntu-22.04" ]; then
+                  NAME="cuprated-${VERSION}-linux-x64.tar.gz"
+              else
+                  NAME="cuprated-${VERSION}-linux-arm64.tar.gz"
+              fi
 
-        # Generate archives for macOS.
-        if [ "$RUNNER_OS" == "macOS" ]; then
-          NAME="cuprated-v${VERSION}-macos-arm64.tar.gz"
-          file cuprated | grep arm64
-          tar -czpf "$NAME" cuprated LICENSE Cuprated.toml
-          mv "$NAME" ../../${{ env.archive }}/
-        fi
+              tar -czpf "$ARCHIVE/$NAME" cuprated LICENSE Cuprated.toml cuprated.service
+          fi
 
-        # Generate archives for Windows.
-        if [ "$RUNNER_OS" == "Windows" ]; then
-          mv target/release/cuprated.exe target/release/
-          cd target/release
-          file cuprated.exe | grep x86-64
-          powershell Compress-Archive -LiteralPath cuprated.exe LICENSE Cuprated.toml -DestinationPath "cuprated-v${VERSION}-windows-x64.zip"
-          mv "cuprated-v${VERSION}-windows-x64.zip" ../../${{ env.archive }}/
-        fi
+          # Generate archives for macOS.
+          if [ "$RUNNER_OS" == "macOS" ]; then
+              cd target/release
 
-    - name: Archive
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.pkg }}-${{ matrix.os }}
-        compression-level: 0
-        path: ${{ env.archive }}
+              if [ "$OS" == "macos-15" ]; then
+                  NAME="cuprated-${VERSION}-macos-arm64.tar.gz"
+              else
+                  NAME="cuprated-${VERSION}-macos-x64.tar.gz"
+              fi
+
+              tar -czpf "$ARCHIVE/$NAME" cuprated LICENSE Cuprated.toml
+          fi
+
+          # Generate archives for Windows.
+          if [ "$RUNNER_OS" == "Windows" ]; then
+              mv target/release/cuprated.exe target/release/
+              cd target/release
+
+              NAME="cuprated-${VERSION}-windows-x64.zip"
+              powershell Compress-Archive -LiteralPath cuprated.exe, LICENSE, Cuprated.toml -DestinationPath "$ARCHIVE/$NAME"
+          fi
+
+      - name: Archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}
+          compression-level: 0
+          path: ${{ env.ARCHIVE }}/**
