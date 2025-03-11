@@ -13,7 +13,7 @@ The purpose of this issue is to collect signatures confirming the hashes of `cup
 
 ## `SHA256SUMS`
 ```
-Version    | cuprated 0.0.1 NAME_OF_METAL
+Version    | cuprated 0.0.0 RELEASE_NAME
 Repository | https://github.com/Cuprate/cuprate
 Commit     | <...>
 
