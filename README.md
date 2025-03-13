@@ -31,7 +31,7 @@ TODO: add these sections someday.
 ## About
 
 Cuprate is an effort to create an alternative [Monero](https://getmonero.org) node implementation
-in [Rust](http://rust-lang.org).
+in [Rust](https://rust-lang.org).
 
 It will be able to independently validate Monero consensus rules, providing a layer of security and redundancy for the
 Monero network.
