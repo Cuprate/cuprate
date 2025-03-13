@@ -57,14 +57,14 @@ For crate (library) documentation, see: <https://doc.cuprate.org>. This site hol
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](misc/CONTRIBUTING.md).
+See [`CONTRIBUTING.md`](/CONTRIBUTING.md).
 
 ## Security
 
-Cuprate has a responsible vulnerability disclosure policy, see [`SECURITY.md`](misc/SECURITY.md).
+Cuprate has a responsible vulnerability disclosure policy, see [`SECURITY.md`](/SECURITY.md).
 
 ## License
 
 The `binaries/` directory is licensed under AGPL-3.0, everything else is licensed under MIT.
 
-See [`LICENSE`](LICENSE) for more details.
+See [`LICENSE`](/LICENSE) for more details.
