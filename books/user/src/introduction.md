@@ -17,7 +17,7 @@ Frequently asked questions about Cuprate.
 ## Who?
 Cuprate was started by [SyntheticBird45](https://github.com/SyntheticBird45) in [early 2023](https://github.com/Cuprate/cuprate/commit/2c7cb27548c727550ce4684cb31d0eafcf852c8e) and was later joined by [boog900](https://github.com/boog900), [hinto-janai](https://github.com/hinto-janai), and [other contributors](https://github.com/Cuprate/cuprate/graphs/contributors).
 
-A few Cuprate contributors are funded by Monero's [Community Crowdfunding System](http://ccs.getmonero.org) to work on Cuprate and occasionally `monerod`.
+A few Cuprate contributors are funded by Monero's [Community Crowdfunding System](https://ccs.getmonero.org) to work on Cuprate and occasionally `monerod`.
 
 ## What is `cuprated`?
 `monerod` is the [daemon](https://en.wikipedia.org/wiki/Daemon_(computing)) of the Monero project, the Monero node.
