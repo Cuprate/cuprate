@@ -305,6 +305,66 @@ where
         )
     }
 
+    /// Attempts to send another request for an inflight batch
+    ///
+    /// This function will find the batch(es) that we are waiting on to clear our ready queue and sends another request
+    /// for them.
+    ///
+    /// Returns the [`ClientDropGuard`] back if it doesn't have the batch according to its pruning seed.
+    fn request_inflight_batch_again(
+        &mut self,
+        client: ClientDropGuard<N>,
+    ) -> Option<ClientDropGuard<N>> {
+        tracing::debug!(
+            "Requesting an inflight batch, current ready queue size: {}",
+            self.block_queue.size()
+        );
+
+        assert!(
+            !self.inflight_requests.is_empty(),
+            "We need requests inflight to be able to send the request again",
+        );
+
+        if let Some(mut in_flight_batch) = self.inflight_requests.first_entry() {
+            let in_flight_batch = in_flight_batch.get_mut();
+
+            if in_flight_batch.peers_used.len() >= 2 {
+                return Some(client);
+            }
+
+            tracing::warn!(
+                in_progress_queue_bytes = self.config.in_progress_queue_bytes,
+                start_height = in_flight_batch.start_height,
+                len = in_flight_batch.ids.len(),
+                "Sending duplicate request for batch holding up the queue. `in_progress_queue_bytes` may need to be increased."
+            );
+
+            in_flight_batch.peers_used.push((client.info.id, client.info.handle.clone()));
+
+            if !client_has_block_in_range(
+                &client.info.pruning_seed,
+                in_flight_batch.start_height,
+                in_flight_batch.ids.len(),
+            ) {
+                return Some(client);
+            }
+
+            self.block_download_tasks.spawn(download_batch_task(
+                client,
+                in_flight_batch.ids.clone(),
+                in_flight_batch.prev_id,
+                in_flight_batch.start_height,
+                in_flight_batch.peers_used.len(),
+            ));
+
+            return None;
+        }
+
+        tracing::debug!("Could not find an inflight request applicable for this peer.");
+
+        Some(client)
+    }
+
     /// Spawns a task to request blocks from the given peer.
     ///
     /// The batch requested will depend on our current state, failed batches will be prioritised.
@@ -335,14 +395,14 @@ where
                 tracing::debug!("Using peer to request a failed batch");
                 // They should have the blocks so send the re-request to this peer.
 
-                request.requests_sent += 1;
+                request.peers_used.push((client.info.id, client.info.handle.clone()));
 
                 self.block_download_tasks.spawn(download_batch_task(
                     client,
                     request.ids.clone(),
                     request.prev_id,
                     request.start_height,
-                    request.requests_sent,
+                    request.peers_used.len(),
                 ));
 
                 // Remove the failure, we have just handled it.
@@ -354,9 +414,9 @@ where
             break;
         }
 
-        // If our ready queue is too large then don't request more blocks.
+        // If our ready queue is too large send duplicate requests for the blocks we are waiting on.
         if self.block_queue.size() >= self.config.in_progress_queue_bytes {
-            return Some(client);
+            return self.request_inflight_batch_again(client);
         }
 
         // No failed requests that we can handle, request some new blocks.
@@ -370,17 +430,18 @@ where
 
         tracing::debug!("Requesting a new batch of blocks");
 
-        block_entry_to_get.requests_sent = 1;
-        self.inflight_requests
-            .insert(block_entry_to_get.start_height, block_entry_to_get.clone());
+        block_entry_to_get.peers_used.push((client.info.id, client.info.handle.clone()));
 
         self.block_download_tasks.spawn(download_batch_task(
             client,
             block_entry_to_get.ids.clone(),
             block_entry_to_get.prev_id,
             block_entry_to_get.start_height,
-            block_entry_to_get.requests_sent,
+            block_entry_to_get.peers_used.len(),
         ));
+
+        self.inflight_requests
+            .insert(block_entry_to_get.start_height, block_entry_to_get);
 
         None
     }
@@ -516,8 +577,6 @@ where
 
                     self.failed_batches.push(Reverse(start_height));
                 }
-
-                self.check_pending_peers(chain_tracker, pending_peers);
 
                 Ok(())
             }

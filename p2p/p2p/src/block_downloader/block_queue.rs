@@ -63,6 +63,11 @@ impl BlockQueue {
         }
     }
 
+    /// Returns the oldest batch that has not been put in the [`async_buffer`] yet.
+    pub(crate) fn oldest_ready_batch(&self) -> Option<usize> {
+        self.ready_batches.peek().map(|batch| batch.start_height)
+    }
+
     /// Returns the size of all the batches that have not been put into the [`async_buffer`] yet.
     pub(crate) const fn size(&self) -> usize {
         self.ready_batches_size
@@ -70,18 +75,18 @@ impl BlockQueue {
 
     /// Adds an incoming batch to the queue and checks if we can push any batches into the [`async_buffer`].
     ///
-    /// `youngest_in_flight_start_height` should be the start height of the youngest batch that is still inflight, if
+    /// `oldest_in_flight_start_height` should be the start height of the oldest batch that is still inflight, if
     /// there are no batches inflight then this should be [`None`].
     pub(crate) async fn add_incoming_batch(
         &mut self,
         new_batch: ReadyQueueBatch,
-        youngest_in_flight_start_height: Option<usize>,
+        oldest_in_flight_start_height: Option<usize>,
     ) -> Result<(), BlockDownloadError> {
         self.ready_batches_size += new_batch.block_batch.size;
         self.ready_batches.push(new_batch);
 
         // The height to stop pushing batches into the buffer.
-        let height_to_stop_at = youngest_in_flight_start_height.unwrap_or(usize::MAX);
+        let height_to_stop_at = oldest_in_flight_start_height.unwrap_or(usize::MAX);
 
         while self
             .ready_batches
