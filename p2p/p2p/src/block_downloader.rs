@@ -305,57 +305,6 @@ where
         )
     }
 
-    /// Attempts to send another request for an inflight batch
-    ///
-    /// This function will find the batch(es) that we are waiting on to clear our ready queue and sends another request
-    /// for them.
-    ///
-    /// Returns the [`ClientDropGuard`] back if it doesn't have the batch according to its pruning seed.
-    fn request_inflight_batch_again(
-        &mut self,
-        client: ClientDropGuard<N>,
-    ) -> Option<ClientDropGuard<N>> {
-        tracing::debug!(
-            "Requesting an inflight batch, current ready queue size: {}",
-            self.block_queue.size()
-        );
-
-        assert!(
-            !self.inflight_requests.is_empty(),
-            "We need requests inflight to be able to send the request again",
-        );
-
-        let oldest_ready_batch = self.block_queue.oldest_ready_batch().unwrap();
-
-        for (_, in_flight_batch) in self.inflight_requests.range_mut(0..oldest_ready_batch) {
-            if in_flight_batch.requests_sent >= 2 {
-                continue;
-            }
-
-            if !client_has_block_in_range(
-                &client.info.pruning_seed,
-                in_flight_batch.start_height,
-                in_flight_batch.ids.len(),
-            ) {
-                return Some(client);
-            }
-
-            self.block_download_tasks.spawn(download_batch_task(
-                client,
-                in_flight_batch.ids.clone(),
-                in_flight_batch.prev_id,
-                in_flight_batch.start_height,
-                in_flight_batch.requests_sent,
-            ));
-
-            return None;
-        }
-
-        tracing::debug!("Could not find an inflight request applicable for this peer.");
-
-        Some(client)
-    }
-
     /// Spawns a task to request blocks from the given peer.
     ///
     /// The batch requested will depend on our current state, failed batches will be prioritised.
@@ -405,9 +354,9 @@ where
             break;
         }
 
-        // If our ready queue is too large send duplicate requests for the blocks we are waiting on.
+        // If our ready queue is too large then don't request more blocks.
         if self.block_queue.size() >= self.config.in_progress_queue_bytes {
-            return self.request_inflight_batch_again(client);
+            return Some(client);
         }
 
         // No failed requests that we can handle, request some new blocks.
@@ -567,6 +516,8 @@ where
 
                     self.failed_batches.push(Reverse(start_height));
                 }
+
+                self.check_pending_peers(chain_tracker, pending_peers);
 
                 Ok(())
             }
