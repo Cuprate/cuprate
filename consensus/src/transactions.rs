@@ -55,7 +55,7 @@ use crate::{
 pub mod contextual_data;
 mod free;
 
-pub use free::new_tx_verification_data;
+pub use free::{new_tx_verification_data, tx_weight, tx_fee};
 
 /// An enum representing the type of validation that needs to be completed for this transaction.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

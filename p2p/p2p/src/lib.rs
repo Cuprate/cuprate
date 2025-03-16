@@ -24,7 +24,7 @@ pub mod constants;
 mod inbound_server;
 mod peer_set;
 
-use block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse};
+use block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse, TransactionCachedData};
 pub use broadcast::{BroadcastRequest, BroadcastSvc};
 pub use config::{AddressBookConfig, P2PConfig};
 use connection_maintainer::MakeConnectionRequest;

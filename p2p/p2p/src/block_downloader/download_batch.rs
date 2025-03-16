@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-
+use std::hash::Hash;
 use monero_serai::{block::Block, transaction::Transaction};
 use rayon::prelude::*;
 use tower::{Service, ServiceExt};
@@ -18,6 +18,7 @@ use crate::{
     constants::{MAX_TRANSACTION_BLOB_SIZE, MEDIUM_BAN},
     peer_set::ClientDropGuard,
 };
+use crate::block_downloader::TransactionCachedData;
 
 /// Attempts to request a batch of blocks from a peer, returning [`BlockDownloadTaskResponse`].
 #[instrument(
@@ -162,24 +163,31 @@ fn deserialize_batch(
                 .txs
                 .take_normal()
                 .ok_or(BlockDownloadError::PeersResponseWasInvalid)?
-                .into_iter()
+                .into_par_iter()
                 .map(|tx_blob| {
-                    size += tx_blob.len();
-
                     if tx_blob.len() > MAX_TRANSACTION_BLOB_SIZE {
                         return Err(BlockDownloadError::PeersResponseWasInvalid);
                     }
 
-                    Transaction::read(&mut tx_blob.as_ref())
-                        .map_err(|_| BlockDownloadError::PeersResponseWasInvalid)
+                    let tx = Transaction::read(&mut tx_blob.as_ref()).map_err(|_| BlockDownloadError::PeersResponseWasInvalid)?;
+
+                    Ok(
+                        TransactionCachedData{
+                            tx_hash: tx.hash(),
+                            tx_bytes: tx_blob.to_vec(),
+                            tx
+                        }
+                    )
                 })
                 .collect::<Result<Vec<_>, _>>()?;
+
+            size += txs.iter().map(|tx| tx.tx_bytes.len()).sum::<usize>();
 
             // Make sure the transactions in the block were the ones the peer sent.
             let mut expected_txs = block.transactions.iter().collect::<HashSet<_>>();
 
             for tx in &txs {
-                if !expected_txs.remove(&tx.hash()) {
+                if !expected_txs.remove(&tx.tx_hash) {
                     return Err(BlockDownloadError::PeersResponseWasInvalid);
                 }
             }

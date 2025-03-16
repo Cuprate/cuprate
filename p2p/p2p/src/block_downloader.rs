@@ -50,11 +50,18 @@ use request_chain::{initial_chain_search, request_chain_entry_from_peer};
 #[derive(Debug, Clone)]
 pub struct BlockBatch {
     /// The blocks.
-    pub blocks: Vec<(Block, Vec<Transaction>)>,
+    pub blocks: Vec<(Block, Vec<TransactionCachedData>)>,
     /// The size in bytes of this batch.
     pub size: usize,
     /// The peer that gave us this batch.
     pub peer_handle: ConnectionHandle,
+}
+
+#[derive(Debug, Clone)]
+pub struct TransactionCachedData {
+    pub tx: Transaction,
+    pub tx_hash: [u8; 32],
+    pub tx_bytes: Vec<u8>,
 }
 
 /// The block downloader config.

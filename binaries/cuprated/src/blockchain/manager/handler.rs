@@ -176,7 +176,7 @@ impl super::BlockchainManager {
         }
 
         let Ok((prepped_blocks, mut output_cache)) = batch_prepare_main_chain_blocks(
-            batch.blocks,
+            batch.blocks.into_iter().map(|(block, txs)| (block, txs.into_iter().map(|tx| tx.tx).collect())).collect(),
             &mut self.blockchain_context_service,
             self.blockchain_read_handle.clone(),
         )
@@ -273,7 +273,7 @@ impl super::BlockchainManager {
                 let txs = txs
                     .into_par_iter()
                     .map(|tx| {
-                        let tx = new_tx_verification_data(tx)?;
+                        let tx = new_tx_verification_data(tx.tx)?;
                         Ok((tx.tx_hash, tx))
                     })
                     .collect::<Result<_, anyhow::Error>>()?;

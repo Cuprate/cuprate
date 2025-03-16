@@ -12,9 +12,9 @@ use monero_serai::{
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::service::BlockchainReadHandle;
-use cuprate_consensus::transactions::new_tx_verification_data;
+use cuprate_consensus::transactions::{new_tx_verification_data, tx_fee, tx_weight};
 use cuprate_consensus_context::BlockchainContext;
-use cuprate_p2p::block_downloader::ChainEntry;
+use cuprate_p2p::block_downloader::{ChainEntry, TransactionCachedData};
 use cuprate_p2p_core::NetworkZone;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
@@ -180,7 +180,7 @@ const fn get_hash_index_for_height(height: usize) -> usize {
 /// This may panic if used on an invalid block.
 pub fn block_to_verified_block_information(
     block: Block,
-    txs: Vec<Transaction>,
+    txs: Vec<TransactionCachedData>,
     blockchin_ctx: &BlockchainContext,
 ) -> VerifiedBlockInformation {
     let block_hash = block.hash();
@@ -199,9 +199,7 @@ pub fn block_to_verified_block_information(
     let mut txs = txs
         .into_iter()
         .map(|tx| {
-            let data = new_tx_verification_data(tx).expect("fast sync block invalid");
-
-            (data.tx_hash, data)
+            (tx.tx_hash, tx)
         })
         .collect::<HashMap<_, _>>();
 
@@ -210,9 +208,9 @@ pub fn block_to_verified_block_information(
         let data = txs.remove(tx).expect("fast sync block invalid");
 
         verified_txs.push(VerifiedTransactionInformation {
-            tx_blob: data.tx_blob,
-            tx_weight: data.tx_weight,
-            fee: data.fee,
+            tx_weight: tx_weight(&data.tx, &data.tx_bytes),
+            tx_blob: data.tx_bytes,
+            fee: tx_fee(&data.tx).unwrap(),
             tx_hash: data.tx_hash,
             tx: data.tx,
         });
