@@ -1,5 +1,7 @@
 use std::{cmp::Ordering, collections::BinaryHeap};
-
+use std::time::Duration;
+use futures::FutureExt;
+use tokio::time::sleep;
 use cuprate_async_buffer::BufferAppender;
 
 use super::{BlockBatch, BlockDownloadError};
@@ -99,6 +101,11 @@ impl BlockQueue {
                 .expect("We just checked we have a batch in the buffer");
 
             let batch_size = batch.block_batch.size;
+
+            if self.buffer_appender.ready(batch_size).now_or_never().is_none() {
+                self.buffer_appender.ready(batch_size).await;
+                sleep(Duration::from_secs(5)).await;
+            }
 
             self.ready_batches_size -= batch_size;
             self.buffer_appender
