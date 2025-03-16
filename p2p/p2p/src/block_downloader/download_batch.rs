@@ -112,7 +112,7 @@ fn deserialize_batch(
 ) -> Result<BlockBatch, BlockDownloadError> {
     let blocks = blocks_response
         .blocks
-        .into_par_iter()
+        .into_iter()
         .enumerate()
         .map(|(i, block_entry)| {
             let expected_height = i + expected_start_height;
@@ -163,11 +163,13 @@ fn deserialize_batch(
                 .txs
                 .take_normal()
                 .ok_or(BlockDownloadError::PeersResponseWasInvalid)?
-                .into_par_iter()
+                .into_iter()
                 .map(|tx_blob| {
                     if tx_blob.len() > MAX_TRANSACTION_BLOB_SIZE {
                         return Err(BlockDownloadError::PeersResponseWasInvalid);
                     }
+
+                    size += tx_blob.len();
 
                     let tx = Transaction::read(&mut tx_blob.as_ref()).map_err(|_| BlockDownloadError::PeersResponseWasInvalid)?;
 
@@ -180,8 +182,6 @@ fn deserialize_batch(
                     )
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-
-            size += txs.iter().map(|tx| tx.tx_bytes.len()).sum::<usize>();
 
             // Make sure the transactions in the block were the ones the peer sent.
             let mut expected_txs = block.transactions.iter().collect::<HashSet<_>>();
