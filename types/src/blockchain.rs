@@ -7,7 +7,7 @@ use std::{
     collections::{HashMap, HashSet},
     ops::Range,
 };
-
+use curve25519_dalek::edwards::CompressedEdwardsY;
 use indexmap::{IndexMap, IndexSet};
 use monero_serai::block::Block;
 
@@ -181,7 +181,7 @@ pub enum BlockchainWriteRequest {
     /// Request that a batch of blocks be written to the database.
     ///
     /// Input is an already verified batch of blocks.
-    BatchWriteBlocks(Vec<VerifiedBlockInformation>),
+    BatchWriteBlocks { blocks: Vec<VerifiedBlockInformation>, miner_commitments: HashMap<u64, CompressedEdwardsY>},
 
     /// Write an alternative block to the database,
     ///

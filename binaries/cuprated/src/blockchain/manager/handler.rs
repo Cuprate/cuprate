@@ -2,6 +2,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use bytes::Bytes;
+use curve25519_dalek::edwards::CompressedEdwardsY;
 use futures::{TryFutureExt, TryStreamExt};
 use monero_serai::{
     block::Block,
@@ -22,7 +23,9 @@ use cuprate_consensus::{
 };
 use cuprate_consensus_context::NewBlockData;
 use cuprate_fast_sync::{block_to_verified_block_information, fast_sync_stop_height};
+use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_helper::cast::usize_to_u64;
+use cuprate_helper::crypto::compute_zero_commitment;
 use cuprate_p2p::{block_downloader::BlockBatch, constants::LONG_BAN, BroadcastRequest};
 use cuprate_txpool::service::interface::TxpoolWriteRequest;
 use cuprate_types::{
@@ -212,7 +215,26 @@ impl super::BlockchainManager {
     /// recover from.
     async fn handle_incoming_block_batch_fast_sync(&mut self, batch: BlockBatch) {
         let mut valid_blocks = Vec::with_capacity(batch.blocks.len());
-        for (block, txs) in batch.blocks {
+
+
+        let (miner_commitments, blocks) = rayon_spawn_async( move || {
+            let commitments = batch.blocks.par_iter().filter_map(|(block, _)| {
+                let miner_tx = &block.miner_transaction;
+
+                if miner_tx.version() == 1 {
+                    None
+                } else {
+                    Some(miner_tx.prefix().outputs.par_iter().map(|out| {
+                        let amt= out.amount.unwrap_or(0);
+                        (amt, compute_zero_commitment(amt) )
+                    }))
+                }
+            }).flatten().collect();
+
+            (commitments, batch.blocks)
+        } ).await;
+
+        for (block, txs) in blocks {
             let block = block_to_verified_block_information(
                 block,
                 txs,
@@ -223,7 +245,7 @@ impl super::BlockchainManager {
             valid_blocks.push(block);
         }
 
-        self.batch_add_valid_block_to_blockchain_database(valid_blocks)
+        self.batch_add_valid_block_to_blockchain_database(valid_blocks, miner_commitments)
             .await;
 
         info!(fast_sync = true, "Successfully added block batch");
@@ -550,12 +572,13 @@ impl super::BlockchainManager {
     async fn batch_add_valid_block_to_blockchain_database(
         &mut self,
         blocks: Vec<VerifiedBlockInformation>,
+        miner_commitments: HashMap<u64, CompressedEdwardsY>,
     ) {
         self.blockchain_write_handle
             .ready()
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR)
-            .call(BlockchainWriteRequest::BatchWriteBlocks(blocks))
+            .call(BlockchainWriteRequest::BatchWriteBlocks{blocks, miner_commitments})
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
     }

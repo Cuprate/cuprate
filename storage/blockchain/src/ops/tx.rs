@@ -1,7 +1,9 @@
 //! Transaction functions.
 
+use std::collections::HashMap;
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
+use curve25519_dalek::edwards::CompressedEdwardsY;
 use monero_serai::transaction::{Input, Timelock, Transaction};
 
 use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableVec};
@@ -52,6 +54,7 @@ pub fn add_tx(
     tx_hash: &TxHash,
     block_height: &BlockHeight,
     tables: &mut impl TablesMut,
+    commitments: Option<&HashMap<u64, CompressedEdwardsY>>
 ) -> DbResult<TxId> {
     let tx_id = get_num_tx(tables.tx_ids_mut())?;
 
@@ -138,7 +141,9 @@ pub fn add_tx(
                 // Create commitment.
 
                 let commitment = if miner_tx {
-                    compute_zero_commitment(output.amount.unwrap_or(0))
+                    let amt = output.amount.unwrap_or(0);
+
+                    commitments.and_then(|map| map.get(&amt).copied()).unwrap_or_else(|| compute_zero_commitment(amt))
                 } else {
                     proofs
                         .as_ref()
@@ -339,7 +344,7 @@ mod test {
                 .iter()
                 .map(|tx| {
                     println!("add_tx(): {tx:#?}");
-                    add_tx(&tx.tx, &tx.tx_blob, &tx.tx_hash, &0, &mut tables).unwrap()
+                    add_tx(&tx.tx, &tx.tx_blob, &tx.tx_hash, &0, &mut tables, None).unwrap()
                 })
                 .collect::<Vec<TxId>>();
 

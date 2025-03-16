@@ -1,8 +1,10 @@
 //! Block functions.
 
+use std::collections::HashMap;
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
 use bytes::Bytes;
+use curve25519_dalek::edwards::CompressedEdwardsY;
 use monero_serai::{
     block::{Block, BlockHeader},
     transaction::Transaction,
@@ -46,7 +48,7 @@ use crate::{
 /// - `block.height > u32::MAX` (not normally possible)
 /// - `block.height` is != [`chain_height`]
 // no inline, too big.
-pub fn add_block(block: &VerifiedBlockInformation, tables: &mut impl TablesMut) -> DbResult<()> {
+pub fn add_block(block: &VerifiedBlockInformation, tables: &mut impl TablesMut, miner_commitments: Option<&HashMap<u64, CompressedEdwardsY>>) -> DbResult<()> {
     //------------------------------------------------------ Check preconditions first
 
     // Cast height to `u32` for storage (handled at top of function).
@@ -80,11 +82,11 @@ pub fn add_block(block: &VerifiedBlockInformation, tables: &mut impl TablesMut) 
     // Add the miner transaction first.
     let mining_tx_index = {
         let tx = &block.block.miner_transaction;
-        add_tx(tx, &tx.serialize(), &tx.hash(), &chain_height, tables)?
+        add_tx(tx, &tx.serialize(), &tx.hash(), &chain_height, tables, miner_commitments)?
     };
 
     for tx in &block.txs {
-        add_tx(&tx.tx, &tx.tx_blob, &tx.tx_hash, &chain_height, tables)?;
+        add_tx(&tx.tx, &tx.tx_blob, &tx.tx_hash, &chain_height, tables, None)?;
     }
 
     //------------------------------------------------------ Block Info
@@ -433,7 +435,7 @@ mod test {
 
             for block in &blocks {
                 // println!("add_block: {block:#?}");
-                add_block(block, &mut tables).unwrap();
+                add_block(block, &mut tables, None).unwrap();
             }
 
             drop(tables);
@@ -564,7 +566,7 @@ mod test {
         let mut block = BLOCK_V9_TX3.clone();
 
         block.height = cuprate_helper::cast::u32_to_usize(u32::MAX) + 1;
-        add_block(&block, &mut tables).unwrap();
+        add_block(&block, &mut tables, None).unwrap();
     }
 
     /// We should panic if: `block.height` != the chain height
@@ -587,10 +589,10 @@ mod test {
 
         // OK, `0 == 0`
         assert_eq!(block.height, 0);
-        add_block(&block, &mut tables).unwrap();
+        add_block(&block, &mut tables, None).unwrap();
 
         // FAIL, `123 != 1`
         block.height = 123;
-        add_block(&block, &mut tables).unwrap();
+        add_block(&block, &mut tables, None).unwrap();
     }
 }

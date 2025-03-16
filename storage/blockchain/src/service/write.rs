@@ -1,7 +1,9 @@
 //! Database writer thread definitions and logic.
+
+use std::collections::HashMap;
 //---------------------------------------------------------------------------------------------------- Import
 use std::sync::Arc;
-
+use curve25519_dalek::edwards::CompressedEdwardsY;
 use cuprate_database::{ConcreteEnv, DatabaseRo, DbResult, Env, EnvInner, TxRw};
 use cuprate_database_service::DatabaseWriteHandle;
 use cuprate_types::{
@@ -39,7 +41,7 @@ fn handle_blockchain_request(
 ) -> DbResult<BlockchainResponse> {
     match req {
         BlockchainWriteRequest::WriteBlock(block) => write_block(env, block),
-        BlockchainWriteRequest::BatchWriteBlocks(blocks) => write_blocks(env, blocks),
+        BlockchainWriteRequest::BatchWriteBlocks{blocks, miner_commitments} => write_blocks(env, blocks, miner_commitments),
         BlockchainWriteRequest::WriteAltBlock(alt_block) => write_alt_block(env, alt_block),
         BlockchainWriteRequest::PopBlocks(numb_blocks) => pop_blocks(env, *numb_blocks),
         BlockchainWriteRequest::ReverseReorg(old_main_chain_id) => {
@@ -66,7 +68,7 @@ fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseR
 
     let result = {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
-        crate::ops::block::add_block(block, &mut tables_mut)
+        crate::ops::block::add_block(block, &mut tables_mut, None)
     };
 
     match result {
@@ -83,14 +85,14 @@ fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseR
 
 /// [`BlockchainWriteRequest::BatchWriteBlocks`].
 #[inline]
-fn write_blocks(env: &ConcreteEnv, block: &Vec<VerifiedBlockInformation>) -> ResponseResult {
+fn write_blocks(env: &ConcreteEnv, block: &Vec<VerifiedBlockInformation>, miner_commitments: &HashMap<u64, CompressedEdwardsY>) -> ResponseResult {
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw()?;
 
     let result = {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
         for block in block {
-            crate::ops::block::add_block(block, &mut tables_mut)?;
+            crate::ops::block::add_block(block, &mut tables_mut, Some(miner_commitments))?;
         }
 
         Ok(())
@@ -197,7 +199,7 @@ fn reverse_reorg(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
                 &tables_mut,
             )?;
             let verified_block = map_valid_alt_block_to_verified_block(alt_block);
-            crate::ops::block::add_block(&verified_block, &mut tables_mut)?;
+            crate::ops::block::add_block(&verified_block, &mut tables_mut, None)?;
         }
 
         drop(tables_mut);
