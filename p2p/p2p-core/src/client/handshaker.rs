@@ -137,7 +137,7 @@ where
     CSync: CoreSyncSvc + Clone,
     ProtoHdlrMkr: ProtocolRequestHandlerMaker<Z> + Clone,
     BrdcstStrm: Stream<Item = BroadcastMessage> + Send + 'static,
-    BrdcstStrmMkr: Fn(InternalPeerID<Z::Addr>) -> BrdcstStrm + Clone + Send + 'static,
+    BrdcstStrmMkr: Fn(PeerInformation<Z::Addr>) -> BrdcstStrm + Clone + Send + 'static,
 {
     type Response = Client<Z>;
     type Error = HandshakeError;
@@ -238,7 +238,7 @@ where
     CSync: CoreSyncSvc + Clone,
     ProtoHdlrMkr: ProtocolRequestHandlerMaker<Z>,
     BrdcstStrm: Stream<Item = BroadcastMessage> + Send + 'static,
-    BrdcstStrmMkr: Fn(InternalPeerID<Z::Addr>) -> BrdcstStrm + Send + 'static,
+    BrdcstStrmMkr: Fn(PeerInformation<Z::Addr>) -> BrdcstStrm + Send + 'static,
 {
     let DoHandshakeRequest {
         addr,
@@ -455,6 +455,7 @@ where
         handle,
         direction,
         pruning_seed,
+        basic_node_data: peer_node_data,
         core_sync_data: Arc::new(Mutex::new(peer_core_sync)),
     };
 
@@ -476,7 +477,7 @@ where
     let connection = Connection::<Z, _, _, _, _>::new(
         peer_sink,
         client_rx,
-        broadcast_stream_maker(addr),
+        broadcast_stream_maker(info.clone()),
         request_handler,
         connection_guard,
         error_slot.clone(),
