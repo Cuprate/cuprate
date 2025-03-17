@@ -36,6 +36,8 @@ pub struct DifficultyCacheConfig {
     pub window: usize,
     pub cut: usize,
     pub lag: usize,
+    /// If [`Some`] the difficulty cache will always return this value as the current difficulty.
+    pub fixed_difficulty: Option<u128>,
 }
 
 impl DifficultyCacheConfig {
@@ -43,8 +45,18 @@ impl DifficultyCacheConfig {
     ///
     /// # Notes
     /// You probably do not need this, use [`DifficultyCacheConfig::main_net`] instead.
-    pub const fn new(window: usize, cut: usize, lag: usize) -> Self {
-        Self { window, cut, lag }
+    pub const fn new(
+        window: usize,
+        cut: usize,
+        lag: usize,
+        fixed_difficulty: Option<u128>,
+    ) -> Self {
+        Self {
+            window,
+            cut,
+            lag,
+            fixed_difficulty,
+        }
     }
 
     /// Returns the total amount of blocks we need to track to calculate difficulty
@@ -64,6 +76,7 @@ impl DifficultyCacheConfig {
             window: DIFFICULTY_WINDOW,
             cut: DIFFICULTY_CUT,
             lag: DIFFICULTY_LAG,
+            fixed_difficulty: None,
         }
     }
 }
@@ -297,6 +310,10 @@ fn next_difficulty(
     cumulative_difficulties: &VecDeque<u128>,
     hf: HardFork,
 ) -> u128 {
+    if let Some(fixed_difficulty) = config.fixed_difficulty {
+        return fixed_difficulty;
+    }
+
     if timestamps.len() <= 1 {
         return 1;
     }

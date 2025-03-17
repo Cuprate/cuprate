@@ -159,6 +159,12 @@ pub struct BroadcastSvc<N: NetworkZone> {
     tx_broadcast_channel_inbound: broadcast::Sender<BroadcastTxInfo<N>>,
 }
 
+impl<N: NetworkZone> BroadcastSvc<N> {
+    pub fn mock() -> Self {
+        init_broadcast_channels(BroadcastConfig::default()).0
+    }
+}
+
 impl<N: NetworkZone> Service<BroadcastRequest<N>> for BroadcastSvc<N> {
     type Response = ();
     type Error = std::convert::Infallible;

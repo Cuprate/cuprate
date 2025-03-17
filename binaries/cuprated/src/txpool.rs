@@ -8,7 +8,6 @@ use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
 
 mod dandelion;
 mod incoming_tx;
-mod manager;
 mod txs_being_handled;
 
 pub use incoming_tx::{IncomingTxError, IncomingTxHandler, IncomingTxs};
