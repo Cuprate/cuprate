@@ -160,6 +160,7 @@ pub struct BroadcastSvc<N: NetworkZone> {
 }
 
 impl<N: NetworkZone> BroadcastSvc<N> {
+    /// Create a mock [`BroadcastSvc`] that does nothing, useful for testing.
     pub fn mock() -> Self {
         init_broadcast_channels(BroadcastConfig::default()).0
     }

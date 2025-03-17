@@ -3,10 +3,9 @@
 //---------------------------------------------------------------------------------------------------- Import
 use cuprate_database::{DatabaseRo, DbResult, RuntimeError};
 
-use crate::tables::AltBlockHeights;
 use crate::{
     ops::{block, macros::doc_error},
-    tables::{BlockHeights, BlockInfos},
+    tables::{AltBlockHeights, BlockHeights, BlockInfos},
     types::{BlockHash, BlockHeight},
 };
 

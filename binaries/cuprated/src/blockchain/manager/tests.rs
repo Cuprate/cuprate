@@ -75,7 +75,7 @@ fn generate_block(context: &BlockchainContext) -> Block {
                 additional_timelock: Timelock::Block(context.chain_height + 60),
                 inputs: vec![Input::Gen(context.chain_height)],
                 outputs: vec![Output {
-                    // we can set the block weight to 1 as even the true value won't get us into te penalty zone.
+                    // we can set the block weight to 1 as the true value won't get us into the penalty zone.
                     amount: Some(calculate_block_reward(
                         1,
                         context.median_weight_for_block_reward,
