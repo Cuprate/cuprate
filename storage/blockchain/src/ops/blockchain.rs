@@ -3,8 +3,9 @@
 //---------------------------------------------------------------------------------------------------- Import
 use cuprate_database::{DatabaseRo, DbResult, RuntimeError};
 
+use crate::tables::AltBlockHeights;
 use crate::{
-    ops::{block::block_exists, macros::doc_error},
+    ops::{block, macros::doc_error},
     tables::{BlockHeights, BlockInfos},
     types::{BlockHash, BlockHeight},
 };
@@ -91,13 +92,21 @@ pub fn cumulative_generated_coins(
 pub fn find_split_point(
     block_ids: &[BlockHash],
     chronological_order: bool,
+    include_alt_blocks: bool,
     table_block_heights: &impl DatabaseRo<BlockHeights>,
+    table_alt_block_heights: &impl DatabaseRo<AltBlockHeights>,
 ) -> Result<usize, RuntimeError> {
     let mut err = None;
 
+    let block_exists = |block_id| {
+        block::block_exists(&block_id, table_block_heights).and_then(|exists| {
+            Ok(exists | (include_alt_blocks & table_alt_block_heights.contains(&block_id)?))
+        })
+    };
+
     // Do a binary search to find the first unknown/known block in the batch.
     let idx = block_ids.partition_point(|block_id| {
-        match block_exists(block_id, table_block_heights) {
+        match block_exists(*block_id) {
             Ok(exists) => exists == chronological_order,
             Err(e) => {
                 err.get_or_insert(e);

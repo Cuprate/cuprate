@@ -173,6 +173,7 @@ where
         block_info.weight,
         block_info.long_term_weight,
         block_info.block.header.timestamp,
+        cumulative_difficulty,
     );
 
     // Add this alt cache back to the context service.

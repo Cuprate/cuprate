@@ -52,9 +52,10 @@ impl AltChainContextCache {
         block_weight: usize,
         long_term_block_weight: usize,
         timestamp: u64,
+        cumulative_difficulty: u128,
     ) {
         if let Some(difficulty_cache) = &mut self.difficulty_cache {
-            difficulty_cache.new_block(height, timestamp, difficulty_cache.cumulative_difficulty());
+            difficulty_cache.new_block(height, timestamp, cumulative_difficulty);
         }
 
         if let Some(weight_cache) = &mut self.weight_cache {
