@@ -98,6 +98,24 @@ pub async fn validate_entries<N: NetworkZone>(
 
     let mut hashes_stop_diff_last_height = last_height - hashes_stop_height;
 
+    // get the hashes we are missing to create the first fast-sync hash.
+    let BlockchainResponse::BlockHashInRange(starting_hashes) = blockchain_read_handle
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::BlockHashInRange(
+            hashes_start_height..start_height,
+            Chain::Main,
+        ))
+        .await?
+    else {
+        unreachable!()
+    };
+
+    // If we don't have enough hashes to make up a batch we can't validate any.
+    if amount_of_hashes + starting_hashes.len() < FAST_SYNC_BATCH_LEN {
+        return Ok((VecDeque::new(), entries));
+    }
+
     let mut unknown = VecDeque::new();
 
     // start moving from the back of the batches taking enough hashes out so we are only left with hashes
@@ -125,23 +143,10 @@ pub async fn validate_entries<N: NetworkZone>(
         unknown.push_front(back);
     }
 
-    // get the hashes we are missing to create the first fast-sync hash.
-    let BlockchainResponse::BlockHashInRange(hashes) = blockchain_read_handle
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::BlockHashInRange(
-            hashes_start_height..start_height,
-            Chain::Main,
-        ))
-        .await?
-    else {
-        unreachable!()
-    };
-
     // Start verifying the hashes.
     let mut hasher = Hasher::default();
     let mut last_i = 1;
-    for (i, hash) in hashes
+    for (i, hash) in starting_hashes
         .iter()
         .chain(entries.iter().flat_map(|e| e.ids.iter()))
         .enumerate()
@@ -243,5 +248,150 @@ pub fn block_to_verified_block_information(
         long_term_weight: blockchin_ctx.next_block_long_term_weight(weight),
         cumulative_difficulty: blockchin_ctx.cumulative_difficulty + blockchin_ctx.next_difficulty,
         block,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{collections::VecDeque, slice, sync::LazyLock};
+
+    use proptest::proptest;
+
+    use cuprate_p2p::block_downloader::ChainEntry;
+    use cuprate_p2p_core::{client::InternalPeerID, handles::HandleBuilder, ClearNet};
+
+    use crate::{
+        fast_sync_stop_height, set_fast_sync_hashes, validate_entries, FAST_SYNC_BATCH_LEN,
+    };
+
+    static HASHES: LazyLock<&[[u8; 32]]> = LazyLock::new(|| {
+        let hashes = (0..FAST_SYNC_BATCH_LEN * 2000)
+            .map(|i| {
+                let mut ret = [0; 32];
+                ret[..8].copy_from_slice(&i.to_le_bytes());
+                ret
+            })
+            .collect::<Vec<_>>();
+
+        let hashes = hashes.leak();
+
+        let fast_sync_hashes = hashes
+            .chunks(FAST_SYNC_BATCH_LEN)
+            .map(|chunk| {
+                let len = chunk.len() * 32;
+                let bytes = chunk.as_ptr().cast::<u8>();
+
+                // SAFETY:
+                // We are casting a valid [[u8; 32]] to a [u8], no alignment requirements and we are using it
+                // within the [[u8; 32]]'s lifetime.
+                unsafe { blake3::hash(slice::from_raw_parts(bytes, len)).into() }
+            })
+            .collect::<Vec<_>>();
+
+        set_fast_sync_hashes(fast_sync_hashes.leak());
+
+        hashes
+    });
+
+    proptest! {
+        #[test]
+        fn valid_entry(len in 0_usize..1_500_000) {
+            let mut ids = HASHES.to_vec();
+            ids.resize(len, [0_u8; 32]);
+
+            let handle = HandleBuilder::new().build();
+
+            let entry = ChainEntry {
+                ids,
+                peer: InternalPeerID::Unknown(1),
+                handle: handle.1
+            };
+
+            let data_dir = tempfile::tempdir().unwrap();
+
+            tokio_test::block_on(async move {
+                let blockchain_config = cuprate_blockchain::config::ConfigBuilder::new()
+                    .data_directory(data_dir.path().to_path_buf())
+                    .build();
+
+                let (mut blockchain_read_handle, _, _) =
+                    cuprate_blockchain::service::init(blockchain_config).unwrap();
+
+
+                let ret = validate_entries::<ClearNet>(VecDeque::from([entry]), 0, &mut blockchain_read_handle).await.unwrap();
+
+                let len_left = ret.0.iter().map(|e| e.ids.len()).sum::<usize>();
+                let len_right = ret.1.iter().map(|e| e.ids.len()).sum::<usize>();
+
+                assert_eq!(len_left + len_right, len);
+                assert!(len_left <= fast_sync_stop_height());
+                assert!(len_right < FAST_SYNC_BATCH_LEN || len > fast_sync_stop_height());
+            });
+        }
+
+        #[test]
+        fn single_hash_entries(len in 0_usize..1_500_000) {
+            let handle = HandleBuilder::new().build();
+            let entries = (0..len).map(|i| {
+                ChainEntry {
+                    ids: vec![HASHES.get(i).copied().unwrap_or_default()],
+                    peer: InternalPeerID::Unknown(1),
+                    handle: handle.1.clone()
+                }
+            }).collect();
+
+            let data_dir = tempfile::tempdir().unwrap();
+
+            tokio_test::block_on(async move {
+                let blockchain_config = cuprate_blockchain::config::ConfigBuilder::new()
+                    .data_directory(data_dir.path().to_path_buf())
+                    .build();
+
+                let (mut blockchain_read_handle, _, _) =
+                    cuprate_blockchain::service::init(blockchain_config).unwrap();
+
+
+                let ret = validate_entries::<ClearNet>(entries, 0, &mut blockchain_read_handle).await.unwrap();
+
+                let len_left = ret.0.iter().map(|e| e.ids.len()).sum::<usize>();
+                let len_right = ret.1.iter().map(|e| e.ids.len()).sum::<usize>();
+
+                assert_eq!(len_left + len_right, len);
+                assert!(len_left <= fast_sync_stop_height());
+                assert!(len_right < FAST_SYNC_BATCH_LEN || len > fast_sync_stop_height());
+            });
+        }
+
+        #[test]
+        fn not_enough_hashes(len in 0_usize..FAST_SYNC_BATCH_LEN) {
+            let hashes_start_height = FAST_SYNC_BATCH_LEN * 1234;
+
+            let handle = HandleBuilder::new().build();
+            let entry = ChainEntry {
+                ids: HASHES[hashes_start_height..(hashes_start_height + len)].to_vec(),
+                peer: InternalPeerID::Unknown(1),
+                handle: handle.1
+            };
+
+            let data_dir = tempfile::tempdir().unwrap();
+
+            tokio_test::block_on(async move {
+                let blockchain_config = cuprate_blockchain::config::ConfigBuilder::new()
+                    .data_directory(data_dir.path().to_path_buf())
+                    .build();
+
+                let (mut blockchain_read_handle, _, _) =
+                    cuprate_blockchain::service::init(blockchain_config).unwrap();
+
+
+                let ret = validate_entries::<ClearNet>(VecDeque::from([entry]), 0, &mut blockchain_read_handle).await.unwrap();
+
+                let len_left = ret.0.iter().map(|e| e.ids.len()).sum::<usize>();
+                let len_right = ret.1.iter().map(|e| e.ids.len()).sum::<usize>();
+
+                assert_eq!(len_right, len);
+                assert_eq!(len_left, 0);
+            });
+        }
     }
 }

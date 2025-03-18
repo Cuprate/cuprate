@@ -784,7 +784,10 @@ dependencies = [
  "cuprate-types",
  "hex",
  "monero-serai",
+ "proptest",
+ "tempfile",
  "tokio",
+ "tokio-test",
  "tower 0.5.1",
 ]
 

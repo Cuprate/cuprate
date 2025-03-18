@@ -24,6 +24,9 @@ tokio        = { workspace = true, features = ["full"] }
 tower        = { workspace = true }
 
 [dev-dependencies]
+proptest   = { workspace = true }
+tokio-test = { workspace = true }
+tempfile   = { workspace = true }
 
 [lints]
 workspace = true
