@@ -31,7 +31,7 @@ TODO: add these sections someday.
 ## About
 
 Cuprate is an effort to create an alternative [Monero](https://getmonero.org) node implementation
-in [Rust](http://rust-lang.org).
+in [Rust](https://rust-lang.org).
 
 It will be able to independently validate Monero consensus rules, providing a layer of security and redundancy for the
 Monero network.
@@ -57,14 +57,14 @@ For crate (library) documentation, see: <https://doc.cuprate.org>. This site hol
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](misc/CONTRIBUTING.md).
+See [`CONTRIBUTING.md`](/CONTRIBUTING.md).
 
 ## Security
 
-Cuprate has a responsible vulnerability disclosure policy, see [`SECURITY.md`](misc/SECURITY.md).
+Cuprate has a responsible vulnerability disclosure policy, see [`SECURITY.md`](/SECURITY.md).
 
 ## License
 
 The `binaries/` directory is licensed under AGPL-3.0, everything else is licensed under MIT.
 
-See [`LICENSE`](LICENSE) for more details.
+See [`LICENSE`](/LICENSE) for more details.
