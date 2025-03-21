@@ -50,6 +50,9 @@ pub enum Command {
 
     /// Print the height of first block not contained in the fast sync hashes.
     FastSyncStopHeight,
+
+    /// Exit `cuprated` gracefully.
+    Exit,
 }
 
 /// The log output target.
@@ -115,6 +118,7 @@ pub async fn io_loop(
                     OutputTarget::Stdout => logging::modify_stdout_output(modify_output),
                 }
             }
+
             Command::Status => {
                 let context = context_service.blockchain_context();
 
@@ -126,10 +130,16 @@ pub async fn io_loop(
 
                 println!("STATUS:\n  uptime: {h}h {m}m {s}s,\n  height: {height},\n  top_hash: {top_hash}");
             }
+
             Command::FastSyncStopHeight => {
                 let stop_height = cuprate_fast_sync::fast_sync_stop_height();
 
                 println!("{stop_height}");
+            }
+
+            Command::Exit => {
+                println!("Exiting gracefully.");
+                return;
             }
         }
     }
