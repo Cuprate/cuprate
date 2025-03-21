@@ -137,10 +137,7 @@ pub async fn io_loop(
                 println!("{stop_height}");
             }
 
-            Command::Exit => {
-                println!("Exiting gracefully.");
-                return;
-            }
+            Command::Exit => return,
         }
     }
 }
