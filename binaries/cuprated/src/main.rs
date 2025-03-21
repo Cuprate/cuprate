@@ -150,8 +150,14 @@ fn main() {
                 .await
                 .unwrap();
         } else {
-            info!("terminal/tty not detected, disabling STDIN commands");
+            // If no STDIN, await OS exit signal.
+            info!("Terminal/TTY not detected, disabling STDIN commands");
+            tokio::signal::ctrl_c().await.unwrap();
         }
+
+        // TODO: graceful tokio shutdown.
+        // - First Ctrl+C = tell subsystems to shutdown and await
+        // - Second Ctrl+C = forceful shutdown
     });
 }
 
