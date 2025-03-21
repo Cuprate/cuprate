@@ -39,7 +39,7 @@ No.
 ## Is it safe to run `cuprated`?
 **⚠️ This project is still in development; do NOT use `cuprated` for any serious purposes ⚠️**
 
-`cuprated` is fine to run for casual purposes and has a similar attack surface to other network connected services.
+`cuprated` is fine to run for non-serious purposes and has a similar attack surface to other network connected services.
 
 See [`Resources`](./resources/intro.md) for information on what system resources `cuprated` will use.
 

@@ -18,7 +18,7 @@ Install the required system dependencies:
 
 ```bash
 # Debian/Ubuntu
-sudo apt install -y build-essentials cmake git
+sudo apt install -y build-essential cmake git
 
 # Arch
 sudo pacman -Syu base-devel cmake git
