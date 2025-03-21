@@ -154,16 +154,7 @@ fn main() {
             info!("Terminal/TTY not detected, disabling STDIN commands");
             tokio::signal::ctrl_c().await.unwrap();
         }
-
-        // TODO: graceful tokio shutdown.
-        // - First Ctrl+C = tell subsystems to shutdown and await
-        // - Second Ctrl+C = forceful shutdown
     });
-
-    info!(
-        "Exiting cuprated. Total uptime: {}s",
-        statics::START_INSTANT.elapsed().unwrap().as_secs()
-    );
 }
 
 /// Initialize the [`tokio`] runtime.
