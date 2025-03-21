@@ -9,12 +9,13 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/storage/database"
 keywords    = ["cuprate", "database"]
 
 [features]
-default     = ["heed"]
-# default     = ["redb"]
-# default     = ["redb-memory"]
+default     = ["heed", "tracing"]
+# default     = ["redb", "tracing"]
+# default     = ["redb-memory", "tracing"]
 heed        = []
 redb        = ["dep:redb"]
 redb-memory = ["redb"]
+tracing     = ["dep:tracing"]
 
 [dependencies]
 bytemuck  = { version = "1.18.0", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
@@ -23,6 +24,7 @@ cfg-if    = { workspace = true }
 page_size = { version = "0.6.0" } # Needed for database resizes, they must be a multiple of the OS page size.
 paste     = { workspace = true }
 thiserror = { workspace = true }
+tracing   = { workspace = true, optional = true }
 
 # Optional features.
 heed  = { version = "0.20.5", features = ["read-txn-no-tls"] }
