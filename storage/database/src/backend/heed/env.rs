@@ -83,8 +83,8 @@ impl Drop for ConcreteEnv {
 
         #[cfg(feature = "tracing")]
         match result {
-            Ok(n) => tracing::debug!("LMDB stale readers cleared: {n}"),
-            Err(e) => tracing::debug!("LMDB stale reader clear error: {e:?}"),
+            Ok(n) => debug!("LMDB stale readers cleared: {n}"),
+            Err(e) => debug!("LMDB stale reader clear error: {e:?}"),
         }
     }
 }

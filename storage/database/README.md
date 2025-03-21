@@ -98,7 +98,7 @@ This macro also generates other convenient traits specific to _your_ tables.
 |--------------|-------------|
 | `heed`       | Enables the `heed` (LMDB) backend
 | `redb`       | Enables the `redb` backend
-| `tracing`    | Enable [`tracing`] logs throughout the codebase
+| `tracing`    | Enable `tracing` logs throughout the codebase
 
 The defaults are `heed`, `tracing`.
 
