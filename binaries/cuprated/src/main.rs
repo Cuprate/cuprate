@@ -20,7 +20,7 @@ use std::{mem, sync::Arc};
 
 use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
-use tracing::level_filters::LevelFilter;
+use tracing::{info, level_filters::LevelFilter};
 use tracing_subscriber::{layer::SubscriberExt, reload::Handle, util::SubscriberInitExt, Registry};
 
 use cuprate_consensus_context::{
@@ -149,6 +149,14 @@ fn main() {
             .await
             .unwrap();
     });
+
+    // TODO: graceful tokio shutdown.
+    // - First Ctrl+C = tell subsystems to shutdown and await
+    // - Second Ctrl+C = forceful shutdown
+    info!(
+        "Exiting cuprated. Total uptime: {}s",
+        statics::START_INSTANT.elapsed().unwrap().as_secs()
+    );
 }
 
 /// Initialize the [`tokio`] runtime.
