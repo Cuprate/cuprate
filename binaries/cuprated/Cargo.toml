@@ -78,5 +78,8 @@ tracing-appender      = { workspace = true }
 tracing-subscriber    = { workspace = true, features = ["std", "fmt", "default"] }
 tracing               = { workspace = true, features = ["default"] }
 
+[dev-dependencies]
+tempfile              = { workspace = true }
+
 [lints]
 workspace = true

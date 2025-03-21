@@ -649,9 +649,16 @@ fn next_chain_entry(
 
     let tables = env_inner.open_tables(&tx_ro)?;
     let table_block_heights = tables.block_heights();
+    let table_alt_block_heights = tables.alt_block_heights();
     let table_block_infos = tables.block_infos_iter();
 
-    let idx = find_split_point(block_ids, false, table_block_heights)?;
+    let idx = find_split_point(
+        block_ids,
+        false,
+        false,
+        table_block_heights,
+        table_alt_block_heights,
+    )?;
 
     // This will happen if we have a different genesis block.
     if idx == block_ids.len() {
@@ -712,8 +719,15 @@ fn find_first_unknown(env: &ConcreteEnv, block_ids: &[BlockHash]) -> ResponseRes
     let tx_ro = env_inner.tx_ro()?;
 
     let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
+    let table_alt_block_heights = env_inner.open_db_ro::<AltBlockHeights>(&tx_ro)?;
 
-    let idx = find_split_point(block_ids, true, &table_block_heights)?;
+    let idx = find_split_point(
+        block_ids,
+        true,
+        true,
+        &table_block_heights,
+        &table_alt_block_heights,
+    )?;
 
     Ok(if idx == block_ids.len() {
         BlockchainResponse::FindFirstUnknown(None)
