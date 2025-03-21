@@ -20,7 +20,7 @@ use std::{mem, sync::Arc};
 
 use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
-use tracing::level_filters::LevelFilter;
+use tracing::{info, level_filters::LevelFilter};
 use tracing_subscriber::{layer::SubscriberExt, reload::Handle, util::SubscriberInitExt, Registry};
 
 use cuprate_consensus_context::{
@@ -141,13 +141,19 @@ fn main() {
         .await;
 
         // Start the command listener.
-        let (command_tx, command_rx) = mpsc::channel(1);
-        std::thread::spawn(|| commands::command_listener(command_tx));
+        if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+            let (command_tx, command_rx) = mpsc::channel(1);
+            std::thread::spawn(|| commands::command_listener(command_tx));
 
-        // Wait on the io_loop, spawned on a separate task as this improves performance.
-        tokio::spawn(commands::io_loop(command_rx, context_svc))
-            .await
-            .unwrap();
+            // Wait on the io_loop, spawned on a separate task as this improves performance.
+            tokio::spawn(commands::io_loop(command_rx, context_svc))
+                .await
+                .unwrap();
+        } else {
+            // If no STDIN, await OS exit signal.
+            info!("Terminal/TTY not detected, disabling STDIN commands");
+            tokio::signal::ctrl_c().await.unwrap();
+        }
     });
 }
 
