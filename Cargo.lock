@@ -743,6 +743,7 @@ dependencies = [
  "serde",
  "tempfile",
  "thiserror",
+ "tracing",
 ]
 
 [[package]]
@@ -756,6 +757,7 @@ dependencies = [
  "rayon",
  "serde",
  "tower 0.5.1",
+ "tracing",
 ]
 
 [[package]]

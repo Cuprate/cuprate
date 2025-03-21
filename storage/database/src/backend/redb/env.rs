@@ -31,11 +31,9 @@ impl Drop for ConcreteEnv {
     fn drop(&mut self) {
         // INVARIANT: drop(ConcreteEnv) must sync.
         if let Err(e) = self.sync() {
-            // TODO: use tracing
-            println!("{e:#?}");
+            #[cfg(feature = "tracing")]
+            warn!("Env sync error: {e}");
         }
-
-        // TODO: log that we are dropping the database.
     }
 }
 

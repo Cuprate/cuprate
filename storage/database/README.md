@@ -94,14 +94,13 @@ to bulk generate zero-sized marker types that implement [`Table`].
 This macro also generates other convenient traits specific to _your_ tables.
 
 # Feature flags
-Different database backends are enabled by the feature flags:
-- `heed` (LMDB)
-- `redb`
+| Feature flag | Description |
+|--------------|-------------|
+| `heed`       | Enables the `heed` (LMDB) backend
+| `redb`       | Enables the `redb` backend
+| `tracing`    | Enable [`tracing`] logs throughout the codebase
 
-The default is `heed`.
-
-`tracing` is always enabled and cannot be disabled via feature-flag.
-<!-- FIXME: tracing should be behind a feature flag -->
+The defaults are `heed`, `tracing`.
 
 # Examples
 The below is an example of using `cuprate-database`.

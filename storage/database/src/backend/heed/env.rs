@@ -60,6 +60,9 @@ pub struct ConcreteEnv {
 
 impl Drop for ConcreteEnv {
     fn drop(&mut self) {
+        #[cfg(feature = "tracing")]
+        use tracing::{debug, warn};
+
         // INVARIANT: drop(ConcreteEnv) must sync.
         //
         // SOMEDAY:
@@ -70,18 +73,18 @@ impl Drop for ConcreteEnv {
         // We need to do `mdb_env_set_flags(&env, MDB_NOSYNC|MDB_ASYNCMAP, 0)`
         // to clear the no sync and async flags such that the below `self.sync()`
         // _actually_ synchronously syncs.
-        if let Err(_e) = Env::sync(self) {
-            // TODO: log error?
+        if let Err(e) = Env::sync(self) {
+            #[cfg(feature = "tracing")]
+            warn!("Env sync error: {e}");
         }
 
-        // TODO: log that we are dropping the database.
-
-        // TODO: use tracing.
         // <https://github.com/LMDB/lmdb/blob/b8e54b4c31378932b69f1298972de54a565185b1/libraries/liblmdb/lmdb.h#L49-L61>
         let result = self.env.read().unwrap().clear_stale_readers();
+
+        #[cfg(feature = "tracing")]
         match result {
-            Ok(n) => println!("LMDB stale readers cleared: {n}"),
-            Err(e) => println!("LMDB stale reader clear error: {e:?}"),
+            Ok(n) => tracing::debug!("LMDB stale readers cleared: {n}"),
+            Err(e) => tracing::debug!("LMDB stale reader clear error: {e:?}"),
         }
     }
 }
