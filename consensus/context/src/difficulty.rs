@@ -41,24 +41,6 @@ pub struct DifficultyCacheConfig {
 }
 
 impl DifficultyCacheConfig {
-    /// Create a new difficulty cache config.
-    ///
-    /// # Notes
-    /// You probably do not need this, use [`DifficultyCacheConfig::main_net`] instead.
-    pub const fn new(
-        window: usize,
-        cut: usize,
-        lag: usize,
-        fixed_difficulty: Option<u128>,
-    ) -> Self {
-        Self {
-            window,
-            cut,
-            lag,
-            fixed_difficulty,
-        }
-    }
-
     /// Returns the total amount of blocks we need to track to calculate difficulty
     pub const fn total_block_count(&self) -> usize {
         self.window + self.lag
