@@ -146,10 +146,10 @@ impl Default for Config {
 impl Config {
     /// Returns a default [`Config`], with doc comments.
     pub fn documented_config() -> String {
-        let str = toml::ser::to_string_pretty(&Config::default()).unwrap();
+        let str = toml::ser::to_string_pretty(&Self::default()).unwrap();
         let mut doc = toml_edit::DocumentMut::from_str(&str).unwrap();
         Self::write_docs(doc.as_table_mut());
-        format!("{HEADER}{}", doc.to_string())
+        format!("{HEADER}{doc}")
     }
 
     /// Attempts to read a config file in [`toml`] format from the given [`Path`].
