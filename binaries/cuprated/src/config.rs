@@ -5,7 +5,7 @@ use std::{
     path::Path,
     time::Duration,
 };
-
+use std::str::FromStr;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 
@@ -29,6 +29,9 @@ mod rayon;
 mod storage;
 mod tokio;
 mod tracing_config;
+
+#[macro_use]
+mod macros;
 
 use fs::FileSystemConfig;
 use p2p::P2PConfig;
@@ -76,29 +79,58 @@ pub fn read_config_and_args() -> Config {
     args.apply_args(config)
 }
 
-/// The config for all of Cuprate.
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq)]
-#[serde(deny_unknown_fields, default)]
-pub struct Config {
-    /// The network we should run on.
-    network: Network,
+config_struct! {
+    /// The config for all of Cuprate.
+    #[derive(Debug, Deserialize, Serialize, PartialEq)]
+    #[serde(deny_unknown_fields, default)]
+    pub struct Config {
+        /// The network we should run on.
+        ///
+        /// Valid values: "Mainnet", "Testnet" and "Stagenet".
+        pub network: Network,
+        /// Enable/disable fast sync.
+        ///
+        /// Fast sync skips verification of old blocks by comparing block hashes to a built-in hash file,
+        /// disabling this will significantly increase sync time. New blocks are still fully validated.
+        pub fast_sync: bool,
+        #[child = true]
+        /// The [`tracing`]/log output config.
+        pub tracing: TracingConfig,
+        #[child = true]
+        /// The [`tokio`] config.
+        ///
+        /// Tokio is the async threadpool, used for network operations and the major service inside `cuprated`.
+        pub tokio: TokioConfig,
+        #[child = true]
+        /// The [`rayon`] config.
+        ///
+        /// Rayon is the CPU threadpool, used for CPU intensive tasks.
+        pub rayon: RayonConfig,
+        #[child = true]
+        /// The P2P network config.
+        pub p2p: P2PConfig,
+        #[child = true]
+        /// The storage config.
+        pub storage: StorageConfig,
+        #[child = true]
+        /// The filesystem config.
+        pub fs: FileSystemConfig,
+    }
+}
 
-    pub no_fast_sync: bool,
-
-    /// [`tracing`] config.
-    pub tracing: TracingConfig,
-
-    pub tokio: TokioConfig,
-
-    pub rayon: RayonConfig,
-
-    /// The P2P network config.
-    p2p: P2PConfig,
-
-    /// The storage config.
-    pub storage: StorageConfig,
-
-    pub fs: FileSystemConfig,
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            network: Default::default(),
+            fast_sync: true,
+            tracing: Default::default(),
+            tokio: Default::default(),
+            rayon: Default::default(),
+            p2p: Default::default(),
+            storage: Default::default(),
+            fs: Default::default(),
+        }
+    }
 }
 
 impl Config {
