@@ -1,13 +1,13 @@
 //! cuprated config
+use clap::Parser;
+use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use std::{
     fs::{read_to_string, File},
     io,
     path::Path,
     time::Duration,
 };
-use std::str::FromStr;
-use clap::Parser;
-use serde::{Deserialize, Serialize};
 
 use cuprate_consensus::ContextConfig;
 use cuprate_helper::{
@@ -39,6 +39,16 @@ use rayon::RayonConfig;
 use storage::StorageConfig;
 use tokio::TokioConfig;
 use tracing_config::TracingConfig;
+
+const HEADER: &str = r"#     ____                      _
+#    / ___|   _ _ __  _ __ __ _| |_ ___
+#   | |  | | | | '_ \| '__/ _` | __/ _ \
+#   | |__| |_| | |_) | | | (_| | ||  __/
+#    \____\__,_| .__/|_|  \__,_|\__\___|
+#              |_|
+#
+
+";
 
 /// Reads the args & config file, returning a [`Config`].
 pub fn read_config_and_args() -> Config {
@@ -134,6 +144,14 @@ impl Default for Config {
 }
 
 impl Config {
+    /// Returns a default [`Config`], with doc comments.
+    pub fn documented_config() -> String {
+        let str = toml::ser::to_string_pretty(&Config::default()).unwrap();
+        let mut doc = toml_edit::DocumentMut::from_str(&str).unwrap();
+        Self::write_docs(doc.as_table_mut());
+        format!("{HEADER}{}", doc.to_string())
+    }
+
     /// Attempts to read a config file in [`toml`] format from the given [`Path`].
     ///
     /// # Errors
@@ -250,5 +268,13 @@ mod test {
             let string = read_to_string(path).unwrap();
             from_str::<Config>(&string).unwrap();
         }
+    }
+
+    #[test]
+    fn documented_config() {
+        let str = Config::documented_config();
+        let conf: Config = from_str(&str).unwrap();
+
+        assert_eq!(conf, Config::default());
     }
 }

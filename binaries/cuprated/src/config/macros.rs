@@ -66,5 +66,5 @@ macro_rules! config_struct {
     };
 }
 
-use toml_edit::TableLike;
 pub(crate) use config_struct;
+use toml_edit::TableLike;

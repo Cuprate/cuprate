@@ -61,7 +61,7 @@ impl Args {
         }
 
         if self.generate_config {
-            println!("{EXAMPLE_CONFIG}");
+            println!("{}", Config::documented_config());
             exit(0);
         }
     }
