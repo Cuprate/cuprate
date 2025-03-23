@@ -13,6 +13,7 @@ config_struct! {
     #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
     pub struct StorageConfig {
+        #[comment_out = true]
         /// The amount of reader threads to spawn for the tx-pool and blockchain.
         ///
         /// The tx-pool and blockchain both share a single threadpool.
@@ -77,7 +78,13 @@ config_struct! {
     #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
     pub struct SharedStorageConfig {
+        #[comment_out = true]
         /// The [`SyncMode`] of the database.
+        ///
+        /// Changing this value could make the DB a lot slower when writing data, although
+        /// using "Safe" makes the DB more durable if there was an unexpected crash.
+        ///
+        /// Valid values: ["Fast", "Safe"].
         pub sync_mode: SyncMode,
     }
 }

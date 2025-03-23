@@ -11,8 +11,10 @@ config_struct! {
     #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
     pub struct FileSystemConfig {
+        #[comment_out = true]
         /// The data directory.
         pub data_directory: PathBuf,
+        #[comment_out = true]
         /// The cache directory.
         pub cache_directory: PathBuf,
     }

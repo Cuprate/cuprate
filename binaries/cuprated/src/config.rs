@@ -1,13 +1,14 @@
 //! cuprated config
-use clap::Parser;
-use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 use std::{
     fs::{read_to_string, File},
     io,
     path::Path,
+    str::FromStr,
     time::Duration,
 };
+
+use clap::Parser;
+use serde::{Deserialize, Serialize};
 
 use cuprate_consensus::ContextConfig;
 use cuprate_helper::{
@@ -40,6 +41,7 @@ use storage::StorageConfig;
 use tokio::TokioConfig;
 use tracing_config::TracingConfig;
 
+/// Header to put at the start of the generated config file.
 const HEADER: &str = r"#     ____                      _
 #    / ___|   _ _ __  _ __ __ _| |_ ___
 #   | |  | | | | '_ \| '__/ _` | __/ _ \
@@ -47,6 +49,8 @@ const HEADER: &str = r"#     ____                      _
 #    \____\__,_| .__/|_|  \__,_|\__\___|
 #              |_|
 #
+# All these config values can be set to their default by commenting them out with #.
+# Some values are already commented out, to set the value remove the # at the start of the line.
 
 ";
 

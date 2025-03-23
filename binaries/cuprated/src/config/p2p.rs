@@ -20,6 +20,8 @@ config_struct! {
         pub clear_net: ClearNetConfig,
         #[child = true]
         /// Block downloader config.
+        ///
+        /// The block downloader handles downloading old blocks from peers when we are behind.
         pub block_downloader: BlockDownloaderConfig,
     }
 }
@@ -28,11 +30,13 @@ config_struct! {
     #[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
     #[serde(deny_unknown_fields, default)]
     pub struct BlockDownloaderConfig {
+        #[comment_out = true]
         /// The size in bytes of the buffer between the block downloader and the place which
-        /// is consuming the downloaded blocks.
+        /// is consuming the downloaded blocks (`cuprated`).
         ///
         /// This value is an absolute maximum, once this is reached the block downloader will pause.
         pub buffer_bytes: usize,
+        #[comment_out = true]
         /// The size of the in progress queue (in bytes) at which we stop requesting more blocks.
         ///
         /// The value is _NOT_ an absolute maximum, the in progress queue could get much larger. This value
@@ -42,6 +46,7 @@ config_struct! {
         #[inline = true]
         /// The [`Duration`] between checking the client pool for free peers.
         pub check_client_pool_interval: Duration,
+        #[comment_out = true]
         /// The target size of a single batch of blocks (in bytes).
         ///
         /// This value must be below 100_000_000, it is not recommended to set it above 30_000_000.
@@ -100,17 +105,23 @@ config_struct! {
     #[derive(Debug, Deserialize, Serialize, PartialEq)]
     #[serde(deny_unknown_fields, default)]
     pub struct SharedNetConfig {
+        #[comment_out = true]
         /// The number of outbound connections to make and try keep.
         ///
         /// Recommended to keep this value above 12.
         pub outbound_connections: usize,
+        #[comment_out = true]
         /// The amount of extra connections we can make if we are under load from the rest of Cuprate.
         pub extra_outbound_connections: usize,
+        #[comment_out = true]
         /// The maximum amount of inbound connections we should allow.
         pub max_inbound_connections: usize,
+        #[comment_out = true]
         /// The percent of connections that should be to peers we haven't connected to before.
         pub gray_peers_percent: f64,
         /// port to use to accept p2p connections.
+        ///
+        /// Set to 0 if you do not want to accept P2P connections.
         pub p2p_port: u16,
         #[child = true]
         /// The address book config.
@@ -141,7 +152,7 @@ impl Default for SharedNetConfig {
             extra_outbound_connections: 8,
             max_inbound_connections: 128,
             gray_peers_percent: 0.7,
-            p2p_port: 0,
+            p2p_port: 18080,
             address_book_config: AddressBookConfig::default(),
         }
     }

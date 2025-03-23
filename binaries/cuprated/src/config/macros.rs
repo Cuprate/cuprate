@@ -1,3 +1,7 @@
+use toml_edit::TableLike;
+
+/// A macro for config structs defined in `cuprated`. This macro generates a function that
+/// can insert toml comments created from doc comments on fields.
 macro_rules! config_struct {
     (
         $(#[$meta:meta])*
@@ -6,6 +10,7 @@ macro_rules! config_struct {
                 $(#[flatten = $flat:literal])?
                 $(#[child = $child:literal])?
                 $(#[inline = $inline:literal])?
+                $(#[comment_out = $comment_out:literal])?
                 $(#[doc = $doc:expr])*
                 $(##[$field_meta:meta])*
                 pub $field:ident: $field_ty:ty,
@@ -29,9 +34,15 @@ macro_rules! config_struct {
                     'write_field: {
                         let key_str = &stringify!($field);
 
-                        let doc_comment = [ $(
+                        let mut field_prefix = [ $(
                           format!("##{}\n", $doc),
                         )*].concat();
+
+                        $(
+                        if $comment_out {
+                            field_prefix.push('#');
+                        }
+                        )?
 
                         $(
                         if $flat {
@@ -51,13 +62,13 @@ macro_rules! config_struct {
                                 if $inline {
                                     let mut table = table.clone().into_inline_table();
                                     doc.insert(&key_str, ::toml_edit::Item::Value(::toml_edit::Value::InlineTable(table)));
-                                    doc.key_mut(&key_str).unwrap().leaf_decor_mut().set_prefix(doc_comment);
+                                    doc.key_mut(&key_str).unwrap().leaf_decor_mut().set_prefix(field_prefix);
                                     break 'write_field;
                                 }
                             )?
-                            table.decor_mut().set_prefix(format!("\n{}", doc_comment));
+                            table.decor_mut().set_prefix(format!("\n{}", field_prefix));
                         }else {
-                            doc.key_mut(&key_str).unwrap().leaf_decor_mut().set_prefix(doc_comment);
+                            doc.key_mut(&key_str).unwrap().leaf_decor_mut().set_prefix(field_prefix);
                         }
                     }
                 )*
@@ -67,4 +78,3 @@ macro_rules! config_struct {
 }
 
 pub(crate) use config_struct;
-use toml_edit::TableLike;

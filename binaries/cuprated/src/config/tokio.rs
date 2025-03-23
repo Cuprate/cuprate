@@ -7,6 +7,7 @@ config_struct! {
     #[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
     #[serde(deny_unknown_fields, default)]
     pub struct TokioConfig {
+        #[comment_out = true]
         /// The amount of threads to spawn for the async thread-pool
         pub threads: usize,
     }
