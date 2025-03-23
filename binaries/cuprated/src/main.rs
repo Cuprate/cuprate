@@ -55,7 +55,7 @@ fn main() {
 
     let config = config::read_config_and_args();
 
-    blockchain::set_fast_sync_hashes(!config.no_fast_sync, config.network());
+    blockchain::set_fast_sync_hashes(config.fast_sync, config.network());
 
     // Initialize logging.
     logging::init_logging(&config);

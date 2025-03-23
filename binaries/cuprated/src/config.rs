@@ -3,6 +3,7 @@ use std::{
     fs::{read_to_string, File},
     io,
     path::Path,
+    str::FromStr,
     time::Duration,
 };
 
@@ -30,12 +31,28 @@ mod storage;
 mod tokio;
 mod tracing_config;
 
+#[macro_use]
+mod macros;
+
 use fs::FileSystemConfig;
 use p2p::P2PConfig;
 use rayon::RayonConfig;
 use storage::StorageConfig;
 use tokio::TokioConfig;
 use tracing_config::TracingConfig;
+
+/// Header to put at the start of the generated config file.
+const HEADER: &str = r"#     ____                      _
+#    / ___|   _ _ __  _ __ __ _| |_ ___
+#   | |  | | | | '_ \| '__/ _` | __/ _ \
+#   | |__| |_| | |_) | | | (_| | ||  __/
+#    \____\__,_| .__/|_|  \__,_|\__\___|
+#              |_|
+#
+# All these config values can be set to their default by commenting them out with #.
+# Some values are already commented out, to set the value remove the # at the start of the line.
+
+";
 
 /// Reads the args & config file, returning a [`Config`].
 pub fn read_config_and_args() -> Config {
@@ -76,32 +93,69 @@ pub fn read_config_and_args() -> Config {
     args.apply_args(config)
 }
 
-/// The config for all of Cuprate.
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq)]
-#[serde(deny_unknown_fields, default)]
-pub struct Config {
-    /// The network we should run on.
-    network: Network,
+config_struct! {
+    /// The config for all of Cuprate.
+    #[derive(Debug, Deserialize, Serialize, PartialEq)]
+    #[serde(deny_unknown_fields, default)]
+    pub struct Config {
+        /// The network we should run on.
+        ///
+        /// Valid values: "Mainnet", "Testnet" and "Stagenet".
+        pub network: Network,
+        /// Enable/disable fast sync.
+        ///
+        /// Fast sync skips verification of old blocks by comparing block hashes to a built-in hash file,
+        /// disabling this will significantly increase sync time. New blocks are still fully validated.
+        pub fast_sync: bool,
+        #[child = true]
+        /// The [`tracing`]/log output config.
+        pub tracing: TracingConfig,
+        #[child = true]
+        /// The [`tokio`] config.
+        ///
+        /// Tokio is the async threadpool, used for network operations and the major service inside `cuprated`.
+        pub tokio: TokioConfig,
+        #[child = true]
+        /// The [`rayon`] config.
+        ///
+        /// Rayon is the CPU threadpool, used for CPU intensive tasks.
+        pub rayon: RayonConfig,
+        #[child = true]
+        /// The P2P network config.
+        pub p2p: P2PConfig,
+        #[child = true]
+        /// The storage config.
+        pub storage: StorageConfig,
+        #[child = true]
+        /// The filesystem config.
+        pub fs: FileSystemConfig,
+    }
+}
 
-    pub no_fast_sync: bool,
-
-    /// [`tracing`] config.
-    pub tracing: TracingConfig,
-
-    pub tokio: TokioConfig,
-
-    pub rayon: RayonConfig,
-
-    /// The P2P network config.
-    p2p: P2PConfig,
-
-    /// The storage config.
-    pub storage: StorageConfig,
-
-    pub fs: FileSystemConfig,
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            network: Default::default(),
+            fast_sync: true,
+            tracing: Default::default(),
+            tokio: Default::default(),
+            rayon: Default::default(),
+            p2p: Default::default(),
+            storage: Default::default(),
+            fs: Default::default(),
+        }
+    }
 }
 
 impl Config {
+    /// Returns a default [`Config`], with doc comments.
+    pub fn documented_config() -> String {
+        let str = toml::ser::to_string_pretty(&Self::default()).unwrap();
+        let mut doc = toml_edit::DocumentMut::from_str(&str).unwrap();
+        Self::write_docs(doc.as_table_mut());
+        format!("{HEADER}{doc}")
+    }
+
     /// Attempts to read a config file in [`toml`] format from the given [`Path`].
     ///
     /// # Errors
@@ -218,5 +272,13 @@ mod test {
             let string = read_to_string(path).unwrap();
             from_str::<Config>(&string).unwrap();
         }
+    }
+
+    #[test]
+    fn documented_config() {
+        let str = Config::documented_config();
+        let conf: Config = from_str(&str).unwrap();
+
+        assert_eq!(conf, Config::default());
     }
 }
