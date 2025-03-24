@@ -177,7 +177,6 @@ fn database_writer<Req, Res>(
 
             // Send the response back, whether if it's an `Ok` or `Err`.
             if let Err(e) = response_sender.send(response) {
-                #[cfg(feature = "tracing")]
                 warn!("Database writer failed to send response: {e:?}");
             }
 
