@@ -5,6 +5,7 @@ use std::{
 };
 
 use futures::channel::oneshot;
+use tracing::{info, warn};
 
 use cuprate_database::{ConcreteEnv, DbResult, Env, RuntimeError};
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
@@ -150,10 +151,16 @@ fn database_writer<Req, Res>(
                 // add that much instead of the default 1GB.
                 // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L665-L695>
                 let old = env.current_map_size();
-                let new = env.resize_map(None);
+                let new = env.resize_map(None).get();
 
-                // TODO: use tracing.
-                println!("resizing database memory map, old: {old}B, new: {new}B");
+                const fn bytes_to_megabytes(bytes: usize) -> usize {
+                    bytes / 1_000_000
+                }
+
+                let old_mb = bytes_to_megabytes(old);
+                let new_mb = bytes_to_megabytes(new);
+
+                info!("Resizing database memory map, old: {old_mb}MB, new: {new_mb}MB");
 
                 // Try handling the request again.
                 continue 'retry;
@@ -170,8 +177,7 @@ fn database_writer<Req, Res>(
 
             // Send the response back, whether if it's an `Ok` or `Err`.
             if let Err(e) = response_sender.send(response) {
-                // TODO: use tracing.
-                println!("database writer failed to send response: {e:?}");
+                warn!("Database writer failed to send response: {e:?}");
             }
 
             continue 'main;

@@ -9,10 +9,10 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/storage/service"
 keywords    = ["cuprate", "service", "database"]
 
 [features]
-default = ["heed"]
-heed = ["cuprate-database/heed"]
-redb = ["cuprate-database/redb"]
-redb-memorey = ["cuprate-database/redb-memory"]
+default     = ["heed"]
+heed        = ["cuprate-database/heed"]
+redb        = ["cuprate-database/redb"]
+redb-memory = ["cuprate-database/redb-memory"]
 
 [dependencies]
 cuprate-database = { workspace = true }
@@ -23,6 +23,7 @@ rayon     = { workspace = true }
 tower     = { workspace = true }
 futures   = { workspace = true, features = ["std"] }
 crossbeam = { workspace = true, features = ["std"] }
+tracing   = { workspace = true }
 
 [lints]
 workspace = true
