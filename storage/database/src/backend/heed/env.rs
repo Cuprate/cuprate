@@ -8,6 +8,7 @@ use std::{
 };
 
 use heed::{DatabaseFlags, EnvFlags, EnvOpenOptions};
+use tracing::{debug, warn};
 
 use crate::{
     backend::heed::{
@@ -60,9 +61,6 @@ pub struct ConcreteEnv {
 
 impl Drop for ConcreteEnv {
     fn drop(&mut self) {
-        #[cfg(feature = "tracing")]
-        use tracing::{debug, warn};
-
         // INVARIANT: drop(ConcreteEnv) must sync.
         //
         // SOMEDAY:
@@ -74,14 +72,12 @@ impl Drop for ConcreteEnv {
         // to clear the no sync and async flags such that the below `self.sync()`
         // _actually_ synchronously syncs.
         if let Err(e) = Env::sync(self) {
-            #[cfg(feature = "tracing")]
             warn!("Env sync error: {e}");
         }
 
         // <https://github.com/LMDB/lmdb/blob/b8e54b4c31378932b69f1298972de54a565185b1/libraries/liblmdb/lmdb.h#L49-L61>
         let result = self.env.read().unwrap().clear_stale_readers();
 
-        #[cfg(feature = "tracing")]
         match result {
             Ok(n) => debug!("LMDB stale readers cleared: {n}"),
             Err(e) => debug!("LMDB stale reader clear error: {e:?}"),

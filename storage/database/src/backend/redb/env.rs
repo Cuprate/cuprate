@@ -31,7 +31,6 @@ impl Drop for ConcreteEnv {
     fn drop(&mut self) {
         // INVARIANT: drop(ConcreteEnv) must sync.
         if let Err(e) = self.sync() {
-            #[cfg(feature = "tracing")]
             tracing::warn!("Env sync error: {e}");
         }
     }

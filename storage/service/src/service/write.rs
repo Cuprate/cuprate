@@ -5,7 +5,6 @@ use std::{
 };
 
 use futures::channel::oneshot;
-#[cfg(feature = "tracing")]
 use tracing::{info, warn};
 
 use cuprate_database::{ConcreteEnv, DbResult, Env, RuntimeError};
@@ -154,17 +153,14 @@ fn database_writer<Req, Res>(
                 let old = env.current_map_size();
                 let new = env.resize_map(None).get();
 
-                #[cfg(feature = "tracing")]
-                {
-                    const fn bytes_to_megabytes(bytes: usize) -> usize {
-                        bytes / 1_000_000
-                    }
-
-                    let old_mb = bytes_to_megabytes(old);
-                    let new_mb = bytes_to_megabytes(new);
-
-                    info!("Resizing database memory map, old: {old_mb}MB, new: {new_mb}MB");
+                const fn bytes_to_megabytes(bytes: usize) -> usize {
+                    bytes / 1_000_000
                 }
+
+                let old_mb = bytes_to_megabytes(old);
+                let new_mb = bytes_to_megabytes(new);
+
+                info!("Resizing database memory map, old: {old_mb}MB, new: {new_mb}MB");
 
                 // Try handling the request again.
                 continue 'retry;
