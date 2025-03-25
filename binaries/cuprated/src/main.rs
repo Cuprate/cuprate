@@ -75,21 +75,24 @@ fn main() {
 
     /// If a database is corrupted, panic with a
     /// user-friendly corruption message, else, unwrap.
-    fn unwrap_db_init_error<T>(result: Result<T, InitError>) -> T {
+    fn unwrap_db_init<T>(db_type: &'static str, result: Result<T, InitError>) -> T {
         match result {
             Ok(t) => t,
             Err(InitError::Invalid | InitError::Corrupt) => panic!("{DATABASE_CORRUPT_MSG}"),
-            Err(e) => panic!("{e}"),
+            Err(e) => panic!("{db_type} database init error: {e}"),
         }
     }
 
-    let (mut blockchain_read_handle, mut blockchain_write_handle, _) =
-        unwrap_db_init_error(cuprate_blockchain::service::init_with_pool(
+    let (mut blockchain_read_handle, mut blockchain_write_handle, _) = unwrap_db_init(
+        "Blockchain",
+        cuprate_blockchain::service::init_with_pool(
             config.blockchain_config(),
             Arc::clone(&db_thread_pool),
-        ));
+        ),
+    );
 
-    let (txpool_read_handle, txpool_write_handle, _) = unwrap_db_init_error(
+    let (txpool_read_handle, txpool_write_handle, _) = unwrap_db_init(
+        "Transaction pool",
         cuprate_txpool::service::init_with_pool(config.txpool_config(), db_thread_pool),
     );
 
