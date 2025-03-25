@@ -15,6 +15,7 @@ use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_rpc_types::misc::GetOutputsOut;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
+    output_cache::OutputCache,
     rpc::{
         ChainInfo, CoinbaseTxSum, KeyImageSpentStatus, OutputDistributionData,
         OutputHistogramEntry, OutputHistogramInput,

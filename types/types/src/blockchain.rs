@@ -18,12 +18,7 @@ use crate::{
         OutputHistogramInput,
     },
     types::{Chain, ExtendedBlockHeader, OutputOnChain, TxsInBlock, VerifiedBlockInformation},
-    AltBlockInformation, AltBlockInformation, AltBlockInformation, BlockCompleteEntry,
-    BlockCompleteEntry, BlockCompleteEntry, Chain, Chain, ChainId, ChainId, ChainId, ChainInfo,
-    ChainInfo, CoinbaseTxSum, CoinbaseTxSum, ExtendedBlockHeader, ExtendedBlockHeader,
-    OutputDistributionInput, OutputHistogramEntry, OutputHistogramEntry, OutputHistogramInput,
-    OutputHistogramInput, OutputOnChain, TxInBlockchain, TxsInBlock, TxsInBlock,
-    VerifiedBlockInformation, VerifiedBlockInformation,
+    AltBlockInformation, BlockCompleteEntry, ChainId, OutputDistributionInput, TxInBlockchain,
 };
 
 //---------------------------------------------------------------------------------------------------- ReadRequest

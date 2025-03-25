@@ -184,12 +184,13 @@ pub fn output_to_output_on_chain(
         }
     };
 
+    todo!("txid");
+
     Ok(OutputOnChain {
         height: output.height as usize,
         time_lock,
         key,
         commitment,
-        txid,
     })
 }
 
@@ -235,12 +236,13 @@ pub fn rct_output_to_output_on_chain(
         }
     };
 
+    todo!("txid");
+
     Ok(OutputOnChain {
         height: rct_output.height as usize,
         time_lock,
         key,
         commitment,
-        txid,
     })
 }
 

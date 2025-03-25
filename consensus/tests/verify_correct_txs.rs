@@ -73,7 +73,6 @@ macro_rules! test_verify_valid_v2_tx {
                     time_lock: Timelock::None,
                     commitment: CompressedEdwardsY(hex_literal::hex!($commitment)),
                     key: CompressedEdwardsY(hex_literal::hex!($ring_member)),
-                    txid: [0; 32],
                 }),)+)+
             ];
 
@@ -101,7 +100,6 @@ macro_rules! test_verify_valid_v2_tx {
                     time_lock: Timelock::None,
                     commitment: ED25519_BASEPOINT_COMPRESSED,
                     key: CompressedEdwardsY(hex_literal::hex!($ring_member)),
-                    txid: [0; 32],
                 }),)+)+
             ];
 
