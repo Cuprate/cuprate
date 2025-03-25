@@ -24,6 +24,9 @@ pub type DbResult<T> = Result<T, RuntimeError>;
 pub enum InitError {
     /// The given `Path/File` existed and was accessible,
     /// but was not a valid database file.
+    ///
+    /// This error can sometimes be returned after an
+    /// initial corruption error over [`InitError::Corrupt`].
     #[error("database file exists but is not valid")]
     Invalid,
 
