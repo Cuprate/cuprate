@@ -9,7 +9,7 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/types"
 keywords    = ["cuprate", "types"]
 
 [features]
-default    = ["blockchain", "epee", "serde", "json", "hex"]
+default    = ["blockchain", "epee", "serde", "json"]
 blockchain = ["dep:indexmap", "dep:cuprate-helper", "cuprate-helper/crypto", "rpc"]
 epee       = ["dep:cuprate-epee-encoding"]
 serde      = ["dep:serde"]
