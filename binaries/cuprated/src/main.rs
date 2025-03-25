@@ -26,6 +26,7 @@ use tracing_subscriber::{layer::SubscriberExt, reload::Handle, util::SubscriberI
 use cuprate_consensus_context::{
     BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
 };
+use cuprate_database::{InitError, DATABASE_CORRUPT_MSG};
 use cuprate_helper::time::secs_to_hms;
 use cuprate_types::blockchain::BlockchainWriteRequest;
 
@@ -72,14 +73,25 @@ fn main() {
 
     // Start the blockchain & tx-pool databases.
 
+    /// If a database is corrupted, panic with a
+    /// user-friendly corruption message, else, unwrap.
+    fn unwrap_db_init_error<T>(result: Result<T, InitError>) -> T {
+        match result {
+            Ok(t) => t,
+            Err(InitError::Invalid | InitError::Corrupt) => panic!("{DATABASE_CORRUPT_MSG}"),
+            Err(e) => panic!("{e}"),
+        }
+    }
+
     let (mut blockchain_read_handle, mut blockchain_write_handle, _) =
-        cuprate_blockchain::service::init_with_pool(
+        unwrap_db_init_error(cuprate_blockchain::service::init_with_pool(
             config.blockchain_config(),
             Arc::clone(&db_thread_pool),
-        )
-        .unwrap();
-    let (txpool_read_handle, txpool_write_handle, _) =
-        cuprate_txpool::service::init_with_pool(config.txpool_config(), db_thread_pool).unwrap();
+        ));
+
+    let (txpool_read_handle, txpool_write_handle, _) = unwrap_db_init_error(
+        cuprate_txpool::service::init_with_pool(config.txpool_config(), db_thread_pool),
+    );
 
     // Initialize async tasks.
 
