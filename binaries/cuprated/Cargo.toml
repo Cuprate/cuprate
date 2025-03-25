@@ -60,6 +60,7 @@ hex-literal           = { workspace = true }
 indexmap              = { workspace = true }
 monero-address        = { workspace = true }
 monero-serai          = { workspace = true }
+nu-ansi-term          = { workspace = true }
 paste                 = { workspace = true }
 pin-project           = { workspace = true }
 randomx-rs            = { workspace = true }
@@ -80,6 +81,9 @@ tower                 = { workspace = true }
 tracing-appender      = { workspace = true }
 tracing-subscriber    = { workspace = true, features = ["std", "fmt", "default"] }
 tracing               = { workspace = true, features = ["default"] }
+
+[dev-dependencies]
+tempfile              = { workspace = true }
 
 [lints]
 workspace = true

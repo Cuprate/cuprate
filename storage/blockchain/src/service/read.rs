@@ -12,9 +12,11 @@
 use std::{
     cmp::min,
     collections::{HashMap, HashSet},
+    ops::Range,
     sync::Arc,
 };
 
+use indexmap::{IndexMap, IndexSet};
 use rayon::{
     iter::{Either, IntoParallelIterator, ParallelIterator},
     prelude::*,
@@ -27,6 +29,7 @@ use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThre
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
+    output_cache::OutputCache,
     rpc::OutputHistogramInput,
     Chain, ChainId, ExtendedBlockHeader, OutputDistributionInput, OutputOnChain, TxsInBlock,
 };
@@ -111,6 +114,7 @@ fn map_request(
         R::BlockCompleteEntriesByHeight(heights) => block_complete_entries_by_height(env, heights),
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
         R::BlockHash(block, chain) => block_hash(env, block, chain),
+        R::BlockHashInRange(blocks, chain) => block_hash_in_range(env, blocks, chain),
         R::FindBlock(block_hash) => find_block(env, block_hash),
         R::FilterUnknownHashes(hashes) => filter_unknown_hashes(env, hashes),
         R::BlockExtendedHeaderInRange(range, chain) => {
@@ -306,6 +310,34 @@ fn block_hash(env: &ConcreteEnv, block_height: BlockHeight, chain: Chain) -> Res
     Ok(BlockchainResponse::BlockHash(block_hash))
 }
 
+/// [`BlockchainReadRequest::BlockHashInRange`].
+#[inline]
+fn block_hash_in_range(env: &ConcreteEnv, range: Range<usize>, chain: Chain) -> ResponseResult {
+    // Prepare tx/tables in `ThreadLocal`.
+    let env_inner = env.env_inner();
+    let tx_ro = thread_local(env);
+
+    let block_hash = range
+        .into_par_iter()
+        .map(|block_height| {
+            let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+
+            let table_block_infos = env_inner.open_db_ro::<BlockInfos>(tx_ro)?;
+
+            let block_hash = match chain {
+                Chain::Main => get_block_info(&block_height, &table_block_infos)?.block_hash,
+                Chain::Alt(chain) => {
+                    get_alt_block_hash(&block_height, chain, &env_inner.open_tables(tx_ro)?)?
+                }
+            };
+
+            Ok(block_hash)
+        })
+        .collect::<Result<_, RuntimeError>>()?;
+
+    Ok(BlockchainResponse::BlockHashInRange(block_hash))
+}
+
 /// [`BlockchainReadRequest::FindBlock`]
 fn find_block(env: &ConcreteEnv, block_hash: BlockHash) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
@@ -365,7 +397,7 @@ fn filter_unknown_hashes(env: &ConcreteEnv, mut hashes: HashSet<BlockHash>) -> R
 #[inline]
 fn block_extended_header_in_range(
     env: &ConcreteEnv,
-    range: std::ops::Range<BlockHeight>,
+    range: Range<BlockHeight>,
     chain: Chain,
 ) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
@@ -450,15 +482,36 @@ fn generated_coins(env: &ConcreteEnv, height: usize) -> ResponseResult {
 
 /// [`BlockchainReadRequest::Outputs`].
 #[inline]
-fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) -> ResponseResult {
+fn outputs(env: &ConcreteEnv, outputs: IndexMap<Amount, IndexSet<AmountIndex>>) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
     let tx_ro = thread_local(env);
     let tables = thread_local(env);
 
+    let amount_of_outs = outputs
+        .par_iter()
+        .map(|(&amount, _)| {
+            let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+            let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+
+            if amount == 0 {
+                Ok((amount, tables.rct_outputs().len()?))
+            } else {
+                // v1 transactions.
+                match tables.num_outputs().get(&amount) {
+                    Ok(count) => Ok((amount, count)),
+                    // If we get a request for an `amount` that doesn't exist,
+                    // we return `0` instead of an error.
+                    Err(RuntimeError::KeyNotFound) => Ok((amount, 0)),
+                    Err(e) => Err(e),
+                }
+            }
+        })
+        .collect::<Result<_, _>>()?;
+
     // The 2nd mapping function.
     // This is pulled out from the below `map()` for readability.
-    let inner_map = |amount, amount_index| -> DbResult<(AmountIndex, OutputOnChain)> {
+    let inner_map = |amount, amount_index| {
         let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
         let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
 
@@ -467,26 +520,31 @@ fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) ->
             amount_index,
         };
 
-        let output_on_chain = id_to_output_on_chain(&id, tables)?;
+        let output_on_chain = match id_to_output_on_chain(&id, tables) {
+            Ok(output) => output,
+            Err(RuntimeError::KeyNotFound) => return Ok(Either::Right(amount_index)),
+            Err(e) => return Err(e),
+        };
 
-        Ok((amount_index, output_on_chain))
+        Ok(Either::Left((amount_index, output_on_chain)))
     };
 
     // Collect results using `rayon`.
-    let map = outputs
+    let (map, wanted_outputs) = outputs
         .into_par_iter()
         .map(|(amount, amount_index_set)| {
-            Ok((
-                amount,
-                amount_index_set
-                    .into_par_iter()
-                    .map(|amount_index| inner_map(amount, amount_index))
-                    .collect::<DbResult<HashMap<AmountIndex, OutputOnChain>>>()?,
-            ))
-        })
-        .collect::<DbResult<HashMap<Amount, HashMap<AmountIndex, OutputOnChain>>>>()?;
+            let (left, right) = amount_index_set
+                .into_par_iter()
+                .map(|amount_index| inner_map(amount, amount_index))
+                .collect::<Result<_, _>>()?;
 
-    Ok(BlockchainResponse::Outputs(map))
+            Ok(((amount, left), (amount, right)))
+        })
+        .collect::<DbResult<(IndexMap<_, IndexMap<_, _>>, IndexMap<_, IndexSet<_>>)>>()?;
+
+    let cache = OutputCache::new(map, amount_of_outs, wanted_outputs);
+
+    Ok(BlockchainResponse::Outputs(cache))
 }
 
 /// [`BlockchainReadRequest::OutputsVec`].
@@ -657,9 +715,16 @@ fn next_chain_entry(
 
     let tables = env_inner.open_tables(&tx_ro)?;
     let table_block_heights = tables.block_heights();
+    let table_alt_block_heights = tables.alt_block_heights();
     let table_block_infos = tables.block_infos_iter();
 
-    let idx = find_split_point(block_ids, false, table_block_heights)?;
+    let idx = find_split_point(
+        block_ids,
+        false,
+        false,
+        table_block_heights,
+        table_alt_block_heights,
+    )?;
 
     // This will happen if we have a different genesis block.
     if idx == block_ids.len() {
@@ -720,8 +785,15 @@ fn find_first_unknown(env: &ConcreteEnv, block_ids: &[BlockHash]) -> ResponseRes
     let tx_ro = env_inner.tx_ro()?;
 
     let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
+    let table_alt_block_heights = env_inner.open_db_ro::<AltBlockHeights>(&tx_ro)?;
 
-    let idx = find_split_point(block_ids, true, &table_block_heights)?;
+    let idx = find_split_point(
+        block_ids,
+        true,
+        true,
+        &table_block_heights,
+        &table_alt_block_heights,
+    )?;
 
     Ok(if idx == block_ids.len() {
         BlockchainResponse::FindFirstUnknown(None)

@@ -195,7 +195,7 @@ pub struct NewBlockData {
 /// A request to the blockchain context cache.
 #[derive(Debug, Clone)]
 pub enum BlockChainContextRequest {
-    /// Gets all the current  `RandomX` VMs.
+    /// Gets all the current RandomX VMs.
     CurrentRxVms,
 
     /// Get the next difficulties for these blocks.
@@ -297,7 +297,7 @@ pub enum BlockChainContextRequest {
     /// This variant is private and is not callable from outside this crate, the block verifier service will
     /// handle getting the randomX VM of an alt chain.
     AltChainRxVM {
-        /// The height the `RandomX` VM is needed for.
+        /// The height the RandomX VM is needed for.
         height: usize,
         /// The chain to look in for the seed.
         chain: Chain,
@@ -310,8 +310,6 @@ pub enum BlockChainContextRequest {
     /// This variant is private and is not callable from outside this crate, the block verifier service will
     /// handle returning the alt cache to the context service.
     AddAltChainContextCache {
-        /// The previous block field in a [`BlockHeader`](monero_serai::block::BlockHeader).
-        prev_id: [u8; 32],
         /// The cache.
         cache: Box<AltChainContextCache>,
         /// An internal token to prevent external crates calling this request.
@@ -332,7 +330,7 @@ pub enum BlockChainContextResponse {
 
     /// Response to [`BlockChainContextRequest::CurrentRxVms`]
     ///
-    /// A map of seed height to `RandomX` VMs.
+    /// A map of seed height to RandomX VMs.
     RxVms(HashMap<usize, Arc<RandomXVm>>),
 
     /// A list of difficulties.

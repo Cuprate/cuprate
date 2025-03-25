@@ -16,17 +16,18 @@
     reason = "TODO: remove after v1.0.0"
 )]
 
-use std::mem;
-use std::sync::Arc;
+use std::{mem, sync::Arc};
+
 use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
-use tracing::level_filters::LevelFilter;
+use tracing::{info, level_filters::LevelFilter};
 use tracing_subscriber::{layer::SubscriberExt, reload::Handle, util::SubscriberInitExt, Registry};
 
 use cuprate_consensus_context::{
     BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
 };
 use cuprate_helper::time::secs_to_hms;
+use cuprate_types::blockchain::BlockchainWriteRequest;
 
 use crate::{
     config::Config, constants::PANIC_CRITICAL_SERVICE_ERROR, logging::CupratedTracingFilter,
@@ -53,6 +54,8 @@ fn main() {
     statics::init_lazylock_statics();
 
     let config = config::read_config_and_args();
+
+    blockchain::set_fast_sync_hashes(!config.no_fast_sync, config.network());
 
     // Initialize logging.
     logging::init_logging(&config);
@@ -81,6 +84,15 @@ fn main() {
     // Initialize async tasks.
 
     rt.block_on(async move {
+        // TODO: we could add an option for people to keep these like monerod?
+        blockchain_write_handle
+            .ready()
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .call(BlockchainWriteRequest::FlushAltBlocks)
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+
         // Check add the genesis block to the blockchain.
         blockchain::check_add_genesis(
             &mut blockchain_read_handle,
@@ -129,13 +141,19 @@ fn main() {
         .await;
 
         // Start the command listener.
-        let (command_tx, command_rx) = mpsc::channel(1);
-        std::thread::spawn(|| commands::command_listener(command_tx));
+        if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+            let (command_tx, command_rx) = mpsc::channel(1);
+            std::thread::spawn(|| commands::command_listener(command_tx));
 
-        // Wait on the io_loop, spawned on a separate task as this improves performance.
-        tokio::spawn(commands::io_loop(command_rx, context_svc))
-            .await
-            .unwrap();
+            // Wait on the io_loop, spawned on a separate task as this improves performance.
+            tokio::spawn(commands::io_loop(command_rx, context_svc))
+                .await
+                .unwrap();
+        } else {
+            // If no STDIN, await OS exit signal.
+            info!("Terminal/TTY not detected, disabling STDIN commands");
+            tokio::signal::ctrl_c().await.unwrap();
+        }
     });
 }
 

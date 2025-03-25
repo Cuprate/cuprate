@@ -16,19 +16,24 @@ use std::{process::exit, time::Duration};
 
 use cuprate_helper::time::current_unix_timestamp;
 
-/// Assert that this is not a v1 release and an alpha release.
+/// Assert that this is an alpha release.
 const _: () = {
     const_format::assertcp_ne!(
         crate::constants::MAJOR_VERSION,
         "1",
         "`cuprated` major version is 1, killswitch module should be deleted."
     );
+    const_format::assertcp_ne!(
+        crate::constants::MINOR_VERSION,
+        "1",
+        "`cuprated` minor version is 1, killswitch module should be deleted."
+    );
 };
 
 /// The killswitch activates if the current timestamp is ahead of this timestamp.
 ///
-/// Sat Mar 01 2025 05:00:00 GMT+0000
-pub const KILLSWITCH_ACTIVATION_TIMESTAMP: u64 = 1740805200;
+/// Wed Apr 16 12:00:00 AM UTC 2025
+pub const KILLSWITCH_ACTIVATION_TIMESTAMP: u64 = 1744761600;
 
 /// Check if the system clock is past a certain timestamp,
 /// if so, exit the entire program.
@@ -39,8 +44,8 @@ fn killswitch() {
     /// sanity checking the system's clock to make
     /// sure it is not overly behind.
     ///
-    /// Fri Jan 17 2025 14:19:10 GMT+0000
-    const SYSTEM_CLOCK_SANITY_TIMESTAMP: u64 = 1737123550;
+    /// Tue Mar 11 08:33:20 PM UTC 2025
+    const SYSTEM_CLOCK_SANITY_TIMESTAMP: u64 = 1741725200;
 
     let current_ts = current_unix_timestamp();
 

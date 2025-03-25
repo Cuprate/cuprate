@@ -5,6 +5,10 @@ use std::time::Duration;
 /// The request timeout - the time we give a peer to respond to a request.
 pub(crate) const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 
+/// The timeout put on the given peer request handler to prevent the connection task from getting stuck
+/// if handling a request takes too long.
+pub(crate) const REQUEST_HANDLER_TIMEOUT: Duration = Duration::from_secs(10);
+
 /// The timeout used when sending messages to a peer.
 ///
 /// TODO: Make this configurable?
@@ -27,6 +31,9 @@ pub(crate) const TIMEOUT_INTERVAL: Duration = Duration::from_secs(61);
 /// Because we use the [bytes crate](https://crates.io/crates/bytes) in monero-wire for zero-copy parsing
 /// it is not safe to keep too many of these messages around for long.
 pub(crate) const MAX_EAGER_PROTOCOL_MESSAGES: usize = 1;
+
+/// The maximum amount of requests allowed in the queue to the connection task.
+pub(crate) const CLIENT_QUEUE_SIZE: usize = 5;
 
 /// A timeout put on pings during handshakes.
 ///

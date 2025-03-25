@@ -8,15 +8,22 @@ use std::{
     ops::Range,
 };
 
+use indexmap::{IndexMap, IndexSet};
 use monero_serai::block::Block;
 
 use crate::{
+    output_cache::OutputCache,
     rpc::{
         ChainInfo, CoinbaseTxSum, OutputDistributionData, OutputHistogramEntry,
         OutputHistogramInput,
     },
     types::{Chain, ExtendedBlockHeader, OutputOnChain, TxsInBlock, VerifiedBlockInformation},
-    AltBlockInformation, BlockCompleteEntry, ChainId, OutputDistributionInput, TxInBlockchain,
+    AltBlockInformation, AltBlockInformation, AltBlockInformation, BlockCompleteEntry,
+    BlockCompleteEntry, BlockCompleteEntry, Chain, Chain, ChainId, ChainId, ChainId, ChainInfo,
+    ChainInfo, CoinbaseTxSum, CoinbaseTxSum, ExtendedBlockHeader, ExtendedBlockHeader,
+    OutputDistributionInput, OutputHistogramEntry, OutputHistogramEntry, OutputHistogramInput,
+    OutputHistogramInput, OutputOnChain, TxInBlockchain, TxsInBlock, TxsInBlock,
+    VerifiedBlockInformation, VerifiedBlockInformation,
 };
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
@@ -49,6 +56,11 @@ pub enum BlockchainReadRequest {
     ///
     /// The input is the block's height and the chain it is on.
     BlockHash(usize, Chain),
+
+    /// Request a range of block's hashes.
+    ///
+    /// The input is the range of block heights and the chain it is on.
+    BlockHashInRange(Range<usize>, Chain),
 
     /// Request to check if we have a block and which [`Chain`] it is on.
     ///
@@ -94,7 +106,7 @@ pub enum BlockchainReadRequest {
     /// For RCT outputs, the amounts would be `0` and
     /// the amount indices would represent the global
     /// RCT output indices.
-    Outputs(HashMap<u64, HashSet<u64>>),
+    Outputs(IndexMap<u64, IndexSet<u64>>),
 
     /// This is the same as [`BlockchainReadRequest::Outputs`] but with a [`Vec`] container.
     ///
@@ -206,6 +218,11 @@ pub enum BlockchainWriteRequest {
     /// Input is an already verified block.
     WriteBlock(VerifiedBlockInformation),
 
+    /// Request that a batch of blocks be written to the database.
+    ///
+    /// Input is an already verified batch of blocks.
+    BatchWriteBlocks(Vec<VerifiedBlockInformation>),
+
     /// Write an alternative block to the database,
     ///
     /// Input is the alternative block.
@@ -265,6 +282,11 @@ pub enum BlockchainResponse {
     /// Inner value is the hash of the requested block.
     BlockHash([u8; 32]),
 
+    /// Response to [`BlockchainReadRequest::BlockHashInRange`].
+    ///
+    /// Inner value is the hashes of the requested blocks, in order.
+    BlockHashInRange(Vec<[u8; 32]>),
+
     /// Response to [`BlockchainReadRequest::FindBlock`].
     ///
     /// Inner value is the chain and height of the block if found.
@@ -292,9 +314,9 @@ pub enum BlockchainResponse {
 
     /// Response to [`BlockchainReadRequest::Outputs`].
     ///
-    /// Inner value is all the outputs requested,
-    /// associated with their amount and amount index.
-    Outputs(HashMap<u64, HashMap<u64, OutputOnChain>>),
+    /// Inner value is an [`OutputCache`], missing outputs won't trigger an error, they just will not be
+    /// in the cache until the cache is updated with the block containing those outputs.
+    Outputs(OutputCache),
 
     /// Response to [`BlockchainReadRequest::OutputsVec`].
     OutputsVec(Vec<(u64, Vec<(u64, OutputOnChain)>)>),

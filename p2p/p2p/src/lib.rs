@@ -168,7 +168,7 @@ impl<N: NetworkZone> NetworkInterface<N> {
         config: BlockDownloaderConfig,
     ) -> BufferStream<BlockBatch>
     where
-        C: Service<ChainSvcRequest, Response = ChainSvcResponse, Error = tower::BoxError>
+        C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>
             + Send
             + 'static,
         C::Future: Send + 'static,

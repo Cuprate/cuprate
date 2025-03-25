@@ -159,6 +159,13 @@ pub struct BroadcastSvc<N: NetworkZone> {
     tx_broadcast_channel_inbound: broadcast::Sender<BroadcastTxInfo<N>>,
 }
 
+impl<N: NetworkZone> BroadcastSvc<N> {
+    /// Create a mock [`BroadcastSvc`] that does nothing, useful for testing.
+    pub fn mock() -> Self {
+        init_broadcast_channels(BroadcastConfig::default()).0
+    }
+}
+
 impl<N: NetworkZone> Service<BroadcastRequest<N>> for BroadcastSvc<N> {
     type Response = ();
     type Error = std::convert::Infallible;
@@ -334,7 +341,7 @@ impl<N: NetworkZone> Stream for BroadcastMessageStream<N> {
                 txs.txs.len()
             );
             // no need to poll next_flush as we are ready now.
-            Poll::Ready(Some(BroadcastMessage::NewTransaction(txs)))
+            Poll::Ready(Some(BroadcastMessage::NewTransactions(txs)))
         } else {
             tracing::trace!("Diffusion flush timer expired but no txs to diffuse");
             // poll next_flush now to register the waker with it.
@@ -459,7 +466,7 @@ mod tests {
             .unwrap();
 
         let match_tx = |mes, txs| match mes {
-            BroadcastMessage::NewTransaction(tx) => assert_eq!(tx.txs.as_slice(), txs),
+            BroadcastMessage::NewTransactions(tx) => assert_eq!(tx.txs.as_slice(), txs),
             BroadcastMessage::NewFluffyBlock(_) => panic!("Block broadcast?"),
         };
 
@@ -521,7 +528,7 @@ mod tests {
             .unwrap();
 
         let match_tx = |mes, txs| match mes {
-            BroadcastMessage::NewTransaction(tx) => assert_eq!(tx.txs.as_slice(), txs),
+            BroadcastMessage::NewTransactions(tx) => assert_eq!(tx.txs.as_slice(), txs),
             BroadcastMessage::NewFluffyBlock(_) => panic!("Block broadcast?"),
         };
 

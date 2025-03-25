@@ -1,4 +1,5 @@
 use std::{
+    collections::VecDeque,
     fmt::{Debug, Formatter},
     future::Future,
     pin::Pin,
@@ -269,8 +270,8 @@ struct OurChainSvc {
     genesis: [u8; 32],
 }
 
-impl Service<ChainSvcRequest> for OurChainSvc {
-    type Response = ChainSvcResponse;
+impl Service<ChainSvcRequest<ClearNet>> for OurChainSvc {
+    type Response = ChainSvcResponse<ClearNet>;
     type Error = tower::BoxError;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
@@ -279,7 +280,7 @@ impl Service<ChainSvcRequest> for OurChainSvc {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: ChainSvcRequest) -> Self::Future {
+    fn call(&mut self, req: ChainSvcRequest<ClearNet>) -> Self::Future {
         let genesis = self.genesis;
 
         async move {
@@ -292,6 +293,10 @@ impl Service<ChainSvcRequest> for OurChainSvc {
                     ChainSvcResponse::FindFirstUnknown(Some((1, 1)))
                 }
                 ChainSvcRequest::CumulativeDifficulty => ChainSvcResponse::CumulativeDifficulty(1),
+                ChainSvcRequest::ValidateEntries(valid, _) => ChainSvcResponse::ValidateEntries {
+                    valid,
+                    unknown: VecDeque::new(),
+                },
             })
         }
         .boxed()

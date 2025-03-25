@@ -6,10 +6,11 @@ use std::{
 };
 
 use anyhow::Error;
-use cuprate_rpc_types::misc::GetOutputsOut;
+use indexmap::{IndexMap, IndexSet};
 use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 
+use cuprate_rpc_types::misc::GetOutputsOut;
 use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_types::{
@@ -219,8 +220,8 @@ pub async fn generated_coins(
 /// [`BlockchainReadRequest::Outputs`]
 pub async fn outputs(
     blockchain_read: &mut BlockchainReadHandle,
-    outputs: HashMap<u64, HashSet<u64>>,
-) -> Result<HashMap<u64, HashMap<u64, OutputOnChain>>, Error> {
+    outputs: IndexMap<u64, IndexSet<u64>>,
+) -> Result<OutputCache, Error> {
     let BlockchainResponse::Outputs(outputs) = blockchain_read
         .ready()
         .await?

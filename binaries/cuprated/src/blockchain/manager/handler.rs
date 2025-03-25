@@ -1,4 +1,6 @@
 //! The blockchain manager handler functions.
+use std::{collections::HashMap, sync::Arc};
+
 use bytes::Bytes;
 use futures::{TryFutureExt, TryStreamExt};
 use monero_serai::{
@@ -6,10 +8,8 @@ use monero_serai::{
     transaction::{Input, Transaction},
 };
 use rayon::prelude::*;
-use std::ops::ControlFlow;
-use std::{collections::HashMap, sync::Arc};
 use tower::{Service, ServiceExt};
-use tracing::{info, instrument};
+use tracing::{info, instrument, Span};
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{
@@ -21,12 +21,13 @@ use cuprate_consensus::{
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
 };
 use cuprate_consensus_context::NewBlockData;
+use cuprate_fast_sync::{block_to_verified_block_information, fast_sync_stop_height};
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p::{block_downloader::BlockBatch, constants::LONG_BAN, BroadcastRequest};
 use cuprate_txpool::service::interface::TxpoolWriteRequest;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
-    AltBlockInformation, HardFork, TransactionVerificationData, VerifiedBlockInformation,
+    AltBlockInformation, Chain, HardFork, TransactionVerificationData, VerifiedBlockInformation,
 };
 
 use crate::{
@@ -166,9 +167,17 @@ impl super::BlockchainManager {
     /// This function will panic if any internal service returns an unexpected error that we cannot
     /// recover from or if the incoming batch contains no blocks.
     async fn handle_incoming_block_batch_main_chain(&mut self, batch: BlockBatch) {
-        let Ok(prepped_blocks) =
-            batch_prepare_main_chain_blocks(batch.blocks, &mut self.blockchain_context_service)
-                .await
+        if batch.blocks.last().unwrap().0.number().unwrap() < fast_sync_stop_height() {
+            self.handle_incoming_block_batch_fast_sync(batch).await;
+            return;
+        }
+
+        let Ok((prepped_blocks, mut output_cache)) = batch_prepare_main_chain_blocks(
+            batch.blocks,
+            &mut self.blockchain_context_service,
+            self.blockchain_read_handle.clone(),
+        )
+        .await
         else {
             batch.peer_handle.ban_peer(LONG_BAN);
             self.stop_current_block_downloader.notify_one();
@@ -181,6 +190,7 @@ impl super::BlockchainManager {
                 txs,
                 &mut self.blockchain_context_service,
                 self.blockchain_read_handle.clone(),
+                Some(&mut output_cache),
             )
             .await
             else {
@@ -191,7 +201,32 @@ impl super::BlockchainManager {
 
             self.add_valid_block_to_main_chain(verified_block).await;
         }
-        info!("Successfully added block batch");
+        info!(fast_sync = false, "Successfully added block batch");
+    }
+
+    /// Handles an incoming block batch while we are under the fast sync height.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// recover from.
+    async fn handle_incoming_block_batch_fast_sync(&mut self, batch: BlockBatch) {
+        let mut valid_blocks = Vec::with_capacity(batch.blocks.len());
+        for (block, txs) in batch.blocks {
+            let block = block_to_verified_block_information(
+                block,
+                txs,
+                self.blockchain_context_service.blockchain_context(),
+            );
+            self.add_valid_block_to_blockchain_cache(&block).await;
+
+            valid_blocks.push(block);
+        }
+
+        self.batch_add_valid_block_to_blockchain_database(valid_blocks)
+            .await;
+
+        info!(fast_sync = true, "Successfully added block batch");
     }
 
     /// Handles an incoming [`BlockBatch`] that does not follow the main-chain.
@@ -208,7 +243,6 @@ impl super::BlockchainManager {
     /// recover from.
     async fn handle_incoming_block_batch_alt_chain(&mut self, mut batch: BlockBatch) {
         // TODO: this needs testing (this whole section does but alt-blocks specifically).
-
         let mut blocks = batch.blocks.into_iter();
 
         while let Some((block, txs)) = blocks.next() {
@@ -244,6 +278,8 @@ impl super::BlockchainManager {
                 Ok(AddAltBlock::Cached) => (),
             }
         }
+
+        info!(alt_chain = true, "Successfully added block batch");
     }
 
     /// Handles an incoming alt [`Block`].
@@ -267,11 +303,28 @@ impl super::BlockchainManager {
         block: Block,
         prepared_txs: HashMap<[u8; 32], TransactionVerificationData>,
     ) -> Result<AddAltBlock, anyhow::Error> {
+        // Check if a block already exists.
+        let BlockchainResponse::FindBlock(chain) = self
+            .blockchain_read_handle
+            .ready()
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .call(BlockchainReadRequest::FindBlock(block.hash()))
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        else {
+            unreachable!();
+        };
+
+        match chain {
+            Some((Chain::Alt(_), _)) => return Ok(AddAltBlock::Cached),
+            Some((Chain::Main, _)) => anyhow::bail!("Alt block already in main chain"),
+            None => (),
+        }
+
         let alt_block_info =
             sanity_check_alt_block(block, prepared_txs, self.blockchain_context_service.clone())
                 .await?;
-
-        // TODO: check in consensus crate if alt block with this hash already exists.
 
         // If this alt chain has more cumulative difficulty, reorg.
         if alt_block_info.cumulative_difficulty
@@ -343,7 +396,7 @@ impl super::BlockchainManager {
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR)
             .call(BlockchainWriteRequest::PopBlocks(
-                current_main_chain_height - split_height + 1,
+                current_main_chain_height - split_height,
             ))
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR)
@@ -356,7 +409,7 @@ impl super::BlockchainManager {
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR)
             .call(BlockChainContextRequest::PopBlocks {
-                numb_blocks: current_main_chain_height - split_height + 1,
+                numb_blocks: current_main_chain_height - split_height,
             })
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
@@ -404,6 +457,7 @@ impl super::BlockchainManager {
                 prepped_txs,
                 &mut self.blockchain_context_service,
                 self.blockchain_read_handle.clone(),
+                None,
             )
             .await?;
 
@@ -431,12 +485,42 @@ impl super::BlockchainManager {
             .iter()
             .flat_map(|tx| {
                 tx.tx.prefix().inputs.iter().map(|input| match input {
-                    Input::ToKey { key_image, .. } => key_image.compress().0,
+                    Input::ToKey { key_image, .. } => key_image.0,
                     Input::Gen(_) => unreachable!(),
                 })
             })
             .collect::<Vec<[u8; 32]>>();
 
+        self.add_valid_block_to_blockchain_cache(&verified_block)
+            .await;
+
+        self.blockchain_write_handle
+            .ready()
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .call(BlockchainWriteRequest::WriteBlock(verified_block))
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+
+        self.txpool_write_handle
+            .ready()
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .call(TxpoolWriteRequest::NewBlock { spent_key_images })
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+    }
+
+    /// Adds a [`VerifiedBlockInformation`] to the blockchain context cache.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// recover from.
+    async fn add_valid_block_to_blockchain_cache(
+        &mut self,
+        verified_block: &VerifiedBlockInformation,
+    ) {
         self.blockchain_context_service
             .ready()
             .await
@@ -453,20 +537,25 @@ impl super::BlockchainManager {
             }))
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
+    }
 
+    /// Batch writes the [`VerifiedBlockInformation`]s to the database.
+    ///
+    /// The blocks must be sequential.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// recover from.
+    async fn batch_add_valid_block_to_blockchain_database(
+        &mut self,
+        blocks: Vec<VerifiedBlockInformation>,
+    ) {
         self.blockchain_write_handle
             .ready()
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR)
-            .call(BlockchainWriteRequest::WriteBlock(verified_block))
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR);
-
-        self.txpool_write_handle
-            .ready()
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
-            .call(TxpoolWriteRequest::NewBlock { spent_key_images })
+            .call(BlockchainWriteRequest::BatchWriteBlocks(blocks))
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
     }
