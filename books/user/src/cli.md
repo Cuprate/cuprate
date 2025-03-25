@@ -19,20 +19,20 @@ Usage: `cuprated [OPTIONS]`
 ## `--version`
 The `--version` flag outputs the following info in JSON.
 
-| Field                   | Description |
-|-------------------------|-------------|
-| `major_version`         | Major version of `cuprated`                           |
-| `minor_version`         | Minor version of `cuprated`                           |
-| `patch_version`         | Patch version of `cuprated`                           |
-| `rpc_major_version`     | Major RPC version (follows `monerod`)                 |
-| `rpc_minor_version`     | minor RPC version (follows `monerod`)                 |
-| `rpc_version`           | RPC version (follows `monerod`)                       |
-| `hardfork`              | Current hardfork version                              |
-| `blockchain_db_version` | Blockchain database version (separate from `monerod`) |
-| `semantic_version`      | Semantic version of `cuprated`                        |
-| `build`                 | Build of `cuprated`, either `debug` or `release`      |
-| `commit`                | `git` commit hash of `cuprated`                       |
-| `killswitch_timestamp`  | Timestamp at which `cuprated`'s killswitch activates  |
-| `cache_directory`       | Cache directory used by `cuprated`                    |
-| `config_directory`      | Config directory used by `cuprated`                   |
-| `data_directory`        | Data directory used by `cuprated`                     |
+| Field                   | Type   | Description |
+|-------------------------|--------|-------------|
+| `major_version`         | Number | Major version of `cuprated`                           |
+| `minor_version`         | Number | Minor version of `cuprated`                           |
+| `patch_version`         | Number | Patch version of `cuprated`                           |
+| `rpc_major_version`     | Number | Major RPC version (follows `monerod`)                 |
+| `rpc_minor_version`     | Number | minor RPC version (follows `monerod`)                 |
+| `rpc_version`           | Number | RPC version (follows `monerod`)                       |
+| `hardfork`              | Number | Current hardfork version                              |
+| `blockchain_db_version` | Number | Blockchain database version (separate from `monerod`) |
+| `semantic_version`      | String | Semantic version of `cuprated`                        |
+| `build`                 | String | Build of `cuprated`, either `debug` or `release`      |
+| `commit`                | String | `git` commit hash of `cuprated`                       |
+| `killswitch_timestamp`  | Number | Timestamp at which `cuprated`'s killswitch activates  |
+| `cache_directory`       | String | Cache directory used by `cuprated`                    |
+| `config_directory`      | String | Config directory used by `cuprated`                   |
+| `data_directory`        | String | Data directory used by `cuprated`                     |
