@@ -9,6 +9,12 @@
 //! of types sometimes differs, thus, the modules hold the types
 //! that match the specific schema, for example [`block::Input`]
 //! is different than [`tx::Input`].
+//!
+//! # (De)serialization invariants
+//! These types are only meant for JSON (de)serialization.
+//!
+//! Some types implement `epee` although will panic with [`unimplemented`].
+//! See `cuprate_rpc_types` for more information.
 
 pub mod block;
 pub mod output;
