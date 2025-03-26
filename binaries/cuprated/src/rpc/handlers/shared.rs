@@ -52,8 +52,8 @@ pub(super) async fn get_outs(
     for (_, index_vec) in outputs {
         for (_, out) in index_vec {
             let out_key = OutKeyBin {
-                key: out.key.map_or([0; 32], |e| e.compress().0),
-                mask: out.commitment.compress().0,
+                key: out.key.0,
+                mask: out.commitment.0,
                 unlocked: cuprate_consensus_rules::transactions::output_unlocked(
                     &out.time_lock,
                     blockchain_ctx.chain_height,
@@ -61,7 +61,7 @@ pub(super) async fn get_outs(
                     blockchain_ctx.current_hf,
                 ),
                 height: usize_to_u64(out.height),
-                txid: if request.get_txid { out.txid } else { [0; 32] },
+                txid: if request.get_txid { todo!() } else { [0; 32] },
             };
 
             outs.push(out_key);

@@ -1,6 +1,6 @@
 //! JSON types from the [`other`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#other-daemon-rpc-calls) endpoints.
 //!
-//! All types are originally defined in [`rpc/core_rpc_server_commands_defs.h`](https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h).
+//! All types are originally defined in [`rpc/core_rpc_server_commands_defs.h`](https://github.com/monero-project/monero/blob/"cc73fe71162d564ffda8e549b79a350bca53c454"/src/rpc/core_rpc_server_commands_defs.h).
 
 //---------------------------------------------------------------------------------------------------- Import
 #[cfg(feature = "serde")]
@@ -22,7 +22,7 @@ use crate::defaults::{default, default_true};
 //---------------------------------------------------------------------------------------------------- Definitions
 define_request_and_response! {
     get_height,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 138..=160,
     GetHeight (empty),
     Request {},
@@ -35,7 +35,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_transactions,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 370..=451,
     GetTransactions,
 
@@ -43,7 +43,7 @@ define_request_and_response! {
         txs_hashes: Vec<Hex<32>>,
         // FIXME: this is documented as optional but it isn't serialized as an optional
         // but it is set _somewhere_ to false in `monerod`
-        // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L382>
+        // <https://github.com/monero-project/monero/blob/"cc73fe71162d564ffda8e549b79a350bca53c454"/src/rpc/core_rpc_server_commands_defs.h#L382>
         decode_as_json: bool = default::<bool>(), "default",
         prune: bool = default::<bool>(), "default",
         split: bool = default::<bool>(), "default",
@@ -61,7 +61,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_alt_blocks_hashes,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 288..=308,
     GetAltBlocksHashes (empty),
     Request {},
@@ -73,7 +73,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     is_key_image_spent,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 454..=484,
 
     IsKeyImageSpent,
@@ -90,8 +90,8 @@ define_request_and_response! {
 
 define_request_and_response! {
     send_raw_transaction,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
-    core_rpc_server_commands_defs.h => 370..=451,
+    "8d6aff95908e029d6b131638fbbf845e8cff04fc" =>
+    core_rpc_server_commands_defs.h => 631..=683,
 
     SendRawTransaction,
 
@@ -120,7 +120,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     start_mining,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 665..=691,
 
     StartMining (restricted),
@@ -137,7 +137,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     stop_mining,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 825..=843,
     StopMining (restricted, empty),
     Request {},
@@ -147,7 +147,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     mining_status,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 846..=895,
     MiningStatus (restricted),
     Request {},
@@ -173,7 +173,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     save_bc,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 898..=916,
     SaveBc (restricted),
     Request {},
@@ -183,7 +183,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_peer_list,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1369..=1417,
 
     GetPeerList (restricted),
@@ -201,7 +201,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     set_log_hash_rate,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1450..=1470,
 
     SetLogHashRate (restricted),
@@ -216,7 +216,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     set_log_level,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1450..=1470,
 
     SetLogLevel (restricted),
@@ -231,7 +231,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     set_log_categories,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1494..=1517,
 
     SetLogCategories (restricted),
@@ -247,7 +247,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     set_bootstrap_daemon,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1785..=1812,
 
     SetBootstrapDaemon (restricted),
@@ -266,7 +266,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_transaction_pool,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1569..=1591,
 
     GetTransactionPool (empty),
@@ -280,7 +280,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_transaction_pool_stats,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1712..=1732,
 
     GetTransactionPoolStats (empty),
@@ -293,7 +293,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     stop_daemon,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1814..=1831,
 
     StopDaemon (restricted, empty),
@@ -306,7 +306,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_limit,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1852..=1874,
 
     GetLimit (empty),
@@ -320,7 +320,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     set_limit,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1876..=1903,
 
     SetLimit (restricted),
@@ -338,7 +338,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     out_peers,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1876..=1903,
 
     OutPeers (restricted),
@@ -355,7 +355,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     in_peers,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1932..=1956,
     InPeers (restricted),
     Request {
@@ -369,7 +369,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_net_stats,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 793..=822,
 
     GetNetStats (restricted, empty),
@@ -386,7 +386,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_outs,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 567..=609,
     GetOuts,
 
@@ -402,7 +402,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     update,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 2324..=2359,
 
     Update (restricted),
@@ -423,7 +423,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     pop_blocks,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 2722..=2745,
 
     PopBlocks (restricted),
@@ -440,7 +440,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     UNDOCUMENTED_ENDPOINT,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1615..=1635,
 
     GetTransactionPoolHashes (empty),
@@ -453,7 +453,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     UNDOCUMENTED_ENDPOINT,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1419..=1448,
 
     GetPublicNodes (restricted),

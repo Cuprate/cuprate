@@ -357,9 +357,8 @@ async fn get_block_headers_range(
         return Err(anyhow!("Invalid start/end heights"));
     }
 
-    let too_many_blocks = || {
-        request.end_height.saturating_sub(request.start_height) + 1 > RESTRICTED_BLOCK_HEADER_RANGE
-    };
+    let too_many_blocks =
+        || request.end_height - request.start_height + 1 > RESTRICTED_BLOCK_HEADER_RANGE;
 
     if state.is_restricted() && too_many_blocks() {
         return Err(anyhow!("Too many block headers requested."));
@@ -380,8 +379,8 @@ async fn get_block_headers_range(
 
     let (range, expected_len) = {
         let start = u64_to_usize(request.start_height);
-        let end = u64_to_usize(request.end_height).saturating_add(1);
-        (start..end, end.saturating_sub(start))
+        let end = u64_to_usize(request.end_height);
+        (start..=end, end - start + 1)
     };
 
     let mut headers = Vec::with_capacity(expected_len);

@@ -1,6 +1,6 @@
 //! JSON types from the [`/json_rpc`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#json-rpc-methods) endpoint.
 //!
-//! All types are originally defined in [`rpc/core_rpc_server_commands_defs.h`](https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h).
+//! All types are originally defined in [`rpc/core_rpc_server_commands_defs.h`](https://github.com/monero-project/monero/blob/"cc73fe71162d564ffda8e549b79a350bca53c454"/src/rpc/core_rpc_server_commands_defs.h).
 
 //---------------------------------------------------------------------------------------------------- Import
 #[cfg(feature = "serde")]
@@ -37,7 +37,7 @@ define_request_and_response! {
 
     // The commit hash and `$file.$extension` in which this type is defined in
     // the Monero codebase in the `rpc/` directory, followed by the specific lines.
-    cc73fe71162d564ffda8e549b79a350bca53c454 => core_rpc_server_commands_defs.h => 943..=994,
+    "cc73fe71162d564ffda8e549b79a350bca53c454" => core_rpc_server_commands_defs.h => 943..=994,
 
     // The base type name.
     //
@@ -136,7 +136,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_block_count,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 919..=933,
     GetBlockCount (empty),
 
@@ -149,7 +149,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     on_get_block_hash,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 935..=939,
 
     OnGetBlockHash,
@@ -172,7 +172,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     submit_block,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1114..=1128,
 
     SubmitBlock,
@@ -193,7 +193,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     generateblocks,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1130..=1161,
 
     GenerateBlocks (restricted),
@@ -213,7 +213,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_last_block_header,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1214..=1238,
 
     GetLastBlockHeader,
@@ -230,7 +230,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_block_header_by_hash,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1240..=1269,
     GetBlockHeaderByHash,
 
@@ -248,7 +248,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_block_header_by_height,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1271..=1296,
 
     GetBlockHeaderByHeight,
@@ -266,7 +266,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_block_headers_range,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1756..=1783,
 
     GetBlockHeadersRange,
@@ -285,14 +285,14 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_block,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1298..=1313,
     GetBlock,
 
     Request {
         // `monerod` has both `hash` and `height` fields.
         // In the RPC handler, if `hash.is_empty()`, it will use it, else, it uses `height`.
-        // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2674>
+        // <https://github.com/monero-project/monero/blob/"cc73fe71162d564ffda8e549b79a350bca53c454"/src/rpc/core_rpc_server.cpp#L2674>
 
         /// This is a [`Hex<32>`] that is sometimes empty.
         hash: HexVec = default::<HexVec>(), "default",
@@ -313,7 +313,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_connections,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1734..=1754,
 
     GetConnections (restricted, empty),
@@ -327,7 +327,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_info,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 693..=789,
     GetInfo (empty),
     Request {},
@@ -377,7 +377,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     hard_fork_info,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1958..=1995,
     HardForkInfo,
 
@@ -395,7 +395,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     set_bans,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 2032..=2067,
 
     SetBans (restricted),
@@ -409,7 +409,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_bans,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1997..=2030,
     GetBans (restricted, empty),
     Request {},
@@ -421,7 +421,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     banned,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 2069..=2094,
 
     Banned (restricted),
@@ -439,7 +439,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     flush_txpool,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 2096..=2116,
 
     FlushTransactionPool (restricted),
@@ -456,7 +456,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_output_histogram,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 2118..=2168,
     GetOutputHistogram,
 
@@ -475,7 +475,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_coinbase_tx_sum,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 2213..=2248,
 
     GetCoinbaseTxSum (restricted),
@@ -497,7 +497,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_version,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 2170..=2211,
 
     GetVersion (empty),
@@ -514,7 +514,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_fee_estimate,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 2250..=2277,
 
     GetFeeEstimate,
@@ -532,7 +532,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_alternate_chains,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 2279..=2310,
     GetAlternateChains (restricted, empty),
     Request {},
@@ -544,7 +544,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     relay_tx,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 2361..=2381,
 
     RelayTx (restricted),
@@ -561,7 +561,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     sync_info,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 2383..=2443,
 
     SyncInfo (restricted, empty),
@@ -580,7 +580,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_txpool_backlog,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1637..=1664,
     GetTransactionPoolBacklog (empty),
     Request {},
@@ -593,11 +593,11 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_output_distribution,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 2445..=2520,
 
     /// This type is also used in the (undocumented)
-    /// [`/get_output_distribution.bin`](https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.h#L138)
+    /// [`/get_output_distribution.bin`](https://github.com/monero-project/monero/blob/"cc73fe71162d564ffda8e549b79a350bca53c454"/src/rpc/core_rpc_server.h#L138)
     /// binary endpoint.
     GetOutputDistribution,
 
@@ -617,7 +617,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_miner_data,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 996..=1044,
     GetMinerData (empty),
     Request {},
@@ -636,7 +636,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     prune_blockchain,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 2747..=2772,
 
     PruneBlockchain (restricted),
@@ -654,7 +654,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     calc_pow,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1046..=1066,
 
     CalcPow (restricted),
@@ -675,7 +675,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     flush_cache,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 2774..=2796,
 
     FlushCache (restricted),
@@ -691,7 +691,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     add_aux_pow,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1068..=1112,
 
     AddAuxPow,
@@ -712,7 +712,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     UNDOCUMENTED_METHOD,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 2798..=2823,
 
     GetTxIdsLoose,

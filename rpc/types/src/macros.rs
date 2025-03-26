@@ -50,7 +50,7 @@ macro_rules! define_request_and_response {
 
         // The commit hash and  `$file.$extension` in which this type is defined in
         // the Monero codebase in the `rpc/` directory, followed by the specific lines.
-        $monero_code_commit:ident =>
+        $monero_code_commit:literal =>
         $monero_code_filename:ident.
         $monero_code_filename_extension:ident =>
         $monero_code_line_start:literal..=
@@ -373,7 +373,7 @@ macro_rules! define_request_and_response_doc {
         $request_or_response:literal => $request_or_response_type:ident,
 
         $monero_daemon_rpc_doc_link:ident,
-        $monero_code_commit:ident,
+        $monero_code_commit:literal,
         $monero_code_filename:ident,
         $monero_code_filename_extension:ident,
         $monero_code_line_start:literal,
@@ -383,7 +383,7 @@ macro_rules! define_request_and_response_doc {
             "",
             "[Definition](",
             "https://github.com/monero-project/monero/blob/",
-            stringify!($monero_code_commit),
+            $monero_code_commit,
             "/src/rpc/",
             stringify!($monero_code_filename),
             ".",

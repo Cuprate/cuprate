@@ -1,6 +1,6 @@
 //! Binary types from [`.bin` endpoints](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_blocksbin).
 //!
-//! All types are originally defined in [`rpc/core_rpc_server_commands_defs.h`](https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h).
+//! All types are originally defined in [`rpc/core_rpc_server_commands_defs.h`](https://github.com/monero-project/monero/blob/"cc73fe71162d564ffda8e549b79a350bca53c454"/src/rpc/core_rpc_server_commands_defs.h).
 
 //---------------------------------------------------------------------------------------------------- Import
 use cuprate_fixed_bytes::ByteArrayVec;
@@ -29,7 +29,7 @@ use crate::defaults::default;
 //---------------------------------------------------------------------------------------------------- Definitions
 define_request_and_response! {
     get_blocks_by_heightbin,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 264..=286,
     GetBlocksByHeight,
     Request {
@@ -42,7 +42,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_hashesbin,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 309..=338,
     GetHashes,
     Request {
@@ -59,7 +59,7 @@ define_request_and_response! {
 #[cfg(not(feature = "epee"))]
 define_request_and_response! {
     get_o_indexesbin,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 487..=510,
     GetOutputIndexes,
     #[derive(Copy)]
@@ -74,7 +74,7 @@ define_request_and_response! {
 #[cfg(feature = "epee")]
 define_request_and_response! {
     get_o_indexesbin,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 487..=510,
     GetOutputIndexes,
     #[derive(Copy)]
@@ -88,7 +88,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_outsbin,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 512..=565,
     GetOuts,
     Request {
@@ -102,7 +102,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_transaction_pool_hashesbin,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1593..=1613,
     GetTransactionPoolHashes,
     Request {},
@@ -113,7 +113,7 @@ define_request_and_response! {
 
 define_request_and_response! {
     get_blocksbin,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 162..=262,
 
     GetBlocks,

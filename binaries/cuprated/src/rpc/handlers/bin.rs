@@ -67,6 +67,18 @@ async fn get_blocks(
     // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L628-L631>
     let daemon_time = cuprate_helper::time::current_unix_timestamp();
 
+    let GetBlocksRequest {
+        requested_info,
+        block_ids,
+        start_height,
+        prune,
+        no_miner_tx,
+        pool_info_since,
+    } = request;
+
+    let block_hashes: Vec<[u8; 32]> = (&block_ids).into();
+    drop(block_ids);
+
     let Some(requested_info) = RequestedInfo::from_u8(request.requested_info) else {
         return Err(anyhow!("Wrong requested info"));
     };
@@ -112,21 +124,16 @@ async fn get_blocks(
         return Ok(resp);
     }
 
-    // FIXME: impl `first()`
-    if !request.block_ids.is_empty() {
-        let block_id = request.block_ids[0];
-
+    if let Some(block_id) = block_hashes.first() {
         let (height, hash) = helper::top_height(&mut state).await?;
 
-        if hash == block_id {
+        if hash == *block_id {
             return Ok(GetBlocksResponse {
                 current_height: height + 1,
                 ..resp
             });
         }
     }
-
-    let block_hashes: Vec<[u8; 32]> = (&request.block_ids).into();
 
     let (blocks, missing_hashes, blockchain_height) =
         blockchain::block_complete_entries(&mut state.blockchain_read, block_hashes).await?;
