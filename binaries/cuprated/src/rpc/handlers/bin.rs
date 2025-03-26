@@ -92,8 +92,10 @@ async fn get_blocks(
     let pool_info_extent = PoolInfoExtent::None;
 
     let pool_info = if get_pool {
-        let include_sensitive_txs = !state.is_restricted();
-        let max_tx_count = if state.is_restricted() {
+        let is_restricted = state.is_restricted();
+        let include_sensitive_txs = !is_restricted;
+
+        let max_tx_count = if is_restricted {
             RESTRICTED_TRANSACTIONS_COUNT
         } else {
             usize::MAX
@@ -135,7 +137,15 @@ async fn get_blocks(
         }
     }
 
-    let (blocks, missing_hashes, blockchain_height) =
+    let (block_hashes, start_height, _) =
+        blockchain::next_chain_entry(&mut state.blockchain_read, block_hashes, start_height)
+            .await?;
+
+    if start_height.is_none() {
+        return Err(anyhow!("Block IDs were not sorted properly"));
+    }
+
+    let (blocks, missing_hashes, height) =
         blockchain::block_complete_entries(&mut state.blockchain_read, block_hashes).await?;
 
     if !missing_hashes.is_empty() {
@@ -144,7 +154,7 @@ async fn get_blocks(
 
     Ok(GetBlocksResponse {
         blocks,
-        current_height: usize_to_u64(blockchain_height),
+        current_height: usize_to_u64(height),
         ..resp
     })
 }
@@ -191,7 +201,7 @@ async fn get_hashes(
 
     let hashes: Vec<[u8; 32]> = (&block_ids).into();
 
-    let (m_blocks_ids, current_height) =
+    let (m_blocks_ids, _, current_height) =
         blockchain::next_chain_entry(&mut state.blockchain_read, hashes, start_height).await?;
 
     Ok(GetHashesResponse {

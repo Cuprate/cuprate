@@ -121,14 +121,16 @@ pub async fn find_block(
 ///
 /// Returns only the:
 /// - block IDs
+/// - start height
 /// - current chain height
 pub async fn next_chain_entry(
     blockchain_read: &mut BlockchainReadHandle,
     block_hashes: Vec<[u8; 32]>,
     start_height: u64,
-) -> Result<(Vec<[u8; 32]>, usize), Error> {
+) -> Result<(Vec<[u8; 32]>, Option<usize>, usize), Error> {
     let BlockchainResponse::NextChainEntry {
         block_ids,
+        start_height,
         chain_height,
         ..
     } = blockchain_read
@@ -143,7 +145,7 @@ pub async fn next_chain_entry(
         unreachable!();
     };
 
-    Ok((block_ids, chain_height))
+    Ok((block_ids, start_height, chain_height))
 }
 
 /// [`BlockchainReadRequest::FilterUnknownHashes`].
