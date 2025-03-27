@@ -1050,6 +1050,10 @@ async fn add_aux_pow(
     request: AddAuxPowRequest,
 ) -> Result<AddAuxPowResponse, Error> {
     // This method can be a bit heavy, so rate-limit restricted use.
+    //
+    // FIXME: Add rate-limiting with `Semaphore` or impl
+    // rate-limiting across the entire RPC system.
+    // <https://github.com/Cuprate/cuprate/pull/355#discussion_r1986155415>
     if state.is_restricted() {
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
