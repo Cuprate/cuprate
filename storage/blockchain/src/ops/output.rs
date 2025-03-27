@@ -188,10 +188,8 @@ pub fn output_to_output_on_chain(
         None
     };
 
-    todo!("txid");
-
     Ok(OutputOnChain {
-        height: output.height as usize,
+        height: u32_to_usize(output.height),
         time_lock,
         key,
         commitment,
@@ -232,21 +230,24 @@ pub fn rct_output_to_output_on_chain(
 
     let txid = if get_txid {
         let height = u32_to_usize(rct_output.height);
-        let tx_idx = u64_to_usize(rct_output.tx_idx);
-        let txid = if let Some(hash) = table_block_txs_hashes.get(&height)?.get(tx_idx) {
-            *hash
-        } else {
-            let miner_tx_id = table_block_infos.get(&height)?.mining_tx_index;
+
+        let miner_tx_id = table_block_infos.get(&height)?.mining_tx_index;
+
+        let txid = if miner_tx_id == rct_output.tx_idx {
             let tx_blob = table_tx_blobs.get(&miner_tx_id)?;
             Transaction::read(&mut tx_blob.0.as_slice())?.hash()
+        } else {
+            let idx = u64_to_usize(rct_output.tx_idx - miner_tx_id - 1);
+            table_block_txs_hashes.get(&height)?[idx]
         };
+
         Some(txid)
     } else {
         None
     };
 
     Ok(OutputOnChain {
-        height: rct_output.height as usize,
+        height: u32_to_usize(rct_output.height),
         time_lock,
         key,
         commitment,
