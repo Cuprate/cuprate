@@ -6,10 +6,7 @@
 #![allow(clippy::await_holding_lock, clippy::too_many_lines)]
 
 //---------------------------------------------------------------------------------------------------- Use
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 
 use indexmap::{IndexMap, IndexSet};
 use pretty_assertions::assert_eq;
