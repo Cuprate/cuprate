@@ -89,6 +89,7 @@ impl OutputCache {
                             time_lock: tx.prefix().additional_timelock,
                             key: out.key,
                             commitment: get_output_commitment(tx, i),
+                            txid: None,
                         },
                     );
                 }

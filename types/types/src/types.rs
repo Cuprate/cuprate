@@ -145,6 +145,9 @@ pub struct OutputOnChain {
     pub key: CompressedEdwardsY,
     /// The output's commitment.
     pub commitment: CompressedEdwardsY,
+    /// The hash of the transaction hash this output belongs to.
+    /// This is [`None`] when this field is not requested for in relevant functions.
+    pub txid: Option<[u8; 32]>,
 }
 
 /// The inner response for a request for txs in a block.

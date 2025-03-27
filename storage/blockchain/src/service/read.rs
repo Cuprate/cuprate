@@ -122,8 +122,11 @@ fn map_request(
         }
         R::ChainHeight => chain_height(env),
         R::GeneratedCoins(height) => generated_coins(env, height),
-        R::Outputs(map) => outputs(env, map),
-        R::OutputsVec(vec) => outputs_vec(env, vec),
+        R::Outputs {
+            outputs: map,
+            get_txid,
+        } => outputs(env, map, get_txid),
+        R::OutputsVec { outputs, get_txid } => outputs_vec(env, outputs, get_txid),
         R::NumberOutputsWithAmount(vec) => number_outputs_with_amount(env, vec),
         R::KeyImagesSpent(set) => key_images_spent(env, set),
         R::KeyImagesSpentVec(set) => key_images_spent_vec(env, set),
@@ -482,7 +485,11 @@ fn generated_coins(env: &ConcreteEnv, height: usize) -> ResponseResult {
 
 /// [`BlockchainReadRequest::Outputs`].
 #[inline]
-fn outputs(env: &ConcreteEnv, outputs: IndexMap<Amount, IndexSet<AmountIndex>>) -> ResponseResult {
+fn outputs(
+    env: &ConcreteEnv,
+    outputs: IndexMap<Amount, IndexSet<AmountIndex>>,
+    get_txid: bool,
+) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
     let tx_ro = thread_local(env);
@@ -520,7 +527,7 @@ fn outputs(env: &ConcreteEnv, outputs: IndexMap<Amount, IndexSet<AmountIndex>>) 
             amount_index,
         };
 
-        let output_on_chain = match id_to_output_on_chain(&id, tables) {
+        let output_on_chain = match id_to_output_on_chain(&id, get_txid, tables) {
             Ok(output) => output,
             Err(RuntimeError::KeyNotFound) => return Ok(Either::Right(amount_index)),
             Err(e) => return Err(e),
@@ -549,7 +556,11 @@ fn outputs(env: &ConcreteEnv, outputs: IndexMap<Amount, IndexSet<AmountIndex>>) 
 
 /// [`BlockchainReadRequest::OutputsVec`].
 #[inline]
-fn outputs_vec(env: &ConcreteEnv, outputs: Vec<(Amount, AmountIndex)>) -> ResponseResult {
+fn outputs_vec(
+    env: &ConcreteEnv,
+    outputs: Vec<(Amount, AmountIndex)>,
+    get_txid: bool,
+) -> ResponseResult {
     Ok(BlockchainResponse::OutputsVec(todo!()))
 }
 

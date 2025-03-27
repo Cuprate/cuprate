@@ -45,7 +45,12 @@ pub(super) async fn get_outs(
         return Err(anyhow!("Too many outs requested"));
     }
 
-    let outputs = blockchain::outputs_vec(&mut state.blockchain_read, request.outputs).await?;
+    let outputs = blockchain::outputs_vec(
+        &mut state.blockchain_read,
+        request.outputs,
+        request.get_txid,
+    )
+    .await?;
     let mut outs = Vec::<OutKeyBin>::with_capacity(outputs.len());
     let blockchain_ctx = state.blockchain_context.blockchain_context();
 
@@ -61,7 +66,7 @@ pub(super) async fn get_outs(
                     blockchain_ctx.current_hf,
                 ),
                 height: usize_to_u64(out.height),
-                txid: if request.get_txid { todo!() } else { [0; 32] },
+                txid: out.txid.unwrap_or_default(),
             };
 
             outs.push(out_key);

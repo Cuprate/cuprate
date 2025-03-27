@@ -290,13 +290,16 @@ async fn test_template(
                     amount: *amount,
                     amount_index: *amount_index,
                 };
-                id_to_output_on_chain(&id, &tables).unwrap()
+                id_to_output_on_chain(&id, false, &tables).unwrap()
             })
         })
         .collect::<Vec<OutputOnChain>>();
 
     // Send a request for every output we inserted before.
-    let request = BlockchainReadRequest::Outputs(map.clone());
+    let request = BlockchainReadRequest::Outputs {
+        outputs: map.clone(),
+        get_txid: false,
+    };
     let response = reader.clone().oneshot(request).await;
     println!("Response::Outputs response: {response:#?}");
     let Ok(BlockchainResponse::Outputs(response)) = response else {

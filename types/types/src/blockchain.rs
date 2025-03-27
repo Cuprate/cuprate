@@ -101,14 +101,20 @@ pub enum BlockchainReadRequest {
     /// For RCT outputs, the amounts would be `0` and
     /// the amount indices would represent the global
     /// RCT output indices.
-    Outputs(IndexMap<u64, IndexSet<u64>>),
+    Outputs {
+        outputs: IndexMap<u64, IndexSet<u64>>,
+        get_txid: bool,
+    },
 
     /// This is the same as [`BlockchainReadRequest::Outputs`] but with a [`Vec`] container.
     ///
     /// The input [`Vec`] values are `(amount, amount_index)`.
     ///
     /// The response will be in the same order as the request.
-    OutputsVec(Vec<(u64, u64)>),
+    OutputsVec {
+        outputs: Vec<(u64, u64)>,
+        get_txid: bool,
+    },
 
     /// Request the amount of outputs with a certain amount.
     ///

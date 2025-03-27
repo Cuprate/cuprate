@@ -224,11 +224,12 @@ pub async fn generated_coins(
 pub async fn outputs(
     blockchain_read: &mut BlockchainReadHandle,
     outputs: IndexMap<u64, IndexSet<u64>>,
+    get_txid: bool,
 ) -> Result<OutputCache, Error> {
     let BlockchainResponse::Outputs(outputs) = blockchain_read
         .ready()
         .await?
-        .call(BlockchainReadRequest::Outputs(outputs))
+        .call(BlockchainReadRequest::Outputs { outputs, get_txid })
         .await?
     else {
         unreachable!();
@@ -241,6 +242,7 @@ pub async fn outputs(
 pub async fn outputs_vec(
     blockchain_read: &mut BlockchainReadHandle,
     outputs: Vec<GetOutputsOut>,
+    get_txid: bool,
 ) -> Result<Vec<(u64, Vec<(u64, OutputOnChain)>)>, Error> {
     let outputs = outputs
         .into_iter()
@@ -250,7 +252,7 @@ pub async fn outputs_vec(
     let BlockchainResponse::OutputsVec(outputs) = blockchain_read
         .ready()
         .await?
-        .call(BlockchainReadRequest::OutputsVec(outputs))
+        .call(BlockchainReadRequest::OutputsVec { outputs, get_txid })
         .await?
     else {
         unreachable!();

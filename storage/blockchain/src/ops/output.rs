@@ -154,6 +154,7 @@ pub fn get_rct_num_outputs(table_rct_outputs: &impl DatabaseRo<RctOutputs>) -> D
 pub fn output_to_output_on_chain(
     output: &Output,
     amount: Amount,
+    get_txid: bool,
     table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
     table_block_txs_hashes: &impl DatabaseRo<BlockTxsHashes>,
     table_block_infos: &impl DatabaseRo<BlockInfos>,
@@ -172,16 +173,19 @@ pub fn output_to_output_on_chain(
 
     let key = CompressedEdwardsY(output.key);
 
-    let txid = {
+    let txid = if get_txid {
         let height = u32_to_usize(output.height);
         let tx_idx = u64_to_usize(output.tx_idx);
-        if let Some(hash) = table_block_txs_hashes.get(&height)?.get(tx_idx) {
+        let txid = if let Some(hash) = table_block_txs_hashes.get(&height)?.get(tx_idx) {
             *hash
         } else {
             let miner_tx_id = table_block_infos.get(&height)?.mining_tx_index;
             let tx_blob = table_tx_blobs.get(&miner_tx_id)?;
             Transaction::read(&mut tx_blob.0.as_slice())?.hash()
-        }
+        };
+        Some(txid)
+    } else {
+        None
     };
 
     todo!("txid");
@@ -191,6 +195,7 @@ pub fn output_to_output_on_chain(
         time_lock,
         key,
         commitment,
+        txid,
     })
 }
 
@@ -205,6 +210,7 @@ pub fn output_to_output_on_chain(
 #[doc = doc_error!()]
 pub fn rct_output_to_output_on_chain(
     rct_output: &RctOutput,
+    get_txid: bool,
     table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
     table_block_txs_hashes: &impl DatabaseRo<BlockTxsHashes>,
     table_block_infos: &impl DatabaseRo<BlockInfos>,
@@ -224,25 +230,27 @@ pub fn rct_output_to_output_on_chain(
 
     let key = CompressedEdwardsY(rct_output.key);
 
-    let txid = {
+    let txid = if get_txid {
         let height = u32_to_usize(rct_output.height);
         let tx_idx = u64_to_usize(rct_output.tx_idx);
-        if let Some(hash) = table_block_txs_hashes.get(&height)?.get(tx_idx) {
+        let txid = if let Some(hash) = table_block_txs_hashes.get(&height)?.get(tx_idx) {
             *hash
         } else {
             let miner_tx_id = table_block_infos.get(&height)?.mining_tx_index;
             let tx_blob = table_tx_blobs.get(&miner_tx_id)?;
             Transaction::read(&mut tx_blob.0.as_slice())?.hash()
-        }
+        };
+        Some(txid)
+    } else {
+        None
     };
-
-    todo!("txid");
 
     Ok(OutputOnChain {
         height: rct_output.height as usize,
         time_lock,
         key,
         commitment,
+        txid,
     })
 }
 
@@ -250,12 +258,17 @@ pub fn rct_output_to_output_on_chain(
 ///
 /// Note that this still support RCT outputs, in that case, [`PreRctOutputId::amount`] should be `0`.
 #[doc = doc_error!()]
-pub fn id_to_output_on_chain(id: &PreRctOutputId, tables: &impl Tables) -> DbResult<OutputOnChain> {
+pub fn id_to_output_on_chain(
+    id: &PreRctOutputId,
+    get_txid: bool,
+    tables: &impl Tables,
+) -> DbResult<OutputOnChain> {
     // v2 transactions.
     if id.amount == 0 {
         let rct_output = get_rct_output(&id.amount_index, tables.rct_outputs())?;
         let output_on_chain = rct_output_to_output_on_chain(
             &rct_output,
+            get_txid,
             tables.tx_unlock_time(),
             tables.block_txs_hashes(),
             tables.block_infos(),
@@ -269,6 +282,7 @@ pub fn id_to_output_on_chain(id: &PreRctOutputId, tables: &impl Tables) -> DbRes
         let output_on_chain = output_to_output_on_chain(
             &output,
             id.amount,
+            get_txid,
             tables.tx_unlock_time(),
             tables.block_txs_hashes(),
             tables.block_infos(),
