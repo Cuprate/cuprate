@@ -764,6 +764,7 @@ version = "0.5.0"
 dependencies = [
  "bytes",
  "cuprate-fixed-bytes",
+ "cuprate-hex",
  "hex",
  "paste",
  "ref-cast",
@@ -817,6 +818,15 @@ dependencies = [
  "serde",
  "tokio",
  "windows",
+]
+
+[[package]]
+name = "cuprate-hex"
+version = "0.0.0"
+dependencies = [
+ "hex",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -946,9 +956,15 @@ version = "0.0.0"
 dependencies = [
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
+ "cuprate-helper",
+ "cuprate-hex",
+ "cuprate-p2p-core",
  "cuprate-test-utils",
  "cuprate-types",
+ "hex",
+ "hex-literal",
  "paste",
+ "pretty_assertions",
  "serde",
  "serde_json",
 ]
@@ -1005,12 +1021,14 @@ dependencies = [
 name = "cuprate-types"
 version = "0.0.0"
 dependencies = [
+ "bitflags 2.6.0",
  "bytes",
+ "cfg-if",
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
  "cuprate-helper",
+ "cuprate-hex",
  "curve25519-dalek",
- "hex",
  "hex-literal",
  "indexmap",
  "monero-serai",
@@ -1043,7 +1061,7 @@ name = "cuprate-zmq-types"
 version = "0.1.0"
 dependencies = [
  "assert-json-diff",
- "cuprate-types",
+ "cuprate-hex",
  "hex",
  "serde",
  "serde_json",
@@ -1080,6 +1098,7 @@ dependencies = [
  "cuprate-fast-sync",
  "cuprate-fixed-bytes",
  "cuprate-helper",
+ "cuprate-hex",
  "cuprate-json-rpc",
  "cuprate-levin",
  "cuprate-p2p",
@@ -1098,6 +1117,7 @@ dependencies = [
  "hex",
  "hex-literal",
  "indexmap",
+ "monero-address",
  "monero-serai",
  "nu-ansi-term",
  "paste",
@@ -1109,6 +1129,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
+ "strum",
  "tempfile",
  "thiserror",
  "thread_local",

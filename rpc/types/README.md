@@ -105,9 +105,10 @@ For `enum`s that encapsulate all request/response types, see:
 # Feature flags
 List of feature flags for `cuprate-rpc-types`.
 
-All are enabled by default.
+Enabled by default: `serde`, `epee`.
 
 | Feature flag | Does what |
 |--------------|-----------|
 | `serde`      | Implements `serde` on all types
 | `epee`       | Implements `cuprate_epee_encoding` on all types
+| `from`       | Implements [`From`] on multiple duplicate types throughout the Cuprate codebase

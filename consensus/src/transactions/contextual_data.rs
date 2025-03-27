@@ -131,17 +131,20 @@ pub async fn get_output_cache<D: Database>(
     txs_verification_data: impl Iterator<Item = &TransactionVerificationData>,
     mut database: D,
 ) -> Result<OutputCache, ExtendedConsensusError> {
-    let mut output_ids = IndexMap::new();
+    let mut outputs = IndexMap::new();
 
     for tx_v_data in txs_verification_data {
-        insert_ring_member_ids(&tx_v_data.tx.prefix().inputs, &mut output_ids)
+        insert_ring_member_ids(&tx_v_data.tx.prefix().inputs, &mut outputs)
             .map_err(ConsensusError::Transaction)?;
     }
 
     let BlockchainResponse::Outputs(outputs) = database
         .ready()
         .await?
-        .call(BlockchainReadRequest::Outputs(output_ids))
+        .call(BlockchainReadRequest::Outputs {
+            outputs,
+            get_txid: false,
+        })
         .await?
     else {
         unreachable!();
@@ -160,10 +163,10 @@ pub async fn batch_get_ring_member_info<D: Database>(
     mut database: D,
     cache: Option<&OutputCache>,
 ) -> Result<Vec<TxRingMembersInfo>, ExtendedConsensusError> {
-    let mut output_ids = IndexMap::new();
+    let mut outputs = IndexMap::new();
 
     for tx_v_data in txs_verification_data.clone() {
-        insert_ring_member_ids(&tx_v_data.tx.prefix().inputs, &mut output_ids)
+        insert_ring_member_ids(&tx_v_data.tx.prefix().inputs, &mut outputs)
             .map_err(ConsensusError::Transaction)?;
     }
 
@@ -173,7 +176,10 @@ pub async fn batch_get_ring_member_info<D: Database>(
         let BlockchainResponse::Outputs(outputs) = database
             .ready()
             .await?
-            .call(BlockchainReadRequest::Outputs(output_ids))
+            .call(BlockchainReadRequest::Outputs {
+                outputs,
+                get_txid: false,
+            })
             .await?
         else {
             unreachable!();

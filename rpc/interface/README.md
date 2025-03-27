@@ -59,7 +59,7 @@ The error type must always be [`anyhow::Error`].
 The `RpcHandler` must also hold some state that is required
 for RPC server operation.
 
-The only state currently needed is [`RpcHandler::restricted`], which determines if an RPC
+The only state currently needed is [`RpcHandler::is_restricted`], which determines if an RPC
 server is restricted or not, and thus, if some endpoints/methods are allowed or not.
 
 # Unknown endpoint behavior

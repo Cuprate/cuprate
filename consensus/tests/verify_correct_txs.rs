@@ -31,7 +31,7 @@ fn dummy_database(outputs: BTreeMap<u64, OutputOnChain>) -> impl Database + Clon
             BlockchainReadRequest::NumberOutputsWithAmount(_) => {
                 BlockchainResponse::NumberOutputsWithAmount(HashMap::new())
             }
-            BlockchainReadRequest::Outputs(outs) => {
+            BlockchainReadRequest::Outputs { outputs: outs, .. } => {
                 let idxs = &outs[&0];
 
                 let mut ret = IndexMap::new();
@@ -73,6 +73,7 @@ macro_rules! test_verify_valid_v2_tx {
                     time_lock: Timelock::None,
                     commitment: CompressedEdwardsY(hex_literal::hex!($commitment)),
                     key: CompressedEdwardsY(hex_literal::hex!($ring_member)),
+                    txid: None,
                 }),)+)+
             ];
 
@@ -100,6 +101,7 @@ macro_rules! test_verify_valid_v2_tx {
                     time_lock: Timelock::None,
                     commitment: ED25519_BASEPOINT_COMPRESSED,
                     key: CompressedEdwardsY(hex_literal::hex!($ring_member)),
+                    txid: None,
                 }),)+)+
             ];
 
