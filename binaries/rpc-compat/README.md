@@ -1,5 +1,5 @@
 # `cuprate-rpc-compat`
-This crate provides tools for testing compatability between `monerod` and `cuprated`'s daemon RPC API, specifically:
+This crate provides tools for testing compatibility between `monerod` and `cuprated`'s daemon RPC API, specifically:
 - Request/response type correctness (both have same schema)
 - Value correctness (both output the same values)
 
