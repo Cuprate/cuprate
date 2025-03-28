@@ -43,6 +43,7 @@ use crate::{
         txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
     },
 };
+use crate::txpool::relay_rules::check_tx_relay_rules;
 
 /// An error that can happen handling an incoming tx.
 #[derive(Debug, thiserror::Error)]
@@ -179,6 +180,13 @@ async fn handle_incoming_txs(
         .map_err(IncomingTxError::Consensus)?;
 
     for tx in txs {
+        //
+        if let Err(e) = check_tx_relay_rules(&tx, context) {
+            tracing::debug!(err = %e, tx = hex::encode(tx.tx_hash), "Tx failed relay check, skipping.");
+
+            continue;
+        }
+
         handle_valid_tx(
             tx,
             state.clone(),
