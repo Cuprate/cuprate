@@ -26,6 +26,7 @@ mod args;
 mod fs;
 mod p2p;
 mod rayon;
+mod rpc;
 mod storage;
 mod tokio;
 mod tracing_config;
@@ -33,6 +34,7 @@ mod tracing_config;
 use fs::FileSystemConfig;
 use p2p::P2PConfig;
 use rayon::RayonConfig;
+pub use rpc::RpcConfig;
 use storage::StorageConfig;
 use tokio::TokioConfig;
 use tracing_config::TracingConfig;
@@ -94,6 +96,9 @@ pub struct Config {
 
     /// The P2P network config.
     p2p: P2PConfig,
+
+    /// The RPC config.
+    pub rpc: RpcConfig,
 
     /// The storage config.
     pub storage: StorageConfig,
@@ -181,6 +186,11 @@ impl Config {
             .data_directory(self.fs.data_directory.clone())
             .sync_mode(txpool.shared.sync_mode)
             .build()
+    }
+
+    /// The [`RpcConfig`].
+    pub const fn rpc_config(&self) -> &RpcConfig {
+        &self.rpc
     }
 
     /// The [`BlockDownloaderConfig`].

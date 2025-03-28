@@ -8,5 +8,7 @@ mod handler;
 mod json;
 mod other;
 mod request;
+mod server;
 
 pub use handler::CupratedRpcHandler;
+pub use server::RpcServer;
