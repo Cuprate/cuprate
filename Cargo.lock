@@ -1055,6 +1055,7 @@ version = "0.0.1"
 dependencies = [
  "anyhow",
  "async-trait",
+ "axum",
  "bitflags 2.6.0",
  "borsh",
  "bytemuck",

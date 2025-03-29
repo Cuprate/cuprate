@@ -37,6 +37,7 @@ cuprate-rpc-interface     = { workspace = true }
 cuprate-rpc-types         = { workspace = true }
 
 # TODO: after v1.0.0, remove unneeded dependencies.
+axum                  = { workspace = true, features = ["tokio", "http1", "http2"] }
 anyhow                = { workspace = true }
 async-trait           = { workspace = true }
 bitflags              = { workspace = true }

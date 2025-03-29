@@ -81,6 +81,9 @@ fn main() {
     let (txpool_read_handle, txpool_write_handle, _) =
         cuprate_txpool::service::init_with_pool(config.txpool_config(), db_thread_pool).unwrap();
 
+    // Initialize the RPC server(s).
+    rpc::init_rpc_servers(config.rpc.clone());
+
     // Initialize async tasks.
 
     rt.block_on(async move {
