@@ -12,5 +12,5 @@ This is the default configuration file `cuprated` creates and uses, sourced from
 If `cuprated` is started with no [`--options`](./cli.md), then the configuration used will be equivalent to this config file.
 
 ```toml
-{{#include ../../../binaries/cuprated/config/Cuprated.toml}}
+{{#include ../Cuprated.toml}}
 ```

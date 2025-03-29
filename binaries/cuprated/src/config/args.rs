@@ -5,7 +5,7 @@ use serde_json::Value;
 
 use cuprate_helper::network::Network;
 
-use crate::{config::Config, constants::EXAMPLE_CONFIG, version::CupratedVersionInfo};
+use crate::{config::Config, version::CupratedVersionInfo};
 
 /// Cuprate Args.
 #[derive(clap::Parser, Debug)]
