@@ -99,6 +99,7 @@ cuprate-rpc-interface     = { path = "rpc/interface",             default-featur
 cuprate-zmq-types         = { path = "zmq/types",                 default-features = false }
 
 # External dependencies
+axum                  = { version = "0.7", default-features = false }
 anyhow                = { version = "1", default-features = false }
 arc-swap              = { version = "1", default-features = false }
 arrayvec              = { version = "0.7", default-features = false }

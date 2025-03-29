@@ -145,8 +145,7 @@ impl Config {
                 ip: self.p2p.clear_net.listen_on,
             }),
             p2p_port: self.p2p.clear_net.general.p2p_port,
-            // TODO: set this if a public RPC server is set.
-            rpc_port: 0,
+            rpc_port: self.rpc.port_restricted().unwrap_or(0),
             address_book_config: self
                 .p2p
                 .clear_net
@@ -186,11 +185,6 @@ impl Config {
             .data_directory(self.fs.data_directory.clone())
             .sync_mode(txpool.shared.sync_mode)
             .build()
-    }
-
-    /// The [`RpcConfig`].
-    pub const fn rpc_config(&self) -> &RpcConfig {
-        &self.rpc
     }
 
     /// The [`BlockDownloaderConfig`].

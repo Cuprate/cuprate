@@ -11,4 +11,4 @@ mod request;
 mod server;
 
 pub use handler::CupratedRpcHandler;
-pub use server::RpcServer;
+pub use server::init_rpc_servers;
