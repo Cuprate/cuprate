@@ -33,6 +33,7 @@ use cuprate_txpool::{
 };
 use cuprate_types::TransactionVerificationData;
 
+use crate::txpool::relay_rules::check_tx_relay_rules;
 use crate::{
     blockchain::ConsensusBlockchainReadHandle,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
@@ -43,7 +44,6 @@ use crate::{
         txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
     },
 };
-use crate::txpool::relay_rules::check_tx_relay_rules;
 
 /// An error that can happen handling an incoming tx.
 #[derive(Debug, thiserror::Error)]
