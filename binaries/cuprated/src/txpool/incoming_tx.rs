@@ -180,7 +180,8 @@ async fn handle_incoming_txs(
         .map_err(IncomingTxError::Consensus)?;
 
     for tx in txs {
-        //
+        // TODO: this could be a DoS, if someone spams us with txs that violate these rules?
+        // Maybe we should remember these invalid txs for some time to prevent them getting repeatedly sent.
         if let Err(e) = check_tx_relay_rules(&tx, context) {
             tracing::debug!(err = %e, tx = hex::encode(tx.tx_hash), "Tx failed relay check, skipping.");
 

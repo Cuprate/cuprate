@@ -25,6 +25,9 @@ pub enum RelayRuleError {
     FeeBelowMinimum,
 }
 
+/// Checks the transaction passes the relay rules.
+///
+/// Relay rules are rules that govern the txs we accept to our tx-pool and propagate around the network.
 pub fn check_tx_relay_rules(
     tx: &TransactionVerificationData,
     context: &BlockchainContext,
@@ -40,6 +43,7 @@ pub fn check_tx_relay_rules(
     check_fee(tx.tx_weight, tx.fee, context)
 }
 
+/// Checks the fee is enough for the tx weight and current blockchain state.
 fn check_fee(
     tx_weight: usize,
     fee: u64,
@@ -65,6 +69,7 @@ fn check_fee(
     Ok(())
 }
 
+/// Calculates the base fee per byte for tx relay.
 fn dynamic_base_fee(base_reward: u64, effective_media_block_weight: usize) -> u64 {
     let median_block_weight = effective_media_block_weight as u128;
 
