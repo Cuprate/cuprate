@@ -42,15 +42,15 @@ use tokio::TokioConfig;
 use tracing_config::TracingConfig;
 
 /// Header to put at the start of the generated config file.
-const HEADER: &str = r"#     ____                      _
-#    / ___|   _ _ __  _ __ __ _| |_ ___
-#   | |  | | | | '_ \| '__/ _` | __/ _ \
-#   | |__| |_| | |_) | | | (_| | ||  __/
-#    \____\__,_| .__/|_|  \__,_|\__\___|
-#              |_|
-#
-# All these config values can be set to their default by commenting them out with #.
-# Some values are already commented out, to set the value remove the # at the start of the line.
+const HEADER: &str = r"##     ____                      _
+##    / ___|   _ _ __  _ __ __ _| |_ ___
+##   | |  | | | | '_ \| '__/ _` | __/ _ \
+##   | |__| |_| | |_) | | | (_| | ||  __/
+##    \____\__,_| .__/|_|  \__,_|\__\___|
+##              |_|
+##
+## All these config values can be set to their default by commenting them out with #.
+## Some values are already commented out, to set the value remove the # at the start of the line.
 
 ";
 
@@ -100,32 +100,39 @@ config_struct! {
     pub struct Config {
         /// The network we should run on.
         ///
-        /// Valid values: "Mainnet", "Testnet" and "Stagenet".
+        /// Valid values: ["Mainnet", "Testnet" and "Stagenet"]
         pub network: Network,
+
         /// Enable/disable fast sync.
         ///
         /// Fast sync skips verification of old blocks by comparing block hashes to a built-in hash file,
         /// disabling this will significantly increase sync time. New blocks are still fully validated.
         pub fast_sync: bool,
+
         #[child = true]
-        /// The [`tracing`]/log output config.
+        /// The tracing/log output config.
         pub tracing: TracingConfig,
+
         #[child = true]
-        /// The [`tokio`] config.
+        /// The tokio config.
         ///
         /// Tokio is the async threadpool, used for network operations and the major service inside `cuprated`.
+
         pub tokio: TokioConfig,
         #[child = true]
-        /// The [`rayon`] config.
+        /// The rayon config.
         ///
         /// Rayon is the CPU threadpool, used for CPU intensive tasks.
         pub rayon: RayonConfig,
+
         #[child = true]
         /// The P2P network config.
         pub p2p: P2PConfig,
+
         #[child = true]
         /// The storage config.
         pub storage: StorageConfig,
+
         #[child = true]
         /// The filesystem config.
         pub fs: FileSystemConfig,

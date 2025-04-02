@@ -18,6 +18,7 @@ config_struct! {
         #[child = true]
         /// The clear-net P2P config.
         pub clear_net: ClearNetConfig,
+
         #[child = true]
         /// Block downloader config.
         ///
@@ -36,6 +37,7 @@ config_struct! {
         ///
         /// This value is an absolute maximum, once this is reached the block downloader will pause.
         pub buffer_bytes: usize,
+
         #[comment_out = true]
         /// The size of the in progress queue (in bytes) at which we stop requesting more blocks.
         ///
@@ -43,9 +45,11 @@ config_struct! {
         /// is only the value we stop requesting more blocks, if we still have requests in progress we will
         /// still accept the response and add the blocks to the queue.
         pub in_progress_queue_bytes: usize,
+
         #[inline = true]
         /// The [`Duration`] between checking the client pool for free peers.
         pub check_client_pool_interval: Duration,
+
         #[comment_out = true]
         /// The target size of a single batch of blocks (in bytes).
         ///
@@ -72,7 +76,7 @@ impl Default for BlockDownloaderConfig {
             buffer_bytes: 1_000_000_000,
             in_progress_queue_bytes: 500_000_000,
             check_client_pool_interval: Duration::from_secs(30),
-            target_batch_bytes: 10_000_000,
+            target_batch_bytes: 15_000_000,
         }
     }
 }
@@ -84,6 +88,7 @@ config_struct! {
     pub struct ClearNetConfig {
         /// The IP address we should bind to to listen to connections on.
         pub listen_on: IpAddr,
+
         #[flatten = true]
         /// Shared config values.
         ##[serde(flatten)]
@@ -110,19 +115,24 @@ config_struct! {
         ///
         /// Recommended to keep this value above 12.
         pub outbound_connections: usize,
+
         #[comment_out = true]
         /// The amount of extra connections we can make if we are under load from the rest of Cuprate.
         pub extra_outbound_connections: usize,
+
         #[comment_out = true]
         /// The maximum amount of inbound connections we should allow.
         pub max_inbound_connections: usize,
+
         #[comment_out = true]
         /// The percent of connections that should be to peers we haven't connected to before.
         pub gray_peers_percent: f64,
+
         /// port to use to accept p2p connections.
         ///
         /// Set to 0 if you do not want to accept P2P connections.
         pub p2p_port: u16,
+
         #[child = true]
         /// The address book config.
         pub address_book_config: AddressBookConfig,
@@ -148,7 +158,7 @@ impl SharedNetConfig {
 impl Default for SharedNetConfig {
     fn default() -> Self {
         Self {
-            outbound_connections: 64,
+            outbound_connections: 32,
             extra_outbound_connections: 8,
             max_inbound_connections: 128,
             gray_peers_percent: 0.7,
@@ -167,10 +177,12 @@ config_struct! {
         ///
         /// The white list holds peers we have connected to before.
         pub max_white_list_length: usize,
+
         /// The size of the gray peer list.
         ///
         /// The gray peer list holds peers we have been told about but not connected to ourself.
         pub max_gray_list_length: usize,
+
         #[inline = true]
         /// The time period between address book saves.
         pub peer_save_period: Duration,

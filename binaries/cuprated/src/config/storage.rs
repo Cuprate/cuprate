@@ -18,9 +18,11 @@ config_struct! {
         ///
         /// The tx-pool and blockchain both share a single threadpool.
         pub reader_threads: usize,
+
         #[child = true]
         /// The tx-pool config.
         pub txpool: TxpoolConfig,
+
         #[child = true]
         /// The blockchain config.
         pub blockchain: BlockchainConfig,
@@ -79,7 +81,7 @@ config_struct! {
     #[serde(deny_unknown_fields, default)]
     pub struct SharedStorageConfig {
         #[comment_out = true]
-        /// The [`SyncMode`] of the database.
+        /// The sync mode of the database.
         ///
         /// Changing this value could make the DB a lot slower when writing data, although
         /// using "Safe" makes the DB more durable if there was an unexpected crash.

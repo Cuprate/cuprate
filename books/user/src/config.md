@@ -7,9 +7,11 @@
 - [OS specific directory](./resources/disk.md)
 
 ## `Cuprated.toml`
-This is the default configuration file `cuprated` creates and uses, sourced from [here](https://github.com/Cuprate/cuprate/blob/main/binaries/cuprated/config/Cuprated.toml).
+This is the default configuration file `cuprated` creates and uses.
 
 If `cuprated` is started with no [`--options`](./cli.md), then the configuration used will be equivalent to this config file.
+
+> Some values may be different for your exact system, generate the config yourself to see the defaults for your system. 
 
 ```toml
 {{#include ../Cuprated.toml}}

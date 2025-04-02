@@ -2,6 +2,12 @@ use toml_edit::TableLike;
 
 /// A macro for config structs defined in `cuprated`. This macro generates a function that
 /// can insert toml comments created from doc comments on fields.
+///
+/// # Attributes
+/// - `#[flatten = true]`: lets the writer know that the field is flattened into the parent struct.
+/// - `#[child = true]`: writes the doc comments for all fields in the child struct.
+/// - `#[inline = true]`: inlines the struct into `{}` instead of having a separate `[]` header.
+/// - `#[comment_out = true]`: comments out the field.
 macro_rules! config_struct {
     (
         $(#[$meta:meta])*

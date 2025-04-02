@@ -14,6 +14,7 @@ config_struct! {
         #[comment_out = true]
         /// The data directory.
         pub data_directory: PathBuf,
+
         #[comment_out = true]
         /// The cache directory.
         pub cache_directory: PathBuf,
