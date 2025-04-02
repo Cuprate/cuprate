@@ -26,6 +26,7 @@ mod args;
 mod fs;
 mod p2p;
 mod rayon;
+mod rpc;
 mod storage;
 mod tokio;
 mod tracing_config;
@@ -33,6 +34,7 @@ mod tracing_config;
 use fs::FileSystemConfig;
 use p2p::P2PConfig;
 use rayon::RayonConfig;
+pub use rpc::RpcConfig;
 use storage::StorageConfig;
 use tokio::TokioConfig;
 use tracing_config::TracingConfig;
@@ -95,6 +97,9 @@ pub struct Config {
     /// The P2P network config.
     p2p: P2PConfig,
 
+    /// The RPC config.
+    pub rpc: RpcConfig,
+
     /// The storage config.
     pub storage: StorageConfig,
 
@@ -140,8 +145,7 @@ impl Config {
                 ip: self.p2p.clear_net.listen_on,
             }),
             p2p_port: self.p2p.clear_net.general.p2p_port,
-            // TODO: set this if a public RPC server is set.
-            rpc_port: 0,
+            rpc_port: self.rpc.port_restricted().unwrap_or(0),
             address_book_config: self
                 .p2p
                 .clear_net
