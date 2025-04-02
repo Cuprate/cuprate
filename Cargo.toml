@@ -140,6 +140,7 @@ tokio-util            = { version = "0.7", default-features = false }
 tokio-stream          = { version = "0.1", default-features = false }
 tokio                 = { version = "1", default-features = false }
 tower                 = { git = "https://github.com/Cuprate/tower.git", rev = "6c7faf0", default-features = false } # <https://github.com/tower-rs/tower/pull/796>
+tower-http            = { version = "0.6", default-features = false }
 toml                  = { version = "0.8", default-features = false }
 tracing-appender      = { version = "0.2", default-features = false }
 tracing-subscriber    = { version = "0.3", default-features = false }
