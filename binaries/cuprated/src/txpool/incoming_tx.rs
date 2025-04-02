@@ -33,7 +33,6 @@ use cuprate_txpool::{
 };
 use cuprate_types::TransactionVerificationData;
 
-use crate::txpool::relay_rules::check_tx_relay_rules;
 use crate::{
     blockchain::ConsensusBlockchainReadHandle,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
@@ -41,6 +40,7 @@ use crate::{
     signals::REORG_LOCK,
     txpool::{
         dandelion,
+        relay_rules::check_tx_relay_rules,
         txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
     },
 };
