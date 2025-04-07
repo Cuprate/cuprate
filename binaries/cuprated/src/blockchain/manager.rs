@@ -33,6 +33,9 @@ use crate::{
 mod commands;
 mod handler;
 
+#[cfg(test)]
+mod tests;
+
 pub use commands::{BlockchainManagerCommand, IncomingBlockOk};
 
 /// Initialize the blockchain manager.

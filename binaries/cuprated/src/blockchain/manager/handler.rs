@@ -396,7 +396,7 @@ impl super::BlockchainManager {
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR)
             .call(BlockchainWriteRequest::PopBlocks(
-                current_main_chain_height - split_height + 1,
+                current_main_chain_height - split_height,
             ))
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR)
@@ -409,7 +409,7 @@ impl super::BlockchainManager {
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR)
             .call(BlockChainContextRequest::PopBlocks {
-                numb_blocks: current_main_chain_height - split_height + 1,
+                numb_blocks: current_main_chain_height - split_height,
             })
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
