@@ -49,8 +49,13 @@ const HEADER: &str = r"##     ____                      _
 ##    \____\__,_| .__/|_|  \__,_|\__\___|
 ##              |_|
 ##
-## All these config values can be set to their default by commenting them out with #.
-## Some values are already commented out, to set the value remove the # at the start of the line.
+## All these config values can be set to
+## their default by commenting them out with '#'.
+##
+## Some values are already commented out,
+## to set the value remove the '#' at the start of the line.
+##
+## For more documentation, see: <https://user.cuprate.org>.
 
 ";
 
@@ -98,43 +103,50 @@ config_struct! {
     #[derive(Debug, Deserialize, Serialize, PartialEq)]
     #[serde(deny_unknown_fields, default)]
     pub struct Config {
-        /// The network we should run on.
+        /// The network cuprated should run on.
         ///
-        /// Valid values: ["Mainnet", "Testnet" and "Stagenet"]
+        /// Valid values | "Mainnet", "Testnet", "Stagenet"
         pub network: Network,
 
         /// Enable/disable fast sync.
         ///
-        /// Fast sync skips verification of old blocks by comparing block hashes to a built-in hash file,
-        /// disabling this will significantly increase sync time. New blocks are still fully validated.
+        /// Fast sync skips verification of old blocks by
+        /// comparing block hashes to a built-in hash file,
+        /// disabling this will significantly increase sync time.
+        /// New blocks are still fully validated.
+        ///
+        /// Type         | boolean
+        /// Valid values | true, false
         pub fast_sync: bool,
 
         #[child = true]
-        /// The tracing/log output config.
+        /// Configuration for cuprated's logging system, tracing.
+        ///
+        /// Tracing is used for logging to stdout and files.
         pub tracing: TracingConfig,
 
         #[child = true]
-        /// The tokio config.
+        /// Configuration for cuprated's asynchronous runtime system, tokio.
         ///
-        /// Tokio is the async threadpool, used for network operations and the major service inside `cuprated`.
-
+        /// Tokio is used for network operations and the major service inside `cuprated`.
         pub tokio: TokioConfig,
+
         #[child = true]
-        /// The rayon config.
+        /// Configuration for cuprated's thread-pool system, rayon.
         ///
-        /// Rayon is the CPU threadpool, used for CPU intensive tasks.
+        /// Rayon is used for CPU intensive tasks.
         pub rayon: RayonConfig,
 
         #[child = true]
-        /// The P2P network config.
+        /// Configuration for cuprated's P2P system.
         pub p2p: P2PConfig,
 
         #[child = true]
-        /// The storage config.
+        /// Configuration for persistent data storage.
         pub storage: StorageConfig,
 
         #[child = true]
-        /// The filesystem config.
+        /// Configuration for the file-system.
         pub fs: FileSystemConfig,
     }
 }

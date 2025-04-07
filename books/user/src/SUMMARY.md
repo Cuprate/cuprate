@@ -11,6 +11,7 @@
     - [Running](getting-started/run.md)
 
 - [Configuration](config.md)
+
 - [Command line](cli.md)
 
 - [Resources](resources/intro.md)
@@ -20,3 +21,5 @@
 
 - [Platform support](platform.md)
 - [License](license.md)
+
+<!-- TODO: - [Glossary](glossary/intro.md) or maybe a wiki? -->

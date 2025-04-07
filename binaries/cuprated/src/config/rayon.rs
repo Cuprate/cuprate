@@ -8,7 +8,9 @@ config_struct! {
     #[serde(deny_unknown_fields, default)]
     pub struct RayonConfig {
         #[comment_out = true]
-        /// The number of threads to use for the rayon thread pool.
+        /// Type         | Number
+        /// Valid values | >= 1
+        /// Examples     | 1, 8, 14
         pub threads: usize,
     }
 }

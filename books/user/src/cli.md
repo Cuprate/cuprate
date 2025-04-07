@@ -33,6 +33,3 @@ The `--version` flag outputs the following info in JSON.
 | `build`                 | String | Build of `cuprated`, either `debug` or `release`      |
 | `commit`                | String | `git` commit hash of `cuprated`                       |
 | `killswitch_timestamp`  | Number | Timestamp at which `cuprated`'s killswitch activates  |
-| `cache_directory`       | String | Cache directory used by `cuprated`                    |
-| `config_directory`      | String | Config directory used by `cuprated`                   |
-| `data_directory`        | String | Data directory used by `cuprated`                     |
