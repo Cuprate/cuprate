@@ -67,7 +67,10 @@ pub async fn init_address_book<Z: BorshNetworkZone>(
         Ok(res) => res,
         Err(e) if e.kind() == ErrorKind::NotFound => (vec![], vec![]),
         Err(e) => {
-            tracing::error!("Error: Failed to open peer list,\n{},\nstarting with an empty list", e);
+            tracing::error!(
+                "Error: Failed to open peer list,\n{},\nstarting with an empty list",
+                e
+            );
             (vec![], vec![])
         }
     };
