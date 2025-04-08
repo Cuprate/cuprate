@@ -59,6 +59,13 @@ config_struct! {
         pub in_progress_queue_bytes: usize,
 
         #[inline = true]
+        /// The duration between checking the client pool for free peers.
+        ///
+        /// Type     | Duration
+        /// Examples | { secs = 30, nanos = 0 }, { secs = 35, nano = 123 }
+        pub check_client_pool_interval: Duration,
+
+        #[comment_out = true]
         /// The target size of a single batch of blocks (in bytes).
         ///
         /// This value must be below 100_000,000,
@@ -66,13 +73,6 @@ config_struct! {
         ///
         /// Type         | Number
         /// Valid values | 0..100_000,000
-        pub check_client_pool_interval: Duration,
-
-        #[comment_out = true]
-        /// The duration between checking the client pool for free peers.
-        ///
-        /// Type     | Duration
-        /// Examples | { secs = 30, nanos = 0 }, { secs = 35, nano = 123 }
         pub target_batch_bytes: usize,
     }
 }
