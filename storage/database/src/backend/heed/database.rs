@@ -6,6 +6,7 @@ use std::cell::RefCell;
 use crate::{
     backend::heed::types::HeedDb,
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
+    entry::{Entry, OccupiedEntry, VacantEntry},
     error::{DbResult, RuntimeError},
     table::Table,
 };
@@ -240,6 +241,19 @@ impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
             // We just `get()`'ed the value - it is
             // incorrect for it to suddenly not exist.
             Ok(false) => unreachable!(),
+        }
+    }
+
+    #[inline]
+    fn entry<'a>(&'a mut self, key: &'a T::Key) -> DbResult<Entry<'a, T, Self>> {
+        match DatabaseRo::get(self, key) {
+            Ok(value) => Ok(Entry::Occupied(OccupiedEntry {
+                db: self,
+                key,
+                value,
+            })),
+            Err(RuntimeError::KeyNotFound) => Ok(Entry::Vacant(VacantEntry { db: self, key })),
+            Err(e) => Err(e),
         }
     }
 }
