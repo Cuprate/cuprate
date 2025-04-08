@@ -393,7 +393,6 @@ fn get_txs_to_broadcast<N: NetworkZone>(
                     tracing::debug!(
                         "{lag} transaction broadcast messages were missed, continuing."
                     );
-                    continue;
                 }
             },
         }

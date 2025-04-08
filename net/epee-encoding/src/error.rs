@@ -27,6 +27,10 @@ impl Error {
         }
     }
 
+    #[expect(
+        clippy::missing_const_for_fn,
+        reason = "False-postive, `Deref::deref` is not const"
+    )]
     fn field_data(&self) -> &str {
         match self {
             Self::IO(data) | Self::Format(data) => data,
