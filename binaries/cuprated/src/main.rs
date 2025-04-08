@@ -20,7 +20,7 @@ use std::{mem, sync::Arc};
 
 use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
-use tracing::level_filters::LevelFilter;
+use tracing::{error, level_filters::LevelFilter};
 use tracing_subscriber::{layer::SubscriberExt, reload::Handle, util::SubscriberInitExt, Registry};
 
 use cuprate_consensus_context::{
@@ -73,28 +73,18 @@ fn main() {
 
     // Start the blockchain & tx-pool databases.
 
-    /// If a database is corrupted, panic with a
-    /// user-friendly corruption message, else, unwrap.
-    fn unwrap_db_init<T>(db_type: &'static str, result: Result<T, InitError>) -> T {
-        match result {
-            Ok(t) => t,
-            Err(InitError::Invalid | InitError::Corrupt) => panic!("{DATABASE_CORRUPT_MSG}"),
-            Err(e) => panic!("{db_type} database init error: {e}"),
-        }
-    }
-
-    let (mut blockchain_read_handle, mut blockchain_write_handle, _) = unwrap_db_init(
-        "Blockchain",
+    let (mut blockchain_read_handle, mut blockchain_write_handle, _) =
         cuprate_blockchain::service::init_with_pool(
             config.blockchain_config(),
             Arc::clone(&db_thread_pool),
-        ),
-    );
+        )
+        .inspect_err(|e| error!("Blockchain database error: {e}"))
+        .expect(DATABASE_CORRUPT_MSG);
 
-    let (txpool_read_handle, txpool_write_handle, _) = unwrap_db_init(
-        "Transaction pool",
-        cuprate_txpool::service::init_with_pool(config.txpool_config(), db_thread_pool),
-    );
+    let (txpool_read_handle, txpool_write_handle, _) =
+        cuprate_txpool::service::init_with_pool(config.txpool_config(), db_thread_pool)
+            .inspect_err(|e| error!("Txpool database error: {e}"))
+            .expect(DATABASE_CORRUPT_MSG);
 
     // Initialize async tasks.
 
