@@ -348,7 +348,7 @@ fn get_window_start_and_end(
     if window_len <= accounted_window {
         (0, window_len)
     } else {
-        let start = (window_len - (accounted_window) + 1) / 2;
+        let start = (window_len - (accounted_window)).div_ceil(2);
         (start, start + accounted_window)
     }
 }

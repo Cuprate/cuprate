@@ -36,7 +36,10 @@ pub mod weight;
 mod alt_chains;
 mod task;
 
-use cuprate_types::{Chain, ChainInfo, FeeEstimate, HardForkInfo};
+use cuprate_types::{
+    rpc::{ChainInfo, FeeEstimate, HardForkInfo},
+    Chain,
+};
 use difficulty::DifficultyCache;
 use rx_vms::RandomXVm;
 use weight::BlockWeightsCache;
