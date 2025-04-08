@@ -5,8 +5,10 @@
 //! * `json-full-chain_main` (`Vec<ChainMain>`)
 //! * `json-minimal-chain_main` (`ChainMainMin`)
 //! * `json-full-miner_data` (`MinerData`)
-use cuprate_types::hex::HexBytes;
+
 use serde::{Deserialize, Serialize};
+
+use cuprate_hex::Hex;
 
 /// ZMQ `json-full-txpool_add` packets contain an array of `TxPoolAdd`.
 ///
@@ -42,7 +44,7 @@ pub struct TxPoolAdd {
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TxPoolAddMin {
     /// transaction ID
-    pub id: HexBytes<32>,
+    pub id: Hex<32>,
     /// size of the full transaction blob
     pub blob_size: u64,
     /// metric used to calculate transaction fee
@@ -63,13 +65,13 @@ pub struct ChainMain {
     /// epoch time, decided by the miner, at which the block was mined
     pub timestamp: u64,
     /// block id of the previous block
-    pub prev_id: HexBytes<32>,
+    pub prev_id: Hex<32>,
     /// cryptographic random one-time number used in mining a Monero block
     pub nonce: u32,
     /// coinbase transaction information
     pub miner_tx: MinerTx,
     /// non-coinbase transaction IDs in the block (can be empty)
-    pub tx_hashes: Vec<HexBytes<32>>,
+    pub tx_hashes: Vec<Hex<32>>,
 }
 
 /// ZMQ `json-minimal-chain_main` subscriber messages contain a single
@@ -80,10 +82,10 @@ pub struct ChainMainMin {
     /// height of the block
     pub first_height: u64,
     /// block id of the previous block
-    pub first_prev_id: HexBytes<32>,
+    pub first_prev_id: Hex<32>,
     /// block ID of the current block is the 0th entry; additional block IDs
     /// will only be included if this is the topmost block of a re-org.
-    pub ids: Vec<HexBytes<32>>,
+    pub ids: Vec<Hex<32>>,
 }
 
 /// ZMQ `json-full-miner_data` subscriber messages contain a single
@@ -96,9 +98,9 @@ pub struct MinerData {
     /// height on which to mine
     pub height: u64,
     /// block id of the most recent block on which to mine the next block
-    pub prev_id: HexBytes<32>,
+    pub prev_id: Hex<32>,
     /// hash of block to use as seed for Random-X proof-of-work
-    pub seed_hash: HexBytes<32>,
+    pub seed_hash: Hex<32>,
     /// least-significant 64 bits of the 128-bit network difficulty
     #[serde(with = "hex_difficulty")]
     pub difficulty: u64,
@@ -124,7 +126,7 @@ pub struct ToKey {
     /// integer offsets for ring members
     pub key_offsets: Vec<u64>,
     /// key image for the given input
-    pub key_image: HexBytes<32>,
+    pub key_image: Hex<32>,
 }
 
 /// Holds the block height of the coinbase transaction.
@@ -156,9 +158,9 @@ pub struct Output {
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct ToTaggedKey {
     /// public key used to indicate the destination of a transaction output
-    pub key: HexBytes<32>,
+    pub key: Hex<32>,
     /// 1st byte of a shared secret used to reduce wallet synchronization time
-    pub view_tag: HexBytes<1>,
+    pub view_tag: Hex<1>,
 }
 
 /// Ring CT information used inside `TxPoolAdd`
@@ -169,7 +171,7 @@ pub struct PoolRingCt {
     /// encrypted amount values of the transaction outputs
     pub encrypted: Vec<Encrypted>,
     /// Ring CT commitments, 1 per transaction input
-    pub commitments: Vec<HexBytes<32>>,
+    pub commitments: Vec<Hex<32>>,
     /// mining fee in piconeros
     pub fee: u64,
     /// data to validate the transaction that can be pruned from older blocks
@@ -189,9 +191,9 @@ struct MinerRingCt {
 pub struct Encrypted {
     /// obsolete field, but present as zeros in JSON; this does not represent
     /// the newer deterministically derived mask
-    mask: HexBytes<32>,
+    mask: Hex<32>,
     /// encrypted amount of the transaction output
-    pub amount: HexBytes<32>,
+    pub amount: Hex<32>,
 }
 
 /// Data needed to validate a transaction that can optionally be pruned from
@@ -210,22 +212,22 @@ pub struct Prunable {
     pub clsags: Vec<Clsag>,
     /// Ring CT pseudo output commitments; 1 per transaction input (*not*
     /// output)
-    pub pseudo_outs: Vec<HexBytes<32>>,
+    pub pseudo_outs: Vec<Hex<32>>,
 }
 
 /// Bulletproofs+ data used to validate the legitimacy of a Ring CT transaction.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 #[expect(non_snake_case)]
 pub struct BulletproofPlus {
-    pub V: Vec<HexBytes<32>>,
-    pub A: HexBytes<32>,
-    pub A1: HexBytes<32>,
-    pub B: HexBytes<32>,
-    pub r1: HexBytes<32>,
-    pub s1: HexBytes<32>,
-    pub d1: HexBytes<32>,
-    pub L: Vec<HexBytes<32>>,
-    pub R: Vec<HexBytes<32>>,
+    pub V: Vec<Hex<32>>,
+    pub A: Hex<32>,
+    pub A1: Hex<32>,
+    pub B: Hex<32>,
+    pub r1: Hex<32>,
+    pub s1: Hex<32>,
+    pub d1: Hex<32>,
+    pub L: Vec<Hex<32>>,
+    pub R: Vec<Hex<32>>,
 }
 
 /// Placeholder element type so obsolete fields can be deserialized
@@ -237,9 +239,9 @@ struct Obsolete;
 #[expect(non_snake_case)]
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Clsag {
-    pub s: Vec<HexBytes<32>>,
-    pub c1: HexBytes<32>,
-    pub D: HexBytes<32>,
+    pub s: Vec<Hex<32>>,
+    pub c1: Hex<32>,
+    pub D: Hex<32>,
 }
 
 /// Part of the new block information in `ChainMain`
@@ -269,7 +271,7 @@ pub struct MinerTx {
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TxBacklog {
     /// transaction ID
-    pub id: HexBytes<32>,
+    pub id: Hex<32>,
     /// metric used to calculate transaction fee
     pub weight: u64,
     /// mining fee in piconeros

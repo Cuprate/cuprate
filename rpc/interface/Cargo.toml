@@ -15,7 +15,7 @@ dummy    = ["dep:cuprate-helper", "dep:futures"]
 [dependencies]
 cuprate-epee-encoding = { workspace = true, default-features = false }
 cuprate-json-rpc      = { workspace = true, default-features = false }
-cuprate-rpc-types     = { workspace = true, features = ["serde", "epee"], default-features = false }
+cuprate-rpc-types     = { workspace = true, features = ["serde", "epee", "from"], default-features = false }
 cuprate-helper        = { workspace = true, features = ["asynch"], default-features = false, optional = true }
 
 anyhow     = { workspace = true }

@@ -254,7 +254,7 @@ pub fn get_block_blob_with_tx_indexes(
     Ok((block, miner_tx_idx, numb_txs))
 }
 
-//---------------------------------------------------------------------------------------------------- `get_block_extended_header_*`
+//---------------------------------------------------------------------------------------------------- `get_block_complete_entry_*`
 /// Retrieve a [`BlockCompleteEntry`] from the database.
 ///
 #[doc = doc_error!()]
@@ -263,8 +263,18 @@ pub fn get_block_complete_entry(
     tables: &impl TablesIter,
 ) -> Result<BlockCompleteEntry, RuntimeError> {
     let block_height = tables.block_heights().get(block_hash)?;
+    get_block_complete_entry_from_height(&block_height, tables)
+}
+
+/// Retrieve a [`BlockCompleteEntry`] from the database.
+///
+#[doc = doc_error!()]
+pub fn get_block_complete_entry_from_height(
+    block_height: &BlockHeight,
+    tables: &impl TablesIter,
+) -> Result<BlockCompleteEntry, RuntimeError> {
     let (block_blob, miner_tx_idx, numb_non_miner_txs) =
-        get_block_blob_with_tx_indexes(&block_height, tables)?;
+        get_block_blob_with_tx_indexes(block_height, tables)?;
 
     let first_tx_idx = miner_tx_idx + 1;
 

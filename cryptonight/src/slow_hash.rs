@@ -49,7 +49,7 @@ impl CnSlowHashState {
         &self.b
     }
 
-    fn get_keccak_bytes_mut(&mut self) -> &mut [u8; KECCAK1600_BYTE_SIZE] {
+    const fn get_keccak_bytes_mut(&mut self) -> &mut [u8; KECCAK1600_BYTE_SIZE] {
         &mut self.b
     }
 
