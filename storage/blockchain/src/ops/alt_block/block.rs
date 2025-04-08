@@ -155,6 +155,7 @@ pub fn get_alt_block_hash(
                 Chain::Main => break Chain::Main,
                 Chain::Alt(alt_chain_id) => {
                     chain = alt_chain_id.into();
+                    continue;
                 }
             }
         }

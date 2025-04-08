@@ -108,6 +108,7 @@ pub fn get_alt_chain_history_ranges(
                 }
 
                 current_chain_id = alt_chain_id;
+                continue;
             }
         }
     }
