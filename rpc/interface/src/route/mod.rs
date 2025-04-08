@@ -6,4 +6,4 @@
 pub(crate) mod bin;
 pub(crate) mod fallback;
 pub(crate) mod json_rpc;
-pub(crate) mod other;
+pub(crate) mod other_json;

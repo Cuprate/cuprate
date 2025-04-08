@@ -8,28 +8,54 @@ use serde::{Deserialize, Serialize};
 
 use cuprate_helper::{fs::address_book_path, network::Network};
 
-/// P2P config.
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq)]
-#[serde(deny_unknown_fields, default)]
-pub struct P2PConfig {
-    /// Clear-net config.
-    pub clear_net: ClearNetConfig,
-    /// Block downloader config.
-    pub block_downloader: BlockDownloaderConfig,
+use super::macros::config_struct;
+
+config_struct! {
+    /// P2P config.
+    #[derive(Debug, Default, Deserialize, Serialize, PartialEq)]
+    #[serde(deny_unknown_fields, default)]
+    pub struct P2PConfig {
+        #[child = true]
+        /// The clear-net P2P config.
+        pub clear_net: ClearNetConfig,
+
+        #[child = true]
+        /// Block downloader config.
+        ///
+        /// The block downloader handles downloading old blocks from peers when we are behind.
+        pub block_downloader: BlockDownloaderConfig,
+    }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
-#[serde(deny_unknown_fields, default)]
-pub struct BlockDownloaderConfig {
-    /// The size in bytes of the buffer between the block downloader and the place which
-    /// is consuming the downloaded blocks.
-    pub buffer_bytes: usize,
-    /// The size of the in progress queue (in bytes) at which we stop requesting more blocks.
-    pub in_progress_queue_bytes: usize,
-    /// The [`Duration`] between checking the client pool for free peers.
-    pub check_client_pool_interval: Duration,
-    /// The target size of a single batch of blocks (in bytes).
-    pub target_batch_bytes: usize,
+config_struct! {
+    #[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
+    #[serde(deny_unknown_fields, default)]
+    pub struct BlockDownloaderConfig {
+        #[comment_out = true]
+        /// The size in bytes of the buffer between the block downloader and the place which
+        /// is consuming the downloaded blocks (`cuprated`).
+        ///
+        /// This value is an absolute maximum, once this is reached the block downloader will pause.
+        pub buffer_bytes: usize,
+
+        #[comment_out = true]
+        /// The size of the in progress queue (in bytes) at which we stop requesting more blocks.
+        ///
+        /// The value is _NOT_ an absolute maximum, the in progress queue could get much larger. This value
+        /// is only the value we stop requesting more blocks, if we still have requests in progress we will
+        /// still accept the response and add the blocks to the queue.
+        pub in_progress_queue_bytes: usize,
+
+        #[inline = true]
+        /// The [`Duration`] between checking the client pool for free peers.
+        pub check_client_pool_interval: Duration,
+
+        #[comment_out = true]
+        /// The target size of a single batch of blocks (in bytes).
+        ///
+        /// This value must be below 100_000_000, it is not recommended to set it above 30_000_000.
+        pub target_batch_bytes: usize,
+    }
 }
 
 impl From<BlockDownloaderConfig> for cuprate_p2p::block_downloader::BlockDownloaderConfig {
@@ -50,19 +76,24 @@ impl Default for BlockDownloaderConfig {
             buffer_bytes: 1_000_000_000,
             in_progress_queue_bytes: 500_000_000,
             check_client_pool_interval: Duration::from_secs(30),
-            target_batch_bytes: 10_000_000,
+            target_batch_bytes: 15_000_000,
         }
     }
 }
 
-/// The config values for P2P clear-net.
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
-#[serde(deny_unknown_fields, default)]
-pub struct ClearNetConfig {
-    /// The server config.
-    pub listen_on: IpAddr,
-    #[serde(flatten)]
-    pub general: SharedNetConfig,
+config_struct! {
+    /// The config values for P2P clear-net.
+    #[derive(Debug, Deserialize, Serialize, PartialEq)]
+    #[serde(deny_unknown_fields, default)]
+    pub struct ClearNetConfig {
+        /// The IP address we should bind to to listen to connections on.
+        pub listen_on: IpAddr,
+
+        #[flatten = true]
+        /// Shared config values.
+        ##[serde(flatten)]
+        pub general: SharedNetConfig,
+    }
 }
 
 impl Default for ClearNetConfig {
@@ -74,26 +105,42 @@ impl Default for ClearNetConfig {
     }
 }
 
-/// Network config values shared between all network zones.
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
-#[serde(deny_unknown_fields, default)]
-pub struct SharedNetConfig {
-    /// The number of outbound connections to make and try keep.
-    pub outbound_connections: usize,
-    /// The amount of extra connections we can make if we are under load from the rest of Cuprate.
-    pub extra_outbound_connections: usize,
-    /// The maximum amount of inbound connections
-    pub max_inbound_connections: usize,
-    /// The percent of connections that should be to peers we haven't connected to before.
-    pub gray_peers_percent: f64,
-    /// port to use to accept p2p connections.
-    pub p2p_port: u16,
-    /// The address book config.
-    address_book_config: AddressBookConfig,
+config_struct! {
+    /// Network config values shared between all network zones.
+    #[derive(Debug, Deserialize, Serialize, PartialEq)]
+    #[serde(deny_unknown_fields, default)]
+    pub struct SharedNetConfig {
+        #[comment_out = true]
+        /// The number of outbound connections to make and try keep.
+        ///
+        /// Recommended to keep this value above 12.
+        pub outbound_connections: usize,
+
+        #[comment_out = true]
+        /// The amount of extra connections we can make if we are under load from the rest of Cuprate.
+        pub extra_outbound_connections: usize,
+
+        #[comment_out = true]
+        /// The maximum amount of inbound connections we should allow.
+        pub max_inbound_connections: usize,
+
+        #[comment_out = true]
+        /// The percent of connections that should be to peers we haven't connected to before.
+        pub gray_peers_percent: f64,
+
+        /// port to use to accept p2p connections.
+        ///
+        /// Set to 0 if you do not want to accept P2P connections.
+        pub p2p_port: u16,
+
+        #[child = true]
+        /// The address book config.
+        pub address_book_config: AddressBookConfig,
+    }
 }
 
 impl SharedNetConfig {
-    /// Returns the [`AddressBookConfig`].
+    /// Returns the [`cuprate_address_book::AddressBookConfig`].
     pub fn address_book_config(
         &self,
         cache_dir: &Path,
@@ -111,22 +158,35 @@ impl SharedNetConfig {
 impl Default for SharedNetConfig {
     fn default() -> Self {
         Self {
-            outbound_connections: 64,
+            outbound_connections: 32,
             extra_outbound_connections: 8,
             max_inbound_connections: 128,
             gray_peers_percent: 0.7,
-            p2p_port: 0,
+            p2p_port: 18080,
             address_book_config: AddressBookConfig::default(),
         }
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
-#[serde(deny_unknown_fields, default)]
-pub struct AddressBookConfig {
-    max_white_list_length: usize,
-    max_gray_list_length: usize,
-    peer_save_period: Duration,
+config_struct! {
+    /// The addressbook config exposed to users.
+    #[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
+    #[serde(deny_unknown_fields, default)]
+    pub struct AddressBookConfig {
+        /// The size of the white peer list.
+        ///
+        /// The white list holds peers we have connected to before.
+        pub max_white_list_length: usize,
+
+        /// The size of the gray peer list.
+        ///
+        /// The gray peer list holds peers we have been told about but not connected to ourself.
+        pub max_gray_list_length: usize,
+
+        #[inline = true]
+        /// The time period between address book saves.
+        pub peer_save_period: Duration,
+    }
 }
 
 impl Default for AddressBookConfig {

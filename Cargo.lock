@@ -354,9 +354,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.4"
+version = "1.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9157bbaa6b165880c27a4293a474c91cdcf265cc68cc829bf10be0964a391caf"
+checksum = "1fcb57c740ae1daf453ae85f16e37396f672b039e00d9d866e07ddb24e328e3a"
 dependencies = [
  "shlex",
 ]
@@ -743,6 +743,7 @@ dependencies = [
  "serde",
  "tempfile",
  "thiserror",
+ "tracing",
 ]
 
 [[package]]
@@ -756,6 +757,7 @@ dependencies = [
  "rayon",
  "serde",
  "tower 0.5.1",
+ "tracing",
 ]
 
 [[package]]
@@ -764,6 +766,7 @@ version = "0.5.0"
 dependencies = [
  "bytes",
  "cuprate-fixed-bytes",
+ "cuprate-hex",
  "hex",
  "paste",
  "ref-cast",
@@ -817,6 +820,15 @@ dependencies = [
  "serde",
  "tokio",
  "windows",
+]
+
+[[package]]
+name = "cuprate-hex"
+version = "0.0.0"
+dependencies = [
+ "hex",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -946,9 +958,15 @@ version = "0.0.0"
 dependencies = [
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
+ "cuprate-helper",
+ "cuprate-hex",
+ "cuprate-p2p-core",
  "cuprate-test-utils",
  "cuprate-types",
+ "hex",
+ "hex-literal",
  "paste",
+ "pretty_assertions",
  "serde",
  "serde_json",
 ]
@@ -1005,12 +1023,14 @@ dependencies = [
 name = "cuprate-types"
 version = "0.0.0"
 dependencies = [
+ "bitflags 2.6.0",
  "bytes",
+ "cfg-if",
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
  "cuprate-helper",
+ "cuprate-hex",
  "curve25519-dalek",
- "hex",
  "hex-literal",
  "indexmap",
  "monero-serai",
@@ -1043,7 +1063,7 @@ name = "cuprate-zmq-types"
 version = "0.1.0"
 dependencies = [
  "assert-json-diff",
- "cuprate-types",
+ "cuprate-hex",
  "hex",
  "serde",
  "serde_json",
@@ -1080,6 +1100,7 @@ dependencies = [
  "cuprate-fast-sync",
  "cuprate-fixed-bytes",
  "cuprate-helper",
+ "cuprate-hex",
  "cuprate-json-rpc",
  "cuprate-levin",
  "cuprate-p2p",
@@ -1098,6 +1119,7 @@ dependencies = [
  "hex",
  "hex-literal",
  "indexmap",
+ "monero-address",
  "monero-serai",
  "nu-ansi-term",
  "paste",
@@ -1109,6 +1131,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
+ "strum",
  "tempfile",
  "thiserror",
  "thread_local",
@@ -1116,6 +1139,7 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "toml",
+ "toml_edit",
  "tower 0.5.1",
  "tracing",
  "tracing-appender",
@@ -2588,15 +2612,14 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
 name = "ring"
-version = "0.17.8"
+version = "0.17.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c17fa4cb658e3583423e915b9f3acc01cceaee1860e33d59ebae66adc3a2dc0d"
+checksum = "a4689e6c2294d81e88dc6261c768b63bc4fcdb852be6d1352498b114f61383b7"
 dependencies = [
  "cc",
  "cfg-if",
  "getrandom",
  "libc",
- "spin",
  "untrusted",
  "windows-sys 0.52.0",
 ]

@@ -34,8 +34,6 @@ pub const DEFAULT_CONFIG_WARNING: &str = formatcp!(
 
 pub const DEFAULT_CONFIG_STARTUP_DELAY: Duration = Duration::from_secs(15);
 
-pub const EXAMPLE_CONFIG: &str = include_str!("../config/Cuprated.toml");
-
 #[cfg(test)]
 mod test {
     use super::*;

@@ -1,9 +1,16 @@
 //! Tx-pool [`service`](super) interface.
 //!
 //! This module contains `cuprate_txpool`'s [`tower::Service`] request and response enums.
-use std::collections::{HashMap, HashSet};
 
-use cuprate_types::TransactionVerificationData;
+use std::{
+    collections::{HashMap, HashSet},
+    num::NonZero,
+};
+
+use cuprate_types::{
+    rpc::{PoolInfo, SpentKeyImageInfo, TxInfo, TxpoolStats},
+    TransactionVerificationData, TxInPool,
+};
 
 use crate::{
     tx::TxEntry,
@@ -12,6 +19,10 @@ use crate::{
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadRequest
 /// The transaction pool [`tower::Service`] read request type.
+///
+/// ### `include_sensitive_txs`
+/// This field exists in many requests.
+/// If this is [`true`], the request will include private (local) transactions in the response.
 #[derive(Clone)]
 pub enum TxpoolReadRequest {
     /// Get the blob (raw bytes) of a transaction with the given hash.
@@ -32,11 +43,47 @@ pub enum TxpoolReadRequest {
     Backlog,
 
     /// Get the number of transactions in the pool.
-    Size {
-        /// If this is [`true`], the size returned will
-        /// include private transactions in the pool.
+    Size { include_sensitive_txs: bool },
+
+    /// Get general information on the txpool.
+    PoolInfo {
+        include_sensitive_txs: bool,
+        /// The maximum amount of transactions to retrieve.
+        max_tx_count: usize,
+        /// Fetch transactions that start from this time.
+        ///
+        /// [`None`] means all transactions.
+        start_time: Option<NonZero<usize>>,
+    },
+
+    /// Get transactions by their hashes.
+    TxsByHash {
+        tx_hashes: Vec<[u8; 32]>,
         include_sensitive_txs: bool,
     },
+
+    /// Check if any individual key images of a set exist in the txpool.
+    KeyImagesSpent {
+        key_images: HashSet<[u8; 32]>,
+        include_sensitive_txs: bool,
+    },
+
+    /// Same as [`TxpoolReadRequest::KeyImagesSpent`] but with a [`Vec`].
+    ///
+    /// The response will be in the same order as the request.
+    KeyImagesSpentVec {
+        key_images: Vec<[u8; 32]>,
+        include_sensitive_txs: bool,
+    },
+
+    /// Get txpool info.
+    Pool { include_sensitive_txs: bool },
+
+    /// Get txpool stats.
+    PoolStats { include_sensitive_txs: bool },
+
+    /// Get the hashes of all transaction in the pool.
+    AllHashes { include_sensitive_txs: bool },
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadResponse
@@ -76,6 +123,35 @@ pub enum TxpoolReadResponse {
     /// The inner value is the amount of
     /// transactions currently in the pool.
     Size(usize),
+
+    /// Response to [`TxpoolReadRequest::PoolInfo`].
+    PoolInfo(PoolInfo),
+
+    /// Response to [`TxpoolReadRequest::TxsByHash`].
+    TxsByHash(Vec<TxInPool>),
+
+    /// Response to [`TxpoolReadRequest::KeyImagesSpent`].
+    KeyImagesSpent(bool),
+
+    /// Response to [`TxpoolReadRequest::KeyImagesSpentVec`].
+    ///
+    /// Inner value is a `Vec` the same length as the input.
+    ///
+    /// The index of each entry corresponds with the request.
+    /// `true` means that the key image was spent.
+    KeyImagesSpentVec(Vec<bool>),
+
+    /// Response to [`TxpoolReadRequest::Pool`].
+    Pool {
+        txs: Vec<TxInfo>,
+        spent_key_images: Vec<SpentKeyImageInfo>,
+    },
+
+    /// Response to [`TxpoolReadRequest::PoolStats`].
+    PoolStats(TxpoolStats),
+
+    /// Response to [`TxpoolReadRequest::AllHashes`].
+    AllHashes(Vec<[u8; 32]>),
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteRequest

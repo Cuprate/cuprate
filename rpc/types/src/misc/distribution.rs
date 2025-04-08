@@ -16,7 +16,7 @@ use cuprate_epee_encoding::{
 ///
 /// Used for [`Distribution::CompressedBinary::distribution`].
 #[doc = crate::macros::monero_definition_link!(
-    cc73fe71162d564ffda8e549b79a350bca53c454,
+    "cc73fe71162d564ffda8e549b79a350bca53c454",
     "rpc/core_rpc_server_commands_defs.h",
     45..=55
 )]
@@ -29,7 +29,7 @@ fn compress_integer_array(_: &[u64]) -> Vec<u8> {
 ///
 /// Used for [`Distribution::CompressedBinary::distribution`].
 #[doc = crate::macros::monero_definition_link!(
-    cc73fe71162d564ffda8e549b79a350bca53c454,
+    "cc73fe71162d564ffda8e549b79a350bca53c454",
     "rpc/core_rpc_server_commands_defs.h",
     57..=72
 )]
@@ -40,7 +40,7 @@ fn decompress_integer_array(_: &[u8]) -> Vec<u64> {
 
 //---------------------------------------------------------------------------------------------------- Distribution
 #[doc = crate::macros::monero_definition_link!(
-    cc73fe71162d564ffda8e549b79a350bca53c454,
+    "cc73fe71162d564ffda8e549b79a350bca53c454",
     "rpc/core_rpc_server_commands_defs.h",
     2468..=2508
 )]

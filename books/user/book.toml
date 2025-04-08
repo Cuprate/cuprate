@@ -10,3 +10,6 @@ git-repository-url = "https://github.com/Cuprate/cuprate/books/user"
 default-theme = "ayu"
 preferred-dark-theme = "ayu"
 no-section-label = true
+
+[preprocessor.gen_config]
+command = "bash ./books/user/gen_config.sh"

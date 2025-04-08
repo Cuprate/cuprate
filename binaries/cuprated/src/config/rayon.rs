@@ -1,11 +1,16 @@
 use serde::{Deserialize, Serialize};
 
-/// The [`rayon`] config.
-#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
-#[serde(deny_unknown_fields, default)]
-pub struct RayonConfig {
-    /// The number of threads to use for the [`rayon::ThreadPool`].
-    pub threads: usize,
+use super::macros::config_struct;
+
+config_struct! {
+    /// The [`rayon`] config.
+    #[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
+    #[serde(deny_unknown_fields, default)]
+    pub struct RayonConfig {
+        #[comment_out = true]
+        /// The number of threads to use for the rayon thread pool.
+        pub threads: usize,
+    }
 }
 
 impl Default for RayonConfig {
