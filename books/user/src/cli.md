@@ -25,7 +25,7 @@ The `--version` flag outputs the following info in JSON.
 | `minor_version`         | Number | Minor version of `cuprated`                           |
 | `patch_version`         | Number | Patch version of `cuprated`                           |
 | `rpc_major_version`     | Number | Major RPC version (follows `monerod`)                 |
-| `rpc_minor_version`     | Number | minor RPC version (follows `monerod`)                 |
+| `rpc_minor_version`     | Number | Minor RPC version (follows `monerod`)                 |
 | `rpc_version`           | Number | RPC version (follows `monerod`)                       |
 | `hardfork`              | Number | Current hardfork version                              |
 | `blockchain_db_version` | Number | Blockchain database version (separate from `monerod`) |
