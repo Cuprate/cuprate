@@ -417,7 +417,8 @@ impl<Z: BorshNetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
             AddressBookRequest::GetBan(addr) => Ok(AddressBookResponse::GetBan {
                 unban_instant: self.peer_unban_instant(&addr).map(Instant::into_std),
             }),
-            AddressBookRequest::PeerlistSize
+            AddressBookRequest::Peerlist
+            | AddressBookRequest::PeerlistSize
             | AddressBookRequest::ConnectionCount
             | AddressBookRequest::SetBan(_)
             | AddressBookRequest::GetBans

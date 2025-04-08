@@ -24,7 +24,6 @@ cargo doc --open --package cuprate-blockchain
 | Crate | In-tree path | Purpose |
 |-------|--------------|---------|
 | [`cuprate-epee-encoding`](https://doc.cuprate.org/cuprate_epee_encoding) | [`net/epee-encoding/`](https://github.com/Cuprate/cuprate/tree/main/net/epee-encoding) | Epee (de)serialization
-| [`cuprate-fixed-bytes`](https://doc.cuprate.org/cuprate_fixed_bytes) | [`net/fixed-bytes/`](https://github.com/Cuprate/cuprate/tree/main/net/fixed-bytes) | Fixed byte containers backed by `byte::Byte`
 | [`cuprate-levin`](https://doc.cuprate.org/cuprate_levin) | [`net/levin/`](https://github.com/Cuprate/cuprate/tree/main/net/levin) | Levin bucket protocol implementation
 | [`cuprate-wire`](https://doc.cuprate.org/cuprate_wire) | [`net/wire/`](https://github.com/Cuprate/cuprate/tree/main/net/wire) | TODO
 
@@ -45,6 +44,13 @@ cargo doc --open --package cuprate-blockchain
 | [`cuprate-database`](https://doc.cuprate.org/cuprate_database) | [`storage/database/`](https://github.com/Cuprate/cuprate/tree/main/storage/database) | Pure database abstraction
 | [`cuprate-database-service`](https://doc.cuprate.org/cuprate_database_service) | [`storage/database-service/`](https://github.com/Cuprate/cuprate/tree/main/storage/database-service) | `tower::Service` + thread-pool abstraction built on-top of `cuprate-database`
 | [`cuprate-txpool`](https://doc.cuprate.org/cuprate_txpool) | [`storage/txpool/`](https://github.com/Cuprate/cuprate/tree/main/storage/txpool) | Transaction pool database built on-top of `cuprate-database` & `cuprate-database-service`
+
+## Types
+| Crate | In-tree path | Purpose |
+|-------|--------------|---------|
+| [`cuprate-types`](https://doc.cuprate.org/cuprate_types) | [`types/types/`](https://github.com/Cuprate/cuprate/tree/main/types/types) | General types used throughout Cuprate |
+| [`cuprate-hex`](https://doc.cuprate.org/cuprate_hex) | [`types/hex/`](https://github.com/Cuprate/cuprate/tree/main/types/hex) | Hexadecimal data types |
+| [`cuprate-fixed-bytes`](https://doc.cuprate.org/cuprate_fixed_bytes) | [`types/fixed-bytes/`](https://github.com/Cuprate/cuprate/tree/main/net/fixed-bytes) | Fixed byte containers backed by `byte::Byte`
 
 ## RPC
 | Crate | In-tree path | Purpose |
@@ -67,4 +73,3 @@ cargo doc --open --package cuprate-blockchain
 | [`cuprate-pruning`](https://doc.cuprate.org/cuprate_pruning) | [`pruning/`](https://github.com/Cuprate/cuprate/tree/main/pruning) | Monero pruning logic/types
 | [`cuprate-helper`](https://doc.cuprate.org/cuprate_helper) | [`helper/`](https://github.com/Cuprate/cuprate/tree/main/helper) | Kitchen-sink helper crate for Cuprate
 | [`cuprate-test-utils`](https://doc.cuprate.org/cuprate_test_utils) | [`test-utils/`](https://github.com/Cuprate/cuprate/tree/main/test-utils) | Testing utilities for Cuprate
-| [`cuprate-types`](https://doc.cuprate.org/cuprate_types) | [`types/`](https://github.com/Cuprate/cuprate/tree/main/types) | Shared types across Cuprate
