@@ -20,12 +20,13 @@ use std::{mem, sync::Arc};
 
 use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
-use tracing::{info, level_filters::LevelFilter};
+use tracing::{error, info, level_filters::LevelFilter};
 use tracing_subscriber::{layer::SubscriberExt, reload::Handle, util::SubscriberInitExt, Registry};
 
 use cuprate_consensus_context::{
     BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
 };
+use cuprate_database::{InitError, DATABASE_CORRUPT_MSG};
 use cuprate_helper::time::secs_to_hms;
 use cuprate_types::blockchain::BlockchainWriteRequest;
 
@@ -77,9 +78,13 @@ fn main() {
             config.blockchain_config(),
             Arc::clone(&db_thread_pool),
         )
-        .unwrap();
+        .inspect_err(|e| error!("Blockchain database error: {e}"))
+        .expect(DATABASE_CORRUPT_MSG);
+
     let (txpool_read_handle, txpool_write_handle, _) =
-        cuprate_txpool::service::init_with_pool(config.txpool_config(), db_thread_pool).unwrap();
+        cuprate_txpool::service::init_with_pool(config.txpool_config(), db_thread_pool)
+            .inspect_err(|e| error!("Txpool database error: {e}"))
+            .expect(DATABASE_CORRUPT_MSG);
 
     // Initialize async tasks.
 
