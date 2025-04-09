@@ -128,7 +128,7 @@ config_struct! {
         #[child = true]
         /// Configuration for cuprated's asynchronous runtime system, tokio.
         ///
-        /// Tokio is used for network operations and the major service inside `cuprated`.
+        /// Tokio is used for network operations and the major services inside `cuprated`.
         pub tokio: TokioConfig,
 
         #[child = true]
