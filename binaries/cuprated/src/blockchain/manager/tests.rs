@@ -7,16 +7,16 @@ use monero_serai::{
 use tokio::sync::{oneshot, watch};
 use tower::BoxError;
 
+use cuprate_consensus_context::{BlockchainContext, ContextConfig};
+use cuprate_consensus_rules::{hard_forks::HFInfo, miner_tx::calculate_block_reward, HFsInfo};
+use cuprate_helper::network::Network;
+use cuprate_p2p::{block_downloader::BlockBatch, BroadcastSvc};
+use cuprate_p2p_core::handles::HandleBuilder;
+
 use crate::blockchain::{
     check_add_genesis, manager::BlockchainManager, manager::BlockchainManagerCommand,
     ConsensusBlockchainReadHandle,
 };
-use cuprate_consensus_context::{BlockchainContext, ContextConfig};
-use cuprate_consensus_rules::{hard_forks::HFInfo, miner_tx::calculate_block_reward, HFsInfo};
-use cuprate_helper::network::Network;
-use cuprate_p2p::block_downloader::BlockBatch;
-use cuprate_p2p::BroadcastSvc;
-use cuprate_p2p_core::handles::HandleBuilder;
 
 async fn mock_manager(data_dir: PathBuf) -> BlockchainManager {
     let blockchain_config = cuprate_blockchain::config::ConfigBuilder::new()
