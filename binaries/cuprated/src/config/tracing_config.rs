@@ -9,11 +9,11 @@ config_struct! {
     #[serde(deny_unknown_fields, default)]
     pub struct TracingConfig {
         #[child = true]
-        /// The stdout logging config.
+        /// Configuration for cuprated's stdout logging system.
         pub stdout: StdoutTracingConfig,
 
         #[child = true]
-        /// The file logging config.
+        /// Configuration for cuprated's file logging system.
         pub file: FileTracingConfig,
     }
 }
@@ -22,7 +22,14 @@ config_struct! {
     #[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
     #[serde(deny_unknown_fields, default)]
     pub struct StdoutTracingConfig {
-        /// The default minimum log level.
+        /// The minimum log level for stdout.
+        ///
+        /// Levels below this one will not be shown.
+        /// "error" is the highest level only showing errors,
+        /// "trace" is the lowest showing as much as possible.
+        ///
+        /// Type         | Level
+        /// Valid values | "error", "warn", "info", "debug", "trace"
         ##[serde(with = "level_filter_serde")]
         pub level: LevelFilter,
     }
@@ -40,12 +47,24 @@ config_struct! {
     #[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
     #[serde(deny_unknown_fields, default)]
     pub struct FileTracingConfig {
-        /// The default minimum log level.
+        /// The minimum log level for file logs.
+        ///
+        /// Levels below this one will not be shown.
+        /// "error" is the highest level only showing errors,
+        /// "trace" is the lowest showing as much as possible.
+        ///
+        /// Type         | Level
+        /// Valid values | "error", "warn", "info", "debug", "trace"
         ##[serde(with = "level_filter_serde")]
         pub level: LevelFilter,
 
-        /// The maximum amount of log files to keep, once this number is passed the oldest file
-        /// will be deleted.
+        /// The maximum amount of log files to keep.
+        ///
+        /// Once this number is passed the oldest file will be deleted.
+        ///
+        /// Type         | Number
+        /// Valid values | >= 0
+        /// Examples     | 0, 7, 200
         pub max_log_files: usize,
     }
 }

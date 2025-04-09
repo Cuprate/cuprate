@@ -8,6 +8,57 @@ use toml_edit::TableLike;
 /// - `#[child = true]`: writes the doc comments for all fields in the child struct.
 /// - `#[inline = true]`: inlines the struct into `{}` instead of having a separate `[]` header.
 /// - `#[comment_out = true]`: comments out the field.
+///
+/// # Documentation
+/// Consider using the following style when adding documentation:
+///
+/// ```rust
+/// struct Config {
+///     /// BRIEF DESCRIPTION.
+///     ///
+///     /// (optional) LONGER DESCRIPTION.
+//      ///
+///     /// Type         | (optional) FIELD TYPE
+///     /// Valid values | EXPRESSION REPRESENTING VALID VALUES
+///     /// Examples     | (optional) A FEW EXAMPLE VALUES
+///     field: (),
+/// }
+/// ```
+///
+/// For example:
+/// ```rust
+/// struct Config {
+///     /// Enable/disable fast sync.
+///     ///
+///     /// Fast sync skips verification of old blocks by
+///     /// comparing block hashes to a built-in hash file,
+///     /// disabling this will significantly increase sync time.
+///     /// New blocks are still fully validated.
+///     ///
+///     /// Type         | boolean
+///     /// Valid values | true, false
+///     fast_sync: bool,
+/// }
+/// ```
+///
+/// Language for types:
+///
+/// | Rust type    | Wording used in user-book |
+/// |--------------|---------------------------|
+/// | bool         | boolean
+/// | u{8-64}      | Number
+/// | i{8-64}      | Signed number
+/// | f{32,64}     | Floating point number
+/// | str, String  | String
+/// | enum, struct | `DataStructureName` (e.g. `Duration`) or $DESCRIPTION (e.g. `IP address`)
+///
+/// If some fields are redundant or unnecessary, do not add them.
+///
+/// # Field documentation length
+/// In order to prevent wrapping/scrollbars in the user book and in editors,
+/// add newlines when a documentation line crosses ~70 characters, around this long:
+///
+/// `----------------------------------------------------------------------`
 macro_rules! config_struct {
     (
         $(#[$meta:meta])*

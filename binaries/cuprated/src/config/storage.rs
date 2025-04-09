@@ -17,6 +17,10 @@ config_struct! {
         /// The amount of reader threads to spawn for the tx-pool and blockchain.
         ///
         /// The tx-pool and blockchain both share a single threadpool.
+        ///
+        /// Type         | Number
+        /// Valid values | >= 0
+        /// Examples     | 1, 16, 10
         pub reader_threads: usize,
 
         #[child = true]
@@ -62,6 +66,10 @@ config_struct! {
         pub shared: SharedStorageConfig,
 
         /// The maximum size of the tx-pool.
+        ///
+        /// Type         | Number
+        /// Valid values | >= 0
+        /// Examples     | 100_000_000, 50_000_000
         pub max_txpool_byte_size: usize,
     }
 }
@@ -83,10 +91,11 @@ config_struct! {
         #[comment_out = true]
         /// The sync mode of the database.
         ///
-        /// Changing this value could make the DB a lot slower when writing data, although
-        /// using "Safe" makes the DB more durable if there was an unexpected crash.
+        /// Using "Safe" makes the DB less likely to corrupt
+        /// if there is an unexpected crash, although it will
+        /// make DB writes much slower.
         ///
-        /// Valid values: ["Fast", "Safe"].
+        /// Valid values | "Fast", "Safe"
         pub sync_mode: SyncMode,
     }
 }

@@ -32,28 +32,47 @@ config_struct! {
     #[serde(deny_unknown_fields, default)]
     pub struct BlockDownloaderConfig {
         #[comment_out = true]
-        /// The size in bytes of the buffer between the block downloader and the place which
-        /// is consuming the downloaded blocks (`cuprated`).
+        /// The size in bytes of the buffer between the block downloader
+        /// and the place which is consuming the downloaded blocks (`cuprated`).
         ///
-        /// This value is an absolute maximum, once this is reached the block downloader will pause.
+        /// This value is an absolute maximum,
+        /// once this is reached the block downloader will pause.
+        ///
+        /// Type         | Number
+        /// Valid values | >= 0
+        /// Examples     | 1_000_000_000, 5_500_000_000, 500_000_000
         pub buffer_bytes: usize,
 
         #[comment_out = true]
-        /// The size of the in progress queue (in bytes) at which we stop requesting more blocks.
+        /// The size of the in progress queue (in bytes)
+        /// at which cuprated stops requesting more blocks.
         ///
-        /// The value is _NOT_ an absolute maximum, the in progress queue could get much larger. This value
-        /// is only the value we stop requesting more blocks, if we still have requests in progress we will
-        /// still accept the response and add the blocks to the queue.
+        /// The value is _NOT_ an absolute maximum,
+        /// the in-progress queue could get much larger.
+        /// This value is only the value cuprated stops requesting more blocks,
+        /// if cuprated still has requests in progress,
+        /// it will still accept the response and add the blocks to the queue.
+        ///
+        /// Type         | Number
+        /// Valid values | >= 0
+        /// Examples     | 500_000_000, 1_000_000_000,
         pub in_progress_queue_bytes: usize,
 
         #[inline = true]
-        /// The [`Duration`] between checking the client pool for free peers.
+        /// The duration between checking the client pool for free peers.
+        ///
+        /// Type     | Duration
+        /// Examples | { secs = 30, nanos = 0 }, { secs = 35, nano = 123 }
         pub check_client_pool_interval: Duration,
 
         #[comment_out = true]
         /// The target size of a single batch of blocks (in bytes).
         ///
-        /// This value must be below 100_000_000, it is not recommended to set it above 30_000_000.
+        /// This value must be below 100_000,000,
+        /// it is not recommended to set it above 30_000_000.
+        ///
+        /// Type         | Number
+        /// Valid values | 0..100_000,000
         pub target_batch_bytes: usize,
     }
 }
@@ -86,7 +105,10 @@ config_struct! {
     #[derive(Debug, Deserialize, Serialize, PartialEq)]
     #[serde(deny_unknown_fields, default)]
     pub struct ClearNetConfig {
-        /// The IP address we should bind to to listen to connections on.
+        /// The IP address to bind and listen for connections on.
+        ///
+        /// Type     | IPv4/IPv6 address
+        /// Examples | "0.0.0.0", "192.168.1.50", "::"
         pub listen_on: IpAddr,
 
         #[flatten = true]
@@ -113,24 +135,48 @@ config_struct! {
         #[comment_out = true]
         /// The number of outbound connections to make and try keep.
         ///
-        /// Recommended to keep this value above 12.
+        /// It's recommended to keep this value above 12.
+        ///
+        /// Type         | Number
+        /// Valid values | >= 0
+        /// Examples     | 12, 32, 64, 100, 500
         pub outbound_connections: usize,
 
         #[comment_out = true]
-        /// The amount of extra connections we can make if we are under load from the rest of Cuprate.
+        /// The amount of extra connections to make if cuprated is under load.
+        ///
+        /// Type         | Number
+        /// Valid values | >= 0
+        /// Examples     | 0, 12, 32, 64, 100, 500
         pub extra_outbound_connections: usize,
 
         #[comment_out = true]
-        /// The maximum amount of inbound connections we should allow.
+        /// The maximum amount of inbound connections to allow.
+        ///
+        /// Type         | Number
+        /// Valid values | >= 0
+        /// Examples     | 0, 12, 32, 64, 100, 500
         pub max_inbound_connections: usize,
 
         #[comment_out = true]
-        /// The percent of connections that should be to peers we haven't connected to before.
+        /// The percent of connections that should be
+        /// to peers that haven't connected to before.
+        ///
+        /// 0.0 is 0%.
+        /// 1.0 is 100%.
+        ///
+        /// Type         | Floating point number
+        /// Valid values | 0.0..1.0
+        /// Examples     | 0.0, 0.5, 0.123, 0.999, 1.0
         pub gray_peers_percent: f64,
 
-        /// port to use to accept p2p connections.
+        /// The port to use to accept incoming P2P connections.
         ///
-        /// Set to 0 if you do not want to accept P2P connections.
+        /// Setting this to 0 will disable incoming P2P connections.
+        ///
+        /// Type         | Number
+        /// Valid values | 0..65534
+        /// Examples     | 18080, 9999, 5432
         pub p2p_port: u16,
 
         #[child = true]
@@ -175,16 +221,28 @@ config_struct! {
     pub struct AddressBookConfig {
         /// The size of the white peer list.
         ///
-        /// The white list holds peers we have connected to before.
+        /// The white list holds peers that have been connected to before.
+        ///
+        /// Type         | Number
+        /// Valid values | >= 0
+        /// Examples     | 1000, 500, 241
         pub max_white_list_length: usize,
 
         /// The size of the gray peer list.
         ///
-        /// The gray peer list holds peers we have been told about but not connected to ourself.
+        /// The gray peer list holds peers that have been
+        /// told about but not connected to cuprated.
+        ///
+        /// Type         | Number
+        /// Valid values | >= 0
+        /// Examples     | 1000, 500, 241
         pub max_gray_list_length: usize,
 
         #[inline = true]
         /// The time period between address book saves.
+        ///
+        /// Type     | Duration
+        /// Examples | { secs = 90, nanos = 0 }, { secs = 100, nano = 123 }
         pub peer_save_period: Duration,
     }
 }
