@@ -43,15 +43,15 @@ mod test {
     fn version() {
         let semantic_version = format!("{MAJOR_VERSION}.{MINOR_VERSION}.{PATCH_VERSION}");
         assert_eq!(VERSION, VERSION);
-        assert_eq!(VERSION, "0.0.2");
+        assert_eq!(VERSION, "0.0.3");
     }
 
     #[test]
     fn version_build() {
         if cfg!(debug_assertions) {
-            assert_eq!(VERSION_BUILD, "0.0.2-debug");
+            assert_eq!(VERSION_BUILD, "0.0.3-debug");
         } else {
-            assert_eq!(VERSION_BUILD, "0.0.2-release");
+            assert_eq!(VERSION_BUILD, "0.0.3-release");
         }
     }
 }
