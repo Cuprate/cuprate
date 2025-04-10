@@ -10,7 +10,8 @@ use tower::BoxError;
 use cuprate_consensus_context::{BlockchainContext, ContextConfig};
 use cuprate_consensus_rules::{hard_forks::HFInfo, miner_tx::calculate_block_reward, HFsInfo};
 use cuprate_helper::network::Network;
-use cuprate_p2p::BroadcastSvc;
+use cuprate_p2p::{block_downloader::BlockBatch, BroadcastSvc};
+use cuprate_p2p_core::handles::HandleBuilder;
 
 use crate::blockchain::{
     check_add_genesis, manager::BlockchainManager, manager::BlockchainManagerCommand,
@@ -186,6 +187,121 @@ async fn simple_reorg() {
             block: block_3,
             prepped_txs: HashMap::new(),
             response_tx: oneshot::channel().0,
+        })
+        .await;
+
+    // make sure manager 1 reorged.
+    assert_eq!(
+        manager_1.blockchain_context_service.blockchain_context(),
+        manager_2.blockchain_context_service.blockchain_context()
+    );
+    assert_eq!(
+        manager_1
+            .blockchain_context_service
+            .blockchain_context()
+            .chain_height,
+        4
+    );
+}
+
+/// Same as [`simple_reorg`] but uses block batches instead.
+#[tokio::test]
+async fn simple_reorg_block_batch() {
+    cuprate_fast_sync::set_fast_sync_hashes(&[]);
+
+    let handle = HandleBuilder::new().build();
+
+    // create 2 managers
+    let data_dir_1 = tempfile::tempdir().unwrap();
+    let mut manager_1 = mock_manager(data_dir_1.path().to_path_buf()).await;
+
+    let data_dir_2 = tempfile::tempdir().unwrap();
+    let mut manager_2 = mock_manager(data_dir_2.path().to_path_buf()).await;
+
+    // give both managers the same first non-genesis block
+    let block_1 = generate_block(manager_1.blockchain_context_service.blockchain_context());
+
+    manager_1
+        .handle_incoming_block_batch(BlockBatch {
+            blocks: vec![(block_1.clone(), vec![])],
+            size: 0,
+            peer_handle: handle.1.clone(),
+        })
+        .await;
+
+    manager_2
+        .handle_incoming_block_batch(BlockBatch {
+            blocks: vec![(block_1, vec![])],
+            size: 0,
+            peer_handle: handle.1.clone(),
+        })
+        .await;
+
+    assert_eq!(
+        manager_1.blockchain_context_service.blockchain_context(),
+        manager_2.blockchain_context_service.blockchain_context()
+    );
+
+    // give managers different 2nd block
+    let block_2a = generate_block(manager_1.blockchain_context_service.blockchain_context());
+    let block_2b = generate_block(manager_2.blockchain_context_service.blockchain_context());
+
+    manager_1
+        .handle_incoming_block_batch(BlockBatch {
+            blocks: vec![(block_2a, vec![])],
+            size: 0,
+            peer_handle: handle.1.clone(),
+        })
+        .await;
+
+    manager_2
+        .handle_incoming_block_batch(BlockBatch {
+            blocks: vec![(block_2b.clone(), vec![])],
+            size: 0,
+            peer_handle: handle.1.clone(),
+        })
+        .await;
+
+    let manager_1_context = manager_1
+        .blockchain_context_service
+        .blockchain_context()
+        .clone();
+    assert_ne!(
+        &manager_1_context,
+        manager_2.blockchain_context_service.blockchain_context()
+    );
+
+    // give manager 1 missing block
+
+    manager_1
+        .handle_incoming_block_batch(BlockBatch {
+            blocks: vec![(block_2b, vec![])],
+            size: 0,
+            peer_handle: handle.1.clone(),
+        })
+        .await;
+    // make sure this didn't change the context
+    assert_eq!(
+        &manager_1_context,
+        manager_1.blockchain_context_service.blockchain_context()
+    );
+
+    // give both managers new block (built of manager 2's chain)
+    let block_3 = generate_block(manager_2.blockchain_context_service.blockchain_context());
+
+    manager_1
+        .handle_incoming_block_batch(BlockBatch {
+            blocks: vec![(block_3.clone(), vec![])],
+            size: 0,
+            peer_handle: handle.1.clone(),
+        })
+        .await;
+
+    manager_2
+        .handle_incoming_block_batch(BlockBatch {
+            blocks: vec![(block_3, vec![])],
+            size: 0,
+            peer_handle: handle.1.clone(),
         })
         .await;
 

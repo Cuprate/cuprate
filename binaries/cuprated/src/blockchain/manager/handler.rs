@@ -242,7 +242,6 @@ impl super::BlockchainManager {
     /// This function will panic if any internal service returns an unexpected error that we cannot
     /// recover from.
     async fn handle_incoming_block_batch_alt_chain(&mut self, mut batch: BlockBatch) {
-        // TODO: this needs testing (this whole section does but alt-blocks specifically).
         let mut blocks = batch.blocks.into_iter();
 
         while let Some((block, txs)) = blocks.next() {
@@ -271,6 +270,11 @@ impl super::BlockchainManager {
                 Ok(AddAltBlock::Reorged) => {
                     // Collect the remaining blocks and add them to the main chain instead.
                     batch.blocks = blocks.collect();
+
+                    if batch.blocks.is_empty() {
+                        return;
+                    }
+
                     self.handle_incoming_block_batch_main_chain(batch).await;
                     return;
                 }
