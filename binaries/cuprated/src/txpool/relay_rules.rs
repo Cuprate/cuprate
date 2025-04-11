@@ -9,16 +9,20 @@ use cuprate_helper::cast::usize_to_u64;
 use cuprate_types::TransactionVerificationData;
 
 /// The maximum size of the tx extra field.
+///
+/// <https://github.com/monero-project/monero/blob/3b01c490953fe92f3c6628fa31d280a4f0490d28/src/cryptonote_config.h#L217>
 const MAX_TX_EXTRA_SIZE: usize = 1060;
 
+/// <https://github.com/monero-project/monero/blob/3b01c490953fe92f3c6628fa31d280a4f0490d28/src/cryptonote_config.h#L75>
 const DYNAMIC_FEE_REFERENCE_TRANSACTION_WEIGHT: u128 = 3_000;
 
+/// <https://github.com/monero-project/monero/blob/3b01c490953fe92f3c6628fa31d280a4f0490d28/src/cryptonote_core/blockchain.h#L646>
 const FEE_MASK: u64 = 10_u64.pow(4);
 
 #[derive(Debug, Error)]
 pub enum RelayRuleError {
-    #[error("Tx has none zero timelock.")]
-    NoneZeroTimelock,
+    #[error("Tx has non-zero timelock.")]
+    NonZeroTimelock,
     #[error("Tx extra field is too large.")]
     ExtraFieldTooLarge,
     #[error("Tx fee too low.")]
@@ -33,7 +37,7 @@ pub fn check_tx_relay_rules(
     context: &BlockchainContext,
 ) -> Result<(), RelayRuleError> {
     if tx.tx.prefix().additional_timelock != Timelock::None {
-        return Err(RelayRuleError::NoneZeroTimelock);
+        return Err(RelayRuleError::NonZeroTimelock);
     }
 
     if tx.tx.prefix().extra.len() > MAX_TX_EXTRA_SIZE {
