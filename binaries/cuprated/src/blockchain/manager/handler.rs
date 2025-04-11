@@ -82,6 +82,15 @@ impl super::BlockchainManager {
     ///
     /// This function will panic if any internal service returns an unexpected error that we cannot
     /// recover from.
+    #[instrument(
+        name = "incoming_block",
+        skip_all,
+        level = "info",
+        fields(
+            height = block.number().unwrap(),
+            txs = block.transactions.len(),
+        )
+    )]
     pub async fn handle_incoming_block(
         &mut self,
         block: Block,
@@ -93,7 +102,20 @@ impl super::BlockchainManager {
                 .blockchain_context()
                 .top_hash
         {
-            self.handle_incoming_alt_block(block, prepared_txs).await?;
+            let res = self.handle_incoming_alt_block(block, prepared_txs).await?;
+
+            if matches!(res, AddAltBlock::Cached(true)) {
+                info!(
+                    alt_block = true,
+                    hash = hex::encode(
+                        self.blockchain_context_service
+                            .blockchain_context()
+                            .top_hash
+                    ),
+                    "Successfully added block"
+                );
+            }
+
             return Ok(IncomingBlockOk::AddedToAltChain);
         }
 
@@ -114,6 +136,15 @@ impl super::BlockchainManager {
             .chain_height;
 
         self.broadcast_block(block_blob, chain_height).await;
+
+        info!(
+            hash = hex::encode(
+                self.blockchain_context_service
+                    .blockchain_context()
+                    .top_hash
+            ),
+            "Successfully added block"
+        );
 
         Ok(IncomingBlockOk::AddedToMainChain)
     }
@@ -275,7 +306,7 @@ impl super::BlockchainManager {
                     return;
                 }
                 // continue adding alt blocks.
-                Ok(AddAltBlock::Cached) => (),
+                Ok(AddAltBlock::Cached(_)) => (),
             }
         }
 
@@ -317,7 +348,7 @@ impl super::BlockchainManager {
         };
 
         match chain {
-            Some((Chain::Alt(_), _)) => return Ok(AddAltBlock::Cached),
+            Some((Chain::Alt(_), _)) => return Ok(AddAltBlock::Cached(false)),
             Some((Chain::Main, _)) => anyhow::bail!("Alt block already in main chain"),
             None => (),
         }
@@ -344,7 +375,7 @@ impl super::BlockchainManager {
             .call(BlockchainWriteRequest::WriteAltBlock(alt_block_info))
             .await?;
 
-        Ok(AddAltBlock::Cached)
+        Ok(AddAltBlock::Cached(true))
     }
 
     /// Attempt a re-org with the given top block of the alt-chain.
@@ -362,6 +393,7 @@ impl super::BlockchainManager {
     ///
     /// This function will panic if any internal service returns an unexpected error that we cannot
     /// recover from.
+    #[instrument(name = "try_do_reorg", skip_all, level = "info")]
     async fn try_do_reorg(
         &mut self,
         top_alt_block: AltBlockInformation,
@@ -390,6 +422,8 @@ impl super::BlockchainManager {
             .blockchain_context()
             .chain_height;
 
+        info!(split_height, "Attempting blockchain reorg");
+
         let BlockchainResponse::PopBlocks(old_main_chain_id) = self
             .blockchain_write_handle
             .ready()
@@ -417,7 +451,17 @@ impl super::BlockchainManager {
         let reorg_res = self.verify_add_alt_blocks_to_main_chain(alt_blocks).await;
 
         match reorg_res {
-            Ok(()) => Ok(()),
+            Ok(()) => {
+                info!(
+                    top_hash = hex::encode(
+                        self.blockchain_context_service
+                            .blockchain_context()
+                            .top_hash
+                    ),
+                    "Successfully reorged"
+                );
+                Ok(())
+            }
             Err(e) => {
                 todo!("Reverse reorg")
             }
@@ -564,7 +608,9 @@ impl super::BlockchainManager {
 /// The result from successfully adding an alt-block.
 enum AddAltBlock {
     /// The alt-block was cached.
-    Cached,
+    ///
+    /// The inner `bool` is for if the block was cached before [`false`] or was cached during the call [`true`].
+    Cached(bool),
     /// The chain was reorged.
     Reorged,
 }
