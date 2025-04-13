@@ -64,19 +64,12 @@ pub fn remove_output(
     pre_rct_output_id: &PreRctOutputId,
     tables: &mut impl TablesMut,
 ) -> DbResult<()> {
-    // Decrement the amount index by 1, or delete the entry out-right.
-    // FIXME: this would be much better expressed with a
-    // `btree_map::Entry`-like API, fix `trait DatabaseRw`.
+    // INVARIANT: `num_outputs` should never be 0.
     tables
         .num_outputs_mut()
-        .update(&pre_rct_output_id.amount, |num_outputs| {
-            // INVARIANT: Should never be 0.
-            if num_outputs == 1 {
-                None
-            } else {
-                Some(num_outputs - 1)
-            }
-        })?;
+        .entry(&pre_rct_output_id.amount)?
+        .remove_if(|num_outputs| *num_outputs == 1)?
+        .and_update(|num_outputs| *num_outputs -= 1)?;
 
     // Delete the output data itself.
     tables.outputs_mut().delete(pre_rct_output_id)

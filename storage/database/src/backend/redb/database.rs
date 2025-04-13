@@ -9,6 +9,7 @@ use crate::{
         types::{RedbTableRo, RedbTableRw},
     },
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
+    entry::{Entry, OccupiedEntry, VacantEntry},
     error::{DbResult, RuntimeError},
     table::Table,
 };
@@ -163,7 +164,7 @@ unsafe impl<T: Table + 'static> DatabaseRo<T> for RedbTableRw<'_, T::Key, T::Val
     }
 }
 
-impl<T: Table + 'static> DatabaseRw<T> for RedbTableRw<'_, T::Key, T::Value> {
+impl<T: Table> DatabaseRw<T> for RedbTableRw<'_, T::Key, T::Value> {
     // `redb` returns the value after function calls so we end with Ok(()) instead.
 
     #[inline]
@@ -197,6 +198,19 @@ impl<T: Table + 'static> DatabaseRw<T> for RedbTableRw<'_, T::Key, T::Value> {
     fn pop_last(&mut self) -> DbResult<(T::Key, T::Value)> {
         let (key, value) = redb::Table::pop_last(self)?.ok_or(RuntimeError::KeyNotFound)?;
         Ok((key.value(), value.value()))
+    }
+
+    #[inline]
+    fn entry<'a>(&'a mut self, key: &'a T::Key) -> DbResult<Entry<'a, T, Self>> {
+        match get::<T>(self, key) {
+            Ok(value) => Ok(Entry::Occupied(OccupiedEntry {
+                db: self,
+                key,
+                value,
+            })),
+            Err(RuntimeError::KeyNotFound) => Ok(Entry::Vacant(VacantEntry { db: self, key })),
+            Err(e) => Err(e),
+        }
     }
 }
 
