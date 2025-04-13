@@ -33,7 +33,8 @@ impl Service<DiffuseRequest<DandelionTx>> for DiffuseService {
         let Ok(()) = self
             .clear_net_broadcast_service
             .call(BroadcastRequest::Transaction {
-                tx_bytes: req.0 .0,
+                tx_bytes: req.0 .tx_bytes,
+                tx_hash: req.0.tx_hash,
                 direction: None,
                 received_from: None,
             })

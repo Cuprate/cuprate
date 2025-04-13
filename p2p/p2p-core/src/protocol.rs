@@ -33,6 +33,7 @@ use cuprate_wire::{
     },
     AdminRequestMessage, AdminResponseMessage,
 };
+use cuprate_wire::protocol::{RequestTxPoolTxs, TxPoolInv};
 
 mod try_from;
 
@@ -53,22 +54,27 @@ pub enum MessageID {
     NewBlock,
     NewFluffyBlock,
     NewTransactions,
+    TxPoolInv,
+    RequestTxPoolTxs
 }
 
 pub enum BroadcastMessage {
     NewFluffyBlock(NewFluffyBlock),
     NewTransactions(NewTransactions),
+    TxPoolInv(TxPoolInv),
 }
 
 #[derive(Debug, Clone)]
 pub enum ProtocolRequest {
     GetObjects(GetObjectsRequest),
     GetChain(ChainRequest),
-    FluffyMissingTxs(FluffyMissingTransactionsRequest),
+    FluffyMissingTransactionsRequest(FluffyMissingTransactionsRequest),
     GetTxPoolCompliment(GetTxPoolCompliment),
     NewBlock(NewBlock),
     NewFluffyBlock(NewFluffyBlock),
     NewTransactions(NewTransactions),
+    TxPoolInv(TxPoolInv),
+    RequestTxPoolTxs(RequestTxPoolTxs),
 }
 
 #[derive(Debug, Clone)]
@@ -89,11 +95,13 @@ impl PeerRequest {
             Self::Protocol(protocol_request) => match protocol_request {
                 ProtocolRequest::GetObjects(_) => MessageID::GetObjects,
                 ProtocolRequest::GetChain(_) => MessageID::GetChain,
-                ProtocolRequest::FluffyMissingTxs(_) => MessageID::FluffyMissingTxs,
+                ProtocolRequest::FluffyMissingTransactionsRequest(_) => MessageID::FluffyMissingTxs,
                 ProtocolRequest::GetTxPoolCompliment(_) => MessageID::GetTxPoolCompliment,
                 ProtocolRequest::NewBlock(_) => MessageID::NewBlock,
                 ProtocolRequest::NewFluffyBlock(_) => MessageID::NewFluffyBlock,
                 ProtocolRequest::NewTransactions(_) => MessageID::NewTransactions,
+                ProtocolRequest::TxPoolInv(_) => MessageID::TxPoolInv,
+                ProtocolRequest::RequestTxPoolTxs(_) => MessageID::RequestTxPoolTxs,
             },
         }
     }
