@@ -92,7 +92,9 @@ impl Default for RpcConfig {
             i_know_what_im_doing_allow_public_unrestricted_rpc: false,
             gzip: true,
             br: true,
-            restricted_request_byte_limit: 1024 * 1024, // 1 megabyte
+            // 1 megabyte.
+            // <https://github.com/monero-project/monero/blob/3b01c490953fe92f3c6628fa31d280a4f0490d28/src/cryptonote_config.h#L134>
+            restricted_request_byte_limit: 1024 * 1024,
         }
     }
 }

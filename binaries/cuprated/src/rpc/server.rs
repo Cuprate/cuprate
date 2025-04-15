@@ -1,4 +1,4 @@
-//! RPC server init.
+//! RPC server initialization and main loop.
 
 use std::{
     net::{IpAddr, SocketAddr},
@@ -24,20 +24,22 @@ use crate::{config::RpcConfig, rpc::CupratedRpcHandler};
 pub fn init_rpc_servers(config: RpcConfig) {
     for (option, restricted) in [(config.address, false), (config.address_restricted, true)] {
         let Some(socket_addr) = option else {
+            info!("Skipping RPC server (restricted={restricted})");
             continue;
         };
 
         let conf = config.clone();
 
         tokio::task::spawn(async move {
-            init_rpc_server(socket_addr, restricted, conf)
-                .await
-                .unwrap();
+            run_rpc_server(socket_addr, restricted, conf).await.unwrap();
         });
     }
 }
 
-async fn init_rpc_server(
+/// This initializes and runs an RPC server.
+///
+/// The function will only return when the server itself returns.
+async fn run_rpc_server(
     socket_addr: SocketAddr,
     restricted: bool,
     config: RpcConfig,
@@ -64,6 +66,13 @@ async fn init_rpc_server(
     //
     // TODO: impl more layers, rate-limiting, configuration, etc.
     let state = RpcHandlerDummy { restricted };
+    // TODO:
+    // - add functions that are `all()` but for restricted RPC
+    // - enable aliases automatically `other_get_height` + `other_getheight`?
+    //
+    // FIXME:
+    // - `json_rpc` is 1 endpoint; `RouterBuilder` operates at the
+    //   level endpoint; we can't selectively enable certain `json_rpc` methods
     let router = RouterBuilder::new().fallback().build().with_state(state);
 
     // Enable request (de)compression.
@@ -87,6 +96,8 @@ async fn init_rpc_server(
     };
 
     // Start the server.
+    //
+    // TODO: impl custom server code, don't use axum.
     let listener = TcpListener::bind(socket_addr).await?;
     axum::serve(listener, router).await?;
 
