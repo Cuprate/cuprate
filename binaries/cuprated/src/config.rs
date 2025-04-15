@@ -220,7 +220,7 @@ impl Config {
                 ip: self.p2p.clear_net.listen_on,
             }),
             p2p_port: self.p2p.clear_net.general.p2p_port,
-            rpc_port: self.rpc.port_restricted(),
+            rpc_port: self.rpc.port_for_p2p(),
             address_book_config: self
                 .p2p
                 .clear_net
@@ -278,6 +278,7 @@ mod test {
     fn documented_config() {
         let str = Config::documented_config();
         let conf: Config = from_str(&str).unwrap();
+
         assert_eq!(conf, Config::default());
     }
 }

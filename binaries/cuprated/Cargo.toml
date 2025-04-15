@@ -23,7 +23,7 @@ cuprate-database          = { workspace = true, features = ["serde"] }
 cuprate-epee-encoding     = { workspace = true }
 cuprate-fast-sync         = { workspace = true }
 cuprate-fixed-bytes       = { workspace = true }
-cuprate-helper            = { workspace = true, features = ["std", "serde", "time"] }
+cuprate-helper            = { workspace = true, features = ["std", "serde", "time", "net"] }
 cuprate-hex               = { workspace = true }
 cuprate-json-rpc          = { workspace = true }
 cuprate-levin             = { workspace = true }

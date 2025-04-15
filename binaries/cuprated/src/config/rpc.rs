@@ -23,9 +23,21 @@ config_struct! {
 }
 
 impl RpcConfig {
-    /// Return the port of the restricted RPC address.
-    pub const fn port_restricted(&self) -> u16 {
-        self.restricted.shared.address.port()
+    /// Return the restricted RPC port for P2P if available and public.
+    pub const fn port_for_p2p(&self) -> u16 {
+        // TODO: implement `--public-node`.
+        let public_node = false;
+
+        let addr = &self.restricted.shared.address;
+
+        if public_node
+            && self.restricted.shared.enable
+            && cuprate_helper::net::ip_is_local(addr.ip())
+        {
+            addr.port()
+        } else {
+            0
+        }
     }
 }
 

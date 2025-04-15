@@ -60,24 +60,11 @@ async fn run_rpc_server(
 
     info!("Starting RPC server (restricted={restricted}) on {addr}");
 
-    if !restricted {
-        // FIXME: more accurate detection on IP local-ness.
-        // <https://github.com/rust-lang/rust/issues/27709>
-        let is_local = match addr.ip() {
-            IpAddr::V4(ip) => ip.is_loopback() || ip.is_private(),
-            IpAddr::V6(ip) => {
-                ip.is_loopback() || ip.is_unique_local() || ip.is_unicast_link_local()
-            }
-        };
-
-        if !is_local {
-            if i_know_what_im_doing_allow_public_unrestricted_rpc {
-                warn!(
-                    "Starting unrestricted RPC on non-local address ({addr}), this is dangerous!"
-                );
-            } else {
-                panic!("Refusing to start unrestricted RPC on a non-local address ({addr})");
-            }
+    if !restricted && !cuprate_helper::net::ip_is_local(addr.ip()) {
+        if i_know_what_im_doing_allow_public_unrestricted_rpc {
+            warn!("Starting unrestricted RPC on non-local address ({addr}), this is dangerous!");
+        } else {
+            panic!("Refusing to start unrestricted RPC on a non-local address ({addr})");
         }
     }
 
