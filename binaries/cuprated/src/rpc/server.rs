@@ -11,7 +11,7 @@ use tower::limit::rate::RateLimitLayer;
 use tower_http::{
     compression::CompressionLayer, decompression::DecompressionLayer, limit::RequestBodyLimitLayer,
 };
-use tracing::info;
+use tracing::{info, warn};
 
 use cuprate_rpc_interface::{RouterBuilder, RpcHandlerDummy};
 
@@ -56,10 +56,13 @@ async fn run_rpc_server(
             }
         };
 
-        assert!(
-            is_local || config.i_know_what_im_doing_allow_public_unrestricted_rpc,
-            "Binding an unrestricted RPC server to a non-local address is dangerous, panicking."
-        );
+        if !is_local {
+            if config.i_know_what_im_doing_allow_public_unrestricted_rpc {
+                warn!("Starting an unrestricted RPC server to a non-local address ({socket_addr}), this is dangerous!");
+            } else {
+                panic!("Refusing to start an unrestricted RPC server on a non-local address ({socket_addr})");
+            }
+        }
     }
 
     // Create the router.
