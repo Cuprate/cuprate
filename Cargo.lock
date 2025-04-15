@@ -1175,6 +1175,7 @@ dependencies = [
  "nu-ansi-term",
  "paste",
  "pin-project",
+ "pretty_assertions",
  "rand",
  "rand_distr",
  "randomx-rs",

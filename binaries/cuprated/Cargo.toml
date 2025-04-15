@@ -86,7 +86,8 @@ tracing-subscriber    = { workspace = true, features = ["std", "fmt", "default"]
 tracing               = { workspace = true, features = ["default"] }
 
 [dev-dependencies]
-tempfile              = { workspace = true }
+tempfile          = { workspace = true }
+pretty_assertions = { workspace = true }
 
 [lints]
 workspace = true

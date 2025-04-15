@@ -98,14 +98,12 @@ config_struct! {
     #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
     pub struct SharedRpcConfig {
-        #[comment_out = true]
         /// The address and port the RPC server will listen on.
         ///
         /// Type     | IPv4/IPv6 address + port
         /// Examples | "", "127.0.0.1:18081", "192.168.1.50:18085"
         pub address: SocketAddr,
 
-        #[comment_out = true]
         /// Toggle the RPC server.
         ///
         /// If `true` the RPC server will be enable.
@@ -115,7 +113,6 @@ config_struct! {
         /// Examples | true, false
         pub enable: bool,
 
-        #[comment_out = true]
         /// Toggle request gzip (de)compression.
         ///
         /// Setting this to `true` will allow the RPC server
@@ -127,7 +124,6 @@ config_struct! {
         /// Valid values | true, false
         pub gzip: bool,
 
-        #[comment_out = true]
         /// Toggle request br (de)compression.
         ///
         /// Setting this to `true` will allow the RPC server
@@ -139,7 +135,6 @@ config_struct! {
         /// Valid values | true, false
         pub br: bool,
 
-        #[comment_out = true]
         /// If a request is above this byte limit, it will be rejected.
         ///
         /// Setting this to `0` will disable the limit.

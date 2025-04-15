@@ -270,6 +270,7 @@ impl Config {
 
 #[cfg(test)]
 mod test {
+    use pretty_assertions::assert_eq;
     use toml::from_str;
 
     use super::*;
