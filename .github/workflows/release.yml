@@ -61,7 +61,11 @@ jobs:
 
           # All archives have these files.
           cp LICENSE-AGPL target/release/LICENSE
-          cp binaries/cuprated/config/Cuprated.toml target/release/
+          if [ "$RUNNER_OS" == "Windows" ]; then
+              target/release/cuprated.exe --generate-config > target/release/Cuprated.toml
+          else
+              target/release/cuprated --generate-config > target/release/Cuprated.toml
+          fi
 
           OS=${{ matrix.os }}
 

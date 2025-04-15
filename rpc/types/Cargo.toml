@@ -12,20 +12,33 @@ keywords    = ["cuprate", "rpc", "types", "monero"]
 default = ["serde", "epee"]
 serde   = ["dep:serde", "cuprate-fixed-bytes/serde", "cuprate-types/serde"]
 epee    = ["dep:cuprate-epee-encoding", "cuprate-types/epee"]
+from    = [
+	"dep:cuprate-helper",
+	"cuprate-helper/map",
+	"cuprate-helper/fmt",
+	"dep:cuprate-p2p-core",
+	"dep:hex"
+]
 
 [dependencies]
-cuprate-epee-encoding = { workspace = true, optional = true }
 cuprate-fixed-bytes   = { workspace = true }
-cuprate-types         = { workspace = true, default-features = false }
+cuprate-hex           = { workspace = true }
+cuprate-epee-encoding = { workspace = true, optional = true }
+cuprate-types         = { workspace = true, default-features = false, features = ["rpc", "json"] }
+cuprate-helper        = { workspace = true, optional = true, default-features = false }
+cuprate-p2p-core      = { workspace = true, optional = true, default-features = false }
 
 paste = { workspace = true }
 serde = { workspace = true, optional = true }
+hex   = { workspace = true, optional = true }
 
 [dev-dependencies]
 cuprate-test-utils = { workspace = true }
 
-serde      = { workspace = true }
-serde_json = { workspace = true }
+hex-literal       = { workspace = true }
+pretty_assertions = { workspace = true }
+serde             = { workspace = true }
+serde_json        = { workspace = true }
 
 [lints]
 workspace = true

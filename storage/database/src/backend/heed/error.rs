@@ -26,7 +26,7 @@ impl From<heed::Error> for crate::InitError {
                 //
                 // "Requested page not found - this usually indicates corruption."
                 // <https://docs.rs/heed/latest/heed/enum.MdbError.html#variant.PageNotFound>
-                E2::Corrupted | E2::PageNotFound => Self::Corrupt,
+                E2::BadDbi | E2::Corrupted | E2::PageNotFound => Self::Corrupt,
 
                 // These errors shouldn't be returned on database init.
                 E2::Incompatible
@@ -45,7 +45,6 @@ impl From<heed::Error> for crate::InitError {
                 | E2::MapResized
                 | E2::BadRslot
                 | E2::BadValSize
-                | E2::BadDbi
                 | E2::Panic => Self::Unknown(Box::new(mdb_error)),
             },
 
@@ -85,7 +84,7 @@ impl From<heed::Error> for crate::RuntimeError {
                 //
                 // "Requested page not found - this usually indicates corruption."
                 // <https://docs.rs/heed/latest/heed/enum.MdbError.html#variant.PageNotFound>
-                E2::Corrupted | E2::PageNotFound => panic!("{mdb_error:#?}\n{DATABASE_CORRUPT_MSG}"),
+                E2::BadDbi | E2::Corrupted | E2::PageNotFound => panic!("{mdb_error:#?}\n{DATABASE_CORRUPT_MSG}"),
 
                 // These errors should not occur, and if they do,
                 // the best thing `cuprate_database` can do for
@@ -99,8 +98,7 @@ impl From<heed::Error> for crate::RuntimeError {
                 | E2::TlsFull
                 | E2::TxnFull
                 | E2::BadRslot
-                | E2::VersionMismatch
-                | E2::BadDbi => panic!("{mdb_error:#?}"),
+                | E2::VersionMismatch => panic!("{mdb_error:#?}"),
 
                 // These errors are the same as above, but instead
                 // of being errors we can't control, these are errors

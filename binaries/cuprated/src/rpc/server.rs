@@ -7,7 +7,6 @@ use tokio::net::TcpListener;
 use tower::limit::rate::RateLimitLayer;
 use tower_http::{
     compression::CompressionLayer, decompression::DecompressionLayer, limit::RequestBodyLimitLayer,
-    timeout::TimeoutLayer,
 };
 use tracing::info;
 
@@ -61,15 +60,12 @@ async fn init_rpc_server(
     };
 
     // Add restrictive layers if restricted RPC.
+    //
+    // TODO: <https://github.com/Cuprate/cuprate/issues/445>
     let router = if restricted {
-        router
-            .layer(RequestBodyLimitLayer::new(config.request_byte_limit))
-            .layer(TimeoutLayer::new(config.request_timeout))
-        // TODO: custom `tower` has type errors
-        // .layer(RateLimitLayer::new(
-        //     config.max_requests_per_minute,
-        //     Duration::from_secs(60),
-        // ))
+        router.layer(RequestBodyLimitLayer::new(
+            config.restricted_request_byte_limit,
+        ))
     } else {
         router
     };

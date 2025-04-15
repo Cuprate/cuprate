@@ -98,10 +98,7 @@ where
 
     /// Connects to random seeds to get peers and immediately disconnects
     #[instrument(level = "info", skip(self))]
-    #[expect(
-        clippy::significant_drop_in_scrutinee,
-        clippy::significant_drop_tightening
-    )]
+    #[expect(clippy::significant_drop_tightening)]
     async fn connect_to_random_seeds(&mut self) -> Result<(), OutboundConnectorError> {
         let seeds = self
             .config
@@ -161,7 +158,6 @@ where
 
         tokio::spawn(
             async move {
-                #[expect(clippy::significant_drop_in_scrutinee)]
                 if let Ok(Ok(peer)) = timeout(HANDSHAKE_TIMEOUT, connection_fut).await {
                     drop(new_peers_tx.send(peer).await);
                 }

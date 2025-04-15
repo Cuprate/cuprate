@@ -194,11 +194,11 @@ impl<C: LevinCommand> BucketBuilder<C> {
         }
     }
 
-    pub fn set_signature(&mut self, sig: u64) {
+    pub const fn set_signature(&mut self, sig: u64) {
         self.signature = Some(sig);
     }
 
-    pub fn set_message_type(&mut self, ty: MessageType) {
+    pub const fn set_message_type(&mut self, ty: MessageType) {
         self.ty = Some(ty);
     }
 
@@ -206,11 +206,11 @@ impl<C: LevinCommand> BucketBuilder<C> {
         self.command = Some(command);
     }
 
-    pub fn set_return_code(&mut self, code: i32) {
+    pub const fn set_return_code(&mut self, code: i32) {
         self.return_code = Some(code);
     }
 
-    pub fn set_protocol_version(&mut self, version: u32) {
+    pub const fn set_protocol_version(&mut self, version: u32) {
         self.protocol_version = Some(version);
     }
 

@@ -3,6 +3,7 @@ use std::{
     fs::{read_to_string, File},
     io,
     path::Path,
+    str::FromStr,
     time::Duration,
 };
 
@@ -31,6 +32,9 @@ mod storage;
 mod tokio;
 mod tracing_config;
 
+#[macro_use]
+mod macros;
+
 use fs::FileSystemConfig;
 use p2p::P2PConfig;
 use rayon::RayonConfig;
@@ -38,6 +42,24 @@ pub use rpc::RpcConfig;
 use storage::StorageConfig;
 use tokio::TokioConfig;
 use tracing_config::TracingConfig;
+
+/// Header to put at the start of the generated config file.
+const HEADER: &str = r"##     ____                      _
+##    / ___|   _ _ __  _ __ __ _| |_ ___
+##   | |  | | | | '_ \| '__/ _` | __/ _ \
+##   | |__| |_| | |_) | | | (_| | ||  __/
+##    \____\__,_| .__/|_|  \__,_|\__\___|
+##              |_|
+##
+## All these config values can be set to
+## their default by commenting them out with '#'.
+##
+## Some values are already commented out,
+## to set the value remove the '#' at the start of the line.
+##
+## For more documentation, see: <https://user.cuprate.org>.
+
+";
 
 /// Reads the args & config file, returning a [`Config`].
 pub fn read_config_and_args() -> Config {
@@ -78,35 +100,88 @@ pub fn read_config_and_args() -> Config {
     args.apply_args(config)
 }
 
-/// The config for all of Cuprate.
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq)]
-#[serde(deny_unknown_fields, default)]
-pub struct Config {
-    /// The network we should run on.
-    network: Network,
+config_struct! {
+    /// The config for all of Cuprate.
+    #[derive(Debug, Deserialize, Serialize, PartialEq)]
+    #[serde(deny_unknown_fields, default)]
+    pub struct Config {
+        /// The network cuprated should run on.
+        ///
+        /// Valid values | "Mainnet", "Testnet", "Stagenet"
+        pub network: Network,
 
-    pub no_fast_sync: bool,
+        /// Enable/disable fast sync.
+        ///
+        /// Fast sync skips verification of old blocks by
+        /// comparing block hashes to a built-in hash file,
+        /// disabling this will significantly increase sync time.
+        /// New blocks are still fully validated.
+        ///
+        /// Type         | boolean
+        /// Valid values | true, false
+        pub fast_sync: bool,
 
-    /// [`tracing`] config.
-    pub tracing: TracingConfig,
+        #[child = true]
+        /// Configuration for cuprated's logging system, tracing.
+        ///
+        /// Tracing is used for logging to stdout and files.
+        pub tracing: TracingConfig,
 
-    pub tokio: TokioConfig,
+        #[child = true]
+        /// Configuration for cuprated's asynchronous runtime system, tokio.
+        ///
+        /// Tokio is used for network operations and the major services inside `cuprated`.
+        pub tokio: TokioConfig,
 
-    pub rayon: RayonConfig,
+        #[child = true]
+        /// Configuration for cuprated's thread-pool system, rayon.
+        ///
+        /// Rayon is used for CPU intensive tasks.
+        pub rayon: RayonConfig,
 
-    /// The P2P network config.
-    p2p: P2PConfig,
+        #[child = true]
+        /// Configuration for cuprated's P2P system.
+        pub p2p: P2PConfig,
 
-    /// The RPC config.
-    pub rpc: RpcConfig,
+        #[child = true]
+        /// The RPC config.
+        pub rpc: RpcConfig,
 
-    /// The storage config.
-    pub storage: StorageConfig,
+        #[child = true]
+        /// Configuration for persistent data storage.
+        pub storage: StorageConfig,
 
-    pub fs: FileSystemConfig,
+        #[child = true]
+        /// Configuration for the file-system.
+        pub fs: FileSystemConfig,
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            network: Default::default(),
+            fast_sync: true,
+            tracing: Default::default(),
+            tokio: Default::default(),
+            rayon: Default::default(),
+            p2p: Default::default(),
+            rpc: Default::default(),
+            storage: Default::default(),
+            fs: Default::default(),
+        }
+    }
 }
 
 impl Config {
+    /// Returns a default [`Config`], with doc comments.
+    pub fn documented_config() -> String {
+        let str = toml::ser::to_string_pretty(&Self::default()).unwrap();
+        let mut doc = toml_edit::DocumentMut::from_str(&str).unwrap();
+        Self::write_docs(doc.as_table_mut());
+        format!("{HEADER}{doc}")
+    }
+
     /// Attempts to read a config file in [`toml`] format from the given [`Path`].
     ///
     /// # Errors
@@ -197,30 +272,13 @@ impl Config {
 mod test {
     use toml::from_str;
 
-    use crate::constants::EXAMPLE_CONFIG;
-
     use super::*;
 
-    /// Tests the latest config is the `Default`.
     #[test]
-    fn config_latest() {
-        let config: Config = from_str(EXAMPLE_CONFIG).unwrap();
-        assert_eq!(config, Config::default());
-    }
+    fn documented_config() {
+        let str = Config::documented_config();
+        let conf: Config = from_str(&str).unwrap();
 
-    /// Tests backwards compatibility.
-    #[test]
-    fn config_backwards_compat() {
-        // (De)serialization tests.
-        #[expect(
-            clippy::single_element_loop,
-            reason = "Remove after adding other versions"
-        )]
-        for version in ["0.0.1"] {
-            let path = format!("config/{version}.toml");
-            println!("Testing config serde backwards compat: {path}");
-            let string = read_to_string(path).unwrap();
-            from_str::<Config>(&string).unwrap();
-        }
+        assert_eq!(conf, Config::default());
     }
 }
