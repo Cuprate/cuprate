@@ -30,7 +30,7 @@ cuprate-levin             = { workspace = true }
 cuprate-p2p-core          = { workspace = true }
 cuprate-p2p               = { workspace = true }
 cuprate-pruning           = { workspace = true }
-cuprate-rpc-interface     = { workspace = true }
+cuprate-rpc-interface     = { workspace = true, features = ["dummy"] }
 cuprate-rpc-types         = { workspace = true, features = ["from"] }
 cuprate-test-utils        = { workspace = true }
 cuprate-txpool            = { workspace = true }

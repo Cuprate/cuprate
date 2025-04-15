@@ -38,7 +38,7 @@ mod macros;
 use fs::FileSystemConfig;
 use p2p::P2PConfig;
 use rayon::RayonConfig;
-pub use rpc::RpcConfig;
+pub use rpc::{RpcConfig, SharedRpcConfig};
 use storage::StorageConfig;
 use tokio::TokioConfig;
 use tracing_config::TracingConfig;
@@ -278,7 +278,6 @@ mod test {
     fn documented_config() {
         let str = Config::documented_config();
         let conf: Config = from_str(&str).unwrap();
-
         assert_eq!(conf, Config::default());
     }
 }

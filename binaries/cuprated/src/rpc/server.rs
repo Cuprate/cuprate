@@ -15,23 +15,31 @@ use tracing::{info, warn};
 
 use cuprate_rpc_interface::{RouterBuilder, RpcHandlerDummy};
 
-use crate::{config::RpcConfig, rpc::CupratedRpcHandler};
+use crate::{
+    config::{RpcConfig, SharedRpcConfig},
+    rpc::CupratedRpcHandler,
+};
 
 /// Initialize the RPC server(s).
 ///
 /// # Panics
 /// This function will panic if the server(s) could not be started.
 pub fn init_rpc_servers(config: RpcConfig) {
-    for (option, restricted) in [(config.address, false), (config.address_restricted, true)] {
-        let Some(socket_addr) = option else {
+    for (c, restricted) in [(config.unrestricted, false), (config.restricted, true)] {
+        let Some(socket_addr) = c.address else {
             info!("Skipping RPC server (restricted={restricted})");
             continue;
         };
 
-        let conf = config.clone();
-
         tokio::task::spawn(async move {
-            run_rpc_server(socket_addr, restricted, conf).await.unwrap();
+            run_rpc_server(
+                restricted,
+                socket_addr,
+                c,
+                config.i_know_what_im_doing_allow_public_unrestricted_rpc,
+            )
+            .await
+            .unwrap();
         });
     }
 }
@@ -40,9 +48,10 @@ pub fn init_rpc_servers(config: RpcConfig) {
 ///
 /// The function will only return when the server itself returns.
 async fn run_rpc_server(
-    socket_addr: SocketAddr,
     restricted: bool,
-    config: RpcConfig,
+    socket_addr: SocketAddr,
+    config: SharedRpcConfig,
+    i_know_what_im_doing_allow_public_unrestricted_rpc: bool,
 ) -> Result<(), Error> {
     info!("Starting RPC server (restricted={restricted}) on {socket_addr}");
 
@@ -57,7 +66,7 @@ async fn run_rpc_server(
         };
 
         if !is_local {
-            if config.i_know_what_im_doing_allow_public_unrestricted_rpc {
+            if i_know_what_im_doing_allow_public_unrestricted_rpc {
                 warn!("Starting an unrestricted RPC server to a non-local address ({socket_addr}), this is dangerous!");
             } else {
                 panic!("Refusing to start an unrestricted RPC server on a non-local address ({socket_addr})");
@@ -90,10 +99,8 @@ async fn run_rpc_server(
     // Add restrictive layers if restricted RPC.
     //
     // TODO: <https://github.com/Cuprate/cuprate/issues/445>
-    let router = if restricted {
-        router.layer(RequestBodyLimitLayer::new(
-            config.restricted_request_byte_limit,
-        ))
+    let router = if config.request_byte_limit != 0 {
+        router.layer(RequestBodyLimitLayer::new(config.request_byte_limit))
     } else {
         router
     };
