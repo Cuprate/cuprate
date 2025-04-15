@@ -86,9 +86,6 @@ fn main() {
             .inspect_err(|e| error!("Txpool database error: {e}"))
             .expect(DATABASE_CORRUPT_MSG);
 
-    // Initialize the RPC server(s).
-    rpc::init_rpc_servers(config.rpc.clone());
-
     // Initialize async tasks.
 
     rt.block_on(async move {
@@ -147,6 +144,9 @@ fn main() {
             config.block_downloader_config(),
         )
         .await;
+
+        // Initialize the RPC server(s).
+        rpc::init_rpc_servers(config.rpc);
 
         // Start the command listener.
         if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
