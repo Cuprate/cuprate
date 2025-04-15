@@ -50,7 +50,7 @@ jobs:
       - name: Generate Archives
         run: |
           set -e -o pipefail # Exit on failures
-          umask 0022         # 755 permissions
+          umask 0077         # 700 permissions
           export TZ=UTC      # UTC timezone
 
           # Reset archive directory in-case.
@@ -71,8 +71,7 @@ jobs:
 
           # Generate archives for Linux.
           if [ "$RUNNER_OS" == "Linux" ]; then
-              # FIXME: <https://github.com/Cuprate/cuprate/issues/396>
-              # cp binaries/cuprated/cuprated.service target/release/
+              cp binaries/cuprated/cuprated.service target/release/
               cd target/release
 
               if [ "$OS" == "ubuntu-22.04" ]; then
@@ -81,9 +80,7 @@ jobs:
                   NAME="cuprated-${VERSION}-linux-arm64.tar.gz"
               fi
 
-              # FIXME: #396
-              # tar -czpf "$ARCHIVE/$NAME" cuprated LICENSE Cuprated.toml cuprated.service
-              tar -czpf "$ARCHIVE/$NAME" cuprated LICENSE Cuprated.toml
+              tar -czpf "$ARCHIVE/$NAME" cuprated LICENSE Cuprated.toml cuprated.service
           fi
 
           # Generate archives for macOS.
