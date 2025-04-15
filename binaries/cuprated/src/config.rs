@@ -220,7 +220,7 @@ impl Config {
                 ip: self.p2p.clear_net.listen_on,
             }),
             p2p_port: self.p2p.clear_net.general.p2p_port,
-            rpc_port: self.rpc.port_restricted().unwrap_or(0),
+            rpc_port: self.rpc.port_restricted(),
             address_book_config: self
                 .p2p
                 .clear_net

@@ -29,7 +29,7 @@ pub fn init_rpc_servers(config: RpcConfig) {
         (config.unrestricted.shared, false),
         (config.restricted.shared, true),
     ] {
-        let Some(socket_addr) = c.address else {
+        if !c.enable {
             info!("Skipping RPC server (restricted={restricted})");
             continue;
         };
@@ -37,7 +37,6 @@ pub fn init_rpc_servers(config: RpcConfig) {
         tokio::task::spawn(async move {
             run_rpc_server(
                 restricted,
-                socket_addr,
                 c,
                 config
                     .unrestricted
@@ -54,16 +53,17 @@ pub fn init_rpc_servers(config: RpcConfig) {
 /// The function will only return when the server itself returns.
 async fn run_rpc_server(
     restricted: bool,
-    socket_addr: SocketAddr,
     config: SharedRpcConfig,
     i_know_what_im_doing_allow_public_unrestricted_rpc: bool,
 ) -> Result<(), Error> {
-    info!("Starting RPC server (restricted={restricted}) on {socket_addr}");
+    let addr = config.address;
+
+    info!("Starting RPC server (restricted={restricted}) on {addr}");
 
     if !restricted {
         // FIXME: more accurate detection on IP local-ness.
         // <https://github.com/rust-lang/rust/issues/27709>
-        let is_local = match socket_addr.ip() {
+        let is_local = match addr.ip() {
             IpAddr::V4(ip) => ip.is_loopback() || ip.is_private(),
             IpAddr::V6(ip) => {
                 ip.is_loopback() || ip.is_unique_local() || ip.is_unicast_link_local()
@@ -72,9 +72,11 @@ async fn run_rpc_server(
 
         if !is_local {
             if i_know_what_im_doing_allow_public_unrestricted_rpc {
-                warn!("Starting an unrestricted RPC server to a non-local address ({socket_addr}), this is dangerous!");
+                warn!(
+                    "Starting unrestricted RPC on non-local address ({addr}), this is dangerous!"
+                );
             } else {
-                panic!("Refusing to start an unrestricted RPC server on a non-local address ({socket_addr})");
+                panic!("Refusing to start unrestricted RPC on a non-local address ({addr})");
             }
         }
     }
@@ -113,7 +115,7 @@ async fn run_rpc_server(
     // Start the server.
     //
     // TODO: impl custom server code, don't use axum.
-    let listener = TcpListener::bind(socket_addr).await?;
+    let listener = TcpListener::bind(addr).await?;
     axum::serve(listener, router).await?;
 
     Ok(())
