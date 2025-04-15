@@ -9,17 +9,30 @@ use crate::config::macros::config_struct;
 
 config_struct! {
     /// RPC config.
-    #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
     pub struct RpcConfig {
         #[child = true]
         /// Configuration for the restricted RPC server.
-        pub unrestricted: SharedRpcConfig,
+        pub unrestricted: UnrestrictedRpcConfig,
 
         #[child = true]
         /// Configuration for the restricted RPC server.
-        pub restricted: SharedRpcConfig,
+        pub restricted: RestrictedRpcConfig,
+    }
+}
 
+impl RpcConfig {
+    /// Return the port of the restricted RPC address (if set).
+    pub fn port_restricted(&self) -> Option<u16> {
+        self.restricted.shared.address.map(|s| s.port())
+    }
+}
+
+config_struct! {
+    #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+    #[serde(deny_unknown_fields, default)]
+    pub struct UnrestrictedRpcConfig {
         /// Allow the unrestricted RPC server to be public.
         ///
         /// ⚠️ WARNING ⚠️
@@ -32,42 +45,70 @@ config_struct! {
         /// Type         | boolean
         /// Valid values | true, false
         pub i_know_what_im_doing_allow_public_unrestricted_rpc: bool,
+
+        #[flatten = true]
+        /// Shared config.
+        ##[serde(flatten)]
+        pub shared: SharedRpcConfig,
     }
 }
 
-impl RpcConfig {
-    /// Return the port of the restricted RPC address (if set).
-    pub fn port_restricted(&self) -> Option<u16> {
-        self.restricted.address.map(|s| s.port())
-    }
-}
-
-impl Default for RpcConfig {
+impl Default for UnrestrictedRpcConfig {
     fn default() -> Self {
         Self {
-            unrestricted: SharedRpcConfig {
+            i_know_what_im_doing_allow_public_unrestricted_rpc: false,
+            shared: SharedRpcConfig {
                 address: Some(SocketAddr::V4(SocketAddrV4::new(
                     Ipv4Addr::LOCALHOST,
                     18081,
                 ))),
+                gzip: true,
+                br: true,
                 request_byte_limit: 0,
-                ..Default::default()
             },
-            restricted: Default::default(),
-            i_know_what_im_doing_allow_public_unrestricted_rpc: false,
+        }
+    }
+}
+
+config_struct! {
+    #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+    #[serde(deny_unknown_fields, default)]
+    pub struct RestrictedRpcConfig {
+        #[flatten = true]
+        /// Shared config.
+        ##[serde(flatten)]
+        pub shared: SharedRpcConfig,
+    }
+}
+
+impl Default for RestrictedRpcConfig {
+    fn default() -> Self {
+        Self {
+            shared: SharedRpcConfig {
+                address: None,
+                gzip: true,
+                br: true,
+                // 1 megabyte.
+                // <https://github.com/monero-project/monero/blob/3b01c490953fe92f3c6628fa31d280a4f0490d28/src/cryptonote_config.h#L134>
+                request_byte_limit: 1024 * 1024,
+            },
         }
     }
 }
 
 config_struct! {
     /// Shared RPC configuration options.
-    #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    ///
+    /// Both RPC servers use these values.
+    #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
     pub struct SharedRpcConfig {
         #[comment_out = true]
         /// Address and port for the RPC server.
         ///
-        /// If this is left empty, the server will be disabled.
+        /// If this is left empty, the
+        /// - Unrestricted RPC server will bind to `127.0.0.1:18081`
+        /// - Restricted RPC server will be disabled
         ///
         /// Type     | IPv4/IPv6 address + port
         /// Examples | "", "127.0.0.1:18081", "192.168.1.50:18085"
@@ -108,18 +149,5 @@ config_struct! {
         pub request_byte_limit: usize,
 
         // TODO: <https://github.com/Cuprate/cuprate/issues/445>
-    }
-}
-
-impl Default for SharedRpcConfig {
-    fn default() -> Self {
-        Self {
-            address: None,
-            gzip: true,
-            br: true,
-            // 1 megabyte.
-            // <https://github.com/monero-project/monero/blob/3b01c490953fe92f3c6628fa31d280a4f0490d28/src/cryptonote_config.h#L134>
-            request_byte_limit: 1024 * 1024,
-        }
     }
 }

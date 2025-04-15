@@ -25,7 +25,10 @@ use crate::{
 /// # Panics
 /// This function will panic if the server(s) could not be started.
 pub fn init_rpc_servers(config: RpcConfig) {
-    for (c, restricted) in [(config.unrestricted, false), (config.restricted, true)] {
+    for (c, restricted) in [
+        (config.unrestricted.shared, false),
+        (config.restricted.shared, true),
+    ] {
         let Some(socket_addr) = c.address else {
             info!("Skipping RPC server (restricted={restricted})");
             continue;
@@ -36,7 +39,9 @@ pub fn init_rpc_servers(config: RpcConfig) {
                 restricted,
                 socket_addr,
                 c,
-                config.i_know_what_im_doing_allow_public_unrestricted_rpc,
+                config
+                    .unrestricted
+                    .i_know_what_im_doing_allow_public_unrestricted_rpc,
             )
             .await
             .unwrap();

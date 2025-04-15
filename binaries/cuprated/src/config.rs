@@ -144,7 +144,7 @@ config_struct! {
         pub p2p: P2PConfig,
 
         #[child = true]
-        /// The RPC config.
+        /// Configuration for cuprated's RPC system.
         pub rpc: RpcConfig,
 
         #[child = true]
