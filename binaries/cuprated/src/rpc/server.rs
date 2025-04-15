@@ -1,6 +1,9 @@
 //! RPC server init.
 
-use std::{net::SocketAddr, time::Duration};
+use std::{
+    net::{IpAddr, SocketAddr},
+    time::Duration,
+};
 
 use anyhow::Error;
 use tokio::net::TcpListener;
@@ -19,10 +22,7 @@ use crate::{config::RpcConfig, rpc::CupratedRpcHandler};
 /// # Panics
 /// This function will panic if the server(s) could not be started.
 pub fn init_rpc_servers(config: RpcConfig) {
-    for (option, restricted) in [
-        (Some(config.address), false),
-        (config.address_restricted, true),
-    ] {
+    for (option, restricted) in [(config.address, false), (config.address_restricted, true)] {
         let Some(socket_addr) = option else {
             continue;
         };
@@ -44,11 +44,27 @@ async fn init_rpc_server(
 ) -> Result<(), Error> {
     info!("Starting RPC server (restricted={restricted}) on {socket_addr}");
 
+    if !restricted {
+        // FIXME: more accurate detection on IP local-ness.
+        // <https://github.com/rust-lang/rust/issues/27709>
+        let is_local = match socket_addr.ip() {
+            IpAddr::V4(ip) => ip.is_loopback() || ip.is_private(),
+            IpAddr::V6(ip) => {
+                ip.is_loopback() || ip.is_unique_local() || ip.is_unicast_link_local()
+            }
+        };
+
+        assert!(
+            is_local || config.i_know_what_im_doing_allow_public_unrestricted_rpc,
+            "Binding an unrestricted RPC server to a non-local address is dangerous, panicking."
+        );
+    }
+
     // Create the router.
     //
     // TODO: impl more layers, rate-limiting, configuration, etc.
     let state = RpcHandlerDummy { restricted };
-    let router = RouterBuilder::new().all().build().with_state(state);
+    let router = RouterBuilder::new().fallback().build().with_state(state);
 
     // Enable request (de)compression.
     let router = if config.gzip || config.br {
