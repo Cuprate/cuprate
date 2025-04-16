@@ -12,7 +12,7 @@ use toml_edit::TableLike;
 /// # Invariants
 /// Required for this macro to work:
 ///
-/// - struct must implement [`Default`]
+/// - struct must implement [`Default`] and `serde`
 /// - None of the fields can be [`Option`]
 ///
 /// # Documentation

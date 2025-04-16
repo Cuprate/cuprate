@@ -1,4 +1,6 @@
 //! Networking utilities.
+//!
+//! `#[no_std]` compatible.
 
 use core::net::IpAddr;
 

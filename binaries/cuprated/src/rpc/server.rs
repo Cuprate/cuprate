@@ -60,7 +60,7 @@ pub fn init_rpc_servers(config: RpcConfig) {
 
 /// This initializes and runs an RPC server.
 ///
-/// The function will only return when the server itself returns.
+/// The function will only return when the server itself returns or an error occurs.
 async fn run_rpc_server(restricted: bool, config: SharedRpcConfig) -> Result<(), Error> {
     let addr = config.address;
 
