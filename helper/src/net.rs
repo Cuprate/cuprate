@@ -2,7 +2,8 @@
 
 use core::net::IpAddr;
 
-/// Returns [`true`] if the address is a local address.
+/// Returns [`true`] if the address is a local address
+/// (non-reachable via the broader internet).
 ///
 /// # FIXME
 /// This is only mostly accurate.

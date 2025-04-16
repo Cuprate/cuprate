@@ -23,7 +23,10 @@ use crate::{
 /// Initialize the RPC server(s).
 ///
 /// # Panics
-/// This function will panic if the server(s) could not be started.
+/// This function will panic if:
+/// - the server(s) could not be started
+/// - unrestricted RPC is started on non-local
+///   address without override option
 pub fn init_rpc_servers(config: RpcConfig) {
     for (c, restricted) in [
         (config.unrestricted.shared, false),
@@ -34,16 +37,23 @@ pub fn init_rpc_servers(config: RpcConfig) {
             continue;
         };
 
+        let addr = c.address;
+
+        if !restricted && !cuprate_helper::net::ip_is_local(addr.ip()) {
+            if config
+                .unrestricted
+                .i_know_what_im_doing_allow_public_unrestricted_rpc
+            {
+                warn!(
+                    "Starting unrestricted RPC on non-local address ({addr}), this is dangerous!"
+                );
+            } else {
+                panic!("Refusing to start unrestricted RPC on a non-local address ({addr})");
+            }
+        }
+
         tokio::task::spawn(async move {
-            run_rpc_server(
-                restricted,
-                c,
-                config
-                    .unrestricted
-                    .i_know_what_im_doing_allow_public_unrestricted_rpc,
-            )
-            .await
-            .unwrap();
+            run_rpc_server(restricted, c).await.unwrap();
         });
     }
 }
@@ -51,22 +61,10 @@ pub fn init_rpc_servers(config: RpcConfig) {
 /// This initializes and runs an RPC server.
 ///
 /// The function will only return when the server itself returns.
-async fn run_rpc_server(
-    restricted: bool,
-    config: SharedRpcConfig,
-    i_know_what_im_doing_allow_public_unrestricted_rpc: bool,
-) -> Result<(), Error> {
+async fn run_rpc_server(restricted: bool, config: SharedRpcConfig) -> Result<(), Error> {
     let addr = config.address;
 
     info!("Starting RPC server (restricted={restricted}) on {addr}");
-
-    if !restricted && !cuprate_helper::net::ip_is_local(addr.ip()) {
-        if i_know_what_im_doing_allow_public_unrestricted_rpc {
-            warn!("Starting unrestricted RPC on non-local address ({addr}), this is dangerous!");
-        } else {
-            panic!("Refusing to start unrestricted RPC on a non-local address ({addr})");
-        }
-    }
 
     // Create the router.
     //
