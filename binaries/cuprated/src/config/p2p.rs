@@ -7,6 +7,11 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use cuprate_helper::{fs::address_book_path, network::Network};
+use cuprate_p2p::config::TransportConfig;
+use cuprate_p2p_core::{
+    transports::{Tcp, TcpServerConfig},
+    ClearNet, Transport,
+};
 
 use super::macros::config_struct;
 
@@ -105,11 +110,26 @@ config_struct! {
     #[derive(Debug, Deserialize, Serialize, PartialEq)]
     #[serde(deny_unknown_fields, default)]
     pub struct ClearNetConfig {
-        /// The IP address to bind and listen for connections on.
+        /// The IPv4 address to bind and listen for connections on.
         ///
-        /// Type     | IPv4/IPv6 address
-        /// Examples | "0.0.0.0", "192.168.1.50", "::"
-        pub listen_on: IpAddr,
+        /// Type     | IPv4 address
+        /// Examples | "0.0.0.0", "192.168.1.50"
+        pub listen_on: Ipv4Addr,
+
+        /// Enable IPv6 inbound server.
+        ///
+        /// Setting this to `false` will disable incoming IPv6 P2P connections.
+        ///
+        /// Type         | boolean
+        /// Valid values | false, true
+        /// Examples     | false
+        pub enable_inbound_v6: bool,
+
+        /// The IPv6 address to bind and listen for connections on.
+        ///
+        /// Type     | IPv6 address
+        /// Examples | "::", "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
+        pub listen_on_v6: Ipv6Addr,
 
         #[flatten = true]
         /// Shared config values.
@@ -121,8 +141,29 @@ config_struct! {
 impl Default for ClearNetConfig {
     fn default() -> Self {
         Self {
-            listen_on: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            listen_on: Ipv4Addr::UNSPECIFIED,
+            enable_inbound_v6: false,
             general: Default::default(),
+            listen_on_v6: Ipv6Addr::UNSPECIFIED,
+        }
+    }
+}
+
+impl From<&ClearNetConfig> for TransportConfig<ClearNet, Tcp> {
+    fn from(value: &ClearNetConfig) -> Self {
+        let server_config = if value.general.p2p_port != 0 {
+            let mut sc = TcpServerConfig::default();
+            sc.ipv4 = Some(value.listen_on);
+            sc.ipv6 = value.enable_inbound_v6.then_some(value.listen_on_v6);
+            sc.port = value.general.p2p_port;
+            Some(sc)
+        } else {
+            None
+        };
+
+        Self {
+            client_config: (),
+            server_config,
         }
     }
 }
@@ -170,7 +211,7 @@ config_struct! {
         /// Examples     | 0.0, 0.5, 0.123, 0.999, 1.0
         pub gray_peers_percent: f64,
 
-        /// The port to use to accept incoming P2P connections.
+        /// The port to use to accept incoming IPv4 P2P connections.
         ///
         /// Setting this to 0 will disable incoming P2P connections.
         ///
@@ -257,7 +298,7 @@ impl Default for AddressBookConfig {
     }
 }
 
-/// Seed nodes for [`ClearNet`](cuprate_p2p_core::ClearNet).
+/// Seed nodes for [`ClearNet`].
 pub fn clear_net_seed_nodes(network: Network) -> Vec<SocketAddr> {
     let seeds = match network {
         Network::Mainnet => [

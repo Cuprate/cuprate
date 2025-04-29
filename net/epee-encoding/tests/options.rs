@@ -13,7 +13,7 @@ epee_object!(
 );
 
 #[test]
-#[allow(clippy::useless_asref)]
+#[expect(clippy::useless_asref)]
 fn optional_val_not_in_data() {
     let bytes: &[u8] = b"\x01\x11\x01\x01\x01\x01\x02\x01\x01\x00";
     let t: T = from_bytes(&mut bytes.as_ref()).unwrap();

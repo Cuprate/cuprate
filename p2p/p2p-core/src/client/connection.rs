@@ -22,7 +22,7 @@ use crate::{
     constants::{REQUEST_HANDLER_TIMEOUT, REQUEST_TIMEOUT, SENDING_TIMEOUT},
     handles::ConnectionGuard,
     AddressBook, BroadcastMessage, CoreSyncSvc, MessageID, NetworkZone, PeerError, PeerRequest,
-    PeerResponse, ProtocolRequestHandler, ProtocolResponse, SharedError,
+    PeerResponse, ProtocolRequestHandler, ProtocolResponse, SharedError, Transport,
 };
 
 /// A request to the connection task from a [`Client`](crate::client::Client).
@@ -50,7 +50,7 @@ pub(crate) enum State {
     },
 }
 
-/// Returns if the [`LevinCommand`] is the correct response message for our request.
+/// Returns `true` if the [`LevinCommand`] is the correct response message for our request.
 ///
 /// e.g. that we didn't get a block for a txs request.
 const fn levin_command_response(message_id: MessageID, command: LevinCommand) -> bool {
@@ -71,9 +71,9 @@ const fn levin_command_response(message_id: MessageID, command: LevinCommand) ->
 }
 
 /// This represents a connection to a peer.
-pub(crate) struct Connection<Z: NetworkZone, A, CS, PR, BrdcstStrm> {
+pub(crate) struct Connection<Z: NetworkZone, T: Transport<Z>, A, CS, PR, BrdcstStrm> {
     /// The peer sink - where we send messages to the peer.
-    peer_sink: Z::Sink,
+    peer_sink: T::Sink,
 
     /// The connections current state.
     state: State,
@@ -94,7 +94,7 @@ pub(crate) struct Connection<Z: NetworkZone, A, CS, PR, BrdcstStrm> {
     error: SharedError<PeerError>,
 }
 
-impl<Z, A, CS, PR, BrdcstStrm> Connection<Z, A, CS, PR, BrdcstStrm>
+impl<Z, T: Transport<Z>, A, CS, PR, BrdcstStrm> Connection<Z, T, A, CS, PR, BrdcstStrm>
 where
     Z: NetworkZone,
     A: AddressBook<Z>,
@@ -104,7 +104,7 @@ where
 {
     /// Create a new connection struct.
     pub(crate) fn new(
-        peer_sink: Z::Sink,
+        peer_sink: T::Sink,
         client_rx: mpsc::Receiver<ConnectionTaskRequest>,
         broadcast_stream: BrdcstStrm,
         peer_request_handler: PeerRequestHandler<Z, A, CS, PR>,
