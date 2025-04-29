@@ -1,6 +1,14 @@
-## Hardened `cuprated` systemd service.
+## cuprated.service
 ##
-## For documentation, see:
+## This file is a relatively hardened systemd
+## service for `cuprated`, it:
+##
+## - requires a `cuprate` user exists
+## - restricts filesystem access to `/home/cuprate`
+## - requires `/home/cuprate/cuprated`
+##   and `/home/cuprate/Cuprated.toml` exist
+##
+## For service file documentation, see:
 ## <https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html>
 
 [Unit]
@@ -9,7 +17,7 @@ StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Service]
-## Basics
+## User.
 User=cuprate
 Group=cuprate
 Type=simple
@@ -34,10 +42,10 @@ LimitNOFILE=16384
 TimeoutStopSec=60s
 SendSIGKILL=true
 
-# Filesystem access.
+## Restrict filesystem access.
 BindPaths=/home/cuprate
 
-# Security hardening.
+## Security hardening.
 SystemCallFilter=@system-service
 SystemCallFilter=~@privileged @resources
 
@@ -46,7 +54,6 @@ DeviceAllow=
 LockPersonality=true
 NoNewPrivileges=true
 ProcSubset=pid
-MemoryDenyWriteExecute=true
 RemoveIPC=true
 SystemCallArchitectures=native
 UMask=0077
