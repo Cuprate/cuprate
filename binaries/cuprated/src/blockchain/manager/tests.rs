@@ -411,9 +411,9 @@ async fn recover_bad_reorg() {
 
     // Currently this is the state of the DB:
     // main chain: Genesis, A, B
-    // alt chain: Genesis, Aa, Ba
-    // Ba is an invalid block, once we pass in this block below (Ca) the manager will attempt a reorg,
-    // this will fail and we should stay on the main chain.
+    // alt chain: Genesis, AAlt, BAlt
+    // BAlt is an invalid block, once we pass in this block below (CAlt) the manager will attempt a reorg,
+    // this will fail, and we should stay on the main chain.
     manager_1
         .handle_command(BlockchainManagerCommand::AddBlock {
             block: block_3_alt,
