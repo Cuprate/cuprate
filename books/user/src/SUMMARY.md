@@ -19,6 +19,9 @@
     - [Ports](resources/ports.md)
     - [IP](resources/ip.md)
 
+- [Deployment](deployment/intro.md)
+    - [systemd](deployment/systemd.md)
+
 - [Platform support](platform.md)
 - [License](license.md)
 
