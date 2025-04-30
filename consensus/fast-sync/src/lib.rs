@@ -2,6 +2,7 @@
 use clap as _;
 use cuprate_blockchain as _;
 use hex as _;
+use serde_json as _;
 use tokio as _;
 
 mod fast_sync;

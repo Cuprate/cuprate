@@ -71,8 +71,11 @@ async fn main() {
 
     drop(read_handle);
 
-    write("fast_sync_hashes.bin", hashes_of_hashes.concat().as_slice())
-        .expect("Could not write file");
+    write(
+        "fast_sync_hashes.json",
+        serde_json::to_string_pretty(&hashes_of_hashes).unwrap(),
+    )
+    .unwrap();
 
     println!("Generated hashes up to block height {height}");
 }

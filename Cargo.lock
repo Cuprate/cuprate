@@ -788,6 +788,7 @@ dependencies = [
  "hex",
  "monero-serai",
  "proptest",
+ "serde_json",
  "tempfile",
  "tokio",
  "tokio-test",

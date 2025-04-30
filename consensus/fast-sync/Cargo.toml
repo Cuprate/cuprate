@@ -22,6 +22,7 @@ monero-serai = { workspace = true }
 blake3       = { workspace = true }
 tokio        = { workspace = true, features = ["full"] }
 tower        = { workspace = true }
+serde_json   = { workspace = true }
 
 [dev-dependencies]
 proptest   = { workspace = true }
