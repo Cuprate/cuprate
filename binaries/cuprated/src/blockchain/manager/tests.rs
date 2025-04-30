@@ -10,9 +10,9 @@ use tower::BoxError;
 use cuprate_consensus_context::{BlockchainContext, ContextConfig};
 use cuprate_consensus_rules::{hard_forks::HFInfo, miner_tx::calculate_block_reward, HFsInfo};
 use cuprate_helper::network::Network;
-use cuprate_types::{CachedVerificationState, TransactionVerificationData, TxVersion};
 use cuprate_p2p::{block_downloader::BlockBatch, BroadcastSvc};
 use cuprate_p2p_core::handles::HandleBuilder;
+use cuprate_types::{CachedVerificationState, TransactionVerificationData, TxVersion};
 
 use crate::blockchain::{
     check_add_genesis, manager::BlockchainManager, manager::BlockchainManagerCommand,
