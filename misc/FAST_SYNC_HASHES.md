@@ -1,5 +1,5 @@
 # Fast sync hashes
-Cuprate has a binary that generate `fast-sync` hashes and puts them into a binary blob file.
+Cuprate has a binary that generates `fast-sync` hashes and puts them into a JSON file - this file is then used by `cuprated`.
 
 The code that does so is located at [`consensus/fast-sync`](https://github.com/Cuprate/cuprate/blob/main/consensus/fast-sync).
 
@@ -16,6 +16,6 @@ Run the binary:
 ```
 where `$HEIGHT` is the top blockchain height.
 
-The generated `fast_sync_hashes.bin` file should be in the current directory.
+The generated `fast_sync_hashes.json` file should be in the current directory.
 
-This should be moved to `binaries/cuprated/src/blockchain/fast_sync/fast_sync_hashes.bin`.
+This should be moved to `binaries/cuprated/src/blockchain/fast_sync/fast_sync_hashes.json`.
