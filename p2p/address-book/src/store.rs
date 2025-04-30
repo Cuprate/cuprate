@@ -47,7 +47,7 @@ pub(crate) fn save_peers_to_disk<Z: BorshNetworkZone>(
     spawn_blocking(move || {
         fs::create_dir_all(dir)?;
         match fs::write(&tmp_file, &data) {
-            Ok(_) => fs::rename(tmp_file, file),
+            Ok(()) => fs::rename(tmp_file, file),
             Err(x) => Err(x),
         }
     })

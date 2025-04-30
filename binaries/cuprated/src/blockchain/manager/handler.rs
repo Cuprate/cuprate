@@ -9,7 +9,7 @@ use monero_serai::{
 };
 use rayon::prelude::*;
 use tower::{Service, ServiceExt};
-use tracing::{info, instrument, Span};
+use tracing::{info, instrument, warn, Span};
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{
@@ -20,14 +20,15 @@ use cuprate_consensus::{
     transactions::new_tx_verification_data,
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
 };
-use cuprate_consensus_context::NewBlockData;
+use cuprate_consensus_context::{BlockchainContext, NewBlockData};
 use cuprate_fast_sync::{block_to_verified_block_information, fast_sync_stop_height};
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p::{block_downloader::BlockBatch, constants::LONG_BAN, BroadcastRequest};
 use cuprate_txpool::service::interface::TxpoolWriteRequest;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
-    AltBlockInformation, Chain, HardFork, TransactionVerificationData, VerifiedBlockInformation,
+    AltBlockInformation, Chain, ChainId, HardFork, TransactionVerificationData,
+    VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 
 use crate::{
@@ -424,29 +425,9 @@ impl super::BlockchainManager {
 
         info!(split_height, "Attempting blockchain reorg");
 
-        let BlockchainResponse::PopBlocks(old_main_chain_id) = self
-            .blockchain_write_handle
-            .ready()
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
-            .call(BlockchainWriteRequest::PopBlocks(
-                current_main_chain_height - split_height,
-            ))
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
-        else {
-            unreachable!();
-        };
-
-        self.blockchain_context_service
-            .ready()
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
-            .call(BlockChainContextRequest::PopBlocks {
-                numb_blocks: current_main_chain_height - split_height,
-            })
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+        let old_main_chain_id = self
+            .pop_blocks(current_main_chain_height - split_height)
+            .await;
 
         let reorg_res = self.verify_add_alt_blocks_to_main_chain(alt_blocks).await;
 
@@ -463,9 +444,100 @@ impl super::BlockchainManager {
                 Ok(())
             }
             Err(e) => {
-                todo!("Reverse reorg")
+                self.reverse_reorg(old_main_chain_id).await;
+                Err(e)
             }
         }
+    }
+
+    /// Reverse a reorg that failed.
+    ///
+    /// This function takes the old chain's [`ChainId`] and reverts the chain state to back to before
+    /// the reorg was attempted.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// recover from.
+    #[instrument(name = "reverse_reorg", skip_all, level = "info")]
+    async fn reverse_reorg(&mut self, old_main_chain_id: ChainId) {
+        warn!("Reorg failed, reverting to old chain.");
+
+        let BlockchainResponse::AltBlocksInChain(mut blocks) = self
+            .blockchain_read_handle
+            .ready()
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .call(BlockchainReadRequest::AltBlocksInChain(old_main_chain_id))
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        else {
+            unreachable!();
+        };
+
+        let split_height = blocks[0].height;
+        let current_main_chain_height = self
+            .blockchain_context_service
+            .blockchain_context()
+            .chain_height;
+
+        let numb_blocks = current_main_chain_height - split_height;
+
+        if numb_blocks > 0 {
+            self.pop_blocks(current_main_chain_height - split_height)
+                .await;
+        }
+
+        for block in blocks {
+            let verified_block = alt_block_to_verified_block_information(
+                block,
+                self.blockchain_context_service.blockchain_context(),
+            );
+            self.add_valid_block_to_main_chain(verified_block).await;
+        }
+
+        self.blockchain_write_handle
+            .ready()
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .call(BlockchainWriteRequest::FlushAltBlocks)
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+
+        info!("Successfully reversed reorg");
+    }
+
+    /// Pop blocks from the main chain, moving them to alt-blocks. This function will flush all other alt-blocks.
+    ///
+    /// This returns the [`ChainId`] of the blocks that were popped.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// recover from.
+    #[instrument(name = "pop_blocks", skip(self), level = "info")]
+    async fn pop_blocks(&mut self, numb_blocks: usize) -> ChainId {
+        let BlockchainResponse::PopBlocks(old_main_chain_id) = self
+            .blockchain_write_handle
+            .ready()
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .call(BlockchainWriteRequest::PopBlocks(numb_blocks))
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        else {
+            unreachable!();
+        };
+
+        self.blockchain_context_service
+            .ready()
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .call(BlockChainContextRequest::PopBlocks { numb_blocks })
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+
+        old_main_chain_id
     }
 
     /// Verify and add a list of [`AltBlockInformation`]s to the main-chain.
@@ -613,4 +685,44 @@ enum AddAltBlock {
     Cached(bool),
     /// The chain was reorged.
     Reorged,
+}
+
+/// Creates a [`VerifiedBlockInformation`] from an alt-block known to be valid.
+///
+/// # Panics
+///
+/// This may panic if used on an invalid block.
+pub fn alt_block_to_verified_block_information(
+    block: AltBlockInformation,
+    blockchin_ctx: &BlockchainContext,
+) -> VerifiedBlockInformation {
+    assert_eq!(
+        block.height, blockchin_ctx.chain_height,
+        "alt-block invalid"
+    );
+
+    let total_fees = block.txs.iter().map(|tx| tx.fee).sum::<u64>();
+    let total_outputs = block
+        .block
+        .miner_transaction
+        .prefix()
+        .outputs
+        .iter()
+        .map(|output| output.amount.unwrap_or(0))
+        .sum::<u64>();
+
+    let generated_coins = total_outputs - total_fees;
+
+    VerifiedBlockInformation {
+        block_blob: block.block_blob,
+        txs: block.txs,
+        block_hash: block.block_hash,
+        pow_hash: [u8::MAX; 32],
+        height: block.height,
+        generated_coins,
+        weight: block.weight,
+        long_term_weight: blockchin_ctx.next_block_long_term_weight(block.weight),
+        cumulative_difficulty: blockchin_ctx.cumulative_difficulty + blockchin_ctx.next_difficulty,
+        block: block.block,
+    }
 }

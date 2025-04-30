@@ -42,7 +42,6 @@ pub fn update_alt_chain_info(
                 info.parent_chain = parent_chain.into();
             }
 
-            info.chain_height = alt_block_height.height + 1;
             Some(info)
         });
 
