@@ -11,6 +11,7 @@ use tower::{Service, ServiceExt};
 use cuprate_blockchain::{
     config::ConfigBuilder, cuprate_database::DbResult, service::BlockchainReadHandle,
 };
+use cuprate_hex::Hex;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain,
@@ -59,7 +60,7 @@ async fn main() {
     while (height + FAST_SYNC_BATCH_LEN) < height_target {
         if let Ok(block_ids) = read_batch(&mut read_handle, height).await {
             let hash = hash_of_hashes(block_ids.as_slice());
-            hashes_of_hashes.push(hash);
+            hashes_of_hashes.push(Hex(hash));
         } else {
             println!("Failed to read next batch from database");
             break;

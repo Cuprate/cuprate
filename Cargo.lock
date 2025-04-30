@@ -782,6 +782,7 @@ dependencies = [
  "cuprate-blockchain",
  "cuprate-consensus",
  "cuprate-consensus-context",
+ "cuprate-hex",
  "cuprate-p2p",
  "cuprate-p2p-core",
  "cuprate-types",
