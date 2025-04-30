@@ -8,9 +8,7 @@ use std::{
 use anyhow::Error;
 use tokio::net::TcpListener;
 use tower::limit::rate::RateLimitLayer;
-use tower_http::{
-    compression::CompressionLayer, decompression::DecompressionLayer, limit::RequestBodyLimitLayer,
-};
+use tower_http::limit::RequestBodyLimitLayer;
 use tracing::{info, warn};
 
 use cuprate_rpc_interface::{RouterBuilder, RpcHandlerDummy};
@@ -78,15 +76,6 @@ async fn run_rpc_server(restricted: bool, config: SharedRpcConfig) -> Result<(),
     // - `json_rpc` is 1 endpoint; `RouterBuilder` operates at the
     //   level endpoint; we can't selectively enable certain `json_rpc` methods
     let router = RouterBuilder::new().fallback().build().with_state(state);
-
-    // Enable request (de)compression.
-    let router = if config.gzip || config.br {
-        router
-            .layer(DecompressionLayer::new().gzip(config.gzip).br(config.br))
-            .layer(CompressionLayer::new().gzip(config.gzip).br(config.br))
-    } else {
-        router
-    };
 
     // Add restrictive layers if restricted RPC.
     //

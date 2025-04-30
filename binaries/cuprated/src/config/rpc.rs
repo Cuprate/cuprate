@@ -72,8 +72,6 @@ impl Default for UnrestrictedRpcConfig {
             shared: SharedRpcConfig {
                 address: SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 18081)),
                 enable: true,
-                gzip: true,
-                br: true,
                 request_byte_limit: 0,
             },
         }
@@ -113,28 +111,6 @@ config_struct! {
         /// Examples | true, false
         pub enable: bool,
 
-        /// Toggle request gzip (de)compression.
-        ///
-        /// Setting this to `true` will allow the RPC server
-        /// to accept gzip compressed requests and send
-        /// gzip compressed responses if the client
-        /// has `Content-Encoding: gzip` set.
-        ///
-        /// Type         | boolean
-        /// Valid values | true, false
-        pub gzip: bool,
-
-        /// Toggle request br (de)compression.
-        ///
-        /// Setting this to `true` will allow the RPC server
-        /// to accept br compressed requests and send
-        /// br compressed responses if the client
-        /// has `Content-Encoding: br` set.
-        ///
-        /// Type         | boolean
-        /// Valid values | true, false
-        pub br: bool,
-
         /// If a request is above this byte limit, it will be rejected.
         ///
         /// Setting this to `0` will disable the limit.
@@ -154,8 +130,6 @@ impl Default for SharedRpcConfig {
         Self {
             address: SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 18089)),
             enable: false,
-            gzip: true,
-            br: true,
             // 1 megabyte.
             // <https://github.com/monero-project/monero/blob/3b01c490953fe92f3c6628fa31d280a4f0490d28/src/cryptonote_config.h#L134>
             request_byte_limit: 1024 * 1024,

@@ -80,7 +80,7 @@ tokio                 = { workspace = true }
 toml                  = { workspace = true, features = ["parse", "display"]}
 toml_edit             = { workspace = true }
 tower                 = { workspace = true, features = ["limit"] }
-tower-http            = { workspace = true, features = ["compression-br", "compression-gzip", "decompression-br", "decompression-gzip", "limit"] }
+tower-http            = { workspace = true, features = ["limit"] }
 tracing-appender      = { workspace = true }
 tracing-subscriber    = { workspace = true, features = ["std", "fmt", "default"] }
 tracing               = { workspace = true, features = ["default"] }
