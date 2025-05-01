@@ -126,7 +126,7 @@ fn main() {
         let tx_handler = txpool::IncomingTxHandler::init(
             clearnet.clone(),
             txpool_write_handle.clone(),
-            txpool_read_handle,
+            txpool_read_handle.clone(),
             context_svc.clone(),
             blockchain_read_handle.clone(),
         );
@@ -138,15 +138,20 @@ fn main() {
         blockchain::init_blockchain_manager(
             clearnet,
             blockchain_write_handle,
-            blockchain_read_handle,
-            txpool_write_handle,
+            blockchain_read_handle.clone(),
+            txpool_write_handle.clone(),
             context_svc.clone(),
             config.block_downloader_config(),
         )
         .await;
 
         // Initialize the RPC server(s).
-        rpc::init_rpc_servers(config.rpc);
+        rpc::init_rpc_servers(
+            config.rpc,
+            blockchain_read_handle,
+            context_svc.clone(),
+            txpool_read_handle,
+        );
 
         // Start the command listener.
         if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
