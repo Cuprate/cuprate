@@ -36,3 +36,6 @@ pub mod crypto;
 
 #[cfg(feature = "fmt")]
 pub mod fmt;
+
+#[cfg(feature = "net")]
+pub mod net;

@@ -452,9 +452,9 @@ async fn send_raw_transaction(
         }
     }
 
+    // TODO: handle to txpool service.
     let tx_relay_checks =
-        txpool::check_maybe_relay_local(&mut state.txpool_manager, tx, !request.do_not_relay)
-            .await?;
+        txpool::check_maybe_relay_local(todo!(), tx, !request.do_not_relay).await?;
 
     if tx_relay_checks.is_empty() {
         return Ok(resp);
@@ -496,7 +496,7 @@ async fn send_raw_transaction(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1525-L1535>
 async fn save_bc(mut state: CupratedRpcHandler, _: SaveBcRequest) -> Result<SaveBcResponse, Error> {
-    blockchain_manager::sync(&mut state.blockchain_manager).await?;
+    blockchain_manager::sync(todo!()).await?;
 
     Ok(SaveBcResponse {
         base: ResponseBase::OK,
@@ -554,7 +554,7 @@ async fn stop_daemon(
     mut state: CupratedRpcHandler,
     _: StopDaemonRequest,
 ) -> Result<StopDaemonResponse, Error> {
-    blockchain_manager::stop(&mut state.blockchain_manager).await?;
+    blockchain_manager::stop(todo!()).await?;
     Ok(StopDaemonResponse { status: Status::Ok })
 }
 
@@ -658,8 +658,7 @@ async fn pop_blocks(
     mut state: CupratedRpcHandler,
     request: PopBlocksRequest,
 ) -> Result<PopBlocksResponse, Error> {
-    let height =
-        blockchain_manager::pop_blocks(&mut state.blockchain_manager, request.nblocks).await?;
+    let height = blockchain_manager::pop_blocks(todo!(), request.nblocks).await?;
 
     Ok(PopBlocksResponse {
         base: helper::response_base(false),

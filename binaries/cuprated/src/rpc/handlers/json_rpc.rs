@@ -172,7 +172,7 @@ async fn get_block_template(
         seed_hash,
         next_seed_hash,
     } = *blockchain_manager::create_block_template(
-        &mut state.blockchain_manager,
+        todo!(),
         prev_block,
         request.wallet_address,
         request.extra_nonce.0,
@@ -242,7 +242,7 @@ async fn submit_block(
     let block_id = Hex(block.hash());
 
     // Attempt to relay the block.
-    blockchain_manager::relay_block(&mut state.blockchain_manager, Box::new(block)).await?;
+    blockchain_manager::relay_block(todo!(), Box::new(block)).await?;
 
     Ok(SubmitBlockResponse {
         base: helper::response_base(false),
@@ -269,7 +269,7 @@ async fn generate_blocks(
     };
 
     let (blocks, height) = blockchain_manager::generate_blocks(
-        &mut state.blockchain_manager,
+        todo!(),
         request.amount_of_blocks,
         prev_block,
         request.starting_nonce,
@@ -479,7 +479,7 @@ async fn get_info(
         (String::new(), false)
     };
 
-    let busy_syncing = blockchain_manager::syncing(&mut state.blockchain_manager).await?;
+    let busy_syncing = blockchain_manager::syncing(todo!()).await?;
 
     let (cumulative_difficulty, cumulative_difficulty_top64) =
         split_u128_into_low_high_bits(cumulative_difficulty);
@@ -524,12 +524,10 @@ async fn get_info(
     let rpc_connections_count = if restricted { 0 } else { 0 };
 
     let start_time = if restricted { 0 } else { *START_INSTANT_UNIX };
-    let synchronized = blockchain_manager::synced(&mut state.blockchain_manager).await?;
+    let synchronized = blockchain_manager::synced(todo!()).await?;
 
-    let target_height = blockchain_manager::target_height(&mut state.blockchain_manager).await?;
-    let target = blockchain_manager::target(&mut state.blockchain_manager)
-        .await?
-        .as_secs();
+    let target_height = blockchain_manager::target_height(todo!()).await?;
+    let target = blockchain_manager::target(todo!()).await?.as_secs();
     let top_block_hash = Hex(c.top_hash);
 
     let tx_count = blockchain::total_tx_count(&mut state.blockchain_read).await?;
@@ -738,7 +736,7 @@ async fn flush_transaction_pool(
         .map(|h| h.0)
         .collect::<Vec<[u8; 32]>>();
 
-    txpool::flush(&mut state.txpool_manager, tx_hashes).await?;
+    txpool::flush(todo!(), tx_hashes).await?;
 
     Ok(FlushTransactionPoolResponse { status: Status::Ok })
 }
@@ -807,7 +805,7 @@ async fn get_version(
     _: GetVersionRequest,
 ) -> Result<GetVersionResponse, Error> {
     let current_height = helper::top_height(&mut state).await?.0;
-    let target_height = blockchain_manager::target_height(&mut state.blockchain_manager).await?;
+    let target_height = blockchain_manager::target_height(todo!()).await?;
 
     let mut hard_forks = Vec::with_capacity(HardFork::COUNT);
 
@@ -880,7 +878,7 @@ async fn relay_tx(
         .map(|h| h.0)
         .collect::<Vec<[u8; 32]>>();
 
-    txpool::relay(&mut state.txpool_manager, tx_hashes).await?;
+    txpool::relay(todo!(), tx_hashes).await?;
 
     Ok(RelayTxResponse { status: Status::Ok })
 }
@@ -892,7 +890,7 @@ async fn sync_info(
 ) -> Result<SyncInfoResponse, Error> {
     let height = usize_to_u64(state.blockchain_context.blockchain_context().chain_height);
 
-    let target_height = blockchain_manager::target_height(&mut state.blockchain_manager).await?;
+    let target_height = blockchain_manager::target_height(todo!()).await?;
 
     let peers = address_book::connection_info::<ClearNet>(&mut DummyAddressBook)
         .await?
@@ -900,12 +898,11 @@ async fn sync_info(
         .map(|info| SyncInfoPeer { info })
         .collect();
 
-    let next_needed_pruning_seed =
-        blockchain_manager::next_needed_pruning_seed(&mut state.blockchain_manager)
-            .await?
-            .compress();
+    let next_needed_pruning_seed = blockchain_manager::next_needed_pruning_seed(todo!())
+        .await?
+        .compress();
 
-    let spans = blockchain_manager::spans::<ClearNet>(&mut state.blockchain_manager).await?;
+    let spans = blockchain_manager::spans::<ClearNet>(todo!()).await?;
 
     // <https://github.com/Cuprate/cuprate/pull/320#discussion_r1811063772>
     let overview = String::from(FIELD_NOT_SUPPORTED);
@@ -994,10 +991,8 @@ async fn prune_blockchain(
     mut state: CupratedRpcHandler,
     request: PruneBlockchainRequest,
 ) -> Result<PruneBlockchainResponse, Error> {
-    let pruned = blockchain_manager::pruned(&mut state.blockchain_manager).await?;
-    let pruning_seed = blockchain_manager::prune(&mut state.blockchain_manager)
-        .await?
-        .compress();
+    let pruned = blockchain_manager::pruned(todo!()).await?;
+    let pruning_seed = blockchain_manager::prune(todo!()).await?.compress();
 
     Ok(PruneBlockchainResponse {
         base: helper::response_base(false),

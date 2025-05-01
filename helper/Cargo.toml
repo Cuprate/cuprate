@@ -24,6 +24,7 @@ time      = ["dep:chrono", "std"]
 thread    = ["std", "dep:target_os_lib"]
 tx        = ["dep:monero-serai"]
 fmt       = ["map", "std"]
+net       = []
 
 [dependencies]
 cuprate-constants = { workspace = true, optional = true, features = ["block"] }
