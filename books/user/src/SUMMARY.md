@@ -19,6 +19,8 @@
     - [Ports](resources/ports.md)
     - [IP](resources/ip.md)
 
+- [RPC](rpc.md)
+
 - [Platform support](platform.md)
 - [License](license.md)
 

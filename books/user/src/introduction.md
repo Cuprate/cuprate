@@ -95,7 +95,9 @@ The database `cuprated` generates and uses cannot directly be used by `monerod` 
 ## Can I connect a wallet to `cuprated`?
 Not yet.
 
-Wallets require the [daemon RPC API](https://docs.getmonero.org/rpc-library/monerod-rpc). This is actively being worked on to be backwards compatible with `monerod`, although this is not yet available.
+Wallets require the [daemon RPC API](https://docs.getmonero.org/rpc-library/monerod-rpc). This is actively being worked on to be backwards compatible with `monerod`, although it is not yet available.
+
+See the [RPC section](rpc.md) for more information.
 
 ## Can `cuprated` be used with an anonymity network like Tor?
 Not yet (directly).
