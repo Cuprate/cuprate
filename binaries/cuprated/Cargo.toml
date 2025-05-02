@@ -84,7 +84,11 @@ tracing-subscriber    = { workspace = true, features = ["std", "fmt", "default"]
 tracing               = { workspace = true, features = ["default"] }
 
 [dev-dependencies]
-tempfile              = { workspace = true }
+tempfile = { workspace = true }
+
+[build-dependencies]
+cuprate-hex = { workspace = true }
+serde_json  = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true
