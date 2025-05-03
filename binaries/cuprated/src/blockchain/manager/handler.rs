@@ -698,10 +698,10 @@ enum AddAltBlock {
 /// This may panic if used on an invalid block.
 pub fn alt_block_to_verified_block_information(
     block: AltBlockInformation,
-    blockchin_ctx: &BlockchainContext,
+    blockchain_ctx: &BlockchainContext,
 ) -> VerifiedBlockInformation {
     assert_eq!(
-        block.height, blockchin_ctx.chain_height,
+        block.height, blockchain_ctx.chain_height,
         "alt-block invalid"
     );
 
@@ -725,8 +725,9 @@ pub fn alt_block_to_verified_block_information(
         height: block.height,
         generated_coins,
         weight: block.weight,
-        long_term_weight: blockchin_ctx.next_block_long_term_weight(block.weight),
-        cumulative_difficulty: blockchin_ctx.cumulative_difficulty + blockchin_ctx.next_difficulty,
+        long_term_weight: blockchain_ctx.next_block_long_term_weight(block.weight),
+        cumulative_difficulty: blockchain_ctx.cumulative_difficulty
+            + blockchain_ctx.next_difficulty,
         block: block.block,
     }
 }
