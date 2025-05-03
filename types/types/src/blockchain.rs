@@ -237,14 +237,6 @@ pub enum BlockchainWriteRequest {
     /// alt cache.
     PopBlocks(usize),
 
-    /// A request to reverse the re-org process.
-    ///
-    /// The inner value is the [`ChainId`] of the old main chain.
-    ///
-    /// # Invariant
-    /// It is invalid to call this with a [`ChainId`] that was not returned from [`BlockchainWriteRequest::PopBlocks`].
-    ReverseReorg(ChainId),
-
     /// A request to flush all alternative blocks.
     FlushAltBlocks,
 }
@@ -442,7 +434,6 @@ pub enum BlockchainResponse {
     /// currently the response for:
     /// - [`BlockchainWriteRequest::WriteBlock`]
     /// - [`BlockchainWriteRequest::WriteAltBlock`]
-    /// - [`BlockchainWriteRequest::ReverseReorg`]
     /// - [`BlockchainWriteRequest::FlushAltBlocks`]
     Ok,
 
