@@ -42,6 +42,7 @@ mod tables;
 mod transaction;
 
 pub mod config;
+pub mod entry;
 pub mod resize;
 
 pub use backend::ConcreteEnv;

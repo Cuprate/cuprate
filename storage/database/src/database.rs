@@ -2,6 +2,7 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
+    entry::Entry,
     error::{DbResult, RuntimeError},
     table::Table,
 };
@@ -154,7 +155,7 @@ pub unsafe trait DatabaseRo<T: Table> {
 /// Database (key-value store) read/write abstraction.
 ///
 /// All [`DatabaseRo`] functions are also callable by [`DatabaseRw`].
-pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
+pub trait DatabaseRw<T: Table>: DatabaseRo<T> + Sized {
     /// Insert a key-value pair into the database.
     ///
     /// This will overwrite any existing key-value pairs.
@@ -181,30 +182,6 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     #[doc = doc_database!()]
     fn take(&mut self, key: &T::Key) -> DbResult<T::Value>;
 
-    /// Fetch the value, and apply a function to it - or delete the entry.
-    ///
-    /// This will call [`DatabaseRo::get`] and call your provided function `f` on it.
-    ///
-    /// The [`Option`] `f` returns will dictate whether `update()`:
-    /// - Updates the current value OR
-    /// - Deletes the `(key, value)` pair
-    ///
-    /// - If `f` returns `Some(value)`, that will be [`DatabaseRw::put`] as the new value
-    /// - If `f` returns `None`, the entry will be [`DatabaseRw::delete`]d
-    ///
-    #[doc = doc_database!()]
-    fn update<F>(&mut self, key: &T::Key, mut f: F) -> DbResult<()>
-    where
-        F: FnMut(T::Value) -> Option<T::Value>,
-    {
-        let value = DatabaseRo::get(self, key)?;
-
-        match f(value) {
-            Some(value) => DatabaseRw::put(self, key, &value),
-            None => DatabaseRw::delete(self, key),
-        }
-    }
-
     /// Removes and returns the first `(key, value)` pair in the database.
     ///
     #[doc = doc_database!()]
@@ -214,4 +191,9 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     ///
     #[doc = doc_database!()]
     fn pop_last(&mut self) -> DbResult<(T::Key, T::Value)>;
+
+    /// Gets the given key's corresponding entry for in-place manipulation.
+    ///
+    #[doc = doc_database!()]
+    fn entry<'a>(&'a mut self, key: &'a T::Key) -> DbResult<Entry<'a, T, Self>>;
 }
