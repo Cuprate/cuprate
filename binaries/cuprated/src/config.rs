@@ -2,11 +2,13 @@
 use std::{
     fs::{read_to_string, File},
     io,
-    path::Path,
+    path::{Display, Path},
     str::FromStr,
     time::Duration,
 };
 
+use std::fmt;
+use crate::info;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 
@@ -259,6 +261,23 @@ impl Config {
     /// The [`BlockDownloaderConfig`].
     pub fn block_downloader_config(&self) -> BlockDownloaderConfig {
         self.p2p.block_downloader.clone().into()
+    }
+}
+
+impl fmt::Display for Config {
+    fn fmt(&self, config: &mut fmt::Formatter<'_>) -> fmt::Result {
+        
+        info!("========== CONFIGURATION ==========");
+        info!("Network: {}", self.network);
+        info!("Fast Sync: {}", self.fast_sync);
+        info!("Tracing Config: {:?}", self.tracing);
+        info!("Tokio Config: {:?}", self.tokio);
+        info!("Rayon Config: {:?}", self.rayon);
+        info!("P2P Config: {:?}", self.p2p);
+        info!("Storage Config: {:?}", self.storage);
+        info!("File System Config: {:?}", self.fs);
+        info!("===================================");
+        Ok(())
     }
 }
 
