@@ -1,11 +1,11 @@
 //! cuprated config
 use std::{
+    fmt,
     fs::{read_to_string, File},
     io,
     path::{Display, Path},
     str::FromStr,
     time::Duration,
-    fmt,
 };
 
 use clap::Parser;
@@ -21,8 +21,8 @@ use cuprate_p2p_core::{ClearNet, ClearNetServerCfg};
 
 use crate::{
     constants::{DEFAULT_CONFIG_STARTUP_DELAY, DEFAULT_CONFIG_WARNING},
-    logging::eprintln_red,
     info,
+    logging::eprintln_red,
 };
 
 mod args;
@@ -266,7 +266,6 @@ impl Config {
 
 impl fmt::Display for Config {
     fn fmt(&self, config: &mut fmt::Formatter<'_>) -> fmt::Result {
-        
         info!("========== CONFIGURATION ==========");
         info!("Network: {}", self.network);
         info!("Fast Sync: {}", self.fast_sync);
