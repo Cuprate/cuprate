@@ -5,10 +5,9 @@ use std::{
     path::{Display, Path},
     str::FromStr,
     time::Duration,
+    fmt,
 };
 
-use std::fmt;
-use crate::info;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 
@@ -23,6 +22,7 @@ use cuprate_p2p_core::{ClearNet, ClearNetServerCfg};
 use crate::{
     constants::{DEFAULT_CONFIG_STARTUP_DELAY, DEFAULT_CONFIG_WARNING},
     logging::eprintln_red,
+    info,
 };
 
 mod args;

@@ -62,7 +62,7 @@ fn main() {
     logging::init_logging(&config);
 
     // Logging Config
-    println!("{}" , config);
+    println!("{config}");
 
     // Initialize the thread-pools
 
