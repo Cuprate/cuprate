@@ -103,16 +103,13 @@ impl super::BlockchainManager {
                 .blockchain_context()
                 .top_hash
         {
+            let block_hash = block.hash();
             let res = self.handle_incoming_alt_block(block, prepared_txs).await?;
 
             if matches!(res, AddAltBlock::Cached(true)) {
                 info!(
                     alt_block = true,
-                    hash = hex::encode(
-                        self.blockchain_context_service
-                            .blockchain_context()
-                            .top_hash
-                    ),
+                    hash = hex::encode(block_hash),
                     "Successfully added block"
                 );
             }
