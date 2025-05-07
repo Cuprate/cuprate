@@ -372,3 +372,7 @@ fn skip_epee_value<B: Buf>(r: &mut B, skipped_objects: &mut u8) -> Result<()> {
 fn advance<B: Buf>(n: usize, b: &mut B) -> Result<()> {
     checked_read(b, |b: &mut B| b.advance(n), n)
 }
+
+const fn max_upfront_capacity<T>() -> usize {
+    2_000_000 / size_of::<T>()
+}
