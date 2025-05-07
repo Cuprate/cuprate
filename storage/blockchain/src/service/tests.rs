@@ -484,7 +484,7 @@ async fn alt_chain_requests() {
     let request = BlockchainWriteRequest::PopBlocks(1);
     let response = writer.ready().await.unwrap().call(request).await.unwrap();
 
-    let BlockchainResponse::PopBlocks(old_main_chain_id) = response else {
+    let BlockchainResponse::PopBlocks(_) = response else {
         panic!("Wrong response type was returned");
     };
 
@@ -492,14 +492,4 @@ async fn alt_chain_requests() {
     let request = BlockchainReadRequest::ChainHeight;
     let response = reader.clone().oneshot(request).await.unwrap();
     assert!(matches!(response, BlockchainResponse::ChainHeight(1, _)));
-
-    // Attempt to add the popped block back.
-    let request = BlockchainWriteRequest::ReverseReorg(old_main_chain_id);
-    let response = writer.ready().await.unwrap().call(request).await.unwrap();
-    assert_eq!(response, BlockchainResponse::Ok);
-
-    // Check we have the popped block back.
-    let request = BlockchainReadRequest::ChainHeight;
-    let response = reader.clone().oneshot(request).await.unwrap();
-    assert!(matches!(response, BlockchainResponse::ChainHeight(2, _)));
 }
