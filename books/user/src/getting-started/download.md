@@ -3,10 +3,10 @@ Cuprate offers pre-built binaries for `cuprated` for the platforms listed in [`P
 
 | Platform                     | Download |
 |------------------------------|----------|
-| Windows x86_64               | <https://github.com/Cuprate/cuprate/releases/download/cuprated-0.0.3/cuprated-0.0.3-windows-x64.zip>
-| macOS x86_64                 | <https://github.com/Cuprate/cuprate/releases/download/cuprated-0.0.3/cuprated-0.0.3-macos-x64.tar.gz>
-| macOS ARM64                  | <https://github.com/Cuprate/cuprate/releases/download/cuprated-0.0.3/cuprated-0.0.3-macos-arm64.tar.gz>
-| Linux x86_64 (glibc >= 2.36) | <https://github.com/Cuprate/cuprate/releases/download/cuprated-0.0.3/cuprated-0.0.3-linux-x64.tar.gz>
-| Linux ARM64 (glibc >= 2.36)  | <https://github.com/Cuprate/cuprate/releases/download/cuprated-0.0.3/cuprated-0.0.3-linux-arm64.tar.gz>
+| Windows x86_64               | <https://github.com/Cuprate/cuprate/releases/download/cuprated-0.0.4/cuprated-0.0.4-windows-x64.zip>
+| macOS x86_64                 | <https://github.com/Cuprate/cuprate/releases/download/cuprated-0.0.4/cuprated-0.0.4-macos-x64.tar.gz>
+| macOS ARM64                  | <https://github.com/Cuprate/cuprate/releases/download/cuprated-0.0.4/cuprated-0.0.4-macos-arm64.tar.gz>
+| Linux x86_64 (glibc >= 2.36) | <https://github.com/Cuprate/cuprate/releases/download/cuprated-0.0.4/cuprated-0.0.4-linux-x64.tar.gz>
+| Linux ARM64 (glibc >= 2.36)  | <https://github.com/Cuprate/cuprate/releases/download/cuprated-0.0.4/cuprated-0.0.4-linux-arm64.tar.gz>
 
 All release files are archived and also available at <https://archive.hinto.rs>.
