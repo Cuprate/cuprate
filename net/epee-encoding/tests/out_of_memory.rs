@@ -14,7 +14,7 @@ epee_object!(
 #[test]
 fn out_of_memory() {
     #[rustfmt::skip]
-    let mut data = [
+    let data = [
         // header
         0x01, 0x11, 0x01, 0x1, 0x01, 0x01, 0x02, 0x1, 0x1,
         // struct + field
