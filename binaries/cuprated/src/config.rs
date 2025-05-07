@@ -279,9 +279,8 @@ impl fmt::Display for Config {
         writeln!(f, "{:?}", self.p2p)?;
         writeln!(f, "\nStorage Configuration:")?;
         writeln!(f, "{:?}", self.storage)?;
-
-        // File System config - exclude actual paths
-        writeln!(f, "\nFile System Configuration: [PATHS HIDDEN]")?;
+        writeln!(f, "\nFile System Configuration:")?;
+        writeln!(f, "{:?}", self.fs)?;
         writeln!(f, "\n===================================")
     }
 }
