@@ -373,6 +373,10 @@ fn advance<B: Buf>(n: usize, b: &mut B) -> Result<()> {
     checked_read(b, |b: &mut B| b.advance(n), n)
 }
 
+/// Max upfront capacity when deserializing heap items.
+///
+/// Allocating upfront saves allocations however this must be limited otherwise an attacker can easily
+/// cause an OOM.
 const fn max_upfront_capacity<T>() -> usize {
     2_000_000 / size_of::<T>()
 }
