@@ -2,11 +2,13 @@
 use std::{
     fs::{read_to_string, File},
     io,
+    net::{IpAddr, TcpListener},
     path::Path,
     str::FromStr,
     time::Duration,
 };
 
+use args::Args;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 
@@ -61,7 +63,7 @@ const HEADER: &str = r"##     ____                      _
 
 /// Reads the args & config file, returning a [`Config`].
 pub fn read_config_and_args() -> Config {
-    let args = args::Args::parse();
+    let args = Args::parse();
     args.do_quick_requests();
 
     let config: Config = if let Some(config_file) = &args.config_file {
@@ -260,6 +262,62 @@ impl Config {
     pub fn block_downloader_config(&self) -> BlockDownloaderConfig {
         self.p2p.block_downloader.clone().into()
     }
+
+    fn check_port(ip: IpAddr, port: u16) -> Result<(), String> {
+        match TcpListener::bind((ip, port)) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(format!("Fail to bind {ip}:{port} : {e}")),
+        }
+    }
+
+    pub fn dry_run_check(args: &Args) {
+        let config: Self = if let Some(config_file) = &args.config_file {
+            // If a config file was set in the args try to read it and exit if we can't.
+            match Self::read_from_path(config_file) {
+                Ok(config) => config,
+                Err(e) => {
+                    eprintln_red(&format!("Failed to read config from file: {e}"));
+                    std::process::exit(1);
+                }
+            }
+        } else {
+            // First attempt to read the config file from the current directory.
+            std::env::current_dir()
+                .map(|path| path.join(DEFAULT_CONFIG_FILE_NAME))
+                .map_err(Into::into)
+                .and_then(Self::read_from_path)
+                .inspect_err(|e| tracing::debug!("Failed to read config from current dir: {e}"))
+                // otherwise try the main config directory.
+                .or_else(|_| {
+                    let file = CUPRATE_CONFIG_DIR.join(DEFAULT_CONFIG_FILE_NAME);
+                    Self::read_from_path(file)
+                })
+                .inspect_err(|e| {
+                    tracing::debug!("Failed to read config from config dir: {e}");
+                    if !args.skip_config_warning {
+                        eprintln_red(DEFAULT_CONFIG_WARNING);
+                        std::thread::sleep(DEFAULT_CONFIG_STARTUP_DELAY);
+                    }
+                })
+                .unwrap_or_default()
+        };
+        println!("Config file loaded.");
+
+        //If the ports are available
+        let ip = config.p2p.clear_net.listen_on;
+        let ports = vec![config.p2p.clear_net.general.p2p_port];
+        for port in ports {
+            match Self::check_port(ip, port) {
+                Ok(()) => println!("Port {ip}:{port} available."),
+                Err(e) => {
+                    eprintln_red(&format!("Config file error: {e}"));
+                    std::process::exit(1);
+                }
+            }
+        }
+        println!("Dry run done.");
+        std::process::exit(0);
+    }
 }
 
 #[cfg(test)]
@@ -274,5 +332,40 @@ mod test {
         let conf: Config = from_str(&str).unwrap();
 
         assert_eq!(conf, Config::default());
+    }
+
+    use std::io::Write;
+    use std::net::{IpAddr, TcpListener};
+    use std::path::Path;
+    use tempfile::NamedTempFile;
+    use toml::to_string;
+
+    #[test]
+
+    fn test_check_port() {
+        let port = 51000;
+        let ip = IpAddr::from([127, 0, 0, 1]);
+        let available_port = Config::check_port(ip, port);
+        assert!(available_port.is_ok());
+        let _listen = TcpListener::bind((ip, port)).expect("fail to bind to the port for test");
+        let unavailable_port = Config::check_port(ip, port);
+        assert!(unavailable_port.is_err());
+    }
+
+    #[test]
+    fn test_read_from_path() {
+        let config = Config::default();
+        let config_str = to_string(&config).unwrap();
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "{config_str}").unwrap();
+        let path = file.path().to_path_buf();
+
+        // Test reading from the file
+        let read_config = Config::read_from_path(path).unwrap();
+        assert_eq!(read_config, config);
+
+        // Test reading from a non-existent file
+        let non_existent_path = Path::new("non_existent_file.toml");
+        assert!(Config::read_from_path(non_existent_path).is_err());
     }
 }
