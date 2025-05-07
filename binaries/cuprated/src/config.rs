@@ -1,5 +1,6 @@
 //! cuprated config
 use std::{
+    fmt,
     fs::{read_to_string, File},
     io,
     path::Path,
@@ -259,6 +260,29 @@ impl Config {
     /// The [`BlockDownloaderConfig`].
     pub fn block_downloader_config(&self) -> BlockDownloaderConfig {
         self.p2p.block_downloader.clone().into()
+    }
+}
+
+impl fmt::Display for Config {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "========== CONFIGURATION ==========")?;
+        writeln!(f, "Network: {}", self.network)?;
+        writeln!(f, "Fast Sync: {}", self.fast_sync)?;
+        writeln!(f, "\nTracing Configuration:")?;
+        writeln!(f, "   StdoutTracing: {:?}", self.tracing.stdout)?;
+        writeln!(f, "   FileTracing: {:?}", self.tracing.file)?;
+        writeln!(f, "\nTokio Configuration:")?;
+        writeln!(f, "  Threads: {:?}", self.tokio.threads)?;
+        writeln!(f, "\nRayon Configuration:")?;
+        writeln!(f, "  Threads: {:?}", self.rayon.threads)?;
+        writeln!(f, "\nP2P Configuration:")?;
+        writeln!(f, "{:?}", self.p2p)?;
+        writeln!(f, "\nStorage Configuration:")?;
+        writeln!(f, "{:?}", self.storage)?;
+
+        // File System config - exclude actual paths
+        writeln!(f, "\nFile System Configuration: [PATHS HIDDEN]")?;
+        writeln!(f, "\n===================================")
     }
 }
 

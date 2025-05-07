@@ -61,6 +61,9 @@ fn main() {
     // Initialize logging.
     logging::init_logging(&config);
 
+    //Printing configuration
+    info!("{config}");
+
     // Initialize the thread-pools
 
     init_global_rayon_pool(&config);
