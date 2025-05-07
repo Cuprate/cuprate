@@ -1,5 +1,6 @@
 //! cuprated config
 use std::{
+    fmt,
     fs::{read_to_string, File},
     io,
     path::Path,
@@ -259,6 +260,15 @@ impl Config {
     /// The [`BlockDownloaderConfig`].
     pub fn block_downloader_config(&self) -> BlockDownloaderConfig {
         self.p2p.block_downloader.clone().into()
+    }
+}
+
+impl fmt::Display for Config {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "========== CONFIGURATION ==========\n{self:#?}\n==================================="
+        )
     }
 }
 
