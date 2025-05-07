@@ -2,9 +2,9 @@
 //! impls for some possible base epee values.
 
 use alloc::{string::String, vec, vec::Vec};
+use core::{cmp::min, fmt::Debug};
+
 use bytes::{Buf, BufMut, Bytes, BytesMut};
-use core::fmt::Debug;
-use std::cmp::min;
 
 use cuprate_fixed_bytes::{ByteArray, ByteArrayVec};
 use cuprate_hex::{Hex, HexVec};
