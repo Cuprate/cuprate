@@ -1,0 +1,35 @@
+[package]
+name        = "cuprate-rpc-compat"
+version     = "0.0.0"
+edition     = "2024"
+description = "Cuprate RPC compatability testing harness"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/rpc/cuprate-rpc-compat"
+keywords    = ["cuprate", "rpc", "compat"]
+
+[features]
+default  = []
+
+[dependencies]
+cuprate-constants       = { workspace = true, features = ["build"] }
+cuprate-consensus-rules = { workspace = true }
+cuprate-cryptonight     = { workspace = true }
+
+clap         = { workspace = true, features = ["cargo", "derive", "default", "string"] }
+crossbeam    = { workspace = true, features = ["std"] }
+futures      = { workspace = true, features = ["std"] }
+monero-serai = { workspace = true }
+rayon        = { workspace = true }
+hex          = { workspace = true, features = ["serde", "std"] }
+hex-literal  = { workspace = true }
+serde        = { workspace = true, features = ["derive"] }
+serde_json   = { workspace = true, features = ["std"] }
+tokio        = { workspace = true, features = ["full"] }
+reqwest      = { version = "0.12", features = ["json"] }
+randomx-rs   = { workspace = true }
+
+[dev-dependencies]
+
+[lints]
+workspace = true
