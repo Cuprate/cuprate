@@ -133,7 +133,7 @@ fn main() {
             context_svc.clone(),
             blockchain_read_handle.clone(),
         );
-        if incoming_tx_handler_tx.send(tx_handler).is_err() {
+        if incoming_tx_handler_tx.send(tx_handler.clone()).is_err() {
             unreachable!()
         }
 
@@ -154,7 +154,7 @@ fn main() {
             std::thread::spawn(|| commands::command_listener(command_tx));
 
             // Wait on the io_loop, spawned on a separate task as this improves performance.
-            tokio::spawn(commands::io_loop(command_rx, context_svc))
+            tokio::spawn(commands::io_loop(command_rx, context_svc, tx_handler))
                 .await
                 .unwrap();
         } else {
