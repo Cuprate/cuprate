@@ -3,6 +3,7 @@ resolver = "3"
 members = [
 	# Binaries
 	"binaries/cuprated",
+	"binaries/changelog",
 
 	# Consensus
 	"consensus",
