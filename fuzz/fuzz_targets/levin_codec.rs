@@ -1,12 +1,11 @@
 #![no_main]
 
 use bytes::{BufMut, BytesMut};
-use tokio_util::codec::Decoder;
 use libfuzzer_sys::fuzz_target;
+use tokio_util::codec::Decoder;
 
 use cuprate_levin::BucketHead;
 use cuprate_wire::{LevinCommand, MoneroWireCodec};
-
 
 fuzz_target!(|data: Vec<(BucketHead<LevinCommand>, Vec<u8>)>| {
     let mut codec = MoneroWireCodec::default();
@@ -20,4 +19,3 @@ fuzz_target!(|data: Vec<(BucketHead<LevinCommand>, Vec<u8>)>| {
         drop(codec.decode(&mut bytes));
     }
 });
-

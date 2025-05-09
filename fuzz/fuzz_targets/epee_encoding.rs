@@ -1,7 +1,7 @@
 #![no_main]
 
-use libfuzzer_sys::fuzz_target;
 use bytes::{Bytes, BytesMut};
+use libfuzzer_sys::fuzz_target;
 
 use cuprate_epee_encoding::{epee_object, from_bytes};
 
