@@ -1,0 +1,30 @@
+[package]
+name = "cuprated-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+cuprate-epee-encoding = { workspace = true, features = ["std"]}
+cuprate-cryptonight = { workspace = true }
+
+bytes = { workspace = true }
+
+[[bin]]
+name = "epee_encoding"
+path = "fuzz_targets/epee_encoding.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "cryptonight"
+path = "fuzz_targets/cryptonight.rs"
+test = false
+doc = false
+bench = false

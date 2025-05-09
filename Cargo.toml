@@ -48,6 +48,9 @@ members = [
 	"helper",
 	"pruning",
 	"test-utils",
+
+	# Fuzz
+	"fuzz"
 ]
 
 [profile.release]
