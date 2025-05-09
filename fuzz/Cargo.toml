@@ -13,8 +13,12 @@ libfuzzer-sys = "0.4"
 
 cuprate-epee-encoding = { workspace = true, features = ["std"]}
 cuprate-cryptonight = { workspace = true }
+cuprate-levin = { workspace = true, features = ["arbitrary"] }
+cuprate-wire = { workspace = true, features = ["arbitrary"] }
 
+monero-serai = { workspace = true }
 bytes = { workspace = true }
+tokio-util = { workspace = true }
 
 [[bin]]
 name = "epee_encoding"
@@ -24,8 +28,36 @@ doc = false
 bench = false
 
 [[bin]]
+name = "epee_p2p_messages"
+path = "fuzz_targets/epee_p2p_messages.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "cryptonight"
 path = "fuzz_targets/cryptonight.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "levin_codec"
+path = "fuzz_targets/levin_codec.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "oxide_block"
+path = "fuzz_targets/oxide_block.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "oxide_tx"
+path = "fuzz_targets/oxide_tx.rs"
 test = false
 doc = false
 bench = false
