@@ -53,6 +53,56 @@ members = [
 	"fuzz"
 ]
 
+default-members = [
+	# Binaries
+	"binaries/cuprated",
+
+	# Consensus
+	"consensus",
+	"consensus/context",
+	"consensus/fast-sync",
+	"consensus/rules",
+
+	# Net
+	"net/epee-encoding",
+	"net/levin",
+	"net/wire",
+
+	# P2P
+	"p2p/p2p",
+	"p2p/p2p-core",
+	"p2p/bucket",
+	"p2p/dandelion-tower",
+	"p2p/async-buffer",
+	"p2p/address-book",
+
+	# Storage
+	"storage/blockchain",
+	"storage/service",
+	"storage/txpool",
+	"storage/database",
+
+	# Types
+	"types/types",
+	"types/hex",
+	"types/fixed-bytes",
+
+	# RPC
+	"rpc/json-rpc",
+	"rpc/types",
+	"rpc/interface",
+
+	# ZMQ
+	"zmq/types",
+
+	# Misc
+	"constants",
+	"cryptonight",
+	"helper",
+	"pruning",
+	"test-utils",
+]
+
 [profile.release]
 panic         = "abort"
 lto           = true   # Build with LTO
