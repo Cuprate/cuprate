@@ -18,6 +18,7 @@ members = [
 	# P2P
 	"p2p/p2p",
 	"p2p/p2p-core",
+	"p2p/p2p-transport",
 	"p2p/bucket",
 	"p2p/dandelion-tower",
 	"p2p/async-buffer",
@@ -139,6 +140,7 @@ cuprate-async-buffer      = { path = "p2p/async-buffer",          default-featur
 cuprate-p2p               = { path = "p2p/p2p",                   default-features = false }
 cuprate-p2p-core          = { path = "p2p/p2p-core",              default-features = false }
 cuprate-p2p-bucket        = { path = "p2p/p2p-bucket",            default-features = false }
+cuprate-p2p-transport     = { path = "p2p/p2p-transport",         default-features = false }
 cuprate-dandelion-tower   = { path = "p2p/dandelion-tower",       default-features = false }
 cuprate-address-book      = { path = "p2p/address-book",          default-features = false }
 cuprate-blockchain        = { path = "storage/blockchain",        default-features = false }

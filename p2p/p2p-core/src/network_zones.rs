@@ -1,3 +1,3 @@
 mod clear;
 
-pub use clear::{ClearNet, ClearNetServerCfg};
+pub use clear::ClearNet;
