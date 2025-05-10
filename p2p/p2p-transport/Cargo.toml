@@ -1,0 +1,11 @@
+[package]
+name = "cuprate-p2p-transport"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["SyntheticBird"]
+
+[dependencies]
+
+[lints]
+workspace = true

@@ -17,7 +17,7 @@ use cuprate_helper::{
     network::Network,
 };
 use cuprate_p2p::block_downloader::BlockDownloaderConfig;
-use cuprate_p2p_core::{ClearNet, ClearNetServerCfg};
+use cuprate_p2p_core::ClearNet;
 
 use crate::{
     constants::{DEFAULT_CONFIG_STARTUP_DELAY, DEFAULT_CONFIG_WARNING},
@@ -210,9 +210,6 @@ impl Config {
             extra_outbound_connections: self.p2p.clear_net.general.extra_outbound_connections,
             max_inbound_connections: self.p2p.clear_net.general.max_inbound_connections,
             gray_peers_percent: self.p2p.clear_net.general.gray_peers_percent,
-            server_config: Some(ClearNetServerCfg {
-                ip: self.p2p.clear_net.listen_on,
-            }),
             p2p_port: self.p2p.clear_net.general.p2p_port,
             // TODO: set this if a public RPC server is set.
             rpc_port: 0,
