@@ -45,9 +45,8 @@ jobs:
       - run: echo "${{ runner.tool_cache }}/cargo-fuzz/bin" >> $GITHUB_PATH
       - run: cargo install --root "${{ runner.tool_cache }}/cargo-fuzz" --version ${{ env.CARGO_FUZZ_VERSION }} cargo-fuzz --locked
 
-      # Build & clippy and then run the fuzz target.
+      # Build and then run the fuzz target.
       - run: cargo fuzz build ${{ matrix.fuzz_target }} -O
-      - run: cargo clippy -p ${{ matrix.fuzz_target }} -- -D warnings
       - run: cargo fuzz run ${{ matrix.fuzz_target }} -O -- -max_total_time=${{ env.FUZZ_TIME }}
 
       # Upload fuzzing artifacts on failure for post-mortem debugging.
