@@ -12,13 +12,13 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 
 cuprate-epee-encoding = { workspace = true, features = ["std"]}
-cuprate-cryptonight = { workspace = true }
-cuprate-levin = { workspace = true, features = ["arbitrary"] }
-cuprate-wire = { workspace = true, features = ["arbitrary"] }
+cuprate-cryptonight   = { workspace = true }
+cuprate-levin         = { workspace = true, features = ["arbitrary"] }
+cuprate-wire          = { workspace = true, features = ["arbitrary"] }
 
 monero-serai = { workspace = true }
-bytes = { workspace = true }
-tokio-util = { workspace = true }
+bytes        = { workspace = true }
+tokio-util   = { workspace = true }
 
 [[bin]]
 name = "epee_encoding"
