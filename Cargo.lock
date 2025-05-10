@@ -818,6 +818,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-fuzz"
+version = "0.0.0"
+dependencies = [
+ "bytes",
+ "cuprate-cryptonight",
+ "cuprate-epee-encoding",
+ "cuprate-levin",
+ "cuprate-wire",
+ "libfuzzer-sys",
+ "monero-serai",
+ "tokio-util",
+]
+
+[[package]]
 name = "cuprate-helper"
 version = "0.1.0"
 dependencies = [
@@ -1159,20 +1173,6 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "cuprated-fuzz"
-version = "0.0.0"
-dependencies = [
- "bytes",
- "cuprate-cryptonight",
- "cuprate-epee-encoding",
- "cuprate-levin",
- "cuprate-wire",
- "libfuzzer-sys",
- "monero-serai",
- "tokio-util",
 ]
 
 [[package]]
