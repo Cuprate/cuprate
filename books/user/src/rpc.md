@@ -4,7 +4,7 @@
 1. JSON endpoints, e.g. [`/get_height`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_height)
 1. Binary endpoints, e.g. [`/get_blocks.bin`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_blocksbin)
 
-`cuprated`'s RPC aims to mirror `monerod`'s as much as it can. The end-goal is compatability with common use-cases such as wallet software.
+`cuprated`'s RPC aims to mirror `monerod`'s as much as it can. The end-goal is compatibility with common use-cases such as wallet software.
 
 This section contains the development status of endpoints/methods in `cuprated`.
 
