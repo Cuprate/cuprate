@@ -2,7 +2,7 @@
 //! impls for some possible base epee values.
 
 use alloc::{string::String, vec, vec::Vec};
-use core::fmt::Debug;
+use core::{cmp::min, fmt::Debug};
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
@@ -11,6 +11,7 @@ use cuprate_hex::{Hex, HexVec};
 
 use crate::{
     io::{checked_read_primitive, checked_write_primitive},
+    max_upfront_capacity,
     varint::{read_varint, write_varint},
     write_bytes, write_iterator, EpeeObject, Error, InnerMarker, Marker, Result,
     MAX_STRING_LEN_POSSIBLE,
@@ -71,7 +72,7 @@ impl<T: EpeeObject> EpeeValue for Vec<T> {
 
         let individual_marker = Marker::new(marker.inner_marker);
 
-        let mut res = Self::with_capacity(len);
+        let mut res = Self::with_capacity(min(len, max_upfront_capacity::<T>()));
         for _ in 0..len {
             res.push(T::read(r, &individual_marker)?);
         }
@@ -373,7 +374,7 @@ impl<const N: usize> EpeeValue for Vec<[u8; N]> {
 
         let individual_marker = Marker::new(marker.inner_marker);
 
-        let mut res = Self::with_capacity(len);
+        let mut res = Self::with_capacity(min(len, max_upfront_capacity::<[u8; N]>()));
         for _ in 0..len {
             res.push(<[u8; N]>::read(r, &individual_marker)?);
         }
@@ -456,7 +457,7 @@ macro_rules! epee_seq {
 
                 let individual_marker = Marker::new(marker.inner_marker.clone());
 
-                let mut res = Vec::with_capacity(len);
+                let mut res = Vec::with_capacity(min(len, max_upfront_capacity::<$val>()));
                 for _ in 0..len {
                     res.push(<$val>::read(r, &individual_marker)?);
                 }

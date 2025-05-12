@@ -1,17 +1,4 @@
-use std::{
-    net::{IpAddr, SocketAddr},
-    pin::Pin,
-    task::{Context, Poll},
-};
-
-use futures::Stream;
-use tokio::net::{
-    tcp::{OwnedReadHalf, OwnedWriteHalf},
-    TcpListener, TcpStream,
-};
-use tokio_util::codec::{FramedRead, FramedWrite};
-
-use cuprate_wire::MoneroWireCodec;
+use std::net::{IpAddr, SocketAddr};
 
 use crate::{NetZoneAddress, NetworkZone};
 
@@ -37,11 +24,6 @@ impl NetZoneAddress for SocketAddr {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct ClearNetServerCfg {
-    pub ip: IpAddr,
-}
-
 #[derive(Clone, Copy)]
 pub enum ClearNet {}
 
@@ -51,60 +33,7 @@ impl NetworkZone for ClearNet {
 
     const CHECK_NODE_ID: bool = true;
 
+    const BROADCAST_OWN_ADDR: bool = false;
+
     type Addr = SocketAddr;
-    type Stream = FramedRead<OwnedReadHalf, MoneroWireCodec>;
-    type Sink = FramedWrite<OwnedWriteHalf, MoneroWireCodec>;
-    type Listener = InBoundStream;
-
-    type ServerCfg = ClearNetServerCfg;
-
-    async fn connect_to_peer(
-        addr: Self::Addr,
-    ) -> Result<(Self::Stream, Self::Sink), std::io::Error> {
-        let (read, write) = TcpStream::connect(addr).await?.into_split();
-        Ok((
-            FramedRead::new(read, MoneroWireCodec::default()),
-            FramedWrite::new(write, MoneroWireCodec::default()),
-        ))
-    }
-
-    async fn incoming_connection_listener(
-        config: Self::ServerCfg,
-        port: u16,
-    ) -> Result<Self::Listener, std::io::Error> {
-        let listener = TcpListener::bind(SocketAddr::new(config.ip, port)).await?;
-        Ok(InBoundStream { listener })
-    }
-}
-
-pub struct InBoundStream {
-    listener: TcpListener,
-}
-
-impl Stream for InBoundStream {
-    type Item = Result<
-        (
-            Option<SocketAddr>,
-            FramedRead<OwnedReadHalf, MoneroWireCodec>,
-            FramedWrite<OwnedWriteHalf, MoneroWireCodec>,
-        ),
-        std::io::Error,
-    >;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.listener
-            .poll_accept(cx)
-            .map_ok(|(stream, mut addr)| {
-                let ip = addr.ip().to_canonical();
-                addr.set_ip(ip);
-
-                let (read, write) = stream.into_split();
-                (
-                    Some(addr),
-                    FramedRead::new(read, MoneroWireCodec::default()),
-                    FramedWrite::new(write, MoneroWireCodec::default()),
-                )
-            })
-            .map(Some)
-    }
 }

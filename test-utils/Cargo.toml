@@ -16,10 +16,8 @@ hex-literal               = { workspace = true }
 monero-serai              = { workspace = true, features = ["std"] }
 monero-simple-request-rpc = { workspace = true }
 monero-rpc                = { workspace = true }
-futures                   = { workspace = true, features = ["std"] }
 async-trait               = { workspace = true }
 tokio                     = { workspace = true, features = ["full"] }
-tokio-util                = { workspace = true }
 serde                     = { workspace = true }
 serde_json                = { workspace = true }
 tempfile                  = { workspace = true }
