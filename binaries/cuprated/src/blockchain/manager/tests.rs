@@ -12,6 +12,7 @@ use cuprate_consensus_rules::{hard_forks::HFInfo, miner_tx::calculate_block_rewa
 use cuprate_helper::network::Network;
 use cuprate_p2p::{block_downloader::BlockBatch, BroadcastSvc};
 use cuprate_p2p_core::handles::HandleBuilder;
+use cuprate_types::{CachedVerificationState, TransactionVerificationData, TxVersion};
 
 use crate::blockchain::{
     check_add_genesis, manager::BlockchainManager, manager::BlockchainManagerCommand,
@@ -316,5 +317,114 @@ async fn simple_reorg_block_batch() {
             .blockchain_context()
             .chain_height,
         4
+    );
+}
+
+#[tokio::test]
+async fn recover_bad_reorg() {
+    let data_dir_1 = tempfile::tempdir().unwrap();
+    let mut manager_1 = mock_manager(data_dir_1.path().to_path_buf()).await;
+
+    let context_1 = manager_1
+        .blockchain_context_service
+        .blockchain_context()
+        .clone();
+
+    // start by building the valid chain.
+    let block_1 = generate_block(&context_1);
+
+    manager_1
+        .handle_command(BlockchainManagerCommand::AddBlock {
+            block: block_1,
+            prepped_txs: HashMap::new(),
+            response_tx: oneshot::channel().0,
+        })
+        .await;
+
+    let context_2 = manager_1
+        .blockchain_context_service
+        .blockchain_context()
+        .clone();
+
+    let mut block_2 = generate_block(&context_2);
+
+    manager_1
+        .handle_command(BlockchainManagerCommand::AddBlock {
+            block: block_2,
+            prepped_txs: HashMap::new(),
+            response_tx: oneshot::channel().0,
+        })
+        .await;
+
+    // Save this context for later to check the reorg gets reversed correctly.
+    let context = manager_1
+        .blockchain_context_service
+        .blockchain_context()
+        .clone();
+
+    // start building the alt chain.
+    let mut block_1_alt = generate_block(&context_1);
+
+    manager_1
+        .handle_command(BlockchainManagerCommand::AddBlock {
+            block: block_1_alt.clone(),
+            prepped_txs: HashMap::new(),
+            response_tx: oneshot::channel().0,
+        })
+        .await;
+
+    // This tx is invalid and will make the reorg fail.
+    let tx = Transaction::V2 {
+        prefix: TransactionPrefix {
+            additional_timelock: Timelock::None,
+            inputs: vec![Input::Gen(1)],
+            outputs: vec![],
+            extra: vec![],
+        },
+        proofs: None,
+    };
+
+    let tx = TransactionVerificationData {
+        version: TxVersion::RingSignatures,
+        tx_blob: tx.serialize(),
+        tx_weight: 0,
+        fee: 0,
+        tx_hash: tx.hash(),
+        cached_verification_state: CachedVerificationState::NotVerified,
+        tx,
+    };
+
+    let mut block_2_alt = generate_block(&context_2);
+    block_2_alt.transactions = vec![tx.tx_hash];
+    block_2_alt.header.previous = block_1_alt.hash();
+
+    manager_1
+        .handle_command(BlockchainManagerCommand::AddBlock {
+            block: block_2_alt.clone(),
+            prepped_txs: HashMap::from([(tx.tx_hash, tx)]),
+            response_tx: oneshot::channel().0,
+        })
+        .await;
+
+    let mut block_3_alt = generate_block(manager_1.blockchain_context_service.blockchain_context());
+    block_3_alt.header.previous = block_2_alt.hash();
+
+    // Currently this is the state of the DB:
+    // main chain: Genesis, A, B
+    // alt chain: Genesis, AAlt, BAlt
+    // BAlt is an invalid block, once we pass in this block below (CAlt) the manager will attempt a reorg,
+    // this will fail, and we should stay on the main chain.
+    manager_1
+        .handle_command(BlockchainManagerCommand::AddBlock {
+            block: block_3_alt,
+            prepped_txs: HashMap::new(),
+            response_tx: oneshot::channel().0,
+        })
+        .await;
+
+    // make sure the reorg failed.
+    assert_eq!(
+        &context,
+        manager_1.blockchain_context_service.blockchain_context()
     );
 }

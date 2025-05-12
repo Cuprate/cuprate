@@ -6,7 +6,7 @@
 
 `cuprated`'s RPC aims to mirror `monerod`'s as much as it can. The end-goal is compatability with common use-cases such as wallet software.
 
-This section contains the status of endpoints/methods in `cuprated`.
+This section contains the development status of endpoints/methods in `cuprated`.
 
 | Status | Meaning |
 |--------|---------|
@@ -84,10 +84,10 @@ This section contains the status of endpoints/methods in `cuprated`.
 ## Binary endpoints
 | Endpoint                           | Status | Notes   |
 |------------------------------------|--------|---------|
-| `/get_blocks_by_height.bin`        | ⚫     |
-| `/get_hashes.bin`                  | ⚫     |
-| `/get_output_indexes.bin`          | ⚫     |
-| `/get_outs.bin`                    | ⚫     |
-| `/get_blocks.bin`                  | ⚫     |
-| `/get_transaction_pool_hashes.bin` | ⚫     |
-| `/get_output_distribution.bin`     | ⚫     |
+| `/get_blocks_by_height.bin`        | ⚪     |
+| `/get_hashes.bin`                  | ⚪     |
+| `/get_output_indexes.bin`          | ⚪     |
+| `/get_outs.bin`                    | ⚪     |
+| `/get_blocks.bin`                  | ⚪     |
+| `/get_transaction_pool_hashes.bin` | ⚪     |
+| `/get_output_distribution.bin`     | ⚪     |

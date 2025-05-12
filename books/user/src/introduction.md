@@ -66,24 +66,20 @@ In the terminal running `cuprated`, type `status`.
 Use the `help` command to see the full list of commands.
 
 ## How to tell `cuprated` is fully synced?
-`cuprated` emits a message when it is fully synced: `synchronised with the network`.
+`cuprated` emits a message when it is fully synced: `Synchronised with the network`.
 
 It also logs its block height status when syncing, for example:
 
 ```text
-2025-03-01T22:15:52.516944Z  INFO incoming_block_batch{start_height=3362022 len=29}: Successfully added block batch
+2025-05-01T22:17:10.270002Z  INFO incoming_block{height=3402413 txs=66}: Successfully added block hash="e93464a7feea9b472dd734e61574e295f4b8f809c48ff78ef76d12111992ada7"
 ```
 
-- `start_height` is the height `cuprated` was previously at
-- `len` is how many blocks have been added to the blockchain
-
-`start_height` can be compared to a block height from `monerod`
-or a block explorer to see if `cuprated` is near synced.
-
 ## How big is the database?
-As of March 4th 2025, `cuprated`'s database is ~240GB in size.
+As of May 1st 2025, `cuprated`'s database is ~270GB in size.
 
-For reference, `monerod`'s database is ~200GB in size.
+`monerod`'s database is ~225GB in size.
+
+This is 1.2x larger.
 
 This is planned to be improved in the future.
 
@@ -103,10 +99,6 @@ See the [RPC section](rpc.md) for more information.
 Not yet (directly).
 
 Tor is planned to be integrated into `cuprated` via [`arti`](https://arti.torproject.org), although this is not yet available.
-
-In the meanwhile, solutions like [`torsocks`](https://github.com/dgoulet/torsocks)
-can redirect any program's networking through Tor, including `cuprated`.
-Note that this will slow down syncing speeds heavily.
 
 ## `cuprated` won't start because of a "killswitch", why?
 The current alpha builds of `cuprated` contain killswitches that activate 1 week after the _next_ release is out. If the killswitch activates, you must upgrade to the [latest release](https://github.com/Cuprate/cuprate/releases/latest).

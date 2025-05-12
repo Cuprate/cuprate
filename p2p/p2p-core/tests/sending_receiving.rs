@@ -9,6 +9,7 @@ use cuprate_wire::{common::PeerSupportFlags, protocol::GetObjectsRequest, BasicN
 use cuprate_p2p_core::{
     client::{handshaker::HandshakerBuilder, ConnectRequest, Connector},
     protocol::{PeerRequest, PeerResponse},
+    transports::Tcp,
     ClearNet, ProtocolRequest, ProtocolResponse,
 };
 
@@ -25,7 +26,7 @@ async fn get_single_block_from_monerod() {
         rpc_credits_per_hash: 0,
     };
 
-    let handshaker = HandshakerBuilder::<ClearNet>::new(our_basic_node_data).build();
+    let handshaker = HandshakerBuilder::<ClearNet, Tcp>::new(our_basic_node_data, ()).build();
 
     let mut connector = Connector::new(handshaker);
 

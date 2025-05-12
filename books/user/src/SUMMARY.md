@@ -19,9 +19,13 @@
     - [Ports](resources/ports.md)
     - [IP](resources/ip.md)
 
+- [Deployment](deployment/intro.md)
+    - [systemd](deployment/systemd.md)
+
 - [RPC](rpc.md)
 
 - [Platform support](platform.md)
+
 - [License](license.md)
 
 <!-- TODO: - [Glossary](glossary/intro.md) or maybe a wiki? -->

@@ -20,6 +20,7 @@
 //! # use cuprate_p2p_core::{
 //! #    client::{ConnectRequest, Connector, HandshakerBuilder},
 //! #    ClearNet, Network,
+//! #    transports::Tcp
 //! # };
 //! # use cuprate_wire::{common::PeerSupportFlags, BasicNodeData};
 //! # use cuprate_test_utils::monerod::monerod;
@@ -41,7 +42,7 @@
 //!
 //! // See [`HandshakerBuilder`] for information about the default values set, they may not be
 //! // appropriate for every use case.
-//! let handshaker = HandshakerBuilder::<ClearNet>::new(our_basic_node_data).build();
+//! let handshaker = HandshakerBuilder::<ClearNet, Tcp>::new(our_basic_node_data, ()).build();
 //!
 //! // The outbound connector.
 //! let mut connector = Connector::new(handshaker);
@@ -82,10 +83,11 @@ pub mod handles;
 mod network_zones;
 pub mod protocol;
 pub mod services;
+pub mod transports;
 pub mod types;
 
 pub use error::*;
-pub use network_zones::{ClearNet, ClearNetServerCfg};
+pub use network_zones::ClearNet;
 pub use protocol::*;
 use services::*;
 //re-export
@@ -136,7 +138,6 @@ pub trait NetZoneAddress:
 }
 
 /// An abstraction over a network zone (tor/i2p/clear)
-#[async_trait::async_trait]
 pub trait NetworkZone: Clone + Copy + Send + 'static {
     /// The network name.
     const NAME: &'static str;
@@ -145,24 +146,47 @@ pub trait NetworkZone: Clone + Copy + Send + 'static {
     /// This has privacy implications on an anonymity network if true so should be set
     /// to false.
     const CHECK_NODE_ID: bool;
+    /// If `true`, this network zone requires us to blend our own address and port into
+    /// the address book we plan on sharing to other peers.
+    const BROADCAST_OWN_ADDR: bool;
 
     /// The address type of this network.
     type Addr: NetZoneAddress;
+}
 
-    /// The stream (incoming data) type for this network.
+/// An abstraction over a transport method (TCP/Tor/SOCKS5/...)
+///
+/// This trait implements the required methods and types for establishing connection to a
+/// peer or instantiating a listener for the `NetworkZone` `Z` over a `Transport` method `T`.
+///
+/// Ultimately, multiple transports can implement the same trait for providing alternative
+/// ways for a network zone to operate (example: ClearNet can operate on both TCP and Tor.)
+#[async_trait::async_trait]
+pub trait Transport<Z: NetworkZone>: Clone + Send + 'static {
+    /// Client configuration necessary when establishing a connection to a peer.
+    ///
+    /// Note: Currently, this client config is considered immutable during operational runtime. If one
+    /// wish to apply modifications on the fly, they will need to make use of an inner shared and mutable
+    /// reference to do so.
+    type ClientConfig: Default + Clone + Debug + Send + Sync + 'static;
+    /// Server configuration necessary when instantiating a listener for inbound connections.
+    type ServerConfig: Default + Clone + Debug + Send + Sync + 'static;
+
+    /// The stream (incoming data) type of this transport method.
     type Stream: Stream<Item = Result<Message, BucketError>> + Unpin + Send + 'static;
-    /// The sink (outgoing data) type for this network.
+    /// The sink (outgoing data) type of this transport method.
     type Sink: Sink<LevinMessage<Message>, Error = BucketError> + Unpin + Send + 'static;
-    /// The inbound connection listener for this network.
-    type Listener: Stream<Item = Result<(Option<Self::Addr>, Self::Stream, Self::Sink), std::io::Error>>
+    /// The inbound connection listener for this transport method.
+    type Listener: Stream<Item = Result<(Option<Z::Addr>, Self::Stream, Self::Sink), std::io::Error>>
         + Send
         + 'static;
-    /// Config used to start a server which listens for incoming connections.
-    type ServerCfg: Clone + Debug + Send + 'static;
 
     /// Connects to a peer with the given address.
     ///
-    /// <div class="warning">    
+    /// Take in argument the destination [`NetworkZone::Addr`] and [`Self::ClientConfig`] which should contain mandatory parameters
+    /// for a connection to be established.
+    ///
+    /// <div class="warning">
     ///
     /// This does not complete a handshake with the peer, to do that see the [crate](crate) docs.
     ///
@@ -170,12 +194,18 @@ pub trait NetworkZone: Clone + Copy + Send + 'static {
     ///
     /// Returns the [`Self::Stream`] and [`Self::Sink`] to send messages to the peer.
     async fn connect_to_peer(
-        addr: Self::Addr,
+        addr: Z::Addr,
+        config: &Self::ClientConfig,
     ) -> Result<(Self::Stream, Self::Sink), std::io::Error>;
 
+    /// Instantiate a listener for inbound peer connections
+    ///
+    /// Take in argument [`Self::ServerConfig`] which should contain mandatory parameters
+    /// for the listener.
+    ///
+    /// Returns the [`Self::Listener`] to listen to new connections.
     async fn incoming_connection_listener(
-        config: Self::ServerCfg,
-        port: u16,
+        config: Self::ServerConfig,
     ) -> Result<Self::Listener, std::io::Error>;
 }
 
