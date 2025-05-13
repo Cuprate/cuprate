@@ -22,6 +22,8 @@ tokio-util = { workspace = true, features = ["codec"]}
 
 tracing = { workspace = true, features = ["std"], optional = true }
 
+arbitrary = { workspace = true, features = ["derive"], optional = true }
+
 [dev-dependencies]
 proptest = { workspace = true }
 rand = { workspace = true, features = ["std", "std_rng"] }

@@ -129,6 +129,7 @@ pub struct Bucket<C> {
 
 /// An enum representing if the message is a request, response or notification.
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum MessageType {
     /// Request
     Request,
