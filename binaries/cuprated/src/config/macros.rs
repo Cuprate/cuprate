@@ -9,6 +9,12 @@ use toml_edit::TableLike;
 /// - `#[inline = true]`: inlines the struct into `{}` instead of having a separate `[]` header.
 /// - `#[comment_out = true]`: comments out the field.
 ///
+/// # Invariants
+/// Required for this macro to work:
+///
+/// - struct must implement [`Default`] and `serde`
+/// - None of the fields can be [`Option`]
+///
 /// # Documentation
 /// Consider using the following style when adding documentation:
 ///
