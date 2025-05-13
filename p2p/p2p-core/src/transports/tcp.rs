@@ -40,7 +40,7 @@ pub struct TcpServerConfig {
     pub port: u16,
 
     /// Number of milliseconds before timeout at TCP writing
-    _send_timeout: Duration,
+    send_timeout: Duration,
 }
 
 impl Default for TcpServerConfig {
@@ -49,7 +49,7 @@ impl Default for TcpServerConfig {
             ipv4: Some(Ipv4Addr::UNSPECIFIED),
             ipv6: None,
             port: 18081,
-            _send_timeout: Duration::from_secs(20),
+            send_timeout: Duration::from_secs(20),
         }
     }
 }
@@ -60,6 +60,8 @@ pub struct TcpInBoundStream {
     listener_v4: Option<TcpListener>,
     /// IPv6 TCP listener
     listener_v6: Option<TcpListener>,
+    /// Send Timeout
+    _send_timeout: Duration,
 }
 
 impl Stream for TcpInBoundStream {
@@ -141,6 +143,7 @@ impl<Z: NetworkZone<Addr = SocketAddr>> Transport<Z> for Tcp {
             return Ok(TcpInBoundStream {
                 listener_v4: ipv4_listener,
                 listener_v6: None,
+                _send_timeout: config.send_timeout,
             });
         }
 
@@ -153,6 +156,7 @@ impl<Z: NetworkZone<Addr = SocketAddr>> Transport<Z> for Tcp {
         Ok(TcpInBoundStream {
             listener_v4: ipv4_listener,
             listener_v6: ipv6_listener,
+            _send_timeout: config.send_timeout,
         })
     }
 }

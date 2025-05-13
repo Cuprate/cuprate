@@ -24,6 +24,7 @@ time      = ["dep:chrono", "std"]
 thread    = ["std", "dep:target_os_lib"]
 tx        = ["dep:monero-serai"]
 fmt       = ["map", "std"]
+timeout   = ["std", "dep:pin-project-lite", "dep:tokio"]
 
 [dependencies]
 cuprate-constants = { workspace = true, optional = true, features = ["block"] }
@@ -35,6 +36,8 @@ dirs             = { workspace = true, optional = true }
 futures          = { workspace = true, optional = true, features = ["std"] }
 monero-serai     = { workspace = true, optional = true }
 rayon            = { workspace = true, optional = true }
+tokio            = { workspace = true, optional = true, features = ["time"] }
+pin-project-lite = { workspace = true, optional = true }
 
 serde            = { workspace = true, optional = true, features = ["derive"] }
 
