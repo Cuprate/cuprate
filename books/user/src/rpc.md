@@ -13,6 +13,7 @@ This section contains the development status of endpoints/methods in `cuprated`.
 | Status | Meaning |
 |--------|---------|
 | 🟢     | Enabled and tested
+| 🟣     | Enabled but has differences waiting to be resolved
 | 🟠     | Enabled but not tested
 | ⚪     | Not enabled yet
 | ⚫     | Not planned to be supported
