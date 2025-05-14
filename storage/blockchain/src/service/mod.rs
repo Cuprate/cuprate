@@ -128,7 +128,7 @@ mod write;
 pub use write::init_write_service;
 
 mod free;
-pub use free::{init, init_with_pool};
+pub use free::{init, init2, init_with_pool};
 mod types;
 pub use types::{BlockchainReadHandle, BlockchainWriteHandle};
 
