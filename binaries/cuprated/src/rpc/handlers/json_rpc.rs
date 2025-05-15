@@ -61,7 +61,7 @@ use crate::{
     constants::VERSION_BUILD,
     rpc::{
         constants::{FIELD_NOT_SUPPORTED, UNSUPPORTED_RPC_CALL},
-        handlers::{helper, shared},
+        handlers::{helper, shared, shared::not_available},
         service::{address_book, blockchain, blockchain_context, blockchain_manager, txpool},
         CupratedRpcHandler,
     },
@@ -77,51 +77,35 @@ pub async fn map_request(
     use JsonRpcResponse as Resp;
 
     Ok(match request {
-        Req::GetBlockTemplate(r) => Resp::GetBlockTemplate(get_block_template(state, r).await?),
-        Req::GetBlockCount(r) => Resp::GetBlockCount(get_block_count(state, r).await?),
-        Req::OnGetBlockHash(r) => Resp::OnGetBlockHash(on_get_block_hash(state, r).await?),
-        Req::SubmitBlock(r) => Resp::SubmitBlock(submit_block(state, r).await?),
-        Req::GenerateBlocks(r) => Resp::GenerateBlocks(generate_blocks(state, r).await?),
-        Req::GetLastBlockHeader(r) => {
-            Resp::GetLastBlockHeader(get_last_block_header(state, r).await?)
-        }
-        Req::GetBlockHeaderByHash(r) => {
-            Resp::GetBlockHeaderByHash(get_block_header_by_hash(state, r).await?)
-        }
-        Req::GetBlockHeaderByHeight(r) => {
-            Resp::GetBlockHeaderByHeight(get_block_header_by_height(state, r).await?)
-        }
-        Req::GetBlockHeadersRange(r) => {
-            Resp::GetBlockHeadersRange(get_block_headers_range(state, r).await?)
-        }
-        Req::GetBlock(r) => Resp::GetBlock(get_block(state, r).await?),
-        Req::GetConnections(r) => Resp::GetConnections(get_connections(state, r).await?),
-        Req::GetInfo(r) => Resp::GetInfo(get_info(state, r).await?),
-        Req::HardForkInfo(r) => Resp::HardForkInfo(hard_fork_info(state, r).await?),
-        Req::SetBans(r) => Resp::SetBans(set_bans(state, r).await?),
-        Req::GetBans(r) => Resp::GetBans(get_bans(state, r).await?),
-        Req::Banned(r) => Resp::Banned(banned(state, r).await?),
-        Req::FlushTransactionPool(r) => {
-            Resp::FlushTransactionPool(flush_transaction_pool(state, r).await?)
-        }
-        Req::GetOutputHistogram(r) => {
-            Resp::GetOutputHistogram(get_output_histogram(state, r).await?)
-        }
-        Req::GetCoinbaseTxSum(r) => Resp::GetCoinbaseTxSum(get_coinbase_tx_sum(state, r).await?),
-        Req::GetVersion(r) => Resp::GetVersion(get_version(state, r).await?),
-        Req::GetFeeEstimate(r) => Resp::GetFeeEstimate(get_fee_estimate(state, r).await?),
-        Req::GetAlternateChains(r) => {
-            Resp::GetAlternateChains(get_alternate_chains(state, r).await?)
-        }
-        Req::RelayTx(r) => Resp::RelayTx(relay_tx(state, r).await?),
-        Req::SyncInfo(r) => Resp::SyncInfo(sync_info(state, r).await?),
-        Req::GetTransactionPoolBacklog(r) => {
-            Resp::GetTransactionPoolBacklog(get_transaction_pool_backlog(state, r).await?)
-        }
-        Req::GetMinerData(r) => Resp::GetMinerData(get_miner_data(state, r).await?),
-        Req::PruneBlockchain(r) => Resp::PruneBlockchain(prune_blockchain(state, r).await?),
-        Req::CalcPow(r) => Resp::CalcPow(calc_pow(state, r).await?),
-        Req::AddAuxPow(r) => Resp::AddAuxPow(add_aux_pow(state, r).await?),
+        Req::GetBlockTemplate(r) => Resp::GetBlockTemplate(not_available()?),
+        Req::GetBlockCount(r) => Resp::GetBlockCount(not_available()?),
+        Req::OnGetBlockHash(r) => Resp::OnGetBlockHash(not_available()?),
+        Req::SubmitBlock(r) => Resp::SubmitBlock(not_available()?),
+        Req::GenerateBlocks(r) => Resp::GenerateBlocks(not_available()?),
+        Req::GetLastBlockHeader(r) => Resp::GetLastBlockHeader(not_available()?),
+        Req::GetBlockHeaderByHash(r) => Resp::GetBlockHeaderByHash(not_available()?),
+        Req::GetBlockHeaderByHeight(r) => Resp::GetBlockHeaderByHeight(not_available()?),
+        Req::GetBlockHeadersRange(r) => Resp::GetBlockHeadersRange(not_available()?),
+        Req::GetBlock(r) => Resp::GetBlock(not_available()?),
+        Req::GetConnections(r) => Resp::GetConnections(not_available()?),
+        Req::GetInfo(r) => Resp::GetInfo(not_available()?),
+        Req::HardForkInfo(r) => Resp::HardForkInfo(not_available()?),
+        Req::SetBans(r) => Resp::SetBans(not_available()?),
+        Req::GetBans(r) => Resp::GetBans(not_available()?),
+        Req::Banned(r) => Resp::Banned(not_available()?),
+        Req::FlushTransactionPool(r) => Resp::FlushTransactionPool(not_available()?),
+        Req::GetOutputHistogram(r) => Resp::GetOutputHistogram(not_available()?),
+        Req::GetCoinbaseTxSum(r) => Resp::GetCoinbaseTxSum(not_available()?),
+        Req::GetVersion(r) => Resp::GetVersion(not_available()?),
+        Req::GetFeeEstimate(r) => Resp::GetFeeEstimate(not_available()?),
+        Req::GetAlternateChains(r) => Resp::GetAlternateChains(not_available()?),
+        Req::RelayTx(r) => Resp::RelayTx(not_available()?),
+        Req::SyncInfo(r) => Resp::SyncInfo(not_available()?),
+        Req::GetTransactionPoolBacklog(r) => Resp::GetTransactionPoolBacklog(not_available()?),
+        Req::GetMinerData(r) => Resp::GetMinerData(not_available()?),
+        Req::PruneBlockchain(r) => Resp::PruneBlockchain(not_available()?),
+        Req::CalcPow(r) => Resp::CalcPow(not_available()?),
+        Req::AddAuxPow(r) => Resp::AddAuxPow(not_available()?),
 
         // Unsupported RPC calls.
         Req::GetTxIdsLoose(_) | Req::FlushCache(_) => return Err(anyhow!(UNSUPPORTED_RPC_CALL)),

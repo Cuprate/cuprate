@@ -49,7 +49,7 @@ use cuprate_types::{
 use crate::{
     rpc::{
         constants::UNSUPPORTED_RPC_CALL,
-        handlers::{helper, shared},
+        handlers::{helper, shared, shared::not_available},
         service::{address_book, blockchain, blockchain_context, blockchain_manager, txpool},
         CupratedRpcHandler,
     },
@@ -65,37 +65,27 @@ pub async fn map_request(
     use OtherResponse as Resp;
 
     Ok(match request {
-        Req::GetHeight(r) => Resp::GetHeight(get_height(state, r).await?),
-        Req::GetTransactions(r) => Resp::GetTransactions(get_transactions(state, r).await?),
-        Req::GetAltBlocksHashes(r) => {
-            Resp::GetAltBlocksHashes(get_alt_blocks_hashes(state, r).await?)
-        }
-        Req::IsKeyImageSpent(r) => Resp::IsKeyImageSpent(is_key_image_spent(state, r).await?),
-        Req::SendRawTransaction(r) => {
-            Resp::SendRawTransaction(send_raw_transaction(state, r).await?)
-        }
-        Req::SaveBc(r) => Resp::SaveBc(save_bc(state, r).await?),
-        Req::GetPeerList(r) => Resp::GetPeerList(get_peer_list(state, r).await?),
-        Req::SetLogLevel(r) => Resp::SetLogLevel(set_log_level(state, r).await?),
-        Req::SetLogCategories(r) => Resp::SetLogCategories(set_log_categories(state, r).await?),
-        Req::GetTransactionPool(r) => {
-            Resp::GetTransactionPool(get_transaction_pool(state, r).await?)
-        }
-        Req::GetTransactionPoolStats(r) => {
-            Resp::GetTransactionPoolStats(get_transaction_pool_stats(state, r).await?)
-        }
-        Req::StopDaemon(r) => Resp::StopDaemon(stop_daemon(state, r).await?),
-        Req::GetLimit(r) => Resp::GetLimit(get_limit(state, r).await?),
-        Req::SetLimit(r) => Resp::SetLimit(set_limit(state, r).await?),
-        Req::OutPeers(r) => Resp::OutPeers(out_peers(state, r).await?),
-        Req::InPeers(r) => Resp::InPeers(in_peers(state, r).await?),
-        Req::GetNetStats(r) => Resp::GetNetStats(get_net_stats(state, r).await?),
-        Req::GetOuts(r) => Resp::GetOuts(get_outs(state, r).await?),
-        Req::PopBlocks(r) => Resp::PopBlocks(pop_blocks(state, r).await?),
-        Req::GetTransactionPoolHashes(r) => {
-            Resp::GetTransactionPoolHashes(get_transaction_pool_hashes(state, r).await?)
-        }
-        Req::GetPublicNodes(r) => Resp::GetPublicNodes(get_public_nodes(state, r).await?),
+        Req::GetHeight(r) => Resp::GetHeight(not_available()?),
+        Req::GetTransactions(r) => Resp::GetTransactions(not_available()?),
+        Req::GetAltBlocksHashes(r) => Resp::GetAltBlocksHashes(not_available()?),
+        Req::IsKeyImageSpent(r) => Resp::IsKeyImageSpent(not_available()?),
+        Req::SendRawTransaction(r) => Resp::SendRawTransaction(not_available()?),
+        Req::SaveBc(r) => Resp::SaveBc(not_available()?),
+        Req::GetPeerList(r) => Resp::GetPeerList(not_available()?),
+        Req::SetLogLevel(r) => Resp::SetLogLevel(not_available()?),
+        Req::SetLogCategories(r) => Resp::SetLogCategories(not_available()?),
+        Req::GetTransactionPool(r) => Resp::GetTransactionPool(not_available()?),
+        Req::GetTransactionPoolStats(r) => Resp::GetTransactionPoolStats(not_available()?),
+        Req::StopDaemon(r) => Resp::StopDaemon(not_available()?),
+        Req::GetLimit(r) => Resp::GetLimit(not_available()?),
+        Req::SetLimit(r) => Resp::SetLimit(not_available()?),
+        Req::OutPeers(r) => Resp::OutPeers(not_available()?),
+        Req::InPeers(r) => Resp::InPeers(not_available()?),
+        Req::GetNetStats(r) => Resp::GetNetStats(not_available()?),
+        Req::GetOuts(r) => Resp::GetOuts(not_available()?),
+        Req::PopBlocks(r) => Resp::PopBlocks(not_available()?),
+        Req::GetTransactionPoolHashes(r) => Resp::GetTransactionPoolHashes(not_available()?),
+        Req::GetPublicNodes(r) => Resp::GetPublicNodes(not_available()?),
 
         // Unsupported requests.
         Req::SetBootstrapDaemon(_)
