@@ -26,7 +26,7 @@ pub mod network_address;
 pub mod p2p;
 
 pub use cuprate_levin::BucketError;
-pub use network_address::{NetZone, NetworkAddress};
+pub use network_address::{NetZone, NetworkAddress, OnionAddr};
 pub use p2p::*;
 
 // re-export.
