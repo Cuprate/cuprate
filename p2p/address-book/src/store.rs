@@ -41,10 +41,12 @@ pub(crate) fn save_peers_to_disk<Z: BorshNetworkZone>(
 
     let dir = cfg.peer_store_directory.clone();
     let file = dir.join(Z::NAME);
+    let mut tmp_file = file.clone();
+    tmp_file.set_extension("tmp");
 
     spawn_blocking(move || {
         fs::create_dir_all(dir)?;
-        fs::write(&file, &data)
+        fs::write(&tmp_file, &data).and_then(|()| fs::rename(tmp_file, file))
     })
 }
 

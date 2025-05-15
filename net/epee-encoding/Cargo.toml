@@ -8,7 +8,6 @@ readme = "README.md"
 keywords = ["monero", "epee", "no-std"]
 description = "Epee binary format library."
 repository = "https://github.com/Boog900/epee-encoding"
-rust-version = "1.60"
 
 [features]
 default = ["std"]

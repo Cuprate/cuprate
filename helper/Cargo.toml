@@ -37,7 +37,7 @@ futures          = { workspace = true, optional = true, features = ["std"] }
 monero-serai     = { workspace = true, optional = true }
 rayon            = { workspace = true, optional = true }
 
-serde        = { workspace = true, optional = true, features = ["derive"] }
+serde            = { workspace = true, optional = true, features = ["derive"] }
 
 # This is kinda a stupid work around.
 # [thread] needs to activate one of these libs (windows|libc)

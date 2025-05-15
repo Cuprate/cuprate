@@ -1,6 +1,6 @@
 [package]
 name = "cuprated"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2021"
 description = "The Cuprate Rust Monero node."
 license = "AGPL-3.0-only"
@@ -88,6 +88,10 @@ tracing               = { workspace = true, features = ["default"] }
 [dev-dependencies]
 tempfile          = { workspace = true }
 pretty_assertions = { workspace = true }
+
+[build-dependencies]
+cuprate-hex = { workspace = true }
+serde_json  = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true

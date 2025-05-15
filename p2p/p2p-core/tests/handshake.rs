@@ -22,7 +22,8 @@ use cuprate_p2p_core::{
         handshaker::HandshakerBuilder, ConnectRequest, Connector, DoHandshakeRequest,
         InternalPeerID,
     },
-    ClearNet, ClearNetServerCfg, ConnectionDirection, NetworkZone,
+    transports::{DummyTransport, Tcp, TcpServerConfig},
+    ClearNet, ConnectionDirection, Transport,
 };
 
 #[tokio::test]
@@ -44,10 +45,12 @@ async fn handshake_cuprate_to_cuprate() {
     our_basic_node_data_2.peer_id = 2344;
 
     let mut handshaker_1 =
-        HandshakerBuilder::<TestNetZone<true>>::new(our_basic_node_data_1).build();
+        HandshakerBuilder::<TestNetZone<true>, DummyTransport>::new(our_basic_node_data_1, ())
+            .build();
 
     let mut handshaker_2 =
-        HandshakerBuilder::<TestNetZone<true>>::new(our_basic_node_data_2).build();
+        HandshakerBuilder::<TestNetZone<true>, DummyTransport>::new(our_basic_node_data_2, ())
+            .build();
 
     let (p1, p2) = duplex(50_000);
 
@@ -108,7 +111,7 @@ async fn handshake_cuprate_to_monerod() {
         rpc_credits_per_hash: 0,
     };
 
-    let handshaker = HandshakerBuilder::<ClearNet>::new(our_basic_node_data).build();
+    let handshaker = HandshakerBuilder::<ClearNet, Tcp>::new(our_basic_node_data, ()).build();
 
     let mut connector = Connector::new(handshaker);
 
@@ -135,11 +138,12 @@ async fn handshake_monerod_to_cuprate() {
         rpc_credits_per_hash: 0,
     };
 
-    let mut handshaker = HandshakerBuilder::<ClearNet>::new(our_basic_node_data).build();
+    let mut handshaker = HandshakerBuilder::<ClearNet, Tcp>::new(our_basic_node_data, ()).build();
 
-    let ip = "127.0.0.1".parse().unwrap();
+    let mut server_cfg = TcpServerConfig::default();
+    server_cfg.ipv4 = Some("127.0.0.1".parse().unwrap());
 
-    let mut listener = ClearNet::incoming_connection_listener(ClearNetServerCfg { ip }, 18081)
+    let mut listener = <Tcp as Transport<ClearNet>>::incoming_connection_listener(server_cfg)
         .await
         .unwrap();
 

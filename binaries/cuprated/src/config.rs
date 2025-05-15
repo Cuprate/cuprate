@@ -1,5 +1,6 @@
 //! cuprated config
 use std::{
+    fmt,
     fs::{read_to_string, File},
     io,
     path::Path,
@@ -16,7 +17,7 @@ use cuprate_helper::{
     network::Network,
 };
 use cuprate_p2p::block_downloader::BlockDownloaderConfig;
-use cuprate_p2p_core::{ClearNet, ClearNetServerCfg};
+use cuprate_p2p_core::ClearNet;
 
 use crate::{
     constants::{DEFAULT_CONFIG_STARTUP_DELAY, DEFAULT_CONFIG_WARNING},
@@ -216,9 +217,6 @@ impl Config {
             extra_outbound_connections: self.p2p.clear_net.general.extra_outbound_connections,
             max_inbound_connections: self.p2p.clear_net.general.max_inbound_connections,
             gray_peers_percent: self.p2p.clear_net.general.gray_peers_percent,
-            server_config: Some(ClearNetServerCfg {
-                ip: self.p2p.clear_net.listen_on,
-            }),
             p2p_port: self.p2p.clear_net.general.p2p_port,
             rpc_port: self.rpc.port_for_p2p(),
             address_book_config: self
@@ -265,6 +263,15 @@ impl Config {
     /// The [`BlockDownloaderConfig`].
     pub fn block_downloader_config(&self) -> BlockDownloaderConfig {
         self.p2p.block_downloader.clone().into()
+    }
+}
+
+impl fmt::Display for Config {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "========== CONFIGURATION ==========\n{self:#?}\n==================================="
+        )
     }
 }
 
