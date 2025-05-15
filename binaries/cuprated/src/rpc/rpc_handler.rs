@@ -153,7 +153,7 @@ pub type BlockchainManagerHandle = cuprate_database_service::DatabaseReadService
     BlockchainManagerResponse,
 >;
 
-/// TODO
+/// cuprated's RPC handler service.
 #[derive(Clone)]
 pub struct CupratedRpcHandler {
     /// Should this RPC server be [restricted](RpcHandler::is_restricted)?
@@ -167,14 +167,9 @@ pub struct CupratedRpcHandler {
     /// Handle to the blockchain context service.
     pub blockchain_context: BlockchainContextService,
 
-    /// Handle to the blockchain manager.
-    pub blockchain_manager: BlockchainManagerHandle,
-
     /// Read handle to the transaction pool database.
     pub txpool_read: TxpoolReadHandle,
-
-    /// TODO: handle to txpool service.
-    pub txpool_manager: std::convert::Infallible,
+    // TODO: handle to txpool service.
 }
 
 impl CupratedRpcHandler {
@@ -183,17 +178,13 @@ impl CupratedRpcHandler {
         restricted: bool,
         blockchain_read: BlockchainReadHandle,
         blockchain_context: BlockchainContextService,
-        blockchain_manager: BlockchainManagerHandle,
         txpool_read: TxpoolReadHandle,
-        txpool_manager: std::convert::Infallible,
     ) -> Self {
         Self {
             restricted,
             blockchain_read,
             blockchain_context,
-            blockchain_manager,
             txpool_read,
-            txpool_manager,
         }
     }
 }
