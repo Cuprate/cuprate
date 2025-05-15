@@ -3,7 +3,7 @@ use bytes::{Buf, BufMut};
 use crate::error::*;
 
 #[inline]
-pub(crate) fn checked_read_primitive<B: Buf, R: Sized>(
+pub fn checked_read_primitive<B: Buf, R: Sized>(
     b: &mut B,
     read: impl Fn(&mut B) -> R,
 ) -> Result<R> {
@@ -24,7 +24,7 @@ pub(crate) fn checked_read<B: Buf, R>(
 }
 
 #[inline]
-pub(crate) fn checked_write_primitive<B: BufMut, T: Sized>(
+pub fn checked_write_primitive<B: BufMut, T: Sized>(
     b: &mut B,
     write: impl Fn(&mut B, T),
     t: T,

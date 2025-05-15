@@ -26,6 +26,9 @@ use cuprate_epee_encoding::EpeeObject;
 mod epee_builder;
 use epee_builder::*;
 
+mod onion_addr;
+pub use onion_addr::*;
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum NetZone {
     Public,
@@ -38,6 +41,7 @@ pub enum NetZone {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum NetworkAddress {
     Clear(SocketAddr),
+    Tor(OnionAddr),
 }
 
 impl EpeeObject for NetworkAddress {
@@ -56,6 +60,7 @@ impl NetworkAddress {
     pub const fn get_zone(&self) -> NetZone {
         match self {
             Self::Clear(_) => NetZone::Public,
+            Self::Tor(_) => NetZone::Tor,
         }
     }
 
@@ -72,6 +77,7 @@ impl NetworkAddress {
     pub const fn port(&self) -> u16 {
         match self {
             Self::Clear(ip) => ip.port(),
+            Self::Tor(addr) => addr.port(),
         }
     }
 }
@@ -106,7 +112,7 @@ impl TryFrom<NetworkAddress> for SocketAddr {
     fn try_from(value: NetworkAddress) -> Result<Self, Self::Error> {
         match value {
             NetworkAddress::Clear(addr) => Ok(addr),
-            //_ => Err(NetworkAddressIncorrectZone)
+            NetworkAddress::Tor(_) => Err(NetworkAddressIncorrectZone),
         }
     }
 }

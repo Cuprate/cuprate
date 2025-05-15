@@ -1,21 +1,116 @@
+//! Address epee serialization
+//!
+//! Addresses needs to be serialized into a specific format before being sent to other peers.
+//! This module is handling this particular construction.
+//!
+
+//---------------------------------------------------------------------------------------------------- Imports
+
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 
-use bytes::Buf;
+use bytes::{Buf, BufMut};
 use thiserror::Error;
 
-use cuprate_epee_encoding::{epee_object, EpeeObjectBuilder};
+use cuprate_epee_encoding::{
+    checked_read_primitive, checked_write_primitive, epee_object, EpeeObjectBuilder, EpeeValue,
+    Error as EncodingError, InnerMarker, Marker, Result as EncodingResult,
+};
 
 use crate::NetworkAddress;
 
+use super::OnionAddr;
+
+//---------------------------------------------------------------------------------------------------- Network Address Tag
+
+// Tag indicating the address type.
+// <https://github.com/monero-project/monero/blob/341771ac3e65f88a6e78ca805f8dde2ae6ba7924/contrib/epee/include/net/enums.h#L39>
+#[repr(u8)]
+enum NetworkAddressTag {
+    IPv4 = 1,
+    IPv6 = 2,
+    //I2p = 3,
+    Tor = 4,
+}
+
+impl TryFrom<u8> for NetworkAddressTag {
+    type Error = EncodingError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(Self::IPv4),
+            2 => Ok(Self::IPv6),
+            4 => Ok(Self::Tor),
+            i => Err(EncodingError::Value(format!(
+                "Invalid address tag returned: {i}"
+            ))),
+        }
+    }
+}
+
+impl EpeeValue for NetworkAddressTag {
+    const MARKER: Marker = Marker {
+        inner_marker: InnerMarker::U8,
+        is_seq: false,
+    };
+
+    fn read<B: Buf>(r: &mut B, marker: &Marker) -> EncodingResult<Self> {
+        if marker != &Self::MARKER {
+            return Err(EncodingError::Format(
+                "Marker does not match expected Marker",
+            ));
+        }
+
+        let value = checked_read_primitive(r, Buf::get_u8)?;
+        value.try_into()
+    }
+
+    fn write<B: BufMut>(self, w: &mut B) -> EncodingResult<()> {
+        checked_write_primitive(w, BufMut::put_u8, self as u8)
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- Network address construction
+
 #[derive(Default)]
+/// There are no ordering guarantees in epee format and as such all potential fields can be collected during deserialization.
+/// The [`AllFieldsNetworkAddress`] is containing, as its name suggest, all optional field describing an address , as if it
+/// could be of any type.
+struct AllFieldsNetworkAddress {
+    /// IPv4 address
+    m_ip: Option<u32>,
+    /// IP port field
+    m_port: Option<u16>,
+
+    /// IPv6 address
+    addr: Option<[u8; 16]>,
+
+    /// Alternative network domain name (<domain>.onion or <domain>.i2p)
+    host: Option<String>,
+    /// Alternative network virtual port
+    port: Option<u16>,
+}
+
+epee_object!(
+    AllFieldsNetworkAddress,
+    m_ip: Option<u32>,
+    m_port: Option<u16>,
+    addr: Option<[u8; 16]>,
+    host: Option<String>,
+    port: Option<u16>,
+);
+
+#[derive(Default)]
+/// A serialized network address being communicated to or from a peer.
 pub struct TaggedNetworkAddress {
-    ty: Option<u8>,
+    /// Type of the network address (used later for conversion)
+    ty: Option<NetworkAddressTag>,
+    /// All possible fields for a network address
     addr: Option<AllFieldsNetworkAddress>,
 }
 
 epee_object!(
     TaggedNetworkAddress,
-    ty("type"): Option<u8>,
+    ty("type"): Option<NetworkAddressTag>,
     addr: Option<AllFieldsNetworkAddress>,
 );
 
@@ -66,7 +161,7 @@ impl TryFrom<TaggedNetworkAddress> for NetworkAddress {
         value
             .addr
             .ok_or(InvalidNetworkAddress)?
-            .try_into_network_address(value.ty.ok_or(InvalidNetworkAddress)?)
+            .try_into_network_address(value.ty.ok_or(InvalidNetworkAddress)? as u8)
             .ok_or(InvalidNetworkAddress)
     }
 }
@@ -76,53 +171,58 @@ impl From<NetworkAddress> for TaggedNetworkAddress {
         match value {
             NetworkAddress::Clear(addr) => match addr {
                 SocketAddr::V4(addr) => Self {
-                    ty: Some(1),
+                    ty: Some(NetworkAddressTag::IPv4),
                     addr: Some(AllFieldsNetworkAddress {
                         m_ip: Some(u32::from_le_bytes(addr.ip().octets())),
                         m_port: Some(addr.port()),
                         addr: None,
+                        host: None,
+                        port: None,
                     }),
                 },
                 SocketAddr::V6(addr) => Self {
-                    ty: Some(2),
+                    ty: Some(NetworkAddressTag::IPv6),
                     addr: Some(AllFieldsNetworkAddress {
                         addr: Some(addr.ip().octets()),
                         m_port: Some(addr.port()),
                         m_ip: None,
+                        host: None,
+                        port: None,
                     }),
                 },
+            },
+            NetworkAddress::Tor(onion_addr) => Self {
+                ty: Some(NetworkAddressTag::Tor),
+                addr: Some(AllFieldsNetworkAddress {
+                    m_ip: None,
+                    m_port: None,
+                    addr: None,
+                    host: Some(onion_addr.to_string()),
+                    port: Some(onion_addr.port()),
+                }),
             },
         }
     }
 }
 
-#[derive(Default)]
-struct AllFieldsNetworkAddress {
-    m_ip: Option<u32>,
-    m_port: Option<u16>,
-    addr: Option<[u8; 16]>,
-}
-
-epee_object!(
-    AllFieldsNetworkAddress,
-    m_ip: Option<u32>,
-    m_port: Option<u16>,
-    addr: Option<[u8; 16]>,
-);
-
 impl AllFieldsNetworkAddress {
     fn try_into_network_address(self, ty: u8) -> Option<NetworkAddress> {
         Some(match ty {
+            // IPv4
             1 => NetworkAddress::from(SocketAddrV4::new(
                 Ipv4Addr::from(self.m_ip?.to_le_bytes()),
                 self.m_port?,
             )),
+            // IPv6
             2 => NetworkAddress::from(SocketAddrV6::new(
                 Ipv6Addr::from(self.addr?),
                 self.m_port?,
                 0,
                 0,
             )),
+            // Tor
+            4 => NetworkAddress::from(OnionAddr::new(self.host?.as_str(), self.port?)?),
+            // Invalid
             _ => return None,
         })
     }
