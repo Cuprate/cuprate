@@ -78,7 +78,7 @@ mod value;
 mod varint;
 
 pub use error::*;
-use io::*;
+pub use io::*;
 pub use marker::{InnerMarker, Marker};
 pub use value::EpeeValue;
 pub use varint::{read_varint, write_varint};

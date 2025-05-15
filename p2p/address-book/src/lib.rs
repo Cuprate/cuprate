@@ -20,7 +20,7 @@ mod store;
 
 /// The address book config.
 #[derive(Debug, Clone)]
-pub struct AddressBookConfig {
+pub struct AddressBookConfig<Z: NetworkZone> {
     /// The maximum number of white peers in the peer list.
     ///
     /// White peers are peers we have connected to before.
@@ -33,6 +33,9 @@ pub struct AddressBookConfig {
     pub peer_store_directory: PathBuf,
     /// The amount of time between saving the address book to disk.
     pub peer_save_period: Duration,
+
+    /// Our own address to advertise to peers. (Only set if `Z::BROADCAST_OWN_ADDR` = `true`)
+    pub our_own_address: Option<Z::Addr>,
 }
 
 /// Possible errors when dealing with the address book.
@@ -61,7 +64,7 @@ pub enum AddressBookError {
 
 /// Initializes the P2P address book for a specific network zone.
 pub async fn init_address_book<Z: BorshNetworkZone>(
-    cfg: AddressBookConfig,
+    cfg: AddressBookConfig<Z>,
 ) -> Result<book::AddressBook<Z>, std::io::Error> {
     let (white_list, gray_list) = match store::read_peers_from_disk::<Z>(&cfg).await {
         Ok(res) => res,
