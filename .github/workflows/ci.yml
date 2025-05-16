@@ -115,7 +115,7 @@ jobs:
 
     - name: Install dependencies (Windows)
       if: matrix.os == 'windows-2022'
-      uses: lukka/get-cmake@v4.0.2 # Needed for `randomx-rs`
+      uses: lukka/get-cmake@v4.0.1 # Needed for `randomx-rs`
 
     - name: Documentation
       run: cargo doc --workspace --all-features --no-deps
