@@ -16,6 +16,10 @@
     reason = "TODO: remove after v1.0.0"
 )]
 
+#[cfg(target_os = "freebsd")]
+#[global_allocator]
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
 use std::{mem, sync::Arc};
 
 use p2p::initialize_zones_p2p;

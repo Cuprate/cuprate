@@ -92,3 +92,6 @@ serde_json  = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true
+
+[target.'cfg(target_os = "freebsd")'.dependencies]
+tikv-jemallocator = "0.6"
