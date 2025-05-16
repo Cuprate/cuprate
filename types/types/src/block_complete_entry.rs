@@ -76,7 +76,7 @@ impl TransactionBlobs {
     }
 
     /// Returns the byte length of the blob.
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         match self {
             Self::Normal(txs) => txs.len(),
             Self::Pruned(txs) => txs.len(),
@@ -85,7 +85,7 @@ impl TransactionBlobs {
     }
 
     /// Returns `true` if the byte length of the blob is `0`.
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
@@ -125,7 +125,7 @@ impl TransactionBlobs {
 
     /// Epee should write function.
     #[cfg(feature = "epee")]
-    fn should_write_tx_blobs(&self) -> bool {
+    const fn should_write_tx_blobs(&self) -> bool {
         !self.is_empty()
     }
 }

@@ -23,11 +23,10 @@ impl EpeeObjectBuilder<NetworkAddress> for TaggedNetworkAddress {
     fn add_field<B: Buf>(&mut self, name: &str, b: &mut B) -> cuprate_epee_encoding::Result<bool> {
         match name {
             "type" => {
-                if std::mem::replace(
-                    &mut self.ty,
-                    Some(cuprate_epee_encoding::read_epee_value(b)?),
-                )
-                .is_some()
+                if self
+                    .ty
+                    .replace(cuprate_epee_encoding::read_epee_value(b)?)
+                    .is_some()
                 {
                     return Err(cuprate_epee_encoding::Error::Format(
                         "Duplicate field in data.",

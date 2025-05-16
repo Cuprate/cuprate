@@ -141,9 +141,9 @@ macro_rules! epee_object {
                     fn add_field<B: cuprate_epee_encoding::macros::bytes::Buf>(&mut self, name: &str, b: &mut B) -> cuprate_epee_encoding::error::Result<bool> {
                         match name {
                             $(cuprate_epee_encoding::epee_object!(@internal_field_name $field, $($alt_name)?) => {
-                                if core::mem::replace(&mut self.$field, Some(
+                                if self.$field.replace(
                                     cuprate_epee_encoding::epee_object!(@internal_try_right_then_left cuprate_epee_encoding::read_epee_value(b)?, $($read_fn(b)?)?)
-                                )).is_some() {
+                                ).is_some() {
                                     Err(cuprate_epee_encoding::error::Error::Value(format!("Duplicate field in data: {}", cuprate_epee_encoding::epee_object!(@internal_field_name$field, $($alt_name)?))))?;
                                 }
                                 Ok(true)

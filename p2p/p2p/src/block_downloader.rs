@@ -583,7 +583,7 @@ where
                     self.check_pending_peers(chain_tracker, pending_peers);
 
                     return Ok(());
-                };
+                }
 
                 // If the batch is higher than the last time we updated `amount_of_blocks_to_request`, update it
                 // again.

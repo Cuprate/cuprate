@@ -356,7 +356,7 @@ const fn check_input_type(input: &Input) -> Result<(), TransactionError> {
 /// Checks that the input has decoys.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#no-empty-decoys>
-fn check_input_has_decoys(input: &Input) -> Result<(), TransactionError> {
+const fn check_input_has_decoys(input: &Input) -> Result<(), TransactionError> {
     match input {
         Input::ToKey { key_offsets, .. } => {
             if key_offsets.is_empty() {

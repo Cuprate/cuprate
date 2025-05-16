@@ -28,7 +28,7 @@ pub fn tx_fee(tx: &Transaction) -> u64 {
         Transaction::V2 { proofs, .. } => {
             fee = proofs.as_ref().unwrap().base.fee;
         }
-    };
+    }
 
     fee
 }

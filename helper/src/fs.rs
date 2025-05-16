@@ -264,7 +264,7 @@ mod test {
             array[0].1 = ".cache/cuprate";
             array[1].1 = ".config/cuprate";
             array[2].1 = ".local/share/cuprate";
-        };
+        }
 
         for (path, expected) in array {
             assert!(path.is_absolute());

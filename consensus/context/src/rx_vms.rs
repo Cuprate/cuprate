@@ -182,7 +182,7 @@ impl RandomXVmCache {
                             tracing::debug!("VM was already created.");
                             break 'new_vm_block cached_vm;
                         }
-                    };
+                    }
 
                     rayon_spawn_async(move || Arc::new(RandomXVm::new(&next_seed_hash).unwrap()))
                         .await
