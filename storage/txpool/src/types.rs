@@ -39,6 +39,8 @@ pub struct TransactionInfo {
     pub fee: u64,
     /// The transaction's weight.
     pub weight: usize,
+    /// The UNIX timestamp of when this tx was received.
+    pub received_at: u64,
     /// [`TxStateFlags`] of this transaction.
     pub flags: TxStateFlags,
     #[expect(clippy::pub_underscore_fields)]

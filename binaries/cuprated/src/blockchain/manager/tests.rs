@@ -56,7 +56,7 @@ async fn mock_manager(data_dir: PathBuf) -> BlockchainManager {
     BlockchainManager {
         blockchain_write_handle,
         blockchain_read_handle,
-        txpool_write_handle,
+        txpool_manager_handle: todo!(),
         blockchain_context_service,
         stop_current_block_downloader: Arc::new(Default::default()),
         broadcast_svc: BroadcastSvc::mock(),

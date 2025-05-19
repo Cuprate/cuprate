@@ -36,6 +36,7 @@ mod handler;
 #[cfg(test)]
 mod tests;
 
+use crate::txpool::TxpoolManagerHandle;
 pub use commands::{BlockchainManagerCommand, IncomingBlockOk};
 
 /// Initialize the blockchain manager.
@@ -46,7 +47,7 @@ pub async fn init_blockchain_manager(
     clearnet_interface: NetworkInterface<ClearNet>,
     blockchain_write_handle: BlockchainWriteHandle,
     blockchain_read_handle: BlockchainReadHandle,
-    txpool_write_handle: TxpoolWriteHandle,
+    txpool_manager_handle: TxpoolManagerHandle,
     mut blockchain_context_service: BlockchainContextService,
     block_downloader_config: BlockDownloaderConfig,
 ) {
@@ -72,7 +73,7 @@ pub async fn init_blockchain_manager(
             blockchain_read_handle,
             BoxError::from,
         ),
-        txpool_write_handle,
+        txpool_manager_handle,
         blockchain_context_service,
         stop_current_block_downloader,
         broadcast_svc: clearnet_interface.broadcast_svc(),
@@ -93,8 +94,8 @@ pub struct BlockchainManager {
     blockchain_write_handle: BlockchainWriteHandle,
     /// A [`BlockchainReadHandle`].
     blockchain_read_handle: ConsensusBlockchainReadHandle,
-    /// A [`TxpoolWriteHandle`].
-    txpool_write_handle: TxpoolWriteHandle,
+
+    txpool_manager_handle: TxpoolManagerHandle,
     /// The blockchain context cache, this caches the current state of the blockchain to quickly calculate/retrieve
     /// values without needing to go to a [`BlockchainReadHandle`].
     blockchain_context_service: BlockchainContextService,
