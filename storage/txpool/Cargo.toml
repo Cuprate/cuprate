@@ -29,6 +29,7 @@ bitflags                 = { workspace = true, features = ["std", "serde", "byte
 thiserror                = { workspace = true }
 hex                      = { workspace = true, features = ["std"] }
 blake3                   = { workspace = true, features = ["std"] }
+tracing                  = { workspace = true }
 
 tower                    = { workspace = true }
 rayon                    = { workspace = true }

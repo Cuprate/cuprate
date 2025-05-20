@@ -14,10 +14,11 @@
 //! # Traits
 //! This module also contains a set of traits for
 //! accessing _all_ tables defined here at once.
-use cuprate_database::{define_tables, StorableVec};
+use cuprate_database::{define_tables, StorableStr, StorableVec};
 
 use crate::types::{
-    KeyImage, RawCachedVerificationState, TransactionBlobHash, TransactionHash, TransactionInfo,
+    DatabaseVersion, KeyImage, RawCachedVerificationState, TransactionBlobHash, TransactionHash,
+    TransactionInfo,
 };
 
 define_tables! {
@@ -48,4 +49,8 @@ define_tables! {
     /// Transaction blob hashes that are in the pool.
     4 => KnownBlobHashes,
     TransactionBlobHash => TransactionHash,
+
+    /// Current database version.
+    5 => Metadata,
+    StorableStr => DatabaseVersion,
 }
