@@ -56,8 +56,8 @@ jobs:
           # Reset archive directory in-case.
           rm -rf ${{ env.ARCHIVE }}
           mkdir -p ${{ env.ARCHIVE }}
-          ARCHIVE=$(realpath ${{ env.ARCHIVE }})
-          VERSION=$(grep version binaries/cuprated/Cargo.toml | grep -oE [0-9]+.[0-9]+.[0-9]+)
+          readonly ARCHIVE=$(realpath ${{ env.ARCHIVE }})
+          readonly VERSION=$(grep version binaries/cuprated/Cargo.toml | grep -oE [0-9]+.[0-9]+.[0-9]+)
 
           # All archives have these files.
           cp LICENSE-AGPL target/release/LICENSE
@@ -67,42 +67,36 @@ jobs:
               target/release/cuprated --generate-config > target/release/Cuprated.toml
           fi
 
-          OS=${{ matrix.os }}
+          # Archive extension.
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            readonly EXTENSION="zip"
+          else
+            readonly EXTENSION="tar.gz"
+          fi
+
+          # Generate the asset name.
+          TARGET=($(rustup show | grep "Default"))
+          readonly TARGET=${TARGET[2]}
+          readonly ASSET="cuprated-$VERSION-$TARGET.$EXTENSION"
 
           # Generate archives for Linux.
           if [ "$RUNNER_OS" == "Linux" ]; then
               cp binaries/cuprated/cuprated.service target/release/
               cd target/release
-
-              if [ "$OS" == "ubuntu-22.04" ]; then
-                  NAME="cuprated-${VERSION}-linux-x64.tar.gz"
-              else
-                  NAME="cuprated-${VERSION}-linux-arm64.tar.gz"
-              fi
-
-              tar -czpf "$ARCHIVE/$NAME" cuprated LICENSE Cuprated.toml cuprated.service
+              tar -czpf "$ARCHIVE/$ASSET" cuprated LICENSE Cuprated.toml cuprated.service
           fi
 
           # Generate archives for macOS.
           if [ "$RUNNER_OS" == "macOS" ]; then
               cd target/release
-
-              if [ "$OS" == "macos-15" ]; then
-                  NAME="cuprated-${VERSION}-macos-arm64.tar.gz"
-              else
-                  NAME="cuprated-${VERSION}-macos-x64.tar.gz"
-              fi
-
-              tar -czpf "$ARCHIVE/$NAME" cuprated LICENSE Cuprated.toml
+              tar -czpf "$ARCHIVE/$ASSET" cuprated LICENSE Cuprated.toml
           fi
 
           # Generate archives for Windows.
           if [ "$RUNNER_OS" == "Windows" ]; then
               mv target/release/cuprated.exe target/release/
               cd target/release
-
-              NAME="cuprated-${VERSION}-windows-x64.zip"
-              powershell Compress-Archive -LiteralPath cuprated.exe, LICENSE, Cuprated.toml -DestinationPath "$ARCHIVE/$NAME"
+              powershell Compress-Archive -LiteralPath cuprated.exe, LICENSE, Cuprated.toml -DestinationPath "$ARCHIVE/$ASSET"
           fi
 
       - name: Archive
