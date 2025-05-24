@@ -1,46 +1,46 @@
-use crate::constants::PANIC_CRITICAL_SERVICE_ERROR;
-use crate::p2p::{CrossNetworkInternalPeerId, NetworkInterfaces};
-use crate::txpool::dandelion::DiffuseService;
-use crate::txpool::incoming_tx::{DandelionTx, TxId};
-use bytes::Bytes;
-use cuprate_dandelion_tower::pool::{DandelionPoolService, IncomingTx, IncomingTxBuilder};
-use cuprate_dandelion_tower::traits::DiffuseRequest;
-use cuprate_dandelion_tower::TxState;
-use cuprate_helper::time::current_unix_timestamp;
-use cuprate_txpool::service::interface::{
-    TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest, TxpoolWriteResponse,
+use std::{
+    cmp::min,
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
-use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
-use cuprate_types::TransactionVerificationData;
+
+use bytes::Bytes;
 use futures::StreamExt;
 use indexmap::IndexMap;
 use rand::Rng;
-use std::cmp::min;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::{time::delay_queue, time::DelayQueue};
 use tower::{Service, ServiceExt};
+use tracing::{instrument, Instrument, Span};
 
+use cuprate_dandelion_tower::{
+    pool::{DandelionPoolService, IncomingTx, IncomingTxBuilder},
+    traits::DiffuseRequest,
+    TxState,
+};
+use cuprate_helper::time::current_unix_timestamp;
+use cuprate_txpool::service::{
+    interface::{TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest, TxpoolWriteResponse},
+    TxpoolReadHandle, TxpoolWriteHandle,
+};
+use cuprate_types::TransactionVerificationData;
+
+use crate::{
+    constants::PANIC_CRITICAL_SERVICE_ERROR,
+    p2p::{CrossNetworkInternalPeerId, NetworkInterfaces},
+    txpool::{
+        dandelion::DiffuseService,
+        incoming_tx::{DandelionTx, TxId},
+    },
+};
+
+/// The base time between re-relays to the p2p network.
 const TX_RERELAY_TIME: u64 = 300;
 
-enum TxPoolRequest {
-    IncomingTx,
-}
-
-struct TxInfo {
-    weight: usize,
-    fee: u64,
-    received_at: u64,
-    private: bool,
-
-    timeout_key: Option<delay_queue::Key>,
-}
-
-pub struct TxpoolConfig {
+pub struct TxpoolManagerConfig {
     maximum_age: u64,
 }
 
-impl Default for TxpoolConfig {
+impl Default for TxpoolManagerConfig {
     fn default() -> Self {
         Self {
             maximum_age: 60 * 60 * 24,
@@ -48,13 +48,18 @@ impl Default for TxpoolConfig {
     }
 }
 
+/// Starts the transaction pool (txpool) manager service.
+///
+/// # Panics
+///
+/// This function may panic if any inner service has an unrecoverable error.
 pub async fn start_txpool_manager(
     mut txpool_write_handle: TxpoolWriteHandle,
     mut txpool_read_handle: TxpoolReadHandle,
     promote_tx_channel: mpsc::Receiver<[u8; 32]>,
     diffuse_service: DiffuseService,
     dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
-    config: TxpoolConfig,
+    config: TxpoolManagerConfig,
 ) -> TxpoolManagerHandle {
     let TxpoolReadResponse::Backlog(backlog) = txpool_read_handle
         .ready()
@@ -145,25 +150,56 @@ impl TxpoolManagerHandle {
     }
 }
 
+/// Information on a transaction in the tx-pool.
+struct TxInfo {
+    /// The weight of the transaction.
+    weight: usize,
+    /// The fee the transaction paid.
+    fee: u64,
+    /// The UNIX timestamp when the tx was received.
+    received_at: u64,
+    /// Whether the tx is in the private pool.
+    private: bool,
+
+    /// The [`delay_queue::Key`] for the timeout queue in the manager.
+    ///
+    /// This will be [`None`] if the tx is private as timeouts for them are handled in the dandelion pool.
+    timeout_key: Option<delay_queue::Key>,
+}
+
 struct TxpoolManager {
     current_txs: IndexMap<[u8; 32], TxInfo>,
 
+    /// A [`DelayQueue`] for waiting on tx timeouts.
+    ///
+    /// Timeouts can be for re-relaying or removal from the pool.
     tx_timeouts: DelayQueue<[u8; 32]>,
 
     txpool_write_handle: TxpoolWriteHandle,
     txpool_read_handle: TxpoolReadHandle,
 
-    /// The dandelion txpool manager.
     dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
+    /// The channel the dandelion manager will use to communicate that a tx should be promoted to the
+    /// public pool.
     promote_tx_channel: mpsc::Receiver<[u8; 32]>,
-
+    /// The [`DiffuseService`] to diffuse txs to the p2p network.
+    ///
+    /// Used for re-relays.
     diffuse_service: DiffuseService,
 
-    config: TxpoolConfig,
+    config: TxpoolManagerConfig,
 }
 
 impl TxpoolManager {
+    /// Removes a transaction from the tx-pool manager, and optionally the database too.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the tx is not in the tx-pool manager.
+    #[instrument(level = "debug", skip_all, fields(tx_id = hex::encode(tx)))]
     async fn remove_tx_from_pool(&mut self, tx: [u8; 32], remove_from_db: bool) {
+        tracing::debug!("removing tx from pool");
+
         let tx_info = self.current_txs.swap_remove(&tx).unwrap();
 
         tx_info
@@ -181,7 +217,15 @@ impl TxpoolManager {
         }
     }
 
+    /// Re-relay a tx to the network.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the tx is not in the tx-pool.
+    #[instrument(level = "debug", skip_all, fields(tx_id = hex::encode(tx)))]
     async fn rerelay_tx(&mut self, tx: [u8; 32]) {
+        tracing::debug!("re-relaying tx to network");
+
         let TxpoolReadResponse::TxBlob {
             tx_blob,
             state_stem: _,
@@ -203,31 +247,42 @@ impl TxpoolManager {
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
     }
 
+    /// Handles a transaction timeout, be either rebroadcasting or dropping the tx from the pool.
+    /// If a rebroadcast happens, this function will handle adding another timeout to the queue.
+    #[instrument(level = "debug", skip_all, fields(tx_id = hex::encode(tx)))]
     async fn handle_tx_timeout(&mut self, tx: [u8; 32]) {
         let Some(tx_info) = self.current_txs.get(&tx) else {
+            tracing::warn!("tx timed out, but tx not in pool");
             return;
         };
 
         let time_in_pool = current_unix_timestamp() - tx_info.received_at;
 
         if time_in_pool > self.config.maximum_age {
+            tracing::warn!("tx has been in pool too long, removing from pool");
             self.remove_tx_from_pool(tx, true).await;
             return;
         }
 
         let received_at = tx_info.received_at;
 
+        tracing::debug!(time_in_pool, "tx timed out, resending to network");
+
         self.rerelay_tx(tx).await;
 
         let tx_info = self.current_txs.get_mut(&tx).unwrap();
 
         let next_timeout = calculate_next_timeout(received_at, self.config.maximum_age);
+        tracing::trace!(in_secs = next_timeout, "setting next tx timeout");
+
         tx_info.timeout_key = Some(
             self.tx_timeouts
                 .insert(tx, Duration::from_secs(next_timeout)),
         );
     }
 
+    /// Adds a tx to the tx-pool manager.
+    #[instrument(level = "trace", skip_all, fields(tx_id = hex::encode(tx)))]
     fn track_tx(&mut self, tx: [u8; 32], weight: usize, fee: u64, private: bool) {
         let now = current_unix_timestamp();
 
@@ -236,6 +291,9 @@ impl TxpoolManager {
             None
         } else {
             let timeout = calculate_next_timeout(now, self.config.maximum_age);
+
+            tracing::trace!(in_secs = timeout, "setting next tx timeout");
+
             Some(self.tx_timeouts.insert(tx, Duration::from_secs(timeout)))
         };
 
@@ -251,11 +309,15 @@ impl TxpoolManager {
         );
     }
 
+    /// Handles an incoming tx, adding it to the pool and routing it.
+    #[instrument(level = "debug", skip_all, fields(tx_id = hex::encode(tx.tx_hash), state))]
     async fn handle_incoming_tx(
         &mut self,
         tx: TransactionVerificationData,
         state: TxState<CrossNetworkInternalPeerId>,
     ) {
+        tracing::debug!("handling new tx");
+
         let incoming_tx =
             IncomingTxBuilder::new(DandelionTx(Bytes::copy_from_slice(&tx.tx_blob)), tx.tx_hash);
 
@@ -271,12 +333,16 @@ impl TxpoolManager {
                 state_stem: state.is_stem_stage(),
             })
             .await
-            .expect("TODO")
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
         else {
             unreachable!()
         };
 
         if let Some(tx_hash) = double_spend {
+            tracing::debug!(
+                double_spent = hex::encode(tx_hash),
+                "transaction is a double spend, ignoring"
+            );
             return;
         };
 
@@ -297,14 +363,26 @@ impl TxpoolManager {
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
     }
 
+    /// Promote a tx to the public pool.
+    #[instrument(level = "debug", skip_all, fields(tx_id = hex::encode(tx)))]
     async fn promote_tx(&mut self, tx: [u8; 32]) {
         let Some(tx_info) = self.current_txs.get_mut(&tx) else {
+            tracing::debug!("not promoting tx, tx not in pool");
             return;
         };
+
+        if !tx_info.private {
+            tracing::trace!("not promoting tx, tx is already public");
+            return;
+        }
+
+        tracing::debug!("promoting tx");
+
         // It's now in the public pool, pretend we just saw it.
         tx_info.received_at = current_unix_timestamp();
 
         let next_timeout = calculate_next_timeout(tx_info.received_at, self.config.maximum_age);
+        tracing::trace!(in_secs = next_timeout, "setting next tx timeout");
         tx_info.timeout_key = Some(
             self.tx_timeouts
                 .insert(tx, Duration::from_secs(next_timeout)),
@@ -319,7 +397,11 @@ impl TxpoolManager {
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
     }
 
+    /// Handles removing all transactions that have been included/double spent in an incoming block.
+    #[instrument(level = "debug", skip_all)]
     async fn new_block(&mut self, spent_key_images: Vec<[u8; 32]>) {
+        tracing::debug!("handling new block");
+
         let TxpoolWriteResponse::NewBlock(removed_txs) = self
             .txpool_write_handle
             .ready()
@@ -375,7 +457,7 @@ fn calculate_next_timeout(received_at: u64, max_time_in_pool: u64) -> u64 {
 
     let time_in_pool = now - received_at;
 
-    let time_till_max_timeout = max_time_in_pool - time_in_pool;
+    let time_till_max_timeout = max_time_in_pool.saturating_sub(time_in_pool);
 
     let timeouts = time_in_pool / TX_RERELAY_TIME;
 

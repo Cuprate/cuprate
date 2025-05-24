@@ -207,6 +207,10 @@ async fn handle_incoming_txs(
             continue;
         }
 
+        tracing::debug!(
+            tx = hex::encode(tx.tx_hash),
+            "passing tx to tx-pool manager"
+        );
         if txpool_manager_handle
             .tx_tx
             .send((tx, state.clone()))
@@ -263,6 +267,7 @@ async fn prepare_incoming_txs(
 
             // If a duplicate is in here the incoming tx batch contained the same tx twice.
             if !tx_blob_hashes.insert(tx_blob_hash) {
+                tracing::debug!("peer sent duplicate tx in batch, ignoring batch.");
                 return Some(Err(IncomingTxError::DuplicateTransaction));
             }
 

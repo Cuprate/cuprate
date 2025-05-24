@@ -64,7 +64,7 @@ pub fn open(config: Config) -> Result<ConcreteEnv, InitError> {
     // we want since it is agnostic, so we are responsible for this.
     {
         let env_inner = env.env_inner();
-        
+
         // Store if this DB has been used before by checking if the metadata table exists.
         let tx_ro = env_inner.tx_ro().map_err(runtime_to_init_error)?;
         fresh_db = env_inner.open_db_ro::<Metadata>(&tx_ro).is_err();
