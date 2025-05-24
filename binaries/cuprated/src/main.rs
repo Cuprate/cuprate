@@ -136,7 +136,8 @@ fn main() {
             txpool_read_handle,
             context_svc.clone(),
             blockchain_read_handle.clone(),
-        );
+        )
+        .await;
 
         // Send tx handler sender to all network zones
         for zone in tx_handler_subscribers {
@@ -150,7 +151,7 @@ fn main() {
             network_interfaces.clearnet_network_interface,
             blockchain_write_handle,
             blockchain_read_handle,
-            txpool_write_handle,
+            tx_handler.txpool_manager.clone(),
             context_svc.clone(),
             config.block_downloader_config(),
         )

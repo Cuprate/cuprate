@@ -92,9 +92,7 @@ where
         _tx: PhantomData,
     };
 
-    let span = tracing::debug_span!("dandelion_pool");
-
-    tokio::spawn(pool.run(rx).instrument(span));
+    tokio::spawn(pool.run(rx));
 
     DandelionPoolService {
         tx: PollSender::new(tx),
@@ -107,7 +105,10 @@ where
 #[derive(Clone)]
 pub struct DandelionPoolService<Tx, TxId, PeerId> {
     /// The channel to [`DandelionPoolManager`].
-    tx: PollSender<(IncomingTx<Tx, TxId, PeerId>, oneshot::Sender<()>)>,
+    tx: PollSender<(
+        (IncomingTx<Tx, TxId, PeerId>, tracing::Span),
+        oneshot::Sender<()>,
+    )>,
 }
 
 impl<Tx, TxId, PeerId> Service<IncomingTx<Tx, TxId, PeerId>>
@@ -131,7 +132,7 @@ where
 
         let res = self
             .tx
-            .send_item((req, tx))
+            .send_item(((req, tracing::Span::current()), tx))
             .map_err(|_| DandelionPoolShutDown);
 
         async move {

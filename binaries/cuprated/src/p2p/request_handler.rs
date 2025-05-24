@@ -6,15 +6,6 @@ use std::{
 };
 
 use bytes::Bytes;
-use futures::{
-    future::{BoxFuture, Shared},
-    FutureExt,
-};
-use monero_serai::{block::Block, transaction::Transaction};
-use tokio::sync::{broadcast, oneshot, watch};
-use tokio_stream::wrappers::WatchStream;
-use tower::{Service, ServiceExt};
-
 use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::{
     transactions::new_tx_verification_data, BlockChainContextRequest, BlockChainContextResponse,
@@ -44,6 +35,15 @@ use cuprate_wire::protocol::{
     ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest,
     GetObjectsResponse, NewFluffyBlock, NewTransactions,
 };
+use futures::{
+    future::{BoxFuture, Shared},
+    FutureExt,
+};
+use monero_serai::{block::Block, transaction::Transaction};
+use tokio::sync::{broadcast, oneshot, watch};
+use tokio_stream::wrappers::WatchStream;
+use tower::{Service, ServiceExt};
+use tracing::instrument;
 
 use crate::{
     blockchain::interface::{self as blockchain_interface, IncomingBlockError},
@@ -363,6 +363,7 @@ async fn new_fluffy_block<A: NetZoneAddress>(
 }
 
 /// [`ProtocolRequest::NewTransactions`]
+#[instrument(level = "debug", skip_all, fields(txs = request.txs.len(), stem = !request.dandelionpp_fluff))]
 async fn new_transactions<A>(
     peer_information: PeerInformation<A>,
     request: NewTransactions,
@@ -373,16 +374,22 @@ where
     A: NetZoneAddress,
     InternalPeerID<A>: Into<CrossNetworkInternalPeerId>,
 {
+    tracing::debug!("handling new transactions");
+
     let context = blockchain_context_service.blockchain_context();
 
     // If we are more than 2 blocks behind the peer then ignore the txs - we are probably still syncing.
-    if usize_to_u64(context.chain_height + 2)
-        < peer_information
-            .core_sync_data
-            .lock()
-            .unwrap()
-            .current_height
-    {
+    let peer_height = peer_information
+        .core_sync_data
+        .lock()
+        .unwrap()
+        .current_height;
+    if usize_to_u64(context.chain_height + 2) < peer_height {
+        tracing::debug!(
+            our_height = context.chain_height,
+            peer_height,
+            "we are too far behind peer, ignoring txs."
+        );
         return Ok(ProtocolResponse::NA);
     }
 
