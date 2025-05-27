@@ -80,11 +80,11 @@ config_struct! {
     }
 }
 
-impl RpcConfig {
+impl RestrictedRpcConfig {
     /// Return the restricted RPC port for P2P if available and public.
     pub const fn port_for_p2p(&self) -> u16 {
-        if self.restricted.advertise && self.restricted.shared.enable {
-            self.restricted.shared.address.port()
+        if self.advertise && self.shared.enable {
+            self.shared.address.port()
         } else {
             0
         }

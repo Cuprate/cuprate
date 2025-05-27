@@ -61,9 +61,11 @@ pub fn init_rpc_servers(config: RpcConfig) {
 ///
 /// The function will only return when the server itself returns or an error occurs.
 async fn run_rpc_server(restricted: bool, config: SharedRpcConfig) -> Result<(), Error> {
-    let address = config.address;
-
-    info!(restricted, display(address), "Starting RPC server");
+    info!(
+        restricted,
+        address = display(&config.address),
+        "Starting RPC server"
+    );
 
     // Create the router.
     //
@@ -90,7 +92,7 @@ async fn run_rpc_server(restricted: bool, config: SharedRpcConfig) -> Result<(),
     // Start the server.
     //
     // TODO: impl custom server code, don't use axum.
-    let listener = TcpListener::bind(addr).await?;
+    let listener = TcpListener::bind(config.address).await?;
     axum::serve(listener, router).await?;
 
     Ok(())
