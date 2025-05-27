@@ -9,7 +9,7 @@ use anyhow::Error;
 use tokio::net::TcpListener;
 use tower::limit::rate::RateLimitLayer;
 use tower_http::limit::RequestBodyLimitLayer;
-use tracing::{info, warn};
+use tracing::{field::display, info, warn};
 
 use cuprate_rpc_interface::{RouterBuilder, RpcHandlerDummy};
 
@@ -43,7 +43,7 @@ pub fn init_rpc_servers(config: RpcConfig) {
                 .i_know_what_im_doing_allow_public_unrestricted_rpc
             {
                 warn!(
-                    address = addr,
+                    address = display(addr),
                     "Starting unrestricted RPC on non-local address, this is dangerous!"
                 );
             } else {
@@ -63,7 +63,7 @@ pub fn init_rpc_servers(config: RpcConfig) {
 async fn run_rpc_server(restricted: bool, config: SharedRpcConfig) -> Result<(), Error> {
     let address = config.address;
 
-    info!(restricted, address, "Starting RPC server");
+    info!(restricted, display(address), "Starting RPC server");
 
     // Create the router.
     //
