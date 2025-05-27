@@ -31,7 +31,7 @@ pub fn init_rpc_servers(config: RpcConfig) {
         (config.restricted.shared, true),
     ] {
         if !c.enable {
-            info!("Skipping RPC server (restricted={restricted})");
+            info!(restricted, "Skipping RPC server");
             continue;
         };
 
@@ -43,7 +43,8 @@ pub fn init_rpc_servers(config: RpcConfig) {
                 .i_know_what_im_doing_allow_public_unrestricted_rpc
             {
                 warn!(
-                    "Starting unrestricted RPC on non-local address ({addr}), this is dangerous!"
+                    address = addr,
+                    "Starting unrestricted RPC on non-local address, this is dangerous!"
                 );
             } else {
                 panic!("Refusing to start unrestricted RPC on a non-local address ({addr})");
@@ -60,9 +61,9 @@ pub fn init_rpc_servers(config: RpcConfig) {
 ///
 /// The function will only return when the server itself returns or an error occurs.
 async fn run_rpc_server(restricted: bool, config: SharedRpcConfig) -> Result<(), Error> {
-    let addr = config.address;
+    let address = config.address;
 
-    info!("Starting RPC server (restricted={restricted}) on {addr}");
+    info!(restricted, address, "Starting RPC server");
 
     // Create the router.
     //
