@@ -2,14 +2,16 @@
 //! impls for some possible base epee values.
 
 use alloc::{string::String, vec, vec::Vec};
-use core::fmt::Debug;
+use core::{cmp::min, fmt::Debug};
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
 use cuprate_fixed_bytes::{ByteArray, ByteArrayVec};
+use cuprate_hex::{Hex, HexVec};
 
 use crate::{
     io::{checked_read_primitive, checked_write_primitive},
+    max_upfront_capacity,
     varint::{read_varint, write_varint},
     write_bytes, write_iterator, EpeeObject, Error, InnerMarker, Marker, Result,
     MAX_STRING_LEN_POSSIBLE,
@@ -70,7 +72,7 @@ impl<T: EpeeObject> EpeeValue for Vec<T> {
 
         let individual_marker = Marker::new(marker.inner_marker);
 
-        let mut res = Self::with_capacity(len);
+        let mut res = Self::with_capacity(min(len, max_upfront_capacity::<T>()));
         for _ in 0..len {
             res.push(T::read(r, &individual_marker)?);
         }
@@ -372,7 +374,7 @@ impl<const N: usize> EpeeValue for Vec<[u8; N]> {
 
         let individual_marker = Marker::new(marker.inner_marker);
 
-        let mut res = Self::with_capacity(len);
+        let mut res = Self::with_capacity(min(len, max_upfront_capacity::<[u8; N]>()));
         for _ in 0..len {
             res.push(<[u8; N]>::read(r, &individual_marker)?);
         }
@@ -392,6 +394,53 @@ impl<const N: usize> EpeeValue for Vec<[u8; N]> {
     }
 }
 
+impl<const N: usize> EpeeValue for Hex<N> {
+    const MARKER: Marker = <[u8; N] as EpeeValue>::MARKER;
+
+    fn read<B: Buf>(r: &mut B, marker: &Marker) -> Result<Self> {
+        Ok(Self(<[u8; N] as EpeeValue>::read(r, marker)?))
+    }
+
+    fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
+        <[u8; N] as EpeeValue>::write(self.0, w)
+    }
+}
+
+impl<const N: usize> EpeeValue for Vec<Hex<N>> {
+    const MARKER: Marker = Vec::<[u8; N]>::MARKER;
+
+    fn read<B: Buf>(r: &mut B, marker: &Marker) -> Result<Self> {
+        Ok(Vec::<[u8; N]>::read(r, marker)?
+            .into_iter()
+            .map(Hex)
+            .collect())
+    }
+
+    fn should_write(&self) -> bool {
+        !self.is_empty()
+    }
+
+    fn epee_default_value() -> Option<Self> {
+        Some(Self::new())
+    }
+
+    fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
+        write_iterator(self.into_iter(), w)
+    }
+}
+
+impl EpeeValue for HexVec {
+    const MARKER: Marker = <Vec<u8> as EpeeValue>::MARKER;
+
+    fn read<B: Buf>(r: &mut B, marker: &Marker) -> Result<Self> {
+        Ok(Self(<Vec<u8> as EpeeValue>::read(r, marker)?))
+    }
+
+    fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
+        <Vec<u8> as EpeeValue>::write(self.0, w)
+    }
+}
+
 macro_rules! epee_seq {
     ($val:ty) => {
         impl EpeeValue for Vec<$val> {
@@ -408,7 +457,7 @@ macro_rules! epee_seq {
 
                 let individual_marker = Marker::new(marker.inner_marker.clone());
 
-                let mut res = Vec::with_capacity(len);
+                let mut res = Vec::with_capacity(min(len, max_upfront_capacity::<$val>()));
                 for _ in 0..len {
                     res.push(<$val>::read(r, &individual_marker)?);
                 }
@@ -458,6 +507,7 @@ epee_seq!(u16);
 epee_seq!(f64);
 epee_seq!(bool);
 epee_seq!(Vec<u8>);
+epee_seq!(HexVec);
 epee_seq!(String);
 epee_seq!(Bytes);
 epee_seq!(BytesMut);

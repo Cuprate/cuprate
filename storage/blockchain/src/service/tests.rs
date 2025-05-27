@@ -6,10 +6,7 @@
 #![allow(clippy::await_holding_lock, clippy::too_many_lines)]
 
 //---------------------------------------------------------------------------------------------------- Use
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 
 use indexmap::{IndexMap, IndexSet};
 use pretty_assertions::assert_eq;
@@ -180,8 +177,8 @@ async fn test_template(
     ));
 
     // Contains a fake non-spent key-image.
-    let ki_req = HashSet::from([[0; 32]]);
-    let ki_resp = Ok(BlockchainResponse::KeyImagesSpent(false));
+    let ki_req = vec![[0; 32]];
+    let ki_resp = Ok(BlockchainResponse::KeyImagesSpentVec(vec![false]));
 
     //----------------------------------------------------------------------- Assert expected response
     // Assert read requests lead to the expected responses.
@@ -219,7 +216,7 @@ async fn test_template(
             BlockchainReadRequest::NumberOutputsWithAmount(num_req),
             num_resp,
         ),
-        (BlockchainReadRequest::KeyImagesSpent(ki_req), ki_resp),
+        (BlockchainReadRequest::KeyImagesSpentVec(ki_req), ki_resp),
     ] {
         let response = reader.clone().oneshot(request).await;
         println!("response: {response:#?}, expected_response: {expected_response:#?}");
@@ -233,10 +230,13 @@ async fn test_template(
     // Assert each key image we inserted comes back as "spent".
     for key_image in tables.key_images_iter().keys().unwrap() {
         let key_image = key_image.unwrap();
-        let request = BlockchainReadRequest::KeyImagesSpent(HashSet::from([key_image]));
+        let request = BlockchainReadRequest::KeyImagesSpentVec(vec![key_image]);
         let response = reader.clone().oneshot(request).await;
         println!("response: {response:#?}, key_image: {key_image:#?}");
-        assert_eq!(response.unwrap(), BlockchainResponse::KeyImagesSpent(true));
+        assert_eq!(
+            response.unwrap(),
+            BlockchainResponse::KeyImagesSpentVec(vec![true])
+        );
     }
 
     //----------------------------------------------------------------------- Output checks
@@ -287,13 +287,16 @@ async fn test_template(
                     amount: *amount,
                     amount_index: *amount_index,
                 };
-                id_to_output_on_chain(&id, &tables).unwrap()
+                id_to_output_on_chain(&id, false, &tables).unwrap()
             })
         })
         .collect::<Vec<OutputOnChain>>();
 
     // Send a request for every output we inserted before.
-    let request = BlockchainReadRequest::Outputs(map.clone());
+    let request = BlockchainReadRequest::Outputs {
+        outputs: map.clone(),
+        get_txid: false,
+    };
     let response = reader.clone().oneshot(request).await;
     println!("Response::Outputs response: {response:#?}");
     let Ok(BlockchainResponse::Outputs(response)) = response else {
@@ -481,7 +484,7 @@ async fn alt_chain_requests() {
     let request = BlockchainWriteRequest::PopBlocks(1);
     let response = writer.ready().await.unwrap().call(request).await.unwrap();
 
-    let BlockchainResponse::PopBlocks(old_main_chain_id) = response else {
+    let BlockchainResponse::PopBlocks(_) = response else {
         panic!("Wrong response type was returned");
     };
 
@@ -489,14 +492,4 @@ async fn alt_chain_requests() {
     let request = BlockchainReadRequest::ChainHeight;
     let response = reader.clone().oneshot(request).await.unwrap();
     assert!(matches!(response, BlockchainResponse::ChainHeight(1, _)));
-
-    // Attempt to add the popped block back.
-    let request = BlockchainWriteRequest::ReverseReorg(old_main_chain_id);
-    let response = writer.ready().await.unwrap().call(request).await.unwrap();
-    assert_eq!(response, BlockchainResponse::Ok);
-
-    // Check we have the popped block back.
-    let request = BlockchainReadRequest::ChainHeight;
-    let response = reader.clone().oneshot(request).await.unwrap();
-    assert!(matches!(response, BlockchainResponse::ChainHeight(2, _)));
 }

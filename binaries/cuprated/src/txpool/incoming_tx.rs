@@ -40,6 +40,7 @@ use crate::{
     signals::REORG_LOCK,
     txpool::{
         dandelion,
+        relay_rules::check_tx_relay_rules,
         txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
     },
 };
@@ -179,6 +180,14 @@ async fn handle_incoming_txs(
         .map_err(IncomingTxError::Consensus)?;
 
     for tx in txs {
+        // TODO: this could be a DoS, if someone spams us with txs that violate these rules?
+        // Maybe we should remember these invalid txs for some time to prevent them getting repeatedly sent.
+        if let Err(e) = check_tx_relay_rules(&tx, context) {
+            tracing::debug!(err = %e, tx = hex::encode(tx.tx_hash), "Tx failed relay check, skipping.");
+
+            continue;
+        }
+
         handle_valid_tx(
             tx,
             state.clone(),
@@ -320,7 +329,7 @@ async fn handle_valid_tx(
     // TODO: track double spends to quickly ignore them from their blob hash.
     if let Some(tx_hash) = double_spend {
         return;
-    };
+    }
 
     // TODO: There is a race condition possible if a tx and block come in at the same time: <https://github.com/Cuprate/cuprate/issues/314>.
 

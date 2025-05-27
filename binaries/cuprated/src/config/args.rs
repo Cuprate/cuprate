@@ -5,7 +5,7 @@ use serde_json::Value;
 
 use cuprate_helper::network::Network;
 
-use crate::{config::Config, constants::EXAMPLE_CONFIG, version::CupratedVersionInfo};
+use crate::{config::Config, version::CupratedVersionInfo};
 
 /// Cuprate Args.
 #[derive(clap::Parser, Debug)]
@@ -61,7 +61,7 @@ impl Args {
         }
 
         if self.generate_config {
-            println!("{EXAMPLE_CONFIG}");
+            println!("{}", Config::documented_config());
             exit(0);
         }
     }
@@ -71,7 +71,7 @@ impl Args {
     /// This may exit the program if a config value was set that requires an early exit.
     pub const fn apply_args(&self, mut config: Config) -> Config {
         config.network = self.network;
-        config.no_fast_sync = config.no_fast_sync || self.no_fast_sync;
+        config.fast_sync = config.fast_sync && !self.no_fast_sync;
 
         if let Some(outbound_connections) = self.outbound_connections {
             config.p2p.clear_net.general.outbound_connections = outbound_connections;

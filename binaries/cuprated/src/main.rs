@@ -18,16 +18,20 @@
 
 use std::{mem, sync::Arc};
 
+use p2p::initialize_zones_p2p;
 use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
-use tracing::{info, level_filters::LevelFilter};
+use tracing::{error, info, level_filters::LevelFilter};
 use tracing_subscriber::{layer::SubscriberExt, reload::Handle, util::SubscriberInitExt, Registry};
 
 use cuprate_consensus_context::{
     BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
 };
+use cuprate_database::{InitError, DATABASE_CORRUPT_MSG};
 use cuprate_helper::time::secs_to_hms;
+use cuprate_p2p_core::{transports::Tcp, ClearNet};
 use cuprate_types::blockchain::BlockchainWriteRequest;
+use txpool::IncomingTxHandler;
 
 use crate::{
     config::Config, constants::PANIC_CRITICAL_SERVICE_ERROR, logging::CupratedTracingFilter,
@@ -55,10 +59,13 @@ fn main() {
 
     let config = config::read_config_and_args();
 
-    blockchain::set_fast_sync_hashes(!config.no_fast_sync, config.network());
+    blockchain::set_fast_sync_hashes(config.fast_sync, config.network());
 
     // Initialize logging.
     logging::init_logging(&config);
+
+    //Printing configuration
+    info!("{config}");
 
     // Initialize the thread-pools
 
@@ -77,14 +84,18 @@ fn main() {
             config.blockchain_config(),
             Arc::clone(&db_thread_pool),
         )
-        .unwrap();
+        .inspect_err(|e| error!("Blockchain database error: {e}"))
+        .expect(DATABASE_CORRUPT_MSG);
+
     let (txpool_read_handle, txpool_write_handle, _) =
-        cuprate_txpool::service::init_with_pool(config.txpool_config(), db_thread_pool).unwrap();
+        cuprate_txpool::service::init_with_pool(config.txpool_config(), db_thread_pool)
+            .inspect_err(|e| error!("Txpool database error: {e}"))
+            .expect(DATABASE_CORRUPT_MSG);
 
     // Initialize async tasks.
 
     rt.block_on(async move {
-        // TODO: we could add an option for people to keep these like monerod?
+        // TODO: Add an argument/option for keeping alt blocks between restart.
         blockchain_write_handle
             .ready()
             .await
@@ -107,31 +118,36 @@ fn main() {
                 .await
                 .unwrap();
 
-        // Start clearnet P2P.
-        let (clearnet, incoming_tx_handler_tx) = p2p::start_clearnet_p2p(
-            blockchain_read_handle.clone(),
+        // Start p2p network zones
+        let (network_interfaces, tx_handler_subscribers) = p2p::initialize_zones_p2p(
+            &config,
             context_svc.clone(),
+            blockchain_write_handle.clone(),
+            blockchain_read_handle.clone(),
+            txpool_write_handle.clone(),
             txpool_read_handle.clone(),
-            config.clearnet_p2p_config(),
         )
-        .await
-        .unwrap();
+        .await;
 
         // Create the incoming tx handler service.
-        let tx_handler = txpool::IncomingTxHandler::init(
-            clearnet.clone(),
+        let tx_handler = IncomingTxHandler::init(
+            network_interfaces.clearnet_network_interface.clone(),
             txpool_write_handle.clone(),
             txpool_read_handle,
             context_svc.clone(),
             blockchain_read_handle.clone(),
         );
-        if incoming_tx_handler_tx.send(tx_handler).is_err() {
-            unreachable!()
+
+        // Send tx handler sender to all network zones
+        for zone in tx_handler_subscribers {
+            if zone.send(tx_handler.clone()).is_err() {
+                unreachable!()
+            }
         }
 
         // Initialize the blockchain manager.
         blockchain::init_blockchain_manager(
-            clearnet,
+            network_interfaces.clearnet_network_interface,
             blockchain_write_handle,
             blockchain_read_handle,
             txpool_write_handle,

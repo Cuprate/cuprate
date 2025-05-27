@@ -12,6 +12,7 @@ path = "src/create.rs"
 cuprate-blockchain          = { workspace = true }
 cuprate-consensus           = { workspace = true }
 cuprate-consensus-context   = { workspace = true }
+cuprate-hex                 = { workspace = true }
 cuprate-types               = { workspace = true }
 cuprate-p2p                 = { workspace = true }
 cuprate-p2p-core            = { workspace = true }
@@ -22,6 +23,7 @@ monero-serai = { workspace = true }
 blake3       = { workspace = true }
 tokio        = { workspace = true, features = ["full"] }
 tower        = { workspace = true }
+serde_json   = { workspace = true }
 
 [dev-dependencies]
 proptest   = { workspace = true }

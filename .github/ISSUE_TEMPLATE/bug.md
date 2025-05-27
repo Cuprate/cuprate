@@ -15,20 +15,22 @@ Notes:
 
 ## Environment
 Example:
+
 - OS: Windows 11
 - CPU: AMD Ryzen 5 5600X
 - Memory: 16GB
 - Storage: SSD 500GB
-- Cuprate: v1.0.0
+- cuprated: v1.0.0
 
 ## Bug
 What is the bug?
 
 ## Expected behavior
-What correct beahvior was expected to happen?
+What behavior was expected to happen?
 
 ## Steps to reproduce
 Example:
+
 1. In this environment...
 2. With this config...
 3. Run '...'
@@ -37,7 +39,7 @@ Example:
 ## Log
 If possible, add any related logs to help explain the bug.
 
-Note: please remove any sensitive information from the logs (e.g. IP address).
+Note: please remove any sensitive information from the logs (e.g. paths, IP addresses, etc).
 
 ## Screenshots
 If possible, add screenshots to help explain the bug.

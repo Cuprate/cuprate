@@ -10,13 +10,15 @@ use cfg_if::cfg_if;
 /// messages if we think the database is corrupted.
 ///
 /// This is meant to be user-friendly.
-pub const DATABASE_CORRUPT_MSG: &str = r"Cuprate has encountered a fatal error. The database may be corrupted.
+pub const DATABASE_CORRUPT_MSG: &str = r"`cuprated` has encountered a fatal error. The database may be corrupted.
 
-TODO: instructions on:
-1. What to do
-2. How to fix (re-sync, recover, etc)
-3. General advice for preventing corruption
-4. etc";
+If `cuprated` continues to crash with the current database,
+you may have to delete the database file and re-sync from scratch.
+
+See <https://user.cuprate.org/resources/disk.html>
+for more information on where database files are.
+
+If this happens frequently, consider using the `Safe` sync mode.";
 
 //---------------------------------------------------------------------------------------------------- Misc
 /// Static string of the `crate` being used as the database backend.

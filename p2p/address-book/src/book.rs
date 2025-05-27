@@ -216,7 +216,7 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
         if self.white_list.contains_peer(&peer.adr) {
             tracing::trace!("Peer {} is already in white list skipping.", peer.adr);
             return;
-        };
+        }
         if !self.gray_list.contains_peer(&peer.adr) {
             tracing::trace!("Adding peer {} to gray list.", peer.adr);
             peer.last_seen = 0;
@@ -417,7 +417,8 @@ impl<Z: BorshNetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
             AddressBookRequest::GetBan(addr) => Ok(AddressBookResponse::GetBan {
                 unban_instant: self.peer_unban_instant(&addr).map(Instant::into_std),
             }),
-            AddressBookRequest::PeerlistSize
+            AddressBookRequest::Peerlist
+            | AddressBookRequest::PeerlistSize
             | AddressBookRequest::ConnectionCount
             | AddressBookRequest::SetBan(_)
             | AddressBookRequest::GetBans

@@ -8,7 +8,6 @@ readme = "README.md"
 keywords = ["monero", "epee", "no-std"]
 description = "Epee binary format library."
 repository = "https://github.com/Boog900/epee-encoding"
-rust-version = "1.60"
 
 [features]
 default = ["std"]
@@ -16,6 +15,7 @@ std = ["dep:thiserror", "bytes/std", "cuprate-fixed-bytes/std"]
 
 [dependencies]
 cuprate-fixed-bytes = { workspace = true, default-features = false }
+cuprate-hex         = { workspace = true, default-features = false }
 
 paste = "1.0.15"
 ref-cast = "1.0.23"

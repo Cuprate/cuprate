@@ -45,7 +45,7 @@ impl<N: NetworkZone> WeakClient<N> {
     /// Create a [`WeakBroadcastClient`] from this [`WeakClient`].
     ///
     /// See the docs for [`WeakBroadcastClient`] for what this type can do.
-    pub fn broadcast_client(&mut self) -> WeakBroadcastClient<'_, N> {
+    pub const fn broadcast_client(&mut self) -> WeakBroadcastClient<'_, N> {
         WeakBroadcastClient(self)
     }
 }

@@ -46,5 +46,5 @@ pub trait RpcHandler:
     ///
     /// will automatically be denied access when using the
     /// [`axum::Router`] provided by [`RouterBuilder`](crate::RouterBuilder).
-    fn restricted(&self) -> bool;
+    fn is_restricted(&self) -> bool;
 }
