@@ -24,3 +24,20 @@ CARGO_PROFILE_RELEASE_LTO=false cargo fuzz run levin_codec -O
 `CARGO_PROFILE_RELEASE_LTO=false` is needed to disable lto, which is not supported when fuzzing, `-O` enables optimisations.
 
 You can use `-j X` to increase the number of concurrent jobs.
+
+## Adding New Tests
+
+To add new tests, create a new `.rs` file in `fuzz_targets`.
+
+Then add an entry in `Cargo.toml`, for example:
+
+```toml
+[[bin]]
+name = "oxide_tx"
+path = "fuzz_targets/oxide_tx.rs"
+test = false
+doc = false
+bench = false
+```
+
+Then update the CI file `fuzz` with the new fuzz_target.
