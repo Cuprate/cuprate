@@ -33,7 +33,7 @@ pub fn init_rpc_servers(config: RpcConfig) {
         if !c.enable {
             info!(restricted, "Skipping RPC server");
             continue;
-        };
+        }
 
         let addr = c.address;
 
