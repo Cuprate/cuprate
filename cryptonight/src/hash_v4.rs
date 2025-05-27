@@ -357,7 +357,8 @@ pub(crate) fn random_math_init(
 
 /// Original C code:
 /// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/variant4_random_math.h#L81-L168>
-#[expect(clippy::needless_return)] // last iteration of unrolled loop
+#[expect(clippy::needless_return, reason = "last iteration of unrolled loop")]
+#[expect(clippy::unnecessary_semicolon, reason = "macro")]
 pub(crate) fn v4_random_math(code: &[Instruction; NUM_INSTRUCTIONS_MAX + 1], r: &mut [u32; 9]) {
     const REG_BITS: u32 = 32;
 
