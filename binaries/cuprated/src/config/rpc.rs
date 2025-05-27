@@ -72,7 +72,7 @@ config_struct! {
         ///
         /// Setting this to `true` will make `cuprated`
         /// share the restricted RPC server's port
-        /// publically to the P2P network.
+        /// publicly to the P2P network.
         ///
         /// Type         | boolean
         /// Valid values | true, false
