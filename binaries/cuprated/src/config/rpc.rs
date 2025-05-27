@@ -94,7 +94,7 @@ impl RestrictedRpcConfig {
 config_struct! {
     /// Shared RPC configuration options.
     ///
-    /// Both RPC servers use these values.
+    /// Both RPC servers uses this struct.
     #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
     pub struct SharedRpcConfig {
@@ -106,7 +106,7 @@ config_struct! {
 
         /// Toggle the RPC server.
         ///
-        /// If `true` the RPC server will be enable.
+        /// If `true` the RPC server will be enabled.
         /// If `false` the RPC server will be disabled.
         ///
         /// Type     | boolean
