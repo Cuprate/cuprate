@@ -88,7 +88,7 @@ pub(crate) fn tx_fee(tx: &Transaction) -> Result<u64, TransactionError> {
                 .base
                 .fee;
         }
-    };
+    }
 
     Ok(fee)
 }
