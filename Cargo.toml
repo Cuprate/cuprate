@@ -190,7 +190,7 @@ monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "e
 nu-ansi-term          = { version = "0.46", default-features = false }
 paste                 = { version = "1", default-features = false }
 pin-project           = { version = "1", default-features = false }
-randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev = "e09955c", default-features = false }
+randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev = "ab4a0ea", default-features = false }
 rand                  = { version = "0.8", default-features = false }
 rand_distr            = { version = "0.4", default-features = false }
 rayon                 = { version = "1", default-features = false }
@@ -345,6 +345,15 @@ used_underscore_items = "deny"
 unnecessary_map_or = "deny"
 map_all_any_identity = "deny"
 unnecessary_literal_bound = "deny"
+unnecessary_debug_formatting = "deny"
+elidable_lifetime_names = "deny"
+single_option_map = "deny"
+non_std_lazy_statics = "deny"
+unnecessary_semicolon = "deny"
+precedence_bits = "deny"
+as_pointer_underscore = "deny"
+literal_string_with_formatting_args = "deny"
+manual_midpoint = "deny"
 
 # Warm
 cast_possible_truncation = "deny"

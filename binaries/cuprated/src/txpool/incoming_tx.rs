@@ -329,7 +329,7 @@ async fn handle_valid_tx(
     // TODO: track double spends to quickly ignore them from their blob hash.
     if let Some(tx_hash) = double_spend {
         return;
-    };
+    }
 
     // TODO: There is a race condition possible if a tx and block come in at the same time: <https://github.com/Cuprate/cuprate/issues/314>.
 

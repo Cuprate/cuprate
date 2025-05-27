@@ -437,6 +437,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f46ad14479a25103f283c0f10005961cf086d8dc42205bb44c46ac563475dca6"
 
 [[package]]
+name = "cmake"
+version = "0.1.54"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7caa3f9de89ddbe2c607f4101924c5abec803763ae9534e4f4d7d8f84aa81f0"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "const_format"
 version = "0.2.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2586,10 +2595,11 @@ dependencies = [
 
 [[package]]
 name = "randomx-rs"
-version = "1.3.2"
-source = "git+https://github.com/Cuprate/randomx-rs.git?rev=e09955c#e09955cde78482203f125fbe6bcb81098048df98"
+version = "1.4.0"
+source = "git+https://github.com/Cuprate/randomx-rs.git?rev=ab4a0ea#ab4a0eaeb47a59ed79c9e9ab2686ec3e8616e2ec"
 dependencies = [
  "bitflags 1.3.2",
+ "cmake",
  "libc",
  "thiserror",
 ]
