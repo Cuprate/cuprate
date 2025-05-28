@@ -58,7 +58,7 @@ members = [
 # This is done by defining the `default-members` here to include everything but `fuzz`.
 # You can still build everything, including `fuzz` by using `--workspace`.
 #
-# Remeber to update this if you add any new crates!
+# Remember to update this if you add any new crates!
 default-members = [
 	# Binaries
 	"binaries/cuprated",
