@@ -16,6 +16,8 @@ Run the binary:
 ```
 where `$HEIGHT` is the top blockchain height.
 
+`--blockchain-dir $DIRECTORY` can be provided to use a custom directory instead of using the default.
+
 The generated `fast_sync_hashes.json` file should be in the current directory.
 
 This should be moved to `binaries/cuprated/src/blockchain/fast_sync/fast_sync_hashes.json`.

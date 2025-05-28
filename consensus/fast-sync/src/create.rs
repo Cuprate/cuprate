@@ -3,7 +3,7 @@
     reason = "binary shares same Cargo.toml as library"
 )]
 
-use std::fs::write;
+use std::{fs::write, path::PathBuf};
 
 use clap::Parser;
 use tower::{Service, ServiceExt};
@@ -40,8 +40,15 @@ async fn read_batch(
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Args {
+    /// Hashes will be created up to this blockchain height.
     #[arg(long)]
     height: usize,
+
+    /// Optional path towards the blockchain database directory.
+    ///
+    /// If not provided, the default directory will be used.
+    #[arg(long)]
+    blockchain_dir: Option<PathBuf>,
 }
 
 #[tokio::main]
@@ -49,7 +56,21 @@ async fn main() {
     let args = Args::parse();
     let height_target = args.height;
 
-    let config = ConfigBuilder::new().build();
+    let config = {
+        let c = ConfigBuilder::new();
+        if let Some(dir) = args.blockchain_dir {
+            c.data_directory(dir)
+        } else {
+            c
+        }
+        .build()
+    };
+
+    println!("Height: {}", args.height);
+    println!(
+        "Blockchain directory: {}",
+        config.db_config.db_directory().display()
+    );
 
     let (mut read_handle, _, _) = cuprate_blockchain::service::init(config).unwrap();
 
