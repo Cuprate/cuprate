@@ -213,11 +213,11 @@ impl Config {
             p2p_port: self.p2p.clear_net.general.p2p_port,
             // TODO: set this if a public RPC server is set.
             rpc_port: 0,
-            address_book_config: self
-                .p2p
-                .clear_net
-                .general
-                .address_book_config(&self.fs.cache_directory, self.network),
+            address_book_config: self.p2p.clear_net.general.address_book_config(
+                &self.fs.cache_directory,
+                self.network,
+                None,
+            ),
         }
     }
 
