@@ -987,6 +987,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-test-cli"
+version = "0.1.0"
+
+[[package]]
+name = "cuprate-test-rpc"
+version = "0.0.1"
+
+[[package]]
 name = "cuprate-test-utils"
 version = "0.1.0"
 dependencies = [

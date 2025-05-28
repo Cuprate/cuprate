@@ -117,6 +117,9 @@ jobs:
       if: matrix.os == 'windows-2022'
       uses: lukka/get-cmake@v3.31.6 # Needed for `randomx-rs`
 
+    - name: Build
+      run: cargo build --all-features --all-targets --workspace
+
     - name: Documentation
       run: cargo doc --workspace --all-features --no-deps
 
@@ -124,13 +127,16 @@ jobs:
       run: cargo clippy --workspace --all-features --all-targets -- -D warnings
 
     # HACK: how to test both DB backends that are feature-gated?
-    - name: Test
+    - name: Test (cargo test)
       run: |
         cargo test --all-features --workspace
         cargo test --package cuprate-blockchain --no-default-features --features redb
 
-    - name: Build
-      run: cargo build --all-features --all-targets --workspace
+    - name: Test (cuprate-test-cli)
+      run: cargo run --package cuprate-test-cli
+
+    - name: Test (cuprate-test-rpc)
+      run: cargo run --release --package cuprate-test-rpc
 
     - name: Hack Check
       run: |

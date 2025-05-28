@@ -127,6 +127,8 @@ After that, ensure all other CI passes by running:
 | `cargo test --all-features --workspace`                                | Runs all tests                                                          |
 | `cargo build --all-features --all-targets --workspace`                 | Builds all code                                                         |
 | `cargo hack --workspace check --feature-powerset --no-dev-deps`        | Uses `cargo hack` to check our crates build with different features set |
+| `cargo run --package cuprate-test-cli` | Tests that `cuprated` input/output and behavior are correct |
+| `cargo run --release --package cuprate-compat-rpc` | Tests `cuprated`'s RPC compatibility with `monerod` |
 
 `cargo hack` can be installed with `cargo` from: https://github.com/taiki-e/cargo-hack.
 
