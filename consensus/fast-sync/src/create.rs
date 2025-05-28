@@ -40,7 +40,8 @@ async fn read_batch(
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Hashes will be created up to this blockchain height.
+    /// Hashes will be created up to this height
+    /// (in batches of [`FAST_SYNC_BATCH_LEN`]).
     #[arg(long)]
     height: usize,
 
@@ -66,7 +67,7 @@ async fn main() {
         .build()
     };
 
-    println!("Height: {}", args.height);
+    println!("Height: {height_target}");
     println!(
         "Blockchain directory: {}",
         config.db_config.db_directory().display()
