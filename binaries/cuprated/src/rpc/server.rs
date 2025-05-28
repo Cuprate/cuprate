@@ -9,7 +9,7 @@ use anyhow::Error;
 use tokio::net::TcpListener;
 use tower::limit::rate::RateLimitLayer;
 use tower_http::limit::RequestBodyLimitLayer;
-use tracing::{info, warn};
+use tracing::{field::display, info, warn};
 
 use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::BlockchainContextService;
@@ -39,9 +39,9 @@ pub fn init_rpc_servers(
         (config.restricted.shared, true),
     ] {
         if !c.enable {
-            info!("Skipping RPC server (restricted={restricted})");
+            info!(restricted, "Skipping RPC server");
             continue;
-        };
+        }
 
         let addr = c.address;
 
@@ -51,7 +51,8 @@ pub fn init_rpc_servers(
                 .i_know_what_im_doing_allow_public_unrestricted_rpc
             {
                 warn!(
-                    "Starting unrestricted RPC on non-local address ({addr}), this is dangerous!"
+                    address = display(addr),
+                    "Starting unrestricted RPC on non-local address, this is dangerous!"
                 );
             } else {
                 panic!("Refusing to start unrestricted RPC on a non-local address ({addr})");
@@ -74,15 +75,11 @@ pub fn init_rpc_servers(
 /// This initializes and runs an RPC server.
 ///
 /// The function will only return when the server itself returns or an error occurs.
-async fn run_rpc_server(
-    config: SharedRpcConfig,
-    rpc_handler: CupratedRpcHandler,
-) -> Result<(), Error> {
-    let addr = config.address;
-
+async fn run_rpc_server(restricted: bool, config: SharedRpcConfig) -> Result<(), Error> {
     info!(
-        "Starting RPC server (restricted={}) on {addr}",
-        rpc_handler.is_restricted()
+        restricted,
+        address = display(&config.address),
+        "Starting RPC server"
     );
 
     // TODO:
@@ -109,7 +106,7 @@ async fn run_rpc_server(
     // Start the server.
     //
     // TODO: impl custom server code, don't use axum.
-    let listener = TcpListener::bind(addr).await?;
+    let listener = TcpListener::bind(config.address).await?;
     axum::serve(listener, router).await?;
 
     Ok(())

@@ -22,25 +22,6 @@ config_struct! {
     }
 }
 
-impl RpcConfig {
-    /// Return the restricted RPC port for P2P if available and public.
-    pub const fn port_for_p2p(&self) -> u16 {
-        // TODO: implement `--public-node`.
-        let public_node = false;
-
-        let addr = &self.restricted.shared.address;
-
-        if public_node
-            && self.restricted.shared.enable
-            && cuprate_helper::net::ip_is_local(addr.ip())
-        {
-            addr.port()
-        } else {
-            0
-        }
-    }
-}
-
 config_struct! {
     #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
@@ -86,13 +67,34 @@ config_struct! {
         /// Shared config.
         ##[serde(flatten)]
         pub shared: SharedRpcConfig,
+
+        /// Advertise the restricted RPC port.
+        ///
+        /// Setting this to `true` will make `cuprated`
+        /// share the restricted RPC server's port
+        /// publicly to the P2P network.
+        ///
+        /// Type         | boolean
+        /// Valid values | true, false
+        pub advertise: bool,
+    }
+}
+
+impl RestrictedRpcConfig {
+    /// Return the restricted RPC port for P2P if available and public.
+    pub const fn port_for_p2p(&self) -> u16 {
+        if self.advertise && self.shared.enable {
+            self.shared.address.port()
+        } else {
+            0
+        }
     }
 }
 
 config_struct! {
     /// Shared RPC configuration options.
     ///
-    /// Both RPC servers use these values.
+    /// Both RPC servers uses this struct.
     #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
     pub struct SharedRpcConfig {
@@ -104,7 +106,7 @@ config_struct! {
 
         /// Toggle the RPC server.
         ///
-        /// If `true` the RPC server will be enable.
+        /// If `true` the RPC server will be enabled.
         /// If `false` the RPC server will be disabled.
         ///
         /// Type     | boolean

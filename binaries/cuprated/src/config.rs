@@ -218,7 +218,7 @@ impl Config {
             max_inbound_connections: self.p2p.clear_net.general.max_inbound_connections,
             gray_peers_percent: self.p2p.clear_net.general.gray_peers_percent,
             p2p_port: self.p2p.clear_net.general.p2p_port,
-            rpc_port: self.rpc.port_for_p2p(),
+            rpc_port: self.rpc.restricted.port_for_p2p(),
             address_book_config: self
                 .p2p
                 .clear_net
