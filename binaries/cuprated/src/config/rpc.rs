@@ -113,7 +113,6 @@ config_struct! {
         /// Examples | true, false
         pub enable: bool,
 
-        #[comment_out = true]
         /// If a request is above this byte limit, it will be rejected.
         ///
         /// Setting this to `0` will disable the limit.
