@@ -45,11 +45,11 @@ struct Args {
     #[arg(long)]
     height: usize,
 
-    /// Optional path towards the blockchain database directory.
+    /// Optional path towards a custom data directory (containing blockchain files).
     ///
-    /// If not provided, the default directory will be used.
+    /// If not provided, the default directory will be used (`~/.local/share`).
     #[arg(long)]
-    blockchain_dir: Option<PathBuf>,
+    data_dir: Option<PathBuf>,
 }
 
 #[tokio::main]
@@ -59,7 +59,7 @@ async fn main() {
 
     let config = {
         let c = ConfigBuilder::new();
-        if let Some(dir) = args.blockchain_dir {
+        if let Some(dir) = args.data_dir {
             c.data_directory(dir)
         } else {
             c
@@ -69,7 +69,7 @@ async fn main() {
 
     println!("Height: {height_target}");
     println!(
-        "Blockchain directory: {}",
+        "Data directory: {}",
         config.db_config.db_directory().display()
     );
 
