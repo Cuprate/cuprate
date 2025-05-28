@@ -14,6 +14,8 @@
 
 - [Command line](cli.md)
 
+- [Environment variables](env.md)
+
 - [Resources](resources/intro.md)
     - [Disk](resources/disk.md)
     - [Ports](resources/ports.md)
