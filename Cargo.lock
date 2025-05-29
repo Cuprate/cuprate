@@ -57,6 +57,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
 
 [[package]]
+name = "arbitrary"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dde20b3d026af13f561bdd0f15edf01fc734f0dafcedbaf42bba506a9517f223"
+dependencies = [
+ "derive_arbitrary",
+]
+
+[[package]]
 name = "arc-swap"
 version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -358,6 +367,8 @@ version = "1.2.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32db95edf998450acc7881c932f94cd9b05c87b4b2599e8bab064753da4acfd1"
 dependencies = [
+ "jobserver",
+ "libc",
  "shlex",
 ]
 
@@ -816,6 +827,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-fuzz"
+version = "0.0.0"
+dependencies = [
+ "bytes",
+ "cuprate-cryptonight",
+ "cuprate-epee-encoding",
+ "cuprate-levin",
+ "cuprate-wire",
+ "libfuzzer-sys",
+ "monero-serai",
+ "tokio-util",
+]
+
+[[package]]
 name = "cuprate-helper"
 version = "0.1.0"
 dependencies = [
@@ -856,6 +881,7 @@ dependencies = [
 name = "cuprate-levin"
 version = "0.1.0"
 dependencies = [
+ "arbitrary",
  "bitflags 2.9.0",
  "bytes",
  "cfg-if",
@@ -1068,6 +1094,7 @@ dependencies = [
 name = "cuprate-wire"
 version = "0.1.0"
 dependencies = [
+ "arbitrary",
  "bitflags 2.9.0",
  "bytes",
  "cuprate-epee-encoding",
@@ -1233,6 +1260,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c9e6a11ca8224451684bc0d7d5a7adbf8f2fd6887261a1cfc3c0432f9d4068e"
 dependencies = [
  "powerfmt",
+]
+
+[[package]]
+name = "derive_arbitrary"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30542c1ad912e0e3d22a1935c290e12e8a29d704a420177a31faad4a601a0800"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.101",
 ]
 
 [[package]]
@@ -1889,6 +1927,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "jobserver"
+version = "0.1.33"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38f262f097c174adebe41eb73d66ae9c06b2844fb0da69969647bbddd9b0538a"
+dependencies = [
+ "getrandom 0.3.3",
+ "libc",
+]
+
+[[package]]
 name = "js-sys"
 version = "0.3.77"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1933,6 +1981,16 @@ name = "libc"
 version = "0.2.172"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d750af042f7ef4f724306de029d18836c26c1765a54a6a3f094cbd23a7267ffa"
+
+[[package]]
+name = "libfuzzer-sys"
+version = "0.4.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf78f52d400cf2d84a3a973a78a592b4adc535739e0a5597a0da6f0c357adc75"
+dependencies = [
+ "arbitrary",
+ "cc",
+]
 
 [[package]]
 name = "libm"
@@ -2546,7 +2604,7 @@ dependencies = [
 [[package]]
 name = "randomx-rs"
 version = "1.4.0"
-source = "git+https://github.com/Cuprate/randomx-rs.git?rev=ab4a0ea#ab4a0eaeb47a59ed79c9e9ab2686ec3e8616e2ec"
+source = "git+https://github.com/hinto-janai/randomx-rs.git?rev=656b414#656b414c7734478a7e93d20e31d74c7ba5f28beb"
 dependencies = [
  "bitflags 1.3.2",
  "cmake",

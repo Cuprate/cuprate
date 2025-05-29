@@ -154,7 +154,7 @@ fn read_head_object<T: EpeeObject, B: Buf>(r: &mut B) -> Result<T> {
 }
 
 fn read_field_name_bytes<B: Buf>(r: &mut B) -> Result<Bytes> {
-    let len: usize = r.get_u8().into();
+    let len: usize = checked_read_primitive(r, Buf::get_u8)?.into();
 
     checked_read(r, |b: &mut B| b.copy_to_bytes(len), len)
 }
