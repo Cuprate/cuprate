@@ -48,16 +48,11 @@ members = [
 	"cryptonight",
 	"helper",
 	"pruning",
-<<<<<<< HEAD
 
 	# Tests
 	"test/cli",
 	"test/rpc",
 	"test/utils",
-||||||| 118f02d5
-	"test-utils",
-=======
-	"test-utils",
 
 	# Fuzz
 	"fuzz"
@@ -115,8 +110,11 @@ default-members = [
 	"cryptonight",
 	"helper",
 	"pruning",
-	"test-utils",
->>>>>>> cross
+
+	# Tests
+	"test/cli",
+	"test/rpc",
+	"test/utils",
 ]
 
 [profile.release]
