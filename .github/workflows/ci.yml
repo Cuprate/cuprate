@@ -19,16 +19,16 @@ env:
   # Enable debug information generation for build dependencies.
   CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG: true
   # Build commands.
-  CMD_DOC: cargo doc --workspace --all-features --no-deps
-  CMD_CLIPPY: cargo clippy --workspace --all-features --all-targets -- -D warnings
+  CMD_DOC: cargo doc --all-features --no-deps
+  CMD_CLIPPY: cargo clippy --all-features --all-targets -- -D warnings
   CMD_TEST: |
     # HACK: how to test both DB backends that are feature-gated?
-    cargo test --all-features --workspace
+    cargo test --all-features
     cargo test --package cuprate-blockchain --no-default-features --features redb
-  CMD_BUILD: cargo build --all-features --all-targets --workspace
+  CMD_BUILD: cargo build --all-features --all-targets
   CMD_HACK: |
     cargo install cargo-hack --locked
-    cargo hack --workspace check --feature-powerset --no-dev-deps
+    cargo hack check --feature-powerset --no-dev-deps
 
 jobs:
   # Run format separately.
@@ -154,24 +154,13 @@ jobs:
         os:
         - { image: archlinux:latest, commands: "pacman -Syyu --noconfirm base-devel git cmake" }
         - { image: debian:stable, commands: "apt update && apt -y install build-essential curl cmake git" }
-        # - { image: alpine:latest, commands: "apt -y install build-essential cmake git" }
-        # - {
-        #   image: ghcr.io/cross-rs/x86_64-unknown-linux-musl:latest,
-        #   target: x86_64-unknown-linux-musl,
-        #   commands: "sudo pacman -Syyu --noconfirm base-devel git cmake",
-        # }
-        # - {
-        #   image: ghcr.io/cross-rs/ riscv64gc-unknown-linux-gnu:latest,
-        #   target:  riscv64gc-unknown-linux-gnu,
-        #   commands: "sudo pacman -Syyu --noconfirm base-devel git cmake",
-        # }
-        # - { image: ghcr.io/cross-rs/x86_64-unknown-freebsd:latest, commands: "pkg install -y cmake git" }
+        - { image: fedora:stable, commands: "dnf install --assumeyes @development-tools gcc gcc-c++ cmake git" }
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          clean: false
+          submodules: recursive
 
       - name: Cache
         uses: actions/cache@v4
@@ -205,45 +194,3 @@ jobs:
 
       - name: Hack Check
         run: ${{ env.CMD_HACK }}
-
-  # CI, runs in a VM.
-  ci-vm:
-    runs-on: ubuntu-22.04
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # - name: Cache
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: target
-      #     key: ${{ matrix.os.image }}
-
-      # - name: Download monerod
-      #   uses: ./.github/actions/monerod-download
-
-      - name: CI
-        uses: cross-platform-actions/action@v0.27.0
-        with:
-          operating_system: freebsd
-          architecture: x86_64
-          version: '14.2'
-          memory: 6G
-          cpu_count: 8
-          run: |
-            # Rust toolchain
-            curl -sSf https://sh.rustup.rs -o rustup-init
-            chmod +x rustup-init
-            ./rustup-init -y --target x86_64-unknown-freebsd
-            . "$HOME/.cargo/env"
-
-            # Dependencies
-            sudo pkg install -y cmake gmake git
-
-            # Commands
-            # ${{ env.CMD_DOC }}
-            # ${{ env.CMD_CLIPPY }}
-            # ${{ env.CMD_TEST }}
-            ${{ env.CMD_BUILD }}
-            # ${{ env.CMD_HACK }}
