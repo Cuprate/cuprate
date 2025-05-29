@@ -154,7 +154,7 @@ jobs:
         os:
         - { image: archlinux:latest, commands: "pacman -Syyu --noconfirm base-devel git cmake" }
         - { image: debian:stable, commands: "apt update && apt -y install build-essential curl cmake git" }
-        - { image: fedora:stable, commands: "dnf install --assumeyes @development-tools gcc gcc-c++ cmake git" }
+        - { image: fedora:latest, commands: "dnf install --assumeyes @development-tools gcc gcc-c++ cmake git" }
 
     steps:
       - name: Checkout
