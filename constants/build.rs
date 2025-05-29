@@ -13,8 +13,7 @@ fn set_commit_env() {
     // 1. Having `git` as a build dependency is probably ok
     // 2. It causes issues on PRs that aren't the `main` branch
     let output = std::process::Command::new("git")
-        .arg("rev-parse")
-        .arg("HEAD")
+        .args(["show", "-s", "--format=%H"])
         .output()
         .unwrap();
 
