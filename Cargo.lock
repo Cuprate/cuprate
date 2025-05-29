@@ -1175,7 +1175,6 @@ dependencies = [
  "tempfile",
  "thiserror",
  "thread_local",
- "tikv-jemallocator",
  "tokio",
  "tokio-stream",
  "tokio-util",
@@ -2597,7 +2596,7 @@ dependencies = [
 [[package]]
 name = "randomx-rs"
 version = "1.4.0"
-source = "git+https://github.com/Cuprate/randomx-rs.git?rev=ab4a0ea#ab4a0eaeb47a59ed79c9e9ab2686ec3e8616e2ec"
+source = "git+https://github.com/hinto-janai/randomx-rs.git?rev=656b414#656b414c7734478a7e93d20e31d74c7ba5f28beb"
 dependencies = [
  "bitflags 1.3.2",
  "cmake",
@@ -3187,26 +3186,6 @@ name = "threefish"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a693d0c8cf16973fac5a93fbe47b8c6452e7097d4fcac49f3d7a18e39c76e62e"
-
-[[package]]
-name = "tikv-jemalloc-sys"
-version = "0.6.0+5.3.0-1-ge13ca993e8ccb9ba9847cc330696e02839f328f7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd3c60906412afa9c2b5b5a48ca6a5abe5736aec9eb48ad05037a677e52e4e2d"
-dependencies = [
- "cc",
- "libc",
-]
-
-[[package]]
-name = "tikv-jemallocator"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cec5ff18518d81584f477e9bfdf957f5bb0979b0bac3af4ca30b5b3ae2d2865"
-dependencies = [
- "libc",
- "tikv-jemalloc-sys",
-]
 
 [[package]]
 name = "time"

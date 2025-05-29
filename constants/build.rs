@@ -18,16 +18,13 @@ fn set_commit_env() {
         .output()
         .unwrap();
 
-    // let commit = std::str::from_utf8(&output.stdout)
-    //     .unwrap()
-    //     .trim()
-    //     .to_lowercase();
-
-    // TODO
-    let commit = "0000000000000000000000000000000000000000";
+    let commit = std::str::from_utf8(&output.stdout)
+        .unwrap()
+        .trim()
+        .to_lowercase();
 
     // Commit hash should always be 40 bytes long.
-    // assert_eq!(commit.len(), 40);
+    assert_eq!(commit.len(), 40);
 
     println!("cargo:rustc-env=COMMIT={commit}");
 }
