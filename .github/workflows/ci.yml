@@ -160,7 +160,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          clean: false
 
       - name: Cache
         uses: actions/cache@v4
