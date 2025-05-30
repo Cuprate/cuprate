@@ -34,7 +34,6 @@ use tokio::{
 };
 use tokio_util::{sync::PollSender, time::DelayQueue};
 use tower::Service;
-use tracing::Instrument;
 
 use crate::{
     pool::manager::DandelionPoolShutDown,

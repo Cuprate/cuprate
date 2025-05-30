@@ -19,7 +19,7 @@ use tokio::{
 };
 use tokio_util::time::DelayQueue;
 use tower::{Service, ServiceExt};
-use tracing::{instrument, Instrument};
+use tracing::Instrument;
 
 #[derive(Copy, Clone, Debug, thiserror::Error)]
 #[error("The dandelion pool was shutdown")]
