@@ -14,7 +14,7 @@ This section contains the development status of endpoints/methods in `cuprated`.
 |--------|---------|
 | 🟢     | Enabled and tested
 | 🟣     | Enabled but has differences waiting to be resolved
-| 🟠     | Enabled but not tested
+| 🟠     | Enabled but not fully tested
 | ⚪     | Not enabled yet
 | ⚫     | Not planned to be supported
 
@@ -31,11 +31,11 @@ This section contains the development status of endpoints/methods in `cuprated`.
 | `generateblocks`               | ⚪     |
 | `get_alternate_chains`         | ⚪     |
 | `get_bans`                     | ⚪     |
-| `get_block`                    | ⚪     |
-| `get_block_count`              | ⚪     |
-| `get_block_header_by_hash`     | ⚪     |
-| `get_block_header_by_height`   | ⚪     |
-| `get_block_headers_range`      | ⚪     |
+| `get_block`                    | 🟠     |
+| `get_block_count`              | 🟠     |
+| `get_block_header_by_hash`     | 🟠     |
+| `get_block_header_by_height`   | 🟠     |
+| `get_block_headers_range`      | 🟠     |
 | `get_block_template`           | ⚪     |
 | `get_coinbase_tx_sum`          | ⚪     |
 | `get_connections`              | ⚪     |
@@ -48,8 +48,8 @@ This section contains the development status of endpoints/methods in `cuprated`.
 | `get_tx_ids_loose`             | ⚪     | Not implemented in `monerod` release branch yet
 | `get_txpool_backlog`           | ⚪     |
 | `get_version`                  | ⚪     |
-| `hard_fork_info`               | ⚪     |
-| `on_get_block_hash`            | ⚪     |
+| `hard_fork_info`               | 🟠     |
+| `on_get_block_hash`            | 🟠     |
 | `prune_blockchain`             | ⚫     |
 | `relay_tx`                     | ⚪     |
 | `set_bans`                     | ⚪     |
@@ -60,7 +60,7 @@ This section contains the development status of endpoints/methods in `cuprated`.
 | Endpoint                       | Status | Notes   |
 |--------------------------------|--------|---------|
 | `/get_alt_blocks_hashes`       | ⚪     |
-| `/get_height`                  | ⚪     |
+| `/get_height`                  | 🟠     |
 | `/get_limit`                   | ⚪     |
 | `/get_net_stats`               | ⚪     |
 | `/get_outs`                    | ⚪     |

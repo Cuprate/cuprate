@@ -17,6 +17,7 @@ use std::{
 };
 
 use indexmap::{IndexMap, IndexSet};
+use monero_serai::block::Block;
 use rayon::{
     iter::{Either, IntoParallelIterator, ParallelIterator},
     prelude::*,
@@ -54,8 +55,8 @@ use crate::{
         types::{BlockchainReadHandle, ResponseResult},
     },
     tables::{
-        AltBlockHeights, BlockHeights, BlockInfos, OpenTables, RctOutputs, Tables, TablesIter,
-        TxIds, TxOutputs,
+        AltBlockHeights, BlockHeaderBlobs, BlockHeights, BlockInfos, OpenTables, RctOutputs,
+        Tables, TablesIter, TxIds, TxOutputs,
     },
     types::{
         AltBlockHeight, Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId,
@@ -888,11 +889,31 @@ fn alt_blocks_in_chain(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
 
 /// [`BlockchainReadRequest::Block`]
 fn block(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
-    Ok(BlockchainResponse::Block(todo!()))
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+
+    let block_blob = env_inner
+        .open_db_ro::<BlockHeaderBlobs>(&tx_ro)?
+        .get(&block_height)?;
+
+    let block = Block::read(&mut block_blob.0.as_slice())?;
+
+    Ok(BlockchainResponse::Block(block))
 }
 
 /// [`BlockchainReadRequest::BlockByHash`]
 fn block_by_hash(env: &ConcreteEnv, block_hash: BlockHash) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+
+    let tables = env_inner.open_tables(&tx_ro)?;
+    let block_height = tables.block_heights().get(&block_hash)?;
+    let block_blob = tables.block_header_blobs().get(&block_height)?;
+
+    let block = Block::read(&mut block_blob.0.as_slice())?;
+
     Ok(BlockchainResponse::Block(todo!()))
 }
 
