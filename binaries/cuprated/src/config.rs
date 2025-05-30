@@ -39,7 +39,7 @@ mod macros;
 use fs::FileSystemConfig;
 use p2p::P2PConfig;
 use rayon::RayonConfig;
-pub use rpc::{RpcConfig, SharedRpcConfig};
+pub use rpc::RpcConfig;
 use storage::StorageConfig;
 use tokio::TokioConfig;
 use tracing_config::TracingConfig;
@@ -213,16 +213,16 @@ impl Config {
         cuprate_p2p::P2PConfig {
             network: self.network,
             seeds: p2p::clear_net_seed_nodes(self.network),
-            outbound_connections: self.p2p.clear_net.general.outbound_connections,
-            extra_outbound_connections: self.p2p.clear_net.general.extra_outbound_connections,
-            max_inbound_connections: self.p2p.clear_net.general.max_inbound_connections,
-            gray_peers_percent: self.p2p.clear_net.general.gray_peers_percent,
-            p2p_port: self.p2p.clear_net.general.p2p_port,
+            outbound_connections: self.p2p.clear_net.outbound_connections,
+            extra_outbound_connections: self.p2p.clear_net.extra_outbound_connections,
+            max_inbound_connections: self.p2p.clear_net.max_inbound_connections,
+            gray_peers_percent: self.p2p.clear_net.gray_peers_percent,
+            p2p_port: self.p2p.clear_net.p2p_port,
             rpc_port: self.rpc.restricted.port_for_p2p(),
             address_book_config: self
                 .p2p
                 .clear_net
-                .general
+                .address_book_config
                 .address_book_config(&self.fs.cache_directory, self.network),
         }
     }
@@ -244,7 +244,7 @@ impl Config {
         cuprate_blockchain::config::ConfigBuilder::default()
             .network(self.network)
             .data_directory(self.fs.data_directory.clone())
-            .sync_mode(blockchain.shared.sync_mode)
+            .sync_mode(blockchain.sync_mode)
             .build()
     }
 
@@ -256,7 +256,7 @@ impl Config {
         cuprate_txpool::config::ConfigBuilder::default()
             .network(self.network)
             .data_directory(self.fs.data_directory.clone())
-            .sync_mode(txpool.shared.sync_mode)
+            .sync_mode(txpool.sync_mode)
             .build()
     }
 

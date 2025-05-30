@@ -44,27 +44,27 @@ impl Default for StorageConfig {
 }
 
 config_struct! {
+    Shared {
+        #[comment_out = true]
+        /// The sync mode of the database.
+        ///
+        /// Using "Safe" makes the DB less likely to corrupt
+        /// if there is an unexpected crash, although it will
+        /// make DB writes much slower.
+        ///
+        /// Valid values | "Fast", "Safe"
+        pub sync_mode: SyncMode,
+    }
+
     /// The blockchain config.
     #[derive(Default, Debug, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
-    pub struct BlockchainConfig {
-        #[flatten = true]
-        /// Shared config.
-        ##[serde(flatten)]
-        pub shared: SharedStorageConfig,
-    }
-}
+    pub struct BlockchainConfig { }
 
-config_struct! {
     /// The tx-pool config.
     #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
     pub struct TxpoolConfig {
-        #[flatten = true]
-        /// Shared config.
-        ##[serde(flatten)]
-        pub shared: SharedStorageConfig,
-
         /// The maximum size of the tx-pool.
         ///
         /// Type         | Number
@@ -77,25 +77,8 @@ config_struct! {
 impl Default for TxpoolConfig {
     fn default() -> Self {
         Self {
-            shared: SharedStorageConfig::default(),
+            sync_mode: SyncMode::default(),
             max_txpool_byte_size: 100_000_000,
         }
-    }
-}
-
-config_struct! {
-    /// Config values shared between the tx-pool and blockchain.
-    #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
-    #[serde(deny_unknown_fields, default)]
-    pub struct SharedStorageConfig {
-        #[comment_out = true]
-        /// The sync mode of the database.
-        ///
-        /// Using "Safe" makes the DB less likely to corrupt
-        /// if there is an unexpected crash, although it will
-        /// make DB writes much slower.
-        ///
-        /// Valid values | "Fast", "Safe"
-        pub sync_mode: SyncMode,
     }
 }
