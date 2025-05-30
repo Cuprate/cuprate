@@ -118,10 +118,12 @@ macro_rules! config_struct {
         $(#[$meta])*
         pub struct $name {
             $(
+                $(#[doc = $doc])*
                 $(#[$field_meta])*
                 pub $field: $field_ty,
             )*
             $($(
+                $(#[doc = $s_doc])*
                 $(#[$s_field_meta])*
                 pub $s_field: $s_field_ty,
             )+)?
