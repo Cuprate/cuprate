@@ -264,6 +264,22 @@ impl Default for AddressBookConfig {
     }
 }
 
+impl AddressBookConfig {
+    /// Returns the [`cuprate_address_book::AddressBookConfig`].
+    pub fn address_book_config(
+        &self,
+        cache_dir: &Path,
+        network: Network,
+    ) -> cuprate_address_book::AddressBookConfig {
+        cuprate_address_book::AddressBookConfig {
+            max_white_list_length: self.max_white_list_length,
+            max_gray_list_length: self.max_gray_list_length,
+            peer_store_directory: address_book_path(cache_dir, network),
+            peer_save_period: self.peer_save_period,
+        }
+    }
+}
+
 /// Seed nodes for [`ClearNet`].
 pub fn clear_net_seed_nodes(network: Network) -> Vec<SocketAddr> {
     let seeds = match network {
