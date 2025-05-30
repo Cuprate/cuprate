@@ -48,7 +48,7 @@ This section contains the development status of endpoints/methods in `cuprated`.
 | `get_tx_ids_loose`             | ⚪     | Not implemented in `monerod` release branch yet
 | `get_txpool_backlog`           | ⚪     |
 | `get_version`                  | ⚪     |
-| `hard_fork_info`               | 🟠     |
+| `hard_fork_info`               | ⚪     |
 | `on_get_block_hash`            | 🟠     |
 | `prune_blockchain`             | ⚫     |
 | `relay_tx`                     | ⚪     |

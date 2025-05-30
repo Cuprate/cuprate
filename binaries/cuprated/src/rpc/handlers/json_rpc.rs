@@ -97,7 +97,7 @@ pub async fn map_request(
         Req::GetBlock(r) => Resp::GetBlock(get_block(state, r).await?),
         Req::GetConnections(r) => Resp::GetConnections(not_available()?),
         Req::GetInfo(r) => Resp::GetInfo(not_available()?),
-        Req::HardForkInfo(r) => Resp::HardForkInfo(hard_fork_info(state, r).await?),
+        Req::HardForkInfo(r) => Resp::HardForkInfo(not_available()?),
         Req::SetBans(r) => Resp::SetBans(not_available()?),
         Req::GetBans(r) => Resp::GetBans(not_available()?),
         Req::Banned(r) => Resp::Banned(not_available()?),

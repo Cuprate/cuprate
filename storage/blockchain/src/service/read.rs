@@ -17,7 +17,6 @@ use std::{
 };
 
 use indexmap::{IndexMap, IndexSet};
-use monero_serai::block::Block;
 use rayon::{
     iter::{Either, IntoParallelIterator, ParallelIterator},
     prelude::*,
@@ -55,8 +54,8 @@ use crate::{
         types::{BlockchainReadHandle, ResponseResult},
     },
     tables::{
-        AltBlockHeights, BlockHeaderBlobs, BlockHeights, BlockInfos, OpenTables, RctOutputs,
-        Tables, TablesIter, TxIds, TxOutputs,
+        AltBlockHeights, BlockHeights, BlockInfos, OpenTables, RctOutputs, Tables, TablesIter,
+        TxIds, TxOutputs,
     },
     types::{
         AltBlockHeight, Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId,
