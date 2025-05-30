@@ -163,6 +163,7 @@ cuprate-rpc-interface     = { path = "rpc/interface",             default-featur
 cuprate-zmq-types         = { path = "zmq/types",                 default-features = false }
 
 # External dependencies
+axum                  = { version = "0.7", default-features = false }
 anyhow                = { version = "1", default-features = false }
 arc-swap              = { version = "1", default-features = false }
 arrayvec              = { version = "0.7", default-features = false }
@@ -190,7 +191,7 @@ monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "e
 nu-ansi-term          = { version = "0.46", default-features = false }
 paste                 = { version = "1", default-features = false }
 pin-project           = { version = "1", default-features = false }
-randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev = "160bac7", default-features = false }
+randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev = "567bdca", default-features = false }
 rand                  = { version = "0.8", default-features = false }
 rand_distr            = { version = "0.4", default-features = false }
 rayon                 = { version = "1", default-features = false }
@@ -204,6 +205,7 @@ tokio-util            = { version = "0.7", default-features = false }
 tokio-stream          = { version = "0.1", default-features = false }
 tokio                 = { version = "1", default-features = false }
 tower                 = { git = "https://github.com/Cuprate/tower.git", rev = "6c7faf0", default-features = false } # <https://github.com/tower-rs/tower/pull/796>
+tower-http            = { version = "0.6", default-features = false }
 toml                  = { version = "0.8", default-features = false }
 toml_edit             = { version = "0.22", default-features = false }
 tracing-appender      = { version = "0.2", default-features = false }

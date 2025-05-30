@@ -28,16 +28,18 @@ mod args;
 mod fs;
 mod p2p;
 mod rayon;
+mod rpc;
 mod storage;
 mod tokio;
 mod tracing_config;
 
 #[macro_use]
-pub mod macros;
+mod macros;
 
 use fs::FileSystemConfig;
 use p2p::P2PConfig;
 use rayon::RayonConfig;
+pub use rpc::RpcConfig;
 use storage::StorageConfig;
 use tokio::TokioConfig;
 use tracing_config::TracingConfig;
@@ -143,6 +145,10 @@ config_struct! {
         pub p2p: P2PConfig,
 
         #[child = true]
+        /// Configuration for cuprated's RPC system.
+        pub rpc: RpcConfig,
+
+        #[child = true]
         /// Configuration for persistent data storage.
         pub storage: StorageConfig,
 
@@ -161,6 +167,7 @@ impl Default for Config {
             tokio: Default::default(),
             rayon: Default::default(),
             p2p: Default::default(),
+            rpc: Default::default(),
             storage: Default::default(),
             fs: Default::default(),
         }
@@ -211,8 +218,7 @@ impl Config {
             max_inbound_connections: self.p2p.clear_net.max_inbound_connections,
             gray_peers_percent: self.p2p.clear_net.gray_peers_percent,
             p2p_port: self.p2p.clear_net.p2p_port,
-            // TODO: set this if a public RPC server is set.
-            rpc_port: 0,
+            rpc_port: self.rpc.restricted.port_for_p2p(),
             address_book_config: todo!(),
         }
     }
@@ -267,6 +273,7 @@ impl fmt::Display for Config {
 
 #[cfg(test)]
 mod test {
+    use pretty_assertions::assert_eq;
     use toml::from_str;
 
     use super::*;

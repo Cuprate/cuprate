@@ -23,14 +23,14 @@ cuprate-database          = { workspace = true, features = ["serde"] }
 cuprate-epee-encoding     = { workspace = true }
 cuprate-fast-sync         = { workspace = true }
 cuprate-fixed-bytes       = { workspace = true }
-cuprate-helper            = { workspace = true, features = ["std", "serde", "time"] }
+cuprate-helper            = { workspace = true, features = ["std", "serde", "time", "net"] }
 cuprate-hex               = { workspace = true }
 cuprate-json-rpc          = { workspace = true }
 cuprate-levin             = { workspace = true }
 cuprate-p2p-core          = { workspace = true }
 cuprate-p2p               = { workspace = true }
 cuprate-pruning           = { workspace = true }
-cuprate-rpc-interface     = { workspace = true }
+cuprate-rpc-interface     = { workspace = true, features = ["dummy"] }
 cuprate-rpc-types         = { workspace = true, features = ["from"] }
 cuprate-test-utils        = { workspace = true }
 cuprate-txpool            = { workspace = true }
@@ -39,6 +39,7 @@ cuprate-wire              = { workspace = true }
 
 
 # TODO: after v1.0.0, remove unneeded dependencies.
+axum                  = { workspace = true, features = ["tokio", "http1", "http2"] }
 anyhow                = { workspace = true }
 async-trait           = { workspace = true }
 bitflags              = { workspace = true }
@@ -78,13 +79,15 @@ tokio-stream          = { workspace = true }
 tokio                 = { workspace = true }
 toml                  = { workspace = true, features = ["parse", "display"]}
 toml_edit             = { workspace = true }
-tower                 = { workspace = true }
+tower                 = { workspace = true, features = ["limit"] }
+tower-http            = { workspace = true, features = ["limit"] }
 tracing-appender      = { workspace = true }
 tracing-subscriber    = { workspace = true, features = ["std", "fmt", "default"] }
 tracing               = { workspace = true, features = ["default"] }
 
 [dev-dependencies]
-tempfile = { workspace = true }
+tempfile          = { workspace = true }
+pretty_assertions = { workspace = true }
 
 [build-dependencies]
 cuprate-hex = { workspace = true }
