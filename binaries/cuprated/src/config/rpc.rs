@@ -113,6 +113,9 @@ config_struct! {
         /// Examples | true, false
         pub enable: bool,
 
+        // FIXME: <https://github.com/Cuprate/cuprate/issues/492>
+        // Below should be `#[comment_out = true]` but is prevented by above issue.
+
         /// If a request is above this byte limit, it will be rejected.
         ///
         /// Setting this to `0` will disable the limit.
