@@ -34,6 +34,7 @@ pub use common::{BasicNodeData, CoreSyncData, PeerListEntryBase};
 use protocol::*;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum LevinCommand {
     Handshake,
     TimedSync,

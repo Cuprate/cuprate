@@ -157,6 +157,9 @@ fn main() {
         )
         .await;
 
+        // Initialize the RPC server(s).
+        rpc::init_rpc_servers(config.rpc);
+
         // Start the command listener.
         if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
             let (command_tx, command_rx) = mpsc::channel(1);

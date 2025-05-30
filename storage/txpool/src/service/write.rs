@@ -74,7 +74,7 @@ fn add_transaction(
             }
             TxPoolWriteError::Database(e) => Err(e),
         };
-    };
+    }
 
     drop(tables_mut);
     // The tx was added to the pool successfully.
