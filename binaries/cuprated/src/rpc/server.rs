@@ -17,7 +17,7 @@ use cuprate_rpc_interface::{RouterBuilder, RpcHandler};
 use cuprate_txpool::service::TxpoolReadHandle;
 
 use crate::{
-    config::{RpcConfig, SharedRpcConfig},
+    config::RpcConfig,
     rpc::{rpc_handler::BlockchainManagerHandle, CupratedRpcHandler},
 };
 
@@ -34,16 +34,28 @@ pub fn init_rpc_servers(
     blockchain_context: BlockchainContextService,
     txpool_read: TxpoolReadHandle,
 ) {
-    for (c, restricted) in [
-        (config.unrestricted.shared, false),
-        (config.restricted.shared, true),
+    for ((enable, addr, request_byte_limit), restricted) in [
+        (
+            (
+                config.unrestricted.enable,
+                config.unrestricted.address,
+                config.unrestricted.request_byte_limit,
+            ),
+            false,
+        ),
+        (
+            (
+                config.restricted.enable,
+                config.restricted.address,
+                config.restricted.request_byte_limit,
+            ),
+            true,
+        ),
     ] {
-        if !c.enable {
+        if !enable {
             info!(restricted, "Skipping RPC server");
             continue;
         }
-
-        let addr = c.address;
 
         if !restricted && !cuprate_helper::net::ip_is_local(addr.ip()) {
             if config
@@ -67,7 +79,9 @@ pub fn init_rpc_servers(
         );
 
         tokio::task::spawn(async move {
-            run_rpc_server(restricted, c, rpc_handler).await.unwrap();
+            run_rpc_server(rpc_handler, restricted, addr, request_byte_limit)
+                .await
+                .unwrap();
         });
     }
 }
@@ -76,13 +90,14 @@ pub fn init_rpc_servers(
 ///
 /// The function will only return when the server itself returns or an error occurs.
 async fn run_rpc_server(
-    restricted: bool,
-    config: SharedRpcConfig,
     rpc_handler: CupratedRpcHandler,
+    restricted: bool,
+    address: SocketAddr,
+    request_byte_limit: usize,
 ) -> Result<(), Error> {
     info!(
         restricted,
-        address = %config.address,
+        address = %address,
         "Starting RPC server"
     );
 
@@ -99,8 +114,8 @@ async fn run_rpc_server(
     // Add restrictive layers if restricted RPC.
     //
     // TODO: <https://github.com/Cuprate/cuprate/issues/445>
-    let router = if config.request_byte_limit != 0 {
-        router.layer(RequestBodyLimitLayer::new(config.request_byte_limit))
+    let router = if request_byte_limit != 0 {
+        router.layer(RequestBodyLimitLayer::new(request_byte_limit))
     } else {
         router
     };
@@ -108,7 +123,7 @@ async fn run_rpc_server(
     // Start the server.
     //
     // TODO: impl custom server code, don't use axum.
-    let listener = TcpListener::bind(config.address).await?;
+    let listener = TcpListener::bind(address).await?;
     axum::serve(listener, router).await?;
 
     Ok(())
