@@ -9,7 +9,7 @@ use anyhow::Error;
 use tokio::net::TcpListener;
 use tower::limit::rate::RateLimitLayer;
 use tower_http::limit::RequestBodyLimitLayer;
-use tracing::{field::display, info, warn};
+use tracing::{info, warn};
 
 use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::BlockchainContextService;
@@ -51,7 +51,7 @@ pub fn init_rpc_servers(
                 .i_know_what_im_doing_allow_public_unrestricted_rpc
             {
                 warn!(
-                    address = display(addr),
+                    address = %addr,
                     "Starting unrestricted RPC on non-local address, this is dangerous!"
                 );
             } else {
@@ -67,7 +67,7 @@ pub fn init_rpc_servers(
         );
 
         tokio::task::spawn(async move {
-            run_rpc_server(c, rpc_handler).await.unwrap();
+            run_rpc_server(restricted, c, rpc_handler).await.unwrap();
         });
     }
 }
@@ -75,10 +75,14 @@ pub fn init_rpc_servers(
 /// This initializes and runs an RPC server.
 ///
 /// The function will only return when the server itself returns or an error occurs.
-async fn run_rpc_server(restricted: bool, config: SharedRpcConfig) -> Result<(), Error> {
+async fn run_rpc_server(
+    restricted: bool,
+    config: SharedRpcConfig,
+    rpc_handler: CupratedRpcHandler,
+) -> Result<(), Error> {
     info!(
         restricted,
-        address = display(&config.address),
+        address = %config.address,
         "Starting RPC server"
     );
 
