@@ -354,6 +354,33 @@ pub fn get_block_extended_header_top(
     Ok((header, height))
 }
 
+//---------------------------------------------------------------------------------------------------- Block
+/// Retrieve a [`Block`] via its [`BlockHeight`].
+#[doc = doc_error!()]
+#[inline]
+pub fn get_block(tables: &impl Tables, block_height: &BlockHeight) -> DbResult<Block> {
+    let header_blob = tables.block_header_blobs().get(block_height)?.0;
+    let header = BlockHeader::read(&mut header_blob.as_slice())?;
+
+    let transactions = tables.block_txs_hashes().get(block_height)?.0;
+    let miner_transaction =
+        crate::ops::tx::get_tx(&transactions[0], tables.tx_ids(), tables.tx_blobs())?;
+
+    Ok(Block {
+        header,
+        miner_transaction,
+        transactions,
+    })
+}
+
+/// Retrieve a [`Block`] via its [`BlockHash`].
+#[doc = doc_error!()]
+#[inline]
+pub fn get_block_by_hash(tables: &impl Tables, block_hash: &BlockHash) -> DbResult<Block> {
+    let block_height = tables.block_heights().get(&block_hash)?;
+    get_block(tables, &block_height)
+}
+
 //---------------------------------------------------------------------------------------------------- Misc
 /// Retrieve a [`BlockInfo`] via its [`BlockHeight`].
 #[doc = doc_error!()]

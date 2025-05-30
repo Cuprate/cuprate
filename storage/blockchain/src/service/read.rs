@@ -42,9 +42,9 @@ use crate::{
             get_alt_chain_history_ranges,
         },
         block::{
-            block_exists, get_block_blob_with_tx_indexes, get_block_complete_entry,
-            get_block_complete_entry_from_height, get_block_extended_header_from_height,
-            get_block_height, get_block_info,
+            block_exists, get_block, get_block_blob_with_tx_indexes, get_block_by_hash,
+            get_block_complete_entry, get_block_complete_entry_from_height,
+            get_block_extended_header_from_height, get_block_height, get_block_info,
         },
         blockchain::{cumulative_generated_coins, find_split_point, top_block_height},
         key_image::key_image_exists,
@@ -892,14 +892,12 @@ fn block(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
+    let tables = env_inner.open_tables(&tx_ro)?;
 
-    let block_blob = env_inner
-        .open_db_ro::<BlockHeaderBlobs>(&tx_ro)?
-        .get(&block_height)?;
-
-    let block = Block::read(&mut block_blob.0.as_slice())?;
-
-    Ok(BlockchainResponse::Block(block))
+    Ok(BlockchainResponse::Block(get_block(
+        &tables,
+        &block_height,
+    )?))
 }
 
 /// [`BlockchainReadRequest::BlockByHash`]
@@ -907,14 +905,12 @@ fn block_by_hash(env: &ConcreteEnv, block_hash: BlockHash) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
-
     let tables = env_inner.open_tables(&tx_ro)?;
-    let block_height = tables.block_heights().get(&block_hash)?;
-    let block_blob = tables.block_header_blobs().get(&block_height)?;
 
-    let block = Block::read(&mut block_blob.0.as_slice())?;
-
-    Ok(BlockchainResponse::Block(todo!()))
+    Ok(BlockchainResponse::Block(get_block_by_hash(
+        &tables,
+        &block_hash,
+    )?))
 }
 
 /// [`BlockchainReadRequest::TotalTxCount`]
