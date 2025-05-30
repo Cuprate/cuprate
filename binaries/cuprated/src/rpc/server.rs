@@ -89,13 +89,9 @@ async fn run_rpc_server(
     // TODO:
     // - add functions that are `all()` but for restricted RPC
     // - enable aliases automatically `other_get_height` + `other_getheight`?
-    //
-    // FIXME:
-    // - `json_rpc` is 1 endpoint; `RouterBuilder` operates at the
-    //   level endpoint; we can't selectively enable certain `json_rpc` methods
     let router = RouterBuilder::new()
+        .json_rpc()
         .other_get_height()
-        .other_get_outs()
         .fallback()
         .build()
         .with_state(rpc_handler);

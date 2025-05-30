@@ -78,18 +78,26 @@ pub async fn map_request(
 
     Ok(match request {
         Req::GetBlockTemplate(r) => Resp::GetBlockTemplate(not_available()?),
-        Req::GetBlockCount(r) => Resp::GetBlockCount(not_available()?),
-        Req::OnGetBlockHash(r) => Resp::OnGetBlockHash(not_available()?),
+        Req::GetBlockCount(r) => Resp::GetBlockCount(get_block_count(state, r).await?),
+        Req::OnGetBlockHash(r) => Resp::OnGetBlockHash(on_get_block_hash(state, r).await?),
         Req::SubmitBlock(r) => Resp::SubmitBlock(not_available()?),
         Req::GenerateBlocks(r) => Resp::GenerateBlocks(not_available()?),
-        Req::GetLastBlockHeader(r) => Resp::GetLastBlockHeader(not_available()?),
-        Req::GetBlockHeaderByHash(r) => Resp::GetBlockHeaderByHash(not_available()?),
-        Req::GetBlockHeaderByHeight(r) => Resp::GetBlockHeaderByHeight(not_available()?),
-        Req::GetBlockHeadersRange(r) => Resp::GetBlockHeadersRange(not_available()?),
-        Req::GetBlock(r) => Resp::GetBlock(not_available()?),
+        Req::GetLastBlockHeader(r) => {
+            Resp::GetLastBlockHeader(get_last_block_header(state, r).await?)
+        }
+        Req::GetBlockHeaderByHash(r) => {
+            Resp::GetBlockHeaderByHash(get_block_header_by_hash(state, r).await?)
+        }
+        Req::GetBlockHeaderByHeight(r) => {
+            Resp::GetBlockHeaderByHeight(get_block_header_by_height(state, r).await?)
+        }
+        Req::GetBlockHeadersRange(r) => {
+            Resp::GetBlockHeadersRange(get_block_headers_range(state, r).await?)
+        }
+        Req::GetBlock(r) => Resp::GetBlock(get_block(state, r).await?),
         Req::GetConnections(r) => Resp::GetConnections(not_available()?),
         Req::GetInfo(r) => Resp::GetInfo(not_available()?),
-        Req::HardForkInfo(r) => Resp::HardForkInfo(not_available()?),
+        Req::HardForkInfo(r) => Resp::HardForkInfo(hard_fork_info(state, r).await?),
         Req::SetBans(r) => Resp::SetBans(not_available()?),
         Req::GetBans(r) => Resp::GetBans(not_available()?),
         Req::Banned(r) => Resp::Banned(not_available()?),
