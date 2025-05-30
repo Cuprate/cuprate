@@ -35,6 +35,9 @@ impl HandleBuilder {
     pub fn build(self) -> (ConnectionGuard, ConnectionHandle) {
         let token = CancellationToken::new();
 
+        if self.permit.is_none(){
+            panic!("Permit is not set.");
+        }
         (
             ConnectionGuard {
                 token: token.clone(),
