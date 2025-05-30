@@ -106,73 +106,7 @@ impl Default for BlockDownloaderConfig {
 }
 
 config_struct! {
-    /// The config values for P2P clear-net.
-    #[derive(Debug, Deserialize, Serialize, PartialEq)]
-    #[serde(deny_unknown_fields, default)]
-    pub struct ClearNetConfig {
-        /// The IPv4 address to bind and listen for connections on.
-        ///
-        /// Type     | IPv4 address
-        /// Examples | "0.0.0.0", "192.168.1.50"
-        pub listen_on: Ipv4Addr,
-
-        /// Enable IPv6 inbound server.
-        ///
-        /// Setting this to `false` will disable incoming IPv6 P2P connections.
-        ///
-        /// Type         | boolean
-        /// Valid values | false, true
-        /// Examples     | false
-        pub enable_inbound_v6: bool,
-
-        /// The IPv6 address to bind and listen for connections on.
-        ///
-        /// Type     | IPv6 address
-        /// Examples | "::", "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
-        pub listen_on_v6: Ipv6Addr,
-
-        #[flatten = true]
-        /// Shared config values.
-        ##[serde(flatten)]
-        pub general: SharedNetConfig,
-    }
-}
-
-impl Default for ClearNetConfig {
-    fn default() -> Self {
-        Self {
-            listen_on: Ipv4Addr::UNSPECIFIED,
-            enable_inbound_v6: false,
-            general: Default::default(),
-            listen_on_v6: Ipv6Addr::UNSPECIFIED,
-        }
-    }
-}
-
-impl From<&ClearNetConfig> for TransportConfig<ClearNet, Tcp> {
-    fn from(value: &ClearNetConfig) -> Self {
-        let server_config = if value.general.p2p_port != 0 {
-            let mut sc = TcpServerConfig::default();
-            sc.ipv4 = Some(value.listen_on);
-            sc.ipv6 = value.enable_inbound_v6.then_some(value.listen_on_v6);
-            sc.port = value.general.p2p_port;
-            Some(sc)
-        } else {
-            None
-        };
-
-        Self {
-            client_config: (),
-            server_config,
-        }
-    }
-}
-
-config_struct! {
-    /// Network config values shared between all network zones.
-    #[derive(Debug, Deserialize, Serialize, PartialEq)]
-    #[serde(deny_unknown_fields, default)]
-    pub struct SharedNetConfig {
+    Shared {
         #[comment_out = true]
         /// The number of outbound connections to make and try keep.
         ///
@@ -224,33 +158,65 @@ config_struct! {
         /// The address book config.
         pub address_book_config: AddressBookConfig,
     }
-}
 
-impl SharedNetConfig {
-    /// Returns the [`cuprate_address_book::AddressBookConfig`].
-    pub fn address_book_config(
-        &self,
-        cache_dir: &Path,
-        network: Network,
-    ) -> cuprate_address_book::AddressBookConfig {
-        cuprate_address_book::AddressBookConfig {
-            max_white_list_length: self.address_book_config.max_white_list_length,
-            max_gray_list_length: self.address_book_config.max_gray_list_length,
-            peer_store_directory: address_book_path(cache_dir, network),
-            peer_save_period: self.address_book_config.peer_save_period,
-        }
+    /// The config values for P2P clear-net.
+    #[derive(Debug, Deserialize, Serialize, PartialEq)]
+    #[serde(deny_unknown_fields, default)]
+    pub struct ClearNetConfig {
+        /// The IPv4 address to bind and listen for connections on.
+        ///
+        /// Type     | IPv4 address
+        /// Examples | "0.0.0.0", "192.168.1.50"
+        pub listen_on: Ipv4Addr,
+
+        /// Enable IPv6 inbound server.
+        ///
+        /// Setting this to `false` will disable incoming IPv6 P2P connections.
+        ///
+        /// Type         | boolean
+        /// Valid values | false, true
+        /// Examples     | false
+        pub enable_inbound_v6: bool,
+
+        /// The IPv6 address to bind and listen for connections on.
+        ///
+        /// Type     | IPv6 address
+        /// Examples | "::", "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
+        pub listen_on_v6: Ipv6Addr,
     }
 }
 
-impl Default for SharedNetConfig {
+impl Default for ClearNetConfig {
     fn default() -> Self {
         Self {
+            listen_on: Ipv4Addr::UNSPECIFIED,
+            enable_inbound_v6: false,
+            listen_on_v6: Ipv6Addr::UNSPECIFIED,
             outbound_connections: 32,
             extra_outbound_connections: 8,
             max_inbound_connections: 128,
             gray_peers_percent: 0.7,
             p2p_port: 18080,
             address_book_config: AddressBookConfig::default(),
+        }
+    }
+}
+
+impl From<&ClearNetConfig> for TransportConfig<ClearNet, Tcp> {
+    fn from(value: &ClearNetConfig) -> Self {
+        let server_config = if value.p2p_port != 0 {
+            let mut sc = TcpServerConfig::default();
+            sc.ipv4 = Some(value.listen_on);
+            sc.ipv6 = value.enable_inbound_v6.then_some(value.listen_on_v6);
+            sc.port = value.p2p_port;
+            Some(sc)
+        } else {
+            None
+        };
+
+        Self {
+            client_config: (),
+            server_config,
         }
     }
 }
@@ -294,6 +260,22 @@ impl Default for AddressBookConfig {
             max_white_list_length: 1_000,
             max_gray_list_length: 5_000,
             peer_save_period: Duration::from_secs(90),
+        }
+    }
+}
+
+impl AddressBookConfig {
+    /// Returns the [`cuprate_address_book::AddressBookConfig`].
+    pub fn address_book_config(
+        &self,
+        cache_dir: &Path,
+        network: Network,
+    ) -> cuprate_address_book::AddressBookConfig {
+        cuprate_address_book::AddressBookConfig {
+            max_white_list_length: self.max_white_list_length,
+            max_gray_list_length: self.max_gray_list_length,
+            peer_store_directory: address_book_path(cache_dir, network),
+            peer_save_period: self.peer_save_period,
         }
     }
 }
