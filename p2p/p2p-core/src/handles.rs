@@ -34,7 +34,7 @@ impl HandleBuilder {
     /// This will panic if a permit was not set [`HandleBuilder::with_permit`]
     pub fn build(self) -> (ConnectionGuard, ConnectionHandle) {
         let token = CancellationToken::new();
-        assert!(!self.permit.is_none(), "Permit is not set.");
+        assert!(self.permit.is_some(), "Permit is not set.");
         (
             ConnectionGuard {
                 token: token.clone(),
@@ -92,10 +92,10 @@ impl ConnectionHandle {
     /// Bans the peer for the given `duration`.
     pub fn ban_peer(&self, duration: Duration) {
         #[expect(
-        clippy::let_underscore_must_use,
-        reason = "error means peer is already banned; fine to ignore"
+            clippy::let_underscore_must_use,
+            reason = "error means peer is already banned; fine to ignore"
         )]
-            let _ = self.ban.set(BanPeer(duration));
+        let _ = self.ban.set(BanPeer(duration));
         self.token.cancel();
     }
     /// Checks if this connection is closed.
