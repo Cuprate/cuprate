@@ -363,8 +363,8 @@ pub fn get_block(tables: &impl Tables, block_height: &BlockHeight) -> DbResult<B
     let header = BlockHeader::read(&mut header_blob.as_slice())?;
 
     let transactions = tables.block_txs_hashes().get(block_height)?.0;
-    let miner_transaction =
-        crate::ops::tx::get_tx(&transactions[0], tables.tx_ids(), tables.tx_blobs())?;
+    let miner_tx_id = tables.block_infos().get(&block_height)?.mining_tx_index;
+    let miner_transaction = crate::ops::tx::get_tx_from_id(&miner_tx_id, tables.tx_blobs())?;
 
     Ok(Block {
         header,
