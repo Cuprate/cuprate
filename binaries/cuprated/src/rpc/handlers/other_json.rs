@@ -82,7 +82,7 @@ pub async fn map_request(
         Req::OutPeers(r) => Resp::OutPeers(not_available()?),
         Req::InPeers(r) => Resp::InPeers(not_available()?),
         Req::GetNetStats(r) => Resp::GetNetStats(not_available()?),
-        Req::GetOuts(r) => Resp::GetOuts(not_available()?),
+        Req::GetOuts(r) => Resp::GetOuts(get_outs(state, r).await?),
         Req::PopBlocks(r) => Resp::PopBlocks(not_available()?),
         Req::GetTransactionPoolHashes(r) => Resp::GetTransactionPoolHashes(not_available()?),
         Req::GetPublicNodes(r) => Resp::GetPublicNodes(not_available()?),
