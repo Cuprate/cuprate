@@ -1,11 +1,6 @@
 //! RPC handler trait.
 
-use std::io::Write;
-
 //---------------------------------------------------------------------------------------------------- Use
-use serde::Serialize;
-use serde_json::Serializer;
-
 use cuprate_rpc_types::{
     bin::{BinRequest, BinResponse},
     json::{JsonRpcRequest, JsonRpcResponse},

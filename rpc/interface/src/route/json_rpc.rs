@@ -2,15 +2,11 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use axum::{extract::State, http::StatusCode, Json};
-use bytes::{BufMut, Bytes, BytesMut};
-use serde_json::ser::{CompactFormatter, Formatter};
+use bytes::Bytes;
 use tower::ServiceExt;
 
 use cuprate_json_rpc::{Id, Response};
-use cuprate_rpc_types::{
-    json::{JsonRpcRequest, JsonRpcResponse},
-    RpcCallValue,
-};
+use cuprate_rpc_types::{json::JsonRpcRequest, RpcCallValue};
 
 use crate::rpc_handler::RpcHandler;
 
