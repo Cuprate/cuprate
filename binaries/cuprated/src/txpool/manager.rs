@@ -24,6 +24,7 @@ use cuprate_txpool::service::{
 };
 use cuprate_types::TransactionVerificationData;
 
+use crate::config::TxpoolConfig;
 use crate::{
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     p2p::{CrossNetworkInternalPeerId, NetworkInterfaces},
@@ -32,7 +33,6 @@ use crate::{
         incoming_tx::{DandelionTx, TxId},
     },
 };
-use crate::config::TxpoolConfig;
 
 /// The base time between re-relays to the p2p network.
 const TX_RERELAY_TIME: u64 = 300;

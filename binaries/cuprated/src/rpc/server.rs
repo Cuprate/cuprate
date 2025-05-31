@@ -13,10 +13,7 @@ use tracing::{field::display, info, warn};
 
 use cuprate_rpc_interface::{RouterBuilder, RpcHandlerDummy};
 
-use crate::{
-    config::{RpcConfig, SharedRpcConfig},
-    rpc::CupratedRpcHandler,
-};
+use crate::{config::RpcConfig, rpc::CupratedRpcHandler};
 
 /// Initialize the RPC server(s).
 ///
@@ -26,16 +23,28 @@ use crate::{
 /// - unrestricted RPC is started on non-local
 ///   address without override option
 pub fn init_rpc_servers(config: RpcConfig) {
-    for (c, restricted) in [
-        (config.unrestricted.shared, false),
-        (config.restricted.shared, true),
+    for ((enable, addr, request_byte_limit), restricted) in [
+        (
+            (
+                config.unrestricted.enable,
+                config.unrestricted.address,
+                config.unrestricted.request_byte_limit,
+            ),
+            false,
+        ),
+        (
+            (
+                config.restricted.enable,
+                config.restricted.address,
+                config.restricted.request_byte_limit,
+            ),
+            true,
+        ),
     ] {
-        if !c.enable {
+        if !enable {
             info!(restricted, "Skipping RPC server");
             continue;
         }
-
-        let addr = c.address;
 
         if !restricted && !cuprate_helper::net::ip_is_local(addr.ip()) {
             if config
@@ -52,7 +61,9 @@ pub fn init_rpc_servers(config: RpcConfig) {
         }
 
         tokio::task::spawn(async move {
-            run_rpc_server(restricted, c).await.unwrap();
+            run_rpc_server(restricted, addr, request_byte_limit)
+                .await
+                .unwrap();
         });
     }
 }
@@ -60,10 +71,14 @@ pub fn init_rpc_servers(config: RpcConfig) {
 /// This initializes and runs an RPC server.
 ///
 /// The function will only return when the server itself returns or an error occurs.
-async fn run_rpc_server(restricted: bool, config: SharedRpcConfig) -> Result<(), Error> {
+async fn run_rpc_server(
+    restricted: bool,
+    address: SocketAddr,
+    request_byte_limit: usize,
+) -> Result<(), Error> {
     info!(
         restricted,
-        address = display(&config.address),
+        address = display(&address),
         "Starting RPC server"
     );
 
@@ -83,8 +98,8 @@ async fn run_rpc_server(restricted: bool, config: SharedRpcConfig) -> Result<(),
     // Add restrictive layers if restricted RPC.
     //
     // TODO: <https://github.com/Cuprate/cuprate/issues/445>
-    let router = if config.request_byte_limit != 0 {
-        router.layer(RequestBodyLimitLayer::new(config.request_byte_limit))
+    let router = if request_byte_limit != 0 {
+        router.layer(RequestBodyLimitLayer::new(request_byte_limit))
     } else {
         router
     };
@@ -92,7 +107,7 @@ async fn run_rpc_server(restricted: bool, config: SharedRpcConfig) -> Result<(),
     // Start the server.
     //
     // TODO: impl custom server code, don't use axum.
-    let listener = TcpListener::bind(config.address).await?;
+    let listener = TcpListener::bind(address).await?;
     axum::serve(listener, router).await?;
 
     Ok(())

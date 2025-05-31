@@ -38,8 +38,9 @@ use crate::txpool::dandelion::DiffuseService;
 use crate::txpool::manager::{start_txpool_manager, TxpoolManagerHandle};
 use crate::{
     blockchain::ConsensusBlockchainReadHandle,
+    config::TxpoolConfig,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
-    p2p::CrossNetworkInternalPeerId, config::TxpoolConfig,
+    p2p::CrossNetworkInternalPeerId,
     signals::REORG_LOCK,
     txpool::{
         dandelion,

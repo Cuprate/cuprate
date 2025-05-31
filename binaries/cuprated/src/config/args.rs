@@ -74,7 +74,7 @@ impl Args {
         config.fast_sync = config.fast_sync && !self.no_fast_sync;
 
         if let Some(outbound_connections) = self.outbound_connections {
-            config.p2p.clear_net.general.outbound_connections = outbound_connections;
+            config.p2p.clear_net.outbound_connections = outbound_connections;
         }
 
         config
