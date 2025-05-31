@@ -1,13 +1,18 @@
 //! RPC handler trait.
 
+use std::io::Write;
+
 //---------------------------------------------------------------------------------------------------- Use
+use serde::Serialize;
+use serde_json::Serializer;
+
 use cuprate_rpc_types::{
     bin::{BinRequest, BinResponse},
     json::{JsonRpcRequest, JsonRpcResponse},
     other::{OtherRequest, OtherResponse},
 };
 
-use crate::RpcService;
+use crate::{JsonFormatter, RpcService};
 
 //---------------------------------------------------------------------------------------------------- RpcHandler
 /// An RPC handler.
@@ -47,4 +52,9 @@ pub trait RpcHandler:
     /// will automatically be denied access when using the
     /// [`axum::Router`] provided by [`RouterBuilder`](crate::RouterBuilder).
     fn is_restricted(&self) -> bool;
+
+    /// JSON output will use this formatting.
+    fn json_formatter(&self) -> JsonFormatter {
+        JsonFormatter::default()
+    }
 }
