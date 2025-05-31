@@ -45,6 +45,13 @@ cargo doc --open --package cuprate-blockchain
 | [`cuprate-database-service`](https://doc.cuprate.org/cuprate_database_service) | [`storage/database-service/`](https://github.com/Cuprate/cuprate/tree/main/storage/database-service) | `tower::Service` + thread-pool abstraction built on-top of `cuprate-database`
 | [`cuprate-txpool`](https://doc.cuprate.org/cuprate_txpool) | [`storage/txpool/`](https://github.com/Cuprate/cuprate/tree/main/storage/txpool) | Transaction pool database built on-top of `cuprate-database` & `cuprate-database-service`
 
+## Tests
+| Crate | In-tree path | Purpose |
+|-------|--------------|---------|
+| [`cuprate-test-cli`](https://doc.cuprate.org/cuprate_test_cli) | [`test/cli/`](https://github.com/Cuprate/cuprate/tree/main/test/cli) | Input, output, and behavior testing harness for `cuprated`'s CLI
+| [`cuprate-test-rpc`](https://doc.cuprate.org/cuprate_test_rpc) | [`test/rpc/`](https://github.com/Cuprate/cuprate/tree/main/test/rpc) | Type and value RPC compatibility testing harness for `cuprated` and `monerod`
+| [`cuprate-test-utils`](https://doc.cuprate.org/cuprate_test_utils) | [`test/utils/`](https://github.com/Cuprate/cuprate/tree/main/test/utils) | Testing utilities for Cuprate
+
 ## Types
 | Crate | In-tree path | Purpose |
 |-------|--------------|---------|
@@ -72,4 +79,3 @@ cargo doc --open --package cuprate-blockchain
 | [`cuprate-cryptonight`](https://doc.cuprate.org/cuprate_cryptonight) | [`cryptonight/`](https://github.com/Cuprate/cuprate/tree/main/cryptonight) | CryptoNight hash functions
 | [`cuprate-pruning`](https://doc.cuprate.org/cuprate_pruning) | [`pruning/`](https://github.com/Cuprate/cuprate/tree/main/pruning) | Monero pruning logic/types
 | [`cuprate-helper`](https://doc.cuprate.org/cuprate_helper) | [`helper/`](https://github.com/Cuprate/cuprate/tree/main/helper) | Kitchen-sink helper crate for Cuprate
-| [`cuprate-test-utils`](https://doc.cuprate.org/cuprate_test_utils) | [`test-utils/`](https://github.com/Cuprate/cuprate/tree/main/test-utils) | Testing utilities for Cuprate
