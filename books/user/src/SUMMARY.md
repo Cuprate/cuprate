@@ -15,9 +15,8 @@
 - [Command line](cli.md)
 
 - [Resources](resources/intro.md)
+    - [Address](resources/address.md)
     - [Disk](resources/disk.md)
-    - [Ports](resources/ports.md)
-    - [IP](resources/ip.md)
 
 - [Deployment](deployment/intro.md)
     - [systemd](deployment/systemd.md)
