@@ -5,7 +5,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Result, Serializer};
 
 /// Formatter for JSON output from the [`RpcHandler`](crate::RpcHandler).
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize,
+)]
 #[repr(u8)]
 pub enum JsonFormatter {
     #[default]

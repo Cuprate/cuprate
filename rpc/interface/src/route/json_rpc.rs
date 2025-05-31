@@ -60,11 +60,10 @@ pub(crate) async fn json_rpc<H: RpcHandler>(
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     };
 
-    let Ok(json) = json_formatter.to_bytes(&Response::ok(id, response)) else {
-        return Err(StatusCode::INTERNAL_SERVER_ERROR);
-    };
-
-    Ok(Json(json))
+    match json_formatter.to_bytes(&Response::ok(id, response)) {
+        Ok(json) => Ok(Json(json)),
+        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

@@ -2,6 +2,7 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use axum::{extract::State, http::StatusCode, Json};
+use bytes::Bytes;
 use tower::ServiceExt;
 
 use cuprate_rpc_types::{
@@ -41,7 +42,7 @@ macro_rules! generate_endpoints_with_input {
             pub(crate) async fn $endpoint<H: RpcHandler>(
                 State(handler): State<H>,
                 Json(request): Json<[<$variant Request>]>,
-            ) -> Result<Json<[<$variant Response>]>, StatusCode> {
+            ) -> Result<Json<Bytes>, StatusCode> {
                 generate_endpoints_inner!($variant, handler, request)
             }
         )*
@@ -60,7 +61,7 @@ macro_rules! generate_endpoints_with_no_input {
         $(
             pub(crate) async fn $endpoint<H: RpcHandler>(
                 State(handler): State<H>,
-            ) -> Result<Json<[<$variant Response>]>, StatusCode> {
+            ) -> Result<Json<Bytes>, StatusCode> {
                 generate_endpoints_inner!($variant, handler, [<$variant Request>] {})
             }
         )*
@@ -86,6 +87,8 @@ macro_rules! generate_endpoints_inner {
                     return Err(StatusCode::FORBIDDEN);
                 }
 
+                let json_formatter = $handler.json_formatter();
+
                 // Send request.
                 let request = OtherRequest::$variant($request);
                 let Ok(response) = $handler.oneshot(request).await else {
@@ -96,7 +99,10 @@ macro_rules! generate_endpoints_inner {
                     panic!("RPC handler returned incorrect response")
                 };
 
-                Ok(Json(response))
+                match json_formatter.to_bytes(&response) {
+                    Ok(json) => Ok(Json(json)),
+                    Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+                }
             }
         }
     };
