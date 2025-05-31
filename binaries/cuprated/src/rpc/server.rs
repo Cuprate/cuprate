@@ -9,11 +9,17 @@ use anyhow::Error;
 use tokio::net::TcpListener;
 use tower::limit::rate::RateLimitLayer;
 use tower_http::limit::RequestBodyLimitLayer;
-use tracing::{field::display, info, warn};
+use tracing::{info, warn};
 
-use cuprate_rpc_interface::{RouterBuilder, RpcHandlerDummy};
+use cuprate_blockchain::service::BlockchainReadHandle;
+use cuprate_consensus::BlockchainContextService;
+use cuprate_rpc_interface::{RouterBuilder, RpcHandler};
+use cuprate_txpool::service::TxpoolReadHandle;
 
-use crate::{config::RpcConfig, rpc::CupratedRpcHandler};
+use crate::{
+    config::RpcConfig,
+    rpc::{rpc_handler::BlockchainManagerHandle, CupratedRpcHandler},
+};
 
 /// Initialize the RPC server(s).
 ///
@@ -22,7 +28,12 @@ use crate::{config::RpcConfig, rpc::CupratedRpcHandler};
 /// - the server(s) could not be started
 /// - unrestricted RPC is started on non-local
 ///   address without override option
-pub fn init_rpc_servers(config: RpcConfig) {
+pub fn init_rpc_servers(
+    config: RpcConfig,
+    blockchain_read: BlockchainReadHandle,
+    blockchain_context: BlockchainContextService,
+    txpool_read: TxpoolReadHandle,
+) {
     for ((enable, addr, request_byte_limit), restricted) in [
         (
             (
@@ -52,7 +63,7 @@ pub fn init_rpc_servers(config: RpcConfig) {
                 .i_know_what_im_doing_allow_public_unrestricted_rpc
             {
                 warn!(
-                    address = display(addr),
+                    address = %addr,
                     "Starting unrestricted RPC on non-local address, this is dangerous!"
                 );
             } else {
@@ -60,8 +71,15 @@ pub fn init_rpc_servers(config: RpcConfig) {
             }
         }
 
+        let rpc_handler = CupratedRpcHandler::new(
+            restricted,
+            blockchain_read.clone(),
+            blockchain_context.clone(),
+            txpool_read.clone(),
+        );
+
         tokio::task::spawn(async move {
-            run_rpc_server(restricted, addr, request_byte_limit)
+            run_rpc_server(rpc_handler, restricted, addr, request_byte_limit)
                 .await
                 .unwrap();
         });
@@ -72,28 +90,26 @@ pub fn init_rpc_servers(config: RpcConfig) {
 ///
 /// The function will only return when the server itself returns or an error occurs.
 async fn run_rpc_server(
+    rpc_handler: CupratedRpcHandler,
     restricted: bool,
     address: SocketAddr,
     request_byte_limit: usize,
 ) -> Result<(), Error> {
     info!(
         restricted,
-        address = display(&address),
+        address = %address,
         "Starting RPC server"
     );
 
-    // Create the router.
-    //
-    // TODO: impl more layers, rate-limiting, configuration, etc.
-    let state = RpcHandlerDummy { restricted };
     // TODO:
     // - add functions that are `all()` but for restricted RPC
     // - enable aliases automatically `other_get_height` + `other_getheight`?
-    //
-    // FIXME:
-    // - `json_rpc` is 1 endpoint; `RouterBuilder` operates at the
-    //   level endpoint; we can't selectively enable certain `json_rpc` methods
-    let router = RouterBuilder::new().fallback().build().with_state(state);
+    let router = RouterBuilder::new()
+        .json_rpc()
+        .other_get_height()
+        .fallback()
+        .build()
+        .with_state(rpc_handler);
 
     // Add restrictive layers if restricted RPC.
     //

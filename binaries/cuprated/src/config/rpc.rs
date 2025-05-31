@@ -5,6 +5,8 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use cuprate_rpc_interface::JsonFormatter;
+
 use crate::config::macros::config_struct;
 
 config_struct! {
@@ -38,6 +40,34 @@ config_struct! {
         /// Type     | boolean
         /// Examples | true, false
         pub enable: bool,
+
+        /// Adjust the JSON output formatting.
+        ///
+        /// The default formatting is:
+        /// - "Compact" for restricted RPC
+        /// - "Pretty" for unrestricted RPC
+        ///
+        /// "Compact" example:
+        /// ```
+        /// {"jsonrpc":"2.0","id":"0","result":{"status":"OK","untrusted":false,"count":3423276}}
+        /// ```
+        ///
+        /// "Pretty" example:
+        /// ```
+        /// {
+        ///   "jsonrpc": "2.0",
+        ///   "id": "0",
+        ///   "result": {
+        ///     "status": "OK",
+        ///     "untrusted": false,
+        ///     "count": 3423276
+        ///   }
+        /// }
+        /// ```
+        ///
+        /// Type         | Number
+        /// Valid values | "Compact", "Pretty"
+        pub json_formatter: JsonFormatter,
 
         #[comment_out = true]
         /// If a request is above this byte limit, it will be rejected.
@@ -91,6 +121,7 @@ impl Default for UnrestrictedRpcConfig {
             address: SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 18081)),
             enable: true,
             request_byte_limit: 0,
+            json_formatter: JsonFormatter::Pretty,
         }
     }
 }
@@ -104,6 +135,7 @@ impl Default for RestrictedRpcConfig {
             // 1 megabyte.
             // <https://github.com/monero-project/monero/blob/3b01c490953fe92f3c6628fa31d280a4f0490d28/src/cryptonote_config.h#L134>
             request_byte_limit: 1024 * 1024,
+            json_formatter: JsonFormatter::Compact,
         }
     }
 }

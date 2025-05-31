@@ -2,13 +2,11 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use axum::{extract::State, http::StatusCode, Json};
+use bytes::Bytes;
 use tower::ServiceExt;
 
 use cuprate_json_rpc::{Id, Response};
-use cuprate_rpc_types::{
-    json::{JsonRpcRequest, JsonRpcResponse},
-    RpcCallValue,
-};
+use cuprate_rpc_types::{json::JsonRpcRequest, RpcCallValue};
 
 use crate::rpc_handler::RpcHandler;
 
@@ -17,7 +15,9 @@ use crate::rpc_handler::RpcHandler;
 pub(crate) async fn json_rpc<H: RpcHandler>(
     State(handler): State<H>,
     Json(request): Json<cuprate_json_rpc::Request<JsonRpcRequest>>,
-) -> Result<Json<Response<JsonRpcResponse>>, StatusCode> {
+) -> Result<Json<Bytes>, StatusCode> {
+    let json_formatter = handler.json_formatter();
+
     // TODO: <https://www.jsonrpc.org/specification#notification>
     //
     // JSON-RPC notifications (requests without `id`)
@@ -39,11 +39,16 @@ pub(crate) async fn json_rpc<H: RpcHandler>(
     // from an (un)restricted context. This line must be here or all
     // methods will be allowed to be called freely.
     if request.body.is_restricted() && handler.is_restricted() {
-        // The error when a restricted JSON-RPC method is called as per:
-        //
-        // - <https://github.com/monero-project/monero/blob/893916ad091a92e765ce3241b94e706ad012b62a/contrib/epee/include/net/http_server_handlers_map2.h#L244-L252>
-        // - <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.h#L188>
-        return Ok(Json(Response::method_not_found(id)));
+        match json_formatter.to_bytes(&Response::<()>::method_not_found(id)) {
+            Ok(json) => {
+                // The error when a restricted JSON-RPC method is called as per:
+                //
+                // - <https://github.com/monero-project/monero/blob/893916ad091a92e765ce3241b94e706ad012b62a/contrib/epee/include/net/http_server_handlers_map2.h#L244-L252>
+                // - <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.h#L188>
+                return Ok(Json(json));
+            }
+            Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+        };
     }
 
     // Send request.
@@ -51,7 +56,10 @@ pub(crate) async fn json_rpc<H: RpcHandler>(
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     };
 
-    Ok(Json(Response::ok(id, response)))
+    match json_formatter.to_bytes(&Response::ok(id, response)) {
+        Ok(json) => Ok(Json(json)),
+        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

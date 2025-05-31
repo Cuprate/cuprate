@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+mod json_formatter;
 mod route;
 mod router_builder;
 mod rpc_handler;
@@ -8,6 +9,7 @@ mod rpc_handler;
 mod rpc_handler_dummy;
 mod rpc_service;
 
+pub use json_formatter::JsonFormatter;
 pub use router_builder::RouterBuilder;
 pub use rpc_handler::RpcHandler;
 #[cfg(feature = "dummy")]
