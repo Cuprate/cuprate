@@ -33,7 +33,7 @@ async fn mock_manager(data_dir: PathBuf) -> BlockchainManager {
     let (mut blockchain_read_handle, mut blockchain_write_handle, _) =
         cuprate_blockchain::service::init(blockchain_config).unwrap();
     let (txpool_read_handle, txpool_write_handle, _) =
-        cuprate_txpool::service::init(txpool_config).unwrap();
+        cuprate_txpool::service::init(&txpool_config).unwrap();
 
     check_add_genesis(
         &mut blockchain_read_handle,

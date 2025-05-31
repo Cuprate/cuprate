@@ -220,6 +220,7 @@ where
         Ok(tx.map(|tx| tx.0))
     }
 
+    #[expect(clippy::type_complexity)]
     /// Starts the [`DandelionPoolManager`].
     pub(crate) async fn run(
         mut self,

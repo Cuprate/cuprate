@@ -34,7 +34,7 @@ const VERSION_KEY: StorableStr = StorableStr(Cow::Borrowed("version"));
 /// - A table could not be created/opened
 #[cold]
 #[inline(never)] // only called once
-pub fn open(config: Config) -> Result<ConcreteEnv, InitError> {
+pub fn open(config: &Config) -> Result<ConcreteEnv, InitError> {
     // Attempt to open the database environment.
     let env = <ConcreteEnv as Env>::open(config.db_config.clone())?;
 
@@ -97,7 +97,7 @@ pub fn open(config: Config) -> Result<ConcreteEnv, InitError> {
             tracing::error!(
                 "The database follows an old format, please delete the database at: {}",
                 config.db_config.db_directory().display()
-            )
+            );
         };
 
         let version = metadata

@@ -221,7 +221,7 @@ async fn handle_incoming_txs(
         {
             tracing::warn!("The txpool manager has been stopped, dropping incoming txs");
             return Ok(());
-        };
+        }
     }
 
     // Re-relay any txs we got in the block that were already in our stem pool.

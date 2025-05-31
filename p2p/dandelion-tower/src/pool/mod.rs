@@ -103,6 +103,7 @@ where
 /// Used to send [`IncomingTx`]s to the [`DandelionPoolManager`]
 #[derive(Clone)]
 pub struct DandelionPoolService<Tx, TxId, PeerId> {
+    #[expect(clippy::type_complexity)]
     /// The channel to [`DandelionPoolManager`].
     tx: PollSender<(
         (IncomingTx<Tx, TxId, PeerId>, tracing::Span),

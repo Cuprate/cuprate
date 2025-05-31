@@ -69,7 +69,7 @@ impl Service<TxStoreRequest<TxId>> for TxStoreService {
                 self.promote_tx
                     .send_item(tx_id)
                     .map_err(Into::into)
-                    .map(|_| TxStoreResponse::Ok),
+                    .map(|()| TxStoreResponse::Ok),
             )
             .boxed(),
         }

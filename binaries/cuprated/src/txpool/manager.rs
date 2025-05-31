@@ -79,7 +79,7 @@ pub async fn start_txpool_manager(
             (
                 tx.id,
                 TxInfo {
-                    weight: tx.weight.try_into().unwrap(),
+                    weight: tx.weight,
                     fee: tx.fee,
                     received_at: tx.received_at,
                     private: tx.private,
@@ -131,6 +131,7 @@ impl TxpoolManagerHandle {
     /// Create a mock [`TxpoolManagerHandle`] that does nothing.
     ///
     /// Useful for testing.
+    #[expect(clippy::let_underscore_must_use)]
     pub fn mock() -> Self {
         let (spent_kis_tx, mut spent_kis_rx) = mpsc::channel(1);
         let (tx_tx, mut tx_rx) = mpsc::channel(100);
@@ -147,13 +148,15 @@ impl TxpoolManagerHandle {
 
         tokio::spawn(async move {
             loop {
-                tx_rx.recv().await;
+                if tx_rx.recv().await.is_none() {
+                    return;
+                }
             }
         });
 
         Self {
-            spent_kis_tx,
             tx_tx,
+            spent_kis_tx,
         }
     }
 
@@ -362,7 +365,7 @@ impl TxpoolManager {
                 "transaction is a double spend, ignoring"
             );
             return;
-        };
+        }
 
         self.track_tx(tx_hash, tx_weight, tx_fee, state.is_stem_stage());
 
@@ -437,6 +440,7 @@ impl TxpoolManager {
         }
     }
 
+    #[expect(clippy::let_underscore_must_use)]
     async fn run(
         mut self,
         mut tx_rx: mpsc::Receiver<(
@@ -479,7 +483,5 @@ fn calculate_next_timeout(received_at: u64, max_time_in_pool: u64) -> u64 {
 
     let timeouts = time_in_pool / TX_RERELAY_TIME;
 
-    let time_out = min((timeouts + 1) * TX_RERELAY_TIME, time_till_max_timeout);
-
-    time_out
+    min((timeouts + 1) * TX_RERELAY_TIME, time_till_max_timeout)
 }

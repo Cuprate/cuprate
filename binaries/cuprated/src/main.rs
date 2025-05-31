@@ -88,7 +88,7 @@ fn main() {
         .expect(DATABASE_CORRUPT_MSG);
 
     let (txpool_read_handle, txpool_write_handle, _) =
-        cuprate_txpool::service::init_with_pool(config.txpool_config(), db_thread_pool)
+        cuprate_txpool::service::init_with_pool(&config.txpool_config(), db_thread_pool)
             .inspect_err(|e| error!("Txpool database error: {e}"))
             .expect(DATABASE_CORRUPT_MSG);
 
