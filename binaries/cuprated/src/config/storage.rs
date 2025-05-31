@@ -57,7 +57,7 @@ config_struct! {
 
 config_struct! {
     /// The tx-pool config.
-    #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+    #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
     pub struct TxpoolConfig {
         #[flatten = true]
@@ -71,6 +71,14 @@ config_struct! {
         /// Valid values | >= 0
         /// Examples     | 100_000_000, 50_000_000
         pub max_txpool_byte_size: usize,
+        
+        /// The maximum age of transactions in the pool in seconds.
+        /// Transactions will be dropped after this time is reached.
+        /// 
+        /// Type         | Number
+        /// Valid values | >= 0
+        /// Examples     | 100_000_000, 50_000_000
+        pub maximum_age: u64,
     }
 }
 
@@ -79,13 +87,14 @@ impl Default for TxpoolConfig {
         Self {
             shared: SharedStorageConfig::default(),
             max_txpool_byte_size: 100_000_000,
+            maximum_age: 60 * 60 * 24,
         }
     }
 }
 
 config_struct! {
     /// Config values shared between the tx-pool and blockchain.
-    #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+    #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
     pub struct SharedStorageConfig {
         #[comment_out = true]

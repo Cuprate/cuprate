@@ -40,7 +40,7 @@ use fs::FileSystemConfig;
 use p2p::P2PConfig;
 use rayon::RayonConfig;
 pub use rpc::{RpcConfig, SharedRpcConfig};
-use storage::StorageConfig;
+pub use storage::{StorageConfig, TxpoolConfig};
 use tokio::TokioConfig;
 use tracing_config::TracingConfig;
 

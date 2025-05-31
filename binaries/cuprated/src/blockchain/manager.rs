@@ -28,6 +28,7 @@ use crate::{
         types::ConsensusBlockchainReadHandle,
     },
     constants::PANIC_CRITICAL_SERVICE_ERROR,
+    txpool::TxpoolManagerHandle,
 };
 
 mod commands;
@@ -36,7 +37,6 @@ mod handler;
 #[cfg(test)]
 mod tests;
 
-use crate::txpool::TxpoolManagerHandle;
 pub use commands::{BlockchainManagerCommand, IncomingBlockOk};
 
 /// Initialize the blockchain manager.

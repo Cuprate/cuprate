@@ -14,9 +14,12 @@ use cuprate_p2p::{block_downloader::BlockBatch, BroadcastSvc};
 use cuprate_p2p_core::handles::HandleBuilder;
 use cuprate_types::{CachedVerificationState, TransactionVerificationData, TxVersion};
 
-use crate::blockchain::{
-    check_add_genesis, manager::BlockchainManager, manager::BlockchainManagerCommand,
-    ConsensusBlockchainReadHandle,
+use crate::{
+    blockchain::{
+        check_add_genesis, manager::BlockchainManager, manager::BlockchainManagerCommand,
+        ConsensusBlockchainReadHandle,
+    },
+    txpool::TxpoolManagerHandle,
 };
 
 async fn mock_manager(data_dir: PathBuf) -> BlockchainManager {
@@ -56,7 +59,7 @@ async fn mock_manager(data_dir: PathBuf) -> BlockchainManager {
     BlockchainManager {
         blockchain_write_handle,
         blockchain_read_handle,
-        txpool_manager_handle: todo!(),
+        txpool_manager_handle: TxpoolManagerHandle::mock(),
         blockchain_context_service,
         stop_current_block_downloader: Arc::new(Default::default()),
         broadcast_svc: BroadcastSvc::mock(),

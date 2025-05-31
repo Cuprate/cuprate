@@ -39,7 +39,7 @@ use crate::txpool::manager::{start_txpool_manager, TxpoolManagerHandle};
 use crate::{
     blockchain::ConsensusBlockchainReadHandle,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
-    p2p::CrossNetworkInternalPeerId,
+    p2p::CrossNetworkInternalPeerId, config::TxpoolConfig,
     signals::REORG_LOCK,
     txpool::{
         dandelion,
@@ -98,6 +98,7 @@ impl IncomingTxHandler {
     #[expect(clippy::significant_drop_tightening)]
     #[instrument(level = "info", skip_all, name = "start_txpool")]
     pub async fn init(
+        txpool_config: TxpoolConfig,
         clear_net: NetworkInterface<ClearNet>,
         txpool_write_handle: TxpoolWriteHandle,
         txpool_read_handle: TxpoolReadHandle,
@@ -124,7 +125,7 @@ impl IncomingTxHandler {
             promote_rx,
             diffuse_service,
             dandelion_pool_manager.clone(),
-            Default::default(),
+            txpool_config,
         )
         .await;
 

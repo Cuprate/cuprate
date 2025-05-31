@@ -32,23 +32,11 @@ use crate::{
         incoming_tx::{DandelionTx, TxId},
     },
 };
+use crate::config::TxpoolConfig;
 
 /// The base time between re-relays to the p2p network.
 const TX_RERELAY_TIME: u64 = 300;
-
-pub struct TxpoolManagerConfig {
-    maximum_age: u64,
-}
-
-impl Default for TxpoolManagerConfig {
-    fn default() -> Self {
-        Self {
-            maximum_age: 60 * 60 * 24,
-        }
-    }
-}
-
-/// Starts the transaction pool (txpool) manager service.
+/// Starts the transaction pool manager service.
 ///
 /// # Panics
 ///
@@ -59,7 +47,7 @@ pub async fn start_txpool_manager(
     promote_tx_channel: mpsc::Receiver<[u8; 32]>,
     diffuse_service: DiffuseService,
     dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
-    config: TxpoolManagerConfig,
+    config: TxpoolConfig,
 ) -> TxpoolManagerHandle {
     let TxpoolReadResponse::Backlog(backlog) = txpool_read_handle
         .ready()
@@ -140,6 +128,36 @@ pub struct TxpoolManagerHandle {
 }
 
 impl TxpoolManagerHandle {
+    /// Create a mock [`TxpoolManagerHandle`] that does nothing.
+    ///
+    /// Useful for testing.
+    pub fn mock() -> Self {
+        let (spent_kis_tx, mut spent_kis_rx) = mpsc::channel(1);
+        let (tx_tx, mut tx_rx) = mpsc::channel(100);
+
+        tokio::spawn(async move {
+            loop {
+                let Some(rec): Option<(_, oneshot::Sender<()>)> = spent_kis_rx.recv().await else {
+                    return;
+                };
+
+                let _ = rec.1.send(());
+            }
+        });
+
+        tokio::spawn(async move {
+            loop {
+                tx_rx.recv().await;
+            }
+        });
+
+        Self {
+            spent_kis_tx,
+            tx_tx,
+        }
+    }
+
+    /// Tell the tx-pool about spent key images in an incoming block.
     pub async fn new_block(&mut self, spent_key_images: Vec<[u8; 32]>) -> anyhow::Result<()> {
         let (tx, rx) = oneshot::channel();
 
@@ -187,7 +205,7 @@ struct TxpoolManager {
     /// Used for re-relays.
     diffuse_service: DiffuseService,
 
-    config: TxpoolManagerConfig,
+    config: TxpoolConfig,
 }
 
 impl TxpoolManager {

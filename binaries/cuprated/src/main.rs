@@ -131,6 +131,7 @@ fn main() {
 
         // Create the incoming tx handler service.
         let tx_handler = IncomingTxHandler::init(
+            config.storage.txpool.clone(),
             network_interfaces.clearnet_network_interface.clone(),
             txpool_write_handle.clone(),
             txpool_read_handle,
