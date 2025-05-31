@@ -51,7 +51,7 @@ impl<Z: NetworkZone> P2PConfig<Z> {
             my_port: u32::from(self.p2p_port),
             network_id: self.network.network_id(),
             peer_id: rand::random(),
-            support_flags: PeerSupportFlags::FLUFFY_BLOCKS,
+            support_flags: PeerSupportFlags::FLUFFY_BLOCKS | PeerSupportFlags::TX_REALY_V2,
             rpc_port: self.rpc_port,
             // We do not (and probably will never) support paying for RPC with hashes.
             rpc_credits_per_hash: 0,
