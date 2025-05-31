@@ -18,6 +18,7 @@ use cuprate_constants::{
     build::RELEASE,
     rpc::{RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE},
 };
+use cuprate_helper::time::current_unix_timestamp;
 use cuprate_helper::{
     cast::{u32_to_usize, u64_to_usize, usize_to_u64},
     fmt::HexPrefix,
@@ -926,13 +927,15 @@ async fn get_transaction_pool_backlog(
     mut state: CupratedRpcHandler,
     _: GetTransactionPoolBacklogRequest,
 ) -> Result<GetTransactionPoolBacklogResponse, Error> {
+    let now = current_unix_timestamp();
+
     let backlog = txpool::backlog(&mut state.txpool_read)
         .await?
         .into_iter()
         .map(|entry| TxBacklogEntry {
-            weight: entry.weight,
+            weight: entry.weight as u64,
             fee: entry.fee,
-            time_in_pool: entry.time_in_pool.as_secs(),
+            time_in_pool: now - entry.received_at,
         })
         .collect();
 
@@ -971,7 +974,7 @@ async fn get_miner_data(
         .into_iter()
         .map(|entry| GetMinerDataTxBacklogEntry {
             id: Hex(entry.id),
-            weight: entry.weight,
+            weight: entry.weight as u64,
             fee: entry.fee,
         })
         .collect();
