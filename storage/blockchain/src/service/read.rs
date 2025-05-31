@@ -41,9 +41,9 @@ use crate::{
             get_alt_chain_history_ranges,
         },
         block::{
-            block_exists, get_block_blob_with_tx_indexes, get_block_complete_entry,
-            get_block_complete_entry_from_height, get_block_extended_header_from_height,
-            get_block_height, get_block_info,
+            block_exists, get_block, get_block_blob_with_tx_indexes, get_block_by_hash,
+            get_block_complete_entry, get_block_complete_entry_from_height,
+            get_block_extended_header_from_height, get_block_height, get_block_info,
         },
         blockchain::{cumulative_generated_coins, find_split_point, top_block_height},
         key_image::key_image_exists,
@@ -888,12 +888,28 @@ fn alt_blocks_in_chain(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
 
 /// [`BlockchainReadRequest::Block`]
 fn block(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
-    Ok(BlockchainResponse::Block(todo!()))
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+    let tables = env_inner.open_tables(&tx_ro)?;
+
+    Ok(BlockchainResponse::Block(get_block(
+        &tables,
+        &block_height,
+    )?))
 }
 
 /// [`BlockchainReadRequest::BlockByHash`]
 fn block_by_hash(env: &ConcreteEnv, block_hash: BlockHash) -> ResponseResult {
-    Ok(BlockchainResponse::Block(todo!()))
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+    let tables = env_inner.open_tables(&tx_ro)?;
+
+    Ok(BlockchainResponse::Block(get_block_by_hash(
+        &tables,
+        &block_hash,
+    )?))
 }
 
 /// [`BlockchainReadRequest::TotalTxCount`]
