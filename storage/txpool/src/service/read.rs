@@ -5,7 +5,6 @@
     clippy::needless_pass_by_value,
     reason = "TODO: finish implementing the signatures from <https://github.com/Cuprate/cuprate/pull/297>"
 )]
-use cuprate_database::DatabaseIter;
 use std::{
     collections::{HashMap, HashSet},
     num::NonZero,
@@ -14,10 +13,11 @@ use std::{
 
 use rayon::ThreadPool;
 
-use cuprate_database::{ConcreteEnv, DatabaseRo, DbResult, Env, EnvInner, RuntimeError};
+use cuprate_database::{
+    ConcreteEnv, DatabaseIter, DatabaseRo, DbResult, Env, EnvInner, RuntimeError,
+};
 use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
 
-use crate::types::TxStateFlags;
 use crate::{
     ops::{get_transaction_verification_data, in_stem_pool},
     service::{
@@ -25,7 +25,7 @@ use crate::{
         types::{ReadResponseResult, TxpoolReadHandle},
     },
     tables::{KnownBlobHashes, OpenTables, TransactionBlobs, TransactionInfos},
-    types::{TransactionBlobHash, TransactionHash},
+    types::{TransactionBlobHash, TransactionHash, TxStateFlags},
     TxEntry,
 };
 

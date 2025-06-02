@@ -5,11 +5,6 @@ use std::{
     time::Duration,
 };
 
-use crate::{
-    pool::IncomingTx,
-    traits::{TxStoreRequest, TxStoreResponse},
-    DandelionConfig, DandelionRouteReq, DandelionRouterError, State, TxState,
-};
 use futures::{FutureExt, StreamExt};
 use rand::prelude::*;
 use rand_distr::Exp;
@@ -20,6 +15,12 @@ use tokio::{
 use tokio_util::time::DelayQueue;
 use tower::{Service, ServiceExt};
 use tracing::Instrument;
+
+use crate::{
+    pool::IncomingTx,
+    traits::{TxStoreRequest, TxStoreResponse},
+    DandelionConfig, DandelionRouteReq, DandelionRouterError, State, TxState,
+};
 
 #[derive(Copy, Clone, Debug, thiserror::Error)]
 #[error("The dandelion pool was shutdown")]

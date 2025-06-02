@@ -5,11 +5,17 @@ use std::{
 };
 
 use bytes::Bytes;
+use futures::{future::BoxFuture, FutureExt};
+use monero_serai::transaction::Transaction;
+use tokio::sync::mpsc;
+use tower::{BoxError, Service, ServiceExt};
+use tracing::instrument;
+
 use cuprate_blockchain::service::BlockchainReadHandle;
-use cuprate_consensus::transactions::{start_tx_verification, PrepTransactions};
 use cuprate_consensus::{
-    transactions::new_tx_verification_data, BlockChainContextRequest, BlockChainContextResponse,
-    BlockchainContextService, ExtendedConsensusError,
+    transactions::{new_tx_verification_data, start_tx_verification, PrepTransactions},
+    BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
+    ExtendedConsensusError,
 };
 use cuprate_dandelion_tower::{
     pool::{DandelionPoolService, IncomingTxBuilder},
@@ -28,14 +34,7 @@ use cuprate_txpool::{
     transaction_blob_hash,
 };
 use cuprate_types::TransactionVerificationData;
-use futures::{future::BoxFuture, FutureExt};
-use monero_serai::transaction::Transaction;
-use tokio::sync::mpsc;
-use tower::{BoxError, Service, ServiceExt};
-use tracing::instrument;
 
-use crate::txpool::dandelion::DiffuseService;
-use crate::txpool::manager::{start_txpool_manager, TxpoolManagerHandle};
 use crate::{
     blockchain::ConsensusBlockchainReadHandle,
     config::TxpoolConfig,
@@ -43,7 +42,8 @@ use crate::{
     p2p::CrossNetworkInternalPeerId,
     signals::REORG_LOCK,
     txpool::{
-        dandelion,
+        dandelion::{self, DiffuseService},
+        manager::{start_txpool_manager, TxpoolManagerHandle},
         relay_rules::check_tx_relay_rules,
         txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
     },

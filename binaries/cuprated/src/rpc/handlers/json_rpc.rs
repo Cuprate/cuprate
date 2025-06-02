@@ -18,11 +18,11 @@ use cuprate_constants::{
     build::RELEASE,
     rpc::{RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE},
 };
-use cuprate_helper::time::current_unix_timestamp;
 use cuprate_helper::{
     cast::{u32_to_usize, u64_to_usize, usize_to_u64},
     fmt::HexPrefix,
     map::split_u128_into_low_high_bits,
+    time::current_unix_timestamp,
 };
 use cuprate_hex::{Hex, HexVec};
 use cuprate_p2p_core::{client::handshaker::builder::DummyAddressBook, ClearNet, Network};
@@ -933,7 +933,7 @@ async fn get_transaction_pool_backlog(
         .await?
         .into_iter()
         .map(|entry| TxBacklogEntry {
-            weight: entry.weight as u64,
+            weight: usize_to_u64(entry.weight),
             fee: entry.fee,
             time_in_pool: now - entry.received_at,
         })
@@ -974,7 +974,7 @@ async fn get_miner_data(
         .into_iter()
         .map(|entry| GetMinerDataTxBacklogEntry {
             id: Hex(entry.id),
-            weight: entry.weight as u64,
+            weight: usize_to_u64(entry.weight),
             fee: entry.fee,
         })
         .collect();

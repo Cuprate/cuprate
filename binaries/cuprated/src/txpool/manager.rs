@@ -24,8 +24,8 @@ use cuprate_txpool::service::{
 };
 use cuprate_types::TransactionVerificationData;
 
-use crate::config::TxpoolConfig;
 use crate::{
+    config::TxpoolConfig,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     p2p::{CrossNetworkInternalPeerId, NetworkInterfaces},
     txpool::{

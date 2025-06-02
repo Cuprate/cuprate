@@ -6,6 +6,16 @@ use std::{
 };
 
 use bytes::Bytes;
+use futures::{
+    future::{BoxFuture, Shared},
+    FutureExt,
+};
+use monero_serai::{block::Block, transaction::Transaction};
+use tokio::sync::{broadcast, oneshot, watch};
+use tokio_stream::wrappers::WatchStream;
+use tower::{Service, ServiceExt};
+use tracing::instrument;
+
 use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::{
     transactions::new_tx_verification_data, BlockChainContextRequest, BlockChainContextResponse,
@@ -13,10 +23,9 @@ use cuprate_consensus::{
 };
 use cuprate_dandelion_tower::TxState;
 use cuprate_fixed_bytes::ByteArrayVec;
-use cuprate_helper::cast::u64_to_usize;
 use cuprate_helper::{
     asynch::rayon_spawn_async,
-    cast::usize_to_u64,
+    cast::{u64_to_usize, usize_to_u64},
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
 };
 use cuprate_p2p::constants::{
@@ -35,15 +44,6 @@ use cuprate_wire::protocol::{
     ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest,
     GetObjectsResponse, NewFluffyBlock, NewTransactions,
 };
-use futures::{
-    future::{BoxFuture, Shared},
-    FutureExt,
-};
-use monero_serai::{block::Block, transaction::Transaction};
-use tokio::sync::{broadcast, oneshot, watch};
-use tokio_stream::wrappers::WatchStream;
-use tower::{Service, ServiceExt};
-use tracing::instrument;
 
 use crate::{
     blockchain::interface::{self as blockchain_interface, IncomingBlockError},
