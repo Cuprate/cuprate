@@ -206,12 +206,11 @@ impl Env for ConcreteEnv {
         Ok(self.env.read().unwrap().force_sync()?)
     }
 
-    fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) -> NonZeroUsize {
-        let resize_algorithm = resize_algorithm.unwrap_or_else(|| self.config().resize_algorithm);
-
-        let current_size_bytes = self.current_map_size();
-        let new_size_bytes = resize_algorithm.resize(current_size_bytes);
-
+    fn resize_map(
+        &self,
+        resize_algorithm: Option<ResizeAlgorithm>,
+        resized_by_another_process: bool,
+    ) -> NonZeroUsize {
         // SAFETY:
         // Resizing requires that we have
         // exclusive access to the database environment.
@@ -219,16 +218,30 @@ impl Env for ConcreteEnv {
         // and we have a WriteGuard to it, so we're safe.
         //
         // <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
-        unsafe {
-            // INVARIANT: `resize()` returns a valid `usize` to resize to.
-            self.env
-                .write()
-                .unwrap()
-                .resize(new_size_bytes.get())
-                .unwrap();
-        }
+        let resize = |new_size_bytes| unsafe {
+            self.env.write().unwrap().resize(new_size_bytes).unwrap();
+        };
 
-        new_size_bytes
+        if resized_by_another_process {
+            // > If the mapsize is increased by another process,
+            // > and data has grown beyond the range of the current mapsize,
+            // > mdb_txn_begin() will return MDB_MAP_RESIZED.
+            // >
+            // > This function may be called with a size of zero to adopt the new size.
+            //
+            // <http://www.lmdb.tech/doc/group__mdb.html#gad7ea55da06b77513609efebd44b26920>
+            resize(0);
+            NonZeroUsize::new(self.current_map_size()).unwrap()
+        } else {
+            let resize_algorithm =
+                resize_algorithm.unwrap_or_else(|| self.config().resize_algorithm);
+
+            let current_size_bytes = self.current_map_size();
+
+            let x = resize_algorithm.resize(current_size_bytes);
+            resize(x.get());
+            x
+        }
     }
 
     #[inline]

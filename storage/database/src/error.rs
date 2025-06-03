@@ -92,6 +92,16 @@ pub enum RuntimeError {
     #[error("database memory map must be resized")]
     ResizeNeeded,
 
+    /// Another process resized the database.
+    ///
+    /// This error will continue to surface if the `heed`
+    /// backend is used and another process resized the database.
+    ///
+    /// To fix this, [`Env::resize_map`] must be called
+    /// with `resized_by_another_process: true`.
+    #[error("database memory map resized by another process")]
+    ResizedByAnotherProcess,
+
     /// The given table did not exist in the database.
     #[error("database table did not exist")]
     TableNotFound,
