@@ -97,8 +97,8 @@ pub enum RuntimeError {
     /// This error will continue to surface if the `heed`
     /// backend is used and another process resized the database.
     ///
-    /// To fix this, [`Env::resize_map`] must be called
-    /// with `resized_by_another_process: true`.
+    /// To fix this, [`Env::resize_map`](crate::Env::resize_map)
+    /// must be called with `resized_by_another_process: true`.
     #[error("database memory map resized by another process")]
     ResizedByAnotherProcess,
 
