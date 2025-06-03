@@ -27,7 +27,7 @@ struct DeserPeerDataV1<A: NetZoneAddress> {
 }
 
 pub(crate) fn save_peers_to_disk<Z: BorshNetworkZone>(
-    cfg: &AddressBookConfig,
+    cfg: &AddressBookConfig<Z>,
     white_list: &PeerList<Z>,
     gray_list: &PeerList<Z>,
 ) -> JoinHandle<std::io::Result<()>> {
@@ -51,7 +51,7 @@ pub(crate) fn save_peers_to_disk<Z: BorshNetworkZone>(
 }
 
 pub(crate) async fn read_peers_from_disk<Z: BorshNetworkZone>(
-    cfg: &AddressBookConfig,
+    cfg: &AddressBookConfig<Z>,
 ) -> Result<
     (
         Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>,

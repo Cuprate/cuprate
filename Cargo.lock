@@ -916,6 +916,7 @@ dependencies = [
  "futures",
  "hex",
  "hex-literal",
+ "rand",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -1059,6 +1060,7 @@ dependencies = [
  "cuprate-levin",
  "cuprate-types",
  "hex",
+ "proptest",
  "thiserror",
 ]
 
