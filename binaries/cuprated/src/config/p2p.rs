@@ -272,7 +272,7 @@ impl AddressBookConfig {
         cache_dir: &Path,
         network: Network,
         our_own_address: Option<Z::Addr>,
-    ) -> cuprate_address_book::AddressBookConfig::<Z> {
+    ) -> cuprate_address_book::AddressBookConfig<Z> {
         assert!(
             !Z::BROADCAST_OWN_ADDR && our_own_address.is_some(),
             "This network DO NOT take an incoming address."
