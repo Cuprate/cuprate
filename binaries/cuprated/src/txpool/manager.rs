@@ -279,7 +279,9 @@ impl TxpoolManager {
 
         let time_in_pool = current_unix_timestamp() - tx_info.received_at;
 
-        if time_in_pool > self.config.maximum_age {
+        // Check if the tx has timed out, with a small buffer to prevent rebroadcasting if the time is
+        // slightly off.
+        if time_in_pool + 10 > self.config.maximum_age {
             tracing::warn!("tx has been in pool too long, removing from pool");
             self.remove_tx_from_pool(tx, true).await;
             return;
