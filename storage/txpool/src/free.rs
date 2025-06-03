@@ -41,6 +41,7 @@ pub fn open(config: Config) -> Result<ConcreteEnv, InitError> {
             RuntimeError::KeyExists
             | RuntimeError::KeyNotFound
             | RuntimeError::ResizeNeeded
+            | RuntimeError::ResizedByAnotherProcess
             | RuntimeError::TableNotFound => unreachable!(),
         }
     }
