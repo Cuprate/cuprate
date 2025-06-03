@@ -305,7 +305,7 @@ fn next_difficulty(
     if timestamps.len() > config.window {
         // remove the lag.
         timestamps.drain(config.window..);
-    };
+    }
     let timestamps_slice = timestamps.make_contiguous();
 
     let (window_start, window_end) = get_window_start_and_end(

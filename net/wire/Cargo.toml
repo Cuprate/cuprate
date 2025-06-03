@@ -21,6 +21,8 @@ bitflags                = { workspace = true, features = ["std"] }
 bytes                   = { workspace = true, features = ["std"] }
 thiserror               = { workspace = true }
 
+arbitrary = { workspace = true, features = ["derive"], optional = true }
+
 [dev-dependencies]
 hex                     = { workspace = true, features = ["std"]}
 proptest                = { workspace = true }

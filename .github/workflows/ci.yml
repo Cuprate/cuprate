@@ -118,21 +118,21 @@ jobs:
       uses: lukka/get-cmake@v3.31.6 # Needed for `randomx-rs`
 
     - name: Documentation
-      run: cargo doc --workspace --all-features --no-deps
+      run: cargo doc --all-features --no-deps
 
     - name: Clippy (fail on warnings)
-      run: cargo clippy --workspace --all-features --all-targets -- -D warnings
+      run: cargo clippy --all-features --all-targets -- -D warnings
 
     # HACK: how to test both DB backends that are feature-gated?
     - name: Test
       run: |
-        cargo test --all-features --workspace
+        cargo test --all-features
         cargo test --package cuprate-blockchain --no-default-features --features redb
 
     - name: Build
-      run: cargo build --all-features --all-targets --workspace
+      run: cargo build --all-features --all-targets
 
     - name: Hack Check
       run: |
         cargo install cargo-hack --locked
-        cargo hack --workspace check --feature-powerset --no-dev-deps
+        cargo hack check --feature-powerset --no-dev-deps 

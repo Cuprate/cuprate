@@ -216,7 +216,7 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
         if self.white_list.contains_peer(&peer.adr) {
             tracing::trace!("Peer {} is already in white list skipping.", peer.adr);
             return;
-        };
+        }
         if !self.gray_list.contains_peer(&peer.adr) {
             tracing::trace!("Adding peer {} to gray list.", peer.adr);
             peer.last_seen = 0;

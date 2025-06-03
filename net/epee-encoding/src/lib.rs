@@ -154,7 +154,7 @@ fn read_head_object<T: EpeeObject, B: Buf>(r: &mut B) -> Result<T> {
 }
 
 fn read_field_name_bytes<B: Buf>(r: &mut B) -> Result<Bytes> {
-    let len: usize = r.get_u8().into();
+    let len: usize = checked_read_primitive(r, Buf::get_u8)?.into();
 
     checked_read(r, |b: &mut B| b.copy_to_bytes(len), len)
 }
@@ -338,7 +338,7 @@ fn skip_epee_value<B: Buf>(r: &mut B, skipped_objects: &mut u8) -> Result<()> {
             .checked_mul(len.try_into()?)
             .ok_or(Error::Value("List is too big".to_string()))?;
         return advance(bytes_to_skip, r);
-    };
+    }
 
     for _ in 0..len {
         match marker.inner_marker {
@@ -364,7 +364,7 @@ fn skip_epee_value<B: Buf>(r: &mut B, skipped_objects: &mut u8) -> Result<()> {
                 read_object::<SkipObject, _>(r, skipped_objects)?;
                 *skipped_objects -= 1;
             }
-        };
+        }
     }
     Ok(())
 }

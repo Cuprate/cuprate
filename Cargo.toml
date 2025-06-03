@@ -49,6 +49,64 @@ members = [
 	"helper",
 	"pruning",
 	"test-utils",
+
+	# Fuzz
+	"fuzz"
+]
+
+# Windows is a pain, so instead of making the fuzz tests work on windows, we just don't build the fuzz target on windows.
+# This is done by defining the `default-members` here to include everything but `fuzz`.
+# You can still build everything, including `fuzz` by using `--workspace`.
+#
+# Remember to update this if you add any new crates!
+default-members = [
+	# Binaries
+	"binaries/cuprated",
+
+	# Consensus
+	"consensus",
+	"consensus/context",
+	"consensus/fast-sync",
+	"consensus/rules",
+
+	# Net
+	"net/epee-encoding",
+	"net/levin",
+	"net/wire",
+
+	# P2P
+	"p2p/p2p",
+	"p2p/p2p-core",
+	"p2p/bucket",
+	"p2p/dandelion-tower",
+	"p2p/async-buffer",
+	"p2p/address-book",
+
+	# Storage
+	"storage/blockchain",
+	"storage/service",
+	"storage/txpool",
+	"storage/database",
+
+	# Types
+	"types/types",
+	"types/hex",
+	"types/fixed-bytes",
+
+	# RPC
+	"rpc/json-rpc",
+	"rpc/types",
+	"rpc/interface",
+
+	# ZMQ
+	"zmq/types",
+
+	# Misc
+	"constants",
+	"cryptonight",
+	"helper",
+	"pruning",
+	"test-utils",
 ]
 
 [profile.release]
@@ -105,6 +163,7 @@ cuprate-rpc-interface     = { path = "rpc/interface",             default-featur
 cuprate-zmq-types         = { path = "zmq/types",                 default-features = false }
 
 # External dependencies
+axum                  = { version = "0.7", default-features = false }
 anyhow                = { version = "1", default-features = false }
 arc-swap              = { version = "1", default-features = false }
 arrayvec              = { version = "0.7", default-features = false }
@@ -132,7 +191,7 @@ monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "e
 nu-ansi-term          = { version = "0.46", default-features = false }
 paste                 = { version = "1", default-features = false }
 pin-project           = { version = "1", default-features = false }
-randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev = "e09955c", default-features = false }
+randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev = "567bdca", default-features = false }
 rand                  = { version = "0.8", default-features = false }
 rand_distr            = { version = "0.4", default-features = false }
 rayon                 = { version = "1", default-features = false }
@@ -146,6 +205,7 @@ tokio-util            = { version = "0.7", default-features = false }
 tokio-stream          = { version = "0.1", default-features = false }
 tokio                 = { version = "1", default-features = false }
 tower                 = { git = "https://github.com/Cuprate/tower.git", rev = "6c7faf0", default-features = false } # <https://github.com/tower-rs/tower/pull/796>
+tower-http            = { version = "0.6", default-features = false }
 toml                  = { version = "0.8", default-features = false }
 toml_edit             = { version = "0.22", default-features = false }
 tracing-appender      = { version = "0.2", default-features = false }
@@ -160,6 +220,7 @@ pretty_assertions         = { version = "1" }
 proptest                  = { version = "1" }
 proptest-derive           = { version = "0.5" }
 tokio-test                = { version = "0.4" }
+arbitrary                 = { version = "1" }
 
 ## TODO:
 ## Potential dependencies.
@@ -286,6 +347,15 @@ used_underscore_items = "deny"
 unnecessary_map_or = "deny"
 map_all_any_identity = "deny"
 unnecessary_literal_bound = "deny"
+unnecessary_debug_formatting = "deny"
+elidable_lifetime_names = "deny"
+single_option_map = "deny"
+non_std_lazy_statics = "deny"
+unnecessary_semicolon = "deny"
+precedence_bits = "deny"
+as_pointer_underscore = "deny"
+literal_string_with_formatting_args = "deny"
+manual_midpoint = "deny"
 
 # Warm
 cast_possible_truncation = "deny"
