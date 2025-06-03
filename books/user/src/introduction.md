@@ -52,6 +52,7 @@ Cuprate's node (`cuprated`) can currently:
 - Sync the blockchain and transaction pool
 - Broadcast and relay blocks and transactions
 - Help other peers sync their blockchain
+- Respond to certain [daemon RPC](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html) requests
 
 ## How fast does `cuprated` sync?
 The current full verification sync timings are around ~7.5x faster than `monerod`.
