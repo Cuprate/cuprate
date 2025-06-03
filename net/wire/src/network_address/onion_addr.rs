@@ -3,7 +3,10 @@
 //! This module define v3 Tor onion addresses
 //!
 
-use std::{fmt::Display, str::{self, FromStr}};
+use std::{
+    fmt::Display,
+    str::{self, FromStr},
+};
 
 use thiserror::Error;
 
@@ -43,8 +46,7 @@ impl OnionAddr {
     ///
     /// Return None if the supplied `addr` is invalid.
     pub fn new(addr: &str, port: u16) -> Result<Self, OnionAddrParsingError> {
-        Self::check_addr(addr)
-            .map(|d| Self { domain: d, port })
+        Self::check_addr(addr).map(|d| Self { domain: d, port })
     }
 
     /// Establish if the .onion address is valid.
