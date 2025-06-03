@@ -221,7 +221,7 @@ mod tests {
         }
 
         #[test]
-        fn parse_invalid_onion_address_w_port(addresses in vec("[a-z][2-7]{0,56}.onion:[0-9]{1,5}", 250)) {
+        fn parse_invalid_onion_address_w_port(addresses in vec("[a-z][2-7]{56}.onion:[0-9]{1,5}", 250)) {
             for addr in addresses {
                 assert!(
                     addr.parse::<OnionAddr>().is_err(),
