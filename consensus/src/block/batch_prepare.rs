@@ -177,7 +177,7 @@ pub async fn batch_prepare_main_chain_blocks<D: Database>(
             .into_par_iter()
             .zip(difficulties)
             .zip(txs)
-            .map(|((block, difficultly), txs)| {
+            .map(|((block, difficulty), txs)| {
                 // Calculate the PoW for the block.
                 let height = block.height;
                 let block = PreparedBlock::new_prepped(
@@ -186,7 +186,7 @@ pub async fn batch_prepare_main_chain_blocks<D: Database>(
                 )?;
 
                 // Check the PoW
-                check_block_pow(&block.pow_hash, difficultly).map_err(ConsensusError::Block)?;
+                check_block_pow(&block.pow_hash, difficulty).map_err(ConsensusError::Block)?;
 
                 let mut txs = start_tx_verification()
                     .append_txs(txs)
