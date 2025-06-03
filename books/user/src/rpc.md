@@ -4,7 +4,7 @@
 >
 > Cuprate is still experimental software.
 >
-> Consider sandboxing `cuprated` before publically exposing restricted RPC.
+> Consider sandboxing `cuprated` before publicly exposing restricted RPC.
 
 `monerod`'s daemon RPC has 3 kinds of interfaces:
 1. [JSON-RPC 2.0](https://www.jsonrpc.org) methods called at the `/json_rpc` endpoint, e.g. [`get_block`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_block)
