@@ -15,7 +15,7 @@ use cuprate_rpc_types::{
     base::{AccessResponseBase, ResponseBase},
     misc::BlockHeader,
 };
-use cuprate_types::HardFork;
+use cuprate_types::{Chain, HardFork};
 use monero_serai::transaction::Timelock;
 
 use crate::rpc::{
@@ -55,18 +55,15 @@ pub(super) async fn block_header(
     let pow_hash = if fill_pow_hash {
         let seed_height =
             cuprate_consensus_rules::blocks::randomx_seed_height(u64_to_usize(height));
-        let seed_hash = blockchain::block_hash(
-            &mut state.blockchain_read,
-            height,
-            todo!("access to `cuprated`'s Chain"),
-        )
-        .await?;
+        let seed_hash =
+            blockchain::block_hash(&mut state.blockchain_read, height, Chain::Main).await?;
 
         Some(
             blockchain_context::calculate_pow(
                 &mut state.blockchain_context,
                 hardfork,
-                block,
+                // TODO: expensive clone
+                block.clone(),
                 seed_hash,
             )
             .await?,
