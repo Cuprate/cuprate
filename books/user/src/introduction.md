@@ -52,6 +52,7 @@ Cuprate's node (`cuprated`) can currently:
 - Sync the blockchain and transaction pool
 - Broadcast and relay blocks and transactions
 - Help other peers sync their blockchain
+- Respond to certain [daemon RPC](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html) requests
 
 ## How fast does `cuprated` sync?
 The current full verification sync timings are around ~7.5x faster than `monerod`.
@@ -91,7 +92,7 @@ The database `cuprated` generates and uses cannot directly be used by `monerod` 
 ## Can I connect a wallet to `cuprated`?
 Not yet.
 
-Wallets require the [daemon RPC API](https://docs.getmonero.org/rpc-library/monerod-rpc). This is actively being worked on to be backwards compatible with `monerod`, although this is not yet available.
+Wallets require the [daemon RPC API](https://docs.getmonero.org/rpc-library/monerod-rpc). This is actively being worked on to be backwards compatible with `monerod`, see the [RPC section](rpc.md) for more information.
 
 ## Can `cuprated` be used with an anonymity network like Tor?
 Not yet (directly).

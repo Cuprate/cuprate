@@ -128,3 +128,11 @@ pub(super) async fn get_output_distribution(
         ),
     })
 }
+
+/// Always returns an [`Error`].
+///
+/// This is a temporary function used for RPC method/endpoints
+/// that are not yet ready - it should be removed when all are ready.
+pub(super) fn not_available<T>() -> Result<T, Error> {
+    Err(anyhow!("Not available"))
+}
