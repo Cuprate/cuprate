@@ -58,7 +58,6 @@ pub(super) async fn block_header(
         let seed_hash = blockchain::block_hash(
             &mut state.blockchain_read,
             height,
-            // TODO: access to `cuprated`'s Chain
             Chain::Main,
         )
         .await?;
