@@ -55,12 +55,8 @@ pub(super) async fn block_header(
     let pow_hash = if fill_pow_hash {
         let seed_height =
             cuprate_consensus_rules::blocks::randomx_seed_height(u64_to_usize(height));
-        let seed_hash = blockchain::block_hash(
-            &mut state.blockchain_read,
-            height,
-            Chain::Main,
-        )
-        .await?;
+        let seed_hash =
+            blockchain::block_hash(&mut state.blockchain_read, height, Chain::Main).await?;
 
         Some(
             blockchain_context::calculate_pow(
