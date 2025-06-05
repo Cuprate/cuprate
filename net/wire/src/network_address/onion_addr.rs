@@ -44,7 +44,7 @@ pub enum OnionAddrParsingError {
 impl OnionAddr {
     /// Attempt to create an [`OnionAddr`] from a complete .onion address string and a port.
     ///
-    /// Return None if the supplied `addr` is invalid.
+    /// Return an [`OnionAddrParsingError`] if the supplied `addr` is invalid.
     pub fn new(addr: &str, port: u16) -> Result<Self, OnionAddrParsingError> {
         Self::check_addr(addr).map(|d| Self { domain: d, port })
     }

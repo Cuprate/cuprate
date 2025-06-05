@@ -161,6 +161,7 @@ config_struct! {
         pub address_book_config: AddressBookConfig,
     }
 
+    /// The config values for P2P clear-net.
     #[derive(Debug, Deserialize, Serialize, PartialEq)]
     #[serde(deny_unknown_fields, default)]
     pub struct ClearNetConfig {
