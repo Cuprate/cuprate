@@ -108,6 +108,7 @@ async fn run_rpc_server(
         .json_rpc()
         .other_get_height()
         .bin_get_blocks()
+        .bin_getblocks()
         .fallback()
         .build()
         .with_state(rpc_handler);
