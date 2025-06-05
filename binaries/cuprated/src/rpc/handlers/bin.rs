@@ -44,7 +44,7 @@ pub async fn map_request(
     use BinResponse as Resp;
 
     Ok(match request {
-        Req::GetBlocks(r) => Resp::GetBlocks(not_available()?),
+        Req::GetBlocks(r) => Resp::GetBlocks(get_blocks(state, r).await?),
         Req::GetBlocksByHeight(r) => Resp::GetBlocksByHeight(not_available()?),
         Req::GetHashes(r) => Resp::GetHashes(not_available()?),
         Req::GetOutputIndexes(r) => Resp::GetOutputIndexes(not_available()?),

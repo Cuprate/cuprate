@@ -104,7 +104,7 @@ pub async fn map_request(
         Req::FlushTransactionPool(r) => Resp::FlushTransactionPool(not_available()?),
         Req::GetOutputHistogram(r) => Resp::GetOutputHistogram(not_available()?),
         Req::GetCoinbaseTxSum(r) => Resp::GetCoinbaseTxSum(not_available()?),
-        Req::GetVersion(r) => Resp::GetVersion(not_available()?),
+        Req::GetVersion(r) => Resp::GetVersion(get_version(state, r).await?),
         Req::GetFeeEstimate(r) => Resp::GetFeeEstimate(not_available()?),
         Req::GetAlternateChains(r) => Resp::GetAlternateChains(not_available()?),
         Req::RelayTx(r) => Resp::RelayTx(not_available()?),
@@ -797,7 +797,8 @@ async fn get_version(
     _: GetVersionRequest,
 ) -> Result<GetVersionResponse, Error> {
     let current_height = helper::top_height(&mut state).await?.0;
-    let target_height = blockchain_manager::target_height(todo!()).await?;
+    // let target_height = blockchain_manager::target_height(todo!()).await?;
+    let target_height = 3427468;
 
     let mut hard_forks = Vec::with_capacity(HardFork::COUNT);
 

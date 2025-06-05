@@ -107,6 +107,7 @@ async fn run_rpc_server(
     let router = RouterBuilder::new()
         .json_rpc()
         .other_get_height()
+        .bin_get_blocks()
         .fallback()
         .build()
         .with_state(rpc_handler);

@@ -178,6 +178,7 @@ impl CupratedRpcHandler {
         restricted: bool,
         blockchain_read: BlockchainReadHandle,
         blockchain_context: BlockchainContextService,
+        // blockchain_manager: crate::blockchain::BlockchainManager,
         txpool_read: TxpoolReadHandle,
     ) -> Self {
         Self {

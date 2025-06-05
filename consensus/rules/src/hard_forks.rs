@@ -44,6 +44,14 @@ impl HFInfo {
     pub const fn new(height: usize, threshold: usize) -> Self {
         Self { height, threshold }
     }
+
+    pub const fn height(&self) -> usize {
+        self.height
+    }
+
+    pub const fn threshold(&self) -> usize {
+        self.threshold
+    }
 }
 
 /// Information about every hard-fork Monero has had.
@@ -129,6 +137,18 @@ impl HFsInfo {
             HFInfo::new(1151000, 0),
             HFInfo::new(1151720, 0),
         ])
+    }
+
+    pub fn get_earliest_ideal_height_for_version(&self, hf: HardFork) -> usize {
+        let mut height = usize::MAX;
+        for (version, info) in self.0.iter().enumerate().rev() {
+            if version + 1 >= hf.as_u8().into() {
+                height = info.height;
+            } else {
+                break;
+            }
+        }
+        height
     }
 }
 
