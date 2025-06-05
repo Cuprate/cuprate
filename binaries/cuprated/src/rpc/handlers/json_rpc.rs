@@ -62,7 +62,7 @@ use crate::{
     constants::VERSION_BUILD,
     rpc::{
         constants::{FIELD_NOT_SUPPORTED, UNSUPPORTED_RPC_CALL},
-        handlers::{helper, shared},
+        handlers::{helper, shared, shared::not_available},
         service::{address_book, blockchain, blockchain_context, blockchain_manager, txpool},
         CupratedRpcHandler,
     },
@@ -78,11 +78,11 @@ pub async fn map_request(
     use JsonRpcResponse as Resp;
 
     Ok(match request {
-        Req::GetBlockTemplate(r) => Resp::GetBlockTemplate(get_block_template(state, r).await?),
+        Req::GetBlockTemplate(r) => Resp::GetBlockTemplate(not_available()?),
         Req::GetBlockCount(r) => Resp::GetBlockCount(get_block_count(state, r).await?),
         Req::OnGetBlockHash(r) => Resp::OnGetBlockHash(on_get_block_hash(state, r).await?),
-        Req::SubmitBlock(r) => Resp::SubmitBlock(submit_block(state, r).await?),
-        Req::GenerateBlocks(r) => Resp::GenerateBlocks(generate_blocks(state, r).await?),
+        Req::SubmitBlock(r) => Resp::SubmitBlock(not_available()?),
+        Req::GenerateBlocks(r) => Resp::GenerateBlocks(not_available()?),
         Req::GetLastBlockHeader(r) => {
             Resp::GetLastBlockHeader(get_last_block_header(state, r).await?)
         }
@@ -96,33 +96,25 @@ pub async fn map_request(
             Resp::GetBlockHeadersRange(get_block_headers_range(state, r).await?)
         }
         Req::GetBlock(r) => Resp::GetBlock(get_block(state, r).await?),
-        Req::GetConnections(r) => Resp::GetConnections(get_connections(state, r).await?),
-        Req::GetInfo(r) => Resp::GetInfo(get_info(state, r).await?),
-        Req::HardForkInfo(r) => Resp::HardForkInfo(hard_fork_info(state, r).await?),
-        Req::SetBans(r) => Resp::SetBans(set_bans(state, r).await?),
-        Req::GetBans(r) => Resp::GetBans(get_bans(state, r).await?),
-        Req::Banned(r) => Resp::Banned(banned(state, r).await?),
-        Req::FlushTransactionPool(r) => {
-            Resp::FlushTransactionPool(flush_transaction_pool(state, r).await?)
-        }
-        Req::GetOutputHistogram(r) => {
-            Resp::GetOutputHistogram(get_output_histogram(state, r).await?)
-        }
-        Req::GetCoinbaseTxSum(r) => Resp::GetCoinbaseTxSum(get_coinbase_tx_sum(state, r).await?),
-        Req::GetVersion(r) => Resp::GetVersion(get_version(state, r).await?),
-        Req::GetFeeEstimate(r) => Resp::GetFeeEstimate(get_fee_estimate(state, r).await?),
-        Req::GetAlternateChains(r) => {
-            Resp::GetAlternateChains(get_alternate_chains(state, r).await?)
-        }
-        Req::RelayTx(r) => Resp::RelayTx(relay_tx(state, r).await?),
-        Req::SyncInfo(r) => Resp::SyncInfo(sync_info(state, r).await?),
-        Req::GetTransactionPoolBacklog(r) => {
-            Resp::GetTransactionPoolBacklog(get_transaction_pool_backlog(state, r).await?)
-        }
-        Req::GetMinerData(r) => Resp::GetMinerData(get_miner_data(state, r).await?),
-        Req::PruneBlockchain(r) => Resp::PruneBlockchain(prune_blockchain(state, r).await?),
-        Req::CalcPow(r) => Resp::CalcPow(calc_pow(state, r).await?),
-        Req::AddAuxPow(r) => Resp::AddAuxPow(add_aux_pow(state, r).await?),
+        Req::GetConnections(r) => Resp::GetConnections(not_available()?),
+        Req::GetInfo(r) => Resp::GetInfo(not_available()?),
+        Req::HardForkInfo(r) => Resp::HardForkInfo(not_available()?),
+        Req::SetBans(r) => Resp::SetBans(not_available()?),
+        Req::GetBans(r) => Resp::GetBans(not_available()?),
+        Req::Banned(r) => Resp::Banned(not_available()?),
+        Req::FlushTransactionPool(r) => Resp::FlushTransactionPool(not_available()?),
+        Req::GetOutputHistogram(r) => Resp::GetOutputHistogram(not_available()?),
+        Req::GetCoinbaseTxSum(r) => Resp::GetCoinbaseTxSum(not_available()?),
+        Req::GetVersion(r) => Resp::GetVersion(not_available()?),
+        Req::GetFeeEstimate(r) => Resp::GetFeeEstimate(not_available()?),
+        Req::GetAlternateChains(r) => Resp::GetAlternateChains(not_available()?),
+        Req::RelayTx(r) => Resp::RelayTx(not_available()?),
+        Req::SyncInfo(r) => Resp::SyncInfo(not_available()?),
+        Req::GetTransactionPoolBacklog(r) => Resp::GetTransactionPoolBacklog(not_available()?),
+        Req::GetMinerData(r) => Resp::GetMinerData(not_available()?),
+        Req::PruneBlockchain(r) => Resp::PruneBlockchain(not_available()?),
+        Req::CalcPow(r) => Resp::CalcPow(not_available()?),
+        Req::AddAuxPow(r) => Resp::AddAuxPow(not_available()?),
 
         // Unsupported RPC calls.
         Req::GetTxIdsLoose(_) | Req::FlushCache(_) => return Err(anyhow!(UNSUPPORTED_RPC_CALL)),
@@ -173,7 +165,7 @@ async fn get_block_template(
         seed_hash,
         next_seed_hash,
     } = *blockchain_manager::create_block_template(
-        &mut state.blockchain_manager,
+        todo!(),
         prev_block,
         request.wallet_address,
         request.extra_nonce.0,
@@ -243,7 +235,7 @@ async fn submit_block(
     let block_id = Hex(block.hash());
 
     // Attempt to relay the block.
-    blockchain_manager::relay_block(&mut state.blockchain_manager, Box::new(block)).await?;
+    blockchain_manager::relay_block(todo!(), Box::new(block)).await?;
 
     Ok(SubmitBlockResponse {
         base: helper::response_base(false),
@@ -270,7 +262,7 @@ async fn generate_blocks(
     };
 
     let (blocks, height) = blockchain_manager::generate_blocks(
-        &mut state.blockchain_manager,
+        todo!(),
         request.amount_of_blocks,
         prev_block,
         request.starting_nonce,
@@ -480,7 +472,7 @@ async fn get_info(
         (String::new(), false)
     };
 
-    let busy_syncing = blockchain_manager::syncing(&mut state.blockchain_manager).await?;
+    let busy_syncing = blockchain_manager::syncing(todo!()).await?;
 
     let (cumulative_difficulty, cumulative_difficulty_top64) =
         split_u128_into_low_high_bits(cumulative_difficulty);
@@ -525,12 +517,10 @@ async fn get_info(
     let rpc_connections_count = if restricted { 0 } else { 0 };
 
     let start_time = if restricted { 0 } else { *START_INSTANT_UNIX };
-    let synchronized = blockchain_manager::synced(&mut state.blockchain_manager).await?;
+    let synchronized = blockchain_manager::synced(todo!()).await?;
 
-    let target_height = blockchain_manager::target_height(&mut state.blockchain_manager).await?;
-    let target = blockchain_manager::target(&mut state.blockchain_manager)
-        .await?
-        .as_secs();
+    let target_height = blockchain_manager::target_height(todo!()).await?;
+    let target = blockchain_manager::target(todo!()).await?.as_secs();
     let top_block_hash = Hex(c.top_hash);
 
     let tx_count = blockchain::total_tx_count(&mut state.blockchain_read).await?;
@@ -739,7 +729,7 @@ async fn flush_transaction_pool(
         .map(|h| h.0)
         .collect::<Vec<[u8; 32]>>();
 
-    txpool::flush(&mut state.txpool_manager, tx_hashes).await?;
+    txpool::flush(todo!(), tx_hashes).await?;
 
     Ok(FlushTransactionPoolResponse { status: Status::Ok })
 }
@@ -808,7 +798,7 @@ async fn get_version(
     _: GetVersionRequest,
 ) -> Result<GetVersionResponse, Error> {
     let current_height = helper::top_height(&mut state).await?.0;
-    let target_height = blockchain_manager::target_height(&mut state.blockchain_manager).await?;
+    let target_height = blockchain_manager::target_height(todo!()).await?;
 
     let mut hard_forks = Vec::with_capacity(HardFork::COUNT);
 
@@ -881,7 +871,7 @@ async fn relay_tx(
         .map(|h| h.0)
         .collect::<Vec<[u8; 32]>>();
 
-    txpool::relay(&mut state.txpool_manager, tx_hashes).await?;
+    txpool::relay(todo!(), tx_hashes).await?;
 
     Ok(RelayTxResponse { status: Status::Ok })
 }
@@ -893,7 +883,7 @@ async fn sync_info(
 ) -> Result<SyncInfoResponse, Error> {
     let height = usize_to_u64(state.blockchain_context.blockchain_context().chain_height);
 
-    let target_height = blockchain_manager::target_height(&mut state.blockchain_manager).await?;
+    let target_height = blockchain_manager::target_height(todo!()).await?;
 
     let peers = address_book::connection_info::<ClearNet>(&mut DummyAddressBook)
         .await?
@@ -901,12 +891,11 @@ async fn sync_info(
         .map(|info| SyncInfoPeer { info })
         .collect();
 
-    let next_needed_pruning_seed =
-        blockchain_manager::next_needed_pruning_seed(&mut state.blockchain_manager)
-            .await?
-            .compress();
+    let next_needed_pruning_seed = blockchain_manager::next_needed_pruning_seed(todo!())
+        .await?
+        .compress();
 
-    let spans = blockchain_manager::spans::<ClearNet>(&mut state.blockchain_manager).await?;
+    let spans = blockchain_manager::spans::<ClearNet>(todo!()).await?;
 
     // <https://github.com/Cuprate/cuprate/pull/320#discussion_r1811063772>
     let overview = String::from(FIELD_NOT_SUPPORTED);
@@ -997,10 +986,8 @@ async fn prune_blockchain(
     mut state: CupratedRpcHandler,
     request: PruneBlockchainRequest,
 ) -> Result<PruneBlockchainResponse, Error> {
-    let pruned = blockchain_manager::pruned(&mut state.blockchain_manager).await?;
-    let pruning_seed = blockchain_manager::prune(&mut state.blockchain_manager)
-        .await?
-        .compress();
+    let pruned = blockchain_manager::pruned(todo!()).await?;
+    let pruning_seed = blockchain_manager::prune(todo!()).await?.compress();
 
     Ok(PruneBlockchainResponse {
         base: helper::response_base(false),

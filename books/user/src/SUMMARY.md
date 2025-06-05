@@ -15,14 +15,16 @@
 - [Command line](cli.md)
 
 - [Resources](resources/intro.md)
+    - [Address](resources/address.md)
     - [Disk](resources/disk.md)
-    - [Ports](resources/ports.md)
-    - [IP](resources/ip.md)
 
 - [Deployment](deployment/intro.md)
     - [systemd](deployment/systemd.md)
 
+- [RPC](rpc.md)
+
 - [Platform support](platform.md)
+
 - [License](license.md)
 
 <!-- TODO: - [Glossary](glossary/intro.md) or maybe a wiki? -->

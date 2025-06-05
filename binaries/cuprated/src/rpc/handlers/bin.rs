@@ -30,7 +30,7 @@ use cuprate_types::{
 };
 
 use crate::rpc::{
-    handlers::{helper, shared},
+    handlers::{helper, shared, shared::not_available},
     service::{blockchain, txpool},
     CupratedRpcHandler,
 };
@@ -44,17 +44,13 @@ pub async fn map_request(
     use BinResponse as Resp;
 
     Ok(match request {
-        Req::GetBlocks(r) => Resp::GetBlocks(get_blocks(state, r).await?),
-        Req::GetBlocksByHeight(r) => Resp::GetBlocksByHeight(get_blocks_by_height(state, r).await?),
-        Req::GetHashes(r) => Resp::GetHashes(get_hashes(state, r).await?),
-        Req::GetOutputIndexes(r) => Resp::GetOutputIndexes(get_output_indexes(state, r).await?),
-        Req::GetOuts(r) => Resp::GetOuts(get_outs(state, r).await?),
-        Req::GetTransactionPoolHashes(r) => {
-            Resp::GetTransactionPoolHashes(get_transaction_pool_hashes(state, r).await?)
-        }
-        Req::GetOutputDistribution(r) => {
-            Resp::GetOutputDistribution(get_output_distribution(state, r).await?)
-        }
+        Req::GetBlocks(r) => Resp::GetBlocks(not_available()?),
+        Req::GetBlocksByHeight(r) => Resp::GetBlocksByHeight(not_available()?),
+        Req::GetHashes(r) => Resp::GetHashes(not_available()?),
+        Req::GetOutputIndexes(r) => Resp::GetOutputIndexes(not_available()?),
+        Req::GetOuts(r) => Resp::GetOuts(not_available()?),
+        Req::GetTransactionPoolHashes(r) => Resp::GetTransactionPoolHashes(not_available()?),
+        Req::GetOutputDistribution(r) => Resp::GetOutputDistribution(not_available()?),
     })
 }
 
