@@ -48,8 +48,10 @@ pub async fn map_request(
         Req::GetBlocksByHeight(r) => Resp::GetBlocksByHeight(not_available()?),
         Req::GetHashes(r) => Resp::GetHashes(get_hashes(state, r).await?),
         Req::GetOutputIndexes(r) => Resp::GetOutputIndexes(not_available()?),
-        Req::GetOuts(r) => Resp::GetOuts(not_available()?),
-        Req::GetTransactionPoolHashes(r) => Resp::GetTransactionPoolHashes(not_available()?),
+        Req::GetOuts(r) => Resp::GetOuts(get_outs(state, r).await?),
+        Req::GetTransactionPoolHashes(r) => {
+            Resp::GetTransactionPoolHashes(get_transaction_pool_hashes(state, r).await?)
+        }
         Req::GetOutputDistribution(r) => Resp::GetOutputDistribution(not_available()?),
     })
 }
