@@ -52,8 +52,9 @@ impl TryFrom<NetworkAddress> for TestNetZoneAddr {
         match value {
             NetworkAddress::Clear(soc) => match soc {
                 SocketAddr::V4(v4) => Ok(Self(u32::from_be_bytes(v4.ip().octets()))),
-                SocketAddr::V6(_) => panic!("None v4 address in test code"),
+                SocketAddr::V6(_) => panic!("Only IPv4 addresses are allowed in test code."),
             },
+            NetworkAddress::Tor(_) => panic!("Only IPv4 addresses are allowed in test code."),
         }
     }
 }

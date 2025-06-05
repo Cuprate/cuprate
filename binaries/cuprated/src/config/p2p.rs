@@ -1,4 +1,5 @@
 use std::{
+    marker::PhantomData,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     path::Path,
     time::Duration,
@@ -10,8 +11,9 @@ use cuprate_helper::{fs::address_book_path, network::Network};
 use cuprate_p2p::config::TransportConfig;
 use cuprate_p2p_core::{
     transports::{Tcp, TcpServerConfig},
-    ClearNet, Transport,
+    ClearNet, NetworkZone, Transport,
 };
+use cuprate_wire::OnionAddr;
 
 use super::macros::config_struct;
 
@@ -266,16 +268,23 @@ impl Default for AddressBookConfig {
 
 impl AddressBookConfig {
     /// Returns the [`cuprate_address_book::AddressBookConfig`].
-    pub fn address_book_config(
+    pub fn address_book_config<Z: NetworkZone>(
         &self,
         cache_dir: &Path,
         network: Network,
-    ) -> cuprate_address_book::AddressBookConfig {
+        our_own_address: Option<Z::Addr>,
+    ) -> cuprate_address_book::AddressBookConfig<Z> {
+        assert!(
+            !Z::BROADCAST_OWN_ADDR && our_own_address.is_some(),
+            "This network DO NOT take an incoming address."
+        );
+
         cuprate_address_book::AddressBookConfig {
             max_white_list_length: self.max_white_list_length,
             max_gray_list_length: self.max_gray_list_length,
             peer_store_directory: address_book_path(cache_dir, network),
             peer_save_period: self.peer_save_period,
+            our_own_address,
         }
     }
 }
@@ -309,6 +318,28 @@ pub fn clear_net_seed_nodes(network: Network) -> Vec<SocketAddr> {
             "77.172.183.193:28080",
         ]
         .as_slice(),
+    };
+
+    seeds
+        .iter()
+        .map(|s| s.parse())
+        .collect::<Result<_, _>>()
+        .unwrap()
+}
+
+/// Seed nodes for `Tor`.
+pub fn tor_net_seed_nodes(network: Network) -> Vec<OnionAddr> {
+    let seeds = match network {
+        Network::Mainnet => [
+            "zbjkbsxc5munw3qusl7j2hpcmikhqocdf4pqhnhtpzw5nt5jrmofptid.onion:18083",
+            "qz43zul2x56jexzoqgkx2trzwcfnr6l3hbtfcfx54g4r3eahy3bssjyd.onion:18083",
+            "plowsof3t5hogddwabaeiyrno25efmzfxyro2vligremt7sxpsclfaid.onion:18083",
+            "plowsoffjexmxalw73tkjmf422gq6575fc7vicuu4javzn2ynnte6tyd.onion:18083",
+            "plowsofe6cleftfmk2raiw5h2x66atrik3nja4bfd3zrfa2hdlgworad.onion:18083",
+            "aclc4e2jhhtr44guufbnwk5bzwhaecinax4yip4wr4tjn27sjsfg6zqd.onion:18083",
+        ]
+        .as_slice(),
+        Network::Stagenet | Network::Testnet => [].as_slice(),
     };
 
     seeds

@@ -28,7 +28,7 @@ pub struct P2PConfig<Z: NetworkZone> {
     pub rpc_port: u16,
 
     /// The [`AddressBookConfig`].
-    pub address_book_config: AddressBookConfig,
+    pub address_book_config: AddressBookConfig<Z>,
 }
 
 /// Configuration part responsible of transportation

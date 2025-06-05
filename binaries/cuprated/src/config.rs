@@ -219,11 +219,11 @@ impl Config {
             gray_peers_percent: self.p2p.clear_net.gray_peers_percent,
             p2p_port: self.p2p.clear_net.p2p_port,
             rpc_port: self.rpc.restricted.port_for_p2p(),
-            address_book_config: self
-                .p2p
-                .clear_net
-                .address_book_config
-                .address_book_config(&self.fs.cache_directory, self.network),
+            address_book_config: self.p2p.clear_net.address_book_config.address_book_config(
+                &self.fs.cache_directory,
+                self.network,
+                None,
+            ),
         }
     }
 
