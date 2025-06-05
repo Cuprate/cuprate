@@ -123,7 +123,7 @@ define_request_and_response! {
         block_ids: ByteArrayVec<32> = default::<ByteArrayVec<32>>(), "default",
         start_height: u64,
         prune: bool,
-        no_miner_tx: bool,
+        no_miner_tx: bool = default::<bool>(), "default",
         pool_info_since: u64 = default::<u64>(), "default",
     },
 
