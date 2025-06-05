@@ -561,7 +561,27 @@ fn outputs_vec(
     outputs: Vec<(Amount, AmountIndex)>,
     get_txid: bool,
 ) -> ResponseResult {
-    Ok(BlockchainResponse::OutputsVec(todo!()))
+    // Prepare tx/tables in `ThreadLocal`.
+    let env_inner = env.env_inner();
+    let tx_ro = thread_local(env);
+    let tables = thread_local(env);
+
+    // Collect results using `rayon`.
+    let outs = outputs
+        .into_par_iter()
+        .map(|(amount, amount_index)| {
+            let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+            let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+            let id = PreRctOutputId {
+                amount,
+                amount_index,
+            };
+
+            id_to_output_on_chain(&id, get_txid, tables)
+        })
+        .collect::<DbResult<_>>()?;
+
+    Ok(BlockchainResponse::OutputsVec(outs))
 }
 
 /// [`BlockchainReadRequest::NumberOutputsWithAmount`].
