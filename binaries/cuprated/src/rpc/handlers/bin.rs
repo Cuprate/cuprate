@@ -75,10 +75,6 @@ async fn get_blocks(
     let block_hashes: Vec<[u8; 32]> = (&block_ids).into();
     drop(block_ids);
 
-    let Some(requested_info) = RequestedInfo::from_u8(request.requested_info) else {
-        return Err(anyhow!("Wrong requested info"));
-    };
-
     let (get_blocks, get_pool) = match requested_info {
         RequestedInfo::BlocksOnly => (true, false),
         RequestedInfo::BlocksAndPool => (true, true),

@@ -239,13 +239,16 @@ fn size(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
 }
 
 /// [`TxpoolReadRequest::PoolInfo`].
-fn pool_info(
+const fn pool_info(
     env: &ConcreteEnv,
     include_sensitive_txs: bool,
     max_tx_count: usize,
     start_time: Option<NonZero<usize>>,
 ) -> ReadResponseResult {
-    Ok(TxpoolReadResponse::PoolInfo(todo!()))
+    // TODO
+    Ok(TxpoolReadResponse::PoolInfo(
+        cuprate_types::rpc::PoolInfo::None,
+    ))
 }
 
 /// [`TxpoolReadRequest::TxsByHash`].

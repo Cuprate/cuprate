@@ -19,7 +19,7 @@ use cuprate_types::{
 use crate::{
     base::AccessResponseBase,
     macros::define_request_and_response,
-    misc::{GetOutputsOut, OutKeyBin},
+    misc::{GetOutputsOut, OutKeyBin, RequestedInfo},
     rpc_call::RpcCallValue,
 };
 
@@ -119,7 +119,7 @@ define_request_and_response! {
     GetBlocks,
 
     Request {
-        requested_info: u8 = default::<u8>(), "default",
+        requested_info: RequestedInfo = default::<RequestedInfo>(), "default",
         block_ids: ByteArrayVec<32> = default::<ByteArrayVec<32>>(), "default",
         start_height: u64,
         prune: bool,
