@@ -177,9 +177,9 @@ async fn get_transactions(
             };
 
             let tx_entry_type = TxEntryType::Blockchain {
-                block_height: tx.block_height,
+                block_height: tx.block_height as u64,
                 block_timestamp: tx.block_timestamp,
-                confirmations: tx.confirmations,
+                confirmations: tx.confirmations as u64,
                 output_indices: tx.output_indices,
                 in_pool: false,
             };

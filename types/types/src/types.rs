@@ -173,9 +173,9 @@ pub struct BlockTemplate {
 /// TODO
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TxInBlockchain {
-    pub block_height: u64,
+    pub block_height: usize,
     pub block_timestamp: u64,
-    pub confirmations: u64,
+    pub confirmations: usize,
     pub output_indices: Vec<u64>,
     pub tx_hash: [u8; 32],
     pub tx_blob: Vec<u8>,

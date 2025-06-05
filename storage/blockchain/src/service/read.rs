@@ -61,6 +61,7 @@ use crate::{
         AltBlockHeight, Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId,
     },
 };
+use crate::ops::tx::get_tx_with_extended_info;
 
 //---------------------------------------------------------------------------------------------------- init_read_service
 /// Initialize the [`BlockchainReadHandle`] thread-pool backed by [`rayon`].
@@ -947,9 +948,25 @@ fn alt_chain_count(env: &ConcreteEnv) -> ResponseResult {
 
 /// [`BlockchainReadRequest::Transactions`]
 fn transactions(env: &ConcreteEnv, tx_hashes: HashSet<[u8; 32]>) -> ResponseResult {
+    // Prepare tx/tables in `ThreadLocal`.
+    let env_inner = env.env_inner();
+    let tx_ro = thread_local(env);
+    let tables = thread_local(env);
+    
+    let (txs, missed_txs) = tx_hashes.into_par_iter().map(|tx_hash| {
+        let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+        let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+        
+        match get_tx_with_extended_info(&tx_hash, tables) {
+            Ok(tx) => Ok(Either::Left(tx)),
+            Err(RuntimeError::KeyNotFound) => Ok(Either::Right(tx_hash)),
+            Err(e) => Err(e),
+        }
+    }).collect::<Result<_, _>>()?;
+    
     Ok(BlockchainResponse::Transactions {
-        txs: todo!(),
-        missed_txs: todo!(),
+        txs,
+        missed_txs,
     })
 }
 

@@ -6,7 +6,7 @@ use monero_serai::transaction::{Input, Timelock, Transaction};
 
 use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableVec};
 use cuprate_helper::crypto::compute_zero_commitment;
-
+use cuprate_types::TxInBlockchain;
 use crate::{
     ops::{
         key_image::{add_key_image, remove_key_image},
@@ -18,6 +18,8 @@ use crate::{
     tables::{TablesMut, TxBlobs, TxIds},
     types::{BlockHeight, Output, OutputFlags, PreRctOutputId, RctOutput, TxHash, TxId},
 };
+use crate::ops::blockchain;
+use crate::tables::Tables;
 
 //---------------------------------------------------------------------------------------------------- Private
 /// Add a [`Transaction`] (and related data) to the database.
@@ -277,6 +279,36 @@ pub fn get_tx_from_id(
 ) -> DbResult<Transaction> {
     let tx_blob = table_tx_blobs.get(tx_id)?.0;
     Ok(Transaction::read(&mut tx_blob.as_slice())?)
+}
+
+/// Retrieve a [`TxInBlockchain`] from the database with its [`TxHash`].
+#[doc = doc_error!()]
+#[inline]
+pub fn get_tx_with_extended_info(
+    tx_hash: &TxHash,
+    tables: &impl Tables,
+) -> DbResult<TxInBlockchain> {
+    let tx_id = tables.tx_ids().get(tx_hash)?;
+    let tx_blob = tables.tx_blobs().get(&tx_id)?.0;
+    
+    let block_height = tables.tx_heights().get(&tx_id)?;
+    let block_timestamp = tables.block_infos().get(&block_height)?.timestamp;
+    
+    let current_height = blockchain::chain_height(tables.block_heights())?;
+    
+    let output_indices = tables.tx_outputs().get(&tx_id)?.0;
+    
+    Ok(TxInBlockchain {
+        block_height,
+        block_timestamp,
+        confirmations: current_height - block_height,
+        output_indices,
+        tx_hash: *tx_hash ,
+        tx_blob,
+        pruned_blob: vec![],
+        prunable_blob: vec![],
+        prunable_hash: [0; 32],
+    })
 }
 
 //----------------------------------------------------------------------------------------------------
