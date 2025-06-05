@@ -320,8 +320,8 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                     state: 2, // TODO: <https://github.com/monero-project/monero/blob/125622d5bdc42cf552be5c25009bd9ab52c0a7ca/src/cryptonote_basic/hardfork.h#L46>
                     threshold: hf_info.threshold().try_into().unwrap(),
                     version: hf.as_u8(),
-                    votes: state.votes.total_votes().try_into().unwrap(),
-                    voting: state.votes.votes_for_hf(&hf).try_into().unwrap(),
+                    votes: state.votes.votes_for_hf(&hf).try_into().unwrap(),
+                    voting: hf.as_u8(),
                     window: state.config.window.try_into().unwrap(),
                 })
             }
