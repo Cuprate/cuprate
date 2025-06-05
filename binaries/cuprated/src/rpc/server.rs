@@ -109,6 +109,8 @@ async fn run_rpc_server(
         .other_get_height()
         .bin_get_blocks()
         .bin_getblocks()
+        .bin_gethashes()
+        .bin_get_hashes()
         .fallback()
         .build()
         .with_state(rpc_handler);
