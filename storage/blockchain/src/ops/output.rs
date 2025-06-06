@@ -7,11 +7,7 @@ use monero_serai::transaction::{Timelock, Transaction};
 use cuprate_database::{
     DbResult, RuntimeError, {DatabaseRo, DatabaseRw},
 };
-use cuprate_helper::{
-    cast::{u32_to_usize, u64_to_usize},
-    crypto::compute_zero_commitment,
-    map::u64_to_timelock,
-};
+use cuprate_helper::cast::u64_to_usize;
 use cuprate_types::OutputOnChain;
 
 use crate::{
@@ -159,9 +155,9 @@ pub fn output_to_output_on_chain(
     amount: Amount,
     get_txid: bool,
     table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
-    table_tx_blobs: &impl DatabaseRo<TxBlobs>,
     table_block_txs_hashes: &impl DatabaseRo<BlockTxsHashes>,
     table_block_infos: &impl DatabaseRo<BlockInfos>,
+    table_tx_blobs: &impl DatabaseRo<TxBlobs>,
 ) -> DbResult<OutputOnChain> {
     let commitment = compute_zero_commitment(amount);
 
@@ -216,9 +212,9 @@ pub fn rct_output_to_output_on_chain(
     rct_output: &RctOutput,
     get_txid: bool,
     table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
-    table_tx_blobs: &impl DatabaseRo<TxBlobs>,
     table_block_txs_hashes: &impl DatabaseRo<BlockTxsHashes>,
     table_block_infos: &impl DatabaseRo<BlockInfos>,
+    table_tx_blobs: &impl DatabaseRo<TxBlobs>,
 ) -> DbResult<OutputOnChain> {
     // INVARIANT: Commitments stored are valid when stored by the database.
     let commitment = CompressedEdwardsY(rct_output.commitment);
@@ -277,9 +273,9 @@ pub fn id_to_output_on_chain(
             &rct_output,
             get_txid,
             tables.tx_unlock_time(),
-            tables.tx_blobs(),
             tables.block_txs_hashes(),
             tables.block_infos(),
+            tables.tx_blobs(),
         )?;
 
         Ok(output_on_chain)
@@ -291,9 +287,9 @@ pub fn id_to_output_on_chain(
             id.amount,
             get_txid,
             tables.tx_unlock_time(),
-            tables.tx_blobs(),
             tables.block_txs_hashes(),
             tables.block_infos(),
+            tables.tx_blobs(),
         )?;
 
         Ok(output_on_chain)
