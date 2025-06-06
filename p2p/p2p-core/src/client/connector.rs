@@ -19,6 +19,7 @@ use crate::{
     AddressBook, BroadcastMessage, ConnectionDirection, CoreSyncSvc, NetworkZone,
     ProtocolRequestHandlerMaker, Transport,
 };
+use crate::client::PeerInformation;
 
 /// A request to connect to a peer.
 pub struct ConnectRequest<Z: NetworkZone> {
@@ -55,7 +56,7 @@ where
     CSync: CoreSyncSvc + Clone,
     ProtoHdlrMkr: ProtocolRequestHandlerMaker<Z> + Clone,
     BrdcstStrm: Stream<Item = BroadcastMessage> + Send + 'static,
-    BrdcstStrmMkr: Fn(InternalPeerID<Z::Addr>) -> BrdcstStrm + Clone + Send + 'static,
+    BrdcstStrmMkr: Fn(PeerInformation<Z::Addr>) -> BrdcstStrm + Clone + Send + 'static,
 {
     type Response = Client<Z>;
     type Error = HandshakeError;
