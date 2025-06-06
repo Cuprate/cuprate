@@ -70,6 +70,8 @@ use core::str::from_utf8 as str_from_utf8;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
 pub mod container_as_blob;
+#[cfg(feature = "debug")]
+pub mod debug;
 pub mod error;
 mod io;
 pub mod macros;
