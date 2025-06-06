@@ -7,7 +7,12 @@ use monero_serai::transaction::{Timelock, Transaction};
 use cuprate_database::{
     DbResult, RuntimeError, {DatabaseRo, DatabaseRw},
 };
-use cuprate_helper::cast::u64_to_usize;
+
+use cuprate_helper::{
+    cast::{u32_to_usize, u64_to_usize},
+    crypto::compute_zero_commitment,
+    map::u64_to_timelock,
+};
 use cuprate_types::OutputOnChain;
 
 use crate::{
