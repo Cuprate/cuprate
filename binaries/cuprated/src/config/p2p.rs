@@ -274,11 +274,6 @@ impl AddressBookConfig {
         network: Network,
         our_own_address: Option<Z::Addr>,
     ) -> cuprate_address_book::AddressBookConfig<Z> {
-        assert!(
-            !Z::BROADCAST_OWN_ADDR && our_own_address.is_some(),
-            "This network DO NOT take an incoming address."
-        );
-
         cuprate_address_book::AddressBookConfig {
             max_white_list_length: self.max_white_list_length,
             max_gray_list_length: self.max_gray_list_length,
