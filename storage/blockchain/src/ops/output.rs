@@ -7,7 +7,6 @@ use monero_serai::transaction::{Timelock, Transaction};
 use cuprate_database::{
     DbResult, RuntimeError, {DatabaseRo, DatabaseRw},
 };
-
 use cuprate_helper::{
     cast::{u32_to_usize, u64_to_usize},
     crypto::compute_zero_commitment,
@@ -16,7 +15,10 @@ use cuprate_helper::{
 use cuprate_types::OutputOnChain;
 
 use crate::{
-    ops::macros::{doc_add_block_inner_invariant, doc_error},
+    ops::{
+        macros::{doc_add_block_inner_invariant, doc_error},
+        tx::get_tx_from_id,
+    },
     tables::{
         BlockInfos, BlockTxsHashes, Outputs, RctOutputs, Tables, TablesMut, TxBlobs, TxUnlockTime,
     },
@@ -183,8 +185,7 @@ pub fn output_to_output_on_chain(
         let miner_tx_id = table_block_infos.get(&height)?.mining_tx_index;
 
         let txid = if miner_tx_id == output.tx_idx {
-            let tx_blob = table_tx_blobs.get(&miner_tx_id)?;
-            Transaction::read(&mut tx_blob.0.as_slice())?.hash()
+            get_tx_from_id(&miner_tx_id, table_tx_blobs)?.hash()
         } else {
             let idx = u64_to_usize(output.tx_idx - miner_tx_id - 1);
             table_block_txs_hashes.get(&height)?[idx]
@@ -241,8 +242,7 @@ pub fn rct_output_to_output_on_chain(
         let miner_tx_id = table_block_infos.get(&height)?.mining_tx_index;
 
         let txid = if miner_tx_id == rct_output.tx_idx {
-            let tx_blob = table_tx_blobs.get(&miner_tx_id)?;
-            Transaction::read(&mut tx_blob.0.as_slice())?.hash()
+            get_tx_from_id(&miner_tx_id, table_tx_blobs)?.hash()
         } else {
             let idx = u64_to_usize(rct_output.tx_idx - miner_tx_id - 1);
             table_block_txs_hashes.get(&height)?[idx]
