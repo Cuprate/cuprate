@@ -2,7 +2,7 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use curve25519_dalek::edwards::CompressedEdwardsY;
-use monero_serai::transaction::{Timelock, Transaction};
+use monero_serai::transaction::Timelock;
 
 use cuprate_database::{
     DbResult, RuntimeError, {DatabaseRo, DatabaseRw},
