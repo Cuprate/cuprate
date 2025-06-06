@@ -174,16 +174,7 @@ pub fn output_to_output_on_chain(
     let key = CompressedEdwardsY(output.key);
 
     let txid = if get_txid {
-        let height = u32_to_usize(output.height);
-        let tx_idx = u64_to_usize(output.tx_idx);
-        let txid = if let Some(hash) = table_block_txs_hashes.get(&height)?.get(tx_idx) {
-            *hash
-        } else {
-            let miner_tx_id = table_block_infos.get(&height)?.mining_tx_index;
-            let tx_blob = table_tx_blobs.get(&miner_tx_id)?;
-            Transaction::read(&mut tx_blob.0.as_slice())?.hash()
-        };
-        Some(txid)
+        Some(crate::ops::tx::get_tx_from_id(&output.tx_idx, table_tx_blobs)?.hash())
     } else {
         None
     };
