@@ -243,7 +243,7 @@ pub async fn outputs_vec(
     blockchain_read: &mut BlockchainReadHandle,
     outputs: Vec<GetOutputsOut>,
     get_txid: bool,
-) -> Result<Vec<(u64, Vec<(u64, OutputOnChain)>)>, Error> {
+) -> Result<Vec<OutputOnChain>, Error> {
     let outputs = outputs
         .into_iter()
         .map(|output| (output.amount, output.index))

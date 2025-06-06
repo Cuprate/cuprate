@@ -13,8 +13,11 @@ use std::{
 
 use rayon::ThreadPool;
 
-use cuprate_database::{ConcreteEnv, DatabaseRo, DbResult, Env, EnvInner, RuntimeError};
+use cuprate_database::{
+    ConcreteEnv, DatabaseIter, DatabaseRo, DbResult, Env, EnvInner, RuntimeError,
+};
 use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
+use cuprate_helper::cast::u64_to_usize;
 
 use crate::{
     ops::{get_transaction_verification_data, in_stem_pool},
@@ -239,13 +242,16 @@ fn size(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
 }
 
 /// [`TxpoolReadRequest::PoolInfo`].
-fn pool_info(
+const fn pool_info(
     env: &ConcreteEnv,
     include_sensitive_txs: bool,
     max_tx_count: usize,
     start_time: Option<NonZero<usize>>,
 ) -> ReadResponseResult {
-    Ok(TxpoolReadResponse::PoolInfo(todo!()))
+    // TODO
+    Ok(TxpoolReadResponse::PoolInfo(
+        cuprate_types::rpc::PoolInfo::None,
+    ))
 }
 
 /// [`TxpoolReadRequest::TxsByHash`].
@@ -290,5 +296,27 @@ fn pool_stats(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseRes
 
 /// [`TxpoolReadRequest::AllHashes`].
 fn all_hashes(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
-    Ok(TxpoolReadResponse::AllHashes(todo!()))
+    let inner_env = env.env_inner();
+    let tx_ro = inner_env.tx_ro()?;
+
+    let table = inner_env.open_db_ro::<TransactionInfos>(&tx_ro)?;
+
+    let mut txs = Vec::with_capacity(u64_to_usize(table.len()?));
+
+    if include_sensitive_txs {
+        for result in table.keys()? {
+            let txid = result?;
+            txs.push(txid);
+        }
+    } else {
+        for result in table.iter()? {
+            let (txid, info) = result?;
+            // TODO: keep track of sensitive transactions
+            if false {
+                txs.push(txid);
+            }
+        }
+    }
+
+    Ok(TxpoolReadResponse::AllHashes(txs))
 }

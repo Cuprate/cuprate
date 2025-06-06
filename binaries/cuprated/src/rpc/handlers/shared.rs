@@ -54,23 +54,21 @@ pub(super) async fn get_outs(
     let mut outs = Vec::<OutKeyBin>::with_capacity(outputs.len());
     let blockchain_ctx = state.blockchain_context.blockchain_context();
 
-    for (_, index_vec) in outputs {
-        for (_, out) in index_vec {
-            let out_key = OutKeyBin {
-                key: out.key.0,
-                mask: out.commitment.0,
-                unlocked: cuprate_consensus_rules::transactions::output_unlocked(
-                    &out.time_lock,
-                    blockchain_ctx.chain_height,
-                    blockchain_ctx.current_adjusted_timestamp_for_time_lock(),
-                    blockchain_ctx.current_hf,
-                ),
-                height: usize_to_u64(out.height),
-                txid: out.txid.unwrap_or_default(),
-            };
+    for out in outputs {
+        let out_key = OutKeyBin {
+            key: out.key.0,
+            mask: out.commitment.0,
+            unlocked: cuprate_consensus_rules::transactions::output_unlocked(
+                &out.time_lock,
+                blockchain_ctx.chain_height,
+                blockchain_ctx.current_adjusted_timestamp_for_time_lock(),
+                blockchain_ctx.current_hf,
+            ),
+            height: usize_to_u64(out.height),
+            txid: out.txid.unwrap_or_default(),
+        };
 
-            outs.push(out_key);
-        }
+        outs.push(out_key);
     }
 
     Ok(GetOutsResponse {

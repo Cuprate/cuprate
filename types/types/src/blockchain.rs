@@ -312,7 +312,7 @@ pub enum BlockchainResponse {
     Outputs(OutputCache),
 
     /// Response to [`BlockchainReadRequest::OutputsVec`].
-    OutputsVec(Vec<(u64, Vec<(u64, OutputOnChain)>)>),
+    OutputsVec(Vec<OutputOnChain>),
 
     /// Response to [`BlockchainReadRequest::NumberOutputsWithAmount`].
     ///

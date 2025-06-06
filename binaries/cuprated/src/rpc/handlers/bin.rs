@@ -44,12 +44,14 @@ pub async fn map_request(
     use BinResponse as Resp;
 
     Ok(match request {
-        Req::GetBlocks(r) => Resp::GetBlocks(not_available()?),
+        Req::GetBlocks(r) => Resp::GetBlocks(get_blocks(state, r).await?),
         Req::GetBlocksByHeight(r) => Resp::GetBlocksByHeight(not_available()?),
-        Req::GetHashes(r) => Resp::GetHashes(not_available()?),
+        Req::GetHashes(r) => Resp::GetHashes(get_hashes(state, r).await?),
         Req::GetOutputIndexes(r) => Resp::GetOutputIndexes(not_available()?),
-        Req::GetOuts(r) => Resp::GetOuts(not_available()?),
-        Req::GetTransactionPoolHashes(r) => Resp::GetTransactionPoolHashes(not_available()?),
+        Req::GetOuts(r) => Resp::GetOuts(get_outs(state, r).await?),
+        Req::GetTransactionPoolHashes(r) => {
+            Resp::GetTransactionPoolHashes(get_transaction_pool_hashes(state, r).await?)
+        }
         Req::GetOutputDistribution(r) => Resp::GetOutputDistribution(not_available()?),
     })
 }
@@ -74,10 +76,6 @@ async fn get_blocks(
 
     let block_hashes: Vec<[u8; 32]> = (&block_ids).into();
     drop(block_ids);
-
-    let Some(requested_info) = RequestedInfo::from_u8(request.requested_info) else {
-        return Err(anyhow!("Wrong requested info"));
-    };
 
     let (get_blocks, get_pool) = match requested_info {
         RequestedInfo::BlocksOnly => (true, false),

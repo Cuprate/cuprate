@@ -12,7 +12,7 @@ use tower::ServiceExt;
 use tracing::Instrument;
 
 use cuprate_consensus_rules::blocks::ContextToVerifyBlock;
-use cuprate_helper::cast::u64_to_usize;
+use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain, HardFork,
@@ -307,8 +307,25 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                 self.alt_chain_cache_map.add_alt_cache(cache);
                 BlockChainContextResponse::Ok
             }
-            BlockChainContextRequest::HardForkInfo(_)
-            | BlockChainContextRequest::FeeEstimate { .. }
+            BlockChainContextRequest::HardForkInfo(hf) => {
+                let state = &self.hardfork_state;
+
+                let hf_info = state.config.info.info_for_hf(&hf);
+
+                BlockChainContextResponse::HardForkInfo(cuprate_types::rpc::HardForkInfo {
+                    earliest_height: usize_to_u64(
+                        state.config.info.get_earliest_ideal_height_for_version(hf),
+                    ),
+                    enabled: state.current_hardfork == hf,
+                    state: 2, // TODO: <https://github.com/monero-project/monero/blob/125622d5bdc42cf552be5c25009bd9ab52c0a7ca/src/cryptonote_basic/hardfork.h#L46>
+                    threshold: hf_info.threshold().try_into().unwrap(),
+                    version: hf.as_u8(),
+                    votes: state.votes.votes_for_hf(&hf).try_into().unwrap(),
+                    voting: hf.as_u8(),
+                    window: state.config.window.try_into().unwrap(),
+                })
+            }
+            BlockChainContextRequest::FeeEstimate { .. }
             | BlockChainContextRequest::AltChains
             | BlockChainContextRequest::CalculatePow { .. } => {
                 todo!("finish https://github.com/Cuprate/cuprate/pull/297")
