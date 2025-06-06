@@ -15,10 +15,7 @@ use cuprate_helper::{
 use cuprate_types::OutputOnChain;
 
 use crate::{
-    ops::{
-        macros::{doc_add_block_inner_invariant, doc_error},
-        tx::get_tx_from_id,
-    },
+    ops::macros::{doc_add_block_inner_invariant, doc_error},
     tables::{
         BlockInfos, BlockTxsHashes, Outputs, RctOutputs, Tables, TablesMut, TxBlobs, TxUnlockTime,
     },
