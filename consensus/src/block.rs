@@ -257,7 +257,7 @@ pub async fn verify_prepped_main_chain_block<D>(
 where
     D: Database + Clone + Send + 'static,
 {
-    let context = context_svc.blockchain_context();
+    let context = context_svc.blockchain_context().clone();
 
     tracing::debug!("verifying block: {}", hex::encode(prepped_block.block_hash));
 
@@ -278,14 +278,7 @@ where
         let temp = start_tx_verification()
             .append_prepped_txs(mem::take(&mut txs))
             .prepare()?
-            .full(
-                context.chain_height,
-                context.top_hash,
-                context.current_adjusted_timestamp_for_time_lock(),
-                context.current_hf,
-                database,
-                batch_prep_cache.as_deref(),
-            )
+            .full(context_svc, database, batch_prep_cache.as_deref())
             .verify()
             .await?;
 

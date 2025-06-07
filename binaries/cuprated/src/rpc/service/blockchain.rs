@@ -266,7 +266,7 @@ pub async fn number_outputs_with_amount(
     blockchain_read: &mut BlockchainReadHandle,
     output_amounts: Vec<u64>,
 ) -> Result<HashMap<u64, usize>, Error> {
-    let BlockchainResponse::NumberOutputsWithAmount(map) = blockchain_read
+    let BlockchainResponse::NumberOutputsWithAmount(map, _) = blockchain_read
         .ready()
         .await?
         .call(BlockchainReadRequest::NumberOutputsWithAmount(

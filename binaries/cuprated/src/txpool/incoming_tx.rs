@@ -182,20 +182,11 @@ async fn handle_incoming_txs(
     let (txs, stem_pool_txs, txs_being_handled_guard) =
         prepare_incoming_txs(txs, txs_being_handled, &mut txpool_read_handle).await?;
 
-    let context = blockchain_context_cache.blockchain_context();
-
     let txs = start_tx_verification()
         .append_prepped_txs(txs)
         .prepare()
         .map_err(|e| IncomingTxError::Consensus(e.into()))?
-        .full(
-            context.chain_height,
-            context.top_hash,
-            context.current_adjusted_timestamp_for_time_lock(),
-            context.current_hf,
-            blockchain_read_handle,
-            None,
-        )
+        .full(&mut blockchain_context_cache, blockchain_read_handle, None)
         .verify()
         .await
         .map_err(IncomingTxError::Consensus)?;
@@ -203,7 +194,7 @@ async fn handle_incoming_txs(
     for tx in txs {
         // TODO: this could be a DoS, if someone spams us with txs that violate these rules?
         // Maybe we should remember these invalid txs for some time to prevent them getting repeatedly sent.
-        if let Err(e) = check_tx_relay_rules(&tx, context) {
+        if let Err(e) = check_tx_relay_rules(&tx, blockchain_context_cache.blockchain_context()) {
             tracing::debug!(err = %e, tx = hex::encode(tx.tx_hash), "Tx failed relay check, skipping.");
 
             continue;

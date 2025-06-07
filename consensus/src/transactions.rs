@@ -31,6 +31,7 @@ use monero_serai::transaction::{Input, Timelock, Transaction};
 use rayon::prelude::*;
 use tower::ServiceExt;
 
+use cuprate_consensus_context::BlockchainContextService;
 use cuprate_consensus_rules::{
     transactions::{
         check_decoy_info, check_transaction_contextual, check_transaction_semantic,
@@ -150,21 +151,15 @@ impl VerificationWanted {
     ///
     /// Fully verify the transactions, all checks will be performed, if they were already performed then they
     /// won't be done again unless necessary.
-    pub fn full<D: Database>(
+    pub fn full<'a, 'b, D: Database>(
         self,
-        current_chain_height: usize,
-        top_hash: [u8; 32],
-        time_for_time_lock: u64,
-        hf: HardFork,
+        blockchain_context_service: &'a mut BlockchainContextService,
         database: D,
-        batch_prep_cache: Option<&BatchPrepareCache>,
-    ) -> FullVerification<D> {
+        batch_prep_cache: Option<&'b BatchPrepareCache>,
+    ) -> FullVerification<'a, 'b, D> {
         FullVerification {
             prepped_txs: self.prepped_txs,
-            current_chain_height,
-            top_hash,
-            time_for_time_lock,
-            hf,
+            blockchain_context_service,
             database,
             batch_prep_cache,
         }
@@ -212,70 +207,82 @@ impl SemanticVerification {
 /// Full transaction verification.
 ///
 /// [`VerificationWanted::full`]
-pub struct FullVerification<'a, D> {
+pub struct FullVerification<'a, 'b, D> {
     prepped_txs: Vec<TransactionVerificationData>,
 
-    current_chain_height: usize,
-    top_hash: [u8; 32],
-    time_for_time_lock: u64,
-    hf: HardFork,
+    blockchain_context_service: &'a mut BlockchainContextService,
     database: D,
-    batch_prep_cache: Option<&'a BatchPrepareCache>,
+    batch_prep_cache: Option<&'b BatchPrepareCache>,
 }
 
-impl<D: Database + Clone> FullVerification<'_, D> {
+impl<D: Database + Clone> FullVerification<'_, '_, D> {
     /// Fully verify each transaction.
     pub async fn verify(
         mut self,
     ) -> Result<Vec<TransactionVerificationData>, ExtendedConsensusError> {
-        if self
-            .batch_prep_cache
-            .is_none_or(|c| !c.key_images_spent_checked)
-        {
-            check_kis_unique(self.prepped_txs.iter(), &mut self.database).await?;
-        }
+        loop {
+            let context = self.blockchain_context_service.blockchain_context().clone();
 
-        let hashes_in_main_chain =
-            hashes_referenced_in_main_chain(&self.prepped_txs, &mut self.database).await?;
+            if self
+                .batch_prep_cache
+                .is_none_or(|c| !c.key_images_spent_checked)
+            {
+                check_kis_unique(self.prepped_txs.iter(), &mut self.database).await?;
+            }
 
-        let (verification_needed, any_v1_decoy_check_needed) = verification_needed(
-            &self.prepped_txs,
-            &hashes_in_main_chain,
-            self.hf,
-            self.current_chain_height,
-            self.time_for_time_lock,
-        )?;
+            let hashes_in_main_chain =
+                hashes_referenced_in_main_chain(&self.prepped_txs, &mut self.database).await?;
 
-        if any_v1_decoy_check_needed {
-            verify_transactions_decoy_info(
-                self.prepped_txs
-                    .iter()
-                    .zip(verification_needed.iter())
-                    .filter_map(|(tx, needed)| {
-                        if *needed == VerificationNeeded::V1DecoyCheck {
-                            Some(tx)
-                        } else {
-                            None
-                        }
-                    }),
-                self.hf,
+            let (verification_needed, any_v1_decoy_check_needed) = verification_needed(
+                &self.prepped_txs,
+                &hashes_in_main_chain,
+                context.current_hf,
+                context.chain_height,
+                context.current_adjusted_timestamp_for_time_lock(),
+            )?;
+
+            if any_v1_decoy_check_needed {
+                let sync_state = verify_transactions_decoy_info(
+                    self.prepped_txs
+                        .iter()
+                        .zip(verification_needed.iter())
+                        .filter_map(|(tx, needed)| {
+                            if *needed == VerificationNeeded::V1DecoyCheck {
+                                Some(tx)
+                            } else {
+                                None
+                            }
+                        }),
+                    context.top_hash,
+                    context.current_hf,
+                    self.database.clone(),
+                    self.batch_prep_cache.map(|c| &c.output_cache),
+                )
+                .await?;
+
+                if sync_state == SyncState::OutOfSync {
+                    continue;
+                }
+            }
+
+            let (txs, sync_state) = verify_transactions(
+                self.prepped_txs,
+                verification_needed,
+                context.chain_height,
+                context.top_hash,
+                context.current_adjusted_timestamp_for_time_lock(),
+                context.current_hf,
                 self.database.clone(),
                 self.batch_prep_cache.map(|c| &c.output_cache),
             )
             .await?;
-        }
 
-        verify_transactions(
-            self.prepped_txs,
-            verification_needed,
-            self.current_chain_height,
-            self.top_hash,
-            self.time_for_time_lock,
-            self.hf,
-            self.database,
-            self.batch_prep_cache.map(|c| &c.output_cache),
-        )
-        .await
+            if sync_state == SyncState::InSync {
+                return Ok(txs);
+            }
+
+            self.prepped_txs = txs;
+        }
     }
 }
 
@@ -439,23 +446,36 @@ fn verification_needed(
     Ok((verification_needed, any_v1_decoy_checks))
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum SyncState {
+    OutOfSync,
+    InSync,
+}
+
 /// Do [`VerificationNeeded::V1DecoyCheck`] on each tx passed in.
 async fn verify_transactions_decoy_info<D: Database>(
     txs: impl Iterator<Item = &TransactionVerificationData> + Clone,
+    top_hash: [u8; 32],
     hf: HardFork,
     database: D,
     output_cache: Option<&OutputCache>,
-) -> Result<(), ExtendedConsensusError> {
+) -> Result<SyncState, ExtendedConsensusError> {
     // Decoy info is not validated for V1 txs.
     if hf == HardFork::V1 {
-        return Ok(());
+        return Ok(SyncState::InSync);
     }
 
-    batch_get_decoy_info(txs, hf, database, output_cache)
-        .await?
+    let (mut decoy_infos, sync_state) =
+        batch_get_decoy_info(txs, top_hash, hf, database, output_cache).await?;
+
+    if sync_state == SyncState::OutOfSync {
+        return Ok(SyncState::OutOfSync);
+    }
+
+    decoy_infos
         .try_for_each(|decoy_info| decoy_info.and_then(|di| Ok(check_decoy_info(&di, hf)?)))?;
 
-    Ok(())
+    Ok(SyncState::InSync)
 }
 
 /// Do [`VerificationNeeded::Contextual`] or [`VerificationNeeded::SemanticAndContextual`].
@@ -473,7 +493,7 @@ async fn verify_transactions<D>(
     hf: HardFork,
     database: D,
     output_cache: Option<&OutputCache>,
-) -> Result<Vec<TransactionVerificationData>, ExtendedConsensusError>
+) -> Result<(Vec<TransactionVerificationData>, SyncState), ExtendedConsensusError>
 where
     D: Database,
 {
@@ -486,16 +506,21 @@ where
         )
     }
 
-    let txs_ring_member_info = batch_get_ring_member_info(
+    let (txs_ring_member_info, sync_state) = batch_get_ring_member_info(
         txs.iter()
             .zip(verification_needed.iter())
             .filter(tx_filter)
             .map(|(tx, _)| tx),
+        top_hash,
         hf,
         database,
         output_cache,
     )
     .await?;
+
+    if sync_state == SyncState::OutOfSync {
+        return Ok((txs, SyncState::OutOfSync));
+    }
 
     rayon_spawn_async(move || {
         let batch_verifier = MultiThreadedBatchVerifier::new(rayon::current_num_threads());
@@ -575,7 +600,7 @@ where
                 }
             });
 
-        Ok(txs)
+        Ok((txs, SyncState::InSync))
     })
     .await
 }
