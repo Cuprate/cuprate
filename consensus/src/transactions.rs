@@ -562,17 +562,19 @@ where
         }
 
         txs.iter_mut()
+            .map(|tx| {
+                tx.cached_verification_state = CachedVerificationState::ValidAtHashAndHF {
+                    block_hash: top_hash,
+                    hf,
+                };
+
+                tx
+            })
             .zip(verification_needed.iter())
             .filter(tx_filter)
             .zip(txs_ring_member_info)
             .for_each(|((tx, _), ring)| {
-                tx.cached_verification_state = if ring.time_locked_outs.is_empty() {
-                    // no outputs with time-locks used.
-                    CachedVerificationState::ValidAtHashAndHF {
-                        block_hash: top_hash,
-                        hf,
-                    }
-                } else {
+                if !ring.time_locked_outs.is_empty() {
                     // an output with a time-lock was used, check if it was time-based.
                     let youngest_timebased_lock = ring
                         .time_locked_outs
@@ -585,17 +587,12 @@ where
 
                     if let Some(time) = youngest_timebased_lock {
                         // time-based lock used.
-                        CachedVerificationState::ValidAtHashAndHFWithTimeBasedLock {
-                            block_hash: top_hash,
-                            hf,
-                            time_lock: Timelock::Time(*time),
-                        }
-                    } else {
-                        // no time-based locked output was used.
-                        CachedVerificationState::ValidAtHashAndHF {
-                            block_hash: top_hash,
-                            hf,
-                        }
+                        tx.cached_verification_state =
+                            CachedVerificationState::ValidAtHashAndHFWithTimeBasedLock {
+                                block_hash: top_hash,
+                                hf,
+                                time_lock: Timelock::Time(*time),
+                            }
                     }
                 }
             });

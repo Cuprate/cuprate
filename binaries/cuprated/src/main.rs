@@ -45,7 +45,6 @@ mod killswitch;
 mod logging;
 mod p2p;
 mod rpc;
-mod signals;
 mod statics;
 mod txpool;
 mod version;

@@ -40,7 +40,6 @@ use crate::{
     config::TxpoolConfig,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     p2p::CrossNetworkInternalPeerId,
-    signals::REORG_LOCK,
     txpool::{
         dandelion::{self, DiffuseService},
         manager::{start_txpool_manager, TxpoolManagerHandle},
@@ -120,9 +119,14 @@ impl IncomingTxHandler {
             promote_tx,
         );
 
+        let blockchain_read_handle =
+            ConsensusBlockchainReadHandle::new(blockchain_read_handle, BoxError::from);
+
         let txpool_manager = start_txpool_manager(
             txpool_write_handle,
             txpool_read_handle.clone(),
+            blockchain_context_cache.clone(),
+            blockchain_read_handle.clone(),
             promote_rx,
             diffuse_service,
             dandelion_pool_manager.clone(),
@@ -136,10 +140,7 @@ impl IncomingTxHandler {
             dandelion_pool_manager,
             txpool_manager,
             txpool_read_handle,
-            blockchain_read_handle: ConsensusBlockchainReadHandle::new(
-                blockchain_read_handle,
-                BoxError::from,
-            ),
+            blockchain_read_handle,
         }
     }
 }
@@ -177,8 +178,6 @@ async fn handle_incoming_txs(
     mut txpool_manager_handle: TxpoolManagerHandle,
     mut dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
 ) -> Result<(), IncomingTxError> {
-    let _reorg_guard = REORG_LOCK.read().await;
-
     let (txs, stem_pool_txs, txs_being_handled_guard) =
         prepare_incoming_txs(txs, txs_being_handled, &mut txpool_read_handle).await?;
 
