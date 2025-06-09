@@ -1,5 +1,8 @@
 use std::time::Duration;
 
+use tokio::sync::mpsc;
+use tokio_util::sync::PollSender;
+
 use cuprate_dandelion_tower::{
     pool::DandelionPoolService, DandelionConfig, DandelionRouter, Graph,
 };
@@ -16,6 +19,8 @@ mod diffuse_service;
 mod stem_service;
 mod tx_store;
 
+pub use diffuse_service::DiffuseService;
+
 /// The configuration used for [`cuprate_dandelion_tower`].
 ///
 /// TODO: should we expose this to users of cuprated? probably not.
@@ -29,7 +34,7 @@ const DANDELION_CONFIG: DandelionConfig = DandelionConfig {
 /// A [`DandelionRouter`] with all generic types defined.
 type ConcreteDandelionRouter = DandelionRouter<
     stem_service::OutboundPeerStream,
-    diffuse_service::DiffuseService,
+    DiffuseService,
     CrossNetworkInternalPeerId,
     stem_service::StemPeerService<ClearNet>,
     DandelionTx,
@@ -39,7 +44,7 @@ type ConcreteDandelionRouter = DandelionRouter<
 pub fn start_dandelion_pool_manager(
     router: ConcreteDandelionRouter,
     txpool_read_handle: TxpoolReadHandle,
-    txpool_write_handle: TxpoolWriteHandle,
+    promote_tx: mpsc::Sender<[u8; 32]>,
 ) -> DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId> {
     cuprate_dandelion_tower::pool::start_dandelion_pool_manager(
         // TODO: make this constant configurable?
@@ -47,7 +52,7 @@ pub fn start_dandelion_pool_manager(
         router,
         tx_store::TxStoreService {
             txpool_read_handle,
-            txpool_write_handle,
+            promote_tx: PollSender::new(promote_tx),
         },
         DANDELION_CONFIG,
     )
@@ -56,7 +61,7 @@ pub fn start_dandelion_pool_manager(
 /// Creates a [`DandelionRouter`] from a [`NetworkInterface`].
 pub fn dandelion_router(clear_net: NetworkInterface<ClearNet>) -> ConcreteDandelionRouter {
     DandelionRouter::new(
-        diffuse_service::DiffuseService {
+        DiffuseService {
             clear_net_broadcast_service: clear_net.broadcast_svc(),
         },
         stem_service::OutboundPeerStream::new(clear_net),
