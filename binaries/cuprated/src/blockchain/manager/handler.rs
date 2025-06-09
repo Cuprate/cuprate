@@ -34,7 +34,6 @@ use cuprate_types::{
 use crate::{
     blockchain::manager::commands::{BlockchainManagerCommand, IncomingBlockOk},
     constants::PANIC_CRITICAL_SERVICE_ERROR,
-    signals::REORG_LOCK,
 };
 
 impl super::BlockchainManager {
@@ -400,8 +399,6 @@ impl super::BlockchainManager {
         &mut self,
         top_alt_block: AltBlockInformation,
     ) -> Result<(), anyhow::Error> {
-        let _guard = REORG_LOCK.write().await;
-
         let BlockchainResponse::AltBlocksInChain(mut alt_blocks) = self
             .blockchain_read_handle
             .ready()
@@ -611,6 +608,8 @@ impl super::BlockchainManager {
         self.add_valid_block_to_blockchain_cache(&verified_block)
             .await;
 
+        let block_hash = verified_block.block_hash;
+
         self.blockchain_write_handle
             .ready()
             .await
@@ -619,11 +618,8 @@ impl super::BlockchainManager {
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
 
-        self.txpool_write_handle
-            .ready()
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
-            .call(TxpoolWriteRequest::NewBlock { spent_key_images })
+        self.txpool_manager_handle
+            .new_block(spent_key_images, block_hash)
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
     }

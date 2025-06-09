@@ -1,7 +1,12 @@
-use std::task::{Context, Poll};
+use std::{
+    future::ready,
+    task::{Context, Poll},
+};
 
 use bytes::Bytes;
 use futures::{future::BoxFuture, FutureExt};
+use tokio::sync::mpsc;
+use tokio_util::sync::PollSender;
 use tower::{Service, ServiceExt};
 
 use cuprate_dandelion_tower::{
@@ -21,7 +26,7 @@ use super::{DandelionTx, TxId};
 /// This is just mapping the interface [`cuprate_dandelion_tower`] wants to what [`cuprate_txpool`] provides.
 pub struct TxStoreService {
     pub txpool_read_handle: TxpoolReadHandle,
-    pub txpool_write_handle: TxpoolWriteHandle,
+    pub promote_tx: PollSender<[u8; 32]>,
 }
 
 impl Service<TxStoreRequest<TxId>> for TxStoreService {
@@ -29,8 +34,8 @@ impl Service<TxStoreRequest<TxId>> for TxStoreService {
     type Error = tower::BoxError;
     type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
 
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.promote_tx.poll_reserve(cx).map_err(Into::into)
     }
 
     fn call(&mut self, req: TxStoreRequest<TxId>) -> Self::Future {
@@ -60,15 +65,13 @@ impl Service<TxStoreRequest<TxId>> for TxStoreService {
                     Ok(_) => unreachable!(),
                 })
                 .boxed(),
-            TxStoreRequest::Promote(tx_id) => self
-                .txpool_write_handle
-                .clone()
-                .oneshot(TxpoolWriteRequest::Promote(tx_id))
-                .map(|res| match res {
-                    Ok(_) | Err(RuntimeError::KeyNotFound) => Ok(TxStoreResponse::Ok),
-                    Err(e) => Err(e.into()),
-                })
-                .boxed(),
+            TxStoreRequest::Promote(tx_id) => ready(
+                self.promote_tx
+                    .send_item(tx_id)
+                    .map_err(Into::into)
+                    .map(|()| TxStoreResponse::Ok),
+            )
+            .boxed(),
         }
     }
 }
