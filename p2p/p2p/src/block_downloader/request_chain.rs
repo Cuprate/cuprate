@@ -79,7 +79,7 @@ pub(crate) async fn request_chain_entry_from_peer<N: NetworkZone>(
 ///
 /// We then wait for their response and choose the peer who claims the highest cumulative difficulty.
 #[instrument(level = "error", skip_all)]
-pub async fn initial_chain_search<N: NetworkZone, C>(
+pub(super) async fn initial_chain_search<N: NetworkZone, C>(
     peer_set: &mut BoxCloneService<PeerSetRequest, PeerSetResponse<N>, tower::BoxError>,
     mut our_chain_svc: C,
 ) -> Result<ChainTracker<N>, BlockDownloadError>

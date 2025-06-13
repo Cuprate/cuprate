@@ -28,7 +28,7 @@ use crate::{
     fields(addr = %peer_information.id),
     skip_all,
 )]
-pub async fn connection_timeout_monitor_task<N: NetworkZone, AdrBook, CSync>(
+pub(super) async fn connection_timeout_monitor_task<N: NetworkZone, AdrBook, CSync>(
     peer_information: PeerInformation<N::Addr>,
 
     connection_tx: mpsc::Sender<ConnectionTaskRequest>,
