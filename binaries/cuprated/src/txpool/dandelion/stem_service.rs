@@ -12,38 +12,39 @@ use cuprate_dandelion_tower::{traits::StemRequest, OutboundPeer};
 use cuprate_p2p::{ClientDropGuard, NetworkInterface, PeerSetRequest, PeerSetResponse};
 use cuprate_p2p_core::{
     client::{Client, InternalPeerID},
-    BroadcastMessage, ClearNet, NetworkZone, PeerRequest, ProtocolRequest,
+    BroadcastMessage, ClearNet, NetworkZone, PeerRequest, ProtocolRequest, Tor,
 };
 use cuprate_wire::protocol::NewTransactions;
 
 use crate::{p2p::CrossNetworkInternalPeerId, txpool::dandelion::DandelionTx};
 
 /// The dandelion outbound peer stream.
-pub struct OutboundPeerStream {
-    clear_net: NetworkInterface<ClearNet>,
-    state: OutboundPeerStreamState,
+pub struct OutboundPeerStream<Z: NetworkZone> {
+    network_interface: NetworkInterface<Z>,
+    state: OutboundPeerStreamState<Z>,
 }
 
-impl OutboundPeerStream {
-    pub const fn new(clear_net: NetworkInterface<ClearNet>) -> Self {
+impl<Z: NetworkZone> OutboundPeerStream<Z> {
+    pub const fn new(network_interface: NetworkInterface<Z>) -> Self {
         Self {
-            clear_net,
+            network_interface,
             state: OutboundPeerStreamState::Standby,
         }
     }
 }
 
-impl Stream for OutboundPeerStream {
-    type Item = Result<
-        OutboundPeer<CrossNetworkInternalPeerId, StemPeerService<ClearNet>>,
-        tower::BoxError,
-    >;
+impl<Z: NetworkZone> Stream for OutboundPeerStream<Z>
+where
+    InternalPeerID<Z::Addr>: Into<CrossNetworkInternalPeerId>,
+{
+    type Item =
+        Result<OutboundPeer<CrossNetworkInternalPeerId, StemPeerService<Z>>, tower::BoxError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
             match &mut self.state {
                 OutboundPeerStreamState::Standby => {
-                    let peer_set = self.clear_net.peer_set();
+                    let peer_set = self.network_interface.peer_set();
                     let res = ready!(peer_set.poll_ready(cx));
 
                     self.state = OutboundPeerStreamState::AwaitingPeer(
@@ -61,10 +62,9 @@ impl Stream for OutboundPeerStream {
                         };
 
                         match stem_peer {
-                            Some(peer) => OutboundPeer::Peer(
-                                CrossNetworkInternalPeerId::ClearNet(peer.info.id),
-                                StemPeerService(peer),
-                            ),
+                            Some(peer) => {
+                                OutboundPeer::Peer(peer.info.id.into(), StemPeerService(peer))
+                            }
                             None => OutboundPeer::Exhausted,
                         }
                     })));
@@ -75,11 +75,11 @@ impl Stream for OutboundPeerStream {
 }
 
 /// The state of the [`OutboundPeerStream`].
-enum OutboundPeerStreamState {
+enum OutboundPeerStreamState<Z: NetworkZone> {
     /// Standby state.
     Standby,
     /// Awaiting a response from the peer-set.
-    AwaitingPeer(BoxFuture<'static, Result<PeerSetResponse<ClearNet>, tower::BoxError>>),
+    AwaitingPeer(BoxFuture<'static, Result<PeerSetResponse<Z>, tower::BoxError>>),
 }
 
 /// The stem service, used to send stem txs.

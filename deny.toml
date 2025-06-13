@@ -101,6 +101,7 @@ ignore = [
 allow = [
     # Nothing required - free to use without permission.
     "CC0-1.0", # https://creativecommons.org/publicdomain/zero/1.0/
+    "Unlicense",
 
     # Must include copyright notice.
     "BSD-2-Clause", # https://tldrlegal.com/license/bsd-2-clause-license-(freebsd)
