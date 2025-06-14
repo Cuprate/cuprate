@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use rayon::ThreadPool;
 
-use cuprate_database::{ConcreteEnv, InitError};
+use cuprate_database::InitError;
 
 use crate::{
     service::{
@@ -25,7 +25,7 @@ use crate::{
 /// This will forward the error if [`crate::open`] failed.
 pub fn init(
     config: Config,
-) -> Result<(TxpoolReadHandle, TxpoolWriteHandle, Arc<ConcreteEnv>), InitError> {
+) -> Result<(TxpoolReadHandle, TxpoolWriteHandle), InitError> {
     let reader_threads = config.reader_threads;
 
     // Initialize the database itself.
@@ -35,7 +35,7 @@ pub fn init(
     let readers = init_read_service(Arc::clone(&db), reader_threads);
     let writer = init_write_service(Arc::clone(&db));
 
-    Ok((readers, writer, db))
+    Ok((readers, writer))
 }
 
 #[cold]
@@ -53,7 +53,7 @@ pub fn init(
 pub fn init_with_pool(
     config: Config,
     pool: Arc<ThreadPool>,
-) -> Result<(TxpoolReadHandle, TxpoolWriteHandle, Arc<ConcreteEnv>), InitError> {
+) -> Result<(TxpoolReadHandle, TxpoolWriteHandle), InitError> {
     // Initialize the database itself.
     let db = Arc::new(crate::open(config)?);
 
@@ -61,5 +61,5 @@ pub fn init_with_pool(
     let readers = init_read_service_with_pool(Arc::clone(&db), pool);
     let writer = init_write_service(Arc::clone(&db));
 
-    Ok((readers, writer, db))
+    Ok((readers, writer))
 }

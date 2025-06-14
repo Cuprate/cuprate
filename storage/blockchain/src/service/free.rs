@@ -16,6 +16,17 @@ use crate::{
 };
 
 //---------------------------------------------------------------------------------------------------- Init
+fn init_with_db(
+    db: &Arc<ConcreteEnv>,
+    config: Config,
+) -> (BlockchainReadHandle, BlockchainWriteHandle)
+{
+    let readers = init_read_service(Arc::clone(db), config.reader_threads);
+    let writer = init_write_service(Arc::clone(db));
+
+    (readers, writer)
+}
+
 #[cold]
 #[inline(never)] // Only called once (?)
 /// Initialize a database & thread-pool, and return a read/write handle to it.
@@ -35,17 +46,31 @@ pub fn init(
     ),
     InitError,
 > {
-    let reader_threads = config.reader_threads;
-
     // Initialize the database itself.
-    let db = Arc::new(crate::open(config)?);
+    let db = Arc::new(crate::open(config.clone())?);
 
     // Spawn the Reader thread pool and Writer.
-    let readers = init_read_service(Arc::clone(&db), reader_threads);
-    let writer = init_write_service(Arc::clone(&db));
+    let (readers, writer) = init_with_db(&db, config);
 
     Ok((readers, writer, db))
 }
+
+
+#[cold]
+#[inline(never)]
+pub fn init2(
+    config: Config,
+) -> Result<
+    (BlockchainReadHandle, BlockchainWriteHandle), 
+    InitError,
+> {
+    // Initialize the database itself.
+    let db = Arc::new(crate::open(config.clone())?);
+
+    // Spawn the Reader thread pool and Writer.
+    Ok(init_with_db(&db, config))
+}
+
 
 #[cold]
 #[inline(never)] // Only called once (?)
@@ -66,7 +91,6 @@ pub fn init_with_pool(
     (
         BlockchainReadHandle,
         BlockchainWriteHandle,
-        Arc<ConcreteEnv>,
     ),
     InitError,
 > {
@@ -77,7 +101,7 @@ pub fn init_with_pool(
     let readers = init_read_service_with_pool(Arc::clone(&db), pool);
     let writer = init_write_service(Arc::clone(&db));
 
-    Ok((readers, writer, db))
+    Ok((readers, writer))
 }
 
 //---------------------------------------------------------------------------------------------------- Compact history

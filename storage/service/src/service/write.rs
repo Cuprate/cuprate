@@ -7,7 +7,7 @@ use std::{
 use futures::channel::oneshot;
 use tracing::{info, warn};
 
-use cuprate_database::{ConcreteEnv, DbResult, Env, RuntimeError};
+use cuprate_database::{DbResult, Env, RuntimeError};
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
 //---------------------------------------------------------------------------------------------------- Constants
@@ -46,17 +46,21 @@ where
     /// Initialize the single `DatabaseWriter` thread.
     #[cold]
     #[inline(never)] // Only called once.
-    pub fn init(
-        env: Arc<ConcreteEnv>,
-        inner_handler: impl Fn(&ConcreteEnv, &Req) -> DbResult<Res> + Send + 'static,
-    ) -> Self {
+    pub fn init<E>(
+        env: Arc<E>,
+        inner_handler: impl Fn(&E, &Req) -> DbResult<Res> + Send + 'static,
+    )
+    -> Self
+    where
+        E: Env + Send + Sync + 'static
+    {
         // Initialize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
         // Spawn the writer.
         std::thread::Builder::new()
             .name(WRITER_THREAD_NAME.into())
-            .spawn(move || database_writer(&env, &receiver, inner_handler))
+            .spawn(move || database_writer(&*env, &receiver, inner_handler))
             .unwrap();
 
         Self { sender }
@@ -87,11 +91,12 @@ impl<Req, Res> tower::Service<Req> for DatabaseWriteHandle<Req, Res> {
 
 //---------------------------------------------------------------------------------------------------- database_writer
 /// The main function of the writer thread.
-fn database_writer<Req, Res>(
-    env: &ConcreteEnv,
+fn database_writer<E, Req, Res>(
+    env: &E,
     receiver: &crossbeam::channel::Receiver<(Req, oneshot::Sender<DbResult<Res>>)>,
-    inner_handler: impl Fn(&ConcreteEnv, &Req) -> DbResult<Res>,
+    inner_handler: impl Fn(&E, &Req) -> DbResult<Res>,
 ) where
+    E: Env,
     Req: Send + 'static,
     Res: Debug + Send + 'static,
 {
@@ -112,10 +117,9 @@ fn database_writer<Req, Res>(
             return;
         };
 
-        /// How many times should we retry handling the request on resize errors?
-        ///
-        /// This is 1 on automatically resizing databases, meaning there is only 1 iteration.
-        const REQUEST_RETRY_LIMIT: usize = if ConcreteEnv::MANUAL_RESIZE { 3 } else { 1 };
+        // How many times should we retry handling the request on resize errors?
+        // This is 1 on automatically resizing databases, meaning there is only 1 iteration.
+        let request_retry_limit: usize = if E::MANUAL_RESIZE { 3 } else { 1 };
 
         // Map [`Request`]'s to specific database functions.
         //
@@ -129,18 +133,18 @@ fn database_writer<Req, Res>(
         // FIXME: there's probably a more elegant way
         // to represent this retry logic with recursive
         // functions instead of a loop.
-        'retry: for retry in 0..REQUEST_RETRY_LIMIT {
+        'retry: for retry in 0..request_retry_limit {
             // FIXME: will there be more than 1 write request?
             // this won't have to be an enum.
             let response = inner_handler(env, &request);
 
             // If the database needs to resize, do so.
-            if ConcreteEnv::MANUAL_RESIZE && matches!(response, Err(RuntimeError::ResizeNeeded)) {
+            if E::MANUAL_RESIZE && matches!(response, Err(RuntimeError::ResizeNeeded)) {
                 // If this is the last iteration of the outer `for` loop and we
                 // encounter a resize error _again_, it means something is wrong.
                 assert_ne!(
-                    retry, REQUEST_RETRY_LIMIT,
-                    "database resize failed maximum of {REQUEST_RETRY_LIMIT} times"
+                    retry, request_retry_limit,
+                    "database resize failed maximum of {request_retry_limit} times"
                 );
 
                 // Resize the map, and retry the request handling loop.
@@ -168,7 +172,7 @@ fn database_writer<Req, Res>(
 
             // Automatically resizing databases should not be returning a resize error.
             #[cfg(debug_assertions)]
-            if !ConcreteEnv::MANUAL_RESIZE {
+            if !E::MANUAL_RESIZE {
                 assert!(
                     !matches!(response, Err(RuntimeError::ResizeNeeded)),
                     "auto-resizing database returned a ResizeNeeded error"
