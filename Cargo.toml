@@ -10,6 +10,9 @@ members = [
 	"consensus/fast-sync",
 	"consensus/rules",
 
+	# Filesystem
+	"fs",
+
 	# Net
 	"net/epee-encoding",
 	"net/levin",
@@ -51,8 +54,8 @@ members = [
 	"test-utils",
 
 	# Fuzz
-	"fuzz"
-, "fs"]
+	"fuzz",
+]
 
 # Windows is a pain, so instead of making the fuzz tests work on windows, we just don't build the fuzz target on windows.
 # This is done by defining the `default-members` here to include everything but `fuzz`.
@@ -68,6 +71,9 @@ default-members = [
 	"consensus/context",
 	"consensus/fast-sync",
 	"consensus/rules",
+
+	# Filesystem
+	"fs",
 
 	# Net
 	"net/epee-encoding",
