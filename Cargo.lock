@@ -827,6 +827,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-fs"
+version = "0.0.1"
+dependencies = [
+ "dirs",
+]
+
+[[package]]
 name = "cuprate-fuzz"
 version = "0.0.0"
 dependencies = [

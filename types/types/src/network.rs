@@ -1,11 +1,10 @@
-//! This module contains an enum representing every Monero network: mainnet, testnet, stagenet and functionality
-//! related to that.
+//! This module contains an enum representing every Monero network:
 //!
-//! This feels out of place for the helper crate but this is needed through out Cuprate and felt too small to split
-//! into it's own crate.
+//! [`Network::Mainnet`]
+//! [`Network::Testnet`]
+//! [`Network::Stagenet`]
 //!
-//! `#[no_std]` compatible.
-// TODO: move to types crate.
+//! and functionality related to that.
 
 use core::{
     fmt::{Display, Formatter},
@@ -26,12 +25,9 @@ const STAGENET_NETWORK_ID: [u8; 16] = [
 #[derive(Debug, Clone, Copy, Default, Ord, PartialOrd, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum Network {
-    /// Mainnet
     #[default]
     Mainnet,
-    /// Testnet
     Testnet,
-    /// Stagenet
     Stagenet,
 }
 

@@ -52,7 +52,7 @@ members = [
 
 	# Fuzz
 	"fuzz"
-]
+, "fs"]
 
 # Windows is a pain, so instead of making the fuzz tests work on windows, we just don't build the fuzz target on windows.
 # This is done by defining the `default-members` here to include everything but `fuzz`.

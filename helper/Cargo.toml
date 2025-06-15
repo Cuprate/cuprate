@@ -17,7 +17,6 @@ asynch    = ["dep:futures", "dep:rayon"]
 cast      = []
 constants = []
 crypto    = ["dep:curve25519-dalek", "dep:monero-serai", "std"]
-fs        = ["dep:dirs", "std"]
 num       = []
 map       = ["cast", "dep:monero-serai", "dep:cuprate-constants"]
 time      = ["dep:chrono", "std"]
@@ -32,7 +31,6 @@ cuprate-constants = { workspace = true, optional = true, features = ["block"] }
 chrono           = { workspace = true, optional = true, features = ["std", "clock"] }
 crossbeam        = { workspace = true, optional = true }
 curve25519-dalek = { workspace = true, optional = true }
-dirs             = { workspace = true, optional = true }
 futures          = { workspace = true, optional = true, features = ["std"] }
 monero-serai     = { workspace = true, optional = true }
 rayon            = { workspace = true, optional = true }
