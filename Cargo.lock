@@ -819,7 +819,6 @@ dependencies = [
 name = "cuprate-helper"
 version = "0.1.0"
 dependencies = [
- "crossbeam",
  "cuprate-constants",
  "curve25519-dalek",
  "futures",
