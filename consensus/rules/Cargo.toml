@@ -12,6 +12,7 @@ rayon = ["dep:rayon"]
 
 [dependencies]
 cuprate-constants   = { workspace = true, default-features = false, features = ["block"] }
+cuprate-helper      = { workspace = true, default-features = false, features = ["std", "cast"] }
 cuprate-types       = { workspace = true, default-features = false }
 cuprate-cryptonight = { workspace = true }
 

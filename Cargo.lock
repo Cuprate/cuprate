@@ -667,6 +667,7 @@ dependencies = [
  "crypto-bigint",
  "cuprate-constants",
  "cuprate-cryptonight",
+ "cuprate-helper",
  "cuprate-types",
  "curve25519-dalek",
  "hex",
