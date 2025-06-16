@@ -1,5 +1,5 @@
-use cuprate_helper::network::Network;
 use cuprate_p2p_core::{NetworkZone, Transport};
+use cuprate_types::network::Network;
 use cuprate_wire::{common::PeerSupportFlags, BasicNodeData};
 
 pub use cuprate_address_book::AddressBookConfig;

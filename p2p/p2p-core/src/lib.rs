@@ -91,7 +91,7 @@ pub use network_zones::{ClearNet, Tor};
 pub use protocol::*;
 use services::*;
 //re-export
-pub use cuprate_helper::network::Network;
+pub use cuprate_types::network::Network;
 pub use cuprate_wire::CoreSyncData;
 
 /// The direction of a connection.

@@ -23,7 +23,8 @@ cuprate-database          = { workspace = true, features = ["serde"] }
 cuprate-epee-encoding     = { workspace = true }
 cuprate-fast-sync         = { workspace = true }
 cuprate-fixed-bytes       = { workspace = true }
-cuprate-helper            = { workspace = true, features = ["std", "serde", "time", "net"] }
+cuprate-fs                = { workspace = true }
+cuprate-helper            = { workspace = true, features = ["std", "time", "net"] }
 cuprate-hex               = { workspace = true }
 cuprate-json-rpc          = { workspace = true }
 cuprate-levin             = { workspace = true }
@@ -33,7 +34,7 @@ cuprate-pruning           = { workspace = true }
 cuprate-rpc-interface     = { workspace = true, features = ["dummy"] }
 cuprate-rpc-types         = { workspace = true, features = ["from"] }
 cuprate-test-utils        = { workspace = true }
-cuprate-txpool            = { workspace = true }
+cuprate-txpool            = { workspace = true, features = ["serde"] }
 cuprate-types             = { workspace = true, features = ["json"] }
 cuprate-wire              = { workspace = true }
 
@@ -48,7 +49,6 @@ bytemuck              = { workspace = true }
 bytes                 = { workspace = true }
 cfg-if                = { workspace = true }
 clap                  = { workspace = true, features = ["cargo", "help", "wrap_help", "usage", "error-context", "suggestions"] }
-chrono                = { workspace = true }
 crypto-bigint         = { workspace = true }
 crossbeam             = { workspace = true }
 curve25519-dalek      = { workspace = true }

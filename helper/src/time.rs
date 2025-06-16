@@ -24,32 +24,6 @@ pub fn current_unix_timestamp() -> u64 {
 }
 
 #[inline]
-/// Get the clock time of a UNIX timestamp
-///
-/// The input must be a UNIX timestamp.
-///
-/// The returned `u64` will represent how many seconds has
-/// passed on the day corresponding to that timestamp.
-///
-/// The output is guaranteed to be in the range of `0..=86399`.
-///
-/// ```rust
-/// # use cuprate_helper::time::*;
-/// // October 20th 2023 - 10:18:30 PM
-/// const TIME: u64 = 1697840310;
-///
-/// let seconds = unix_clock(TIME);
-/// assert_eq!(seconds, 80310);
-///
-/// let (h, m, s) = secs_to_clock(seconds);
-/// // 10:18:30 PM.
-/// assert_eq!((h, m, s), (22, 18, 30))
-/// ```
-pub const fn unix_clock(seconds_after_unix_epoch: u64) -> u32 {
-    (seconds_after_unix_epoch % 86400) as _
-}
-
-#[inline]
 /// Convert seconds to `hours`, `minutes` and `seconds`.
 ///
 /// - The seconds returned is guaranteed to be `0..=59`
@@ -131,31 +105,6 @@ pub const fn secs_to_clock(seconds: u32) -> (u8, u8, u8) {
 
     #[expect(clippy::cast_possible_truncation, reason = "checked above")]
     (h as u8, m, s)
-}
-
-#[inline]
-/// Get the current system time in the system's timezone
-///
-/// The returned value is the total amount of seconds passed in the current day.
-///
-/// This is guaranteed to return a value between `0..=86399`
-///
-/// This will return `0` if the underlying system call fails.
-pub fn time() -> u32 {
-    use chrono::Timelike;
-    let now = chrono::offset::Local::now().time();
-    (now.hour() * 3600) + (now.minute() * 60) + now.second()
-}
-
-#[inline]
-/// Get the current system time in the UTC timezone
-///
-/// The returned value is the total amount of seconds passed in the current day.
-///
-/// This is guaranteed to return a value between `0..=86399`
-pub fn time_utc() -> u32 {
-    #[expect(clippy::cast_sign_loss, reason = "checked in function calls")]
-    unix_clock(chrono::offset::Local::now().timestamp() as u64)
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

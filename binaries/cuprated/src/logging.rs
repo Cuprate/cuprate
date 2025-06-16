@@ -24,7 +24,7 @@ use tracing_subscriber::{
     Layer, Registry,
 };
 
-use cuprate_helper::fs::logs_path;
+use cuprate_fs::logs_path;
 
 use crate::config::Config;
 

@@ -6,7 +6,7 @@ use monero_serai::{
     transaction::Transaction,
 };
 
-use cuprate_helper::network::Network;
+use cuprate_types::network::Network;
 
 const fn genesis_nonce(network: Network) -> u32 {
     match network {

@@ -13,6 +13,7 @@ mod address_type;
 mod block_complete_entry;
 mod connection_state;
 mod hard_fork;
+pub mod network;
 mod transaction_verification_data;
 mod types;
 
