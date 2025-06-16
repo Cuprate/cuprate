@@ -223,7 +223,8 @@ impl Config {
     ///     resize::ResizeAlgorithm,
     ///     DATABASE_DATA_FILENAME,
     /// };
-    /// use cuprate_helper::{fs::*, network::Network};
+    /// use cuprate_fs::*;
+    /// use cuprate_types::network::Network;
     ///
     /// use cuprate_blockchain::config::*;
     ///

@@ -207,7 +207,8 @@ impl Config {
     ///     DATABASE_DATA_FILENAME,
     /// };
     /// use cuprate_database_service::ReaderThreads;
-    /// use cuprate_helper::{fs::*, network::Network};
+    /// use cuprate_fs::*;
+    /// use cuprate_types::network::Network;
     ///
     /// use cuprate_txpool::Config;
     ///
