@@ -4,7 +4,7 @@
 
 //---------------------------------------------------------------------------------------------------- Imports
 
-use std::sync::Arc;
+use std::{default, sync::Arc};
 
 use arti_client::{
     config::{onion_service::OnionServiceConfigBuilder, CfgPath, TorClientConfigBuilder},
@@ -28,13 +28,15 @@ use crate::config::Config;
 
 //---------------------------------------------------------------------------------------------------- Initialization
 
-#[derive(Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, Copy, PartialEq, Eq, Serialize, Deserialize)]
 /// Describe if Tor is enabled and how
 pub enum TorMode {
     /// Use of the [`arti_client`] library.
     Arti,
     /// Use of external tor daemon
     Daemon,
+
+    #[default]
     /// Tor is disabled
     Off,
 }
@@ -59,11 +61,12 @@ pub struct TorContext {
 /// This function will bootstrap Arti if needed by Tor network zone or
 /// clearnet as a proxy.
 pub async fn initialize_tor_if_enabled(config: &Config) -> TorContext {
-    let mode = config.p2p.tor_net.enabled;
+    let mode = config.tor.mode;
+    let anonymize_clearnet = config.p2p.clear_net.proxy.to_lowercase() == "Tor";
 
     // Start Arti client
     let (bootstrapped_client, arti_client_config) =
-        if mode == TorMode::Arti || config.p2p.clear_net.proxy.to_lowercase() == "arti" {
+        if mode == TorMode::Arti && ( config.p2p.tor_net.enabled || anonymize_clearnet ) {
             Some(initialize_arti_client(config).await)
         } else {
             None
@@ -91,7 +94,7 @@ async fn initialize_arti_client(config: &Config) -> (TorClient<PreferredRuntime>
     // Storage
     tor_config
         .storage()
-        .state_dir(CfgPath::new_literal(config.tor.arti_directory_path.clone()));
+        .state_dir(CfgPath::new_literal(config.tor.arti.directory_path.clone()));
 
     let tor_config = tor_config
         .build()
@@ -107,7 +110,7 @@ async fn initialize_arti_client(config: &Config) -> (TorClient<PreferredRuntime>
         .unwrap();
 
     // Isolation
-    if config.tor.arti_isolated_circuit {
+    if config.tor.arti.isolated_circuit {
         let mut stream_prefs = StreamPrefs::new();
         stream_prefs.isolate_every_stream();
         tor_client.set_stream_prefs(stream_prefs);
@@ -118,7 +121,7 @@ async fn initialize_arti_client(config: &Config) -> (TorClient<PreferredRuntime>
 
 fn initialize_arti_onion_service(client_config: &TorClientConfig, config: &Config) -> OnionService {
     let onion_svc_config = OnionServiceConfigBuilder::default()
-        .enable_pow(config.tor.arti_onion_service_pow)
+        .enable_pow(config.tor.arti.onion_service_pow)
         .nickname(HsNickname::new("cuprate".into()).unwrap())
         .build()
         .unwrap();
@@ -175,12 +178,12 @@ pub fn transport_clearnet_arti_config(ctx: &TorContext) -> TransportConfig<Clear
 pub fn transport_daemon_config(config: &Config) -> TransportConfig<Tor, Daemon> {
     TransportConfig::<Tor, Daemon> {
         client_config: DaemonClientConfig {
-            tor_daemon: config.tor.daemon_addr,
+            tor_daemon: config.tor.daemon.address,
         },
-        server_config: (!config.p2p.tor_net.anonymous_inbound.is_empty()).then_some(
+        server_config: (!config.tor.daemon.anonymous_inbound.is_empty()).then_some(
             DaemonServerConfig {
-                ip: config.tor.daemon_listening_ip,
-                port: config.tor.daemon_listening_port,
+                ip: config.tor.daemon.listening_ip,
+                port: config.tor.daemon.listening_port,
             },
         ),
     }

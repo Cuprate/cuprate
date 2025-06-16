@@ -242,7 +242,7 @@ impl Config {
             TorMode::Off => None,
             TorMode::Daemon => Some(
                 OnionAddr::new(
-                    &self.p2p.tor_net.anonymous_inbound,
+                    &self.tor.daemon.anonymous_inbound,
                     self.p2p.tor_net.p2p_port
                 ).expect("Unable to parse supplied `anonymous_inbound` onion address. Please make sure the address is correct.")),
             TorMode::Arti => {

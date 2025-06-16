@@ -65,31 +65,41 @@ pub async fn initialize_zones_p2p(
     tor_ctx: TorContext,
 ) -> (NetworkInterfaces, Vec<Sender<IncomingTxHandler>>) {
     // Start clearnet P2P.
-    let (clearnet, incoming_tx_handler_tx) =
+    let (clearnet, incoming_tx_handler_tx) = {
+        let tcp = async || start_zone_p2p::<ClearNet, Tcp>(
+            blockchain_read_handle.clone(),
+            context_svc.clone(),
+            txpool_read_handle.clone(),
+            config.clearnet_p2p_config(),
+            (&config.p2p.clear_net).into(),
+        )
+        .await.unwrap();
+
+        // If proxy is set
         match config.p2p.clear_net.proxy.to_lowercase().as_str() {
-            "arti" => {
-                tracing::info!("Anonymizing clearnet connections through Arti.");
-                start_zone_p2p::<ClearNet, Arti>(
-                    blockchain_read_handle.clone(),
-                    context_svc.clone(),
-                    txpool_read_handle.clone(),
-                    config.clearnet_p2p_config(),
-                    transport_clearnet_arti_config(&tor_ctx),
-                )
-                .await
+            "tor" => match tor_ctx.mode {
+                TorMode::Arti => {
+                    tracing::info!("Anonymizing clearnet connections through Arti.");
+                    start_zone_p2p::<ClearNet, Arti>(
+                        blockchain_read_handle.clone(),
+                        context_svc.clone(),
+                        txpool_read_handle.clone(),
+                        config.clearnet_p2p_config(),
+                        transport_clearnet_arti_config(&tor_ctx),
+                    )
+                    .await
+                    .unwrap()
+                },
+                TorMode::Daemon => {
+                    tracing::error!("Anonymizing clearnet connections through the Tor daemon is not yet supported.");
+                    std::process::exit(0);
+                },
+                TorMode::Off => tcp().await
             }
-            _ => {
-                start_zone_p2p::<ClearNet, Tcp>(
-                    blockchain_read_handle.clone(),
-                    context_svc.clone(),
-                    txpool_read_handle.clone(),
-                    config.clearnet_p2p_config(),
-                    (&config.p2p.clear_net).into(),
-                )
-                .await
-            }
+            _ => tcp().await
         }
-        .unwrap();
+    };
+
 
     // Create network interface collection
     let mut network_interfaces = NetworkInterfaces::new(clearnet);

@@ -213,7 +213,7 @@ config_struct! {
         #[comment_out = true]
         /// The proxy to use for outgoing P2P connections
         ///
-        /// This settings can only take "arti" at the moment.
+        /// This settings can only take "tor" at the moment.
         /// This will anonymize clearnet connections through Tor.
         ///
         /// Setting this to "" (an empty string) will disable the proxy.
@@ -221,8 +221,8 @@ config_struct! {
         /// Enabling this settings will disable inbound connections.
         ///
         /// Type         | String
-        /// Valid values | "arti"
-        /// Examples     | "arti"
+        /// Valid values | "tor"
+        /// Examples     | "tor"
         pub proxy: String,
     }
 
@@ -242,7 +242,7 @@ config_struct! {
         /// Type         | String
         /// Valid values | "Arti", "Daemon", "Off"
         /// Examples     | "Arti"
-        pub enabled: TorMode,
+        pub enabled: bool,
 
         #[comment_out = true]
         /// Enable Arti inbound onion service.
@@ -257,23 +257,6 @@ config_struct! {
         /// Valid values | false, true
         /// Examples     | false
         pub inbound_onion: bool,
-
-        #[comment_out = true]
-        /// Enable inbound connections for Daemon mode
-        ///
-        /// This string specify the onion address that should be advertized to the Tor network
-        /// and that your daemon should be expecting connections from.
-        ///
-        /// When this is set, `p2p.tor_net.p2p_port` is not used for listening but as the source
-        /// port of your hidden service in your torrc configuration file. For setting Cuprate's
-        /// listening port see `tor.daemon_listening_port` field
-        ///
-        /// This setting is ignored in `Arti` mode.
-        ///
-        /// Type         | String
-        /// Valid values | "<56 character domain>.onion"
-        /// Examples     | "monerotoruzizulg5ttgat2emf4d6fbmiea25detrmmy7erypseyteyd.onion"
-        pub anonymous_inbound: String,
     }
 }
 
@@ -298,10 +281,9 @@ impl Default for ClearNetConfig {
 impl Default for TorNetConfig {
     fn default() -> Self {
         Self {
-            enabled: TorMode::Off,
+            enabled: false,
             inbound_onion: false,
             p2p_port: 18080,
-            anonymous_inbound: String::new(),
             outbound_connections: 12,
             extra_outbound_connections: 2,
             max_inbound_connections: 12,
