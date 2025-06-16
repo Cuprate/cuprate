@@ -12,7 +12,6 @@ rayon = ["dep:rayon"]
 
 [dependencies]
 cuprate-constants   = { workspace = true, default-features = false, features = ["block"] }
-cuprate-helper      = { workspace = true, default-features = false, features = ["std", "cast"] }
 cuprate-types       = { workspace = true, default-features = false }
 cuprate-cryptonight = { workspace = true }
 
@@ -33,6 +32,8 @@ thiserror = { workspace = true }
 rayon = { workspace = true, optional = true }
 
 [dev-dependencies]
+cuprate-helper = { workspace = true, default-features = false, features = ["std", "cast"] }
+
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 tokio = { version = "1.35.0", features = ["rt-multi-thread", "macros"] }
