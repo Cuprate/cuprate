@@ -15,7 +15,8 @@
 //! ```rust
 //! # use cuprate_fs::*;
 //! # if cfg!(target_os = "linux") {
-//! std::env::set_var("XDG_CONFIG_HOME", "/custom/path");
+//! // SAFETY: test.
+//! unsafe { std::env::set_var("XDG_CONFIG_HOME", "/custom/path"); }
 //! assert_eq!(
 //!     CUPRATE_CONFIG_DIR.to_string_lossy(),
 //!     "/custom/path/cuprate"
