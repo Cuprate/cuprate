@@ -34,7 +34,7 @@ use crate::{
 /// Starts the inbound server. This function will listen to all incoming connections
 /// and initiate handshake if needed, after verifying the address isn't banned.
 #[instrument(level = "warn", skip_all)]
-pub async fn inbound_server<Z, T, HS, A>(
+pub(super) async fn inbound_server<Z, T, HS, A>(
     new_connection_tx: mpsc::Sender<Client<Z>>,
     mut handshaker: HS,
     mut address_book: A,

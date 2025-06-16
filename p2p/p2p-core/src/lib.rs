@@ -168,9 +168,9 @@ pub trait Transport<Z: NetworkZone>: Clone + Send + 'static {
     /// Note: Currently, this client config is considered immutable during operational runtime. If one
     /// wish to apply modifications on the fly, they will need to make use of an inner shared and mutable
     /// reference to do so.
-    type ClientConfig: Default + Clone + Debug + Send + Sync + 'static;
+    type ClientConfig: Clone + Send + Sync + 'static;
     /// Server configuration necessary when instantiating a listener for inbound connections.
-    type ServerConfig: Default + Clone + Debug + Send + Sync + 'static;
+    type ServerConfig: Send + Sync + 'static;
 
     /// The stream (incoming data) type of this transport method.
     type Stream: Stream<Item = Result<Message, BucketError>> + Unpin + Send + 'static;

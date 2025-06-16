@@ -30,7 +30,7 @@ use crate::{
     )
 )]
 #[expect(clippy::used_underscore_binding)]
-pub async fn download_batch_task<N: NetworkZone>(
+pub(super) async fn download_batch_task<N: NetworkZone>(
     client: ClientDropGuard<N>,
     ids: ByteArrayVec<32>,
     previous_id: [u8; 32],
