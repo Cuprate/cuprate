@@ -47,10 +47,8 @@ use std::{borrow::Cow, path::PathBuf};
 use serde::{Deserialize, Serialize};
 
 use cuprate_database::{config::SyncMode, resize::ResizeAlgorithm};
-use cuprate_helper::{
-    fs::{blockchain_path, CUPRATE_DATA_DIR},
-    network::Network,
-};
+use cuprate_fs::{blockchain_path, CUPRATE_DATA_DIR};
+use cuprate_types::network::Network;
 
 // re-exports
 pub use cuprate_database_service::ReaderThreads;

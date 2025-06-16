@@ -51,7 +51,7 @@ impl DifficultyCacheConfig {
         self.window - 2 * self.cut
     }
 
-    /// Returns the config needed for [`Mainnet`](cuprate_helper::network::Network::Mainnet). This is also the
+    /// Returns the config needed for [`Mainnet`](cuprate_types::network::Network::Mainnet). This is also the
     /// config for all other current networks.
     pub const fn main_net() -> Self {
         Self {

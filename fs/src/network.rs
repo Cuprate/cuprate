@@ -1,5 +1,7 @@
 //! Path generation functions prefixed with [`Network`].
 
+use std::path::{Path, PathBuf};
+
 use cuprate_types::network::Network;
 
 /// Joins the [`Network`] to the [`Path`].

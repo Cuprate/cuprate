@@ -7,12 +7,13 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use cuprate_helper::{fs::address_book_path, network::Network};
+use cuprate_fs::address_book_path;
 use cuprate_p2p::config::TransportConfig;
 use cuprate_p2p_core::{
     transports::{Tcp, TcpServerConfig},
     ClearNet, NetworkZone, Transport,
 };
+use cuprate_types::network::Network;
 use cuprate_wire::OnionAddr;
 
 use super::macros::config_struct;

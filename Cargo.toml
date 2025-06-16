@@ -143,6 +143,7 @@ cuprate-constants         = { path = "constants",                 default-featur
 cuprate-consensus         = { path = "consensus",                 default-features = false }
 cuprate-consensus-context = { path = "consensus/context",         default-features = false }
 cuprate-cryptonight       = { path = "cryptonight",               default-features = false }
+cuprate-fs                = { path = "fs",                        default-features = false }
 cuprate-helper            = { path = "helper",                    default-features = false }
 cuprate-epee-encoding     = { path = "net/epee-encoding",         default-features = false }
 cuprate-levin             = { path = "net/levin",                 default-features = false }
@@ -181,7 +182,6 @@ bytemuck              = { version = "1", default-features = false }
 bytes                 = { version = "1", default-features = false }
 cfg-if                = { version = "1", default-features = false }
 clap                  = { version = "4", default-features = false }
-chrono                = { version = "0.4", default-features = false }
 crypto-bigint         = { version = "0.5", default-features = false }
 crossbeam             = { version = "0.8", default-features = false }
 const_format          = { version = "0.2", default-features = false }

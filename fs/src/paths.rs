@@ -1,9 +1,8 @@
 //! Base paths used by Cuprate.
 
-use std::{
-    path::{Path, PathBuf},
-    sync::LazyLock,
-};
+use std::{path::PathBuf, sync::LazyLock};
+
+use crate::CUPRATE_DIR;
 
 /// Create a `LazyLock` for common PATHs used by Cuprate.
 macro_rules! impl_path_lazylock {

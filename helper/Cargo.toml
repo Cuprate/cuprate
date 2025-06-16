@@ -19,7 +19,7 @@ constants = []
 crypto    = ["dep:curve25519-dalek", "dep:monero-serai", "std"]
 num       = []
 map       = ["cast", "dep:monero-serai", "dep:cuprate-constants"]
-time      = ["dep:chrono", "std"]
+time      = ["std"]
 thread    = ["std", "dep:target_os_lib"]
 tx        = ["dep:monero-serai"]
 fmt       = ["map", "std"]
@@ -28,14 +28,11 @@ net       = []
 [dependencies]
 cuprate-constants = { workspace = true, optional = true, features = ["block"] }
 
-chrono           = { workspace = true, optional = true, features = ["std", "clock"] }
 crossbeam        = { workspace = true, optional = true }
 curve25519-dalek = { workspace = true, optional = true }
 futures          = { workspace = true, optional = true, features = ["std"] }
 monero-serai     = { workspace = true, optional = true }
 rayon            = { workspace = true, optional = true }
-
-serde            = { workspace = true, optional = true, features = ["derive"] }
 
 # This is kinda a stupid work around.
 # [thread] needs to activate one of these libs (windows|libc)

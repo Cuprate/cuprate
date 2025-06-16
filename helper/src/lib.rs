@@ -5,16 +5,8 @@
 #[cfg(feature = "asynch")]
 pub mod asynch; // async collides
 
-#[cfg(feature = "atomic")]
-pub mod atomic;
-
 #[cfg(feature = "cast")]
 pub mod cast;
-
-#[cfg(feature = "fs")]
-pub mod fs;
-
-pub mod network;
 
 #[cfg(feature = "num")]
 pub mod num;

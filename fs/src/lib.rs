@@ -13,7 +13,7 @@
 //! used instead.
 //!
 //! ```rust
-//! # use cuprate_helper::fs::*;
+//! # use cuprate_fs::*;
 //! # if cfg!(target_os = "linux") {
 //! std::env::set_var("XDG_CONFIG_HOME", "/custom/path");
 //! assert_eq!(

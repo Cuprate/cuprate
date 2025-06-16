@@ -1,7 +1,7 @@
 # Index of PATHs
 This is an index of all of the filesystem PATHs Cuprate actively uses.
 
-The [`cuprate_helper::fs`](https://doc.cuprate.org/cuprate_helper/fs/index.html)
+The [`cuprate_fs`](https://doc.cuprate.org/cuprate_helper/fs/index.html)
 module defines the general locations used throughout Cuprate.
 
 [`dirs`](https://docs.rs/dirs) is used internally, which follows
