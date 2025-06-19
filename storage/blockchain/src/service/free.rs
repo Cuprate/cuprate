@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use rayon::ThreadPool;
 
-use cuprate_database::{ConcreteEnv, InitError};
+use cuprate_database::{ConcreteEnv, Env, InitError};
 
 use crate::{
     config::Config,
@@ -13,13 +13,18 @@ use crate::{
         init_read_service, init_read_service_with_pool, init_write_service,
         types::{BlockchainReadHandle, BlockchainWriteHandle},
     },
+    tables::OpenTables,
 };
 
 //---------------------------------------------------------------------------------------------------- Init
-fn init_with_db(
-    db: &Arc<ConcreteEnv>,
+fn init_with_db<E>(
+    db: &Arc<E>,
     config: Config,
 ) -> (BlockchainReadHandle, BlockchainWriteHandle)
+where
+    E: Env + Send + Sync + 'static,
+    for <'a> <E as Env>::EnvInner<'a>: Sync,
+    for <'a, 'b> <<E as Env>::EnvInner<'a> as OpenTables<'a>>::Ro<'b>: Send,
 {
     let readers = init_read_service(Arc::clone(db), config.reader_threads);
     let writer = init_write_service(Arc::clone(db));
@@ -50,7 +55,7 @@ pub fn init(
     let db = Arc::new(crate::open(config.clone())?);
 
     // Spawn the Reader thread pool and Writer.
-    let (readers, writer) = init_with_db(&db, config);
+    let (readers, writer) = init_with_db::<ConcreteEnv>(&db, config);
 
     Ok((readers, writer, db))
 }
@@ -68,7 +73,7 @@ pub fn init2(
     let db = Arc::new(crate::open(config.clone())?);
 
     // Spawn the Reader thread pool and Writer.
-    Ok(init_with_db(&db, config))
+    Ok(init_with_db::<ConcreteEnv>(&db, config))
 }
 
 
@@ -98,7 +103,7 @@ pub fn init_with_pool(
     let db = Arc::new(crate::open(config)?);
 
     // Spawn the Reader thread pool and Writer.
-    let readers = init_read_service_with_pool(Arc::clone(&db), pool);
+    let readers = init_read_service_with_pool::<ConcreteEnv>(Arc::clone(&db), pool);
     let writer = init_write_service(Arc::clone(&db));
 
     Ok((readers, writer))

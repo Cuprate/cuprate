@@ -24,7 +24,7 @@ use rayon::{
 };
 use thread_local::ThreadLocal;
 
-use cuprate_database::{ConcreteEnv, DatabaseRo, DbResult, Env, EnvInner, RuntimeError};
+use cuprate_database::{DatabaseRo, DbResult, Env, EnvInner, RuntimeError};
 use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
@@ -72,8 +72,13 @@ use crate::{
 /// multiple unnecessary rayon thread-pools.
 #[cold]
 #[inline(never)] // Only called once.
-pub fn init_read_service(env: Arc<ConcreteEnv>, threads: ReaderThreads) -> BlockchainReadHandle {
-    init_read_service_with_pool(env, init_thread_pool(threads))
+pub fn init_read_service<E>(env: Arc<E>, threads: ReaderThreads) -> BlockchainReadHandle 
+where
+    E: Env + Send + Sync + 'static,
+    for <'a> <E as Env>::EnvInner<'a>: Sync,
+    for <'a, 'b> <<E as Env>::EnvInner<'a> as OpenTables<'a>>::Ro<'b>: Send,
+{
+    init_read_service_with_pool::<E>(env, init_thread_pool(threads))
 }
 
 /// Initialize the blockchain database read service, with a specific rayon thread-pool instead of
@@ -83,10 +88,15 @@ pub fn init_read_service(env: Arc<ConcreteEnv>, threads: ReaderThreads) -> Block
 /// is the correct way to get multiple handles to the database.
 #[cold]
 #[inline(never)] // Only called once.
-pub fn init_read_service_with_pool(
-    env: Arc<ConcreteEnv>,
+pub fn init_read_service_with_pool<E>(
+    env: Arc<E>,
     pool: Arc<ThreadPool>,
-) -> BlockchainReadHandle {
+) -> BlockchainReadHandle
+where
+    E: Env + Send + Sync + 'static,
+    for <'a> <E as Env>::EnvInner<'a>: Sync,
+    for <'a, 'b> <<E as Env>::EnvInner<'a> as OpenTables<'a>>::Ro<'b>: Send,
+{
     DatabaseReadService::new(env, pool, map_request)
 }
 
