@@ -13,7 +13,7 @@ use crate::{config::Config, tables::OpenTables};
 /// table creation, table sort order, etc.
 ///
 /// All tables found in [`crate::tables`] will be
-/// ready for usage in the returned [`ConcreteEnv`].
+/// ready for usage in the returned impl of [`Env`].
 ///
 /// # Errors
 /// This will error if:

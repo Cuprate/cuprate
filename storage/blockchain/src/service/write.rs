@@ -22,7 +22,7 @@ const TX_RW_ABORT_FAIL: &str =
     "Could not maintain blockchain database atomicity by aborting write transaction";
 
 //---------------------------------------------------------------------------------------------------- init_write_service
-/// Initialize the blockchain write service from a [`ConcreteEnv`].
+/// Initialize the blockchain write service from an impl of [`Env`].
 pub fn init_write_service<E>(env: Arc<E>) -> BlockchainWriteHandle 
 where
     E: Env + Send + Sync + 'static

@@ -34,11 +34,9 @@
 //! - The last [`BlockchainReadHandle`] is dropped => reader thread-pool exits
 //! - The last [`BlockchainWriteHandle`] is dropped => writer thread exits
 //!
-//! TODO: update this when `ConcreteEnv` is removed
-//!
-//! Upon dropping the [`cuprate_database::ConcreteEnv`]:
+//! Upon dropping the [`impl cuprate_database::Env`]:
 //! - All un-processed database transactions are completed
-//! - All data gets flushed to disk (caused by [`Drop::drop`] impl on `ConcreteEnv`)
+//! - All data gets flushed to disk (caused by [`Drop::drop`] impl on `Env`)
 //!
 //! ## Request and Response
 //! To interact with the database (whether reading or writing data),
