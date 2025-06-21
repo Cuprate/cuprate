@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use rayon::ThreadPool;
 
-use cuprate_database::{ConcreteEnv, Env, InitError};
+use cuprate_database::{ConcreteEnv, Env, InitError, config::Backend};
 
 use crate::{
     config::Config,
@@ -16,8 +16,14 @@ use crate::{
     tables::OpenTables,
 };
 
+#[cfg(feature = "redb")]
+use cuprate_database::RedbEnv;
+
+#[cfg(feature = "heed")]
+use cuprate_database::HeedEnv;
+
 //---------------------------------------------------------------------------------------------------- Init
-fn init_with_db<E>(
+pub fn init_with_db<E>(
     db: &Arc<E>,
     config: Config,
 ) -> (BlockchainReadHandle, BlockchainWriteHandle)
@@ -41,39 +47,42 @@ where
 ///
 /// # Errors
 /// This will forward the error if [`crate::open`] failed.
-pub fn init(
-    config: Config,
-) -> Result<
-    (
-        BlockchainReadHandle,
-        BlockchainWriteHandle,
-        Arc<ConcreteEnv>,
-    ),
-    InitError,
-> {
-    // Initialize the database itself.
-    let db = Arc::new(crate::open(config.clone())?);
-
-    // Spawn the Reader thread pool and Writer.
-    let (readers, writer) = init_with_db::<ConcreteEnv>(&db, config);
-
-    Ok((readers, writer, db))
-}
-
-
-#[cold]
-#[inline(never)]
 pub fn init2(
     config: Config,
 ) -> Result<
-    (BlockchainReadHandle, BlockchainWriteHandle), 
+    (BlockchainReadHandle, BlockchainWriteHandle),
     InitError,
 > {
+    #[cfg(feature = "heed")]
+    if config.db_config.backend == Backend::Heed {
+        return generic_init::<HeedEnv>(config);
+    }
+
+    #[cfg(feature = "redb")]
+    if config.db_config.backend == Backend::Redb {
+        return generic_init::<RedbEnv>(config);
+    }
+
+    Err(InitError::BackendNotSupported)
+}
+
+
+fn generic_init<E>(
+    config: Config,
+) -> Result<
+    (BlockchainReadHandle, BlockchainWriteHandle),
+    InitError,
+>
+where
+    E: Env + Send + Sync + 'static,
+    for <'a> <E as Env>::EnvInner<'a>: Sync,
+    for <'a, 'b> <<E as Env>::EnvInner<'a> as OpenTables<'a>>::Ro<'b>: Send,
+{
     // Initialize the database itself.
-    let db = Arc::new(crate::open(config.clone())?);
+    let db = Arc::new(crate::open::<E>(config.clone())?);
 
     // Spawn the Reader thread pool and Writer.
-    Ok(init_with_db::<ConcreteEnv>(&db, config))
+    Ok(init_with_db::<E>(&db, config))
 }
 
 

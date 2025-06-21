@@ -72,7 +72,7 @@ use crate::{
 /// multiple unnecessary rayon thread-pools.
 #[cold]
 #[inline(never)] // Only called once.
-pub fn init_read_service<E>(env: Arc<E>, threads: ReaderThreads) -> BlockchainReadHandle 
+pub fn init_read_service<E>(env: Arc<E>, threads: ReaderThreads) -> BlockchainReadHandle
 where
     E: Env + Send + Sync + 'static,
     for <'a> <E as Env>::EnvInner<'a>: Sync,

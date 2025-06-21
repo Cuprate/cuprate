@@ -79,7 +79,7 @@
 //!     .build();
 //!
 //! // Initialize the database thread-pool.
-//! let (mut read_handle, mut write_handle, _) = cuprate_blockchain::service::init(config)?;
+//! let (mut read_handle, mut write_handle) = cuprate_blockchain::service::init2(config)?;
 //!
 //! // Prepare a request to write block.
 //! let mut block = BLOCK_V16_TX0.clone();
@@ -126,7 +126,7 @@ mod write;
 pub use write::init_write_service;
 
 mod free;
-pub use free::{init, init2, init_with_pool};
+pub use free::{init2, init_with_db, init_with_pool};
 mod types;
 pub use types::{BlockchainReadHandle, BlockchainWriteHandle};
 
