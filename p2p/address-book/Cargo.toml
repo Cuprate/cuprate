@@ -10,6 +10,7 @@ authors = ["Boog900"]
 cuprate-constants   = { workspace = true }
 cuprate-pruning     = { workspace = true }
 cuprate-p2p-core    = { workspace = true, features = ["borsh"] }
+cuprate-bucket-set  = { workspace = true }
 
 tower = { workspace = true, features = ["util"] }
 tokio = { workspace = true, features = ["time", "fs", "rt"]}

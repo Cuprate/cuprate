@@ -12,11 +12,11 @@
 //! # Example
 //!
 //! ```
-//! use cuprate_p2p_bucket::Bucket;
+//! use cuprate_p2p_bucket::BucketSet;
 //! use std::net::Ipv4Addr;
 //!
 //! // Create a new bucket that can store at most 2 IPs in a particular `/16` subnet.
-//! let mut bucket = Bucket::<2,Ipv4Addr>::new();
+//! let mut bucket = BucketSet::<2,Ipv4Addr>::new();
 //!
 //! // Fulfill the `96.96.0.0/16` bucket.
 //! bucket.push("96.96.0.1".parse().unwrap());
@@ -37,11 +37,14 @@
 //! assert_eq!(2, bucket.len_bucket(&[96_u8,96_u8]).unwrap());
 //!
 //! ```
-
-use arrayvec::{ArrayVec, CapacityError};
-use rand::random;
-
 use std::{collections::BTreeMap, net::Ipv4Addr};
+use std::fmt::Display;
+use std::ops::Not;
+use arrayvec::{ArrayVec, CapacityError};
+use rand::{random, Rng};
+use rand::prelude::IteratorRandom;
+use cuprate_p2p_core::NetZoneAddress;
+use cuprate_p2p_core::services::ZoneSpecificPeerListEntryBase;
 
 /// A discriminant that can be computed from the type.
 pub trait Bucketable: Sized + Eq + Clone {
@@ -55,13 +58,14 @@ pub trait Bucketable: Sized + Eq + Clone {
 /// A collection data structure discriminating its unique items
 /// with a specified method. Limiting the amount of items stored
 /// with that discriminant to the const `N`.
-pub struct Bucket<const N: usize, I: Bucketable> {
+#[derive(Debug)]
+pub struct BucketMap<const N: usize, I: Bucketable> {
     /// The storage of the bucket
     storage: BTreeMap<I::Discriminant, ArrayVec<I, N>>,
 }
 
-impl<const N: usize, I: Bucketable> Bucket<N, I> {
-    /// Create a new Bucket
+impl<const N: usize, I: Bucketable> BucketMap<N, I> {
+    /// Create a new [`BucketMap`]
     pub const fn new() -> Self {
         Self {
             storage: BTreeMap::new(),
@@ -81,10 +85,10 @@ impl<const N: usize, I: Bucketable> Bucket<N, I> {
     /// # Example
     ///
     /// ```
-    /// use cuprate_p2p_bucket::Bucket;
+    /// use cuprate_p2p_bucket::BucketSet;
     /// use std::net::Ipv4Addr;
     ///
-    /// let mut bucket = Bucket::<8,Ipv4Addr>::new();
+    /// let mut bucket = BucketSet::<8,Ipv4Addr>::new();
     ///
     /// // Push a first IP address.
     /// bucket.push("127.0.0.1".parse().unwrap());
@@ -94,6 +98,7 @@ impl<const N: usize, I: Bucketable> Bucket<N, I> {
     /// bucket.push("127.0.0.1".parse().unwrap());
     /// assert_eq!(1, bucket.len());
     /// ```
+    #[must_use]
     pub fn push(&mut self, item: I) -> Option<I> {
         let discriminant = item.discriminant();
 
@@ -111,13 +116,28 @@ impl<const N: usize, I: Bucketable> Bucket<N, I> {
 
         None
     }
+    
+    pub fn get_mut<R>(&mut self, item: &R) -> Option<&mut I>
+    where
+        R: Bucketable<Discriminant = I::Discriminant>,
+        I: PartialEq<R>
+    {
+        self.storage.get_mut(&item.discriminant()).and_then(|vec| {
+            vec.iter_mut()
+                .find_map(|v| (v == item).then_some(v))
+        })
+    }
 
     /// Will attempt to remove an item from the bucket.
-    pub fn remove(&mut self, item: &I) -> Option<I> {
+    pub fn remove<R>(&mut self, item: &R) -> Option<I>
+    where
+        R: Bucketable<Discriminant = I::Discriminant>,
+        I: PartialEq<R>
+    {
         self.storage.get_mut(&item.discriminant()).and_then(|vec| {
             vec.iter()
                 .enumerate()
-                .find_map(|(i, v)| (item == v).then_some(i))
+                .find_map(|(i, v)| (v == item).then_some(i))
                 .map(|index| vec.swap_remove(index))
         })
     }
@@ -144,23 +164,41 @@ impl<const N: usize, I: Bucketable> Bucket<N, I> {
     ///
     /// Repeated use of this function will provide a normal distribution of
     /// items based on their discriminants.
-    pub fn get_random(&mut self) -> Option<&I> {
-        // Get the total amount of discriminants to explore.
+    pub fn take_random<R, Rng>(&mut self, current_set: &[R], no_matching_discriminant: bool, r: &mut Rng) -> Option<I>
+    where
+        R: Bucketable<Discriminant = I::Discriminant>,
+        I: PartialEq<R>,
+        Rng: rand::Rng,
+    {
         let len = self.storage.len();
+        let current_set_discriminant: Vec<_> = current_set.iter().map(Bucketable::discriminant).collect();
 
-        // Get a random bucket.
-        let (_, vec) = self.storage.iter().nth(random::<usize>() / len).unwrap();
+        self.storage.iter_mut().skip(r.gen_range(0..len)).take(len).find_map(|(discriminant, vec)| {
+            if no_matching_discriminant && current_set_discriminant.contains(discriminant) {
+                return None;
+            }
 
-        // Return a reference chose at random.
-        vec.get(random::<usize>() / vec.len())
+            let no_match = vec.iter_mut().enumerate().filter_map(|(i, e)| current_set.iter().find(|c| e == *c ).is_none().then_some(i)).choose(r);
+
+            no_match.map(|i| vec.swap_remove(i))
+        })
     }
 }
 
-impl<const N: usize, I: Bucketable> Default for Bucket<N, I> {
+impl<const N: usize, I: Bucketable> Default for BucketMap<N, I> {
     fn default() -> Self {
         Self::new()
     }
 }
+
+impl<A: NetZoneAddress + Bucketable> Bucketable for ZoneSpecificPeerListEntryBase<A> {
+    type Discriminant = A::Discriminant;
+
+    fn discriminant(&self) -> Self::Discriminant {
+        self.adr.discriminant()
+    }
+}
+
 
 impl Bucketable for Ipv4Addr {
     /// We are discriminating by `/16` subnets.

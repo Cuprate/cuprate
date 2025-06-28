@@ -588,6 +588,7 @@ name = "cuprate-address-book"
 version = "0.1.0"
 dependencies = [
  "borsh",
+ "cuprate-bucket-set",
  "cuprate-constants",
  "cuprate-p2p-core",
  "cuprate-pruning",
@@ -640,6 +641,15 @@ dependencies = [
  "thread_local",
  "tokio",
  "tower 0.5.1",
+]
+
+[[package]]
+name = "cuprate-bucket-set"
+version = "0.1.0"
+dependencies = [
+ "arrayvec",
+ "cuprate-p2p-core",
+ "rand",
 ]
 
 [[package]]
@@ -926,14 +936,6 @@ dependencies = [
  "tokio-util",
  "tower 0.5.1",
  "tracing",
-]
-
-[[package]]
-name = "cuprate-p2p-bucket"
-version = "0.1.0"
-dependencies = [
- "arrayvec",
- "rand",
 ]
 
 [[package]]

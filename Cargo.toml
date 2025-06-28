@@ -144,7 +144,7 @@ cuprate-wire              = { path = "net/wire",                  default-featur
 cuprate-async-buffer      = { path = "p2p/async-buffer",          default-features = false }
 cuprate-p2p               = { path = "p2p/p2p",                   default-features = false }
 cuprate-p2p-core          = { path = "p2p/p2p-core",              default-features = false }
-cuprate-p2p-bucket        = { path = "p2p/p2p-bucket",            default-features = false }
+cuprate-bucket-set        = { path = "p2p/bucket",            default-features = false }
 cuprate-p2p-transport     = { path = "p2p/p2p-transport",         default-features = false }
 cuprate-dandelion-tower   = { path = "p2p/dandelion-tower",       default-features = false }
 cuprate-address-book      = { path = "p2p/address-book",          default-features = false }

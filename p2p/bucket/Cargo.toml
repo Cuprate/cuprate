@@ -1,5 +1,5 @@
 [package]
-name = "cuprate-p2p-bucket"
+name = "cuprate-bucket-set"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
@@ -8,6 +8,8 @@ authors = ["SyntheticBird"]
 [dependencies]
 arrayvec = { workspace = true }
 rand     = { workspace = true, features = ["std", "std_rng"]}
+
+cuprate-p2p-core = { workspace = true }
 
 [lints]
 workspace = true

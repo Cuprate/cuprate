@@ -98,7 +98,6 @@ impl<N: NetworkZone> Service<AddressBookRequest<N>> for DummyAddressBook {
         ready(Ok(match req {
             AddressBookRequest::GetWhitePeers(_) => AddressBookResponse::Peers(vec![]),
             AddressBookRequest::TakeRandomGrayPeer { .. }
-            | AddressBookRequest::TakeRandomPeer { .. }
             | AddressBookRequest::TakeRandomWhitePeer { .. } => {
                 return ready(Err("dummy address book does not hold peers".into()));
             }

@@ -35,19 +35,6 @@ use crate::{
 #[cfg(test)]
 mod tests;
 
-/// An entry in the connected list.
-pub(crate) struct ConnectionPeerEntry<Z: NetworkZone> {
-    addr: Option<Z::Addr>,
-    id: u64,
-    handle: ConnectionHandle,
-    /// The peers pruning seed
-    pruning_seed: PruningSeed,
-    /// The peers port.
-    rpc_port: u16,
-    /// The peers rpc credits per hash
-    rpc_credits_per_hash: u32,
-}
-
 pub struct AddressBook<Z: BorshNetworkZone> {
     /// Our white peers - the peers we have previously connected to.
     white_list: PeerList<Z>,
@@ -56,9 +43,6 @@ pub struct AddressBook<Z: BorshNetworkZone> {
     /// Our anchor peers - on start up will contain a list of peers we were connected to before shutting down
     /// after that will contain a list of peers currently connected to that we can reach.
     anchor_list: HashSet<Z::Addr>,
-    /// The currently connected peers.
-    connected_peers: HashMap<InternalPeerID<Z::Addr>, ConnectionPeerEntry<Z>>,
-    connected_peers_ban_id: HashMap<<Z::Addr as NetZoneAddress>::BanID, HashSet<Z::Addr>>,
 
     banned_peers: HashMap<<Z::Addr as NetZoneAddress>::BanID, Instant>,
     banned_peers_queue: DelayQueue<<Z::Addr as NetZoneAddress>::BanID>,
@@ -84,8 +68,6 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
         let banned_peers = HashMap::new();
         let banned_peers_queue = DelayQueue::new();
 
-        let connected_peers = HashMap::new();
-
         let mut peer_save_interval = interval(cfg.peer_save_period);
         peer_save_interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
@@ -93,8 +75,6 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
             white_list,
             gray_list,
             anchor_list,
-            connected_peers,
-            connected_peers_ban_id: HashMap::new(),
             banned_peers,
             banned_peers_queue,
             peer_save_task_handle: None,
@@ -135,71 +115,14 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
 
     fn poll_unban_peers(&mut self, cx: &mut Context<'_>) {
         while let Poll::Ready(Some(ban_id)) = self.banned_peers_queue.poll_expired(cx) {
-            tracing::debug!("Host {:?} is unbanned, ban has expired.", ban_id.get_ref(),);
+            tracing::info!("Host {:?} is unbanned, ban has expired.", ban_id.get_ref(),);
             self.banned_peers.remove(ban_id.get_ref());
-        }
-    }
-
-    fn poll_connected_peers(&mut self) {
-        let mut internal_addr_disconnected = Vec::new();
-        let mut addrs_to_ban = Vec::new();
-
-        #[expect(clippy::iter_over_hash_type, reason = "ordering doesn't matter here")]
-        for (internal_addr, peer) in &mut self.connected_peers {
-            if let Some(time) = peer.handle.check_should_ban() {
-                match internal_addr {
-                    InternalPeerID::KnownAddr(addr) => addrs_to_ban.push((*addr, time.0)),
-                    // If we don't know the peers address all we can do is disconnect.
-                    InternalPeerID::Unknown(_) => peer.handle.send_close_signal(),
-                }
-            }
-
-            if peer.handle.is_closed() {
-                internal_addr_disconnected.push(*internal_addr);
-            }
-        }
-
-        for (addr, time) in addrs_to_ban {
-            self.ban_peer(addr, time);
-        }
-
-        for disconnected_addr in internal_addr_disconnected {
-            self.connected_peers.remove(&disconnected_addr);
-            if let InternalPeerID::KnownAddr(addr) = disconnected_addr {
-                // remove the peer from the connected peers with this ban ID.
-                self.connected_peers_ban_id
-                    .get_mut(&addr.ban_id())
-                    .unwrap()
-                    .remove(&addr);
-
-                // If the amount of peers with this ban id is 0 remove the whole set.
-                if self.connected_peers_ban_id[&addr.ban_id()].is_empty() {
-                    self.connected_peers_ban_id.remove(&addr.ban_id());
-                }
-                // remove the peer from the anchor list.
-                self.anchor_list.remove(&addr);
-            }
         }
     }
 
     fn ban_peer(&mut self, addr: Z::Addr, time: Duration) {
         if self.banned_peers.contains_key(&addr.ban_id()) {
             tracing::error!("Tried to ban peer twice, this shouldn't happen.");
-        }
-
-        if let Some(connected_peers_with_ban_id) = self.connected_peers_ban_id.get(&addr.ban_id()) {
-            for peer in connected_peers_with_ban_id.iter().map(|addr| {
-                tracing::debug!("Banning peer: {}, for: {:?}", addr, time);
-
-                self.connected_peers
-                    .get(&InternalPeerID::KnownAddr(*addr))
-                    .expect("Peer must be in connected list if in connected_peers_with_ban_id")
-            }) {
-                // The peer will get removed from our connected list once we disconnect
-                peer.handle.send_close_signal();
-                // Remove the peer now from anchors so we don't accidentally persist a bad anchor peer to disk.
-                self.anchor_list.remove(&addr);
-            }
         }
 
         self.white_list.remove_peers_with_ban_id(&addr.ban_id());
@@ -247,20 +170,14 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
         peer_list.retain_mut(|peer| {
             peer.adr.make_canonical();
 
-            if peer.adr.should_add_to_peer_list() {
+            peer.adr.should_add_to_peer_list() &&
                 !self.is_peer_banned(&peer.adr)
-            } else {
-                false
-            }
             // TODO: check rpc/ p2p ports not the same
         });
 
         for peer in peer_list {
             self.add_peer_to_gray_list(peer);
         }
-        // The gray list has no peers we need to keep in the list so just pass an empty HashSet.
-        self.gray_list
-            .reduce_list(&HashSet::new(), self.cfg.max_gray_list_length);
     }
 
     fn take_random_white_peer(
@@ -269,7 +186,7 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
     ) -> Option<ZoneSpecificPeerListEntryBase<Z::Addr>> {
         tracing::debug!("Retrieving random white peer");
         self.white_list
-            .take_random_peer(&mut rand::thread_rng(), block_needed, &self.anchor_list)
+            .take_random_peer(&mut rand::thread_rng(), &self.anchor_list)
     }
 
     fn take_random_gray_peer(
@@ -278,7 +195,7 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
     ) -> Option<ZoneSpecificPeerListEntryBase<Z::Addr>> {
         tracing::debug!("Retrieving random gray peer");
         self.gray_list
-            .take_random_peer(&mut rand::thread_rng(), block_needed, &HashSet::new())
+            .take_random_peer(&mut rand::thread_rng(), &HashSet::new())
     }
 
     fn get_white_peers(&self, len: usize) -> Vec<ZoneSpecificPeerListEntryBase<Z::Addr>> {
@@ -310,7 +227,7 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
             // if the peer is reachable add it to our white list
             let peb = ZoneSpecificPeerListEntryBase {
                 id: peer.id,
-                adr: *addr,
+                adr: addr.clone(),
                 last_seen: 0,
                 rpc_port: peer.rpc_port,
                 rpc_credits_per_hash: peer.rpc_credits_per_hash,
@@ -339,14 +256,14 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
             self.connected_peers_ban_id
                 .entry(addr.ban_id())
                 .or_default()
-                .insert(*addr);
+                .insert(addr.clone());
         }
 
         // if the address is Some that means we can reach it from our node.
-        if let Some(addr) = peer.addr {
+        if let Some(addr) = &peer.addr {
             // The peer is reachable, update our white list and add it to the anchor connections.
             self.update_white_list_peer_entry(&peer)?;
-            self.anchor_list.insert(addr);
+            self.anchor_list.insert(addr.clone());
             self.white_list
                 .reduce_list(&self.anchor_list, self.cfg.max_white_list_length);
         }
@@ -373,42 +290,16 @@ impl<Z: BorshNetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
         let _guard = span.enter();
 
         let response = match req {
-            AddressBookRequest::NewConnection {
-                internal_peer_id,
-                public_address,
-                handle,
-                id,
-                pruning_seed,
-                rpc_port,
-                rpc_credits_per_hash,
-            } => self
-                .handle_new_connection(
-                    internal_peer_id,
-                    ConnectionPeerEntry {
-                        addr: public_address,
-                        id,
-                        handle,
-                        pruning_seed,
-                        rpc_port,
-                        rpc_credits_per_hash,
-                    },
-                )
-                .map(|()| AddressBookResponse::Ok),
             AddressBookRequest::IncomingPeerList(peer_list) => {
                 self.handle_incoming_peer_list(peer_list);
                 Ok(AddressBookResponse::Ok)
             }
-            AddressBookRequest::TakeRandomWhitePeer { height } => self
+            AddressBookRequest::TakeRandomWhitePeer { connections } => self
                 .take_random_white_peer(height)
                 .map(AddressBookResponse::Peer)
                 .ok_or(AddressBookError::PeerNotFound),
-            AddressBookRequest::TakeRandomGrayPeer { height } => self
+            AddressBookRequest::TakeRandomGrayPeer { connections } => self
                 .take_random_gray_peer(height)
-                .map(AddressBookResponse::Peer)
-                .ok_or(AddressBookError::PeerNotFound),
-            AddressBookRequest::TakeRandomPeer { height } => self
-                .take_random_white_peer(height)
-                .or_else(|| self.take_random_gray_peer(height))
                 .map(AddressBookResponse::Peer)
                 .ok_or(AddressBookError::PeerNotFound),
             AddressBookRequest::GetWhitePeers(len) => {

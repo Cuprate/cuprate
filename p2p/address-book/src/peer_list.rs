@@ -1,22 +1,19 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use indexmap::IndexMap;
-use rand::prelude::*;
-
-use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
-use cuprate_p2p_core::{services::ZoneSpecificPeerListEntryBase, NetZoneAddress, NetworkZone};
+use rand::Rng;
+use cuprate_bucket_set::{BucketMap, Bucketable};
+use cuprate_p2p_core::{NetZoneAddress, NetworkZone};
+use cuprate_p2p_core::services::ZoneSpecificPeerListEntryBase;
 use cuprate_pruning::PruningSeed;
-
-#[cfg(test)]
-pub(crate) mod tests;
+use crate::sealed::BorshNetworkZone;
 
 /// A Peer list in the address book.
 ///
 /// This could either be the white list or gray list.
-#[derive(Debug)]
-pub(crate) struct PeerList<Z: NetworkZone> {
+pub(crate) struct PeerList<Z: BorshNetworkZone> {
     /// The peers with their peer data.
-    pub peers: IndexMap<Z::Addr, ZoneSpecificPeerListEntryBase<Z::Addr>>,
+    pub peers: BucketMap<8, ZoneSpecificPeerListEntryBase<Z::Addr>>,
     /// An index of Pruning seed to address, so can quickly grab peers with the blocks
     /// we want.
     ///
@@ -24,31 +21,34 @@ pub(crate) struct PeerList<Z: NetworkZone> {
     /// This means the first peers in this list will store more blocks than peers
     /// later on. So when we need a peer with a certain block we look at the peers
     /// storing more blocks first then work our way to the peers storing less.
-    ///  
+    ///
     pruning_seeds: BTreeMap<PruningSeed, Vec<Z::Addr>>,
     /// A hashmap linking `ban_ids` to addresses.
     ban_ids: HashMap<<Z::Addr as NetZoneAddress>::BanID, Vec<Z::Addr>>,
 }
 
-impl<Z: NetworkZone> PeerList<Z> {
+impl<Z: BorshNetworkZone> PeerList<Z> {
     /// Creates a new peer list.
     pub(crate) fn new(list: Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>) -> Self {
-        let mut peers = IndexMap::with_capacity(list.len());
+        let mut peers = BucketMap::new();
         let mut pruning_seeds = BTreeMap::new();
         let mut ban_ids = HashMap::with_capacity(list.len());
 
         for peer in list {
-            pruning_seeds
-                .entry(peer.pruning_seed)
-                .or_insert_with(Vec::new)
-                .push(peer.adr);
+            let pruning_seed = peer.pruning_seed;
+            let adr = peer.adr.clone();
+            
+            if peers.push(peer).is_none() {
+                pruning_seeds
+                    .entry(pruning_seed)
+                    .or_insert_with(Vec::new)
+                    .push(adr.clone());
 
-            ban_ids
-                .entry(peer.adr.ban_id())
-                .or_insert_with(Vec::new)
-                .push(peer.adr);
-
-            peers.insert(peer.adr, peer);
+                ban_ids
+                    .entry(adr.ban_id())
+                    .or_insert_with(Vec::new)
+                    .push(adr);
+            }
         }
         Self {
             peers,
@@ -64,18 +64,19 @@ impl<Z: NetworkZone> PeerList<Z> {
 
     /// Adds a new peer to the peer list
     pub(crate) fn add_new_peer(&mut self, peer: ZoneSpecificPeerListEntryBase<Z::Addr>) {
-        if self.peers.insert(peer.adr, peer).is_none() {
-            #[expect(clippy::unwrap_or_default, reason = "It's more clear with this")]
-            self.pruning_seeds
-                .entry(peer.pruning_seed)
-                .or_insert_with(Vec::new)
-                .push(peer.adr);
+        let pruning_seed = peer.pruning_seed;
+        let adr = peer.adr.clone();
 
-            #[expect(clippy::unwrap_or_default)]
-            self.ban_ids
-                .entry(peer.adr.ban_id())
+        if self.peers.push(peer).is_none() {
+           self.pruning_seeds
+                .entry(pruning_seed)
                 .or_insert_with(Vec::new)
-                .push(peer.adr);
+                .push(adr.clone());
+
+            self.ban_ids
+                .entry(adr.ban_id())
+                .or_insert_with(Vec::new)
+                .push(adr);
         }
     }
 
@@ -88,41 +89,11 @@ impl<Z: NetworkZone> PeerList<Z> {
     pub(crate) fn take_random_peer<R: Rng>(
         &mut self,
         r: &mut R,
-        block_needed: Option<usize>,
         must_keep_peers: &HashSet<Z::Addr>,
     ) -> Option<ZoneSpecificPeerListEntryBase<Z::Addr>> {
         // Take a random peer and see if it's in the list of must_keep_peers, if it is try again.
         // TODO: improve this
-
-        for _ in 0..3 {
-            if let Some(needed_height) = block_needed {
-                let (_, addresses_with_block) = self.pruning_seeds.iter().find(|(seed, _)| {
-                    // TODO: factor in peer blockchain height?
-                    seed.get_next_unpruned_block(needed_height, MAX_BLOCK_HEIGHT_USIZE)
-                        .expect("Block needed is higher than max block allowed.")
-                        == needed_height
-                })?;
-                let n = r.gen_range(0..addresses_with_block.len());
-                let peer = addresses_with_block[n];
-                if must_keep_peers.contains(&peer) {
-                    continue;
-                }
-
-                return self.remove_peer(&peer);
-            }
-            let len = self.len();
-
-            if len == 0 {
-                return None;
-            }
-
-            let n = r.gen_range(0..len);
-
-            let (&key, _) = self.peers.get_index(n).unwrap();
-            if !must_keep_peers.contains(&key) {
-                return self.remove_peer(&key);
-            }
-        }
+        
 
         None
     }
@@ -149,10 +120,13 @@ impl<Z: NetworkZone> PeerList<Z> {
         self.peers.get_mut(peer)
     }
 
+    /*
     /// Returns true if the list contains this peer.
     pub(crate) fn contains_peer(&self, peer: &Z::Addr) -> bool {
         self.peers.contains_key(peer)
     }
+    
+     */
 
     /// Removes a peer from the pruning idx
     ///
@@ -197,7 +171,7 @@ impl<Z: NetworkZone> PeerList<Z> {
         &mut self,
         peer: &Z::Addr,
     ) -> Option<ZoneSpecificPeerListEntryBase<Z::Addr>> {
-        let peer_eb = self.peers.swap_remove(peer)?;
+        let peer_eb = self.peers.remove(peer)?;
         self.remove_peer_from_all_idxs(&peer_eb);
         Some(peer_eb)
     }
@@ -211,34 +185,6 @@ impl<Z: NetworkZone> PeerList<Z> {
 
         for addr in addresses.clone() {
             self.remove_peer(&addr);
-        }
-    }
-
-    /// Tries to reduce the peer list to `new_len`.
-    ///
-    /// This function could keep the list bigger than `new_len` if `must_keep_peers`s length
-    /// is larger than `new_len`, in that case we will remove as much as we can.
-    pub(crate) fn reduce_list(&mut self, must_keep_peers: &HashSet<Z::Addr>, new_len: usize) {
-        if new_len >= self.len() {
-            return;
-        }
-
-        let target_removed = self.len() - new_len;
-        let mut removed_count = 0;
-        let mut peers_to_remove: Vec<Z::Addr> = Vec::with_capacity(target_removed);
-
-        for peer_adr in self.peers.keys() {
-            if removed_count >= target_removed {
-                break;
-            }
-            if !must_keep_peers.contains(peer_adr) {
-                peers_to_remove.push(*peer_adr);
-                removed_count += 1;
-            }
-        }
-
-        for peer_adr in peers_to_remove {
-            let _ = self.remove_peer(&peer_adr);
         }
     }
 }

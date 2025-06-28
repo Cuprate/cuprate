@@ -17,6 +17,7 @@ use cuprate_p2p_core::{NetZoneAddress, NetworkZone};
 mod book;
 mod peer_list;
 mod store;
+mod anchors;
 
 /// The address book config.
 #[derive(Debug, Clone)]
@@ -85,18 +86,16 @@ pub async fn init_address_book<Z: BorshNetworkZone>(
 
 use sealed::BorshNetworkZone;
 mod sealed {
+    use cuprate_bucket_set::Bucketable;
     use super::*;
 
     /// An internal trait for the address book for a [`NetworkZone`] that adds the requirement of [`borsh`] traits
     /// onto the network address.
-    pub trait BorshNetworkZone: NetworkZone<Addr = Self::BorshAddr> {
-        type BorshAddr: NetZoneAddress + borsh::BorshDeserialize + borsh::BorshSerialize;
-    }
+    pub trait BorshNetworkZone: NetworkZone<Addr: borsh::BorshDeserialize + borsh::BorshSerialize + Bucketable > {}
 
     impl<T: NetworkZone> BorshNetworkZone for T
     where
-        T::Addr: borsh::BorshDeserialize + borsh::BorshSerialize,
+        T::Addr: borsh::BorshDeserialize + borsh::BorshSerialize + Bucketable,
     {
-        type BorshAddr = T::Addr;
     }
 }
