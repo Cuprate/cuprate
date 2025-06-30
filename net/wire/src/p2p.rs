@@ -433,6 +433,7 @@ impl LevinBody for Message {
 /// for these objects, so we need to decode/encode a message.
 struct EmptyMessage;
 
+#[expect(clippy::empty_structs_with_brackets)]
 epee_object! {
     EmptyMessage,
 }

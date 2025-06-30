@@ -1,5 +1,5 @@
 use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4},
     path::PathBuf,
 };
 
@@ -35,8 +35,8 @@ config_struct! {
         /// Enable PoW security for Arti.
         ///
         /// If set, Arti will enforce an EquiX PoW to be resolved for
-        /// other nodes to complete a rendez-vous request. This is a
-        /// DDoS mitigation and is only enabled during heavy load.
+        /// other nodes to complete a rendez-vous request when under
+        /// heavy load.
         ///
         /// Type         | boolean
         /// Valid values | false, true
@@ -61,33 +61,20 @@ config_struct! {
         /// This string specify the onion address that should be advertized to the Tor network
         /// and that your daemon should be expecting connections from.
         ///
-        /// When this is set, `p2p.tor_net.p2p_port` is not used for listening but as the source
+        /// When this is set, `p2p.tor_net.p2p_port` is not used for host listening, but as the source
         /// port of your hidden service in your torrc configuration file. For setting Cuprate's
-        /// listening port see `tor.daemon_listening_port` field
-        ///
-        /// This setting is ignored in `Arti` mode.
+        /// listening port see `tor.listening_addr` field
         ///
         /// Type         | String
         /// Valid values | "<56 character domain>.onion"
         /// Examples     | "monerotoruzizulg5ttgat2emf4d6fbmiea25detrmmy7erypseyteyd.onion"
         pub anonymous_inbound: String,
 
-        /// The IP address to bind and listen on for anonymous inbound connections from Tor Daemon.
+        /// The IP address and port to bind and listen on for anonymous inbound connections from Tor Daemon.
         ///
-        /// This setting is only took into account if `p2p.tor_net.enabled` is set to "Daemon".
-        ///
-        /// Type     | IP address
-        /// Examples | "0.0.0.0", "192.168.1.50", "::", "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
-        pub listening_ip: IpAddr,
-
-        /// The port to listen on for anonymous inbound connections from Tor Daemon.
-        ///
-        /// This setting is only took into account if `p2p.tor_net.enabled` is set to "Daemon".
-        ///
-        /// Type         | Number
-        /// Valid values | 0..65534
-        /// Examples     | 18080, 9999, 5432
-        pub listening_port: u16,
+        /// Type     | Socket address
+        /// Examples | "0.0.0.0:18083", "192.168.1.50:2000", "[::]:5000", "[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:18082"
+        pub listening_addr: SocketAddr,
     }
 
     /// Tor config
@@ -99,8 +86,6 @@ config_struct! {
         #[comment_out = true]
         /// Enable Tor network by specifying how to connect to it.
         ///
-        /// Setting this to "" (an empty string) will disable Tor.
-        ///
         /// When "Daemon" is set, the Tor daemon address to use can be
         /// specified in `tor.daemon_addr`.
         ///
@@ -111,10 +96,14 @@ config_struct! {
 
         #[child = true]
         /// Arti config
+        ///
+        /// Only relevant if `tor.mode` is set to "Arti"
         pub arti: ArtiConfig,
 
         #[child = true]
         /// Tor Daemon config
+        ///
+        /// Only relevant if `tor.mode` is set to "Daemon"
         pub daemon: TorDaemonConfig,
     }
 }
@@ -124,8 +113,7 @@ impl Default for TorDaemonConfig {
         Self {
             address: "127.0.0.1:9050".parse().unwrap(),
             anonymous_inbound: String::new(),
-            listening_ip: Ipv4Addr::LOCALHOST.into(),
-            listening_port: 18083,
+            listening_addr: SocketAddrV4::new(Ipv4Addr::LOCALHOST, 18083).into(),
         }
     }
 }

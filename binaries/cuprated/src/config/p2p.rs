@@ -9,8 +9,8 @@ use arti_client::{
     config::onion_service::{OnionServiceConfig, OnionServiceConfigBuilder},
     TorClient, TorClientBuilder, TorClientConfig,
 };
-use cuprate_p2p_transport::{Arti, ArtiClientConfig, ArtiServerConfig};
 use serde::{Deserialize, Serialize};
+use tor_rtcompat::PreferredRuntime;
 
 use cuprate_helper::{fs::address_book_path, network::Network};
 use cuprate_p2p::config::TransportConfig;
@@ -18,8 +18,8 @@ use cuprate_p2p_core::{
     transports::{Tcp, TcpServerConfig},
     ClearNet, NetworkZone, Tor, Transport,
 };
+use cuprate_p2p_transport::{Arti, ArtiClientConfig, ArtiServerConfig};
 use cuprate_wire::OnionAddr;
-use tor_rtcompat::PreferredRuntime;
 
 use crate::tor::TorMode;
 
@@ -121,15 +121,6 @@ impl Default for BlockDownloaderConfig {
 
 config_struct! {
     Shared {
-        /// The port bind to this network zone, enabling incoming P2P connections.
-        ///
-        /// Setting this to 0 will disable incoming P2P connections for this zone.
-        ///
-        /// Type         | Number
-        /// Valid values | 0..65534
-        /// Examples     | 18080, 9999, 5432
-        pub p2p_port: u16,
-
         #[comment_out = true]
         /// The number of outbound connections to make and try keep.
         ///
@@ -167,6 +158,16 @@ config_struct! {
         /// Valid values | 0.0..1.0
         /// Examples     | 0.0, 0.5, 0.123, 0.999, 1.0
         pub gray_peers_percent: f64,
+
+        /// The port bind to this network zone.
+        ///
+        /// This port will be bind to if the incoming P2P
+        /// server for this zone has been enabled.
+        ///
+        /// Type         | Number
+        /// Valid values | 0..65534
+        /// Examples     | 18080, 9999, 5432
+        pub p2p_port: u16,
 
         #[child = true]
         /// The address book config.

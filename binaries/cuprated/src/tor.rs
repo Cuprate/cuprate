@@ -10,6 +10,13 @@ use arti_client::{
     config::{onion_service::OnionServiceConfigBuilder, CfgPath, TorClientConfigBuilder},
     StreamPrefs, TorClient, TorClientBuilder, TorClientConfig,
 };
+use futures::Stream;
+use serde::{Deserialize, Serialize};
+use tor_hsservice::{OnionService, RendRequest, RunningOnionService};
+use tor_persist::hsnickname::HsNickname;
+use tor_rtcompat::PreferredRuntime;
+use tracing::info;
+
 use cuprate_helper::fs::CUPRATE_DATA_DIR;
 use cuprate_p2p::TransportConfig;
 use cuprate_p2p_core::{ClearNet, Tor};
@@ -17,12 +24,6 @@ use cuprate_p2p_transport::{
     Arti, ArtiClientConfig, ArtiServerConfig, Daemon, DaemonClientConfig, DaemonServerConfig,
 };
 use cuprate_wire::OnionAddr;
-use futures::Stream;
-use serde::{Deserialize, Serialize};
-use tor_hsservice::{OnionService, RendRequest, RunningOnionService};
-use tor_persist::hsnickname::HsNickname;
-use tor_rtcompat::PreferredRuntime;
-use tracing::info;
 
 use crate::config::Config;
 
@@ -62,11 +63,11 @@ pub struct TorContext {
 /// clearnet as a proxy.
 pub async fn initialize_tor_if_enabled(config: &Config) -> TorContext {
     let mode = config.tor.mode;
-    let anonymize_clearnet = config.p2p.clear_net.proxy.to_lowercase() == "Tor";
+    let anonymize_clearnet = config.p2p.clear_net.proxy.to_lowercase() == "tor";
 
     // Start Arti client
     let (bootstrapped_client, arti_client_config) =
-        if mode == TorMode::Arti && ( config.p2p.tor_net.enabled || anonymize_clearnet ) {
+        if mode == TorMode::Arti && (config.p2p.tor_net.enabled || anonymize_clearnet) {
             Some(initialize_arti_client(config).await)
         } else {
             None
@@ -176,15 +177,19 @@ pub fn transport_clearnet_arti_config(ctx: &TorContext) -> TransportConfig<Clear
 }
 
 pub fn transport_daemon_config(config: &Config) -> TransportConfig<Tor, Daemon> {
+    let invalid_onion =
+        config.p2p.tor_net.inbound_onion && config.tor.daemon.anonymous_inbound.is_empty();
+    if invalid_onion {
+        tracing::warn!("Onion inbound is enabled yet no onion host has been defined in configuration. Inbound server disabled.");
+    }
+
     TransportConfig::<Tor, Daemon> {
         client_config: DaemonClientConfig {
             tor_daemon: config.tor.daemon.address,
         },
-        server_config: (!config.tor.daemon.anonymous_inbound.is_empty()).then_some(
-            DaemonServerConfig {
-                ip: config.tor.daemon.listening_ip,
-                port: config.tor.daemon.listening_port,
-            },
-        ),
+        server_config: (!invalid_onion).then_some(DaemonServerConfig {
+            ip: config.tor.daemon.listening_addr.ip(),
+            port: config.tor.daemon.listening_addr.port(),
+        }),
     }
 }

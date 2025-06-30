@@ -9,7 +9,6 @@ use std::{
 };
 
 use clap::Parser;
-use cuprate_wire::OnionAddr;
 use serde::{Deserialize, Serialize};
 
 use cuprate_consensus::ContextConfig;
@@ -19,6 +18,7 @@ use cuprate_helper::{
 };
 use cuprate_p2p::block_downloader::BlockDownloaderConfig;
 use cuprate_p2p_core::{ClearNet, Tor};
+use cuprate_wire::OnionAddr;
 
 use crate::{
     constants::{DEFAULT_CONFIG_STARTUP_DELAY, DEFAULT_CONFIG_WARNING},
@@ -265,7 +265,7 @@ impl Config {
             max_inbound_connections: self.p2p.tor_net.max_inbound_connections,
             gray_peers_percent: self.p2p.tor_net.gray_peers_percent,
             p2p_port: self.p2p.tor_net.p2p_port,
-            rpc_port: self.rpc.restricted.port_for_p2p(),
+            rpc_port: 0,
             address_book_config: self.p2p.tor_net.address_book_config.address_book_config(
                 &self.fs.cache_directory,
                 self.network,
