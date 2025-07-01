@@ -127,11 +127,12 @@ macro_rules! epee_object {
 
     ) => {
         cuprate_epee_encoding::macros::paste!(
-            #[allow(non_snake_case, clippy::empty_structs_with_brackets)]
+            #[allow(non_snake_case)]
             mod [<__epee_builder_ $obj>] {
                 use super::*;
 
                 #[derive(Default)]
+                #[allow(clippy::empty_structs_with_brackets)]
                 pub struct [<__Builder $obj>] {
                     $($field: Option<cuprate_epee_encoding::epee_object!(@internal_field_type $ty, $($ty_as)?)>,)*
                     $($flat_field: <$flat_ty as cuprate_epee_encoding::EpeeObject>::Builder,)*
