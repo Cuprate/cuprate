@@ -18,6 +18,7 @@ cuprate-types           = { workspace = true, default-features = false, features
 cuprate-helper          = { workspace = true, default-features = false, features = ["map"] }
 
 bitflags                = { workspace = true, features = ["std"] }
+borsh                   = { workspace = true, features = ["derive"] }
 bytes                   = { workspace = true, features = ["std"] }
 thiserror               = { workspace = true }
 
