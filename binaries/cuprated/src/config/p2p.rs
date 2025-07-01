@@ -265,7 +265,7 @@ impl Default for ClearNetConfig {
     fn default() -> Self {
         Self {
             p2p_port: 18080,
-            enable_inbound: false,
+            enable_inbound: true,
             listen_on: Ipv4Addr::UNSPECIFIED,
             enable_inbound_v6: false,
             listen_on_v6: Ipv6Addr::UNSPECIFIED,
