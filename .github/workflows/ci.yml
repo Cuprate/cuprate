@@ -154,9 +154,9 @@ jobs:
         os:
         # TODO: support musl <https://github.com/Cuprate/cuprate/issues/336>
         # - { image: alpine:latest, commands: "apk update && apk add alpine-sdk cmake curl bash" }
-        - { image: archlinux:latest, commands: "pacman -Syyu --noconfirm base-devel git cmake" }
-        - { image: debian:stable, commands: "apt update && apt -y install build-essential curl cmake git" }
-        - { image: fedora:latest, commands: "dnf install --assumeyes @development-tools gcc gcc-c++ cmake git" }
+        - { image: archlinux:latest, commands: "pacman -Syyu --noconfirm base-devel git cmake openssl" }
+        - { image: debian:stable, commands: "apt update && apt -y install build-essential curl cmake git libssl-dev" }
+        - { image: fedora:latest, commands: "dnf install --assumeyes @development-tools gcc gcc-c++ cmake git openssl-devel" }
 
     steps:
       - name: Checkout
