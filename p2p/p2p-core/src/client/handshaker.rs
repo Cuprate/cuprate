@@ -317,6 +317,7 @@ where
                 .ready()
                 .await?
                 .call(AddressBookRequest::IncomingPeerList(
+                    addr,
                     handshake_res
                         .local_peerlist_new
                         .into_iter()
