@@ -27,7 +27,7 @@ use crate::{
         blockchain::chain_height,
         output::id_to_output_on_chain,
     },
-    service::{init, BlockchainReadHandle, BlockchainWriteHandle},
+    service::{init_with_db, BlockchainReadHandle, BlockchainWriteHandle},
     tables::{OpenTables, Tables, TablesIter},
     tests::{map_verified_block_to_alt, AssertTableLen},
     types::{Amount, AmountIndex, PreRctOutputId},
@@ -46,7 +46,8 @@ fn init_service() -> (
         .data_directory(tempdir.path().into())
         .low_power()
         .build();
-    let (reader, writer, env) = init(config).unwrap();
+    let env = Arc::new(crate::open::<ConcreteEnv>(config.clone()).unwrap());
+    let (reader, writer) = init_with_db(&env, config);
     (reader, writer, env, tempdir)
 }
 

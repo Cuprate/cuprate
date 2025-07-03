@@ -51,7 +51,7 @@ async fn main() {
 
     let config = ConfigBuilder::new().build();
 
-    let (mut read_handle, _, _) = cuprate_blockchain::service::init(config).unwrap();
+    let (mut read_handle, _) = cuprate_blockchain::service::init2(config).unwrap();
 
     let mut hashes_of_hashes = Vec::new();
 
