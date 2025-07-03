@@ -127,7 +127,7 @@ macro_rules! epee_object {
 
     ) => {
         cuprate_epee_encoding::macros::paste!(
-            #[allow(non_snake_case)]
+            #[allow(non_snake_case, clippy::empty_structs_with_brackets)]
             mod [<__epee_builder_ $obj>] {
                 use super::*;
 
