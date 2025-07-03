@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use cuprate_database::config::SyncMode;
 use cuprate_database_service::ReaderThreads;
-use cuprate_helper::fs::CUPRATE_DATA_DIR;
+use cuprate_fs::CUPRATE_DATA_DIR;
 
 use super::macros::config_struct;
 

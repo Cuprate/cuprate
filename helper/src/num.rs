@@ -3,10 +3,7 @@
 //! `#[no_std]` compatible.
 
 //---------------------------------------------------------------------------------------------------- Use
-use core::{
-    cmp::Ordering,
-    ops::{Add, Div, Mul, Sub},
-};
+use core::ops::{Add, Div, Mul, Sub};
 
 #[cfg(feature = "std")]
 mod rolling_median;
@@ -125,73 +122,6 @@ where
         get_mid(array[mid - 1], array[mid])
     } else {
         array[mid]
-    }
-}
-
-#[inline]
-/// Compare 2 non-`NaN` floats.
-///
-/// ```rust
-/// # use cuprate_helper::num::*;
-/// # use core::cmp::Ordering;
-/// assert_eq!(cmp_float(0.0, 1.0), Ordering::Less);
-/// assert_eq!(cmp_float(1.0, 1.0), Ordering::Equal);
-/// assert_eq!(cmp_float(2.0, 1.0), Ordering::Greater);
-///
-/// assert_eq!(cmp_float(1.0,           f32::INFINITY), Ordering::Less);
-/// assert_eq!(cmp_float(f32::INFINITY, f32::INFINITY), Ordering::Equal);
-/// assert_eq!(cmp_float(f32::INFINITY, 1.0),           Ordering::Greater);
-///
-/// assert_eq!(cmp_float(f32::NEG_INFINITY, f32::INFINITY),     Ordering::Less);
-/// assert_eq!(cmp_float(f32::NEG_INFINITY, f32::NEG_INFINITY), Ordering::Equal);
-/// assert_eq!(cmp_float(f32::INFINITY,     f32::NEG_INFINITY), Ordering::Greater);
-/// ```
-///
-/// # Panic
-/// This function panics if either floats are NaNs.
-///
-/// ```rust,should_panic
-/// # use cuprate_helper::num::*;
-/// cmp_float(0.0, f32::NAN);
-/// ```
-pub fn cmp_float<F: Float>(a: F, b: F) -> Ordering {
-    match (a <= b, a >= b) {
-        (false, true) => Ordering::Greater,
-        (true, false) => Ordering::Less,
-        (true, true) => Ordering::Equal,
-        _ => panic!("cmp_float() has failed, input: {a} - {b}"),
-    }
-}
-
-#[inline]
-/// Compare 2 floats, `NaN`'s will always return [`Ordering::Equal`].
-///
-/// ```rust
-/// # use cuprate_helper::num::*;
-/// # use core::cmp::Ordering;
-/// assert_eq!(cmp_float_nan(0.0, 1.0), Ordering::Less);
-/// assert_eq!(cmp_float_nan(1.0, 1.0), Ordering::Equal);
-/// assert_eq!(cmp_float_nan(2.0, 1.0), Ordering::Greater);
-///
-/// assert_eq!(cmp_float_nan(1.0,           f32::INFINITY), Ordering::Less);
-/// assert_eq!(cmp_float_nan(f32::INFINITY, f32::INFINITY), Ordering::Equal);
-/// assert_eq!(cmp_float_nan(f32::INFINITY, 1.0),           Ordering::Greater);
-///
-/// assert_eq!(cmp_float_nan(f32::NEG_INFINITY, f32::INFINITY),     Ordering::Less);
-/// assert_eq!(cmp_float_nan(f32::NEG_INFINITY, f32::NEG_INFINITY), Ordering::Equal);
-/// assert_eq!(cmp_float_nan(f32::INFINITY,     f32::NEG_INFINITY), Ordering::Greater);
-///
-/// assert_eq!(cmp_float_nan(f32::NAN, -0.0),              Ordering::Equal);
-/// assert_eq!(cmp_float_nan(f32::NAN, 0.0),               Ordering::Equal);
-/// assert_eq!(cmp_float_nan(f32::NAN, f32::NAN),          Ordering::Equal);
-/// assert_eq!(cmp_float_nan(f32::NAN, f32::INFINITY),     Ordering::Equal);
-/// assert_eq!(cmp_float_nan(f32::NAN, f32::NEG_INFINITY), Ordering::Equal);
-/// ```
-pub fn cmp_float_nan<F: Float>(a: F, b: F) -> Ordering {
-    match (a <= b, a >= b) {
-        (false, true) => Ordering::Greater,
-        (true, false) => Ordering::Less,
-        _ => Ordering::Equal,
     }
 }
 

@@ -1,0 +1,12 @@
+[package]
+name = "cuprate-fs"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+cuprate-types = { workspace = true }
+
+dirs = { workspace = true }
+
+[lints]
+workspace = true

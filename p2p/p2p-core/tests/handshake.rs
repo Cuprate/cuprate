@@ -10,11 +10,11 @@ use tokio::{
 use tokio_util::codec::{FramedRead, FramedWrite};
 use tower::{Service, ServiceExt};
 
-use cuprate_helper::network::Network;
 use cuprate_test_utils::{
     monerod::monerod,
     test_netzone::{TestNetZone, TestNetZoneAddr},
 };
+use cuprate_types::network::Network;
 use cuprate_wire::{common::PeerSupportFlags, BasicNodeData, MoneroWireCodec};
 
 use cuprate_p2p_core::{

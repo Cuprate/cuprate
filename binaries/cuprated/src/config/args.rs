@@ -3,7 +3,7 @@ use std::{io::Write, path::PathBuf, process::exit};
 use clap::builder::TypedValueParser;
 use serde_json::Value;
 
-use cuprate_helper::network::Network;
+use cuprate_types::network::Network;
 
 use crate::{config::Config, version::CupratedVersionInfo};
 

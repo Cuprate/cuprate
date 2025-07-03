@@ -16,7 +16,7 @@ redb-memory = ["cuprate-database/redb-memory"]
 
 [dependencies]
 cuprate-database = { workspace = true }
-cuprate-helper   = { workspace = true, features = ["fs", "thread", "map", "asynch"] }
+cuprate-helper   = { workspace = true, features = ["thread", "map", "asynch"] }
 
 serde     = { workspace = true, optional = true }
 rayon     = { workspace = true }
