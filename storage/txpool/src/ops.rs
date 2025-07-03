@@ -55,7 +55,7 @@
 //!     .build();
 //!
 //! // Initialize the database environment.
-//! let env = cuprate_txpool::open(config)?;
+//! let env = cuprate_txpool::open(&config)?;
 //!
 //! // Open up a transaction + tables for writing.
 //! let env_inner = env.env_inner();
