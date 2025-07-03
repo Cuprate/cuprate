@@ -1,10 +1,14 @@
-use std::time::Duration;
+use std::{task::Poll, time::Duration};
+
+use futures::future::BoxFuture;
+use tower::{Service, ServiceExt};
 
 use cuprate_dandelion_tower::{
-    pool::DandelionPoolService, DandelionConfig, DandelionRouter, Graph,
+    pool::DandelionPoolService, DandelionConfig, DandelionRouteReq, DandelionRouter,
+    DandelionRouterError, Graph, State, TxState,
 };
 use cuprate_p2p::NetworkInterface;
-use cuprate_p2p_core::ClearNet;
+use cuprate_p2p_core::{client::InternalPeerID, ClearNet, NetworkZone, Tor};
 use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
 
 use crate::{
@@ -27,17 +31,65 @@ const DANDELION_CONFIG: DandelionConfig = DandelionConfig {
 };
 
 /// A [`DandelionRouter`] with all generic types defined.
-type ConcreteDandelionRouter = DandelionRouter<
-    stem_service::OutboundPeerStream,
-    diffuse_service::DiffuseService,
+pub(super) type ConcreteDandelionRouter<Z> = DandelionRouter<
+    stem_service::OutboundPeerStream<Z>,
+    diffuse_service::DiffuseService<Z>,
     CrossNetworkInternalPeerId,
-    stem_service::StemPeerService<ClearNet>,
+    stem_service::StemPeerService<Z>,
     DandelionTx,
 >;
 
+pub(super) struct MainDandelionRouter {
+    clearnet_router: ConcreteDandelionRouter<ClearNet>,
+    tor_router: Option<ConcreteDandelionRouter<Tor>>,
+}
+
+impl MainDandelionRouter {
+    pub const fn new(
+        clearnet_router: ConcreteDandelionRouter<ClearNet>,
+        tor_router: Option<ConcreteDandelionRouter<Tor>>,
+    ) -> Self {
+        Self {
+            clearnet_router,
+            tor_router,
+        }
+    }
+}
+
+impl Service<DandelionRouteReq<DandelionTx, CrossNetworkInternalPeerId>> for MainDandelionRouter {
+    type Response = State;
+    type Error = DandelionRouterError;
+    type Future = BoxFuture<'static, Result<State, DandelionRouterError>>;
+
+    fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
+        if let Some(tor_router) = self.tor_router.as_mut() {
+            if let Poll::Ready(rd) = tor_router.poll_ready(cx) {
+                rd?;
+            } else {
+                return Poll::Pending;
+            }
+        }
+
+        self.clearnet_router.poll_ready(cx)
+    }
+
+    fn call(
+        &mut self,
+        req: DandelionRouteReq<DandelionTx, CrossNetworkInternalPeerId>,
+    ) -> Self::Future {
+        if let Some(tor_router) = self.tor_router.as_mut() {
+            if req.state == TxState::Local {
+                return tor_router.call(req);
+            }
+        }
+
+        self.clearnet_router.call(req)
+    }
+}
+
 /// Starts the dandelion pool manager task and returns a handle to send txs to broadcast.
 pub fn start_dandelion_pool_manager(
-    router: ConcreteDandelionRouter,
+    router: MainDandelionRouter,
     txpool_read_handle: TxpoolReadHandle,
     txpool_write_handle: TxpoolWriteHandle,
 ) -> DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId> {
@@ -54,12 +106,17 @@ pub fn start_dandelion_pool_manager(
 }
 
 /// Creates a [`DandelionRouter`] from a [`NetworkInterface`].
-pub fn dandelion_router(clear_net: NetworkInterface<ClearNet>) -> ConcreteDandelionRouter {
+pub fn dandelion_router<Z: NetworkZone>(
+    network_interface: NetworkInterface<Z>,
+) -> ConcreteDandelionRouter<Z>
+where
+    InternalPeerID<Z::Addr>: Into<CrossNetworkInternalPeerId>,
+{
     DandelionRouter::new(
         diffuse_service::DiffuseService {
-            clear_net_broadcast_service: clear_net.broadcast_svc(),
+            clear_net_broadcast_service: network_interface.broadcast_svc(),
         },
-        stem_service::OutboundPeerStream::new(clear_net),
+        stem_service::OutboundPeerStream::<Z>::new(network_interface),
         DANDELION_CONFIG,
     )
 }

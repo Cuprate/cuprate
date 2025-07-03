@@ -107,6 +107,7 @@ macro_rules! define_request_and_response {
             ///
             $( #[$type_attr] )*
             ///
+            #[allow(clippy::empty_structs_with_brackets)]
             $( #[$request_type_attr] )*
             [<$type_name Request>] $(($restricted $(, $empty)?))? {
                 $(
