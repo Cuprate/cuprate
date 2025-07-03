@@ -619,11 +619,8 @@ impl super::BlockchainManager {
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
 
-        self.txpool_write_handle
-            .ready()
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
-            .call(TxpoolWriteRequest::NewBlock { spent_key_images })
+        self.txpool_manager_handle
+            .new_block(spent_key_images)
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
     }

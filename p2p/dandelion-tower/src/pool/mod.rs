@@ -34,7 +34,6 @@ use tokio::{
 };
 use tokio_util::{sync::PollSender, time::DelayQueue};
 use tower::Service;
-use tracing::Instrument;
 
 use crate::{
     pool::manager::DandelionPoolShutDown,
@@ -92,9 +91,7 @@ where
         _tx: PhantomData,
     };
 
-    let span = tracing::debug_span!("dandelion_pool");
-
-    tokio::spawn(pool.run(rx).instrument(span));
+    tokio::spawn(pool.run(rx));
 
     DandelionPoolService {
         tx: PollSender::new(tx),
@@ -106,8 +103,12 @@ where
 /// Used to send [`IncomingTx`]s to the [`DandelionPoolManager`]
 #[derive(Clone)]
 pub struct DandelionPoolService<Tx, TxId, PeerId> {
+    #[expect(clippy::type_complexity)]
     /// The channel to [`DandelionPoolManager`].
-    tx: PollSender<(IncomingTx<Tx, TxId, PeerId>, oneshot::Sender<()>)>,
+    tx: PollSender<(
+        (IncomingTx<Tx, TxId, PeerId>, tracing::Span),
+        oneshot::Sender<()>,
+    )>,
 }
 
 impl<Tx, TxId, PeerId> Service<IncomingTx<Tx, TxId, PeerId>>
@@ -131,7 +132,7 @@ where
 
         let res = self
             .tx
-            .send_item((req, tx))
+            .send_item(((req, tracing::Span::current()), tx))
             .map_err(|_| DandelionPoolShutDown);
 
         async move {
