@@ -7,7 +7,7 @@ use tracing::Span;
 use cuprate_wire::BasicNodeData;
 
 use crate::{
-    client::{handshaker::HandShaker, InternalPeerID},
+    client::{handshaker::HandShaker, PeerInformation},
     AddressBook, BroadcastMessage, CoreSyncSvc, NetworkZone, ProtocolRequestHandlerMaker,
     Transport,
 };
@@ -31,7 +31,7 @@ pub struct HandshakerBuilder<
     CSync = DummyCoreSyncSvc,
     ProtoHdlrMkr = MapErr<Shared<DummyProtocolRequestHandler>, fn(Infallible) -> tower::BoxError>,
     BrdcstStrmMkr = fn(
-        InternalPeerID<<N as NetworkZone>::Addr>,
+        PeerInformation<<N as NetworkZone>::Addr>,
     ) -> stream::Pending<BroadcastMessage>,
 > {
     /// The address book service.
@@ -207,7 +207,7 @@ impl<N: NetworkZone, T: Transport<N>, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr>
     ) -> HandshakerBuilder<N, T, AdrBook, CSync, ProtoHdlr, NBrdcstStrmMkr>
     where
         BrdcstStrm: Stream<Item = BroadcastMessage> + Send + 'static,
-        NBrdcstStrmMkr: Fn(InternalPeerID<N::Addr>) -> BrdcstStrm + Clone + Send + 'static,
+        NBrdcstStrmMkr: Fn(PeerInformation<N::Addr>) -> BrdcstStrm + Clone + Send + 'static,
     {
         let Self {
             address_book,

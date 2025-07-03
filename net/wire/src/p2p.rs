@@ -50,6 +50,8 @@ pub enum LevinCommand {
     NewFluffyBlock,
     FluffyMissingTxsRequest,
     GetTxPoolCompliment,
+    TxPoolInv,
+    RequestTxPoolTxs,
 
     Unknown(u32),
 }
@@ -75,6 +77,8 @@ impl std::fmt::Display for LevinCommand {
             Self::NewFluffyBlock => "new fluffy block",
             Self::FluffyMissingTxsRequest => "fluffy missing transaction request",
             Self::GetTxPoolCompliment => "get transaction pool compliment",
+            Self::TxPoolInv => "tx pool inv",
+            Self::RequestTxPoolTxs => "request tx pool txs",
 
             Self::Unknown(_) => unreachable!(),
         })
@@ -100,6 +104,8 @@ impl LevinCommandTrait for LevinCommand {
             Self::NewFluffyBlock => 1024 * 1024 * 4,       // 4 MB
             Self::FluffyMissingTxsRequest => 1024 * 1024,  // 1 MB
             Self::GetTxPoolCompliment => 1024 * 1024 * 4,  // 4 MB
+            Self::TxPoolInv => 512 * 1024, //  512 kB
+            Self::RequestTxPoolTxs => 512 * 1024, //  512 kB
 
             Self::Unknown(_) => u64::MAX,
         }
@@ -127,6 +133,8 @@ impl From<u32> for LevinCommand {
             2008 => Self::NewFluffyBlock,
             2009 => Self::FluffyMissingTxsRequest,
             2010 => Self::GetTxPoolCompliment,
+            2011 => Self::TxPoolInv,
+            2012 => Self::RequestTxPoolTxs,
 
             x => Self::Unknown(x),
         }
@@ -150,6 +158,8 @@ impl From<LevinCommand> for u32 {
             LevinCommand::NewFluffyBlock => 2008,
             LevinCommand::FluffyMissingTxsRequest => 2009,
             LevinCommand::GetTxPoolCompliment => 2010,
+            LevinCommand::TxPoolInv => 2011,
+            LevinCommand::RequestTxPoolTxs => 2012,
 
             LevinCommand::Unknown(x) => x,
         }
@@ -190,6 +200,8 @@ pub enum ProtocolMessage {
     NewTransactions(NewTransactions),
     FluffyMissingTransactionsRequest(FluffyMissingTransactionsRequest),
     GetTxPoolCompliment(GetTxPoolCompliment),
+    TxPoolInv(TxPoolInv),
+    RequestTxPoolTxs(RequestTxPoolTxs),
 }
 
 impl ProtocolMessage {
@@ -206,6 +218,8 @@ impl ProtocolMessage {
             Self::NewTransactions(_) => C::NewTransactions,
             Self::FluffyMissingTransactionsRequest(_) => C::FluffyMissingTxsRequest,
             Self::GetTxPoolCompliment(_) => C::GetTxPoolCompliment,
+            Self::TxPoolInv(_) => C::TxPoolInv,
+            Self::RequestTxPoolTxs(_) => C::RequestTxPoolTxs,
         }
     }
 
@@ -224,6 +238,8 @@ impl ProtocolMessage {
                 decode_message(ProtocolMessage::FluffyMissingTransactionsRequest, buf)?
             }
             C::GetTxPoolCompliment => decode_message(ProtocolMessage::GetTxPoolCompliment, buf)?,
+            C::TxPoolInv => decode_message(ProtocolMessage::TxPoolInv, buf)?,
+            C::RequestTxPoolTxs => decode_message(ProtocolMessage::RequestTxPoolTxs, buf)?,
             _ => return Err(BucketError::UnknownCommand),
         })
     }
@@ -253,6 +269,8 @@ impl ProtocolMessage {
             Self::GetTxPoolCompliment(val) => {
                 build_message(C::GetTxPoolCompliment, val, builder)?;
             }
+            ProtocolMessage::TxPoolInv(val) => build_message(C::TxPoolInv, val, builder)?,
+            ProtocolMessage::RequestTxPoolTxs(val) => build_message(C::RequestTxPoolTxs, val, builder)?,
         }
         Ok(())
     }
