@@ -1,4 +1,6 @@
 use anyhow::{anyhow, Error};
+use cuprate_consensus::ExtendedConsensusError;
+use cuprate_consensus_rules::{transactions::TransactionError, ConsensusError};
 use tower::{Service, ServiceExt};
 
 use cuprate_types::TxRelayChecks;
@@ -19,8 +21,38 @@ pub async fn handle_incoming_txs(
     Ok(match resp {
         Ok(()) => TxRelayChecks::empty(),
         Err(e) => match e {
+            IncomingTxError::Consensus(ExtendedConsensusError::ConErr(
+                ConsensusError::Transaction(e),
+            )) => match e {
+                TransactionError::TooBig => TxRelayChecks::NONZERO_UNLOCK_TIME,
+                TransactionError::KeyImageSpent => TxRelayChecks::DOUBLE_SPEND,
+
+                TransactionError::OutputNotValidPoint
+                | TransactionError::OutputTypeInvalid
+                | TransactionError::ZeroOutputForV1
+                | TransactionError::NonZeroOutputForV2
+                | TransactionError::OutputsOverflow
+                | TransactionError::OutputsTooHigh => TxRelayChecks::INVALID_OUTPUT,
+
+                TransactionError::MoreThanOneMixableInputWithUnmixable
+                | TransactionError::InvalidNumberOfOutputs
+                | TransactionError::InputDoesNotHaveExpectedNumbDecoys
+                | TransactionError::IncorrectInputType
+                | TransactionError::InputsAreNotOrdered
+                | TransactionError::InputsOverflow
+                | TransactionError::NoInputs => TxRelayChecks::INVALID_INPUT,
+
+                TransactionError::KeyImageIsNotInPrimeSubGroup
+                | TransactionError::AmountNotDecomposed
+                | TransactionError::DuplicateRingMember
+                | TransactionError::OneOrMoreRingMembersLocked
+                | TransactionError::RingMemberNotFoundOrInvalid
+                | TransactionError::RingSignatureIncorrect
+                | TransactionError::TransactionVersionInvalid
+                | TransactionError::RingCTError(_) => return Err(anyhow!("unreachable")),
+            },
             IncomingTxError::Parse(_) | IncomingTxError::Consensus(_) => {
-                TxRelayChecks::INVALID_INPUT | TxRelayChecks::INVALID_OUTPUT
+                return Err(anyhow!("unreachable"))
             }
             IncomingTxError::RelayRule(RelayRuleError::NonZeroTimelock) => {
                 TxRelayChecks::NONZERO_UNLOCK_TIME
