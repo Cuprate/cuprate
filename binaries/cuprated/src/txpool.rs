@@ -12,3 +12,4 @@ mod relay_rules;
 mod txs_being_handled;
 
 pub use incoming_tx::{IncomingTxError, IncomingTxHandler, IncomingTxs};
+pub use relay_rules::RelayRuleError;

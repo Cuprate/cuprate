@@ -16,4 +16,5 @@ pub(super) mod address_book;
 pub(super) mod blockchain;
 pub(super) mod blockchain_context;
 pub(super) mod blockchain_manager;
+pub(super) mod tx_handler;
 pub(super) mod txpool;

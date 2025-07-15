@@ -19,7 +19,7 @@ use cuprate_rpc_types::{
 use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::BlockTemplate;
 
-use crate::rpc::handlers;
+use crate::{rpc::handlers, txpool::IncomingTxHandler};
 
 /// TODO: use real type when public.
 #[derive(Clone)]
@@ -169,7 +169,8 @@ pub struct CupratedRpcHandler {
 
     /// Read handle to the transaction pool database.
     pub txpool_read: TxpoolReadHandle,
-    // TODO: handle to txpool service.
+
+    pub tx_handler: IncomingTxHandler,
 }
 
 impl CupratedRpcHandler {
@@ -179,12 +180,14 @@ impl CupratedRpcHandler {
         blockchain_read: BlockchainReadHandle,
         blockchain_context: BlockchainContextService,
         txpool_read: TxpoolReadHandle,
+        tx_handler: IncomingTxHandler,
     ) -> Self {
         Self {
             restricted,
             blockchain_read,
             blockchain_context,
             txpool_read,
+            tx_handler,
         }
     }
 }

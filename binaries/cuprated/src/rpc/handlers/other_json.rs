@@ -16,6 +16,7 @@ use cuprate_constants::rpc::{
     MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT, RESTRICTED_SPENT_KEY_IMAGES_COUNT,
     RESTRICTED_TRANSACTIONS_COUNT,
 };
+use cuprate_dandelion_tower::TxState;
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_hex::{Hex, HexVec};
 use cuprate_p2p_core::{client::handshaker::builder::DummyAddressBook, ClearNet};
@@ -49,11 +50,17 @@ use cuprate_types::{
 use crate::{
     rpc::{
         constants::UNSUPPORTED_RPC_CALL,
-        handlers::{helper, shared, shared::not_available},
-        service::{address_book, blockchain, blockchain_context, blockchain_manager, txpool},
+        handlers::{
+            helper,
+            shared::{self, not_available},
+        },
+        service::{
+            address_book, blockchain, blockchain_context, blockchain_manager, tx_handler, txpool,
+        },
         CupratedRpcHandler,
     },
     statics::START_INSTANT_UNIX,
+    txpool::IncomingTxs,
 };
 
 /// Map a [`OtherRequest`] to the function that will lead to a [`OtherResponse`].
@@ -69,7 +76,9 @@ pub async fn map_request(
         Req::GetTransactions(r) => Resp::GetTransactions(not_available()?),
         Req::GetAltBlocksHashes(r) => Resp::GetAltBlocksHashes(not_available()?),
         Req::IsKeyImageSpent(r) => Resp::IsKeyImageSpent(not_available()?),
-        Req::SendRawTransaction(r) => Resp::SendRawTransaction(not_available()?),
+        Req::SendRawTransaction(r) => {
+            Resp::SendRawTransaction(send_raw_transaction(state, r).await?)
+        }
         Req::SaveBc(r) => Resp::SaveBc(not_available()?),
         Req::GetPeerList(r) => Resp::GetPeerList(not_available()?),
         Req::SetLogLevel(r) => Resp::SetLogLevel(not_available()?),
@@ -442,9 +451,16 @@ async fn send_raw_transaction(
         }
     }
 
-    // TODO: handle to txpool service.
-    let tx_relay_checks =
-        txpool::check_maybe_relay_local(todo!(), tx, !request.do_not_relay).await?;
+    let txs = vec![tx.serialize().into()];
+
+    let mut txs = IncomingTxs {
+        txs,
+        state: TxState::Local,
+        drop_relay_rule_errors: false,
+        do_not_relay: request.do_not_relay,
+    };
+
+    let tx_relay_checks = tx_handler::handle_incoming_txs(&mut state.tx_handler, txs).await?;
 
     if tx_relay_checks.is_empty() {
         return Ok(resp);
