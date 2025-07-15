@@ -466,6 +466,8 @@ async fn send_raw_transaction(
         return Ok(resp);
     }
 
+    resp.not_relayed = true;
+
     // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L124>
     fn add_reason(reasons: &mut String, reason: &'static str) {
         if !reasons.is_empty() {
