@@ -24,7 +24,7 @@ pub async fn handle_incoming_txs(
             IncomingTxError::Consensus(ExtendedConsensusError::ConErr(
                 ConsensusError::Transaction(e),
             )) => match e {
-                TransactionError::TooBig => TxRelayChecks::NONZERO_UNLOCK_TIME,
+                TransactionError::TooBig => TxRelayChecks::TOO_BIG,
                 TransactionError::KeyImageSpent => TxRelayChecks::DOUBLE_SPEND,
 
                 TransactionError::OutputNotValidPoint
