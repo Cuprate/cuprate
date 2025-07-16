@@ -5,6 +5,7 @@
 //! <https://github.com/Cuprate/cuprate/pull/355>
 
 use std::{
+    collections::HashMap,
     net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4},
     num::NonZero,
     time::{Duration, Instant},
@@ -234,25 +235,10 @@ async fn submit_block(
     let block = Block::read(&mut blob.as_slice())?;
     let block_id = Hex(block.hash());
 
-    // Get transaction blobs for the block.
-    //
-    // PERF:
-    // - `txs_for_block` returns `TransactionVerificationData`
-    // - we unwrap it into `Transaction`
-    // - `handle_incoming_block` verifies it again internally
-    let (txs, missing) =
-        txpool::txs_for_block(&mut state.txpool_read, block.transactions.clone()).await?;
-
-    if !missing.is_empty() {
-        return Err(anyhow!("Block contains unknown transactions"));
-    }
-
-    let txs = txs.into_iter().map(|(id, t)| (id, t.tx)).collect();
-
     // Attempt to relay the block.
     blockchain_interface::handle_incoming_block(
         block,
-        txs,
+        HashMap::new(), // this function reads the txpool
         &mut state.blockchain_read,
         &mut state.txpool_read,
     )
