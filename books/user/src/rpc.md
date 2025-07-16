@@ -60,7 +60,7 @@ This section contains the development status of endpoints/methods in `cuprated`.
 | `prune_blockchain`             | ⚫     |
 | `relay_tx`                     | ⚪     |
 | `set_bans`                     | ⚪     |
-| `submit_block`                 | ⚪     |
+| `submit_block`                 | 🟠     |
 | `sync_info`                    | ⚪     |
 
 ## JSON endpoints
@@ -83,7 +83,7 @@ This section contains the development status of endpoints/methods in `cuprated`.
 | `/out_peers`                   | ⚪     |
 | `/pop_blocks`                  | ⚪     |
 | `/save_bc`                     | ⚪     |
-| `/send_raw_transaction`        | ⚪     |
+| `/send_raw_transaction`        | 🟠     |
 | `/set_bootstrap_daemon`        | ⚪     | Requires bootstrap implementation
 | `/set_limit`                   | ⚪     |
 | `/set_log_categories`          | ⚪     | Could be re-purposed to use `tracing` filters
