@@ -451,6 +451,15 @@ async fn send_raw_transaction(
         }
     }
 
+    if state.is_restricted() && request.do_not_relay {
+        // FIXME: implement something like `/check_tx` in `cuprated/monerod`.
+        // boog900:
+        // > making nodes hold txs in their pool that don't get passed
+        // > around the network can cause issues, like targeted tx pool double spends
+        // > there is also no reason to have this for public RPC
+        return Err(anyhow!("do_not_relay is not supported on restricted RPC"));
+    }
+
     let txs = vec![tx.serialize().into()];
 
     let mut txs = IncomingTxs {
