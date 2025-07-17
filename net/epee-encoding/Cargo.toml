@@ -10,8 +10,9 @@ description = "Epee binary format library."
 repository = "https://github.com/Cuprate/cuprate/tree/main/net/epee-encoding"
 
 [features]
-default = ["std"]
+default = ["std", "debug"]
 std = ["dep:thiserror", "bytes/std", "cuprate-fixed-bytes/std"]
+debug = ["dep:serde_json"]
 
 [dependencies]
 cuprate-fixed-bytes = { workspace = true, default-features = false }
@@ -20,7 +21,8 @@ cuprate-hex         = { workspace = true, default-features = false }
 paste = "1.0.15"
 ref-cast = "1.0.23"
 bytes = { workspace = true }
-thiserror = { workspace = true, optional = true}
+thiserror = { workspace = true, optional = true }
+serde_json = { workspace = true, features = ["std"], optional = true }
 
 [dev-dependencies]
 hex = { workspace = true, features = ["default"] }
