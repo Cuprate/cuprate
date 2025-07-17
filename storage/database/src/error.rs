@@ -56,6 +56,11 @@ pub enum InitError {
     #[error("database is shutting down")]
     ShuttingDown,
 
+    /// Database config specifies a backend that
+    /// is not included in the present build
+    #[error("requested backend not supported in this build")]
+    BackendNotSupported,
+
     /// An unknown error occurred.
     ///
     /// This is for errors that cannot be recovered from,
