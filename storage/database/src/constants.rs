@@ -27,15 +27,7 @@ If this happens frequently, consider using the `Safe` sync mode.";
 /// |---------|-------|
 /// | `heed`  | `"heed"`
 /// | `redb`  | `"redb"`
-pub const DATABASE_BACKEND: &str = {
-    cfg_if! {
-        if #[cfg(all(feature = "redb", not(feature = "heed")))] {
-            "redb"
-        } else {
-            "heed"
-        }
-    }
-};
+pub const DATABASE_BACKEND: &str = "redb";
 
 /// Cuprate's database filename.
 ///
@@ -45,15 +37,7 @@ pub const DATABASE_BACKEND: &str = {
 /// |---------|-------|
 /// | `heed`  | `"data.mdb"`
 /// | `redb`  | `"data.redb"`
-pub const DATABASE_DATA_FILENAME: &str = {
-    cfg_if! {
-        if #[cfg(all(feature = "redb", not(feature = "heed")))] {
-            "data.redb"
-        } else {
-            "data.mdb"
-        }
-    }
-};
+pub const DATABASE_DATA_FILENAME: &str = "data.redb";
 
 /// Cuprate's database lock filename.
 ///
@@ -61,15 +45,7 @@ pub const DATABASE_DATA_FILENAME: &str = {
 /// |---------|-------|
 /// | `heed`  | `Some("lock.mdb")`
 /// | `redb`  | `None` (redb doesn't use a file lock)
-pub const DATABASE_LOCK_FILENAME: Option<&str> = {
-    cfg_if! {
-        if #[cfg(all(feature = "redb", not(feature = "heed")))] {
-            None
-        } else {
-            Some("lock.mdb")
-        }
-    }
-};
+pub const DATABASE_LOCK_FILENAME: Option<&str> = None;
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
