@@ -9,10 +9,8 @@ use cuprate_database::{
     resize::ResizeAlgorithm,
 };
 use cuprate_database_service::ReaderThreads;
-use cuprate_helper::{
-    fs::{txpool_path, CUPRATE_DATA_DIR},
-    network::Network,
-};
+use cuprate_fs::{txpool_path, CUPRATE_DATA_DIR};
+use cuprate_types::network::Network;
 
 /// The default transaction pool weight limit.
 const DEFAULT_TXPOOL_WEIGHT_LIMIT: usize = 600 * 1024 * 1024;
@@ -209,7 +207,8 @@ impl Config {
     ///     DATABASE_DATA_FILENAME,
     /// };
     /// use cuprate_database_service::ReaderThreads;
-    /// use cuprate_helper::{fs::*, network::Network};
+    /// use cuprate_fs::*;
+    /// use cuprate_types::network::Network;
     ///
     /// use cuprate_txpool::Config;
     ///

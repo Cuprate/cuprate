@@ -10,7 +10,7 @@ use std::{
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use cuprate_helper::fs::database_dir;
+use cuprate_fs::database_dir;
 
 use crate::{
     config::{ReaderThreads, SyncMode},

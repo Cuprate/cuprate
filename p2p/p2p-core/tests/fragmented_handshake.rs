@@ -23,8 +23,8 @@ use tokio_util::{
 };
 use tower::{Service, ServiceExt};
 
-use cuprate_helper::network::Network;
 use cuprate_test_utils::monerod::monerod;
+use cuprate_types::network::Network;
 use cuprate_wire::{
     common::PeerSupportFlags,
     levin::{message::make_fragmented_messages, LevinMessage, Protocol},

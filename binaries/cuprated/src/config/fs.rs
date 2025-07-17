@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use cuprate_helper::fs::{CUPRATE_CACHE_DIR, CUPRATE_DATA_DIR};
+use cuprate_fs::{CUPRATE_CACHE_DIR, CUPRATE_DATA_DIR};
 
 use super::macros::config_struct;
 
