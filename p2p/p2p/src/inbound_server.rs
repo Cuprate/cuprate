@@ -40,6 +40,7 @@ pub async fn inbound_server<Z, T, HS, A>(
     mut address_book: A,
     config: P2PConfig<Z>,
     transport_config: Option<T::ServerConfig>,
+    inbound_semaphore: Arc<Semaphore>,
 ) -> Result<(), tower::BoxError>
 where
     Z: NetworkZone,
@@ -67,8 +68,8 @@ where
 
     let mut listener = pin!(listener);
 
-    // Create semaphore for limiting to maximum inbound connections.
-    let semaphore = Arc::new(Semaphore::new(config.max_inbound_connections));
+    // Use the provided semaphore for limiting to maximum inbound connections.
+    let semaphore = inbound_semaphore;
     // Create ping request handling JoinSet
     let mut ping_join_set = JoinSet::new();
 
