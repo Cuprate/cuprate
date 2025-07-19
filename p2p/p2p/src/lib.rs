@@ -42,7 +42,8 @@ const INBOUND_CONNECTION_MONITOR_INTERVAL_SECS: u64 = 3600;
 ///
 /// This task runs every hour to check if there are inbound connections available.
 /// If `max_inbound_connections` is 0, the task will exit without logging.
-async fn inbound_connection_monitor<Z: NetworkZone>(
+#[expect(clippy::infinite_loop)]
+async fn inbound_connection_monitor(
     inbound_semaphore: Arc<tokio::sync::Semaphore>,
     max_inbound_connections: usize,
     p2p_port: u16,
@@ -164,8 +165,8 @@ where
 
     // Spawn inbound connection monitor task
     background_tasks.spawn(
-        inbound_connection_monitor::<Z>(
-            inbound_semaphore.clone(),
+        inbound_connection_monitor(
+            Arc::clone(&inbound_semaphore),
             config.max_inbound_connections,
             config.p2p_port,
         )
