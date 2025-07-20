@@ -21,7 +21,7 @@ use cuprate_p2p_core::{
 use cuprate_p2p_transport::{Arti, ArtiClientConfig, ArtiServerConfig};
 use cuprate_wire::OnionAddr;
 
-use crate::tor::TorMode;
+use crate::{p2p::ProxySettings, tor::TorMode};
 
 use super::macros::config_struct;
 
@@ -224,7 +224,7 @@ config_struct! {
         /// Type         | String
         /// Valid values | "tor"
         /// Examples     | "tor"
-        pub proxy: String,
+        pub proxy: ProxySettings,
     }
 
     /// The config values for P2P tor.
@@ -246,13 +246,16 @@ config_struct! {
         pub enabled: bool,
 
         #[comment_out = true]
-        /// Enable Arti inbound onion service.
+        /// Enable Tor inbound onion server.
         ///
-        /// Setting this to `true` will enable Arti's onion service for accepting inbound
-        /// Tor P2P connections. The onion service will listen on port `p2p.tor_net.p2p_port`
-        /// The keypair and therefore onion address is generated randomly.
+        /// In Arti mode, setting this to `true` will enable Arti's onion service for accepting inbound
+        /// Tor P2P connections. The keypair and therefore onion address is generated randomly on first run.
         ///
-        /// This setting is ignored in `Daemon` mode.
+        /// In Daemon mode, setting this to `true` will enable a TCP server listening for inbound connections
+        /// from your Tor daemon. Refer to the `tor.anonymous_inbound` and `tor.listening_addr` field for onion address
+        /// and listening configuration.
+        ///
+        /// The server will listen on port `p2p.tor_net.p2p_port`
         ///
         /// Type         | boolean
         /// Valid values | false, true
@@ -269,7 +272,7 @@ impl Default for ClearNetConfig {
             listen_on: Ipv4Addr::UNSPECIFIED,
             enable_inbound_v6: false,
             listen_on_v6: Ipv6Addr::UNSPECIFIED,
-            proxy: String::new(),
+            proxy: ProxySettings::Socks(String::new()),
             outbound_connections: 32,
             extra_outbound_connections: 8,
             max_inbound_connections: 128,
@@ -287,7 +290,7 @@ impl Default for TorNetConfig {
             p2p_port: 18080,
             outbound_connections: 12,
             extra_outbound_connections: 2,
-            max_inbound_connections: 12,
+            max_inbound_connections: 128,
             gray_peers_percent: 0.7,
             address_book_config: AddressBookConfig::default(),
         }

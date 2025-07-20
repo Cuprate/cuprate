@@ -6,6 +6,7 @@ use std::convert::From;
 
 use arti_client::TorClient;
 use futures::{FutureExt, TryFutureExt};
+use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot::{self, Sender};
 use tor_rtcompat::PreferredRuntime;
 use tower::{Service, ServiceExt};
@@ -37,6 +38,13 @@ pub mod request_handler;
 
 pub use network_address::CrossNetworkInternalPeerId;
 
+/// A simple parsing enum for the `p2p.clear_net.proxy` field
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub enum ProxySettings {
+    Tor,
+    Socks(String)
+}
+
 /// This struct collect all supported and optional network zone interfaces.
 pub struct NetworkInterfaces {
     /// Mandatory clearnet network interface
@@ -67,8 +75,8 @@ pub async fn initialize_zones_p2p(
     // Start clearnet P2P.
     let (clearnet, incoming_tx_handler_tx) = {
         // If proxy is set
-        match config.p2p.clear_net.proxy.to_lowercase().as_str() {
-            "tor" => match tor_ctx.mode {
+        match config.p2p.clear_net.proxy {
+            ProxySettings::Tor => match tor_ctx.mode {
                 TorMode::Arti => {
                     tracing::info!("Anonymizing clearnet connections through Arti.");
                     start_zone_p2p::<ClearNet, Arti>(
@@ -90,7 +98,7 @@ pub async fn initialize_zones_p2p(
                     std::process::exit(0);
                 }
             },
-            _ => start_zone_p2p::<ClearNet, Tcp>(
+            ProxySettings::Socks(_) => start_zone_p2p::<ClearNet, Tcp>(
                 blockchain_read_handle.clone(),
                 context_svc.clone(),
                 txpool_read_handle.clone(),

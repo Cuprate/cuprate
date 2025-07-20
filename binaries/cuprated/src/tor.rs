@@ -25,7 +25,7 @@ use cuprate_p2p_transport::{
 };
 use cuprate_wire::OnionAddr;
 
-use crate::config::Config;
+use crate::{config::Config, p2p::ProxySettings};
 
 //---------------------------------------------------------------------------------------------------- Initialization
 
@@ -63,7 +63,7 @@ pub struct TorContext {
 /// clearnet as a proxy.
 pub async fn initialize_tor_if_enabled(config: &Config) -> TorContext {
     let mode = config.tor.mode;
-    let anonymize_clearnet = config.p2p.clear_net.proxy.to_lowercase() == "tor";
+    let anonymize_clearnet = matches!(config.p2p.clear_net.proxy, ProxySettings::Tor);
 
     // Start Arti client
     let (bootstrapped_client, arti_client_config) =
@@ -135,10 +135,7 @@ fn initialize_arti_onion_service(client_config: &TorClientConfig, config: &Confi
 
 pub fn transport_arti_config(config: &Config, ctx: TorContext) -> TransportConfig<Tor, Arti> {
     // Extracting
-    let Some(bootstrapped_client) = ctx.bootstrapped_client else {
-        panic!("Arti client should be initialized");
-    };
-    let Some(client_config) = ctx.arti_client_config else {
+    let (Some(bootstrapped_client),Some(client_config)) = (ctx.bootstrapped_client, ctx.arti_client_config) else {
         panic!("Arti client should be initialized");
     };
 
@@ -177,9 +174,9 @@ pub fn transport_clearnet_arti_config(ctx: &TorContext) -> TransportConfig<Clear
 }
 
 pub fn transport_daemon_config(config: &Config) -> TransportConfig<Tor, Daemon> {
-    let invalid_onion =
-        config.p2p.tor_net.inbound_onion && config.tor.daemon.anonymous_inbound.is_empty();
-    if invalid_onion {
+    let valid_onion =
+        !(config.p2p.tor_net.inbound_onion && config.tor.daemon.anonymous_inbound.is_empty());
+    if !valid_onion {
         tracing::warn!("Onion inbound is enabled yet no onion host has been defined in configuration. Inbound server disabled.");
     }
 
@@ -187,7 +184,7 @@ pub fn transport_daemon_config(config: &Config) -> TransportConfig<Tor, Daemon> 
         client_config: DaemonClientConfig {
             tor_daemon: config.tor.daemon.address,
         },
-        server_config: (!invalid_onion).then_some(DaemonServerConfig {
+        server_config: valid_onion.then_some(DaemonServerConfig {
             ip: config.tor.daemon.listening_addr.ip(),
             port: config.tor.daemon.listening_addr.port(),
         }),

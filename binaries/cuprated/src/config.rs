@@ -238,14 +238,15 @@ impl Config {
 
     /// The [`Tor`], [`cuprate_p2p::P2PConfig`].
     pub fn tor_p2p_config(&self, ctx: &TorContext) -> cuprate_p2p::P2PConfig<Tor> {
+        let inbound_enabled = self.p2p.tor_net.inbound_onion;
         let our_onion_address = match ctx.mode {
             TorMode::Off => None,
-            TorMode::Daemon => Some(
+            TorMode::Daemon => inbound_enabled.then(||
                 OnionAddr::new(
                     &self.tor.daemon.anonymous_inbound,
                     self.p2p.tor_net.p2p_port
                 ).expect("Unable to parse supplied `anonymous_inbound` onion address. Please make sure the address is correct.")),
-            TorMode::Arti => {
+            TorMode::Arti => inbound_enabled.then(|| {
                 let addr = ctx.arti_onion_service
                     .as_ref()
                     .unwrap()
@@ -253,8 +254,8 @@ impl Config {
                     .unwrap()
                     .to_string();
 
-                Some(OnionAddr::new(&addr, self.p2p.tor_net.p2p_port).unwrap())
-            }
+                OnionAddr::new(&addr, self.p2p.tor_net.p2p_port).unwrap()
+            })
         };
 
         cuprate_p2p::P2PConfig {
