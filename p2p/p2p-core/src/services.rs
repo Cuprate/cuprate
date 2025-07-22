@@ -92,7 +92,10 @@ pub enum AddressBookRequest<Z: NetworkZone> {
     },
 
     /// Tells the address book about a peer list received from a peer.
-    IncomingPeerList(Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>),
+    IncomingPeerList(
+        InternalPeerID<Z::Addr>,
+        Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>,
+    ),
 
     /// Takes a random white peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
