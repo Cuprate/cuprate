@@ -48,7 +48,7 @@ pub(super) fn remove_tx_key_images(
 /// This function will panic if the [`Input`] is not [`Input::ToKey`]
 fn ki_from_input(input: &Input) -> [u8; 32] {
     match input {
-        Input::ToKey { key_image, .. } => key_image.compress().0,
+        Input::ToKey { key_image, .. } => key_image.0,
         Input::Gen(_) => panic!("miner tx cannot be added to the txpool"),
     }
 }

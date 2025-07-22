@@ -54,7 +54,13 @@ where
     interval.tick().await;
 
     loop {
-        interval.tick().await;
+        tokio::select! {
+            () = peer_information.handle.closed() => {
+                tracing::debug!("Closing timeout monitor, connection disconnected.");
+                return Ok(());
+            }
+            _ = interval.tick() => ()
+        }
 
         tracing::trace!("timeout monitor tick.");
 

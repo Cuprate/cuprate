@@ -3,6 +3,9 @@
 //! This module contains the async task that handles keeping track of blockchain context.
 //! It holds all the context caches and handles [`tower::Service`] requests.
 //!
+use std::sync::Arc;
+
+use arc_swap::ArcSwap;
 use futures::channel::oneshot;
 use tokio::sync::mpsc;
 use tower::ServiceExt;
@@ -12,14 +15,17 @@ use cuprate_consensus_rules::blocks::ContextToVerifyBlock;
 use cuprate_helper::cast::u64_to_usize;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain,
+    Chain, HardFork,
 };
 
 use crate::{
     alt_chains::{get_alt_chain_difficulty_cache, get_alt_chain_weight_cache, AltChainMap},
-    difficulty, hardforks, rx_vms, weight, BlockChainContext, BlockChainContextRequest,
-    BlockChainContextResponse, ContextCacheError, ContextConfig, Database, RawBlockChainContext,
-    ValidityToken, BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
+    difficulty::DifficultyCache,
+    hardforks::HardForkState,
+    rx_vms,
+    weight::BlockWeightsCache,
+    BlockChainContextRequest, BlockChainContextResponse, BlockchainContext, ContextCacheError,
+    ContextConfig, Database, BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
 };
 
 /// A request from the context service to the context task.
@@ -34,18 +40,16 @@ pub(super) struct ContextTaskRequest {
 
 /// The Context task that keeps the blockchain context and handles requests.
 pub(crate) struct ContextTask<D: Database> {
-    /// A token used to invalidate previous contexts when a new
-    /// block is added to the chain.
-    current_validity_token: ValidityToken,
+    context_cache: Arc<ArcSwap<BlockchainContext>>,
 
     /// The difficulty cache.
-    difficulty_cache: difficulty::DifficultyCache,
+    difficulty_cache: DifficultyCache,
     /// The weight cache.
-    weight_cache: weight::BlockWeightsCache,
+    weight_cache: BlockWeightsCache,
     /// The RX VM cache.
     rx_vm_cache: rx_vms::RandomXVmCache,
     /// The hard-fork state cache.
-    hardfork_state: hardforks::HardForkState,
+    hardfork_state: HardForkState,
 
     alt_chain_cache_map: AltChainMap,
 
@@ -65,7 +69,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
     pub(crate) async fn init_context(
         cfg: ContextConfig,
         mut database: D,
-    ) -> Result<Self, ContextCacheError> {
+    ) -> Result<(Self, Arc<ArcSwap<BlockchainContext>>), ContextCacheError> {
         let ContextConfig {
             difficulty_cfg,
             weights_config,
@@ -94,29 +98,19 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
 
         let db = database.clone();
         let hardfork_state_handle = tokio::spawn(async move {
-            hardforks::HardForkState::init_from_chain_height(chain_height, hard_fork_cfg, db).await
+            HardForkState::init_from_chain_height(chain_height, hard_fork_cfg, db).await
         });
 
         let db = database.clone();
         let difficulty_cache_handle = tokio::spawn(async move {
-            difficulty::DifficultyCache::init_from_chain_height(
-                chain_height,
-                difficulty_cfg,
-                db,
-                Chain::Main,
-            )
-            .await
+            DifficultyCache::init_from_chain_height(chain_height, difficulty_cfg, db, Chain::Main)
+                .await
         });
 
         let db = database.clone();
         let weight_cache_handle = tokio::spawn(async move {
-            weight::BlockWeightsCache::init_from_chain_height(
-                chain_height,
-                weights_config,
-                db,
-                Chain::Main,
-            )
-            .await
+            BlockWeightsCache::init_from_chain_height(chain_height, weights_config, db, Chain::Main)
+                .await
         });
 
         // Wait for the hardfork state to finish first as we need it to start the randomX VM cache.
@@ -128,10 +122,24 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
             rx_vms::RandomXVmCache::init_from_chain_height(chain_height, &current_hf, db).await
         });
 
+        let difficulty_cache = difficulty_cache_handle.await.unwrap()?;
+        let weight_cache = weight_cache_handle.await.unwrap()?;
+
+        let blockchain_context = blockchain_context(
+            &weight_cache,
+            &difficulty_cache,
+            current_hf,
+            top_block_hash,
+            chain_height,
+            already_generated_coins,
+        );
+
+        let context_cache = Arc::new(ArcSwap::from_pointee(blockchain_context));
+
         let context_svc = Self {
-            current_validity_token: ValidityToken::new(),
-            difficulty_cache: difficulty_cache_handle.await.unwrap()?,
-            weight_cache: weight_cache_handle.await.unwrap()?,
+            context_cache: Arc::clone(&context_cache),
+            difficulty_cache,
+            weight_cache,
             rx_vm_cache: rx_seed_handle.await.unwrap()?,
             hardfork_state,
             alt_chain_cache_map: AltChainMap::new(),
@@ -141,7 +149,20 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
             database,
         };
 
-        Ok(context_svc)
+        Ok((context_svc, context_cache))
+    }
+
+    fn update_blockchain_context(&self) {
+        let context = blockchain_context(
+            &self.weight_cache,
+            &self.difficulty_cache,
+            self.hardfork_state.current_hardfork(),
+            self.top_block_hash,
+            self.chain_height,
+            self.already_generated_coins,
+        );
+
+        self.context_cache.store(Arc::new(context));
     }
 
     /// Handles a [`BlockChainContextRequest`] and returns a [`BlockChainContextResponse`].
@@ -150,36 +171,6 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
         req: BlockChainContextRequest,
     ) -> Result<BlockChainContextResponse, tower::BoxError> {
         Ok(match req {
-            BlockChainContextRequest::Context => {
-                tracing::debug!("Getting blockchain context");
-
-                let current_hf = self.hardfork_state.current_hardfork();
-
-                BlockChainContextResponse::Context(BlockChainContext {
-                    validity_token: self.current_validity_token.clone(),
-                    raw: RawBlockChainContext {
-                        context_to_verify_block: ContextToVerifyBlock {
-                            median_weight_for_block_reward: self
-                                .weight_cache
-                                .median_for_block_reward(current_hf),
-                            effective_median_weight: self
-                                .weight_cache
-                                .effective_median_block_weight(current_hf),
-                            top_hash: self.top_block_hash,
-                            median_block_timestamp: self
-                                .difficulty_cache
-                                .median_timestamp(u64_to_usize(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW)),
-                            chain_height: self.chain_height,
-                            current_hf,
-                            next_difficulty: self.difficulty_cache.next_difficulty(current_hf),
-                            already_generated_coins: self.already_generated_coins,
-                        },
-                        cumulative_difficulty: self.difficulty_cache.cumulative_difficulty(),
-                        median_long_term_weight: self.weight_cache.median_long_term_weight(),
-                        top_block_timestamp: self.difficulty_cache.top_block_timestamp(),
-                    },
-                })
-            }
             BlockChainContextRequest::CurrentRxVms => {
                 BlockChainContextResponse::RxVms(self.rx_vm_cache.get_vms().await)
             }
@@ -202,9 +193,6 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                     "Updating blockchain cache with new block, height: {}",
                     new.height
                 );
-                // Cancel the validity token and replace it with a new one.
-                std::mem::replace(&mut self.current_validity_token, ValidityToken::new())
-                    .set_data_invalid();
 
                 self.difficulty_cache.new_block(
                     new.height,
@@ -224,6 +212,8 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                 self.already_generated_coins = self
                     .already_generated_coins
                     .saturating_add(new.generated_coins);
+
+                self.update_blockchain_context();
 
                 BlockChainContextResponse::Ok
             }
@@ -272,8 +262,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                 self.already_generated_coins = already_generated_coins;
                 self.top_block_hash = top_block_hash;
 
-                std::mem::replace(&mut self.current_validity_token, ValidityToken::new())
-                    .set_data_invalid();
+                self.update_blockchain_context();
 
                 BlockChainContextResponse::Ok
             }
@@ -314,12 +303,8 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                     .get_alt_vm(height, chain, &mut self.database)
                     .await?,
             ),
-            BlockChainContextRequest::AddAltChainContextCache {
-                prev_id,
-                cache,
-                _token,
-            } => {
-                self.alt_chain_cache_map.add_alt_cache(prev_id, cache);
+            BlockChainContextRequest::AddAltChainContextCache { cache, _token } => {
+                self.alt_chain_cache_map.add_alt_cache(cache);
                 BlockChainContextResponse::Ok
             }
             BlockChainContextRequest::HardForkInfo(_)
@@ -340,5 +325,32 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
         }
 
         tracing::info!("Shutting down blockchain context task.");
+    }
+}
+
+fn blockchain_context(
+    weight_cache: &BlockWeightsCache,
+    difficulty_cache: &DifficultyCache,
+
+    current_hf: HardFork,
+    top_hash: [u8; 32],
+    chain_height: usize,
+    already_generated_coins: u64,
+) -> BlockchainContext {
+    BlockchainContext {
+        context_to_verify_block: ContextToVerifyBlock {
+            median_weight_for_block_reward: weight_cache.median_for_block_reward(current_hf),
+            effective_median_weight: weight_cache.effective_median_block_weight(current_hf),
+            top_hash,
+            median_block_timestamp: difficulty_cache
+                .median_timestamp(u64_to_usize(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW)),
+            chain_height,
+            current_hf,
+            next_difficulty: difficulty_cache.next_difficulty(current_hf),
+            already_generated_coins,
+        },
+        cumulative_difficulty: difficulty_cache.cumulative_difficulty(),
+        median_long_term_weight: weight_cache.median_long_term_weight(),
+        top_block_timestamp: difficulty_cache.top_block_timestamp(),
     }
 }

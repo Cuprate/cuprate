@@ -16,7 +16,7 @@ The currently implemented backends are:
 - [`heed`](https://github.com/meilisearch/heed) (LMDB)
 - [`redb`](https://github.com/cberner/redb)
 
-Said precicely, `cuprate_database` is the embedded database other Cuprate
+Said precisely, `cuprate_database` is the embedded database other Cuprate
 crates interact with instead of using any particular backend implementation.
 This allows the backend to be swapped and/or future backends to be implemented.
 

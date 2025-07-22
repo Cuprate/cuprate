@@ -36,17 +36,11 @@ pub struct DifficultyCacheConfig {
     pub window: usize,
     pub cut: usize,
     pub lag: usize,
+    /// If [`Some`] the difficulty cache will always return this value as the current difficulty.
+    pub fixed_difficulty: Option<u128>,
 }
 
 impl DifficultyCacheConfig {
-    /// Create a new difficulty cache config.
-    ///
-    /// # Notes
-    /// You probably do not need this, use [`DifficultyCacheConfig::main_net`] instead.
-    pub const fn new(window: usize, cut: usize, lag: usize) -> Self {
-        Self { window, cut, lag }
-    }
-
     /// Returns the total amount of blocks we need to track to calculate difficulty
     pub const fn total_block_count(&self) -> usize {
         self.window + self.lag
@@ -64,6 +58,7 @@ impl DifficultyCacheConfig {
             window: DIFFICULTY_WINDOW,
             cut: DIFFICULTY_CUT,
             lag: DIFFICULTY_LAG,
+            fixed_difficulty: None,
         }
     }
 }
@@ -297,6 +292,10 @@ fn next_difficulty(
     cumulative_difficulties: &VecDeque<u128>,
     hf: HardFork,
 ) -> u128 {
+    if let Some(fixed_difficulty) = config.fixed_difficulty {
+        return fixed_difficulty;
+    }
+
     if timestamps.len() <= 1 {
         return 1;
     }
@@ -306,7 +305,7 @@ fn next_difficulty(
     if timestamps.len() > config.window {
         // remove the lag.
         timestamps.drain(config.window..);
-    };
+    }
     let timestamps_slice = timestamps.make_contiguous();
 
     let (window_start, window_end) = get_window_start_and_end(
@@ -349,7 +348,7 @@ fn get_window_start_and_end(
     if window_len <= accounted_window {
         (0, window_len)
     } else {
-        let start = (window_len - (accounted_window) + 1) / 2;
+        let start = (window_len - (accounted_window)).div_ceil(2);
         (start, start + accounted_window)
     }
 }

@@ -179,11 +179,11 @@ pub trait Env: Sized {
 /// opening/creating tables.
 macro_rules! doc_heed_create_db_invariant {
     () => {
-        r#"The first time you open/create tables, you _must_ use [`EnvInner::create_db`]
+        r"The first time you open/create tables, you _must_ use [`EnvInner::create_db`]
 to set the proper flags / [`Key`](crate::Key) comparison for the `heed` backend.
 
 Subsequent table opens will follow the flags/ordering, but only if
-[`EnvInner::create_db`] was the _first_ function to open/create it."#
+[`EnvInner::create_db`] was the _first_ function to open/create it."
     };
 }
 

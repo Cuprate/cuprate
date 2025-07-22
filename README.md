@@ -12,7 +12,8 @@ _(work-in-progress)_
 ## Contents
 
 - [About](#about)
-- [Documentation](#documentation)
+- [Books](#books)
+- [Crates](#crates)
 - [Contributing](#contributing)
 - [Security](#security)
 - [License](#license)
@@ -30,14 +31,14 @@ TODO: add these sections someday.
 ## About
 
 Cuprate is an effort to create an alternative [Monero](https://getmonero.org) node implementation
-in [Rust](http://rust-lang.org).
+in [Rust](https://rust-lang.org).
 
 It will be able to independently validate Monero consensus rules, providing a layer of security and redundancy for the
 Monero network.
 
 <!-- TODO: add some details about what Cuprate is and is not, goals, status -->
 
-## Documentation
+## Books
 
 _Cuprate is currently a work-in-progress; documentation will be changing/unfinished._
 
@@ -49,18 +50,21 @@ Cuprate maintains various documentation books:
 | [Monero's protocol book](https://monero-book.cuprate.org)       | Documents the Monero protocol                              |
 | [Cuprate's user book](https://user.cuprate.org)                 | Practical user-guide for using `cuprated`                  |
 
-For crate (library) documentation, see: https://doc.cuprate.org. This site holds documentation for Cuprate's crates and all dependencies. All Cuprate crates start with `cuprate_`, for example: [`cuprate_database`](https://doc.cuprate.org/cuprate_database).
+## Crates
+For a detailed list of all crates, see: <https://architecture.cuprate.org/appendix/crates.html>.
+
+For crate (library) documentation, see: <https://doc.cuprate.org>. This site holds documentation for Cuprate's crates and all dependencies. All Cuprate crates start with `cuprate_`, for example: [`cuprate_database`](https://doc.cuprate.org/cuprate_database).
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+See [`CONTRIBUTING.md`](/CONTRIBUTING.md).
 
 ## Security
 
-Cuprate has a responsible vulnerability disclosure policy, see [`SECURITY.md`](SECURITY.md).
+Cuprate has a responsible vulnerability disclosure policy, see [`SECURITY.md`](/SECURITY.md).
 
 ## License
 
 The `binaries/` directory is licensed under AGPL-3.0, everything else is licensed under MIT.
 
-See [`LICENSE`](LICENSE) for more details.
+See [`LICENSE`](/LICENSE) for more details.

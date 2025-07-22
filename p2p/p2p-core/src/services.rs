@@ -6,7 +6,7 @@ use cuprate_wire::{CoreSyncData, PeerListEntryBase};
 use crate::{
     client::InternalPeerID,
     handles::ConnectionHandle,
-    types::{BanState, ConnectionInfo, SetBan},
+    types::{BanState, ConnectionInfo, Peerlist, SetBan},
     NetZoneAddress, NetworkAddressIncorrectZone, NetworkZone,
 };
 
@@ -115,6 +115,12 @@ pub enum AddressBookRequest<Z: NetworkZone> {
     /// Gets the specified number of white peers, or less if we don't have enough.
     GetWhitePeers(usize),
 
+    /// Gets our own optionally specified address
+    OwnAddress,
+
+    /// Get info on all peers, white & grey.
+    Peerlist,
+
     /// Get the amount of white & grey peers.
     PeerlistSize,
 
@@ -152,6 +158,9 @@ pub enum AddressBookResponse<Z: NetworkZone> {
     /// Response to [`AddressBookRequest::GetWhitePeers`].
     Peers(Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>),
 
+    /// Response to [`AddressBookRequest::Peerlist`].
+    Peerlist(Peerlist<Z::Addr>),
+
     /// Response to [`AddressBookRequest::PeerlistSize`].
     PeerlistSize { white: usize, grey: usize },
 
@@ -169,4 +178,10 @@ pub enum AddressBookResponse<Z: NetworkZone> {
 
     /// Response to [`AddressBookRequest::GetBans`].
     GetBans(Vec<BanState<Z::Addr>>),
+
+    /// Response to [`AddressBookRequest::OwnAddress`]
+    ///
+    /// This returns [`None`] if the address book do
+    /// not contain a self designated address.
+    OwnAddress(Option<Z::Addr>),
 }

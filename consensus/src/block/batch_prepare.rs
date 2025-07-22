@@ -5,7 +5,7 @@ use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
-use cuprate_consensus_context::rx_vms::RandomXVm;
+use cuprate_consensus_context::{rx_vms::RandomXVm, BlockchainContextService};
 use cuprate_consensus_rules::{
     blocks::{check_block_pow, is_randomx_seed_height, randomx_seed_height, BlockError},
     hard_forks::HardForkError,
@@ -13,29 +13,41 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
+use cuprate_types::{output_cache::OutputCache, TransactionVerificationData};
 
 use crate::{
-    block::{free::pull_ordered_transactions, PreparedBlock, PreparedBlockExPow},
-    transactions::new_tx_verification_data,
+    batch_verifier::MultiThreadedBatchVerifier,
+    block::{free::order_transactions, PreparedBlock, PreparedBlockExPow},
+    transactions::{check_kis_unique, contextual_data::get_output_cache, start_tx_verification},
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
-    VerifyBlockResponse,
+    __private::Database,
 };
+
+/// Cached state created when batch preparing a group of blocks.
+///
+/// This cache is only valid for the set of blocks it was created with, it should not be used for
+/// other blocks.
+pub struct BatchPrepareCache {
+    pub(crate) output_cache: OutputCache,
+    /// [`true`] if all the key images in the batch have been checked for double spends in the batch and
+    /// the whole chain.
+    pub(crate) key_images_spent_checked: bool,
+}
 
 /// Batch prepares a list of blocks for verification.
 #[instrument(level = "debug", name = "batch_prep_blocks", skip_all, fields(amt = blocks.len()))]
-pub(crate) async fn batch_prepare_main_chain_block<C>(
+#[expect(clippy::type_complexity)]
+pub async fn batch_prepare_main_chain_blocks<D: Database>(
     blocks: Vec<(Block, Vec<Transaction>)>,
-    mut context_svc: C,
-) -> Result<VerifyBlockResponse, ExtendedConsensusError>
-where
-    C: Service<
-            BlockChainContextRequest,
-            Response = BlockChainContextResponse,
-            Error = tower::BoxError,
-        > + Send
-        + 'static,
-    C::Future: Send + 'static,
-{
+    context_svc: &mut BlockchainContextService,
+    mut database: D,
+) -> Result<
+    (
+        Vec<(PreparedBlock, Vec<TransactionVerificationData>)>,
+        BatchPrepareCache,
+    ),
+    ExtendedConsensusError,
+> {
     let (blocks, txs): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
 
     tracing::debug!("Calculating block hashes.");
@@ -89,16 +101,6 @@ where
         timestamps_hfs.push((block_0.block.header.timestamp, block_0.hf_version));
     }
 
-    // Get the current blockchain context.
-    let BlockChainContextResponse::Context(checked_context) = context_svc
-        .ready()
-        .await?
-        .call(BlockChainContextRequest::Context)
-        .await?
-    else {
-        panic!("Context service returned wrong response!");
-    };
-
     // Calculate the expected difficulties for each block in the batch.
     let BlockChainContextResponse::BatchDifficulties(difficulties) = context_svc
         .ready()
@@ -111,7 +113,8 @@ where
         panic!("Context service returned wrong response!");
     };
 
-    let context = checked_context.unchecked_blockchain_context().clone();
+    // Get the current blockchain context.
+    let context = context_svc.blockchain_context();
 
     // Make sure the blocks follow the main chain.
 
@@ -168,11 +171,13 @@ where
     tracing::debug!("Calculating PoW and prepping transaction");
 
     let blocks = rayon_spawn_async(move || {
-        blocks
+        let batch_verifier = MultiThreadedBatchVerifier::new(rayon::current_num_threads());
+
+        let res = blocks
             .into_par_iter()
             .zip(difficulties)
             .zip(txs)
-            .map(|((block, difficultly), txs)| {
+            .map(|((block, difficulty), txs)| {
                 // Calculate the PoW for the block.
                 let height = block.height;
                 let block = PreparedBlock::new_prepped(
@@ -181,29 +186,39 @@ where
                 )?;
 
                 // Check the PoW
-                check_block_pow(&block.pow_hash, difficultly).map_err(ConsensusError::Block)?;
+                check_block_pow(&block.pow_hash, difficulty).map_err(ConsensusError::Block)?;
 
-                // Now setup the txs.
-                let txs = txs
-                    .into_par_iter()
-                    .map(|tx| {
-                        let tx = new_tx_verification_data(tx)?;
-                        Ok::<_, ConsensusError>((tx.tx_hash, tx))
-                    })
-                    .collect::<Result<HashMap<_, _>, _>>()?;
+                let mut txs = start_tx_verification()
+                    .append_txs(txs)
+                    .prepare()?
+                    .only_semantic(block.hf_version)
+                    .queue(&batch_verifier)?;
 
                 // Order the txs correctly.
-                // TODO: Remove the Arc here
-                let ordered_txs = pull_ordered_transactions(&block.block, txs)?
-                    .into_iter()
-                    .map(Arc::new)
-                    .collect();
+                order_transactions(&block.block, &mut txs)?;
 
-                Ok((block, ordered_txs))
+                Ok((block, txs))
             })
-            .collect::<Result<Vec<_>, ExtendedConsensusError>>()
+            .collect::<Result<Vec<_>, ExtendedConsensusError>>()?;
+
+        if !batch_verifier.verify() {
+            return Err(ExtendedConsensusError::OneOrMoreBatchVerificationStatementsInvalid);
+        }
+
+        Ok(res)
     })
     .await?;
 
-    Ok(VerifyBlockResponse::MainChainBatchPrepped(blocks))
+    check_kis_unique(blocks.iter().flat_map(|(_, txs)| txs.iter()), &mut database).await?;
+
+    let output_cache =
+        get_output_cache(blocks.iter().flat_map(|(_, txs)| txs.iter()), database).await?;
+
+    Ok((
+        blocks,
+        BatchPrepareCache {
+            output_cache,
+            key_images_spent_checked: true,
+        },
+    ))
 }

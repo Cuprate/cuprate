@@ -15,10 +15,7 @@ use crate::{config::SyncMode, constants::DATABASE_DATA_FILENAME, resize::ResizeA
 /// use cuprate_database::config::*;
 /// assert_eq!(READER_THREADS_DEFAULT.get(), 126);
 /// ```
-pub const READER_THREADS_DEFAULT: NonZeroUsize = match NonZeroUsize::new(126) {
-    Some(n) => n,
-    None => unreachable!(),
-};
+pub const READER_THREADS_DEFAULT: NonZeroUsize = NonZeroUsize::new(126).unwrap();
 
 //---------------------------------------------------------------------------------------------------- ConfigBuilder
 /// Builder for [`Config`].

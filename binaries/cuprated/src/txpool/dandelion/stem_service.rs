@@ -12,7 +12,7 @@ use cuprate_dandelion_tower::{traits::StemRequest, OutboundPeer};
 use cuprate_p2p::{ClientDropGuard, NetworkInterface, PeerSetRequest, PeerSetResponse};
 use cuprate_p2p_core::{
     client::{Client, InternalPeerID},
-    ClearNet, NetworkZone, PeerRequest, ProtocolRequest,
+    BroadcastMessage, ClearNet, NetworkZone, PeerRequest, ProtocolRequest,
 };
 use cuprate_wire::protocol::NewTransactions;
 
@@ -53,6 +53,8 @@ impl Stream for OutboundPeerStream {
                 OutboundPeerStreamState::AwaitingPeer(fut) => {
                     let res = ready!(fut.poll_unpin(cx));
 
+                    self.state = OutboundPeerStreamState::Standby;
+
                     return Poll::Ready(Some(res.map(|res| {
                         let PeerSetResponse::StemPeer(stem_peer) = res else {
                             unreachable!()
@@ -89,17 +91,16 @@ impl<N: NetworkZone> Service<StemRequest<DandelionTx>> for StemPeerService<N> {
     type Future = <Client<N> as Service<PeerRequest>>::Future;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.0.poll_ready(cx)
+        self.0.broadcast_client().poll_ready(cx)
     }
 
     fn call(&mut self, req: StemRequest<DandelionTx>) -> Self::Future {
         self.0
-            .call(PeerRequest::Protocol(ProtocolRequest::NewTransactions(
-                NewTransactions {
-                    txs: vec![req.0 .0],
-                    dandelionpp_fluff: false,
-                    padding: Bytes::new(),
-                },
-            )))
+            .broadcast_client()
+            .call(BroadcastMessage::NewTransactions(NewTransactions {
+                txs: vec![req.0 .0],
+                dandelionpp_fluff: false,
+                padding: Bytes::new(),
+            }))
     }
 }

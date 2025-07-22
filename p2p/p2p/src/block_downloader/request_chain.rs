@@ -84,7 +84,7 @@ pub async fn initial_chain_search<N: NetworkZone, C>(
     mut our_chain_svc: C,
 ) -> Result<ChainTracker<N>, BlockDownloadError>
 where
-    C: Service<ChainSvcRequest, Response = ChainSvcResponse, Error = tower::BoxError>,
+    C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>,
 {
     tracing::debug!("Getting our chain history");
     // Get our history.
@@ -214,7 +214,15 @@ where
         first_entry.ids.len()
     );
 
-    let tracker = ChainTracker::new(first_entry, expected_height, our_genesis, previous_id);
+    let tracker = ChainTracker::new(
+        first_entry,
+        expected_height,
+        our_genesis,
+        previous_id,
+        &mut our_chain_svc,
+    )
+    .await
+    .map_err(|_| BlockDownloadError::ChainInvalid)?;
 
     Ok(tracker)
 }

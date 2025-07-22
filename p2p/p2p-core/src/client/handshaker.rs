@@ -36,13 +36,13 @@ use crate::{
         timeout_monitor::connection_timeout_monitor_task, Client, InternalPeerID, PeerInformation,
     },
     constants::{
-        HANDSHAKE_TIMEOUT, MAX_EAGER_PROTOCOL_MESSAGES, MAX_PEERS_IN_PEER_LIST_MESSAGE,
-        PING_TIMEOUT,
+        CLIENT_QUEUE_SIZE, HANDSHAKE_TIMEOUT, MAX_EAGER_PROTOCOL_MESSAGES,
+        MAX_PEERS_IN_PEER_LIST_MESSAGE, PING_TIMEOUT,
     },
     handles::HandleBuilder,
     AddressBook, AddressBookRequest, AddressBookResponse, BroadcastMessage, ConnectionDirection,
     CoreSyncDataRequest, CoreSyncDataResponse, CoreSyncSvc, NetZoneAddress, NetworkZone,
-    ProtocolRequestHandlerMaker, SharedError,
+    ProtocolRequestHandlerMaker, SharedError, Transport,
 };
 
 pub mod builder;
@@ -71,13 +71,13 @@ pub enum HandshakeError {
 }
 
 /// A request to complete a handshake.
-pub struct DoHandshakeRequest<Z: NetworkZone> {
+pub struct DoHandshakeRequest<Z: NetworkZone, T: Transport<Z>> {
     /// The [`InternalPeerID`] of the peer we are handshaking with.
     pub addr: InternalPeerID<Z::Addr>,
     /// The receiving side of the connection.
-    pub peer_stream: Z::Stream,
+    pub peer_stream: T::Stream,
     /// The sending side of the connection.
-    pub peer_sink: Z::Sink,
+    pub peer_sink: T::Sink,
     /// The direction of the connection.
     pub direction: ConnectionDirection,
     /// An [`Option`]al permit for this connection.
@@ -86,7 +86,8 @@ pub struct DoHandshakeRequest<Z: NetworkZone> {
 
 /// The peer handshaking service.
 #[derive(Debug, Clone)]
-pub struct HandShaker<Z: NetworkZone, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr> {
+pub struct HandShaker<Z: NetworkZone, T: Transport<Z>, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
+{
     /// The address book service.
     address_book: AdrBook,
     /// The core sync data service.
@@ -102,12 +103,15 @@ pub struct HandShaker<Z: NetworkZone, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMk
 
     connection_parent_span: Span,
 
+    /// Client configuration used by the handshaker for this transport
+    transport_client_config: T::ClientConfig,
+
     /// The network zone.
     _zone: PhantomData<Z>,
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
-    HandShaker<Z, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
+impl<Z: NetworkZone, T: Transport<Z>, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
+    HandShaker<Z, T, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
 {
     /// Creates a new handshaker.
     const fn new(
@@ -117,6 +121,7 @@ impl<Z: NetworkZone, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
         broadcast_stream_maker: BrdcstStrmMkr,
         our_basic_node_data: BasicNodeData,
         connection_parent_span: Span,
+        transport_client_config: T::ClientConfig,
     ) -> Self {
         Self {
             address_book,
@@ -125,13 +130,21 @@ impl<Z: NetworkZone, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
             broadcast_stream_maker,
             our_basic_node_data,
             connection_parent_span,
+            transport_client_config,
             _zone: PhantomData,
         }
     }
+
+    /// Clone the Handshaker transport client config.
+    #[inline]
+    pub const fn transport_config(&self) -> &T::ClientConfig {
+        &self.transport_client_config
+    }
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr, BrdcstStrm>
-    Service<DoHandshakeRequest<Z>> for HandShaker<Z, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
+impl<Z: NetworkZone, T: Transport<Z>, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr, BrdcstStrm>
+    Service<DoHandshakeRequest<Z, T>>
+    for HandShaker<Z, T, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
 where
     AdrBook: AddressBook<Z> + Clone,
     CSync: CoreSyncSvc + Clone,
@@ -148,7 +161,7 @@ where
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: DoHandshakeRequest<Z>) -> Self::Future {
+    fn call(&mut self, req: DoHandshakeRequest<Z, T>) -> Self::Future {
         let broadcast_stream_maker = self.broadcast_stream_maker.clone();
 
         let address_book = self.address_book.clone();
@@ -158,6 +171,8 @@ where
 
         let connection_parent_span = self.connection_parent_span.clone();
 
+        let transport_client_config = self.transport_client_config.clone();
+
         let span = info_span!(parent: &Span::current(), "handshaker", addr=%req.addr);
 
         async move {
@@ -165,6 +180,7 @@ where
                 HANDSHAKE_TIMEOUT,
                 handshake(
                     req,
+                    transport_client_config,
                     broadcast_stream_maker,
                     address_book,
                     core_sync_svc,
@@ -183,10 +199,14 @@ where
 /// Send a ping to the requested peer and wait for a response, returning the `peer_id`.
 ///
 /// This function does not put a timeout on the ping.
-pub async fn ping<N: NetworkZone>(addr: N::Addr) -> Result<u64, HandshakeError> {
+pub async fn ping<N, T>(addr: N::Addr, config: &T::ClientConfig) -> Result<u64, HandshakeError>
+where
+    N: NetworkZone,
+    T: Transport<N>,
+{
     tracing::debug!("Sending Ping to peer");
 
-    let (mut peer_stream, mut peer_sink) = N::connect_to_peer(addr).await?;
+    let (mut peer_stream, mut peer_sink) = T::connect_to_peer(addr, config).await?;
 
     tracing::debug!("Made outbound connection to peer, sending ping.");
 
@@ -222,8 +242,18 @@ pub async fn ping<N: NetworkZone>(addr: N::Addr) -> Result<u64, HandshakeError> 
 }
 
 /// This function completes a handshake with the requested peer.
-async fn handshake<Z: NetworkZone, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr, BrdcstStrm>(
-    req: DoHandshakeRequest<Z>,
+#[expect(clippy::too_many_arguments)]
+async fn handshake<
+    Z: NetworkZone,
+    T: Transport<Z>,
+    AdrBook,
+    CSync,
+    ProtoHdlrMkr,
+    BrdcstStrmMkr,
+    BrdcstStrm,
+>(
+    req: DoHandshakeRequest<Z, T>,
+    transport_client_config: T::ClientConfig,
 
     broadcast_stream_maker: BrdcstStrmMkr,
 
@@ -258,7 +288,7 @@ where
             tracing::debug!("waiting for handshake request.");
 
             let Message::Request(AdminRequestMessage::Handshake(handshake_req)) =
-                wait_for_message::<Z>(
+                wait_for_message::<Z, T>(
                     LevinCommand::Handshake,
                     true,
                     &mut peer_sink,
@@ -277,7 +307,7 @@ where
         }
         ConnectionDirection::Outbound => {
             // Outbound handshake, we send the request.
-            send_hs_request::<Z, _>(
+            send_hs_request::<Z, T, _>(
                 &mut peer_sink,
                 &mut core_sync_svc,
                 our_basic_node_data.clone(),
@@ -286,7 +316,7 @@ where
 
             // Wait for the handshake response.
             let Message::Response(AdminResponseMessage::Handshake(handshake_res)) =
-                wait_for_message::<Z>(
+                wait_for_message::<Z, T>(
                     LevinCommand::Handshake,
                     false,
                     &mut peer_sink,
@@ -378,7 +408,7 @@ where
         match direction {
             ConnectionDirection::Inbound => {
                 // First send the handshake response.
-                send_hs_response::<Z, _, _>(
+                send_hs_response::<Z, T, _, _>(
                     &mut peer_sink,
                     &mut core_sync_svc,
                     &mut address_book,
@@ -401,7 +431,8 @@ where
 
                     let Ok(Ok(ping_peer_id)) = timeout(
                         PING_TIMEOUT,
-                        ping::<Z>(outbound_address).instrument(info_span!("ping")),
+                        ping::<Z, T>(outbound_address, &transport_client_config)
+                            .instrument(info_span!("ping")),
                     )
                     .await
                     else {
@@ -449,7 +480,7 @@ where
 
     // Set up the connection data.
     let error_slot = SharedError::new();
-    let (connection_tx, client_rx) = mpsc::channel(1);
+    let (connection_tx, client_rx) = mpsc::channel(CLIENT_QUEUE_SIZE);
 
     let info = PeerInformation {
         id: addr,
@@ -475,7 +506,7 @@ where
         peer_info: info.clone(),
     };
 
-    let connection = Connection::<Z, _, _, _, _>::new(
+    let connection = Connection::<Z, T, _, _, _, _>::new(
         peer_sink,
         client_rx,
         broadcast_stream_maker(addr),
@@ -515,12 +546,14 @@ where
 }
 
 /// Sends a [`AdminRequestMessage::Handshake`] down the peer sink.
-async fn send_hs_request<Z: NetworkZone, CSync>(
-    peer_sink: &mut Z::Sink,
+async fn send_hs_request<Z, T, CSync>(
+    peer_sink: &mut T::Sink,
     core_sync_svc: &mut CSync,
     our_basic_node_data: BasicNodeData,
 ) -> Result<(), HandshakeError>
 where
+    Z: NetworkZone,
+    T: Transport<Z>,
     CSync: CoreSyncSvc,
 {
     let CoreSyncDataResponse(our_core_sync_data) = core_sync_svc
@@ -544,13 +577,15 @@ where
 }
 
 /// Sends a [`AdminResponseMessage::Handshake`] down the peer sink.
-async fn send_hs_response<Z: NetworkZone, CSync, AdrBook>(
-    peer_sink: &mut Z::Sink,
+async fn send_hs_response<Z, T, CSync, AdrBook>(
+    peer_sink: &mut T::Sink,
     core_sync_svc: &mut CSync,
     address_book: &mut AdrBook,
     our_basic_node_data: BasicNodeData,
 ) -> Result<(), HandshakeError>
 where
+    Z: NetworkZone,
+    T: Transport<Z>,
     AdrBook: AddressBook<Z>,
     CSync: CoreSyncSvc,
 {
@@ -586,22 +621,26 @@ where
     Ok(())
 }
 
-/// Waits for a message with a specific [`LevinCommand`].  
+/// Waits for a message with a specific [`LevinCommand`].
 ///
 /// The message needed must not be a protocol message, only request/ response "admin" messages are allowed.
 ///
 /// `levin_command` is the [`LevinCommand`] you need and `request` is for if the message is a request.
-async fn wait_for_message<Z: NetworkZone>(
+async fn wait_for_message<Z, T>(
     levin_command: LevinCommand,
     request: bool,
 
-    peer_sink: &mut Z::Sink,
-    peer_stream: &mut Z::Stream,
+    peer_sink: &mut T::Sink,
+    peer_stream: &mut T::Stream,
 
     eager_protocol_messages: &mut Vec<cuprate_wire::ProtocolMessage>,
 
     our_basic_node_data: &BasicNodeData,
-) -> Result<Message, HandshakeError> {
+) -> Result<Message, HandshakeError>
+where
+    Z: NetworkZone,
+    T: Transport<Z>,
+{
     let mut allow_support_flag_req = true;
     let mut allow_ping = true;
 
@@ -637,7 +676,7 @@ async fn wait_for_message<Z: NetworkZone>(
                                 "Peer sent 2 support flag requests",
                             ));
                         }
-                        send_support_flags::<Z>(peer_sink, our_basic_node_data.support_flags)
+                        send_support_flags::<Z, T>(peer_sink, our_basic_node_data.support_flags)
                             .await?;
                         // don't let the peer send more after the first request.
                         allow_support_flag_req = false;
@@ -650,7 +689,7 @@ async fn wait_for_message<Z: NetworkZone>(
                             ));
                         }
 
-                        send_ping_response::<Z>(peer_sink, our_basic_node_data.peer_id).await?;
+                        send_ping_response::<Z, T>(peer_sink, our_basic_node_data.peer_id).await?;
 
                         // don't let the peer send more after the first request.
                         allow_ping = false;
@@ -688,10 +727,14 @@ async fn wait_for_message<Z: NetworkZone>(
 }
 
 /// Sends a [`AdminResponseMessage::SupportFlags`] down the peer sink.
-async fn send_support_flags<Z: NetworkZone>(
-    peer_sink: &mut Z::Sink,
+async fn send_support_flags<Z, T>(
+    peer_sink: &mut T::Sink,
     support_flags: PeerSupportFlags,
-) -> Result<(), HandshakeError> {
+) -> Result<(), HandshakeError>
+where
+    Z: NetworkZone,
+    T: Transport<Z>,
+{
     tracing::debug!("Sending support flag response.");
     Ok(peer_sink
         .send(
@@ -704,10 +747,14 @@ async fn send_support_flags<Z: NetworkZone>(
 }
 
 /// Sends a [`AdminResponseMessage::Ping`] down the peer sink.
-async fn send_ping_response<Z: NetworkZone>(
-    peer_sink: &mut Z::Sink,
+async fn send_ping_response<Z, T>(
+    peer_sink: &mut T::Sink,
     peer_id: u64,
-) -> Result<(), HandshakeError> {
+) -> Result<(), HandshakeError>
+where
+    Z: NetworkZone,
+    T: Transport<Z>,
+{
     tracing::debug!("Sending ping response.");
     Ok(peer_sink
         .send(

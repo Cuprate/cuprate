@@ -7,15 +7,15 @@ use std::{
     sync::Arc,
 };
 
-use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY};
+use curve25519_dalek::{constants::ED25519_BASEPOINT_COMPRESSED, edwards::CompressedEdwardsY};
+use indexmap::IndexMap;
 use monero_serai::transaction::{Timelock, Transaction};
-use tower::{service_fn, Service, ServiceExt};
+use tower::service_fn;
 
-use cuprate_consensus::{
-    TxVerifierService, VerifyTxRequest, VerifyTxResponse, __private::Database,
-};
+use cuprate_consensus::{__private::Database, transactions::start_tx_verification};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
+    output_cache::OutputCache,
     OutputOnChain,
 };
 
@@ -31,17 +31,19 @@ fn dummy_database(outputs: BTreeMap<u64, OutputOnChain>) -> impl Database + Clon
             BlockchainReadRequest::NumberOutputsWithAmount(_) => {
                 BlockchainResponse::NumberOutputsWithAmount(HashMap::new())
             }
-            BlockchainReadRequest::Outputs(outs) => {
+            BlockchainReadRequest::Outputs { outputs: outs, .. } => {
                 let idxs = &outs[&0];
 
-                let mut ret = HashMap::new();
+                let mut ret = IndexMap::new();
 
                 ret.insert(
                     0_u64,
                     idxs.iter()
                         .map(|idx| (*idx, *outputs.get(idx).unwrap()))
-                        .collect::<HashMap<_, _>>(),
+                        .collect::<IndexMap<_, _>>(),
                 );
+
+                let ret = OutputCache::new(ret, IndexMap::new(), IndexMap::new());
 
                 BlockchainResponse::Outputs(ret)
             }
@@ -69,30 +71,26 @@ macro_rules! test_verify_valid_v2_tx {
                 OutputOnChain {
                     height: 0,
                     time_lock: Timelock::None,
-                    commitment: CompressedEdwardsY::from_slice(&hex_literal::hex!($commitment))
-                        .unwrap()
-                        .decompress()
-                        .unwrap(),
-                    key: CompressedEdwardsY::from_slice(&hex_literal::hex!($ring_member))
-                        .unwrap()
-                        .decompress(),
+                    commitment: CompressedEdwardsY(hex_literal::hex!($commitment)),
+                    key: CompressedEdwardsY(hex_literal::hex!($ring_member)),
+                    txid: None,
                 }),)+)+
             ];
 
             let map = BTreeMap::from_iter(members);
             let database = dummy_database(map);
 
-            let mut tx_verifier = TxVerifierService::new(database);
-
-            assert!(matches!(tx_verifier.ready().await.unwrap().call(
-                VerifyTxRequest::New {
-                    txs: vec![Transaction::read(&mut $tx).unwrap()].into(),
-                    current_chain_height: 10,
-                    top_hash: [0; 32],
-                    hf: HardFork::$hf,
-                    time_for_time_lock: u64::MAX
-                }
-            ).await.unwrap(), VerifyTxResponse::OkPrepped(_)));
+            assert!(
+                start_tx_verification()
+                .append_txs(
+                    vec![Transaction::read(&mut $tx).unwrap()]
+                )
+                .prepare()
+                .unwrap()
+                .full(10, [0; 32], u64::MAX, HardFork::$hf, database.clone(), None)
+                .verify()
+                .await.is_ok()
+            );
 
             // Check verification fails if we put random ring members
 
@@ -101,27 +99,26 @@ macro_rules! test_verify_valid_v2_tx {
                 OutputOnChain {
                     height: 0,
                     time_lock: Timelock::None,
-                    commitment: ED25519_BASEPOINT_POINT,
-                    key: CompressedEdwardsY::from_slice(&hex_literal::hex!($ring_member))
-                        .unwrap()
-                        .decompress(),
+                    commitment: ED25519_BASEPOINT_COMPRESSED,
+                    key: CompressedEdwardsY(hex_literal::hex!($ring_member)),
+                    txid: None,
                 }),)+)+
             ];
 
             let map = BTreeMap::from_iter(members);
             let database = dummy_database(map);
 
-            let mut tx_verifier = TxVerifierService::new(database);
-
-            assert!(tx_verifier.ready().await.unwrap().call(
-                VerifyTxRequest::New {
-                    txs: vec![Transaction::read(&mut $tx).unwrap()].into(),
-                    current_chain_height: 10,
-                    top_hash: [0; 32],
-                    hf: HardFork::$hf,
-                    time_for_time_lock: u64::MAX
-                }
-            ).await.is_err());
+            assert!(
+                start_tx_verification()
+                .append_txs(
+                    vec![Transaction::read(&mut $tx).unwrap()]
+                )
+                .prepare()
+                .unwrap()
+                .full(10, [0; 32], u64::MAX, HardFork::$hf, database.clone(), None)
+                .verify()
+                .await.is_err()
+            );
 
         }
     };

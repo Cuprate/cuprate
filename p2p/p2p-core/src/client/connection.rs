@@ -17,12 +17,12 @@ use tokio_stream::wrappers::ReceiverStream;
 
 use cuprate_wire::{LevinCommand, Message, ProtocolMessage};
 
-use crate::client::request_handler::PeerRequestHandler;
 use crate::{
-    constants::{REQUEST_TIMEOUT, SENDING_TIMEOUT},
+    client::request_handler::PeerRequestHandler,
+    constants::{REQUEST_HANDLER_TIMEOUT, REQUEST_TIMEOUT, SENDING_TIMEOUT},
     handles::ConnectionGuard,
     AddressBook, BroadcastMessage, CoreSyncSvc, MessageID, NetworkZone, PeerError, PeerRequest,
-    PeerResponse, ProtocolRequestHandler, ProtocolResponse, SharedError,
+    PeerResponse, ProtocolRequestHandler, ProtocolResponse, SharedError, Transport,
 };
 
 /// A request to the connection task from a [`Client`](crate::client::Client).
@@ -46,11 +46,11 @@ pub(crate) enum State {
         /// The channel to send the response down.
         tx: oneshot::Sender<Result<PeerResponse, tower::BoxError>>,
         /// A permit for this request.
-        _req_permit: Option<OwnedSemaphorePermit>,
+        _req_permit: OwnedSemaphorePermit,
     },
 }
 
-/// Returns if the [`LevinCommand`] is the correct response message for our request.
+/// Returns `true` if the [`LevinCommand`] is the correct response message for our request.
 ///
 /// e.g. that we didn't get a block for a txs request.
 const fn levin_command_response(message_id: MessageID, command: LevinCommand) -> bool {
@@ -71,9 +71,9 @@ const fn levin_command_response(message_id: MessageID, command: LevinCommand) ->
 }
 
 /// This represents a connection to a peer.
-pub(crate) struct Connection<Z: NetworkZone, A, CS, PR, BrdcstStrm> {
+pub(crate) struct Connection<Z: NetworkZone, T: Transport<Z>, A, CS, PR, BrdcstStrm> {
     /// The peer sink - where we send messages to the peer.
-    peer_sink: Z::Sink,
+    peer_sink: T::Sink,
 
     /// The connections current state.
     state: State,
@@ -94,7 +94,7 @@ pub(crate) struct Connection<Z: NetworkZone, A, CS, PR, BrdcstStrm> {
     error: SharedError<PeerError>,
 }
 
-impl<Z, A, CS, PR, BrdcstStrm> Connection<Z, A, CS, PR, BrdcstStrm>
+impl<Z, T: Transport<Z>, A, CS, PR, BrdcstStrm> Connection<Z, T, A, CS, PR, BrdcstStrm>
 where
     Z: NetworkZone,
     A: AddressBook<Z>,
@@ -104,7 +104,7 @@ where
 {
     /// Create a new connection struct.
     pub(crate) fn new(
-        peer_sink: Z::Sink,
+        peer_sink: T::Sink,
         client_rx: mpsc::Receiver<ConnectionTaskRequest>,
         broadcast_stream: BrdcstStrm,
         peer_request_handler: PeerRequestHandler<Z, A, CS, PR>,
@@ -141,7 +141,7 @@ where
                 self.send_message_to_peer(Message::Protocol(ProtocolMessage::NewFluffyBlock(block)))
                     .await
             }
-            BroadcastMessage::NewTransaction(txs) => {
+            BroadcastMessage::NewTransactions(txs) => {
                 self.send_message_to_peer(Message::Protocol(ProtocolMessage::NewTransactions(txs)))
                     .await
             }
@@ -153,10 +153,17 @@ where
         tracing::debug!("handling client request, id: {:?}", req.request.id());
 
         if req.request.needs_response() {
+            assert!(
+                !matches!(self.state, State::WaitingForResponse { .. }),
+                "cannot handle more than 1 request at the same time"
+            );
+
             self.state = State::WaitingForResponse {
                 request_id: req.request.id(),
                 tx: req.response_channel,
-                _req_permit: req.permit,
+                _req_permit: req
+                    .permit
+                    .expect("Client request should have a permit if a response is needed"),
             };
 
             self.send_message_to_peer(req.request.into()).await?;
@@ -165,7 +172,7 @@ where
             return Ok(());
         }
 
-        // INVARIANT: This function cannot exit early without sending a response back down the
+        // INVARIANT: From now this function cannot exit early without sending a response back down the
         // response channel.
         let res = self.send_message_to_peer(req.request.into()).await;
 
@@ -188,7 +195,15 @@ where
     async fn handle_peer_request(&mut self, req: PeerRequest) -> Result<(), PeerError> {
         tracing::debug!("Received peer request: {:?}", req.id());
 
-        let res = self.peer_request_handler.handle_peer_request(req).await?;
+        let res = timeout(
+            REQUEST_HANDLER_TIMEOUT,
+            self.peer_request_handler.handle_peer_request(req),
+        )
+        .await
+        .map_err(|_| {
+            tracing::warn!("Timed-out handling peer request, closing connection.");
+            PeerError::TimedOut
+        })??;
 
         // This will be an error if a response does not need to be sent
         if let Ok(res) = res.try_into() {
@@ -249,6 +264,10 @@ where
 
         tokio::select! {
             biased;
+            () = self.connection_guard.should_shutdown() => {
+                tracing::debug!("connection guard has shutdown, shutting down connection.");
+                Err(PeerError::ConnectionClosed)
+            }
             broadcast_req = self.broadcast_stream.next() => {
                 if let Some(broadcast_req) = broadcast_req {
                     self.handle_client_broadcast(broadcast_req).await
@@ -282,6 +301,10 @@ where
 
         tokio::select! {
             biased;
+            () = self.connection_guard.should_shutdown() => {
+                tracing::debug!("connection guard has shutdown, shutting down connection.");
+                Err(PeerError::ConnectionClosed)
+            }
             () = self.request_timeout.as_mut().expect("Request timeout was not set!") => {
                 Err(PeerError::ClientChannelClosed)
             }
@@ -292,11 +315,19 @@ where
                     Err(PeerError::ClientChannelClosed)
                 }
             }
-            // We don't wait for client requests as we are already handling one.
+            client_req = self.client_rx.next() => {
+                // Although we can only handle 1 request from the client at a time, this channel is also used
+                // for specific broadcasts to this peer so we need to handle those here as well.
+                if let Some(client_req) = client_req {
+                    self.handle_client_request(client_req).await
+                } else {
+                    Err(PeerError::ClientChannelClosed)
+                }
+            },
             peer_message = stream.next() => {
                 if let Some(peer_message) = peer_message {
                     self.handle_potential_response(peer_message?).await
-                }else {
+                } else {
                     Err(PeerError::ClientChannelClosed)
                 }
             },
@@ -331,11 +362,6 @@ where
         }
 
         loop {
-            if self.connection_guard.should_shutdown() {
-                tracing::debug!("connection guard has shutdown, shutting down connection.");
-                return self.shutdown(PeerError::ConnectionClosed);
-            }
-
             let res = match self.state {
                 State::WaitingForRequest => self.state_waiting_for_request(&mut stream).await,
                 State::WaitingForResponse { .. } => {

@@ -13,7 +13,7 @@ use cuprate_async_buffer::BufferStream;
 use cuprate_p2p_core::{
     client::Connector,
     services::{AddressBookRequest, AddressBookResponse},
-    CoreSyncSvc, NetworkZone, ProtocolRequestHandlerMaker,
+    CoreSyncSvc, NetworkZone, ProtocolRequestHandlerMaker, Transport,
 };
 
 pub mod block_downloader;
@@ -26,7 +26,7 @@ mod peer_set;
 
 use block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse};
 pub use broadcast::{BroadcastRequest, BroadcastSvc};
-pub use config::{AddressBookConfig, P2PConfig};
+pub use config::{AddressBookConfig, P2PConfig, TransportConfig};
 use connection_maintainer::MakeConnectionRequest;
 use peer_set::PeerSet;
 pub use peer_set::{ClientDropGuard, PeerSetRequest, PeerSetResponse};
@@ -39,16 +39,18 @@ pub use peer_set::{ClientDropGuard, PeerSetRequest, PeerSetResponse};
 /// You must provide:
 /// - A protocol request handler, which is given to each connection
 /// - A core sync service, which keeps track of the sync state of our node
-#[instrument(level = "debug", name = "net", skip_all, fields(zone = N::NAME))]
-pub async fn initialize_network<N, PR, CS>(
+#[instrument(level = "debug", name = "net", skip_all, fields(zone = Z::NAME))]
+pub async fn initialize_network<Z, T, PR, CS>(
     protocol_request_handler_maker: PR,
     core_sync_svc: CS,
-    config: P2PConfig<N>,
-) -> Result<NetworkInterface<N>, tower::BoxError>
+    config: P2PConfig<Z>,
+    transport_config: TransportConfig<Z, T>,
+) -> Result<NetworkInterface<Z>, tower::BoxError>
 where
-    N: NetworkZone,
-    N::Addr: borsh::BorshDeserialize + borsh::BorshSerialize,
-    PR: ProtocolRequestHandlerMaker<N> + Clone,
+    Z: NetworkZone,
+    T: Transport<Z>,
+    Z::Addr: borsh::BorshDeserialize + borsh::BorshSerialize,
+    PR: ProtocolRequestHandlerMaker<Z> + Clone,
     CS: CoreSyncSvc + Clone,
 {
     let address_book =
@@ -68,17 +70,20 @@ where
 
     let mut basic_node_data = config.basic_node_data();
 
-    if !N::CHECK_NODE_ID {
+    if !Z::CHECK_NODE_ID {
         basic_node_data.peer_id = 1;
     }
 
     let outbound_handshaker_builder =
-        cuprate_p2p_core::client::HandshakerBuilder::new(basic_node_data)
-            .with_address_book(address_book.clone())
-            .with_core_sync_svc(core_sync_svc)
-            .with_protocol_request_handler_maker(protocol_request_handler_maker)
-            .with_broadcast_stream_maker(outbound_mkr)
-            .with_connection_parent_span(Span::current());
+        cuprate_p2p_core::client::HandshakerBuilder::<Z, T, _, _, _, _>::new(
+            basic_node_data,
+            transport_config.client_config,
+        )
+        .with_address_book(address_book.clone())
+        .with_core_sync_svc(core_sync_svc)
+        .with_protocol_request_handler_maker(protocol_request_handler_maker)
+        .with_broadcast_stream_maker(outbound_mkr)
+        .with_connection_parent_span(Span::current());
 
     let inbound_handshaker = outbound_handshaker_builder
         .clone()
@@ -119,6 +124,7 @@ where
             inbound_handshaker,
             address_book.clone(),
             config,
+            transport_config.server_config,
         )
         .map(|res| {
             if let Err(e) = res {
@@ -168,7 +174,7 @@ impl<N: NetworkZone> NetworkInterface<N> {
         config: BlockDownloaderConfig,
     ) -> BufferStream<BlockBatch>
     where
-        C: Service<ChainSvcRequest, Response = ChainSvcResponse, Error = tower::BoxError>
+        C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>
             + Send
             + 'static,
         C::Future: Send + 'static,

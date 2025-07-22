@@ -92,7 +92,7 @@
 //! // Prepare a request to write block.
 //! let tx = TX_V1_SIG2.clone();
 //! let request = TxpoolWriteRequest::AddTransaction {
-//!     tx: Arc::new(tx.try_into().unwrap()),
+//!     tx: Box::new(tx.try_into().unwrap()),
 //!     state_stem: false,
 //! };
 //!
@@ -128,5 +128,5 @@ mod read;
 mod types;
 mod write;
 
-pub use free::init;
+pub use free::{init, init_with_pool};
 pub use types::{TxpoolReadHandle, TxpoolWriteHandle};

@@ -7,16 +7,15 @@ authors = ["Boog900"]
 readme = "README.md"
 keywords = ["monero", "epee", "no-std"]
 description = "Epee binary format library."
-repository = "https://github.com/Boog900/epee-encoding"
-rust-version = "1.60"
+repository = "https://github.com/Cuprate/cuprate/tree/main/net/epee-encoding"
 
 [features]
 default = ["std"]
 std = ["dep:thiserror", "bytes/std", "cuprate-fixed-bytes/std"]
 
 [dependencies]
-cuprate-helper      = { workspace = true, default-features = false, features = ["cast"] }
 cuprate-fixed-bytes = { workspace = true, default-features = false }
+cuprate-hex         = { workspace = true, default-features = false }
 
 paste = "1.0.15"
 ref-cast = "1.0.23"

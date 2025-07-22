@@ -129,6 +129,7 @@ pub struct Bucket<C> {
 
 /// An enum representing if the message is a request, response or notification.
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum MessageType {
     /// Request
     Request,
@@ -194,11 +195,11 @@ impl<C: LevinCommand> BucketBuilder<C> {
         }
     }
 
-    pub fn set_signature(&mut self, sig: u64) {
+    pub const fn set_signature(&mut self, sig: u64) {
         self.signature = Some(sig);
     }
 
-    pub fn set_message_type(&mut self, ty: MessageType) {
+    pub const fn set_message_type(&mut self, ty: MessageType) {
         self.ty = Some(ty);
     }
 
@@ -206,11 +207,11 @@ impl<C: LevinCommand> BucketBuilder<C> {
         self.command = Some(command);
     }
 
-    pub fn set_return_code(&mut self, code: i32) {
+    pub const fn set_return_code(&mut self, code: i32) {
         self.return_code = Some(code);
     }
 
-    pub fn set_protocol_version(&mut self, version: u32) {
+    pub const fn set_protocol_version(&mut self, version: u32) {
         self.protocol_version = Some(version);
     }
 
@@ -243,7 +244,7 @@ pub trait LevinBody: Sized {
     /// Decodes the message from the data in the header
     fn decode_message<B: Buf>(
         body: &mut B,
-        typ: MessageType,
+        ty: MessageType,
         command: Self::Command,
     ) -> Result<Self, BucketError>;
 

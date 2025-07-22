@@ -23,6 +23,7 @@ cfg-if    = { workspace = true }
 page_size = { version = "0.6.0" } # Needed for database resizes, they must be a multiple of the OS page size.
 paste     = { workspace = true }
 thiserror = { workspace = true }
+tracing   = { workspace = true }
 
 # Optional features.
 heed  = { version = "0.20.5", features = ["read-txn-no-tls"] }

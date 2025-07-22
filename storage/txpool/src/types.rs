@@ -71,6 +71,13 @@ impl From<RawCachedVerificationState> for CachedVerificationState {
     fn from(value: RawCachedVerificationState) -> Self {
         // if the hash is all `0`s then there is no hash this is valid at.
         if value.raw_valid_at_hash == [0; 32] {
+            if value.raw_hf != 0 {
+                return Self::OnlySemantic(
+                    HardFork::from_version(value.raw_hf)
+                        .expect("hard-fork values stored in the DB should always be valid"),
+                );
+            }
+
             return Self::NotVerified;
         }
 
@@ -101,6 +108,11 @@ impl From<CachedVerificationState> for RawCachedVerificationState {
             CachedVerificationState::NotVerified => Self {
                 raw_valid_at_hash: [0; 32],
                 raw_hf: 0,
+                raw_valid_past_timestamp: [0; 8],
+            },
+            CachedVerificationState::OnlySemantic(hf) => Self {
+                raw_valid_at_hash: [0; 32],
+                raw_hf: hf.as_u8(),
                 raw_valid_past_timestamp: [0; 8],
             },
             CachedVerificationState::ValidAtHashAndHF { block_hash, hf } => Self {

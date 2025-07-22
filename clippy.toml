@@ -1,1 +1,9 @@
+# <https://rust-lang.github.io/rust-clippy/master/index.html#upper_case_acronyms>
 upper-case-acronyms-aggressive = true
+
+# <https://rust-lang.github.io/rust-clippy/master/index.html#doc_markdown>
+doc-valid-idents = [
+    "RandomX",
+    # This adds the rest of the default exceptions.
+    ".."
+]

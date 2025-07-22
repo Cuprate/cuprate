@@ -31,11 +31,8 @@ impl Drop for ConcreteEnv {
     fn drop(&mut self) {
         // INVARIANT: drop(ConcreteEnv) must sync.
         if let Err(e) = self.sync() {
-            // TODO: use tracing
-            println!("{e:#?}");
+            tracing::warn!("Env sync error: {e}");
         }
-
-        // TODO: log that we are dropping the database.
     }
 }
 
@@ -52,15 +49,9 @@ impl Env for ConcreteEnv {
     fn open(config: Config) -> Result<Self, InitError> {
         // SOMEDAY: dynamic syncs are not implemented.
         let durability = match config.sync_mode {
-            // FIXME: There's also `redb::Durability::Paranoid`:
-            // <https://docs.rs/redb/1.5.0/redb/enum.Durability.html#variant.Paranoid>
-            // should we use that instead of Immediate?
             SyncMode::Safe => redb::Durability::Immediate,
-            // FIXME: `Fast` maps to `Eventual` instead of `None` because of:
-            // <https://github.com/Cuprate/cuprate/issues/149>
-            SyncMode::Async | SyncMode::Fast => redb::Durability::Eventual,
-            // SOMEDAY: dynamic syncs are not implemented.
-            SyncMode::FastThenSafe | SyncMode::Threshold(_) => unimplemented!(),
+            // TODO: impl `FastThenSafe`
+            SyncMode::FastThenSafe | SyncMode::Fast => redb::Durability::Eventual,
         };
 
         let env_builder = redb::Builder::new();
@@ -109,7 +100,8 @@ impl Env for ConcreteEnv {
         // `redb`'s syncs are tied with write transactions,
         // so just create one, don't do anything and commit.
         let mut tx_rw = self.env.begin_write()?;
-        tx_rw.set_durability(redb::Durability::Paranoid);
+        tx_rw.set_durability(redb::Durability::Immediate);
+        tx_rw.set_two_phase_commit(true);
         TxRw::commit(tx_rw)
     }
 

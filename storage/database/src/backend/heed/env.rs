@@ -8,6 +8,7 @@ use std::{
 };
 
 use heed::{DatabaseFlags, EnvFlags, EnvOpenOptions};
+use tracing::{debug, warn};
 
 use crate::{
     backend::heed::{
@@ -70,18 +71,16 @@ impl Drop for ConcreteEnv {
         // We need to do `mdb_env_set_flags(&env, MDB_NOSYNC|MDB_ASYNCMAP, 0)`
         // to clear the no sync and async flags such that the below `self.sync()`
         // _actually_ synchronously syncs.
-        if let Err(_e) = Env::sync(self) {
-            // TODO: log error?
+        if let Err(e) = Env::sync(self) {
+            warn!("Env sync error: {e}");
         }
 
-        // TODO: log that we are dropping the database.
-
-        // TODO: use tracing.
         // <https://github.com/LMDB/lmdb/blob/b8e54b4c31378932b69f1298972de54a565185b1/libraries/liblmdb/lmdb.h#L49-L61>
         let result = self.env.read().unwrap().clear_stale_readers();
+
         match result {
-            Ok(n) => println!("LMDB stale readers cleared: {n}"),
-            Err(e) => println!("LMDB stale reader clear error: {e:?}"),
+            Ok(n) => debug!("LMDB stale readers cleared: {n}"),
+            Err(e) => debug!("LMDB stale reader clear error: {e:?}"),
         }
     }
 }
@@ -122,10 +121,10 @@ impl Env for ConcreteEnv {
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
         let flags = match config.sync_mode {
             SyncMode::Safe => EnvFlags::empty(),
-            SyncMode::Async => EnvFlags::MAP_ASYNC,
-            SyncMode::Fast => EnvFlags::NO_SYNC | EnvFlags::WRITE_MAP | EnvFlags::MAP_ASYNC,
-            // SOMEDAY: dynamic syncs are not implemented.
-            SyncMode::FastThenSafe | SyncMode::Threshold(_) => unimplemented!(),
+            // TODO: impl `FastThenSafe`
+            SyncMode::FastThenSafe | SyncMode::Fast => {
+                EnvFlags::NO_SYNC | EnvFlags::WRITE_MAP | EnvFlags::MAP_ASYNC
+            }
         };
 
         // SAFETY: the flags we're setting are 'unsafe'
@@ -137,7 +136,7 @@ impl Env for ConcreteEnv {
         // MAYBE: Set comparison functions for certain tables
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
         unsafe {
-            env_open_options.flags(flags);
+            env_open_options.flags(flags | EnvFlags::NO_READ_AHEAD);
         }
 
         // Set the memory map size to

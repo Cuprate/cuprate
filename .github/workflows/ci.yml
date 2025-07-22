@@ -18,6 +18,17 @@ env:
   RUSTDOCFLAGS: '-D warnings'
   # Enable debug information generation for build dependencies.
   CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG: true
+  # Build commands.
+  CMD_DOC: cargo doc --all-features --no-deps
+  CMD_CLIPPY: cargo clippy --all-features --all-targets -- -D warnings
+  CMD_TEST: |
+    # HACK: how to test both DB backends that are feature-gated?
+    cargo test --all-features
+    cargo test --package cuprate-blockchain --no-default-features --features redb
+  CMD_BUILD: cargo build --all-features --all-targets
+  CMD_HACK: |
+    cargo install cargo-hack --locked
+    cargo hack check --feature-powerset --no-dev-deps
 
 jobs:
   # Run format separately.
@@ -29,12 +40,15 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
-    - name: Format
-      run: cargo fmt --all --check
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: rustfmt
+      - name: Format
+        run: cargo fmt --all --check
 
   # Run typo checker separately.
   # This will fast-cancel other CI early if this fails.
@@ -46,100 +60,139 @@ jobs:
     - name: Spell Check
       uses: crate-ci/typos@master
 
-  # All other CI.
+  # Run 32-bit WASM support check separately.
+  wasm-32-bit-support:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        # The list of crates to check for WASM 32 bit support
+        #  TODO: check features.
+        crate: [
+            cuprate-epee-encoding,
+            cuprate-rpc-types,
+            cuprate-fixed-bytes,
+        ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+
+      - name: Build WASM 32-bit
+        run: cargo build --target wasm32-unknown-unknown -p ${{ matrix.crate }}
+
+  # CI, runs on GitHub provided OSs.
   ci:
     runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
-        include:
-          - os: windows-latest
-            shell: msys2 {0}
-            # GNU Windows is used as we need
-            # `unistd.h` and more in `cryptonight/`.
-            rust: stable-x86_64-pc-windows-gnu
-          - os: macos-latest
-            shell: bash
-            rust: stable
-          - os: ubuntu-latest
-            shell: bash
-            rust: stable
-
-    defaults:
-      run:
-        shell: ${{ matrix.shell }}
+        os: [
+            windows-2022, # EOL = 2026-10-13 | <https://endoflife.date/windows-server>
+            macos-15,     # EOL = 2027-09-16 | <https://endoflife.date/macos>
+            macos-13,     # EOL = 2025-10-24 | For x64.
+            ubuntu-22.04, # EOL = 2027-04-01 | <https://endoflife.date/ubuntu>
+            ubuntu-22.04-arm,
+        ]
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: ${{ matrix.rust }}
-        components: clippy
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy
 
-    - name: Cache
-      uses: actions/cache@v4
-      with:
-        path: target
-        key: ${{ matrix.os }}
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ matrix.os }}
 
-    - name: Download monerod
-      uses: ./.github/actions/monerod-download
+      - name: Download monerod
+        uses: ./.github/actions/monerod-download
 
-    # Packages other than `Boost` used by `Monero` are listed here.
-    # https://github.com/monero-project/monero/blob/c444a7e002036e834bfb4c68f04a121ce1af5825/.github/workflows/build.yml#L71
+      - name: Install dependencies (Windows)
+        if: matrix.os == 'windows-2022'
+        uses: lukka/get-cmake@v3.31.6 # Needed for `randomx-rs`
 
-    - name: Install dependencies (Linux)
-      if: matrix.os == 'ubuntu-latest'
-      run: sudo apt install -y libboost-dev
+      - name: Documentation
+        run: ${{ env.CMD_DOC }}
 
-    - name: Install dependencies (macOS)
-      if: matrix.os == 'macos-latest'
-      run: HOMEBREW_NO_AUTO_UPDATE=1 brew install boost
+      - name: Clippy (fail on warnings)
+        run: ${{ env.CMD_CLIPPY }}
 
-    - name: Install dependencies (Windows)
-      if: matrix.os == 'windows-latest'
-      uses: msys2/setup-msys2@v2
-      with:
-        path-type: inherit
-        update: true
-        install: mingw-w64-x86_64-toolchain mingw-w64-x86_64-boost msys2-runtime-devel git mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+      - name: Test
+        run: ${{ env.CMD_TEST }}
 
-    # HACK: 2024-05-14
-    # GCC 14+ fails to build `lmdb-master-sys` with no clear error message:
-    # <https://github.com/Cuprate/cuprate/pull/127>
-    #
-    # - MSYS2 repos carry older versions of packages
-    # - pacman lets us manually downgrade from package files
-    # - Note that `gcc` requires `gcc-libs`
-    - name: Downgrade to GCC 13.2 (Windows)
-      if: matrix.os == 'windows-latest'
-      run: |
-        wget https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-gcc-13.2.0-6-any.pkg.tar.zst https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-gcc-libs-13.2.0-6-any.pkg.tar.zst
-        pacman -U --noconfirm mingw-w64-x86_64-gcc-13.2.0-6-any.pkg.tar.zst mingw-w64-x86_64-gcc-libs-13.2.0-6-any.pkg.tar.zst
+      - name: Build
+        run: ${{ env.CMD_BUILD }}
 
-    - name: Documentation
-      run: cargo doc --workspace --all-features --no-deps
+      - name: Hack Check
+        run: ${{ env.CMD_HACK }}
 
-    - name: Clippy (fail on warnings)
-      run: cargo clippy --workspace --all-features --all-targets -- -D warnings
+  # CI, runs in a Docker image.
+  ci-docker:
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.os.image }}
 
-    # HACK: how to test both DB backends that are feature-gated?
-    - name: Test
-      run: |
-        cargo test --all-features --workspace
-        cargo test --package cuprate-blockchain --no-default-features --features redb
+    strategy:
+      matrix:
+        os:
+        # TODO: support musl <https://github.com/Cuprate/cuprate/issues/336>
+        # - { image: alpine:latest, commands: "apk update && apk add alpine-sdk cmake curl bash" }
+        - { image: archlinux:latest, commands: "pacman -Syyu --noconfirm base-devel git cmake openssl" }
+        - { image: debian:stable, commands: "apt update && apt -y install build-essential curl cmake git libssl-dev" }
+        - { image: fedora:latest, commands: "dnf install --assumeyes @development-tools gcc gcc-c++ cmake git openssl-devel" }
 
-    - name: Hack Check
-      run: |
-        cargo install cargo-hack --locked
-        cargo hack --workspace check --feature-powerset --no-dev-deps
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          clean: false
 
-    # TODO: upload binaries with `actions/upload-artifact@v3`
-    - name: Build
-      run: cargo build --all-features --all-targets --workspace
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ matrix.os.image }}
+
+      - name: Dependencies
+        run: ${{ matrix.os.commands }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy
+
+      - name: Download monerod
+        uses: ./.github/actions/monerod-download
+
+      - name: Documentation
+        run: ${{ env.CMD_DOC }}
+
+      - name: Clippy (fail on warnings)
+        run: ${{ env.CMD_CLIPPY }}
+
+      - name: Test
+        run: ${{ env.CMD_TEST }}
+
+      - name: Build
+        run: ${{ env.CMD_BUILD }}
+
+      - name: Hack Check
+        run: ${{ env.CMD_HACK }}

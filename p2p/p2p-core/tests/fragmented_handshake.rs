@@ -36,7 +36,8 @@ use cuprate_p2p_core::{
         handshaker::HandshakerBuilder, ConnectRequest, Connector, DoHandshakeRequest,
         InternalPeerID,
     },
-    ClearNetServerCfg, ConnectionDirection, NetworkZone,
+    transports::TcpServerConfig,
+    ConnectionDirection, NetworkZone, Transport,
 };
 
 /// A network zone equal to clear net where every message sent is turned into a fragmented message.
@@ -48,16 +49,26 @@ pub enum FragNet {}
 impl NetworkZone for FragNet {
     const NAME: &'static str = "FragNet";
     const CHECK_NODE_ID: bool = true;
+    const BROADCAST_OWN_ADDR: bool = false;
 
     type Addr = SocketAddr;
+}
+
+#[derive(Clone)]
+pub struct FragTcp;
+
+#[async_trait::async_trait]
+impl Transport<FragNet> for FragTcp {
     type Stream = FramedRead<OwnedReadHalf, MoneroWireCodec>;
     type Sink = FramedWrite<OwnedWriteHalf, FragmentCodec>;
     type Listener = InBoundStream;
 
-    type ServerCfg = ClearNetServerCfg;
+    type ClientConfig = Option<()>;
+    type ServerConfig = TcpServerConfig;
 
     async fn connect_to_peer(
-        addr: Self::Addr,
+        addr: <FragNet as NetworkZone>::Addr,
+        _config: &Self::ClientConfig,
     ) -> Result<(Self::Stream, Self::Sink), std::io::Error> {
         let (read, write) = TcpStream::connect(addr).await?.into_split();
         Ok((
@@ -67,10 +78,16 @@ impl NetworkZone for FragNet {
     }
 
     async fn incoming_connection_listener(
-        config: Self::ServerCfg,
-        port: u16,
+        config: Self::ServerConfig,
     ) -> Result<Self::Listener, std::io::Error> {
-        let listener = TcpListener::bind(SocketAddr::new(config.ip, port)).await?;
+        let listener = TcpListener::bind(SocketAddr::new(
+            config
+                .ipv4
+                .expect("During test, we assume an IPv4 to be specified for the listener.")
+                .into(),
+            config.port,
+        ))
+        .await?;
         Ok(InBoundStream { listener })
     }
 }
@@ -143,7 +160,7 @@ async fn fragmented_handshake_cuprate_to_monerod() {
         rpc_credits_per_hash: 0,
     };
 
-    let handshaker = HandshakerBuilder::<FragNet>::new(our_basic_node_data).build();
+    let handshaker = HandshakerBuilder::<FragNet, FragTcp>::new(our_basic_node_data, None).build();
 
     let mut connector = Connector::new(handshaker);
 
@@ -170,11 +187,13 @@ async fn fragmented_handshake_monerod_to_cuprate() {
         rpc_credits_per_hash: 0,
     };
 
-    let mut handshaker = HandshakerBuilder::<FragNet>::new(our_basic_node_data).build();
+    let mut handshaker =
+        HandshakerBuilder::<FragNet, FragTcp>::new(our_basic_node_data, None).build();
 
-    let ip = "127.0.0.1".parse().unwrap();
+    let mut server_cfg = TcpServerConfig::default();
+    server_cfg.ipv4 = Some("127.0.0.1".parse().unwrap());
 
-    let mut listener = FragNet::incoming_connection_listener(ClearNetServerCfg { ip }, 18081)
+    let mut listener = <FragTcp as Transport<FragNet>>::incoming_connection_listener(server_cfg)
         .await
         .unwrap();
 

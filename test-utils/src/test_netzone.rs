@@ -5,22 +5,13 @@
 //!
 use std::{
     fmt::Formatter,
-    io::Error,
     net::{Ipv4Addr, SocketAddr},
-    pin::Pin,
 };
 
 use borsh::{BorshDeserialize, BorshSerialize};
-use futures::Stream;
-use tokio::io::{DuplexStream, ReadHalf, WriteHalf};
-use tokio_util::codec::{FramedRead, FramedWrite};
-
-use cuprate_wire::{
-    network_address::{NetworkAddress, NetworkAddressIncorrectZone},
-    MoneroWireCodec,
-};
 
 use cuprate_p2p_core::{NetZoneAddress, NetworkZone};
+use cuprate_wire::network_address::{NetworkAddress, NetworkAddressIncorrectZone};
 
 /// An address on the test network
 #[derive(Debug, Clone, Copy, Eq, Hash, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -61,8 +52,9 @@ impl TryFrom<NetworkAddress> for TestNetZoneAddr {
         match value {
             NetworkAddress::Clear(soc) => match soc {
                 SocketAddr::V4(v4) => Ok(Self(u32::from_be_bytes(v4.ip().octets()))),
-                SocketAddr::V6(_) => panic!("None v4 address in test code"),
+                SocketAddr::V6(_) => panic!("Only IPv4 addresses are allowed in test code."),
             },
+            NetworkAddress::Tor(_) => panic!("Only IPv4 addresses are allowed in test code."),
         }
     }
 }
@@ -75,27 +67,7 @@ pub struct TestNetZone<const CHECK_NODE_ID: bool>;
 impl<const CHECK_NODE_ID: bool> NetworkZone for TestNetZone<CHECK_NODE_ID> {
     const NAME: &'static str = "Testing";
     const CHECK_NODE_ID: bool = CHECK_NODE_ID;
+    const BROADCAST_OWN_ADDR: bool = false;
 
     type Addr = TestNetZoneAddr;
-    type Stream = FramedRead<ReadHalf<DuplexStream>, MoneroWireCodec>;
-    type Sink = FramedWrite<WriteHalf<DuplexStream>, MoneroWireCodec>;
-    type Listener = Pin<
-        Box<
-            dyn Stream<Item = Result<(Option<Self::Addr>, Self::Stream, Self::Sink), Error>>
-                + Send
-                + 'static,
-        >,
-    >;
-    type ServerCfg = ();
-
-    async fn connect_to_peer(_: Self::Addr) -> Result<(Self::Stream, Self::Sink), Error> {
-        unimplemented!()
-    }
-
-    async fn incoming_connection_listener(
-        _: Self::ServerCfg,
-        _: u16,
-    ) -> Result<Self::Listener, Error> {
-        unimplemented!()
-    }
 }
