@@ -102,9 +102,8 @@ impl<N: NetworkZone> Service<AddressBookRequest<N>> for DummyAddressBook {
             | AddressBookRequest::TakeRandomWhitePeer { .. } => {
                 return ready(Err("dummy address book does not hold peers".into()));
             }
-            AddressBookRequest::NewConnection { .. } | AddressBookRequest::IncomingPeerList(_, _) => {
-                AddressBookResponse::Ok
-            }
+            AddressBookRequest::NewConnection { .. }
+            | AddressBookRequest::IncomingPeerList(_, _) => AddressBookResponse::Ok,
             AddressBookRequest::GetBan(_) => AddressBookResponse::GetBan {
                 unban_instant: None,
             },
