@@ -13,7 +13,9 @@ use std::{
 
 use rayon::ThreadPool;
 
-use cuprate_database::{ConcreteEnv, DatabaseRo, DbResult, Env, EnvInner, RuntimeError};
+use cuprate_database::{
+    ConcreteEnv, DatabaseIter, DatabaseRo, DbResult, Env, EnvInner, RuntimeError,
+};
 use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
 
 use crate::{
@@ -24,6 +26,7 @@ use crate::{
     },
     tables::{KnownBlobHashes, OpenTables, TransactionBlobs, TransactionInfos},
     types::{TransactionBlobHash, TransactionHash},
+    TxEntry,
 };
 
 // TODO: update the docs here
@@ -229,7 +232,27 @@ fn txs_for_block(env: &ConcreteEnv, txs: Vec<TransactionHash>) -> ReadResponseRe
 /// [`TxpoolReadRequest::Backlog`].
 #[inline]
 fn backlog(env: &ConcreteEnv) -> ReadResponseResult {
-    Ok(TxpoolReadResponse::Backlog(todo!()))
+    let inner_env = env.env_inner();
+    let tx_ro = inner_env.tx_ro()?;
+
+    let tx_infos_table = inner_env.open_db_ro::<TransactionInfos>(&tx_ro)?;
+
+    let backlog = tx_infos_table
+        .iter()?
+        .map(|info| {
+            let (id, info) = info?;
+
+            Ok(TxEntry {
+                id,
+                weight: info.weight,
+                fee: info.fee,
+                private: info.flags.private(),
+                received_at: info.received_at,
+            })
+        })
+        .collect::<Result<_, RuntimeError>>()?;
+
+    Ok(TxpoolReadResponse::Backlog(backlog))
 }
 
 /// [`TxpoolReadRequest::Size`].
