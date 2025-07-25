@@ -34,8 +34,8 @@ bitflags::bitflags! {
 }
 
 impl TxStateFlags {
-    pub fn private(&self) -> bool {
-        self.contains(TxStateFlags::STATE_STEM)
+    pub const fn private(&self) -> bool {
+        self.contains(Self::STATE_STEM)
     }
 }
 

@@ -1,6 +1,8 @@
 use futures::TryFutureExt;
+use rand::{thread_rng, Rng};
 use tower::ServiceExt;
 
+use cuprate_pruning::PruningSeed;
 use cuprate_wire::{
     admin::{
         PingResponse, SupportFlagsResponse, TimedSyncRequest, TimedSyncResponse,
@@ -14,6 +16,7 @@ use crate::{
     constants::MAX_PEERS_IN_PEER_LIST_MESSAGE,
     services::{
         AddressBookRequest, AddressBookResponse, CoreSyncDataRequest, CoreSyncDataResponse,
+        ZoneSpecificPeerListEntryBase,
     },
     AddressBook, CoreSyncSvc, NetworkZone, PeerRequest, PeerResponse, ProtocolRequestHandler,
 };
@@ -101,24 +104,61 @@ where
 
         *self.peer_info.core_sync_data.lock().unwrap() = req.payload_data;
 
-        let AddressBookResponse::Peers(peers) = self
-            .address_book_svc
-            .ready()
-            .await?
-            .call(AddressBookRequest::GetWhitePeers(
-                MAX_PEERS_IN_PEER_LIST_MESSAGE,
-            ))
-            .await?
-        else {
-            panic!("Address book sent incorrect response!");
-        };
-
+        // Fetch core sync data.
         let CoreSyncDataResponse(core_sync_data) = self
             .our_sync_svc
             .ready()
             .await?
             .call(CoreSyncDataRequest)
             .await?;
+
+        // Attempt to fetch our own address if supported by this network zone.
+        let own_addr = if Z::BROADCAST_OWN_ADDR {
+            let AddressBookResponse::OwnAddress(own_addr) = self
+                .address_book_svc
+                .ready()
+                .await?
+                .call(AddressBookRequest::OwnAddress)
+                .await?
+            else {
+                panic!("Address book sent incorrect response!");
+            };
+
+            own_addr
+        } else {
+            None
+        };
+
+        let mut peer_list_req_size = MAX_PEERS_IN_PEER_LIST_MESSAGE;
+        if own_addr.is_some() {
+            peer_list_req_size -= 1;
+        }
+
+        // Fetch a peerlist to send
+        let AddressBookResponse::Peers(mut peers) = self
+            .address_book_svc
+            .ready()
+            .await?
+            .call(AddressBookRequest::GetWhitePeers(peer_list_req_size))
+            .await?
+        else {
+            panic!("Address book sent incorrect response!");
+        };
+
+        if let Some(own_addr) = own_addr {
+            // Append our address to the final peer list
+            peers.insert(
+                thread_rng().gen_range(0..=peers.len()),
+                ZoneSpecificPeerListEntryBase {
+                    adr: own_addr,
+                    id: self.our_basic_node_data.peer_id,
+                    last_seen: 0,
+                    pruning_seed: PruningSeed::NotPruned,
+                    rpc_port: self.our_basic_node_data.rpc_port,
+                    rpc_credits_per_hash: self.our_basic_node_data.rpc_credits_per_hash,
+                },
+            );
+        }
 
         Ok(TimedSyncResponse {
             payload_data: core_sync_data,

@@ -24,6 +24,7 @@ tower = { workspace = true, features = ["util", "tracing", "make"] }
 
 cfg-if = { workspace = true }
 thiserror = { workspace = true }
+rand = { workspace = true, features = ["std", "std_rng"] }
 tracing = { workspace = true, features = ["std", "attributes"] }
 hex-literal = { workspace = true }
 
