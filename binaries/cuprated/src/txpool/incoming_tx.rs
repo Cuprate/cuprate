@@ -231,9 +231,9 @@ async fn handle_incoming_txs(
             tx = hex::encode(tx.tx_hash),
             "passing tx to tx-pool manager"
         );
-        
+
         // TODO: take into account `do_not_relay` in the tx-pool manager.
-        
+
         if txpool_manager_handle
             .tx_tx
             .send((tx, state.clone()))
@@ -254,7 +254,6 @@ async fn handle_incoming_txs(
             &mut dandelion_pool_manager,
         )
         .await;
-        
     }
 
     Ok(())
