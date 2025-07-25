@@ -35,7 +35,6 @@ use cuprate_txpool::{
 };
 use cuprate_types::TransactionVerificationData;
 
-use crate::txpool::RelayRuleError;
 use crate::{
     blockchain::ConsensusBlockchainReadHandle,
     config::TxpoolConfig,
@@ -47,6 +46,7 @@ use crate::{
         manager::{start_txpool_manager, TxpoolManagerHandle},
         relay_rules::check_tx_relay_rules,
         txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
+        RelayRuleError,
     },
 };
 
@@ -231,6 +231,9 @@ async fn handle_incoming_txs(
             tx = hex::encode(tx.tx_hash),
             "passing tx to tx-pool manager"
         );
+        
+        // TODO: take into account `do_not_relay` in the tx-pool manager.
+        
         if txpool_manager_handle
             .tx_tx
             .send((tx, state.clone()))
@@ -243,16 +246,15 @@ async fn handle_incoming_txs(
     }
 
     // Re-relay any txs we got in the block that were already in our stem pool.
-    if !do_not_relay {
-        for stem_tx in stem_pool_txs {
-            rerelay_stem_tx(
-                &stem_tx,
-                state.clone(),
-                &mut txpool_read_handle,
-                &mut dandelion_pool_manager,
-            )
-            .await;
-        }
+    for stem_tx in stem_pool_txs {
+        rerelay_stem_tx(
+            &stem_tx,
+            state.clone(),
+            &mut txpool_read_handle,
+            &mut dandelion_pool_manager,
+        )
+        .await;
+        
     }
 
     Ok(())

@@ -33,6 +33,7 @@ use crate::{
         incoming_tx::{DandelionTx, TxId},
     },
 };
+const INCOMING_TX_QUEUE_SIZE: usize = 100;
 
 /// Starts the transaction pool manager service.
 ///
@@ -104,7 +105,7 @@ pub async fn start_txpool_manager(
         manager.promote_tx(tx).await;
     }
 
-    let (tx_tx, tx_rx) = mpsc::channel(100);
+    let (tx_tx, tx_rx) = mpsc::channel(INCOMING_TX_QUEUE_SIZE);
     let (spent_kis_tx, spent_kis_rx) = mpsc::channel(1);
 
     tokio::spawn(manager.run(tx_rx, spent_kis_rx));
@@ -115,13 +116,16 @@ pub async fn start_txpool_manager(
     }
 }
 
+/// A handle to the tx-pool manager.
 #[derive(Clone)]
 pub struct TxpoolManagerHandle {
+    /// The incoming tx channel.
     pub tx_tx: mpsc::Sender<(
         TransactionVerificationData,
         TxState<CrossNetworkInternalPeerId>,
     )>,
 
+    /// The spent key images in a new block tx.
     spent_kis_tx: mpsc::Sender<(Vec<[u8; 32]>, oneshot::Sender<()>)>,
 }
 
