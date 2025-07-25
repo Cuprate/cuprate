@@ -34,8 +34,6 @@ use crate::{
     },
 };
 
-/// The base time between re-relays to the p2p network.
-const TX_RERELAY_TIME: u64 = 300;
 /// Starts the transaction pool manager service.
 ///
 /// # Panics
@@ -72,7 +70,7 @@ pub async fn start_txpool_manager(
                 stem_txs.push(tx.id);
                 None
             } else {
-                let next_timeout = calculate_next_timeout(tx.received_at, config.maximum_age);
+                let next_timeout = calculate_next_timeout(tx.received_at, config.maximum_age_secs);
                 Some(tx_timeouts.insert(tx.id, Duration::from_secs(next_timeout)))
             };
 
@@ -281,7 +279,7 @@ impl TxpoolManager {
 
         // Check if the tx has timed out, with a small buffer to prevent rebroadcasting if the time is
         // slightly off.
-        if time_in_pool + 10 > self.config.maximum_age {
+        if time_in_pool + 10 > self.config.maximum_age_secs {
             tracing::warn!("tx has been in pool too long, removing from pool");
             self.remove_tx_from_pool(tx, true).await;
             return;
@@ -295,7 +293,7 @@ impl TxpoolManager {
 
         let tx_info = self.current_txs.get_mut(&tx).unwrap();
 
-        let next_timeout = calculate_next_timeout(received_at, self.config.maximum_age);
+        let next_timeout = calculate_next_timeout(received_at, self.config.maximum_age_secs);
         tracing::trace!(in_secs = next_timeout, "setting next tx timeout");
 
         tx_info.timeout_key = Some(
@@ -313,7 +311,7 @@ impl TxpoolManager {
             // The dandelion pool handles stem tx embargo.
             None
         } else {
-            let timeout = calculate_next_timeout(now, self.config.maximum_age);
+            let timeout = calculate_next_timeout(now, self.config.maximum_age_secs);
 
             tracing::trace!(in_secs = timeout, "setting next tx timeout");
 
@@ -404,7 +402,8 @@ impl TxpoolManager {
         // It's now in the public pool, pretend we just saw it.
         tx_info.received_at = current_unix_timestamp();
 
-        let next_timeout = calculate_next_timeout(tx_info.received_at, self.config.maximum_age);
+        let next_timeout =
+            calculate_next_timeout(tx_info.received_at, self.config.maximum_age_secs);
         tracing::trace!(in_secs = next_timeout, "setting next tx timeout");
         tx_info.timeout_key = Some(
             self.tx_timeouts
@@ -473,6 +472,9 @@ impl TxpoolManager {
 
 /// Calculates the amount of time to wait before resending a tx to the network.
 fn calculate_next_timeout(received_at: u64, max_time_in_pool: u64) -> u64 {
+    /// The base time between re-relays to the p2p network.
+    const TX_RERELAY_TIME: u64 = 300;
+
     /*
     This is a simple exponential backoff.
     The first timeout is TX_RERELAY_TIME seconds, the second is 2 * TX_RERELAY_TIME seconds, then 4, 8, 16, etc.

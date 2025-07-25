@@ -33,6 +33,12 @@ bitflags::bitflags! {
     }
 }
 
+impl TxStateFlags {
+    pub fn private(&self) -> bool {
+        self.contains(TxStateFlags::STATE_STEM)
+    }
+}
+
 /// Information on a tx-pool transaction.
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(C)]

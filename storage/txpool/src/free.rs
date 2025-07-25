@@ -13,9 +13,11 @@ use crate::{
     types::TransactionBlobHash,
 };
 
-const DATABASE_VERSION: u32 = 1;
+/// The current version of the database format.
+pub const DATABASE_VERSION: StorableStr = StorableStr(Cow::Borrowed("0.1"));
 
-const VERSION_KEY: StorableStr = StorableStr(Cow::Borrowed("version"));
+/// The key used to store the database version in the [`Metadata`] table.
+pub const VERSION_KEY: StorableStr = StorableStr(Cow::Borrowed("version"));
 
 //---------------------------------------------------------------------------------------------------- Free functions
 /// Open the txpool database using the passed [`Config`].
@@ -106,6 +108,7 @@ pub fn open(config: &Config) -> Result<ConcreteEnv, InitError> {
             .map_err(runtime_to_init_error)?;
 
         if version != DATABASE_VERSION {
+            // TODO: database migration when stable? This is the tx-pool so is not critical.
             print_version_err();
             return Err(InitError::InvalidVersion);
         }

@@ -25,7 +25,7 @@ use crate::{
         types::{ReadResponseResult, TxpoolReadHandle},
     },
     tables::{KnownBlobHashes, OpenTables, TransactionBlobs, TransactionInfos},
-    types::{TransactionBlobHash, TransactionHash, TxStateFlags},
+    types::{TransactionBlobHash, TransactionHash},
     TxEntry,
 };
 
@@ -246,7 +246,7 @@ fn backlog(env: &ConcreteEnv) -> ReadResponseResult {
                 id,
                 weight: info.weight,
                 fee: info.fee,
-                private: info.flags.contains(TxStateFlags::STATE_STEM),
+                private: info.flags.private(),
                 received_at: info.received_at,
             })
         })
