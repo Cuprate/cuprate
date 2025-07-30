@@ -23,6 +23,7 @@ use cuprate_helper::{
     cast::{u32_to_usize, u64_to_usize, usize_to_u64},
     fmt::HexPrefix,
     map::split_u128_into_low_high_bits,
+    time::current_unix_timestamp,
 };
 use cuprate_hex::{Hex, HexVec};
 use cuprate_p2p_core::{client::handshaker::builder::DummyAddressBook, ClearNet, Network};
@@ -923,13 +924,15 @@ async fn get_transaction_pool_backlog(
     mut state: CupratedRpcHandler,
     _: GetTransactionPoolBacklogRequest,
 ) -> Result<GetTransactionPoolBacklogResponse, Error> {
+    let now = current_unix_timestamp();
+
     let backlog = txpool::backlog(&mut state.txpool_read)
         .await?
         .into_iter()
         .map(|entry| TxBacklogEntry {
-            weight: entry.weight,
+            weight: usize_to_u64(entry.weight),
             fee: entry.fee,
-            time_in_pool: entry.time_in_pool.as_secs(),
+            time_in_pool: now - entry.received_at,
         })
         .collect();
 
@@ -968,7 +971,7 @@ async fn get_miner_data(
         .into_iter()
         .map(|entry| GetMinerDataTxBacklogEntry {
             id: Hex(entry.id),
-            weight: entry.weight,
+            weight: usize_to_u64(entry.weight),
             fee: entry.fee,
         })
         .collect();

@@ -62,7 +62,7 @@ config_struct! {
     pub struct BlockchainConfig { }
 
     /// The tx-pool config.
-    #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+    #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
     pub struct TxpoolConfig {
         /// The maximum size of the tx-pool.
@@ -71,6 +71,14 @@ config_struct! {
         /// Valid values | >= 0
         /// Examples     | 100_000_000, 50_000_000
         pub max_txpool_byte_size: usize,
+
+        /// The maximum age of transactions in the pool in seconds.
+        /// Transactions will be dropped after this time is reached.
+        ///
+        /// Type         | Number
+        /// Valid values | >= 0
+        /// Examples     | 100_000_000, 50_000_000
+        pub maximum_age_secs: u64,
     }
 }
 
@@ -79,6 +87,7 @@ impl Default for TxpoolConfig {
         Self {
             sync_mode: SyncMode::default(),
             max_txpool_byte_size: 100_000_000,
+            maximum_age_secs: 60 * 60 * 24,
         }
     }
 }

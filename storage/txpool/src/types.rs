@@ -31,6 +31,12 @@ bitflags::bitflags! {
     }
 }
 
+impl TxStateFlags {
+    pub const fn private(&self) -> bool {
+        self.contains(Self::STATE_STEM)
+    }
+}
+
 /// Information on a tx-pool transaction.
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(C)]
@@ -39,6 +45,8 @@ pub struct TransactionInfo {
     pub fee: u64,
     /// The transaction's weight.
     pub weight: usize,
+    /// The UNIX timestamp of when this tx was received.
+    pub received_at: u64,
     /// [`TxStateFlags`] of this transaction.
     pub flags: TxStateFlags,
     #[expect(clippy::pub_underscore_fields)]

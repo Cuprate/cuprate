@@ -87,7 +87,7 @@
 //!     .build();
 //!
 //! // Initialize the database thread-pool.
-//! let (mut read_handle, mut write_handle, _) = cuprate_txpool::service::init(config)?;
+//! let (mut read_handle, mut write_handle, _) = cuprate_txpool::service::init(&config)?;
 //!
 //! // Prepare a request to write block.
 //! let tx = TX_V1_SIG2.clone();
