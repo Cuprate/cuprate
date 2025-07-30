@@ -208,7 +208,7 @@ async fn handle_incoming_txs(
     for tx in txs {
         // TODO: this could be a DoS, if someone spams us with txs that violate these rules?
         // Maybe we should remember these invalid txs for some time to prevent them getting repeatedly sent.
-        if let Err(e) = check_tx_relay_rules(&tx, context) {
+        if let Err(e) = check_tx_relay_rules(&tx, blockchain_context_cache.blockchain_context()) {
             if drop_relay_rule_errors {
                 tracing::debug!(err = %e, tx = hex::encode(tx.tx_hash), "Tx failed relay check, skipping.");
                 continue;
