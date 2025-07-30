@@ -78,7 +78,7 @@ config_struct! {
         /// Type         | Number
         /// Valid values | >= 0
         /// Examples     | 100_000_000, 50_000_000
-        pub maximum_age: u64,
+        pub maximum_age_secs: u64,
     }
 }
 
@@ -87,7 +87,7 @@ impl Default for TxpoolConfig {
         Self {
             sync_mode: SyncMode::default(),
             max_txpool_byte_size: 100_000_000,
-            maximum_age: 60 * 60 * 24,
+            maximum_age_secs: 60 * 60 * 24,
         }
     }
 }

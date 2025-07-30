@@ -45,6 +45,7 @@ use crate::{
         manager::{start_txpool_manager, TxpoolManagerHandle},
         relay_rules::check_tx_relay_rules,
         txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
+        RelayRuleError,
     },
 };
 
@@ -57,6 +58,8 @@ pub enum IncomingTxError {
     Consensus(ExtendedConsensusError),
     #[error("Duplicate tx in message")]
     DuplicateTransaction,
+    #[error("Relay rule was broken: {0}")]
+    RelayRule(RelayRuleError),
 }
 
 /// Incoming transactions.
@@ -65,6 +68,13 @@ pub struct IncomingTxs {
     pub txs: Vec<Bytes>,
     /// The routing state of the transactions.
     pub state: TxState<CrossNetworkInternalPeerId>,
+    /// If [`true`], transactions breaking relay
+    /// rules will be ignored and processing will continue,
+    /// otherwise the service will return an early error.
+    pub drop_relay_rule_errors: bool,
+    /// If [`true`], only checks will be done,
+    /// the transaction will not be relayed.
+    pub do_not_relay: bool,
 }
 
 ///  The transaction type used for dandelion++.
@@ -170,7 +180,12 @@ impl Service<IncomingTxs> for IncomingTxHandler {
 
 /// Handles the incoming txs.
 async fn handle_incoming_txs(
-    IncomingTxs { txs, state }: IncomingTxs,
+    IncomingTxs {
+        txs,
+        state,
+        drop_relay_rule_errors,
+        do_not_relay,
+    }: IncomingTxs,
     txs_being_handled: TxsBeingHandled,
     mut blockchain_context_cache: BlockchainContextService,
     blockchain_read_handle: ConsensusBlockchainReadHandle,
@@ -193,16 +208,22 @@ async fn handle_incoming_txs(
     for tx in txs {
         // TODO: this could be a DoS, if someone spams us with txs that violate these rules?
         // Maybe we should remember these invalid txs for some time to prevent them getting repeatedly sent.
-        if let Err(e) = check_tx_relay_rules(&tx, blockchain_context_cache.blockchain_context()) {
-            tracing::debug!(err = %e, tx = hex::encode(tx.tx_hash), "Tx failed relay check, skipping.");
+        if let Err(e) = check_tx_relay_rules(&tx, context) {
+            if drop_relay_rule_errors {
+                tracing::debug!(err = %e, tx = hex::encode(tx.tx_hash), "Tx failed relay check, skipping.");
+                continue;
+            }
 
-            continue;
+            return Err(IncomingTxError::RelayRule(e));
         }
 
         tracing::debug!(
             tx = hex::encode(tx.tx_hash),
             "passing tx to tx-pool manager"
         );
+
+        // TODO: take into account `do_not_relay` in the tx-pool manager.
+
         if txpool_manager_handle
             .tx_tx
             .send((tx, state.clone()))

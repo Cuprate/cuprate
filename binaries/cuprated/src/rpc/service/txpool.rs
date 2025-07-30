@@ -1,6 +1,10 @@
 //! Functions to send [`TxpoolReadRequest`]s.
 
-use std::{collections::HashSet, convert::Infallible, num::NonZero};
+use std::{
+    collections::{HashMap, HashSet},
+    convert::Infallible,
+    num::NonZero,
+};
 
 use anyhow::{anyhow, Error};
 use monero_serai::transaction::Transaction;
@@ -17,7 +21,7 @@ use cuprate_txpool::{
 };
 use cuprate_types::{
     rpc::{PoolInfo, PoolInfoFull, PoolInfoIncremental, PoolTxInfo, TxpoolStats},
-    TxInPool, TxRelayChecks,
+    TransactionVerificationData, TxInPool, TxRelayChecks,
 };
 
 // FIXME: use `anyhow::Error` over `tower::BoxError` in txpool.
@@ -222,6 +226,25 @@ pub async fn all_hashes(
     Ok(hashes)
 }
 
+/// [`TxpoolReadRequest::TxsForBlock`]
+pub async fn txs_for_block(
+    txpool_read: &mut TxpoolReadHandle,
+    tx_hashes: Vec<[u8; 32]>,
+) -> Result<(HashMap<[u8; 32], TransactionVerificationData>, Vec<usize>), Error> {
+    let TxpoolReadResponse::TxsForBlock { txs, missing } = txpool_read
+        .ready()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .call(TxpoolReadRequest::TxsForBlock(tx_hashes))
+        .await
+        .map_err(|e| anyhow!(e))?
+    else {
+        unreachable!();
+    };
+
+    Ok((txs, missing))
+}
+
 /// TODO: impl txpool manager.
 pub async fn flush(txpool_manager: &mut Infallible, tx_hashes: Vec<[u8; 32]>) -> Result<(), Error> {
     todo!();
@@ -232,13 +255,4 @@ pub async fn flush(txpool_manager: &mut Infallible, tx_hashes: Vec<[u8; 32]>) ->
 pub async fn relay(txpool_manager: &mut Infallible, tx_hashes: Vec<[u8; 32]>) -> Result<(), Error> {
     todo!();
     Ok(())
-}
-
-/// TODO: impl txpool manager.
-pub async fn check_maybe_relay_local(
-    txpool_manager: &mut Infallible,
-    tx: Transaction,
-    relay: bool,
-) -> Result<TxRelayChecks, Error> {
-    Ok(todo!())
 }

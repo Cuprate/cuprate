@@ -17,8 +17,7 @@
 use cuprate_database::{define_tables, StorableStr, StorableVec};
 
 use crate::types::{
-    DatabaseVersion, KeyImage, RawCachedVerificationState, TransactionBlobHash, TransactionHash,
-    TransactionInfo,
+    KeyImage, RawCachedVerificationState, TransactionBlobHash, TransactionHash, TransactionInfo,
 };
 
 define_tables! {
@@ -52,5 +51,5 @@ define_tables! {
 
     /// Current database version.
     5 => Metadata,
-    StorableStr => DatabaseVersion,
+    StorableStr => StorableStr,
 }

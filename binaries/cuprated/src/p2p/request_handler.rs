@@ -408,7 +408,12 @@ where
         .ready()
         .await
         .expect(PANIC_CRITICAL_SERVICE_ERROR)
-        .call(IncomingTxs { txs, state })
+        .call(IncomingTxs {
+            txs,
+            state,
+            drop_relay_rule_errors: true,
+            do_not_relay: false,
+        })
         .await;
 
     match res {

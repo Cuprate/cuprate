@@ -14,3 +14,4 @@ mod txs_being_handled;
 
 pub use incoming_tx::{IncomingTxError, IncomingTxHandler, IncomingTxs};
 pub use manager::TxpoolManagerHandle;
+pub use relay_rules::RelayRuleError;

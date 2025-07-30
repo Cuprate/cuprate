@@ -10,8 +10,6 @@ use monero_serai::transaction::Timelock;
 
 use cuprate_types::{CachedVerificationState, HardFork};
 
-pub type DatabaseVersion = u32;
-
 /// An inputs key image.
 pub type KeyImage = [u8; 32];
 
@@ -30,6 +28,12 @@ bitflags::bitflags! {
         const STATE_STEM   = 0b0000_0001;
         /// A flag for if we have seen another tx double spending this tx.
         const DOUBLE_SPENT = 0b0000_0010;
+    }
+}
+
+impl TxStateFlags {
+    pub const fn private(&self) -> bool {
+        self.contains(Self::STATE_STEM)
     }
 }
 

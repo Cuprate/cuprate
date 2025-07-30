@@ -3,7 +3,7 @@ use std::{path::PathBuf, time::Duration};
 use futures::StreamExt;
 use tokio::time::interval;
 
-use cuprate_p2p_core::handles::HandleBuilder;
+use cuprate_p2p_core::{handles::HandleBuilder, NetworkZone};
 use cuprate_pruning::PruningSeed;
 
 use super::{AddressBook, ConnectionPeerEntry, InternalPeerID};
@@ -11,12 +11,13 @@ use crate::{peer_list::tests::make_fake_peer_list, AddressBookConfig, AddressBoo
 
 use cuprate_test_utils::test_netzone::{TestNetZone, TestNetZoneAddr};
 
-fn test_cfg() -> AddressBookConfig {
+fn test_cfg<Z: NetworkZone>() -> AddressBookConfig<Z> {
     AddressBookConfig {
         max_white_list_length: 100,
         max_gray_list_length: 500,
         peer_store_directory: PathBuf::new(),
         peer_save_period: Duration::from_secs(60),
+        our_own_address: None,
     }
 }
 
