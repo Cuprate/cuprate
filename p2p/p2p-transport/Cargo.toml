@@ -21,5 +21,7 @@ tor-hsservice   = { workspace = true }
 tor-proto       = { workspace = true }
 tor-rtcompat    = { workspace = true }
 
+tracing = { workspace = true }
+
 [lints]
 workspace = true

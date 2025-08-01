@@ -386,12 +386,14 @@ where
         return Ok(ProtocolResponse::NA);
     }
 
-    let state = if request.dandelionpp_fluff {
+    let addr = peer_information.id.into();
+
+    let anon_zone = matches!(addr, CrossNetworkInternalPeerId::Tor(_));
+
+    let state = if request.dandelionpp_fluff && !anon_zone {
         TxState::Fluff
     } else {
-        TxState::Stem {
-            from: peer_information.id.into(),
-        }
+        TxState::Stem { from: addr }
     };
 
     // Drop all the data except the stuff we still need.

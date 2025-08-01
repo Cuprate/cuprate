@@ -233,16 +233,11 @@ config_struct! {
     pub struct TorNetConfig {
 
         #[comment_out = true]
-        /// Enable Tor network by specifying how to connect to it.
+        /// Enable the Tor P2P network.
         ///
-        /// Setting this to "" (an empty string) will disable Tor.
-        ///
-        /// When "Daemon" is set, the Tor daemon address to use can be
-        /// specified in `tor.daemon_addr`.
-        ///
-        /// Type         | String
-        /// Valid values | "Arti", "Daemon", "Off"
-        /// Examples     | "Arti"
+        /// Type         | boolean
+        /// Valid values | false, true
+        /// Examples     | false
         pub enabled: bool,
 
         #[comment_out = true]

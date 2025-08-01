@@ -135,6 +135,12 @@ impl Transport<Tor> for Arti {
     async fn incoming_connection_listener(
         config: Self::ServerConfig,
     ) -> Result<Self::Listener, io::Error> {
+        tracing::info!(
+            "Listening for incoming Tor P2P connections on address: {}:{}",
+            config.onion_svc.onion_address().unwrap(),
+            config.port
+        );
+
         // Launch onion service
         #[expect(clippy::clone_on_ref_ptr)]
         let (svc, rdv_stream) = config

@@ -87,6 +87,7 @@ where
         routing_set: JoinSet::new(),
         stem_origins: HashMap::new(),
         embargo_timers: DelayQueue::new(),
+        embargo_timer_keys: HashMap::new(),
         embargo_dist: Exp::new(1.0 / config.average_embargo_timeout().as_secs_f64()).unwrap(),
         config,
         _tx: PhantomData,

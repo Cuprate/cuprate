@@ -8,7 +8,7 @@ use std::{default, sync::Arc};
 
 use arti_client::{
     config::{onion_service::OnionServiceConfigBuilder, CfgPath, TorClientConfigBuilder},
-    StreamPrefs, TorClient, TorClientBuilder, TorClientConfig,
+    KeystoreSelector, StreamPrefs, TorClient, TorClientBuilder, TorClientConfig,
 };
 use futures::Stream;
 use serde::{Deserialize, Serialize};
@@ -135,7 +135,9 @@ fn initialize_arti_onion_service(client_config: &TorClientConfig, config: &Confi
 
 pub fn transport_arti_config(config: &Config, ctx: TorContext) -> TransportConfig<Tor, Arti> {
     // Extracting
-    let (Some(bootstrapped_client),Some(client_config)) = (ctx.bootstrapped_client, ctx.arti_client_config) else {
+    let (Some(bootstrapped_client), Some(client_config)) =
+        (ctx.bootstrapped_client, ctx.arti_client_config)
+    else {
         panic!("Arti client should be initialized");
     };
 
@@ -174,9 +176,10 @@ pub fn transport_clearnet_arti_config(ctx: &TorContext) -> TransportConfig<Clear
 }
 
 pub fn transport_daemon_config(config: &Config) -> TransportConfig<Tor, Daemon> {
-    let valid_onion =
-        !(config.p2p.tor_net.inbound_onion && config.tor.daemon.anonymous_inbound.is_empty());
-    if !valid_onion {
+    let mut invalid_onion = false;
+
+    if config.p2p.tor_net.inbound_onion && config.tor.daemon.anonymous_inbound.is_empty() {
+        invalid_onion = true;
         tracing::warn!("Onion inbound is enabled yet no onion host has been defined in configuration. Inbound server disabled.");
     }
 
@@ -184,9 +187,11 @@ pub fn transport_daemon_config(config: &Config) -> TransportConfig<Tor, Daemon> 
         client_config: DaemonClientConfig {
             tor_daemon: config.tor.daemon.address,
         },
-        server_config: valid_onion.then_some(DaemonServerConfig {
-            ip: config.tor.daemon.listening_addr.ip(),
-            port: config.tor.daemon.listening_addr.port(),
-        }),
+        server_config: (config.p2p.tor_net.inbound_onion && !invalid_onion).then_some(
+            DaemonServerConfig {
+                ip: config.tor.daemon.listening_addr.ip(),
+                port: config.tor.daemon.listening_addr.port(),
+            },
+        ),
     }
 }

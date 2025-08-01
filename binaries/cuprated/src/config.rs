@@ -1,4 +1,7 @@
 //! cuprated config
+use arti_client::KeystoreSelector;
+use clap::Parser;
+use serde::{Deserialize, Serialize};
 use std::{
     fmt,
     fs::{read_to_string, File},
@@ -7,9 +10,6 @@ use std::{
     str::FromStr,
     time::Duration,
 };
-
-use clap::Parser;
-use serde::{Deserialize, Serialize};
 
 use cuprate_consensus::ContextConfig;
 use cuprate_helper::{
@@ -250,7 +250,7 @@ impl Config {
                 let addr = ctx.arti_onion_service
                     .as_ref()
                     .unwrap()
-                    .onion_address()
+                    .generate_identity_key(KeystoreSelector::Primary)
                     .unwrap()
                     .to_string();
 

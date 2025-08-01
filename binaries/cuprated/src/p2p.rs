@@ -40,9 +40,10 @@ pub use network_address::CrossNetworkInternalPeerId;
 
 /// A simple parsing enum for the `p2p.clear_net.proxy` field
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(untagged)]
 pub enum ProxySettings {
     Tor,
-    Socks(String)
+    Socks(String),
 }
 
 /// This struct collect all supported and optional network zone interfaces.

@@ -17,9 +17,13 @@ config_struct! {
     pub struct ArtiConfig {
         /// Path to the arti state directory.
         ///
-        /// Type         | String
-        /// Valid values | false, true
-        /// Examples     | false
+        /// The default directories for each OS:
+        ///
+        /// | OS      | Path                                                |
+        /// |---------|-----------------------------------------------------|
+        /// | Windows | "C:\Users\Alice\AppData\Roaming\Cuprate\"           |
+        /// | macOS   | "/Users/Alice/Library/Application Support/Cuprate/" |
+        /// | Linux   | "/home/alice/.local/share/cuprate/"                 |
         pub directory_path: PathBuf,
 
         /// Enable isolated circuits for Arti.

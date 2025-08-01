@@ -1343,6 +1343,7 @@ dependencies = [
  "tor-hsservice",
  "tor-proto",
  "tor-rtcompat",
+ "tracing",
 ]
 
 [[package]]

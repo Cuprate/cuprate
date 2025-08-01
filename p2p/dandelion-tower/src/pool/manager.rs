@@ -12,7 +12,7 @@ use tokio::{
     sync::{mpsc, oneshot},
     task::JoinSet,
 };
-use tokio_util::time::DelayQueue;
+use tokio_util::time::{delay_queue, DelayQueue};
 use tower::{Service, ServiceExt};
 
 use crate::{
@@ -41,6 +41,7 @@ pub struct DandelionPoolManager<P, R, Tx, TxId, PeerId> {
 
     /// Current stem pool embargo timers.
     pub(crate) embargo_timers: DelayQueue<TxId>,
+    pub(crate) embargo_timer_keys: HashMap<TxId, delay_queue::Key>,
     /// The distrobution to sample to get embargo timers.
     pub(crate) embargo_dist: Exp<f64>,
 
@@ -68,8 +69,10 @@ where
             embargo_timer
         );
 
-        self.embargo_timers
-            .insert(tx_id, Duration::from_secs_f64(embargo_timer));
+        let key = self
+            .embargo_timers
+            .insert(tx_id.clone(), Duration::from_secs_f64(embargo_timer));
+        self.embargo_timer_keys.insert(tx_id, key);
     }
 
     /// Stems the tx, setting the stem origin, if it wasn't already set.
@@ -164,9 +167,9 @@ where
         // Remove the tx from the maps used during the stem phase.
         self.stem_origins.remove(&tx_id);
 
-        // The key for this is *Not* the tx_id, it is given on insert, so just keep the timer in the
-        // map. These timers should be relatively short, so it shouldn't be a problem.
-        //self.embargo_timers.try_remove(&tx_id);
+        if let Some(key) = self.embargo_timer_keys.remove(&tx_id) {
+            self.embargo_timers.try_remove(&key);
+        }
 
         self.backing_pool
             .ready()

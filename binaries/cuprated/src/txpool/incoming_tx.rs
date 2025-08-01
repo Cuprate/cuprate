@@ -33,6 +33,7 @@ use cuprate_txpool::{
 };
 use cuprate_types::TransactionVerificationData;
 
+use crate::txpool::dandelion::AnonTxService;
 use crate::{
     blockchain::ConsensusBlockchainReadHandle,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
@@ -103,7 +104,7 @@ impl IncomingTxHandler {
         blockchain_read_handle: BlockchainReadHandle,
     ) -> Self {
         let clearnet_router = dandelion::dandelion_router(clear_net);
-        let tor_router = tor_net.map(dandelion::dandelion_router);
+        let tor_router = tor_net.map(AnonTxService::new);
 
         let dandelion_router = MainDandelionRouter::new(clearnet_router, tor_router);
 

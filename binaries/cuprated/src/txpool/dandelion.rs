@@ -1,8 +1,10 @@
+use futures::{FutureExt, TryFutureExt};
 use std::{task::Poll, time::Duration};
 
 use futures::future::BoxFuture;
 use tower::{Service, ServiceExt};
 
+use cuprate_dandelion_tower::traits::StemRequest;
 use cuprate_dandelion_tower::{
     pool::DandelionPoolService, DandelionConfig, DandelionRouteReq, DandelionRouter,
     DandelionRouterError, Graph, State, TxState,
@@ -15,7 +17,9 @@ use crate::{
     p2p::CrossNetworkInternalPeerId,
     txpool::incoming_tx::{DandelionTx, TxId},
 };
+pub use anon_net_service::AnonTxService;
 
+mod anon_net_service;
 mod diffuse_service;
 mod stem_service;
 mod tx_store;
@@ -41,13 +45,13 @@ pub(super) type ConcreteDandelionRouter<Z> = DandelionRouter<
 
 pub(super) struct MainDandelionRouter {
     clearnet_router: ConcreteDandelionRouter<ClearNet>,
-    tor_router: Option<ConcreteDandelionRouter<Tor>>,
+    tor_router: Option<AnonTxService<Tor>>,
 }
 
 impl MainDandelionRouter {
     pub const fn new(
         clearnet_router: ConcreteDandelionRouter<ClearNet>,
-        tor_router: Option<ConcreteDandelionRouter<Tor>>,
+        tor_router: Option<AnonTxService<Tor>>,
     ) -> Self {
         Self {
             clearnet_router,
@@ -77,9 +81,20 @@ impl Service<DandelionRouteReq<DandelionTx, CrossNetworkInternalPeerId>> for Mai
         &mut self,
         req: DandelionRouteReq<DandelionTx, CrossNetworkInternalPeerId>,
     ) -> Self::Future {
-        if let Some(tor_router) = self.tor_router.as_mut() {
-            if req.state == TxState::Local {
-                return tor_router.call(req);
+        if req.state == TxState::Local {
+            if let Some(tor_router) = self.tor_router.as_mut() {
+                if let Some(mut peer) = tor_router.peer.take() {
+                    tracing::debug!("routing tx over Tor");
+                    return peer
+                        .call(StemRequest(req.tx))
+                        .map_ok(|_| State::Stem)
+                        .map_err(DandelionRouterError::PeerError)
+                        .boxed();
+                }
+
+                tracing::warn!(
+                    "failed to route tx over Tor, no connections, falling back to Clearnet"
+                );
             }
         }
 
