@@ -169,6 +169,7 @@ fn main() {
             blockchain_read_handle,
             context_svc.clone(),
             txpool_read_handle,
+            tx_handler,
         );
 
         // Start the command listener.
