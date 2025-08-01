@@ -170,19 +170,11 @@ impl Transport<Tor> for Arti {
 
                     Ok(stream.split())
                 }
-                req => {
-                    let err = match req {
-                        IncomingStreamRequest::BeginDir(_) => {
-                            Err(io::Error::other("Received invalid command: BeginDir"))
-                        }
-                        IncomingStreamRequest::Resolve(_) => {
-                            Err(io::Error::other("Received invalid command: Resolve"))
-                        }
-                        _ => unreachable!(),
-                    };
+                _ => {
                     sreq.shutdown_circuit()
                         .expect("Should never panic, unless programming error from arti's end.");
-                    err
+
+                    Err(io::Error::other("Received invalid command"))
                 }
             }
         });

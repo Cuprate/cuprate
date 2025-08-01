@@ -303,7 +303,7 @@ mod tests {
 
             let entry = ChainEntry {
                 ids,
-                peer: InternalPeerID::Unknown(1),
+                peer: InternalPeerID::Unknown([1; 16]),
                 handle: handle.1
             };
 
@@ -335,7 +335,7 @@ mod tests {
             let entries = (0..len).map(|i| {
                 ChainEntry {
                     ids: vec![HASHES.get(i).copied().unwrap_or_default()],
-                    peer: InternalPeerID::Unknown(1),
+                    peer: InternalPeerID::Unknown([1; 16]),
                     handle: handle.1.clone()
                 }
             }).collect();
@@ -369,7 +369,7 @@ mod tests {
             let handle = HandleBuilder::new().build();
             let entry = ChainEntry {
                 ids: HASHES[hashes_start_height..(hashes_start_height + len)].to_vec(),
-                peer: InternalPeerID::Unknown(1),
+                peer: InternalPeerID::Unknown([1; 16]),
                 handle: handle.1
             };
 

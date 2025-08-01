@@ -40,14 +40,14 @@ pub enum InternalPeerID<A> {
     /// A known address.
     KnownAddr(A),
     /// An unknown address (probably an inbound anonymity network connection).
-    Unknown(u128),
+    Unknown([u8; 16]),
 }
 
 impl<A: Display> Display for InternalPeerID<A> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::KnownAddr(addr) => addr.fmt(f),
-            Self::Unknown(id) => f.write_str(&format!("Unknown, ID: {id}")),
+            Self::Unknown(id) => f.write_str(&format!("Unknown, ID: {}", hex::encode(id))),
         }
     }
 }

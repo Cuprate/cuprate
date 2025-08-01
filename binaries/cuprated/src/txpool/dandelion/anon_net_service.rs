@@ -1,15 +1,22 @@
-use crate::p2p::CrossNetworkInternalPeerId;
-use crate::txpool::dandelion::stem_service::{OutboundPeerStream, StemPeerService};
+use std::{
+    pin::Pin,
+    task::{ready, Context, Poll},
+};
+
+use futures::{Stream, StreamExt, TryStream};
+use tower::Service;
+
 use cuprate_dandelion_tower::{DandelionRouterError, OutboundPeer};
 use cuprate_p2p::NetworkInterface;
 use cuprate_p2p_core::client::InternalPeerID;
 use cuprate_p2p_core::NetworkZone;
-use futures::{Stream, StreamExt, TryStream};
-use std::pin::Pin;
-use std::task::{ready, Context, Poll};
-use tower::Service;
 
-/// The dandelion outbound peer stream.
+use crate::{
+    p2p::CrossNetworkInternalPeerId,
+    txpool::dandelion::stem_service::{OutboundPeerStream, StemPeerService},
+};
+
+/// The service to prepare peers on anonymous network zones for sending transactions.
 pub struct AnonTxService<Z: NetworkZone> {
     outbound_peer_discover: Pin<Box<OutboundPeerStream<Z>>>,
     pub peer: Option<StemPeerService<Z>>,

@@ -424,8 +424,8 @@ mod tests {
         let (mut brcst, outbound_mkr, inbound_mkr) =
             init_broadcast_channels::<TestNetZone<true>>(TEST_CONFIG);
 
-        let mut outbound_stream = pin!(outbound_mkr(InternalPeerID::Unknown(1)));
-        let mut inbound_stream = pin!(inbound_mkr(InternalPeerID::Unknown(1)));
+        let mut outbound_stream = pin!(outbound_mkr(InternalPeerID::Unknown([1; 16])));
+        let mut inbound_stream = pin!(inbound_mkr(InternalPeerID::Unknown([1; 16])));
 
         // Outbound should get 1 and 3, inbound should get 2 and 3.
 
@@ -483,8 +483,8 @@ mod tests {
         let (mut brcst, outbound_mkr, inbound_mkr) =
             init_broadcast_channels::<TestNetZone<true>>(TEST_CONFIG);
 
-        let mut outbound_stream = pin!(outbound_mkr(InternalPeerID::Unknown(1)));
-        let mut inbound_stream = pin!(inbound_mkr(InternalPeerID::Unknown(1)));
+        let mut outbound_stream = pin!(outbound_mkr(InternalPeerID::Unknown([1; 16])));
+        let mut inbound_stream = pin!(inbound_mkr(InternalPeerID::Unknown([1; 16])));
 
         brcst
             .ready()
@@ -509,11 +509,11 @@ mod tests {
         let (mut brcst, outbound_mkr, inbound_mkr) =
             init_broadcast_channels::<TestNetZone<true>>(TEST_CONFIG);
 
-        let mut outbound_stream = pin!(outbound_mkr(InternalPeerID::Unknown(1)));
-        let mut outbound_stream_from = pin!(outbound_mkr(InternalPeerID::Unknown(0)));
+        let mut outbound_stream = pin!(outbound_mkr(InternalPeerID::Unknown([1; 16])));
+        let mut outbound_stream_from = pin!(outbound_mkr(InternalPeerID::Unknown([0; 16])));
 
-        let mut inbound_stream = pin!(inbound_mkr(InternalPeerID::Unknown(1)));
-        let mut inbound_stream_from = pin!(inbound_mkr(InternalPeerID::Unknown(0)));
+        let mut inbound_stream = pin!(inbound_mkr(InternalPeerID::Unknown([1; 16])));
+        let mut inbound_stream_from = pin!(inbound_mkr(InternalPeerID::Unknown([0; 16])));
 
         brcst
             .ready()
@@ -522,7 +522,7 @@ mod tests {
             .call(BroadcastRequest::Transaction {
                 tx_bytes: Bytes::from_static(&[1]),
                 direction: None,
-                received_from: Some(InternalPeerID::Unknown(0)),
+                received_from: Some(InternalPeerID::Unknown([0; 16])),
             })
             .await
             .unwrap();

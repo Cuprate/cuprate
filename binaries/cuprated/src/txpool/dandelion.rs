@@ -1,7 +1,7 @@
-use futures::{FutureExt, TryFutureExt};
+use std::task::ready;
 use std::{task::Poll, time::Duration};
 
-use futures::future::BoxFuture;
+use futures::{future::BoxFuture, FutureExt, TryFutureExt};
 use tower::{Service, ServiceExt};
 
 use cuprate_dandelion_tower::traits::StemRequest;
@@ -17,12 +17,13 @@ use crate::{
     p2p::CrossNetworkInternalPeerId,
     txpool::incoming_tx::{DandelionTx, TxId},
 };
-pub use anon_net_service::AnonTxService;
 
 mod anon_net_service;
 mod diffuse_service;
 mod stem_service;
 mod tx_store;
+
+pub use anon_net_service::AnonTxService;
 
 /// The configuration used for [`cuprate_dandelion_tower`].
 ///
@@ -43,6 +44,7 @@ pub(super) type ConcreteDandelionRouter<Z> = DandelionRouter<
     DandelionTx,
 >;
 
+/// The dandelion router used to send transactions to the network.
 pub(super) struct MainDandelionRouter {
     clearnet_router: ConcreteDandelionRouter<ClearNet>,
     tor_router: Option<AnonTxService<Tor>>,
@@ -67,11 +69,7 @@ impl Service<DandelionRouteReq<DandelionTx, CrossNetworkInternalPeerId>> for Mai
 
     fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
         if let Some(tor_router) = self.tor_router.as_mut() {
-            if let Poll::Ready(rd) = tor_router.poll_ready(cx) {
-                rd?;
-            } else {
-                return Poll::Pending;
-            }
+            ready!(tor_router.poll_ready(cx))?;
         }
 
         self.clearnet_router.poll_ready(cx)
@@ -81,6 +79,7 @@ impl Service<DandelionRouteReq<DandelionTx, CrossNetworkInternalPeerId>> for Mai
         &mut self,
         req: DandelionRouteReq<DandelionTx, CrossNetworkInternalPeerId>,
     ) -> Self::Future {
+        // TODO: is this the best way to use anonymity networks?
         if req.state == TxState::Local {
             if let Some(tor_router) = self.tor_router.as_mut() {
                 if let Some(mut peer) = tor_router.peer.take() {
