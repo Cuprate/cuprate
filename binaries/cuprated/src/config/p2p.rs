@@ -214,16 +214,16 @@ config_struct! {
         #[comment_out = true]
         /// The proxy to use for outgoing P2P connections
         ///
-        /// This settings can only take "tor" at the moment.
-        /// This will anonymize clearnet connections through Tor.
+        /// This setting can only take "Tor" at the moment.
+        /// This will anonymise clearnet connections through Tor.
         ///
         /// Setting this to "" (an empty string) will disable the proxy.
         ///
-        /// Enabling this settings will disable inbound connections.
+        /// Enabling this setting will disable inbound connections.
         ///
         /// Type         | String
-        /// Valid values | "tor"
-        /// Examples     | "tor"
+        /// Valid values | "Tor"
+        /// Examples     | "Tor"
         pub proxy: ProxySettings,
     }
 

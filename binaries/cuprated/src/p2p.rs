@@ -40,9 +40,9 @@ pub use network_address::CrossNetworkInternalPeerId;
 
 /// A simple parsing enum for the `p2p.clear_net.proxy` field
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(untagged)]
 pub enum ProxySettings {
     Tor,
+    #[serde(untagged)]
     Socks(String),
 }
 
@@ -99,15 +99,22 @@ pub async fn initialize_zones_p2p(
                     std::process::exit(0);
                 }
             },
-            ProxySettings::Socks(_) => start_zone_p2p::<ClearNet, Tcp>(
-                blockchain_read_handle.clone(),
-                context_svc.clone(),
-                txpool_read_handle.clone(),
-                config.clearnet_p2p_config(),
-                (&config.p2p.clear_net).into(),
-            )
-            .await
-            .unwrap(),
+            ProxySettings::Socks(ref s) => {
+                if !s.is_empty() {
+                    tracing::error!("Socks proxy is not yet supported.");
+                    std::process::exit(0);
+                }
+
+                start_zone_p2p::<ClearNet, Tcp>(
+                    blockchain_read_handle.clone(),
+                    context_svc.clone(),
+                    txpool_read_handle.clone(),
+                    config.clearnet_p2p_config(),
+                    (&config.p2p.clear_net).into(),
+                )
+                .await
+                .unwrap()
+            }
         }
     };
 
