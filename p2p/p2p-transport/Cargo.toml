@@ -5,6 +5,10 @@ edition = "2021"
 license = "MIT"
 authors = ["SyntheticBird"]
 
+[features]
+default = ["static"]
+static = ["arti-client/static"]
+
 [dependencies]
 cuprate-p2p-core = { workspace = true }
 cuprate-wire = { workspace = true }
