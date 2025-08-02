@@ -8,8 +8,7 @@ use tower::Service;
 
 use cuprate_dandelion_tower::{DandelionRouterError, OutboundPeer};
 use cuprate_p2p::NetworkInterface;
-use cuprate_p2p_core::client::InternalPeerID;
-use cuprate_p2p_core::NetworkZone;
+use cuprate_p2p_core::{client::InternalPeerID, NetworkZone};
 
 use crate::{
     p2p::CrossNetworkInternalPeerId,

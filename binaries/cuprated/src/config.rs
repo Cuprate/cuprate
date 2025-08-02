@@ -1,7 +1,4 @@
 //! cuprated config
-use arti_client::KeystoreSelector;
-use clap::Parser;
-use serde::{Deserialize, Serialize};
 use std::{
     fmt,
     fs::{read_to_string, File},
@@ -10,6 +7,10 @@ use std::{
     str::FromStr,
     time::Duration,
 };
+
+use arti_client::KeystoreSelector;
+use clap::Parser;
+use serde::{Deserialize, Serialize};
 
 use cuprate_consensus::ContextConfig;
 use cuprate_helper::{

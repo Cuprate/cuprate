@@ -1,25 +1,23 @@
 //! Commands
 //!
 //! `cuprated` [`Command`] definition and handling.
-use arti_client::KeystoreSelector;
-use clap::{builder::TypedValueParser, Parser, ValueEnum};
 use std::{io, thread::sleep, time::Duration};
+
+use clap::{builder::TypedValueParser, Parser, ValueEnum};
 use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
 
-use crate::config::Config;
-use crate::tor::TorMode;
+use cuprate_consensus_context::{
+    BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
+};
+use cuprate_helper::time::secs_to_hms;
+
 use crate::{
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     logging::{self, CupratedTracingFilter},
     statics,
 };
-use cuprate_consensus_context::{
-    BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
-};
-use cuprate_helper::time::secs_to_hms;
-use cuprate_wire::OnionAddr;
 
 /// A command received from [`io::stdin`].
 #[derive(Debug, Parser)]

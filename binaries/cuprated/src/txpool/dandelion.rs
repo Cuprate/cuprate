@@ -1,13 +1,14 @@
-use std::task::ready;
-use std::{task::Poll, time::Duration};
+use std::{
+    task::{ready, Poll},
+    time::Duration,
+};
 
 use futures::{future::BoxFuture, FutureExt, TryFutureExt};
 use tower::{Service, ServiceExt};
 
-use cuprate_dandelion_tower::traits::StemRequest;
 use cuprate_dandelion_tower::{
-    pool::DandelionPoolService, DandelionConfig, DandelionRouteReq, DandelionRouter,
-    DandelionRouterError, Graph, State, TxState,
+    pool::DandelionPoolService, traits::StemRequest, DandelionConfig, DandelionRouteReq,
+    DandelionRouter, DandelionRouterError, Graph, State, TxState,
 };
 use cuprate_p2p::NetworkInterface;
 use cuprate_p2p_core::{client::InternalPeerID, ClearNet, NetworkZone, Tor};
