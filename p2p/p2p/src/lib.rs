@@ -39,7 +39,7 @@ pub use peer_set::{ClientDropGuard, PeerSetRequest, PeerSetResponse};
 /// You must provide:
 /// - A protocol request handler, which is given to each connection
 /// - A core sync service, which keeps track of the sync state of our node
-#[instrument(level = "debug", name = "net", skip_all, fields(zone = Z::NAME))]
+#[instrument(level = "error", name = "net", skip_all, fields(zone = Z::NAME))]
 pub async fn initialize_network<Z, T, PR, CS>(
     protocol_request_handler_maker: PR,
     core_sync_svc: CS,
