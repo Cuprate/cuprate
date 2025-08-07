@@ -119,6 +119,7 @@ where
             .ready()
             .await?
             .call(AddressBookRequest::IncomingPeerList(
+                peer_information.id,
                 timed_sync
                     .local_peerlist_new
                     .into_iter()
