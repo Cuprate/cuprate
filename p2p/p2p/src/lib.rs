@@ -35,8 +35,8 @@ use connection_maintainer::MakeConnectionRequest;
 use peer_set::PeerSet;
 pub use peer_set::{ClientDropGuard, PeerSetRequest, PeerSetResponse};
 
-/// Interval for checking inbound connection status (1 hour in seconds)
-const INBOUND_CONNECTION_MONITOR_INTERVAL_SECS: u64 = 3600;
+/// Interval for checking inbound connection status (1 hour)
+const INBOUND_CONNECTION_MONITOR_INTERVAL: Duration = Duration::from_secs(3600);
 
 /// Monitors for inbound connections and logs a warning if none are detected.
 ///
@@ -55,10 +55,7 @@ async fn inbound_connection_monitor(
 
     loop {
         // Wait for the monitoring interval
-        sleep(Duration::from_secs(
-            INBOUND_CONNECTION_MONITOR_INTERVAL_SECS,
-        ))
-        .await;
+        sleep(INBOUND_CONNECTION_MONITOR_INTERVAL).await;
 
         // Check if we have any inbound connections
         // If available permits equals max_inbound_connections, no peers are connected
