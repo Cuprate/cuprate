@@ -98,7 +98,7 @@ impl<N: NetworkZone> Service<StemRequest<DandelionTx>> for StemPeerService<N> {
         self.0
             .broadcast_client()
             .call(BroadcastMessage::NewTransactions(NewTransactions {
-                txs: vec![req.0 .0],
+                txs: vec![req.0.tx_bytes],
                 dandelionpp_fluff: false,
                 padding: Bytes::new(),
             }))

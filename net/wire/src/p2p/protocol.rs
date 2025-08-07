@@ -189,6 +189,30 @@ epee_object!(
     hashes: ByteArrayVec<32>,
 );
 
+/// `TxPoolInv`
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TxPoolInv {
+    /// Tx Hashes
+    pub txs: ByteArrayVec<32>,
+}
+
+epee_object!(
+    TxPoolInv,
+    txs("t"): ByteArrayVec<32>,
+);
+
+/// `TxPoolInv`
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RequestTxPoolTxs {
+    /// Tx Hashes
+    pub txs: ByteArrayVec<32>,
+}
+
+epee_object!(
+    RequestTxPoolTxs,
+    txs("t"): ByteArrayVec<32>,
+);
+
 #[cfg(test)]
 mod tests {
 

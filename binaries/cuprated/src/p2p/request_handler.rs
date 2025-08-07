@@ -139,7 +139,7 @@ where
             ProtocolRequest::GetChain(r) => {
                 get_chain(r, self.blockchain_read_handle.clone()).boxed()
             }
-            ProtocolRequest::FluffyMissingTxs(r) => {
+            ProtocolRequest::FluffyMissingTransactionsRequest(r) => {
                 fluffy_missing_txs(r, self.blockchain_read_handle.clone()).boxed()
             }
             ProtocolRequest::NewBlock(_) => ready(Err(anyhow::anyhow!(
@@ -161,6 +161,8 @@ where
             )
             .boxed(),
             ProtocolRequest::GetTxPoolCompliment(_) => ready(Ok(ProtocolResponse::NA)).boxed(), // TODO: should we support this?
+            ProtocolRequest::TxPoolInv(_) => todo!(),
+            ProtocolRequest::RequestTxPoolTxs(_) => todo!(),
         }
     }
 }
@@ -253,7 +255,7 @@ async fn get_chain(
     }))
 }
 
-/// [`ProtocolRequest::FluffyMissingTxs`]
+/// [`ProtocolRequest::FluffyMissingTransactionsRequest`]
 async fn fluffy_missing_txs(
     mut request: FluffyMissingTransactionsRequest,
     mut blockchain_read_handle: BlockchainReadHandle,

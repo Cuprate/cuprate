@@ -29,6 +29,7 @@ pub struct PeerSupportFlags(u32);
 bitflags! {
     impl PeerSupportFlags: u32 {
         const FLUFFY_BLOCKS = 0b0000_0001;
+        const TX_REALY_V2 = 0b0000_0010;
         const _ = !0;
     }
 }

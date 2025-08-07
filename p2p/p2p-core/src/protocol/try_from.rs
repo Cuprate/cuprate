@@ -13,11 +13,13 @@ impl From<ProtocolRequest> for ProtocolMessage {
         match value {
             ProtocolRequest::GetObjects(val) => Self::GetObjectsRequest(val),
             ProtocolRequest::GetChain(val) => Self::ChainRequest(val),
-            ProtocolRequest::FluffyMissingTxs(val) => Self::FluffyMissingTransactionsRequest(val),
+            ProtocolRequest::FluffyMissingTransactionsRequest(val) => Self::FluffyMissingTransactionsRequest(val),
             ProtocolRequest::GetTxPoolCompliment(val) => Self::GetTxPoolCompliment(val),
             ProtocolRequest::NewBlock(val) => Self::NewBlock(val),
             ProtocolRequest::NewFluffyBlock(val) => Self::NewFluffyBlock(val),
             ProtocolRequest::NewTransactions(val) => Self::NewTransactions(val),
+            ProtocolRequest::TxPoolInv(val) => Self::TxPoolInv(val),
+            ProtocolRequest::RequestTxPoolTxs(val) => Self::RequestTxPoolTxs(val),
         }
     }
 }
@@ -29,11 +31,13 @@ impl TryFrom<ProtocolMessage> for ProtocolRequest {
         Ok(match value {
             ProtocolMessage::GetObjectsRequest(val) => Self::GetObjects(val),
             ProtocolMessage::ChainRequest(val) => Self::GetChain(val),
-            ProtocolMessage::FluffyMissingTransactionsRequest(val) => Self::FluffyMissingTxs(val),
+            ProtocolMessage::FluffyMissingTransactionsRequest(val) => Self::FluffyMissingTransactionsRequest(val),
             ProtocolMessage::GetTxPoolCompliment(val) => Self::GetTxPoolCompliment(val),
             ProtocolMessage::NewBlock(val) => Self::NewBlock(val),
             ProtocolMessage::NewFluffyBlock(val) => Self::NewFluffyBlock(val),
             ProtocolMessage::NewTransactions(val) => Self::NewTransactions(val),
+            ProtocolMessage::TxPoolInv(val) => Self::TxPoolInv(val),
+            ProtocolMessage::RequestTxPoolTxs(val) => Self::RequestTxPoolTxs(val),
             ProtocolMessage::GetObjectsResponse(_) | ProtocolMessage::ChainEntryResponse(_) => {
                 return Err(MessageConversionError)
             }
@@ -92,7 +96,9 @@ impl TryFrom<ProtocolMessage> for ProtocolResponse {
             | ProtocolMessage::FluffyMissingTransactionsRequest(_)
             | ProtocolMessage::GetObjectsRequest(_)
             | ProtocolMessage::GetTxPoolCompliment(_)
-            | ProtocolMessage::NewBlock(_) => return Err(MessageConversionError),
+            | ProtocolMessage::NewBlock(_)
+            | ProtocolMessage::TxPoolInv(_)
+            | ProtocolMessage::RequestTxPoolTxs(_) => return Err(MessageConversionError),
         })
     }
 }
@@ -145,6 +151,7 @@ impl From<BroadcastMessage> for PeerRequest {
             BroadcastMessage::NewFluffyBlock(block) => {
                 Self::Protocol(ProtocolRequest::NewFluffyBlock(block))
             }
+            BroadcastMessage::TxPoolInv(inv) => Self::Protocol(ProtocolRequest::TxPoolInv(inv)),
         }
     }
 }

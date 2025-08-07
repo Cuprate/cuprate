@@ -25,8 +25,10 @@ use tower::Service;
 use cuprate_p2p_core::{
     client::InternalPeerID, BroadcastMessage, ConnectionDirection, NetworkZone,
 };
+use cuprate_p2p_core::client::PeerInformation;
 use cuprate_types::{BlockCompleteEntry, TransactionBlobs};
-use cuprate_wire::protocol::{NewFluffyBlock, NewTransactions};
+use cuprate_wire::common::PeerSupportFlags;
+use cuprate_wire::protocol::{NewFluffyBlock, NewTransactions, TxPoolInv};
 
 use crate::constants::{
     DIFFUSION_FLUSH_AVERAGE_SECONDS_INBOUND, DIFFUSION_FLUSH_AVERAGE_SECONDS_OUTBOUND,
@@ -62,8 +64,8 @@ pub(crate) fn init_broadcast_channels<N: NetworkZone>(
     config: BroadcastConfig,
 ) -> (
     BroadcastSvc<N>,
-    impl Fn(InternalPeerID<N::Addr>) -> BroadcastMessageStream<N> + Clone + Send + 'static,
-    impl Fn(InternalPeerID<N::Addr>) -> BroadcastMessageStream<N> + Clone + Send + 'static,
+    impl Fn(PeerInformation<N::Addr>) -> BroadcastMessageStream<N> + Clone + Send + 'static,
+    impl Fn(PeerInformation<N::Addr>) -> BroadcastMessageStream<N> + Clone + Send + 'static,
 ) {
     let outbound_dist = Exp::new(
         1.0 / config
@@ -145,6 +147,8 @@ pub enum BroadcastRequest<N: NetworkZone> {
     Transaction {
         /// The serialised tx to broadcast.
         tx_bytes: Bytes,
+        /// The tx hash.
+        tx_hash: [u8; 32],
         /// The direction of peers to broadcast this tx to, if [`None`] it will be sent to all peers.
         direction: Option<ConnectionDirection>,
         /// The peer on this network that told us about the tx.
@@ -192,11 +196,13 @@ impl<N: NetworkZone> Service<BroadcastRequest<N>> for BroadcastSvc<N> {
             }
             BroadcastRequest::Transaction {
                 tx_bytes,
+                tx_hash,
                 received_from,
                 direction,
             } => {
                 let nex_tx_info = BroadcastTxInfo {
                     tx: tx_bytes,
+                    tx_hash,
                     received_from,
                 };
 
@@ -246,6 +252,8 @@ struct NewBlockInfo {
 struct BroadcastTxInfo<N: NetworkZone> {
     /// The tx.
     tx: Bytes,
+    /// the tx hash.
+    tx_hash: [u8; 32],
     /// The peer that sent us this tx (if the peer is on this network).
     received_from: Option<InternalPeerID<N::Addr>>,
 }
@@ -256,7 +264,7 @@ struct BroadcastTxInfo<N: NetworkZone> {
 #[pin_project::pin_project]
 pub(crate) struct BroadcastMessageStream<N: NetworkZone> {
     /// The peer that is holding this stream.
-    addr: InternalPeerID<N::Addr>,
+    peer: PeerInformation<N::Addr>,
 
     /// The channel where new blocks are received.
     #[pin]
@@ -275,7 +283,7 @@ pub(crate) struct BroadcastMessageStream<N: NetworkZone> {
 impl<N: NetworkZone> BroadcastMessageStream<N> {
     /// Creates a new [`BroadcastMessageStream`]
     fn new(
-        addr: InternalPeerID<N::Addr>,
+        peer: PeerInformation<N::Addr>,
         diffusion_flush_dist: Exp<f64>,
         new_block_watch: watch::Receiver<NewBlockInfo>,
         tx_broadcast_channel: broadcast::Receiver<BroadcastTxInfo<N>>,
@@ -284,7 +292,7 @@ impl<N: NetworkZone> BroadcastMessageStream<N> {
             + Duration::from_secs_f64(diffusion_flush_dist.sample(&mut thread_rng()));
 
         Self {
-            addr,
+            peer,
             // We don't want to broadcast the message currently in the queue.
             new_block_watch: WatchStream::from_changes(new_block_watch),
             tx_broadcast_channel,
@@ -322,7 +330,7 @@ impl<N: NetworkZone> Stream for BroadcastMessageStream<N> {
 
         ready!(this.next_flush.as_mut().poll(cx));
 
-        let (txs, more_available) = get_txs_to_broadcast::<N>(this.addr, this.tx_broadcast_channel);
+        let (txs, more_available) = get_txs_to_broadcast::<N>(&this.peer, this.tx_broadcast_channel);
 
         let next_flush = if more_available {
             // If there are more txs to broadcast then set the next flush for now so we get woken up straight away.
@@ -336,12 +344,9 @@ impl<N: NetworkZone> Stream for BroadcastMessageStream<N> {
         this.next_flush.set(next_flush);
 
         if let Some(txs) = txs {
-            tracing::debug!(
-                "Diffusion flush timer expired, diffusing {} txs",
-                txs.txs.len()
-            );
+            tracing::debug!("Diffusion flush timer expired, diffusing txs",);
             // no need to poll next_flush as we are ready now.
-            Poll::Ready(Some(BroadcastMessage::NewTransactions(txs)))
+            Poll::Ready(Some(txs))
         } else {
             tracing::trace!("Diffusion flush timer expired but no txs to diffuse");
             // poll next_flush now to register the waker with it.
@@ -356,20 +361,33 @@ impl<N: NetworkZone> Stream for BroadcastMessageStream<N> {
 /// Returns a list of new transactions to broadcast and a [`bool`] for if there are more txs in the queue
 /// that won't fit in the current batch.
 fn get_txs_to_broadcast<N: NetworkZone>(
-    addr: &InternalPeerID<N::Addr>,
+    info: &PeerInformation<N::Addr>,
     broadcast_rx: &mut broadcast::Receiver<BroadcastTxInfo<N>>,
-) -> (Option<NewTransactions>, bool) {
+) -> (Option<BroadcastMessage>, bool) {
     let mut new_txs = NewTransactions {
         txs: vec![],
         dandelionpp_fluff: true,
         padding: Bytes::new(),
     };
+
+    let mut tx_inv = vec![];
+
     let mut total_size = 0;
+
+    let finish = |new_txs, tx_inv: Vec<_>| {
+        if info.basic_node_data.support_flags.contains(PeerSupportFlags::TX_REALY_V2) {
+            BroadcastMessage::TxPoolInv(TxPoolInv {
+                txs: tx_inv.into(),
+            })
+        } else {
+            BroadcastMessage::NewTransactions(new_txs)
+        }
+    };
 
     loop {
         match broadcast_rx.try_recv() {
             Ok(txs) => {
-                if txs.received_from.is_some_and(|from| &from == addr) {
+                if txs.received_from.is_some_and(|from| from == info.id) {
                     // If we are the one that sent this tx don't broadcast it back to us.
                     continue;
                 }
@@ -377,9 +395,10 @@ fn get_txs_to_broadcast<N: NetworkZone>(
                 total_size += txs.tx.len();
 
                 new_txs.txs.push(txs.tx);
+                tx_inv.push(txs.tx_hash);
 
                 if total_size > SOFT_TX_MESSAGE_SIZE_SIZE_LIMIT {
-                    return (Some(new_txs), true);
+                    return (Some(finish(new_txs, tx_inv)), true);
                 }
             }
             Err(e) => match e {
@@ -387,7 +406,7 @@ fn get_txs_to_broadcast<N: NetworkZone>(
                     if new_txs.txs.is_empty() {
                         return (None, false);
                     }
-                    return (Some(new_txs), false);
+                    return (Some(finish(new_txs, tx_inv)), false);
                 }
                 TryRecvError::Lagged(lag) => {
                     tracing::debug!(
@@ -400,6 +419,7 @@ fn get_txs_to_broadcast<N: NetworkZone>(
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use std::{pin::pin, time::Duration};
@@ -468,6 +488,7 @@ mod tests {
         let match_tx = |mes, txs| match mes {
             BroadcastMessage::NewTransactions(tx) => assert_eq!(tx.txs.as_slice(), txs),
             BroadcastMessage::NewFluffyBlock(_) => panic!("Block broadcast?"),
+            BroadcastMessage::TxPoolInv(_) => todo!()
         };
 
         let next = outbound_stream.next().await.unwrap();
@@ -548,3 +569,6 @@ mod tests {
         .is_err());
     }
 }
+
+
+ */

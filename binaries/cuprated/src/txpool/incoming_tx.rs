@@ -75,7 +75,10 @@ pub struct IncomingTxs {
 
 ///  The transaction type used for dandelion++.
 #[derive(Clone)]
-pub struct DandelionTx(pub Bytes);
+pub struct DandelionTx {
+    pub tx_bytes: Bytes,
+    pub tx_hash: [u8; 32],
+}
 
 /// A transaction ID/hash.
 pub(super) type TxId = [u8; 32];
@@ -335,7 +338,7 @@ async fn handle_valid_tx(
     >,
 ) {
     let incoming_tx =
-        IncomingTxBuilder::new(DandelionTx(Bytes::copy_from_slice(&tx.tx_blob)), tx.tx_hash);
+        IncomingTxBuilder::new(DandelionTx { tx_bytes: Bytes::copy_from_slice(&tx.tx_blob), tx_hash: tx.tx_hash}, tx.tx_hash);
 
     let TxpoolWriteResponse::AddTransaction(double_spend) = txpool_write_handle
         .ready()
@@ -396,7 +399,7 @@ async fn rerelay_stem_tx(
     };
 
     let incoming_tx =
-        IncomingTxBuilder::new(DandelionTx(Bytes::copy_from_slice(&tx_blob)), *tx_hash);
+        IncomingTxBuilder::new(DandelionTx { tx_bytes: Bytes::copy_from_slice(&tx_blob), tx_hash: *tx_hash}, *tx_hash);
 
     let incoming_tx = incoming_tx
         .with_routing_state(state)

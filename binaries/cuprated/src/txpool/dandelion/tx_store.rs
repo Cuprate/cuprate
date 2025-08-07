@@ -39,7 +39,7 @@ impl Service<TxStoreRequest<TxId>> for TxStoreService {
                 .txpool_read_handle
                 .clone()
                 .oneshot(TxpoolReadRequest::TxBlob(tx_id))
-                .map(|res| match res {
+                .map(move |res| match res {
                     Ok(TxpoolReadResponse::TxBlob {
                         tx_blob,
                         state_stem,
@@ -51,7 +51,7 @@ impl Service<TxStoreRequest<TxId>> for TxStoreService {
                         };
 
                         Ok(TxStoreResponse::Transaction(Some((
-                            DandelionTx(Bytes::from(tx_blob)),
+                            DandelionTx { tx_bytes: Bytes::from(tx_blob), tx_hash: tx_id},
                             state,
                         ))))
                     }

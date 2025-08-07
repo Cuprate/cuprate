@@ -145,6 +145,9 @@ where
                 self.send_message_to_peer(Message::Protocol(ProtocolMessage::NewTransactions(txs)))
                     .await
             }
+            BroadcastMessage::TxPoolInv(tx_inv) => {
+                self.send_message_to_peer(Message::Protocol(ProtocolMessage::TxPoolInv(tx_inv))).await
+            }
         }
     }
 
