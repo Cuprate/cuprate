@@ -6,7 +6,7 @@ use std::{borrow::Cow, num::NonZeroUsize, path::Path};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::{config::SyncMode, constants::DATABASE_DATA_FILENAME, resize::ResizeAlgorithm};
+use crate::{config::{Backend, SyncMode}, constants::DATABASE_DATA_FILENAME, resize::ResizeAlgorithm};
 
 //---------------------------------------------------------------------------------------------------- Constants
 /// Default value for [`Config::reader_threads`].
@@ -35,6 +35,9 @@ pub struct ConfigBuilder {
 
     /// [`Config::resize_algorithm`].
     resize_algorithm: Option<ResizeAlgorithm>,
+
+    /// [`Config::backend`]
+    backend: Option<Backend>,
 }
 
 impl ConfigBuilder {
@@ -48,6 +51,7 @@ impl ConfigBuilder {
             sync_mode: None,
             reader_threads: Some(READER_THREADS_DEFAULT),
             resize_algorithm: None,
+            backend: None,
         }
     }
 
@@ -70,6 +74,7 @@ impl ConfigBuilder {
             sync_mode: self.sync_mode.unwrap_or_default(),
             reader_threads: self.reader_threads.unwrap_or(READER_THREADS_DEFAULT),
             resize_algorithm: self.resize_algorithm.unwrap_or_default(),
+            backend: self.backend.unwrap_or_default(),
         }
     }
 
@@ -122,6 +127,13 @@ impl ConfigBuilder {
         self.resize_algorithm = Some(resize_algorithm);
         self
     }
+
+    /// Set a cusoum [`Backend`].
+    #[must_use]
+    pub const fn backend(mut self, backend: Backend) -> Self {
+        self.backend = Some(backend);
+        self
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Config
@@ -168,6 +180,9 @@ pub struct Config {
     /// custom algorithms can be used as well with
     /// [`Env::resize_map`](crate::Env::resize_map).
     pub resize_algorithm: ResizeAlgorithm,
+
+    /// Database backend
+    pub backend: Backend
 }
 
 impl Config {
@@ -190,6 +205,7 @@ impl Config {
     /// assert_eq!(config.sync_mode, SyncMode::default());
     /// assert_eq!(config.reader_threads, READER_THREADS_DEFAULT);
     /// assert_eq!(config.resize_algorithm, ResizeAlgorithm::default());
+    /// assert_eq!(config.backend, Backend::default());
     /// ```
     pub fn new(db_directory: Cow<'static, Path>) -> Self {
         ConfigBuilder::new(db_directory).build()

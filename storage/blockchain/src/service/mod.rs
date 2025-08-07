@@ -34,11 +34,9 @@
 //! - The last [`BlockchainReadHandle`] is dropped => reader thread-pool exits
 //! - The last [`BlockchainWriteHandle`] is dropped => writer thread exits
 //!
-//! TODO: update this when `ConcreteEnv` is removed
-//!
-//! Upon dropping the [`cuprate_database::ConcreteEnv`]:
+//! Upon dropping the [`impl cuprate_database::Env`]:
 //! - All un-processed database transactions are completed
-//! - All data gets flushed to disk (caused by [`Drop::drop`] impl on `ConcreteEnv`)
+//! - All data gets flushed to disk (caused by [`Drop::drop`] impl on `Env`)
 //!
 //! ## Request and Response
 //! To interact with the database (whether reading or writing data),
@@ -81,7 +79,7 @@
 //!     .build();
 //!
 //! // Initialize the database thread-pool.
-//! let (mut read_handle, mut write_handle, _) = cuprate_blockchain::service::init(config)?;
+//! let (mut read_handle, mut write_handle) = cuprate_blockchain::service::init2(config)?;
 //!
 //! // Prepare a request to write block.
 //! let mut block = BLOCK_V16_TX0.clone();
@@ -128,7 +126,7 @@ mod write;
 pub use write::init_write_service;
 
 mod free;
-pub use free::{init, init_with_pool};
+pub use free::{init2, init_with_db, init_with_pool};
 mod types;
 pub use types::{BlockchainReadHandle, BlockchainWriteHandle};
 

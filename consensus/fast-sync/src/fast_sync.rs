@@ -314,8 +314,8 @@ mod tests {
                     .data_directory(data_dir.path().to_path_buf())
                     .build();
 
-                let (mut blockchain_read_handle, _, _) =
-                    cuprate_blockchain::service::init(blockchain_config).unwrap();
+                let (mut blockchain_read_handle, _) =
+                    cuprate_blockchain::service::init2(blockchain_config).unwrap();
 
 
                 let ret = validate_entries::<ClearNet>(VecDeque::from([entry]), 0, &mut blockchain_read_handle).await.unwrap();
@@ -347,8 +347,8 @@ mod tests {
                     .data_directory(data_dir.path().to_path_buf())
                     .build();
 
-                let (mut blockchain_read_handle, _, _) =
-                    cuprate_blockchain::service::init(blockchain_config).unwrap();
+                let (mut blockchain_read_handle, _) =
+                    cuprate_blockchain::service::init2(blockchain_config).unwrap();
 
 
                 let ret = validate_entries::<ClearNet>(entries, 0, &mut blockchain_read_handle).await.unwrap();
@@ -380,8 +380,8 @@ mod tests {
                     .data_directory(data_dir.path().to_path_buf())
                     .build();
 
-                let (mut blockchain_read_handle, _, _) =
-                    cuprate_blockchain::service::init(blockchain_config).unwrap();
+                let (mut blockchain_read_handle, _) =
+                    cuprate_blockchain::service::init2(blockchain_config).unwrap();
 
 
                 let ret = validate_entries::<ClearNet>(VecDeque::from([entry]), 0, &mut blockchain_read_handle).await.unwrap();

@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use rayon::ThreadPool;
 
-use cuprate_database::{ConcreteEnv, InitError};
+use cuprate_database::{ConcreteEnv, Env, InitError, config::Backend};
 
 use crate::{
     config::Config,
@@ -13,9 +13,31 @@ use crate::{
         init_read_service, init_read_service_with_pool, init_write_service,
         types::{BlockchainReadHandle, BlockchainWriteHandle},
     },
+    tables::OpenTables,
 };
 
+#[cfg(feature = "redb")]
+use cuprate_database::RedbEnv;
+
+#[cfg(feature = "heed")]
+use cuprate_database::HeedEnv;
+
 //---------------------------------------------------------------------------------------------------- Init
+pub fn init_with_db<E>(
+    db: &Arc<E>,
+    config: Config,
+) -> (BlockchainReadHandle, BlockchainWriteHandle)
+where
+    E: Env + Send + Sync + 'static,
+    for <'a> <E as Env>::EnvInner<'a>: Sync,
+    for <'a, 'b> <<E as Env>::EnvInner<'a> as OpenTables<'a>>::Ro<'b>: Send,
+{
+    let readers = init_read_service(Arc::clone(db), config.reader_threads);
+    let writer = init_write_service(Arc::clone(db));
+
+    (readers, writer)
+}
+
 #[cold]
 #[inline(never)] // Only called once (?)
 /// Initialize a database & thread-pool, and return a read/write handle to it.
@@ -25,27 +47,44 @@ use crate::{
 ///
 /// # Errors
 /// This will forward the error if [`crate::open`] failed.
-pub fn init(
+pub fn init2(
     config: Config,
 ) -> Result<
-    (
-        BlockchainReadHandle,
-        BlockchainWriteHandle,
-        Arc<ConcreteEnv>,
-    ),
+    (BlockchainReadHandle, BlockchainWriteHandle),
     InitError,
 > {
-    let reader_threads = config.reader_threads;
+    #[cfg(feature = "heed")]
+    if config.db_config.backend == Backend::Heed {
+        return generic_init::<HeedEnv>(config);
+    }
 
+    #[cfg(feature = "redb")]
+    if config.db_config.backend == Backend::Redb {
+        return generic_init::<RedbEnv>(config);
+    }
+
+    Err(InitError::BackendNotSupported)
+}
+
+
+fn generic_init<E>(
+    config: Config,
+) -> Result<
+    (BlockchainReadHandle, BlockchainWriteHandle),
+    InitError,
+>
+where
+    E: Env + Send + Sync + 'static,
+    for <'a> <E as Env>::EnvInner<'a>: Sync,
+    for <'a, 'b> <<E as Env>::EnvInner<'a> as OpenTables<'a>>::Ro<'b>: Send,
+{
     // Initialize the database itself.
-    let db = Arc::new(crate::open(config)?);
+    let db = Arc::new(crate::open::<E>(config.clone())?);
 
     // Spawn the Reader thread pool and Writer.
-    let readers = init_read_service(Arc::clone(&db), reader_threads);
-    let writer = init_write_service(Arc::clone(&db));
-
-    Ok((readers, writer, db))
+    Ok(init_with_db::<E>(&db, config))
 }
+
 
 #[cold]
 #[inline(never)] // Only called once (?)
@@ -66,7 +105,6 @@ pub fn init_with_pool(
     (
         BlockchainReadHandle,
         BlockchainWriteHandle,
-        Arc<ConcreteEnv>,
     ),
     InitError,
 > {
@@ -74,10 +112,10 @@ pub fn init_with_pool(
     let db = Arc::new(crate::open(config)?);
 
     // Spawn the Reader thread pool and Writer.
-    let readers = init_read_service_with_pool(Arc::clone(&db), pool);
+    let readers = init_read_service_with_pool::<ConcreteEnv>(Arc::clone(&db), pool);
     let writer = init_write_service(Arc::clone(&db));
 
-    Ok((readers, writer, db))
+    Ok((readers, writer))
 }
 
 //---------------------------------------------------------------------------------------------------- Compact history

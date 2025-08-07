@@ -83,7 +83,7 @@ fn main() {
 
     // Start the blockchain & tx-pool databases.
 
-    let (mut blockchain_read_handle, mut blockchain_write_handle, _) =
+    let (mut blockchain_read_handle, mut blockchain_write_handle) =
         cuprate_blockchain::service::init_with_pool(
             config.blockchain_config(),
             Arc::clone(&db_thread_pool),
@@ -91,7 +91,7 @@ fn main() {
         .inspect_err(|e| error!("Blockchain database error: {e}"))
         .expect(DATABASE_CORRUPT_MSG);
 
-    let (txpool_read_handle, txpool_write_handle, _) =
+    let (txpool_read_handle, txpool_write_handle) =
         cuprate_txpool::service::init_with_pool(config.txpool_config(), db_thread_pool)
             .inspect_err(|e| error!("Txpool database error: {e}"))
             .expect(DATABASE_CORRUPT_MSG);
