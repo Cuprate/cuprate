@@ -115,6 +115,7 @@ macro_rules! config_struct {
 
         $($tt: tt)*
     ) => {
+        #[allow(clippy::doc_markdown, clippy::allow_attributes)]
         $(#[$meta])*
         pub struct $name {
             $(
