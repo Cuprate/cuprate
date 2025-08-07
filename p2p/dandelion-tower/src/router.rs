@@ -299,8 +299,7 @@ where
                 State::Stem
             };
 
-            self.span
-                .record("state", format!("{:?}", self.current_state));
+            self.span = tracing::debug_span!("dandelion_router", state = ?self.current_state);
             tracing::debug!(parent: &self.span, "Starting new d++ epoch",);
 
             self.epoch_start = Instant::now();
@@ -354,13 +353,13 @@ where
                     self.fluff_tx(req.tx)
                 }
                 State::Stem => {
-                    tracing::trace!(parent: &self.span, "Steming transaction");
+                    tracing::trace!(parent: &self.span, "Stemming transaction");
 
                     self.stem_tx(req.tx, &from)
                 }
             },
             TxState::Local => {
-                tracing::debug!(parent: &self.span, "Steming local tx.");
+                tracing::debug!(parent: &self.span, "Stemming local tx.");
 
                 self.stem_local_tx(req.tx)
             }
