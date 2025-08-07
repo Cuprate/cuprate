@@ -5,7 +5,11 @@
 use std::sync::Arc;
 
 use futures::FutureExt;
-use tokio::{sync::mpsc, task::JoinSet};
+use tokio::{
+    sync::mpsc,
+    task::JoinSet,
+    time::{sleep, Duration},
+};
 use tower::{buffer::Buffer, util::BoxCloneService, Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
@@ -30,6 +34,40 @@ pub use config::{AddressBookConfig, P2PConfig, TransportConfig};
 use connection_maintainer::MakeConnectionRequest;
 use peer_set::PeerSet;
 pub use peer_set::{ClientDropGuard, PeerSetRequest, PeerSetResponse};
+
+/// Interval for checking inbound connection status (1 hour)
+const INBOUND_CONNECTION_MONITOR_INTERVAL: Duration = Duration::from_secs(3600);
+
+/// Monitors for inbound connections and logs a warning if none are detected.
+///
+/// This task runs every hour to check if there are inbound connections available.
+/// If `max_inbound_connections` is 0, the task will exit without logging.
+#[expect(clippy::infinite_loop)]
+async fn inbound_connection_monitor(
+    inbound_semaphore: Arc<tokio::sync::Semaphore>,
+    max_inbound_connections: usize,
+    p2p_port: u16,
+) {
+    // Skip monitoring if inbound connections are disabled
+    if max_inbound_connections == 0 {
+        return;
+    }
+
+    loop {
+        // Wait for the monitoring interval
+        sleep(INBOUND_CONNECTION_MONITOR_INTERVAL).await;
+
+        // Check if we have any inbound connections
+        // If available permits equals max_inbound_connections, no peers are connected
+        let available_permits = inbound_semaphore.available_permits();
+        if available_permits == max_inbound_connections {
+            tracing::warn!(
+                "No incoming connections - check firewalls/routers allow port {}",
+                p2p_port
+            );
+        }
+    }
+}
 
 /// Initializes the P2P [`NetworkInterface`] for a specific [`NetworkZone`].
 ///
@@ -111,6 +149,9 @@ where
 
     let peer_set = PeerSet::new(new_connection_rx);
 
+    // Create semaphore for limiting inbound connections and monitoring
+    let inbound_semaphore = Arc::new(tokio::sync::Semaphore::new(config.max_inbound_connections));
+
     let mut background_tasks = JoinSet::new();
 
     background_tasks.spawn(
@@ -118,6 +159,17 @@ where
             .run()
             .instrument(Span::current()),
     );
+
+    // Spawn inbound connection monitor task
+    background_tasks.spawn(
+        inbound_connection_monitor(
+            Arc::clone(&inbound_semaphore),
+            config.max_inbound_connections,
+            config.p2p_port,
+        )
+        .instrument(tracing::info_span!("inbound_connection_monitor")),
+    );
+
     background_tasks.spawn(
         inbound_server::inbound_server(
             new_connection_tx,
@@ -125,6 +177,7 @@ where
             address_book.clone(),
             config,
             transport_config.server_config,
+            inbound_semaphore,
         )
         .map(|res| {
             if let Err(e) = res {
