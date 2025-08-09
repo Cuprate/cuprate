@@ -12,6 +12,7 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/binaries/cuprated"
 cuprate-address-book      = { workspace = true }
 cuprate-async-buffer      = { workspace = true }
 cuprate-blockchain        = { workspace = true }
+cuprate-bucket-set        = { workspace = true }
 cuprate-consensus-context = { workspace = true }
 cuprate-consensus-rules   = { workspace = true }
 cuprate-consensus         = { workspace = true }

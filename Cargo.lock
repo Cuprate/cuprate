@@ -588,8 +588,9 @@ name = "cuprate-address-book"
 version = "0.1.0"
 dependencies = [
  "borsh",
+ "chrono",
  "cuprate-bucket-set",
- "cuprate-constants",
+ "cuprate-helper",
  "cuprate-p2p-core",
  "cuprate-pruning",
  "cuprate-test-utils",
@@ -913,6 +914,7 @@ dependencies = [
  "bytes",
  "cuprate-address-book",
  "cuprate-async-buffer",
+ "cuprate-bucket-set",
  "cuprate-constants",
  "cuprate-fixed-bytes",
  "cuprate-helper",
@@ -1133,6 +1135,7 @@ dependencies = [
  "cuprate-address-book",
  "cuprate-async-buffer",
  "cuprate-blockchain",
+ "cuprate-bucket-set",
  "cuprate-consensus",
  "cuprate-consensus-context",
  "cuprate-consensus-rules",

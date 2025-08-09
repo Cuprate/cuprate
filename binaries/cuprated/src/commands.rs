@@ -12,12 +12,13 @@ use cuprate_consensus_context::{
     BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
 };
 use cuprate_helper::time::secs_to_hms;
-
+use cuprate_p2p_core::services::{AddressBookRequest, AddressBookResponse};
 use crate::{
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     logging::{self, CupratedTracingFilter},
     statics,
 };
+use crate::p2p::NetworkInterfaces;
 
 /// A command received from [`io::stdin`].
 #[derive(Debug, Parser)]
@@ -50,6 +51,11 @@ pub enum Command {
 
     /// Print the height of first block not contained in the fast sync hashes.
     FastSyncStopHeight,
+
+    AddressBook {
+        #[arg(value_enum, default_value_t)]
+        zone: NetZone
+    }
 }
 
 /// The log output target.
@@ -60,6 +66,12 @@ pub enum OutputTarget {
     Stdout,
     /// The file appender logging output.
     File,
+}
+
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+pub enum NetZone {
+    #[default]
+    Clearnet
 }
 
 /// The [`Command`] listener loop.
@@ -91,6 +103,7 @@ pub fn command_listener(incoming_commands: mpsc::Sender<Command>) -> ! {
 pub async fn io_loop(
     mut incoming_commands: mpsc::Receiver<Command>,
     mut context_service: BlockchainContextService,
+    mut network_interfaces: NetworkInterfaces,
 ) {
     loop {
         let Some(command) = incoming_commands.recv().await else {
@@ -130,6 +143,17 @@ pub async fn io_loop(
                 let stop_height = cuprate_fast_sync::fast_sync_stop_height();
 
                 println!("{stop_height}");
+            }
+            Command::AddressBook { zone: NetZone::Clearnet } => {
+                let mut book = network_interfaces.clearnet_network_interface.address_book();
+
+                let AddressBookResponse::Peerlist(peer_list) = book.ready().await.unwrap().call(AddressBookRequest::Peerlist).await.unwrap() else {
+                    unreachable!()
+                };
+
+                println!("{peer_list:#?}");
+                println!("len: anchor: {}, white: {}, grey: {}", peer_list.anchors.len(), peer_list.white.len(), peer_list.grey.len());
+
             }
         }
     }

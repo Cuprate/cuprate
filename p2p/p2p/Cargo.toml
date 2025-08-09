@@ -15,6 +15,7 @@ cuprate-pruning = { workspace = true }
 cuprate-helper = { workspace = true, features = ["asynch"], default-features = false }
 cuprate-async-buffer = { workspace = true }
 cuprate-types = { workspace = true, default-features = false }
+cuprate-bucket-set = { workspace = true }
 
 monero-serai = { workspace = true, features = ["std"] }
 

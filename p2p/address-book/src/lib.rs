@@ -14,10 +14,10 @@ use std::{io::ErrorKind, path::PathBuf, time::Duration};
 
 use cuprate_p2p_core::{NetZoneAddress, NetworkZone};
 
+mod anchors;
 mod book;
 mod peer_list;
 mod store;
-mod anchors;
 
 /// The address book config.
 #[derive(Debug, Clone)]
@@ -67,35 +67,37 @@ pub enum AddressBookError {
 pub async fn init_address_book<Z: BorshNetworkZone>(
     cfg: AddressBookConfig<Z>,
 ) -> Result<book::AddressBook<Z>, std::io::Error> {
-    let (white_list, gray_list) = match store::read_peers_from_disk::<Z>(&cfg).await {
+    let (white_list, gray_list, anchors) = match store::read_peers_from_disk::<Z>(&cfg).await {
         Ok(res) => res,
-        Err(e) if e.kind() == ErrorKind::NotFound => (vec![], vec![]),
+        Err(e) if e.kind() == ErrorKind::NotFound => (vec![], vec![], vec![]),
         Err(e) => {
             tracing::error!(
                 "Error: Failed to open peer list,\n{},\nstarting with an empty list",
                 e
             );
-            (vec![], vec![])
+            (vec![], vec![], vec![])
         }
     };
 
-    let address_book = book::AddressBook::<Z>::new(cfg, white_list, gray_list, Vec::new());
+    let address_book = book::AddressBook::<Z>::new(cfg, white_list, gray_list, anchors);
 
     Ok(address_book)
 }
 
 use sealed::BorshNetworkZone;
 mod sealed {
-    use cuprate_bucket_set::Bucketable;
     use super::*;
+    use cuprate_bucket_set::Bucketable;
 
     /// An internal trait for the address book for a [`NetworkZone`] that adds the requirement of [`borsh`] traits
     /// onto the network address.
-    pub trait BorshNetworkZone: NetworkZone<Addr: borsh::BorshDeserialize + borsh::BorshSerialize + Bucketable > {}
+    pub trait BorshNetworkZone:
+        NetworkZone<Addr: borsh::BorshDeserialize + borsh::BorshSerialize + Bucketable>
+    {
+    }
 
-    impl<T: NetworkZone> BorshNetworkZone for T
-    where
-        T::Addr: borsh::BorshDeserialize + borsh::BorshSerialize + Bucketable,
+    impl<T: NetworkZone> BorshNetworkZone for T where
+        T::Addr: borsh::BorshDeserialize + borsh::BorshSerialize + Bucketable
     {
     }
 }

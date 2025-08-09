@@ -49,7 +49,7 @@ pub async fn initialize_network<Z, T, PR, CS>(
 where
     Z: NetworkZone,
     T: Transport<Z>,
-    Z::Addr: borsh::BorshDeserialize + borsh::BorshSerialize,
+    Z::Addr: borsh::BorshDeserialize + borsh::BorshSerialize + cuprate_bucket_set::Bucketable,
     PR: ProtocolRequestHandlerMaker<Z> + Clone,
     CS: CoreSyncSvc + Clone,
 {

@@ -98,6 +98,7 @@ pub struct Span<A: NetZoneAddress> {
 /// Used in RPC's `/get_peer_list`.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Peerlist<A: NetZoneAddress> {
+    pub anchors: Vec<ZoneSpecificPeerListEntryBase<A>>,
     pub white: Vec<ZoneSpecificPeerListEntryBase<A>>,
     pub grey: Vec<ZoneSpecificPeerListEntryBase<A>>,
 }

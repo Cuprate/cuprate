@@ -33,7 +33,7 @@ const _: () = {
 /// The killswitch activates if the current timestamp is ahead of this timestamp.
 ///
 /// Wed Jul 23 12:00:00 AM UTC 2025
-pub const KILLSWITCH_ACTIVATION_TIMESTAMP: u64 = 1753228800;
+pub const KILLSWITCH_ACTIVATION_TIMESTAMP: u64 = u64::MAX;
 
 /// Check if the system clock is past a certain timestamp,
 /// if so, exit the entire program.

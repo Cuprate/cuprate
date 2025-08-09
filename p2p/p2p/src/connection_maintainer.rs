@@ -3,9 +3,14 @@
 //! This module handles maintaining the number of outbound connections defined in the [`P2PConfig`].
 //! It also handles making extra connections when the peer set is under load or when we need data that
 //! no connected peer has.
-use std::sync::Arc;
 
+use futures::future::BoxFuture;
+use futures::stream::FuturesUnordered;
+use futures::{FutureExt, StreamExt};
 use rand::{distributions::Bernoulli, prelude::*};
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::task::JoinHandle;
 use tokio::{
     sync::{mpsc, OwnedSemaphorePermit, Semaphore},
     task::JoinSet,
@@ -14,15 +19,16 @@ use tokio::{
 use tower::{Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
+use crate::constants::OUTBOUND_ANCHOR_CONNECTION_ATTEMPT_TIMEOUT;
+use crate::{
+    config::P2PConfig,
+    constants::{HANDSHAKE_TIMEOUT, MAX_SEED_CONNECTIONS, OUTBOUND_CONNECTION_ATTEMPT_TIMEOUT},
+};
+use cuprate_p2p_core::services::ZoneSpecificPeerListEntryBase;
 use cuprate_p2p_core::{
     client::{Client, ConnectRequest, HandshakeError},
     services::{AddressBookRequest, AddressBookResponse},
     AddressBook, NetworkZone,
-};
-
-use crate::{
-    config::P2PConfig,
-    constants::{HANDSHAKE_TIMEOUT, MAX_SEED_CONNECTIONS, OUTBOUND_CONNECTION_ATTEMPT_TIMEOUT},
 };
 
 enum OutboundConnectorError {
@@ -44,7 +50,7 @@ pub struct MakeConnectionRequest {
 ///
 /// This handles maintaining a minimum number of connections and making extra connections when needed, upto a maximum.
 pub struct OutboundConnectionKeeper<Z: NetworkZone, A, C> {
-    /// The pool of currently connected peers.
+    /// The channel to send new outbound connections down.
     pub new_peers_tx: mpsc::Sender<Client<Z>>,
     /// The channel that tells us to make new _extra_ outbound connections.
     pub make_connection_rx: mpsc::Receiver<MakeConnectionRequest>,
@@ -65,13 +71,18 @@ pub struct OutboundConnectionKeeper<Z: NetworkZone, A, C> {
     ///
     /// This is weighted to the percentage given in `config`.
     pub peer_type_gen: Bernoulli,
+
+    pub anchor_connection_keeper: Option<AnchorConnectionKeeper<Z, A, C>>,
 }
 
 impl<Z, A, C> OutboundConnectionKeeper<Z, A, C>
 where
     Z: NetworkZone,
-    A: AddressBook<Z>,
-    C: Service<ConnectRequest<Z>, Response = Client<Z>, Error = HandshakeError>,
+    A: AddressBook<Z> + Clone,
+    C: Service<ConnectRequest<Z>, Response = Client<Z>, Error = HandshakeError>
+        + Clone
+        + Send
+        + 'static,
     C::Future: Send + 'static,
 {
     pub fn new(
@@ -84,15 +95,27 @@ where
         let peer_type_gen = Bernoulli::new(config.gray_peers_percent)
             .expect("Gray peer percent is incorrect should be 0..=1");
 
+        let outbound_connections = config
+            .outbound_connections
+            .checked_sub(config.numb_anchors)
+            .expect("Outbound connections should be more than or equal to anchor connections");
+
         Self {
-            new_peers_tx,
+            new_peers_tx: new_peers_tx.clone(),
             make_connection_rx,
+            outbound_semaphore: Arc::new(Semaphore::new(outbound_connections)),
+            extra_peers: 0,
+            peer_type_gen,
+            anchor_connection_keeper: Some(AnchorConnectionKeeper {
+                new_peers_tx,
+                anchor_semaphore: Arc::new(Semaphore::new(config.numb_anchors)),
+                address_book_svc: address_book_svc.clone(),
+                connector_svc: connector_svc.clone(),
+                config: config.clone(),
+            }),
             address_book_svc,
             connector_svc,
-            outbound_semaphore: Arc::new(Semaphore::new(config.outbound_connections)),
-            extra_peers: 0,
             config,
-            peer_type_gen,
         }
     }
 
@@ -142,30 +165,6 @@ where
         }
     }
 
-    /// Connects to a given outbound peer.
-    #[instrument(level = "info", skip_all)]
-    async fn connect_to_outbound_peer(&mut self, permit: OwnedSemaphorePermit, addr: Z::Addr) {
-        let new_peers_tx = self.new_peers_tx.clone();
-        let connection_fut = self
-            .connector_svc
-            .ready()
-            .await
-            .expect("Connector had an error in `poll_ready`")
-            .call(ConnectRequest {
-                addr,
-                permit: Some(permit),
-            });
-
-        tokio::spawn(
-            async move {
-                if let Ok(Ok(peer)) = timeout(HANDSHAKE_TIMEOUT, connection_fut).await {
-                    drop(new_peers_tx.send(peer).await);
-                }
-            }
-            .instrument(Span::current()),
-        );
-    }
-
     /// Handles a request from the peer set for more peers.
     #[expect(
         clippy::significant_drop_tightening,
@@ -213,7 +212,13 @@ where
             }
 
             Ok(AddressBookResponse::Peer(peer)) => {
-                self.connect_to_outbound_peer(permit, peer.adr).await;
+                connect_to_outbound_peer(
+                    self.new_peers_tx.clone(),
+                    &mut self.connector_svc,
+                    permit,
+                    peer.adr,
+                )
+                .await;
                 Ok(())
             }
             Ok(_) => panic!("peer list sent incorrect response!"),
@@ -258,7 +263,13 @@ where
             return Err(OutboundConnectorError::NoAvailablePeers);
         };
 
-        self.connect_to_outbound_peer(permit, peer.adr).await;
+        connect_to_outbound_peer(
+            self.new_peers_tx.clone(),
+            &mut self.connector_svc,
+            permit,
+            peer.adr,
+        )
+        .await;
         Ok(())
     }
 
@@ -268,6 +279,8 @@ where
             "Starting outbound connection maintainer, target outbound connections: {}",
             self.config.outbound_connections
         );
+
+        tokio::spawn(self.anchor_connection_keeper.take().unwrap().run());
 
         loop {
             tokio::select! {
@@ -292,4 +305,155 @@ where
             }
         }
     }
+}
+
+struct AnchorConnectionKeeper<Z: NetworkZone, A, C> {
+    /// The channel to send new outbound connections down.
+    pub new_peers_tx: mpsc::Sender<Client<Z>>,
+
+    /// The address book service
+    pub address_book_svc: A,
+    /// The service to connect to a specific peer.
+    pub connector_svc: C,
+
+    /// A semaphore to keep the amount of outbound peers constant.
+    pub anchor_semaphore: Arc<Semaphore>,
+
+    /// The p2p config.
+    pub config: P2PConfig<Z>,
+}
+
+impl<Z: NetworkZone, A, C> AnchorConnectionKeeper<Z, A, C>
+where
+    Z: NetworkZone,
+    A: AddressBook<Z>,
+    C: Service<ConnectRequest<Z>, Response = Client<Z>, Error = HandshakeError> + Send,
+    C::Future: Send + 'static,
+{
+    #[instrument(level = "debug", skip_all)]
+    async fn handle_free_anchor_permit(
+        &mut self,
+        free_anchors: &mut Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>,
+        anchor_handshakes: &mut FuturesUnordered<
+            BoxFuture<'static, (Z::Addr, Result<(), HandshakeError>)>,
+        >,
+        permit: OwnedSemaphorePermit,
+    ) -> Result<(), OutboundConnectorError> {
+        tracing::debug!("Anchor permit available, making outbound connection.");
+
+        if free_anchors.is_empty() {
+            let Ok(AddressBookResponse::Peers(peers)) = self
+                .address_book_svc
+                .ready()
+                .await
+                .expect("Error in address book!")
+                .call(AddressBookRequest::GetAnchorPeers {
+                    include_connected: false,
+                    len: self.config.numb_anchors,
+                })
+                .await
+            else {
+                tracing::warn!("No anchor peers in peer list to make connection to.");
+                return Err(OutboundConnectorError::NoAvailablePeers);
+            };
+
+            *free_anchors = peers;
+        }
+
+        let Some(anchor) = free_anchors.pop() else {
+            tracing::warn!("No peers in peer list to promote to anchors.");
+            return Err(OutboundConnectorError::NoAvailablePeers);
+        };
+
+        let addr = anchor.adr;
+
+        let handle = connect_to_outbound_peer(
+            self.new_peers_tx.clone(),
+            &mut self.connector_svc,
+            permit,
+            addr.clone(),
+        )
+        .await;
+
+        anchor_handshakes.push(handle.map(move |r| (addr, r.unwrap())).boxed());
+
+        Ok(())
+    }
+
+    async fn remove_anchor(&mut self, addr: Z::Addr) {
+        self.address_book_svc
+            .ready()
+            .await
+            .expect("Error in address book!")
+            .call(AddressBookRequest::RemoveAnchorPeer(addr))
+            .await
+            .expect("Error in address book!");
+    }
+
+    async fn run(mut self) {
+        let mut free_anchors = Vec::new();
+        let mut anchor_handshakes = FuturesUnordered::new();
+        let mut fails: HashMap<Z::Addr, u8> = HashMap::new();
+        loop {
+            tokio::select! {
+                Some((addr, res)) = anchor_handshakes.next() => {
+                    match res {
+                       Ok(()) => {
+                            fails.remove(&addr);
+                        },
+                       Err(_) => {
+                            let numb_fails = fails.entry(addr).or_default();
+                            *numb_fails += 1;
+                            tracing::warn!("Failed to connect to anchor peer: {}, attempt: {}.", addr, numb_fails);
+                            if *numb_fails >= 3 {
+                                free_anchors.clear();
+                                fails.remove(&addr);
+                                self.remove_anchor(addr).await;
+                            } else {
+                                sleep(OUTBOUND_ANCHOR_CONNECTION_ATTEMPT_TIMEOUT).await;
+                            }
+                        }
+                    }
+                }
+                Ok(permit) = Arc::clone(&self.anchor_semaphore).acquire_owned() => {
+                    if self.handle_free_anchor_permit(&mut free_anchors, &mut anchor_handshakes, permit).await.is_err() {
+                        // if we got an error then we still have a permit free so to prevent this from just looping
+                        // uncontrollably add a timeout.
+                        sleep(OUTBOUND_ANCHOR_CONNECTION_ATTEMPT_TIMEOUT).await;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Connects to a given outbound peer.
+#[instrument(level = "info", skip_all)]
+async fn connect_to_outbound_peer<Z: NetworkZone, C>(
+    new_peers_tx: mpsc::Sender<Client<Z>>,
+    connector_svc: &mut C,
+    permit: OwnedSemaphorePermit,
+    addr: Z::Addr,
+) -> JoinHandle<Result<(), HandshakeError>>
+where
+    C: Service<ConnectRequest<Z>, Response = Client<Z>, Error = HandshakeError>,
+    C::Future: Send + 'static,
+{
+    let connection_fut = connector_svc
+        .ready()
+        .await
+        .expect("Connector had an error in `poll_ready`")
+        .call(ConnectRequest {
+            addr,
+            permit: Some(permit),
+        });
+
+    tokio::spawn(
+        async move {
+            let peer = timeout(HANDSHAKE_TIMEOUT, connection_fut).await??;
+            drop(new_peers_tx.send(peer).await);
+            Ok(())
+        }
+        .instrument(Span::current()),
+    )
 }

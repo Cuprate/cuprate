@@ -10,32 +10,36 @@ use tokio::task::{spawn_blocking, JoinHandle};
 
 use cuprate_p2p_core::{services::ZoneSpecificPeerListEntryBase, NetZoneAddress};
 
+use crate::anchors::{AnchorList, AnchorPeer};
 use crate::{peer_list::PeerList, AddressBookConfig, BorshNetworkZone};
-
 // TODO: store anchor and ban list.
 
 #[derive(BorshSerialize)]
 struct SerPeerDataV1<'a, A: NetZoneAddress> {
     white_list: Vec<&'a ZoneSpecificPeerListEntryBase<A>>,
     gray_list: Vec<&'a ZoneSpecificPeerListEntryBase<A>>,
+    anchors: Vec<&'a AnchorPeer<A>>,
 }
 
 #[derive(BorshDeserialize)]
 struct DeserPeerDataV1<A: NetZoneAddress> {
     white_list: Vec<ZoneSpecificPeerListEntryBase<A>>,
     gray_list: Vec<ZoneSpecificPeerListEntryBase<A>>,
+    anchors: Vec<AnchorPeer<A>>,
 }
 
 pub(crate) fn save_peers_to_disk<Z: BorshNetworkZone>(
     cfg: &AddressBookConfig<Z>,
     white_list: &PeerList<Z>,
     gray_list: &PeerList<Z>,
+    anchor_list: &AnchorList<Z>,
 ) -> JoinHandle<std::io::Result<()>> {
     // maybe move this to another thread but that would require cloning the data ... this
     // happens so infrequently that it's probably not worth it.
     let data = to_vec(&SerPeerDataV1 {
         white_list: white_list.peers.values().collect::<Vec<_>>(),
         gray_list: gray_list.peers.values().collect::<Vec<_>>(),
+        anchors: anchor_list.anchors().values().collect::<Vec<_>>(),
     })
     .unwrap();
 
@@ -56,6 +60,7 @@ pub(crate) async fn read_peers_from_disk<Z: BorshNetworkZone>(
     (
         Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>,
         Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>,
+        Vec<AnchorPeer<Z::Addr>>,
     ),
     std::io::Error,
 > {
@@ -66,7 +71,7 @@ pub(crate) async fn read_peers_from_disk<Z: BorshNetworkZone>(
     let data = spawn_blocking(move || fs::read(file)).await.unwrap()?;
 
     let de_ser: DeserPeerDataV1<Z::Addr> = from_slice(&data)?;
-    Ok((de_ser.white_list, de_ser.gray_list))
+    Ok((de_ser.white_list, de_ser.gray_list, de_ser.anchors))
 }
 
 #[cfg(test)]

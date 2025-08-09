@@ -128,7 +128,7 @@ fn main() {
             txpool_read_handle.clone(),
         )
         .await;
-
+        
         // Create the incoming tx handler service.
         let tx_handler = IncomingTxHandler::init(
             network_interfaces.clearnet_network_interface.clone(),
@@ -147,7 +147,7 @@ fn main() {
 
         // Initialize the blockchain manager.
         blockchain::init_blockchain_manager(
-            network_interfaces.clearnet_network_interface,
+            network_interfaces.clearnet_network_interface.clone(),
             blockchain_write_handle,
             blockchain_read_handle.clone(),
             txpool_write_handle.clone(),
@@ -170,7 +170,7 @@ fn main() {
             std::thread::spawn(|| commands::command_listener(command_tx));
 
             // Wait on the io_loop, spawned on a separate task as this improves performance.
-            tokio::spawn(commands::io_loop(command_rx, context_svc))
+            tokio::spawn(commands::io_loop(command_rx, context_svc, network_interfaces))
                 .await
                 .unwrap();
         } else {

@@ -29,6 +29,7 @@ pub mod request_handler;
 pub use network_address::CrossNetworkInternalPeerId;
 
 /// This struct collect all supported and optional network zone interfaces.
+#[derive(Clone)]
 pub struct NetworkInterfaces {
     /// Mandatory clearnet network interface
     pub clearnet_network_interface: NetworkInterface<ClearNet>,
@@ -85,7 +86,7 @@ pub async fn start_zone_p2p<N, T>(
 where
     N: NetworkZone,
     T: Transport<N>,
-    N::Addr: borsh::BorshDeserialize + borsh::BorshSerialize,
+    N::Addr: borsh::BorshDeserialize + borsh::BorshSerialize + cuprate_bucket_set::Bucketable,
     CrossNetworkInternalPeerId: From<InternalPeerID<<N as NetworkZone>::Addr>>,
 {
     let (incoming_tx_handler_tx, incoming_tx_handler_rx) = oneshot::channel();

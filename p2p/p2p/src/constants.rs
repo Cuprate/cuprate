@@ -15,6 +15,9 @@ pub(crate) const MAX_SEED_CONNECTIONS: usize = 3;
 /// The timeout for when we fail to find a peer to connect to.
 pub(crate) const OUTBOUND_CONNECTION_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// The timeout for when we fail to connect to an anchor peer.
+pub(crate) const OUTBOUND_ANCHOR_CONNECTION_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(30);
+
 /// The durations of a short ban.
 pub const SHORT_BAN: Duration = Duration::from_secs(60 * 10);
 

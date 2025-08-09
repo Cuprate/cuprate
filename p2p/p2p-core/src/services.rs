@@ -79,24 +79,56 @@ impl<A: NetZoneAddress> TryFrom<PeerListEntryBase> for ZoneSpecificPeerListEntry
 }
 
 pub struct Connections<Z: NetworkZone> {
-    addrs: HashSet<InternalPeerID<Z::Addr>>
+    addrs: HashSet<InternalPeerID<Z::Addr>>,
 }
 
 /// A request to the address book service.
 pub enum AddressBookRequest<Z: NetworkZone> {
+    /// Tells the address book that we have connected or received a connection from a peer.
+    NewConnection {
+        /// The [`InternalPeerID`] of this connection.
+        internal_peer_id: InternalPeerID<Z::Addr>,
+        /// The public address of the peer, if this peer has a reachable public address.
+        public_address: Option<Z::Addr>,
+        /// The [`ConnectionHandle`] to this peer.
+        handle: ConnectionHandle,
+        /// An ID the peer assigned itself.
+        id: u64,
+        /// The peers [`PruningSeed`].
+        pruning_seed: PruningSeed,
+        /// The peers rpc port.
+        rpc_port: u16,
+        /// The peers rpc credits per hash
+        rpc_credits_per_hash: u32,
+    },
+
     /// Tells the address book about a peer list received from a peer.
     IncomingPeerList(Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>),
 
     /// Takes a random white peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
     /// block at that height according to it's pruning seed
-    TakeRandomWhitePeer { connections: Connections<Z> },
+    TakeRandomWhitePeer {
+        height: Option<usize>,
+    },
 
     /// Takes a random gray peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
     /// block at that height according to it's pruning seed
-    TakeRandomGrayPeer { connections: Connections<Z> },
+    TakeRandomGrayPeer {
+        height: Option<usize>,
+    },
 
+    TakeRandomPeer {
+        height: Option<usize>,
+    },
+
+    GetAnchorPeers {
+        include_connected: bool,
+        len: usize,
+    },
+
+    RemoveAnchorPeer(Z::Addr),
 
     /// Gets the specified number of white peers, or less if we don't have enough.
     GetWhitePeers(usize),
@@ -133,6 +165,7 @@ pub enum AddressBookResponse<Z: NetworkZone> {
     /// Response to:
     /// - [`AddressBookRequest::NewConnection`]
     /// - [`AddressBookRequest::IncomingPeerList`]
+    /// - [`AddressBookRequest::RemoveAnchorPeer`]
     Ok,
 
     /// Response to:
@@ -141,7 +174,9 @@ pub enum AddressBookResponse<Z: NetworkZone> {
     /// - [`AddressBookRequest::TakeRandomPeer`]
     Peer(ZoneSpecificPeerListEntryBase<Z::Addr>),
 
-    /// Response to [`AddressBookRequest::GetWhitePeers`].
+    /// Response to:
+    /// - [`AddressBookRequest::GetWhitePeers`].
+    /// - [`AddressBookRequest::GetAnchorPeers`].
     Peers(Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>),
 
     /// Response to [`AddressBookRequest::Peerlist`].

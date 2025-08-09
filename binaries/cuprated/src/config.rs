@@ -214,6 +214,7 @@ impl Config {
             network: self.network,
             seeds: p2p::clear_net_seed_nodes(self.network),
             outbound_connections: self.p2p.clear_net.outbound_connections,
+            numb_anchors: 4,
             extra_outbound_connections: self.p2p.clear_net.extra_outbound_connections,
             max_inbound_connections: self.p2p.clear_net.max_inbound_connections,
             gray_peers_percent: self.p2p.clear_net.gray_peers_percent,

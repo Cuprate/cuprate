@@ -37,19 +37,20 @@
 //! assert_eq!(2, bucket.len_bucket(&[96_u8,96_u8]).unwrap());
 //!
 //! ```
-use std::{collections::BTreeMap, net::Ipv4Addr};
-use std::fmt::Display;
-use std::ops::Not;
 use arrayvec::{ArrayVec, CapacityError};
-use rand::{random, Rng};
-use rand::prelude::IteratorRandom;
-use cuprate_p2p_core::NetZoneAddress;
 use cuprate_p2p_core::services::ZoneSpecificPeerListEntryBase;
+use cuprate_p2p_core::NetZoneAddress;
+use rand::prelude::IteratorRandom;
+use rand::{random, Rng};
+use std::fmt::Display;
+use std::net::{IpAddr, Ipv6Addr, SocketAddr};
+use std::ops::Not;
+use std::{collections::BTreeMap, net::Ipv4Addr};
 
 /// A discriminant that can be computed from the type.
 pub trait Bucketable: Sized + Eq + Clone {
     /// The type of the discriminant being used in the Binary tree.
-    type Discriminant: Ord + AsRef<[u8]>;
+    type Discriminant: Send + Ord;
 
     /// Method that can compute the discriminant from the item.
     fn discriminant(&self) -> Self::Discriminant;
@@ -116,23 +117,32 @@ impl<const N: usize, I: Bucketable> BucketMap<N, I> {
 
         None
     }
-    
+
     pub fn get_mut<R>(&mut self, item: &R) -> Option<&mut I>
     where
         R: Bucketable<Discriminant = I::Discriminant>,
-        I: PartialEq<R>
+        I: PartialEq<R>,
     {
-        self.storage.get_mut(&item.discriminant()).and_then(|vec| {
-            vec.iter_mut()
-                .find_map(|v| (v == item).then_some(v))
-        })
+        self.storage
+            .get_mut(&item.discriminant())
+            .and_then(|vec| vec.iter_mut().find_map(|v| (v == item).then_some(v)))
+    }
+
+    pub fn contains_key<R>(&self, item: &R) -> bool
+    where
+        R: Bucketable<Discriminant = I::Discriminant>,
+        I: PartialEq<R>,
+    {
+        self.storage
+            .get(&item.discriminant())
+            .is_some_and(|vec| vec.iter().any(|v| (v == item)))
     }
 
     /// Will attempt to remove an item from the bucket.
     pub fn remove<R>(&mut self, item: &R) -> Option<I>
     where
         R: Bucketable<Discriminant = I::Discriminant>,
-        I: PartialEq<R>
+        I: PartialEq<R>,
     {
         self.storage.get_mut(&item.discriminant()).and_then(|vec| {
             vec.iter()
@@ -164,24 +174,48 @@ impl<const N: usize, I: Bucketable> BucketMap<N, I> {
     ///
     /// Repeated use of this function will provide a normal distribution of
     /// items based on their discriminants.
-    pub fn take_random<R, Rng>(&mut self, current_set: &[R], no_matching_discriminant: bool, r: &mut Rng) -> Option<I>
+    pub fn take_random<R, Rng>(
+        &mut self,
+        current_set: &[R],
+        no_matching_discriminant: bool,
+        r: &mut Rng,
+    ) -> Option<I>
     where
         R: Bucketable<Discriminant = I::Discriminant>,
         I: PartialEq<R>,
         Rng: rand::Rng,
     {
         let len = self.storage.len();
-        let current_set_discriminant: Vec<_> = current_set.iter().map(Bucketable::discriminant).collect();
+        let current_set_discriminant: Vec<_> =
+            current_set.iter().map(Bucketable::discriminant).collect();
 
-        self.storage.iter_mut().skip(r.gen_range(0..len)).take(len).find_map(|(discriminant, vec)| {
-            if no_matching_discriminant && current_set_discriminant.contains(discriminant) {
-                return None;
-            }
+        if len == 0 {
+            return None;
+        }
 
-            let no_match = vec.iter_mut().enumerate().filter_map(|(i, e)| current_set.iter().find(|c| e == *c ).is_none().then_some(i)).choose(r);
+        self.storage
+            .iter_mut()
+            .skip(r.gen_range(0..len))
+            .take(len)
+            .find_map(|(discriminant, vec)| {
+                if no_matching_discriminant && current_set_discriminant.contains(discriminant) {
+                    return None;
+                }
 
-            no_match.map(|i| vec.swap_remove(i))
-        })
+                let no_match = vec
+                    .iter_mut()
+                    .enumerate()
+                    .filter_map(|(i, e)| {
+                        current_set.iter().find(|c| e == *c).is_none().then_some(i)
+                    })
+                    .choose(r);
+
+                no_match.map(|i| vec.swap_remove(i))
+            })
+    }
+
+    pub fn values(&self) -> impl Iterator<Item = &I> {
+        self.storage.values().flat_map(|v| v.iter())
     }
 }
 
@@ -199,12 +233,48 @@ impl<A: NetZoneAddress + Bucketable> Bucketable for ZoneSpecificPeerListEntryBas
     }
 }
 
+#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Clone, Copy)]
+#[expect(variant_size_differences)]
+pub enum IpDiscriminant {
+    V4([u8; 2]),
+    V6([u8; 8]),
+}
+
+impl AsRef<[u8]> for IpDiscriminant {
+    fn as_ref(&self) -> &[u8] {
+        match self {
+            Self::V4(x) => x.as_ref(),
+            Self::V6(x) => x.as_ref(),
+        }
+    }
+}
 
 impl Bucketable for Ipv4Addr {
     /// We are discriminating by `/16` subnets.
-    type Discriminant = [u8; 2];
+    type Discriminant = IpDiscriminant;
 
     fn discriminant(&self) -> Self::Discriminant {
-        [self.octets()[0], self.octets()[1]]
+        IpDiscriminant::V4([self.octets()[0], self.octets()[1]])
+    }
+}
+
+impl Bucketable for Ipv6Addr {
+    /// We are discriminating by `/16` subnets.
+    type Discriminant = IpDiscriminant;
+
+    fn discriminant(&self) -> Self::Discriminant {
+        IpDiscriminant::V6(self.octets()[0..8].try_into().unwrap())
+    }
+}
+
+impl Bucketable for SocketAddr {
+    /// We are discriminating by `/16` subnets.
+    type Discriminant = IpDiscriminant;
+
+    fn discriminant(&self) -> Self::Discriminant {
+        match self.ip() {
+            IpAddr::V4(v) => v.discriminant(),
+            IpAddr::V6(v) => v.discriminant(),
+        }
     }
 }

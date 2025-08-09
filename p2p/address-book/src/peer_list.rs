@@ -1,12 +1,13 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use indexmap::IndexMap;
-use rand::Rng;
-use cuprate_bucket_set::{BucketMap, Bucketable};
-use cuprate_p2p_core::{NetZoneAddress, NetworkZone};
-use cuprate_p2p_core::services::ZoneSpecificPeerListEntryBase;
-use cuprate_pruning::PruningSeed;
 use crate::sealed::BorshNetworkZone;
+use cuprate_bucket_set::{BucketMap, Bucketable};
+use cuprate_p2p_core::services::ZoneSpecificPeerListEntryBase;
+use cuprate_p2p_core::{NetZoneAddress, NetworkZone};
+use cuprate_pruning::PruningSeed;
+use indexmap::IndexMap;
+use rand::prelude::*;
+use rand::Rng;
 
 /// A Peer list in the address book.
 ///
@@ -37,7 +38,7 @@ impl<Z: BorshNetworkZone> PeerList<Z> {
         for peer in list {
             let pruning_seed = peer.pruning_seed;
             let adr = peer.adr.clone();
-            
+
             if peers.push(peer).is_none() {
                 pruning_seeds
                     .entry(pruning_seed)
@@ -68,7 +69,7 @@ impl<Z: BorshNetworkZone> PeerList<Z> {
         let adr = peer.adr.clone();
 
         if self.peers.push(peer).is_none() {
-           self.pruning_seeds
+            self.pruning_seeds
                 .entry(pruning_seed)
                 .or_insert_with(Vec::new)
                 .push(adr.clone());
@@ -88,14 +89,12 @@ impl<Z: BorshNetworkZone> PeerList<Z> {
     /// The given peer will be removed from the peer list.
     pub(crate) fn take_random_peer<R: Rng>(
         &mut self,
+        must_keep_peers: &[Z::Addr],
         r: &mut R,
-        must_keep_peers: &HashSet<Z::Addr>,
     ) -> Option<ZoneSpecificPeerListEntryBase<Z::Addr>> {
-        // Take a random peer and see if it's in the list of must_keep_peers, if it is try again.
-        // TODO: improve this
-        
-
-        None
+        self.peers
+            .take_random(must_keep_peers, true, r)
+            .or_else(|| self.peers.take_random(must_keep_peers, false, r))
     }
 
     pub(crate) fn get_random_peers<R: Rng>(
@@ -120,13 +119,10 @@ impl<Z: BorshNetworkZone> PeerList<Z> {
         self.peers.get_mut(peer)
     }
 
-    /*
     /// Returns true if the list contains this peer.
     pub(crate) fn contains_peer(&self, peer: &Z::Addr) -> bool {
         self.peers.contains_key(peer)
     }
-    
-     */
 
     /// Removes a peer from the pruning idx
     ///
