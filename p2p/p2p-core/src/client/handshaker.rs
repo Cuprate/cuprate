@@ -490,7 +490,6 @@ where
     };
 
     let protocol_request_handler = protocol_request_svc_maker
-        .as_service()
         .ready()
         .await?
         .call(info.clone())

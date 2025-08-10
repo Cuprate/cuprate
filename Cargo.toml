@@ -163,11 +163,11 @@ cuprate-rpc-interface     = { path = "rpc/interface",             default-featur
 cuprate-zmq-types         = { path = "zmq/types",                 default-features = false }
 
 # External dependencies
-axum                  = { version = "0.7", default-features = false }
+axum                  = { version = "0.8", default-features = false }
 anyhow                = { version = "1", default-features = false }
 arc-swap              = { version = "1", default-features = false }
 arrayvec              = { version = "0.7", default-features = false }
-arti-client           = { version = "0.32", default-features = false }
+arti-client           = { version = "0.33", default-features = false }
 async-trait           = { version = "0.1", default-features = false }
 bitflags              = { version = "2", default-features = false }
 blake3                = { version = "1", default-features = false }
@@ -177,15 +177,15 @@ bytes                 = { version = "1", default-features = false }
 cfg-if                = { version = "1", default-features = false }
 clap                  = { version = "4", default-features = false }
 chrono                = { version = "0.4", default-features = false }
-crypto-bigint         = { version = "0.5", default-features = false }
+crypto-bigint         = { version = "0.6", default-features = false }
 crossbeam             = { version = "0.8", default-features = false }
 const_format          = { version = "0.2", default-features = false }
 curve25519-dalek      = { version = "4", default-features = false }
 dashmap               = { version = "6", default-features = false }
-dirs                  = { version = "5", default-features = false }
+dirs                  = { version = "6", default-features = false }
 futures               = { version = "0.3", default-features = false }
 hex                   = { version = "0.4", default-features = false }
-hex-literal           = { version = "0.4", default-features = false }
+hex-literal           = { version = "1", default-features = false }
 indexmap              = { version = "2", default-features = false }
 monero-address        = { git = "https://github.com/Cuprate/serai.git", rev = "e6ae8c2", default-features = false }
 monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "e6ae8c2", default-features = false }
@@ -196,26 +196,27 @@ randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev
 rand                  = { version = "0.8", default-features = false }
 rand_distr            = { version = "0.4", default-features = false }
 rayon                 = { version = "1", default-features = false }
+safelog               = { version = "0.4", default-features = false }
 serde_bytes           = { version = "0.11", default-features = false }
 serde_json            = { version = "1", default-features = false }
 serde                 = { version = "1", default-features = false }
-strum                 = { version = "0.26", default-features = false }
-thiserror             = { version = "1", default-features = false }
+strum                 = { version = "0.27", default-features = false }
+thiserror             = { version = "2", default-features = false }
 thread_local          = { version = "1", default-features = false }
 tokio-util            = { version = "0.7", default-features = false }
 tokio-stream          = { version = "0.1", default-features = false }
 tokio-socks           = { git = "https://github.com/Cuprate/tokio-socks.git", rev = "8737caf", default-features = false }
 tokio                 = { version = "1", default-features = false }
-tower                 = { git = "https://github.com/Cuprate/tower.git", rev = "6c7faf0", default-features = false } # <https://github.com/tower-rs/tower/pull/796>
+tower                 = { version = "0.5", default-features = false }
 tower-http            = { version = "0.6", default-features = false }
-toml                  = { version = "0.8", default-features = false }
-toml_edit             = { version = "0.22", default-features = false }
-tor-cell              = { version = "0.32", default-features = false }
-tor-config-path       = { version = "0.32", default-features = false }
-tor-hsservice         = { version = "0.32", default-features = false }
-tor-persist           = { version = "0.32", default-features = false }
-tor-proto             = { version = "0.32", default-features = false }
-tor-rtcompat          = { version = "0.32", default-features = false }
+toml                  = { version = "0.9", default-features = false }
+toml_edit             = { version = "0.23", default-features = false }
+tor-cell              = { version = "0.33", default-features = false }
+tor-config-path       = { version = "0.33", default-features = false }
+tor-hsservice         = { version = "0.33", default-features = false }
+tor-persist           = { version = "0.33", default-features = false }
+tor-proto             = { version = "0.33", default-features = false }
+tor-rtcompat          = { version = "0.33", default-features = false }
 tracing-appender      = { version = "0.2", default-features = false }
 tracing-subscriber    = { version = "0.3", default-features = false }
 tracing               = { version = "0.1", default-features = false }
@@ -226,7 +227,7 @@ monero-simple-request-rpc = { git = "https://github.com/Cuprate/serai.git", rev 
 tempfile                  = { version = "3" }
 pretty_assertions         = { version = "1" }
 proptest                  = { version = "1" }
-proptest-derive           = { version = "0.5" }
+proptest-derive           = { version = "0.6" }
 tokio-test                = { version = "0.4" }
 arbitrary                 = { version = "1" }
 

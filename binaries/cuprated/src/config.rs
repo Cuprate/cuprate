@@ -11,6 +11,7 @@ use std::{
 use arti_client::KeystoreSelector;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
+use safelog::DisplayRedacted;
 
 use cuprate_consensus::ContextConfig;
 use cuprate_helper::{
@@ -253,6 +254,7 @@ impl Config {
                     .unwrap()
                     .generate_identity_key(KeystoreSelector::Primary)
                     .unwrap()
+                    .display_unredacted()
                     .to_string();
 
                 OnionAddr::new(&addr, self.p2p.tor_net.p2p_port).unwrap()
