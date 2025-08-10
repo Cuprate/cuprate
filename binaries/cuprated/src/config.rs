@@ -10,8 +10,8 @@ use std::{
 
 use arti_client::KeystoreSelector;
 use clap::Parser;
-use serde::{Deserialize, Serialize};
 use safelog::DisplayRedacted;
+use serde::{Deserialize, Serialize};
 
 use cuprate_consensus::ContextConfig;
 use cuprate_helper::{

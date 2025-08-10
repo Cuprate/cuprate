@@ -291,12 +291,12 @@ pub trait ProtocolRequestHandlerMaker<Z: NetworkZone>:
 }
 
 impl<T, Z: NetworkZone> ProtocolRequestHandlerMaker<Z> for T where
-    T:     tower::Service<
-        client::PeerInformation<Z::Addr>,
-        Error = tower::BoxError,
-        Response: ProtocolRequestHandler,
-        Future: Send + 'static,
-    > + Send
-    + 'static
+    T: tower::Service<
+            client::PeerInformation<Z::Addr>,
+            Error = tower::BoxError,
+            Response: ProtocolRequestHandler,
+            Future: Send + 'static,
+        > + Send
+        + 'static
 {
 }
