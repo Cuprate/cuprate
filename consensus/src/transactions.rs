@@ -158,7 +158,7 @@ impl VerificationWanted {
         hf: HardFork,
         database: D,
         batch_prep_cache: Option<&BatchPrepareCache>,
-    ) -> FullVerification<D> {
+    ) -> FullVerification<'_, D> {
         FullVerification {
             prepped_txs: self.prepped_txs,
             current_chain_height,
