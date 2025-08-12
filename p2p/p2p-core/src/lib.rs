@@ -160,7 +160,7 @@ pub trait NetworkZone: Clone + Copy + Send + 'static {
 /// peer or instantiating a listener for the `NetworkZone` `Z` over a `Transport` method `T`.
 ///
 /// Ultimately, multiple transports can implement the same trait for providing alternative
-/// ways for a network zone to operate (example: ClearNet can operate on both TCP and Tor.)
+/// ways for a network zone to operate (example: [`ClearNet`] can operate on both TCP and Tor.)
 #[async_trait::async_trait]
 pub trait Transport<Z: NetworkZone>: Clone + Send + 'static {
     /// Client configuration necessary when establishing a connection to a peer.
@@ -280,11 +280,10 @@ impl<T> ProtocolRequestHandler for T where
 }
 
 pub trait ProtocolRequestHandlerMaker<Z: NetworkZone>:
-    tower::MakeService<
+    tower::Service<
         client::PeerInformation<Z::Addr>,
-        ProtocolRequest,
-        MakeError = tower::BoxError,
-        Service: ProtocolRequestHandler,
+        Error = tower::BoxError,
+        Response: ProtocolRequestHandler,
         Future: Send + 'static,
     > + Send
     + 'static
@@ -292,11 +291,10 @@ pub trait ProtocolRequestHandlerMaker<Z: NetworkZone>:
 }
 
 impl<T, Z: NetworkZone> ProtocolRequestHandlerMaker<Z> for T where
-    T: tower::MakeService<
+    T: tower::Service<
             client::PeerInformation<Z::Addr>,
-            ProtocolRequest,
-            MakeError = tower::BoxError,
-            Service: ProtocolRequestHandler,
+            Error = tower::BoxError,
+            Response: ProtocolRequestHandler,
             Future: Send + 'static,
         > + Send
         + 'static
