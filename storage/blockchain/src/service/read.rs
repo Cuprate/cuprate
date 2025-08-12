@@ -24,7 +24,7 @@ use rayon::{
 };
 use thread_local::ThreadLocal;
 
-use cuprate_database::{ConcreteEnv, DatabaseRo, DbResult, Env, EnvInner, RuntimeError};
+use cuprate_database::{ConcreteEnv, DatabaseRo, DbResult, Env, EnvInner, InitError, RuntimeError};
 use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
@@ -72,8 +72,14 @@ use crate::{
 /// multiple unnecessary rayon thread-pools.
 #[cold]
 #[inline(never)] // Only called once.
-pub fn init_read_service(env: Arc<ConcreteEnv>, threads: ReaderThreads) -> BlockchainReadHandle {
-    init_read_service_with_pool(env, init_thread_pool(threads))
+pub fn init_read_service(
+    env: Arc<ConcreteEnv>,
+    threads: ReaderThreads,
+) -> Result<BlockchainReadHandle, InitError> {
+    Ok(init_read_service_with_pool(
+        env,
+        init_thread_pool(threads).map_err(|e| InitError::Unknown(Box::new(e)))?,
+    ))
 }
 
 /// Initialize the blockchain database read service, with a specific rayon thread-pool instead of
