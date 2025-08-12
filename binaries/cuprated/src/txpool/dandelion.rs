@@ -28,6 +28,7 @@ mod stem_service;
 mod tx_store;
 
 pub use anon_net_service::AnonTxService;
+pub use diffuse_service::DiffuseService;
 
 /// The configuration used for [`cuprate_dandelion_tower`].
 ///
@@ -42,7 +43,7 @@ const DANDELION_CONFIG: DandelionConfig = DandelionConfig {
 /// A [`DandelionRouter`] with all generic types defined.
 pub(super) type ConcreteDandelionRouter<Z> = DandelionRouter<
     stem_service::OutboundPeerStream<Z>,
-    diffuse_service::DiffuseService<Z>,
+    DiffuseService<Z>,
     CrossNetworkInternalPeerId,
     stem_service::StemPeerService<Z>,
     DandelionTx,
@@ -131,7 +132,7 @@ where
     InternalPeerID<Z::Addr>: Into<CrossNetworkInternalPeerId>,
 {
     DandelionRouter::new(
-        diffuse_service::DiffuseService {
+        DiffuseService {
             clear_net_broadcast_service: network_interface.broadcast_svc(),
         },
         stem_service::OutboundPeerStream::<Z>::new(network_interface),

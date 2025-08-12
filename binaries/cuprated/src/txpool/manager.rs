@@ -18,6 +18,7 @@ use cuprate_dandelion_tower::{
     TxState,
 };
 use cuprate_helper::time::current_unix_timestamp;
+use cuprate_p2p_core::ClearNet;
 use cuprate_txpool::service::{
     interface::{TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest, TxpoolWriteResponse},
     TxpoolReadHandle, TxpoolWriteHandle,
@@ -44,7 +45,7 @@ pub async fn start_txpool_manager(
     mut txpool_write_handle: TxpoolWriteHandle,
     mut txpool_read_handle: TxpoolReadHandle,
     promote_tx_channel: mpsc::Receiver<[u8; 32]>,
-    diffuse_service: DiffuseService,
+    diffuse_service: DiffuseService<ClearNet>,
     dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
     config: TxpoolConfig,
 ) -> TxpoolManagerHandle {
@@ -208,7 +209,7 @@ struct TxpoolManager {
     /// The [`DiffuseService`] to diffuse txs to the p2p network.
     ///
     /// Used for re-relays.
-    diffuse_service: DiffuseService,
+    diffuse_service: DiffuseService<ClearNet>,
 
     config: TxpoolConfig,
 }

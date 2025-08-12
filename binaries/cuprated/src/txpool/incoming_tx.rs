@@ -35,6 +35,7 @@ use cuprate_txpool::{
 };
 use cuprate_types::TransactionVerificationData;
 
+use crate::txpool::dandelion::DiffuseService;
 use crate::{
     blockchain::ConsensusBlockchainReadHandle,
     config::TxpoolConfig,
@@ -46,7 +47,6 @@ use crate::{
         manager::{start_txpool_manager, TxpoolManagerHandle},
         relay_rules::{check_tx_relay_rules, RelayRuleError},
         txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
-        RelayRuleError,
     },
 };
 
@@ -117,6 +117,9 @@ impl IncomingTxHandler {
         blockchain_context_cache: BlockchainContextService,
         blockchain_read_handle: BlockchainReadHandle,
     ) -> Self {
+        let diffuse_service = DiffuseService {
+            clear_net_broadcast_service: clear_net.broadcast_svc(),
+        };
         let clearnet_router = dandelion::dandelion_router(clear_net);
         let tor_router = tor_net.map(AnonTxService::new);
 
