@@ -35,7 +35,7 @@ pub fn init_rpc_servers(
     blockchain_context: BlockchainContextService,
     txpool_read: TxpoolReadHandle,
     tx_handler: IncomingTxHandler,
-) -> Result<(), anyhow::Error> {
+) -> Result<(), Error> {
     for ((enable, addr, request_byte_limit), restricted) in [
         (
             (
@@ -84,10 +84,7 @@ pub fn init_rpc_servers(
         );
 
         // Test if address is already binded to.
-        tokio::task::block_in_place(async {
-            TcpListener::bind(addr).await?;
-            Ok(())
-        })?;
+        std::net::TcpListener::bind(&addr)?;
 
         tokio::task::spawn(async move {
             run_rpc_server(rpc_handler, restricted, addr, request_byte_limit)

@@ -157,7 +157,7 @@ pub async fn initialize_zones_p2p(
         tx_handler_subscribers.push(incoming_tx_handler_tx);
     }
 
-    (network_interfaces, tx_handler_subscribers)
+    Ok((network_interfaces, tx_handler_subscribers))
 }
 
 /// Starts the P2P network zone, returning a [`NetworkInterface`] to interact with it.

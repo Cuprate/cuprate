@@ -100,7 +100,7 @@ pub fn read_config_and_args() -> Result<Config, anyhow::Error> {
             })?
     };
 
-    args.apply_args(config)
+    Ok(args.apply_args(config))
 }
 
 config_struct! {

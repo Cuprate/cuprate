@@ -3,6 +3,7 @@
 //! Contains the blockchain manager, syncer and an interface to mutate the blockchain.
 use std::sync::Arc;
 
+use anyhow::{anyhow, Error};
 use futures::FutureExt;
 use tokio::sync::{mpsc, Notify};
 use tower::{BoxError, Service, ServiceExt};
@@ -35,17 +36,17 @@ pub async fn check_add_genesis(
     blockchain_read_handle: &mut BlockchainReadHandle,
     blockchain_write_handle: &mut BlockchainWriteHandle,
     network: Network,
-) -> Result<(), anyhow::Error> {
+) -> Result<(), Error> {
     // Try to get the chain height, will fail if the genesis block is not in the DB.
     if blockchain_read_handle
         .ready()
         .await
-        .map_err(|_| PANIC_CRITICAL_SERVICE_ERROR.into())?
+        .map_err(|_| anyhow!(PANIC_CRITICAL_SERVICE_ERROR))?
         .call(BlockchainReadRequest::ChainHeight)
         .await
         .is_ok()
     {
-        return;
+        return Ok(());
     }
 
     let genesis = generate_genesis_block(network);
@@ -56,7 +57,7 @@ pub async fn check_add_genesis(
     blockchain_write_handle
         .ready()
         .await
-        .map_err(|_| PANIC_CRITICAL_SERVICE_ERROR.into())?
+        .map_err(|_| anyhow!(PANIC_CRITICAL_SERVICE_ERROR))?
         .call(BlockchainWriteRequest::WriteBlock(
             VerifiedBlockInformation {
                 block_blob: genesis.serialize(),
@@ -74,7 +75,7 @@ pub async fn check_add_genesis(
             },
         ))
         .await
-        .map_err(|_| PANIC_CRITICAL_SERVICE_ERROR.into())?;
+        .map_err(|_| anyhow!(PANIC_CRITICAL_SERVICE_ERROR))?;
 
     Ok(())
 }

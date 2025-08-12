@@ -18,7 +18,7 @@
 
 use std::{mem, process::ExitCode, sync::Arc};
 
-use anyhow::Error;
+use anyhow::{anyhow, Error};
 use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
 use tracing::{error, info, level_filters::LevelFilter};
@@ -60,13 +60,13 @@ fn main() -> ExitCode {
     match main_inner() {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            eprintln_red(&format!("{s}"));
+            eprintln_red(&format!("{e}"));
             ExitCode::FAILURE
         }
     }
 }
 
-fn main_inner() -> Result<(), anyhow::Error> {
+fn main_inner() -> Result<(), Error> {
     // Initialize the killswitch.
     killswitch::init_killswitch();
 
@@ -87,11 +87,11 @@ fn main_inner() -> Result<(), anyhow::Error> {
 
     init_global_rayon_pool(&config)?;
 
-    let rt = init_tokio_rt(&config);
+    let rt = init_tokio_rt(&config)?;
 
     let db_thread_pool = cuprate_database_service::init_thread_pool(
         cuprate_database_service::ReaderThreads::Number(config.storage.reader_threads),
-    );
+    )?;
 
     // Start the blockchain & tx-pool databases.
 
@@ -101,12 +101,12 @@ fn main_inner() -> Result<(), anyhow::Error> {
             Arc::clone(&db_thread_pool),
         )
         .inspect_err(|e| error!("Blockchain database error: {e}"))
-        .map_err(|_| DATABASE_CORRUPT_MSG.into())?;
+        .map_err(|_| anyhow!(DATABASE_CORRUPT_MSG))?;
 
     let (txpool_read_handle, txpool_write_handle, _) =
         cuprate_txpool::service::init_with_pool(config.txpool_config(), db_thread_pool)
             .inspect_err(|e| error!("Txpool database error: {e}"))
-            .map_err(|_| DATABASE_CORRUPT_MSG.into())?;
+            .map_err(|_| anyhow!(DATABASE_CORRUPT_MSG))?;
 
     // Initialize async tasks.
 
@@ -115,10 +115,10 @@ fn main_inner() -> Result<(), anyhow::Error> {
         blockchain_write_handle
             .ready()
             .await
-            .map_err(|_| PANIC_CRITICAL_SERVICE_ERROR.into())?
+            .map_err(|_| anyhow!(PANIC_CRITICAL_SERVICE_ERROR))?
             .call(BlockchainWriteRequest::FlushAltBlocks)
             .await
-            .map_err(|_| PANIC_CRITICAL_SERVICE_ERROR.into())?;
+            .map_err(|_| anyhow!(PANIC_CRITICAL_SERVICE_ERROR))?;
 
         // Check add the genesis block to the blockchain.
         blockchain::check_add_genesis(
@@ -131,7 +131,8 @@ fn main_inner() -> Result<(), anyhow::Error> {
         // Start the context service and the block/tx verifier.
         let context_svc =
             blockchain::init_consensus(blockchain_read_handle.clone(), config.context_config())
-                .await?;
+                .await
+                .map_err(|e| anyhow!(e))?;
 
         // Bootstrap or configure Tor if enabled.
         let tor_context = initialize_tor_if_enabled(&config).await;
@@ -195,7 +196,9 @@ fn main_inner() -> Result<(), anyhow::Error> {
             info!("Terminal/TTY not detected, disabling STDIN commands");
             tokio::signal::ctrl_c().await?;
         }
-    });
+
+        Ok::<(), Error>(())
+    })?;
 
     Ok(())
 }
