@@ -35,12 +35,12 @@ pub async fn check_add_genesis(
     blockchain_read_handle: &mut BlockchainReadHandle,
     blockchain_write_handle: &mut BlockchainWriteHandle,
     network: Network,
-) {
+) -> Result<(), anyhow::Error> {
     // Try to get the chain height, will fail if the genesis block is not in the DB.
     if blockchain_read_handle
         .ready()
         .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .map_err(|_| PANIC_CRITICAL_SERVICE_ERROR.into())?
         .call(BlockchainReadRequest::ChainHeight)
         .await
         .is_ok()
@@ -56,7 +56,7 @@ pub async fn check_add_genesis(
     blockchain_write_handle
         .ready()
         .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .map_err(|_| PANIC_CRITICAL_SERVICE_ERROR.into())?
         .call(BlockchainWriteRequest::WriteBlock(
             VerifiedBlockInformation {
                 block_blob: genesis.serialize(),
@@ -74,7 +74,9 @@ pub async fn check_add_genesis(
             },
         ))
         .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR);
+        .map_err(|_| PANIC_CRITICAL_SERVICE_ERROR.into())?;
+
+    Ok(())
 }
 
 /// Initializes the consensus services.

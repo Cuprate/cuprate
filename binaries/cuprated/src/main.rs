@@ -16,9 +16,9 @@
     reason = "TODO: remove after v1.0.0"
 )]
 
-use std::{mem, sync::Arc};
+use std::{mem, process::ExitCode, sync::Arc};
 
-use p2p::initialize_zones_p2p;
+use anyhow::Error;
 use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
 use tracing::{error, info, level_filters::LevelFilter};
@@ -36,7 +36,9 @@ use txpool::IncomingTxHandler;
 use crate::{
     config::Config,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
+    logging::eprintln_red,
     logging::CupratedTracingFilter,
+    p2p::initialize_zones_p2p,
     tor::{initialize_tor_if_enabled, TorMode},
 };
 
@@ -54,26 +56,36 @@ mod tor;
 mod txpool;
 mod version;
 
-fn main() {
+fn main() -> ExitCode {
+    match main_inner() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln_red(&format!("{s}"));
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn main_inner() -> Result<(), anyhow::Error> {
     // Initialize the killswitch.
     killswitch::init_killswitch();
 
     // Initialize global static `LazyLock` data.
     statics::init_lazylock_statics();
 
-    let config = config::read_config_and_args();
+    let config = config::read_config_and_args()?;
 
     blockchain::set_fast_sync_hashes(config.fast_sync, config.network());
 
     // Initialize logging.
-    logging::init_logging(&config);
+    logging::init_logging(&config)?;
 
     //Printing configuration
     info!("{config}");
 
     // Initialize the thread-pools
 
-    init_global_rayon_pool(&config);
+    init_global_rayon_pool(&config)?;
 
     let rt = init_tokio_rt(&config);
 
@@ -89,12 +101,12 @@ fn main() {
             Arc::clone(&db_thread_pool),
         )
         .inspect_err(|e| error!("Blockchain database error: {e}"))
-        .expect(DATABASE_CORRUPT_MSG);
+        .map_err(|_| DATABASE_CORRUPT_MSG.into())?;
 
     let (txpool_read_handle, txpool_write_handle, _) =
         cuprate_txpool::service::init_with_pool(config.txpool_config(), db_thread_pool)
             .inspect_err(|e| error!("Txpool database error: {e}"))
-            .expect(DATABASE_CORRUPT_MSG);
+            .map_err(|_| DATABASE_CORRUPT_MSG.into())?;
 
     // Initialize async tasks.
 
@@ -103,10 +115,10 @@ fn main() {
         blockchain_write_handle
             .ready()
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .map_err(|_| PANIC_CRITICAL_SERVICE_ERROR.into())?
             .call(BlockchainWriteRequest::FlushAltBlocks)
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+            .map_err(|_| PANIC_CRITICAL_SERVICE_ERROR.into())?;
 
         // Check add the genesis block to the blockchain.
         blockchain::check_add_genesis(
@@ -114,13 +126,12 @@ fn main() {
             &mut blockchain_write_handle,
             config.network(),
         )
-        .await;
+        .await?;
 
         // Start the context service and the block/tx verifier.
         let context_svc =
             blockchain::init_consensus(blockchain_read_handle.clone(), config.context_config())
-                .await
-                .unwrap();
+                .await?;
 
         // Bootstrap or configure Tor if enabled.
         let tor_context = initialize_tor_if_enabled(&config).await;
@@ -133,7 +144,7 @@ fn main() {
             txpool_read_handle.clone(),
             tor_context,
         )
-        .await;
+        .await?;
 
         // Create the incoming tx handler service.
         let tx_handler = IncomingTxHandler::init(
@@ -170,7 +181,7 @@ fn main() {
             context_svc.clone(),
             txpool_read_handle,
             tx_handler,
-        );
+        )?;
 
         // Start the command listener.
         if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
@@ -178,32 +189,30 @@ fn main() {
             std::thread::spawn(|| commands::command_listener(command_tx));
 
             // Wait on the io_loop, spawned on a separate task as this improves performance.
-            tokio::spawn(commands::io_loop(command_rx, context_svc))
-                .await
-                .unwrap();
+            tokio::spawn(commands::io_loop(command_rx, context_svc)).await?;
         } else {
             // If no STDIN, await OS exit signal.
             info!("Terminal/TTY not detected, disabling STDIN commands");
-            tokio::signal::ctrl_c().await.unwrap();
+            tokio::signal::ctrl_c().await?;
         }
     });
+
+    Ok(())
 }
 
 /// Initialize the [`tokio`] runtime.
-fn init_tokio_rt(config: &Config) -> tokio::runtime::Runtime {
-    tokio::runtime::Builder::new_multi_thread()
+fn init_tokio_rt(config: &Config) -> Result<tokio::runtime::Runtime, Error> {
+    Ok(tokio::runtime::Builder::new_multi_thread()
         .worker_threads(config.tokio.threads)
         .thread_name("cuprated-tokio")
         .enable_all()
-        .build()
-        .unwrap()
+        .build()?)
 }
 
 /// Initialize the global [`rayon`] thread-pool.
-fn init_global_rayon_pool(config: &Config) {
-    rayon::ThreadPoolBuilder::new()
+fn init_global_rayon_pool(config: &Config) -> Result<(), Error> {
+    Ok(rayon::ThreadPoolBuilder::new()
         .num_threads(config.rayon.threads)
         .thread_name(|index| format!("cuprated-rayon-{index}"))
-        .build_global()
-        .unwrap();
+        .build_global()?)
 }

@@ -8,6 +8,7 @@ use std::{
     time::Duration,
 };
 
+use anyhow::anyhow;
 use arti_client::KeystoreSelector;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
@@ -68,18 +69,15 @@ const HEADER: &str = r"##     ____                      _
 ";
 
 /// Reads the args & config file, returning a [`Config`].
-pub fn read_config_and_args() -> Config {
+pub fn read_config_and_args() -> Result<Config, anyhow::Error> {
     let args = args::Args::parse();
     args.do_quick_requests();
 
     let config: Config = if let Some(config_file) = &args.config_file {
-        // If a config file was set in the args try to read it and exit if we can't.
+        // If a config file was set in the args try to read it.
         match Config::read_from_path(config_file) {
             Ok(config) => config,
-            Err(e) => {
-                eprintln_red(&format!("Failed to read config from file: {e}"));
-                std::process::exit(1);
-            }
+            Err(e) => return Err(anyhow!("Failed to read config from file: {e}")),
         }
     } else {
         // First attempt to read the config file from the current directory.
@@ -99,8 +97,7 @@ pub fn read_config_and_args() -> Config {
                     eprintln_red(DEFAULT_CONFIG_WARNING);
                     std::thread::sleep(DEFAULT_CONFIG_STARTUP_DELAY);
                 }
-            })
-            .unwrap_or_default()
+            })?
     };
 
     args.apply_args(config)
@@ -208,8 +205,6 @@ impl Config {
                     "Failed to parse config file at: {}",
                     file.as_ref().to_string_lossy()
                 ));
-                eprintln_red(&format!("{e}"));
-                std::process::exit(1);
             })?)
     }
 
