@@ -280,11 +280,10 @@ impl<T> ProtocolRequestHandler for T where
 }
 
 pub trait ProtocolRequestHandlerMaker<Z: NetworkZone>:
-    tower::MakeService<
+    tower::Service<
         client::PeerInformation<Z::Addr>,
-        ProtocolRequest,
-        MakeError = tower::BoxError,
-        Service: ProtocolRequestHandler,
+        Error = tower::BoxError,
+        Response: ProtocolRequestHandler,
         Future: Send + 'static,
     > + Send
     + 'static
@@ -292,11 +291,10 @@ pub trait ProtocolRequestHandlerMaker<Z: NetworkZone>:
 }
 
 impl<T, Z: NetworkZone> ProtocolRequestHandlerMaker<Z> for T where
-    T: tower::MakeService<
+    T: tower::Service<
             client::PeerInformation<Z::Addr>,
-            ProtocolRequest,
-            MakeError = tower::BoxError,
-            Service: ProtocolRequestHandler,
+            Error = tower::BoxError,
+            Response: ProtocolRequestHandler,
             Future: Send + 'static,
         > + Send
         + 'static
