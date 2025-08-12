@@ -5,7 +5,27 @@ edition = "2021"
 license = "MIT"
 authors = ["SyntheticBird"]
 
+[features]
+default = ["static"]
+static = ["arti-client/static"]
+
 [dependencies]
+cuprate-p2p-core = { workspace = true }
+cuprate-wire = { workspace = true }
+
+async-trait = { workspace = true }
+futures = { workspace = true }
+tokio = { workspace = true, features = ["net"] }
+tokio-socks   = { workspace = true, features = ["tokio"] }
+tokio-util = { workspace = true, features = ["codec"] }
+arti-client = { workspace = true, features = ["tokio", "native-tls", "onion-service-client", "onion-service-service", "experimental-api", "static-sqlite"] }
+tor-config-path = { workspace = true }
+tor-cell        = { workspace = true }
+tor-hsservice   = { workspace = true }
+tor-proto       = { workspace = true }
+tor-rtcompat    = { workspace = true }
+
+tracing = { workspace = true }
 
 [lints]
 workspace = true

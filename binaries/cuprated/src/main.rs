@@ -34,7 +34,10 @@ use cuprate_types::blockchain::BlockchainWriteRequest;
 use txpool::IncomingTxHandler;
 
 use crate::{
-    config::Config, constants::PANIC_CRITICAL_SERVICE_ERROR, logging::CupratedTracingFilter,
+    config::Config,
+    constants::PANIC_CRITICAL_SERVICE_ERROR,
+    logging::CupratedTracingFilter,
+    tor::{initialize_tor_if_enabled, TorMode},
 };
 
 mod blockchain;
@@ -47,6 +50,7 @@ mod p2p;
 mod rpc;
 mod signals;
 mod statics;
+mod tor;
 mod txpool;
 mod version;
 
@@ -118,14 +122,16 @@ fn main() {
                 .await
                 .unwrap();
 
+        // Bootstrap or configure Tor if enabled.
+        let tor_context = initialize_tor_if_enabled(&config).await;
+
         // Start p2p network zones
         let (network_interfaces, tx_handler_subscribers) = p2p::initialize_zones_p2p(
             &config,
             context_svc.clone(),
-            blockchain_write_handle.clone(),
             blockchain_read_handle.clone(),
-            txpool_write_handle.clone(),
             txpool_read_handle.clone(),
+            tor_context,
         )
         .await;
 
@@ -133,6 +139,7 @@ fn main() {
         let tx_handler = IncomingTxHandler::init(
             config.storage.txpool.clone(),
             network_interfaces.clearnet_network_interface.clone(),
+            network_interfaces.tor_network_interface,
             txpool_write_handle.clone(),
             txpool_read_handle.clone(),
             context_svc.clone(),

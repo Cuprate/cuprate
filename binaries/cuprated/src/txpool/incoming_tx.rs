@@ -23,7 +23,7 @@ use cuprate_dandelion_tower::{
 };
 use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_p2p::NetworkInterface;
-use cuprate_p2p_core::ClearNet;
+use cuprate_p2p_core::{ClearNet, Tor};
 use cuprate_txpool::{
     service::{
         interface::{
@@ -42,9 +42,9 @@ use crate::{
     p2p::CrossNetworkInternalPeerId,
     signals::REORG_LOCK,
     txpool::{
-        dandelion::{self, DiffuseService},
+        dandelion::{self, AnonTxService, ConcreteDandelionRouter, MainDandelionRouter},
         manager::{start_txpool_manager, TxpoolManagerHandle},
-        relay_rules::check_tx_relay_rules,
+        relay_rules::{check_tx_relay_rules, RelayRuleError},
         txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
         RelayRuleError,
     },
@@ -111,16 +111,16 @@ impl IncomingTxHandler {
     pub async fn init(
         txpool_config: TxpoolConfig,
         clear_net: NetworkInterface<ClearNet>,
+        tor_net: Option<NetworkInterface<Tor>>,
         txpool_write_handle: TxpoolWriteHandle,
         txpool_read_handle: TxpoolReadHandle,
         blockchain_context_cache: BlockchainContextService,
         blockchain_read_handle: BlockchainReadHandle,
     ) -> Self {
-        let diffuse_service = DiffuseService {
-            clear_net_broadcast_service: clear_net.broadcast_svc(),
-        };
+        let clearnet_router = dandelion::dandelion_router(clear_net);
+        let tor_router = tor_net.map(AnonTxService::new);
 
-        let dandelion_router = dandelion::dandelion_router(clear_net);
+        let dandelion_router = MainDandelionRouter::new(clearnet_router, tor_router);
 
         let (promote_tx, promote_rx) = mpsc::channel(25);
 

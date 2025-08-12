@@ -167,6 +167,7 @@ axum                  = { version = "0.7", default-features = false }
 anyhow                = { version = "1", default-features = false }
 arc-swap              = { version = "1", default-features = false }
 arrayvec              = { version = "0.7", default-features = false }
+arti-client           = { version = "0.32", default-features = false }
 async-trait           = { version = "0.1", default-features = false }
 bitflags              = { version = "2", default-features = false }
 blake3                = { version = "1", default-features = false }
@@ -203,11 +204,18 @@ thiserror             = { version = "1", default-features = false }
 thread_local          = { version = "1", default-features = false }
 tokio-util            = { version = "0.7", default-features = false }
 tokio-stream          = { version = "0.1", default-features = false }
+tokio-socks           = { git = "https://github.com/Cuprate/tokio-socks.git", rev = "8737caf", default-features = false }
 tokio                 = { version = "1", default-features = false }
 tower                 = { git = "https://github.com/Cuprate/tower.git", rev = "6c7faf0", default-features = false } # <https://github.com/tower-rs/tower/pull/796>
 tower-http            = { version = "0.6", default-features = false }
 toml                  = { version = "0.8", default-features = false }
 toml_edit             = { version = "0.22", default-features = false }
+tor-cell              = { version = "0.32", default-features = false }
+tor-config-path       = { version = "0.32", default-features = false }
+tor-hsservice         = { version = "0.32", default-features = false }
+tor-persist           = { version = "0.32", default-features = false }
+tor-proto             = { version = "0.32", default-features = false }
+tor-rtcompat          = { version = "0.32", default-features = false }
 tracing-appender      = { version = "0.2", default-features = false }
 tracing-subscriber    = { version = "0.3", default-features = false }
 tracing               = { version = "0.1", default-features = false }

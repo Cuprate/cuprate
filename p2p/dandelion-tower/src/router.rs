@@ -183,8 +183,14 @@ where
                 .map_err(DandelionRouterError::OutboundPeerStreamError))
             .ok_or(DandelionRouterError::OutboundPeerDiscoverExited)??
             {
-                OutboundPeer::Peer(key, svc) => {
-                    self.stem_peers.insert(key, svc);
+                OutboundPeer::Peer(key, mut svc) => {
+                    let poll = svc.poll_ready(cx);
+
+                    self.stem_peers.insert(key.clone(), svc);
+
+                    if ready!(poll).is_err() {
+                        self.stem_peers.remove(&key);
+                    }
                 }
                 OutboundPeer::Exhausted => {
                     tracing::warn!("Failed to retrieve enough outbound peers for optimal dandelion++, privacy may be degraded.");
