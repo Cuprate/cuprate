@@ -347,6 +347,7 @@ where
                 .ready()
                 .await?
                 .call(AddressBookRequest::IncomingPeerList(
+                    addr,
                     handshake_res
                         .local_peerlist_new
                         .into_iter()
@@ -486,6 +487,7 @@ where
         handle,
         direction,
         pruning_seed,
+        basic_node_data: peer_node_data,
         core_sync_data: Arc::new(Mutex::new(peer_core_sync)),
     };
 
