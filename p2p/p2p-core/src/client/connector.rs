@@ -17,7 +17,7 @@ use tower::{Service, ServiceExt};
 use crate::{
     client::{handshaker::HandShaker, Client, DoHandshakeRequest, HandshakeError, InternalPeerID},
     AddressBook, BroadcastMessage, ConnectionDirection, CoreSyncSvc, NetworkZone,
-    ProtocolRequestHandlerMaker,
+    ProtocolRequestHandlerMaker, Transport,
 };
 
 /// A request to connect to a peer.
@@ -32,24 +32,26 @@ pub struct ConnectRequest<Z: NetworkZone> {
 }
 
 /// The connector service, this service connects to peer and returns the [`Client`].
-pub struct Connector<Z: NetworkZone, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr> {
-    handshaker: HandShaker<Z, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>,
+#[derive(Clone)]
+pub struct Connector<Z: NetworkZone, T: Transport<Z>, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr> {
+    handshaker: HandShaker<Z, T, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>,
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
-    Connector<Z, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
+impl<Z: NetworkZone, T: Transport<Z>, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
+    Connector<Z, T, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
 {
     /// Create a new connector from a handshaker.
     pub const fn new(
-        handshaker: HandShaker<Z, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>,
+        handshaker: HandShaker<Z, T, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>,
     ) -> Self {
         Self { handshaker }
     }
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr, BrdcstStrm>
-    Service<ConnectRequest<Z>> for Connector<Z, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
+impl<Z: NetworkZone, T, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr, BrdcstStrm>
+    Service<ConnectRequest<Z>> for Connector<Z, T, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
 where
+    T: Transport<Z>,
     AdrBook: AddressBook<Z> + Clone,
     CSync: CoreSyncSvc + Clone,
     ProtoHdlrMkr: ProtocolRequestHandlerMaker<Z> + Clone,
@@ -70,7 +72,8 @@ where
         let mut handshaker = self.handshaker.clone();
 
         async move {
-            let (peer_stream, peer_sink) = Z::connect_to_peer(req.addr).await?;
+            let (peer_stream, peer_sink) =
+                T::connect_to_peer(req.addr, handshaker.transport_config()).await?;
             let req = DoHandshakeRequest {
                 addr: InternalPeerID::KnownAddr(req.addr),
                 permit: req.permit,

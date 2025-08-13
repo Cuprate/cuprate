@@ -254,7 +254,7 @@ pub fn get_block_blob_with_tx_indexes(
     Ok((block, miner_tx_idx, numb_txs))
 }
 
-//---------------------------------------------------------------------------------------------------- `get_block_extended_header_*`
+//---------------------------------------------------------------------------------------------------- `get_block_complete_entry_*`
 /// Retrieve a [`BlockCompleteEntry`] from the database.
 ///
 #[doc = doc_error!()]
@@ -263,8 +263,18 @@ pub fn get_block_complete_entry(
     tables: &impl TablesIter,
 ) -> Result<BlockCompleteEntry, RuntimeError> {
     let block_height = tables.block_heights().get(block_hash)?;
+    get_block_complete_entry_from_height(&block_height, tables)
+}
+
+/// Retrieve a [`BlockCompleteEntry`] from the database.
+///
+#[doc = doc_error!()]
+pub fn get_block_complete_entry_from_height(
+    block_height: &BlockHeight,
+    tables: &impl TablesIter,
+) -> Result<BlockCompleteEntry, RuntimeError> {
     let (block_blob, miner_tx_idx, numb_non_miner_txs) =
-        get_block_blob_with_tx_indexes(&block_height, tables)?;
+        get_block_blob_with_tx_indexes(block_height, tables)?;
 
     let first_tx_idx = miner_tx_idx + 1;
 
@@ -342,6 +352,33 @@ pub fn get_block_extended_header_top(
     let height = chain_height(tables.block_heights())?.saturating_sub(1);
     let header = get_block_extended_header_from_height(&height, tables)?;
     Ok((header, height))
+}
+
+//---------------------------------------------------------------------------------------------------- Block
+/// Retrieve a [`Block`] via its [`BlockHeight`].
+#[doc = doc_error!()]
+#[inline]
+pub fn get_block(tables: &impl Tables, block_height: &BlockHeight) -> DbResult<Block> {
+    let header_blob = tables.block_header_blobs().get(block_height)?.0;
+    let header = BlockHeader::read(&mut header_blob.as_slice())?;
+
+    let transactions = tables.block_txs_hashes().get(block_height)?.0;
+    let miner_tx_id = tables.block_infos().get(block_height)?.mining_tx_index;
+    let miner_transaction = crate::ops::tx::get_tx_from_id(&miner_tx_id, tables.tx_blobs())?;
+
+    Ok(Block {
+        header,
+        miner_transaction,
+        transactions,
+    })
+}
+
+/// Retrieve a [`Block`] via its [`BlockHash`].
+#[doc = doc_error!()]
+#[inline]
+pub fn get_block_by_hash(tables: &impl Tables, block_hash: &BlockHash) -> DbResult<Block> {
+    let block_height = tables.block_heights().get(block_hash)?;
+    get_block(tables, &block_height)
 }
 
 //---------------------------------------------------------------------------------------------------- Misc

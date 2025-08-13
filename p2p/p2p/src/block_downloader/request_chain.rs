@@ -79,12 +79,12 @@ pub(crate) async fn request_chain_entry_from_peer<N: NetworkZone>(
 ///
 /// We then wait for their response and choose the peer who claims the highest cumulative difficulty.
 #[instrument(level = "error", skip_all)]
-pub async fn initial_chain_search<N: NetworkZone, C>(
+pub(super) async fn initial_chain_search<N: NetworkZone, C>(
     peer_set: &mut BoxCloneService<PeerSetRequest, PeerSetResponse<N>, tower::BoxError>,
     mut our_chain_svc: C,
 ) -> Result<ChainTracker<N>, BlockDownloadError>
 where
-    C: Service<ChainSvcRequest, Response = ChainSvcResponse, Error = tower::BoxError>,
+    C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>,
 {
     tracing::debug!("Getting our chain history");
     // Get our history.
@@ -214,7 +214,15 @@ where
         first_entry.ids.len()
     );
 
-    let tracker = ChainTracker::new(first_entry, expected_height, our_genesis, previous_id);
+    let tracker = ChainTracker::new(
+        first_entry,
+        expected_height,
+        our_genesis,
+        previous_id,
+        &mut our_chain_svc,
+    )
+    .await
+    .map_err(|_| BlockDownloadError::ChainInvalid)?;
 
     Ok(tracker)
 }

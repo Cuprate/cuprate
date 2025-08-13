@@ -8,7 +8,7 @@ use tokio::sync::{mpsc, Notify};
 use tower::{BoxError, Service, ServiceExt};
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
-use cuprate_consensus::{generate_genesis_block, BlockChainContextService, ContextConfig};
+use cuprate_consensus::{generate_genesis_block, BlockchainContextService, ContextConfig};
 use cuprate_cryptonight::cryptonight_hash_v0;
 use cuprate_p2p::{block_downloader::BlockDownloaderConfig, NetworkInterface};
 use cuprate_p2p_core::{ClearNet, Network};
@@ -20,15 +20,15 @@ use cuprate_types::{
 use crate::constants::PANIC_CRITICAL_SERVICE_ERROR;
 
 mod chain_service;
+mod fast_sync;
 pub mod interface;
 mod manager;
 mod syncer;
 mod types;
 
+pub use fast_sync::set_fast_sync_hashes;
 pub use manager::init_blockchain_manager;
-pub use types::{
-    ConcreteBlockVerifierService, ConcreteTxVerifierService, ConsensusBlockchainReadHandle,
-};
+pub use types::ConsensusBlockchainReadHandle;
 
 /// Checks if the genesis block is in the blockchain and adds it if not.
 pub async fn check_add_genesis(
@@ -81,22 +81,12 @@ pub async fn check_add_genesis(
 pub async fn init_consensus(
     blockchain_read_handle: BlockchainReadHandle,
     context_config: ContextConfig,
-) -> Result<
-    (
-        ConcreteBlockVerifierService,
-        ConcreteTxVerifierService,
-        BlockChainContextService,
-    ),
-    BoxError,
-> {
+) -> Result<BlockchainContextService, BoxError> {
     let read_handle = ConsensusBlockchainReadHandle::new(blockchain_read_handle, BoxError::from);
 
     let ctx_service =
         cuprate_consensus::initialize_blockchain_context(context_config, read_handle.clone())
             .await?;
 
-    let (block_verifier_svc, tx_verifier_svc) =
-        cuprate_consensus::initialize_verifier(read_handle, ctx_service.clone());
-
-    Ok((block_verifier_svc, tx_verifier_svc, ctx_service))
+    Ok(ctx_service)
 }

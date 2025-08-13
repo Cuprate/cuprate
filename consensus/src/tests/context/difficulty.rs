@@ -17,8 +17,12 @@ const TEST_LAG: usize = 2;
 
 const TEST_TOTAL_ACCOUNTED_BLOCKS: usize = TEST_WINDOW + TEST_LAG;
 
-pub(crate) const TEST_DIFFICULTY_CONFIG: DifficultyCacheConfig =
-    DifficultyCacheConfig::new(TEST_WINDOW, TEST_CUT, TEST_LAG);
+pub(crate) const TEST_DIFFICULTY_CONFIG: DifficultyCacheConfig = DifficultyCacheConfig {
+    window: TEST_WINDOW,
+    cut: TEST_CUT,
+    lag: TEST_LAG,
+    fixed_difficulty: None,
+};
 
 #[tokio::test]
 async fn first_3_blocks_fixed_difficulty() -> Result<(), tower::BoxError> {

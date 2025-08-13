@@ -1,0 +1,80 @@
+## cuprated.service
+##
+## This file is a relatively hardened systemd
+## service for `cuprated`, it:
+##
+## - requires a `cuprate` user exists
+## - restricts filesystem access to `/home/cuprate`
+## - requires `/home/cuprate/cuprated`
+##   and `/home/cuprate/Cuprated.toml` exist
+##
+## For service file documentation, see:
+## <https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html>
+
+[Unit]
+Description=Cuprate Monero Node
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+## User.
+User=cuprate
+Group=cuprate
+Type=simple
+
+## Max memory.
+MemoryAccounting=yes
+MemoryHigh=4G
+MemoryMax=4G
+
+## Start command.
+ExecStart=/home/cuprate/cuprated --config-file /home/cuprate/Cuprated.toml
+
+## Restart every 5s on failure.
+KillSignal=SIGINT
+Restart=on-failure
+RestartSec=5s
+
+## Open file limit.
+LimitNOFILE=16384
+
+## On exit, wait 1 minute before sending SIGKILL.
+TimeoutStopSec=60s
+SendSIGKILL=true
+
+## Restrict filesystem access.
+BindPaths=/home/cuprate
+
+## Security hardening.
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+CapabilityBoundingSet=
+DeviceAllow=
+LockPersonality=true
+NoNewPrivileges=true
+ProcSubset=pid
+RemoveIPC=true
+SystemCallArchitectures=native
+UMask=0077
+
+PrivateDevices=true
+PrivateTmp=true
+PrivateUsers=true
+
+ProtectClock=true
+ProtectControlGroups=true
+ProtectHome=read-only
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectProc=invisible
+ProtectSystem=strict
+
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

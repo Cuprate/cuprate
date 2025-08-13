@@ -12,7 +12,65 @@ members = [
 
 	# Net
 	"net/epee-encoding",
-	"net/fixed-bytes",
+	"net/levin",
+	"net/wire",
+
+	# P2P
+	"p2p/p2p",
+	"p2p/p2p-core",
+	"p2p/p2p-transport",
+	"p2p/bucket",
+	"p2p/dandelion-tower",
+	"p2p/async-buffer",
+	"p2p/address-book",
+
+	# Storage
+	"storage/blockchain",
+	"storage/service",
+	"storage/txpool",
+	"storage/database",
+
+	# Types
+	"types/types",
+	"types/hex",
+	"types/fixed-bytes",
+
+	# RPC
+	"rpc/json-rpc",
+	"rpc/types",
+	"rpc/interface",
+
+	# ZMQ
+	"zmq/types",
+
+	# Misc
+	"constants",
+	"cryptonight",
+	"helper",
+	"pruning",
+	"test-utils",
+
+	# Fuzz
+	"fuzz"
+]
+
+# Windows is a pain, so instead of making the fuzz tests work on windows, we just don't build the fuzz target on windows.
+# This is done by defining the `default-members` here to include everything but `fuzz`.
+# You can still build everything, including `fuzz` by using `--workspace`.
+#
+# Remember to update this if you add any new crates!
+default-members = [
+	# Binaries
+	"binaries/cuprated",
+
+	# Consensus
+	"consensus",
+	"consensus/context",
+	"consensus/fast-sync",
+	"consensus/rules",
+
+	# Net
+	"net/epee-encoding",
 	"net/levin",
 	"net/wire",
 
@@ -30,6 +88,11 @@ members = [
 	"storage/txpool",
 	"storage/database",
 
+	# Types
+	"types/types",
+	"types/hex",
+	"types/fixed-bytes",
+
 	# RPC
 	"rpc/json-rpc",
 	"rpc/types",
@@ -44,7 +107,6 @@ members = [
 	"helper",
 	"pruning",
 	"test-utils",
-	"types",
 ]
 
 [profile.release]
@@ -77,14 +139,14 @@ cuprate-consensus-context = { path = "consensus/context",         default-featur
 cuprate-cryptonight       = { path = "cryptonight",               default-features = false }
 cuprate-helper            = { path = "helper",                    default-features = false }
 cuprate-epee-encoding     = { path = "net/epee-encoding",         default-features = false }
-cuprate-fixed-bytes       = { path = "net/fixed-bytes",           default-features = false }
 cuprate-levin             = { path = "net/levin",                 default-features = false }
 cuprate-wire              = { path = "net/wire",                  default-features = false }
+cuprate-async-buffer      = { path = "p2p/async-buffer",          default-features = false }
 cuprate-p2p               = { path = "p2p/p2p",                   default-features = false }
 cuprate-p2p-core          = { path = "p2p/p2p-core",              default-features = false }
 cuprate-p2p-bucket        = { path = "p2p/p2p-bucket",            default-features = false }
+cuprate-p2p-transport     = { path = "p2p/p2p-transport",         default-features = false }
 cuprate-dandelion-tower   = { path = "p2p/dandelion-tower",       default-features = false }
-cuprate-async-buffer      = { path = "p2p/async-buffer",          default-features = false }
 cuprate-address-book      = { path = "p2p/address-book",          default-features = false }
 cuprate-blockchain        = { path = "storage/blockchain",        default-features = false }
 cuprate-database          = { path = "storage/database",          default-features = false }
@@ -92,15 +154,20 @@ cuprate-database-service  = { path = "storage/service",           default-featur
 cuprate-txpool            = { path = "storage/txpool",            default-features = false }
 cuprate-pruning           = { path = "pruning",                   default-features = false }
 cuprate-test-utils        = { path = "test-utils",                default-features = false }
-cuprate-types             = { path = "types",                     default-features = false }
+cuprate-types             = { path = "types/types",               default-features = false }
+cuprate-hex               = { path = "types/hex",                 default-features = false }
+cuprate-fixed-bytes       = { path = "types/fixed-bytes",         default-features = false }
 cuprate-json-rpc          = { path = "rpc/json-rpc",              default-features = false }
 cuprate-rpc-types         = { path = "rpc/types",                 default-features = false }
 cuprate-rpc-interface     = { path = "rpc/interface",             default-features = false }
 cuprate-zmq-types         = { path = "zmq/types",                 default-features = false }
 
 # External dependencies
+axum                  = { version = "0.8", default-features = false }
 anyhow                = { version = "1", default-features = false }
+arc-swap              = { version = "1", default-features = false }
 arrayvec              = { version = "0.7", default-features = false }
+arti-client           = { version = "0.33", default-features = false }
 async-trait           = { version = "0.1", default-features = false }
 bitflags              = { version = "2", default-features = false }
 blake3                = { version = "1", default-features = false }
@@ -110,50 +177,62 @@ bytes                 = { version = "1", default-features = false }
 cfg-if                = { version = "1", default-features = false }
 clap                  = { version = "4", default-features = false }
 chrono                = { version = "0.4", default-features = false }
-crypto-bigint         = { version = "0.5", default-features = false }
+crypto-bigint         = { version = "0.6", default-features = false }
 crossbeam             = { version = "0.8", default-features = false }
 const_format          = { version = "0.2", default-features = false }
 curve25519-dalek      = { version = "4", default-features = false }
 dashmap               = { version = "6", default-features = false }
-dirs                  = { version = "5", default-features = false }
+dirs                  = { version = "6", default-features = false }
 futures               = { version = "0.3", default-features = false }
 hex                   = { version = "0.4", default-features = false }
-hex-literal           = { version = "0.4", default-features = false }
+hex-literal           = { version = "1", default-features = false }
 indexmap              = { version = "2", default-features = false }
-monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "e6fdef6", default-features = false }
+monero-address        = { git = "https://github.com/Cuprate/serai.git", rev = "e6ae8c2", default-features = false }
+monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "e6ae8c2", default-features = false }
+nu-ansi-term          = { version = "0.46", default-features = false }
 paste                 = { version = "1", default-features = false }
 pin-project           = { version = "1", default-features = false }
-randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev = "0028464", default-features = false }
+randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev = "567bdca", default-features = false }
 rand                  = { version = "0.8", default-features = false }
 rand_distr            = { version = "0.4", default-features = false }
 rayon                 = { version = "1", default-features = false }
+safelog               = { version = "0.4", default-features = false }
 serde_bytes           = { version = "0.11", default-features = false }
 serde_json            = { version = "1", default-features = false }
 serde                 = { version = "1", default-features = false }
-strum                 = { version = "0.26", default-features = false }
-thiserror             = { version = "1", default-features = false }
+strum                 = { version = "0.27", default-features = false }
+thiserror             = { version = "2", default-features = false }
 thread_local          = { version = "1", default-features = false }
 tokio-util            = { version = "0.7", default-features = false }
 tokio-stream          = { version = "0.1", default-features = false }
+tokio-socks           = { git = "https://github.com/Cuprate/tokio-socks.git", rev = "8737caf", default-features = false }
 tokio                 = { version = "1", default-features = false }
-tower                 = { git = "https://github.com/Cuprate/tower.git", rev = "6c7faf0", default-features = false } # <https://github.com/tower-rs/tower/pull/796>
-toml                  = { version = "0.8", default-features = false }
+tower                 = { version = "0.5", default-features = false }
+tower-http            = { version = "0.6", default-features = false }
+toml                  = { version = "0.9", default-features = false }
+toml_edit             = { version = "0.23", default-features = false }
+tor-cell              = { version = "0.33", default-features = false }
+tor-config-path       = { version = "0.33", default-features = false }
+tor-hsservice         = { version = "0.33", default-features = false }
+tor-persist           = { version = "0.33", default-features = false }
+tor-proto             = { version = "0.33", default-features = false }
+tor-rtcompat          = { version = "0.33", default-features = false }
 tracing-appender      = { version = "0.2", default-features = false }
 tracing-subscriber    = { version = "0.3", default-features = false }
 tracing               = { version = "0.1", default-features = false }
 
 ## workspace.dev-dependencies
-monero-rpc                = { git = "https://github.com/Cuprate/serai.git", rev = "e6fdef6" }
-monero-simple-request-rpc = { git = "https://github.com/Cuprate/serai.git", rev = "e6fdef6" }
+monero-rpc                = { git = "https://github.com/Cuprate/serai.git", rev = "e6ae8c2" }
+monero-simple-request-rpc = { git = "https://github.com/Cuprate/serai.git", rev = "e6ae8c2" }
 tempfile                  = { version = "3" }
 pretty_assertions         = { version = "1" }
 proptest                  = { version = "1" }
-proptest-derive           = { version = "0.5" }
+proptest-derive           = { version = "0.6" }
 tokio-test                = { version = "0.4" }
+arbitrary                 = { version = "1" }
 
 ## TODO:
 ## Potential dependencies.
-# arc-swap  = { version = "1.6.0" }  # Atomically swappable Arc<T>          | https://github.com/vorner/arc-swap
 # itoa      = { version = "1.0.9" }  # Fast integer to string formatting    | https://github.com/dtolnay/itoa
 # notify    = { version = "6.1.1" }  # Filesystem watching                  | https://github.com/notify-rs/notify
 # once_cell = { version = "1.18.0" } # Lazy/one-time initialization         | https://github.com/matklad/once_cell
@@ -209,7 +288,6 @@ missing_transmute_annotations = "deny"
 mut_mut = "deny"
 needless_bitwise_bool = "deny"
 needless_character_iteration = "deny"
-needless_continue = "deny"
 needless_for_each = "deny"
 needless_maybe_sized = "deny"
 needless_raw_string_hashes = "deny"
@@ -278,6 +356,15 @@ used_underscore_items = "deny"
 unnecessary_map_or = "deny"
 map_all_any_identity = "deny"
 unnecessary_literal_bound = "deny"
+unnecessary_debug_formatting = "deny"
+elidable_lifetime_names = "deny"
+single_option_map = "deny"
+non_std_lazy_statics = "deny"
+unnecessary_semicolon = "deny"
+precedence_bits = "deny"
+as_pointer_underscore = "deny"
+literal_string_with_formatting_args = "deny"
+manual_midpoint = "deny"
 
 # Warm
 cast_possible_truncation = "deny"

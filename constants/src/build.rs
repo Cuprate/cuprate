@@ -15,6 +15,13 @@
 /// ```
 pub const COMMIT: &str = core::env!("COMMIT"); // Set in `constants/build.rs`.
 
+/// `debug` if debug build, else `release`.
+pub const BUILD: &str = if cfg!(debug_assertions) {
+    "debug"
+} else {
+    "release"
+};
+
 /// `true` if debug build, else `false`.
 pub const DEBUG: bool = cfg!(debug_assertions);
 

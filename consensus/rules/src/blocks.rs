@@ -44,19 +44,19 @@ pub enum BlockError {
     MinerTxError(#[from] MinerTxError),
 }
 
-/// A trait to represent the `RandomX` VM.
+/// A trait to represent the RandomX VM.
 pub trait RandomX {
     type Error;
 
     fn calculate_hash(&self, buf: &[u8]) -> Result<[u8; 32], Self::Error>;
 }
 
-/// Returns if this height is a `RandomX` seed height.
+/// Returns if this height is a RandomX seed height.
 pub const fn is_randomx_seed_height(height: usize) -> bool {
     height % RX_SEEDHASH_EPOCH_BLOCKS == 0
 }
 
-/// Returns the `RandomX` seed height for this block.
+/// Returns the RandomX seed height for this block.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#randomx-seed>
 pub const fn randomx_seed_height(height: usize) -> usize {
@@ -210,7 +210,7 @@ fn check_txs_unique(txs: &[[u8; 32]]) -> Result<(), BlockError> {
 
 /// This struct contains the data needed to verify a block, implementers MUST make sure
 /// the data in this struct is calculated correctly.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ContextToVerifyBlock {
     /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/weights.html#median-weight-for-coinbase-checks>
     pub median_weight_for_block_reward: usize,

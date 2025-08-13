@@ -9,13 +9,13 @@ use tokio::{
     sync::{mpsc, OwnedSemaphorePermit, Semaphore},
     task::JoinHandle,
 };
-use tokio_util::sync::PollSemaphore;
+use tokio_util::sync::{PollSemaphore, PollSender};
 use tower::{Service, ServiceExt};
 use tracing::Instrument;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_pruning::PruningSeed;
-use cuprate_wire::CoreSyncData;
+use cuprate_wire::{BasicNodeData, CoreSyncData};
 
 use crate::{
     handles::{ConnectionGuard, ConnectionHandle},
@@ -31,7 +31,7 @@ mod weak;
 
 pub use connector::{ConnectRequest, Connector};
 pub use handshaker::{DoHandshakeRequest, HandshakeError, HandshakerBuilder};
-pub use weak::WeakClient;
+pub use weak::{WeakBroadcastClient, WeakClient};
 
 /// An internal identifier for a given peer, will be their address if known
 /// or a random u128 if not.
@@ -40,14 +40,14 @@ pub enum InternalPeerID<A> {
     /// A known address.
     KnownAddr(A),
     /// An unknown address (probably an inbound anonymity network connection).
-    Unknown(u128),
+    Unknown([u8; 16]),
 }
 
 impl<A: Display> Display for InternalPeerID<A> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::KnownAddr(addr) => addr.fmt(f),
-            Self::Unknown(id) => f.write_str(&format!("Unknown, ID: {id}")),
+            Self::Unknown(id) => f.write_str(&format!("Unknown, ID: {}", hex::encode(id))),
         }
     }
 }
@@ -64,6 +64,8 @@ pub struct PeerInformation<A> {
     pub direction: ConnectionDirection,
     /// The peer's [`PruningSeed`].
     pub pruning_seed: PruningSeed,
+    /// The peer's [`BasicNodeData`].
+    pub basic_node_data: BasicNodeData,
     /// The [`CoreSyncData`] of this peer.
     ///
     /// Data across fields are not necessarily related, so [`CoreSyncData::top_id`] is not always the
@@ -85,7 +87,7 @@ pub struct Client<Z: NetworkZone> {
     pub info: PeerInformation<Z::Addr>,
 
     /// The channel to the [`Connection`](connection::Connection) task.
-    connection_tx: mpsc::Sender<connection::ConnectionTaskRequest>,
+    connection_tx: PollSender<connection::ConnectionTaskRequest>,
     /// The [`JoinHandle`] of the spawned connection task.
     connection_handle: JoinHandle<()>,
     /// The [`JoinHandle`] of the spawned timeout monitor task.
@@ -100,6 +102,12 @@ pub struct Client<Z: NetworkZone> {
     error: SharedError<PeerError>,
 }
 
+impl<Z: NetworkZone> Drop for Client<Z> {
+    fn drop(&mut self) {
+        self.info.handle.send_close_signal();
+    }
+}
+
 impl<Z: NetworkZone> Client<Z> {
     /// Creates a new [`Client`].
     pub(crate) fn new(
@@ -112,7 +120,7 @@ impl<Z: NetworkZone> Client<Z> {
     ) -> Self {
         Self {
             info,
-            connection_tx,
+            connection_tx: PollSender::new(connection_tx),
             timeout_handle,
             semaphore: PollSemaphore::new(semaphore),
             permit: None,
@@ -135,7 +143,7 @@ impl<Z: NetworkZone> Client<Z> {
     pub fn downgrade(&self) -> WeakClient<Z> {
         WeakClient {
             info: self.info.clone(),
-            connection_tx: self.connection_tx.downgrade(),
+            connection_tx: self.connection_tx.clone(),
             semaphore: self.semaphore.clone(),
             permit: None,
             error: self.error.clone(),
@@ -158,14 +166,17 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
             return Poll::Ready(Err(err));
         }
 
-        if self.permit.is_some() {
-            return Poll::Ready(Ok(()));
+        if self.permit.is_none() {
+            let permit = ready!(self.semaphore.poll_acquire(cx))
+                .expect("Client semaphore should not be closed!");
+
+            self.permit = Some(permit);
         }
 
-        let permit = ready!(self.semaphore.poll_acquire(cx))
-            .expect("Client semaphore should not be closed!");
-
-        self.permit = Some(permit);
+        if ready!(self.connection_tx.poll_reserve(cx)).is_err() {
+            let err = self.set_err(PeerError::ClientChannelClosed);
+            return Poll::Ready(Err(err));
+        }
 
         Poll::Ready(Ok(()))
     }
@@ -183,19 +194,13 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
             permit: Some(permit),
         };
 
-        if let Err(e) = self.connection_tx.try_send(req) {
+        if let Err(req) = self.connection_tx.send_item(req) {
             // The connection task could have closed between a call to `poll_ready` and the call to
             // `call`, which means if we don't handle the error here the receiver would panic.
-            use mpsc::error::TrySendError;
+            self.set_err(PeerError::ClientChannelClosed);
 
-            match e {
-                TrySendError::Closed(req) | TrySendError::Full(req) => {
-                    self.set_err(PeerError::ClientChannelClosed);
-
-                    let resp = Err(PeerError::ClientChannelClosed.into());
-                    drop(req.response_channel.send(resp));
-                }
-            }
+            let resp = Err(PeerError::ClientChannelClosed.into());
+            drop(req.into_inner().unwrap().response_channel.send(resp));
         }
 
         rx.into()

@@ -224,8 +224,10 @@ pub(crate) fn key_extend(key_bytes: &[u8; CN_AES_KEY_SIZE]) -> [u128; NUM_AES_RO
         let w2 = w1 ^ ((pprev_key >> 64) as u32);
         let w3 = w2 ^ ((pprev_key >> 96) as u32);
 
-        expanded_key[i] =
-            u128::from(w0) | u128::from(w1) << 32 | u128::from(w2) << 64 | u128::from(w3) << 96;
+        expanded_key[i] = u128::from(w0)
+            | (u128::from(w1) << 32)
+            | (u128::from(w2) << 64)
+            | (u128::from(w3) << 96);
 
         w0_prev = w3;
     }
@@ -256,7 +258,7 @@ pub(crate) fn round_fwd(state: u128, key: u128) -> u128 {
     r4 ^= CRYPTONIGHT_SBOX[768 + usize::from((state >> 88) as u8)];
 
     let mut new_state =
-        u128::from(r4) << 96 | u128::from(r3) << 64 | u128::from(r2) << 32 | u128::from(r1);
+        (u128::from(r4) << 96) | (u128::from(r3) << 64) | (u128::from(r2) << 32) | u128::from(r1);
     new_state ^= key;
     new_state
 }

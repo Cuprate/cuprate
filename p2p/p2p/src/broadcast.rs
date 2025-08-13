@@ -159,6 +159,13 @@ pub struct BroadcastSvc<N: NetworkZone> {
     tx_broadcast_channel_inbound: broadcast::Sender<BroadcastTxInfo<N>>,
 }
 
+impl<N: NetworkZone> BroadcastSvc<N> {
+    /// Create a mock [`BroadcastSvc`] that does nothing, useful for testing.
+    pub fn mock() -> Self {
+        init_broadcast_channels(BroadcastConfig::default()).0
+    }
+}
+
 impl<N: NetworkZone> Service<BroadcastRequest<N>> for BroadcastSvc<N> {
     type Response = ();
     type Error = std::convert::Infallible;
@@ -334,7 +341,7 @@ impl<N: NetworkZone> Stream for BroadcastMessageStream<N> {
                 txs.txs.len()
             );
             // no need to poll next_flush as we are ready now.
-            Poll::Ready(Some(BroadcastMessage::NewTransaction(txs)))
+            Poll::Ready(Some(BroadcastMessage::NewTransactions(txs)))
         } else {
             tracing::trace!("Diffusion flush timer expired but no txs to diffuse");
             // poll next_flush now to register the waker with it.
@@ -417,8 +424,8 @@ mod tests {
         let (mut brcst, outbound_mkr, inbound_mkr) =
             init_broadcast_channels::<TestNetZone<true>>(TEST_CONFIG);
 
-        let mut outbound_stream = pin!(outbound_mkr(InternalPeerID::Unknown(1)));
-        let mut inbound_stream = pin!(inbound_mkr(InternalPeerID::Unknown(1)));
+        let mut outbound_stream = pin!(outbound_mkr(InternalPeerID::Unknown([1; 16])));
+        let mut inbound_stream = pin!(inbound_mkr(InternalPeerID::Unknown([1; 16])));
 
         // Outbound should get 1 and 3, inbound should get 2 and 3.
 
@@ -459,7 +466,7 @@ mod tests {
             .unwrap();
 
         let match_tx = |mes, txs| match mes {
-            BroadcastMessage::NewTransaction(tx) => assert_eq!(tx.txs.as_slice(), txs),
+            BroadcastMessage::NewTransactions(tx) => assert_eq!(tx.txs.as_slice(), txs),
             BroadcastMessage::NewFluffyBlock(_) => panic!("Block broadcast?"),
         };
 
@@ -476,8 +483,8 @@ mod tests {
         let (mut brcst, outbound_mkr, inbound_mkr) =
             init_broadcast_channels::<TestNetZone<true>>(TEST_CONFIG);
 
-        let mut outbound_stream = pin!(outbound_mkr(InternalPeerID::Unknown(1)));
-        let mut inbound_stream = pin!(inbound_mkr(InternalPeerID::Unknown(1)));
+        let mut outbound_stream = pin!(outbound_mkr(InternalPeerID::Unknown([1; 16])));
+        let mut inbound_stream = pin!(inbound_mkr(InternalPeerID::Unknown([1; 16])));
 
         brcst
             .ready()
@@ -502,11 +509,11 @@ mod tests {
         let (mut brcst, outbound_mkr, inbound_mkr) =
             init_broadcast_channels::<TestNetZone<true>>(TEST_CONFIG);
 
-        let mut outbound_stream = pin!(outbound_mkr(InternalPeerID::Unknown(1)));
-        let mut outbound_stream_from = pin!(outbound_mkr(InternalPeerID::Unknown(0)));
+        let mut outbound_stream = pin!(outbound_mkr(InternalPeerID::Unknown([1; 16])));
+        let mut outbound_stream_from = pin!(outbound_mkr(InternalPeerID::Unknown([0; 16])));
 
-        let mut inbound_stream = pin!(inbound_mkr(InternalPeerID::Unknown(1)));
-        let mut inbound_stream_from = pin!(inbound_mkr(InternalPeerID::Unknown(0)));
+        let mut inbound_stream = pin!(inbound_mkr(InternalPeerID::Unknown([1; 16])));
+        let mut inbound_stream_from = pin!(inbound_mkr(InternalPeerID::Unknown([0; 16])));
 
         brcst
             .ready()
@@ -515,13 +522,13 @@ mod tests {
             .call(BroadcastRequest::Transaction {
                 tx_bytes: Bytes::from_static(&[1]),
                 direction: None,
-                received_from: Some(InternalPeerID::Unknown(0)),
+                received_from: Some(InternalPeerID::Unknown([0; 16])),
             })
             .await
             .unwrap();
 
         let match_tx = |mes, txs| match mes {
-            BroadcastMessage::NewTransaction(tx) => assert_eq!(tx.txs.as_slice(), txs),
+            BroadcastMessage::NewTransactions(tx) => assert_eq!(tx.txs.as_slice(), txs),
             BroadcastMessage::NewFluffyBlock(_) => panic!("Block broadcast?"),
         };
 

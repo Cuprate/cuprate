@@ -1,6 +1,6 @@
 [package]
 name = "cuprated"
-version = "0.0.1"
+version = "0.0.5"
 edition = "2021"
 description = "The Cuprate Rust Monero node."
 license = "AGPL-3.0-only"
@@ -9,35 +9,40 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/binaries/cuprated"
 
 [dependencies]
 # TODO: after v1.0.0, remove unneeded dependencies.
-cuprate-consensus         = { workspace = true }
-cuprate-fast-sync         = { workspace = true }
+cuprate-address-book      = { workspace = true }
+cuprate-async-buffer      = { workspace = true }
+cuprate-blockchain        = { workspace = true }
 cuprate-consensus-context = { workspace = true }
-cuprate-consensus-rules  = { workspace = true }
-cuprate-cryptonight      = { workspace = true }
-cuprate-helper           = { workspace = true, features = ["std", "serde", "time"] }
-cuprate-epee-encoding    = { workspace = true }
-cuprate-fixed-bytes      = { workspace = true }
-cuprate-levin            = { workspace = true }
-cuprate-wire             = { workspace = true }
-cuprate-p2p              = { workspace = true }
-cuprate-p2p-core         = { workspace = true }
-cuprate-dandelion-tower  = { workspace = true, features = ["txpool"] }
-cuprate-async-buffer     = { workspace = true }
-cuprate-address-book     = { workspace = true }
-cuprate-blockchain       = { workspace = true }
-cuprate-database-service = { workspace = true, features = ["serde"] }
-cuprate-txpool           = { workspace = true }
-cuprate-database         = { workspace = true, features = ["serde"] }
-cuprate-pruning          = { workspace = true }
-cuprate-test-utils       = { workspace = true }
-cuprate-types            = { workspace = true }
-cuprate-json-rpc         = { workspace = true }
-cuprate-rpc-interface    = { workspace = true }
-cuprate-rpc-types        = { workspace = true }
+cuprate-consensus-rules   = { workspace = true }
+cuprate-consensus         = { workspace = true }
+cuprate-constants         = { workspace = true, features = ["build", "rpc"] }
+cuprate-cryptonight       = { workspace = true }
+cuprate-dandelion-tower   = { workspace = true, features = ["txpool"] }
+cuprate-database-service  = { workspace = true, features = ["serde"] }
+cuprate-database          = { workspace = true, features = ["serde"] }
+cuprate-epee-encoding     = { workspace = true }
+cuprate-fast-sync         = { workspace = true }
+cuprate-fixed-bytes       = { workspace = true }
+cuprate-helper            = { workspace = true, features = ["std", "serde", "time", "net"] }
+cuprate-hex               = { workspace = true }
+cuprate-json-rpc          = { workspace = true }
+cuprate-levin             = { workspace = true }
+cuprate-p2p-core          = { workspace = true }
+cuprate-p2p-transport     = { workspace = true }
+cuprate-p2p               = { workspace = true }
+cuprate-pruning           = { workspace = true }
+cuprate-rpc-interface     = { workspace = true, features = ["dummy"] }
+cuprate-rpc-types         = { workspace = true, features = ["from"] }
+cuprate-test-utils        = { workspace = true }
+cuprate-txpool            = { workspace = true }
+cuprate-types             = { workspace = true, features = ["json"] }
+cuprate-wire              = { workspace = true }
 
 
 # TODO: after v1.0.0, remove unneeded dependencies.
+axum                  = { workspace = true, features = ["tokio", "http1", "http2"] }
 anyhow                = { workspace = true }
+arti-client           = { workspace = true, features = ["tokio", "native-tls", "onion-service-client", "onion-service-service", "static"] }
 async-trait           = { workspace = true }
 bitflags              = { workspace = true }
 borsh                 = { workspace = true }
@@ -49,33 +54,50 @@ chrono                = { workspace = true }
 crypto-bigint         = { workspace = true }
 crossbeam             = { workspace = true }
 curve25519-dalek      = { workspace = true }
-const_format          = { workspace = true }
+const_format          = { workspace = true, features = ["all"] }
 dashmap               = { workspace = true }
 dirs                  = { workspace = true }
 futures               = { workspace = true }
 hex                   = { workspace = true }
 hex-literal           = { workspace = true }
 indexmap              = { workspace = true }
+monero-address        = { workspace = true }
 monero-serai          = { workspace = true }
+nu-ansi-term          = { workspace = true }
 paste                 = { workspace = true }
 pin-project           = { workspace = true }
 randomx-rs            = { workspace = true }
 rand                  = { workspace = true }
 rand_distr            = { workspace = true }
 rayon                 = { workspace = true }
+safelog               = { workspace = true }
 serde_bytes           = { workspace = true }
 serde_json            = { workspace = true }
 serde                 = { workspace = true }
+strum                 = { workspace = true }
 thiserror             = { workspace = true }
 thread_local          = { workspace = true }
 tokio-util            = { workspace = true, features = ["rt"] }
 tokio-stream          = { workspace = true }
 tokio                 = { workspace = true }
-toml                  = { workspace = true, features = ["parse", "display"]}
-tower                 = { workspace = true }
+toml                  = { workspace = true, features = ["parse", "display", "serde"]}
+toml_edit             = { workspace = true, features = ["parse", "display"] }
+tor-hsservice         = { workspace = true }
+tor-persist           = { workspace = true }
+tor-rtcompat          = { workspace = true }
+tower                 = { workspace = true, features = ["limit"] }
+tower-http            = { workspace = true, features = ["limit"] }
 tracing-appender      = { workspace = true }
 tracing-subscriber    = { workspace = true, features = ["std", "fmt", "default"] }
 tracing               = { workspace = true, features = ["default"] }
+
+[dev-dependencies]
+tempfile          = { workspace = true }
+pretty_assertions = { workspace = true }
+
+[build-dependencies]
+cuprate-hex = { workspace = true }
+serde_json  = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true

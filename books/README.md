@@ -21,17 +21,16 @@ cargo install mdbook
 
 ## Building
 
-To build a book, go into a book's directory and build:
+To build a book, from the root of Cuprate:
 
 ```bash
 # This build Cuprate's user book.
-cd user/
-mdbook build
+mdbook build ./books/user
 ```
 
 The output will be in the `book` subdirectory (`user/book` for the above example). To open the book, you can open it in
 your web browser like so:
 
 ```bash
-mdbook build --open
+mdbook build ./books/user --open
 ```

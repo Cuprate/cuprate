@@ -1,4 +1,5 @@
 use std::{
+    collections::VecDeque,
     fmt::{Debug, Formatter},
     future::Future,
     pin::Pin,
@@ -25,8 +26,9 @@ use cuprate_p2p_core::{
 use cuprate_pruning::PruningSeed;
 use cuprate_types::{BlockCompleteEntry, TransactionBlobs};
 use cuprate_wire::{
+    common::PeerSupportFlags,
     protocol::{ChainResponse, GetObjectsResponse},
-    CoreSyncData,
+    BasicNodeData, CoreSyncData,
 };
 
 use crate::{
@@ -249,6 +251,14 @@ fn mock_block_downloader_client(blockchain: Arc<MockBlockchain>) -> Client<Clear
 
     let info = PeerInformation {
         id: InternalPeerID::Unknown(rand::random()),
+        basic_node_data: BasicNodeData {
+            my_port: 0,
+            network_id: [0; 16],
+            peer_id: 0,
+            support_flags: PeerSupportFlags::FLUFFY_BLOCKS,
+            rpc_port: 0,
+            rpc_credits_per_hash: 0,
+        },
         handle: connection_handle,
         direction: ConnectionDirection::Inbound,
         pruning_seed: PruningSeed::NotPruned,
@@ -269,8 +279,8 @@ struct OurChainSvc {
     genesis: [u8; 32],
 }
 
-impl Service<ChainSvcRequest> for OurChainSvc {
-    type Response = ChainSvcResponse;
+impl Service<ChainSvcRequest<ClearNet>> for OurChainSvc {
+    type Response = ChainSvcResponse<ClearNet>;
     type Error = tower::BoxError;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
@@ -279,7 +289,7 @@ impl Service<ChainSvcRequest> for OurChainSvc {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: ChainSvcRequest) -> Self::Future {
+    fn call(&mut self, req: ChainSvcRequest<ClearNet>) -> Self::Future {
         let genesis = self.genesis;
 
         async move {
@@ -292,6 +302,10 @@ impl Service<ChainSvcRequest> for OurChainSvc {
                     ChainSvcResponse::FindFirstUnknown(Some((1, 1)))
                 }
                 ChainSvcRequest::CumulativeDifficulty => ChainSvcResponse::CumulativeDifficulty(1),
+                ChainSvcRequest::ValidateEntries(valid, _) => ChainSvcResponse::ValidateEntries {
+                    valid,
+                    unknown: VecDeque::new(),
+                },
             })
         }
         .boxed()

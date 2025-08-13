@@ -50,7 +50,7 @@ macro_rules! define_request_and_response {
 
         // The commit hash and  `$file.$extension` in which this type is defined in
         // the Monero codebase in the `rpc/` directory, followed by the specific lines.
-        $monero_code_commit:ident =>
+        $monero_code_commit:literal =>
         $monero_code_filename:ident.
         $monero_code_filename_extension:ident =>
         $monero_code_line_start:literal..=
@@ -94,7 +94,7 @@ macro_rules! define_request_and_response {
         }
     ) => { paste::paste! {
         $crate::macros::define_request! {
-            #[allow(dead_code, missing_docs, reason = "inside a macro")]
+            #[allow(dead_code, missing_docs, clippy::empty_structs_with_brackets, reason = "inside a macro")]
             #[doc = $crate::macros::define_request_and_response_doc!(
                 "response" => [<$type_name Response>],
                 $monero_daemon_rpc_doc_link,
@@ -107,6 +107,7 @@ macro_rules! define_request_and_response {
             ///
             $( #[$type_attr] )*
             ///
+            #[allow(clippy::empty_structs_with_brackets)]
             $( #[$request_type_attr] )*
             [<$type_name Request>] $(($restricted $(, $empty)?))? {
                 $(
@@ -119,7 +120,7 @@ macro_rules! define_request_and_response {
         }
 
         $crate::macros::define_response! {
-            #[allow(dead_code, missing_docs, reason = "inside a macro")]
+            #[allow(dead_code, missing_docs, clippy::empty_structs_with_brackets, reason = "inside a macro")]
             #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
             #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
             #[doc = $crate::macros::define_request_and_response_doc!(
@@ -236,7 +237,7 @@ macro_rules! define_request {
             )*
         }
     ) => {
-        #[allow(dead_code, missing_docs, reason = "inside a macro")]
+        #[allow(dead_code, missing_docs, clippy::empty_structs_with_brackets, reason = "inside a macro")]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
         $( #[$attr] )*
@@ -291,6 +292,7 @@ macro_rules! define_response {
         }
     ) => {
         $( #[$attr] )*
+        #[cfg_attr(feature = "serde", serde(default))] // TODO: link epee field not serializing oddity
         pub struct $t {
             $(
                 $( #[$field_attr] )*
@@ -328,6 +330,7 @@ macro_rules! define_response {
         }
     ) => {
         $( #[$attr] )*
+        #[cfg_attr(feature = "serde", serde(default))] // TODO: link epee field not serializing oddity
         pub struct $t {
             #[cfg_attr(feature = "serde", serde(flatten))]
             pub base: $base,
@@ -371,7 +374,7 @@ macro_rules! define_request_and_response_doc {
         $request_or_response:literal => $request_or_response_type:ident,
 
         $monero_daemon_rpc_doc_link:ident,
-        $monero_code_commit:ident,
+        $monero_code_commit:literal,
         $monero_code_filename:ident,
         $monero_code_filename_extension:ident,
         $monero_code_line_start:literal,
@@ -381,7 +384,7 @@ macro_rules! define_request_and_response_doc {
             "",
             "[Definition](",
             "https://github.com/monero-project/monero/blob/",
-            stringify!($monero_code_commit),
+            $monero_code_commit,
             "/src/rpc/",
             stringify!($monero_code_filename),
             ".",
@@ -408,13 +411,13 @@ pub(crate) use define_request_and_response_doc;
 /// Output a string link to `monerod` source code.
 macro_rules! monero_definition_link {
     (
-        $commit:ident, // Git commit hash
+        $commit:literal, // Git commit hash
         $file_path:literal, // File path within `monerod`'s `src/`, e.g. `rpc/core_rpc_server_commands_defs.h`
         $start:literal$(..=$end:literal)? // File lines, e.g. `0..=123` or `0`
     ) => {
         concat!(
             "[Definition](https://github.com/monero-project/monero/blob/",
-            stringify!($commit),
+            $commit,
             "/src/",
             $file_path,
             "#L",

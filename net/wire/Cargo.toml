@@ -17,12 +17,16 @@ cuprate-fixed-bytes     = { workspace = true }
 cuprate-types           = { workspace = true, default-features = false, features = ["epee"] }
 cuprate-helper          = { workspace = true, default-features = false, features = ["map"] }
 
-bitflags = { workspace = true, features = ["std"] }
-bytes = { workspace = true, features = ["std"] }
-thiserror = { workspace = true }
+bitflags                = { workspace = true, features = ["std"] }
+borsh                   = { workspace = true, features = ["derive"] }
+bytes                   = { workspace = true, features = ["std"] }
+thiserror               = { workspace = true }
+
+arbitrary = { workspace = true, features = ["derive"], optional = true }
 
 [dev-dependencies]
-hex = { workspace = true, features = ["std"]}
+hex                     = { workspace = true, features = ["std"]}
+proptest                = { workspace = true }
 
 [lints]
 workspace = true

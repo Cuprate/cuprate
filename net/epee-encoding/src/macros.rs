@@ -14,7 +14,7 @@ pub use paste::paste;
 ///
 ///     struct Example {
 ///         a: u8
-///     }    
+///     }
 ///
 ///     epee_object!(
 ///         Example,
@@ -127,11 +127,12 @@ macro_rules! epee_object {
 
     ) => {
         cuprate_epee_encoding::macros::paste!(
-            #[allow(non_snake_case)]
+            #[allow(non_snake_case, clippy::empty_structs_with_brackets)]
             mod [<__epee_builder_ $obj>] {
                 use super::*;
 
                 #[derive(Default)]
+                #[allow(clippy::empty_structs_with_brackets)]
                 pub struct [<__Builder $obj>] {
                     $($field: Option<cuprate_epee_encoding::epee_object!(@internal_field_type $ty, $($ty_as)?)>,)*
                     $($flat_field: <$flat_ty as cuprate_epee_encoding::EpeeObject>::Builder,)*
@@ -141,9 +142,9 @@ macro_rules! epee_object {
                     fn add_field<B: cuprate_epee_encoding::macros::bytes::Buf>(&mut self, name: &str, b: &mut B) -> cuprate_epee_encoding::error::Result<bool> {
                         match name {
                             $(cuprate_epee_encoding::epee_object!(@internal_field_name $field, $($alt_name)?) => {
-                                if core::mem::replace(&mut self.$field, Some(
+                                if self.$field.replace(
                                     cuprate_epee_encoding::epee_object!(@internal_try_right_then_left cuprate_epee_encoding::read_epee_value(b)?, $($read_fn(b)?)?)
-                                )).is_some() {
+                                ).is_some() {
                                     Err(cuprate_epee_encoding::error::Error::Value(format!("Duplicate field in data: {}", cuprate_epee_encoding::epee_object!(@internal_field_name$field, $($alt_name)?))))?;
                                 }
                                 Ok(true)

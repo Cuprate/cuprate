@@ -3,19 +3,19 @@ use std::{sync::Arc, time::Duration};
 
 use futures::StreamExt;
 use tokio::{
-    sync::{mpsc, Notify},
+    sync::{mpsc, Notify, OwnedSemaphorePermit, Semaphore},
     time::interval,
 };
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
-use cuprate_consensus::{BlockChainContext, BlockChainContextRequest, BlockChainContextResponse};
-use cuprate_consensus_context::RawBlockChainContext;
+use cuprate_consensus::{BlockChainContextRequest, BlockChainContextResponse, BlockchainContext};
+use cuprate_consensus_context::BlockchainContextService;
 use cuprate_p2p::{
     block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
     NetworkInterface, PeerSetRequest, PeerSetResponse,
 };
-use cuprate_p2p_core::ClearNet;
+use cuprate_p2p_core::{ClearNet, NetworkZone};
 
 const CHECK_SYNC_FREQUENCY: Duration = Duration::from_secs(30);
 
@@ -30,23 +30,21 @@ pub enum SyncerError {
 
 /// The syncer tasks that makes sure we are fully synchronised with our connected peers.
 #[instrument(level = "debug", skip_all)]
-pub async fn syncer<C, CN>(
-    mut context_svc: C,
+#[expect(clippy::significant_drop_tightening)]
+pub async fn syncer<CN>(
+    mut context_svc: BlockchainContextService,
     our_chain: CN,
     mut clearnet_interface: NetworkInterface<ClearNet>,
-    incoming_block_batch_tx: mpsc::Sender<BlockBatch>,
+    incoming_block_batch_tx: mpsc::Sender<(BlockBatch, Arc<OwnedSemaphorePermit>)>,
     stop_current_block_downloader: Arc<Notify>,
     block_downloader_config: BlockDownloaderConfig,
 ) -> Result<(), SyncerError>
 where
-    C: Service<
-        BlockChainContextRequest,
-        Response = BlockChainContextResponse,
-        Error = tower::BoxError,
-    >,
-    C::Future: Send + 'static,
-    CN: Service<ChainSvcRequest, Response = ChainSvcResponse, Error = tower::BoxError>
-        + Clone
+    CN: Service<
+            ChainSvcRequest<ClearNet>,
+            Response = ChainSvcResponse<ClearNet>,
+            Error = tower::BoxError,
+        > + Clone
         + Send
         + 'static,
     CN::Future: Send + 'static,
@@ -55,26 +53,19 @@ where
 
     let mut check_sync_interval = interval(CHECK_SYNC_FREQUENCY);
 
-    let BlockChainContextResponse::Context(mut blockchain_ctx) = context_svc
-        .ready()
-        .await?
-        .call(BlockChainContextRequest::Context)
-        .await?
-    else {
-        unreachable!();
-    };
-
     tracing::debug!("Waiting for new sync info in top sync channel");
 
+    let semaphore = Arc::new(Semaphore::new(1));
+
+    let mut sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
     loop {
         check_sync_interval.tick().await;
 
         tracing::trace!("Checking connected peers to see if we are behind",);
 
-        check_update_blockchain_context(&mut context_svc, &mut blockchain_ctx).await?;
-        let raw_blockchain_context = blockchain_ctx.unchecked_blockchain_context();
+        let blockchain_context = context_svc.blockchain_context();
 
-        if !check_behind_peers(raw_blockchain_context, &mut clearnet_interface).await? {
+        if !check_behind_peers(blockchain_context, &mut clearnet_interface).await? {
             continue;
         }
 
@@ -88,14 +79,22 @@ where
             tokio::select! {
                 () = stop_current_block_downloader.notified() => {
                     tracing::info!("Received stop signal, stopping block downloader");
+
+                    drop(sync_permit);
+                    sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
+
                     break;
                 }
                 batch = block_batch_stream.next() => {
                     let Some(batch) = batch else {
-                        check_update_blockchain_context(&mut context_svc, &mut blockchain_ctx).await?;
-                        let raw_blockchain_context = blockchain_ctx.unchecked_blockchain_context();
+                        // Wait for all references to the permit have been dropped (which means all blocks in the queue
+                        // have been handled before checking if we are synced.
+                        drop(sync_permit);
+                        sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
 
-                        if !check_behind_peers(raw_blockchain_context, &mut clearnet_interface).await? {
+                        let blockchain_context = context_svc.blockchain_context();
+
+                        if !check_behind_peers(blockchain_context, &mut clearnet_interface).await? {
                             tracing::info!("Synchronised with the network.");
                         }
 
@@ -103,7 +102,7 @@ where
                     };
 
                     tracing::debug!("Got batch, len: {}", batch.blocks.len());
-                    if incoming_block_batch_tx.send(batch).await.is_err() {
+                    if incoming_block_batch_tx.send((batch, Arc::clone(&sync_permit))).await.is_err() {
                         return Err(SyncerError::IncomingBlockChannelClosed);
                     }
                 }
@@ -114,7 +113,7 @@ where
 
 /// Returns `true` if we are behind the current connected network peers.
 async fn check_behind_peers(
-    raw_blockchain_context: &RawBlockChainContext,
+    blockchain_context: &BlockchainContext,
     mut clearnet_interface: &mut NetworkInterface<ClearNet>,
 ) -> Result<bool, tower::BoxError> {
     let PeerSetResponse::MostPoWSeen {
@@ -130,38 +129,9 @@ async fn check_behind_peers(
         unreachable!();
     };
 
-    if cumulative_difficulty <= raw_blockchain_context.cumulative_difficulty {
+    if cumulative_difficulty <= blockchain_context.cumulative_difficulty {
         return Ok(false);
     }
 
     Ok(true)
-}
-
-/// Checks if we should update the given [`BlockChainContext`] and updates it if needed.
-async fn check_update_blockchain_context<C>(
-    context_svc: C,
-    old_context: &mut BlockChainContext,
-) -> Result<(), tower::BoxError>
-where
-    C: Service<
-        BlockChainContextRequest,
-        Response = BlockChainContextResponse,
-        Error = tower::BoxError,
-    >,
-    C::Future: Send + 'static,
-{
-    if old_context.blockchain_context().is_ok() {
-        return Ok(());
-    }
-
-    let BlockChainContextResponse::Context(ctx) = context_svc
-        .oneshot(BlockChainContextRequest::Context)
-        .await?
-    else {
-        unreachable!();
-    };
-
-    *old_context = ctx;
-
-    Ok(())
 }

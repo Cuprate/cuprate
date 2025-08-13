@@ -83,7 +83,8 @@ ignore = [
     #{ crate = "a-crate-that-is-yanked@0.1.1", reason = "you can specify why you are ignoring the yanked crate" },
 
     # TODO: check this is sorted before a beta release.
-    { id = "RUSTSEC-2024-0370", reason = "unmaintained crate, not necessarily vulnerable yet." }
+    { id = "RUSTSEC-2024-0436", reason = "`paste` unmaintained, not necessarily vulnerable yet." },
+    { id = "RUSTSEC-2023-0071", reason = "rsa is used in arti." }
 ]
 # If this is true, then cargo deny will use the git executable to fetch advisory database.
 # If this is false, then it uses a built-in git library.
@@ -101,12 +102,14 @@ ignore = [
 allow = [
     # Nothing required - free to use without permission.
     "CC0-1.0", # https://creativecommons.org/publicdomain/zero/1.0/
+    "Unlicense",
 
     # Must include copyright notice.
     "BSD-2-Clause", # https://tldrlegal.com/license/bsd-2-clause-license-(freebsd)
     "BSD-3-Clause", # https://tldrlegal.com/license/bsd-3-clause-license-(revised)
     "ISC",          # https://tldrlegal.com/license/isc-license
     "MIT",          # https://tldrlegal.com/license/mit-license
+    "NCSA",         # https://opensource.org/license/uoi-ncsa-php
 
     # Must include copyright notice/attribution/changes/etc
     "Apache-2.0 WITH LLVM-exception", # https://spdx.org/licenses/LLVM-exception.html

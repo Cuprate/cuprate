@@ -28,7 +28,7 @@ use crate::{
     fields(addr = %peer_information.id),
     skip_all,
 )]
-pub async fn connection_timeout_monitor_task<N: NetworkZone, AdrBook, CSync>(
+pub(super) async fn connection_timeout_monitor_task<N: NetworkZone, AdrBook, CSync>(
     peer_information: PeerInformation<N::Addr>,
 
     connection_tx: mpsc::Sender<ConnectionTaskRequest>,
@@ -54,7 +54,13 @@ where
     interval.tick().await;
 
     loop {
-        interval.tick().await;
+        tokio::select! {
+            () = peer_information.handle.closed() => {
+                tracing::debug!("Closing timeout monitor, connection disconnected.");
+                return Ok(());
+            }
+            _ = interval.tick() => ()
+        }
 
         tracing::trace!("timeout monitor tick.");
 
@@ -113,6 +119,7 @@ where
             .ready()
             .await?
             .call(AddressBookRequest::IncomingPeerList(
+                peer_information.id,
                 timed_sync
                     .local_peerlist_new
                     .into_iter()

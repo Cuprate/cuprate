@@ -1,0 +1,107 @@
+name: Release Builds
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: 'Commit to build'
+        required: true
+        type: string
+
+env:
+  # Show colored output in CI.
+  CARGO_TERM_COLOR: always
+  # The folder used to store release files - this will be uploaded.
+  ARCHIVE: "__ARCHIVE"
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [
+            windows-2022, # EOL = 2026-10-13 | <https://endoflife.date/windows-server>
+            macos-15,     # EOL = 2027-09-16 | <https://endoflife.date/macos>
+            macos-13,     # EOL = 2025-10-24 | For x64.
+            ubuntu-22.04, # EOL = 2027-04-01 | <https://endoflife.date/ubuntu>
+            ubuntu-22.04-arm,
+        ]
+
+    runs-on: ${{ matrix.os }}
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          ref: ${{ inputs.commit }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+
+      - name: Build
+        run: cargo build --release --package cuprated
+
+      - name: Generate Archives
+        run: |
+          set -e -o pipefail # Exit on failures
+          umask 0077         # 700 permissions
+          export TZ=UTC      # UTC timezone
+
+          # Reset archive directory in-case.
+          rm -rf ${{ env.ARCHIVE }}
+          mkdir -p ${{ env.ARCHIVE }}
+          readonly ARCHIVE=$(realpath ${{ env.ARCHIVE }})
+          readonly VERSION=$(grep version binaries/cuprated/Cargo.toml | grep -oE [0-9]+.[0-9]+.[0-9]+)
+
+          # All archives have these files.
+          cp LICENSE-AGPL target/release/LICENSE
+          if [ "$RUNNER_OS" == "Windows" ]; then
+              target/release/cuprated.exe --generate-config > target/release/Cuprated.toml
+          else
+              target/release/cuprated --generate-config > target/release/Cuprated.toml
+          fi
+
+          # Archive extension.
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            readonly EXTENSION="zip"
+          else
+            readonly EXTENSION="tar.gz"
+          fi
+
+          # Generate the asset name.
+          TARGET=($(rustup show | grep "Default"))
+          readonly TARGET=${TARGET[2]}
+          readonly ASSET="cuprated-$VERSION-$TARGET.$EXTENSION"
+
+          # Generate archives for Linux.
+          if [ "$RUNNER_OS" == "Linux" ]; then
+              cp binaries/cuprated/cuprated.service target/release/
+              cd target/release
+              tar -czpf "$ARCHIVE/$ASSET" cuprated LICENSE Cuprated.toml cuprated.service
+          fi
+
+          # Generate archives for macOS.
+          if [ "$RUNNER_OS" == "macOS" ]; then
+              cd target/release
+              tar -czpf "$ARCHIVE/$ASSET" cuprated LICENSE Cuprated.toml
+          fi
+
+          # Generate archives for Windows.
+          if [ "$RUNNER_OS" == "Windows" ]; then
+              mv target/release/cuprated.exe target/release/
+              cd target/release
+              powershell Compress-Archive -LiteralPath cuprated.exe, LICENSE, Cuprated.toml -DestinationPath "$ARCHIVE/$ASSET"
+          fi
+
+      - name: Archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}
+          compression-level: 0
+          path: ${{ env.ARCHIVE }}/**

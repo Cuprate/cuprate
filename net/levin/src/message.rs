@@ -77,7 +77,7 @@ pub fn make_fragmented_messages<T: LevinBody>(
     message: T,
 ) -> Result<Vec<Bucket<T::Command>>, BucketError> {
     assert!(
-        fragment_size * 2 >= HEADER_SIZE,
+        fragment_size >= 2 * HEADER_SIZE,
         "Fragment size: {fragment_size}, is too small, must be at least {}",
         2 * HEADER_SIZE
     );
