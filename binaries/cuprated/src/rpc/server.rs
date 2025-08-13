@@ -84,7 +84,7 @@ pub fn init_rpc_servers(
         );
 
         // Test if address is already binded to.
-        std::net::TcpListener::bind(&addr)?;
+        std::net::TcpListener::bind(addr)?;
 
         tokio::task::spawn(async move {
             run_rpc_server(rpc_handler, restricted, addr, request_byte_limit)
