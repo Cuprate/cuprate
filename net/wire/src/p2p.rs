@@ -226,7 +226,7 @@ impl ProtocolMessage {
             C::GetTxPoolCompliment => decode_message(ProtocolMessage::GetTxPoolCompliment, buf)?,
 
             C::Handshake | C::TimedSync | C::Ping | C::SupportFlags | C::Unknown(_) => {
-                return Err(BucketError::UnknownCommand)
+                return Err(BucketError::UnknownCommand);
             }
         })
     }

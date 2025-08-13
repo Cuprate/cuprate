@@ -400,11 +400,8 @@ fn check_inputs_sorted(inputs: &[Input], hf: HardFork) -> Result<(), Transaction
 
     if hf >= HardFork::V7 {
         for inps in inputs.windows(2) {
-            match get_ki(&inps[0])?.cmp(&get_ki(&inps[1])?) {
-                Ordering::Greater => (),
-                Ordering::Less | Ordering::Equal => {
-                    return Err(TransactionError::InputsAreNotOrdered)
-                }
+            if get_ki(&inps[0])? <= get_ki(&inps[1])? {
+                return Err(TransactionError::InputsAreNotOrdered);
             }
         }
     }
