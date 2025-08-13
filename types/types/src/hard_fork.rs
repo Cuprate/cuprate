@@ -181,7 +181,6 @@ impl HardFork {
     pub const fn block_time(self) -> Duration {
         match self {
             Self::V1 => BLOCK_TIME_V1,
-            // Surely the block time won't change... or will it?
             Self::V2
             | Self::V3
             | Self::V4

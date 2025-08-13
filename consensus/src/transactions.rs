@@ -553,7 +553,7 @@ where
                         .time_locked_outs
                         .iter()
                         .filter_map(|lock| match lock {
-                            Timelock::Time(time) => Some(*time),
+                            Timelock::Time(time) => Some(time),
                             Timelock::None | Timelock::Block(_) => None,
                         })
                         .min();

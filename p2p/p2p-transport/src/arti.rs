@@ -164,7 +164,10 @@ impl Transport<Tor> for Arti {
 
                     Ok(stream.split())
                 }
-                _ => {
+                IncomingStreamRequest::Begin(_)
+                | IncomingStreamRequest::BeginDir(_)
+                | IncomingStreamRequest::Resolve(_)
+                | _ => {
                     sreq.shutdown_circuit()
                         .expect("Should never panic, unless programming error from arti's end.");
 
