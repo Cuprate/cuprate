@@ -5,7 +5,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::Error;
+use anyhow::{anyhow, Error};
 use tokio::net::TcpListener;
 use tower::limit::rate::RateLimitLayer;
 use tower_http::limit::RequestBodyLimitLayer;
@@ -35,7 +35,7 @@ pub fn init_rpc_servers(
     blockchain_context: BlockchainContextService,
     txpool_read: TxpoolReadHandle,
     tx_handler: IncomingTxHandler,
-) {
+) -> Result<(), Error> {
     for ((enable, addr, request_byte_limit), restricted) in [
         (
             (
@@ -69,7 +69,9 @@ pub fn init_rpc_servers(
                     "Starting unrestricted RPC on non-local address, this is dangerous!"
                 );
             } else {
-                panic!("Refusing to start unrestricted RPC on a non-local address ({addr})");
+                return Err(anyhow!(
+                    "Refusing to start unrestricted RPC on a non-local address ({addr})"
+                ));
             }
         }
 
@@ -81,12 +83,17 @@ pub fn init_rpc_servers(
             tx_handler.clone(),
         );
 
+        // Test if address is already binded to.
+        std::net::TcpListener::bind(addr)?;
+
         tokio::task::spawn(async move {
             run_rpc_server(rpc_handler, restricted, addr, request_byte_limit)
                 .await
                 .unwrap();
         });
     }
+
+    Ok(())
 }
 
 /// This initializes and runs an RPC server.
