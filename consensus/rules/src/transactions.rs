@@ -1,5 +1,3 @@
-use std::cmp::Ordering;
-
 use curve25519_dalek::EdwardsPoint;
 use monero_serai::{
     io::decompress_point,
