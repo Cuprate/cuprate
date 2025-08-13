@@ -9,7 +9,7 @@ use std::fmt::Debug;
 
 use pretty_assertions::assert_eq;
 
-use cuprate_database::{DatabaseRo, Env, EnvInner};
+use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner};
 use cuprate_types::{AltBlockInformation, ChainId, VerifiedBlockInformation};
 
 use crate::{
@@ -77,7 +77,7 @@ pub(crate) fn tmp_concrete_env() -> (impl Env, tempfile::TempDir) {
         .data_directory(tempdir.path().into())
         .low_power()
         .build();
-    let env = crate::open(config).unwrap();
+    let env: ConcreteEnv = crate::open(config).unwrap();
 
     (env, tempdir)
 }

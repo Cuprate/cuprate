@@ -2,7 +2,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::sync::Arc;
 
-use cuprate_database::{ConcreteEnv, DbResult, Env, EnvInner, TxRw};
+use cuprate_database::{DbResult, Env, EnvInner, TxRw};
 use cuprate_database_service::DatabaseWriteHandle;
 use cuprate_types::{
     blockchain::{BlockchainResponse, BlockchainWriteRequest},
@@ -22,15 +22,18 @@ const TX_RW_ABORT_FAIL: &str =
     "Could not maintain blockchain database atomicity by aborting write transaction";
 
 //---------------------------------------------------------------------------------------------------- init_write_service
-/// Initialize the blockchain write service from a [`ConcreteEnv`].
-pub fn init_write_service(env: Arc<ConcreteEnv>) -> BlockchainWriteHandle {
+/// Initialize the blockchain write service from an impl of [`Env`].
+pub fn init_write_service<E>(env: Arc<E>) -> BlockchainWriteHandle 
+where
+    E: Env + Send + Sync + 'static
+{
     DatabaseWriteHandle::init(env, handle_blockchain_request)
 }
 
 //---------------------------------------------------------------------------------------------------- handle_bc_request
 /// Handle an incoming [`BlockchainWriteRequest`], returning a [`BlockchainResponse`].
-fn handle_blockchain_request(
-    env: &ConcreteEnv,
+fn handle_blockchain_request<E: Env>(
+    env: &E,
     req: &BlockchainWriteRequest,
 ) -> DbResult<BlockchainResponse> {
     match req {
@@ -53,7 +56,7 @@ fn handle_blockchain_request(
 
 /// [`BlockchainWriteRequest::WriteBlock`].
 #[inline]
-fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseResult {
+fn write_block<E: Env>(env: &E, block: &VerifiedBlockInformation) -> ResponseResult {
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw()?;
 
@@ -76,7 +79,7 @@ fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseR
 
 /// [`BlockchainWriteRequest::BatchWriteBlocks`].
 #[inline]
-fn write_blocks(env: &ConcreteEnv, block: &Vec<VerifiedBlockInformation>) -> ResponseResult {
+fn write_blocks<E: Env>(env: &E, block: &Vec<VerifiedBlockInformation>) -> ResponseResult {
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw()?;
 
@@ -103,7 +106,7 @@ fn write_blocks(env: &ConcreteEnv, block: &Vec<VerifiedBlockInformation>) -> Res
 
 /// [`BlockchainWriteRequest::WriteAltBlock`].
 #[inline]
-fn write_alt_block(env: &ConcreteEnv, block: &AltBlockInformation) -> ResponseResult {
+fn write_alt_block<E: Env>(env: &E, block: &AltBlockInformation) -> ResponseResult {
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw()?;
 
@@ -125,7 +128,7 @@ fn write_alt_block(env: &ConcreteEnv, block: &AltBlockInformation) -> ResponseRe
 }
 
 /// [`BlockchainWriteRequest::PopBlocks`].
-fn pop_blocks(env: &ConcreteEnv, numb_blocks: usize) -> ResponseResult {
+fn pop_blocks<E: Env>(env: &E, numb_blocks: usize) -> ResponseResult {
     let env_inner = env.env_inner();
     let mut tx_rw = env_inner.tx_rw()?;
 
@@ -160,7 +163,7 @@ fn pop_blocks(env: &ConcreteEnv, numb_blocks: usize) -> ResponseResult {
 
 /// [`BlockchainWriteRequest::FlushAltBlocks`].
 #[inline]
-fn flush_alt_blocks(env: &ConcreteEnv) -> ResponseResult {
+fn flush_alt_blocks<E: Env>(env: &E) -> ResponseResult {
     let env_inner = env.env_inner();
     let mut tx_rw = env_inner.tx_rw()?;
 

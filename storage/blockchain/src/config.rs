@@ -15,7 +15,8 @@
 //! # Example
 //! ```rust
 //! use cuprate_blockchain::{
-//!     cuprate_database::{Env, config::SyncMode},
+//!     open,
+//!     cuprate_database::{ConcreteEnv, Env, config::SyncMode},
 //!     config::{ConfigBuilder, ReaderThreads},
 //! };
 //!
@@ -34,7 +35,7 @@
 //!     .build();
 //!
 //! // Start a database `service` using this configuration.
-//! let (_, _, env) = cuprate_blockchain::service::init(config.clone())?;
+//! let env = open::<ConcreteEnv>(config.clone())?;
 //! // It's using the config we provided.
 //! assert_eq!(env.config(), &config.db_config);
 //! # Ok(()) }
