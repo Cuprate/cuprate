@@ -134,12 +134,10 @@ fn database_writer<Req, Res>(
             // this won't have to be an enum.
             let response = inner_handler(env, &request);
 
-            if ConcreteEnv::MANUAL_RESIZE {
-                assert_ne!(
-                    response,
-                    Err(RuntimeError::ResizedByAnotherProcess),
-                    "Database was resized by another process - no other process should write to `cuprated`'s database."
-                )
+            if ConcreteEnv::MANUAL_RESIZE
+                && matches!(response, Err(RuntimeError::ResizedByAnotherProcess))
+            {
+                panic!("Database was resized by another process - no other process should write to `cuprated`'s database.");
             }
 
             // If the database needs to resize, do so.
