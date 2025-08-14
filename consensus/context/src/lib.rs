@@ -417,6 +417,9 @@ pub enum ContextCacheError {
     /// A database error.
     #[error("Database error: {0}")]
     DBErr(#[from] tower::BoxError),
+    /// A RandomX error.
+    #[error("RandomX error: {0}")]
+    RandomXErr(#[from] randomx_rs::RandomXError),
 }
 
 use __private::Database;

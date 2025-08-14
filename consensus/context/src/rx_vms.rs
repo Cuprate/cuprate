@@ -100,18 +100,18 @@ impl RandomXVmCache {
         let vms = if hf >= &HardFork::V12 {
             tracing::debug!("Creating RandomX VMs");
             let seeds_clone = seeds.clone();
-            rayon_spawn_async(move || {
-                seeds_clone
-                    .par_iter()
-                    .map(|(height, seed)| {
-                        (
-                            *height,
-                            Arc::new(RandomXVm::new(seed).expect("Failed to create RandomX VM!")),
-                        )
-                    })
-                    .collect()
-            })
-            .await
+            rayon_spawn_async(
+                move || -> Result<HashMap<usize, Arc<RandomXVm>>, RandomXError> {
+                    seeds_clone
+                        .par_iter()
+                        .map(|(height, seed)| {
+                            let vm = RandomXVm::new(seed)?;
+                            Ok((*height, Arc::new(vm)))
+                        })
+                        .collect()
+                },
+            )
+            .await?
         } else {
             tracing::debug!("We are before hard-fork 12 randomX VMs are not needed.");
             HashMap::new()
@@ -156,13 +156,17 @@ impl RandomXVmCache {
             }
         }
 
-        let alt_vm = rayon_spawn_async(move || Arc::new(RandomXVm::new(&seed_hash).unwrap())).await;
+        let alt_vm = rayon_spawn_async(move || -> Result<Arc<RandomXVm>, RandomXError> {
+            let randomx_vm = RandomXVm::new(&seed_hash)?;
+            Ok(Arc::new(randomx_vm))
+        })
+        .await?;
 
         Ok(alt_vm)
     }
 
     /// Get the main-chain RandomX VMs.
-    pub async fn get_vms(&mut self) -> HashMap<usize, Arc<RandomXVm>> {
+    pub async fn get_vms(&mut self) -> Result<HashMap<usize, Arc<RandomXVm>>, RandomXError> {
         match self.seeds.len().checked_sub(self.vms.len()) {
             // No difference in the amount of seeds to VMs.
             Some(0) => (),
@@ -184,8 +188,11 @@ impl RandomXVmCache {
                         }
                     }
 
-                    rayon_spawn_async(move || Arc::new(RandomXVm::new(&next_seed_hash).unwrap()))
-                        .await
+                    rayon_spawn_async(move || -> Result<Arc<RandomXVm>, RandomXError> {
+                        let randomx_vm = RandomXVm::new(&next_seed_hash)?;
+                        Ok(Arc::new(randomx_vm))
+                    })
+                    .await?
                 };
 
                 self.vms.insert(seed_height, new_vm);
@@ -196,21 +203,23 @@ impl RandomXVmCache {
                 tracing::debug!("RandomX has activated, initialising VMs");
 
                 let seeds_clone = self.seeds.clone();
-                self.vms = rayon_spawn_async(move || {
-                    seeds_clone
-                        .par_iter()
-                        .map(|(height, seed)| {
-                            let vm = RandomXVm::new(seed).expect("Failed to create RandomX VM!");
-                            let vm = Arc::new(vm);
-                            (*height, vm)
-                        })
-                        .collect()
-                })
-                .await;
+                self.vms = rayon_spawn_async(
+                    move || -> Result<HashMap<usize, Arc<RandomXVm>>, RandomXError> {
+                        seeds_clone
+                            .par_iter()
+                            .map(|(height, seed)| {
+                                let vm = RandomXVm::new(seed)?;
+                                let vm = Arc::new(vm);
+                                Ok((*height, vm))
+                            })
+                            .collect()
+                    },
+                )
+                .await?;
             }
         }
 
-        self.vms.clone()
+        Ok(self.vms.clone())
     }
 
     /// Removes all the RandomX VMs above the `new_height`.

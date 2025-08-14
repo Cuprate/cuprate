@@ -172,7 +172,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
     ) -> Result<BlockChainContextResponse, tower::BoxError> {
         Ok(match req {
             BlockChainContextRequest::CurrentRxVms => {
-                BlockChainContextResponse::RxVms(self.rx_vm_cache.get_vms().await)
+                BlockChainContextResponse::RxVms(self.rx_vm_cache.get_vms().await?)
             }
             BlockChainContextRequest::BatchGetDifficulties(blocks) => {
                 tracing::debug!("Getting batch difficulties len: {}", blocks.len() + 1);
