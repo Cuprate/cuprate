@@ -35,7 +35,6 @@ use cuprate_txpool::{
 };
 use cuprate_types::TransactionVerificationData;
 
-use crate::txpool::dandelion::DiffuseService;
 use crate::{
     blockchain::ConsensusBlockchainReadHandle,
     config::TxpoolConfig,
@@ -43,7 +42,9 @@ use crate::{
     p2p::CrossNetworkInternalPeerId,
     signals::REORG_LOCK,
     txpool::{
-        dandelion::{self, AnonTxService, ConcreteDandelionRouter, MainDandelionRouter},
+        dandelion::{
+            self, AnonTxService, ConcreteDandelionRouter, DiffuseService, MainDandelionRouter,
+        },
         manager::{start_txpool_manager, TxpoolManagerHandle},
         relay_rules::{check_tx_relay_rules, RelayRuleError},
         txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},

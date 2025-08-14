@@ -34,6 +34,7 @@ use crate::{
         incoming_tx::{DandelionTx, TxId},
     },
 };
+
 const INCOMING_TX_QUEUE_SIZE: usize = 100;
 
 /// Starts the transaction pool manager service.
