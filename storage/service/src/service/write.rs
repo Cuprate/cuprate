@@ -157,11 +157,7 @@ fn database_writer<Req, Res>(
                 // add that much instead of the default 1GB.
                 // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L665-L695>
                 let old = env.current_map_size();
-                let new = {
-                    let resized_by_another_process =
-                        matches!(response, Err(RuntimeError::ResizedByAnotherProcess));
-                    env.resize_map(None, resized_by_another_process).get()
-                };
+                let new = env.resize_map(None, false).get();
 
                 const fn bytes_to_megabytes(bytes: usize) -> usize {
                     bytes / 1_000_000
