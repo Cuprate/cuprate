@@ -16,7 +16,7 @@ mod tx;
 pub mod types;
 
 pub use config::Config;
-pub use free::{open, transaction_blob_hash};
+pub use free::{open, transaction_blob_hash, DATABASE_VERSION, VERSION_KEY};
 pub use tx::TxEntry;
 
 //re-exports

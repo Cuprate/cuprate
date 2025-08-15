@@ -6,6 +6,9 @@ use std::{
 use futures::{future::BoxFuture, FutureExt, TryFutureExt};
 use tower::{Service, ServiceExt};
 
+use tokio::sync::mpsc;
+use tokio_util::sync::PollSender;
+
 use cuprate_dandelion_tower::{
     pool::DandelionPoolService, traits::StemRequest, DandelionConfig, DandelionRouteReq,
     DandelionRouter, DandelionRouterError, Graph, State, TxState,
@@ -25,6 +28,7 @@ mod stem_service;
 mod tx_store;
 
 pub use anon_net_service::AnonTxService;
+pub use diffuse_service::DiffuseService;
 
 /// The configuration used for [`cuprate_dandelion_tower`].
 ///
@@ -39,7 +43,7 @@ const DANDELION_CONFIG: DandelionConfig = DandelionConfig {
 /// A [`DandelionRouter`] with all generic types defined.
 pub(super) type ConcreteDandelionRouter<Z> = DandelionRouter<
     stem_service::OutboundPeerStream<Z>,
-    diffuse_service::DiffuseService<Z>,
+    DiffuseService<Z>,
     CrossNetworkInternalPeerId,
     stem_service::StemPeerService<Z>,
     DandelionTx,
@@ -106,7 +110,7 @@ impl Service<DandelionRouteReq<DandelionTx, CrossNetworkInternalPeerId>> for Mai
 pub fn start_dandelion_pool_manager(
     router: MainDandelionRouter,
     txpool_read_handle: TxpoolReadHandle,
-    txpool_write_handle: TxpoolWriteHandle,
+    promote_tx: mpsc::Sender<[u8; 32]>,
 ) -> DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId> {
     cuprate_dandelion_tower::pool::start_dandelion_pool_manager(
         // TODO: make this constant configurable?
@@ -114,7 +118,7 @@ pub fn start_dandelion_pool_manager(
         router,
         tx_store::TxStoreService {
             txpool_read_handle,
-            txpool_write_handle,
+            promote_tx: PollSender::new(promote_tx),
         },
         DANDELION_CONFIG,
     )
@@ -128,7 +132,7 @@ where
     InternalPeerID<Z::Addr>: Into<CrossNetworkInternalPeerId>,
 {
     DandelionRouter::new(
-        diffuse_service::DiffuseService {
+        DiffuseService {
             clear_net_broadcast_service: network_interface.broadcast_svc(),
         },
         stem_service::OutboundPeerStream::<Z>::new(network_interface),

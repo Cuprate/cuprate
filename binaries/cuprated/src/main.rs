@@ -92,7 +92,7 @@ fn main() {
         .expect(DATABASE_CORRUPT_MSG);
 
     let (txpool_read_handle, txpool_write_handle, _) =
-        cuprate_txpool::service::init_with_pool(config.txpool_config(), db_thread_pool)
+        cuprate_txpool::service::init_with_pool(&config.txpool_config(), db_thread_pool)
             .inspect_err(|e| error!("Txpool database error: {e}"))
             .expect(DATABASE_CORRUPT_MSG);
 
@@ -137,13 +137,15 @@ fn main() {
 
         // Create the incoming tx handler service.
         let tx_handler = IncomingTxHandler::init(
+            config.storage.txpool.clone(),
             network_interfaces.clearnet_network_interface.clone(),
             network_interfaces.tor_network_interface,
             txpool_write_handle.clone(),
             txpool_read_handle.clone(),
             context_svc.clone(),
             blockchain_read_handle.clone(),
-        );
+        )
+        .await;
 
         // Send tx handler sender to all network zones
         for zone in tx_handler_subscribers {
@@ -157,7 +159,7 @@ fn main() {
             network_interfaces.clearnet_network_interface,
             blockchain_write_handle,
             blockchain_read_handle.clone(),
-            txpool_write_handle.clone(),
+            tx_handler.txpool_manager.clone(),
             context_svc.clone(),
             config.block_downloader_config(),
         )
