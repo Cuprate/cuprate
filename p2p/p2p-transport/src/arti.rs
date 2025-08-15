@@ -148,6 +148,7 @@ impl Transport<Tor> for Arti {
             .unwrap();
 
         // Accept all rendez-vous and await correct stream request
+        #[expect(clippy::wildcard_enum_match_arm)]
         let req_stream = handle_rend_requests(rdv_stream).then(move |sreq| async move {
             match sreq.request() {
                 // As specified in: <https://spec.torproject.org/rend-spec/managing-streams.html>
@@ -164,10 +165,7 @@ impl Transport<Tor> for Arti {
 
                     Ok(stream.split())
                 }
-                IncomingStreamRequest::Begin(_)
-                | IncomingStreamRequest::BeginDir(_)
-                | IncomingStreamRequest::Resolve(_)
-                | _ => {
+                _ => {
                     sreq.shutdown_circuit()
                         .expect("Should never panic, unless programming error from arti's end.");
 
