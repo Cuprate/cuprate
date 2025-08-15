@@ -554,7 +554,7 @@ where
                         .iter()
                         .filter_map(|lock| match lock {
                             Timelock::Time(time) => Some(time),
-                            _ => None,
+                            Timelock::None | Timelock::Block(_) => None,
                         })
                         .min();
 

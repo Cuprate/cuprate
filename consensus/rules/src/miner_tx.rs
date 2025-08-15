@@ -122,7 +122,7 @@ const fn check_time_lock(time_lock: &Timelock, chain_height: usize) -> Result<()
                 Err(MinerTxError::InvalidLockTime)
             }
         }
-        _ => Err(MinerTxError::InvalidLockTime),
+        Timelock::None | Timelock::Time(_) => Err(MinerTxError::InvalidLockTime),
     }
 }
 
