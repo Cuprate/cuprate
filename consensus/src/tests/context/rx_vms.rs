@@ -47,9 +47,9 @@ async fn rx_vm_created_on_hf_12() {
 
     assert!(cache.vms.is_empty());
     cache.new_block(11, &[30; 32]);
-    cache.get_vms().await;
+    let vms = cache.get_vms().await.unwrap();
 
-    assert!(!cache.vms.is_empty());
+    assert!(!vms.is_empty());
 }
 
 proptest! {
