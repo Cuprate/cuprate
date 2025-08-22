@@ -209,6 +209,10 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
 
     /// adds a peer to the gray list.
     fn add_peer_to_gray_list(&mut self, mut peer: ZoneSpecificPeerListEntryBase<Z::Addr>) {
+        if self.gray_list.len() > self.cfg.max_gray_list_length {
+            return;
+        }
+
         if self.anchor_list.contains(&peer.adr) {
             tracing::trace!("Peer {} is already in anchor list skipping.", peer.adr);
             return;
@@ -221,6 +225,27 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
             tracing::trace!("Adding peer {} to gray list.", peer.adr);
             peer.last_seen = 0;
             self.gray_list.add_new_peer(peer);
+        }
+    }
+
+    /// adds a peer to the gray list.
+    fn add_peer_to_white_list(&mut self, mut peer: ZoneSpecificPeerListEntryBase<Z::Addr>) {
+        if self.white_list.len() > self.cfg.max_white_list_length {
+            return;
+        }
+
+        if self.anchor_list.contains(&peer.adr) {
+            tracing::trace!("Peer {} is already in anchor list skipping.", peer.adr);
+            return;
+        }
+        if self.gray_list.contains_peer(&peer.adr) {
+            tracing::trace!("Peer {} is already in grey list skipping.", peer.adr);
+            return;
+        }
+        if !self.white_list.contains_peer(&peer.adr) {
+            tracing::trace!("Adding peer {} to white list.", peer.adr);
+            peer.last_seen = 0;
+            self.white_list.add_new_peer(peer);
         }
     }
 
@@ -385,10 +410,15 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
         self.connected_peers.insert(internal_peer_id, peer);
         Ok(())
     }
-    
+
     fn all_peers(&self) -> cuprate_p2p_core::types::Peerlist<Z::Addr> {
         cuprate_p2p_core::types::Peerlist {
-            anchors: self.anchor_list.anchors().values().map(|a| a.peer.clone()).collect(),
+            anchors: self
+                .anchor_list
+                .anchors()
+                .values()
+                .map(|a| a.peer.clone())
+                .collect(),
             white: self.white_list.peers.values().cloned().collect(),
             grey: self.gray_list.peers.values().cloned().collect(),
         }
@@ -434,6 +464,10 @@ impl<Z: BorshNetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
                     },
                 )
                 .map(|()| AddressBookResponse::Ok),
+            AddressBookRequest::PeerReachable(peer) => {
+                self.add_peer_to_white_list(peer);
+                Ok(AddressBookResponse::Ok)
+            }
             AddressBookRequest::IncomingPeerList(peer_list) => {
                 self.handle_incoming_peer_list(peer_list);
                 Ok(AddressBookResponse::Ok)
@@ -471,7 +505,7 @@ impl<Z: BorshNetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
                 self.cfg.our_own_address.clone(),
             )),
             AddressBookRequest::Peerlist => Ok(AddressBookResponse::Peerlist(self.all_peers())),
-            | AddressBookRequest::PeerlistSize
+            AddressBookRequest::PeerlistSize
             | AddressBookRequest::ConnectionCount
             | AddressBookRequest::SetBan(_)
             | AddressBookRequest::GetBans

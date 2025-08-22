@@ -170,9 +170,13 @@ fn main() {
             std::thread::spawn(|| commands::command_listener(command_tx));
 
             // Wait on the io_loop, spawned on a separate task as this improves performance.
-            tokio::spawn(commands::io_loop(command_rx, context_svc, network_interfaces))
-                .await
-                .unwrap();
+            tokio::spawn(commands::io_loop(
+                command_rx,
+                context_svc,
+                network_interfaces,
+            ))
+            .await
+            .unwrap();
         } else {
             // If no STDIN, await OS exit signal.
             info!("Terminal/TTY not detected, disabling STDIN commands");

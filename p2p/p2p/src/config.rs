@@ -43,6 +43,15 @@ pub struct TransportConfig<Z: NetworkZone, T: Transport<Z>> {
     pub server_config: Option<T::ServerConfig>,
 }
 
+impl<Z: NetworkZone, T: Transport<Z>> Clone for TransportConfig<Z, T> {
+    fn clone(&self) -> Self {
+        Self {
+            client_config: self.client_config.clone(),
+            server_config: self.server_config.clone(),
+        }
+    }
+}
+
 impl<Z: NetworkZone> P2PConfig<Z> {
     /// Returns the [`BasicNodeData`] for this [`P2PConfig`].
     ///

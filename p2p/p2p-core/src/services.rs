@@ -101,6 +101,8 @@ pub enum AddressBookRequest<Z: NetworkZone> {
         /// The peers rpc credits per hash
         rpc_credits_per_hash: u32,
     },
+    
+    PeerReachable(ZoneSpecificPeerListEntryBase<Z::Addr>),
 
     /// Tells the address book about a peer list received from a peer.
     IncomingPeerList(Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>),

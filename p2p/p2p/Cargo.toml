@@ -20,7 +20,7 @@ cuprate-bucket-set = { workspace = true }
 monero-serai = { workspace = true, features = ["std"] }
 
 tower = { workspace = true, features = ["buffer"] }
-tokio = { workspace = true, features = ["rt", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["rt", "rt-multi-thread", "time"] }
 tokio-util = { workspace = true }
 rayon = { workspace = true }
 tokio-stream = { workspace = true, features = ["sync", "time"] }

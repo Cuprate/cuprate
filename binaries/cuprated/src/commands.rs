@@ -8,17 +8,17 @@ use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
 
-use cuprate_consensus_context::{
-    BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
-};
-use cuprate_helper::time::secs_to_hms;
-use cuprate_p2p_core::services::{AddressBookRequest, AddressBookResponse};
+use crate::p2p::NetworkInterfaces;
 use crate::{
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     logging::{self, CupratedTracingFilter},
     statics,
 };
-use crate::p2p::NetworkInterfaces;
+use cuprate_consensus_context::{
+    BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
+};
+use cuprate_helper::time::secs_to_hms;
+use cuprate_p2p_core::services::{AddressBookRequest, AddressBookResponse};
 
 /// A command received from [`io::stdin`].
 #[derive(Debug, Parser)]
@@ -54,8 +54,8 @@ pub enum Command {
 
     AddressBook {
         #[arg(value_enum, default_value_t)]
-        zone: NetZone
-    }
+        zone: NetZone,
+    },
 }
 
 /// The log output target.
@@ -71,7 +71,7 @@ pub enum OutputTarget {
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum NetZone {
     #[default]
-    Clearnet
+    Clearnet,
 }
 
 /// The [`Command`] listener loop.
@@ -144,16 +144,29 @@ pub async fn io_loop(
 
                 println!("{stop_height}");
             }
-            Command::AddressBook { zone: NetZone::Clearnet } => {
+            Command::AddressBook {
+                zone: NetZone::Clearnet,
+            } => {
                 let mut book = network_interfaces.clearnet_network_interface.address_book();
 
-                let AddressBookResponse::Peerlist(peer_list) = book.ready().await.unwrap().call(AddressBookRequest::Peerlist).await.unwrap() else {
+                let AddressBookResponse::Peerlist(peer_list) = book
+                    .ready()
+                    .await
+                    .unwrap()
+                    .call(AddressBookRequest::Peerlist)
+                    .await
+                    .unwrap()
+                else {
                     unreachable!()
                 };
 
                 println!("{peer_list:#?}");
-                println!("len: anchor: {}, white: {}, grey: {}", peer_list.anchors.len(), peer_list.white.len(), peer_list.grey.len());
-
+                println!(
+                    "len: anchor: {}, white: {}, grey: {}",
+                    peer_list.anchors.len(),
+                    peer_list.white.len(),
+                    peer_list.grey.len()
+                );
             }
         }
     }

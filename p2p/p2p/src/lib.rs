@@ -22,6 +22,7 @@ pub mod config;
 pub mod connection_maintainer;
 pub mod constants;
 mod inbound_server;
+mod peer_pinger;
 mod peer_set;
 
 use block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse};
@@ -30,6 +31,7 @@ pub use config::{AddressBookConfig, P2PConfig, TransportConfig};
 use connection_maintainer::MakeConnectionRequest;
 use peer_set::PeerSet;
 pub use peer_set::{ClientDropGuard, PeerSetRequest, PeerSetResponse};
+use crate::peer_pinger::PeerPinger;
 
 /// Initializes the P2P [`NetworkInterface`] for a specific [`NetworkZone`].
 ///
@@ -77,7 +79,7 @@ where
     let outbound_handshaker_builder =
         cuprate_p2p_core::client::HandshakerBuilder::<Z, T, _, _, _, _>::new(
             basic_node_data,
-            transport_config.client_config,
+            transport_config.client_config.clone(),
         )
         .with_address_book(address_book.clone())
         .with_core_sync_svc(core_sync_svc)
@@ -108,15 +110,24 @@ where
         address_book.clone(),
         outbound_connector,
     );
+    
+    let peer_pinger = PeerPinger {
+        address_book_svc: address_book.clone(),
+        transport_config: Arc::new(transport_config.clone()),
+    };
 
     let peer_set = PeerSet::new(new_connection_rx);
 
     let mut background_tasks = JoinSet::new();
-
+    
     background_tasks.spawn(
         outbound_connection_maintainer
             .run()
             .instrument(Span::current()),
+    );
+    background_tasks.spawn(
+        peer_pinger.run()        .instrument(Span::current()),
+
     );
     background_tasks.spawn(
         inbound_server::inbound_server(
