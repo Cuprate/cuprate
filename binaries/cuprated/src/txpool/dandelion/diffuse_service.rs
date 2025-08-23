@@ -8,16 +8,16 @@ use tower::Service;
 
 use cuprate_dandelion_tower::traits::DiffuseRequest;
 use cuprate_p2p::{BroadcastRequest, BroadcastSvc};
-use cuprate_p2p_core::ClearNet;
+use cuprate_p2p_core::{ClearNet, NetworkZone};
 
 use crate::txpool::dandelion::DandelionTx;
 
 /// The dandelion diffusion service.
-pub struct DiffuseService {
-    pub clear_net_broadcast_service: BroadcastSvc<ClearNet>,
+pub struct DiffuseService<N: NetworkZone> {
+    pub clear_net_broadcast_service: BroadcastSvc<N>,
 }
 
-impl Service<DiffuseRequest<DandelionTx>> for DiffuseService {
+impl<N: NetworkZone> Service<DiffuseRequest<DandelionTx>> for DiffuseService<N> {
     type Response = ();
     type Error = tower::BoxError;
     type Future = Ready<Result<Self::Response, Self::Error>>;

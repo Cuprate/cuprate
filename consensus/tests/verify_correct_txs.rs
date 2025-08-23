@@ -30,6 +30,10 @@ use cuprate_test_utils::data::TX_E2D393;
 fn dummy_database(outputs: BTreeMap<u64, OutputOnChain>) -> impl Database + Clone {
     let outputs = Arc::new(outputs);
 
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "Other database requests are not needed for this test"
+    )]
     service_fn(move |req: BlockchainReadRequest| {
         ready(Ok(match req {
             BlockchainReadRequest::NumberOutputsWithAmount(_) => {
@@ -52,7 +56,7 @@ fn dummy_database(outputs: BTreeMap<u64, OutputOnChain>) -> impl Database + Clon
                 BlockchainResponse::Outputs(ret)
             }
             BlockchainReadRequest::KeyImagesSpent(_) => BlockchainResponse::KeyImagesSpent(false),
-            _ => panic!("Database request not needed for this test"),
+            _ => panic!(),
         }))
     })
 }

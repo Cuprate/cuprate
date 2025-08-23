@@ -141,6 +141,10 @@ impl Service<BlockchainReadRequest> for DummyDatabase {
         let dummy_height = self.dummy_height;
 
         async move {
+            #[expect(
+                clippy::wildcard_enum_match_arm,
+                reason = "the context svc should not need other requests"
+            )]
             Ok(match req {
                 BlockchainReadRequest::BlockExtendedHeader(id) => {
                     let mut id = id;

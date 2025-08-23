@@ -347,6 +347,7 @@ where
                 .ready()
                 .await?
                 .call(AddressBookRequest::IncomingPeerList(
+                    addr,
                     handshake_res
                         .local_peerlist_new
                         .into_iter()
@@ -486,11 +487,11 @@ where
         handle,
         direction,
         pruning_seed,
+        basic_node_data: peer_node_data,
         core_sync_data: Arc::new(Mutex::new(peer_core_sync)),
     };
 
     let protocol_request_handler = protocol_request_svc_maker
-        .as_service()
         .ready()
         .await?
         .call(info.clone())
@@ -693,7 +694,7 @@ where
                         allow_ping = false;
                         continue;
                     }
-                    _ => {
+                    AdminRequestMessage::Handshake(_) | AdminRequestMessage::TimedSync(_) => {
                         return Err(HandshakeError::PeerSentInvalidMessage(
                             "Peer sent an admin request before responding to the handshake",
                         ));

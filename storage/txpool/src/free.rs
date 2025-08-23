@@ -1,7 +1,7 @@
 //! General free functions (related to the tx-pool database).
 
 use std::borrow::Cow;
-//---------------------------------------------------------------------------------------------------- Import
+
 use cuprate_database::{
     ConcreteEnv, DatabaseRo, Env, EnvInner, InitError, RuntimeError, StorableStr, TxRw,
 };

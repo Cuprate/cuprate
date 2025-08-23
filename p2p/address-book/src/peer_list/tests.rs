@@ -90,7 +90,9 @@ fn peer_list_remove_specific_peer() {
     let peers = peer_list.peers;
 
     for (_, addrs) in pruning_idxs {
-        addrs.iter().for_each(|adr| assert_ne!(adr, &peer.adr));
+        for adr in &addrs {
+            assert_ne!(adr, &peer.adr);
+        }
     }
 
     assert!(!peers.contains_key(&peer.adr));

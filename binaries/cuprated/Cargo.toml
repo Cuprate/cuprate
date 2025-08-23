@@ -28,6 +28,7 @@ cuprate-hex               = { workspace = true }
 cuprate-json-rpc          = { workspace = true }
 cuprate-levin             = { workspace = true }
 cuprate-p2p-core          = { workspace = true }
+cuprate-p2p-transport     = { workspace = true }
 cuprate-p2p               = { workspace = true }
 cuprate-pruning           = { workspace = true }
 cuprate-rpc-interface     = { workspace = true, features = ["dummy"] }
@@ -41,6 +42,7 @@ cuprate-wire              = { workspace = true }
 # TODO: after v1.0.0, remove unneeded dependencies.
 axum                  = { workspace = true, features = ["tokio", "http1", "http2"] }
 anyhow                = { workspace = true }
+arti-client           = { workspace = true, features = ["tokio", "native-tls", "onion-service-client", "onion-service-service", "static"] }
 async-trait           = { workspace = true }
 bitflags              = { workspace = true }
 borsh                 = { workspace = true }
@@ -68,6 +70,7 @@ randomx-rs            = { workspace = true }
 rand                  = { workspace = true }
 rand_distr            = { workspace = true }
 rayon                 = { workspace = true }
+safelog               = { workspace = true }
 serde_bytes           = { workspace = true }
 serde_json            = { workspace = true }
 serde                 = { workspace = true }
@@ -77,8 +80,11 @@ thread_local          = { workspace = true }
 tokio-util            = { workspace = true, features = ["rt"] }
 tokio-stream          = { workspace = true }
 tokio                 = { workspace = true }
-toml                  = { workspace = true, features = ["parse", "display"]}
-toml_edit             = { workspace = true }
+toml                  = { workspace = true, features = ["parse", "display", "serde"]}
+toml_edit             = { workspace = true, features = ["parse", "display"] }
+tor-hsservice         = { workspace = true }
+tor-persist           = { workspace = true }
+tor-rtcompat          = { workspace = true }
 tower                 = { workspace = true, features = ["limit"] }
 tower-http            = { workspace = true, features = ["limit"] }
 tracing-appender      = { workspace = true }
