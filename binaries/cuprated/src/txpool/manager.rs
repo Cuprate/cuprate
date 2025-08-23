@@ -24,7 +24,7 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_util::{time::delay_queue, time::DelayQueue};
 use tower::{Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
-
+use cuprate_p2p_core::ClearNet;
 use crate::blockchain::ConsensusBlockchainReadHandle;
 use crate::txpool::IncomingTxError;
 use crate::{
@@ -49,7 +49,7 @@ pub async fn start_txpool_manager(
     mut blockchain_context_cache: BlockchainContextService,
     blockchain_read_handle: ConsensusBlockchainReadHandle,
     promote_tx_channel: mpsc::Receiver<[u8; 32]>,
-    diffuse_service: DiffuseService,
+    diffuse_service: DiffuseService<ClearNet>,
     dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
     config: TxpoolConfig,
 ) -> TxpoolManagerHandle {
@@ -238,7 +238,7 @@ struct TxpoolManager {
     /// The [`DiffuseService`] to diffuse txs to the p2p network.
     ///
     /// Used for re-relays.
-    diffuse_service: DiffuseService,
+    diffuse_service: DiffuseService<ClearNet>,
 
     tx_tx: mpsc::WeakSender<(
         TransactionVerificationData,
