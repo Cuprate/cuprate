@@ -92,7 +92,10 @@ pub enum AddressBookRequest<Z: NetworkZone> {
     },
 
     /// Tells the address book about a peer list received from a peer.
-    IncomingPeerList(Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>),
+    IncomingPeerList(
+        InternalPeerID<Z::Addr>,
+        Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>,
+    ),
 
     /// Takes a random white peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
@@ -114,6 +117,9 @@ pub enum AddressBookRequest<Z: NetworkZone> {
 
     /// Gets the specified number of white peers, or less if we don't have enough.
     GetWhitePeers(usize),
+
+    /// Gets our own optionally specified address
+    OwnAddress,
 
     /// Get info on all peers, white & grey.
     Peerlist,
@@ -175,4 +181,10 @@ pub enum AddressBookResponse<Z: NetworkZone> {
 
     /// Response to [`AddressBookRequest::GetBans`].
     GetBans(Vec<BanState<Z::Addr>>),
+
+    /// Response to [`AddressBookRequest::OwnAddress`]
+    ///
+    /// This returns [`None`] if the address book do
+    /// not contain a self designated address.
+    OwnAddress(Option<Z::Addr>),
 }

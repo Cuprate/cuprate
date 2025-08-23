@@ -11,7 +11,7 @@ txpool = ["dep:rand_distr", "dep:tokio-util", "dep:tokio"]
 
 [dependencies]
 tower = { workspace = true, features = ["util"] }
-tracing = { workspace = true, features = ["std"] }
+tracing = { workspace = true, features = ["std", "attributes"] }
 
 futures = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["rt", "sync", "macros"], optional = true}

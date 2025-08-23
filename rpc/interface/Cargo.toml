@@ -28,7 +28,7 @@ futures    = { workspace = true, optional = true }
 [dev-dependencies]
 cuprate-test-utils = { workspace = true }
 
-axum       = { version = "0.7.5", features = ["json", "tokio", "http2"] }
+axum       = { workspace = true, features = ["json", "tokio", "http2"] }
 serde_json = { workspace = true, features = ["std"] }
 tokio      = { workspace = true, features = ["full"] }
 ureq       = { version = "2.10.1", features = ["json"] }

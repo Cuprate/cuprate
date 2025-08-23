@@ -88,7 +88,7 @@ impl Id {
     pub const fn as_u64(&self) -> Option<u64> {
         match self {
             Self::Num(n) => Some(*n),
-            _ => None,
+            Self::Null | Self::Str(_) => None,
         }
     }
 
@@ -104,7 +104,7 @@ impl Id {
     pub fn as_str(&self) -> Option<&str> {
         match self {
             Self::Str(s) => Some(s.as_ref()),
-            _ => None,
+            Self::Null | Self::Num(_) => None,
         }
     }
 

@@ -79,7 +79,7 @@ mod tests {
         let array = [1_u8, 2, 3, 4, 5];
         let sub: &[u8; 3] = subarray(&array, 1);
         assert_eq!(sub, &[2, 3, 4]);
-        assert!(std::ptr::eq(&array[1], &sub[0])); // same memory, not copy
+        assert!(std::ptr::eq(&raw const array[1], &raw const sub[0])); // same memory, not copy
     }
 
     #[test]

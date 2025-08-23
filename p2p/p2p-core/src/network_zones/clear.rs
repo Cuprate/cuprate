@@ -27,7 +27,6 @@ impl NetZoneAddress for SocketAddr {
 #[derive(Clone, Copy)]
 pub enum ClearNet {}
 
-#[async_trait::async_trait]
 impl NetworkZone for ClearNet {
     const NAME: &'static str = "ClearNet";
 

@@ -19,6 +19,7 @@ use cuprate_txpool::service::TxpoolReadHandle;
 use crate::{
     config::RpcConfig,
     rpc::{rpc_handler::BlockchainManagerHandle, CupratedRpcHandler},
+    txpool::IncomingTxHandler,
 };
 
 /// Initialize the RPC server(s).
@@ -33,6 +34,7 @@ pub fn init_rpc_servers(
     blockchain_read: BlockchainReadHandle,
     blockchain_context: BlockchainContextService,
     txpool_read: TxpoolReadHandle,
+    tx_handler: IncomingTxHandler,
 ) {
     for ((enable, addr, request_byte_limit), restricted) in [
         (
@@ -76,6 +78,7 @@ pub fn init_rpc_servers(
             blockchain_read.clone(),
             blockchain_context.clone(),
             txpool_read.clone(),
+            tx_handler.clone(),
         );
 
         tokio::task::spawn(async move {
@@ -107,6 +110,8 @@ async fn run_rpc_server(
     let router = RouterBuilder::new()
         .json_rpc()
         .other_get_height()
+        .other_send_raw_transaction()
+        .other_sendrawtransaction()
         .fallback()
         .build()
         .with_state(rpc_handler);

@@ -131,7 +131,7 @@ impl TryFrom<PeerRequest> for BroadcastMessage {
             PeerRequest::Protocol(ProtocolRequest::NewFluffyBlock(block)) => {
                 Ok(Self::NewFluffyBlock(block))
             }
-            _ => Err(MessageConversionError),
+            PeerRequest::Admin(_) | PeerRequest::Protocol(_) => Err(MessageConversionError),
         }
     }
 }

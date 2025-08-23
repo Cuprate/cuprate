@@ -231,6 +231,7 @@ impl Ord for DecompressedPruningSeed {
     fn cmp(&self, other: &Self) -> Ordering {
         // Compare the `log_stripes` first so peers which store more blocks are greater than peers
         // storing less.
+        #[expect(clippy::wildcard_enum_match_arm)]
         match self.log_stripes.cmp(&other.log_stripes) {
             Ordering::Equal => self.stripe.cmp(&other.stripe),
             ord => ord,

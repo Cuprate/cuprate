@@ -8,7 +8,9 @@ use std::{
     time::Duration,
 };
 
+use arti_client::KeystoreSelector;
 use clap::Parser;
+use safelog::DisplayRedacted;
 use serde::{Deserialize, Serialize};
 
 use cuprate_consensus::ContextConfig;
@@ -17,11 +19,13 @@ use cuprate_helper::{
     network::Network,
 };
 use cuprate_p2p::block_downloader::BlockDownloaderConfig;
-use cuprate_p2p_core::ClearNet;
+use cuprate_p2p_core::{ClearNet, Tor};
+use cuprate_wire::OnionAddr;
 
 use crate::{
     constants::{DEFAULT_CONFIG_STARTUP_DELAY, DEFAULT_CONFIG_WARNING},
     logging::eprintln_red,
+    tor::{TorContext, TorMode},
 };
 
 mod args;
@@ -31,6 +35,7 @@ mod rayon;
 mod rpc;
 mod storage;
 mod tokio;
+mod tor;
 mod tracing_config;
 
 #[macro_use]
@@ -40,8 +45,9 @@ use fs::FileSystemConfig;
 use p2p::P2PConfig;
 use rayon::RayonConfig;
 pub use rpc::RpcConfig;
-use storage::StorageConfig;
+pub use storage::{StorageConfig, TxpoolConfig};
 use tokio::TokioConfig;
+use tor::TorConfig;
 use tracing_config::TracingConfig;
 
 /// Header to put at the start of the generated config file.
@@ -145,6 +151,10 @@ config_struct! {
         pub p2p: P2PConfig,
 
         #[child = true]
+        /// Configuration for cuprated's Tor component
+        pub tor: TorConfig,
+
+        #[child = true]
         /// Configuration for cuprated's RPC system.
         pub rpc: RpcConfig,
 
@@ -165,6 +175,7 @@ impl Default for Config {
             fast_sync: true,
             tracing: Default::default(),
             tokio: Default::default(),
+            tor: Default::default(),
             rayon: Default::default(),
             p2p: Default::default(),
             rpc: Default::default(),
@@ -219,11 +230,51 @@ impl Config {
             gray_peers_percent: self.p2p.clear_net.gray_peers_percent,
             p2p_port: self.p2p.clear_net.p2p_port,
             rpc_port: self.rpc.restricted.port_for_p2p(),
-            address_book_config: self
-                .p2p
-                .clear_net
-                .address_book_config
-                .address_book_config(&self.fs.cache_directory, self.network),
+            address_book_config: self.p2p.clear_net.address_book_config.address_book_config(
+                &self.fs.cache_directory,
+                self.network,
+                None,
+            ),
+        }
+    }
+
+    /// The [`Tor`], [`cuprate_p2p::P2PConfig`].
+    pub fn tor_p2p_config(&self, ctx: &TorContext) -> cuprate_p2p::P2PConfig<Tor> {
+        let inbound_enabled = self.p2p.tor_net.inbound_onion;
+        let our_onion_address = match ctx.mode {
+            TorMode::Off => None,
+            TorMode::Daemon => inbound_enabled.then(||
+                OnionAddr::new(
+                    &self.tor.daemon.anonymous_inbound,
+                    self.p2p.tor_net.p2p_port
+                ).expect("Unable to parse supplied `anonymous_inbound` onion address. Please make sure the address is correct.")),
+            TorMode::Arti => inbound_enabled.then(|| {
+                let addr = ctx.arti_onion_service
+                    .as_ref()
+                    .unwrap()
+                    .generate_identity_key(KeystoreSelector::Primary)
+                    .unwrap()
+                    .display_unredacted()
+                    .to_string();
+
+                OnionAddr::new(&addr, self.p2p.tor_net.p2p_port).unwrap()
+            })
+        };
+
+        cuprate_p2p::P2PConfig {
+            network: self.network,
+            seeds: p2p::tor_net_seed_nodes(self.network),
+            outbound_connections: self.p2p.tor_net.outbound_connections,
+            extra_outbound_connections: self.p2p.tor_net.extra_outbound_connections,
+            max_inbound_connections: self.p2p.tor_net.max_inbound_connections,
+            gray_peers_percent: self.p2p.tor_net.gray_peers_percent,
+            p2p_port: self.p2p.tor_net.p2p_port,
+            rpc_port: 0,
+            address_book_config: self.p2p.tor_net.address_book_config.address_book_config(
+                &self.fs.cache_directory,
+                self.network,
+                our_onion_address,
+            ),
         }
     }
 

@@ -181,7 +181,21 @@ impl HardFork {
     pub const fn block_time(self) -> Duration {
         match self {
             Self::V1 => BLOCK_TIME_V1,
-            _ => BLOCK_TIME_V2,
+            Self::V2
+            | Self::V3
+            | Self::V4
+            | Self::V5
+            | Self::V6
+            | Self::V7
+            | Self::V8
+            | Self::V9
+            | Self::V10
+            | Self::V11
+            | Self::V12
+            | Self::V13
+            | Self::V14
+            | Self::V15
+            | Self::V16 => BLOCK_TIME_V2,
         }
     }
 

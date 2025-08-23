@@ -26,8 +26,9 @@ use cuprate_p2p_core::{
 use cuprate_pruning::PruningSeed;
 use cuprate_types::{BlockCompleteEntry, TransactionBlobs};
 use cuprate_wire::{
+    common::PeerSupportFlags,
     protocol::{ChainResponse, GetObjectsResponse},
-    CoreSyncData,
+    BasicNodeData, CoreSyncData,
 };
 
 use crate::{
@@ -242,7 +243,7 @@ fn mock_block_downloader_client(blockchain: Arc<MockBlockchain>) -> Client<Clear
                         },
                     )))
                 }
-                _ => panic!(),
+                PeerRequest::Admin(_) | PeerRequest::Protocol(_) => panic!(),
             }
         }
         .boxed()
@@ -250,6 +251,14 @@ fn mock_block_downloader_client(blockchain: Arc<MockBlockchain>) -> Client<Clear
 
     let info = PeerInformation {
         id: InternalPeerID::Unknown(rand::random()),
+        basic_node_data: BasicNodeData {
+            my_port: 0,
+            network_id: [0; 16],
+            peer_id: 0,
+            support_flags: PeerSupportFlags::FLUFFY_BLOCKS,
+            rpc_port: 0,
+            rpc_credits_per_hash: 0,
+        },
         handle: connection_handle,
         direction: ConnectionDirection::Inbound,
         pruning_seed: PruningSeed::NotPruned,
