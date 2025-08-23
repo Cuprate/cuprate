@@ -21,9 +21,9 @@ use cuprate_p2p_core::{
 use cuprate_p2p_transport::{Arti, ArtiClientConfig, ArtiServerConfig};
 use cuprate_wire::OnionAddr;
 
-use crate::{p2p::ProxySettings, tor::TorMode};
-
 use super::macros::config_struct;
+use crate::config::default::DefaultOrCustom;
+use crate::{p2p::ProxySettings, tor::TorMode};
 
 config_struct! {
     /// P2P config.
@@ -167,7 +167,7 @@ config_struct! {
         /// Type         | Number
         /// Valid values | 0..65534
         /// Examples     | 18080, 9999, 5432
-        pub p2p_port: u16,
+        pub p2p_port: DefaultOrCustom<u16>,
 
         #[child = true]
         /// The address book config.
@@ -259,10 +259,40 @@ config_struct! {
     }
 }
 
+pub const fn p2p_port(setting: DefaultOrCustom<u16>, network: Network) -> u16 {
+    match setting {
+        DefaultOrCustom::Default => match network {
+            Network::Mainnet => 18080,
+            Network::Stagenet => 38080,
+            Network::Testnet => 28080,
+        },
+        DefaultOrCustom::Custom(port) => port,
+    }
+}
+
+impl ClearNetConfig {
+    pub fn tor_transport_config(&self, network: Network) -> TransportConfig<ClearNet, Tcp> {
+        let server_config = if self.enable_inbound {
+            let mut sc = TcpServerConfig::default();
+            sc.ipv4 = Some(self.listen_on);
+            sc.ipv6 = self.enable_inbound_v6.then_some(self.listen_on_v6);
+            sc.port = p2p_port(self.p2p_port, network);
+            Some(sc)
+        } else {
+            None
+        };
+
+        TransportConfig {
+            client_config: (),
+            server_config,
+        }
+    }
+}
+
 impl Default for ClearNetConfig {
     fn default() -> Self {
         Self {
-            p2p_port: 18080,
+            p2p_port: DefaultOrCustom::Default,
             enable_inbound: true,
             listen_on: Ipv4Addr::UNSPECIFIED,
             enable_inbound_v6: false,
@@ -282,31 +312,12 @@ impl Default for TorNetConfig {
         Self {
             enabled: false,
             inbound_onion: false,
-            p2p_port: 18080,
+            p2p_port: DefaultOrCustom::Default,
             outbound_connections: 12,
             extra_outbound_connections: 2,
             max_inbound_connections: 128,
             gray_peers_percent: 0.7,
             address_book_config: AddressBookConfig::default(),
-        }
-    }
-}
-
-impl From<&ClearNetConfig> for TransportConfig<ClearNet, Tcp> {
-    fn from(value: &ClearNetConfig) -> Self {
-        let server_config = if value.p2p_port != 0 {
-            let mut sc = TcpServerConfig::default();
-            sc.ipv4 = Some(value.listen_on);
-            sc.ipv6 = value.enable_inbound_v6.then_some(value.listen_on_v6);
-            sc.port = value.p2p_port;
-            Some(sc)
-        } else {
-            None
-        };
-
-        Self {
-            client_config: (),
-            server_config,
         }
     }
 }

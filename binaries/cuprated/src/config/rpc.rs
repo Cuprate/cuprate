@@ -1,11 +1,12 @@
+use crate::config::default::DefaultOrCustom;
+use crate::config::macros::config_struct;
+use cuprate_helper::network::Network;
+use serde::{Deserialize, Serialize};
+use std::net::IpAddr;
 use std::{
     net::{Ipv4Addr, SocketAddr, SocketAddrV4},
     time::Duration,
 };
-
-use serde::{Deserialize, Serialize};
-
-use crate::config::macros::config_struct;
 
 config_struct! {
     /// RPC config.
@@ -24,11 +25,18 @@ config_struct! {
 
 config_struct! {
     Shared {
-        /// The address and port the RPC server will listen on.
+        /// The address the RPC server will listen on.
         ///
-        /// Type     | IPv4/IPv6 address + port
+        /// Type     | IPv4/IPv6 address
         /// Examples | "", "127.0.0.1:18081", "192.168.1.50:18085"
-        pub address: SocketAddr,
+        pub address: IpAddr,
+
+        /// The port the RPC server will listen on.
+        ///
+        /// Type         | Number
+        /// Valid values | 0..65534
+        /// Examples     | 18080, 9999, 5432
+        pub port: DefaultOrCustom<u16>,
 
         /// Toggle the RPC server.
         ///
@@ -88,7 +96,8 @@ impl Default for UnrestrictedRpcConfig {
     fn default() -> Self {
         Self {
             i_know_what_im_doing_allow_public_unrestricted_rpc: false,
-            address: SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 18081)),
+            address: IpAddr::V4(Ipv4Addr::LOCALHOST),
+            port: DefaultOrCustom::Default,
             enable: true,
             request_byte_limit: 0,
         }
@@ -99,7 +108,8 @@ impl Default for RestrictedRpcConfig {
     fn default() -> Self {
         Self {
             advertise: false,
-            address: SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 18089)),
+            address: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            port: DefaultOrCustom::Default,
             enable: false,
             // 1 megabyte.
             // <https://github.com/monero-project/monero/blob/3b01c490953fe92f3c6628fa31d280a4f0490d28/src/cryptonote_config.h#L134>
@@ -108,11 +118,33 @@ impl Default for RestrictedRpcConfig {
     }
 }
 
+pub const fn restricted_rpc_port(config: DefaultOrCustom<u16>, network: Network) -> u16 {
+    match config {
+        DefaultOrCustom::Default => match network {
+            Network::Mainnet => 18089,
+            Network::Stagenet => 38089,
+            Network::Testnet => 28089,
+        },
+        DefaultOrCustom::Custom(port) => port,
+    }
+}
+
+pub const fn unrestricted_rpc_port(config: DefaultOrCustom<u16>, network: Network) -> u16 {
+    match config {
+        DefaultOrCustom::Default => match network {
+            Network::Mainnet => 18081,
+            Network::Stagenet => 38081,
+            Network::Testnet => 28081,
+        },
+        DefaultOrCustom::Custom(port) => port,
+    }
+}
+
 impl RestrictedRpcConfig {
     /// Return the restricted RPC port for P2P if available and public.
-    pub const fn port_for_p2p(&self) -> u16 {
+    pub const fn port_for_p2p(&self, network: Network) -> u16 {
         if self.advertise && self.enable {
-            self.address.port()
+            restricted_rpc_port(self.port, network)
         } else {
             0
         }

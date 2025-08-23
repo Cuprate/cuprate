@@ -13,9 +13,11 @@ use tracing::{info, warn};
 
 use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::BlockchainContextService;
+use cuprate_helper::network::Network;
 use cuprate_rpc_interface::{RouterBuilder, RpcHandler};
 use cuprate_txpool::service::TxpoolReadHandle;
 
+use crate::config::{restricted_rpc_port, unrestricted_rpc_port};
 use crate::{
     config::RpcConfig,
     rpc::{rpc_handler::BlockchainManagerHandle, CupratedRpcHandler},
@@ -31,16 +33,18 @@ use crate::{
 ///   address without override option
 pub fn init_rpc_servers(
     config: RpcConfig,
+    network: Network,
     blockchain_read: BlockchainReadHandle,
     blockchain_context: BlockchainContextService,
     txpool_read: TxpoolReadHandle,
     tx_handler: IncomingTxHandler,
 ) {
-    for ((enable, addr, request_byte_limit), restricted) in [
+    for ((enable, addr, port, request_byte_limit), restricted) in [
         (
             (
                 config.unrestricted.enable,
                 config.unrestricted.address,
+                unrestricted_rpc_port(config.unrestricted.port, network),
                 config.unrestricted.request_byte_limit,
             ),
             false,
@@ -49,6 +53,7 @@ pub fn init_rpc_servers(
             (
                 config.restricted.enable,
                 config.restricted.address,
+                restricted_rpc_port(config.restricted.port, network),
                 config.restricted.request_byte_limit,
             ),
             true,
@@ -59,7 +64,7 @@ pub fn init_rpc_servers(
             continue;
         }
 
-        if !restricted && !cuprate_helper::net::ip_is_local(addr.ip()) {
+        if !restricted && !cuprate_helper::net::ip_is_local(addr) {
             if config
                 .unrestricted
                 .i_know_what_im_doing_allow_public_unrestricted_rpc
@@ -82,9 +87,14 @@ pub fn init_rpc_servers(
         );
 
         tokio::task::spawn(async move {
-            run_rpc_server(rpc_handler, restricted, addr, request_byte_limit)
-                .await
-                .unwrap();
+            run_rpc_server(
+                rpc_handler,
+                restricted,
+                SocketAddr::new(addr, port),
+                request_byte_limit,
+            )
+            .await
+            .unwrap();
         });
     }
 }

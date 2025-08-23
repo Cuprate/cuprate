@@ -40,11 +40,13 @@ mod tracing_config;
 
 #[macro_use]
 mod macros;
+mod default;
 
+pub use crate::config::p2p::p2p_port;
 use fs::FileSystemConfig;
 use p2p::P2PConfig;
 use rayon::RayonConfig;
-pub use rpc::RpcConfig;
+pub use rpc::{restricted_rpc_port, unrestricted_rpc_port, RpcConfig};
 pub use storage::{StorageConfig, TxpoolConfig};
 use tokio::TokioConfig;
 use tor::TorConfig;
@@ -228,8 +230,8 @@ impl Config {
             extra_outbound_connections: self.p2p.clear_net.extra_outbound_connections,
             max_inbound_connections: self.p2p.clear_net.max_inbound_connections,
             gray_peers_percent: self.p2p.clear_net.gray_peers_percent,
-            p2p_port: self.p2p.clear_net.p2p_port,
-            rpc_port: self.rpc.restricted.port_for_p2p(),
+            p2p_port: p2p_port(self.p2p.clear_net.p2p_port, self.network),
+            rpc_port: self.rpc.restricted.port_for_p2p(self.network),
             address_book_config: self.p2p.clear_net.address_book_config.address_book_config(
                 &self.fs.cache_directory,
                 self.network,
@@ -241,12 +243,15 @@ impl Config {
     /// The [`Tor`], [`cuprate_p2p::P2PConfig`].
     pub fn tor_p2p_config(&self, ctx: &TorContext) -> cuprate_p2p::P2PConfig<Tor> {
         let inbound_enabled = self.p2p.tor_net.inbound_onion;
+
+        let tor_p2p_port = p2p_port(self.p2p.tor_net.p2p_port, self.network);
+
         let our_onion_address = match ctx.mode {
             TorMode::Off => None,
             TorMode::Daemon => inbound_enabled.then(||
                 OnionAddr::new(
                     &self.tor.daemon.anonymous_inbound,
-                    self.p2p.tor_net.p2p_port
+                    tor_p2p_port
                 ).expect("Unable to parse supplied `anonymous_inbound` onion address. Please make sure the address is correct.")),
             TorMode::Arti => inbound_enabled.then(|| {
                 let addr = ctx.arti_onion_service
@@ -257,7 +262,7 @@ impl Config {
                     .display_unredacted()
                     .to_string();
 
-                OnionAddr::new(&addr, self.p2p.tor_net.p2p_port).unwrap()
+                OnionAddr::new(&addr, tor_p2p_port).unwrap()
             })
         };
 
@@ -268,7 +273,7 @@ impl Config {
             extra_outbound_connections: self.p2p.tor_net.extra_outbound_connections,
             max_inbound_connections: self.p2p.tor_net.max_inbound_connections,
             gray_peers_percent: self.p2p.tor_net.gray_peers_percent,
-            p2p_port: self.p2p.tor_net.p2p_port,
+            p2p_port: tor_p2p_port,
             rpc_port: 0,
             address_book_config: self.p2p.tor_net.address_book_config.address_book_config(
                 &self.fs.cache_directory,

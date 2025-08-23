@@ -168,6 +168,7 @@ fn main() {
         // Initialize the RPC server(s).
         rpc::init_rpc_servers(
             config.rpc,
+            config.network,
             blockchain_read_handle,
             context_svc.clone(),
             txpool_read_handle,
