@@ -1071,7 +1071,7 @@ fn add_aux_pow_inner(
     // Some of the code below requires that the
     // `.len()` of certain containers are the same.
     // Boxed slices are used over `Vec` to slightly
-    // safe-guard against accidently pushing to it.
+    // safe-guard against accidentally pushing to it.
     let aux_pow = request.aux_pow.into_boxed_slice();
 
     // TODO: why is this here? it does nothing:
