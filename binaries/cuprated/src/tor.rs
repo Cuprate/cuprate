@@ -25,8 +25,10 @@ use cuprate_p2p_transport::{
 };
 use cuprate_wire::OnionAddr;
 
-use crate::config::p2p_port;
-use crate::{config::Config, p2p::ProxySettings};
+use crate::{
+    config::{p2p_port, Config},
+    p2p::ProxySettings,
+};
 //---------------------------------------------------------------------------------------------------- Initialization
 
 #[derive(Clone, Default, Debug, Copy, PartialEq, Eq, Serialize, Deserialize)]

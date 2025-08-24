@@ -42,9 +42,8 @@ mod tracing_config;
 mod macros;
 mod default;
 
-pub use crate::config::p2p::p2p_port;
 use fs::FileSystemConfig;
-use p2p::P2PConfig;
+pub use p2p::{p2p_port, P2PConfig};
 use rayon::RayonConfig;
 pub use rpc::{restricted_rpc_port, unrestricted_rpc_port, RpcConfig};
 pub use storage::{StorageConfig, TxpoolConfig};

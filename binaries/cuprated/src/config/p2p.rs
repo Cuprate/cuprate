@@ -21,9 +21,9 @@ use cuprate_p2p_core::{
 use cuprate_p2p_transport::{Arti, ArtiClientConfig, ArtiServerConfig};
 use cuprate_wire::OnionAddr;
 
-use super::macros::config_struct;
-use crate::config::default::DefaultOrCustom;
 use crate::{p2p::ProxySettings, tor::TorMode};
+
+use super::{default::DefaultOrCustom, macros::config_struct};
 
 config_struct! {
     /// P2P config.
@@ -259,6 +259,7 @@ config_struct! {
     }
 }
 
+/// Gets the port to listen on for p2p connections.
 pub const fn p2p_port(setting: DefaultOrCustom<u16>, network: Network) -> u16 {
     match setting {
         DefaultOrCustom::Default => match network {
@@ -271,7 +272,8 @@ pub const fn p2p_port(setting: DefaultOrCustom<u16>, network: Network) -> u16 {
 }
 
 impl ClearNetConfig {
-    pub fn tor_transport_config(&self, network: Network) -> TransportConfig<ClearNet, Tcp> {
+    /// Gets the transport config for [`ClearNet`] over [`Tcp`].
+    pub fn tcp_transport_config(&self, network: Network) -> TransportConfig<ClearNet, Tcp> {
         let server_config = if self.enable_inbound {
             let mut sc = TcpServerConfig::default();
             sc.ipv4 = Some(self.listen_on);

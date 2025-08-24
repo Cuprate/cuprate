@@ -1,12 +1,13 @@
-use crate::config::default::DefaultOrCustom;
-use crate::config::macros::config_struct;
-use cuprate_helper::network::Network;
-use serde::{Deserialize, Serialize};
-use std::net::IpAddr;
 use std::{
-    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
+    net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4},
     time::Duration,
 };
+
+use serde::{Deserialize, Serialize};
+
+use cuprate_helper::network::Network;
+
+use super::{default::DefaultOrCustom, macros::config_struct};
 
 config_struct! {
     /// RPC config.
@@ -28,14 +29,14 @@ config_struct! {
         /// The address the RPC server will listen on.
         ///
         /// Type     | IPv4/IPv6 address
-        /// Examples | "", "127.0.0.1:18081", "192.168.1.50:18085"
+        /// Examples | "", "127.0.0.1", "192.168.1.50"
         pub address: IpAddr,
 
         /// The port the RPC server will listen on.
         ///
         /// Type         | Number
         /// Valid values | 0..65534
-        /// Examples     | 18080, 9999, 5432
+        /// Examples     | 18081, 18089, 5432
         pub port: DefaultOrCustom<u16>,
 
         /// Toggle the RPC server.
@@ -118,6 +119,7 @@ impl Default for RestrictedRpcConfig {
     }
 }
 
+/// Gets the port to listen on for restricted RPC connections.
 pub const fn restricted_rpc_port(config: DefaultOrCustom<u16>, network: Network) -> u16 {
     match config {
         DefaultOrCustom::Default => match network {
@@ -129,6 +131,7 @@ pub const fn restricted_rpc_port(config: DefaultOrCustom<u16>, network: Network)
     }
 }
 
+/// Gets the port to listen on for unrestricted RPC connections.
 pub const fn unrestricted_rpc_port(config: DefaultOrCustom<u16>, network: Network) -> u16 {
     match config {
         DefaultOrCustom::Default => match network {

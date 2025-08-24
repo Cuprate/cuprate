@@ -17,9 +17,8 @@ use cuprate_helper::network::Network;
 use cuprate_rpc_interface::{RouterBuilder, RpcHandler};
 use cuprate_txpool::service::TxpoolReadHandle;
 
-use crate::config::{restricted_rpc_port, unrestricted_rpc_port};
 use crate::{
-    config::RpcConfig,
+    config::{restricted_rpc_port, unrestricted_rpc_port, RpcConfig},
     rpc::{rpc_handler::BlockchainManagerHandle, CupratedRpcHandler},
     txpool::IncomingTxHandler,
 };

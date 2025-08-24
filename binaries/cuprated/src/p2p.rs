@@ -110,7 +110,7 @@ pub async fn initialize_zones_p2p(
                     context_svc.clone(),
                     txpool_read_handle.clone(),
                     config.clearnet_p2p_config(),
-                    config.p2p.clear_net.tor_transport_config(config.network),
+                    config.p2p.clear_net.tcp_transport_config(config.network),
                 )
                 .await
                 .unwrap()
