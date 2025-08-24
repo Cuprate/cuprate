@@ -94,7 +94,7 @@ macro_rules! define_request_and_response {
         }
     ) => { paste::paste! {
         $crate::macros::define_request! {
-            #[allow(dead_code, missing_docs, reason = "inside a macro")]
+            #[allow(dead_code, missing_docs, clippy::empty_structs_with_brackets, reason = "inside a macro")]
             #[doc = $crate::macros::define_request_and_response_doc!(
                 "response" => [<$type_name Response>],
                 $monero_daemon_rpc_doc_link,
@@ -107,6 +107,7 @@ macro_rules! define_request_and_response {
             ///
             $( #[$type_attr] )*
             ///
+            #[allow(clippy::empty_structs_with_brackets)]
             $( #[$request_type_attr] )*
             [<$type_name Request>] $(($restricted $(, $empty)?))? {
                 $(
@@ -119,7 +120,7 @@ macro_rules! define_request_and_response {
         }
 
         $crate::macros::define_response! {
-            #[allow(dead_code, missing_docs, reason = "inside a macro")]
+            #[allow(dead_code, missing_docs, clippy::empty_structs_with_brackets, reason = "inside a macro")]
             #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
             #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
             #[doc = $crate::macros::define_request_and_response_doc!(
@@ -236,7 +237,7 @@ macro_rules! define_request {
             )*
         }
     ) => {
-        #[allow(dead_code, missing_docs, reason = "inside a macro")]
+        #[allow(dead_code, missing_docs, clippy::empty_structs_with_brackets, reason = "inside a macro")]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
         $( #[$attr] )*

@@ -1,9 +1,23 @@
 //! General free functions (related to the tx-pool database).
 
-//---------------------------------------------------------------------------------------------------- Import
-use cuprate_database::{ConcreteEnv, Env, EnvInner, InitError, RuntimeError, TxRw};
+use std::borrow::Cow;
 
-use crate::{config::Config, tables::OpenTables, types::TransactionBlobHash};
+use cuprate_database::{
+    ConcreteEnv, DatabaseRo, Env, EnvInner, InitError, RuntimeError, StorableStr, TxRw,
+};
+use cuprate_database::{DatabaseRw, TxRo};
+
+use crate::{
+    config::Config,
+    tables::{Metadata, OpenTables},
+    types::TransactionBlobHash,
+};
+
+/// The current version of the database format.
+pub const DATABASE_VERSION: StorableStr = StorableStr(Cow::Borrowed("0.1"));
+
+/// The key used to store the database version in the [`Metadata`] table.
+pub const VERSION_KEY: StorableStr = StorableStr(Cow::Borrowed("version"));
 
 //---------------------------------------------------------------------------------------------------- Free functions
 /// Open the txpool database using the passed [`Config`].
@@ -22,9 +36,9 @@ use crate::{config::Config, tables::OpenTables, types::TransactionBlobHash};
 /// - A table could not be created/opened
 #[cold]
 #[inline(never)] // only called once
-pub fn open(config: Config) -> Result<ConcreteEnv, InitError> {
+pub fn open(config: &Config) -> Result<ConcreteEnv, InitError> {
     // Attempt to open the database environment.
-    let env = <ConcreteEnv as Env>::open(config.db_config)?;
+    let env = <ConcreteEnv as Env>::open(config.db_config.clone())?;
 
     /// Convert runtime errors to init errors.
     ///
@@ -36,25 +50,70 @@ pub fn open(config: Config) -> Result<ConcreteEnv, InitError> {
     fn runtime_to_init_error(runtime: RuntimeError) -> InitError {
         match runtime {
             RuntimeError::Io(io_error) => io_error.into(),
+            RuntimeError::KeyNotFound => InitError::InvalidVersion,
 
             // These errors shouldn't be happening here.
-            RuntimeError::KeyExists
-            | RuntimeError::KeyNotFound
-            | RuntimeError::ResizeNeeded
-            | RuntimeError::TableNotFound => unreachable!(),
+            RuntimeError::KeyExists | RuntimeError::ResizeNeeded | RuntimeError::TableNotFound => {
+                unreachable!()
+            }
         }
     }
+
+    let fresh_db;
 
     // INVARIANT: We must ensure that all tables are created,
     // `cuprate_database` has no way of knowing _which_ tables
     // we want since it is agnostic, so we are responsible for this.
     {
         let env_inner = env.env_inner();
+
+        // Store if this DB has been used before by checking if the metadata table exists.
+        let tx_ro = env_inner.tx_ro().map_err(runtime_to_init_error)?;
+        fresh_db = env_inner.open_db_ro::<Metadata>(&tx_ro).is_err();
+        TxRo::commit(tx_ro).map_err(runtime_to_init_error)?;
+
         let tx_rw = env_inner.tx_rw().map_err(runtime_to_init_error)?;
 
         // Create all tables.
         OpenTables::create_tables(&env_inner, &tx_rw).map_err(runtime_to_init_error)?;
 
+        TxRw::commit(tx_rw).map_err(runtime_to_init_error)?;
+    }
+
+    {
+        let env_inner = env.env_inner();
+        let tx_rw = env_inner.tx_rw().map_err(runtime_to_init_error)?;
+
+        let mut metadata = env_inner
+            .open_db_rw::<Metadata>(&tx_rw)
+            .map_err(runtime_to_init_error)?;
+
+        if fresh_db {
+            // If the database is new, add the version.
+            metadata
+                .put(&VERSION_KEY, &DATABASE_VERSION)
+                .map_err(runtime_to_init_error)?;
+        }
+
+        let print_version_err = || {
+            tracing::error!(
+                "The database follows an old format, please delete the database at: {}",
+                config.db_config.db_directory().display()
+            );
+        };
+
+        let version = metadata
+            .get(&VERSION_KEY)
+            .inspect_err(|_| print_version_err())
+            .map_err(runtime_to_init_error)?;
+
+        if version != DATABASE_VERSION {
+            // TODO: database migration when stable? This is the tx-pool so is not critical.
+            print_version_err();
+            return Err(InitError::InvalidVersion);
+        }
+
+        drop(metadata);
         TxRw::commit(tx_rw).map_err(runtime_to_init_error)?;
     }
 

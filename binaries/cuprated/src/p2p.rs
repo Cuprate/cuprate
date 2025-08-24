@@ -4,14 +4,20 @@
 
 use std::convert::From;
 
+use arti_client::TorClient;
 use futures::{FutureExt, TryFutureExt};
+use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot::{self, Sender};
+use tor_rtcompat::PreferredRuntime;
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::BlockchainContextService;
 use cuprate_p2p::{config::TransportConfig, NetworkInterface, P2PConfig};
-use cuprate_p2p_core::{client::InternalPeerID, transports::Tcp, ClearNet, NetworkZone, Transport};
+use cuprate_p2p_core::{
+    client::InternalPeerID, transports::Tcp, ClearNet, NetworkZone, Tor, Transport,
+};
+use cuprate_p2p_transport::{Arti, ArtiClientConfig, Daemon};
 use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
 use cuprate_types::blockchain::BlockchainWriteRequest;
 
@@ -19,6 +25,10 @@ use crate::{
     blockchain,
     config::Config,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
+    tor::{
+        transport_arti_config, transport_clearnet_arti_config, transport_daemon_config, TorContext,
+        TorMode,
+    },
     txpool::{self, IncomingTxHandler},
 };
 
@@ -28,11 +38,21 @@ pub mod request_handler;
 
 pub use network_address::CrossNetworkInternalPeerId;
 
+/// A simple parsing enum for the `p2p.clear_net.proxy` field
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub enum ProxySettings {
+    Tor,
+    #[serde(untagged)]
+    Socks(String),
+}
+
 /// This struct collect all supported and optional network zone interfaces.
 #[derive(Clone)]
 pub struct NetworkInterfaces {
     /// Mandatory clearnet network interface
     pub clearnet_network_interface: NetworkInterface<ClearNet>,
+    /// Optional tor network interface
+    pub tor_network_interface: Option<NetworkInterface<Tor>>,
     // ...one can dream for more!
 }
 
@@ -40,6 +60,7 @@ impl NetworkInterfaces {
     pub const fn new(clearnet_network_interface: NetworkInterface<ClearNet>) -> Self {
         Self {
             clearnet_network_interface,
+            tor_network_interface: None,
         }
     }
 }
@@ -49,25 +70,93 @@ impl NetworkInterfaces {
 pub async fn initialize_zones_p2p(
     config: &Config,
     context_svc: BlockchainContextService,
-    mut blockchain_write_handle: BlockchainWriteHandle,
     mut blockchain_read_handle: BlockchainReadHandle,
-    txpool_write_handle: TxpoolWriteHandle,
     txpool_read_handle: TxpoolReadHandle,
+    tor_ctx: TorContext,
 ) -> (NetworkInterfaces, Vec<Sender<IncomingTxHandler>>) {
-    // Start TCP clearnet P2P.
-    let (clearnet, incoming_tx_handler_tx) = start_zone_p2p::<ClearNet, Tcp>(
-        blockchain_read_handle.clone(),
-        context_svc.clone(),
-        txpool_read_handle.clone(),
-        config.clearnet_p2p_config(),
-        (&config.p2p.clear_net).into(),
-    )
-    .await
-    .unwrap();
+    // Start clearnet P2P.
+    let (clearnet, incoming_tx_handler_tx) = {
+        // If proxy is set
+        match config.p2p.clear_net.proxy {
+            ProxySettings::Tor => match tor_ctx.mode {
+                TorMode::Arti => {
+                    tracing::info!("Anonymizing clearnet connections through Arti.");
+                    start_zone_p2p::<ClearNet, Arti>(
+                        blockchain_read_handle.clone(),
+                        context_svc.clone(),
+                        txpool_read_handle.clone(),
+                        config.clearnet_p2p_config(),
+                        transport_clearnet_arti_config(&tor_ctx),
+                    )
+                    .await
+                    .unwrap()
+                }
+                TorMode::Daemon => {
+                    tracing::error!("Anonymizing clearnet connections through the Tor daemon is not yet supported.");
+                    std::process::exit(0);
+                }
+                TorMode::Off => {
+                    tracing::error!("Clearnet proxy set to \"tor\" but Tor is actually off. Please be sure to set a mode in the configuration or command line");
+                    std::process::exit(0);
+                }
+            },
+            ProxySettings::Socks(ref s) => {
+                if !s.is_empty() {
+                    tracing::error!("Socks proxy is not yet supported.");
+                    std::process::exit(0);
+                }
+
+                start_zone_p2p::<ClearNet, Tcp>(
+                    blockchain_read_handle.clone(),
+                    context_svc.clone(),
+                    txpool_read_handle.clone(),
+                    config.clearnet_p2p_config(),
+                    (&config.p2p.clear_net).into(),
+                )
+                .await
+                .unwrap()
+            }
+        }
+    };
 
     // Create network interface collection
-    let network_interfaces = NetworkInterfaces::new(clearnet);
-    let tx_handler_subscribers = vec![incoming_tx_handler_tx];
+    let mut network_interfaces = NetworkInterfaces::new(clearnet);
+    let mut tx_handler_subscribers = vec![incoming_tx_handler_tx];
+
+    // Start Tor P2P (if enabled)
+    let tor = if config.p2p.tor_net.enabled {
+        match tor_ctx.mode {
+            TorMode::Off => None,
+            TorMode::Daemon => Some(
+                start_zone_p2p::<Tor, Daemon>(
+                    blockchain_read_handle.clone(),
+                    context_svc.clone(),
+                    txpool_read_handle.clone(),
+                    config.tor_p2p_config(&tor_ctx),
+                    transport_daemon_config(config),
+                )
+                .await
+                .unwrap(),
+            ),
+            TorMode::Arti => Some(
+                start_zone_p2p::<Tor, Arti>(
+                    blockchain_read_handle.clone(),
+                    context_svc.clone(),
+                    txpool_read_handle.clone(),
+                    config.tor_p2p_config(&tor_ctx),
+                    transport_arti_config(config, tor_ctx),
+                )
+                .await
+                .unwrap(),
+            ),
+        }
+    } else {
+        None
+    };
+    if let Some((tor, incoming_tx_handler_tx)) = tor {
+        network_interfaces.tor_network_interface = Some(tor);
+        tx_handler_subscribers.push(incoming_tx_handler_tx);
+    }
 
     (network_interfaces, tx_handler_subscribers)
 }

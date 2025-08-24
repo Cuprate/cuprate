@@ -7,13 +7,15 @@ use std::{
 use bytes::Bytes;
 use futures::{future::BoxFuture, FutureExt};
 use monero_serai::transaction::Transaction;
+use tokio::sync::mpsc;
 use tower::{BoxError, Service, ServiceExt};
+use tracing::instrument;
 
 use cuprate_blockchain::service::BlockchainReadHandle;
-use cuprate_consensus::transactions::{start_tx_verification, PrepTransactions};
 use cuprate_consensus::{
-    transactions::new_tx_verification_data, BlockChainContextRequest, BlockChainContextResponse,
-    BlockchainContextService, ExtendedConsensusError,
+    transactions::{new_tx_verification_data, start_tx_verification, PrepTransactions},
+    BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
+    ExtendedConsensusError,
 };
 use cuprate_dandelion_tower::{
     pool::{DandelionPoolService, IncomingTxBuilder},
@@ -21,7 +23,7 @@ use cuprate_dandelion_tower::{
 };
 use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_p2p::NetworkInterface;
-use cuprate_p2p_core::ClearNet;
+use cuprate_p2p_core::{ClearNet, Tor};
 use cuprate_txpool::{
     service::{
         interface::{
@@ -35,12 +37,16 @@ use cuprate_types::TransactionVerificationData;
 
 use crate::{
     blockchain::ConsensusBlockchainReadHandle,
+    config::TxpoolConfig,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     p2p::CrossNetworkInternalPeerId,
     signals::REORG_LOCK,
     txpool::{
-        dandelion,
-        relay_rules::check_tx_relay_rules,
+        dandelion::{
+            self, AnonTxService, ConcreteDandelionRouter, DiffuseService, MainDandelionRouter,
+        },
+        manager::{start_txpool_manager, TxpoolManagerHandle},
+        relay_rules::{check_tx_relay_rules, RelayRuleError},
         txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
     },
 };
@@ -54,6 +60,8 @@ pub enum IncomingTxError {
     Consensus(ExtendedConsensusError),
     #[error("Duplicate tx in message")]
     DuplicateTransaction,
+    #[error("Relay rule was broken: {0}")]
+    RelayRule(RelayRuleError),
 }
 
 /// Incoming transactions.
@@ -62,6 +70,13 @@ pub struct IncomingTxs {
     pub txs: Vec<Bytes>,
     /// The routing state of the transactions.
     pub state: TxState<CrossNetworkInternalPeerId>,
+    /// If [`true`], transactions breaking relay
+    /// rules will be ignored and processing will continue,
+    /// otherwise the service will return an early error.
+    pub drop_relay_rule_errors: bool,
+    /// If [`true`], only checks will be done,
+    /// the transaction will not be relayed.
+    pub do_not_relay: bool,
 }
 
 ///  The transaction type used for dandelion++.
@@ -83,8 +98,7 @@ pub struct IncomingTxHandler {
     /// The dandelion txpool manager.
     pub(super) dandelion_pool_manager:
         DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
-    /// The txpool write handle.
-    pub(super) txpool_write_handle: TxpoolWriteHandle,
+    pub txpool_manager: TxpoolManagerHandle,
     /// The txpool read handle.
     pub(super) txpool_read_handle: TxpoolReadHandle,
     /// The blockchain read handle.
@@ -94,26 +108,47 @@ pub struct IncomingTxHandler {
 impl IncomingTxHandler {
     /// Initialize the [`IncomingTxHandler`].
     #[expect(clippy::significant_drop_tightening)]
-    pub fn init(
+    #[instrument(level = "info", skip_all, name = "start_txpool")]
+    pub async fn init(
+        txpool_config: TxpoolConfig,
         clear_net: NetworkInterface<ClearNet>,
+        tor_net: Option<NetworkInterface<Tor>>,
         txpool_write_handle: TxpoolWriteHandle,
         txpool_read_handle: TxpoolReadHandle,
         blockchain_context_cache: BlockchainContextService,
         blockchain_read_handle: BlockchainReadHandle,
     ) -> Self {
-        let dandelion_router = dandelion::dandelion_router(clear_net);
+        let diffuse_service = DiffuseService {
+            clear_net_broadcast_service: clear_net.broadcast_svc(),
+        };
+        let clearnet_router = dandelion::dandelion_router(clear_net);
+        let tor_router = tor_net.map(AnonTxService::new);
+
+        let dandelion_router = MainDandelionRouter::new(clearnet_router, tor_router);
+
+        let (promote_tx, promote_rx) = mpsc::channel(25);
 
         let dandelion_pool_manager = dandelion::start_dandelion_pool_manager(
             dandelion_router,
             txpool_read_handle.clone(),
-            txpool_write_handle.clone(),
+            promote_tx,
         );
+
+        let txpool_manager = start_txpool_manager(
+            txpool_write_handle,
+            txpool_read_handle.clone(),
+            promote_rx,
+            diffuse_service,
+            dandelion_pool_manager.clone(),
+            txpool_config,
+        )
+        .await;
 
         Self {
             txs_being_handled: TxsBeingHandled::new(),
             blockchain_context_cache,
             dandelion_pool_manager,
-            txpool_write_handle,
+            txpool_manager,
             txpool_read_handle,
             blockchain_read_handle: ConsensusBlockchainReadHandle::new(
                 blockchain_read_handle,
@@ -138,8 +173,8 @@ impl Service<IncomingTxs> for IncomingTxHandler {
             self.txs_being_handled.clone(),
             self.blockchain_context_cache.clone(),
             self.blockchain_read_handle.clone(),
-            self.txpool_write_handle.clone(),
             self.txpool_read_handle.clone(),
+            self.txpool_manager.clone(),
             self.dandelion_pool_manager.clone(),
         )
         .boxed()
@@ -148,12 +183,17 @@ impl Service<IncomingTxs> for IncomingTxHandler {
 
 /// Handles the incoming txs.
 async fn handle_incoming_txs(
-    IncomingTxs { txs, state }: IncomingTxs,
+    IncomingTxs {
+        txs,
+        state,
+        drop_relay_rule_errors,
+        do_not_relay,
+    }: IncomingTxs,
     txs_being_handled: TxsBeingHandled,
     mut blockchain_context_cache: BlockchainContextService,
     blockchain_read_handle: ConsensusBlockchainReadHandle,
-    mut txpool_write_handle: TxpoolWriteHandle,
     mut txpool_read_handle: TxpoolReadHandle,
+    mut txpool_manager_handle: TxpoolManagerHandle,
     mut dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
 ) -> Result<(), IncomingTxError> {
     let _reorg_guard = REORG_LOCK.read().await;
@@ -183,18 +223,30 @@ async fn handle_incoming_txs(
         // TODO: this could be a DoS, if someone spams us with txs that violate these rules?
         // Maybe we should remember these invalid txs for some time to prevent them getting repeatedly sent.
         if let Err(e) = check_tx_relay_rules(&tx, context) {
-            tracing::debug!(err = %e, tx = hex::encode(tx.tx_hash), "Tx failed relay check, skipping.");
+            if drop_relay_rule_errors {
+                tracing::debug!(err = %e, tx = hex::encode(tx.tx_hash), "Tx failed relay check, skipping.");
+                continue;
+            }
 
-            continue;
+            return Err(IncomingTxError::RelayRule(e));
         }
 
-        handle_valid_tx(
-            tx,
-            state.clone(),
-            &mut txpool_write_handle,
-            &mut dandelion_pool_manager,
-        )
-        .await;
+        tracing::debug!(
+            tx = hex::encode(tx.tx_hash),
+            "passing tx to tx-pool manager"
+        );
+
+        // TODO: take into account `do_not_relay` in the tx-pool manager.
+
+        if txpool_manager_handle
+            .tx_tx
+            .send((tx, state.clone()))
+            .await
+            .is_err()
+        {
+            tracing::warn!("The txpool manager has been stopped, dropping incoming txs");
+            return Ok(());
+        }
     }
 
     // Re-relay any txs we got in the block that were already in our stem pool.
@@ -242,6 +294,7 @@ async fn prepare_incoming_txs(
 
             // If a duplicate is in here the incoming tx batch contained the same tx twice.
             if !tx_blob_hashes.insert(tx_blob_hash) {
+                tracing::debug!("peer sent duplicate tx in batch, ignoring batch.");
                 return Some(Err(IncomingTxError::DuplicateTransaction));
             }
 
@@ -294,58 +347,6 @@ async fn prepare_incoming_txs(
         Ok((txs, stem_pool_hashes, txs_being_handled_locally))
     })
     .await
-}
-
-/// Handle a verified tx.
-///
-/// This will add the tx to the txpool and route it to the network.
-async fn handle_valid_tx(
-    tx: TransactionVerificationData,
-    state: TxState<CrossNetworkInternalPeerId>,
-    txpool_write_handle: &mut TxpoolWriteHandle,
-    dandelion_pool_manager: &mut DandelionPoolService<
-        DandelionTx,
-        TxId,
-        CrossNetworkInternalPeerId,
-    >,
-) {
-    let incoming_tx =
-        IncomingTxBuilder::new(DandelionTx(Bytes::copy_from_slice(&tx.tx_blob)), tx.tx_hash);
-
-    let TxpoolWriteResponse::AddTransaction(double_spend) = txpool_write_handle
-        .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
-        .call(TxpoolWriteRequest::AddTransaction {
-            tx: Box::new(tx),
-            state_stem: state.is_stem_stage(),
-        })
-        .await
-        .expect("TODO")
-    else {
-        unreachable!()
-    };
-
-    // TODO: track double spends to quickly ignore them from their blob hash.
-    if let Some(tx_hash) = double_spend {
-        return;
-    }
-
-    // TODO: There is a race condition possible if a tx and block come in at the same time: <https://github.com/Cuprate/cuprate/issues/314>.
-
-    let incoming_tx = incoming_tx
-        .with_routing_state(state)
-        .with_state_in_db(None)
-        .build()
-        .unwrap();
-
-    dandelion_pool_manager
-        .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
-        .call(incoming_tx)
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR);
 }
 
 /// Re-relay a tx that was already in our stem pool.

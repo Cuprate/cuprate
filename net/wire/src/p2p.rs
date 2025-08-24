@@ -224,7 +224,10 @@ impl ProtocolMessage {
                 decode_message(ProtocolMessage::FluffyMissingTransactionsRequest, buf)?
             }
             C::GetTxPoolCompliment => decode_message(ProtocolMessage::GetTxPoolCompliment, buf)?,
-            _ => return Err(BucketError::UnknownCommand),
+
+            C::Handshake | C::TimedSync | C::Ping | C::SupportFlags | C::Unknown(_) => {
+                return Err(BucketError::UnknownCommand);
+            }
         })
     }
 
@@ -296,7 +299,17 @@ impl AdminRequestMessage {
 
                 Self::SupportFlags
             }
-            _ => return Err(BucketError::UnknownCommand),
+
+            C::NewBlock
+            | C::NewTransactions
+            | C::GetObjectsRequest
+            | C::GetObjectsResponse
+            | C::ChainRequest
+            | C::ChainResponse
+            | C::NewFluffyBlock
+            | C::FluffyMissingTxsRequest
+            | C::GetTxPoolCompliment
+            | C::Unknown(_) => return Err(BucketError::UnknownCommand),
         })
     }
 
@@ -343,7 +356,17 @@ impl AdminResponseMessage {
             C::TimedSync => decode_message(AdminResponseMessage::TimedSync, buf)?,
             C::Ping => decode_message(AdminResponseMessage::Ping, buf)?,
             C::SupportFlags => decode_message(AdminResponseMessage::SupportFlags, buf)?,
-            _ => return Err(BucketError::UnknownCommand),
+
+            C::NewBlock
+            | C::NewTransactions
+            | C::GetObjectsRequest
+            | C::GetObjectsResponse
+            | C::ChainRequest
+            | C::ChainResponse
+            | C::NewFluffyBlock
+            | C::FluffyMissingTxsRequest
+            | C::GetTxPoolCompliment
+            | C::Unknown(_) => return Err(BucketError::UnknownCommand),
         })
     }
 

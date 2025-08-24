@@ -5,6 +5,7 @@
 //! <https://github.com/Cuprate/cuprate/pull/355>
 
 use std::{
+    collections::HashMap,
     net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4},
     num::NonZero,
     time::{Duration, Instant},
@@ -22,6 +23,7 @@ use cuprate_helper::{
     cast::{u32_to_usize, u64_to_usize, usize_to_u64},
     fmt::HexPrefix,
     map::split_u128_into_low_high_bits,
+    time::current_unix_timestamp,
 };
 use cuprate_hex::{Hex, HexVec};
 use cuprate_p2p_core::{client::handshaker::builder::DummyAddressBook, ClearNet, Network};
@@ -58,6 +60,7 @@ use cuprate_types::{
 };
 
 use crate::{
+    blockchain::interface as blockchain_interface,
     constants::VERSION_BUILD,
     rpc::{
         constants::{FIELD_NOT_SUPPORTED, UNSUPPORTED_RPC_CALL},
@@ -80,7 +83,7 @@ pub async fn map_request(
         Req::GetBlockTemplate(r) => Resp::GetBlockTemplate(not_available()?),
         Req::GetBlockCount(r) => Resp::GetBlockCount(get_block_count(state, r).await?),
         Req::OnGetBlockHash(r) => Resp::OnGetBlockHash(on_get_block_hash(state, r).await?),
-        Req::SubmitBlock(r) => Resp::SubmitBlock(not_available()?),
+        Req::SubmitBlock(r) => Resp::SubmitBlock(submit_block(state, r).await?),
         Req::GenerateBlocks(r) => Resp::GenerateBlocks(not_available()?),
         Req::GetLastBlockHeader(r) => {
             Resp::GetLastBlockHeader(get_last_block_header(state, r).await?)
@@ -234,7 +237,13 @@ async fn submit_block(
     let block_id = Hex(block.hash());
 
     // Attempt to relay the block.
-    blockchain_manager::relay_block(todo!(), Box::new(block)).await?;
+    blockchain_interface::handle_incoming_block(
+        block,
+        HashMap::new(), // this function reads the txpool
+        &mut state.blockchain_read,
+        &mut state.txpool_read,
+    )
+    .await?;
 
     Ok(SubmitBlockResponse {
         base: helper::response_base(false),
@@ -915,13 +924,15 @@ async fn get_transaction_pool_backlog(
     mut state: CupratedRpcHandler,
     _: GetTransactionPoolBacklogRequest,
 ) -> Result<GetTransactionPoolBacklogResponse, Error> {
+    let now = current_unix_timestamp();
+
     let backlog = txpool::backlog(&mut state.txpool_read)
         .await?
         .into_iter()
         .map(|entry| TxBacklogEntry {
-            weight: entry.weight,
+            weight: usize_to_u64(entry.weight),
             fee: entry.fee,
-            time_in_pool: entry.time_in_pool.as_secs(),
+            time_in_pool: now - entry.received_at,
         })
         .collect();
 
@@ -960,7 +971,7 @@ async fn get_miner_data(
         .into_iter()
         .map(|entry| GetMinerDataTxBacklogEntry {
             id: Hex(entry.id),
-            weight: entry.weight,
+            weight: usize_to_u64(entry.weight),
             fee: entry.fee,
         })
         .collect();

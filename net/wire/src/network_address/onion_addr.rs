@@ -8,12 +8,13 @@ use std::{
     str::{self, FromStr},
 };
 
+use borsh::{BorshDeserialize, BorshSerialize};
 use thiserror::Error;
 
 use super::{NetworkAddress, NetworkAddressIncorrectZone};
 
 /// A v3, `Copy`able onion address.
-#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, BorshSerialize, BorshDeserialize)]
 pub struct OnionAddr {
     /// 56 characters encoded onion v3 domain without the .onion suffix
     /// <https://spec.torproject.org/rend-spec/encoding-onion-addresses.html>

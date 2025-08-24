@@ -55,7 +55,13 @@ fn check_rct_type(ty: RctType, hf: HardFork, tx_hash: &[u8; 32]) -> Result<(), R
         T::MlsagBulletproofsCompactAmount if GRANDFATHERED_TRANSACTIONS.contains(tx_hash) => Ok(()),
         T::ClsagBulletproof if hf >= F::V13 && hf < F::V16 => Ok(()),
         T::ClsagBulletproofPlus if hf >= F::V15 => Ok(()),
-        _ => Err(RingCTError::TypeNotAllowed),
+
+        T::AggregateMlsagBorromean
+        | T::MlsagBorromean
+        | T::MlsagBulletproofs
+        | T::MlsagBulletproofsCompactAmount
+        | T::ClsagBulletproof
+        | T::ClsagBulletproofPlus => Err(RingCTError::TypeNotAllowed),
     }
 }
 

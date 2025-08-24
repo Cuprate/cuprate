@@ -12,8 +12,9 @@ use tokio::{
     sync::{mpsc, oneshot},
     task::JoinSet,
 };
-use tokio_util::time::DelayQueue;
+use tokio_util::time::{delay_queue, DelayQueue};
 use tower::{Service, ServiceExt};
+use tracing::Instrument;
 
 use crate::{
     pool::IncomingTx,
@@ -41,6 +42,7 @@ pub struct DandelionPoolManager<P, R, Tx, TxId, PeerId> {
 
     /// Current stem pool embargo timers.
     pub(crate) embargo_timers: DelayQueue<TxId>,
+    pub(crate) embargo_timer_keys: HashMap<TxId, delay_queue::Key>,
     /// The distrobution to sample to get embargo timers.
     pub(crate) embargo_dist: Exp<f64>,
 
@@ -68,8 +70,10 @@ where
             embargo_timer
         );
 
-        self.embargo_timers
-            .insert(tx_id, Duration::from_secs_f64(embargo_timer));
+        let key = self
+            .embargo_timers
+            .insert(tx_id.clone(), Duration::from_secs_f64(embargo_timer));
+        self.embargo_timer_keys.insert(tx_id, key);
     }
 
     /// Stems the tx, setting the stem origin, if it wasn't already set.
@@ -164,9 +168,9 @@ where
         // Remove the tx from the maps used during the stem phase.
         self.stem_origins.remove(&tx_id);
 
-        // The key for this is *Not* the tx_id, it is given on insert, so just keep the timer in the
-        // map. These timers should be relatively short, so it shouldn't be a problem.
-        //self.embargo_timers.try_remove(&tx_id);
+        if let Some(key) = self.embargo_timer_keys.remove(&tx_id) {
+            self.embargo_timers.try_remove(&key);
+        }
 
         self.backing_pool
             .ready()
@@ -220,43 +224,47 @@ where
         Ok(tx.map(|tx| tx.0))
     }
 
+    #[expect(clippy::type_complexity)]
     /// Starts the [`DandelionPoolManager`].
     pub(crate) async fn run(
         mut self,
-        mut rx: mpsc::Receiver<(IncomingTx<Tx, TxId, PeerId>, oneshot::Sender<()>)>,
+        mut rx: mpsc::Receiver<(
+            (IncomingTx<Tx, TxId, PeerId>, tracing::Span),
+            oneshot::Sender<()>,
+        )>,
     ) {
         tracing::debug!("Starting dandelion++ tx-pool, config: {:?}", self.config);
 
         loop {
-            tracing::trace!("Waiting for next event.");
             tokio::select! {
                 // biased to handle current txs before routing new ones.
                 biased;
                 Some(fired) = self.embargo_timers.next() => {
-                    tracing::debug!("Embargo timer fired, did not see stem tx in time.");
+                    let span = tracing::debug_span!("embargo_timer_fired");
+                    tracing::debug!(parent: &span,"Embargo timer fired, did not see stem tx in time.");
 
                     let tx_id = fired.into_inner();
-                    if let Err(e) = self.promote_and_fluff_tx(tx_id).await {
-                        tracing::error!("Error handling fired embargo timer: {e}");
+                    if let Err(e) = self.promote_and_fluff_tx(tx_id).instrument(span.clone()).await {
+                        tracing::error!(parent: &span, "Error handling fired embargo timer: {e}");
                         return;
                     }
                 }
                 Some(Ok((tx_id, res))) = self.routing_set.join_next() => {
-                    tracing::trace!("Received d++ routing result.");
+                    let span = tracing::debug_span!("dandelion_routing_result");
 
                     let res = match res {
                         Ok(State::Fluff) => {
-                            tracing::debug!("Transaction was fluffed upgrading it to the public pool.");
-                            self.promote_tx(tx_id).await
+                            tracing::debug!(parent: &span, "Transaction was fluffed upgrading it to the public pool.");
+                            self.promote_tx(tx_id).instrument(span.clone()).await
                         }
                         Err(tx_state) => {
-                            tracing::debug!("Error routing transaction, trying again.");
+                            tracing::debug!(parent: &span, "Error routing transaction, trying again.");
 
-                            match self.get_tx_from_pool(tx_id.clone()).await {
+                            match self.get_tx_from_pool(tx_id.clone()).instrument(span.clone()).await {
                                 Ok(Some(tx)) => match tx_state {
-                                    TxState::Fluff => self.fluff_tx(tx, tx_id).await,
-                                    TxState::Stem { from } => self.stem_tx(tx, tx_id, Some(from)).await,
-                                    TxState::Local => self.stem_tx(tx, tx_id, None).await,
+                                    TxState::Fluff => self.fluff_tx(tx, tx_id).instrument(span.clone()).await,
+                                    TxState::Stem { from } => self.stem_tx(tx, tx_id, Some(from)).instrument(span.clone()).await,
+                                    TxState::Local => self.stem_tx(tx, tx_id, None).instrument(span.clone()).await,
                                 }
                                 Err(e) => Err(e),
                                 _ => continue,
@@ -266,22 +274,24 @@ where
                     };
 
                     if let Err(e) = res {
-                        tracing::error!("Error handling transaction routing return: {e}");
+                        tracing::error!(parent: &span, "Error handling transaction routing return: {e}");
                         return;
                     }
                 }
                 req = rx.recv() => {
-                    tracing::debug!("Received new tx to route.");
-
-                    let Some((IncomingTx { tx, tx_id, routing_state }, res_tx)) = req else {
+                    let Some(((IncomingTx { tx, tx_id, routing_state }, span), res_tx)) = req else {
                         return;
                     };
 
-                    if let Err(e) = self.handle_incoming_tx(tx, routing_state, tx_id).await {
+                    let span = tracing::debug_span!(parent: &span, "dandelion_pool_manager");
+
+                    tracing::debug!(parent: &span, "Received new tx to route.");
+
+                    if let Err(e) = self.handle_incoming_tx(tx, routing_state, tx_id).instrument(span.clone()).await {
                         #[expect(clippy::let_underscore_must_use, reason = "dropped receivers can be ignored")]
                         let _ = res_tx.send(());
 
-                        tracing::error!("Error handling transaction in dandelion pool: {e}");
+                        tracing::error!(parent: &span, "Error handling transaction in dandelion pool: {e}");
                         return;
                     }
 

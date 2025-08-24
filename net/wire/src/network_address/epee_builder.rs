@@ -170,7 +170,7 @@ impl AllFieldsNetworkAddress {
                 NetworkAddress::from(OnionAddr::new(self.host?.as_str(), self.port?).ok()?)
             }
             // Invalid
-            _ => return None,
+            AddressType::Invalid | AddressType::I2p => return None,
         })
     }
 }

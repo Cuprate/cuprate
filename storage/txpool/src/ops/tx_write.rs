@@ -5,6 +5,7 @@ use bytemuck::TransparentWrapper;
 use monero_serai::transaction::{NotPruned, Transaction};
 
 use cuprate_database::{DatabaseRw, DbResult, StorableVec};
+use cuprate_helper::time::current_unix_timestamp;
 use cuprate_types::TransactionVerificationData;
 
 use crate::{
@@ -42,6 +43,7 @@ pub fn add_transaction(
         &TransactionInfo {
             fee: tx.fee,
             weight: tx.tx_weight,
+            received_at: current_unix_timestamp(),
             flags,
             _padding: [0; 7],
         },

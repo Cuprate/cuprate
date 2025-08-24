@@ -18,6 +18,17 @@ env:
   RUSTDOCFLAGS: '-D warnings'
   # Enable debug information generation for build dependencies.
   CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG: true
+  # Build commands.
+  CMD_DOC: cargo doc --all-features --no-deps
+  CMD_CLIPPY: cargo clippy --all-features --all-targets -- -D warnings
+  CMD_TEST: |
+    # HACK: how to test both DB backends that are feature-gated?
+    cargo test --all-features
+    cargo test --package cuprate-blockchain --no-default-features --features redb
+  CMD_BUILD: cargo build --all-features --all-targets
+  CMD_HACK: |
+    cargo install cargo-hack --locked
+    cargo hack check --feature-powerset --no-dev-deps
 
 jobs:
   # Run format separately.
@@ -78,7 +89,7 @@ jobs:
       - name: Build WASM 32-bit
         run: cargo build --target wasm32-unknown-unknown -p ${{ matrix.crate }}
 
-  # All other CI.
+  # CI, runs on GitHub provided OSs.
   ci:
     runs-on: ${{ matrix.os }}
 
@@ -93,46 +104,95 @@ jobs:
         ]
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: stable
-        components: clippy
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy
 
-    - name: Cache
-      uses: actions/cache@v4
-      with:
-        path: target
-        key: ${{ matrix.os }}
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ matrix.os }}
 
-    - name: Download monerod
-      uses: ./.github/actions/monerod-download
+      - name: Download monerod
+        uses: ./.github/actions/monerod-download
 
-    - name: Install dependencies (Windows)
-      if: matrix.os == 'windows-2022'
-      uses: lukka/get-cmake@v3.31.6 # Needed for `randomx-rs`
+      - name: Install dependencies (Windows)
+        if: matrix.os == 'windows-2022'
+        uses: lukka/get-cmake@v3.31.6 # Needed for `randomx-rs`
 
-    - name: Documentation
-      run: cargo doc --all-features --no-deps
+      - name: Documentation
+        run: ${{ env.CMD_DOC }}
 
-    - name: Clippy (fail on warnings)
-      run: cargo clippy --all-features --all-targets -- -D warnings
+      - name: Clippy (fail on warnings)
+        run: ${{ env.CMD_CLIPPY }}
 
-    # HACK: how to test both DB backends that are feature-gated?
-    - name: Test
-      run: |
-        cargo test --all-features
-        cargo test --package cuprate-blockchain --no-default-features --features redb
+      - name: Test
+        run: ${{ env.CMD_TEST }}
 
-    - name: Build
-      run: cargo build --all-features --all-targets
+      - name: Build
+        run: ${{ env.CMD_BUILD }}
 
-    - name: Hack Check
-      run: |
-        cargo install cargo-hack --locked
-        cargo hack check --feature-powerset --no-dev-deps 
+      - name: Hack Check
+        run: ${{ env.CMD_HACK }}
+
+  # CI, runs in a Docker image.
+  ci-docker:
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.os.image }}
+
+    strategy:
+      matrix:
+        os:
+        # TODO: support musl <https://github.com/Cuprate/cuprate/issues/336>
+        # - { image: alpine:latest, commands: "apk update && apk add alpine-sdk cmake curl bash" }
+        - { image: archlinux:latest, commands: "pacman -Syyu --noconfirm base-devel git cmake openssl" }
+        - { image: debian:stable, commands: "apt update && apt -y install build-essential curl cmake git pkg-config libssl-dev" }
+        - { image: fedora:latest, commands: "dnf install --assumeyes @development-tools gcc gcc-c++ cmake git openssl-devel perl-core" }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          clean: false
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ matrix.os.image }}
+
+      - name: Dependencies
+        run: ${{ matrix.os.commands }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy
+
+      - name: Download monerod
+        uses: ./.github/actions/monerod-download
+
+      - name: Documentation
+        run: ${{ env.CMD_DOC }}
+
+      - name: Clippy (fail on warnings)
+        run: ${{ env.CMD_CLIPPY }}
+
+      - name: Test
+        run: ${{ env.CMD_TEST }}
+
+      - name: Build
+        run: ${{ env.CMD_BUILD }}
+
+      - name: Hack Check
+        run: ${{ env.CMD_HACK }}

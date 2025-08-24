@@ -5,15 +5,23 @@ use std::{
     time::Duration,
 };
 
+use arti_client::{
+    config::onion_service::{OnionServiceConfig, OnionServiceConfigBuilder},
+    TorClient, TorClientBuilder, TorClientConfig,
+};
 use serde::{Deserialize, Serialize};
+use tor_rtcompat::PreferredRuntime;
 
 use cuprate_helper::{fs::address_book_path, network::Network};
 use cuprate_p2p::config::TransportConfig;
 use cuprate_p2p_core::{
     transports::{Tcp, TcpServerConfig},
-    ClearNet, NetworkZone, Transport,
+    ClearNet, NetworkZone, Tor, Transport,
 };
+use cuprate_p2p_transport::{Arti, ArtiClientConfig, ArtiServerConfig};
 use cuprate_wire::OnionAddr;
+
+use crate::{p2p::ProxySettings, tor::TorMode};
 
 use super::macros::config_struct;
 
@@ -25,6 +33,10 @@ config_struct! {
         #[child = true]
         /// The clear-net P2P config.
         pub clear_net: ClearNetConfig,
+
+        #[child = true]
+        /// The tor-net P2P config.
+        pub tor_net: TorNetConfig,
 
         #[child = true]
         /// Block downloader config.
@@ -147,9 +159,10 @@ config_struct! {
         /// Examples     | 0.0, 0.5, 0.123, 0.999, 1.0
         pub gray_peers_percent: f64,
 
-        /// The port to use to accept incoming IPv4 P2P connections.
+        /// The port bind to this network zone.
         ///
-        /// Setting this to 0 will disable incoming P2P connections.
+        /// This port will be bind to if the incoming P2P
+        /// server for this zone has been enabled.
         ///
         /// Type         | Number
         /// Valid values | 0..65534
@@ -165,6 +178,17 @@ config_struct! {
     #[derive(Debug, Deserialize, Serialize, PartialEq)]
     #[serde(deny_unknown_fields, default)]
     pub struct ClearNetConfig {
+
+        /// Enable IPv4 inbound server.
+        ///
+        /// The inbound server will listen on port `p2p.clear_net.p2p_port`.
+        /// Setting this to `false` will disable incoming IPv4 P2P connections.
+        ///
+        /// Type         | boolean
+        /// Valid values | false, true
+        /// Examples     | false
+        pub enable_inbound: bool,
+
         /// The IPv4 address to bind and listen for connections on.
         ///
         /// Type     | IPv4 address
@@ -173,6 +197,7 @@ config_struct! {
 
         /// Enable IPv6 inbound server.
         ///
+        /// The inbound server will listen on port `p2p.clear_net.p2p_port`.
         /// Setting this to `false` will disable incoming IPv6 P2P connections.
         ///
         /// Type         | boolean
@@ -185,20 +210,83 @@ config_struct! {
         /// Type     | IPv6 address
         /// Examples | "::", "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
         pub listen_on_v6: Ipv6Addr,
+
+        #[comment_out = true]
+        /// The proxy to use for outgoing P2P connections
+        ///
+        /// This setting can only take "Tor" at the moment.
+        /// This will anonymise clearnet connections through Tor.
+        ///
+        /// Setting this to "" (an empty string) will disable the proxy.
+        ///
+        /// Enabling this setting will disable inbound connections.
+        ///
+        /// Type         | String
+        /// Valid values | "Tor"
+        /// Examples     | "Tor"
+        pub proxy: ProxySettings,
+    }
+
+    /// The config values for P2P tor.
+    #[derive(Debug, Deserialize, Serialize, PartialEq)]
+    #[serde(deny_unknown_fields, default)]
+    pub struct TorNetConfig {
+
+        #[comment_out = true]
+        /// Enable the Tor P2P network.
+        ///
+        /// Type         | boolean
+        /// Valid values | false, true
+        /// Examples     | false
+        pub enabled: bool,
+
+        #[comment_out = true]
+        /// Enable Tor inbound onion server.
+        ///
+        /// In Arti mode, setting this to `true` will enable Arti's onion service for accepting inbound
+        /// Tor P2P connections. The keypair and therefore onion address is generated randomly on first run.
+        ///
+        /// In Daemon mode, setting this to `true` will enable a TCP server listening for inbound connections
+        /// from your Tor daemon. Refer to the `tor.anonymous_inbound` and `tor.listening_addr` field for onion address
+        /// and listening configuration.
+        ///
+        /// The server will listen on port `p2p.tor_net.p2p_port`
+        ///
+        /// Type         | boolean
+        /// Valid values | false, true
+        /// Examples     | false
+        pub inbound_onion: bool,
     }
 }
 
 impl Default for ClearNetConfig {
     fn default() -> Self {
         Self {
+            p2p_port: 18080,
+            enable_inbound: true,
             listen_on: Ipv4Addr::UNSPECIFIED,
             enable_inbound_v6: false,
             listen_on_v6: Ipv6Addr::UNSPECIFIED,
+            proxy: ProxySettings::Socks(String::new()),
             outbound_connections: 32,
             extra_outbound_connections: 8,
             max_inbound_connections: 128,
             gray_peers_percent: 0.7,
+            address_book_config: AddressBookConfig::default(),
+        }
+    }
+}
+
+impl Default for TorNetConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            inbound_onion: false,
             p2p_port: 18080,
+            outbound_connections: 12,
+            extra_outbound_connections: 2,
+            max_inbound_connections: 128,
+            gray_peers_percent: 0.7,
             address_book_config: AddressBookConfig::default(),
         }
     }

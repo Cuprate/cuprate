@@ -133,7 +133,7 @@ impl_custom_numbers_key!(u8, u16, u128, i8, i16, i32, i64, i128, isize);
 /// This determines how the database sorts [`Key`]s inside a database [`Table`](crate::Table).
 ///
 /// See [`Key`] for more info.
-#[derive(Default, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Default, Copy, Clone, Debug, Hash)]
 pub enum KeyCompare {
     /// Use the default comparison behavior of the backend.
     ///

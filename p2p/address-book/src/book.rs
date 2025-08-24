@@ -468,7 +468,7 @@ impl<Z: BorshNetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
                 self.add_peer_to_white_list(peer);
                 Ok(AddressBookResponse::Ok)
             }
-            AddressBookRequest::IncomingPeerList(peer_list) => {
+            AddressBookRequest::IncomingPeerList(_, peer_list) => {
                 self.handle_incoming_peer_list(peer_list);
                 Ok(AddressBookResponse::Ok)
             }

@@ -15,7 +15,7 @@ use tracing::Instrument;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_pruning::PruningSeed;
-use cuprate_wire::CoreSyncData;
+use cuprate_wire::{BasicNodeData, CoreSyncData};
 
 use crate::{
     handles::{ConnectionGuard, ConnectionHandle},
@@ -40,14 +40,14 @@ pub enum InternalPeerID<A> {
     /// A known address.
     KnownAddr(A),
     /// An unknown address (probably an inbound anonymity network connection).
-    Unknown(u128),
+    Unknown([u8; 16]),
 }
 
 impl<A: Display> Display for InternalPeerID<A> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::KnownAddr(addr) => addr.fmt(f),
-            Self::Unknown(id) => f.write_str(&format!("Unknown, ID: {id}")),
+            Self::Unknown(id) => f.write_str(&format!("Unknown, ID: {}", hex::encode(id))),
         }
     }
 }
@@ -64,6 +64,8 @@ pub struct PeerInformation<A> {
     pub direction: ConnectionDirection,
     /// The peer's [`PruningSeed`].
     pub pruning_seed: PruningSeed,
+    /// The peer's [`BasicNodeData`].
+    pub basic_node_data: BasicNodeData,
     /// The [`CoreSyncData`] of this peer.
     ///
     /// Data across fields are not necessarily related, so [`CoreSyncData::top_id`] is not always the
