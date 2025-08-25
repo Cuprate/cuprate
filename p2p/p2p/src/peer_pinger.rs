@@ -18,7 +18,7 @@ const BATCH_PING_COUNT: usize = 3;
 pub(crate) struct PeerPinger<Z: NetworkZone, T: Transport<Z>, A> {
     /// The address book service
     pub address_book_svc: A,
-    pub transport_config: Arc<TransportConfig<Z, T>>,
+    pub transport_client_config: Arc<T::ClientConfig>,
 }
 
 impl<Z, T, A> PeerPinger<Z, T, A>
@@ -43,7 +43,7 @@ where
                 break;
             };
             
-            tokio::spawn(do_ping(peer, self.address_book_svc.clone(), self.transport_config.clone()));
+            tokio::spawn(do_ping::<Z, T, A>(peer, self.address_book_svc.clone(), self.transport_client_config.clone()));
         }
 
         for _ in 0..(BATCH_PING_COUNT + 2) {
@@ -59,7 +59,7 @@ where
                 break;
             };
 
-            tokio::spawn(do_ping(peer, self.address_book_svc.clone(), self.transport_config.clone()));
+            tokio::spawn(do_ping::<Z, T, A>(peer, self.address_book_svc.clone(), self.transport_client_config.clone()));
         }
     }
 
@@ -77,7 +77,7 @@ where
 async fn do_ping<Z, T, A>(
     peer: ZoneSpecificPeerListEntryBase<Z::Addr>,
     mut address_book_svc: A,
-    transport_config: Arc<TransportConfig<Z, T>>,
+    transport_client_config: Arc<T::ClientConfig>,
 ) where
     Z: NetworkZone,
     T: Transport<Z>,
@@ -88,7 +88,7 @@ async fn do_ping<Z, T, A>(
 
     let Ok(Ok(_)) = timeout(
         PING_TIMEOUT,
-        cuprate_p2p_core::client::handshaker::ping::<Z, T>(peer.adr, &transport_config.client_config),
+        cuprate_p2p_core::client::handshaker::ping::<Z, T>(peer.adr, &transport_client_config),
     )
     .await
     else {

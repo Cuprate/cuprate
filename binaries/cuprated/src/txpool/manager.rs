@@ -45,7 +45,7 @@ const INCOMING_TX_QUEUE_SIZE: usize = 100;
 pub async fn start_txpool_manager(
     mut txpool_write_handle: TxpoolWriteHandle,
     mut txpool_read_handle: TxpoolReadHandle,
-    promote_tx_channel: mpsc::Receiver<[u8; 32]>,
+    promote_tx_channel: mpsc::UnboundedReceiver<[u8; 32]>,
     diffuse_service: DiffuseService<ClearNet>,
     dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
     config: TxpoolConfig,
@@ -206,7 +206,7 @@ struct TxpoolManager {
     dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
     /// The channel the dandelion manager will use to communicate that a tx should be promoted to the
     /// public pool.
-    promote_tx_channel: mpsc::Receiver<[u8; 32]>,
+    promote_tx_channel: mpsc::UnboundedReceiver<[u8; 32]>,
     /// The [`DiffuseService`] to diffuse txs to the p2p network.
     ///
     /// Used for re-relays.
@@ -458,14 +458,15 @@ impl TxpoolManager {
     ) {
         loop {
             tokio::select! {
+                biased;
                 Some(tx) = self.tx_timeouts.next() => {
                     self.handle_tx_timeout(tx.into_inner()).await;
                 }
-                Some((tx, state)) = tx_rx.recv() => {
-                    self.handle_incoming_tx(tx, state).await;
-                }
                 Some(tx) = self.promote_tx_channel.recv() => {
                     self.promote_tx(tx).await;
+                }
+                Some((tx, state)) = tx_rx.recv() => {
+                    self.handle_incoming_tx(tx, state).await;
                 }
                 Some((spent_kis, tx)) = block_rx.recv() => {
                     self.new_block(spent_kis).await;

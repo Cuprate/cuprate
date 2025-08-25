@@ -7,20 +7,31 @@ use std::{
     fmt::Display,
     str::{self, FromStr},
 };
-
+use std::fmt::Debug;
 use borsh::{BorshDeserialize, BorshSerialize};
 use thiserror::Error;
 
 use super::{NetworkAddress, NetworkAddressIncorrectZone};
 
 /// A v3, `Copy`able onion address.
-#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, BorshSerialize, BorshDeserialize)]
 pub struct OnionAddr {
     /// 56 characters encoded onion v3 domain without the .onion suffix
     /// <https://spec.torproject.org/rend-spec/encoding-onion-addresses.html>
     domain: [u8; 56],
     /// Virtual port of the peer
     pub port: u16,
+}
+
+impl Debug for OnionAddr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let domain = str::from_utf8(&self.domain)
+            .expect("Onion addresses are always containing UTF-8 characters.");
+
+        f.write_str(domain)?;
+        f.write_str(".onion:")?;
+        Debug::fmt(&self.port, f)
+    }   
 }
 
 /// Error enum at parsing onion addresses
@@ -109,12 +120,7 @@ impl OnionAddr {
 /// Display for [`OnionAddr`]. It prints the onion address and port, in the form of `<domain>.onion:<port>`
 impl Display for OnionAddr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let domain = str::from_utf8(&self.domain)
-            .expect("Onion addresses are always containing UTF-8 characters.");
-
-        f.write_str(domain)?;
-        f.write_str(".onion:")?;
-        self.port.fmt(f)
+        Debug::fmt(self, f)
     }
 }
 

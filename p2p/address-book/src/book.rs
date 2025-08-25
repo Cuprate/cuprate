@@ -209,7 +209,7 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
 
     /// adds a peer to the gray list.
     fn add_peer_to_gray_list(&mut self, mut peer: ZoneSpecificPeerListEntryBase<Z::Addr>) {
-        if self.gray_list.len() > self.cfg.max_gray_list_length {
+        if self.gray_list.len() >= self.cfg.max_gray_list_length {
             return;
         }
 
@@ -230,7 +230,7 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
 
     /// adds a peer to the gray list.
     fn add_peer_to_white_list(&mut self, mut peer: ZoneSpecificPeerListEntryBase<Z::Addr>) {
-        if self.white_list.len() > self.cfg.max_white_list_length {
+        if self.white_list.len() >= self.cfg.max_white_list_length {
             return;
         }
 
@@ -366,7 +366,7 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
             peb.rpc_port = peer.rpc_port;
             peb.rpc_credits_per_hash = peer.rpc_credits_per_hash;
         } else {
-            if self.white_list.len() > self.cfg.max_white_list_length {
+            if self.white_list.len() >= self.cfg.max_white_list_length {
                 return Ok(());
             }
 

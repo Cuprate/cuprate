@@ -265,6 +265,7 @@ impl Config {
         cuprate_p2p::P2PConfig {
             network: self.network,
             seeds: p2p::tor_net_seed_nodes(self.network),
+            numb_anchors: 4,
             outbound_connections: self.p2p.tor_net.outbound_connections,
             extra_outbound_connections: self.p2p.tor_net.extra_outbound_connections,
             max_inbound_connections: self.p2p.tor_net.max_inbound_connections,

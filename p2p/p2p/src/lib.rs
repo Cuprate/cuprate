@@ -149,9 +149,9 @@ where
         outbound_connector,
     );
     
-    let peer_pinger = PeerPinger {
+    let peer_pinger: PeerPinger<Z, T, _> = PeerPinger {
         address_book_svc: address_book.clone(),
-        transport_config: Arc::new(transport_config.clone()),
+        transport_client_config: Arc::new(transport_config.client_config.clone()),
     };
 
     let peer_set = PeerSet::new(new_connection_rx);

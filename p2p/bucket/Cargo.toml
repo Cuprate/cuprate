@@ -10,6 +10,7 @@ arrayvec = { workspace = true }
 rand     = { workspace = true, features = ["std", "std_rng"]}
 
 cuprate-p2p-core = { workspace = true }
+cuprate-wire     = { workspace = true }
 
 [lints]
 workspace = true

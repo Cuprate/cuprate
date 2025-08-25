@@ -72,6 +72,7 @@ pub enum OutputTarget {
 pub enum NetZone {
     #[default]
     Clearnet,
+    Tor
 }
 
 /// The [`Command`] listener loop.
@@ -148,6 +149,30 @@ pub async fn io_loop(
                 zone: NetZone::Clearnet,
             } => {
                 let mut book = network_interfaces.clearnet_network_interface.address_book();
+
+                let AddressBookResponse::Peerlist(peer_list) = book
+                    .ready()
+                    .await
+                    .unwrap()
+                    .call(AddressBookRequest::Peerlist)
+                    .await
+                    .unwrap()
+                else {
+                    unreachable!()
+                };
+
+                println!("{peer_list:#?}");
+                println!(
+                    "len: anchor: {}, white: {}, grey: {}",
+                    peer_list.anchors.len(),
+                    peer_list.white.len(),
+                    peer_list.grey.len()
+                );
+            }
+            Command::AddressBook {
+                zone: NetZone::Tor,
+            } => {
+                let mut book = network_interfaces.tor_network_interface.as_mut().unwrap().address_book();
 
                 let AddressBookResponse::Peerlist(peer_list) = book
                     .ready()

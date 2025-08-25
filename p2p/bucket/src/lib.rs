@@ -46,6 +46,7 @@ use std::fmt::Display;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::ops::Not;
 use std::{collections::BTreeMap, net::Ipv4Addr};
+use cuprate_wire::OnionAddr;
 
 /// A discriminant that can be computed from the type.
 pub trait Bucketable: Sized + Eq + Clone {
@@ -278,3 +279,13 @@ impl Bucketable for SocketAddr {
         }
     }
 }
+
+impl Bucketable for OnionAddr {
+    /// We are discriminating by `/16` subnets.
+    type Discriminant = [u8; 56];
+
+    fn discriminant(&self) -> Self::Discriminant {
+        self.domain()
+    }
+}
+

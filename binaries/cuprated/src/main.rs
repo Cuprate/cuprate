@@ -139,7 +139,7 @@ fn main() {
         let tx_handler = IncomingTxHandler::init(
             config.storage.txpool.clone(),
             network_interfaces.clearnet_network_interface.clone(),
-            network_interfaces.tor_network_interface,
+            network_interfaces.tor_network_interface.clone(),
             txpool_write_handle.clone(),
             txpool_read_handle.clone(),
             context_svc.clone(),

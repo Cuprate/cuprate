@@ -1059,7 +1059,9 @@ name = "cuprate-address-book"
 version = "0.1.0"
 dependencies = [
  "borsh",
- "cuprate-constants",
+ "chrono",
+ "cuprate-bucket-set",
+ "cuprate-helper",
  "cuprate-p2p-core",
  "cuprate-pruning",
  "cuprate-test-utils",
@@ -1111,6 +1113,16 @@ dependencies = [
  "thread_local",
  "tokio",
  "tower",
+]
+
+[[package]]
+name = "cuprate-bucket-set"
+version = "0.1.0"
+dependencies = [
+ "arrayvec",
+ "cuprate-p2p-core",
+ "cuprate-wire",
+ "rand 0.8.5",
 ]
 
 [[package]]
@@ -1374,6 +1386,7 @@ dependencies = [
  "bytes",
  "cuprate-address-book",
  "cuprate-async-buffer",
+ "cuprate-bucket-set",
  "cuprate-constants",
  "cuprate-fixed-bytes",
  "cuprate-helper",
@@ -1397,14 +1410,6 @@ dependencies = [
  "tokio-util",
  "tower",
  "tracing",
-]
-
-[[package]]
-name = "cuprate-p2p-bucket"
-version = "0.1.0"
-dependencies = [
- "arrayvec",
- "rand 0.8.5",
 ]
 
 [[package]]
@@ -1620,6 +1625,7 @@ dependencies = [
  "cuprate-address-book",
  "cuprate-async-buffer",
  "cuprate-blockchain",
+ "cuprate-bucket-set",
  "cuprate-consensus",
  "cuprate-consensus-context",
  "cuprate-consensus-rules",
