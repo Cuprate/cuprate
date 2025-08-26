@@ -65,6 +65,7 @@ pub struct BlockDownloaderConfig {
     pub buffer_bytes: usize,
     /// The size of the in progress queue (in bytes) at which we stop requesting more blocks.
     pub in_progress_queue_bytes: usize,
+    pub order_blocks: bool,
     /// The [`Duration`] between checking the client pool for free peers.
     pub check_client_pool_interval: Duration,
     /// The target size of a single batch of blocks (in bytes).
@@ -251,7 +252,7 @@ where
             block_download_tasks: JoinSet::new(),
             chain_entry_task: JoinSet::new(),
             inflight_requests: BTreeMap::new(),
-            block_queue: BlockQueue::new(buffer_appender),
+            block_queue: BlockQueue::new(buffer_appender, config.order_blocks),
             failed_batches: BinaryHeap::new(),
             config,
         }
