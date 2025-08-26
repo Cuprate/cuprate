@@ -110,7 +110,7 @@ impl Service<DandelionRouteReq<DandelionTx, CrossNetworkInternalPeerId>> for Mai
 pub fn start_dandelion_pool_manager(
     router: MainDandelionRouter,
     txpool_read_handle: TxpoolReadHandle,
-    promote_tx: mpsc::Sender<[u8; 32]>,
+    promote_tx: mpsc::UnboundedSender<[u8; 32]>,
 ) -> DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId> {
     cuprate_dandelion_tower::pool::start_dandelion_pool_manager(
         // TODO: make this constant configurable?
@@ -118,7 +118,7 @@ pub fn start_dandelion_pool_manager(
         router,
         tx_store::TxStoreService {
             txpool_read_handle,
-            promote_tx: PollSender::new(promote_tx),
+            promote_tx,
         },
         DANDELION_CONFIG,
     )
