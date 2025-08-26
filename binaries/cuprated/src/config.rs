@@ -29,6 +29,7 @@ use crate::{
 };
 
 mod args;
+mod default;
 mod fs;
 mod p2p;
 mod rayon;
@@ -40,7 +41,6 @@ mod tracing_config;
 
 #[macro_use]
 mod macros;
-mod default;
 
 use fs::FileSystemConfig;
 pub use p2p::{p2p_port, P2PConfig};
