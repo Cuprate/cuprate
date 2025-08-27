@@ -1,5 +1,5 @@
 use std::{cmp::min, collections::VecDeque, mem};
-
+use rand_distr::num_traits::Saturating;
 use cuprate_fixed_bytes::ByteArrayVec;
 use tower::{Service, ServiceExt};
 
@@ -76,15 +76,29 @@ pub(crate) struct ChainTracker<N: NetworkZone> {
 impl<N: NetworkZone> ChainTracker<N> {
     /// Creates a new chain tracker.
     pub(crate) async fn new<C>(
-        new_entry: ChainEntry<N>,
+        mut new_entry: ChainEntry<N>,
         first_height: usize,
         our_genesis: [u8; 32],
         previous_hash: [u8; 32],
         our_chain_svc: &mut C,
+        stop_height: Option<usize>,
     ) -> Result<Self, ChainTrackerError>
     where
         C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>,
     {
+        if let Some(stop_height) = stop_height {
+            let new_top_height = first_height + new_entry.ids.len();
+            if new_top_height >= stop_height {
+                new_entry
+                    .ids
+                    .truncate(stop_height.saturating_sub(first_height));
+            }
+
+            if new_entry.ids.is_empty() {
+                return Err(ChainTrackerError::NewEntryIsEmpty);
+            }
+        }
+        
         let top_seen_hash = *new_entry.ids.last().unwrap();
         let mut entries = VecDeque::with_capacity(1);
         entries.push_back(new_entry);
@@ -149,6 +163,7 @@ impl<N: NetworkZone> ChainTracker<N> {
         &mut self,
         mut chain_entry: ChainEntry<N>,
         our_chain_svc: &mut C,
+        stop_height: Option<usize>,
     ) -> Result<(), ChainTrackerError>
     where
         C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>,
@@ -167,12 +182,29 @@ impl<N: NetworkZone> ChainTracker<N> {
             return Err(ChainTrackerError::NewEntryDoesNotFollowChain);
         }
 
-        let new_entry = ChainEntry {
+        let mut new_entry = ChainEntry {
             // ignore the first block - we already know it.
             ids: chain_entry.ids.split_off(1),
             peer: chain_entry.peer,
             handle: chain_entry.handle,
         };
+
+        if let Some(stop_height) = stop_height {
+            let new_top_height = self.top_height() + new_entry.ids.len();
+            if new_top_height >= stop_height {
+                new_entry
+                    .ids
+                    .truncate(stop_height.saturating_sub(self.top_height()));
+            }
+
+            if self.top_height() + new_entry.ids.len() >  stop_height {
+                panic!()
+            }
+
+            if new_entry.ids.is_empty() {
+                return Err(ChainTrackerError::NewEntryIsEmpty);
+            }
+        }
 
         self.top_seen_hash = *new_entry.ids.last().unwrap();
 

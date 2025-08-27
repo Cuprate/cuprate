@@ -82,6 +82,7 @@ pub(crate) async fn request_chain_entry_from_peer<N: NetworkZone>(
 pub(super) async fn initial_chain_search<N: NetworkZone, C>(
     peer_set: &mut BoxCloneService<PeerSetRequest, PeerSetResponse<N>, tower::BoxError>,
     mut our_chain_svc: C,
+    stop_height: Option<usize>
 ) -> Result<ChainTracker<N>, BlockDownloadError>
 where
     C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>,
@@ -220,6 +221,7 @@ where
         our_genesis,
         previous_id,
         &mut our_chain_svc,
+        stop_height
     )
     .await
     .map_err(|_| BlockDownloadError::ChainInvalid)?;

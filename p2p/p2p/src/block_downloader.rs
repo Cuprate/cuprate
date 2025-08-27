@@ -65,7 +65,12 @@ pub struct BlockDownloaderConfig {
     pub buffer_bytes: usize,
     /// The size of the in progress queue (in bytes) at which we stop requesting more blocks.
     pub in_progress_queue_bytes: usize,
+    /// Whether blocks be ordered before being returned.
     pub order_blocks: bool,
+    /// The height we should sync to, the block at this height will _not_ be synced.
+    /// 
+    /// If [`None`] we will sync all blocks we can find.
+    pub stop_height: Option<usize>,
     /// The [`Duration`] between checking the client pool for free peers.
     pub check_client_pool_interval: Duration,
     /// The target size of a single batch of blocks (in bytes).
@@ -451,6 +456,7 @@ where
     ) -> Option<ClientDropGuard<N>> {
         // We send 2 requests, so if one of them is slow or doesn't have the next chain, we still have a backup.
         if self.chain_entry_task.len() < 2
+            && self.config.stop_height.is_none_or(|stop_height| chain_tracker.top_height() < stop_height)
             // If we have had too many failures then assume the tip has been found so no more chain entries.
             && self.amount_of_empty_chain_entries <= EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED
             // Check we have a big buffer of pending block IDs to retrieve, we don't want to be waiting around
@@ -634,7 +640,7 @@ where
     /// Starts the main loop of the block downloader.
     async fn run(mut self) -> Result<(), BlockDownloadError> {
         let mut chain_tracker =
-            initial_chain_search(&mut self.peer_set, &mut self.our_chain_svc).await?;
+            initial_chain_search(&mut self.peer_set, &mut self.our_chain_svc, self.config.stop_height).await?;
 
         let mut pending_peers = BTreeMap::new();
 
@@ -653,7 +659,7 @@ where
                     self.check_for_free_clients(&mut chain_tracker, &mut pending_peers).await?;
 
                      // If we have no inflight requests, and we have had too many empty chain entries in a row assume the top has been found.
-                    if self.inflight_requests.is_empty() && self.amount_of_empty_chain_entries >= EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED {
+                    if self.inflight_requests.is_empty() && (self.amount_of_empty_chain_entries >= EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED || self.config.stop_height.is_some_and(|h| chain_tracker.top_height() == h)) {
                         tracing::debug!("Failed to find any more chain entries, probably fround the top");
                         return Ok(());
                     }
@@ -667,7 +673,7 @@ where
                     self.handle_download_batch_res(start_height, result, &mut chain_tracker, &mut pending_peers).await?;
 
                     // If we have no inflight requests, and we have had too many empty chain entries in a row assume the top has been found.
-                    if self.inflight_requests.is_empty() && self.amount_of_empty_chain_entries >= EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED {
+                    if self.inflight_requests.is_empty() && (self.amount_of_empty_chain_entries >= EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED || self.config.stop_height.is_some_and(|h| chain_tracker.top_height() == h  )) {
                         tracing::debug!("Failed to find any more chain entries, probably fround the top");
                         return Ok(());
                     }
@@ -675,7 +681,7 @@ where
                 Some(Ok(res)) = self.chain_entry_task.join_next() => {
                     match res {
                         Ok((client, entry)) => {
-                            match chain_tracker.add_entry(entry, &mut self.our_chain_svc).await {
+                            match chain_tracker.add_entry(entry, &mut self.our_chain_svc, self.config.stop_height).await {
                                 Ok(()) => {
                                     tracing::debug!("Successfully added chain entry to chain tracker.");
                                     self.amount_of_empty_chain_entries = 0;

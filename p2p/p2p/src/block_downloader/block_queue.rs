@@ -51,7 +51,10 @@ pub(crate) enum BlockQueue {
 
 impl BlockQueue {
     /// Creates a new [`BlockQueue`].
-    pub(crate) const fn new(buffer_appender: BufferAppender<BlockBatch>, order_blocks: bool) -> Self {
+    pub(crate) const fn new(
+        buffer_appender: BufferAppender<BlockBatch>,
+        order_blocks: bool,
+    ) -> Self {
         if order_blocks {
             Self::Ordered(BlockQueueOrdered::new(buffer_appender))
         } else {
@@ -85,7 +88,10 @@ impl BlockQueue {
         oldest_in_flight_start_height: Option<usize>,
     ) -> Result<(), BlockDownloadError> {
         match self {
-            Self::Ordered(q) => q.add_incoming_batch(new_batch, oldest_in_flight_start_height).await,
+            Self::Ordered(q) => {
+                q.add_incoming_batch(new_batch, oldest_in_flight_start_height)
+                    .await
+            }
             Self::Unordered(q) => q.add_incoming_batch(new_batch).await,
         }
     }
@@ -95,17 +101,14 @@ impl BlockQueue {
 pub(crate) struct BlockQueueUnordered {
     /// The [`BufferAppender`] that gives blocks to Cuprate.
     buffer_appender: BufferAppender<BlockBatch>,
-
 }
 
 impl BlockQueueUnordered {
     /// Creates a new [`BlockQueueUnordered`].
     const fn new(buffer_appender: BufferAppender<BlockBatch>) -> Self {
-        Self {
-            buffer_appender,
-        }
+        Self { buffer_appender }
     }
-    
+
     /// Pushes the batch into the [`async_buffer`].
     pub(crate) async fn add_incoming_batch(
         &mut self,
@@ -120,7 +123,6 @@ impl BlockQueueUnordered {
         Ok(())
     }
 }
-
 
 /// The block queue that holds downloaded block batches, adding them to the [`async_buffer`] when the
 /// oldest batch has been downloaded.
