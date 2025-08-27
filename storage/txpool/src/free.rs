@@ -67,7 +67,7 @@ pub fn open(config: &Config) -> Result<ConcreteEnv, InitError> {
     {
         let env_inner = env.env_inner();
 
-        // Store if this DB has been used before by checking if the metadata table exists.
+        // Store if this DB has been used before by checking if the [`TransactionBlobs`] table exists.
         let tx_ro = env_inner.tx_ro().map_err(runtime_to_init_error)?;
         fresh_db = env_inner.open_db_ro::<TransactionBlobs>(&tx_ro).is_err();
         TxRo::commit(tx_ro).map_err(runtime_to_init_error)?;
