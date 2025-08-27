@@ -45,7 +45,7 @@ const INCOMING_TX_QUEUE_SIZE: usize = 100;
 pub async fn start_txpool_manager(
     mut txpool_write_handle: TxpoolWriteHandle,
     mut txpool_read_handle: TxpoolReadHandle,
-    promote_tx_channel: mpsc::Receiver<[u8; 32]>,
+    promote_tx_channel: mpsc::UnboundedReceiver<[u8; 32]>,
     diffuse_service: DiffuseService<ClearNet>,
     dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
     config: TxpoolConfig,
@@ -206,7 +206,7 @@ struct TxpoolManager {
     dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
     /// The channel the dandelion manager will use to communicate that a tx should be promoted to the
     /// public pool.
-    promote_tx_channel: mpsc::Receiver<[u8; 32]>,
+    promote_tx_channel: mpsc::UnboundedReceiver<[u8; 32]>,
     /// The [`DiffuseService`] to diffuse txs to the p2p network.
     ///
     /// Used for re-relays.
