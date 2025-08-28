@@ -125,7 +125,7 @@ impl IncomingTxHandler {
 
         let dandelion_router = MainDandelionRouter::new(clearnet_router, tor_router);
 
-        let (promote_tx, promote_rx) = mpsc::channel(25);
+        let (promote_tx, promote_rx) = mpsc::unbounded_channel();
 
         let dandelion_pool_manager = dandelion::start_dandelion_pool_manager(
             dandelion_router,
