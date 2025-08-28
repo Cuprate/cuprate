@@ -32,6 +32,7 @@ use cuprate_types::{
     OutputOnChain,
 };
 
+use crate::transactions::SyncState;
 use crate::{transactions::TransactionVerificationData, Database, ExtendedConsensusError};
 
 /// Get the ring members for the inputs from the outputs on the chain.
@@ -159,10 +160,11 @@ pub async fn get_output_cache<D: Database>(
 /// them.
 pub async fn batch_get_ring_member_info<D: Database>(
     txs_verification_data: impl Iterator<Item = &TransactionVerificationData> + Clone,
+    top_hash: [u8; 32],
     hf: HardFork,
     mut database: D,
     cache: Option<&OutputCache>,
-) -> Result<Vec<TxRingMembersInfo>, ExtendedConsensusError> {
+) -> Result<(Vec<TxRingMembersInfo>, SyncState), ExtendedConsensusError> {
     let mut outputs = IndexMap::new();
 
     for tx_v_data in txs_verification_data.clone() {
@@ -188,30 +190,39 @@ pub async fn batch_get_ring_member_info<D: Database>(
         Cow::Owned(outputs)
     };
 
-    Ok(txs_verification_data
-        .map(move |tx_v_data| {
-            let numb_outputs = |amt| outputs.number_outs_with_amount(amt);
+    let sync_state = if outputs.top_hash() == top_hash {
+        SyncState::InSync
+    } else {
+        SyncState::OutOfSync
+    };
 
-            let ring_members_for_tx = get_ring_members_for_inputs(
-                |amt, idx| outputs.get_output(amt, idx).copied(),
-                &tx_v_data.tx.prefix().inputs,
-            )
-            .map_err(ConsensusError::Transaction)?;
+    Ok((
+        txs_verification_data
+            .map(move |tx_v_data| {
+                let numb_outputs = |amt| outputs.number_outs_with_amount(amt);
 
-            let decoy_info = if hf == HardFork::V1 {
-                None
-            } else {
-                // this data is only needed after hard-fork 1.
-                Some(
-                    DecoyInfo::new(&tx_v_data.tx.prefix().inputs, numb_outputs, hf)
-                        .map_err(ConsensusError::Transaction)?,
+                let ring_members_for_tx = get_ring_members_for_inputs(
+                    |amt, idx| outputs.get_output(amt, idx).copied(),
+                    &tx_v_data.tx.prefix().inputs,
                 )
-            };
+                .map_err(ConsensusError::Transaction)?;
 
-            new_ring_member_info(ring_members_for_tx, decoy_info, tx_v_data.version)
-                .map_err(ConsensusError::Transaction)
-        })
-        .collect::<Result<_, _>>()?)
+                let decoy_info = if hf == HardFork::V1 {
+                    None
+                } else {
+                    // this data is only needed after hard-fork 1.
+                    Some(
+                        DecoyInfo::new(&tx_v_data.tx.prefix().inputs, numb_outputs, hf)
+                            .map_err(ConsensusError::Transaction)?,
+                    )
+                };
+
+                new_ring_member_info(ring_members_for_tx, decoy_info, tx_v_data.version)
+                    .map_err(ConsensusError::Transaction)
+            })
+            .collect::<Result<_, _>>()?,
+        sync_state,
+    ))
 }
 
 /// Refreshes the transactions [`TxRingMembersInfo`], if needed.
@@ -222,11 +233,15 @@ pub async fn batch_get_ring_member_info<D: Database>(
 #[instrument(level = "debug", skip_all)]
 pub async fn batch_get_decoy_info<'a, 'b, D: Database>(
     txs_verification_data: impl Iterator<Item = &'a TransactionVerificationData> + Clone,
+    cached_top_hash: [u8; 32],
     hf: HardFork,
     mut database: D,
     cache: Option<&'b OutputCache>,
 ) -> Result<
-    impl Iterator<Item = Result<DecoyInfo, ConsensusError>> + sealed::Captures<(&'a (), &'b ())>,
+    (
+        impl Iterator<Item = Result<DecoyInfo, ConsensusError>> + sealed::Captures<(&'a (), &'b ())>,
+        SyncState,
+    ),
     ExtendedConsensusError,
 > {
     // decoy info is not needed for V1.
@@ -248,13 +263,16 @@ pub async fn batch_get_decoy_info<'a, 'b, D: Database>(
         unique_input_amounts.len()
     );
 
-    let outputs_with_amount = if let Some(cache) = cache {
-        unique_input_amounts
-            .into_iter()
-            .map(|amount| (amount, cache.number_outs_with_amount(amount)))
-            .collect()
+    let (outputs_with_amount, top_hash) = if let Some(cache) = cache {
+        (
+            unique_input_amounts
+                .into_iter()
+                .map(|amount| (amount, cache.number_outs_with_amount(amount)))
+                .collect(),
+            cache.top_hash(),
+        )
     } else {
-        let BlockchainResponse::NumberOutputsWithAmount(outputs_with_amount) = database
+        let BlockchainResponse::NumberOutputsWithAmount(outputs_with_amount, top_hash) = database
             .ready()
             .await?
             .call(BlockchainReadRequest::NumberOutputsWithAmount(
@@ -265,17 +283,26 @@ pub async fn batch_get_decoy_info<'a, 'b, D: Database>(
             unreachable!();
         };
 
-        outputs_with_amount
+        (outputs_with_amount, top_hash)
     };
 
-    Ok(txs_verification_data.map(move |tx_v_data| {
-        DecoyInfo::new(
-            &tx_v_data.tx.prefix().inputs,
-            |amt| outputs_with_amount.get(&amt).copied().unwrap_or(0),
-            hf,
-        )
-        .map_err(ConsensusError::Transaction)
-    }))
+    let sync_state = if cached_top_hash == top_hash {
+        SyncState::InSync
+    } else {
+        SyncState::OutOfSync
+    };
+
+    Ok((
+        txs_verification_data.map(move |tx_v_data| {
+            DecoyInfo::new(
+                &tx_v_data.tx.prefix().inputs,
+                |amt| outputs_with_amount.get(&amt).copied().unwrap_or(0),
+                hf,
+            )
+            .map_err(ConsensusError::Transaction)
+        }),
+        sync_state,
+    ))
 }
 
 mod sealed {

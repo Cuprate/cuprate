@@ -549,7 +549,13 @@ fn outputs(
         })
         .collect::<DbResult<(IndexMap<_, IndexMap<_, _>>, IndexMap<_, IndexSet<_>>)>>()?;
 
-    let cache = OutputCache::new(map, amount_of_outs, wanted_outputs);
+    let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+    let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+
+    let chain_height = crate::ops::blockchain::chain_height(tables.block_heights())?;
+    let top_hash = tables.block_infos().get(&(chain_height - 1))?.block_hash;
+
+    let cache = OutputCache::new(map, amount_of_outs, wanted_outputs, top_hash);
 
     Ok(BlockchainResponse::Outputs(cache))
 }
@@ -610,7 +616,13 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
         })
         .collect::<DbResult<HashMap<Amount, usize>>>()?;
 
-    Ok(BlockchainResponse::NumberOutputsWithAmount(map))
+    let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+    let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+
+    let chain_height = crate::ops::blockchain::chain_height(tables.block_heights())?;
+    let top_hash = tables.block_infos().get(&(chain_height - 1))?.block_hash;
+
+    Ok(BlockchainResponse::NumberOutputsWithAmount(map, top_hash))
 }
 
 /// [`BlockchainReadRequest::KeyImagesSpent`].
