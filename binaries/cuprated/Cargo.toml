@@ -1,6 +1,6 @@
 [package]
 name = "cuprated"
-version = "0.0.5"
+version = "0.0.6"
 edition = "2021"
 description = "The Cuprate Rust Monero node."
 license = "AGPL-3.0-only"
@@ -102,3 +102,4 @@ serde_json  = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true
+

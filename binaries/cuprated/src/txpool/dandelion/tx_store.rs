@@ -6,7 +6,6 @@ use std::{
 use bytes::Bytes;
 use futures::{future::BoxFuture, FutureExt};
 use tokio::sync::mpsc;
-use tokio_util::sync::PollSender;
 use tower::{Service, ServiceExt};
 
 use cuprate_dandelion_tower::{
