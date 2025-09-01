@@ -11,35 +11,40 @@ use tokio::task::{spawn_blocking, JoinHandle};
 use cuprate_p2p_core::{services::ZoneSpecificPeerListEntryBase, NetZoneAddress};
 
 use crate::anchors::{AnchorList, AnchorPeer};
-use crate::{peer_list::PeerList, AddressBookConfig, BorshNetworkZone};
+use crate::sealed::BorshNetZoneAddress;
+use crate::{peer_list::PeerList, AddressBookConfig, BanList, BorshNetworkZone};
 // TODO: store anchor and ban list.
 
 #[derive(BorshSerialize)]
-struct SerPeerDataV1<'a, A: NetZoneAddress> {
+struct SerPeerDataV1<'a, A: BorshNetZoneAddress, B: BanList<A>> {
     white_list: Vec<&'a ZoneSpecificPeerListEntryBase<A>>,
     gray_list: Vec<&'a ZoneSpecificPeerListEntryBase<A>>,
     anchors: Vec<&'a AnchorPeer<A>>,
+    ban_list: &'a B::DiskFmt,
 }
 
 #[derive(BorshDeserialize)]
-struct DeserPeerDataV1<A: NetZoneAddress> {
+struct DeserPeerDataV1<A: BorshNetZoneAddress, B: BanList<A>> {
     white_list: Vec<ZoneSpecificPeerListEntryBase<A>>,
     gray_list: Vec<ZoneSpecificPeerListEntryBase<A>>,
     anchors: Vec<AnchorPeer<A>>,
+    ban_list: B::DiskFmt,
 }
 
-pub(crate) fn save_peers_to_disk<Z: BorshNetworkZone>(
+pub(crate) fn save_peers_to_disk<Z: BorshNetworkZone, B: BanList<Z::Addr>>(
     cfg: &AddressBookConfig<Z>,
     white_list: &PeerList<Z>,
     gray_list: &PeerList<Z>,
     anchor_list: &AnchorList<Z>,
+    ban_list: &B,
 ) -> JoinHandle<std::io::Result<()>> {
     // maybe move this to another thread but that would require cloning the data ... this
     // happens so infrequently that it's probably not worth it.
-    let data = to_vec(&SerPeerDataV1 {
+    let data = to_vec(&SerPeerDataV1::<_, B> {
         white_list: white_list.peers.values().collect::<Vec<_>>(),
         gray_list: gray_list.peers.values().collect::<Vec<_>>(),
         anchors: anchor_list.anchors().values().collect::<Vec<_>>(),
+        ban_list: &ban_list.disk_fmt(),
     })
     .unwrap();
 
@@ -54,13 +59,14 @@ pub(crate) fn save_peers_to_disk<Z: BorshNetworkZone>(
     })
 }
 
-pub(crate) async fn read_peers_from_disk<Z: BorshNetworkZone>(
+pub(crate) async fn read_peers_from_disk<Z: BorshNetworkZone, B: BanList<Z::Addr>>(
     cfg: &AddressBookConfig<Z>,
 ) -> Result<
     (
         Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>,
         Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>,
         Vec<AnchorPeer<Z::Addr>>,
+        B,
     ),
     std::io::Error,
 > {
@@ -70,8 +76,13 @@ pub(crate) async fn read_peers_from_disk<Z: BorshNetworkZone>(
 
     let data = spawn_blocking(move || fs::read(file)).await.unwrap()?;
 
-    let de_ser: DeserPeerDataV1<Z::Addr> = from_slice(&data)?;
-    Ok((de_ser.white_list, de_ser.gray_list, de_ser.anchors))
+    let de_ser: DeserPeerDataV1<Z::Addr, B> = from_slice(&data)?;
+    Ok((
+        de_ser.white_list,
+        de_ser.gray_list,
+        de_ser.anchors,
+        B::from_disk_fmt(de_ser.ban_list),
+    ))
 }
 
 #[cfg(test)]

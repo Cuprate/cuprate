@@ -40,13 +40,13 @@
 use arrayvec::{ArrayVec, CapacityError};
 use cuprate_p2p_core::services::ZoneSpecificPeerListEntryBase;
 use cuprate_p2p_core::NetZoneAddress;
+use cuprate_wire::OnionAddr;
 use rand::prelude::IteratorRandom;
 use rand::{random, Rng};
 use std::fmt::Display;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::ops::Not;
 use std::{collections::BTreeMap, net::Ipv4Addr};
-use cuprate_wire::OnionAddr;
 
 /// A discriminant that can be computed from the type.
 pub trait Bucketable: Sized + Eq + Clone {
@@ -288,4 +288,3 @@ impl Bucketable for OnionAddr {
         self.domain()
     }
 }
-

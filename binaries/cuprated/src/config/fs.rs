@@ -41,6 +41,14 @@ config_struct! {
         /// | macOS   | "/Users/Alice/Library/Caches/Cuprate/"  |
         /// | Linux   | "/home/alice/.cache/cuprate/"           |
         pub cache_directory: PathBuf,
+
+        #[comment_out = true]
+        /// The ban list file.
+        ///
+        /// This is the location of the p2p ban list file.
+        ///
+        /// There is no default file.
+        pub ban_list_file: PathBuf,
     }
 }
 
@@ -49,6 +57,7 @@ impl Default for FileSystemConfig {
         Self {
             data_directory: CUPRATE_DATA_DIR.to_path_buf(),
             cache_directory: CUPRATE_CACHE_DIR.to_path_buf(),
+            ban_list_file: PathBuf::new(),
         }
     }
 }

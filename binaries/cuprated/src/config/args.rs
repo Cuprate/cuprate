@@ -35,6 +35,10 @@ pub struct Args {
     #[arg(long)]
     pub config_file: Option<PathBuf>,
 
+    /// The PATH of the `cuprated` ban list file.
+    #[arg(long)]
+    pub ban_list_file: Option<PathBuf>,
+
     /// Generate a config file and print it to stdout.
     #[arg(long)]
     pub generate_config: bool,
@@ -69,12 +73,16 @@ impl Args {
     /// Apply the [`Args`] to the given [`Config`].
     ///
     /// This may exit the program if a config value was set that requires an early exit.
-    pub const fn apply_args(&self, mut config: Config) -> Config {
+    pub fn apply_args(&self, mut config: Config) -> Config {
         config.network = self.network;
         config.fast_sync = config.fast_sync && !self.no_fast_sync;
 
         if let Some(outbound_connections) = self.outbound_connections {
             config.p2p.clear_net.outbound_connections = outbound_connections;
+        }
+
+        if let Some(ban_list_file) = &self.ban_list_file {
+            config.fs.ban_list_file = ban_list_file.clone();
         }
 
         config

@@ -42,8 +42,12 @@ where
                 tracing::debug!("No peers to ping");
                 break;
             };
-            
-            tokio::spawn(do_ping::<Z, T, A>(peer, self.address_book_svc.clone(), self.transport_client_config.clone()));
+
+            tokio::spawn(do_ping::<Z, T, A>(
+                peer,
+                self.address_book_svc.clone(),
+                self.transport_client_config.clone(),
+            ));
         }
 
         for _ in 0..(BATCH_PING_COUNT + 2) {
@@ -59,7 +63,11 @@ where
                 break;
             };
 
-            tokio::spawn(do_ping::<Z, T, A>(peer, self.address_book_svc.clone(), self.transport_client_config.clone()));
+            tokio::spawn(do_ping::<Z, T, A>(
+                peer,
+                self.address_book_svc.clone(),
+                self.transport_client_config.clone(),
+            ));
         }
     }
 
@@ -82,7 +90,6 @@ async fn do_ping<Z, T, A>(
     Z: NetworkZone,
     T: Transport<Z>,
     A: AddressBook<Z>,
-
 {
     const PING_TIMEOUT: Duration = Duration::from_secs(10);
 

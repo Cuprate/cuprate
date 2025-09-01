@@ -15,9 +15,12 @@ use std::{io::ErrorKind, path::PathBuf, time::Duration};
 use cuprate_p2p_core::{NetZoneAddress, NetworkZone};
 
 mod anchors;
+mod ban_list;
 mod book;
 mod peer_list;
 mod store;
+
+pub use ban_list::{BanList, GenericBanList, IpBanList, IpSubnet, IpSubnetParseError};
 
 /// The address book config.
 #[derive(Debug, Clone)]
@@ -64,40 +67,54 @@ pub enum AddressBookError {
 }
 
 /// Initializes the P2P address book for a specific network zone.
-pub async fn init_address_book<Z: BorshNetworkZone>(
+pub async fn init_address_book<Z: BorshNetworkZone, B: BanList<Z::Addr>>(
+    peers_to_ban: Option<B>,
     cfg: AddressBookConfig<Z>,
-) -> Result<book::AddressBook<Z>, std::io::Error> {
-    let (white_list, gray_list, anchors) = match store::read_peers_from_disk::<Z>(&cfg).await {
-        Ok(res) => res,
-        Err(e) if e.kind() == ErrorKind::NotFound => (vec![], vec![], vec![]),
-        Err(e) => {
-            tracing::error!(
-                "Error: Failed to open peer list,\n{},\nstarting with an empty list",
-                e
-            );
-            (vec![], vec![], vec![])
-        }
-    };
+) -> Result<book::AddressBook<Z, B>, std::io::Error> {
+    let (white_list, gray_list, anchors, mut ban_list) =
+        match store::read_peers_from_disk::<Z, B>(&cfg).await {
+            Ok(res) => res,
+            Err(e) if e.kind() == ErrorKind::NotFound => (vec![], vec![], vec![], B::default()),
+            Err(e) => {
+                tracing::error!(
+                    "Error: Failed to open peer list,\n{},\nstarting with an empty list",
+                    e
+                );
+                (vec![], vec![], vec![], B::default())
+            }
+        };
 
-    let address_book = book::AddressBook::<Z>::new(cfg, white_list, gray_list, anchors);
+    if let Some(mut peers_to_ban) = peers_to_ban {
+        ban_list.append(&mut peers_to_ban);
+    }
+
+    let address_book = book::AddressBook::new(cfg, white_list, gray_list, anchors, ban_list);
 
     Ok(address_book)
 }
-
-use sealed::BorshNetworkZone;
+pub use sealed::{BorshNetZoneAddress, BorshNetworkZone};
 mod sealed {
     use super::*;
     use cuprate_bucket_set::Bucketable;
 
-    /// An internal trait for the address book for a [`NetworkZone`] that adds the requirement of [`borsh`] traits
-    /// onto the network address.
-    pub trait BorshNetworkZone:
-        NetworkZone<Addr: borsh::BorshDeserialize + borsh::BorshSerialize + Bucketable>
+    pub trait BorshNetZoneAddress:
+        NetZoneAddress<BanID: borsh::BorshDeserialize + borsh::BorshSerialize>
+        + borsh::BorshDeserialize
+        + borsh::BorshSerialize
+        + Bucketable
     {
     }
 
-    impl<T: NetworkZone> BorshNetworkZone for T where
-        T::Addr: borsh::BorshDeserialize + borsh::BorshSerialize + Bucketable
+    impl<T: NetZoneAddress> BorshNetZoneAddress for T
+    where
+        T: borsh::BorshDeserialize + borsh::BorshSerialize + Bucketable,
+        T::BanID: borsh::BorshDeserialize + borsh::BorshSerialize,
     {
     }
+
+    /// An internal trait for the address book for a [`NetworkZone`] that adds the requirement of [`borsh`] traits
+    /// onto the network address.
+    pub trait BorshNetworkZone: NetworkZone<Addr: BorshNetZoneAddress> {}
+
+    impl<T: NetworkZone> BorshNetworkZone for T where T::Addr: BorshNetZoneAddress {}
 }

@@ -15,7 +15,6 @@ cuprate-pruning = { workspace = true }
 cuprate-helper = { workspace = true, features = ["asynch"], default-features = false }
 cuprate-async-buffer = { workspace = true }
 cuprate-types = { workspace = true, default-features = false }
-cuprate-bucket-set = { workspace = true }
 
 monero-serai = { workspace = true, features = ["std"] }
 
@@ -33,7 +32,6 @@ bytes = { workspace = true, features = ["std"] }
 rand = { workspace = true, features = ["std", "std_rng"] }
 rand_distr = { workspace = true, features = ["std"] }
 tracing = { workspace = true, features = ["std", "attributes"] }
-borsh = { workspace = true, features = ["derive", "std"] }
 
 [dev-dependencies]
 cuprate-test-utils = { workspace = true }

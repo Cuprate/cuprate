@@ -5,12 +5,7 @@
 use std::convert::From;
 
 use arti_client::TorClient;
-use futures::{FutureExt, TryFutureExt};
-use serde::{Deserialize, Serialize};
-use tokio::sync::oneshot::{self, Sender};
-use tor_rtcompat::PreferredRuntime;
-use tower::{Service, ServiceExt};
-
+use cuprate_address_book::{BanList, BorshNetworkZone, GenericBanList};
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::BlockchainContextService;
 use cuprate_p2p::{config::TransportConfig, NetworkInterface, P2PConfig};
@@ -20,6 +15,11 @@ use cuprate_p2p_core::{
 use cuprate_p2p_transport::{Arti, ArtiClientConfig, Daemon};
 use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
 use cuprate_types::blockchain::BlockchainWriteRequest;
+use futures::{FutureExt, TryFutureExt};
+use serde::{Deserialize, Serialize};
+use tokio::sync::oneshot::{self, Sender};
+use tor_rtcompat::PreferredRuntime;
+use tower::{Service, ServiceExt};
 
 use crate::{
     blockchain,
@@ -33,9 +33,11 @@ use crate::{
 };
 
 mod core_sync_service;
+mod ip_ban_list;
 mod network_address;
 pub mod request_handler;
 
+use crate::p2p::ip_ban_list::BanListFile;
 pub use network_address::CrossNetworkInternalPeerId;
 
 /// A simple parsing enum for the `p2p.clear_net.proxy` field
@@ -74,6 +76,8 @@ pub async fn initialize_zones_p2p(
     txpool_read_handle: TxpoolReadHandle,
     tor_ctx: TorContext,
 ) -> (NetworkInterfaces, Vec<Sender<IncomingTxHandler>>) {
+    let ban_list = BanListFile::load_ban_list(config);
+
     // Start clearnet P2P.
     let (clearnet, incoming_tx_handler_tx) = {
         // If proxy is set
@@ -81,12 +85,13 @@ pub async fn initialize_zones_p2p(
             ProxySettings::Tor => match tor_ctx.mode {
                 TorMode::Arti => {
                     tracing::info!("Anonymizing clearnet connections through Arti.");
-                    start_zone_p2p::<ClearNet, Arti>(
+                    start_zone_p2p::<ClearNet, Arti, _>(
                         blockchain_read_handle.clone(),
                         context_svc.clone(),
                         txpool_read_handle.clone(),
                         config.clearnet_p2p_config(),
                         transport_clearnet_arti_config(&tor_ctx),
+                        Some(ban_list.ip_ban_list()),
                     )
                     .await
                     .unwrap()
@@ -106,12 +111,13 @@ pub async fn initialize_zones_p2p(
                     std::process::exit(0);
                 }
 
-                start_zone_p2p::<ClearNet, Tcp>(
+                start_zone_p2p::<ClearNet, Tcp, _>(
                     blockchain_read_handle.clone(),
                     context_svc.clone(),
                     txpool_read_handle.clone(),
                     config.clearnet_p2p_config(),
                     config.p2p.clear_net.tcp_transport_config(config.network),
+                    Some(ban_list.ip_ban_list()),
                 )
                 .await
                 .unwrap()
@@ -128,23 +134,25 @@ pub async fn initialize_zones_p2p(
         match tor_ctx.mode {
             TorMode::Off => None,
             TorMode::Daemon => Some(
-                start_zone_p2p::<Tor, Daemon>(
+                start_zone_p2p::<Tor, Daemon, GenericBanList<_>>(
                     blockchain_read_handle.clone(),
                     context_svc.clone(),
                     txpool_read_handle.clone(),
                     config.tor_p2p_config(&tor_ctx),
                     transport_daemon_config(config),
+                    None,
                 )
                 .await
                 .unwrap(),
             ),
             TorMode::Arti => Some(
-                start_zone_p2p::<Tor, Arti>(
+                start_zone_p2p::<Tor, Arti, GenericBanList<_>>(
                     blockchain_read_handle.clone(),
                     context_svc.clone(),
                     txpool_read_handle.clone(),
                     config.tor_p2p_config(&tor_ctx),
                     transport_arti_config(config, tor_ctx),
+                    None,
                 )
                 .await
                 .unwrap(),
@@ -165,17 +173,18 @@ pub async fn initialize_zones_p2p(
 ///
 /// A [`oneshot::Sender`] is also returned to provide the [`IncomingTxHandler`], until this is provided network
 /// handshakes can not be completed.
-pub async fn start_zone_p2p<N, T>(
+pub async fn start_zone_p2p<N, T, B>(
     blockchain_read_handle: BlockchainReadHandle,
     blockchain_context_service: BlockchainContextService,
     txpool_read_handle: TxpoolReadHandle,
     config: P2PConfig<N>,
     transport_config: TransportConfig<N, T>,
+    ban_list: Option<B>,
 ) -> Result<(NetworkInterface<N>, Sender<IncomingTxHandler>), tower::BoxError>
 where
-    N: NetworkZone,
+    N: BorshNetworkZone,
     T: Transport<N>,
-    N::Addr: borsh::BorshDeserialize + borsh::BorshSerialize + cuprate_bucket_set::Bucketable,
+    B: BanList<N::Addr> + Send + 'static,
     CrossNetworkInternalPeerId: From<InternalPeerID<<N as NetworkZone>::Addr>>,
 {
     let (incoming_tx_handler_tx, incoming_tx_handler_rx) = oneshot::channel();
@@ -189,11 +198,12 @@ where
     };
 
     Ok((
-        cuprate_p2p::initialize_network::<N, T, _, _>(
+        cuprate_p2p::initialize_network::<N, T, _, _, _>(
             request_handler_maker.map_response(|s| s.map_err(Into::into)),
             core_sync_service::CoreSyncService(blockchain_context_service),
             config,
             transport_config,
+            ban_list,
         )
         .await?,
         incoming_tx_handler_tx,

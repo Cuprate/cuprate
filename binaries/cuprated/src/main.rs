@@ -134,7 +134,7 @@ fn main() {
             tor_context,
         )
         .await;
-        
+
         // Create the incoming tx handler service.
         let tx_handler = IncomingTxHandler::init(
             config.storage.txpool.clone(),

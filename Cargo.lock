@@ -1382,11 +1382,9 @@ dependencies = [
 name = "cuprate-p2p"
 version = "0.1.0"
 dependencies = [
- "borsh",
  "bytes",
  "cuprate-address-book",
  "cuprate-async-buffer",
- "cuprate-bucket-set",
  "cuprate-constants",
  "cuprate-fixed-bytes",
  "cuprate-helper",

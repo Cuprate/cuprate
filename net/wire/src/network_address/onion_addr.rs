@@ -3,12 +3,12 @@
 //! This module define v3 Tor onion addresses
 //!
 
+use borsh::{BorshDeserialize, BorshSerialize};
+use std::fmt::Debug;
 use std::{
     fmt::Display,
     str::{self, FromStr},
 };
-use std::fmt::Debug;
-use borsh::{BorshDeserialize, BorshSerialize};
 use thiserror::Error;
 
 use super::{NetworkAddress, NetworkAddressIncorrectZone};
@@ -31,7 +31,7 @@ impl Debug for OnionAddr {
         f.write_str(domain)?;
         f.write_str(".onion:")?;
         Debug::fmt(&self.port, f)
-    }   
+    }
 }
 
 /// Error enum at parsing onion addresses

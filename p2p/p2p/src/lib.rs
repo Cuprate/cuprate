@@ -29,13 +29,14 @@ mod inbound_server;
 mod peer_pinger;
 mod peer_set;
 
+use crate::peer_pinger::PeerPinger;
 use block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse};
 pub use broadcast::{BroadcastRequest, BroadcastSvc};
 pub use config::{AddressBookConfig, P2PConfig, TransportConfig};
 use connection_maintainer::MakeConnectionRequest;
+use cuprate_address_book::{BanList, BorshNetworkZone};
 use peer_set::PeerSet;
 pub use peer_set::{ClientDropGuard, PeerSetRequest, PeerSetResponse};
-use crate::peer_pinger::PeerPinger;
 
 /// Interval for checking inbound connection status (1 hour)
 const INBOUND_CONNECTION_MONITOR_INTERVAL: Duration = Duration::from_secs(3600);
@@ -80,21 +81,23 @@ async fn inbound_connection_monitor(
 /// - A protocol request handler, which is given to each connection
 /// - A core sync service, which keeps track of the sync state of our node
 #[instrument(level = "error", name = "net", skip_all, fields(zone = Z::NAME))]
-pub async fn initialize_network<Z, T, PR, CS>(
+pub async fn initialize_network<Z, T, PR, CS, B>(
     protocol_request_handler_maker: PR,
     core_sync_svc: CS,
     config: P2PConfig<Z>,
     transport_config: TransportConfig<Z, T>,
+    banned_peers: Option<B>,
 ) -> Result<NetworkInterface<Z>, tower::BoxError>
 where
-    Z: NetworkZone,
+    Z: BorshNetworkZone,
+    B: BanList<Z::Addr> + Send + 'static,
     T: Transport<Z>,
-    Z::Addr: borsh::BorshDeserialize + borsh::BorshSerialize + cuprate_bucket_set::Bucketable,
     PR: ProtocolRequestHandlerMaker<Z> + Clone,
     CS: CoreSyncSvc + Clone,
 {
     let address_book =
-        cuprate_address_book::init_address_book(config.address_book_config.clone()).await?;
+        cuprate_address_book::init_address_book(banned_peers, config.address_book_config.clone())
+            .await?;
     let address_book = Buffer::new(
         address_book,
         config
@@ -148,7 +151,7 @@ where
         address_book.clone(),
         outbound_connector,
     );
-    
+
     let peer_pinger: PeerPinger<Z, T, _> = PeerPinger {
         address_book_svc: address_book.clone(),
         transport_client_config: Arc::new(transport_config.client_config.clone()),
@@ -160,7 +163,7 @@ where
     let inbound_semaphore = Arc::new(tokio::sync::Semaphore::new(config.max_inbound_connections));
 
     let mut background_tasks = JoinSet::new();
-    
+
     background_tasks.spawn(
         outbound_connection_maintainer
             .run()
@@ -177,10 +180,7 @@ where
         .instrument(tracing::info_span!("inbound_connection_monitor")),
     );
 
-    background_tasks.spawn(
-        peer_pinger.run()        .instrument(Span::current()),
-
-    );
+    background_tasks.spawn(peer_pinger.run().instrument(Span::current()));
     background_tasks.spawn(
         inbound_server::inbound_server(
             new_connection_tx,

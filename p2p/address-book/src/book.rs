@@ -29,7 +29,7 @@ use cuprate_pruning::PruningSeed;
 
 use crate::anchors::{AnchorList, AnchorPeer};
 use crate::{
-    peer_list::PeerList, store::save_peers_to_disk, AddressBookConfig, AddressBookError,
+    peer_list::PeerList, store::save_peers_to_disk, AddressBookConfig, AddressBookError, BanList,
     BorshNetworkZone,
 };
 
@@ -49,7 +49,7 @@ pub(crate) struct ConnectionPeerEntry<Z: NetworkZone> {
     rpc_credits_per_hash: u32,
 }
 
-pub struct AddressBook<Z: BorshNetworkZone> {
+pub struct AddressBook<Z: BorshNetworkZone, B: BanList<Z::Addr>> {
     /// Our white peers - the peers we have previously connected to.
     white_list: PeerList<Z>,
     /// Our gray peers - the peers we have been told about but haven't connected to.
@@ -61,8 +61,7 @@ pub struct AddressBook<Z: BorshNetworkZone> {
     connected_peers: HashMap<InternalPeerID<Z::Addr>, ConnectionPeerEntry<Z>>,
     connected_peers_ban_id: HashMap<<Z::Addr as NetZoneAddress>::BanID, HashSet<Z::Addr>>,
 
-    banned_peers: HashMap<<Z::Addr as NetZoneAddress>::BanID, Instant>,
-    banned_peers_queue: DelayQueue<<Z::Addr as NetZoneAddress>::BanID>,
+    ban_list: B,
 
     peer_save_task_handle: Option<JoinHandle<std::io::Result<()>>>,
     peer_save_interval: Interval,
@@ -70,20 +69,17 @@ pub struct AddressBook<Z: BorshNetworkZone> {
     cfg: AddressBookConfig<Z>,
 }
 
-impl<Z: BorshNetworkZone> AddressBook<Z> {
+impl<Z: BorshNetworkZone, B: BanList<Z::Addr>> AddressBook<Z, B> {
     pub fn new(
         cfg: AddressBookConfig<Z>,
         white_peers: Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>,
         gray_peers: Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>,
         anchors: Vec<AnchorPeer<Z::Addr>>,
+        ban_list: B,
     ) -> Self {
         let white_list = PeerList::new(white_peers);
         let gray_list = PeerList::new(gray_peers);
         let anchor_list = AnchorList::new(anchors);
-
-        // TODO: persist banned peers
-        let banned_peers = HashMap::new();
-        let banned_peers_queue = DelayQueue::new();
 
         let mut peer_save_interval = interval(cfg.peer_save_period);
         peer_save_interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
@@ -94,8 +90,7 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
             anchor_list,
             connected_peers: HashMap::new(),
             connected_peers_ban_id: HashMap::new(),
-            banned_peers,
-            banned_peers_queue,
+            ban_list,
             peer_save_task_handle: None,
             peer_save_interval,
             cfg,
@@ -130,15 +125,10 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
             &self.white_list,
             &self.gray_list,
             &self.anchor_list,
+            &self.ban_list,
         ));
     }
 
-    fn poll_unban_peers(&mut self, cx: &mut Context<'_>) {
-        while let Poll::Ready(Some(ban_id)) = self.banned_peers_queue.poll_expired(cx) {
-            tracing::info!("Host {:?} is unbanned, ban has expired.", ban_id.get_ref(),);
-            self.banned_peers.remove(ban_id.get_ref());
-        }
-    }
     fn poll_connected_peers(&mut self) {
         let mut internal_addr_disconnected = Vec::new();
         let mut addrs_to_ban = Vec::new();
@@ -180,10 +170,6 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
     }
 
     fn ban_peer(&mut self, addr: Z::Addr, time: Duration) {
-        if self.banned_peers.contains_key(&addr.ban_id()) {
-            tracing::error!("Tried to ban peer twice, this shouldn't happen.");
-        }
-
         if let Some(connected_peers_with_ban_id) = self.connected_peers_ban_id.get(&addr.ban_id()) {
             for peer in connected_peers_with_ban_id.iter().map(|addr| {
                 tracing::debug!("Banning peer: {}, for: {:?}", addr, time);
@@ -201,10 +187,7 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
         self.white_list.remove_peers_with_ban_id(&addr.ban_id());
         self.gray_list.remove_peers_with_ban_id(&addr.ban_id());
 
-        let unban_at = Instant::now() + time;
-
-        self.banned_peers_queue.insert_at(addr.ban_id(), unban_at);
-        self.banned_peers.insert(addr.ban_id(), unban_at);
+        self.ban_list.ban(addr.ban_id(), time);
     }
 
     /// adds a peer to the gray list.
@@ -249,18 +232,13 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
         }
     }
 
-    /// Checks if a peer is banned.
-    fn is_peer_banned(&self, peer: &Z::Addr) -> bool {
-        self.banned_peers.contains_key(&peer.ban_id())
-    }
-
     /// Checks when a peer will be unbanned.
     ///
     /// - If the peer is banned, this returns [`Some`] containing
     ///   the [`Instant`] the peer will be unbanned
     /// - If the peer is not banned, this returns [`None`]
     fn peer_unban_instant(&self, peer: &Z::Addr) -> Option<Instant> {
-        self.banned_peers.get(&peer.ban_id()).copied()
+        self.ban_list.unbanned_instant(&peer)
     }
 
     fn handle_incoming_peer_list(
@@ -272,7 +250,7 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
         peer_list.retain_mut(|peer| {
             peer.adr.make_canonical();
 
-            peer.adr.should_add_to_peer_list() && !self.is_peer_banned(&peer.adr)
+            peer.adr.should_add_to_peer_list() && !self.ban_list.is_banned(&peer.adr)
             // TODO: check rpc/ p2p ports not the same
         });
 
@@ -395,7 +373,7 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
 
         // If we know the address then check if it's banned.
         if let InternalPeerID::KnownAddr(addr) = &internal_peer_id {
-            if self.is_peer_banned(addr) {
+            if self.ban_list.is_banned(addr) {
                 return Err(AddressBookError::PeerIsBanned);
             }
             // although the peer may not be reachable still add it to the connected peers with ban ID.
@@ -425,13 +403,15 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
     }
 }
 
-impl<Z: BorshNetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
+impl<Z: BorshNetworkZone, B: BanList<Z::Addr>> Service<AddressBookRequest<Z>>
+    for AddressBook<Z, B>
+{
     type Response = AddressBookResponse<Z>;
     type Error = AddressBookError;
     type Future = Ready<Result<Self::Response, Self::Error>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.poll_unban_peers(cx);
+        self.ban_list.poll_bans(cx);
         self.poll_save_to_disk(cx);
         self.anchor_list.poll_timeouts(cx);
         self.poll_connected_peers();
