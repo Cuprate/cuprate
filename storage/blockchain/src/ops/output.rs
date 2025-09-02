@@ -208,7 +208,7 @@ pub fn output_to_output_on_chain(
 ///
 /// # Panics
 /// This function will panic if `rct_output`'s `commitment` fails to decompress
-/// into a valid [`EdwardsPoint`](curve25519_dalek::edwards::EdwardsPoint).
+/// into a valid Ed25519 point.
 ///
 /// This should normally not happen as commitments that
 /// are stored in the database should always be valid.
