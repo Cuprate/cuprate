@@ -23,7 +23,7 @@ cuprate-database-service = { workspace = true }
 cuprate-types            = { workspace = true, features = ["rpc"] }
 cuprate-helper           = { workspace = true, default-features = false, features = ["constants", "time"] }
 
-monero-serai             = { workspace = true, features = ["std"] }
+monero-oxide             = { workspace = true, features = ["std"] }
 bytemuck                 = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 bitflags                 = { workspace = true, features = ["std", "serde", "bytemuck"] }
 thiserror                = { workspace = true }

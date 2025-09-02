@@ -1,8 +1,7 @@
 //! Output functions.
 
 //---------------------------------------------------------------------------------------------------- Import
-use curve25519_dalek::edwards::CompressedEdwardsY;
-use monero_serai::transaction::Timelock;
+use monero_oxide::{io::CompressedPoint, transaction::Timelock};
 
 use cuprate_database::{
     DbResult, RuntimeError, {DatabaseRo, DatabaseRw},
@@ -177,7 +176,7 @@ pub fn output_to_output_on_chain(
         Timelock::None
     };
 
-    let key = CompressedEdwardsY(output.key);
+    let key = CompressedPoint(output.key);
 
     let txid = if get_txid {
         let height = u32_to_usize(output.height);
@@ -223,7 +222,7 @@ pub fn rct_output_to_output_on_chain(
     table_tx_blobs: &impl DatabaseRo<TxBlobs>,
 ) -> DbResult<OutputOnChain> {
     // INVARIANT: Commitments stored are valid when stored by the database.
-    let commitment = CompressedEdwardsY(rct_output.commitment);
+    let commitment = CompressedPoint(rct_output.commitment);
 
     let time_lock = if rct_output
         .output_flags
@@ -234,7 +233,7 @@ pub fn rct_output_to_output_on_chain(
         Timelock::None
     };
 
-    let key = CompressedEdwardsY(rct_output.key);
+    let key = CompressedPoint(rct_output.key);
 
     let txid = if get_txid {
         let height = u32_to_usize(rct_output.height);

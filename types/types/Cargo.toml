@@ -26,8 +26,7 @@ cuprate-hex           = { workspace = true, optional = true }
 bitflags         = { workspace = true }
 bytes            = { workspace = true }
 cfg-if           = { workspace = true }
-curve25519-dalek = { workspace = true }
-monero-serai     = { workspace = true }
+monero-oxide     = { workspace = true }
 serde            = { workspace = true, features = ["std", "derive"], optional = true }
 strum            = { workspace = true, features = ["derive"] }
 thiserror        = { workspace = true }

@@ -83,14 +83,14 @@ cuprate_database::define_tables! {
     /// Prunable transaction blobs (bytes).
     ///
     /// Contains the prunable portion of serialized transaction data.
-    // SOMEDAY: impl when `monero-serai` supports pruning
+    // SOMEDAY: impl when `monero-oxide` supports pruning
     8 => PrunableTxBlobs,
     TxId => PrunableBlob,
 
     /// Prunable transaction hashes.
     ///
     /// Contains the prunable portion of transaction hashes.
-    // SOMEDAY: impl when `monero-serai` supports pruning
+    // SOMEDAY: impl when `monero-oxide` supports pruning
     9 => PrunableHashes,
     TxId => PrunableHash,
 
@@ -107,7 +107,7 @@ cuprate_database::define_tables! {
     /// Transaction blobs (bytes).
     ///
     /// Contains the serialized version of all transactions.
-    // SOMEDAY: remove when `monero-serai` supports pruning
+    // SOMEDAY: remove when `monero-oxide` supports pruning
     11 => TxBlobs,
     TxId => TxBlob,
 

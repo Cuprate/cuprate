@@ -10,7 +10,7 @@ use std::{
 
 use futures::{FutureExt, StreamExt};
 use indexmap::IndexMap;
-use monero_serai::{
+use monero_oxide::{
     block::{Block, BlockHeader},
     transaction::{Input, Timelock, Transaction, TransactionPrefix},
 };

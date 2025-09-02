@@ -1,7 +1,7 @@
 //! Functions to send [`BlockChainContextRequest`]s.
 
 use anyhow::{anyhow, Error};
-use monero_serai::block::Block;
+use monero_oxide::block::Block;
 use tower::{Service, ServiceExt};
 
 use cuprate_consensus_context::{

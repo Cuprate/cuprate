@@ -1,7 +1,7 @@
 //! Transaction read ops.
 //!
 //! This module handles reading full transaction data, like getting a transaction from the pool.
-use monero_serai::transaction::Transaction;
+use monero_oxide::transaction::Transaction;
 
 use cuprate_database::{DatabaseRo, DbResult};
 use cuprate_types::{TransactionVerificationData, TxVersion};

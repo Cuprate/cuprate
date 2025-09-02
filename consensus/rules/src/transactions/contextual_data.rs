@@ -1,8 +1,10 @@
 use std::cmp::{max, min};
 
-use curve25519_dalek::edwards::CompressedEdwardsY;
 use indexmap::{IndexMap, IndexSet};
-use monero_serai::transaction::{Input, Timelock};
+use monero_oxide::{
+    io::CompressedPoint,
+    transaction::{Input, Timelock},
+};
 
 use crate::{transactions::TransactionError, HardFork};
 
@@ -57,9 +59,9 @@ pub fn insert_ring_member_ids(
 #[derive(Debug)]
 pub enum Rings {
     /// Legacy, pre-ringCT, rings.
-    Legacy(Vec<Vec<CompressedEdwardsY>>),
+    Legacy(Vec<Vec<CompressedPoint>>),
     /// `RingCT` rings, (outkey, amount commitment).
-    RingCT(Vec<Vec<[CompressedEdwardsY; 2]>>),
+    RingCT(Vec<Vec<[CompressedPoint; 2]>>),
 }
 
 /// Information on the outputs the transaction is referencing for inputs (ring members).

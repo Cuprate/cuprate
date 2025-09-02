@@ -1,8 +1,8 @@
 //! HTTP RPC client.
 
 //---------------------------------------------------------------------------------------------------- Use
+use monero_oxide::block::Block;
 use monero_rpc::Rpc;
-use monero_serai::block::Block;
 use monero_simple_request_rpc::SimpleRequestRpc;
 use serde::Deserialize;
 use serde_json::json;

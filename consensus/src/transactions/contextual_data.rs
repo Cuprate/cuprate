@@ -14,7 +14,7 @@
 use std::{borrow::Cow, collections::HashSet};
 
 use indexmap::IndexMap;
-use monero_serai::transaction::{Input, Timelock};
+use monero_oxide::transaction::{Input, Timelock};
 use tower::ServiceExt;
 use tracing::instrument;
 

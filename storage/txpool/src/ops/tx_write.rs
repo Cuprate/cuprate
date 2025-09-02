@@ -2,7 +2,7 @@
 //!
 //! This module handles writing full transaction data, like removing or adding a transaction.
 use bytemuck::TransparentWrapper;
-use monero_serai::transaction::{NotPruned, Transaction};
+use monero_oxide::transaction::{NotPruned, Transaction};
 
 use cuprate_database::{DatabaseRw, DbResult, StorableVec};
 use cuprate_helper::time::current_unix_timestamp;
@@ -23,7 +23,7 @@ use crate::{
 /// This function fills in all tables necessary to add the transaction to the pool.
 ///
 /// # Panics
-/// This function will panic if the transactions inputs are not all of type [`Input::ToKey`](monero_serai::transaction::Input::ToKey).
+/// This function will panic if the transactions inputs are not all of type [`Input::ToKey`](monero_oxide::transaction::Input::ToKey).
 pub fn add_transaction(
     tx: &TransactionVerificationData,
     state_stem: bool,

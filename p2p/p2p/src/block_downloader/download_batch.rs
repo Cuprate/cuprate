@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use monero_serai::{block::Block, transaction::Transaction};
+use monero_oxide::{block::Block, transaction::Transaction};
 use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::instrument;

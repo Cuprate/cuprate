@@ -2,9 +2,9 @@
 
 use std::num::NonZero;
 
-use curve25519_dalek::edwards::CompressedEdwardsY;
-use monero_serai::{
+use monero_oxide::{
     block::Block,
+    io::CompressedPoint,
     transaction::{Timelock, Transaction},
 };
 
@@ -17,13 +17,13 @@ use crate::HardFork;
 pub struct ExtendedBlockHeader {
     /// The block's major version.
     ///
-    /// This is the same value as [`monero_serai::block::BlockHeader::hardfork_version`].
+    /// This is the same value as [`monero_oxide::block::BlockHeader::hardfork_version`].
     pub version: HardFork,
     /// The block's hard-fork vote.
     ///
     /// This can't be represented with [`HardFork`] as raw-votes can be out of the range of [`HardFork`]s.
     ///
-    /// This is the same value as [`monero_serai::block::BlockHeader::hardfork_signal`].
+    /// This is the same value as [`monero_oxide::block::BlockHeader::hardfork_signal`].
     pub vote: u8,
     /// The UNIX time at which the block was mined.
     pub timestamp: u64,
@@ -142,9 +142,9 @@ pub struct OutputOnChain {
     /// The timelock of this output, if any.
     pub time_lock: Timelock,
     /// The public key of this output, if any.
-    pub key: CompressedEdwardsY,
+    pub key: CompressedPoint,
     /// The output's commitment.
-    pub commitment: CompressedEdwardsY,
+    pub commitment: CompressedPoint,
     /// The hash of the transaction hash this output belongs to.
     /// This is [`None`] when this field is not requested for in relevant functions.
     pub txid: Option<[u8; 32]>,

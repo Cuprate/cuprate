@@ -2,7 +2,7 @@
 
 use libfuzzer_sys::fuzz_target;
 
-use monero_serai::transaction::{NotPruned, Transaction};
+use monero_oxide::transaction::{NotPruned, Transaction};
 
 fuzz_target!(|data: &[u8]| {
     drop(Transaction::<NotPruned>::read(&mut &data[..]));

@@ -6,7 +6,7 @@ use std::{
 
 use bytes::Bytes;
 use futures::{future::BoxFuture, FutureExt};
-use monero_serai::transaction::Transaction;
+use monero_oxide::transaction::Transaction;
 use tokio::sync::mpsc;
 use tower::{BoxError, Service, ServiceExt};
 use tracing::instrument;

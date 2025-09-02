@@ -9,7 +9,7 @@
 //!
 //! ```rust
 //! # use cuprate_test_utils::data::*;
-//! use monero_serai::{block::Block, transaction::Transaction};
+//! use monero_oxide::{block::Block, transaction::Transaction};
 //!
 //! let block: Block = Block::read(&mut BLOCK_43BD1F).unwrap();
 //! let tx: Transaction = Transaction::read(&mut TX_E57440).unwrap();

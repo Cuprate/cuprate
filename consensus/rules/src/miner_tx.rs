@@ -1,4 +1,4 @@
-use monero_serai::transaction::{Input, Output, Timelock, Transaction};
+use monero_oxide::transaction::{Input, Output, Timelock, Transaction};
 
 use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
 use cuprate_types::TxVersion;

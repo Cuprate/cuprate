@@ -2,7 +2,7 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
-use monero_serai::transaction::{Input, Timelock, Transaction};
+use monero_oxide::transaction::{Input, Timelock, Transaction};
 
 use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableVec};
 use cuprate_helper::crypto::compute_zero_commitment;
@@ -75,7 +75,7 @@ pub fn add_tx(
     }
 
     //------------------------------------------------------ Pruning
-    // SOMEDAY: implement pruning after `monero-serai` does.
+    // SOMEDAY: implement pruning after `monero-oxide` does.
     // if let PruningSeed::Pruned(decompressed_pruning_seed) = get_blockchain_pruning_seed()? {
     // SOMEDAY: what to store here? which table?
     // }
@@ -194,7 +194,7 @@ pub fn remove_tx(tx_hash: &TxHash, tables: &mut impl TablesMut) -> DbResult<(TxI
     tables.tx_outputs_mut().delete(&tx_id)?;
 
     //------------------------------------------------------ Pruning
-    // SOMEDAY: implement pruning after `monero-serai` does.
+    // SOMEDAY: implement pruning after `monero-oxide` does.
     // table_prunable_hashes.delete(&tx_id)?;
     // table_prunable_tx_blobs.delete(&tx_id)?;
     // if let PruningSeed::Pruned(decompressed_pruning_seed) = get_blockchain_pruning_seed()? {

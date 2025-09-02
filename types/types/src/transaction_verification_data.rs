@@ -1,6 +1,6 @@
 //! Contains [`TransactionVerificationData`] and the related types.
 
-use monero_serai::transaction::{Timelock, Transaction};
+use monero_oxide::transaction::{Timelock, Transaction};
 
 use crate::{HardFork, VerifiedTransactionInformation};
 

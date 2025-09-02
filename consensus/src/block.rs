@@ -8,7 +8,7 @@
 //!
 use std::{collections::HashMap, mem};
 
-use monero_serai::{block::Block, transaction::Input};
+use monero_oxide::{block::Block, transaction::Input};
 use tower::{Service, ServiceExt};
 
 use cuprate_consensus_context::{

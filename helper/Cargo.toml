@@ -16,13 +16,13 @@ atomic    = ["dep:crossbeam"]
 asynch    = ["dep:futures", "dep:rayon"]
 cast      = []
 constants = []
-crypto    = ["dep:curve25519-dalek", "dep:monero-serai", "std"]
+crypto    = ["dep:curve25519-dalek", "dep:monero-oxide", "std"]
 fs        = ["dep:dirs", "std"]
 num       = []
-map       = ["cast", "dep:monero-serai", "dep:cuprate-constants"]
+map       = ["cast", "dep:monero-oxide", "dep:cuprate-constants"]
 time      = ["dep:chrono", "std"]
 thread    = ["std", "dep:target_os_lib"]
-tx        = ["dep:monero-serai"]
+tx        = ["dep:monero-oxide"]
 fmt       = ["map", "std"]
 net       = []
 
@@ -34,7 +34,7 @@ crossbeam        = { workspace = true, optional = true }
 curve25519-dalek = { workspace = true, optional = true }
 dirs             = { workspace = true, optional = true }
 futures          = { workspace = true, optional = true, features = ["std"] }
-monero-serai     = { workspace = true, optional = true }
+monero-oxide     = { workspace = true, optional = true }
 rayon            = { workspace = true, optional = true }
 
 serde            = { workspace = true, optional = true, features = ["derive"] }

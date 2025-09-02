@@ -1,7 +1,7 @@
 /// This module contains the code to generate Monero's genesis blocks.
 ///
 /// ref: consensus-doc#Genesis
-use monero_serai::{
+use monero_oxide::{
     block::{Block, BlockHeader},
     transaction::Transaction,
 };

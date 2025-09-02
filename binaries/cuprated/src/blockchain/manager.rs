@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use futures::StreamExt;
-use monero_serai::block::Block;
+use monero_oxide::block::Block;
 use tokio::sync::{mpsc, oneshot, Notify, OwnedSemaphorePermit};
 use tower::{BoxError, Service, ServiceExt};
 use tracing::error;

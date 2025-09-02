@@ -7,9 +7,12 @@ use std::{
     sync::Arc,
 };
 
-use curve25519_dalek::{constants::ED25519_BASEPOINT_COMPRESSED, edwards::CompressedEdwardsY};
+use curve25519_dalek::constants::ED25519_BASEPOINT_COMPRESSED;
 use indexmap::IndexMap;
-use monero_serai::transaction::{Timelock, Transaction};
+use monero_oxide::{
+    io::CompressedPoint,
+    transaction::{Timelock, Transaction},
+};
 use tower::service_fn;
 
 use cuprate_consensus::{__private::Database, transactions::start_tx_verification};
@@ -75,8 +78,8 @@ macro_rules! test_verify_valid_v2_tx {
                 OutputOnChain {
                     height: 0,
                     time_lock: Timelock::None,
-                    commitment: CompressedEdwardsY(hex_literal::hex!($commitment)),
-                    key: CompressedEdwardsY(hex_literal::hex!($ring_member)),
+                    commitment: CompressedPoint(hex_literal::hex!($commitment)),
+                    key: CompressedPoint(hex_literal::hex!($ring_member)),
                     txid: None,
                 }),)+)+
             ];
@@ -103,8 +106,8 @@ macro_rules! test_verify_valid_v2_tx {
                 OutputOnChain {
                     height: 0,
                     time_lock: Timelock::None,
-                    commitment: ED25519_BASEPOINT_COMPRESSED,
-                    key: CompressedEdwardsY(hex_literal::hex!($ring_member)),
+                    commitment: CompressedPoint::from(ED25519_BASEPOINT_COMPRESSED),
+                    key: CompressedPoint(hex_literal::hex!($ring_member)),
                     txid: None,
                 }),)+)+
             ];

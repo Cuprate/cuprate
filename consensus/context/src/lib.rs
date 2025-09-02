@@ -6,7 +6,7 @@
 
 // Used in documentation references for [`BlockChainContextRequest`]
 // FIXME: should we pull in a dependency just to link docs?
-use monero_serai as _;
+use monero_oxide as _;
 
 use std::{
     cmp::min,
@@ -19,7 +19,7 @@ use std::{
 
 use arc_swap::Cache;
 use futures::{channel::oneshot, FutureExt};
-use monero_serai::block::Block;
+use monero_oxide::block::Block;
 use tokio::sync::mpsc;
 use tokio_util::sync::PollSender;
 use tower::Service;
@@ -262,7 +262,7 @@ pub enum BlockChainContextRequest {
     /// This variant is private and is not callable from outside this crate, the block verifier service will
     /// handle getting the alt cache.
     AltChainContextCache {
-        /// The previous block field in a [`BlockHeader`](monero_serai::block::BlockHeader).
+        /// The previous block field in a [`BlockHeader`](monero_oxide::block::BlockHeader).
         prev_id: [u8; 32],
         /// An internal token to prevent external crates calling this request.
         _token: AltChainRequestToken,
@@ -273,7 +273,7 @@ pub enum BlockChainContextRequest {
     /// This variant is private and is not callable from outside this crate, the block verifier service will
     /// handle getting the difficulty cache of an alt chain.
     AltChainDifficultyCache {
-        /// The previous block field in a [`BlockHeader`](monero_serai::block::BlockHeader).
+        /// The previous block field in a [`BlockHeader`](monero_oxide::block::BlockHeader).
         prev_id: [u8; 32],
         /// An internal token to prevent external crates calling this request.
         _token: AltChainRequestToken,
@@ -284,7 +284,7 @@ pub enum BlockChainContextRequest {
     /// This variant is private and is not callable from outside this crate, the block verifier service will
     /// handle getting the weight cache of an alt chain.
     AltChainWeightCache {
-        /// The previous block field in a [`BlockHeader`](monero_serai::block::BlockHeader).
+        /// The previous block field in a [`BlockHeader`](monero_oxide::block::BlockHeader).
         prev_id: [u8; 32],
         /// An internal token to prevent external crates calling this request.
         _token: AltChainRequestToken,

@@ -1,6 +1,6 @@
 //! Utils for working with [`Transaction`]
 
-use monero_serai::transaction::{Input, Transaction};
+use monero_oxide::transaction::{Input, Transaction};
 
 /// Calculates the fee of the [`Transaction`].
 ///
@@ -35,8 +35,10 @@ pub fn tx_fee(tx: &Transaction) -> u64 {
 
 #[cfg(test)]
 mod test {
-    use curve25519_dalek::edwards::CompressedEdwardsY;
-    use monero_serai::transaction::{NotPruned, Output, Timelock, TransactionPrefix};
+    use monero_oxide::{
+        io::CompressedPoint,
+        transaction::{NotPruned, Output, Timelock, TransactionPrefix},
+    };
 
     use super::*;
 
@@ -46,12 +48,12 @@ mod test {
         let input = Input::ToKey {
             amount: Some(u64::MAX),
             key_offsets: vec![],
-            key_image: CompressedEdwardsY::default(),
+            key_image: CompressedPoint([0; 32]),
         };
 
         let output = Output {
             amount: Some(u64::MAX),
-            key: CompressedEdwardsY::default(),
+            key: CompressedPoint([0; 32]),
             view_tag: None,
         };
 

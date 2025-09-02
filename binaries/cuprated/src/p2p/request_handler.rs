@@ -10,7 +10,7 @@ use futures::{
     future::{BoxFuture, Shared},
     FutureExt,
 };
-use monero_serai::{block::Block, transaction::Transaction};
+use monero_oxide::{block::Block, transaction::Transaction};
 use tokio::sync::{broadcast, oneshot, watch};
 use tokio_stream::wrappers::WatchStream;
 use tower::{Service, ServiceExt};

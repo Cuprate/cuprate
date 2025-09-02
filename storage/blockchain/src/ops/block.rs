@@ -3,7 +3,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
 use bytes::Bytes;
-use monero_serai::{
+use monero_oxide::{
     block::{Block, BlockHeader},
     transaction::Transaction,
 };
@@ -245,7 +245,7 @@ pub fn get_block_blob_with_tx_indexes(
     block.append(&mut miner_tx_blob);
 
     // Add the blocks tx hashes.
-    monero_serai::io::write_varint(&block_txs.len(), &mut block)
+    monero_oxide::io::write_varint(&block_txs.len(), &mut block)
         .expect("The number of txs per block will not exceed u64::MAX");
 
     let block_txs_bytes = bytemuck::must_cast_slice(&block_txs);

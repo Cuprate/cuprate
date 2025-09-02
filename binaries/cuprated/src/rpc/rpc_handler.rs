@@ -4,7 +4,7 @@ use std::task::{Context, Poll};
 
 use anyhow::Error;
 use futures::future::BoxFuture;
-use monero_serai::block::Block;
+use monero_oxide::block::Block;
 use tower::Service;
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
