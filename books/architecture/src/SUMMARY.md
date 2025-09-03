@@ -139,7 +139,7 @@
 - [⚪️ External Monero libraries](external-monero-libraries/intro.md)
     - [⚪️ Cryptonight](external-monero-libraries/cryptonight.md)
     - [🔴 RandomX](external-monero-libraries/randomx.md)
-    - [🔴 monero_oxide](external-monero-libraries/monero_oxide.md)
+    - [🔴 monero_oxide](external-monero-libraries/monero-oxide.md)
 
 ---
 
