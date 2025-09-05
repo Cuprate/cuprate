@@ -55,6 +55,21 @@ impl super::BlockchainManager {
 
                 drop(response_tx.send(res));
             }
+            BlockchainManagerCommand::PopBlocks {
+                numb_blocks,
+                response_tx,
+            } => {
+                let _guard = REORG_LOCK.write().await;
+                self.pop_blocks(numb_blocks).await;
+                self.blockchain_write_handle
+                    .ready()
+                    .await
+                    .expect(PANIC_CRITICAL_SERVICE_ERROR)
+                    .call(BlockchainWriteRequest::FlushAltBlocks)
+                    .await
+                    .expect(PANIC_CRITICAL_SERVICE_ERROR);
+                let _ = response_tx.send(());
+            }
         }
     }
 

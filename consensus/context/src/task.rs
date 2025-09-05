@@ -222,15 +222,15 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
 
                 self.difficulty_cache
                     .pop_blocks_main_chain(numb_blocks, self.database.clone())
-                    .await?;
+                    .await.unwrap();
                 self.weight_cache
                     .pop_blocks_main_chain(numb_blocks, self.database.clone())
-                    .await?;
+                    .await.unwrap();
                 self.rx_vm_cache
                     .pop_blocks_main_chain(self.chain_height - numb_blocks - 1);
                 self.hardfork_state
                     .pop_blocks_main_chain(numb_blocks, self.database.clone())
-                    .await?;
+                    .await.unwrap();
 
                 self.alt_chain_cache_map.clear();
 

@@ -50,6 +50,11 @@ pub enum Command {
 
     /// Print the height of first block not contained in the fast sync hashes.
     FastSyncStopHeight,
+
+    /// Pop blocks from the top of the blockchain.
+    PopBlocks {
+        numb_blocks: usize,
+    }
 }
 
 /// The log output target.
@@ -130,6 +135,14 @@ pub async fn io_loop(
                 let stop_height = cuprate_fast_sync::fast_sync_stop_height();
 
                 println!("{stop_height}");
+            }
+            Command::PopBlocks {numb_blocks} => {
+                let res = crate::blockchain::interface::pop_blocks(numb_blocks).await;
+
+                match res {
+                    Ok(()) => println!("Popped {numb_blocks} blocks."),
+                    Err(e) => println!("Failed to pop blocks: {e}"),
+                }
             }
         }
     }

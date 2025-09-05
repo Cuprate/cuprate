@@ -60,12 +60,12 @@ async fn pop_blocks_greater_than_window() -> Result<(), tower::BoxError> {
 
     let old_cache = weight_cache.clone();
 
-    weight_cache.new_block(5000, 0, 0);
-    weight_cache.new_block(5001, 0, 0);
-    weight_cache.new_block(5002, 0, 0);
+    for i in 0..4999 {
+        weight_cache.new_block(5000 + i, 0, 0);
+    }
 
     weight_cache
-        .pop_blocks_main_chain(3, database)
+        .pop_blocks_main_chain(4999, database)
         .await
         .unwrap();
 
