@@ -16,7 +16,7 @@ cuprate-cryptonight   = { workspace = true }
 cuprate-levin         = { workspace = true, features = ["arbitrary"] }
 cuprate-wire          = { workspace = true, features = ["arbitrary"] }
 
-monero-serai = { workspace = true }
+monero-oxide = { workspace = true }
 bytes        = { workspace = true }
 tokio-util   = { workspace = true }
 

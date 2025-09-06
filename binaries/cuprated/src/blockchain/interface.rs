@@ -7,7 +7,7 @@ use std::{
     sync::{LazyLock, Mutex, OnceLock},
 };
 
-use monero_serai::{block::Block, transaction::Transaction};
+use monero_oxide::{block::Block, transaction::Transaction};
 use tokio::sync::{mpsc, oneshot};
 use tower::{Service, ServiceExt};
 

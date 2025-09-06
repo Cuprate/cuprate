@@ -11,7 +11,7 @@ use std::{
 
 use anyhow::{anyhow, Error};
 use cuprate_types::OutputDistributionInput;
-use monero_serai::transaction::Timelock;
+use monero_oxide::transaction::Timelock;
 
 use cuprate_constants::rpc::MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT;
 use cuprate_helper::cast::usize_to_u64;

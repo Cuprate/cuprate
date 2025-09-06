@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::Error;
 use indexmap::{IndexMap, IndexSet};
-use monero_serai::block::Block;
+use monero_oxide::block::Block;
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::service::BlockchainReadHandle;

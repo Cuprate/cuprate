@@ -9,7 +9,7 @@
 use std::sync::LazyLock;
 
 use hex_literal::hex;
-use monero_serai::{block::Block, transaction::Transaction};
+use monero_oxide::{block::Block, transaction::Transaction};
 
 use cuprate_helper::{map::combine_low_high_bits_to_u128, tx::tx_fee};
 use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
@@ -20,7 +20,7 @@ use crate::data::constants::{
 };
 
 //---------------------------------------------------------------------------------------------------- Conversion
-/// Converts [`monero_serai::Block`] into a
+/// Converts [`monero_oxide::Block`] into a
 /// [`VerifiedBlockInformation`] (superset).
 ///
 /// To prevent pulling other code in order to actually calculate things

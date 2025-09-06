@@ -27,7 +27,7 @@ This document isn't supposed to outline everything, but it is meant to give a go
 plan.
 
 Cuprate won't build everything from scratch and aims to use crates already in existence
-when they're a good fit, an example is monero-serai for our transactions and blocks.
+when they're a good fit, an example is monero-oxide for our transactions and blocks.
 
 Cuprate makes heavy use of [tower](https://docs.rs/tower/latest/tower/index.html) to modularize its
 parts. Using tower across the node will provide us with a consistent API and will allow us to use towers
@@ -159,7 +159,7 @@ old CryptoNight POW(s).
 
 Responsible for validating transactions. This is able to handle one or more transactions at a time to
 benefit from batching verification where we can, currently only bulletproofs(+) is able to be batched.
-monero-serai already has the API to allow batch verification of bulletproofs(+). Also accepting multiple
+monero-oxide already has the API to allow batch verification of bulletproofs(+). Also accepting multiple
 transactions will also allow us to use a thread-pool like `rayon` to parallelize verification that can't
 be batched.
 

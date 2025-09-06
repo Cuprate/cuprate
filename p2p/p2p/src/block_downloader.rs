@@ -12,7 +12,7 @@ use std::{
 };
 
 use futures::TryFutureExt;
-use monero_serai::{block::Block, transaction::Transaction};
+use monero_oxide::{block::Block, transaction::Transaction};
 use tokio::{
     task::JoinSet,
     time::{interval, timeout, MissedTickBehavior},

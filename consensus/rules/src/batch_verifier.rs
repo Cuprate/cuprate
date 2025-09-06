@@ -1,4 +1,4 @@
-use monero_serai::ringct::bulletproofs::BatchVerifier as InternalBatchVerifier;
+use monero_oxide::ringct::bulletproofs::BatchVerifier as InternalBatchVerifier;
 
 /// This trait represents a batch verifier.
 ///

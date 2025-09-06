@@ -1,4 +1,4 @@
-use monero_serai::{
+use monero_oxide::{
     ringct::{bulletproofs::Bulletproof, RctType},
     transaction::{Input, Transaction},
 };
@@ -50,12 +50,10 @@ pub(crate) fn tx_weight(tx: &Transaction, tx_blob: &[u8]) -> usize {
             RctType::MlsagBulletproofs
             | RctType::MlsagBulletproofsCompactAmount
             | RctType::ClsagBulletproof => {
-                tx_blob.len()
-                    + Bulletproof::calculate_bp_clawback(false, tx.prefix().outputs.len()).0
+                tx_blob.len() + Bulletproof::calculate_clawback(false, tx.prefix().outputs.len()).0
             }
             RctType::ClsagBulletproofPlus => {
-                tx_blob.len()
-                    + Bulletproof::calculate_bp_clawback(true, tx.prefix().outputs.len()).0
+                tx_blob.len() + Bulletproof::calculate_clawback(true, tx.prefix().outputs.len()).0
             }
         },
     }

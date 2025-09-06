@@ -7,7 +7,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Error};
-use monero_serai::transaction::Transaction;
+use monero_oxide::transaction::Transaction;
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::cast::usize_to_u64;

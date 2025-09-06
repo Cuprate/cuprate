@@ -1,7 +1,8 @@
 use std::{collections::HashMap, env::temp_dir, path::PathBuf, sync::Arc};
 
-use monero_serai::{
+use monero_oxide::{
     block::{Block, BlockHeader},
+    io::CompressedPoint,
     transaction::{Input, Output, Timelock, Transaction, TransactionPrefix},
 };
 use tokio::sync::{oneshot, watch};
@@ -87,7 +88,7 @@ fn generate_block(context: &BlockchainContext) -> Block {
                         context.already_generated_coins,
                         context.current_hf,
                     )),
-                    key: Default::default(),
+                    key: CompressedPoint([0; 32]),
                     view_tag: Some(1),
                 }],
                 extra: rand::random::<[u8; 32]>().to_vec(),

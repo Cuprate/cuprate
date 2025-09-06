@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use bytes::Bytes;
 use futures::{TryFutureExt, TryStreamExt};
-use monero_serai::{
+use monero_oxide::{
     block::Block,
     transaction::{Input, Transaction},
 };

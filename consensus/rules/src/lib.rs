@@ -29,19 +29,6 @@ pub enum ConsensusError {
     Transaction(#[from] transactions::TransactionError),
 }
 
-/// Checks that a point is canonically encoded.
-///
-/// <https://github.com/dalek-cryptography/curve25519-dalek/issues/380>
-fn check_point_canonically_encoded(point: &curve25519_dalek::edwards::CompressedEdwardsY) -> bool {
-    let bytes = point.as_bytes();
-
-    point
-        .decompress()
-        // Ban points which are either unreduced or -0
-        .filter(|point| point.compress().as_bytes() == bytes)
-        .is_some()
-}
-
 /// Returns the current UNIX timestamp.
 pub fn current_unix_timestamp() -> u64 {
     SystemTime::now()

@@ -26,9 +26,8 @@ cuprate-pruning          = { workspace = true }
 
 bitflags         = { workspace = true, features = ["std", "serde", "bytemuck"] }
 bytemuck         = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
-curve25519-dalek = { workspace = true }
 rand             = { workspace = true, features = ["std", "std_rng"] }
-monero-serai     = { workspace = true, features = ["std"] }
+monero-oxide     = { workspace = true, features = ["std"] }
 serde            = { workspace = true, optional = true }
 
 indexmap     = { workspace = true, features = ["rayon"] }

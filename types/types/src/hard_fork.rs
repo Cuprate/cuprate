@@ -5,7 +5,7 @@ use strum::{
     AsRefStr, Display, EnumCount, EnumIs, EnumString, FromRepr, IntoStaticStr, VariantArray,
 };
 
-use monero_serai::block::BlockHeader;
+use monero_oxide::block::BlockHeader;
 
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::{

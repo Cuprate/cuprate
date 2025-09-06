@@ -1,5 +1,5 @@
 //! Tx-pool key image ops.
-use monero_serai::transaction::Input;
+use monero_oxide::transaction::Input;
 
 use cuprate_database::{DatabaseRw, DbResult};
 

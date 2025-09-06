@@ -12,7 +12,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Error};
-use monero_serai::block::Block;
+use monero_oxide::block::Block;
 use strum::{EnumCount, VariantArray};
 
 use cuprate_constants::{

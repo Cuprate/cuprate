@@ -19,7 +19,7 @@
 ---
 
 - [⚪️ Formats, protocols, types](formats-protocols-types/intro.md)
-    - [⚪️ monero_serai](formats-protocols-types/monero-serai.md)
+    - [⚪️ monero_oxide](formats-protocols-types/monero-oxide.md)
     - [⚪️ cuprate_types](formats-protocols-types/cuprate-types.md)
     - [⚪️ cuprate_helper](formats-protocols-types/cuprate-helper.md)
     - [⚪️ Epee](formats-protocols-types/epee.md)
@@ -139,7 +139,7 @@
 - [⚪️ External Monero libraries](external-monero-libraries/intro.md)
     - [⚪️ Cryptonight](external-monero-libraries/cryptonight.md)
     - [🔴 RandomX](external-monero-libraries/randomx.md)
-    - [🔴 monero_serai](external-monero-libraries/monero_serai.md)
+    - [🔴 monero_oxide](external-monero-libraries/monero-oxide.md)
 
 ---
 

@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use monero_serai::ringct::bulletproofs::BatchVerifier as InternalBatchVerifier;
+use monero_oxide::ringct::bulletproofs::BatchVerifier as InternalBatchVerifier;
 use rayon::prelude::*;
 use thread_local::ThreadLocal;
 

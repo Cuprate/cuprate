@@ -16,7 +16,7 @@ cuprate-helper      = { workspace = true, default-features = false, features = [
 cuprate-types       = { workspace = true, default-features = false }
 cuprate-cryptonight = { workspace = true }
 
-monero-serai = { workspace = true, features = ["std"] }
+monero-oxide = { workspace = true, features = ["std"] }
 curve25519-dalek = { workspace = true, features = ["alloc", "zeroize", "precomputed-tables"] }
 
 rand = { workspace = true, features = ["std", "std_rng"] }

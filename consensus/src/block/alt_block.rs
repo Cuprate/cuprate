@@ -4,7 +4,7 @@
 //! difficulty of the alt chain so callers will know if they should re-org to the alt chain.
 use std::{collections::HashMap, sync::Arc};
 
-use monero_serai::{block::Block, transaction::Input};
+use monero_oxide::{block::Block, transaction::Input};
 use tower::{Service, ServiceExt};
 
 use cuprate_consensus_context::{

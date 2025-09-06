@@ -8,7 +8,7 @@
 //!
 //! ```rust
 //! # use cuprate_test_utils::data::TX_E2D393;
-//! # use monero_serai::transaction::Transaction;
+//! # use monero_oxide::transaction::Transaction;
 //! use cuprate_consensus::{transactions::start_tx_verification, HardFork, batch_verifier::MultiThreadedBatchVerifier};
 //!
 //! # fn main() -> Result<(), tower::BoxError> {
@@ -27,7 +27,7 @@
 //! ```
 use std::collections::HashSet;
 
-use monero_serai::transaction::{Input, Timelock, Transaction};
+use monero_oxide::transaction::{Input, Timelock, Transaction};
 use rayon::prelude::*;
 use tower::ServiceExt;
 

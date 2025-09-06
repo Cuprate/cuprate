@@ -3,7 +3,7 @@ This module contains:
 - Raw binary, hex, or JSON data for testing purposes
 - Functions to access that data, either raw or typed
 
-- `.bin` is a data blob, directly deserializable into types, e.g. `monero_serai::block::Block::read::<&[u8]>(&mut blob)`
+- `.bin` is a data blob, directly deserializable into types, e.g. `monero_oxide::block::Block::read::<&[u8]>(&mut blob)`
 - `.hex` is just a hex string of the blob
 - `.json` is just the data in regular JSON form (as it would be from a JSON-RPC response)
 

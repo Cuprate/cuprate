@@ -1,6 +1,5 @@
-use curve25519_dalek::edwards::CompressedEdwardsY;
 use indexmap::{IndexMap, IndexSet};
-use monero_serai::transaction::Transaction;
+use monero_oxide::{io::CompressedPoint, transaction::Transaction};
 
 use cuprate_helper::{cast::u64_to_usize, crypto::compute_zero_commitment};
 
@@ -111,7 +110,7 @@ impl OutputCache {
 }
 
 /// Returns the amount commitment for the output at the given index `i` in the [`Transaction`]
-fn get_output_commitment(tx: &Transaction, i: usize) -> CompressedEdwardsY {
+fn get_output_commitment(tx: &Transaction, i: usize) -> CompressedPoint {
     match tx {
         Transaction::V1 { prefix, .. } => {
             compute_zero_commitment(prefix.outputs[i].amount.unwrap_or_default())
