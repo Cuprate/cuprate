@@ -52,9 +52,7 @@ pub enum Command {
     FastSyncStopHeight,
 
     /// Pop blocks from the top of the blockchain.
-    PopBlocks {
-        numb_blocks: usize,
-    }
+    PopBlocks { numb_blocks: usize },
 }
 
 /// The log output target.
@@ -136,7 +134,7 @@ pub async fn io_loop(
 
                 println!("{stop_height}");
             }
-            Command::PopBlocks {numb_blocks} => {
+            Command::PopBlocks { numb_blocks } => {
                 let res = crate::blockchain::interface::pop_blocks(numb_blocks).await;
 
                 match res {

@@ -68,6 +68,7 @@ impl super::BlockchainManager {
                     .call(BlockchainWriteRequest::FlushAltBlocks)
                     .await
                     .expect(PANIC_CRITICAL_SERVICE_ERROR);
+                #[expect(clippy::let_underscore_must_use)]
                 let _ = response_tx.send(());
             }
         }

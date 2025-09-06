@@ -178,8 +178,13 @@ pub async fn pop_blocks(numb_blocks: usize) -> Result<(), anyhow::Error> {
 
     let (response_tx, response_rx) = oneshot::channel();
 
-    incoming_block_tx.send(BlockchainManagerCommand::PopBlocks {numb_blocks, response_tx }).await?;
-    
+    incoming_block_tx
+        .send(BlockchainManagerCommand::PopBlocks {
+            numb_blocks,
+            response_tx,
+        })
+        .await?;
+
     Ok(response_rx.await?)
 }
 

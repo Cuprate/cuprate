@@ -137,8 +137,8 @@ impl BlockWeightsCache {
 
         let chain_height = self.tip_height + 1;
 
-        let old_long_term_weights = if let Some(new_long_term_start_height) = chain_height
-            .checked_sub(self.config.long_term_window + numb_blocks)
+        let old_long_term_weights = if let Some(new_long_term_start_height) =
+            chain_height.checked_sub(self.config.long_term_window + numb_blocks)
         {
             get_long_term_weight_in_range(
                 new_long_term_start_height
@@ -147,14 +147,15 @@ impl BlockWeightsCache {
                 database.clone(),
                 Chain::Main,
             )
-                .await?
+            .await?
         } else {
             vec![]
         };
 
-        let old_short_term_weights =if let Some(new_short_term_start_height) = chain_height
-            .checked_sub(self.config.short_term_window + numb_blocks) {
-             get_blocks_weight_in_range(
+        let old_short_term_weights = if let Some(new_short_term_start_height) =
+            chain_height.checked_sub(self.config.short_term_window + numb_blocks)
+        {
+            get_blocks_weight_in_range(
                 new_short_term_start_height
                     // current_chain_height - self.long_term_weights.len() blocks are already in the cache.
                     ..(min(numb_blocks, self.short_term_block_weights.window_len()) + new_short_term_start_height),

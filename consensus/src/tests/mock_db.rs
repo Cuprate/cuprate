@@ -175,7 +175,6 @@ impl Service<BlockchainReadRequest> for DummyDatabase {
 
                     let block_len = blocks.read().unwrap().len();
                     if let Some(dummy_height) = dummy_height {
-
                         end -= dummy_height - block_len;
                         start -= dummy_height - block_len;
                     }

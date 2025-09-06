@@ -7,6 +7,7 @@ use tokio::sync::oneshot;
 use cuprate_types::TransactionVerificationData;
 
 /// The blockchain manager commands.
+#[expect(clippy::large_enum_variant)]
 pub enum BlockchainManagerCommand {
     /// Attempt to add a new block to the blockchain.
     AddBlock {

@@ -214,9 +214,28 @@ impl RandomXVmCache {
     }
 
     /// Removes all the RandomX VMs above the `new_height`.
-    pub fn pop_blocks_main_chain(&mut self, new_height: usize) {
+    pub async fn pop_blocks_main_chain<D: Database + Clone>(
+        &mut self,
+        new_height: usize,
+        database: D,
+    ) -> Result<(), ContextCacheError> {
         self.seeds.retain(|(height, _)| *height < new_height);
         self.vms.retain(|height, _| *height < new_height);
+
+        if self.seeds.len() < RX_SEEDS_CACHED {
+            let mut seed_heights = get_last_rx_seed_heights(new_height, RX_SEEDS_CACHED);
+            seed_heights.truncate(RX_SEEDS_CACHED - self.seeds.len());
+            let seed_hashes = get_block_hashes(seed_heights.clone(), database).await?;
+
+            let seeds: VecDeque<(usize, [u8; 32])> =
+                seed_heights.into_iter().zip(seed_hashes).collect();
+
+            for seed in seeds.into_iter().rev() {
+                self.seeds.push_back(seed);
+            }
+        }
+
+        Ok(())
     }
 
     /// Add a new block to the VM cache.
