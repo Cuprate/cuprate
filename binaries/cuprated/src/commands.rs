@@ -135,6 +135,7 @@ pub async fn io_loop(
                 println!("{stop_height}");
             }
             Command::PopBlocks { numb_blocks } => {
+                tracing::info!("Popping {numb_blocks} blocks.");
                 let res = crate::blockchain::interface::pop_blocks(numb_blocks).await;
 
                 match res {

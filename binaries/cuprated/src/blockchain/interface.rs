@@ -170,6 +170,11 @@ pub async fn handle_incoming_block(
         .map_err(IncomingBlockError::InvalidBlock)
 }
 
+/// Pop blocks from the top of the blockchain.
+/// 
+/// # Errors
+/// 
+/// Will error if the blockchain manager is not set up yet.
 pub async fn pop_blocks(numb_blocks: usize) -> Result<(), anyhow::Error> {
     let Some(incoming_block_tx) = COMMAND_TX.get() else {
         // We could still be starting up the blockchain manager.

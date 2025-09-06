@@ -142,7 +142,6 @@ impl BlockWeightsCache {
         {
             get_long_term_weight_in_range(
                 new_long_term_start_height
-                    // current_chain_height - self.long_term_weights.len() blocks are already in the cache.
                     ..(new_long_term_start_height + numb_blocks),
                 database.clone(),
                 Chain::Main,
@@ -157,7 +156,6 @@ impl BlockWeightsCache {
         {
             get_blocks_weight_in_range(
                 new_short_term_start_height
-                    // current_chain_height - self.long_term_weights.len() blocks are already in the cache.
                     ..(min(numb_blocks, self.short_term_block_weights.window_len()) + new_short_term_start_height),
                 database,
                 Chain::Main,

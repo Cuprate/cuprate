@@ -18,6 +18,7 @@ pub enum BlockchainManagerCommand {
         /// The channel to send the response down.
         response_tx: oneshot::Sender<Result<IncomingBlockOk, anyhow::Error>>,
     },
+    /// Pop blocks from the top of the blockchain.
     PopBlocks {
         numb_blocks: usize,
         /// The channel to send the response down.
