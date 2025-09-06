@@ -91,7 +91,7 @@ config_struct! {
         /// Enable Tor network by specifying how to connect to it.
         ///
         /// When "Daemon" is set, the Tor daemon address to use can be
-        /// specified in `tor.daemon_addr`.
+        /// specified in `tor.daemon.address`.
         ///
         /// Type         | String
         /// Valid values | "Arti", "Daemon", "Off"
