@@ -223,16 +223,13 @@ impl RandomXVmCache {
         self.vms.retain(|height, _| *height < new_height);
 
         if self.seeds.len() < RX_SEEDS_CACHED {
-            let mut seed_heights = get_last_rx_seed_heights(new_height, RX_SEEDS_CACHED);
-            seed_heights.truncate(RX_SEEDS_CACHED - self.seeds.len());
+            let seed_heights = get_last_rx_seed_heights(new_height, RX_SEEDS_CACHED)
+                .split_at(self.seeds.len())
+                .1
+                .to_vec();
             let seed_hashes = get_block_hashes(seed_heights.clone(), database).await?;
 
-            let seeds: VecDeque<(usize, [u8; 32])> =
-                seed_heights.into_iter().zip(seed_hashes).collect();
-
-            for seed in seeds.into_iter().rev() {
-                self.seeds.push_back(seed);
-            }
+            self.seeds.extend(seed_heights.into_iter().zip(seed_hashes));
         }
 
         Ok(())

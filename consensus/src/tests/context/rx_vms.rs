@@ -52,6 +52,42 @@ async fn rx_vm_created_on_hf_12() {
     assert!(!cache.vms.is_empty());
 }
 
+#[tokio::test]
+#[expect(unused_qualifications, reason = "false positive in tokio macro")]
+async fn rx_vm_pop_blocks() {
+    let db = DummyDatabaseBuilder::default().finish(Some(2_000_000));
+
+    let cache = RandomXVmCache::init_from_chain_height(2_000_000, &HardFork::V16, db.clone())
+        .await
+        .unwrap();
+
+    let mut cloned_cache = cache.clone();
+
+    for i in 0..2_000 {
+        cloned_cache.new_block(2_000_000 + i, &[0; 32]);
+    }
+
+    cloned_cache
+        .pop_blocks_main_chain(1_999_999, db.clone())
+        .await
+        .unwrap();
+
+    assert_eq!(cloned_cache.seeds, cache.seeds);
+
+    let mut cloned_cache = cache.clone();
+
+    for i in 0..5_000 {
+        cloned_cache.new_block(2_000_000 + i, &[0; 32]);
+    }
+
+    cloned_cache
+        .pop_blocks_main_chain(1_999_999, db)
+        .await
+        .unwrap();
+
+    assert_eq!(cloned_cache.seeds, cache.seeds);
+}
+
 proptest! {
     // these tests are expensive, so limit cases.
     #![proptest_config(ProptestConfig {
