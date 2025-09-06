@@ -141,8 +141,7 @@ impl BlockWeightsCache {
             chain_height.checked_sub(self.config.long_term_window + numb_blocks)
         {
             get_long_term_weight_in_range(
-                new_long_term_start_height
-                    ..(new_long_term_start_height + numb_blocks),
+                new_long_term_start_height..(new_long_term_start_height + numb_blocks),
                 database.clone(),
                 Chain::Main,
             )
@@ -156,11 +155,12 @@ impl BlockWeightsCache {
         {
             get_blocks_weight_in_range(
                 new_short_term_start_height
-                    ..(min(numb_blocks, self.short_term_block_weights.window_len()) + new_short_term_start_height),
+                    ..(min(numb_blocks, self.short_term_block_weights.window_len())
+                        + new_short_term_start_height),
                 database,
                 Chain::Main,
             )
-                .await?
+            .await?
         } else {
             vec![]
         };
