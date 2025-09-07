@@ -7,9 +7,8 @@ use cuprate_consensus_context::{
     BlockWeightsCacheConfig,
 };
 use cuprate_types::Chain;
-use proptest::collection::vec;
-use proptest::prelude::any;
-use proptest::{prop_assert_eq, proptest};
+
+use proptest::{collection::vec, prelude::*};
 
 pub(crate) const TEST_WEIGHT_CONFIG: BlockWeightsCacheConfig =
     BlockWeightsCacheConfig::new(100, 5000);
@@ -242,5 +241,3 @@ proptest! {
         })?;
     }
 }
-
-// TODO: protests
