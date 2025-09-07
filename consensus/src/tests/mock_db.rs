@@ -180,7 +180,10 @@ impl Service<BlockchainReadRequest> for DummyDatabase {
                     }
 
                     if block_len < end {
-                        return Err("end block not in database!".into());
+                        return Err(format!(
+                            "end block not in database! end: {end} len: {block_len}"
+                        )
+                        .into());
                     }
 
                     BlockchainResponse::BlockExtendedHeaderInRange(

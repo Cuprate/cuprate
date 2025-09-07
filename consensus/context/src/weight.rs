@@ -137,33 +137,37 @@ impl BlockWeightsCache {
 
         let chain_height = self.tip_height + 1;
 
-        let old_long_term_weights = if let Some(new_long_term_start_height) =
-            chain_height.checked_sub(self.config.long_term_window + numb_blocks)
-        {
-            get_long_term_weight_in_range(
-                new_long_term_start_height..(new_long_term_start_height + numb_blocks),
-                database.clone(),
-                Chain::Main,
-            )
-            .await?
-        } else {
-            vec![]
-        };
+        let new_long_term_start_height =
+            chain_height.saturating_sub(self.config.long_term_window + numb_blocks);
 
-        let old_short_term_weights = if let Some(new_short_term_start_height) =
-            chain_height.checked_sub(self.config.short_term_window + numb_blocks)
-        {
-            get_blocks_weight_in_range(
-                new_short_term_start_height
-                    ..(min(numb_blocks, self.short_term_block_weights.window_len())
-                        + new_short_term_start_height),
-                database,
-                Chain::Main,
-            )
-            .await?
-        } else {
-            vec![]
-        };
+        let old_long_term_weights = get_long_term_weight_in_range(
+            new_long_term_start_height..
+                // We don't need to handle the case where this is above the top block like with the
+                // short term cache as we check at the top of this function and just create a new cache.
+                (chain_height - self.long_term_weights.window_len()),
+            database.clone(),
+            Chain::Main,
+        )
+        .await?;
+
+        let new_short_term_start_height =
+            chain_height.saturating_sub(self.config.short_term_window + numb_blocks);
+
+        let old_short_term_weights = get_blocks_weight_in_range(
+            new_short_term_start_height
+                ..(
+                    // the smallest between ...
+                    min(
+                        // the blocks we already have in the cache.
+                        chain_height - self.short_term_block_weights.window_len(),
+                        // the new chain height.
+                        chain_height - numb_blocks,
+                    )
+                ),
+            database,
+            Chain::Main,
+        )
+        .await?;
 
         for _ in 0..numb_blocks {
             self.short_term_block_weights.pop_back();

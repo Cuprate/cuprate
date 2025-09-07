@@ -7,6 +7,9 @@ use cuprate_consensus_context::{
     BlockWeightsCacheConfig,
 };
 use cuprate_types::Chain;
+use proptest::collection::vec;
+use proptest::prelude::any;
+use proptest::{prop_assert_eq, proptest};
 
 pub(crate) const TEST_WEIGHT_CONFIG: BlockWeightsCacheConfig =
     BlockWeightsCacheConfig::new(100, 5000);
@@ -109,6 +112,40 @@ async fn pop_blocks_less_than_window() -> Result<(), tower::BoxError> {
 }
 
 #[tokio::test]
+async fn pop_blocks_on_window() -> Result<(), tower::BoxError> {
+    let mut db_builder = DummyDatabaseBuilder::default();
+    for weight in 1..=4999 {
+        let block = DummyBlockExtendedHeader::default().with_weight_into(weight, weight);
+        db_builder.add_block(block);
+    }
+
+    let database = db_builder.finish(None);
+
+    let mut weight_cache = BlockWeightsCache::init_from_chain_height(
+        4999,
+        TEST_WEIGHT_CONFIG,
+        database.clone(),
+        Chain::Main,
+    )
+    .await?;
+
+    let old_cache = weight_cache.clone();
+
+    weight_cache.new_block(4999, 0, 0);
+    weight_cache.new_block(5000, 0, 0);
+    weight_cache.new_block(5001, 0, 0);
+
+    weight_cache
+        .pop_blocks_main_chain(3, database)
+        .await
+        .unwrap();
+
+    assert_eq!(weight_cache, old_cache);
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn weight_cache_calculates_correct_median() -> Result<(), tower::BoxError> {
     let mut db_builder = DummyDatabaseBuilder::default();
     // add an initial block as otherwise this will panic.
@@ -164,6 +201,45 @@ async fn calc_bw_ltw_2850000_3050000() {
         );
         assert_eq!(calc_ltw, *ltw);
         weight_cache.new_block(2950000 + i, *weight, *ltw);
+    }
+}
+
+proptest! {
+    #[test]
+    fn pop_blocks_proptest(
+        db_blocks in vec(any::<(usize, usize)>(), 1..10_000),
+        new_blocks in vec(any::<(usize, usize)>(), 0..5_000),
+    ) {
+        let mut db_builder = DummyDatabaseBuilder::default();
+        let db_len = db_blocks.len();
+
+        for (weight, ltw) in db_blocks {
+            let block = DummyBlockExtendedHeader::default().with_weight_into(weight, ltw);
+            db_builder.add_block(block);
+        }
+
+        tokio_test::block_on(async move {
+            let db = db_builder.finish(None);
+            let mut weight_cache = BlockWeightsCache::init_from_chain_height(
+                db_len,
+                TEST_WEIGHT_CONFIG,
+                db.clone(),
+                Chain::Main,
+            )
+            .await.unwrap();
+
+            let cloned_cache = weight_cache.clone();
+            let new_blocks_len = new_blocks.len();
+
+            for (i, (weight, ltw)) in new_blocks.into_iter().enumerate() {
+                weight_cache.new_block(db_len + i, weight, ltw);
+            }
+
+            weight_cache.pop_blocks_main_chain(new_blocks_len, db).await.unwrap();
+
+            prop_assert_eq!(weight_cache, cloned_cache);
+            Ok(())
+        })?;
     }
 }
 
