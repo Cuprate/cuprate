@@ -18,7 +18,7 @@ use cuprate_p2p_core::{
     transports::{Tcp, TcpServerConfig},
     ClearNet, NetworkZone, Tor, Transport,
 };
-use cuprate_p2p_transport::{Arti, ArtiClientConfig, ArtiServerConfig};
+use cuprate_p2p_transport::{Arti, ArtiClientConfig, ArtiServerConfig, Socks, SocksClientConfig};
 use cuprate_wire::OnionAddr;
 
 use crate::{p2p::ProxySettings, tor::TorMode};
@@ -287,6 +287,14 @@ impl ClearNetConfig {
         TransportConfig {
             client_config: (),
             server_config,
+        }
+    }
+
+    /// Gets the transport config for [`ClearNet`] over [`Socks`].
+    pub fn socks_transport_config(&self, network: Network) -> TransportConfig<ClearNet, Socks> {
+        TransportConfig {
+            client_config: self.proxy.clone().try_into().unwrap(),
+            server_config: None,
         }
     }
 }
