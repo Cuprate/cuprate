@@ -75,11 +75,14 @@ async fn test_template(
     let tx_ro = env_inner.tx_ro().unwrap();
     let tables = env_inner.open_tables(&tx_ro).unwrap();
 
+    let mut top_hash = [0; 32];
     // HACK: `add_block()` asserts blocks with non-sequential heights
     // cannot be added, to get around this, manually edit the block height.
     for (i, block) in blocks.iter().enumerate() {
         let mut block = (*block).clone();
         block.height = i;
+
+        top_hash = block.block_hash;
 
         // Request a block to be written, assert it was written.
         let request = BlockchainWriteRequest::WriteBlock(block);
@@ -174,6 +177,7 @@ async fn test_template(
                 Err(e) => panic!("{e:?}"),
             })
             .collect::<HashMap<Amount, usize>>(),
+        top_hash,
     ));
 
     // Contains a fake non-spent key-image.
