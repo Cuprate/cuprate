@@ -173,11 +173,17 @@ impl Service<BlockchainReadRequest> for DummyDatabase {
                     let mut end = range.end;
                     let mut start = range.start;
 
+                    let block_len = blocks.read().unwrap().len();
                     if let Some(dummy_height) = dummy_height {
-                        let block_len = blocks.read().unwrap().len();
-
                         end -= dummy_height - block_len;
                         start -= dummy_height - block_len;
+                    }
+
+                    if block_len < end {
+                        return Err(format!(
+                            "end block not in database! end: {end} len: {block_len}"
+                        )
+                        .into());
                     }
 
                     BlockchainResponse::BlockExtendedHeaderInRange(

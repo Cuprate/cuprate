@@ -170,6 +170,29 @@ pub async fn handle_incoming_block(
         .map_err(IncomingBlockError::InvalidBlock)
 }
 
+/// Pop blocks from the top of the blockchain.
+///
+/// # Errors
+///
+/// Will error if the blockchain manager is not set up yet.
+pub async fn pop_blocks(numb_blocks: usize) -> Result<(), anyhow::Error> {
+    let Some(incoming_block_tx) = COMMAND_TX.get() else {
+        // We could still be starting up the blockchain manager.
+        return anyhow::bail!("The blockchain manager is not running yet");
+    };
+
+    let (response_tx, response_rx) = oneshot::channel();
+
+    incoming_block_tx
+        .send(BlockchainManagerCommand::PopBlocks {
+            numb_blocks,
+            response_tx,
+        })
+        .await?;
+
+    Ok(response_rx.await?)
+}
+
 /// Check if we have a block with the given hash.
 async fn block_exists(
     block_hash: [u8; 32],
