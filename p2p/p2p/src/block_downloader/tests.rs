@@ -15,6 +15,9 @@ use monero_oxide::{
     transaction::{Input, Timelock, Transaction, TransactionPrefix},
 };
 use proptest::{collection::vec, prelude::*};
+use proptest::sample::SizeRange;
+use proptest::strategy::ValueTree;
+use proptest::test_runner::TestRunner;
 use tokio::{sync::mpsc, time::timeout};
 use tower::{buffer::Buffer, service_fn, Service, ServiceExt};
 
@@ -43,9 +46,9 @@ proptest! {
         timeout: 60 * 1000,
         .. ProptestConfig::default()
     })]
-
+    
     #[test]
-    fn test_block_downloader(blockchain in dummy_blockchain_stragtegy(), peers in 1_usize..128) {
+    fn test_block_downloader(blockchain in dummy_blockchain_stragtegy(1..50_000), peers in 1_usize..128) {
         let blockchain = Arc::new(blockchain);
 
         let tokio_pool = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap();
@@ -70,6 +73,8 @@ proptest! {
                     BlockDownloaderConfig {
                         buffer_bytes: 1_000,
                         in_progress_queue_bytes: 10_000,
+                        order_blocks: true,
+                        stop_height: None,
                         check_client_pool_interval: Duration::from_secs(5),
                         target_batch_bytes: 5_000,
                         initial_batch_len: 1,
@@ -81,6 +86,50 @@ proptest! {
 
                 for (i, block) in blocks.into_iter().enumerate() {
                     assert_eq!(&block, blockchain.blocks.get_index(i + 1).unwrap().1);
+                }
+            }).await
+        }).unwrap();
+    }
+
+      #[test]
+    fn test_block_downloader_unordered(blockchain in dummy_blockchain_stragtegy(15_000..20_000), peers in 1_usize..128) {
+        let blockchain = Arc::new(blockchain);
+
+        let tokio_pool = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap();
+
+        tokio_pool.block_on(async move {
+            timeout(Duration::from_secs(600), async move {
+                let (new_connection_tx, new_connection_rx) = mpsc::channel(peers);
+
+                let peer_set = PeerSet::new(new_connection_rx);
+
+                for _ in 0..peers {
+                    let client = mock_block_downloader_client(Arc::clone(&blockchain));
+
+                    new_connection_tx.try_send(client).unwrap();
+                }
+
+                let stream = download_blocks(
+                    Buffer::new(peer_set, 10).boxed_clone(),
+                    OurChainSvc {
+                        genesis: *blockchain.blocks.first().unwrap().0
+                    },
+                    BlockDownloaderConfig {
+                        buffer_bytes: 1_000,
+                        in_progress_queue_bytes: 10_000,
+                        order_blocks: false,
+                        stop_height: Some(15_000),
+                        check_client_pool_interval: Duration::from_secs(5),
+                        target_batch_bytes: 5_000,
+                        initial_batch_len: 1,
+                });
+
+                let blocks = stream.map(|blocks| blocks.blocks).concat().await;
+
+                assert_eq!(blocks.len(), 14_999);
+
+                for block in blocks.into_iter() {
+                    assert!(block.0.number().unwrap() < 15_000);
                 }
             }).await
         }).unwrap();
@@ -148,8 +197,8 @@ impl Debug for MockBlockchain {
 
 prop_compose! {
     /// Returns a strategy to generate a [`MockBlockchain`].
-    fn dummy_blockchain_stragtegy()(
-        blocks in vec(dummy_block_stragtegy(0, [0; 32]), 1..50_000),
+    fn dummy_blockchain_stragtegy(size: impl Into<SizeRange>)(
+        blocks in vec(dummy_block_stragtegy(0, [0; 32]), size),
     ) -> MockBlockchain {
         let mut blockchain = IndexMap::new();
 
