@@ -53,9 +53,10 @@ pub fn open(config: &Config) -> Result<ConcreteEnv, InitError> {
             RuntimeError::KeyNotFound => InitError::InvalidVersion,
 
             // These errors shouldn't be happening here.
-            RuntimeError::KeyExists | RuntimeError::ResizeNeeded | RuntimeError::TableNotFound => {
-                unreachable!()
-            }
+            RuntimeError::KeyExists
+            | RuntimeError::ResizeNeeded
+            | RuntimeError::ResizedByAnotherProcess
+            | RuntimeError::TableNotFound => unreachable!(),
         }
     }
 
