@@ -27,7 +27,8 @@ use crate::{
     config::Config,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     tor::{
-        transport_arti_config, transport_clearnet_arti_config, transport_clearnet_daemon_config, transport_daemon_config, TorContext, TorMode
+        transport_arti_config, transport_clearnet_arti_config, transport_clearnet_daemon_config,
+        transport_daemon_config, TorContext, TorMode,
     },
     txpool::{self, IncomingTxHandler},
 };
@@ -120,17 +121,15 @@ pub async fn initialize_zones_p2p(
                     .await
                     .unwrap()
                 }
-                TorMode::Daemon => {
-                    start_zone_p2p::<ClearNet, Socks>(
-                        blockchain_read_handle.clone(),
-                        context_svc.clone(),
-                        txpool_read_handle.clone(),
-                        config.clearnet_p2p_config(),
-                        transport_clearnet_daemon_config(config),
-                    )
-                    .await
-                    .unwrap()
-                }
+                TorMode::Daemon => start_zone_p2p::<ClearNet, Socks>(
+                    blockchain_read_handle.clone(),
+                    context_svc.clone(),
+                    txpool_read_handle.clone(),
+                    config.clearnet_p2p_config(),
+                    transport_clearnet_daemon_config(config),
+                )
+                .await
+                .unwrap(),
                 TorMode::Off => {
                     tracing::error!("Clearnet proxy set to \"tor\" but Tor is actually off. Please be sure to set a mode in the configuration or command line");
                     std::process::exit(0);

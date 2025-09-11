@@ -21,7 +21,8 @@ use cuprate_helper::fs::CUPRATE_DATA_DIR;
 use cuprate_p2p::TransportConfig;
 use cuprate_p2p_core::{ClearNet, Tor};
 use cuprate_p2p_transport::{
-    Arti, ArtiClientConfig, ArtiServerConfig, Daemon, DaemonClientConfig, DaemonServerConfig, Socks, SocksClientConfig,
+    Arti, ArtiClientConfig, ArtiServerConfig, Daemon, DaemonClientConfig, DaemonServerConfig,
+    Socks, SocksClientConfig,
 };
 use cuprate_wire::OnionAddr;
 
@@ -203,7 +204,7 @@ pub const fn transport_clearnet_daemon_config(config: &Config) -> TransportConfi
     TransportConfig {
         client_config: SocksClientConfig {
             proxy: config.tor.daemon.address,
-            authentication: None
+            authentication: None,
         },
         server_config: None,
     }
