@@ -27,8 +27,7 @@ use crate::{
     config::Config,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     tor::{
-        transport_arti_config, transport_clearnet_arti_config, transport_daemon_config, TorContext,
-        TorMode,
+        transport_arti_config, transport_clearnet_arti_config, transport_clearnet_daemon_config, transport_daemon_config, TorContext, TorMode
     },
     txpool::{self, IncomingTxHandler},
 };
@@ -70,7 +69,7 @@ impl TryFrom<ProxySettings> for SocksClientConfig {
             })
             .unwrap_or((None, url));
 
-        Ok(SocksClientConfig {
+        Ok(Self {
             proxy: addr.parse()?,
             authentication,
         })
@@ -122,8 +121,15 @@ pub async fn initialize_zones_p2p(
                     .unwrap()
                 }
                 TorMode::Daemon => {
-                    tracing::error!("Anonymizing clearnet connections through the Tor daemon is not yet supported.");
-                    std::process::exit(0);
+                    start_zone_p2p::<ClearNet, Socks>(
+                        blockchain_read_handle.clone(),
+                        context_svc.clone(),
+                        txpool_read_handle.clone(),
+                        config.clearnet_p2p_config(),
+                        transport_clearnet_daemon_config(config),
+                    )
+                    .await
+                    .unwrap()
                 }
                 TorMode::Off => {
                     tracing::error!("Clearnet proxy set to \"tor\" but Tor is actually off. Please be sure to set a mode in the configuration or command line");
@@ -131,23 +137,23 @@ pub async fn initialize_zones_p2p(
                 }
             },
             ProxySettings::Socks(ref s) => {
-                if !s.is_empty() {
-                    start_zone_p2p::<ClearNet, Socks>(
-                        blockchain_read_handle.clone(),
-                        context_svc.clone(),
-                        txpool_read_handle.clone(),
-                        config.clearnet_p2p_config(),
-                        config.p2p.clear_net.socks_transport_config(config.network),
-                    )
-                    .await
-                    .unwrap()
-                } else {
+                if s.is_empty() {
                     start_zone_p2p::<ClearNet, Tcp>(
                         blockchain_read_handle.clone(),
                         context_svc.clone(),
                         txpool_read_handle.clone(),
                         config.clearnet_p2p_config(),
                         config.p2p.clear_net.tcp_transport_config(config.network),
+                    )
+                    .await
+                    .unwrap()
+                } else {
+                    start_zone_p2p::<ClearNet, Socks>(
+                        blockchain_read_handle.clone(),
+                        context_svc.clone(),
+                        txpool_read_handle.clone(),
+                        config.clearnet_p2p_config(),
+                        config.p2p.clear_net.socks_transport_config(),
                     )
                     .await
                     .unwrap()

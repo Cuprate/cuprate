@@ -291,7 +291,7 @@ impl ClearNetConfig {
     }
 
     /// Gets the transport config for [`ClearNet`] over [`Socks`].
-    pub fn socks_transport_config(&self, network: Network) -> TransportConfig<ClearNet, Socks> {
+    pub fn socks_transport_config(&self) -> TransportConfig<ClearNet, Socks> {
         TransportConfig {
             client_config: self.proxy.clone().try_into().unwrap(),
             server_config: None,
