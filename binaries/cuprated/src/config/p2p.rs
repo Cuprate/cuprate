@@ -164,8 +164,8 @@ config_struct! {
         /// This port will be bind to if the incoming P2P
         /// server for this zone has been enabled.
         ///
-        /// Type         | Number
-        /// Valid values | 0..65534
+        /// Type         | Number or "Default"
+        /// Valid values | 0..65534, "Default"
         /// Examples     | 18080, 9999, 5432
         pub p2p_port: DefaultOrCustom<u16>,
 
