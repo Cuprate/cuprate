@@ -73,7 +73,9 @@ pub fn low_priority_thread() {
     #[cfg(target_os = "windows")]
     {
         use target_os_lib as windows;
-        use windows::Win32::System::Threading::*;
+        use windows::Win32::System::Threading::{
+            GetCurrentThread, SetThreadPriority, THREAD_PRIORITY_IDLE,
+        };
 
         // SAFETY: calling C.
         // We are _lowering_ our priority, not increasing, so this function should never fail.
