@@ -9,7 +9,7 @@ use std::{
 };
 
 use indexmap::{IndexMap, IndexSet};
-use monero_serai::block::Block;
+use monero_oxide::block::Block;
 
 use crate::{
     output_cache::OutputCache,

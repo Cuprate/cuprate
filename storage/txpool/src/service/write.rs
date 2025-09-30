@@ -4,6 +4,7 @@ use cuprate_database::{
     ConcreteEnv, DatabaseRo, DatabaseRw, DbResult, Env, EnvInner, InitError, RuntimeError, TxRw,
 };
 use cuprate_database_service::DatabaseWriteHandle;
+use cuprate_helper::time::current_unix_timestamp;
 use cuprate_types::TransactionVerificationData;
 
 use crate::{
@@ -115,6 +116,7 @@ fn promote(env: &ConcreteEnv, tx_hash: &TransactionHash) -> DbResult<TxpoolWrite
         let mut tx_infos = env_inner.open_db_rw::<TransactionInfos>(&tx_rw)?;
 
         tx_infos.update(tx_hash, |mut info| {
+            info.received_at = current_unix_timestamp();
             info.flags.remove(TxStateFlags::STATE_STEM);
             Some(info)
         })
@@ -137,8 +139,10 @@ fn new_block(env: &ConcreteEnv, spent_key_images: &[KeyImage]) -> DbResult<Txpoo
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw()?;
 
+    let mut txs_removed = Vec::new();
+
     // FIXME: use try blocks once stable.
-    let result = || {
+    let mut result = || {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
 
         // Remove all txs which spend key images that were spent in the new block.
@@ -146,8 +150,10 @@ fn new_block(env: &ConcreteEnv, spent_key_images: &[KeyImage]) -> DbResult<Txpoo
             match tables_mut
                 .spent_key_images()
                 .get(key_image)
-                .and_then(|tx_hash| ops::remove_transaction(&tx_hash, &mut tables_mut))
-            {
+                .and_then(|tx_hash| {
+                    txs_removed.push(tx_hash);
+                    ops::remove_transaction(&tx_hash, &mut tables_mut)
+                }) {
                 Ok(()) | Err(RuntimeError::KeyNotFound) => (),
                 Err(e) => return Err(e),
             }
@@ -162,5 +168,5 @@ fn new_block(env: &ConcreteEnv, spent_key_images: &[KeyImage]) -> DbResult<Txpoo
     }
 
     TxRw::commit(tx_rw)?;
-    Ok(TxpoolWriteResponse::Ok)
+    Ok(TxpoolWriteResponse::NewBlock(txs_removed))
 }

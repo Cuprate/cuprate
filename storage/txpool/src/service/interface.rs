@@ -191,8 +191,12 @@ pub enum TxpoolWriteResponse {
     /// Response to:
     /// - [`TxpoolWriteRequest::RemoveTransaction`]
     /// - [`TxpoolWriteRequest::Promote`]
-    /// - [`TxpoolWriteRequest::NewBlock`]
     Ok,
+
+    /// Response to [`TxpoolWriteRequest::NewBlock`].
+    ///
+    /// The inner values are the transactions removed from the pool.
+    NewBlock(Vec<TransactionHash>),
 
     /// Response to [`TxpoolWriteRequest::AddTransaction`].
     ///

@@ -137,27 +137,33 @@ impl BlockWeightsCache {
 
         let chain_height = self.tip_height + 1;
 
-        let new_long_term_start_height = chain_height
-            .saturating_sub(self.config.long_term_window)
-            .saturating_sub(numb_blocks);
+        let new_long_term_start_height =
+            chain_height.saturating_sub(self.config.long_term_window + numb_blocks);
 
         let old_long_term_weights = get_long_term_weight_in_range(
-            new_long_term_start_height
-                // current_chain_height - self.long_term_weights.len() blocks are already in the cache.
-                ..(chain_height - self.long_term_weights.window_len()),
+            new_long_term_start_height..
+                // We don't need to handle the case where this is above the top block like with the
+                // short term cache as we check at the top of this function and just create a new cache.
+                (chain_height - self.long_term_weights.window_len()),
             database.clone(),
             Chain::Main,
         )
         .await?;
 
-        let new_short_term_start_height = chain_height
-            .saturating_sub(self.config.short_term_window)
-            .saturating_sub(numb_blocks);
+        let new_short_term_start_height =
+            chain_height.saturating_sub(self.config.short_term_window + numb_blocks);
 
         let old_short_term_weights = get_blocks_weight_in_range(
             new_short_term_start_height
-                // current_chain_height - self.long_term_weights.len() blocks are already in the cache.
-                ..(chain_height - self.short_term_block_weights.window_len()),
+                ..(
+                    // the smallest between ...
+                    min(
+                        // the blocks we already have in the cache.
+                        chain_height - self.short_term_block_weights.window_len(),
+                        // the new chain height.
+                        chain_height - numb_blocks,
+                    )
+                ),
             database,
             Chain::Main,
         )

@@ -24,7 +24,7 @@ use crate::{
 /// # Errors
 /// This will forward the error if [`crate::open`] failed.
 pub fn init(
-    config: Config,
+    config: &Config,
 ) -> Result<(TxpoolReadHandle, TxpoolWriteHandle, Arc<ConcreteEnv>), InitError> {
     let reader_threads = config.reader_threads;
 
@@ -51,7 +51,7 @@ pub fn init(
 /// # Errors
 /// This will forward the error if [`crate::open`] failed.
 pub fn init_with_pool(
-    config: Config,
+    config: &Config,
     pool: Arc<ThreadPool>,
 ) -> Result<(TxpoolReadHandle, TxpoolWriteHandle, Arc<ConcreteEnv>), InitError> {
     // Initialize the database itself.

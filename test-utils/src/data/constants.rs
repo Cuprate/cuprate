@@ -30,7 +30,7 @@ macro_rules! const_block_blob {
         ///
         /// ```rust
         #[doc = "# use cuprate_test_utils::data::*;"]
-        #[doc = "use monero_serai::{block::Block, transaction::Input};"]
+        #[doc = "use monero_oxide::{block::Block, transaction::Input};"]
         #[doc = ""]
         #[doc = concat!("let block = Block::read(&mut ", stringify!($name), ").unwrap();")]
         #[doc = ""]
@@ -112,7 +112,7 @@ macro_rules! const_tx_blob {
         ///
         /// ```rust
         #[doc = "# use cuprate_test_utils::data::*;"]
-        #[doc = "use monero_serai::transaction::{Transaction, Timelock};"]
+        #[doc = "use monero_oxide::transaction::{Transaction, Timelock};"]
         #[doc = ""]
         #[doc = concat!("let tx = Transaction::read(&mut ", stringify!($name), ").unwrap();")]
         #[doc = ""]

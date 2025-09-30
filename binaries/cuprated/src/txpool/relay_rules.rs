@@ -1,6 +1,6 @@
 use std::cmp::max;
 
-use monero_serai::transaction::Timelock;
+use monero_oxide::transaction::Timelock;
 use thiserror::Error;
 
 use cuprate_consensus_context::BlockchainContext;

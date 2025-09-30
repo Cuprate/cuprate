@@ -25,8 +25,10 @@ use cuprate_p2p_transport::{
 };
 use cuprate_wire::OnionAddr;
 
-use crate::{config::Config, p2p::ProxySettings};
-
+use crate::{
+    config::{p2p_port, Config},
+    p2p::ProxySettings,
+};
 //---------------------------------------------------------------------------------------------------- Initialization
 
 #[derive(Clone, Default, Debug, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -148,7 +150,7 @@ pub fn transport_arti_config(config: &Config, ctx: TorContext) -> TransportConfi
 
         ArtiServerConfig::new(
             onion_svc,
-            config.p2p.tor_net.p2p_port,
+            p2p_port(config.p2p.tor_net.p2p_port, config.network),
             &bootstrapped_client,
             &client_config,
         )

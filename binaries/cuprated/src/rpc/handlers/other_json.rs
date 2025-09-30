@@ -10,7 +10,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Error};
-use monero_serai::transaction::{Input, Timelock, Transaction};
+use monero_oxide::transaction::{Input, Timelock, Transaction};
 
 use cuprate_constants::rpc::{
     MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT, RESTRICTED_SPENT_KEY_IMAGES_COUNT,

@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use bytes::Bytes;
 use futures::{TryFutureExt, TryStreamExt};
-use monero_serai::{
+use monero_oxide::{
     block::Block,
     transaction::{Input, Transaction},
 };
@@ -54,6 +54,22 @@ impl super::BlockchainManager {
                 let res = self.handle_incoming_block(block, prepped_txs).await;
 
                 drop(response_tx.send(res));
+            }
+            BlockchainManagerCommand::PopBlocks {
+                numb_blocks,
+                response_tx,
+            } => {
+                let _guard = REORG_LOCK.write().await;
+                self.pop_blocks(numb_blocks).await;
+                self.blockchain_write_handle
+                    .ready()
+                    .await
+                    .expect(PANIC_CRITICAL_SERVICE_ERROR)
+                    .call(BlockchainWriteRequest::FlushAltBlocks)
+                    .await
+                    .expect(PANIC_CRITICAL_SERVICE_ERROR);
+                #[expect(clippy::let_underscore_must_use)]
+                let _ = response_tx.send(());
             }
         }
     }
@@ -619,11 +635,8 @@ impl super::BlockchainManager {
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
 
-        self.txpool_write_handle
-            .ready()
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
-            .call(TxpoolWriteRequest::NewBlock { spent_key_images })
+        self.txpool_manager_handle
+            .new_block(spent_key_images)
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
     }

@@ -1,7 +1,8 @@
 use std::{collections::HashMap, env::temp_dir, path::PathBuf, sync::Arc};
 
-use monero_serai::{
+use monero_oxide::{
     block::{Block, BlockHeader},
+    io::CompressedPoint,
     transaction::{Input, Output, Timelock, Transaction, TransactionPrefix},
 };
 use tokio::sync::{oneshot, watch};
@@ -14,9 +15,12 @@ use cuprate_p2p::{block_downloader::BlockBatch, BroadcastSvc};
 use cuprate_p2p_core::handles::HandleBuilder;
 use cuprate_types::{CachedVerificationState, TransactionVerificationData, TxVersion};
 
-use crate::blockchain::{
-    check_add_genesis, manager::BlockchainManager, manager::BlockchainManagerCommand,
-    ConsensusBlockchainReadHandle,
+use crate::{
+    blockchain::{
+        check_add_genesis, manager::BlockchainManager, manager::BlockchainManagerCommand,
+        ConsensusBlockchainReadHandle,
+    },
+    txpool::TxpoolManagerHandle,
 };
 
 async fn mock_manager(data_dir: PathBuf) -> BlockchainManager {
@@ -30,7 +34,7 @@ async fn mock_manager(data_dir: PathBuf) -> BlockchainManager {
     let (mut blockchain_read_handle, mut blockchain_write_handle, _) =
         cuprate_blockchain::service::init(blockchain_config).unwrap();
     let (txpool_read_handle, txpool_write_handle, _) =
-        cuprate_txpool::service::init(txpool_config).unwrap();
+        cuprate_txpool::service::init(&txpool_config).unwrap();
 
     check_add_genesis(
         &mut blockchain_read_handle,
@@ -57,7 +61,7 @@ async fn mock_manager(data_dir: PathBuf) -> BlockchainManager {
     BlockchainManager {
         blockchain_write_handle,
         blockchain_read_handle,
-        txpool_write_handle,
+        txpool_manager_handle: TxpoolManagerHandle::mock(),
         blockchain_context_service,
         stop_current_block_downloader: Arc::new(Default::default()),
         broadcast_svc: BroadcastSvc::mock(),
@@ -85,7 +89,7 @@ fn generate_block(context: &BlockchainContext) -> Block {
                         context.already_generated_coins,
                         context.current_hf,
                     )),
-                    key: Default::default(),
+                    key: CompressedPoint([0; 32]),
                     view_tag: Some(1),
                 }],
                 extra: rand::random::<[u8; 32]>().to_vec(),

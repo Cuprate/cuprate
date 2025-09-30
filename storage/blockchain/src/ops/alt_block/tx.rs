@@ -1,5 +1,5 @@
 use bytemuck::TransparentWrapper;
-use monero_serai::transaction::Transaction;
+use monero_oxide::transaction::Transaction;
 
 use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableVec};
 use cuprate_types::VerifiedTransactionInformation;

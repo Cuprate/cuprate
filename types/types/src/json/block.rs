@@ -3,7 +3,7 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use monero_serai::{block, transaction};
+use monero_oxide::{block, transaction};
 
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_hex::Hex;

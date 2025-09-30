@@ -5,7 +5,7 @@ use std::{
 };
 
 use blake3::Hasher;
-use monero_serai::{
+use monero_oxide::{
     block::Block,
     transaction::{Input, Transaction},
 };

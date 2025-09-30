@@ -10,8 +10,8 @@ use curve25519_dalek::{
     traits::VartimePrecomputedMultiscalarMul,
     Scalar,
 };
-use monero_serai::generators::H;
-
+use monero_oxide::generators::H;
+use monero_oxide::io::CompressedPoint;
 //---------------------------------------------------------------------------------------------------- Pre-computation
 
 /// This is the decomposed amount table containing the mandatory Pre-RCT amounts. It is used to pre-compute 
@@ -70,7 +70,7 @@ pub static ZERO_COMMITMENT_LOOKUP_TABLE: LazyLock<[CompressedEdwardsY; 172]> =
 /// It will first attempt to lookup into the table of known Pre-RCT value.
 /// Compute it otherwise.
 #[expect(clippy::cast_possible_truncation)]
-pub fn compute_zero_commitment(amount: u64) -> CompressedEdwardsY {
+pub fn compute_zero_commitment(amount: u64) -> CompressedPoint {
     // OPTIMIZATION: Unlike monerod which execute a linear search across its lookup
     // table (O(n)). Cuprate is making use of an arithmetic based constant time
     // version (O(1)). It has been benchmarked in both hit and miss scenarios against
@@ -82,7 +82,7 @@ pub fn compute_zero_commitment(amount: u64) -> CompressedEdwardsY {
     // the amount without its most significant digit.
     let Some(log) = amount.checked_ilog10() else {
         // amount = 0 so H component is 0.
-        return ED25519_BASEPOINT_COMPRESSED;
+        return CompressedPoint::from(ED25519_BASEPOINT_COMPRESSED);
     };
     let div = 10_u64.pow(log);
 
@@ -93,9 +93,11 @@ pub fn compute_zero_commitment(amount: u64) -> CompressedEdwardsY {
     // there aren't only trailing zeroes behind the most significant digit.
     // The amount is not part of the table and can calculated apart.
     if most_significant_digit * div != amount {
-        return H_PRECOMP
-            .vartime_multiscalar_mul([Scalar::from(amount), Scalar::ONE])
-            .compress();
+        return CompressedPoint::from(
+            H_PRECOMP
+                .vartime_multiscalar_mul([Scalar::from(amount), Scalar::ONE])
+                .compress(),
+        );
     }
 
     // Calculating the index back by progressing within the powers of 10.
@@ -104,7 +106,7 @@ pub fn compute_zero_commitment(amount: u64) -> CompressedEdwardsY {
     // The index of the cached amount
     let index = (most_significant_digit - 1 + row_start) as usize;
 
-    ZERO_COMMITMENT_LOOKUP_TABLE[index]
+    CompressedPoint::from(ZERO_COMMITMENT_LOOKUP_TABLE[index])
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

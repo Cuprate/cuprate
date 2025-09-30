@@ -1,5 +1,5 @@
 use bytemuck::TransparentWrapper;
-use monero_serai::block::{Block, BlockHeader};
+use monero_oxide::block::{Block, BlockHeader};
 
 use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, StorableVec};
 use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};

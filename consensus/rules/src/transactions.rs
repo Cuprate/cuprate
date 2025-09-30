@@ -1,15 +1,11 @@
-use std::cmp::Ordering;
-
 use curve25519_dalek::EdwardsPoint;
-use monero_serai::{
-    io::decompress_point,
+use monero_oxide::{
     ringct::RctType,
     transaction::{Input, Output, Timelock, Transaction},
 };
 
 use crate::{
-    batch_verifier::BatchVerifier, blocks::penalty_free_zone, check_point_canonically_encoded,
-    is_decomposed_amount, HardFork,
+    batch_verifier::BatchVerifier, blocks::penalty_free_zone, is_decomposed_amount, HardFork,
 };
 
 // re-export.
@@ -88,7 +84,7 @@ pub enum TransactionError {
 /// <https://monero-book.cuprate.org/consensus_rules/transactions/outputs.html#output-keys-canonical>
 fn check_output_keys(outputs: &[Output]) -> Result<(), TransactionError> {
     for out in outputs {
-        if !check_point_canonically_encoded(&out.key) {
+        if out.key.decompress().is_none() {
             return Err(TransactionError::OutputNotValidPoint);
         }
     }
@@ -329,8 +325,9 @@ pub fn check_decoy_info(decoy_info: &DecoyInfo, hf: HardFork) -> Result<(), Tran
 fn check_key_images(input: &Input) -> Result<(), TransactionError> {
     match input {
         Input::ToKey { key_image, .. } => {
-            // this happens in monero-serai but we may as well duplicate the check.
-            if !decompress_point(*key_image)
+            // this happens in monero-oxide but we may as well duplicate the check.
+            if !key_image
+                .decompress()
                 .as_ref()
                 .is_some_and(EdwardsPoint::is_torsion_free)
             {
@@ -400,9 +397,8 @@ fn check_inputs_sorted(inputs: &[Input], hf: HardFork) -> Result<(), Transaction
 
     if hf >= HardFork::V7 {
         for inps in inputs.windows(2) {
-            match get_ki(&inps[0])?.cmp(&get_ki(&inps[1])?) {
-                Ordering::Greater => (),
-                _ => return Err(TransactionError::InputsAreNotOrdered),
+            if get_ki(&inps[0])? <= get_ki(&inps[1])? {
+                return Err(TransactionError::InputsAreNotOrdered);
             }
         }
     }

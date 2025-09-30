@@ -7,7 +7,7 @@ use std::{
     sync::{LazyLock, Mutex, OnceLock},
 };
 
-use monero_serai::{block::Block, transaction::Transaction};
+use monero_oxide::{block::Block, transaction::Transaction};
 use tokio::sync::{mpsc, oneshot};
 use tower::{Service, ServiceExt};
 
@@ -168,6 +168,29 @@ pub async fn handle_incoming_block(
         .await
         .expect("The blockchain manager will always respond")
         .map_err(IncomingBlockError::InvalidBlock)
+}
+
+/// Pop blocks from the top of the blockchain.
+///
+/// # Errors
+///
+/// Will error if the blockchain manager is not set up yet.
+pub async fn pop_blocks(numb_blocks: usize) -> Result<(), anyhow::Error> {
+    let Some(incoming_block_tx) = COMMAND_TX.get() else {
+        // We could still be starting up the blockchain manager.
+        return anyhow::bail!("The blockchain manager is not running yet");
+    };
+
+    let (response_tx, response_rx) = oneshot::channel();
+
+    incoming_block_tx
+        .send(BlockchainManagerCommand::PopBlocks {
+            numb_blocks,
+            response_tx,
+        })
+        .await?;
+
+    Ok(response_rx.await?)
 }
 
 /// Check if we have a block with the given hash.

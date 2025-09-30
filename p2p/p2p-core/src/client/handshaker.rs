@@ -694,7 +694,7 @@ where
                         allow_ping = false;
                         continue;
                     }
-                    _ => {
+                    AdminRequestMessage::Handshake(_) | AdminRequestMessage::TimedSync(_) => {
                         return Err(HandshakeError::PeerSentInvalidMessage(
                             "Peer sent an admin request before responding to the handshake",
                         ));

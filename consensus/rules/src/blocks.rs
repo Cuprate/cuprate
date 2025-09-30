@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use crypto_bigint::{CheckedMul, U256};
-use monero_serai::block::Block;
+use monero_oxide::block::Block;
 
 use cuprate_cryptonight::*;
 

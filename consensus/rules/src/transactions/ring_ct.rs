@@ -1,8 +1,8 @@
 use curve25519_dalek::{EdwardsPoint, Scalar};
 use hex_literal::hex;
-use monero_serai::{
+use monero_oxide::{
     generators::H,
-    io::decompress_point,
+    io::CompressedPoint,
     ringct::{
         clsag::ClsagError,
         mlsag::{AggregateRingMatrixBuilder, MlsagError, RingMatrix},
@@ -55,7 +55,13 @@ fn check_rct_type(ty: RctType, hf: HardFork, tx_hash: &[u8; 32]) -> Result<(), R
         T::MlsagBulletproofsCompactAmount if GRANDFATHERED_TRANSACTIONS.contains(tx_hash) => Ok(()),
         T::ClsagBulletproof if hf >= F::V13 && hf < F::V16 => Ok(()),
         T::ClsagBulletproofPlus if hf >= F::V15 => Ok(()),
-        _ => Err(RingCTError::TypeNotAllowed),
+
+        T::AggregateMlsagBorromean
+        | T::MlsagBorromean
+        | T::MlsagBulletproofs
+        | T::MlsagBulletproofsCompactAmount
+        | T::ClsagBulletproof
+        | T::ClsagBulletproofPlus => Err(RingCTError::TypeNotAllowed),
     }
 }
 
@@ -77,16 +83,15 @@ fn simple_type_balances(rct_sig: &RctProofs) -> Result<(), RingCTError> {
 
     let sum_inputs = pseudo_outs
         .iter()
-        .copied()
-        .map(decompress_point)
+        .map(CompressedPoint::decompress)
         .sum::<Option<EdwardsPoint>>()
         .ok_or(RingCTError::SimpleAmountDoNotBalance)?;
+
     let sum_outputs = rct_sig
         .base
         .commitments
         .iter()
-        .copied()
-        .map(decompress_point)
+        .map(CompressedPoint::decompress)
         .sum::<Option<EdwardsPoint>>()
         .ok_or(RingCTError::SimpleAmountDoNotBalance)?
         + Scalar::from(rct_sig.base.fee) * *H;

@@ -16,7 +16,7 @@ use cuprate_rpc_types::{
     misc::BlockHeader,
 };
 use cuprate_types::{Chain, HardFork};
-use monero_serai::transaction::Timelock;
+use monero_oxide::transaction::Timelock;
 
 use crate::rpc::{
     service::{blockchain, blockchain_context},

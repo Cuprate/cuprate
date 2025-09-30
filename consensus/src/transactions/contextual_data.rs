@@ -14,7 +14,7 @@
 use std::{borrow::Cow, collections::HashSet};
 
 use indexmap::IndexMap;
-use monero_serai::transaction::{Input, Timelock};
+use monero_oxide::transaction::{Input, Timelock};
 use tower::ServiceExt;
 use tracing::instrument;
 
@@ -91,7 +91,7 @@ pub fn new_ring_member_info(
                     .iter()
                     .filter_map(|out| match out.time_lock {
                         Timelock::None => None,
-                        lock => Some(lock),
+                        Timelock::Block(_) | Timelock::Time(_) => Some(out.time_lock),
                     })
                     .collect::<Vec<_>>()
             })

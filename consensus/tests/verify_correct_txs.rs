@@ -7,9 +7,12 @@ use std::{
     sync::Arc,
 };
 
-use curve25519_dalek::{constants::ED25519_BASEPOINT_COMPRESSED, edwards::CompressedEdwardsY};
+use curve25519_dalek::constants::ED25519_BASEPOINT_COMPRESSED;
 use indexmap::IndexMap;
-use monero_serai::transaction::{Timelock, Transaction};
+use monero_oxide::{
+    io::CompressedPoint,
+    transaction::{Timelock, Transaction},
+};
 use tower::service_fn;
 
 use cuprate_consensus::{__private::Database, transactions::start_tx_verification};
@@ -26,6 +29,10 @@ use cuprate_test_utils::data::TX_E2D393;
 fn dummy_database(outputs: BTreeMap<u64, OutputOnChain>) -> impl Database + Clone {
     let outputs = Arc::new(outputs);
 
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "Other database requests are not needed for this test"
+    )]
     service_fn(move |req: BlockchainReadRequest| {
         ready(Ok(match req {
             BlockchainReadRequest::NumberOutputsWithAmount(_) => {
@@ -48,7 +55,7 @@ fn dummy_database(outputs: BTreeMap<u64, OutputOnChain>) -> impl Database + Clon
                 BlockchainResponse::Outputs(ret)
             }
             BlockchainReadRequest::KeyImagesSpent(_) => BlockchainResponse::KeyImagesSpent(false),
-            _ => panic!("Database request not needed for this test"),
+            _ => panic!(),
         }))
     })
 }
@@ -71,8 +78,8 @@ macro_rules! test_verify_valid_v2_tx {
                 OutputOnChain {
                     height: 0,
                     time_lock: Timelock::None,
-                    commitment: CompressedEdwardsY(hex_literal::hex!($commitment)),
-                    key: CompressedEdwardsY(hex_literal::hex!($ring_member)),
+                    commitment: CompressedPoint(hex_literal::hex!($commitment)),
+                    key: CompressedPoint(hex_literal::hex!($ring_member)),
                     txid: None,
                 }),)+)+
             ];
@@ -99,8 +106,8 @@ macro_rules! test_verify_valid_v2_tx {
                 OutputOnChain {
                     height: 0,
                     time_lock: Timelock::None,
-                    commitment: ED25519_BASEPOINT_COMPRESSED,
-                    key: CompressedEdwardsY(hex_literal::hex!($ring_member)),
+                    commitment: CompressedPoint::from(ED25519_BASEPOINT_COMPRESSED),
+                    key: CompressedPoint(hex_literal::hex!($ring_member)),
                     txid: None,
                 }),)+)+
             ];
