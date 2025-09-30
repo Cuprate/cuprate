@@ -228,7 +228,6 @@ mod tests {
         types::AltBlockHeight,
     };
 
-    #[expect(clippy::range_plus_one)]
     #[test]
     fn all_alt_blocks() {
         let (env, _tmp) = tmp_concrete_env();
