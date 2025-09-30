@@ -192,7 +192,7 @@ impl<const N: usize> TryFrom<Bytes> for ByteArrayVec<N> {
     type Error = FixedByteError;
 
     fn try_from(value: Bytes) -> Result<Self, Self::Error> {
-        if value.len() % N != 0 {
+        if !value.len().is_multiple_of(N) {
             return Err(FixedByteError::InvalidLength);
         }
 
@@ -222,7 +222,7 @@ impl<const N: usize> TryFrom<Vec<u8>> for ByteArrayVec<N> {
     type Error = FixedByteError;
 
     fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-        if value.len() % N != 0 {
+        if !value.len().is_multiple_of(N) {
             return Err(FixedByteError::InvalidLength);
         }
 
