@@ -60,7 +60,7 @@ fn main() -> ExitCode {
     match main_inner() {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            eprintln_red(&format!("{e}"));
+            eprintln_red(&e.to_string());
             ExitCode::FAILURE
         }
     }
