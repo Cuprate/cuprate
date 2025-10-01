@@ -66,7 +66,7 @@ pub enum OutputTarget {
 }
 
 /// The [`Command`] listener loop.
-pub fn command_listener(incoming_commands: mpsc::Sender<Command>) -> ! {
+pub fn command_listener(incoming_commands: mpsc::Sender<Command>) -> Result<(), anyhow::Error> {
     let mut stdin = io::stdin();
     let mut line = String::new();
 
@@ -85,9 +85,11 @@ pub fn command_listener(incoming_commands: mpsc::Sender<Command>) -> ! {
                     .blocking_send(command)
                     .inspect_err(|err| eprintln!("Failed to send command: {err}")),
             ),
-            Err(err) => err.print().unwrap(),
+            Err(err) => err.print()?,
         }
     }
+
+    Ok(())
 }
 
 /// The [`Command`] handler loop.

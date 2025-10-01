@@ -14,17 +14,14 @@ use serde::{Deserialize, Serialize};
 
 //---------------------------------------------------------------------------------------------------- init_thread_pool
 /// Initialize the reader thread-pool backed by `rayon`.
-pub fn init_thread_pool(reader_threads: ReaderThreads) -> Arc<ThreadPool> {
-    // How many reader threads to spawn?
-    let reader_count = reader_threads.as_threads().get();
-
-    Arc::new(
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(reader_count)
-            .thread_name(|i| format!("{}::DatabaseReader({i})", module_path!()))
-            .build()
-            .unwrap(),
-    )
+pub fn init_thread_pool(
+    reader_threads: ReaderThreads,
+) -> Result<Arc<ThreadPool>, rayon::ThreadPoolBuildError> {
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(reader_threads.as_threads().get())
+        .thread_name(|i| format!("{}::DatabaseReader({i})", module_path!()))
+        .build()
+        .map(Arc::new)
 }
 
 //---------------------------------------------------------------------------------------------------- ReaderThreads

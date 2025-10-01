@@ -14,7 +14,7 @@ use std::{
 use rayon::ThreadPool;
 
 use cuprate_database::{
-    ConcreteEnv, DatabaseIter, DatabaseRo, DbResult, Env, EnvInner, RuntimeError,
+    ConcreteEnv, DatabaseIter, DatabaseRo, DbResult, Env, EnvInner, InitError, RuntimeError,
 };
 use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
 
@@ -39,8 +39,14 @@ use crate::{
 /// Should be called _once_ per actual database.
 #[cold]
 #[inline(never)] // Only called once.
-pub(super) fn init_read_service(env: Arc<ConcreteEnv>, threads: ReaderThreads) -> TxpoolReadHandle {
-    init_read_service_with_pool(env, init_thread_pool(threads))
+pub(super) fn init_read_service(
+    env: Arc<ConcreteEnv>,
+    threads: ReaderThreads,
+) -> Result<TxpoolReadHandle, InitError> {
+    Ok(init_read_service_with_pool(
+        env,
+        init_thread_pool(threads).map_err(|e| InitError::Unknown(Box::new(e)))?,
+    ))
 }
 
 /// Initialize the [`TxpoolReadHandle`], with a specific rayon thread-pool instead of

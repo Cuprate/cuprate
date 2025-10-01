@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cuprate_database::{
-    ConcreteEnv, DatabaseRo, DatabaseRw, DbResult, Env, EnvInner, RuntimeError, TxRw,
+    ConcreteEnv, DatabaseRo, DatabaseRw, DbResult, Env, EnvInner, InitError, RuntimeError, TxRw,
 };
 use cuprate_database_service::DatabaseWriteHandle;
 use cuprate_helper::time::current_unix_timestamp;
@@ -19,7 +19,7 @@ use crate::{
 
 //---------------------------------------------------------------------------------------------------- init_write_service
 /// Initialize the txpool write service from a [`ConcreteEnv`].
-pub(super) fn init_write_service(env: Arc<ConcreteEnv>) -> TxpoolWriteHandle {
+pub(super) fn init_write_service(env: Arc<ConcreteEnv>) -> Result<TxpoolWriteHandle, InitError> {
     DatabaseWriteHandle::init(env, handle_txpool_request)
 }
 

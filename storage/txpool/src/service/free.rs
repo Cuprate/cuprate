@@ -32,8 +32,8 @@ pub fn init(
     let db = Arc::new(crate::open(config)?);
 
     // Spawn the Reader thread pool and Writer.
-    let readers = init_read_service(Arc::clone(&db), reader_threads);
-    let writer = init_write_service(Arc::clone(&db));
+    let readers = init_read_service(Arc::clone(&db), reader_threads)?;
+    let writer = init_write_service(Arc::clone(&db))?;
 
     Ok((readers, writer, db))
 }
@@ -59,7 +59,7 @@ pub fn init_with_pool(
 
     // Spawn the Reader thread pool and Writer.
     let readers = init_read_service_with_pool(Arc::clone(&db), pool);
-    let writer = init_write_service(Arc::clone(&db));
+    let writer = init_write_service(Arc::clone(&db))?;
 
     Ok((readers, writer, db))
 }

@@ -72,7 +72,7 @@ pub async fn initialize_zones_p2p(
     mut blockchain_read_handle: BlockchainReadHandle,
     txpool_read_handle: TxpoolReadHandle,
     tor_ctx: TorContext,
-) -> (NetworkInterfaces, Vec<Sender<IncomingTxHandler>>) {
+) -> Result<(NetworkInterfaces, Vec<Sender<IncomingTxHandler>>), anyhow::Error> {
     // Start clearnet P2P.
     let (clearnet, incoming_tx_handler_tx) = {
         // If proxy is set
@@ -157,7 +157,7 @@ pub async fn initialize_zones_p2p(
         tx_handler_subscribers.push(incoming_tx_handler_tx);
     }
 
-    (network_interfaces, tx_handler_subscribers)
+    Ok((network_interfaces, tx_handler_subscribers))
 }
 
 /// Starts the P2P network zone, returning a [`NetworkInterface`] to interact with it.

@@ -7,7 +7,7 @@ use std::{
 use futures::channel::oneshot;
 use tracing::{info, warn};
 
-use cuprate_database::{ConcreteEnv, DbResult, Env, RuntimeError};
+use cuprate_database::{ConcreteEnv, DbResult, Env, InitError, RuntimeError};
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
 //---------------------------------------------------------------------------------------------------- Constants
@@ -49,7 +49,7 @@ where
     pub fn init(
         env: Arc<ConcreteEnv>,
         inner_handler: impl Fn(&ConcreteEnv, &Req) -> DbResult<Res> + Send + 'static,
-    ) -> Self {
+    ) -> Result<Self, InitError> {
         // Initialize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
@@ -57,9 +57,9 @@ where
         std::thread::Builder::new()
             .name(WRITER_THREAD_NAME.into())
             .spawn(move || database_writer(&env, &receiver, inner_handler))
-            .unwrap();
+            .map_err(|e| InitError::Unknown(Box::new(e)))?;
 
-        Self { sender }
+        Ok(Self { sender })
     }
 }
 
