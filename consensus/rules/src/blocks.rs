@@ -53,7 +53,7 @@ pub trait RandomX {
 
 /// Returns if this height is a RandomX seed height.
 pub const fn is_randomx_seed_height(height: usize) -> bool {
-    height % RX_SEEDHASH_EPOCH_BLOCKS == 0
+    height.is_multiple_of(RX_SEEDHASH_EPOCH_BLOCKS)
 }
 
 /// Returns the RandomX seed height for this block.
