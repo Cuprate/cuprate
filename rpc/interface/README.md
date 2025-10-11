@@ -21,7 +21,7 @@ This is where your [`RpcHandler`] turns this `Request` into a `Response`.
 
 You hand this `Response` back to `cuprate-rpc-interface` and it will take care of sending it back to the client.
 
-The main handler used by Cuprate is implemented in the `cuprate-rpc-handler` crate;
+The main handler used by Cuprate is implemented in `cuprated` itself,
 it implements the standard RPC handlers modeled after `monerod`.
 
 # Purpose
