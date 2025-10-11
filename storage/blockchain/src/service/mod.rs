@@ -1,4 +1,4 @@
-//! [`tower::Service`] integeration + thread-pool.
+//! [`tower::Service`] integration + thread-pool.
 //!
 //! ## `service`
 //! The `service` module implements the [`tower`] integration,
