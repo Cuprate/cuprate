@@ -134,6 +134,12 @@ fn database_writer<Req, Res>(
             // this won't have to be an enum.
             let response = inner_handler(env, &request);
 
+            if ConcreteEnv::MANUAL_RESIZE
+                && matches!(response, Err(RuntimeError::ResizedByAnotherProcess))
+            {
+                panic!("Database was resized by another process - no other process should write to `cuprated`'s database.");
+            }
+
             // If the database needs to resize, do so.
             if ConcreteEnv::MANUAL_RESIZE && matches!(response, Err(RuntimeError::ResizeNeeded)) {
                 // If this is the last iteration of the outer `for` loop and we
@@ -151,7 +157,7 @@ fn database_writer<Req, Res>(
                 // add that much instead of the default 1GB.
                 // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L665-L695>
                 let old = env.current_map_size();
-                let new = env.resize_map(None).get();
+                let new = env.resize_map(None, false).get();
 
                 const fn bytes_to_megabytes(bytes: usize) -> usize {
                     bytes / 1_000_000

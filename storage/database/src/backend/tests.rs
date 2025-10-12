@@ -128,7 +128,7 @@ fn resize() {
     // Resize by the OS page size.
     let page_size = *crate::resize::PAGE_SIZE;
     let old_size = env.current_map_size();
-    env.resize_map(Some(ResizeAlgorithm::FixedBytes(page_size)));
+    env.resize_map(Some(ResizeAlgorithm::FixedBytes(page_size)), false);
 
     // Assert it resized exactly by the OS page size.
     let new_size = env.current_map_size();
@@ -143,7 +143,7 @@ fn non_manual_resize_1() {
         unreachable!();
     }
     let (env, _tempdir) = tmp_concrete_env();
-    env.resize_map(None);
+    env.resize_map(None, false);
 }
 
 #[test]

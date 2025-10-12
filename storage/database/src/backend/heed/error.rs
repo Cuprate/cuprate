@@ -76,6 +76,7 @@ impl From<heed::Error> for crate::RuntimeError {
                 E2::KeyExist => Self::KeyExists,
                 E2::NotFound => Self::KeyNotFound,
                 E2::MapFull => Self::ResizeNeeded,
+                E2::MapResized => Self::ResizedByAnotherProcess,
 
                 // Corruption errors, these have special panic messages.
                 //
@@ -104,18 +105,6 @@ impl From<heed::Error> for crate::RuntimeError {
                 // of being errors we can't control, these are errors
                 // that only happen if we write incorrect code.
 
-                // "Database contents grew beyond environment mapsize."
-                // We should be resizing the map when needed, this error
-                // occurring indicates we did _not_ do that, which is a bug
-                // and we should panic.
-                //
-                // FIXME: This can also mean _another_ process wrote to our
-                // LMDB file and increased the size. I don't think we need to accommodate for this.
-                // <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
-                // Although `monerod` reacts to that instead of `MDB_MAP_FULL`
-                // which is what `mdb_put()` returns so... idk?
-                // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L526>
-                | E2::MapResized
                 // We should be setting `heed::EnvOpenOptions::max_readers()`
                 // with our reader thread value in [`crate::config::Config`],
                 // thus this error should never occur.
