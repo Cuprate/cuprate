@@ -41,7 +41,8 @@ async fn mock_manager(data_dir: PathBuf) -> BlockchainManager {
         &mut blockchain_write_handle,
         Network::Mainnet,
     )
-    .await;
+    .await
+    .unwrap();
 
     let mut context_config = ContextConfig::main_net();
     context_config.difficulty_cfg.fixed_difficulty = Some(1);
