@@ -41,9 +41,92 @@ impl Ord for ReadyQueueBatch {
     }
 }
 
+/// The block queue that passes downloaded block batches to the receiver.
+pub(crate) enum BlockQueue {
+    /// A queue that does order the batches.
+    Ordered(BlockQueueOrdered),
+    /// A queue that does not order the batches.
+    Unordered(BlockQueueUnordered),
+}
+
+impl BlockQueue {
+    /// Creates a new [`BlockQueue`].
+    pub(crate) const fn new(
+        buffer_appender: BufferAppender<BlockBatch>,
+        order_blocks: bool,
+    ) -> Self {
+        if order_blocks {
+            Self::Ordered(BlockQueueOrdered::new(buffer_appender))
+        } else {
+            Self::Unordered(BlockQueueUnordered::new(buffer_appender))
+        }
+    }
+
+    /// Returns the oldest batch that has not been put in the [`async_buffer`] yet.
+    pub(crate) fn oldest_ready_batch(&self) -> Option<usize> {
+        match self {
+            Self::Ordered(q) => q.oldest_ready_batch(),
+            Self::Unordered(_) => None,
+        }
+    }
+
+    /// Returns the size of all the batches that have not been put into the [`async_buffer`] yet.
+    pub(crate) const fn size(&self) -> usize {
+        match self {
+            Self::Ordered(q) => q.size(),
+            Self::Unordered(_) => 0,
+        }
+    }
+
+    /// Adds an incoming batch to the queue and checks if we can push any batches into the [`async_buffer`].
+    ///
+    /// `oldest_in_flight_start_height` should be the start height of the oldest batch that is still inflight, if
+    /// there are no batches inflight then this should be [`None`].
+    pub(crate) async fn add_incoming_batch(
+        &mut self,
+        new_batch: ReadyQueueBatch,
+        oldest_in_flight_start_height: Option<usize>,
+    ) -> Result<(), BlockDownloadError> {
+        match self {
+            Self::Ordered(q) => {
+                q.add_incoming_batch(new_batch, oldest_in_flight_start_height)
+                    .await
+            }
+            Self::Unordered(q) => q.add_incoming_batch(new_batch).await,
+        }
+    }
+}
+
+/// A block queue that does not order the batches before giving them to the receiver.
+pub(crate) struct BlockQueueUnordered {
+    /// The [`BufferAppender`] that gives blocks to Cuprate.
+    buffer_appender: BufferAppender<BlockBatch>,
+}
+
+impl BlockQueueUnordered {
+    /// Creates a new [`BlockQueueUnordered`].
+    const fn new(buffer_appender: BufferAppender<BlockBatch>) -> Self {
+        Self { buffer_appender }
+    }
+
+    /// Pushes the batch into the [`async_buffer`].
+    pub(crate) async fn add_incoming_batch(
+        &mut self,
+        new_batch: ReadyQueueBatch,
+    ) -> Result<(), BlockDownloadError> {
+        let size = new_batch.block_batch.size;
+        self.buffer_appender
+            .send(new_batch.block_batch, size)
+            .await
+            .map_err(|_| BlockDownloadError::BufferWasClosed)?;
+
+        Ok(())
+    }
+}
+
 /// The block queue that holds downloaded block batches, adding them to the [`async_buffer`] when the
 /// oldest batch has been downloaded.
-pub(crate) struct BlockQueue {
+pub(crate) struct BlockQueueOrdered {
     /// A queue of ready batches.
     ready_batches: BinaryHeap<ReadyQueueBatch>,
     /// The size, in bytes, of all the batches in [`Self::ready_batches`].
@@ -53,8 +136,8 @@ pub(crate) struct BlockQueue {
     buffer_appender: BufferAppender<BlockBatch>,
 }
 
-impl BlockQueue {
-    /// Creates a new [`BlockQueue`].
+impl BlockQueueOrdered {
+    /// Creates a new [`BlockQueueOrdered`].
     pub(crate) const fn new(buffer_appender: BufferAppender<BlockBatch>) -> Self {
         Self {
             ready_batches: BinaryHeap::new(),
@@ -146,7 +229,7 @@ mod tests {
             block_on(async move {
                 let (buffer_tx, mut buffer_rx) = cuprate_async_buffer::new_buffer(usize::MAX);
 
-                let mut queue = BlockQueue::new(buffer_tx);
+                let mut queue = BlockQueueOrdered::new(buffer_tx);
 
                 let mut sorted_batches = BTreeSet::from_iter(batches.clone());
                 let mut soreted_batch_2 = sorted_batches.clone();
