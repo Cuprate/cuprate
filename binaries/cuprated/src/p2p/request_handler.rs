@@ -184,10 +184,14 @@ async fn get_objects(
         blocks,
         missing_hashes,
         blockchain_height,
+        ..
     } = blockchain_read_handle
         .ready()
         .await?
-        .call(BlockchainReadRequest::BlockCompleteEntries(block_hashes))
+        .call(BlockchainReadRequest::BlockCompleteEntries{
+            hashes: block_hashes,
+            get_indices: false
+        })
         .await?
     else {
         unreachable!();

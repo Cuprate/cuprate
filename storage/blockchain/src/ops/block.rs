@@ -7,7 +7,7 @@ use monero_oxide::{
     block::{Block, BlockHeader},
     transaction::Transaction,
 };
-
+use monero_oxide::transaction::Pruned;
 use cuprate_database::{
     DbResult, RuntimeError, StorableVec, {DatabaseRo, DatabaseRw},
 };
@@ -260,10 +260,11 @@ pub fn get_block_blob_with_tx_indexes(
 #[doc = doc_error!()]
 pub fn get_block_complete_entry(
     block_hash: &BlockHash,
+    get_output_indices: bool,
     tables: &impl TablesIter,
-) -> Result<BlockCompleteEntry, RuntimeError> {
+) -> Result<(BlockCompleteEntry, Vec<Vec<u64>>), RuntimeError> {
     let block_height = tables.block_heights().get(block_hash)?;
-    get_block_complete_entry_from_height(&block_height, tables)
+    get_block_complete_entry_from_height(&block_height, get_output_indices, tables)
 }
 
 /// Retrieve a [`BlockCompleteEntry`] from the database.
@@ -271,27 +272,46 @@ pub fn get_block_complete_entry(
 #[doc = doc_error!()]
 pub fn get_block_complete_entry_from_height(
     block_height: &BlockHeight,
+    get_output_indices: bool,
     tables: &impl TablesIter,
-) -> Result<BlockCompleteEntry, RuntimeError> {
+) -> Result<(BlockCompleteEntry, Vec<Vec<u64>>), RuntimeError> {
     let (block_blob, miner_tx_idx, numb_non_miner_txs) =
         get_block_blob_with_tx_indexes(block_height, tables)?;
 
     let first_tx_idx = miner_tx_idx + 1;
 
-    let tx_blobs = (first_tx_idx..(usize_to_u64(numb_non_miner_txs) + first_tx_idx))
+    let mut indices = Vec::with_capacity(numb_non_miner_txs + 1);
+
+    if get_output_indices {
+        indices.push(tables.tx_outputs().get(&miner_tx_idx)?.0);
+    }
+
+    let tx_blobs = (first_tx_idx..(usize_to_u64(numb_non_miner_txs) + first_tx_idx ))
         .map(|idx| {
             let tx_blob = tables.tx_blobs().get(&idx)?.0;
+
+            let tx = Transaction::<Pruned>::read(&mut tx_blob.as_slice()).unwrap();
+
+            let tx_blob = if tx.version() == 2 {
+                tx.serialize()
+            } else {
+                tx_blob
+            };
+
+            if get_output_indices {
+                indices.push(tables.tx_outputs().get(&idx)?.0);
+            }
 
             Ok(Bytes::from(tx_blob))
         })
         .collect::<Result<_, RuntimeError>>()?;
 
-    Ok(BlockCompleteEntry {
+    Ok((BlockCompleteEntry {
         block: Bytes::from(block_blob),
         txs: TransactionBlobs::Normal(tx_blobs),
         pruned: false,
         block_weight: 0,
-    })
+    }, indices))
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_extended_header_*`

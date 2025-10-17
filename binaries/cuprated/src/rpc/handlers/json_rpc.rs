@@ -10,7 +10,8 @@ use std::{
     num::NonZero,
     time::{Duration, Instant},
 };
-
+use std::borrow::Cow;
+use std::string::ToString;
 use anyhow::{anyhow, Error};
 use monero_oxide::block::Block;
 use strum::{EnumCount, VariantArray};
@@ -32,8 +33,8 @@ use cuprate_rpc_types::{
     base::{AccessResponseBase, ResponseBase},
     json::{
         AddAuxPowRequest, AddAuxPowResponse, BannedRequest, BannedResponse, CalcPowRequest,
-        CalcPowResponse, FlushCacheRequest, FlushCacheResponse, FlushTransactionPoolRequest,
-        FlushTransactionPoolResponse, GenerateBlocksRequest, GenerateBlocksResponse,
+        CalcPowResponse, FlushCacheRequest, FlushCacheResponse, FlushTxpoolRequest,
+        FlushTxpoolResponse, GenerateBlocksRequest, GenerateBlocksResponse,
         GetAlternateChainsRequest, GetAlternateChainsResponse, GetBansRequest, GetBansResponse,
         GetBlockCountRequest, GetBlockCountResponse, GetBlockHeaderByHashRequest,
         GetBlockHeaderByHashResponse, GetBlockHeaderByHeightRequest,
@@ -44,7 +45,7 @@ use cuprate_rpc_types::{
         GetInfoResponse, GetLastBlockHeaderRequest, GetLastBlockHeaderResponse,
         GetMinerDataRequest, GetMinerDataResponse, GetOutputDistributionRequest,
         GetOutputDistributionResponse, GetOutputHistogramRequest, GetOutputHistogramResponse,
-        GetTransactionPoolBacklogRequest, GetTransactionPoolBacklogResponse, GetTxIdsLooseRequest,
+        GetTxpoolBacklogRequest, GetTxpoolBacklogResponse, GetTxIdsLooseRequest,
         GetTxIdsLooseResponse, GetVersionRequest, GetVersionResponse, HardForkInfoRequest,
         HardForkInfoResponse, JsonRpcRequest, JsonRpcResponse, OnGetBlockHashRequest,
         OnGetBlockHashResponse, PruneBlockchainRequest, PruneBlockchainResponse, RelayTxRequest,
@@ -54,6 +55,7 @@ use cuprate_rpc_types::{
     misc::{BlockHeader, ChainInfo, Distribution, GetBan, HistogramEntry, Status, SyncInfoPeer},
     CORE_RPC_VERSION,
 };
+use cuprate_rpc_types::json::{RpcAccessInfoRequest, RpcAccessInfoResponse, RpcAccessPayResponse, RpcAccessSubmitNonceResponse};
 use cuprate_types::{
     rpc::{AuxPow, CoinbaseTxSum, GetMinerDataTxBacklogEntry, HardForkEntry, TxBacklogEntry},
     BlockTemplate, Chain, HardFork,
@@ -79,6 +81,8 @@ pub async fn map_request(
     use JsonRpcRequest as Req;
     use JsonRpcResponse as Resp;
 
+    tracing::trace!("Request: {:?}", request);
+
     Ok(match request {
         Req::GetBlockTemplate(r) => Resp::GetBlockTemplate(not_available()?),
         Req::GetBlockCount(r) => Resp::GetBlockCount(get_block_count(state, r).await?),
@@ -99,20 +103,20 @@ pub async fn map_request(
         }
         Req::GetBlock(r) => Resp::GetBlock(get_block(state, r).await?),
         Req::GetConnections(r) => Resp::GetConnections(not_available()?),
-        Req::GetInfo(r) => Resp::GetInfo(not_available()?),
+        Req::GetInfo(r) => Resp::GetInfo(get_info(state, r).await?),
         Req::HardForkInfo(r) => Resp::HardForkInfo(not_available()?),
         Req::SetBans(r) => Resp::SetBans(not_available()?),
         Req::GetBans(r) => Resp::GetBans(not_available()?),
         Req::Banned(r) => Resp::Banned(not_available()?),
-        Req::FlushTransactionPool(r) => Resp::FlushTransactionPool(not_available()?),
+        Req::FlushTxpool(r) => Resp::FlushTxpool(not_available()?),
         Req::GetOutputHistogram(r) => Resp::GetOutputHistogram(not_available()?),
         Req::GetCoinbaseTxSum(r) => Resp::GetCoinbaseTxSum(not_available()?),
-        Req::GetVersion(r) => Resp::GetVersion(not_available()?),
+        Req::GetVersion(r) => Resp::GetVersion(get_version(state, r).await?),
         Req::GetFeeEstimate(r) => Resp::GetFeeEstimate(not_available()?),
         Req::GetAlternateChains(r) => Resp::GetAlternateChains(not_available()?),
         Req::RelayTx(r) => Resp::RelayTx(not_available()?),
         Req::SyncInfo(r) => Resp::SyncInfo(not_available()?),
-        Req::GetTransactionPoolBacklog(r) => Resp::GetTransactionPoolBacklog(not_available()?),
+        Req::GetTxpoolBacklog(r) => Resp::GetTxpoolBacklog(not_available()?),
         Req::GetMinerData(r) => Resp::GetMinerData(not_available()?),
         Req::PruneBlockchain(r) => Resp::PruneBlockchain(not_available()?),
         Req::CalcPow(r) => Resp::CalcPow(not_available()?),
@@ -120,8 +124,45 @@ pub async fn map_request(
 
         // Unsupported RPC calls.
         Req::GetTxIdsLoose(_) | Req::FlushCache(_) => return Err(anyhow!(UNSUPPORTED_RPC_CALL)),
+        Req::GetOutputDistribution(_) => Resp::GetOutputDistribution(not_available()?),
+        Req::RpcAccessInfo(_) => Resp::RpcAccessInfo(RPC_ACCESS_INFO_RESPONSE),
+        Req::RpcAccessSubmitNonce(_) => Resp::RpcAccessSubmitNonce(RPC_ACCESS_SUBMIT_NONCE),
+        Req::RpcAccessPay(_) => Resp::RpcAccessPay(RPC_ACCESS_PAY),
+        Req::RpcAccessTracking(_) => Resp::RpcAccessTracking(not_available()?),
+        Req::RpcAccessData(_) => Resp::RpcAccessData(not_available()?),
+        Req::RpcAccessAccount(_) => Resp::RpcAccessAccount(not_available()?),
     })
 }
+
+/// <https://github.com/monero-project/monero/blob/d32b5bfe18e2f5b979fa8dc3a8966c76159ca722/src/rpc/core_rpc_server.cpp#L3512C1-L3574C4>
+const RPC_ACCESS_INFO_RESPONSE: RpcAccessInfoResponse = RpcAccessInfoResponse {
+    base: helper::access_response_base(false),
+    hashing_blob: String::new(),
+    seed_height: 0,
+    seed_hash: String::new(),
+    next_seed_hash: String::new(),
+    cookie: 0,
+    diff: 0,
+    credits_per_hash_found: 0,
+    height: 0,
+};
+
+const RPC_ACCESS_PAYMENT_NOT_NEEDED_BASE: AccessResponseBase = AccessResponseBase {
+    response_base: ResponseBase {
+        status: Status::Other(Cow::Borrowed("Payment not necessary")),
+        untrusted: false,
+    },
+    credits: 0,
+    top_hash: String::new(),
+};
+
+const RPC_ACCESS_SUBMIT_NONCE: RpcAccessSubmitNonceResponse = RpcAccessSubmitNonceResponse {
+    base: RPC_ACCESS_PAYMENT_NOT_NEEDED_BASE,
+};
+
+const RPC_ACCESS_PAY: RpcAccessPayResponse = RpcAccessPayResponse {
+    base: RPC_ACCESS_PAYMENT_NOT_NEEDED_BASE,
+};
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1911-L2005>
 async fn get_block_template(
@@ -463,7 +504,8 @@ async fn get_info(
     let alt_blocks_count = if restricted {
         0
     } else {
-        blockchain::alt_chain_count(&mut state.blockchain_read).await?
+        0
+        //blockchain::alt_chain_count(&mut state.blockchain_read).await?
     };
 
     // TODO: these values are incorrectly calculated in `monerod` and copied in `cuprated`
@@ -480,12 +522,12 @@ async fn get_info(
         (String::new(), false)
     };
 
-    let busy_syncing = blockchain_manager::syncing(todo!()).await?;
+    let busy_syncing = false; // blockchain_manager::syncing(todo!()).await?;
 
     let (cumulative_difficulty, cumulative_difficulty_top64) =
         split_u128_into_low_high_bits(cumulative_difficulty);
 
-    let (database_size, free_space) = blockchain::database_size(&mut state.blockchain_read).await?;
+    let (database_size, free_space) = (0_u64,0);// blockchain::database_size(&mut state.blockchain_read).await?;
     let (database_size, free_space) = if restricted {
         // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L131-L134>
         let database_size = database_size.div_ceil(5 * 1024 * 1024 * 1024);
@@ -502,7 +544,9 @@ async fn get_info(
     let (incoming_connections_count, outgoing_connections_count) = if restricted {
         (0, 0)
     } else {
-        address_book::connection_count::<ClearNet>(&mut DummyAddressBook).await?
+        (0, 0)
+
+//        address_book::connection_count::<ClearNet>(&mut DummyAddressBook).await?
     };
 
     // TODO: This should be `cuprated`'s active network.
@@ -525,14 +569,14 @@ async fn get_info(
     let rpc_connections_count = if restricted { 0 } else { 0 };
 
     let start_time = if restricted { 0 } else { *START_INSTANT_UNIX };
-    let synchronized = blockchain_manager::synced(todo!()).await?;
+    let synchronized = true; //blockchain_manager::synced(todo!()).await?;
 
-    let target_height = blockchain_manager::target_height(todo!()).await?;
-    let target = blockchain_manager::target(todo!()).await?.as_secs();
+    let target_height = 0;// blockchain_manager::target_height(todo!()).await?;
+    let target = 0;//blockchain_manager::target(todo!()).await?.as_secs();
     let top_block_hash = Hex(c.top_hash);
 
-    let tx_count = blockchain::total_tx_count(&mut state.blockchain_read).await?;
-    let tx_pool_size = txpool::size(&mut state.txpool_read, !restricted).await?;
+    let tx_count = 0; //blockchain::total_tx_count(&mut state.blockchain_read).await?;
+    let tx_pool_size =0;// txpool::size(&mut state.txpool_read, !restricted).await?;
 
     #[expect(
         clippy::if_same_then_else,
@@ -550,7 +594,8 @@ async fn get_info(
     let (white_peerlist_size, grey_peerlist_size) = if restricted {
         (0, 0)
     } else {
-        address_book::peerlist_size::<ClearNet>(&mut DummyAddressBook).await?
+        (0,0)
+        //address_book::peerlist_size::<ClearNet>(&mut DummyAddressBook).await?
     };
 
     let wide_cumulative_difficulty = cumulative_difficulty.hex_prefix();
@@ -605,14 +650,17 @@ async fn hard_fork_info(
     mut state: CupratedRpcHandler,
     request: HardForkInfoRequest,
 ) -> Result<HardForkInfoResponse, Error> {
+
+    let hard_fork_infos =
+        blockchain_context::hard_fork_info(&mut state.blockchain_context).await?;
+
     let hard_fork = if request.version > 0 {
-        HardFork::from_version(request.version)?
+        request.version
     } else {
-        state.blockchain_context.blockchain_context().current_hf
+        state.blockchain_context.blockchain_context().current_hf as u8
     };
 
-    let hard_fork_info =
-        blockchain_context::hard_fork_info(&mut state.blockchain_context, hard_fork).await?;
+    let hard_fork_info = hard_fork_infos.get(hard_fork as usize -1).ok_or(anyhow!("Hardfork not found"))?.clone();
 
     Ok(HardForkInfoResponse {
         base: helper::access_response_base(false),
@@ -729,8 +777,8 @@ async fn banned(
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2880-L2932>
 async fn flush_transaction_pool(
     mut state: CupratedRpcHandler,
-    request: FlushTransactionPoolRequest,
-) -> Result<FlushTransactionPoolResponse, Error> {
+    request: FlushTxpoolRequest,
+) -> Result<FlushTxpoolResponse, Error> {
     let tx_hashes = request
         .txids
         .into_iter()
@@ -739,7 +787,7 @@ async fn flush_transaction_pool(
 
     txpool::flush(todo!(), tx_hashes).await?;
 
-    Ok(FlushTransactionPoolResponse { status: Status::Ok })
+    Ok(FlushTxpoolResponse { status: Status::Ok })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2934-L2979>
@@ -806,23 +854,20 @@ async fn get_version(
     _: GetVersionRequest,
 ) -> Result<GetVersionResponse, Error> {
     let current_height = helper::top_height(&mut state).await?.0;
-    let target_height = blockchain_manager::target_height(todo!()).await?;
+    let target_height = current_height;
 
-    let mut hard_forks = Vec::with_capacity(HardFork::COUNT);
+    let mut hard_forks =
 
     // FIXME: use an async iterator `collect()` version.
-    for hf in HardFork::VARIANTS {
-        if let Ok(hf) = blockchain_context::hard_fork_info(&mut state.blockchain_context, *hf).await
+       blockchain_context::hard_fork_info(&mut state.blockchain_context).await?.into_iter().map(|hf|
         {
-            let entry = HardForkEntry {
-                height: hf.earliest_height,
-                hf_version: HardFork::from_version(hf.version)
-                    .expect("blockchain context should not be responding with invalid hardforks"),
-            };
+             HardForkEntry {
+                 height: hf.earliest_height,
+                 hf_version: HardFork::from_version(hf.version)
+                     .expect("blockchain context should not be responding with invalid hardforks"),
+             }
+        }).collect();
 
-            hard_forks.push(entry);
-        }
-    }
 
     Ok(GetVersionResponse {
         base: helper::response_base(false),
@@ -922,8 +967,8 @@ async fn sync_info(
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3332-L3350>
 async fn get_transaction_pool_backlog(
     mut state: CupratedRpcHandler,
-    _: GetTransactionPoolBacklogRequest,
-) -> Result<GetTransactionPoolBacklogResponse, Error> {
+    _: GetTxpoolBacklogRequest,
+) -> Result<GetTxpoolBacklogResponse, Error> {
     let now = current_unix_timestamp();
 
     let backlog = txpool::backlog(&mut state.txpool_read)
@@ -936,7 +981,7 @@ async fn get_transaction_pool_backlog(
         })
         .collect();
 
-    Ok(GetTransactionPoolBacklogResponse {
+    Ok(GetTxpoolBacklogResponse {
         base: helper::response_base(false),
         backlog,
     })

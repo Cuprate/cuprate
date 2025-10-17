@@ -110,7 +110,7 @@ fn map_request(
     /* SOMEDAY: pre-request handling, run some code for each request? */
 
     match request {
-        R::BlockCompleteEntries(block_hashes) => block_complete_entries(env, block_hashes),
+        R::BlockCompleteEntries { hashes, get_indices } => block_complete_entries(env, hashes, get_indices),
         R::BlockCompleteEntriesByHeight(heights) => block_complete_entries_by_height(env, heights),
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
         R::BlockHash(block, chain) => block_hash(env, block, chain),
@@ -226,19 +226,19 @@ macro_rules! get_tables {
 // amount of parallelism.
 
 /// [`BlockchainReadRequest::BlockCompleteEntries`].
-fn block_complete_entries(env: &ConcreteEnv, block_hashes: Vec<BlockHash>) -> ResponseResult {
+fn block_complete_entries(env: &ConcreteEnv, block_hashes: Vec<BlockHash>, get_output_indices: bool) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
     let tx_ro = thread_local(env);
     let tables = thread_local(env);
 
-    let (missing_hashes, blocks) = block_hashes
+    let (missing_hashes, (blocks, output_indices)) = block_hashes
         .into_par_iter()
         .map(|block_hash| {
             let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
             let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
 
-            match get_block_complete_entry(&block_hash, tables) {
+            match get_block_complete_entry(&block_hash, get_output_indices, tables) {
                 Err(RuntimeError::KeyNotFound) => Ok(Either::Left(block_hash)),
                 res => res.map(Either::Right),
             }
@@ -252,6 +252,7 @@ fn block_complete_entries(env: &ConcreteEnv, block_hashes: Vec<BlockHash>) -> Re
 
     Ok(BlockchainResponse::BlockCompleteEntries {
         blocks,
+        output_indices,
         missing_hashes,
         blockchain_height,
     })
@@ -272,7 +273,7 @@ fn block_complete_entries_by_height(
         .map(|height| {
             let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
             let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
-            get_block_complete_entry_from_height(&height, tables)
+            Ok(get_block_complete_entry_from_height(&height, false, tables)?.0)
         })
         .collect::<DbResult<_>>()?;
 

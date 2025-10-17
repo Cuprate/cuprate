@@ -138,7 +138,7 @@ pub async fn next_chain_entry(
         .await?
         .call(BlockchainReadRequest::NextChainEntry(
             block_hashes,
-            u64_to_usize(start_height),
+            500,
         ))
         .await?
     else {
@@ -502,22 +502,27 @@ pub async fn total_rct_outputs(blockchain_read: &mut BlockchainReadHandle) -> Re
 /// [`BlockchainReadRequest::BlockCompleteEntries`].
 pub async fn block_complete_entries(
     blockchain_read: &mut BlockchainReadHandle,
-    block_hashes: Vec<[u8; 32]>,
-) -> Result<(Vec<BlockCompleteEntry>, Vec<[u8; 32]>, usize), Error> {
+    hashes: Vec<[u8; 32]>,
+    get_indices: bool
+) -> Result<(Vec<BlockCompleteEntry>, Vec<[u8; 32]>, usize, Vec<Vec<Vec<u64>>>), Error> {
     let BlockchainResponse::BlockCompleteEntries {
         blocks,
+        output_indices,
         missing_hashes,
         blockchain_height,
     } = blockchain_read
         .ready()
         .await?
-        .call(BlockchainReadRequest::BlockCompleteEntries(block_hashes))
+        .call(BlockchainReadRequest::BlockCompleteEntries {
+            hashes,
+            get_indices,
+        })
         .await?
     else {
         unreachable!();
     };
 
-    Ok((blocks, missing_hashes, blockchain_height))
+    Ok((blocks, missing_hashes, blockchain_height, output_indices))
 }
 
 /// [`BlockchainReadRequest::BlockCompleteEntriesByHeight`].

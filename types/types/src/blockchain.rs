@@ -35,7 +35,10 @@ pub enum BlockchainReadRequest {
     /// Request [`BlockCompleteEntry`]s.
     ///
     /// The input is the block hashes.
-    BlockCompleteEntries(Vec<[u8; 32]>),
+    BlockCompleteEntries{
+        hashes: Vec<[u8; 32]>,
+        get_indices: bool
+    },
 
     /// Request [`BlockCompleteEntry`]s.
     ///
@@ -256,6 +259,8 @@ pub enum BlockchainResponse {
     BlockCompleteEntries {
         /// The [`BlockCompleteEntry`]s that we had.
         blocks: Vec<BlockCompleteEntry>,
+        /// The output indices of all transaction outputs across all blocks.
+        output_indices: Vec<Vec<Vec<u64>>>,
         /// The hashes of blocks that were requested, but we don't have.
         missing_hashes: Vec<[u8; 32]>,
         /// Our blockchain height.

@@ -442,7 +442,7 @@ define_request_and_response! {
     "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 2096..=2116,
 
-    FlushTransactionPool (restricted),
+    FlushTxpool (restricted),
 
     Request {
         txids: Vec<Hex<32>> = default::<Vec<Hex<32>>>(), "default",
@@ -582,7 +582,7 @@ define_request_and_response! {
     get_txpool_backlog,
     "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1637..=1664,
-    GetTransactionPoolBacklog (empty),
+    GetTxpoolBacklog (empty),
     Request {},
 
     ResponseBase {
@@ -726,6 +726,152 @@ define_request_and_response! {
     }
 }
 
+define_request_and_response! {
+    UNDOCUMENTED_METHOD,
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
+    core_rpc_server_commands_defs.h => 2522..=2556,
+
+    RpcAccessInfo,
+
+    Request {
+        client: String,
+    },
+
+    AccessResponseBase {
+        hashing_blob: String,
+        seed_height: u64,
+        seed_hash: String,
+        next_seed_hash: String,
+        cookie: u32,
+        diff: u64,
+        credits_per_hash_found: u64,
+        height: u64,
+    }
+}
+
+define_request_and_response! {
+    UNDOCUMENTED_METHOD,
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
+    core_rpc_server_commands_defs.h => 2558..=2580,
+
+    RpcAccessSubmitNonce,
+
+    Request {
+        client: String,
+        nonce: u32,
+        cookie: u32,
+    },
+
+    AccessResponseBase {}
+}
+
+define_request_and_response! {
+    UNDOCUMENTED_METHOD,
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
+    core_rpc_server_commands_defs.h => 2582..=2604,
+
+    RpcAccessPay,
+
+    Request {
+        client: String,
+        paying_for: String,
+        payment: u64,
+    },
+
+    AccessResponseBase {}
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
+pub struct RpcAccessTrackingEntry {
+    rpc: String,
+    count: u64,
+    time: u64,
+    credits: u64
+}
+
+cuprate_epee_encoding::epee_object!(
+    RpcAccessTrackingEntry,
+    rpc: String,
+    count: u64,
+    time: u64,
+    credits: u64,
+);
+
+define_request_and_response! {
+    UNDOCUMENTED_METHOD,
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
+    core_rpc_server_commands_defs.h => 2606..=2644,
+
+    RpcAccessTracking (restricted),
+
+    Request {
+        clear: bool,
+    },
+
+    ResponseBase {
+        data: Vec<RpcAccessTrackingEntry>,
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
+pub struct RpcAccessDataEntry {
+    client: String,
+    balance: u64,
+    last_update_time: u64,
+    credits_total: u64,
+    credits_used: u64,
+    nonces_good: u64,
+    nonces_stale: u64,
+    nonces_bad: u64,
+    nonces_dupe: u64,
+}
+
+cuprate_epee_encoding::epee_object!(
+    RpcAccessDataEntry,
+    client: String,
+    balance: u64,
+    last_update_time: u64,
+    credits_total: u64,
+    credits_used: u64,
+    nonces_good: u64,
+    nonces_stale: u64,
+    nonces_bad: u64,
+    nonces_dupe: u64,
+);
+
+
+define_request_and_response! {
+    UNDOCUMENTED_METHOD,
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
+    core_rpc_server_commands_defs.h => 2646..=2692,
+
+    RpcAccessData (restricted),
+
+    Request { },
+
+    ResponseBase {
+        entries: Vec<RpcAccessDataEntry>,
+        hashrate: u32,
+    }
+}
+
+define_request_and_response! {
+    UNDOCUMENTED_METHOD,
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
+    core_rpc_server_commands_defs.h => 2695..=2720,
+
+    RpcAccessAccount (restricted),
+
+    Request {
+        client: String,
+        delta_balance: i64 = default::<i64>(), "default",
+    },
+
+    ResponseBase {
+        credits: u64,
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- Request
 /// JSON-RPC requests.
 ///
@@ -741,15 +887,28 @@ define_request_and_response! {
     serde(rename_all = "snake_case", tag = "method", content = "params")
 )]
 pub enum JsonRpcRequest {
-    GetBlockTemplate(GetBlockTemplateRequest),
+    #[serde(alias = "getblockcount")]
     GetBlockCount(GetBlockCountRequest),
+    #[serde(alias = "on_getblockhash")]
     OnGetBlockHash(OnGetBlockHashRequest),
+    #[serde(alias = "getblocktemplate")]
+    GetBlockTemplate(GetBlockTemplateRequest),
+    GetMinerData(GetMinerDataRequest),
+    CalcPow(CalcPowRequest),
+    AddAuxPow(AddAuxPowRequest),
+    #[serde(alias = "submitblock")]
     SubmitBlock(SubmitBlockRequest),
-    GenerateBlocks(GenerateBlocksRequest),
+    #[serde(alias = "generateblocks")]
+    GenerateBlocks(GenerateBlocksRequest), // TODO: this only has 1 endpoint: generateblocks no generate_blocks
+    #[serde(alias = "getlastblockheader")]
     GetLastBlockHeader(GetLastBlockHeaderRequest),
+    #[serde(alias = "getblockheaderbyhash")]
     GetBlockHeaderByHash(GetBlockHeaderByHashRequest),
+    #[serde(alias = "getblockheaderbyheight")]
     GetBlockHeaderByHeight(GetBlockHeaderByHeightRequest),
+    #[serde(alias = "getblockheadersrange")]
     GetBlockHeadersRange(GetBlockHeadersRangeRequest),
+    #[serde(alias = "getblock")]
     GetBlock(GetBlockRequest),
     GetConnections(GetConnectionsRequest),
     GetInfo(GetInfoRequest),
@@ -757,21 +916,25 @@ pub enum JsonRpcRequest {
     SetBans(SetBansRequest),
     GetBans(GetBansRequest),
     Banned(BannedRequest),
-    FlushTransactionPool(FlushTransactionPoolRequest),
+    FlushTxpool(FlushTxpoolRequest),
     GetOutputHistogram(GetOutputHistogramRequest),
-    GetCoinbaseTxSum(GetCoinbaseTxSumRequest),
     GetVersion(GetVersionRequest),
+    GetCoinbaseTxSum(GetCoinbaseTxSumRequest),
     GetFeeEstimate(GetFeeEstimateRequest),
     GetAlternateChains(GetAlternateChainsRequest),
     RelayTx(RelayTxRequest),
     SyncInfo(SyncInfoRequest),
-    GetTransactionPoolBacklog(GetTransactionPoolBacklogRequest),
-    GetMinerData(GetMinerDataRequest),
+    GetTxpoolBacklog(GetTxpoolBacklogRequest),
+    GetOutputDistribution(GetOutputDistributionRequest),
     PruneBlockchain(PruneBlockchainRequest),
-    CalcPow(CalcPowRequest),
     FlushCache(FlushCacheRequest),
-    AddAuxPow(AddAuxPowRequest),
     GetTxIdsLoose(GetTxIdsLooseRequest),
+    RpcAccessInfo(RpcAccessInfoRequest),
+    RpcAccessSubmitNonce(RpcAccessSubmitNonceRequest),
+    RpcAccessPay(RpcAccessPayRequest),
+    RpcAccessTracking(RpcAccessTrackingRequest),
+    RpcAccessData(RpcAccessDataRequest),
+    RpcAccessAccount(RpcAccessAccountRequest),
 }
 
 impl RpcCallValue for JsonRpcRequest {
@@ -791,7 +954,7 @@ impl RpcCallValue for JsonRpcRequest {
             Self::GetOutputHistogram(x) => x.is_restricted(),
             Self::GetVersion(x) => x.is_restricted(),
             Self::GetFeeEstimate(x) => x.is_restricted(),
-            Self::GetTransactionPoolBacklog(x) => x.is_restricted(),
+            Self::GetTxpoolBacklog(x) => x.is_restricted(),
             Self::GetMinerData(x) => x.is_restricted(),
             Self::AddAuxPow(x) => x.is_restricted(),
             Self::GetTxIdsLoose(x) => x.is_restricted(),
@@ -800,7 +963,7 @@ impl RpcCallValue for JsonRpcRequest {
             Self::SetBans(x) => x.is_restricted(),
             Self::GetBans(x) => x.is_restricted(),
             Self::Banned(x) => x.is_restricted(),
-            Self::FlushTransactionPool(x) => x.is_restricted(),
+            Self::FlushTxpool(x) => x.is_restricted(),
             Self::GetCoinbaseTxSum(x) => x.is_restricted(),
             Self::GetAlternateChains(x) => x.is_restricted(),
             Self::RelayTx(x) => x.is_restricted(),
@@ -808,6 +971,13 @@ impl RpcCallValue for JsonRpcRequest {
             Self::PruneBlockchain(x) => x.is_restricted(),
             Self::CalcPow(x) => x.is_restricted(),
             Self::FlushCache(x) => x.is_restricted(),
+            Self::GetOutputDistribution(x) => x.is_restricted(),
+            Self::RpcAccessInfo(x) => x.is_restricted(),
+            Self::RpcAccessSubmitNonce(x) => x.is_restricted(),
+            Self::RpcAccessPay(x) => x.is_restricted(),
+            Self::RpcAccessTracking(x) => x.is_restricted(),
+            Self::RpcAccessData(x) => x.is_restricted(),
+            Self::RpcAccessAccount(x) => x.is_restricted(),
         }
     }
 
@@ -827,7 +997,7 @@ impl RpcCallValue for JsonRpcRequest {
             Self::GetOutputHistogram(x) => x.is_empty(),
             Self::GetVersion(x) => x.is_empty(),
             Self::GetFeeEstimate(x) => x.is_empty(),
-            Self::GetTransactionPoolBacklog(x) => x.is_empty(),
+            Self::GetTxpoolBacklog(x) => x.is_empty(),
             Self::GetMinerData(x) => x.is_empty(),
             Self::AddAuxPow(x) => x.is_empty(),
             Self::GetTxIdsLoose(x) => x.is_empty(),
@@ -836,7 +1006,7 @@ impl RpcCallValue for JsonRpcRequest {
             Self::SetBans(x) => x.is_empty(),
             Self::GetBans(x) => x.is_empty(),
             Self::Banned(x) => x.is_empty(),
-            Self::FlushTransactionPool(x) => x.is_empty(),
+            Self::FlushTxpool(x) => x.is_empty(),
             Self::GetCoinbaseTxSum(x) => x.is_empty(),
             Self::GetAlternateChains(x) => x.is_empty(),
             Self::RelayTx(x) => x.is_empty(),
@@ -844,6 +1014,13 @@ impl RpcCallValue for JsonRpcRequest {
             Self::PruneBlockchain(x) => x.is_empty(),
             Self::CalcPow(x) => x.is_empty(),
             Self::FlushCache(x) => x.is_empty(),
+            Self::GetOutputDistribution(x) => x.is_empty(),
+            Self::RpcAccessInfo(x) => x.is_empty(),
+            Self::RpcAccessSubmitNonce(x) => x.is_empty(),
+            Self::RpcAccessPay(x) => x.is_empty(),
+            Self::RpcAccessTracking(x) => x.is_empty(),
+            Self::RpcAccessData(x) => x.is_empty(),
+            Self::RpcAccessAccount(x) => x.is_empty(),
         }
     }
 }
@@ -892,7 +1069,7 @@ pub enum JsonRpcResponse {
     SetBans(SetBansResponse),
     GetBans(GetBansResponse),
     Banned(BannedResponse),
-    FlushTransactionPool(FlushTransactionPoolResponse),
+    FlushTxpool(FlushTxpoolResponse),
     GetOutputHistogram(GetOutputHistogramResponse),
     GetCoinbaseTxSum(GetCoinbaseTxSumResponse),
     GetVersion(GetVersionResponse),
@@ -900,13 +1077,20 @@ pub enum JsonRpcResponse {
     GetAlternateChains(GetAlternateChainsResponse),
     RelayTx(RelayTxResponse),
     SyncInfo(SyncInfoResponse),
-    GetTransactionPoolBacklog(GetTransactionPoolBacklogResponse),
+    GetTxpoolBacklog(GetTxpoolBacklogResponse),
+    GetOutputDistribution(GetOutputDistributionResponse),
     GetMinerData(GetMinerDataResponse),
     PruneBlockchain(PruneBlockchainResponse),
     CalcPow(CalcPowResponse),
     FlushCache(FlushCacheResponse),
     AddAuxPow(AddAuxPowResponse),
     GetTxIdsLoose(GetTxIdsLooseResponse),
+    RpcAccessInfo(RpcAccessInfoResponse),
+    RpcAccessSubmitNonce(RpcAccessSubmitNonceResponse),
+    RpcAccessPay(RpcAccessPayResponse),
+    RpcAccessTracking(RpcAccessTrackingResponse),
+    RpcAccessData(RpcAccessDataResponse),
+    RpcAccessAccount(RpcAccessAccountResponse),
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
@@ -1548,7 +1732,7 @@ mod test {
     fn flush_transaction_pool_request() {
         test_json_request(
             json::FLUSH_TRANSACTION_POOL_REQUEST,
-            FlushTransactionPoolRequest {
+            FlushTxpoolRequest {
                 txids: vec![Hex(hex!(
                     "dc16fa8eaffe1484ca9014ea050e13131d3acf23b419f33bb4cc0b32b6c49308"
                 ))],
@@ -1560,7 +1744,7 @@ mod test {
     fn flush_transaction_pool_response() {
         test_json_response(
             json::FLUSH_TRANSACTION_POOL_RESPONSE,
-            FlushTransactionPoolResponse { status: Status::Ok },
+            FlushTxpoolResponse { status: Status::Ok },
         );
     }
 

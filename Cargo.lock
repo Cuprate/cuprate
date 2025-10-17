@@ -409,6 +409,7 @@ dependencies = [
  "tower",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]
@@ -428,6 +429,7 @@ dependencies = [
  "sync_wrapper",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]
@@ -1162,6 +1164,7 @@ dependencies = [
  "monero-oxide",
  "randomx-rs",
  "rayon",
+ "strum",
  "thiserror 2.0.16",
  "thread_local",
  "tokio",
@@ -1608,7 +1611,7 @@ dependencies = [
 
 [[package]]
 name = "cuprated"
-version = "0.0.6"
+version = "0.0.7"
 dependencies = [
  "anyhow",
  "arti-client",
@@ -6538,6 +6541,7 @@ dependencies = [
  "pin-project-lite",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]

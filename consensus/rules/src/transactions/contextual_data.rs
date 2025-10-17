@@ -21,7 +21,7 @@ pub fn get_absolute_offsets(relative_offsets: &[u64]) -> Result<Vec<u64>, Transa
     offsets.push(relative_offsets[0]);
 
     for i in 1..relative_offsets.len() {
-        offsets.push(offsets[i - 1] + relative_offsets[i]);
+        offsets.push(offsets[i - 1].wrapping_add(relative_offsets[i]));
     }
     Ok(offsets)
 }

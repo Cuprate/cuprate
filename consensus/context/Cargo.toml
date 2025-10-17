@@ -10,6 +10,7 @@ cuprate-consensus-rules =  { workspace = true, features = ["proptest"]}
 cuprate-helper = { workspace = true, default-features = false, features = ["std", "cast", "num", "asynch"] }
 cuprate-types = { workspace = true, default-features = false, features = ["blockchain"] }
 
+strum = { workspace = true }
 arc-swap = { workspace = true }
 futures = { workspace = true, features = ["std", "async-await"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"]}

@@ -226,8 +226,8 @@ pub enum BlockChainContextRequest {
         numb_blocks: usize,
     },
 
-    /// Get information on a certain hardfork.
-    HardForkInfo(HardFork),
+    /// Get information on all hardfork.
+    HardForkInfos,
 
     /// Get the current fee estimate.
     FeeEstimate {
@@ -336,8 +336,8 @@ pub enum BlockChainContextResponse {
     /// A list of difficulties.
     BatchDifficulties(Vec<u128>),
 
-    /// Response to [`BlockChainContextRequest::HardForkInfo`]
-    HardForkInfo(HardForkInfo),
+    /// Response to [`BlockChainContextRequest::HardForkInfos`]
+    HardForkInfos(Vec<HardForkInfo>),
 
     /// Response to [`BlockChainContextRequest::FeeEstimate`]
     FeeEstimate(FeeEstimate),
