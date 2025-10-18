@@ -16,6 +16,7 @@ use cuprate_helper::{
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
     tx::tx_fee,
 };
+use cuprate_linear_tape::LinearTape;
 use cuprate_types::{
     AltBlockInformation, BlockCompleteEntry, ChainId, ExtendedBlockHeader, HardFork,
     TransactionBlobs, VerifiedBlockInformation, VerifiedTransactionInformation,
@@ -32,6 +33,7 @@ use crate::{
     tables::{BlockHeights, BlockInfos, Tables, TablesIter, TablesMut},
     types::{BlockHash, BlockHeight, BlockInfo},
 };
+use crate::types::RctOutput;
 
 //---------------------------------------------------------------------------------------------------- `add_block_*`
 /// Add a [`VerifiedBlockInformation`] to the database.
@@ -46,7 +48,7 @@ use crate::{
 /// - `block.height > u32::MAX` (not normally possible)
 /// - `block.height` is != [`chain_height`]
 // no inline, too big.
-pub fn add_block(block: &VerifiedBlockInformation, tables: &mut impl TablesMut) -> DbResult<()> {
+pub fn add_block(block: &VerifiedBlockInformation, tables: &mut impl TablesMut, rct_tape: &mut LinearTape<RctOutput>) -> DbResult<()> {
     //------------------------------------------------------ Check preconditions first
 
     // Cast height to `u32` for storage (handled at top of function).
@@ -77,21 +79,33 @@ pub fn add_block(block: &VerifiedBlockInformation, tables: &mut impl TablesMut) 
     }
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
+    let mut rct_outputs = Vec::with_capacity(block.txs.len() * 2);
+    let mut numb_rct_outs = rct_tape.len() as u64;
     // Add the miner transaction first.
     let mining_tx_index = {
         let tx = &block.block.miner_transaction;
-        add_tx(tx, &tx.serialize(), &tx.hash(), &chain_height, tables)?
+        add_tx(tx, &tx.serialize(), &tx.hash(), &chain_height, &mut numb_rct_outs, tables, &mut rct_outputs)?
     };
 
     for tx in &block.txs {
-        add_tx(&tx.tx, &tx.tx_blob, &tx.tx_hash, &chain_height, tables)?;
+        add_tx(&tx.tx, &tx.tx_blob, &tx.tx_hash, &chain_height, &mut numb_rct_outs, tables, &mut rct_outputs)?;
     }
 
+    if !rct_outputs.is_empty() {
+        let mut appender = rct_tape.appender();
+        if appender.push_entries(&rct_outputs).is_err() {
+            appender.resize(20 * 1024 * 1024 * 1024).unwrap();
+            appender.push_entries(&rct_outputs).unwrap()
+        }
+        appender.flush().unwrap();
+
+        drop(appender);
+    }
     //------------------------------------------------------ Block Info
 
     // INVARIANT: must be below the above transaction loop since this
     // RCT output count needs account for _this_ block's outputs.
-    let cumulative_rct_outs = get_rct_num_outputs(tables.rct_outputs())?;
+    let cumulative_rct_outs = rct_tape.len() as u64;
 
     // `saturating_add` is used here as cumulative generated coins overflows due to tail emission.
     let cumulative_generated_coins =
@@ -152,6 +166,7 @@ pub fn add_block(block: &VerifiedBlockInformation, tables: &mut impl TablesMut) 
 pub fn pop_block(
     move_to_alt_chain: Option<ChainId>,
     tables: &mut impl TablesMut,
+    rct_tape: &mut LinearTape<RctOutput>,
 ) -> DbResult<(BlockHeight, BlockHash, Block)> {
     //------------------------------------------------------ Block Info
     // Remove block data from tables.
@@ -175,12 +190,14 @@ pub fn pop_block(
     };
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
-    remove_tx(&block.miner_transaction.hash(), tables)?;
+    let mut rct_outputs = 0;
+    remove_tx(&block.miner_transaction.hash(), &mut rct_outputs, tables)?;
 
     let remove_tx_iter = block.transactions.iter().map(|tx_hash| {
-        let (_, tx) = remove_tx(tx_hash, tables)?;
+        let (_, tx) = remove_tx(tx_hash, &mut rct_outputs, tables)?;
         Ok::<_, RuntimeError>(tx)
     });
+    
 
     if let Some(chain_id) = move_to_alt_chain {
         let txs = remove_tx_iter
@@ -220,6 +237,10 @@ pub fn pop_block(
             drop(result?);
         }
     }
+
+    let mut popper = rct_tape.popper();
+    popper.pop_entries(rct_outputs as usize);
+    popper.flush()?;
 
     Ok((block_height, block_info.block_hash, block))
 }

@@ -152,6 +152,7 @@ cuprate-address-book      = { path = "p2p/address-book",          default-featur
 cuprate-blockchain        = { path = "storage/blockchain",        default-features = false }
 cuprate-database          = { path = "storage/database",          default-features = false }
 cuprate-database-service  = { path = "storage/service",           default-features = false }
+cuprate-linear-tape       = { path = "storage/linear-tape",       default-features = false  }
 cuprate-txpool            = { path = "storage/txpool",            default-features = false }
 cuprate-pruning           = { path = "pruning",                   default-features = false }
 cuprate-test-utils        = { path = "test-utils",                default-features = false }

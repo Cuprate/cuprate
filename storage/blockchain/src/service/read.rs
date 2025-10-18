@@ -9,23 +9,7 @@
 )]
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    cmp::min,
-    collections::{HashMap, HashSet},
-    ops::Range,
-    sync::Arc,
-};
-
-use indexmap::{IndexMap, IndexSet};
-use rayon::{
-    iter::{Either, IntoParallelIterator, ParallelIterator},
-    prelude::*,
-    ThreadPool,
-};
-use thread_local::ThreadLocal;
-
-use cuprate_database::{ConcreteEnv, DatabaseRo, DbResult, Env, EnvInner, RuntimeError};
-use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
+use cuprate_database::{DatabaseRo, DbResult, Env, EnvInner, RuntimeError};
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
@@ -33,6 +17,20 @@ use cuprate_types::{
     rpc::OutputHistogramInput,
     Chain, ChainId, ExtendedBlockHeader, OutputDistributionInput, TxsInBlock,
 };
+use indexmap::{IndexMap, IndexSet};
+use rayon::{
+    iter::{Either, IntoParallelIterator, ParallelIterator},
+    prelude::*,
+    ThreadPool,
+};
+use std::ops::Deref;
+use std::{
+    cmp::min,
+    collections::{HashMap, HashSet},
+    ops::Range,
+    sync::Arc,
+};
+use thread_local::ThreadLocal;
 
 use crate::{
     ops::{
@@ -51,44 +49,16 @@ use crate::{
     },
     service::{
         free::{compact_history_genesis_not_included, compact_history_index_to_height_offset},
-        types::{BlockchainReadHandle, ResponseResult},
+        types:: ResponseResult,
     },
     tables::{
-        AltBlockHeights, BlockHeights, BlockInfos, OpenTables, RctOutputs, Tables, TablesIter,
-        TxIds, TxOutputs,
+        AltBlockHeights, BlockHeights, BlockInfos, OpenTables, Tables, TablesIter, TxIds, TxOutputs,
     },
     types::{
         AltBlockHeight, Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId,
     },
+    BlockchainDatabase,
 };
-
-//---------------------------------------------------------------------------------------------------- init_read_service
-/// Initialize the [`BlockchainReadHandle`] thread-pool backed by [`rayon`].
-///
-/// This spawns `threads` amount of reader threads
-/// attached to `env` and returns a handle to the pool.
-///
-/// Should be called _once_ per actual database. Calling this function more than once will create
-/// multiple unnecessary rayon thread-pools.
-#[cold]
-#[inline(never)] // Only called once.
-pub fn init_read_service(env: Arc<ConcreteEnv>, threads: ReaderThreads) -> BlockchainReadHandle {
-    init_read_service_with_pool(env, init_thread_pool(threads))
-}
-
-/// Initialize the blockchain database read service, with a specific rayon thread-pool instead of
-/// creating a new one.
-///
-/// Should be called _once_ per actual database, although nothing bad will happen, cloning the [`BlockchainReadHandle`]
-/// is the correct way to get multiple handles to the database.
-#[cold]
-#[inline(never)] // Only called once.
-pub fn init_read_service_with_pool(
-    env: Arc<ConcreteEnv>,
-    pool: Arc<ThreadPool>,
-) -> BlockchainReadHandle {
-    DatabaseReadService::new(env, pool, map_request)
-}
 
 //---------------------------------------------------------------------------------------------------- Request Mapping
 // This function maps [`Request`]s to function calls
@@ -101,8 +71,8 @@ pub fn init_read_service_with_pool(
 /// 1. `Request` is mapped to a handler function
 /// 2. Handler function is called
 /// 3. [`BlockchainResponse`] is returned
-fn map_request(
-    env: &ConcreteEnv,              // Access to the database
+pub fn map_request<E: Env>(
+    env: &BlockchainDatabase<E>,    // Access to the database
     request: BlockchainReadRequest, // The request we must fulfill
 ) -> ResponseResult {
     use BlockchainReadRequest as R;
@@ -226,11 +196,14 @@ macro_rules! get_tables {
 // amount of parallelism.
 
 /// [`BlockchainReadRequest::BlockCompleteEntries`].
-fn block_complete_entries(env: &ConcreteEnv, block_hashes: Vec<BlockHash>) -> ResponseResult {
+fn block_complete_entries<E: Env>(
+    env: &BlockchainDatabase<E>,
+    block_hashes: Vec<BlockHash>,
+) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
-    let env_inner = env.env_inner();
-    let tx_ro = thread_local(env);
-    let tables = thread_local(env);
+    let env_inner = env.dynamic_tables.env_inner();
+    let tx_ro = thread_local(&env.dynamic_tables);
+    let tables = thread_local(&env.dynamic_tables);
 
     let (missing_hashes, blocks) = block_hashes
         .into_par_iter()
@@ -258,14 +231,14 @@ fn block_complete_entries(env: &ConcreteEnv, block_hashes: Vec<BlockHash>) -> Re
 }
 
 /// [`BlockchainReadRequest::BlockCompleteEntriesByHeight`].
-fn block_complete_entries_by_height(
-    env: &ConcreteEnv,
+fn block_complete_entries_by_height<E: Env>(
+    env: &BlockchainDatabase<E>,
     block_heights: Vec<BlockHeight>,
 ) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
-    let env_inner = env.env_inner();
-    let tx_ro = thread_local(env);
-    let tables = thread_local(env);
+    let env_inner = env.dynamic_tables.env_inner();
+    let tx_ro = thread_local(&env.dynamic_tables);
+    let tables = thread_local(&env.dynamic_tables);
 
     let blocks = block_heights
         .into_par_iter()
@@ -284,9 +257,12 @@ fn block_complete_entries_by_height(
 
 /// [`BlockchainReadRequest::BlockExtendedHeader`].
 #[inline]
-fn block_extended_header(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
+fn block_extended_header<E: Env>(
+    env: &BlockchainDatabase<E>,
+    block_height: BlockHeight,
+) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
-    let env_inner = env.env_inner();
+    let env_inner = env.dynamic_tables.env_inner();
     let tx_ro = env_inner.tx_ro()?;
     let tables = env_inner.open_tables(&tx_ro)?;
 
@@ -297,9 +273,13 @@ fn block_extended_header(env: &ConcreteEnv, block_height: BlockHeight) -> Respon
 
 /// [`BlockchainReadRequest::BlockHash`].
 #[inline]
-fn block_hash(env: &ConcreteEnv, block_height: BlockHeight, chain: Chain) -> ResponseResult {
+fn block_hash<E: Env>(
+    env: &BlockchainDatabase<E>,
+    block_height: BlockHeight,
+    chain: Chain,
+) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
-    let env_inner = env.env_inner();
+    let env_inner = env.dynamic_tables.env_inner();
     let tx_ro = env_inner.tx_ro()?;
     let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
 
@@ -315,10 +295,14 @@ fn block_hash(env: &ConcreteEnv, block_height: BlockHeight, chain: Chain) -> Res
 
 /// [`BlockchainReadRequest::BlockHashInRange`].
 #[inline]
-fn block_hash_in_range(env: &ConcreteEnv, range: Range<usize>, chain: Chain) -> ResponseResult {
+fn block_hash_in_range<E: Env>(
+    env: &BlockchainDatabase<E>,
+    range: Range<usize>,
+    chain: Chain,
+) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
-    let env_inner = env.env_inner();
-    let tx_ro = thread_local(env);
+    let env_inner = env.dynamic_tables.env_inner();
+    let tx_ro = thread_local(&env.dynamic_tables);
 
     let block_hash = range
         .into_par_iter()
@@ -342,9 +326,9 @@ fn block_hash_in_range(env: &ConcreteEnv, range: Range<usize>, chain: Chain) -> 
 }
 
 /// [`BlockchainReadRequest::FindBlock`]
-fn find_block(env: &ConcreteEnv, block_hash: BlockHash) -> ResponseResult {
+fn find_block<E: Env>(env: &BlockchainDatabase<E>, block_hash: BlockHash) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
-    let env_inner = env.env_inner();
+    let env_inner = env.dynamic_tables.env_inner();
     let tx_ro = env_inner.tx_ro()?;
 
     let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
@@ -370,9 +354,12 @@ fn find_block(env: &ConcreteEnv, block_hash: BlockHash) -> ResponseResult {
 
 /// [`BlockchainReadRequest::FilterUnknownHashes`].
 #[inline]
-fn filter_unknown_hashes(env: &ConcreteEnv, mut hashes: HashSet<BlockHash>) -> ResponseResult {
+fn filter_unknown_hashes<E: Env>(
+    env: &BlockchainDatabase<E>,
+    mut hashes: HashSet<BlockHash>,
+) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
-    let env_inner = env.env_inner();
+    let env_inner = env.dynamic_tables.env_inner();
     let tx_ro = env_inner.tx_ro()?;
 
     let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
@@ -398,15 +385,15 @@ fn filter_unknown_hashes(env: &ConcreteEnv, mut hashes: HashSet<BlockHash>) -> R
 
 /// [`BlockchainReadRequest::BlockExtendedHeaderInRange`].
 #[inline]
-fn block_extended_header_in_range(
-    env: &ConcreteEnv,
+fn block_extended_header_in_range<E: Env>(
+    env: &BlockchainDatabase<E>,
     range: Range<BlockHeight>,
     chain: Chain,
 ) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
-    let env_inner = env.env_inner();
-    let tx_ro = thread_local(env);
-    let tables = thread_local(env);
+    let env_inner = env.dynamic_tables.env_inner();
+    let tx_ro = thread_local(&env.dynamic_tables);
+    let tables = thread_local(&env.dynamic_tables);
 
     // Collect results using `rayon`.
     let vec = match chain {
@@ -456,9 +443,9 @@ fn block_extended_header_in_range(
 
 /// [`BlockchainReadRequest::ChainHeight`].
 #[inline]
-fn chain_height(env: &ConcreteEnv) -> ResponseResult {
+fn chain_height<E: Env>(env: &BlockchainDatabase<E>) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
-    let env_inner = env.env_inner();
+    let env_inner = env.dynamic_tables.env_inner();
     let tx_ro = env_inner.tx_ro()?;
     let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
     let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
@@ -472,9 +459,9 @@ fn chain_height(env: &ConcreteEnv) -> ResponseResult {
 
 /// [`BlockchainReadRequest::GeneratedCoins`].
 #[inline]
-fn generated_coins(env: &ConcreteEnv, height: usize) -> ResponseResult {
+fn generated_coins<E: Env>(env: &BlockchainDatabase<E>, height: usize) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
-    let env_inner = env.env_inner();
+    let env_inner = env.dynamic_tables.env_inner();
     let tx_ro = env_inner.tx_ro()?;
     let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
 
@@ -485,15 +472,15 @@ fn generated_coins(env: &ConcreteEnv, height: usize) -> ResponseResult {
 
 /// [`BlockchainReadRequest::Outputs`].
 #[inline]
-fn outputs(
-    env: &ConcreteEnv,
+fn outputs<E: Env>(
+    env: &BlockchainDatabase<E>,
     outputs: IndexMap<Amount, IndexSet<AmountIndex>>,
     get_txid: bool,
 ) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
-    let env_inner = env.env_inner();
-    let tx_ro = thread_local(env);
-    let tables = thread_local(env);
+    let env_inner = env.dynamic_tables.env_inner();
+    let tx_ro = thread_local(&env.dynamic_tables);
+    let tables = thread_local(&env.dynamic_tables);
 
     let amount_of_outs = outputs
         .par_iter()
@@ -502,7 +489,7 @@ fn outputs(
             let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
 
             if amount == 0 {
-                Ok((amount, tables.rct_outputs().len()?))
+                Ok((amount, env.rct_outputs.len() as u64))
             } else {
                 // v1 transactions.
                 match tables.num_outputs().get(&amount) {
@@ -527,7 +514,7 @@ fn outputs(
             amount_index,
         };
 
-        let output_on_chain = match id_to_output_on_chain(&id, get_txid, tables) {
+        let output_on_chain = match id_to_output_on_chain(&id, get_txid, tables, &env.rct_outputs) {
             Ok(output) => output,
             Err(RuntimeError::KeyNotFound) => return Ok(Either::Right(amount_index)),
             Err(e) => return Err(e),
@@ -556,8 +543,8 @@ fn outputs(
 
 /// [`BlockchainReadRequest::OutputsVec`].
 #[inline]
-fn outputs_vec(
-    env: &ConcreteEnv,
+fn outputs_vec<E: Env>(
+    env: &BlockchainDatabase<E>,
     outputs: Vec<(Amount, AmountIndex)>,
     get_txid: bool,
 ) -> ResponseResult {
@@ -566,11 +553,14 @@ fn outputs_vec(
 
 /// [`BlockchainReadRequest::NumberOutputsWithAmount`].
 #[inline]
-fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> ResponseResult {
+fn number_outputs_with_amount<E: Env>(
+    env: &BlockchainDatabase<E>,
+    amounts: Vec<Amount>,
+) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
-    let env_inner = env.env_inner();
-    let tx_ro = thread_local(env);
-    let tables = thread_local(env);
+    let env_inner = env.dynamic_tables.env_inner();
+    let tx_ro = thread_local(&env.dynamic_tables);
+    let tables = thread_local(&env.dynamic_tables);
 
     // Cache the amount of RCT outputs once.
     #[expect(
@@ -580,7 +570,7 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
     let num_rct_outputs = {
         let tx_ro = env_inner.tx_ro()?;
         let tables = env_inner.open_tables(&tx_ro)?;
-        tables.rct_outputs().len()? as usize
+        env.rct_outputs.len()
     };
 
     // Collect results using `rayon`.
@@ -615,11 +605,14 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
 
 /// [`BlockchainReadRequest::KeyImagesSpent`].
 #[inline]
-fn key_images_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> ResponseResult {
+fn key_images_spent<E: Env>(
+    env: &BlockchainDatabase<E>,
+    key_images: HashSet<KeyImage>,
+) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
-    let env_inner = env.env_inner();
-    let tx_ro = thread_local(env);
-    let tables = thread_local(env);
+    let env_inner = env.dynamic_tables.env_inner();
+    let tx_ro = thread_local(&env.dynamic_tables);
+    let tables = thread_local(&env.dynamic_tables);
 
     // Key image check function.
     let key_image_exists = |key_image| {
@@ -651,11 +644,14 @@ fn key_images_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Respons
 }
 
 /// [`BlockchainReadRequest::KeyImagesSpentVec`].
-fn key_images_spent_vec(env: &ConcreteEnv, key_images: Vec<KeyImage>) -> ResponseResult {
+fn key_images_spent_vec<E: Env>(
+    env: &BlockchainDatabase<E>,
+    key_images: Vec<KeyImage>,
+) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
-    let env_inner = env.env_inner();
-    let tx_ro = thread_local(env);
-    let tables = thread_local(env);
+    let env_inner = env.dynamic_tables.env_inner();
+    let tx_ro = thread_local(&env.dynamic_tables);
+    let tables = thread_local(&env.dynamic_tables);
 
     // Key image check function.
     let key_image_exists = |key_image| {
@@ -674,8 +670,8 @@ fn key_images_spent_vec(env: &ConcreteEnv, key_images: Vec<KeyImage>) -> Respons
 }
 
 /// [`BlockchainReadRequest::CompactChainHistory`]
-fn compact_chain_history(env: &ConcreteEnv) -> ResponseResult {
-    let env_inner = env.env_inner();
+fn compact_chain_history<E: Env>(env: &BlockchainDatabase<E>) -> ResponseResult {
+    let env_inner = env.dynamic_tables.env_inner();
     let tx_ro = env_inner.tx_ro()?;
 
     let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
@@ -715,13 +711,13 @@ fn compact_chain_history(env: &ConcreteEnv) -> ResponseResult {
 /// `block_ids` must be sorted in reverse chronological block order, or else
 /// the returned result is unspecified and meaningless, as this function
 /// performs a binary search.
-fn next_chain_entry(
-    env: &ConcreteEnv,
+fn next_chain_entry<E: Env>(
+    env: &BlockchainDatabase<E>,
     block_ids: &[BlockHash],
     next_entry_size: usize,
 ) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
-    let env_inner = env.env_inner();
+    let env_inner = env.dynamic_tables.env_inner();
     let tx_ro = env_inner.tx_ro()?;
 
     let tables = env_inner.open_tables(&tx_ro)?;
@@ -791,8 +787,11 @@ fn next_chain_entry(
 /// `block_ids` must be sorted in chronological block order, or else
 /// the returned result is unspecified and meaningless, as this function
 /// performs a binary search.
-fn find_first_unknown(env: &ConcreteEnv, block_ids: &[BlockHash]) -> ResponseResult {
-    let env_inner = env.env_inner();
+fn find_first_unknown<E: Env>(
+    env: &BlockchainDatabase<E>,
+    block_ids: &[BlockHash],
+) -> ResponseResult {
+    let env_inner = env.dynamic_tables.env_inner();
     let tx_ro = env_inner.tx_ro()?;
 
     let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
@@ -818,9 +817,13 @@ fn find_first_unknown(env: &ConcreteEnv, block_ids: &[BlockHash]) -> ResponseRes
 }
 
 /// [`BlockchainReadRequest::TxsInBlock`]
-fn txs_in_block(env: &ConcreteEnv, block_hash: [u8; 32], missing_txs: Vec<u64>) -> ResponseResult {
+fn txs_in_block<E: Env>(
+    env: &BlockchainDatabase<E>,
+    block_hash: [u8; 32],
+    missing_txs: Vec<u64>,
+) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
-    let env_inner = env.env_inner();
+    let env_inner = env.dynamic_tables.env_inner();
     let tx_ro = env_inner.tx_ro()?;
     let tables = env_inner.open_tables(&tx_ro)?;
 
@@ -845,11 +848,11 @@ fn txs_in_block(env: &ConcreteEnv, block_hash: [u8; 32], missing_txs: Vec<u64>) 
 }
 
 /// [`BlockchainReadRequest::AltBlocksInChain`]
-fn alt_blocks_in_chain(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
+fn alt_blocks_in_chain<E: Env>(env: &BlockchainDatabase<E>, chain_id: ChainId) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
-    let env_inner = env.env_inner();
-    let tx_ro = thread_local(env);
-    let tables = thread_local(env);
+    let env_inner = env.dynamic_tables.env_inner();
+    let tx_ro = thread_local(&env.dynamic_tables);
+    let tables = thread_local(&env.dynamic_tables);
 
     // Get the history of this alt-chain.
     let history = {
@@ -887,9 +890,9 @@ fn alt_blocks_in_chain(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
 }
 
 /// [`BlockchainReadRequest::Block`]
-fn block(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
+fn block<E: Env>(env: &BlockchainDatabase<E>, block_height: BlockHeight) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
-    let env_inner = env.env_inner();
+    let env_inner = env.dynamic_tables.env_inner();
     let tx_ro = env_inner.tx_ro()?;
     let tables = env_inner.open_tables(&tx_ro)?;
 
@@ -900,9 +903,9 @@ fn block(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
 }
 
 /// [`BlockchainReadRequest::BlockByHash`]
-fn block_by_hash(env: &ConcreteEnv, block_hash: BlockHash) -> ResponseResult {
+fn block_by_hash<E: Env>(env: &BlockchainDatabase<E>, block_hash: BlockHash) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
-    let env_inner = env.env_inner();
+    let env_inner = env.dynamic_tables.env_inner();
     let tx_ro = env_inner.tx_ro()?;
     let tables = env_inner.open_tables(&tx_ro)?;
 
@@ -913,12 +916,12 @@ fn block_by_hash(env: &ConcreteEnv, block_hash: BlockHash) -> ResponseResult {
 }
 
 /// [`BlockchainReadRequest::TotalTxCount`]
-fn total_tx_count(env: &ConcreteEnv) -> ResponseResult {
+fn total_tx_count<E: Env>(env: &BlockchainDatabase<E>) -> ResponseResult {
     Ok(BlockchainResponse::TotalTxCount(todo!()))
 }
 
 /// [`BlockchainReadRequest::DatabaseSize`]
-fn database_size(env: &ConcreteEnv) -> ResponseResult {
+fn database_size<E: Env>(env: &BlockchainDatabase<E>) -> ResponseResult {
     Ok(BlockchainResponse::DatabaseSize {
         database_size: todo!(),
         free_space: todo!(),
@@ -926,27 +929,37 @@ fn database_size(env: &ConcreteEnv) -> ResponseResult {
 }
 
 /// [`BlockchainReadRequest::OutputHistogram`]
-fn output_histogram(env: &ConcreteEnv, input: OutputHistogramInput) -> ResponseResult {
+fn output_histogram<E: Env>(
+    env: &BlockchainDatabase<E>,
+    input: OutputHistogramInput,
+) -> ResponseResult {
     Ok(BlockchainResponse::OutputHistogram(todo!()))
 }
 
 /// [`BlockchainReadRequest::CoinbaseTxSum`]
-fn coinbase_tx_sum(env: &ConcreteEnv, height: usize, count: u64) -> ResponseResult {
+fn coinbase_tx_sum<E: Env>(
+    env: &BlockchainDatabase<E>,
+    height: usize,
+    count: u64,
+) -> ResponseResult {
     Ok(BlockchainResponse::CoinbaseTxSum(todo!()))
 }
 
 /// [`BlockchainReadRequest::AltChains`]
-fn alt_chains(env: &ConcreteEnv) -> ResponseResult {
+fn alt_chains<E: Env>(env: &BlockchainDatabase<E>) -> ResponseResult {
     Ok(BlockchainResponse::AltChains(todo!()))
 }
 
 /// [`BlockchainReadRequest::AltChainCount`]
-fn alt_chain_count(env: &ConcreteEnv) -> ResponseResult {
+fn alt_chain_count<E: Env>(env: &BlockchainDatabase<E>) -> ResponseResult {
     Ok(BlockchainResponse::AltChainCount(todo!()))
 }
 
 /// [`BlockchainReadRequest::Transactions`]
-fn transactions(env: &ConcreteEnv, tx_hashes: HashSet<[u8; 32]>) -> ResponseResult {
+fn transactions<E: Env>(
+    env: &BlockchainDatabase<E>,
+    tx_hashes: HashSet<[u8; 32]>,
+) -> ResponseResult {
     Ok(BlockchainResponse::Transactions {
         txs: todo!(),
         missed_txs: todo!(),
@@ -954,19 +967,17 @@ fn transactions(env: &ConcreteEnv, tx_hashes: HashSet<[u8; 32]>) -> ResponseResu
 }
 
 /// [`BlockchainReadRequest::TotalRctOutputs`]
-fn total_rct_outputs(env: &ConcreteEnv) -> ResponseResult {
+fn total_rct_outputs<E: Env>(env: &BlockchainDatabase<E>) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
-    let env_inner = env.env_inner();
-    let tx_ro = env_inner.tx_ro()?;
-    let len = env_inner.open_db_ro::<RctOutputs>(&tx_ro)?.len()?;
+    let len = env.rct_outputs.len() as u64;
 
     Ok(BlockchainResponse::TotalRctOutputs(len))
 }
 
 /// [`BlockchainReadRequest::TxOutputIndexes`]
-fn tx_output_indexes(env: &ConcreteEnv, tx_hash: &[u8; 32]) -> ResponseResult {
+fn tx_output_indexes<E: Env>(env: &BlockchainDatabase<E>, tx_hash: &[u8; 32]) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
-    let env_inner = env.env_inner();
+    let env_inner = env.dynamic_tables.env_inner();
     let tx_ro = env_inner.tx_ro()?;
     let tx_id = env_inner.open_db_ro::<TxIds>(&tx_ro)?.get(tx_hash)?;
     let o_indexes = env_inner.open_db_ro::<TxOutputs>(&tx_ro)?.get(&tx_id)?;
@@ -975,6 +986,9 @@ fn tx_output_indexes(env: &ConcreteEnv, tx_hash: &[u8; 32]) -> ResponseResult {
 }
 
 /// [`BlockchainReadRequest::OutputDistribution`]
-fn output_distribution(env: &ConcreteEnv, input: OutputDistributionInput) -> ResponseResult {
+fn output_distribution<E: Env>(
+    env: &BlockchainDatabase<E>,
+    input: OutputDistributionInput,
+) -> ResponseResult {
     Ok(BlockchainResponse::OutputDistribution(todo!()))
 }

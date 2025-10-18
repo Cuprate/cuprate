@@ -16,7 +16,6 @@ use tokio_stream::wrappers::WatchStream;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
-use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::{
     transactions::new_tx_verification_data, BlockChainContextRequest, BlockChainContextResponse,
     BlockchainContextService,
@@ -51,6 +50,7 @@ use crate::{
     p2p::CrossNetworkInternalPeerId,
     txpool::{IncomingTxError, IncomingTxHandler, IncomingTxs},
 };
+use crate::blockchain::BlockchainReadHandle;
 
 /// The P2P protocol request handler [`MakeService`](tower::MakeService).
 #[derive(Clone)]

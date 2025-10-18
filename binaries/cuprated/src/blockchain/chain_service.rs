@@ -3,11 +3,14 @@ use std::task::{Context, Poll};
 use futures::{future::BoxFuture, FutureExt, TryFutureExt};
 use tower::Service;
 
-use cuprate_blockchain::service::BlockchainReadHandle;
+use cuprate_blockchain::BlockchainDatabaseService;
+use cuprate_database::ConcreteEnv;
 use cuprate_fast_sync::validate_entries;
 use cuprate_p2p::block_downloader::{ChainSvcRequest, ChainSvcResponse};
 use cuprate_p2p_core::NetworkZone;
 use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
+use crate::blockchain::ConsensusBlockchainReadHandle;
+use crate::blockchain::types::BlockchainReadHandle;
 
 /// That service that allows retrieving the chain state to give to the P2P crates, so we can figure out
 /// what blocks we need.
@@ -74,12 +77,14 @@ impl<N: NetworkZone> Service<ChainSvcRequest<N>> for ChainService {
                 .map_err(Into::into)
                 .boxed(),
             ChainSvcRequest::ValidateEntries(entries, start_height) => {
+                self.0.0.disarm();
                 let mut blockchain_read_handle = self.0.clone();
 
                 async move {
                     let (valid, unknown) =
-                        validate_entries(entries, start_height, &mut blockchain_read_handle)
+                        validate_entries(entries, start_height, &mut blockchain_read_handle.0)
                             .await?;
+
 
                     Ok(ChainSvcResponse::ValidateEntries { valid, unknown })
                 }

@@ -10,9 +10,9 @@ use std::{
 use monero_oxide::{block::Block, transaction::Transaction};
 use tokio::sync::{mpsc, oneshot};
 use tower::{Service, ServiceExt};
-
-use cuprate_blockchain::service::BlockchainReadHandle;
+use cuprate_blockchain::BlockchainDatabaseService;
 use cuprate_consensus::transactions::new_tx_verification_data;
+use cuprate_database::ConcreteEnv;
 use cuprate_txpool::service::{
     interface::{TxpoolReadRequest, TxpoolReadResponse},
     TxpoolReadHandle,
@@ -23,6 +23,7 @@ use crate::{
     blockchain::manager::{BlockchainManagerCommand, IncomingBlockOk},
     constants::PANIC_CRITICAL_SERVICE_ERROR,
 };
+use crate::blockchain::types::BlockchainReadHandle;
 
 /// The channel used to send [`BlockchainManagerCommand`]s to the blockchain manager.
 ///

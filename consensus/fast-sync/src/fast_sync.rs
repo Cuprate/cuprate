@@ -10,8 +10,8 @@ use monero_oxide::{
     transaction::{Input, Transaction},
 };
 use tower::{Service, ServiceExt};
-
-use cuprate_blockchain::service::BlockchainReadHandle;
+use cuprate_blockchain::BlockchainDatabaseService;
+use cuprate_blockchain::cuprate_database::ConcreteEnv;
 use cuprate_consensus::transactions::new_tx_verification_data;
 use cuprate_consensus_context::BlockchainContext;
 use cuprate_p2p::block_downloader::ChainEntry;
@@ -64,7 +64,7 @@ pub fn set_fast_sync_hashes(hashes: &'static [[u8; 32]]) {
 pub async fn validate_entries<N: NetworkZone>(
     mut entries: VecDeque<ChainEntry<N>>,
     start_height: usize,
-    blockchain_read_handle: &mut BlockchainReadHandle,
+    blockchain_read_handle: &mut BlockchainDatabaseService<ConcreteEnv>,
 ) -> Result<(VecDeque<ChainEntry<N>>, VecDeque<ChainEntry<N>>), tower::BoxError> {
     // if we are past the top fast sync block return all entries as valid.
     if start_height >= fast_sync_stop_height() {
@@ -99,9 +99,8 @@ pub async fn validate_entries<N: NetworkZone>(
     let mut hashes_stop_diff_last_height = last_height - hashes_stop_height;
 
     // get the hashes we are missing to create the first fast-sync hash.
-    let BlockchainResponse::BlockHashInRange(starting_hashes) = blockchain_read_handle
-        .ready()
-        .await?
+    let BlockchainResponse::BlockHashInRange(starting_hashes) = <BlockchainDatabaseService<ConcreteEnv> as ServiceExt<BlockchainReadRequest>>::ready(blockchain_read_handle
+    ).await?
         .call(BlockchainReadRequest::BlockHashInRange(
             hashes_start_height..start_height,
             Chain::Main,

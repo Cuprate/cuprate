@@ -7,7 +7,6 @@ use futures::future::BoxFuture;
 use monero_oxide::block::Block;
 use tower::Service;
 
-use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::BlockchainContextService;
 use cuprate_pruning::PruningSeed;
 use cuprate_rpc_interface::RpcHandler;
@@ -20,6 +19,7 @@ use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::BlockTemplate;
 
 use crate::{rpc::handlers, txpool::IncomingTxHandler};
+use crate::blockchain::BlockchainReadHandle;
 
 /// TODO: use real type when public.
 #[derive(Clone)]

@@ -6,10 +6,10 @@ use std::sync::Arc;
 use futures::FutureExt;
 use tokio::sync::{mpsc, Notify};
 use tower::{BoxError, Service, ServiceExt};
-
-use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
+use cuprate_blockchain::BlockchainDatabaseService;
 use cuprate_consensus::{generate_genesis_block, BlockchainContextService, ContextConfig};
 use cuprate_cryptonight::cryptonight_hash_v0;
+use cuprate_database::ConcreteEnv;
 use cuprate_p2p::{block_downloader::BlockDownloaderConfig, NetworkInterface};
 use cuprate_p2p_core::{ClearNet, Network};
 use cuprate_types::{
@@ -28,7 +28,7 @@ mod types;
 
 pub use fast_sync::set_fast_sync_hashes;
 pub use manager::init_blockchain_manager;
-pub use types::ConsensusBlockchainReadHandle;
+pub use types::{ConsensusBlockchainReadHandle, BlockchainWriteHandle, BlockchainReadHandle};
 
 /// Checks if the genesis block is in the blockchain and adds it if not.
 pub async fn check_add_genesis(
@@ -82,7 +82,7 @@ pub async fn init_consensus(
     blockchain_read_handle: BlockchainReadHandle,
     context_config: ContextConfig,
 ) -> Result<BlockchainContextService, BoxError> {
-    let read_handle = ConsensusBlockchainReadHandle::new(blockchain_read_handle, BoxError::from);
+    let read_handle = ConsensusBlockchainReadHandle(blockchain_read_handle.0);
 
     let ctx_service =
         cuprate_consensus::initialize_blockchain_context(context_config, read_handle.clone())

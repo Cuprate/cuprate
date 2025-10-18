@@ -151,8 +151,8 @@ impl Env for ConcreteEnv {
             Err(io_err) => return Err(io_err.into()),
         };
         // Add leeway space.
-        let memory_map_size = crate::resize::fixed_bytes(disk_size_bytes, 1_000_000 /* 1MB */);
-        env_open_options.map_size(memory_map_size.get());
+        let memory_map_size : usize= 4096 * 1024 * 1024 * 1024;
+        env_open_options.map_size(memory_map_size);
 
         // Set the max amount of database tables.
         // We know at compile time how many tables there are.

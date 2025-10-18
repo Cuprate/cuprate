@@ -1089,11 +1089,12 @@ dependencies = [
  "bytes",
  "cuprate-constants",
  "cuprate-database",
- "cuprate-database-service",
  "cuprate-helper",
+ "cuprate-linear-tape",
  "cuprate-pruning",
  "cuprate-test-utils",
  "cuprate-types",
+ "futures",
  "hex",
  "hex-literal 1.0.0",
  "indexmap 2.11.0",
@@ -1106,6 +1107,7 @@ dependencies = [
  "tempfile",
  "thread_local",
  "tokio",
+ "tokio-util",
  "tower",
 ]
 
@@ -1360,6 +1362,13 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
+]
+
+[[package]]
+name = "cuprate-linear-tape"
+version = "0.0.1"
+dependencies = [
+ "memmap2",
 ]
 
 [[package]]
@@ -3195,13 +3204,6 @@ dependencies = [
  "cc",
  "pkg-config",
  "vcpkg",
-]
-
-[[package]]
-name = "linear-tape"
-version = "0.0.1"
-dependencies = [
- "memmap2",
 ]
 
 [[package]]

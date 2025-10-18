@@ -1,8 +1,6 @@
 //! Abstracted database environment; `trait Env`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::num::NonZeroUsize;
-
 use crate::{
     config::Config,
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
@@ -11,6 +9,8 @@ use crate::{
     table::Table,
     transaction::{TxRo, TxRw},
 };
+use std::num::NonZeroUsize;
+use std::ops::Deref;
 
 //---------------------------------------------------------------------------------------------------- Env
 /// Database environment abstraction.
@@ -32,7 +32,7 @@ use crate::{
 /// - open database tables only live as long as...
 /// - transactions which only live as long as the...
 /// - database environment
-pub trait Env: Sized {
+pub trait Env: Send + Sync + Sized {
     //------------------------------------------------ Constants
     /// Does the database backend need to be manually
     /// resized when the memory-map is full?
@@ -61,17 +61,17 @@ pub trait Env: Sized {
     // For `heed`, this is just `heed::Env`, for `redb` this is
     // `(redb::Database, redb::Durability)` as each transaction
     // needs the sync mode set during creation.
-    type EnvInner<'env>: EnvInner<'env>
+    type EnvInner<'env>: EnvInner<'env> + Sync
     where
         Self: 'env;
 
     /// The read-only transaction type of the backend.
-    type TxRo<'env>: TxRo<'env>
+    type TxRo<'env>: TxRo<'env> + Send
     where
         Self: 'env;
 
     /// The read/write transaction type of the backend.
-    type TxRw<'env>: TxRw<'env>
+    type TxRw<'env>: TxRw<'env> + Send
     where
         Self: 'env;
 
@@ -209,7 +209,7 @@ pub trait EnvInner<'env> {
     /// The read-only transaction type of the backend.
     ///
     /// `'tx` is the lifetime of the transaction itself.
-    type Ro<'tx>: TxRo<'tx>;
+    type Ro<'tx>: TxRo<'tx> + Send;
     /// The read-write transaction type of the backend.
     ///
     /// `'tx` is the lifetime of the transaction itself.

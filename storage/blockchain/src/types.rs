@@ -48,6 +48,7 @@ use bytemuck::{Pod, Zeroable};
 use serde::{Deserialize, Serialize};
 
 use cuprate_database::{Key, StorableVec};
+use cuprate_linear_tape::Entry;
 use cuprate_types::{Chain, ChainId};
 
 //---------------------------------------------------------------------------------------------------- Aliases
@@ -334,6 +335,18 @@ pub struct RctOutput {
     pub commitment: [u8; 32],
 }
 // TODO: local_index?
+
+impl Entry for RctOutput {
+    const SIZE: usize = size_of::<Self>();
+
+    fn write(&self, to: &mut [u8]) {
+        to.copy_from_slice(bytemuck::bytes_of(self));
+    }
+
+    fn read(from: &[u8]) -> Self {
+        bytemuck::pod_read_unaligned(from)
+    }
+}
 
 //---------------------------------------------------------------------------------------------------- RawChain
 /// [`Chain`] in a format which can be stored in the DB.

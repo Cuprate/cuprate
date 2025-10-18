@@ -10,7 +10,6 @@ use indexmap::{IndexMap, IndexSet};
 use monero_oxide::block::Block;
 use tower::{Service, ServiceExt};
 
-use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_rpc_types::misc::GetOutputsOut;
 use cuprate_types::{
@@ -23,6 +22,7 @@ use cuprate_types::{
     BlockCompleteEntry, Chain, ExtendedBlockHeader, OutputDistributionInput, OutputOnChain,
     TxInBlockchain,
 };
+use crate::blockchain::BlockchainReadHandle;
 
 /// [`BlockchainReadRequest::Block`].
 pub async fn block(

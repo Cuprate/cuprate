@@ -122,15 +122,13 @@
 use tower as _;
 
 mod read;
-pub use read::{init_read_service, init_read_service_with_pool};
+pub use read::map_request as map_read_request;
 
 mod write;
-pub use write::init_write_service;
+pub use write::map_write_request;
 
 mod free;
-pub use free::{init, init_with_pool};
 mod types;
-pub use types::{BlockchainReadHandle, BlockchainWriteHandle};
 
 #[cfg(test)]
 mod tests;

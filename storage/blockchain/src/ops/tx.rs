@@ -1,23 +1,23 @@
 //! Transaction functions.
 
 //---------------------------------------------------------------------------------------------------- Import
-use bytemuck::TransparentWrapper;
-use monero_oxide::transaction::{Input, Timelock, Transaction};
-
-use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableVec};
-use cuprate_helper::crypto::compute_zero_commitment;
-
 use crate::{
     ops::{
         key_image::{add_key_image, remove_key_image},
         macros::{doc_add_block_inner_invariant, doc_error},
         output::{
-            add_output, add_rct_output, get_rct_num_outputs, remove_output, remove_rct_output,
+            add_output, get_rct_num_outputs, remove_output,
         },
     },
     tables::{TablesMut, TxBlobs, TxIds},
     types::{BlockHeight, Output, OutputFlags, PreRctOutputId, RctOutput, TxHash, TxId},
 };
+use bytemuck::TransparentWrapper;
+use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableVec};
+use cuprate_helper::crypto::compute_zero_commitment;
+use cuprate_linear_tape::{LinearTape, LinearTapeAppender};
+use monero_oxide::transaction::{Input, Timelock, Transaction};
+use tokio::task::id;
 
 //---------------------------------------------------------------------------------------------------- Private
 /// Add a [`Transaction`] (and related data) to the database.
@@ -51,7 +51,9 @@ pub fn add_tx(
     tx_blob: &Vec<u8>,
     tx_hash: &TxHash,
     block_height: &BlockHeight,
+    numb_rct_outs: &mut u64,
     tables: &mut impl TablesMut,
+    rct_outputs: &mut Vec<RctOutput>,
 ) -> DbResult<TxId> {
     let tx_id = get_num_tx(tables.tx_ids_mut())?;
 
@@ -147,19 +149,20 @@ pub fn add_tx(
                         .commitments[i]
                 };
 
+                let idx = *numb_rct_outs;
+                *numb_rct_outs += 1;
                 // Add the RCT output.
-                add_rct_output(
-                    &RctOutput {
-                        key: output.key.0,
-                        height,
-                        output_flags,
-                        tx_idx: tx_id,
-                        commitment: commitment.0,
-                    },
-                    tables.rct_outputs_mut(),
-                )
+                rct_outputs.push(RctOutput {
+                    key: output.key.0,
+                    height,
+                    output_flags,
+                    tx_idx: tx_id,
+                    commitment: commitment.0,
+                });
+
+                idx
             })
-            .collect::<Result<Vec<_>, _>>()?,
+            .collect::<Vec<_>>(),
     };
 
     tables
@@ -186,7 +189,7 @@ pub fn add_tx(
 ///
 #[doc = doc_error!()]
 #[inline]
-pub fn remove_tx(tx_hash: &TxHash, tables: &mut impl TablesMut) -> DbResult<(TxId, Transaction)> {
+pub fn remove_tx(tx_hash: &TxHash, rct_output_count: &mut u64, tables: &mut impl TablesMut) -> DbResult<(TxId, Transaction)> {
     //------------------------------------------------------ Transaction data
     let tx_id = tables.tx_ids_mut().take(tx_hash)?;
     let tx_blob = tables.tx_blobs_mut().take(&tx_id)?;
@@ -233,8 +236,7 @@ pub fn remove_tx(tx_hash: &TxHash, tables: &mut impl TablesMut) -> DbResult<(TxI
         if let Some(amount) = output.amount {
             // RingCT miner outputs.
             if miner_tx && tx.version() == 2 {
-                let amount_index = get_rct_num_outputs(tables.rct_outputs())? - 1;
-                remove_rct_output(&amount_index, tables.rct_outputs_mut())?;
+                *rct_output_count += 1;
             // Pre-RingCT outputs.
             } else {
                 let amount_index = tables.num_outputs_mut().get(&amount)? - 1;
@@ -248,8 +250,7 @@ pub fn remove_tx(tx_hash: &TxHash, tables: &mut impl TablesMut) -> DbResult<(TxI
             }
         // RingCT outputs.
         } else {
-            let amount_index = get_rct_num_outputs(tables.rct_outputs())? - 1;
-            remove_rct_output(&amount_index, tables.rct_outputs_mut())?;
+            *rct_output_count += 1;
         }
     } // for each output
 

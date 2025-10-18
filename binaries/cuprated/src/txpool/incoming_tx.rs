@@ -11,7 +11,6 @@ use tokio::sync::mpsc;
 use tower::{BoxError, Service, ServiceExt};
 use tracing::instrument;
 
-use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::{
     transactions::{new_tx_verification_data, start_tx_verification, PrepTransactions},
     BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
@@ -50,6 +49,7 @@ use crate::{
         txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
     },
 };
+use crate::blockchain::BlockchainReadHandle;
 
 /// An error that can happen handling an incoming tx.
 #[derive(Debug, thiserror::Error)]
@@ -150,9 +150,8 @@ impl IncomingTxHandler {
             dandelion_pool_manager,
             txpool_manager,
             txpool_read_handle,
-            blockchain_read_handle: ConsensusBlockchainReadHandle::new(
-                blockchain_read_handle,
-                BoxError::from,
+            blockchain_read_handle: ConsensusBlockchainReadHandle(
+                blockchain_read_handle.0,
             ),
         }
     }

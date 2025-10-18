@@ -15,20 +15,23 @@ default     = ["heed"]
 heed        = ["cuprate-database/heed"]
 redb        = ["cuprate-database/redb"]
 redb-memory = ["cuprate-database/redb-memory"]
-serde       = ["dep:serde", "cuprate-database/serde", "cuprate-database-service/serde", "cuprate-helper/serde"]
+serde       = ["dep:serde", "cuprate-database/serde", "cuprate-helper/serde"]
 
 [dependencies]
 cuprate-database         = { workspace = true }
-cuprate-database-service = { workspace = true }
-cuprate-helper           = { workspace = true, features = ["fs", "map", "crypto", "tx", "thread"] }
+cuprate-helper           = { workspace = true, features = ["fs", "map", "crypto", "tx", "thread", "asynch"] }
 cuprate-types            = { workspace = true, features = ["blockchain"] }
 cuprate-pruning          = { workspace = true }
+cuprate-linear-tape      = { workspace = true }
 
 bitflags         = { workspace = true, features = ["std", "serde", "bytemuck"] }
 bytemuck         = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 rand             = { workspace = true, features = ["std", "std_rng"] }
 monero-oxide     = { workspace = true, features = ["std"] }
 serde            = { workspace = true, optional = true }
+tokio-util= { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+futures = { workspace = true }
 
 indexmap     = { workspace = true, features = ["rayon"] }
 tower        = { workspace = true }

@@ -11,7 +11,6 @@ use tower::limit::rate::RateLimitLayer;
 use tower_http::limit::RequestBodyLimitLayer;
 use tracing::{info, warn};
 
-use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::BlockchainContextService;
 use cuprate_helper::network::Network;
 use cuprate_rpc_interface::{RouterBuilder, RpcHandler};
@@ -22,6 +21,7 @@ use crate::{
     rpc::{rpc_handler::BlockchainManagerHandle, CupratedRpcHandler},
     txpool::IncomingTxHandler,
 };
+use crate::blockchain::BlockchainReadHandle;
 
 /// Initialize the RPC server(s).
 ///

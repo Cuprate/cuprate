@@ -1,5 +1,5 @@
 [package]
-name        = "linear-tape"
+name        = "cuprate-linear-tape"
 version     = "0.0.1"
 edition     = "2021"
 description = "Cuprate's database abstraction"

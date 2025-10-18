@@ -11,6 +11,7 @@ use cuprate_helper::{
     crypto::compute_zero_commitment,
     map::u64_to_timelock,
 };
+use cuprate_linear_tape::LinearTape;
 use cuprate_types::OutputOnChain;
 
 use crate::{
@@ -18,9 +19,7 @@ use crate::{
         macros::{doc_add_block_inner_invariant, doc_error},
         tx::get_tx_from_id,
     },
-    tables::{
-        BlockInfos, BlockTxsHashes, Outputs, RctOutputs, Tables, TablesMut, TxBlobs, TxUnlockTime,
-    },
+    tables::{BlockInfos, BlockTxsHashes, Outputs, Tables, TablesMut, TxBlobs, TxUnlockTime},
     types::{Amount, AmountIndex, Output, OutputFlags, PreRctOutputId, RctOutput},
 };
 
@@ -107,41 +106,17 @@ pub fn get_num_outputs(table_outputs: &impl DatabaseRo<Outputs>) -> DbResult<u64
 }
 
 //---------------------------------------------------------------------------------------------------- RCT Outputs
-/// Add an [`RctOutput`] to the database.
-///
-/// Upon [`Ok`], this function returns the [`AmountIndex`] that
-/// can be used to lookup the `RctOutput` in [`get_rct_output()`].
-#[doc = doc_add_block_inner_invariant!()]
-#[doc = doc_error!()]
-#[inline]
-pub fn add_rct_output(
-    rct_output: &RctOutput,
-    table_rct_outputs: &mut impl DatabaseRw<RctOutputs>,
-) -> DbResult<AmountIndex> {
-    let amount_index = get_rct_num_outputs(table_rct_outputs)?;
-    table_rct_outputs.put(&amount_index, rct_output)?;
-    Ok(amount_index)
-}
-
-/// Remove an [`RctOutput`] from the database.
-#[doc = doc_add_block_inner_invariant!()]
-#[doc = doc_error!()]
-#[inline]
-pub fn remove_rct_output(
-    amount_index: &AmountIndex,
-    table_rct_outputs: &mut impl DatabaseRw<RctOutputs>,
-) -> DbResult<()> {
-    table_rct_outputs.delete(amount_index)
-}
 
 /// Retrieve an [`RctOutput`] from the database.
 #[doc = doc_error!()]
 #[inline]
 pub fn get_rct_output(
-    amount_index: &AmountIndex,
-    table_rct_outputs: &impl DatabaseRo<RctOutputs>,
+    amount_index: AmountIndex,
+    table_rct_outputs: &LinearTape<RctOutput>,
 ) -> DbResult<RctOutput> {
-    table_rct_outputs.get(amount_index)
+    table_rct_outputs
+        .try_get(amount_index as usize)
+        .ok_or(RuntimeError::KeyNotFound)
 }
 
 /// How many [`RctOutput`]s are there?
@@ -149,8 +124,8 @@ pub fn get_rct_output(
 /// This returns the amount of RCT outputs currently stored.
 #[doc = doc_error!()]
 #[inline]
-pub fn get_rct_num_outputs(table_rct_outputs: &impl DatabaseRo<RctOutputs>) -> DbResult<u64> {
-    table_rct_outputs.len()
+pub fn get_rct_num_outputs(table_rct_outputs: &LinearTape<RctOutput>) -> DbResult<u64> {
+    Ok(table_rct_outputs.len() as u64)
 }
 
 //---------------------------------------------------------------------------------------------------- Mapping functions
@@ -269,10 +244,11 @@ pub fn id_to_output_on_chain(
     id: &PreRctOutputId,
     get_txid: bool,
     tables: &impl Tables,
+    table_rct_outputs: &LinearTape<RctOutput>,
 ) -> DbResult<OutputOnChain> {
     // v2 transactions.
     if id.amount == 0 {
-        let rct_output = get_rct_output(&id.amount_index, tables.rct_outputs())?;
+        let rct_output = get_rct_output(id.amount_index, table_rct_outputs)?;
         let output_on_chain = rct_output_to_output_on_chain(
             &rct_output,
             get_txid,

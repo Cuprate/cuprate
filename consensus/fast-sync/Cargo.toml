@@ -9,7 +9,7 @@ name = "create-fs-file"
 path = "src/create.rs"
 
 [dependencies]
-cuprate-blockchain          = { workspace = true }
+cuprate-blockchain          = { workspace = true, features = ["default"] }
 cuprate-consensus           = { workspace = true }
 cuprate-consensus-context   = { workspace = true }
 cuprate-hex                 = { workspace = true }
