@@ -482,6 +482,8 @@ fn outputs<E: Env>(
     let tx_ro = thread_local(&env.dynamic_tables);
     let tables = thread_local(&env.dynamic_tables);
 
+    let tape_reader = env.rct_outputs.read().unwrap();
+
     let amount_of_outs = outputs
         .par_iter()
         .map(|(&amount, _)| {
@@ -489,7 +491,7 @@ fn outputs<E: Env>(
             let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
 
             if amount == 0 {
-                Ok((amount, env.rct_outputs.len() as u64))
+                Ok((amount, tape_reader.len() as u64))
             } else {
                 // v1 transactions.
                 match tables.num_outputs().get(&amount) {
@@ -514,7 +516,7 @@ fn outputs<E: Env>(
             amount_index,
         };
 
-        let output_on_chain = match id_to_output_on_chain(&id, get_txid, tables, &env.rct_outputs) {
+        let output_on_chain = match id_to_output_on_chain(&id, get_txid, tables, &tape_reader) {
             Ok(output) => output,
             Err(RuntimeError::KeyNotFound) => return Ok(Either::Right(amount_index)),
             Err(e) => return Err(e),
@@ -570,7 +572,7 @@ fn number_outputs_with_amount<E: Env>(
     let num_rct_outputs = {
         let tx_ro = env_inner.tx_ro()?;
         let tables = env_inner.open_tables(&tx_ro)?;
-        env.rct_outputs.len()
+        env.rct_outputs.read().unwrap().len()
     };
 
     // Collect results using `rayon`.
@@ -969,7 +971,7 @@ fn transactions<E: Env>(
 /// [`BlockchainReadRequest::TotalRctOutputs`]
 fn total_rct_outputs<E: Env>(env: &BlockchainDatabase<E>) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
-    let len = env.rct_outputs.len() as u64;
+    let len = env.rct_outputs.read().unwrap().len() as u64;
 
     Ok(BlockchainResponse::TotalRctOutputs(len))
 }

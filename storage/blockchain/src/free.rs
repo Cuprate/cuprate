@@ -1,5 +1,6 @@
 //! General free functions (related to the database).
 
+use std::sync::RwLock;
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{config::Config, database::BlockchainDatabase, tables::OpenTables};
 use cuprate_database::{ConcreteEnv, Env, EnvInner, InitError, RuntimeError, TxRw};
@@ -63,7 +64,7 @@ pub fn open<E: Env>(config: Config) -> Result<BlockchainDatabase<E>, InitError> 
 
     Ok(BlockchainDatabase {
         dynamic_tables: env,
-        rct_outputs,
+        rct_outputs: RwLock::new(rct_outputs),
     })
 }
 

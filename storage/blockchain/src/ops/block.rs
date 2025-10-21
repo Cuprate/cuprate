@@ -1,5 +1,6 @@
 //! Block functions.
 
+use std::sync::RwLock;
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
 use bytes::Bytes;
@@ -48,7 +49,7 @@ use crate::types::RctOutput;
 /// - `block.height > u32::MAX` (not normally possible)
 /// - `block.height` is != [`chain_height`]
 // no inline, too big.
-pub fn add_block(block: &VerifiedBlockInformation, tables: &mut impl TablesMut, rct_tape: &mut LinearTape<RctOutput>) -> DbResult<()> {
+pub fn add_block(block: &VerifiedBlockInformation, tables: &mut impl TablesMut, rct_tape: &RwLock<LinearTape<RctOutput>>) -> DbResult<()> {
     //------------------------------------------------------ Check preconditions first
 
     // Cast height to `u32` for storage (handled at top of function).
@@ -80,7 +81,9 @@ pub fn add_block(block: &VerifiedBlockInformation, tables: &mut impl TablesMut, 
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
     let mut rct_outputs = Vec::with_capacity(block.txs.len() * 2);
-    let mut numb_rct_outs = rct_tape.len() as u64;
+    let mut lock = rct_tape.write().unwrap();
+
+    let mut numb_rct_outs = lock.len() as u64;
     // Add the miner transaction first.
     let mining_tx_index = {
         let tx = &block.block.miner_transaction;
@@ -92,12 +95,12 @@ pub fn add_block(block: &VerifiedBlockInformation, tables: &mut impl TablesMut, 
     }
 
     if !rct_outputs.is_empty() {
-        let mut appender = rct_tape.appender();
+        let mut appender = lock.appender();
         if appender.push_entries(&rct_outputs).is_err() {
             appender.resize(20 * 1024 * 1024 * 1024).unwrap();
             appender.push_entries(&rct_outputs).unwrap()
         }
-        appender.flush().unwrap();
+        appender.flush_async().unwrap();
 
         drop(appender);
     }
@@ -105,7 +108,7 @@ pub fn add_block(block: &VerifiedBlockInformation, tables: &mut impl TablesMut, 
 
     // INVARIANT: must be below the above transaction loop since this
     // RCT output count needs account for _this_ block's outputs.
-    let cumulative_rct_outs = rct_tape.len() as u64;
+    let cumulative_rct_outs = lock.len() as u64;
 
     // `saturating_add` is used here as cumulative generated coins overflows due to tail emission.
     let cumulative_generated_coins =
@@ -166,7 +169,7 @@ pub fn add_block(block: &VerifiedBlockInformation, tables: &mut impl TablesMut, 
 pub fn pop_block(
     move_to_alt_chain: Option<ChainId>,
     tables: &mut impl TablesMut,
-    rct_tape: &mut LinearTape<RctOutput>,
+    rct_tape: &RwLock<LinearTape<RctOutput>>,
 ) -> DbResult<(BlockHeight, BlockHash, Block)> {
     //------------------------------------------------------ Block Info
     // Remove block data from tables.
@@ -238,7 +241,8 @@ pub fn pop_block(
         }
     }
 
-    let mut popper = rct_tape.popper();
+    let mut lock = rct_tape.write().unwrap();
+    let mut popper = lock.popper();
     popper.pop_entries(rct_outputs as usize);
     popper.flush()?;
 

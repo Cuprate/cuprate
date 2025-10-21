@@ -152,7 +152,7 @@ impl<E: Entry> LinearTape<E> {
 
         let free_capacity = capacity::<E>(file.metadata()?.len()) - header.entries;
 
-        let mmap = unsafe { MmapOptions::new().map_mut(&file)? };
+        let mmap = unsafe { MmapOptions::new().no_reserve_swap().map_mut(&file)? };
 
         Ok(LinearTape {
             backing_file: BackingFile {

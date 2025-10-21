@@ -52,7 +52,7 @@ members = [
 	"test-utils",
 
 	# Fuzz
-	"fuzz",
+	"fuzz", "perf-test",
 ]
 
 # Windows is a pain, so instead of making the fuzz tests work on windows, we just don't build the fuzz target on windows.

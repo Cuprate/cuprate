@@ -24,7 +24,7 @@ const TX_RW_ABORT_FAIL: &str =
 //---------------------------------------------------------------------------------------------------- handle_bc_request
 /// Handle an incoming [`BlockchainWriteRequest`], returning a [`BlockchainResponse`].
 pub fn map_write_request<E: Env>(
-    env: &mut BlockchainDatabase<E>,
+    env: &BlockchainDatabase<E>,
     req: &BlockchainWriteRequest,
 ) -> DbResult<BlockchainResponse> {
     match req {
@@ -48,7 +48,7 @@ pub fn map_write_request<E: Env>(
 /// [`BlockchainWriteRequest::WriteBlock`].
 #[inline]
 fn write_block<E: Env>(
-    env: &mut BlockchainDatabase<E>,
+    env: &BlockchainDatabase<E>,
     block: &VerifiedBlockInformation,
 ) -> ResponseResult {
     let env_inner = env.dynamic_tables.env_inner();
@@ -56,7 +56,7 @@ fn write_block<E: Env>(
 
     let result = {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
-        crate::ops::block::add_block(block, &mut tables_mut, &mut env.rct_outputs)
+        crate::ops::block::add_block(block, &mut tables_mut, &env.rct_outputs)
     };
 
     match result {
@@ -74,7 +74,7 @@ fn write_block<E: Env>(
 /// [`BlockchainWriteRequest::BatchWriteBlocks`].
 #[inline]
 fn write_blocks<E: Env>(
-    env: &mut BlockchainDatabase<E>,
+    env: &BlockchainDatabase<E>,
     block: &Vec<VerifiedBlockInformation>,
 ) -> ResponseResult {
     let env_inner = env.dynamic_tables.env_inner();
@@ -83,7 +83,7 @@ fn write_blocks<E: Env>(
     let result = {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
         for block in block {
-            crate::ops::block::add_block(block, &mut tables_mut, &mut env.rct_outputs)?;
+            crate::ops::block::add_block(block, &mut tables_mut, &env.rct_outputs)?;
         }
 
         Ok(())
@@ -104,7 +104,7 @@ fn write_blocks<E: Env>(
 /// [`BlockchainWriteRequest::WriteAltBlock`].
 #[inline]
 fn write_alt_block<E: Env>(
-    env: &mut BlockchainDatabase<E>,
+    env: & BlockchainDatabase<E>,
     block: &AltBlockInformation,
 ) -> ResponseResult {
     let env_inner = env.dynamic_tables.env_inner();
@@ -128,7 +128,7 @@ fn write_alt_block<E: Env>(
 }
 
 /// [`BlockchainWriteRequest::PopBlocks`].
-fn pop_blocks<E: Env>(env: &mut BlockchainDatabase<E>, numb_blocks: usize) -> ResponseResult {
+fn pop_blocks<E: Env>(env: & BlockchainDatabase<E>, numb_blocks: usize) -> ResponseResult {
     let env_inner = env.dynamic_tables.env_inner();
     let mut tx_rw = env_inner.tx_rw()?;
 
@@ -143,7 +143,7 @@ fn pop_blocks<E: Env>(env: &mut BlockchainDatabase<E>, numb_blocks: usize) -> Re
 
         // pop the blocks
         for _ in 0..numb_blocks {
-            crate::ops::block::pop_block(Some(old_main_chain_id), &mut tables_mut, &mut env.rct_outputs)?;
+            crate::ops::block::pop_block(Some(old_main_chain_id), &mut tables_mut, & env.rct_outputs)?;
         }
 
         Ok(old_main_chain_id)
@@ -163,7 +163,7 @@ fn pop_blocks<E: Env>(env: &mut BlockchainDatabase<E>, numb_blocks: usize) -> Re
 
 /// [`BlockchainWriteRequest::FlushAltBlocks`].
 #[inline]
-fn flush_alt_blocks<E: Env>(env: &mut BlockchainDatabase<E>) -> ResponseResult {
+fn flush_alt_blocks<E: Env>(env: & BlockchainDatabase<E>) -> ResponseResult {
     let env_inner = env.dynamic_tables.env_inner();
     let mut tx_rw = env_inner.tx_rw()?;
 
