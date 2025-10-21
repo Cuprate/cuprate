@@ -367,6 +367,8 @@ precedence_bits = "deny"
 as_pointer_underscore = "deny"
 literal_string_with_formatting_args = "deny"
 manual_midpoint = "deny"
+ip_constant = "deny"
+doc_broken_link = "deny"
 
 # Warm
 cast_possible_truncation = "deny"

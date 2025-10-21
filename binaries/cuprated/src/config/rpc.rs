@@ -34,8 +34,8 @@ config_struct! {
 
         /// The port the RPC server will listen on.
         ///
-        /// Type         | Number
-        /// Valid values | 0..65534
+        /// Type         | Number or "Default"
+        /// Valid values | 0..65534, "Default"
         /// Examples     | 18081, 18089, 5432
         pub port: DefaultOrCustom<u16>,
 

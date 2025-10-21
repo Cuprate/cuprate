@@ -190,7 +190,7 @@ proptest! {
     }
 
     #[test]
-    fn claculating_multiple_diffs_does_not_change_state(
+    fn calculating_multiple_diffs_does_not_change_state(
         diff_cache in random_difficulty_cache(),
         timestamps in any_with::<Vec<u64>>(size_range(0..1000).lift()),
         hf in any::<HardFork>(),
