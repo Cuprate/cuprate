@@ -11,4 +11,3 @@ use cuprate_types::blockchain::{
 ///
 /// Either our [`BlockchainResponse`], or a database error occurred.
 pub(super) type ResponseResult = DbResult<BlockchainResponse>;
-

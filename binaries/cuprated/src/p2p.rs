@@ -35,8 +35,8 @@ mod core_sync_service;
 mod network_address;
 pub mod request_handler;
 
-pub use network_address::CrossNetworkInternalPeerId;
 use crate::blockchain::BlockchainReadHandle;
+pub use network_address::CrossNetworkInternalPeerId;
 
 /// A simple parsing enum for the `p2p.clear_net.proxy` field
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]

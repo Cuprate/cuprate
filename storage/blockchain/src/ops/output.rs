@@ -14,12 +14,13 @@ use cuprate_helper::{
 use cuprate_linear_tape::LinearTape;
 use cuprate_types::OutputOnChain;
 
+use crate::database::Tapes;
 use crate::{
     ops::{
         macros::{doc_add_block_inner_invariant, doc_error},
         tx::get_tx_from_id,
     },
-    tables::{BlockInfos, BlockTxsHashes, Outputs, Tables, TablesMut, TxBlobs, TxUnlockTime},
+    tables::{BlockInfos, Outputs, Tables, TablesMut, TxUnlockTime},
     types::{Amount, AmountIndex, Output, OutputFlags, PreRctOutputId, RctOutput},
 };
 
@@ -135,10 +136,8 @@ pub fn output_to_output_on_chain(
     output: &Output,
     amount: Amount,
     get_txid: bool,
-    table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
-    table_block_txs_hashes: &impl DatabaseRo<BlockTxsHashes>,
-    table_block_infos: &impl DatabaseRo<BlockInfos>,
-    table_tx_blobs: &impl DatabaseRo<TxBlobs>,
+    tables: &impl Tables,
+    tapes: &Tapes,
 ) -> DbResult<OutputOnChain> {
     let commitment = compute_zero_commitment(amount);
 
@@ -146,7 +145,7 @@ pub fn output_to_output_on_chain(
         .output_flags
         .contains(OutputFlags::NON_ZERO_UNLOCK_TIME)
     {
-        u64_to_timelock(table_tx_unlock_time.get(&output.tx_idx)?)
+        u64_to_timelock(tables.tx_unlock_time().get(&output.tx_idx)?)
     } else {
         Timelock::None
     };
@@ -154,16 +153,14 @@ pub fn output_to_output_on_chain(
     let key = CompressedPoint(output.key);
 
     let txid = if get_txid {
-        let height = u32_to_usize(output.height);
-
-        let miner_tx_id = table_block_infos.get(&height)?.mining_tx_index;
-
-        let txid = if miner_tx_id == output.tx_idx {
-            get_tx_from_id(&miner_tx_id, table_tx_blobs)?.hash()
-        } else {
-            let idx = u64_to_usize(output.tx_idx - miner_tx_id - 1);
-            table_block_txs_hashes.get(&height)?[idx]
-        };
+        let txid = get_tx_from_id(
+            &output.tx_idx,
+            tapes,
+            tables.tx_infos(),
+            tables.block_infos(),
+            tables.blob_tape_ends(),
+        )?
+        .hash();
 
         Some(txid)
     } else {
@@ -191,10 +188,8 @@ pub fn output_to_output_on_chain(
 pub fn rct_output_to_output_on_chain(
     rct_output: &RctOutput,
     get_txid: bool,
-    table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
-    table_block_txs_hashes: &impl DatabaseRo<BlockTxsHashes>,
-    table_block_infos: &impl DatabaseRo<BlockInfos>,
-    table_tx_blobs: &impl DatabaseRo<TxBlobs>,
+    tables: &impl Tables,
+    tapes: &Tapes,
 ) -> DbResult<OutputOnChain> {
     // INVARIANT: Commitments stored are valid when stored by the database.
     let commitment = CompressedPoint(rct_output.commitment);
@@ -203,7 +198,7 @@ pub fn rct_output_to_output_on_chain(
         .output_flags
         .contains(OutputFlags::NON_ZERO_UNLOCK_TIME)
     {
-        u64_to_timelock(table_tx_unlock_time.get(&rct_output.tx_idx)?)
+        u64_to_timelock(tables.tx_unlock_time().get(&rct_output.tx_idx)?)
     } else {
         Timelock::None
     };
@@ -211,16 +206,14 @@ pub fn rct_output_to_output_on_chain(
     let key = CompressedPoint(rct_output.key);
 
     let txid = if get_txid {
-        let height = u32_to_usize(rct_output.height);
-
-        let miner_tx_id = table_block_infos.get(&height)?.mining_tx_index;
-
-        let txid = if miner_tx_id == rct_output.tx_idx {
-            get_tx_from_id(&miner_tx_id, table_tx_blobs)?.hash()
-        } else {
-            let idx = u64_to_usize(rct_output.tx_idx - miner_tx_id - 1);
-            table_block_txs_hashes.get(&height)?[idx]
-        };
+        let txid = get_tx_from_id(
+            &rct_output.tx_idx,
+            tapes,
+            tables.tx_infos(),
+            tables.block_infos(),
+            tables.blob_tape_ends(),
+        )?
+        .hash();
 
         Some(txid)
     } else {
@@ -244,33 +237,19 @@ pub fn id_to_output_on_chain(
     id: &PreRctOutputId,
     get_txid: bool,
     tables: &impl Tables,
-    table_rct_outputs: &LinearTape<RctOutput>,
+    tapes: &Tapes,
 ) -> DbResult<OutputOnChain> {
     // v2 transactions.
     if id.amount == 0 {
-        let rct_output = get_rct_output(id.amount_index, table_rct_outputs)?;
-        let output_on_chain = rct_output_to_output_on_chain(
-            &rct_output,
-            get_txid,
-            tables.tx_unlock_time(),
-            tables.block_txs_hashes(),
-            tables.block_infos(),
-            tables.tx_blobs(),
-        )?;
+        let rct_output = get_rct_output(id.amount_index, &tapes.rct_outputs)?;
+        let output_on_chain = rct_output_to_output_on_chain(&rct_output, get_txid, tables, tapes)?;
 
         Ok(output_on_chain)
     } else {
         // v1 transactions.
         let output = get_output(id, tables.outputs())?;
-        let output_on_chain = output_to_output_on_chain(
-            &output,
-            id.amount,
-            get_txid,
-            tables.tx_unlock_time(),
-            tables.block_txs_hashes(),
-            tables.block_infos(),
-            tables.tx_blobs(),
-        )?;
+        let output_on_chain =
+            output_to_output_on_chain(&output, id.amount, get_txid, tables, tapes)?;
 
         Ok(output_on_chain)
     }

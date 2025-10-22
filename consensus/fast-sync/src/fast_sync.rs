@@ -5,13 +5,8 @@ use std::{
 };
 
 use blake3::Hasher;
-use monero_oxide::{
-    block::Block,
-    transaction::{Input, Transaction},
-};
-use tower::{Service, ServiceExt};
-use cuprate_blockchain::BlockchainDatabaseService;
 use cuprate_blockchain::cuprate_database::ConcreteEnv;
+use cuprate_blockchain::BlockchainDatabaseService;
 use cuprate_consensus::transactions::new_tx_verification_data;
 use cuprate_consensus_context::BlockchainContext;
 use cuprate_p2p::block_downloader::ChainEntry;
@@ -20,6 +15,11 @@ use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
+use monero_oxide::{
+    block::Block,
+    transaction::{Input, Transaction},
+};
+use tower::{Service, ServiceExt};
 
 /// A [`OnceLock`] representing the fast sync hashes.
 static FAST_SYNC_HASHES: OnceLock<&[[u8; 32]]> = OnceLock::new();
@@ -99,8 +99,11 @@ pub async fn validate_entries<N: NetworkZone>(
     let mut hashes_stop_diff_last_height = last_height - hashes_stop_height;
 
     // get the hashes we are missing to create the first fast-sync hash.
-    let BlockchainResponse::BlockHashInRange(starting_hashes) = <BlockchainDatabaseService<ConcreteEnv> as ServiceExt<BlockchainReadRequest>>::ready(blockchain_read_handle
-    ).await?
+    let BlockchainResponse::BlockHashInRange(starting_hashes) =
+        <BlockchainDatabaseService<ConcreteEnv> as ServiceExt<BlockchainReadRequest>>::ready(
+            blockchain_read_handle,
+        )
+        .await?
         .call(BlockchainReadRequest::BlockHashInRange(
             hashes_start_height..start_height,
             Chain::Main,
@@ -191,7 +194,7 @@ pub fn block_to_verified_block_information(
 
     let block_blob = block.serialize();
 
-    let Some(Input::Gen(height)) = block.miner_transaction.prefix().inputs.first() else {
+    let Some(Input::Gen(height)) = block.miner_transaction().prefix().inputs.first() else {
         panic!("fast sync block invalid");
     };
 
@@ -213,18 +216,20 @@ pub fn block_to_verified_block_information(
     for tx in &block.transactions {
         let data = txs.remove(tx).expect("fast sync block invalid");
 
+        let (tx, prunable)= data.tx.pruned_with_prunable();
         verified_txs.push(VerifiedTransactionInformation {
-            tx_blob: data.tx_blob,
+            tx_prunable_blob: prunable,
+            tx_pruned: tx.serialize(),
             tx_weight: data.tx_weight,
             fee: data.fee,
             tx_hash: data.tx_hash,
-            tx: data.tx,
+            tx,
         });
     }
 
     let total_fees = verified_txs.iter().map(|tx| tx.fee).sum::<u64>();
     let total_outputs = block
-        .miner_transaction
+        .miner_transaction()
         .prefix()
         .outputs
         .iter()
@@ -233,7 +238,7 @@ pub fn block_to_verified_block_information(
 
     let generated_coins = total_outputs - total_fees;
 
-    let weight = block.miner_transaction.weight()
+    let weight = block.miner_transaction().weight()
         + verified_txs.iter().map(|tx| tx.tx_weight).sum::<usize>();
 
     VerifiedBlockInformation {

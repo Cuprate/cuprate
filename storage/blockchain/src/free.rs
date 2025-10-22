@@ -1,10 +1,16 @@
 //! General free functions (related to the database).
 
+use cuprate_database::DatabaseRw;
+use std::fs::{create_dir, create_dir_all};
+use std::io;
 use std::sync::RwLock;
 //---------------------------------------------------------------------------------------------------- Import
+use crate::database::Tapes;
 use crate::{config::Config, database::BlockchainDatabase, tables::OpenTables};
 use cuprate_database::{ConcreteEnv, Env, EnvInner, InitError, RuntimeError, TxRw};
-use cuprate_linear_tape::LinearTape;
+use cuprate_linear_tape::{LinearBlobTape, LinearTape};
+use crate::tables::BlobTapeEnds;
+use crate::types::BlobTapeEnd;
 
 //---------------------------------------------------------------------------------------------------- Free functions
 /// Open the blockchain database using the passed [`Config`].
@@ -56,15 +62,51 @@ pub fn open<E: Env>(config: Config) -> Result<BlockchainDatabase<E>, InitError> 
         // Create all tables.
         OpenTables::create_tables(&env_inner, &tx_rw).map_err(runtime_to_init_error)?;
 
+        let mut table = env_inner.open_db_rw::<BlobTapeEnds>(&tx_rw).map_err(runtime_to_init_error)?;
+
+        table.put(&1, &BlobTapeEnd {
+            pruned_tape: 0,
+            prunable_tapes: [0; 8],
+        }).unwrap();
+        drop(table);
+
         TxRw::commit(tx_rw).map_err(runtime_to_init_error)?;
     }
 
     let rct_outputs =
         unsafe { LinearTape::open(config.db_config.db_directory().join("rct_outputs.tape")) }?;
 
+    let pruned_blobs =
+        unsafe { LinearBlobTape::open(config.db_config.db_directory().join("pruned.tape")) }?;
+
+    let prunable_dir =       config
+        .db_config
+        .db_directory()
+        .join("prunable");
+
+    create_dir_all(&prunable_dir);
+
+    let prunable_tape = match (1..9)
+        .into_iter()
+        .map(|i| unsafe {
+            Ok(Some(LinearBlobTape::open(
+                prunable_dir.join(format!("stripe{i}.tape")),
+            )?))
+        })
+        .collect::<Result<Vec<_>, InitError>>()?
+        .try_into()
+    {
+        Ok(rct_outputs) => rct_outputs,
+        Err(_) => unreachable!(),
+    };
+
     Ok(BlockchainDatabase {
         dynamic_tables: env,
-        rct_outputs: RwLock::new(rct_outputs),
+        tapes: RwLock::new(Tapes {
+            rct_outputs,
+            pruned_blobs,
+            prunable_tape,
+        }),
     })
 }
 

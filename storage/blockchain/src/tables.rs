@@ -15,12 +15,13 @@
 //! This module also contains a set of traits for
 //! accessing _all_ tables defined here at once.
 
+use cuprate_database::StorableStr;
 //---------------------------------------------------------------------------------------------------- Import
 use crate::types::{
     AltBlockHeight, AltChainInfo, AltTransactionInfo, Amount, AmountIndex, AmountIndices,
-    BlockBlob, BlockHash, BlockHeaderBlob, BlockHeight, BlockInfo, BlockTxHashes,
+    BlobTapeEnd, BlockBlob, BlockHash, BlockHeaderBlob, BlockHeight, BlockInfo, BlockTxHashes,
     CompactAltBlockInfo, KeyImage, Output, PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob,
-    RawChainId, RctOutput, TxBlob, TxHash, TxId, UnlockTime,
+    RawChainId, RctOutput, TxBlob, TxHash, TxId, TxInfo, UnlockTime,
 };
 
 //---------------------------------------------------------------------------------------------------- Tables
@@ -30,28 +31,16 @@ use crate::types::{
 // - If adding/changing a table also edit:
 //   - the tests in `src/backend/tests.rs`
 cuprate_database::define_tables! {
-    /// Serialized block header blobs (bytes).
-    ///
-    /// Contains the serialized version of all blocks headers.
-    0 => BlockHeaderBlobs,
-    BlockHeight => BlockHeaderBlob,
-
-    /// Block transactions hashes
-    ///
-    /// Contains all the transaction hashes of all blocks.
-    1 => BlockTxsHashes,
-    BlockHeight => BlockTxHashes,
-
     /// Block heights.
     ///
     /// Contains the height of all blocks.
-    2 => BlockHeights,
+    0 => BlockHeights,
     BlockHash => BlockHeight,
 
     /// Block information.
     ///
     /// Contains metadata of all blocks.
-    3 => BlockInfos,
+    1 => BlockInfos,
     BlockHeight => BlockInfo,
 
     /// Set of key images.
@@ -60,39 +49,19 @@ cuprate_database::define_tables! {
     ///
     /// This table has `()` as the value type, as in,
     /// it is a set of key images.
-    4 => KeyImages,
+    2 => KeyImages,
     KeyImage => (),
 
     /// Maps an output's amount to the number of outputs with that amount.
     ///
     /// For example, if there are 5 outputs with `amount = 123`
     /// then calling `get(123)` on this table will return 5.
-    5 => NumOutputs,
+    3 => NumOutputs,
     Amount => u64,
 
     /// Pre-RCT output data.
-    6 => Outputs,
+    4 => Outputs,
     PreRctOutputId => Output,
-
-    /// Pruned transaction blobs (bytes).
-    ///
-    /// Contains the pruned portion of serialized transaction data.
-    7 => PrunedTxBlobs,
-    TxId => PrunedBlob,
-
-    /// Prunable transaction blobs (bytes).
-    ///
-    /// Contains the prunable portion of serialized transaction data.
-    // SOMEDAY: impl when `monero-oxide` supports pruning
-    8 => PrunableTxBlobs,
-    TxId => PrunableBlob,
-
-    /// Prunable transaction hashes.
-    ///
-    /// Contains the prunable portion of transaction hashes.
-    // SOMEDAY: impl when `monero-oxide` supports pruning
-    9 => PrunableHashes,
-    TxId => PrunableHash,
 
     // SOMEDAY: impl a properties table:
     // - db version
@@ -100,72 +69,69 @@ cuprate_database::define_tables! {
     // Properties,
     // StorableString => StorableVec,
 
-    /// Transaction blobs (bytes).
-    ///
-    /// Contains the serialized version of all transactions.
-    // SOMEDAY: remove when `monero-oxide` supports pruning
-    10 => TxBlobs,
-    TxId => TxBlob,
 
     /// Transaction indices.
     ///
     /// Contains the indices all transactions.
-    11 => TxIds,
+    5 => TxIds,
     TxHash => TxId,
 
     /// Transaction heights.
     ///
     /// Contains the block height associated with all transactions.
-    12 => TxHeights,
-    TxId => BlockHeight,
+    6 => TxInfos,
+    TxId => TxInfo,
 
     /// Transaction outputs.
     ///
     /// Contains the list of `AmountIndex`'s of the
     /// outputs associated with all transactions.
-    13 => TxOutputs,
+    7 => TxOutputs,
     TxId => AmountIndices,
 
     /// Transaction unlock time.
     ///
     /// Contains the unlock time of transactions IF they have one.
     /// Transactions without unlock times will not exist in this table.
-    14 => TxUnlockTime,
+    8 => TxUnlockTime,
     TxId => UnlockTime,
 
     /// Information on alt-chains.
-    15 => AltChainInfos,
+    9 => AltChainInfos,
     RawChainId => AltChainInfo,
 
     /// Alt-block heights.
     ///
     /// Contains the height of all alt-blocks.
-    16 => AltBlockHeights,
+    10 => AltBlockHeights,
     BlockHash => AltBlockHeight,
 
     /// Alt-block information.
     ///
     /// Contains information on all alt-blocks.
-    17 => AltBlocksInfo,
+    11 => AltBlocksInfo,
     AltBlockHeight => CompactAltBlockInfo,
 
     /// Alt-block blobs.
     ///
     /// Contains the raw bytes of all alt-blocks.
-    18 => AltBlockBlobs,
+    12 => AltBlockBlobs,
     AltBlockHeight => BlockBlob,
 
     /// Alt-block transaction blobs.
     ///
     /// Contains the raw bytes of alt transactions, if those transactions are not in the main-chain.
-    19 => AltTransactionBlobs,
+    13 => AltTransactionBlobs,
     TxHash => TxBlob,
 
     /// Alt-block transaction information.
     ///
     /// Contains information on all alt transactions, even if they are in the main-chain.
-    20 => AltTransactionInfos,
+    14 => AltTransactionInfos,
     TxHash => AltTransactionInfo,
+
+    15 => BlobTapeEnds,
+    u8 => BlobTapeEnd,
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

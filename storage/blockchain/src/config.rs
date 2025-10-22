@@ -41,19 +41,18 @@
 //! ```
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{borrow::Cow, path::PathBuf};
-use std::num::NonZeroUsize;
-use std::sync::Arc;
 use rayon::ThreadPool;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+use std::num::NonZeroUsize;
+use std::sync::Arc;
+use std::{borrow::Cow, path::PathBuf};
 
 use cuprate_database::{config::SyncMode, resize::ResizeAlgorithm};
 use cuprate_helper::{
     fs::{blockchain_path, CUPRATE_DATA_DIR},
     network::Network,
 };
-
 
 //---------------------------------------------------------------------------------------------------- ConfigBuilder
 /// Builder for [`Config`].
@@ -255,7 +254,6 @@ impl Default for Config {
     }
 }
 
-
 //---------------------------------------------------------------------------------------------------- init_thread_pool
 /// Initialize the reader thread-pool backed by `rayon`.
 pub fn init_thread_pool(reader_threads: ReaderThreads) -> Arc<ThreadPool> {
@@ -443,4 +441,3 @@ impl<T: Into<usize>> From<T> for ReaderThreads {
         }
     }
 }
-

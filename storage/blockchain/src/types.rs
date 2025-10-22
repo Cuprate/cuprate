@@ -103,6 +103,21 @@ pub type TxHash = [u8; 32];
 /// The unlock time value of an output.
 pub type UnlockTime = u64;
 
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[repr(C)]
+pub struct BlobTapeEnd {
+    pub pruned_tape: usize,
+    pub prunable_tapes: [usize; 8],
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[repr(C)]
+pub struct TxInfo {
+    pub height: usize,
+    pub pruned_blob_idx: usize,
+    pub prunable_blob_idx: usize,
+}
+
 //---------------------------------------------------------------------------------------------------- BlockInfoV1
 /// A identifier for a pre-RCT [`Output`].
 ///
@@ -190,8 +205,6 @@ impl Key for PreRctOutputId {}
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(C)]
 pub struct BlockInfo {
-    /// The UNIX time at which the block was mined.
-    pub timestamp: u64,
     /// The total amount of coins mined in all blocks so far, including this block's.
     pub cumulative_generated_coins: u64,
     /// The adjusted block size, in bytes.
@@ -212,6 +225,7 @@ pub struct BlockInfo {
     pub long_term_weight: usize,
     /// [`TxId`] (u64) of the block coinbase transaction.
     pub mining_tx_index: TxId,
+    pub blob_idx: usize,
 }
 
 //---------------------------------------------------------------------------------------------------- OutputFlags

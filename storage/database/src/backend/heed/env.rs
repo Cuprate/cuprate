@@ -151,7 +151,7 @@ impl Env for ConcreteEnv {
             Err(io_err) => return Err(io_err.into()),
         };
         // Add leeway space.
-        let memory_map_size : usize= 4096 * 1024 * 1024 * 1024;
+        let memory_map_size: usize = 4096 * 1024 * 1024 * 1024;
         env_open_options.map_size(memory_map_size);
 
         // Set the max amount of database tables.

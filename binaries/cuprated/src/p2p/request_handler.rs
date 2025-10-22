@@ -44,13 +44,13 @@ use cuprate_wire::protocol::{
     GetObjectsResponse, NewFluffyBlock, NewTransactions,
 };
 
+use crate::blockchain::BlockchainReadHandle;
 use crate::{
     blockchain::interface::{self as blockchain_interface, IncomingBlockError},
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     p2p::CrossNetworkInternalPeerId,
     txpool::{IncomingTxError, IncomingTxHandler, IncomingTxs},
 };
-use crate::blockchain::BlockchainReadHandle;
 
 /// The P2P protocol request handler [`MakeService`](tower::MakeService).
 #[derive(Clone)]

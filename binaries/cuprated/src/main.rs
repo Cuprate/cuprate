@@ -33,13 +33,13 @@ use cuprate_p2p_core::{transports::Tcp, ClearNet};
 use cuprate_types::blockchain::BlockchainWriteRequest;
 use txpool::IncomingTxHandler;
 
+use crate::blockchain::{BlockchainReadHandle, BlockchainWriteHandle};
 use crate::{
     config::Config,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     logging::CupratedTracingFilter,
     tor::{initialize_tor_if_enabled, TorMode},
 };
-use crate::blockchain::{BlockchainReadHandle, BlockchainWriteHandle};
 
 mod blockchain;
 mod commands;
@@ -91,8 +91,8 @@ fn main() {
         )
         .inspect_err(|e| error!("Blockchain database error: {e}"))
         .expect(DATABASE_CORRUPT_MSG);
-    
-    let mut blockchain_write_handle= BlockchainWriteHandle(blockchain_database.clone());
+
+    let mut blockchain_write_handle = BlockchainWriteHandle(blockchain_database.clone());
     let mut blockchain_read_handle = BlockchainReadHandle(blockchain_database);
 
     let (txpool_read_handle, txpool_write_handle, _) =

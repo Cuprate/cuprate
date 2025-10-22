@@ -1,11 +1,16 @@
-use memmap2::{MmapMut, MmapOptions, RemapOptions};
+mod blob_tape;
+
+pub use blob_tape::*;
+
+use memmap2::{Advice, MmapMut, MmapOptions, MmapRaw, RemapOptions};
 use std::cmp::max;
 use std::fs::{File, OpenOptions};
 use std::io::{empty, Read, Write};
 use std::marker::PhantomData;
 use std::ops::{Deref, Index, Range};
 use std::path::Path;
-use std::{fs, io};
+use std::{fs, io, slice};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// A type that can be inserted into a [`LinearTape`].
 pub trait Entry {
@@ -57,26 +62,26 @@ impl DatabaseHeader {
 }
 
 /// The backing memory map file.
-struct BackingFile<E: Entry> {
+struct BackingFile {
     /// The [`File`] that the memory map points to.
     file: File,
     /// The memory map.
-    mmap: MmapMut,
+    mmap: MmapRaw,
     /// The amount of [`Entry`]s in this [`LinearTape`].
-    len: usize,
-    /// The number of [`Entry`]s that can fit in this file without a resize.
-    free_capacity: usize,
-    phantom: PhantomData<E>,
+    len: AtomicUsize,
 }
 
-impl<E: Entry> BackingFile<E> {
+impl BackingFile {
     /// Take a range of bytes from the memory map.
     ///
     /// # Safety
     ///
     /// This memory map must be initialised in this range.
     unsafe fn range(&self, range: Range<usize>) -> &[u8] {
-        &self.mmap[range]
+        unsafe {
+        let ptr = self.mmap.as_ptr().add(range.start);
+        slice::from_raw_parts(ptr, range.len())
+            }
     }
 
     /// Take a mutable range of bytes from the memory map.
@@ -84,13 +89,24 @@ impl<E: Entry> BackingFile<E> {
     /// # Safety
     ///
     /// This memory map must be initialised in this range.
-    unsafe fn range_mut(&mut self, range: Range<usize>) -> &mut [u8] {
-        &mut self.mmap[range]
+    unsafe fn range_mut(&self, range: Range<usize>) -> &mut [u8] {
+        unsafe {
+            let ptr = self.mmap.as_mut_ptr().add(range.start);
+            slice::from_raw_parts_mut(ptr, range.len())
+        }
+    }
+
+    fn capacity(&self, data_size: usize) -> usize {
+        capacity(self.file.metadata().unwrap().len(), data_size) - self.len.load(Ordering::Acquire)
     }
 
     /// Flushes outstanding memory map modifications to disk.
-    fn flush(&mut self) -> io::Result<()> {
-        self.mmap[4..12].copy_from_slice(&self.len.to_le_bytes());
+    fn flush(&self, new_len: usize) -> io::Result<()> {
+        self.len.store(new_len, Ordering::Release);
+        // TODO: this needs to be atomic if we support multiple processes opening the same file.
+        unsafe {
+            self.range_mut(4..12).copy_from_slice(&new_len.to_le_bytes());
+        }
         self.mmap.flush()
     }
 
@@ -98,8 +114,12 @@ impl<E: Entry> BackingFile<E> {
     ///
     /// This method initiates flushing modified pages to durable storage, but it will not wait for
     /// the operation to complete before returning.
-    fn flush_async(&mut self) -> io::Result<()> {
-        self.mmap[4..12].copy_from_slice(&self.len.to_le_bytes());
+    fn flush_async(&self, new_len: usize) -> io::Result<()> {
+        self.len.store(new_len, Ordering::Release);
+        // TODO: this needs to be atomic if we support multiple processes opening the same file.
+        unsafe {
+            self.range_mut(4..12).copy_from_slice(&new_len.to_le_bytes());
+        }
         self.mmap.flush_async()
     }
 }
@@ -114,7 +134,8 @@ impl<E: Entry> BackingFile<E> {
 ///
 /// Not all operations are atomic, more details on this can be seen on the write functions.
 pub struct LinearTape<E: Entry> {
-    backing_file: BackingFile<E>,
+    backing_file: BackingFile,
+    phantom: PhantomData<E>,
 }
 
 impl<E: Entry> LinearTape<E> {
@@ -136,6 +157,7 @@ impl<E: Entry> LinearTape<E> {
 
             file.write_all(&header.to_bytes())?;
             file.flush()?;
+            file.set_len(4096 * 1024 * 1024 * 1024)?;
 
             header
         } else {
@@ -150,31 +172,26 @@ impl<E: Entry> LinearTape<E> {
             header
         };
 
-        let free_capacity = capacity::<E>(file.metadata()?.len()) - header.entries;
+        let mmap =  MmapOptions::new().no_reserve_swap().map_raw(&file)?;
 
-        let mmap = unsafe { MmapOptions::new().no_reserve_swap().map_mut(&file)? };
+        mmap.advise(Advice::Random)?;
 
         Ok(LinearTape {
             backing_file: BackingFile {
                 file,
                 mmap,
-                len: header.entries,
-                free_capacity,
-                phantom: Default::default(),
+                len: header.entries.into(),
             },
+            phantom: PhantomData,
         })
     }
 
     pub fn len(&self) -> usize {
-        self.backing_file.len
-    }
-
-    pub fn free_capacity(&self) -> usize {
-        self.backing_file.free_capacity
+        self.backing_file.len.load(Ordering::Acquire)
     }
 
     pub fn try_get(&self, i: usize) -> Option<E> {
-        if self.backing_file.len <= i {
+        if self.len() <= i {
             return None;
         }
 
@@ -186,18 +203,18 @@ impl<E: Entry> LinearTape<E> {
 
         self.backing_file.file.set_len(new_size_bytes)?;
 
-        let map = unsafe { MmapOptions::new().map_mut(&self.backing_file.file)? };
+        let map = MmapOptions::new().map_raw(&self.backing_file.file)?;
+        map.advise(Advice::Random)?;
 
         self.backing_file.mmap = map;
-
-        self.backing_file.free_capacity = capacity::<E>(new_size_bytes) - self.backing_file.len;
 
         Ok(())
     }
 
-    pub fn appender(&mut self) -> LinearTapeAppender<'_, E> {
+    pub fn appender(&self) -> LinearTapeAppender<'_, E> {
         LinearTapeAppender {
-            backing_file: &mut self.backing_file,
+            backing_file: &self.backing_file,
+            phantom: PhantomData,
             entries_added: 0,
         }
     }
@@ -205,14 +222,9 @@ impl<E: Entry> LinearTape<E> {
     pub fn popper(&mut self) -> LinearTapePopper<'_, E> {
         LinearTapePopper {
             backing_file: &mut self.backing_file,
+            phantom: PhantomData,
             entries_popped: 0,
         }
-    }
-}
-
-impl<E: Entry> Drop for LinearTape<E> {
-    fn drop(&mut self) {
-        drop(self.backing_file.flush());
     }
 }
 
@@ -222,7 +234,8 @@ impl<E: Entry> Drop for LinearTape<E> {
 ///
 /// Make sure to check each function for atomicity as not all functions are atomic.
 pub struct LinearTapeAppender<'a, E: Entry> {
-    backing_file: &'a mut BackingFile<E>,
+    backing_file: &'a BackingFile,
+    phantom: PhantomData<E>,
     entries_added: usize,
 }
 
@@ -235,20 +248,6 @@ impl<E: Entry> Drop for LinearTapeAppender<'_, E> {
 }
 
 impl<E: Entry> LinearTapeAppender<'_, E> {
-    pub fn resize(&mut self, new_size_bytes: u64) -> io::Result<()> {
-        self.flush()?;
-
-        self.backing_file.file.set_len(new_size_bytes)?;
-
-        let map = unsafe { MmapOptions::new().map_mut(&self.backing_file.file)? };
-
-        self.backing_file.mmap = map;
-
-        self.backing_file.free_capacity = capacity::<E>(new_size_bytes) - self.backing_file.len;
-
-        Ok(())
-    }
-    
     /// Push some entries onto the tape.
     ///
     /// # Atomicity
@@ -256,11 +255,11 @@ impl<E: Entry> LinearTapeAppender<'_, E> {
     /// This function is atomic, it can be called multiple times, and it will still be atomic.
     /// However, if it is paired with [`LinearTapeWriter::pop_entries`] then it will no longer be atomic.
     pub fn push_entries(&mut self, entries: &[E]) -> Result<(), ResizeNeeded> {
-        if self.backing_file.free_capacity < entries.len() {
+        if self.backing_file.capacity(E::SIZE) < entries.len() {
             return Err(ResizeNeeded);
         }
 
-        let start = self.backing_file.len * E::SIZE + DatabaseHeader::SIZE;
+        let start = (self.backing_file.len.load(Ordering::Acquire) + self.entries_added) * E::SIZE + DatabaseHeader::SIZE;
         let end = start + entries.len() * E::SIZE;
 
         let mut buf = unsafe { self.backing_file.range_mut(start..end) };
@@ -271,29 +270,29 @@ impl<E: Entry> LinearTapeAppender<'_, E> {
         }
 
         self.entries_added += entries.len();
-        // TODO: don't update this here?
-        self.backing_file.len += entries.len();
-        self.backing_file.free_capacity -= entries.len();
 
         Ok(())
     }
 
     pub fn len(&self) -> usize {
-        self.backing_file.len
+        self.backing_file.len.load(Ordering::Acquire)
     }
 
     pub fn flush(&mut self) -> io::Result<()> {
+        self.backing_file.flush(self.backing_file.len.load(Ordering::Acquire) + self.entries_added)?;
         self.entries_added = 0;
-        self.backing_file.flush()
+
+        Ok(())
     }
 
     pub fn flush_async(&mut self) -> io::Result<()> {
+        self.backing_file.flush_async(self.backing_file.len.load(Ordering::Acquire) + self.entries_added)?;
         self.entries_added = 0;
-        self.backing_file.flush_async()
+
+        Ok(())
     }
 
     pub fn cancel(&mut self) {
-        self.backing_file.len -= self.entries_added;
         self.entries_added = 0;
     }
 }
@@ -303,7 +302,8 @@ impl<E: Entry> LinearTapeAppender<'_, E> {
 /// This is seperated from a [`LinearTapeAppender`] to enforce atomic writes, popping and appending
 /// cannot be combined in an atomic way.
 pub struct LinearTapePopper<'a, E: Entry> {
-    backing_file: &'a mut BackingFile<E>,
+    backing_file: &'a mut BackingFile,
+    phantom: PhantomData<E>,
     entries_popped: usize,
 }
 
@@ -318,15 +318,14 @@ impl<E: Entry> Drop for LinearTapePopper<'_, E> {
 impl<E: Entry> LinearTapePopper<'_, E> {
     /// Pop some entries from the tape.
     pub fn pop_entries(&mut self, amt: usize) {
-        self.backing_file.len -= amt;
-        self.backing_file.free_capacity += amt;
         self.entries_popped += amt;
     }
 
     /// Flush the tape to disk, saving any changes made.
     pub fn flush(&mut self) -> io::Result<()> {
+        self.backing_file.flush(self.backing_file.len.load(Ordering::Acquire) - self.entries_popped)?;
         self.entries_popped = 0;
-        self.backing_file.flush()
+        Ok(())
     }
 
     /// Asynchronously flushes outstanding memory map modifications to disk.
@@ -334,13 +333,13 @@ impl<E: Entry> LinearTapePopper<'_, E> {
     /// This method initiates flushing modified pages to durable storage, but it will not wait for
     /// the operation to complete before returning
     pub fn flush_async(&mut self) -> io::Result<()> {
+        self.backing_file.flush_async(self.backing_file.len.load(Ordering::Acquire) - self.entries_popped)?;
         self.entries_popped = 0;
-        self.backing_file.flush_async()
+        Ok(())
     }
 
     /// Cancel this change, the tape will be restored to where it was before this operation.
     pub fn cancel(&mut self) {
-        self.backing_file.len += self.entries_popped;
         self.entries_popped = 0;
     }
 }
@@ -348,8 +347,8 @@ impl<E: Entry> LinearTapePopper<'_, E> {
 #[derive(Debug)]
 pub struct ResizeNeeded;
 
-fn capacity<E: Entry>(size: u64) -> usize {
-    (size as usize - DatabaseHeader::SIZE) / E::SIZE
+fn capacity(database_size: u64, data_size: usize) -> usize {
+    (database_size as usize - DatabaseHeader::SIZE) / data_size
 }
 
 fn entry_byte_range<E: Entry>(i: usize) -> Range<usize> {

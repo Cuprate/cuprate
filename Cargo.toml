@@ -44,6 +44,7 @@ members = [
 	# ZMQ
 	"zmq/types",
 
+	"perf-test",
 	# Misc
 	"constants",
 	"cryptonight",
@@ -102,6 +103,7 @@ default-members = [
 	# ZMQ
 	"zmq/types",
 
+	"perf-test",
 	# Misc
 	"constants",
 	"cryptonight",
@@ -189,8 +191,8 @@ futures               = { version = "0.3", default-features = false }
 hex                   = { version = "0.4", default-features = false }
 hex-literal           = { version = "1", default-features = false }
 indexmap              = { version = "2", default-features = false }
-monero-address        = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "68d5a5e", default-features = false }
-monero-oxide          = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "68d5a5e", default-features = false }
+monero-address        = { git = "https://github.com/Boog900/monero-oxide.git", rev = "f5a1575b4b20f99934ae8f617d70c5e491b8acd1", default-features = false }
+monero-oxide          = { git = "https://github.com/Boog900/monero-oxide.git", rev = "f5a1575b4b20f99934ae8f617d70c5e491b8acd1", features = ["std"] }
 nu-ansi-term          = { version = "0.46", default-features = false }
 paste                 = { version = "1", default-features = false }
 pin-project           = { version = "1", default-features = false }
@@ -224,8 +226,8 @@ tracing-subscriber    = { version = "0.3", default-features = false }
 tracing               = { version = "0.1", default-features = false }
 
 ## workspace.dev-dependencies
-monero-rpc                = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "68d5a5e" }
-monero-simple-request-rpc = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "68d5a5e" }
+monero-rpc                = { git = "https://github.com/Boog900/monero-oxide.git", rev = "f5a1575b4b20f99934ae8f617d70c5e491b8acd1" }
+monero-simple-request-rpc = { git = "https://github.com/Boog900/monero-oxide.git", rev = "f5a1575b4b20f99934ae8f617d70c5e491b8acd1" }
 tempfile                  = { version = "3" }
 pretty_assertions         = { version = "1" }
 proptest                  = { version = "1" }

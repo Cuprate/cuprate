@@ -1,36 +1,40 @@
+use crate::types::{RctOutput, TxInfo};
 use cuprate_database::DatabaseRo;
-use std::{future::pending, sync::RwLock};
-use std::mem;
-use crate::types::RctOutput;
 use cuprate_database::{ConcreteEnv, DbResult, Env, EnvInner, InitError, RuntimeError};
-use cuprate_linear_tape::LinearTape;
+use cuprate_helper::asynch::InfallibleOneshotReceiver;
+use cuprate_linear_tape::{LinearBlobTape, LinearTape};
 use cuprate_types::blockchain::{
     BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest,
 };
-use cuprate_helper::asynch::InfallibleOneshotReceiver;
+use rayon::ThreadPool;
+use std::mem;
 use std::sync::Arc;
 use std::task::{ready, Context, Poll};
-use rayon::ThreadPool;
+use std::{future::pending, sync::RwLock};
 //use tokio::sync::{ OwnedRwLockReadGuard, OwnedRwLockWriteGuard, RwLock};
-use futures::channel::oneshot;
-use tokio_util::sync::ReusableBoxFuture;
-use tower::Service;
 use crate::config::{init_thread_pool, Config};
 use crate::service::{map_read_request, map_write_request};
 use crate::tables::BlockInfos;
+use futures::channel::oneshot;
+use tokio_util::sync::ReusableBoxFuture;
+use tower::Service;
+
+pub(crate) struct Tapes {
+    pub(crate) rct_outputs: LinearTape<RctOutput>,
+    pub(crate) pruned_blobs: LinearBlobTape,
+    pub(crate) prunable_tape: [Option<LinearBlobTape>; 8],
+}
 
 pub struct BlockchainDatabase<E: Env> {
     pub(crate) dynamic_tables: E,
-    pub(crate) rct_outputs: RwLock<LinearTape<RctOutput>>,
+    pub(crate) tapes: RwLock<Tapes>,
 }
 
 pub struct BlockchainDatabaseService<E: Env + 'static> {
     pool: Arc<ThreadPool>,
 
     database: Arc<BlockchainDatabase<E>>,
-
-//    lock_state: LockState<E>
-
+    //    lock_state: LockState<E>
 }
 
 impl<E: Env> Clone for BlockchainDatabaseService<E> {
@@ -38,7 +42,7 @@ impl<E: Env> Clone for BlockchainDatabaseService<E> {
         Self {
             pool: Arc::clone(&self.pool),
             database: Arc::clone(&self.database),
-          //  lock_state: LockState::Waiting(None, None),
+            //  lock_state: LockState::Waiting(None, None),
         }
     }
 }
@@ -53,9 +57,8 @@ impl<E: Env + 'static> BlockchainDatabaseService<E> {
         Ok(Self {
             pool,
             database: Arc::new(database),
-          //  lock_state: LockState::Waiting(None, None),
+            //  lock_state: LockState::Waiting(None, None),
         })
-
     }
 
     pub fn init_with_pool(config: Config, pool: Arc<ThreadPool>) -> Result<Self, InitError> {
@@ -65,9 +68,8 @@ impl<E: Env + 'static> BlockchainDatabaseService<E> {
         Ok(Self {
             pool,
             database: Arc::new(database),
-          //  lock_state: LockState::Waiting(None, None),
+            //  lock_state: LockState::Waiting(None, None),
         })
-
     }
 
     pub fn disarm(&mut self) {
@@ -133,21 +135,20 @@ impl<E: Env + 'static> Service<BlockchainWriteRequest> for BlockchainDatabaseSer
     }
 }
 
-
-fn check_rct_output_tape_consistency<E: Env>(blockchain_database: &mut BlockchainDatabase<E>){
+fn check_rct_output_tape_consistency<E: Env>(blockchain_database: &mut BlockchainDatabase<E>) {
     let env_inner = blockchain_database.dynamic_tables.env_inner();
 
     let tx_ro = env_inner.tx_ro().unwrap();
 
     let block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro).unwrap();
-    let Some(top_block) =  block_infos.len().unwrap().checked_sub(1) else {
-
+    let Some(top_block) = block_infos.len().unwrap().checked_sub(1) else {
         return;
     };
 
     let top_block_info = block_infos.get(&(top_block as usize)).unwrap();
 
-    let mut rct_tape = blockchain_database.rct_outputs.write().unwrap();
+    let mut tapes = blockchain_database.tapes.write().unwrap();
+    let mut rct_tape = &mut tapes.rct_outputs;
     if top_block_info.cumulative_rct_outs < rct_tape.len() as u64 {
         let amt_to_pop = rct_tape.len() as u64 - top_block_info.cumulative_rct_outs;
         let mut popper = rct_tape.popper();
@@ -167,7 +168,6 @@ to sign on, they are powerful enough to swap out the intended transaction detail
 
 Due to this we will be making no changes in our code and I will be closing this report. Thank you.
  */
-
 
 /*
 enum LockState<E: Env> {

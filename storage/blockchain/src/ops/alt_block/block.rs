@@ -5,6 +5,7 @@ use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, StorableVec};
 use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};
 use cuprate_types::{AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, HardFork};
 
+use crate::database::Tapes;
 use crate::{
     ops::{
         alt_block::{add_alt_transaction_blob, get_alt_transaction, update_alt_chain_info},
@@ -97,6 +98,7 @@ pub fn add_alt_block(alt_block: &AltBlockInformation, tables: &mut impl TablesMu
 pub fn get_alt_block(
     alt_block_height: &AltBlockHeight,
     tables: &impl Tables,
+    tapes: &Tapes,
 ) -> DbResult<AltBlockInformation> {
     let block_info = tables.alt_blocks_info().get(alt_block_height)?;
 
@@ -107,7 +109,7 @@ pub fn get_alt_block(
     let txs = block
         .transactions
         .iter()
-        .map(|tx_hash| get_alt_transaction(tx_hash, tables))
+        .map(|tx_hash| get_alt_transaction(tx_hash, tables, tapes))
         .collect::<DbResult<_>>()?;
 
     Ok(AltBlockInformation {

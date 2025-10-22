@@ -18,8 +18,8 @@ use cuprate_rpc_types::{
 use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::BlockTemplate;
 
-use crate::{rpc::handlers, txpool::IncomingTxHandler};
 use crate::blockchain::BlockchainReadHandle;
+use crate::{rpc::handlers, txpool::IncomingTxHandler};
 
 /// TODO: use real type when public.
 #[derive(Clone)]

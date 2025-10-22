@@ -8,11 +8,7 @@ use cuprate_types::{
     AltBlockInformation, ChainId, VerifiedBlockInformation,
 };
 
-use crate::{
-    service::types::ResponseResult,
-    tables::OpenTables,
-    BlockchainDatabase,
-};
+use crate::{service::types::ResponseResult, tables::OpenTables, BlockchainDatabase};
 
 /// Write functions within this module abort if the write transaction
 /// could not be aborted successfully to maintain atomicity.
@@ -56,7 +52,7 @@ fn write_block<E: Env>(
 
     let result = {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
-        crate::ops::block::add_block(block, &mut tables_mut, &env.rct_outputs)
+        crate::ops::block::add_block(block, &mut tables_mut, &env.tapes.read().unwrap())
     };
 
     match result {
@@ -79,11 +75,12 @@ fn write_blocks<E: Env>(
 ) -> ResponseResult {
     let env_inner = env.dynamic_tables.env_inner();
     let tx_rw = env_inner.tx_rw()?;
+    let tapes = env.tapes.read().unwrap();
 
     let result = {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
         for block in block {
-            crate::ops::block::add_block(block, &mut tables_mut, &env.rct_outputs)?;
+            crate::ops::block::add_block(block, &mut tables_mut, &tapes)?;
         }
 
         Ok(())
@@ -104,7 +101,7 @@ fn write_blocks<E: Env>(
 /// [`BlockchainWriteRequest::WriteAltBlock`].
 #[inline]
 fn write_alt_block<E: Env>(
-    env: & BlockchainDatabase<E>,
+    env: &BlockchainDatabase<E>,
     block: &AltBlockInformation,
 ) -> ResponseResult {
     let env_inner = env.dynamic_tables.env_inner();
@@ -128,7 +125,7 @@ fn write_alt_block<E: Env>(
 }
 
 /// [`BlockchainWriteRequest::PopBlocks`].
-fn pop_blocks<E: Env>(env: & BlockchainDatabase<E>, numb_blocks: usize) -> ResponseResult {
+fn pop_blocks<E: Env>(env: &BlockchainDatabase<E>, numb_blocks: usize) -> ResponseResult {
     let env_inner = env.dynamic_tables.env_inner();
     let mut tx_rw = env_inner.tx_rw()?;
 
@@ -143,7 +140,11 @@ fn pop_blocks<E: Env>(env: & BlockchainDatabase<E>, numb_blocks: usize) -> Respo
 
         // pop the blocks
         for _ in 0..numb_blocks {
-            crate::ops::block::pop_block(Some(old_main_chain_id), &mut tables_mut, & env.rct_outputs)?;
+            crate::ops::block::pop_block(
+                Some(old_main_chain_id),
+                &mut tables_mut,
+                &mut env.tapes.write().unwrap(),
+            )?;
         }
 
         Ok(old_main_chain_id)
@@ -163,7 +164,7 @@ fn pop_blocks<E: Env>(env: & BlockchainDatabase<E>, numb_blocks: usize) -> Respo
 
 /// [`BlockchainWriteRequest::FlushAltBlocks`].
 #[inline]
-fn flush_alt_blocks<E: Env>(env: & BlockchainDatabase<E>) -> ResponseResult {
+fn flush_alt_blocks<E: Env>(env: &BlockchainDatabase<E>) -> ResponseResult {
     let env_inner = env.dynamic_tables.env_inner();
     let mut tx_rw = env_inner.tx_rw()?;
 

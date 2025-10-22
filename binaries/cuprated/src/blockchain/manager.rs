@@ -36,10 +36,10 @@ mod handler;
 #[cfg(test)]
 mod tests;
 
+use crate::blockchain::types::{BlockchainReadHandle, BlockchainWriteHandle};
 pub use commands::{BlockchainManagerCommand, IncomingBlockOk};
 use cuprate_blockchain::BlockchainDatabaseService;
 use cuprate_database::ConcreteEnv;
-use crate::blockchain::types::{BlockchainReadHandle, BlockchainWriteHandle};
 
 /// Initialize the blockchain manager.
 ///
@@ -71,9 +71,7 @@ pub async fn init_blockchain_manager(
 
     let manager = BlockchainManager {
         blockchain_write_handle,
-        blockchain_read_handle: ConsensusBlockchainReadHandle(
-            blockchain_read_handle.0,
-        ),
+        blockchain_read_handle: ConsensusBlockchainReadHandle(blockchain_read_handle.0),
         txpool_manager_handle,
         blockchain_context_service,
         stop_current_block_downloader,

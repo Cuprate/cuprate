@@ -34,6 +34,7 @@ use cuprate_txpool::{
 };
 use cuprate_types::TransactionVerificationData;
 
+use crate::blockchain::BlockchainReadHandle;
 use crate::{
     blockchain::ConsensusBlockchainReadHandle,
     config::TxpoolConfig,
@@ -49,7 +50,6 @@ use crate::{
         txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
     },
 };
-use crate::blockchain::BlockchainReadHandle;
 
 /// An error that can happen handling an incoming tx.
 #[derive(Debug, thiserror::Error)]
@@ -150,9 +150,7 @@ impl IncomingTxHandler {
             dandelion_pool_manager,
             txpool_manager,
             txpool_read_handle,
-            blockchain_read_handle: ConsensusBlockchainReadHandle(
-                blockchain_read_handle.0,
-            ),
+            blockchain_read_handle: ConsensusBlockchainReadHandle(blockchain_read_handle.0),
         }
     }
 }

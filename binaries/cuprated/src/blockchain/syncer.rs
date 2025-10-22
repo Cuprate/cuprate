@@ -37,7 +37,7 @@ pub async fn syncer<CN>(
     mut clearnet_interface: NetworkInterface<ClearNet>,
     incoming_block_batch_tx: mpsc::Sender<(BlockBatch, Arc<OwnedSemaphorePermit>)>,
     stop_current_block_downloader: Arc<Notify>,
-    block_downloader_config: BlockDownloaderConfig,
+    mut block_downloader_config: BlockDownloaderConfig,
 ) -> Result<(), SyncerError>
 where
     CN: Service<
