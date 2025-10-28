@@ -8,11 +8,9 @@ use cuprate_constants::build::{BUILD, COMMIT};
 use cuprate_rpc_types::{CORE_RPC_VERSION, CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR};
 use cuprate_types::HardFork;
 
-use crate::{
-    constants::{MAJOR_VERSION, MINOR_VERSION, PATCH_VERSION, VERSION},
-    killswitch::KILLSWITCH_ACTIVATION_TIMESTAMP,
-};
+use crate::constants::{MAJOR_VERSION, MINOR_VERSION, PATCH_VERSION, VERSION};
 
+// NOTE: keep `books/user/src/cli.md` updated with this struct.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct CupratedVersionInfo {
     /// `cuprated`'s major version.
@@ -37,8 +35,6 @@ pub struct CupratedVersionInfo {
     build: &'static str,
     /// Git commit hash of the build.
     commit: &'static str,
-    /// Timestamp at which `cuprated`'s killswitch activates.
-    killswitch_timestamp: u64,
 }
 
 impl CupratedVersionInfo {
@@ -56,7 +52,6 @@ impl CupratedVersionInfo {
             semantic_version: VERSION,
             build: BUILD,
             commit: COMMIT,
-            killswitch_timestamp: KILLSWITCH_ACTIVATION_TIMESTAMP,
         }
     }
 }

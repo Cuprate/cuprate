@@ -99,11 +99,6 @@ Not yet (directly).
 
 Tor is planned to be integrated into `cuprated` via [`arti`](https://arti.torproject.org), although this is not yet available.
 
-## `cuprated` won't start because of a "killswitch", why?
-The current alpha builds of `cuprated` contain killswitches that activate 1 week after the _next_ release is out. If the killswitch activates, you must upgrade to the [latest release](https://github.com/Cuprate/cuprate/releases/latest).
-
-The reasoning for why this exists can be found here: <https://github.com/Cuprate/cuprate/pull/365>.
-
 ## What is the release schedule?
 New versions of `cuprated` are planned to release every 4 weeks.
 
