@@ -116,6 +116,8 @@ pub struct TxInfo {
     pub height: usize,
     pub pruned_blob_idx: usize,
     pub prunable_blob_idx: usize,
+    pub pruned_size: usize,
+    pub prunable_size: usize,
 }
 
 //---------------------------------------------------------------------------------------------------- BlockInfoV1
@@ -359,6 +361,11 @@ impl Entry for RctOutput {
 
     fn read(from: &[u8]) -> Self {
         bytemuck::pod_read_unaligned(from)
+    }
+
+    fn batch_write(from: &[Self], to: &mut [u8]) {
+        let bytes = bytemuck::cast_slice(from);
+        to.copy_from_slice(bytes);
     }
 }
 

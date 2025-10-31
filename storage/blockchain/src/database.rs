@@ -2,15 +2,16 @@ use crate::types::{RctOutput, TxInfo};
 use cuprate_database::DatabaseRo;
 use cuprate_database::{ConcreteEnv, DbResult, Env, EnvInner, InitError, RuntimeError};
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
-use cuprate_linear_tape::{LinearBlobTape, LinearTape};
+use cuprate_linear_tape::{Flush, LinearBlobTape, LinearBlobTapeAppender, LinearFixedSizeTape, LinearTapeAppender};
 use cuprate_types::blockchain::{
     BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest,
 };
 use rayon::ThreadPool;
 use std::mem;
-use std::sync::Arc;
+use std::sync::{Arc, RwLockReadGuard};
 use std::task::{ready, Context, Poll};
-use std::{future::pending, sync::RwLock};
+use parking_lot::RwLock;
+use std::iter::once;
 //use tokio::sync::{ OwnedRwLockReadGuard, OwnedRwLockWriteGuard, RwLock};
 use crate::config::{init_thread_pool, Config};
 use crate::service::{map_read_request, map_write_request};
@@ -20,7 +21,7 @@ use tokio_util::sync::ReusableBoxFuture;
 use tower::Service;
 
 pub(crate) struct Tapes {
-    pub(crate) rct_outputs: LinearTape<RctOutput>,
+    pub(crate) rct_outputs: LinearFixedSizeTape<RctOutput>,
     pub(crate) pruned_blobs: LinearBlobTape,
     pub(crate) prunable_tape: [Option<LinearBlobTape>; 8],
 }
@@ -147,15 +148,15 @@ fn check_rct_output_tape_consistency<E: Env>(blockchain_database: &mut Blockchai
 
     let top_block_info = block_infos.get(&(top_block as usize)).unwrap();
 
-    let mut tapes = blockchain_database.tapes.write().unwrap();
+    let mut tapes = blockchain_database.tapes.write();
     let mut rct_tape = &mut tapes.rct_outputs;
-    if top_block_info.cumulative_rct_outs < rct_tape.len() as u64 {
-        let amt_to_pop = rct_tape.len() as u64 - top_block_info.cumulative_rct_outs;
+    if top_block_info.cumulative_rct_outs < rct_tape.reader().unwrap().len() as u64 {
+        let amt_to_pop = rct_tape.reader().unwrap().len() as u64 - top_block_info.cumulative_rct_outs;
         let mut popper = rct_tape.popper();
 
         popper.pop_entries(amt_to_pop as usize);
-        popper.flush().unwrap();
-    } else if top_block_info.cumulative_rct_outs > rct_tape.len() as u64 {
+        popper.flush(Flush::Sync).unwrap();
+    } else if top_block_info.cumulative_rct_outs > rct_tape.reader().unwrap().len() as u64 {
         todo!()
     }
 }

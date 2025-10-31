@@ -15,9 +15,10 @@ use crate::{
     types::{BlockHeight, Output, OutputFlags, PreRctOutputId, RctOutput, TxHash, TxId},
 };
 use bytemuck::TransparentWrapper;
+use monero_oxide::io::CompressedPoint;
 use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableVec};
 use cuprate_helper::crypto::compute_zero_commitment;
-use cuprate_linear_tape::{LinearTape, LinearTapeAppender};
+use cuprate_linear_tape::{LinearFixedSizeTape, LinearTapeAppender};
 use cuprate_pruning::{CRYPTONOTE_PRUNING_LOG_STRIPES, CRYPTONOTE_PRUNING_STRIPE_SIZE};
 use monero_oxide::transaction::{Input, Pruned, Timelock, Transaction};
 use tokio::task::id;
@@ -53,6 +54,8 @@ pub fn add_tx(
     tx: &Transaction<Pruned>,
     pruned_blob_idx: usize,
     prunable_blob_idx: usize,
+    pruned_size: usize,
+    prunable_size: usize,
     tx_hash: &TxHash,
     block_height: &BlockHeight,
     numb_rct_outs: &mut u64,
@@ -69,6 +72,8 @@ pub fn add_tx(
             height: *block_height,
             prunable_blob_idx,
             pruned_blob_idx,
+            prunable_size,
+            pruned_size,
         },
     )?;
 
@@ -202,9 +207,10 @@ pub fn remove_tx(
     rct_output_count: &mut u64,
     tables: &mut impl TablesMut,
     tapes: &Tapes,
-) -> DbResult<(TxId, Transaction)> {
+) -> DbResult<(TxId, TxInfo, Transaction)> {
     //------------------------------------------------------ Transaction data
     let tx_id = tables.tx_ids_mut().take(tx_hash)?;
+    println!("{}", tx_id);
     let tx_blob = get_tx_blob_from_id(
         &tx_id,
         tapes,
@@ -212,7 +218,7 @@ pub fn remove_tx(
         tables.block_infos(),
         tables.blob_tape_ends(),
     )?;
-    tables.tx_infos_mut().delete(&tx_id)?;
+    let tx_info = tables.tx_infos_mut().take(&tx_id)?;
     tables.tx_outputs_mut().delete(&tx_id)?;
 
     //------------------------------------------------------ Pruning
@@ -232,7 +238,7 @@ pub fn remove_tx(
 
     //------------------------------------------------------
     // Refer to the inner transaction type from now on.
-    let tx = Transaction::read(&mut tx_blob.as_slice())?;
+    let tx = Transaction::read(&mut tx_blob.as_slice()).unwrap();
 
     //------------------------------------------------------ Key Images
     // Is this a miner transaction?
@@ -273,7 +279,7 @@ pub fn remove_tx(
         }
     } // for each output
 
-    Ok((tx_id, tx))
+    Ok((tx_id,tx_info, tx))
 }
 
 //---------------------------------------------------------------------------------------------------- `get_tx_*`
@@ -317,70 +323,6 @@ pub fn get_tx_from_id(
     Ok(Transaction::read(&mut tx_blob.as_slice())?)
 }
 
-pub fn get_tx_blob_idxs(
-    tx_info: &TxInfo,
-    next_tx_info: &Option<TxInfo>,
-    table_tx_infos: &impl DatabaseRo<TxInfos>,
-    table_block_infos: &impl DatabaseRo<BlockInfos>,
-    table_blob_tapes_end: &impl DatabaseRo<BlobTapeEnds>,
-) -> DbResult<(usize, usize)> {
-    let pruning_stripe = cuprate_pruning::get_block_pruning_stripe(
-        tx_info.height,
-        usize::MAX,
-        CRYPTONOTE_PRUNING_LOG_STRIPES,
-    )
-    .unwrap();
-
-    Ok(match next_tx_info {
-        Some(next_tx_info) => {
-            if next_tx_info.height != tx_info.height {
-                let next_block_info = table_block_infos.get(&next_tx_info.height)?;
-                let end_pruned = next_block_info.blob_idx - 32;
-
-                let end_prunable = if pruning_stripe
-                    != cuprate_pruning::get_block_pruning_stripe(
-                        next_tx_info.height,
-                        usize::MAX,
-                        CRYPTONOTE_PRUNING_LOG_STRIPES,
-                    )
-                    .unwrap()
-                {
-                    match table_block_infos
-                        .get(&(next_tx_info.height + CRYPTONOTE_PRUNING_STRIPE_SIZE * 7))
-                    {
-                        Ok(next_block_with_stripe) => {
-                            table_tx_infos
-                                .get(&next_block_with_stripe.mining_tx_index)?
-                                .prunable_blob_idx
-                        }
-                        Err(RuntimeError::KeyNotFound) => {
-                            let blob_tapes_end = table_blob_tapes_end.get(&1)?;
-                            blob_tapes_end.prunable_tapes[pruning_stripe as usize - 1]
-                        }
-                        Err(e) => return Err(e),
-                    }
-                } else {
-                    next_tx_info.prunable_blob_idx
-                };
-
-                (end_pruned, end_prunable)
-            } else {
-                (
-                    next_tx_info.pruned_blob_idx - 32,
-                    next_tx_info.prunable_blob_idx,
-                )
-            }
-        }
-        None => {
-            let blob_tapes_end = table_blob_tapes_end.get(&1)?;
-            (
-                blob_tapes_end.pruned_tape - 32,
-                blob_tapes_end.prunable_tapes[pruning_stripe as usize - 1],
-            )
-        }
-    })
-}
-
 /// Retrieve a [`Transaction`] from the database with its [`TxId`].
 #[doc = doc_error!()]
 #[inline]
@@ -399,30 +341,19 @@ pub fn get_tx_blob_from_id(
     )
     .unwrap();
 
-    let (end_pruned, end_prunable) = {
-        let next_tx_info = match table_tx_infos.get(&(tx_id + 1)) {
-            Ok(next_tx_info) => Some(next_tx_info),
-            Err(RuntimeError::KeyNotFound) => None,
-            Err(e) => return Err(e),
-        };
+    let pruned_reader = tapes
+        .pruned_blobs.reader().unwrap();
 
-        get_tx_blob_idxs(
-            &tx_info,
-            &next_tx_info,
-            table_tx_infos,
-            table_block_infos,
-            table_blob_tapes_end,
-        )?
-    };
-
-    let pruned = tapes
-        .pruned_blobs
-        .try_get_range(tx_info.pruned_blob_idx..end_pruned)
+    let pruned = pruned_reader
+        .try_get_slice(tx_info.pruned_blob_idx, tx_info.pruned_size)
         .unwrap();
-    let prunable = tapes.prunable_tape[pruning_stripe as usize - 1]
+
+    let prunable_reader =tapes.prunable_tape[pruning_stripe as usize - 1]
         .as_ref()
-        .unwrap()
-        .try_get_range(tx_info.prunable_blob_idx..end_prunable)
+        .unwrap().reader().unwrap();
+
+    let prunable =  prunable_reader
+        .try_get_slice(tx_info.prunable_blob_idx, tx_info.prunable_size)
         .unwrap();
 
     Ok([pruned, prunable].concat())

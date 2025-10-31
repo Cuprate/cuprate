@@ -11,7 +11,7 @@ use cuprate_helper::{
     crypto::compute_zero_commitment,
     map::u64_to_timelock,
 };
-use cuprate_linear_tape::LinearTape;
+use cuprate_linear_tape::LinearFixedSizeTape;
 use cuprate_types::OutputOnChain;
 
 use crate::database::Tapes;
@@ -113,9 +113,10 @@ pub fn get_num_outputs(table_outputs: &impl DatabaseRo<Outputs>) -> DbResult<u64
 #[inline]
 pub fn get_rct_output(
     amount_index: AmountIndex,
-    table_rct_outputs: &LinearTape<RctOutput>,
+    table_rct_outputs: &LinearFixedSizeTape<RctOutput>,
 ) -> DbResult<RctOutput> {
     table_rct_outputs
+        .reader().unwrap()
         .try_get(amount_index as usize)
         .ok_or(RuntimeError::KeyNotFound)
 }
@@ -125,8 +126,8 @@ pub fn get_rct_output(
 /// This returns the amount of RCT outputs currently stored.
 #[doc = doc_error!()]
 #[inline]
-pub fn get_rct_num_outputs(table_rct_outputs: &LinearTape<RctOutput>) -> DbResult<u64> {
-    Ok(table_rct_outputs.len() as u64)
+pub fn get_rct_num_outputs(table_rct_outputs: &LinearFixedSizeTape<RctOutput>) -> DbResult<u64> {
+    Ok(table_rct_outputs.reader().unwrap().len() as u64)
 }
 
 //---------------------------------------------------------------------------------------------------- Mapping functions

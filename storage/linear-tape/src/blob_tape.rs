@@ -1,285 +1,195 @@
-use memmap2::{Advice, MmapMut, MmapOptions, RemapOptions};
-use std::cmp::max;
-use std::fs::{File, OpenOptions};
-use std::io::{empty, Read, Write};
-use std::marker::PhantomData;
-use std::ops::{Deref, Index, Range};
-use std::path::Path;
-use std::{fs, io};
-use std::sync::atomic::Ordering;
-use crate::capacity;
+use std::{path::Path, io};
+use std::ops::Range;
+use crate::{Advice, Flush, ResizeNeeded};
 
+/// A trait for a type that can b turned into a blob of data.
 pub trait Blob {
+    /// The length of the bytes.
     fn len(&self) -> usize;
 
+    /// Writes self to `buf`.
+    /// 
+    /// `buf` will have a length of exactly [`Self::len`].
     fn write(&self, buf: &mut [u8]);
 }
 
-/// The header of a [`crate::LinearTape`]
-struct DatabaseHeader {
-    /// The [`crate::LinearTape`] version.
-    version: u32,
-    /// The number of entries in the [`crate::LinearTape`].
-    entries: usize,
-}
-
-impl DatabaseHeader {
-    /// The size of the [`crate::DatabaseHeader`] on disk.
-    const SIZE: usize = 20;
-
-    /// Read a [`crate::DatabaseHeader`] from a byte slice.
-    fn read(buf: &[u8]) -> Self {
-        DatabaseHeader {
-            version: u32::from_le_bytes(buf[0..4].try_into().unwrap()),
-            entries: usize::from_le_bytes(buf[4..12].try_into().unwrap()),
-        }
+impl Blob for &'_ [u8] {
+    fn len(&self) -> usize {
+        <[u8]>::len(self)
     }
-
-    /// Convert this [`crate::DatabaseHeader`] to bytes
-    fn to_bytes(&self) -> [u8; Self::SIZE] {
-        let mut buf = [0u8; Self::SIZE];
-        buf[0..4].clone_from_slice(&self.version.to_le_bytes());
-        buf[4..12].copy_from_slice(&self.entries.to_le_bytes());
-        buf
+    
+    fn write(&self, buf: &mut [u8]) {
+        buf.copy_from_slice(self)
     }
 }
 
-/// A linear tape database.
+/// A linear blob tape database.
 ///
-/// A linear tape stores fixed sized entries in an array like structure.
-/// It supports pushing and popping values to and from the top, and random lookup
-/// by the indexes of entries.
+/// This database stores byte blobs of unspecified size, returning the index they were added at
+/// to retrieve them again. It supports truncation and appending bytes.
 ///
-/// # Atomicity
-///
-/// Not all operations are atomic, more details on this can be seen on the write functions.
+/// This database is multi-reader, single-appender, a truncation must happen without any readers
+/// or appender. This is enforced by using Rust's references, a read and appender take an `&` reference
+/// whereas truncate takes `&mut`. This is not enforced across multiple instances of [`LinearBlobTape`],
+/// this can be done with lock files, etc.
 pub struct LinearBlobTape {
-    backing_file: crate::BackingFile,
+    backing_file: crate::UnsafeTape,
 }
 
 impl LinearBlobTape {
-    pub unsafe fn open<P: AsRef<Path>>(path: P) -> io::Result<Self> {
-        let mut file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(path.as_ref())?;
-
-        let new = file.metadata()?.len() == 0;
-
-        let header = if new {
-            let header = DatabaseHeader {
-                version: 1,
-                entries: 0,
-            };
-
-            file.write_all(&header.to_bytes())?;
-            file.flush()?;
-
-            file.set_len(4096 * 1024 * 1024 * 1024)?;
-            header
-        } else {
-            let mut header = [0u8; DatabaseHeader::SIZE];
-            file.read_exact(&mut header)?;
-            let header = DatabaseHeader::read(&header);
-
-            header
-        };
-
-        let mmap =  MmapOptions::new().no_reserve_swap().map_raw(&file)? ;
-        mmap.advise(Advice::Sequential)?;
-
-
+    /// Open a [`LinearBlobTape`], creating a new database if it is missing.
+    ///
+    /// # Safety
+    ///
+    /// This is marked unsafe as modifications to the underlying file can lead to UB.
+    /// You must ensure across all processes either there are not more than one [`LinearBlobTape::appender`] and
+    /// truncations are done without readers or appenders.
+    pub unsafe fn open<P: AsRef<Path>>(path: P, advice: Advice, initial_map_size: u64) -> io::Result<Self> {
         Ok(LinearBlobTape {
-            backing_file: crate::BackingFile {
-                file,
-                mmap,
-                len: header.entries.into(),
-            },
+            backing_file: unsafe { crate::UnsafeTape::open(path, advice, initial_map_size)? },
         })
     }
 
+    /// Returns the amount of bytes stored in the database.
     pub fn len(&self) -> usize {
-        self.backing_file.len.load(Ordering::Acquire)
+        self.backing_file.used_bytes()
     }
 
-    pub fn try_get_range(&self, range: Range<usize>) -> Option<&[u8]> {
-        if self.len() <= range.start || self.len() <= range.end {
-            return None;
-        }
-
-        unsafe { Some(&self.backing_file.range(range)) }
+    /// Returns the size of the memory map.
+    pub fn map_size(&self) -> usize {
+        self.backing_file.map_size()
     }
 
+    /// Resize the tape.
+    ///
+    /// This will clamp the size to the size of the underlying file, so you can use `0` as the new size
+    /// if another process resizes the file to accept that new size.
     pub fn resize(&mut self, new_size_bytes: u64) -> io::Result<()> {
-        self.backing_file.mmap.flush()?;
+        self.backing_file.resize(new_size_bytes)
+    }
+    
+    pub fn reader(&self) -> Result<LinearBlobTapeReader<'_>, ResizeNeeded> {
+        let used_bytes  = self.backing_file.used_bytes();
 
-        self.backing_file.file.set_len(new_size_bytes)?;
+        if used_bytes > self.backing_file.usable_map_size() {
+            return Err(ResizeNeeded)
+        };
+        
+        Ok(LinearBlobTapeReader {
+            backing_file: &self.backing_file,
+            used_bytes
+        })
+    }
 
-        let map =  MmapOptions::new().map_raw(&self.backing_file.file)? ;
-        map.advise(Advice::Sequential)?;
+    /// Start an appender, to add some data to the end of the tape.
+    ///
+    /// When finished you must persist the changes to disk with:
+    /// - [`LinearBlobTapeAppender::flush`]
+    /// - [`LinearBlobTapeAppender::flush_async`]
+    /// 
+    /// Otherwise, the changes will not be made.
+    /// 
+    /// # Safety
+    ///
+    /// You must not create more than 1 appender at a time, however it is safe to use this while reading.
+    pub unsafe fn appender(&self) -> LinearBlobTapeAppender<'_> {
+        LinearBlobTapeAppender {
+            backing_file: &self.backing_file,
+            bytes_added: 0,
+        }
+    }
 
-        self.backing_file.mmap = map;
-
+    /// Truncate the tape.
+    /// 
+    /// See [`Self::truncate_async`] for the async version of this function.
+    pub fn truncate(&mut self, mode: Flush, new_len: usize) -> io::Result<()> {
+        self.backing_file.truncate(mode, new_len)?;
         Ok(())
     }
-
-    pub fn appender(&self) -> LinearBlobTapeAppender<'_> {
-        LinearBlobTapeAppender {
-            backing_file: & self.backing_file,
-            entries_added: 0,
-        }
-    }
-
-    pub fn popper(&mut self) -> LinearBlobTapePopper<'_> {
-        LinearBlobTapePopper {
-            backing_file: &mut self.backing_file,
-            entries_popped: 0,
-        }
-    }
 }
 
-
-
-/// A writer for a [`crate::LinearTape`].
-///
-/// # Atomicity
-///
-/// Make sure to check each function for atomicity as not all functions are atomic.
+/// A writer for a [`LinearBlobTape`].
 pub struct LinearBlobTapeAppender<'a> {
-    backing_file: &'a crate::BackingFile,
-    entries_added: usize,
-}
-
-impl Drop for LinearBlobTapeAppender<'_> {
-    fn drop(&mut self) {
-        if self.entries_added != 0 {
-            drop(self.flush_async());
-        }
-    }
+    backing_file: &'a crate::UnsafeTape,
+    bytes_added: usize,
 }
 
 impl LinearBlobTapeAppender<'_> {
-    /// Push some entries onto the tape.
+    /// Push some bytes onto the tape.
+    /// 
+    /// On success this returns the index of the first added byte.
     ///
-    /// # Atomicity
+    /// # Errors 
     ///
-    /// This function is atomic, it can be called multiple times, and it will still be atomic.
-    /// However, if it is paired with [`LinearTapeWriter::pop_entries`] then it will no longer be atomic.
-    pub fn push_entry(&mut self, blob: &impl Blob) -> Result<usize, crate::ResizeNeeded> {
-        if self.backing_file.capacity(1) < blob.len() {
-            return Err(crate::ResizeNeeded);
+    /// On any error it is guaranteed no changes have been made to the database. If the database needs
+    /// a resize and error will be returned, if this happens you can flush the current
+    /// appender to save any bytes you pushed before and resize with [`LinearBlobTape::resize`].
+    pub fn push_bytes(&mut self, blob: &impl Blob) -> Result<usize, ResizeNeeded> {
+        if self.backing_file.free_capacity() < self.bytes_added + blob.len() {
+            return Err(ResizeNeeded);
         }
 
-        let start = self.backing_file.len.load(Ordering::Acquire) + self.entries_added + crate::DatabaseHeader::SIZE;
+        let start = self.backing_file.used_bytes() + self.bytes_added;
         let end = start + blob.len();
 
         let mut buf = unsafe { self.backing_file.range_mut(start..end) };
 
         blob.write(&mut buf);
 
-        self.entries_added += blob.len();
+        self.bytes_added += blob.len();
 
         Ok(start)
     }
+    
+    /// Flush the changes to the [`LinearBlobTape`].
+    /// 
+    /// When this method returns with a non-error result, all outstanding changes to a file-backed 
+    /// memory map are guaranteed to be durably stored. The file's metadata (including last modification 
+    /// timestamp) may not be updated
+    pub fn flush(&mut self, mode: Flush) -> io::Result<()> {
+        self.backing_file.extend(mode, self.bytes_added)?;
+        self.bytes_added = 0;
 
+        Ok(())
+    }
+    
+
+    /// Cancel any current changes.
+    pub fn cancel(&mut self) {
+        self.bytes_added = 0;
+    }
+}
+
+pub struct LinearBlobTapeReader<'a> {
+    backing_file: &'a crate::UnsafeTape,
+    used_bytes: usize,
+}
+
+impl LinearBlobTapeReader<'_> {
     pub fn len(&self) -> usize {
-        self.backing_file.len.load(Ordering::Acquire)
+        self.used_bytes
     }
-
-    pub fn flush(&mut self) -> io::Result<()> {
-        self.backing_file.flush(self.backing_file.len.load(Ordering::Acquire) + self.entries_added)?;
-        self.entries_added = 0;
-
-        Ok(())
-    }
-
-    pub fn flush_async(&mut self) -> io::Result<()> {
-        self.backing_file.flush_async(self.backing_file.len.load(Ordering::Acquire) + self.entries_added)?;
-        self.entries_added = 0;
-
-        Ok(())
-    }
-
-    pub fn cancel(&mut self) {
-        self.entries_added = 0;
-    }
-}
-
-/// A [`crate::LinearTape`] popper, used to remove items from the top of the tape.
-///
-/// This is seperated from a [`crate::LinearTapeAppender`] to enforce atomic writes, popping and appending
-/// cannot be combined in an atomic way.
-pub struct LinearBlobTapePopper<'a> {
-    backing_file: &'a mut crate::BackingFile,
-    entries_popped: usize,
-}
-
-impl Drop for LinearBlobTapePopper<'_> {
-    fn drop(&mut self) {
-        if self.entries_popped != 0 {
-            drop(self.flush_async());
-        }
-    }
-}
-
-impl LinearBlobTapePopper<'_> {
-    /// Pop some entries from the tape.
-    pub fn pop_entries(&mut self, amt: usize) {
-        self.entries_popped += amt;
-    }
-
-    /// Flush the tape to disk, saving any changes made.
-    pub fn flush(&mut self) -> io::Result<()> {
-        self.backing_file.flush(self.backing_file.len.load(Ordering::Acquire) - self.entries_popped)?;
-        self.entries_popped = 0;
-        Ok(())
-    }
-
-    /// Asynchronously flushes outstanding memory map modifications to disk.
+    
+    /// Try to get a slice from the database.
     ///
-    /// This method initiates flushing modified pages to durable storage, but it will not wait for
-    /// the operation to complete before returning
-    pub fn flush_async(&mut self) -> io::Result<()> {
-        self.backing_file.flush_async(self.backing_file.len.load(Ordering::Acquire) - self.entries_popped)?;
-        self.entries_popped = 0;
-        Ok(())
-    }
-
-    /// Cancel this change, the tape will be restored to where it was before this operation.
-    pub fn cancel(&mut self) {
-        self.entries_popped = 0;
-    }
-}
-
-#[test]
-fn t() {
-    #[derive(Debug)]
-    struct H([u8; 32]);
-
-    impl crate::Entry for H {
-        const SIZE: usize = 32;
-
-        fn write(&self, to: &mut [u8]) {
-            to.copy_from_slice(&self.0)
+    /// Returns [`None`] if start_idx + len > [`Self::len`]
+    pub fn try_get_range(&self, range: Range<usize>) -> Option<&[u8]> {
+        if self.used_bytes < range.start || self.used_bytes < range.end {
+            return None;
         }
 
-        fn read(from: &[u8]) -> Self {
-            Self(from.try_into().unwrap())
+        unsafe { Some(&self.backing_file.range(range)) }
+    }
+
+
+    /// Try to get a slice from the database.
+    ///
+    /// Returns [`None`] if start_idx + len > [`Self::len`]
+    pub fn try_get_slice(&self, start_idx: usize, len: usize) -> Option<&[u8]> {
+        if self.used_bytes < start_idx + len {
+            return None;
         }
+
+        unsafe { Some(&self.backing_file.slice(start_idx, len)) }
     }
-
-    let mut tape = unsafe { crate::LinearTape::open("test.tape") }.unwrap();
-
-    tape.resize(1024 * 1024 * 1024 * 10).unwrap();
-    for i in 0_u64..((1024 * 1024 * 1024 * 6) / 32) {
-        let i = i.to_le_bytes();
-        let mut h = [0; 32];
-
-        h[..8].copy_from_slice(&i[..8]);
-        tape.appender().push_entries(&[H(h)]).unwrap();
-    }
-
-    let h: H = tape.try_get((1024 * 1024 * 1024 * 6) / 32 - 1).unwrap();
-    println!("{:?}", u64::from_le_bytes(h.0[0..8].try_into().unwrap()));
 }

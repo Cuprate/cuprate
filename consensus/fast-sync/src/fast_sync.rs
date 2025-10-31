@@ -98,19 +98,25 @@ pub async fn validate_entries<N: NetworkZone>(
 
     let mut hashes_stop_diff_last_height = last_height - hashes_stop_height;
 
-    // get the hashes we are missing to create the first fast-sync hash.
-    let BlockchainResponse::BlockHashInRange(starting_hashes) =
-        <BlockchainDatabaseService<ConcreteEnv> as ServiceExt<BlockchainReadRequest>>::ready(
-            blockchain_read_handle,
-        )
-        .await?
-        .call(BlockchainReadRequest::BlockHashInRange(
-            hashes_start_height..start_height,
-            Chain::Main,
-        ))
-        .await?
-    else {
-        unreachable!()
+    let starting_hashes = if hashes_start_height != start_height {
+        // get the hashes we are missing to create the first fast-sync hash.
+        let BlockchainResponse::BlockHashInRange(starting_hashes) =
+            <BlockchainDatabaseService<ConcreteEnv> as ServiceExt<BlockchainReadRequest>>::ready(
+                blockchain_read_handle,
+            )
+                .await?
+                .call(BlockchainReadRequest::BlockHashInRange(
+                    hashes_start_height..start_height,
+                    Chain::Main,
+                ))
+                .await?
+        else {
+            unreachable!()
+        };
+
+        starting_hashes
+    } else {
+        vec![]
     };
 
     // If we don't have enough hashes to make up a batch we can't validate any.

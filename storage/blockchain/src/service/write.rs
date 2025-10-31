@@ -3,12 +3,14 @@
 use std::sync::Arc;
 
 use cuprate_database::{ConcreteEnv, DbResult, Env, EnvInner, TxRw};
+use cuprate_linear_tape::Flush;
 use cuprate_types::{
     blockchain::{BlockchainResponse, BlockchainWriteRequest},
     AltBlockInformation, ChainId, VerifiedBlockInformation,
 };
 
 use crate::{service::types::ResponseResult, tables::OpenTables, BlockchainDatabase};
+use crate::ops::block::{add_prunable_blocks_blobs, add_pruned_blocks_blobs};
 
 /// Write functions within this module abort if the write transaction
 /// could not be aborted successfully to maintain atomicity.
@@ -47,41 +49,58 @@ fn write_block<E: Env>(
     env: &BlockchainDatabase<E>,
     block: &VerifiedBlockInformation,
 ) -> ResponseResult {
-    let env_inner = env.dynamic_tables.env_inner();
-    let tx_rw = env_inner.tx_rw()?;
-
-    let result = {
-        let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
-        crate::ops::block::add_block(block, &mut tables_mut, &env.tapes.read().unwrap())
-    };
-
-    match result {
-        Ok(()) => {
-            TxRw::commit(tx_rw)?;
-            Ok(BlockchainResponse::Ok)
-        }
-        Err(e) => {
-            TxRw::abort(tx_rw).expect(TX_RW_ABORT_FAIL);
-            Err(e)
-        }
-    }
+    write_blocks(env, std::slice::from_ref(block))
 }
 
 /// [`BlockchainWriteRequest::BatchWriteBlocks`].
 #[inline]
 fn write_blocks<E: Env>(
     env: &BlockchainDatabase<E>,
-    block: &Vec<VerifiedBlockInformation>,
+    block: &[VerifiedBlockInformation],
 ) -> ResponseResult {
     let env_inner = env.dynamic_tables.env_inner();
     let tx_rw = env_inner.tx_rw()?;
-    let tapes = env.tapes.read().unwrap();
+    let mut tapes = env.tapes.upgradable_read();
 
     let result = {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
-        for block in block {
-            crate::ops::block::add_block(block, &mut tables_mut, &tapes)?;
+
+        let mut pruned_blob_idx = add_pruned_blocks_blobs(block, &mut tapes)?;
+
+        let start_height = block[0].height;
+        let first_block_pruning_seed = cuprate_pruning::DecompressedPruningSeed::new(cuprate_pruning::get_block_pruning_stripe(start_height, usize::MAX, 3).unwrap(), 3).unwrap();
+        let next_stripe_height = first_block_pruning_seed.get_next_unpruned_block(start_height, 500_000_000).unwrap();
+
+        let (first_stripe, next_stripe) = block.split_at(next_stripe_height - start_height);
+
+        let mut numb_rct_outs = tapes.rct_outputs.reader().unwrap().len() as u64;
+        let mut rct_outputs = Vec::with_capacity(10_000);
+
+        for blocks in [first_stripe, next_stripe] {
+            if blocks.is_empty() {
+                continue;
+            }
+           let mut prunable_idx = add_prunable_blocks_blobs(blocks, &mut tapes)?;
+            for block in blocks {
+                crate::ops::block::add_block(block, &mut pruned_blob_idx, &mut prunable_idx, &mut numb_rct_outs, &mut rct_outputs, &mut tables_mut)?;
+            }
         }
+
+        let mut appender = unsafe { tapes.rct_outputs.appender().unwrap() };
+
+        if appender.push_entries(&rct_outputs).is_err() {
+            tapes.with_upgraded(|tapes| {
+                let file_size = tapes.rct_outputs.map_size() as u64;
+                tapes.rct_outputs.resize(file_size + 1 * 1024 * 1024 * 1024)?;
+
+                let mut appender = unsafe { tapes.rct_outputs.appender().unwrap() };
+                appender.push_entries(&rct_outputs).unwrap();
+                appender.flush(Flush::Async)
+            })?;
+        } else {
+            appender.flush(Flush::Async)?;
+        }
+
 
         Ok(())
     };
@@ -143,7 +162,7 @@ fn pop_blocks<E: Env>(env: &BlockchainDatabase<E>, numb_blocks: usize) -> Respon
             crate::ops::block::pop_block(
                 Some(old_main_chain_id),
                 &mut tables_mut,
-                &mut env.tapes.write().unwrap(),
+                &mut env.tapes.write(),
             )?;
         }
 

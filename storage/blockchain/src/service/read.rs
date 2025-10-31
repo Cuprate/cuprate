@@ -205,7 +205,7 @@ fn block_complete_entries<E: Env>(
     let tx_ro = thread_local(&env.dynamic_tables);
     let tables = thread_local(&env.dynamic_tables);
 
-    let tapes = env.tapes.read().unwrap();
+    let tapes = env.tapes.read();
 
     let (missing_hashes, blocks) = block_hashes
         .into_par_iter()
@@ -241,7 +241,7 @@ fn block_complete_entries_by_height<E: Env>(
     let env_inner = env.dynamic_tables.env_inner();
     let tx_ro = thread_local(&env.dynamic_tables);
     let tables = thread_local(&env.dynamic_tables);
-    let tapes = env.tapes.read().unwrap();
+    let tapes = env.tapes.read();
 
     let blocks = block_heights
         .into_par_iter()
@@ -270,7 +270,7 @@ fn block_extended_header<E: Env>(
     let tables = env_inner.open_tables(&tx_ro)?;
 
     Ok(BlockchainResponse::BlockExtendedHeader(
-        get_block_extended_header_from_height(&block_height, &tables, &env.tapes.read().unwrap())?,
+        get_block_extended_header_from_height(&block_height, &tables, &env.tapes.read())?,
     ))
 }
 
@@ -397,7 +397,7 @@ fn block_extended_header_in_range<E: Env>(
     let env_inner = env.dynamic_tables.env_inner();
     let tx_ro = thread_local(&env.dynamic_tables);
     let tables = thread_local(&env.dynamic_tables);
-    let tapes = env.tapes.read().unwrap();
+    let tapes = env.tapes.read();
 
     // Collect results using `rayon`.
     let vec = match chain {
@@ -488,7 +488,8 @@ fn outputs<E: Env>(
     let tx_ro = thread_local(&env.dynamic_tables);
     let tables = thread_local(&env.dynamic_tables);
 
-    let tapes = env.tapes.read().unwrap();
+    let tapes = env.tapes.read();
+    let rct_outputs_reader = tapes.rct_outputs.reader().unwrap();
 
     let amount_of_outs = outputs
         .par_iter()
@@ -497,7 +498,7 @@ fn outputs<E: Env>(
             let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
 
             if amount == 0 {
-                Ok((amount, tapes.rct_outputs.len() as u64))
+                Ok((amount, rct_outputs_reader.len() as u64))
             } else {
                 // v1 transactions.
                 match tables.num_outputs().get(&amount) {
@@ -576,9 +577,7 @@ fn number_outputs_with_amount<E: Env>(
         reason = "INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`"
     )]
     let num_rct_outputs = {
-        let tx_ro = env_inner.tx_ro()?;
-        let tables = env_inner.open_tables(&tx_ro)?;
-        env.tapes.read().unwrap().rct_outputs.len()
+        env.tapes.read().rct_outputs.reader().unwrap().len()
     };
 
     // Collect results using `rayon`.
@@ -775,7 +774,7 @@ fn next_chain_entry<E: Env>(
         Some(
             get_block(
                 &tables,
-                &env.tapes.read().unwrap(),
+                &env.tapes.read(),
                 &(first_known_height + 1),
             )?
             .serialize(),
@@ -842,12 +841,12 @@ fn txs_in_block<E: Env>(
     let env_inner = env.dynamic_tables.env_inner();
     let tx_ro = env_inner.tx_ro()?;
     let tables = env_inner.open_tables(&tx_ro)?;
-    let tapes = env.tapes.read().unwrap();
+    let tapes = env.tapes.read();
 
     let block_height = tables.block_heights().get(&block_hash)?;
     let block_info = tables.block_infos().get(&block_height)?;
 
-    let block = get_block(&tables, &env.tapes.read().unwrap(), &block_height)?;
+    let block = get_block(&tables, &tapes, &block_height)?;
 
     // TODO:
     if block.transactions.len() < missing_txs.len() {
@@ -879,7 +878,7 @@ fn alt_blocks_in_chain<E: Env>(env: &BlockchainDatabase<E>, chain_id: ChainId) -
     let env_inner = env.dynamic_tables.env_inner();
     let tx_ro = thread_local(&env.dynamic_tables);
     let tables = thread_local(&env.dynamic_tables);
-    let tapes = env.tapes.read().unwrap();
+    let tapes = env.tapes.read();
 
     // Get the history of this alt-chain.
     let history = {
@@ -926,7 +925,7 @@ fn block<E: Env>(env: &BlockchainDatabase<E>, block_height: BlockHeight) -> Resp
 
     Ok(BlockchainResponse::Block(get_block(
         &tables,
-        &env.tapes.read().unwrap(),
+        &env.tapes.read(),
         &block_height,
     )?))
 }
@@ -940,7 +939,7 @@ fn block_by_hash<E: Env>(env: &BlockchainDatabase<E>, block_hash: BlockHash) -> 
 
     Ok(BlockchainResponse::Block(get_block_by_hash(
         &tables,
-        &env.tapes.read().unwrap(),
+        &env.tapes.read(),
         &block_hash,
     )?))
 }
@@ -999,7 +998,7 @@ fn transactions<E: Env>(
 /// [`BlockchainReadRequest::TotalRctOutputs`]
 fn total_rct_outputs<E: Env>(env: &BlockchainDatabase<E>) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
-    let len = env.tapes.read().unwrap().rct_outputs.len() as u64;
+    let len = env.tapes.read().rct_outputs.reader().unwrap().len() as u64;
 
     Ok(BlockchainResponse::TotalRctOutputs(len))
 }

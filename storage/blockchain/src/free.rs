@@ -3,12 +3,12 @@
 use cuprate_database::DatabaseRw;
 use std::fs::{create_dir, create_dir_all};
 use std::io;
-use std::sync::RwLock;
+use parking_lot::RwLock;
 //---------------------------------------------------------------------------------------------------- Import
 use crate::database::Tapes;
 use crate::{config::Config, database::BlockchainDatabase, tables::OpenTables};
 use cuprate_database::{ConcreteEnv, Env, EnvInner, InitError, RuntimeError, TxRw};
-use cuprate_linear_tape::{LinearBlobTape, LinearTape};
+use cuprate_linear_tape::{Advice, LinearBlobTape, LinearFixedSizeTape};
 use crate::tables::BlobTapeEnds;
 use crate::types::BlobTapeEnd;
 
@@ -74,10 +74,10 @@ pub fn open<E: Env>(config: Config) -> Result<BlockchainDatabase<E>, InitError> 
     }
 
     let rct_outputs =
-        unsafe { LinearTape::open(config.db_config.db_directory().join("rct_outputs.tape")) }?;
+        unsafe { LinearFixedSizeTape::open(config.db_config.db_directory().join("rct_outputs.tape"), Advice::Random, 400 * 1024 * 1024 *1024) }?;
 
     let pruned_blobs =
-        unsafe { LinearBlobTape::open(config.db_config.db_directory().join("pruned.tape")) }?;
+        unsafe { LinearBlobTape::open(config.db_config.db_directory().join("pruned.tape"), Advice::Random, 400 * 1024 * 1024 *1024) }?;
 
     let prunable_dir =       config
         .db_config
@@ -90,7 +90,7 @@ pub fn open<E: Env>(config: Config) -> Result<BlockchainDatabase<E>, InitError> 
         .into_iter()
         .map(|i| unsafe {
             Ok(Some(LinearBlobTape::open(
-                prunable_dir.join(format!("stripe{i}.tape")),
+                prunable_dir.join(format!("stripe{i}.tape")), Advice::Random, 400 * 1024 * 1024 *1024
             )?))
         })
         .collect::<Result<Vec<_>, InitError>>()?

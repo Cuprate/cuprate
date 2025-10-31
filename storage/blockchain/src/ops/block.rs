@@ -1,7 +1,6 @@
 //! Block functions.
 
 use std::io::Write;
-use std::sync::RwLock;
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
 use bytes::{BufMut, Bytes};
@@ -10,6 +9,7 @@ use monero_oxide::{
     transaction::Transaction,
 };
 use monero_oxide::transaction::{NotPruned, Pruned};
+use parking_lot::RwLockUpgradableReadGuard;
 use cuprate_database::{
     DbResult, RuntimeError, StorableVec, {DatabaseRo, DatabaseRw},
 };
@@ -18,7 +18,7 @@ use cuprate_helper::{
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
     tx::tx_fee,
 };
-use cuprate_linear_tape::{LinearBlobTape, LinearTape};
+use cuprate_linear_tape::{Flush, LinearBlobTape, LinearBlobTapeAppender, LinearFixedSizeTape, ResizeNeeded};
 use cuprate_pruning::CRYPTONOTE_PRUNING_LOG_STRIPES;
 use cuprate_types::{
     AltBlockInformation, BlockCompleteEntry, ChainId, ExtendedBlockHeader, HardFork,
@@ -26,7 +26,6 @@ use cuprate_types::{
 };
 
 use crate::database::Tapes;
-use crate::ops::tx::get_tx_blob_idxs;
 use crate::types::RctOutput;
 use crate::{
     ops::{
@@ -39,6 +38,132 @@ use crate::{
     tables::{BlockHeights, BlockInfos, Tables, TablesIter, TablesMut},
     types::{BlockHash, BlockHeight, BlockInfo},
 };
+
+pub fn add_prunable_blocks_blobs(
+    blocks: &[VerifiedBlockInformation],
+    tapes: &mut RwLockUpgradableReadGuard<Tapes>,
+) -> Result<usize, RuntimeError> {
+     fn add_prunable_blocks_blobs_inner(
+        blocks: &[VerifiedBlockInformation],
+        prunable_blob_tape: &mut LinearBlobTapeAppender<'_>,
+    ) -> Result<usize, ResizeNeeded> {
+        struct PrunableTapeWriter<'a>(&'a [VerifiedBlockInformation]);
+
+        impl cuprate_linear_tape::Blob for PrunableTapeWriter<'_> {
+            fn len(&self) -> usize {
+                self.0.iter().map(|block| {
+                    block.txs
+                        .iter()
+                        .map(|tx| tx.tx_prunable_blob.len())
+                        .sum::<usize>()
+                }).sum::<usize>()
+            }
+            fn write(&self, buf: &mut [u8]) {
+                let mut writer = buf.writer();
+
+                for block in self.0 {
+
+                    for blob in &block.txs {
+                        writer.write_all(&blob.tx_prunable_blob).unwrap();
+                    }
+                }
+            }
+        }
+
+        prunable_blob_tape.push_bytes(&PrunableTapeWriter(blocks))
+    }
+
+    let stripe = cuprate_pruning::get_block_pruning_stripe(blocks[0].height, usize::MAX, 3).unwrap();
+
+    let mut pruned_appender = unsafe { tapes.prunable_tape[stripe as usize -1 ].as_ref().unwrap().appender() };
+
+    match add_prunable_blocks_blobs_inner(blocks, &mut pruned_appender) {
+        Ok(idx) => {
+            pruned_appender.flush(Flush::Async)?;
+
+            Ok(idx)
+        },
+        Err(ResizeNeeded) => {
+            tapes.with_upgraded(|tapes| {
+                let file_size = tapes.prunable_tape[stripe as usize - 1].as_ref().unwrap().map_size() as u64;
+                tapes.prunable_tape[stripe as usize - 1].as_mut().unwrap().resize(file_size + 1 * 1024 * 1024 * 1024)?;
+                let mut pruned_appender = unsafe { tapes.prunable_tape[stripe as usize - 1].as_ref().unwrap().appender() };
+                let pruned_blob_idx = add_prunable_blocks_blobs_inner(blocks, &mut pruned_appender).expect("");
+
+                pruned_appender.flush(Flush::Async)?;
+
+                Ok(pruned_blob_idx)
+            })
+        }
+    }
+
+}
+
+pub fn add_pruned_blocks_blobs(
+    blocks: &[VerifiedBlockInformation],
+    tapes: &mut RwLockUpgradableReadGuard<Tapes>,
+) -> Result<usize, RuntimeError> {
+    fn add_pruned_blocks_blobs_inner(
+        blocks: &[VerifiedBlockInformation],
+        pruned_blob_tape: &mut LinearBlobTapeAppender<'_>,
+    ) -> Result<usize, ResizeNeeded> {
+        struct BlockTapeWriter<'a>(&'a [VerifiedBlockInformation]);
+
+        impl cuprate_linear_tape::Blob for BlockTapeWriter<'_> {
+            fn len(&self) -> usize {
+                self.0.iter().map(|block| {
+                    block.block_blob.len()
+                        + block
+                        .txs
+                        .iter()
+                        .map(|tx| tx.tx_pruned.len() + 32)
+                        .sum::<usize>()
+                }).sum::<usize>()
+            }
+            fn write(&self, buf: &mut [u8]) {
+                let mut writer = buf.writer();
+
+                for block in self.0 {
+                    writer.write_all(block.block_blob.as_slice()).unwrap();
+
+                    for tx in &block.txs {
+                        writer.write_all(tx.tx_pruned.as_slice()).unwrap();
+                        let prunable_hash = if tx.tx_prunable_blob.is_empty() {
+                            [0; 32]
+                        } else {
+                            monero_oxide::primitives::keccak256(&tx.tx_prunable_blob)
+                        };
+                        writer.write_all(&prunable_hash).unwrap();
+                    }
+                }
+            }
+        }
+
+        pruned_blob_tape.push_bytes(&BlockTapeWriter(blocks))
+    }
+
+    let mut pruned_appender = unsafe { tapes.pruned_blobs.appender() };
+
+    match add_pruned_blocks_blobs_inner(blocks, &mut pruned_appender) {
+        Ok(idx) => {
+            pruned_appender.flush(Flush::Async)?;
+
+            Ok(idx)
+        },
+        Err(ResizeNeeded) => {
+            tapes.with_upgraded(|tapes| {
+                let file_size = tapes.pruned_blobs.map_size() as u64;
+                tapes.pruned_blobs.resize(file_size + 1 * 1024 * 1024 *1024)?;
+                let mut pruned_appender = unsafe { tapes.pruned_blobs.appender() };
+                let pruned_blob_idx = add_pruned_blocks_blobs_inner(blocks, &mut pruned_appender).expect("");
+
+                pruned_appender.flush(Flush::Async)?;
+
+                Ok(pruned_blob_idx)
+            })
+        }
+    }
+}
 
 //---------------------------------------------------------------------------------------------------- `add_block_*`
 /// Add a [`VerifiedBlockInformation`] to the database.
@@ -55,8 +180,11 @@ use crate::{
 // no inline, too big.
 pub fn add_block(
     block: &VerifiedBlockInformation,
+    pruned_tape_idx: &mut usize,
+    prunable_tape_idx: &mut usize,
+    numb_rct_outs: &mut u64,
+    rct_outputs: &mut Vec<RctOutput>,
     tables: &mut impl TablesMut,
-    tapes: &Tapes,
 ) -> DbResult<()> {
     //------------------------------------------------------ Check preconditions first
 
@@ -87,61 +215,7 @@ pub fn add_block(
         }
     }
 
-    struct BlockTapeWriter<'a>(&'a VerifiedBlockInformation);
-
-    impl cuprate_linear_tape::Blob for BlockTapeWriter<'_> {
-        fn len(&self) -> usize {
-            self.0.block_blob.len()
-                + self
-                    .0
-                    .txs
-                    .iter()
-                    .map(|tx| tx.tx_pruned.len() + 32)
-                    .sum::<usize>()
-        }
-        fn write(&self, buf: &mut [u8]) {
-            let mut writer = buf.writer();
-            writer.write_all(self.0.block_blob.as_slice()).unwrap();
-
-            for tx in &self.0.txs {
-                writer.write_all(tx.tx_pruned.as_slice()).unwrap();
-                let prunable_hash = if tx.tx_prunable_blob.is_empty() {
-                    [0; 32]
-                } else {
-                    monero_oxide::primitives::keccak256(&tx.tx_prunable_blob)
-                };
-                writer.write_all(&prunable_hash).unwrap();
-            }
-        }
-    }
-
-    struct PrunableTapeWriter<'a>(&'a VerifiedBlockInformation);
-
-    impl cuprate_linear_tape::Blob for PrunableTapeWriter<'_> {
-        fn len(&self) -> usize {
-            self.0
-                .txs
-                .iter()
-                .map(|tx| tx.tx_prunable_blob.len())
-                .sum::<usize>()
-        }
-        fn write(&self, buf: &mut [u8]) {
-            let mut writer = buf.writer();
-
-            for blob in &self.0.txs {
-                writer.write_all(&blob.tx_prunable_blob).unwrap();
-            }
-        }
-    }
-
-    let mut pruned_appender = tapes.pruned_blobs.appender();
-
-    let block_blob_idx = pruned_appender
-        .push_entry(&BlockTapeWriter(&block))
-        .unwrap();
-
-    pruned_appender.flush_async().unwrap();
-
+    let block_blob_idx = *pruned_tape_idx;
     let header_len = block.block.header.serialize().len();
 
     let stripe = cuprate_pruning::get_block_pruning_stripe(
@@ -151,62 +225,43 @@ pub fn add_block(
     )
     .unwrap() as usize;
 
-    let mut prunable_appender = tapes.prunable_tape[stripe - 1].as_ref().unwrap().appender();
-
-    let mut prunable_tx_blob_idx = prunable_appender
-        .push_entry(&PrunableTapeWriter(&block))
-        .unwrap();
-
-    prunable_appender.flush_async().unwrap();
-
     //------------------------------------------------------ Transaction / Outputs / Key Images
-    let mut rct_outputs = Vec::with_capacity(block.txs.len() * 2);
-
-    let mut rct_tape_appender = tapes.rct_outputs.appender();
-    let mut numb_rct_outs = rct_tape_appender.len() as u64;
     // Add the miner transaction first.
     let mining_tx_index = {
         let tx = block.block.miner_transaction();
         add_tx(
             &tx.clone().into(),
-            block_blob_idx + header_len,
-            prunable_tx_blob_idx,
+            *pruned_tape_idx + header_len,
+            *prunable_tape_idx,
+            tx.serialize().len(),
+            0,
             &tx.hash(),
             &chain_height,
-            &mut numb_rct_outs,
+            numb_rct_outs,
             tables,
-            &mut rct_outputs,
+            rct_outputs,
         )?
     };
 
-    let mut pruned_tx_blob_idx = block_blob_idx + block.block_blob.len();
+    *pruned_tape_idx += block.block_blob.len();
     for tx in &block.txs {
         add_tx(
             &tx.tx,
-            pruned_tx_blob_idx,
-            prunable_tx_blob_idx,
+            *pruned_tape_idx,
+            *prunable_tape_idx,
+            tx.tx_pruned.len(),
+            tx.tx_prunable_blob.len(),
             &tx.tx_hash,
             &chain_height,
-            &mut numb_rct_outs,
+            numb_rct_outs,
             tables,
-            &mut rct_outputs,
+            rct_outputs,
         )?;
-        pruned_tx_blob_idx += tx.tx_pruned.len() + 32;
-        prunable_tx_blob_idx += tx.tx_prunable_blob.len();
+        *pruned_tape_idx += tx.tx_pruned.len() + 32;
+        *prunable_tape_idx += tx.tx_prunable_blob.len();
     }
 
-    if !rct_outputs.is_empty() {
-        if rct_tape_appender.push_entries(&rct_outputs).is_err() {
-            todo!()
-        }
-    }
     //------------------------------------------------------ Block Info
-
-    // INVARIANT: must be below the above transaction loop since this
-    // RCT output count needs account for _this_ block's outputs.
-    let cumulative_rct_outs = rct_tape_appender.len() as u64;
-
-    rct_tape_appender.flush_async().unwrap();
 
     // `saturating_add` is used here as cumulative generated coins overflows due to tail emission.
     let cumulative_generated_coins =
@@ -223,7 +278,7 @@ pub fn add_block(
             cumulative_difficulty_low,
             cumulative_difficulty_high,
             cumulative_generated_coins,
-            cumulative_rct_outs,
+            cumulative_rct_outs: *numb_rct_outs,
             block_hash: block.block_hash,
             weight: block.weight,
             long_term_weight: block.long_term_weight,
@@ -239,8 +294,8 @@ pub fn add_block(
 
     let mut blob_ends = tables.blob_tape_ends().get(&1)?;
 
-    blob_ends.pruned_tape = pruned_tx_blob_idx;
-    blob_ends.prunable_tapes[stripe - 1] = prunable_tx_blob_idx;
+    blob_ends.pruned_tape = *pruned_tape_idx;
+    blob_ends.prunable_tapes[stripe - 1] = *prunable_tape_idx;
 
     tables.blob_tape_ends_mut().put(&1, &blob_ends)?;
 
@@ -264,36 +319,33 @@ pub fn pop_block(
     tables: &mut impl TablesMut,
     tapes: &mut Tapes,
 ) -> DbResult<(BlockHeight, BlockHash, Block)> {
-    todo!()
-    /*
     //------------------------------------------------------ Block Info
     // Remove block data from tables.
-    let (block_height, block_info) = tables.block_infos_mut().pop_last()?;
+    let (block_height, block_info) = tables.block_infos_mut().last()?;
+
+    let stripe = cuprate_pruning::get_block_pruning_stripe(
+        block_height,
+        usize::MAX,
+        CRYPTONOTE_PRUNING_LOG_STRIPES,
+    )
+        .unwrap() as usize;
+
 
     // Block heights.
-    tables.block_heights_mut().delete(&block_info.block_hash)?;
 
     // Block blobs.
     //
     // We deserialize the block header blob and mining transaction blob
     // to form a `Block`, such that we can remove the associated transactions
     // later.
-    let block_header = tables.block_header_blobs_mut().take(&block_height)?.0;
-    let block_txs_hashes = tables.block_txs_hashes_mut().take(&block_height)?.0;
-    let miner_transaction = tables.tx_blobs().get(&block_info.mining_tx_index)?.0;
-    let block = Block::new(
-        BlockHeader::read(&mut block_header.as_slice())?,
-        Transaction::read(&mut miner_transaction.as_slice())?,
-        block_txs_hashes,
-    )
-    .unwrap();
+    let block = get_block(tables, &tapes, &block_height)?;
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
     let mut rct_outputs = 0;
-    remove_tx(&block.miner_transaction().hash(), &mut rct_outputs, tables)?;
+    let (_,miner_tx_info,_) = remove_tx(&block.miner_transaction().hash(),  &mut rct_outputs,  tables, &tapes)?;
 
     let remove_tx_iter = block.transactions.iter().map(|tx_hash| {
-        let (_, tx) = remove_tx(tx_hash, &mut rct_outputs, tables)?;
+        let (_,_, tx) = remove_tx(tx_hash, &mut rct_outputs, tables, &tapes)?;
         Ok::<_, RuntimeError>(tx)
     });
 
@@ -301,17 +353,20 @@ pub fn pop_block(
         let txs = remove_tx_iter
             .map(|result| {
                 let tx = result?;
-                todo!()
-                /*
+                let tx_weight =  tx.weight();
+                let tx_hash = tx.hash();
+                let fee = tx_fee(&tx);
+
+                let (tx_pruned, prunable) = tx.pruned_with_prunable();
                 Ok(VerifiedTransactionInformation {
-                    tx_weight: tx.weight(),
-                    tx_blob: tx.serialize(),
-                    tx_hash: tx.hash(),
-                    fee: tx_fee(&tx),
-                    tx,
+                    tx_weight,
+                    tx_pruned: tx_pruned.serialize(),
+                    tx_prunable_blob: prunable,
+                    tx_hash,
+                    fee,
+                    tx: tx_pruned,
                 })
 
-                 */
             })
             .collect::<DbResult<Vec<VerifiedTransactionInformation>>>()?;
 
@@ -340,14 +395,24 @@ pub fn pop_block(
         }
     }
 
-    let mut lock = rct_tape.write().unwrap();
-    let mut popper = lock.popper();
-    popper.pop_entries(rct_outputs as usize);
-    popper.flush()?;
+    tables.block_heights_mut().delete(&block_info.block_hash)?;
+
+    tables.block_infos_mut().pop_last()?;
+
+    let mut rct_popper = tapes.rct_outputs.popper();
+    rct_popper.pop_entries(rct_outputs as usize);
+    rct_popper.flush(Flush::Async)?;
+
+    tapes.pruned_blobs.truncate(Flush::Async, block_info.blob_idx)?;
+    tapes.prunable_tape[stripe -1].as_mut().unwrap().truncate(Flush::Async, miner_tx_info.prunable_blob_idx)?;
+
+    tables.blob_tape_ends_mut().update(&1, |mut ends| {
+        ends.pruned_tape = block_info.blob_idx;
+        ends.prunable_tapes[stripe - 1] = miner_tx_info.prunable_blob_idx;
+        Some(ends)
+    })?;;
 
     Ok((block_height, block_info.block_hash, block))
-
-     */
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_complete_entry_*`
@@ -380,6 +445,13 @@ pub fn get_block_complete_entry_from_height(
     )
     .unwrap();
 
+    let pruned_tape_reader = tapes
+        .pruned_blobs.reader().unwrap();
+
+    let prunable_tape_reader = tapes.prunable_tape[pruning_stripe as usize - 1]
+        .as_ref()
+        .unwrap().reader().unwrap();
+
     let block_info = tables.block_infos().get(block_height)?;
 
     let block_blob_start_idx = block_info.blob_idx;
@@ -405,34 +477,21 @@ pub fn get_block_complete_entry_from_height(
 
         block_blob_end_idx.get_or_insert(tx_info.pruned_blob_idx);
 
-        let (pruned_end_idx, prunable_end_idx) = get_tx_blob_idxs(
-            &tx_info,
-            &next_tx_info,
-            tables.tx_infos(),
-            tables.block_infos(),
-            tables.blob_tape_ends(),
-        )?;
-
         if pruned {
-            let blob = tapes
-                .pruned_blobs
-                .try_get_range(tx_info.pruned_blob_idx..pruned_end_idx)
+            let blob = pruned_tape_reader
+                .try_get_slice(tx_info.pruned_blob_idx, tx_info.pruned_size)
                 .unwrap();
-            let prunable_hash = tapes
-                .pruned_blobs
-                .try_get_range(pruned_end_idx..(pruned_end_idx + 32))
+            let prunable_hash = pruned_tape_reader
+                .try_get_slice(tx_info.pruned_blob_idx + tx_info.pruned_size, 32)
                 .unwrap();
 
             txs.push((blob, prunable_hash));
         } else {
-            let pruned_blob = tapes
-                .pruned_blobs
-                .try_get_range(tx_info.pruned_blob_idx..pruned_end_idx)
+            let pruned_blob = pruned_tape_reader
+                .try_get_slice(tx_info.pruned_blob_idx, tx_info.pruned_size)
                 .unwrap();
-            let prunable_blob = tapes.prunable_tape[pruning_stripe as usize - 1]
-                .as_ref()
-                .unwrap()
-                .try_get_range(tx_info.prunable_blob_idx..prunable_end_idx)
+            let prunable_blob = prunable_tape_reader
+                .try_get_slice(tx_info.prunable_blob_idx, tx_info.prunable_size)
                 .unwrap();
 
 
@@ -475,8 +534,9 @@ pub fn get_block_complete_entry_from_height(
             tables.blob_tape_ends().get(&1).unwrap().pruned_tape
         });
 
-        let blob = tapes
-            .pruned_blobs
+        let reader = tapes
+            .pruned_blobs.reader().unwrap();
+        let blob = reader
             .try_get_range(block_blob_start_idx..block_blob_end_idx)
             .unwrap();
 
@@ -525,8 +585,10 @@ pub fn get_block_extended_header_from_height(
     let block_info = tables.block_infos().get(block_height)?;
     let miner_tx_info = tables.tx_infos().get(&(block_info.mining_tx_index))?;
 
-    let block_header_blob = tapes
-        .pruned_blobs
+    let reader = tapes
+        .pruned_blobs.reader().unwrap();
+
+    let block_header_blob = reader
         .try_get_range(block_info.blob_idx..miner_tx_info.pruned_blob_idx)
         .unwrap();
     let block_header = BlockHeader::read(&mut block_header_blob.as_ref())?;
@@ -572,14 +634,22 @@ pub fn get_block(
 
     let block_blob_end_idx = {
         match tables.tx_infos().get(&(block_info.mining_tx_index + 1)) {
-            Ok(tx_info) => tx_info.pruned_blob_idx,
+            Ok(tx_info) => {
+                if tx_info.height != *block_height {
+                    tables.block_infos().get(&(*block_height+ 1))?.blob_idx
+                } else {
+                    tx_info.pruned_blob_idx
+                }
+            },
             Err(RuntimeError::KeyNotFound) => tables.blob_tape_ends().get(&1)?.pruned_tape,
             Err(e) => return Err(e),
         }
     };
 
-    let block_blob = tapes
-        .pruned_blobs
+    let reader = tapes
+        .pruned_blobs.reader().unwrap();
+
+    let block_blob = reader
         .try_get_range(block_info.blob_idx..block_blob_end_idx)
         .unwrap();
 

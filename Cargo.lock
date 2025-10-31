@@ -1131,6 +1131,7 @@ dependencies = [
  "hex-literal 1.0.0",
  "indexmap 2.11.0",
  "monero-oxide",
+ "parking_lot",
  "pretty_assertions",
  "proptest",
  "rand 0.8.5",
