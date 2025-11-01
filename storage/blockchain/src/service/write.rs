@@ -95,10 +95,10 @@ fn write_blocks<E: Env>(
 
                 let mut appender = unsafe { tapes.rct_outputs.appender().unwrap() };
                 appender.push_entries(&rct_outputs).unwrap();
-                appender.flush(Flush::Async)
+                appender.flush(Flush::NoSync)
             })?;
         } else {
-            appender.flush(Flush::Async)?;
+            appender.flush(Flush::NoSync)?;
         }
 
 

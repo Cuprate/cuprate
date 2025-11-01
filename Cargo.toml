@@ -44,7 +44,6 @@ members = [
 	# ZMQ
 	"zmq/types",
 
-	"perf-test",
 	# Misc
 	"constants",
 	"cryptonight",
@@ -53,7 +52,7 @@ members = [
 	"test-utils",
 
 	# Fuzz
-	"fuzz", "perf-test",
+	"fuzz",
 ]
 
 # Windows is a pain, so instead of making the fuzz tests work on windows, we just don't build the fuzz target on windows.
@@ -103,7 +102,6 @@ default-members = [
 	# ZMQ
 	"zmq/types",
 
-	"perf-test",
 	# Misc
 	"constants",
 	"cryptonight",

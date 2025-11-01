@@ -149,6 +149,7 @@ where
             ProtocolRequest::NewFluffyBlock(r) => new_fluffy_block(
                 self.peer_information.clone(),
                 r,
+                self.blockchain_context_service.clone(),
                 self.blockchain_read_handle.clone(),
                 self.txpool_read_handle.clone(),
             )
@@ -297,10 +298,10 @@ async fn fluffy_missing_txs(
 async fn new_fluffy_block<A: NetZoneAddress>(
     peer_information: PeerInformation<A>,
     request: NewFluffyBlock,
+    mut blockchain_context_service: BlockchainContextService,
     mut blockchain_read_handle: BlockchainReadHandle,
     mut txpool_read_handle: TxpoolReadHandle,
 ) -> anyhow::Result<ProtocolResponse> {
-    // TODO: check context service here and ignore the block?
     let current_blockchain_height = request.current_blockchain_height;
 
     peer_information
@@ -308,6 +309,10 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         .lock()
         .unwrap()
         .current_height = current_blockchain_height;
+
+    if blockchain_context_service.blockchain_context().chain_height + 10 < request.current_blockchain_height as usize {
+        return Ok(ProtocolResponse::NA);
+    }
 
     let (block, txs) = rayon_spawn_async(move || -> Result<_, anyhow::Error> {
         let block = Block::read(&mut request.b.block.as_ref())?;

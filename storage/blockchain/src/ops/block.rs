@@ -79,7 +79,7 @@ pub fn add_prunable_blocks_blobs(
 
     match add_prunable_blocks_blobs_inner(blocks, &mut pruned_appender) {
         Ok(idx) => {
-            pruned_appender.flush(Flush::Async)?;
+            pruned_appender.flush(Flush::NoSync)?;
 
             Ok(idx)
         },
@@ -90,7 +90,7 @@ pub fn add_prunable_blocks_blobs(
                 let mut pruned_appender = unsafe { tapes.prunable_tape[stripe as usize - 1].as_ref().unwrap().appender() };
                 let pruned_blob_idx = add_prunable_blocks_blobs_inner(blocks, &mut pruned_appender).expect("");
 
-                pruned_appender.flush(Flush::Async)?;
+                pruned_appender.flush(Flush::NoSync)?;
 
                 Ok(pruned_blob_idx)
             })
@@ -146,7 +146,7 @@ pub fn add_pruned_blocks_blobs(
 
     match add_pruned_blocks_blobs_inner(blocks, &mut pruned_appender) {
         Ok(idx) => {
-            pruned_appender.flush(Flush::Async)?;
+            pruned_appender.flush(Flush::NoSync)?;
 
             Ok(idx)
         },
@@ -157,7 +157,7 @@ pub fn add_pruned_blocks_blobs(
                 let mut pruned_appender = unsafe { tapes.pruned_blobs.appender() };
                 let pruned_blob_idx = add_pruned_blocks_blobs_inner(blocks, &mut pruned_appender).expect("");
 
-                pruned_appender.flush(Flush::Async)?;
+                pruned_appender.flush(Flush::NoSync)?;
 
                 Ok(pruned_blob_idx)
             })
