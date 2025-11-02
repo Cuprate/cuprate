@@ -45,7 +45,7 @@ proptest! {
     })]
 
     #[test]
-    fn test_block_downloader(blockchain in dummy_blockchain_stragtegy(), peers in 1_usize..128) {
+    fn test_block_downloader(blockchain in dummy_blockchain_strategy(), peers in 1_usize..128) {
         let blockchain = Arc::new(blockchain);
 
         let tokio_pool = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap();
@@ -89,7 +89,7 @@ proptest! {
 
 prop_compose! {
     /// Returns a strategy to generate a [`Transaction`] that is valid for the block downloader.
-    fn dummy_transaction_stragtegy(height: usize)
+    fn dummy_transaction_strategy(height: usize)
         (
             extra in vec(any::<u8>(), 0..1_000),
             timelock in 1_usize..50_000_000,
@@ -109,13 +109,13 @@ prop_compose! {
 
 prop_compose! {
     /// Returns a strategy to generate a [`Block`] that is valid for the block downloader.
-    fn dummy_block_stragtegy(
+    fn dummy_block_strategy(
             height: usize,
             previous: [u8; 32],
         )
         (
-            miner_transaction in dummy_transaction_stragtegy(height),
-            txs in vec(dummy_transaction_stragtegy(height), 0..25)
+            miner_transaction in dummy_transaction_strategy(height),
+            txs in vec(dummy_transaction_strategy(height), 0..25)
         )
     -> (Block, Vec<Transaction>) {
        (
@@ -148,8 +148,8 @@ impl Debug for MockBlockchain {
 
 prop_compose! {
     /// Returns a strategy to generate a [`MockBlockchain`].
-    fn dummy_blockchain_stragtegy()(
-        blocks in vec(dummy_block_stragtegy(0, [0; 32]), 1..50_000),
+    fn dummy_blockchain_strategy()(
+        blocks in vec(dummy_block_strategy(0, [0; 32]), 1..50_000),
     ) -> MockBlockchain {
         let mut blockchain = IndexMap::new();
 
