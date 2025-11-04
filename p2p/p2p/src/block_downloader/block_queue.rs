@@ -1,6 +1,6 @@
-use cuprate_async_buffer::{BufferAppender, BufferError};
-use std::collections::VecDeque;
 use std::{cmp::Ordering, collections::BinaryHeap};
+
+use cuprate_async_buffer::BufferAppender;
 
 use super::{BlockBatch, BlockDownloadError};
 
@@ -49,7 +49,6 @@ pub(crate) struct BlockQueue {
     /// The size, in bytes, of all the batches in [`Self::ready_batches`].
     ready_batches_size: usize,
 
-    waiting_for_buffer_capacity: VecDeque<ReadyQueueBatch>,
     /// The [`BufferAppender`] that gives blocks to Cuprate.
     buffer_appender: BufferAppender<BlockBatch>,
 }
@@ -60,7 +59,6 @@ impl BlockQueue {
         Self {
             ready_batches: BinaryHeap::new(),
             ready_batches_size: 0,
-            waiting_for_buffer_capacity: VecDeque::new(),
             buffer_appender,
         }
     }
@@ -100,40 +98,18 @@ impl BlockQueue {
                 .pop()
                 .expect("We just checked we have a batch in the buffer");
 
-            self.waiting_for_buffer_capacity.push_back(batch);
-        }
-
-        while let Some(batch) = self.waiting_for_buffer_capacity.pop_front() {
             let batch_size = batch.block_batch.size;
 
-            match self.buffer_appender.try_send(batch.block_batch, batch_size) {
-                Ok(()) => self.ready_batches_size -= batch_size,
-                Err(BufferError::NotEnoughCapacity(block_batch)) => {
-                    self.waiting_for_buffer_capacity
-                        .push_front(ReadyQueueBatch {
-                            block_batch,
-                            ..batch
-                        });
-                    return Ok(());
-                }
-                Err(_) => return Err(BlockDownloadError::BufferWasClosed),
-            }
-        }
-
-        Ok(())
-    }
-
-    pub(crate) async fn flush_queue(&mut self) -> Result<(), BlockDownloadError> {
-        while let Some(batch) = self.waiting_for_buffer_capacity.pop_front() {
-            let batch_size = batch.block_batch.size;
-
-            self.buffer_appender.send(batch.block_batch, batch_size).await.map_err(|_| BlockDownloadError::BufferWasClosed)?;
+            self.ready_batches_size -= batch_size;
+            self.buffer_appender
+                .send(batch.block_batch, batch_size)
+                .await
+                .map_err(|_| BlockDownloadError::BufferWasClosed)?;
         }
 
         Ok(())
     }
 }
-
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;

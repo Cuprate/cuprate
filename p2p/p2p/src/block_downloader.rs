@@ -148,8 +148,8 @@ pub fn download_blocks<N: NetworkZone, C>(
 ) -> BufferStream<BlockBatch>
 where
     C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>
-        + Send
-        + 'static,
+    + Send
+    + 'static,
     C::Future: Send + 'static,
 {
     let (buffer_appender, buffer_stream) = cuprate_async_buffer::new_buffer(config.buffer_bytes);
@@ -232,8 +232,8 @@ struct BlockDownloader<N: NetworkZone, C> {
 impl<N: NetworkZone, C> BlockDownloader<N, C>
 where
     C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>
-        + Send
-        + 'static,
+    + Send
+    + 'static,
     C::Future: Send + 'static,
 {
     /// Creates a new [`BlockDownloader`]
@@ -258,11 +258,11 @@ where
     }
 
     /// Checks if we can make use of any peers that are currently pending requests.
-    async fn check_pending_peers(
+    fn check_pending_peers(
         &mut self,
         chain_tracker: &mut ChainTracker<N>,
         pending_peers: &mut BTreeMap<PruningSeed, Vec<ClientDropGuard<N>>>,
-    ) -> Result<(), BlockDownloadError>{
+    ) {
         tracing::debug!("Checking if we can give any work to pending peers.");
 
         for (_, peers) in pending_peers.iter_mut() {
@@ -272,7 +272,7 @@ where
                     continue;
                 }
 
-                let client = self.try_handle_free_client(chain_tracker, peer).await?;
+                let client = self.try_handle_free_client(chain_tracker, peer);
                 if let Some(peer) = client {
                     // This peer is ok however it does not have the data we currently need, this will only happen
                     // because of its pruning seed so just skip over all peers with this pruning seed.
@@ -281,8 +281,6 @@ where
                 }
             }
         }
-
-        Ok(())
     }
 
     fn amount_of_blocks_to_request(&self) -> usize {
@@ -313,19 +311,19 @@ where
     /// for them.
     ///
     /// Returns the [`ClientDropGuard`] back if it doesn't have the batch according to its pruning seed.
-    async fn request_inflight_batch_again(
+    fn request_inflight_batch_again(
         &mut self,
         client: ClientDropGuard<N>,
-    ) -> Result<Option<ClientDropGuard<N>>, BlockDownloadError> {
+    ) -> Option<ClientDropGuard<N>> {
         tracing::debug!(
             "Requesting an inflight batch, current ready queue size: {}",
             self.block_queue.size()
         );
 
-        if self.inflight_requests.is_empty() {
-            self.block_queue.flush_queue().await?;
-            return Ok(None);
-        }
+        assert!(
+            !self.inflight_requests.is_empty(),
+            "We need requests inflight to be able to send the request again",
+        );
 
         let oldest_ready_batch = self.block_queue.oldest_ready_batch().unwrap();
 
@@ -339,7 +337,7 @@ where
                 in_flight_batch.start_height,
                 in_flight_batch.ids.len(),
             ) {
-                return Ok(Some(client));
+                return Some(client);
             }
 
             self.block_download_tasks.spawn(download_batch_task(
@@ -350,12 +348,12 @@ where
                 in_flight_batch.requests_sent,
             ));
 
-            return Ok(None);
+            return None;
         }
 
         tracing::debug!("Could not find an inflight request applicable for this peer.");
 
-        Ok(Some(client))
+        Some(client)
     }
 
     /// Spawns a task to request blocks from the given peer.
@@ -364,11 +362,11 @@ where
     ///
     /// Returns the [`ClientDropGuard`] back if it doesn't have the data we currently need according
     /// to its pruning seed.
-    async fn request_block_batch(
+    fn request_block_batch(
         &mut self,
         chain_tracker: &mut ChainTracker<N>,
         client: ClientDropGuard<N>,
-    ) -> Result<Option<ClientDropGuard<N>>, BlockDownloadError> {
+    ) -> Option<ClientDropGuard<N>> {
         tracing::trace!("Using peer to request a batch of blocks.");
         // First look to see if we have any failed requests.
         while let Some(failed_request) = self.failed_batches.peek() {
@@ -401,7 +399,7 @@ where
                 // Remove the failure, we have just handled it.
                 self.failed_batches.pop();
 
-                return Ok(None);
+                return None;
             }
             // The peer doesn't have the batch according to its pruning seed.
             break;
@@ -409,7 +407,7 @@ where
 
         // If our ready queue is too large send duplicate requests for the blocks we are waiting on.
         if self.block_queue.size() >= self.config.in_progress_queue_bytes {
-            return self.request_inflight_batch_again(client).await;
+            return self.request_inflight_batch_again(client);
         }
 
         // No failed requests that we can handle, request some new blocks.
@@ -418,7 +416,7 @@ where
             &client.info.pruning_seed,
             self.amount_of_blocks_to_request(),
         ) else {
-            return Ok(Some(client));
+            return Some(client);
         };
 
         tracing::debug!("Requesting a new batch of blocks");
@@ -435,7 +433,7 @@ where
             block_entry_to_get.requests_sent,
         ));
 
-        Ok(None)
+        None
     }
 
     /// Attempts to give work to a free client.
@@ -445,11 +443,11 @@ where
     ///
     /// Returns the [`ClientDropGuard`] back if it doesn't have the data we currently need according
     /// to its pruning seed.
-    async fn try_handle_free_client(
+    fn try_handle_free_client(
         &mut self,
         chain_tracker: &mut ChainTracker<N>,
         client: ClientDropGuard<N>,
-    ) -> Result<Option<ClientDropGuard<N>>, BlockDownloadError> {
+    ) -> Option<ClientDropGuard<N>> {
         // We send 2 requests, so if one of them is slow or doesn't have the next chain, we still have a backup.
         if self.chain_entry_task.len() < 2
             // If we have had too many failures then assume the tip has been found so no more chain entries.
@@ -470,20 +468,20 @@ where
                         BLOCK_DOWNLOADER_REQUEST_TIMEOUT,
                         request_chain_entry_from_peer(client, history),
                     )
-                    .await
-                    .map_err(|_| BlockDownloadError::TimedOut)?
+                        .await
+                        .map_err(|_| BlockDownloadError::TimedOut)?
                 }
-                .instrument(tracing::debug_span!(
+                    .instrument(tracing::debug_span!(
                     "request_chain_entry",
                     current_height = chain_tracker.top_height()
                 )),
             );
 
-            return Ok(None);
+            return None;
         }
 
         // Request a batch of blocks instead.
-        self.request_block_batch(chain_tracker, client).await
+        self.request_block_batch(chain_tracker, client)
     }
 
     /// Checks the [`ClientPool`] for free peers.
@@ -524,7 +522,7 @@ where
                 .push(client);
         }
 
-        self.check_pending_peers(chain_tracker, pending_peers).await?;
+        self.check_pending_peers(chain_tracker, pending_peers);
 
         Ok(())
     }
@@ -552,7 +550,6 @@ where
                         entry.peer_who_told_us_handle.ban_peer(LONG_BAN);
                     });
 
-                    self.block_queue.flush_queue().await?;
                     return Err(e);
                 }
 
@@ -583,7 +580,7 @@ where
                         .or_default()
                         .push(client);
 
-                    self.check_pending_peers(chain_tracker, pending_peers).await?;
+                    self.check_pending_peers(chain_tracker, pending_peers);
 
                     return Ok(());
                 }
@@ -592,10 +589,10 @@ where
                 // again.
                 if start_height
                     > self
-                        .most_recent_batch_sizes
-                        .peek()
-                        .map(|Reverse((height, _))| *height)
-                        .unwrap_or_default()
+                    .most_recent_batch_sizes
+                    .peek()
+                    .map(|Reverse((height, _))| *height)
+                    .unwrap_or_default()
                 {
                     self.most_recent_batch_sizes.push(Reverse((
                         start_height,
@@ -626,7 +623,7 @@ where
                     .or_default()
                     .push(client);
 
-                self.check_pending_peers(chain_tracker, pending_peers).await?;
+                self.check_pending_peers(chain_tracker, pending_peers);
 
                 Ok(())
             }
@@ -657,7 +654,6 @@ where
                      // If we have no inflight requests, and we have had too many empty chain entries in a row assume the top has been found.
                     if self.inflight_requests.is_empty() && self.amount_of_empty_chain_entries >= EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED {
                         tracing::debug!("Failed to find any more chain entries, probably fround the top");
-                        self.block_queue.flush_queue().await?;
                         return Ok(());
                     }
                 }
@@ -672,7 +668,6 @@ where
                     // If we have no inflight requests, and we have had too many empty chain entries in a row assume the top has been found.
                     if self.inflight_requests.is_empty() && self.amount_of_empty_chain_entries >= EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED {
                         tracing::debug!("Failed to find any more chain entries, probably fround the top");
-                        self.block_queue.flush_queue().await?;
                         return Ok(());
                     }
                 }
@@ -695,7 +690,7 @@ where
                                 .or_default()
                                 .push(client);
 
-                            self.check_pending_peers(&mut chain_tracker, &mut pending_peers).await?;
+                            self.check_pending_peers(&mut chain_tracker, &mut pending_peers);
                         }
                         Err(_) => self.amount_of_empty_chain_entries += 1
                     }
