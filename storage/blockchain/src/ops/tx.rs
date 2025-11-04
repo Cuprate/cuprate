@@ -62,6 +62,7 @@ pub fn add_tx(
     rct_outputs: &mut Vec<RctOutput>,
     tape_appender: &mut cuprate_linear_tape::Appender,
 ) -> DbResult<TxId> {
+    tracing::debug!("writing tx");
     let tx_id = get_num_tx(tables.tx_ids_mut())? as usize;
 
     //------------------------------------------------------ Transaction data
@@ -118,6 +119,7 @@ pub fn add_tx(
 
     // Key images.
     for inputs in &tx.prefix().inputs {
+        tracing::debug!("writing ki");
         match inputs {
             // Key images.
             Input::ToKey { key_image, .. } => {
@@ -136,6 +138,7 @@ pub fn add_tx(
         Timelock::Block(_) | Timelock::Time(_) => OutputFlags::NON_ZERO_UNLOCK_TIME,
     };
 
+    tracing::debug!("writing outputs");
     let amount_indices = match &tx {
         Transaction::V1 { prefix, .. } => prefix
             .outputs
