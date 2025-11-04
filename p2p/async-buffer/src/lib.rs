@@ -54,6 +54,7 @@ pub fn new_buffer<T>(max_item_weight: usize) -> (BufferAppender<T>, BufferStream
             queue: rx,
             sink_waker,
             capacity: capacity_atomic,
+            max_item_weight
         },
     )
 }
@@ -66,6 +67,7 @@ pub struct BufferStream<T> {
     sink_waker: Arc<AtomicWaker>,
     /// The current capacity of the buffer.
     capacity: Arc<AtomicUsize>,
+    max_item_weight: usize
 }
 
 impl<T> Stream for BufferStream<T> {
@@ -77,9 +79,12 @@ impl<T> Stream for BufferStream<T> {
         };
 
         // add the capacity back to the buffer.
-        self.capacity.fetch_add(size, Ordering::AcqRel);
-        // wake the sink.
-        self.sink_waker.wake();
+        let current_cap = self.capacity.fetch_add(size, Ordering::AcqRel);
+
+        if current_cap == self.max_item_weight {
+            // wake the sink.
+            self.sink_waker.wake();
+        }
 
         Poll::Ready(Some(item))
     }
