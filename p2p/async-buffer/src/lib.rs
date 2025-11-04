@@ -81,7 +81,7 @@ impl<T> Stream for BufferStream<T> {
         // add the capacity back to the buffer.
         let current_cap = self.capacity.fetch_add(size, Ordering::AcqRel);
 
-        if current_cap == self.max_item_weight {
+        if current_cap == (self.max_item_weight + size) {
             // wake the sink.
             self.sink_waker.wake();
         }
