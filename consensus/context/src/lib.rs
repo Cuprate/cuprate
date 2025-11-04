@@ -123,7 +123,7 @@ where
 pub struct BlockchainContext {
     /// The current cumulative difficulty.
     pub cumulative_difficulty: u128,
-    /// Context to verify a block, as needed by [`cuprate-consensus-rules`]
+    /// Context to verify a block, as needed by [`cuprate_consensus_rules`]
     pub context_to_verify_block: ContextToVerifyBlock,
     /// The median long term block weight.
     median_long_term_weight: usize,
