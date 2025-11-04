@@ -1,5 +1,6 @@
 //! Transaction functions.
 
+use std::collections::BTreeMap;
 use std::hash::Hash;
 //---------------------------------------------------------------------------------------------------- Import
 use crate::database::{PRUNABLE_BLOBS, PRUNED_BLOBS, TX_INFOS};
@@ -60,6 +61,7 @@ pub fn add_tx(
     numb_rct_outs: &mut u64,
     tables: &mut impl TablesMut,
     rct_outputs: &mut Vec<RctOutput>,
+    pre_rct_outputs: &mut BTreeMap<u64, Vec<Output>>,
     tape_appender: &mut cuprate_linear_tape::Appender,
 ) -> DbResult<TxId> {
     tracing::debug!("writing tx");
@@ -117,9 +119,9 @@ pub fn add_tx(
     // <https://github.com/monero-project/monero/blob/eac1b86bb2818ac552457380c9dd421fb8935e5b/src/blockchain_db/blockchain_db.cpp#L212-L216>
     let mut miner_tx = false;
 
+    tracing::debug!("writing kis");
     // Key images.
     for inputs in &tx.prefix().inputs {
-        tracing::debug!("writing ki");
         match inputs {
             // Key images.
             Input::ToKey { key_image, .. } => {

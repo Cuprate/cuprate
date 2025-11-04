@@ -56,7 +56,7 @@ pub struct LinearTapeAppender<'a, E: Entry> {
     pub backing_file: &'a UnsafeTape,
     pub phantom: PhantomData<E>,
     pub current_used_bytes: usize,
-    pub entries_added: &'a mut usize,
+    pub bytes_added: &'a mut usize,
 }
 
 impl<E: Entry> LinearTapeAppender<'_, E> {
@@ -71,7 +71,7 @@ impl<E: Entry> LinearTapeAppender<'_, E> {
 
     /// Returns the length of the tape if this transaction is flushed.
     pub fn len(&self) -> usize {
-        self.current_used_bytes / E::SIZE + *self.entries_added
+        (self.current_used_bytes + *self.bytes_added) / E::SIZE
     }
 
     /// Push some entries onto the tape.
@@ -86,14 +86,14 @@ impl<E: Entry> LinearTapeAppender<'_, E> {
             return Err(ResizeNeeded);
         }
 
-        let start = self.current_used_bytes + *self.entries_added * E::SIZE;
+        let start = self.current_used_bytes + *self.bytes_added;
         let end = start + entries.len() * E::SIZE;
 
         let mut buf = unsafe { self.backing_file.range_mut(start..end) };
 
         E::batch_write(entries, &mut buf);
 
-        *self.entries_added += entries.len();
+        *self.bytes_added += entries.len() * E::SIZE;
 
         Ok(())
     }
@@ -101,7 +101,7 @@ impl<E: Entry> LinearTapeAppender<'_, E> {
     /// Cancel any previous additions that haven't been flushed, once this is done you can reuse this
     /// appender to push more entries onto the tape.
     pub fn cancel(&mut self) {
-        *self.entries_added = 0;
+        *self.bytes_added = 0;
     }
 }
 

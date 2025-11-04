@@ -161,7 +161,7 @@ impl Appender<'_> {
             backing_file: tape,
             phantom: Default::default(),
             current_used_bytes: self.meta_guard.tables_len_mut()[i],
-            entries_added: &mut self.added_bytes[i],
+            bytes_added: &mut self.added_bytes[i],
         }
     }
 
