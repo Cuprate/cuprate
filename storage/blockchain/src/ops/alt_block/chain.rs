@@ -59,7 +59,8 @@ pub fn update_alt_chain_info(
             parent_chain: parent_chain.into(),
             common_ancestor_height: alt_block_height.height.checked_sub(1).unwrap(),
             chain_height: alt_block_height.height + 1,
-        },
+        },        false
+
     )
 }
 

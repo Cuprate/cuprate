@@ -10,7 +10,9 @@ use cuprate_types::{
 };
 
 use crate::{service::types::ResponseResult, tables::OpenTables, BlockchainDatabase};
+use crate::database::RCT_OUTPUTS;
 use crate::ops::block::{add_prunable_blocks_blobs, add_pruned_blocks_blobs};
+use crate::types::RctOutput;
 
 /// Write functions within this module abort if the write transaction
 /// could not be aborted successfully to maintain atomicity.
@@ -60,7 +62,7 @@ fn write_blocks<E: Env>(
 ) -> ResponseResult {
     let env_inner = env.dynamic_tables.env_inner();
     let tx_rw = env_inner.tx_rw()?;
-    let mut tapes = env.tapes.upgradable_read();
+    let mut tapes = env.tapes.appender();
 
     let result = {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
@@ -73,7 +75,7 @@ fn write_blocks<E: Env>(
 
         let (first_stripe, next_stripe) = block.split_at(next_stripe_height - start_height);
 
-        let mut numb_rct_outs = tapes.rct_outputs.reader().unwrap().len() as u64;
+        let mut numb_rct_outs = tapes.fixed_sized_tape_appender::<RctOutput>(&RCT_OUTPUTS).len() as u64;
         let mut rct_outputs = Vec::with_capacity(10_000);
 
         for blocks in [first_stripe, next_stripe] {
@@ -82,28 +84,19 @@ fn write_blocks<E: Env>(
             }
            let mut prunable_idx = add_prunable_blocks_blobs(blocks, &mut tapes)?;
             for block in blocks {
-                crate::ops::block::add_block(block, &mut pruned_blob_idx, &mut prunable_idx, &mut numb_rct_outs, &mut rct_outputs, &mut tables_mut)?;
+                crate::ops::block::add_block(block, &mut pruned_blob_idx, &mut prunable_idx, &mut numb_rct_outs, &mut rct_outputs, &mut tables_mut, &mut tapes)?;
             }
         }
 
-        let mut appender = unsafe { tapes.rct_outputs.appender().unwrap() };
+        let mut appender = tapes.fixed_sized_tape_appender(&RCT_OUTPUTS);
 
-        if appender.push_entries(&rct_outputs).is_err() {
-            tapes.with_upgraded(|tapes| {
-                let file_size = tapes.rct_outputs.map_size() as u64;
-                tapes.rct_outputs.resize(file_size + 1 * 1024 * 1024 * 1024)?;
-
-                let mut appender = unsafe { tapes.rct_outputs.appender().unwrap() };
-                appender.push_entries(&rct_outputs).unwrap();
-                appender.flush(Flush::NoSync)
-            })?;
-        } else {
-            appender.flush(Flush::NoSync)?;
-        }
+       appender.push_entries(&rct_outputs).unwrap();
 
 
         Ok(())
     };
+
+    tapes.flush(Flush::Async)?;
 
     match result {
         Ok(()) => {
@@ -162,7 +155,7 @@ fn pop_blocks<E: Env>(env: &BlockchainDatabase<E>, numb_blocks: usize) -> Respon
             crate::ops::block::pop_block(
                 Some(old_main_chain_id),
                 &mut tables_mut,
-                &mut env.tapes.write(),
+                &env.tapes,
             )?;
         }
 

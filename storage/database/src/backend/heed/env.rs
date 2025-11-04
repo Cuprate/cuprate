@@ -7,7 +7,7 @@ use std::{
     sync::{RwLock, RwLockReadGuard},
 };
 
-use heed::{DatabaseFlags, EnvFlags, EnvOpenOptions};
+use heed::{DatabaseFlags, EnvFlags, EnvOpenOptions, IntegerComparator, WithoutTls};
 use tracing::{debug, warn};
 
 use crate::{
@@ -52,7 +52,7 @@ pub struct ConcreteEnv {
     /// This will be [`unwrap()`]ed everywhere.
     ///
     /// If lock is poisoned, we want all of Cuprate to panic.
-    env: RwLock<heed::Env>,
+    env: RwLock<heed::Env<WithoutTls>>,
 
     /// The configuration we were opened with
     /// (and in current use).
@@ -89,8 +89,8 @@ impl Drop for ConcreteEnv {
 impl Env for ConcreteEnv {
     const MANUAL_RESIZE: bool = true;
     const SYNCS_PER_TX: bool = false;
-    type EnvInner<'env> = RwLockReadGuard<'env, heed::Env>;
-    type TxRo<'tx> = heed::RoTxn<'tx>;
+    type EnvInner<'env> = RwLockReadGuard<'env, heed::Env<WithoutTls>>;
+    type TxRo<'tx> = heed::RoTxn<'tx, WithoutTls>;
 
     /// HACK:
     /// `heed::RwTxn` is wrapped in `RefCell` to allow:
@@ -114,7 +114,7 @@ impl Env for ConcreteEnv {
     fn open(config: Config) -> Result<Self, InitError> {
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
 
-        let mut env_open_options = EnvOpenOptions::new();
+        let mut env_open_options = EnvOpenOptions::new().read_txn_without_tls();
 
         // Map our `Config` sync mode to the LMDB environment flags.
         //
@@ -243,11 +243,11 @@ impl Env for ConcreteEnv {
 }
 
 //---------------------------------------------------------------------------------------------------- EnvInner Impl
-impl<'env> EnvInner<'env> for RwLockReadGuard<'env, heed::Env>
+impl<'env> EnvInner<'env> for RwLockReadGuard<'env, heed::Env<WithoutTls>>
 where
     Self: 'env,
 {
-    type Ro<'a> = heed::RoTxn<'a>;
+    type Ro<'a> = heed::RoTxn<'a, WithoutTls>;
 
     type Rw<'a> = RefCell<heed::RwTxn<'a>>;
 
@@ -310,7 +310,7 @@ where
             // Instead of setting a custom [`heed::Comparator`],
             // use this LMDB flag; it is ~10% faster.
             KeyCompare::Number => {
-                db.flags(DatabaseFlags::INTEGER_KEY).create(&mut tx_rw)?;
+                db.key_comparator::<IntegerComparator>().create(&mut tx_rw)?;
             }
 
             // Use a custom comparison function if specified.

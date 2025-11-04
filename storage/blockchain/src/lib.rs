@@ -1,7 +1,8 @@
 #![doc = include_str!("../README.md")]
 #![allow(
     // See `cuprate-database` for reasoning.
-    clippy::significant_drop_tightening
+    clippy::significant_drop_tightening,
+    unreachable_pub
 )]
 extern crate core;
 

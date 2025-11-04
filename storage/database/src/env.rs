@@ -71,7 +71,7 @@ pub trait Env: Send + Sync + Sized {
         Self: 'env;
 
     /// The read/write transaction type of the backend.
-    type TxRw<'env>: TxRw<'env> + Send
+    type TxRw<'env>: TxRw<'env>
     where
         Self: 'env;
 

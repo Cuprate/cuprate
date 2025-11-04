@@ -1,20 +1,20 @@
 use bytemuck::TransparentWrapper;
 use monero_oxide::block::{Block, BlockHeader};
 
-use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, StorableVec};
+use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableVec};
 use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};
 use cuprate_types::{AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, HardFork};
 
-use crate::database::Tapes;
 use crate::{
     ops::{
         alt_block::{add_alt_transaction_blob, get_alt_transaction, update_alt_chain_info},
-        block::get_block_info,
         macros::doc_error,
     },
     tables::{Tables, TablesMut},
     types::{AltBlockHeight, BlockHash, BlockHeight, CompactAltBlockInfo},
 };
+use crate::database::BLOCK_INFOS;
+use crate::types::BlockInfo;
 
 /// Flush all alt-block data from all the alt-block tables.
 ///
@@ -56,7 +56,8 @@ pub fn add_alt_block(alt_block: &AltBlockInformation, tables: &mut impl TablesMu
 
     tables
         .alt_block_heights_mut()
-        .put(&alt_block.block_hash, &alt_block_height)?;
+        .put(&alt_block.block_hash, &alt_block_height,         false
+        )?;
 
     update_alt_chain_info(&alt_block_height, &alt_block.block.header.previous, tables)?;
 
@@ -75,11 +76,13 @@ pub fn add_alt_block(alt_block: &AltBlockInformation, tables: &mut impl TablesMu
 
     tables
         .alt_blocks_info_mut()
-        .put(&alt_block_height, &alt_block_info)?;
+        .put(&alt_block_height, &alt_block_info,         false
+        )?;
 
     tables.alt_block_blobs_mut().put(
         &alt_block_height,
-        StorableVec::wrap_ref(&alt_block.block_blob),
+        StorableVec::wrap_ref(&alt_block.block_blob),        false
+
     )?;
 
     assert_eq!(alt_block.txs.len(), alt_block.block.transactions.len());
@@ -98,7 +101,7 @@ pub fn add_alt_block(alt_block: &AltBlockInformation, tables: &mut impl TablesMu
 pub fn get_alt_block(
     alt_block_height: &AltBlockHeight,
     tables: &impl Tables,
-    tapes: &Tapes,
+    tapes: &cuprate_linear_tape::Reader,
 ) -> DbResult<AltBlockInformation> {
     let block_info = tables.alt_blocks_info().get(alt_block_height)?;
 
@@ -140,6 +143,7 @@ pub fn get_alt_block_hash(
     block_height: &BlockHeight,
     alt_chain: ChainId,
     tables: &impl Tables,
+    block_info_tape: &cuprate_linear_tape::LinearTapeReader<BlockInfo>,
 ) -> DbResult<BlockHash> {
     let alt_chains = tables.alt_chain_infos();
 
@@ -166,7 +170,7 @@ pub fn get_alt_block_hash(
     // Get the block hash.
     match original_chain {
         Chain::Main => {
-            get_block_info(block_height, tables.block_infos()).map(|info| info.block_hash)
+            block_info_tape.try_get(*block_height).map(|info| info.block_hash).ok_or(RuntimeError::KeyNotFound)
         }
         Chain::Alt(chain_id) => tables
             .alt_blocks_info()

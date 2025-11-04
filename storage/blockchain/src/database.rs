@@ -2,7 +2,7 @@ use crate::types::{RctOutput, TxInfo};
 use cuprate_database::DatabaseRo;
 use cuprate_database::{ConcreteEnv, DbResult, Env, EnvInner, InitError, RuntimeError};
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
-use cuprate_linear_tape::{Flush, LinearBlobTape, LinearBlobTapeAppender, LinearFixedSizeTape, LinearTapeAppender};
+use cuprate_linear_tape::{Flush, LinearBlobTapeAppender, LinearTapeAppender, LinearTapes};
 use cuprate_types::blockchain::{
     BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest,
 };
@@ -15,20 +15,20 @@ use std::iter::once;
 //use tokio::sync::{ OwnedRwLockReadGuard, OwnedRwLockWriteGuard, RwLock};
 use crate::config::{init_thread_pool, Config};
 use crate::service::{map_read_request, map_write_request};
-use crate::tables::BlockInfos;
 use futures::channel::oneshot;
 use tokio_util::sync::ReusableBoxFuture;
 use tower::Service;
 
-pub(crate) struct Tapes {
-    pub(crate) rct_outputs: LinearFixedSizeTape<RctOutput>,
-    pub(crate) pruned_blobs: LinearBlobTape,
-    pub(crate) prunable_tape: [Option<LinearBlobTape>; 8],
-}
+pub const RCT_OUTPUTS: &str = "rct_outputs";
+pub const PRUNED_BLOBS: &str = "pruned_blobs";
+pub const PRUNABLE_BLOBS: [&str; 8] = ["prunable1", "prunable2", "prunable3", "prunable4", "prunable5", "prunable6", "prunable7", "prunable8"];
+
+pub const TX_INFOS: &str = "tx_infos";
+pub const BLOCK_INFOS: &str = "block_infos";
 
 pub struct BlockchainDatabase<E: Env> {
     pub(crate) dynamic_tables: E,
-    pub(crate) tapes: RwLock<Tapes>,
+    pub(crate) tapes: LinearTapes,
 }
 
 pub struct BlockchainDatabaseService<E: Env + 'static> {
@@ -53,7 +53,7 @@ impl<E: Env + 'static> BlockchainDatabaseService<E> {
         let pool = init_thread_pool(config.reader_threads);
 
         let mut database = crate::free::open(config)?;
-        check_rct_output_tape_consistency(&mut database);
+        //check_rct_output_tape_consistency(&mut database);
 
         Ok(Self {
             pool,
@@ -64,7 +64,7 @@ impl<E: Env + 'static> BlockchainDatabaseService<E> {
 
     pub fn init_with_pool(config: Config, pool: Arc<ThreadPool>) -> Result<Self, InitError> {
         let mut database = crate::free::open(config)?;
-        check_rct_output_tape_consistency(&mut database);
+        //check_rct_output_tape_consistency(&mut database);
 
         Ok(Self {
             pool,
@@ -136,6 +136,7 @@ impl<E: Env + 'static> Service<BlockchainWriteRequest> for BlockchainDatabaseSer
     }
 }
 
+/*
 fn check_rct_output_tape_consistency<E: Env>(blockchain_database: &mut BlockchainDatabase<E>) {
     let env_inner = blockchain_database.dynamic_tables.env_inner();
 
@@ -160,17 +161,7 @@ fn check_rct_output_tape_consistency<E: Env>(blockchain_database: &mut Blockchai
         todo!()
     }
 }
-/*
-Hello,
 
-This is not signing of an unintended message, you are signing the hash you told the function to sign for.
-We cannot protect against the attack you say as if an attacker is powerful enough to switch out the hash
-to sign on, they are powerful enough to swap out the intended transaction details that would be checked against.
-
-Due to this we will be making no changes in our code and I will be closing this report. Thank you.
- */
-
-/*
 enum LockState<E: Env> {
     Waiting(
         Option<

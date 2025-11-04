@@ -37,30 +37,24 @@ cuprate_database::define_tables! {
     0 => BlockHeights,
     BlockHash => BlockHeight,
 
-    /// Block information.
-    ///
-    /// Contains metadata of all blocks.
-    1 => BlockInfos,
-    BlockHeight => BlockInfo,
-
     /// Set of key images.
     ///
     /// Contains all the key images known to be spent.
     ///
     /// This table has `()` as the value type, as in,
     /// it is a set of key images.
-    2 => KeyImages,
+    1 => KeyImages,
     KeyImage => (),
 
     /// Maps an output's amount to the number of outputs with that amount.
     ///
     /// For example, if there are 5 outputs with `amount = 123`
     /// then calling `get(123)` on this table will return 5.
-    3 => NumOutputs,
+    2 => NumOutputs,
     Amount => u64,
 
     /// Pre-RCT output data.
-    4 => Outputs,
+    3 => Outputs,
     PreRctOutputId => Output,
 
     // SOMEDAY: impl a properties table:
@@ -73,64 +67,58 @@ cuprate_database::define_tables! {
     /// Transaction indices.
     ///
     /// Contains the indices all transactions.
-    5 => TxIds,
+    4 => TxIds,
     TxHash => TxId,
-
-    /// Transaction heights.
-    ///
-    /// Contains the block height associated with all transactions.
-    6 => TxInfos,
-    TxId => TxInfo,
 
     /// Transaction outputs.
     ///
     /// Contains the list of `AmountIndex`'s of the
     /// outputs associated with all transactions.
-    7 => TxOutputs,
+    5 => TxOutputs,
     TxId => AmountIndices,
 
     /// Transaction unlock time.
     ///
     /// Contains the unlock time of transactions IF they have one.
     /// Transactions without unlock times will not exist in this table.
-    8 => TxUnlockTime,
+    6 => TxUnlockTime,
     TxId => UnlockTime,
 
     /// Information on alt-chains.
-    9 => AltChainInfos,
+    7 => AltChainInfos,
     RawChainId => AltChainInfo,
 
     /// Alt-block heights.
     ///
     /// Contains the height of all alt-blocks.
-    10 => AltBlockHeights,
+    8 => AltBlockHeights,
     BlockHash => AltBlockHeight,
 
     /// Alt-block information.
     ///
     /// Contains information on all alt-blocks.
-    11 => AltBlocksInfo,
+    9 => AltBlocksInfo,
     AltBlockHeight => CompactAltBlockInfo,
 
     /// Alt-block blobs.
     ///
     /// Contains the raw bytes of all alt-blocks.
-    12 => AltBlockBlobs,
+    10 => AltBlockBlobs,
     AltBlockHeight => BlockBlob,
 
     /// Alt-block transaction blobs.
     ///
     /// Contains the raw bytes of alt transactions, if those transactions are not in the main-chain.
-    13 => AltTransactionBlobs,
+    11 => AltTransactionBlobs,
     TxHash => TxBlob,
 
     /// Alt-block transaction information.
     ///
     /// Contains information on all alt transactions, even if they are in the main-chain.
-    14 => AltTransactionInfos,
+    12 => AltTransactionInfos,
     TxHash => AltTransactionInfo,
 
-    15 => BlobTapeEnds,
+    13 => BlobTapeEnds,
     u8 => BlobTapeEnd,
 }
 

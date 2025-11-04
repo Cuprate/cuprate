@@ -2,8 +2,6 @@
 
 use std::hash::Hash;
 //---------------------------------------------------------------------------------------------------- Import
-use crate::database::Tapes;
-use crate::tables::{BlobTapeEnds, BlockInfos};
 use crate::types::TxInfo;
 use crate::{
     ops::{
@@ -11,17 +9,18 @@ use crate::{
         macros::{doc_add_block_inner_invariant, doc_error},
         output::{add_output, get_rct_num_outputs, remove_output},
     },
-    tables::{TablesMut, TxIds, TxInfos},
+    tables::{TablesMut, TxIds},
     types::{BlockHeight, Output, OutputFlags, PreRctOutputId, RctOutput, TxHash, TxId},
 };
 use bytemuck::TransparentWrapper;
 use monero_oxide::io::CompressedPoint;
 use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableVec};
 use cuprate_helper::crypto::compute_zero_commitment;
-use cuprate_linear_tape::{LinearFixedSizeTape, LinearTapeAppender};
+use cuprate_linear_tape::{LinearTapeAppender, LinearTapes};
 use cuprate_pruning::{CRYPTONOTE_PRUNING_LOG_STRIPES, CRYPTONOTE_PRUNING_STRIPE_SIZE};
 use monero_oxide::transaction::{Input, Pruned, Timelock, Transaction};
 use tokio::task::id;
+use crate::database::{PRUNABLE_BLOBS, PRUNED_BLOBS, TX_INFOS};
 
 //---------------------------------------------------------------------------------------------------- Private
 /// Add a [`Transaction`] (and related data) to the database.
@@ -61,21 +60,21 @@ pub fn add_tx(
     numb_rct_outs: &mut u64,
     tables: &mut impl TablesMut,
     rct_outputs: &mut Vec<RctOutput>,
+    tape_appender: &mut cuprate_linear_tape::Appender,
 ) -> DbResult<TxId> {
-    let tx_id = get_num_tx(tables.tx_ids_mut())?;
+    let tx_id = get_num_tx(tables.tx_ids_mut())? as usize;
 
     //------------------------------------------------------ Transaction data
-    tables.tx_ids_mut().put(tx_hash, &tx_id)?;
-    tables.tx_infos_mut().put(
-        &tx_id,
-        &TxInfo {
-            height: *block_height,
-            prunable_blob_idx,
-            pruned_blob_idx,
-            prunable_size,
-            pruned_size,
-        },
-    )?;
+    tables.tx_ids_mut().put(tx_hash, &tx_id, false)?;
+    tape_appender.fixed_sized_tape_appender(TX_INFOS).push_entries(&[TxInfo {
+        height: *block_height,
+        prunable_blob_idx,
+        pruned_blob_idx,
+        prunable_size,
+        pruned_size,
+        rct_output_start_idx: if tx.version() == 1 { u64::MAX } else { *numb_rct_outs },
+        numb_rct_outputs: tx.prefix().outputs.len()
+    }]).unwrap();
 
     //------------------------------------------------------ Timelocks
     // Height/time is not differentiated via type, but rather:
@@ -85,8 +84,8 @@ pub fn add_tx(
     // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1558504285>
     match tx.prefix().additional_timelock {
         Timelock::None => (),
-        Timelock::Block(height) => tables.tx_unlock_time_mut().put(&tx_id, &(height as u64))?,
-        Timelock::Time(time) => tables.tx_unlock_time_mut().put(&tx_id, &time)?,
+        Timelock::Block(height) => tables.tx_unlock_time_mut().put(&tx_id, &(height as u64), true)?,
+        Timelock::Time(time) => tables.tx_unlock_time_mut().put(&tx_id, &time, true)?,
     }
 
     //------------------------------------------------------ Pruning
@@ -178,9 +177,11 @@ pub fn add_tx(
             .collect::<Vec<_>>(),
     };
 
-    tables
-        .tx_outputs_mut()
-        .put(&tx_id, &StorableVec(amount_indices))?;
+    if tx.version() == 1 {
+        tables
+            .tx_outputs_mut()
+            .put(&tx_id, &StorableVec(amount_indices), true)?;
+    }
 
     Ok(tx_id)
 }
@@ -206,8 +207,10 @@ pub fn remove_tx(
     tx_hash: &TxHash,
     rct_output_count: &mut u64,
     tables: &mut impl TablesMut,
-    tapes: &Tapes,
+    tapes: &LinearTapes,
 ) -> DbResult<(TxId, TxInfo, Transaction)> {
+    todo!();
+    /*
     //------------------------------------------------------ Transaction data
     let tx_id = tables.tx_ids_mut().take(tx_hash)?;
     println!("{}", tx_id);
@@ -280,6 +283,8 @@ pub fn remove_tx(
     } // for each output
 
     Ok((tx_id,tx_info, tx))
+
+     */
 }
 
 //---------------------------------------------------------------------------------------------------- `get_tx_*`
@@ -288,18 +293,12 @@ pub fn remove_tx(
 #[inline]
 pub fn get_tx(
     tx_hash: &TxHash,
-    tapes: &Tapes,
+    tapes: &cuprate_linear_tape::Reader,
     table_tx_ids: &impl DatabaseRo<TxIds>,
-    table_tx_infos: &impl DatabaseRo<TxInfos>,
-    table_block_infos: &impl DatabaseRo<BlockInfos>,
-    table_blob_tapes_end: &impl DatabaseRo<BlobTapeEnds>,
 ) -> DbResult<Transaction> {
     get_tx_from_id(
         &table_tx_ids.get(tx_hash)?,
         tapes,
-        table_tx_infos,
-        table_block_infos,
-        table_blob_tapes_end,
     )
 }
 
@@ -308,17 +307,11 @@ pub fn get_tx(
 #[inline]
 pub fn get_tx_from_id(
     tx_id: &TxId,
-    tapes: &Tapes,
-    table_tx_infos: &impl DatabaseRo<TxInfos>,
-    table_block_infos: &impl DatabaseRo<BlockInfos>,
-    table_blob_tapes_end: &impl DatabaseRo<BlobTapeEnds>,
+    tapes: &cuprate_linear_tape::Reader,
 ) -> DbResult<Transaction> {
     let tx_blob = get_tx_blob_from_id(
         tx_id,
         tapes,
-        table_tx_infos,
-        table_block_infos,
-        table_blob_tapes_end,
     )?;
     Ok(Transaction::read(&mut tx_blob.as_slice())?)
 }
@@ -328,12 +321,9 @@ pub fn get_tx_from_id(
 #[inline]
 pub fn get_tx_blob_from_id(
     tx_id: &TxId,
-    tapes: &Tapes,
-    table_tx_infos: &impl DatabaseRo<TxInfos>,
-    table_block_infos: &impl DatabaseRo<BlockInfos>,
-    table_blob_tapes_end: &impl DatabaseRo<BlobTapeEnds>,
+    tapes: &cuprate_linear_tape::Reader,
 ) -> DbResult<Vec<u8>> {
-    let tx_info = table_tx_infos.get(tx_id)?;
+    let tx_info: TxInfo = tapes.fixed_sized_tape_reader(TX_INFOS).try_get(*tx_id).ok_or(RuntimeError::KeyNotFound)?;
     let pruning_stripe = cuprate_pruning::get_block_pruning_stripe(
         tx_info.height,
         usize::MAX,
@@ -342,15 +332,13 @@ pub fn get_tx_blob_from_id(
     .unwrap();
 
     let pruned_reader = tapes
-        .pruned_blobs.reader().unwrap();
+        .blob_tape_tape_reader(PRUNED_BLOBS);
 
     let pruned = pruned_reader
         .try_get_slice(tx_info.pruned_blob_idx, tx_info.pruned_size)
         .unwrap();
 
-    let prunable_reader =tapes.prunable_tape[pruning_stripe as usize - 1]
-        .as_ref()
-        .unwrap().reader().unwrap();
+    let prunable_reader = tapes.blob_tape_tape_reader(PRUNABLE_BLOBS[pruning_stripe as usize - 1]);
 
     let prunable =  prunable_reader
         .try_get_slice(tx_info.prunable_blob_idx, tx_info.prunable_size)

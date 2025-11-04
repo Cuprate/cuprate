@@ -1,7 +1,7 @@
 //! Implementation of `trait TxRo/TxRw` for `heed`.
 
 use std::cell::RefCell;
-
+use heed::WithoutTls;
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
     error::DbResult,
@@ -9,7 +9,7 @@ use crate::{
 };
 
 //---------------------------------------------------------------------------------------------------- TxRo
-impl TxRo<'_> for heed::RoTxn<'_> {
+impl TxRo<'_> for heed::RoTxn<'_, WithoutTls> {
     fn commit(self) -> DbResult<()> {
         Ok(heed::RoTxn::commit(self)?)
     }

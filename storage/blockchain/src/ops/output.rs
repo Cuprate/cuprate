@@ -11,16 +11,16 @@ use cuprate_helper::{
     crypto::compute_zero_commitment,
     map::u64_to_timelock,
 };
-use cuprate_linear_tape::LinearFixedSizeTape;
+use cuprate_linear_tape:: LinearTapeReader;
 use cuprate_types::OutputOnChain;
 
-use crate::database::Tapes;
+use crate::database:: RCT_OUTPUTS;
 use crate::{
     ops::{
         macros::{doc_add_block_inner_invariant, doc_error},
         tx::get_tx_from_id,
     },
-    tables::{BlockInfos, Outputs, Tables, TablesMut, TxUnlockTime},
+    tables::{Outputs, Tables, TablesMut, TxUnlockTime},
     types::{Amount, AmountIndex, Output, OutputFlags, PreRctOutputId, RctOutput},
 };
 
@@ -49,7 +49,7 @@ pub fn add_output(
         Err(e) => return Err(e),
     };
     // Update the amount of outputs.
-    tables.num_outputs_mut().put(&amount, &(num_outputs + 1))?;
+    tables.num_outputs_mut().put(&amount, &(num_outputs + 1), false)?;
 
     let pre_rct_output_id = PreRctOutputId {
         amount,
@@ -57,7 +57,7 @@ pub fn add_output(
         amount_index: num_outputs,
     };
 
-    tables.outputs_mut().put(&pre_rct_output_id, output)?;
+    tables.outputs_mut().put(&pre_rct_output_id, output, false)?;
     Ok(pre_rct_output_id)
 }
 
@@ -113,10 +113,9 @@ pub fn get_num_outputs(table_outputs: &impl DatabaseRo<Outputs>) -> DbResult<u64
 #[inline]
 pub fn get_rct_output(
     amount_index: AmountIndex,
-    table_rct_outputs: &LinearFixedSizeTape<RctOutput>,
+    table_rct_outputs: &LinearTapeReader<RctOutput>,
 ) -> DbResult<RctOutput> {
     table_rct_outputs
-        .reader().unwrap()
         .try_get(amount_index as usize)
         .ok_or(RuntimeError::KeyNotFound)
 }
@@ -126,8 +125,8 @@ pub fn get_rct_output(
 /// This returns the amount of RCT outputs currently stored.
 #[doc = doc_error!()]
 #[inline]
-pub fn get_rct_num_outputs(table_rct_outputs: &LinearFixedSizeTape<RctOutput>) -> DbResult<u64> {
-    Ok(table_rct_outputs.reader().unwrap().len() as u64)
+pub fn get_rct_num_outputs(table_rct_outputs: &LinearTapeReader<RctOutput>) -> DbResult<u64> {
+    Ok(table_rct_outputs.len() as u64)
 }
 
 //---------------------------------------------------------------------------------------------------- Mapping functions
@@ -138,7 +137,7 @@ pub fn output_to_output_on_chain(
     amount: Amount,
     get_txid: bool,
     tables: &impl Tables,
-    tapes: &Tapes,
+    tapes: &cuprate_linear_tape::Reader,
 ) -> DbResult<OutputOnChain> {
     let commitment = compute_zero_commitment(amount);
 
@@ -157,9 +156,6 @@ pub fn output_to_output_on_chain(
         let txid = get_tx_from_id(
             &output.tx_idx,
             tapes,
-            tables.tx_infos(),
-            tables.block_infos(),
-            tables.blob_tape_ends(),
         )?
         .hash();
 
@@ -190,7 +186,7 @@ pub fn rct_output_to_output_on_chain(
     rct_output: &RctOutput,
     get_txid: bool,
     tables: &impl Tables,
-    tapes: &Tapes,
+    tapes: &cuprate_linear_tape::Reader,
 ) -> DbResult<OutputOnChain> {
     // INVARIANT: Commitments stored are valid when stored by the database.
     let commitment = CompressedPoint(rct_output.commitment);
@@ -210,9 +206,6 @@ pub fn rct_output_to_output_on_chain(
         let txid = get_tx_from_id(
             &rct_output.tx_idx,
             tapes,
-            tables.tx_infos(),
-            tables.block_infos(),
-            tables.blob_tape_ends(),
         )?
         .hash();
 
@@ -238,11 +231,11 @@ pub fn id_to_output_on_chain(
     id: &PreRctOutputId,
     get_txid: bool,
     tables: &impl Tables,
-    tapes: &Tapes,
+    tapes: &cuprate_linear_tape::Reader,
 ) -> DbResult<OutputOnChain> {
     // v2 transactions.
     if id.amount == 0 {
-        let rct_output = get_rct_output(id.amount_index, &tapes.rct_outputs)?;
+        let rct_output = get_rct_output(id.amount_index, &tapes.fixed_sized_tape_reader(RCT_OUTPUTS))?;
         let output_on_chain = rct_output_to_output_on_chain(&rct_output, get_txid, tables, tapes)?;
 
         Ok(output_on_chain)

@@ -3,12 +3,13 @@
 use cuprate_database::DatabaseRw;
 use std::fs::{create_dir, create_dir_all};
 use std::io;
+use std::iter::once;
 use parking_lot::RwLock;
 //---------------------------------------------------------------------------------------------------- Import
-use crate::database::Tapes;
+use crate::database::{BLOCK_INFOS, PRUNABLE_BLOBS, PRUNED_BLOBS, RCT_OUTPUTS, TX_INFOS};
 use crate::{config::Config, database::BlockchainDatabase, tables::OpenTables};
 use cuprate_database::{ConcreteEnv, Env, EnvInner, InitError, RuntimeError, TxRw};
-use cuprate_linear_tape::{Advice, LinearBlobTape, LinearFixedSizeTape};
+use cuprate_linear_tape::{Advice, LinearTapes, Tapes};
 use crate::tables::BlobTapeEnds;
 use crate::types::BlobTapeEnd;
 
@@ -67,46 +68,22 @@ pub fn open<E: Env>(config: Config) -> Result<BlockchainDatabase<E>, InitError> 
         table.put(&1, &BlobTapeEnd {
             pruned_tape: 0,
             prunable_tapes: [0; 8],
-        }).unwrap();
+        }, false).unwrap();
         drop(table);
 
         TxRw::commit(tx_rw).map_err(runtime_to_init_error)?;
     }
 
-    let rct_outputs =
-        unsafe { LinearFixedSizeTape::open(config.db_config.db_directory().join("rct_outputs.tape"), Advice::Random, 400 * 1024 * 1024 *1024) }?;
-
-    let pruned_blobs =
-        unsafe { LinearBlobTape::open(config.db_config.db_directory().join("pruned.tape"), Advice::Random, 400 * 1024 * 1024 *1024) }?;
-
-    let prunable_dir =       config
-        .db_config
-        .db_directory()
-        .join("prunable");
-
-    create_dir_all(&prunable_dir);
-
-    let prunable_tape = match (1..9)
-        .into_iter()
-        .map(|i| unsafe {
-            Ok(Some(LinearBlobTape::open(
-                prunable_dir.join(format!("stripe{i}.tape")), Advice::Random, 400 * 1024 * 1024 *1024
-            )?))
-        })
-        .collect::<Result<Vec<_>, InitError>>()?
-        .try_into()
-    {
-        Ok(rct_outputs) => rct_outputs,
-        Err(_) => unreachable!(),
-    };
+    let tapes = unsafe { LinearTapes::new(once(BLOCK_INFOS).chain(once(TX_INFOS)).chain(once(RCT_OUTPUTS)).chain(once(PRUNED_BLOBS)).chain(PRUNABLE_BLOBS).map(|name| {
+        Tapes {
+            name,
+            path: None
+        }
+    }).collect(),config.db_config.db_directory() ).unwrap() };
 
     Ok(BlockchainDatabase {
         dynamic_tables: env,
-        tapes: RwLock::new(Tapes {
-            rct_outputs,
-            pruned_blobs,
-            prunable_tape,
-        }),
+        tapes,
     })
 }
 

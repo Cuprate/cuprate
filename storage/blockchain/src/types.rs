@@ -95,7 +95,7 @@ pub type PrunableHash = [u8; 32];
 pub type TxBlob = StorableVec<u8>;
 
 /// A transaction's global index, or ID.
-pub type TxId = u64;
+pub type TxId = usize;
 
 /// A transaction's hash.
 pub type TxHash = [u8; 32];
@@ -118,6 +118,25 @@ pub struct TxInfo {
     pub prunable_blob_idx: usize,
     pub pruned_size: usize,
     pub prunable_size: usize,
+    pub rct_output_start_idx: u64,
+    pub numb_rct_outputs: usize
+}
+
+impl Entry for TxInfo {
+    const SIZE: usize = size_of::<Self>();
+
+    fn write(&self, to: &mut [u8]) {
+        to.copy_from_slice(bytemuck::bytes_of(self));
+    }
+
+    fn read(from: &[u8]) -> Self {
+        bytemuck::pod_read_unaligned(from)
+    }
+
+    fn batch_write(from: &[Self], to: &mut [u8]) {
+        let bytes = bytemuck::cast_slice(from);
+        to.copy_from_slice(bytes);
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- BlockInfoV1
@@ -230,6 +249,24 @@ pub struct BlockInfo {
     pub blob_idx: usize,
 }
 
+impl Entry for BlockInfo {
+    const SIZE: usize = size_of::<Self>();
+
+    fn write(&self, to: &mut [u8]) {
+        to.copy_from_slice(bytemuck::bytes_of(self));
+    }
+
+    fn read(from: &[u8]) -> Self {
+        bytemuck::pod_read_unaligned(from)
+    }
+
+    fn batch_write(from: &[Self], to: &mut [u8]) {
+        let bytes = bytemuck::cast_slice(from);
+        to.copy_from_slice(bytes);
+    }
+}
+
+
 //---------------------------------------------------------------------------------------------------- OutputFlags
 bitflags::bitflags! {
     /// Bit flags for [`Output`]s and [`RctOutput`]s,
@@ -303,7 +340,7 @@ pub struct Output {
     /// Bit flags for this output.
     pub output_flags: OutputFlags,
     /// The index of the transaction this output belongs to.
-    pub tx_idx: u64,
+    pub tx_idx: usize,
 }
 
 //---------------------------------------------------------------------------------------------------- RctOutput
@@ -346,7 +383,7 @@ pub struct RctOutput {
     /// Bit flags for this output, currently only the first bit is used and, if set, it means this output has a non-zero unlock time.
     pub output_flags: OutputFlags,
     /// The index of the transaction this output belongs to.
-    pub tx_idx: u64,
+    pub tx_idx: usize,
     /// The amount commitment of this output.
     pub commitment: [u8; 32],
 }
