@@ -123,7 +123,7 @@ impl HttpRpcClient {
 
         let total_tx_fees = txs.iter().map(|tx| tx.fee).sum::<u64>();
         let generated_coins = block
-            .miner_transaction
+            .miner_transaction()
             .prefix()
             .outputs
             .iter()
@@ -167,12 +167,17 @@ impl HttpRpcClient {
             .enumerate()
             .map(|(i, tx)| {
                 let tx_hash = tx.hash();
+                let fee = tx_fee(&tx);
+                let tx_weight = tx.weight();
                 assert_eq!(tx_hash, tx_hashes[i]);
+
+                let (tx, prunable)= tx.pruned_with_prunable();
                 VerifiedTransactionInformation {
-                    tx_blob: tx.serialize(),
-                    tx_weight: tx.weight(),
+                    tx_prunable_blob: prunable,
+                    tx_pruned: tx.serialize(),
+                    tx_weight,
                     tx_hash,
-                    fee: tx_fee(&tx),
+                    fee,
                     tx,
                 }
             })

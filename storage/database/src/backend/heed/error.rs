@@ -14,7 +14,7 @@ impl From<heed::Error> for crate::InitError {
         // <https://docs.rs/heed/latest/src/heed/env.rs.html#149-219>
         match error {
             E1::Io(io_error) => Self::Io(io_error),
-            E1::DatabaseClosing => Self::ShuttingDown,
+            heed::Error::EnvAlreadyOpened => Self::ShuttingDown,
 
             // LMDB errors.
             E1::Mdb(mdb_error) => match mdb_error {
@@ -48,7 +48,7 @@ impl From<heed::Error> for crate::InitError {
                 | E2::Panic => Self::Unknown(Box::new(mdb_error)),
             },
 
-            E1::BadOpenOptions { .. } | E1::Encoding(_) | E1::Decoding(_) => {
+             E1::Encoding(_) | E1::Decoding(_) => {
                 Self::Unknown(Box::new(error))
             }
         }
@@ -139,7 +139,7 @@ impl From<heed::Error> for crate::RuntimeError {
             },
 
             // Only if we write incorrect code.
-            E1::DatabaseClosing | E1::BadOpenOptions { .. } | E1::Encoding(_) | E1::Decoding(_) => {
+            heed::Error::EnvAlreadyOpened | E1::Encoding(_) | E1::Decoding(_) => {
                 panic!("E1: fix the database code! {error:#?}")
             }
         }

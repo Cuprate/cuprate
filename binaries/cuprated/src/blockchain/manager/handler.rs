@@ -11,7 +11,6 @@ use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::{info, instrument, warn, Span};
 
-use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{
     block::{
         batch_prepare_main_chain_blocks, sanity_check_alt_block, verify_main_chain_block,
@@ -104,7 +103,7 @@ impl super::BlockchainManager {
         skip_all,
         level = "info",
         fields(
-            height = block.number().unwrap(),
+            height = block.number(),
             txs = block.transactions.len(),
         )
     )]
@@ -177,7 +176,7 @@ impl super::BlockchainManager {
         skip_all,
         level = "info",
         fields(
-            start_height = batch.blocks.first().unwrap().0.number().unwrap(),
+            start_height = batch.blocks.first().unwrap().0.number(),
             len = batch.blocks.len()
         )
     )]
@@ -212,7 +211,7 @@ impl super::BlockchainManager {
     /// This function will panic if any internal service returns an unexpected error that we cannot
     /// recover from or if the incoming batch contains no blocks.
     async fn handle_incoming_block_batch_main_chain(&mut self, batch: BlockBatch) {
-        if batch.blocks.last().unwrap().0.number().unwrap() < fast_sync_stop_height() {
+        if batch.blocks.last().unwrap().0.number() < fast_sync_stop_height() {
             self.handle_incoming_block_batch_fast_sync(batch).await;
             return;
         }
@@ -718,7 +717,7 @@ pub fn alt_block_to_verified_block_information(
     let total_fees = block.txs.iter().map(|tx| tx.fee).sum::<u64>();
     let total_outputs = block
         .block
-        .miner_transaction
+        .miner_transaction()
         .prefix()
         .outputs
         .iter()

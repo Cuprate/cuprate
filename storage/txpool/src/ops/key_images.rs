@@ -21,7 +21,8 @@ pub(super) fn add_tx_key_images(
             return Err(TxPoolWriteError::DoubleSpend(double_spend_tx_hash));
         }
 
-        kis_table.put(&ki, tx_hash)?;
+        kis_table.put(&ki, tx_hash,        false
+        )?;
     }
 
     Ok(())

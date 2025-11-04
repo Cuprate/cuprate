@@ -1,0 +1,16 @@
+[package]
+name        = "cuprate-linear-tape"
+version     = "0.0.1"
+edition     = "2021"
+description = "Cuprate's database abstraction"
+license     = "MIT"
+authors     = ["Boog900"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/storage/linear-tape"
+keywords    = ["cuprate", "database"]
+
+[dependencies]
+memmap2 = "0.9"
+atomic-wait = "1"
+
+[lints]
+workspace = true

@@ -29,6 +29,7 @@ members = [
 	"storage/service",
 	"storage/txpool",
 	"storage/database",
+	"storage/linear-tape",
 
 	# Types
 	"types/types",
@@ -51,7 +52,7 @@ members = [
 	"test-utils",
 
 	# Fuzz
-	"fuzz"
+	"fuzz",
 ]
 
 # Windows is a pain, so instead of making the fuzz tests work on windows, we just don't build the fuzz target on windows.
@@ -151,6 +152,7 @@ cuprate-address-book      = { path = "p2p/address-book",          default-featur
 cuprate-blockchain        = { path = "storage/blockchain",        default-features = false }
 cuprate-database          = { path = "storage/database",          default-features = false }
 cuprate-database-service  = { path = "storage/service",           default-features = false }
+cuprate-linear-tape       = { path = "storage/linear-tape",       default-features = false  }
 cuprate-txpool            = { path = "storage/txpool",            default-features = false }
 cuprate-pruning           = { path = "pruning",                   default-features = false }
 cuprate-test-utils        = { path = "test-utils",                default-features = false }
@@ -187,8 +189,8 @@ futures               = { version = "0.3", default-features = false }
 hex                   = { version = "0.4", default-features = false }
 hex-literal           = { version = "1", default-features = false }
 indexmap              = { version = "2", default-features = false }
-monero-address        = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "68d5a5e", default-features = false }
-monero-oxide          = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "68d5a5e", default-features = false }
+monero-address        = { git = "https://github.com/Boog900/monero-oxide.git", rev = "f5a1575b4b20f99934ae8f617d70c5e491b8acd1", default-features = false }
+monero-oxide          = { git = "https://github.com/Boog900/monero-oxide.git", rev = "f5a1575b4b20f99934ae8f617d70c5e491b8acd1", features = ["std"] }
 nu-ansi-term          = { version = "0.46", default-features = false }
 paste                 = { version = "1", default-features = false }
 pin-project           = { version = "1", default-features = false }
@@ -222,8 +224,8 @@ tracing-subscriber    = { version = "0.3", default-features = false }
 tracing               = { version = "0.1", default-features = false }
 
 ## workspace.dev-dependencies
-monero-rpc                = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "68d5a5e" }
-monero-simple-request-rpc = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "68d5a5e" }
+monero-rpc                = { git = "https://github.com/Boog900/monero-oxide.git", rev = "f5a1575b4b20f99934ae8f617d70c5e491b8acd1" }
+monero-simple-request-rpc = { git = "https://github.com/Boog900/monero-oxide.git", rev = "f5a1575b4b20f99934ae8f617d70c5e491b8acd1" }
 tempfile                  = { version = "3" }
 pretty_assertions         = { version = "1" }
 proptest                  = { version = "1" }

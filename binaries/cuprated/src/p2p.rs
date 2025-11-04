@@ -11,7 +11,6 @@ use tokio::sync::oneshot::{self, Sender};
 use tor_rtcompat::PreferredRuntime;
 use tower::{Service, ServiceExt};
 
-use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::BlockchainContextService;
 use cuprate_p2p::{config::TransportConfig, NetworkInterface, P2PConfig};
 use cuprate_p2p_core::{
@@ -36,6 +35,7 @@ mod core_sync_service;
 mod network_address;
 pub mod request_handler;
 
+use crate::blockchain::BlockchainReadHandle;
 pub use network_address::CrossNetworkInternalPeerId;
 
 /// A simple parsing enum for the `p2p.clear_net.proxy` field

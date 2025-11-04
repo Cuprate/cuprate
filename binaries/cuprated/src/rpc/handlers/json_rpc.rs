@@ -418,7 +418,7 @@ async fn get_block(
     };
 
     let blob = HexVec(block.serialize());
-    let miner_tx_hash = Hex(block.miner_transaction.hash());
+    let miner_tx_hash = Hex(block.miner_transaction().hash());
     let tx_hashes = block.transactions.iter().copied().map(Hex).collect();
     let json = {
         let block = cuprate_types::json::block::Block::from(block);

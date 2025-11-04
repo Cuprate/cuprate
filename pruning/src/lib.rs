@@ -429,7 +429,7 @@ impl DecompressedPruningSeed {
     }
 }
 
-const fn get_block_pruning_stripe(
+pub const fn get_block_pruning_stripe(
     block_height: usize,
     blockchain_height: usize,
     log_stripe: u32,
@@ -458,6 +458,13 @@ mod tests {
         possible_stripes
             .map(|stripe| PruningSeed::new_pruned(stripe, CRYPTONOTE_PRUNING_LOG_STRIPES).unwrap())
             .collect()
+    }
+
+    #[test]
+    fn a() {
+        let strip = get_block_pruning_stripe(53247, usize::MAX, 3).unwrap();
+
+        assert_eq!(strip, get_block_pruning_stripe(53247 + CRYPTONOTE_PRUNING_STRIPE_SIZE *7 + 1 , usize::MAX, 3).unwrap())
     }
 
     #[test]

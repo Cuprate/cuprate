@@ -15,7 +15,7 @@ hex                       = { workspace = true }
 hex-literal               = { workspace = true }
 monero-oxide              = { workspace = true, features = ["std"] }
 monero-simple-request-rpc = { workspace = true }
-monero-rpc                = { workspace = true }
+monero-rpc                = { workspace = true, features = ["std"] }
 async-trait               = { workspace = true }
 tokio                     = { workspace = true, features = ["full"] }
 serde                     = { workspace = true }

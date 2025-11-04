@@ -1,7 +1,8 @@
-use indexmap::{IndexMap, IndexSet};
-use monero_oxide::{io::CompressedPoint, transaction::Transaction};
-
 use cuprate_helper::{cast::u64_to_usize, crypto::compute_zero_commitment};
+use indexmap::{IndexMap, IndexSet};
+use monero_oxide::ringct::RctBase;
+use monero_oxide::transaction::{PotentiallyPruned, Pruned};
+use monero_oxide::{io::CompressedPoint, transaction::Transaction};
 
 use crate::{OutputOnChain, VerifiedBlockInformation};
 
@@ -64,7 +65,7 @@ impl OutputCache {
     }
 
     /// Adds a [`Transaction`] to the cache.
-    fn add_tx<const MINER_TX: bool>(&mut self, height: usize, tx: &Transaction) {
+    fn add_tx<const MINER_TX: bool>(&mut self, height: usize, tx: &Transaction<Pruned>) {
         for (i, out) in tx.prefix().outputs.iter().enumerate() {
             let amount = if MINER_TX && tx.version() == 2 {
                 0
@@ -101,7 +102,10 @@ impl OutputCache {
     /// This function will add any outputs to the cache that were requested when building the cache
     /// but were not in the DB, if they are in the block.
     pub fn add_block_to_cache(&mut self, block: &VerifiedBlockInformation) {
-        self.add_tx::<true>(block.height, &block.block.miner_transaction);
+        self.add_tx::<true>(
+            block.height,
+            &block.block.miner_transaction().clone().into(),
+        );
 
         for tx in &block.txs {
             self.add_tx::<false>(block.height, &tx.tx);
@@ -110,7 +114,7 @@ impl OutputCache {
 }
 
 /// Returns the amount commitment for the output at the given index `i` in the [`Transaction`]
-fn get_output_commitment(tx: &Transaction, i: usize) -> CompressedPoint {
+fn get_output_commitment(tx: &Transaction<Pruned>, i: usize) -> CompressedPoint {
     match tx {
         Transaction::V1 { prefix, .. } => {
             compute_zero_commitment(prefix.outputs[i].amount.unwrap_or_default())

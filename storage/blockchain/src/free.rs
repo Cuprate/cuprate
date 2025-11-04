@@ -1,9 +1,17 @@
 //! General free functions (related to the database).
 
+use cuprate_database::DatabaseRw;
+use std::fs::{create_dir, create_dir_all};
+use std::io;
+use std::iter::once;
+use parking_lot::RwLock;
 //---------------------------------------------------------------------------------------------------- Import
+use crate::database::{BLOCK_INFOS, PRUNABLE_BLOBS, PRUNED_BLOBS, RCT_OUTPUTS, TX_INFOS};
+use crate::{config::Config, database::BlockchainDatabase, tables::OpenTables};
 use cuprate_database::{ConcreteEnv, Env, EnvInner, InitError, RuntimeError, TxRw};
-
-use crate::{config::Config, tables::OpenTables};
+use cuprate_linear_tape::{Advice, LinearTapes, Tapes};
+use crate::tables::BlobTapeEnds;
+use crate::types::BlobTapeEnd;
 
 //---------------------------------------------------------------------------------------------------- Free functions
 /// Open the blockchain database using the passed [`Config`].
@@ -22,9 +30,9 @@ use crate::{config::Config, tables::OpenTables};
 /// - A table could not be created/opened
 #[cold]
 #[inline(never)] // only called once
-pub fn open(config: Config) -> Result<ConcreteEnv, InitError> {
+pub fn open<E: Env>(config: Config) -> Result<BlockchainDatabase<E>, InitError> {
     // Attempt to open the database environment.
-    let env = <ConcreteEnv as Env>::open(config.db_config)?;
+    let env = E::open(config.db_config.clone())?;
 
     /// Convert runtime errors to init errors.
     ///
@@ -55,10 +63,28 @@ pub fn open(config: Config) -> Result<ConcreteEnv, InitError> {
         // Create all tables.
         OpenTables::create_tables(&env_inner, &tx_rw).map_err(runtime_to_init_error)?;
 
+        let mut table = env_inner.open_db_rw::<BlobTapeEnds>(&tx_rw).map_err(runtime_to_init_error)?;
+
+        table.put(&1, &BlobTapeEnd {
+            pruned_tape: 0,
+            prunable_tapes: [0; 8],
+        }, false).unwrap();
+        drop(table);
+
         TxRw::commit(tx_rw).map_err(runtime_to_init_error)?;
     }
 
-    Ok(env)
+    let tapes = unsafe { LinearTapes::new(once(BLOCK_INFOS).chain(once(TX_INFOS)).chain(once(RCT_OUTPUTS)).chain(once(PRUNED_BLOBS)).chain(PRUNABLE_BLOBS).map(|name| {
+        Tapes {
+            name,
+            path: None
+        }
+    }).collect(),config.db_config.db_directory() ).unwrap() };
+
+    Ok(BlockchainDatabase {
+        dynamic_tables: env,
+        tapes,
+    })
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

@@ -27,12 +27,13 @@ use tracing_subscriber::{layer::SubscriberExt, reload::Handle, util::SubscriberI
 use cuprate_consensus_context::{
     BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
 };
-use cuprate_database::{InitError, DATABASE_CORRUPT_MSG};
+use cuprate_database::{ConcreteEnv, InitError, DATABASE_CORRUPT_MSG};
 use cuprate_helper::time::secs_to_hms;
 use cuprate_p2p_core::{transports::Tcp, ClearNet};
 use cuprate_types::blockchain::BlockchainWriteRequest;
 use txpool::IncomingTxHandler;
 
+use crate::blockchain::{BlockchainReadHandle, BlockchainWriteHandle};
 use crate::{
     config::Config,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
@@ -83,13 +84,16 @@ fn main() {
 
     // Start the blockchain & tx-pool databases.
 
-    let (mut blockchain_read_handle, mut blockchain_write_handle, _) =
-        cuprate_blockchain::service::init_with_pool(
+    let blockchain_database =
+        cuprate_blockchain::BlockchainDatabaseService::<ConcreteEnv>::init_with_pool(
             config.blockchain_config(),
             Arc::clone(&db_thread_pool),
         )
         .inspect_err(|e| error!("Blockchain database error: {e}"))
         .expect(DATABASE_CORRUPT_MSG);
+
+    let mut blockchain_write_handle = BlockchainWriteHandle(blockchain_database.clone());
+    let mut blockchain_read_handle = BlockchainReadHandle(blockchain_database);
 
     let (txpool_read_handle, txpool_write_handle, _) =
         cuprate_txpool::service::init_with_pool(&config.txpool_config(), db_thread_pool)

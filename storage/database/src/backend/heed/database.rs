@@ -2,7 +2,7 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::cell::RefCell;
-
+use heed::{PutFlags, WithoutTls};
 use crate::{
     backend::heed::types::HeedDb,
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
@@ -30,7 +30,7 @@ pub(super) struct HeedTableRo<'tx, T: Table> {
     /// An already opened database table.
     pub(super) db: HeedDb<T::Key, T::Value>,
     /// The associated read-only transaction that opened this table.
-    pub(super) tx_ro: &'tx heed::RoTxn<'tx>,
+    pub(super) tx_ro: &'tx heed::RoTxn<'tx, WithoutTls>,
 }
 
 /// An opened read/write database associated with a transaction.
@@ -181,8 +181,10 @@ unsafe impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, '_, T> {
 
 impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
     #[inline]
-    fn put(&mut self, key: &T::Key, value: &T::Value) -> DbResult<()> {
-        Ok(self.db.put(&mut self.tx_rw.borrow_mut(), key, value)?)
+    fn put(&mut self, key: &T::Key, value: &T::Value, append: bool) -> DbResult<()> {
+        Ok(self.db.put_with_flags(&mut self.tx_rw.borrow_mut(), if append { PutFlags::APPEND} else {
+            PutFlags::empty()
+        }, key, value)?)
     }
 
     #[inline]

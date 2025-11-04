@@ -6,7 +6,6 @@ use tokio::sync::{mpsc, oneshot, Notify, OwnedSemaphorePermit};
 use tower::{BoxError, Service, ServiceExt};
 use tracing::error;
 
-use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{
     BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
     ExtendedConsensusError,
@@ -37,7 +36,10 @@ mod handler;
 #[cfg(test)]
 mod tests;
 
+use crate::blockchain::types::{BlockchainReadHandle, BlockchainWriteHandle};
 pub use commands::{BlockchainManagerCommand, IncomingBlockOk};
+use cuprate_blockchain::BlockchainDatabaseService;
+use cuprate_database::ConcreteEnv;
 
 /// Initialize the blockchain manager.
 ///
@@ -69,10 +71,7 @@ pub async fn init_blockchain_manager(
 
     let manager = BlockchainManager {
         blockchain_write_handle,
-        blockchain_read_handle: ConsensusBlockchainReadHandle::new(
-            blockchain_read_handle,
-            BoxError::from,
-        ),
+        blockchain_read_handle: ConsensusBlockchainReadHandle(blockchain_read_handle.0),
         txpool_manager_handle,
         blockchain_context_service,
         stop_current_block_downloader,

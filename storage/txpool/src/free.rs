@@ -91,7 +91,7 @@ pub fn open(config: &Config) -> Result<ConcreteEnv, InitError> {
         if fresh_db {
             // If the database is new, add the version.
             metadata
-                .put(&VERSION_KEY, &DATABASE_VERSION)
+                .put(&VERSION_KEY, &DATABASE_VERSION, false)
                 .map_err(runtime_to_init_error)?;
         }
 
