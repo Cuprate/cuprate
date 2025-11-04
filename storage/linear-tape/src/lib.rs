@@ -108,7 +108,7 @@ impl LinearTapes {
                 unsafe {
                     UnsafeTape::open(
                         path.join(format!("{}.tape", tape.name)),
-                        Advice::Random,
+                        Advice::Sequential,
                         40 * 1024 * 1024 * 1024,
                     )
                 }

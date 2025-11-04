@@ -617,7 +617,7 @@ pub fn get_block(
     let block_blob_end_idx = {
         match tapes
             .fixed_sized_tape_reader::<TxInfo>(TX_INFOS)
-            .try_get((block_info.mining_tx_index))
+            .try_get((block_info.mining_tx_index + 1))
         {
             Some(tx_info) => {
                 if tx_info.height != *block_height {
