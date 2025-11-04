@@ -83,7 +83,7 @@ impl UnsafeTape {
     ///
     /// This memory map must be initialised in this range.
     pub(crate) unsafe fn range_mut(&self, range: Range<usize>) -> &mut [u8] {
-        //   drop(self.mmap.advise_range(memmap2::Advice::PopulateWrite, range.start, range.len()));
+        drop(self.mmap.advise_range(memmap2::Advice::PopulateWrite, range.start, range.len()));
 
         unsafe {
             let ptr = self.mmap.as_mut_ptr().add(range.start);
