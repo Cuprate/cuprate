@@ -121,7 +121,7 @@ pub trait Env: Sized {
     /// # Invariant
     /// This function _must_ be re-implemented if [`Env::MANUAL_RESIZE`] is `true`.
     ///
-    /// Calling this function when `Env::MANUAL_RESIZE` is `false` will result in a compile-time error.
+    /// Calling this function when [`Env::MANUAL_RESIZE`] is `false` will result in a compile-time error.
     #[expect(unused_variables)]
     fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) -> NonZeroUsize {
         const {
