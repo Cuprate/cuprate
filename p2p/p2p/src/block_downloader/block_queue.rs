@@ -114,6 +114,7 @@ impl BlockQueue {
                             block_batch,
                             ..batch
                         });
+                    return Ok(());
                 }
                 Err(_) => return Err(BlockDownloadError::BufferWasClosed),
             }

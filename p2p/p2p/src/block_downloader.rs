@@ -258,11 +258,11 @@ where
     }
 
     /// Checks if we can make use of any peers that are currently pending requests.
-    fn check_pending_peers(
+    async fn check_pending_peers(
         &mut self,
         chain_tracker: &mut ChainTracker<N>,
         pending_peers: &mut BTreeMap<PruningSeed, Vec<ClientDropGuard<N>>>,
-    ) {
+    ) -> Result<(), BlockDownloadError>{
         tracing::debug!("Checking if we can give any work to pending peers.");
 
         for (_, peers) in pending_peers.iter_mut() {
@@ -272,7 +272,7 @@ where
                     continue;
                 }
 
-                let client = self.try_handle_free_client(chain_tracker, peer);
+                let client = self.try_handle_free_client(chain_tracker, peer).await?;
                 if let Some(peer) = client {
                     // This peer is ok however it does not have the data we currently need, this will only happen
                     // because of its pruning seed so just skip over all peers with this pruning seed.
@@ -281,6 +281,8 @@ where
                 }
             }
         }
+
+        Ok(())
     }
 
     fn amount_of_blocks_to_request(&self) -> usize {
@@ -311,19 +313,19 @@ where
     /// for them.
     ///
     /// Returns the [`ClientDropGuard`] back if it doesn't have the batch according to its pruning seed.
-    fn request_inflight_batch_again(
+    async fn request_inflight_batch_again(
         &mut self,
         client: ClientDropGuard<N>,
-    ) -> Option<ClientDropGuard<N>> {
+    ) -> Result<Option<ClientDropGuard<N>>, BlockDownloadError> {
         tracing::debug!(
             "Requesting an inflight batch, current ready queue size: {}",
             self.block_queue.size()
         );
 
-        assert!(
-            !self.inflight_requests.is_empty(),
-            "We need requests inflight to be able to send the request again",
-        );
+        if self.inflight_requests.is_empty() {
+            self.block_queue.flush_queue().await?;
+            return Ok(None);
+        }
 
         let oldest_ready_batch = self.block_queue.oldest_ready_batch().unwrap();
 
@@ -337,7 +339,7 @@ where
                 in_flight_batch.start_height,
                 in_flight_batch.ids.len(),
             ) {
-                return Some(client);
+                return Ok(Some(client));
             }
 
             self.block_download_tasks.spawn(download_batch_task(
@@ -348,12 +350,12 @@ where
                 in_flight_batch.requests_sent,
             ));
 
-            return None;
+            return Ok(None);
         }
 
         tracing::debug!("Could not find an inflight request applicable for this peer.");
 
-        Some(client)
+        Ok(Some(client))
     }
 
     /// Spawns a task to request blocks from the given peer.
@@ -362,11 +364,11 @@ where
     ///
     /// Returns the [`ClientDropGuard`] back if it doesn't have the data we currently need according
     /// to its pruning seed.
-    fn request_block_batch(
+    async fn request_block_batch(
         &mut self,
         chain_tracker: &mut ChainTracker<N>,
         client: ClientDropGuard<N>,
-    ) -> Option<ClientDropGuard<N>> {
+    ) -> Result<Option<ClientDropGuard<N>>, BlockDownloadError> {
         tracing::trace!("Using peer to request a batch of blocks.");
         // First look to see if we have any failed requests.
         while let Some(failed_request) = self.failed_batches.peek() {
@@ -399,7 +401,7 @@ where
                 // Remove the failure, we have just handled it.
                 self.failed_batches.pop();
 
-                return None;
+                return Ok(None);
             }
             // The peer doesn't have the batch according to its pruning seed.
             break;
@@ -407,7 +409,7 @@ where
 
         // If our ready queue is too large send duplicate requests for the blocks we are waiting on.
         if self.block_queue.size() >= self.config.in_progress_queue_bytes {
-            return self.request_inflight_batch_again(client);
+            return self.request_inflight_batch_again(client).await;
         }
 
         // No failed requests that we can handle, request some new blocks.
@@ -416,7 +418,7 @@ where
             &client.info.pruning_seed,
             self.amount_of_blocks_to_request(),
         ) else {
-            return Some(client);
+            return Ok(Some(client));
         };
 
         tracing::debug!("Requesting a new batch of blocks");
@@ -433,7 +435,7 @@ where
             block_entry_to_get.requests_sent,
         ));
 
-        None
+        Ok(None)
     }
 
     /// Attempts to give work to a free client.
@@ -443,11 +445,11 @@ where
     ///
     /// Returns the [`ClientDropGuard`] back if it doesn't have the data we currently need according
     /// to its pruning seed.
-    fn try_handle_free_client(
+    async fn try_handle_free_client(
         &mut self,
         chain_tracker: &mut ChainTracker<N>,
         client: ClientDropGuard<N>,
-    ) -> Option<ClientDropGuard<N>> {
+    ) -> Result<Option<ClientDropGuard<N>>, BlockDownloadError> {
         // We send 2 requests, so if one of them is slow or doesn't have the next chain, we still have a backup.
         if self.chain_entry_task.len() < 2
             // If we have had too many failures then assume the tip has been found so no more chain entries.
@@ -477,11 +479,11 @@ where
                 )),
             );
 
-            return None;
+            return Ok(None);
         }
 
         // Request a batch of blocks instead.
-        self.request_block_batch(chain_tracker, client)
+        self.request_block_batch(chain_tracker, client).await
     }
 
     /// Checks the [`ClientPool`] for free peers.
@@ -522,7 +524,7 @@ where
                 .push(client);
         }
 
-        self.check_pending_peers(chain_tracker, pending_peers);
+        self.check_pending_peers(chain_tracker, pending_peers).await?;
 
         Ok(())
     }
@@ -581,7 +583,7 @@ where
                         .or_default()
                         .push(client);
 
-                    self.check_pending_peers(chain_tracker, pending_peers);
+                    self.check_pending_peers(chain_tracker, pending_peers).await?;
 
                     return Ok(());
                 }
@@ -624,7 +626,7 @@ where
                     .or_default()
                     .push(client);
 
-                self.check_pending_peers(chain_tracker, pending_peers);
+                self.check_pending_peers(chain_tracker, pending_peers).await?;
 
                 Ok(())
             }
@@ -693,7 +695,7 @@ where
                                 .or_default()
                                 .push(client);
 
-                            self.check_pending_peers(&mut chain_tracker, &mut pending_peers);
+                            self.check_pending_peers(&mut chain_tracker, &mut pending_peers).await?;
                         }
                         Err(_) => self.amount_of_empty_chain_entries += 1
                     }
