@@ -55,6 +55,9 @@ mod txpool;
 mod version;
 
 fn main() {
+    // Set global private permissions for created files.
+    cuprate_helper::fs::set_private_global_file_permissions();
+
     // Initialize the killswitch.
     killswitch::init_killswitch();
 

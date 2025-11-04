@@ -230,6 +230,25 @@ pub fn address_book_path(cache_dir: &Path, network: Network) -> PathBuf {
     path_with_network(cache_dir, network).join("addressbook")
 }
 
+// Set global private permissions for created files.
+//
+// # Unix
+// `rwxr-x---`
+//
+// # Windows
+// TODO: does nothing.
+pub fn set_private_global_file_permissions() {
+    #[cfg(target_family = "unix")]
+    // SAFETY: calling C.
+    unsafe {
+        target_os_lib::umask(0o027);
+    }
+
+    #[cfg(target_os = "windows")]
+    // TODO: impl for Windows.
+    {}
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
