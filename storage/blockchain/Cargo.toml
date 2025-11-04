@@ -25,6 +25,7 @@ cuprate-pruning          = { workspace = true }
 cuprate-linear-tape      = { workspace = true }
 parking_lot = { version =  "0.12" }
 
+tracing = { workspace = true, features = ["default"]}
 bitflags         = { workspace = true, features = ["std", "serde", "bytemuck"] }
 bytemuck         = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 rand             = { workspace = true, features = ["std", "std_rng"] }

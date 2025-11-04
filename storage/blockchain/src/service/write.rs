@@ -67,6 +67,7 @@ fn write_blocks<E: Env>(
     let result = {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
 
+        tracing::debug!("writing pruned blocks.");
         let mut pruned_blob_idx = add_pruned_blocks_blobs(block, &mut tapes)?;
 
         let start_height = block[0].height;
@@ -90,8 +91,11 @@ fn write_blocks<E: Env>(
             if blocks.is_empty() {
                 continue;
             }
+            tracing::debug!("writing prunable blocks.");
+
             let mut prunable_idx = add_prunable_blocks_blobs(blocks, &mut tapes)?;
             for block in blocks {
+                tracing::debug!("writing block.");
                 crate::ops::block::add_block(
                     block,
                     &mut pruned_blob_idx,
@@ -104,6 +108,7 @@ fn write_blocks<E: Env>(
             }
         }
 
+        tracing::debug!("writing outputs.");
         let mut appender = tapes.fixed_sized_tape_appender(&RCT_OUTPUTS);
 
         appender.push_entries(&rct_outputs).unwrap();
@@ -111,10 +116,12 @@ fn write_blocks<E: Env>(
         Ok(())
     };
 
+    tracing::debug!("commit tapes.");
     tapes.flush(Flush::Async)?;
 
     match result {
         Ok(()) => {
+            tracing::debug!("commit LMDB.");
             TxRw::commit(tx_rw)?;
             Ok(BlockchainResponse::Ok)
         }
