@@ -61,7 +61,6 @@ pub fn add_tx(
     numb_rct_outs: &mut u64,
     tables: &mut impl TablesMut,
     rct_outputs: &mut Vec<RctOutput>,
-    pre_rct_outputs: &mut BTreeMap<u64, Vec<Output>>,
     tape_appender: &mut cuprate_linear_tape::Appender,
 ) -> DbResult<TxId> {
     tracing::debug!("writing tx");
