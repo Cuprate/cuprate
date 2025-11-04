@@ -1,20 +1,19 @@
+use atomic_wait::wait;
+use memmap2::{MmapOptions, MmapRaw};
 use std::fs::OpenOptions;
 use std::io;
 use std::io::Write;
 use std::ops::Add;
 use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};
-use atomic_wait::wait;
-use memmap2::{MmapOptions, MmapRaw};
 
 mod mutex;
 mod state;
 
-use mutex::{MutexGuard, Mutex};
+use mutex::{Mutex, MutexGuard};
 use state::MetadataState;
 
 const HEADER_LEN: usize = 8 * 2;
-
 
 pub struct MetadataHandle<'a> {
     metadata_state: MetadataState<'a>,
@@ -43,14 +42,15 @@ impl WriteGuard<'_> {
     pub fn push_update(&mut self) {
         self.tables_len = &mut [];
         self.current_metadata_state.mark_old();
-        self.current_metadata.store(self.next_metadata, Ordering::Release);
+        self.current_metadata
+            .store(self.next_metadata, Ordering::Release);
     }
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub enum WriteOp {
     Push,
-    Pop
+    Pop,
 }
 
 impl WriteOp {
@@ -64,13 +64,12 @@ impl WriteOp {
     }
 }
 
-
 pub struct MetadataFile {
     tables: usize,
     mmap: MmapRaw,
     writer_mutex: Mutex<'static>,
     current_metadata: &'static AtomicU32,
-    metadata_ring_len: usize
+    metadata_ring_len: usize,
 }
 
 const fn metadata_len(tables: usize) -> usize {
@@ -78,7 +77,11 @@ const fn metadata_len(tables: usize) -> usize {
 }
 
 impl MetadataFile {
-    pub unsafe fn open<P: AsRef<Path>>(path: P, tables: usize, metadata_ring_len: usize) -> io::Result<Self> {
+    pub unsafe fn open<P: AsRef<Path>>(
+        path: P,
+        tables: usize,
+        metadata_ring_len: usize,
+    ) -> io::Result<Self> {
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -98,8 +101,7 @@ impl MetadataFile {
             return Err(io::Error::other("metadata file incorrect size"));
         }
 
-
-        let mmap =  MmapOptions::new().map_raw(&file)?;
+        let mmap = MmapOptions::new().map_raw(&file)?;
 
         mmap.lock()?;
 
@@ -130,12 +132,13 @@ impl MetadataFile {
                 continue;
             }
 
-            let tables_len = unsafe { std::slice::from_raw_parts(metadata_ptr.add(8).cast(), self.tables) } ;
+            let tables_len =
+                unsafe { std::slice::from_raw_parts(metadata_ptr.add(8).cast(), self.tables) };
 
             return MetadataHandle {
                 metadata_state,
-                tables_len
-            }
+                tables_len,
+            };
         }
     }
 
@@ -148,7 +151,9 @@ impl MetadataFile {
 
         let last_op = unsafe { current_metadata_ptr.add(4).cast::<u32>().read() };
 
-        let current_lens =  unsafe { std::slice::from_raw_parts(current_metadata_ptr.add(8).cast::<usize>(), self.tables) } ;
+        let current_lens = unsafe {
+            std::slice::from_raw_parts(current_metadata_ptr.add(8).cast::<usize>(), self.tables)
+        };
 
         let next_idx = if last_op == WriteOp::OPERATION_POP && op == WriteOp::Push {
             self.wait_for_all_readers(current_idx)
@@ -159,7 +164,8 @@ impl MetadataFile {
         let metadata_ptr = self.metadata_ptr(next_idx);
 
         unsafe { metadata_ptr.add(4).cast::<u32>().write(op.to_u32()) };
-        let tables_len = unsafe { std::slice::from_raw_parts_mut(metadata_ptr.add(8).cast(), self.tables) } ;
+        let tables_len =
+            unsafe { std::slice::from_raw_parts_mut(metadata_ptr.add(8).cast(), self.tables) };
 
         tables_len.copy_from_slice(current_lens);
 
@@ -173,7 +179,7 @@ impl MetadataFile {
     }
 
     fn wait_for_next_free_slot(&self, current_idx: usize) -> usize {
-        let next_free_slot = (current_idx + 1)  % self.metadata_ring_len;
+        let next_free_slot = (current_idx + 1) % self.metadata_ring_len;
         let metadata_ptr = self.metadata_ptr(next_free_slot);
 
         let metadata_state = unsafe { MetadataState::from_u8_ptr(metadata_ptr) };
@@ -192,7 +198,7 @@ impl MetadataFile {
             metadata_state.wait_for_readers();
         }
 
-        (current_idx + 1)  % self.metadata_ring_len
+        (current_idx + 1) % self.metadata_ring_len
     }
 
     fn metadata_ptr(&self, idx: usize) -> *mut u8 {
@@ -214,7 +220,7 @@ unsafe fn atomic_u32_from_u8_ptr(ptr: *mut u8) -> &'static AtomicU32 {
 fn tt() {
     let meta = unsafe { MetadataFile::open("metadata", 8, 2).unwrap() };
 
-    for _ in  0..100000 {
+    for _ in 0..100000 {
         let mut gaurd = meta.start_write(WriteOp::Push);
         let i = gaurd.tables_len[0];
         gaurd.tables_len.copy_from_slice(&[i + 1; 8]);
@@ -256,6 +262,5 @@ fn tt() {
 
     drop((read1, read2, gaurd));
 
-   // let mut gaurd = meta.start_write(WriteOp::Push);
+    // let mut gaurd = meta.start_write(WriteOp::Push);
 }
-

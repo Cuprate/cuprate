@@ -1,11 +1,11 @@
-use std::fs::{File, OpenOptions};
-use std::ops::Range;
-use std::{io, slice};
+use memmap2::{MmapOptions, MmapRaw};
 use std::cmp::max;
+use std::fs::{File, OpenOptions};
 use std::io::{Seek, Write};
+use std::ops::Range;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use memmap2::{ MmapOptions, MmapRaw};
+use std::{io, slice};
 
 use crate::{Advice, Flush};
 
@@ -19,7 +19,7 @@ pub(crate) struct UnsafeTape {
     /// The memory map.
     mmap: MmapRaw,
     /// The [`Advice`] used on the database.
-    advice: Advice
+    advice: Advice,
 }
 
 impl UnsafeTape {
@@ -30,7 +30,11 @@ impl UnsafeTape {
     /// This is marked unsafe as modifications to the underlying file can lead to UB.
     /// You must ensure across all processes either there are not more than one [`LinearBlobTape::appender`] and
     /// truncations are done without readers or appenders.
-    pub(crate) unsafe fn open<P: AsRef<Path>>(path: P, advice: Advice, initial_map_size: u64) -> io::Result<Self> {
+    pub(crate) unsafe fn open<P: AsRef<Path>>(
+        path: P,
+        advice: Advice,
+        initial_map_size: u64,
+    ) -> io::Result<Self> {
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -43,14 +47,10 @@ impl UnsafeTape {
             file.set_len(initial_map_size)?;
         }
 
-        let mmap =  MmapOptions::new().map_raw(&file)?;
+        let mmap = MmapOptions::new().map_raw(&file)?;
         mmap.advise(advice.to_memmap2_advice())?;
 
-        Ok(UnsafeTape {
-            file,
-            mmap,
-            advice
-        })
+        Ok(UnsafeTape { file, mmap, advice })
     }
 
     /// Take a slice of bytes from the memory map.
@@ -83,7 +83,7 @@ impl UnsafeTape {
     ///
     /// This memory map must be initialised in this range.
     pub(crate) unsafe fn range_mut(&self, range: Range<usize>) -> &mut [u8] {
-     //   drop(self.mmap.advise_range(memmap2::Advice::PopulateWrite, range.start, range.len()));
+        //   drop(self.mmap.advise_range(memmap2::Advice::PopulateWrite, range.start, range.len()));
 
         unsafe {
             let ptr = self.mmap.as_mut_ptr().add(range.start);
@@ -108,8 +108,6 @@ impl UnsafeTape {
     pub(crate) fn flush_range_async(&self, offset: usize, len: usize) -> io::Result<()> {
         self.mmap.flush_async_range(offset, len)
     }
-
-
 
     /// Returns the total map size, including the header which can't be used for values.
     pub(crate) fn map_size(&self) -> usize {

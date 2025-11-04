@@ -1,6 +1,6 @@
-use std::{path::Path, io};
-use std::ops::Range;
 use crate::{Advice, Flush, ResizeNeeded};
+use std::ops::Range;
+use std::{io, path::Path};
 
 /// A trait for a type that can b turned into a blob of data.
 pub trait Blob {
@@ -8,7 +8,7 @@ pub trait Blob {
     fn len(&self) -> usize;
 
     /// Writes self to `buf`.
-    /// 
+    ///
     /// `buf` will have a length of exactly [`Self::len`].
     fn write(&self, buf: &mut [u8]);
 }
@@ -17,12 +17,11 @@ impl Blob for &'_ [u8] {
     fn len(&self) -> usize {
         <[u8]>::len(self)
     }
-    
+
     fn write(&self, buf: &mut [u8]) {
         buf.copy_from_slice(self)
     }
 }
-
 
 /// A writer for a [`LinearBlobTape`].
 pub struct LinearBlobTapeAppender<'a> {
@@ -33,18 +32,20 @@ pub struct LinearBlobTapeAppender<'a> {
 
 impl LinearBlobTapeAppender<'_> {
     pub fn try_get_range(&self, range: Range<usize>) -> Option<&[u8]> {
-        if self.current_used_bytes + *self.bytes_added < range.start || self.current_used_bytes + *self.bytes_added < range.end {
+        if self.current_used_bytes + *self.bytes_added < range.start
+            || self.current_used_bytes + *self.bytes_added < range.end
+        {
             return None;
         }
 
         unsafe { Some(&self.backing_file.range(range)) }
     }
-    
+
     /// Push some bytes onto the tape.
-    /// 
+    ///
     /// On success this returns the index of the first added byte.
     ///
-    /// # Errors 
+    /// # Errors
     ///
     /// On any error it is guaranteed no changes have been made to the database. If the database needs
     /// a resize and error will be returned, if this happens you can flush the current
@@ -65,7 +66,7 @@ impl LinearBlobTapeAppender<'_> {
 
         Ok(start)
     }
-    
+
     /// Cancel any current changes.
     pub fn cancel(&mut self) {
         *self.bytes_added = 0;
@@ -81,7 +82,7 @@ impl LinearBlobTapeReader<'_> {
     pub fn len(&self) -> usize {
         self.used_bytes
     }
-    
+
     /// Try to get a slice from the database.
     ///
     /// Returns [`None`] if start_idx + len > [`Self::len`]
@@ -92,7 +93,6 @@ impl LinearBlobTapeReader<'_> {
 
         unsafe { Some(&self.backing_file.range(range)) }
     }
-
 
     /// Try to get a slice from the database.
     ///

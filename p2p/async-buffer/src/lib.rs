@@ -22,12 +22,12 @@ use futures::{
     Stream, StreamExt,
 };
 
-#[derive(thiserror::Error, Debug, Copy, Clone, Eq, PartialEq)]
-pub enum BufferError {
+#[derive(thiserror::Error)]
+pub enum BufferError<T> {
     #[error("The buffer did not have enough capacity.")]
-    NotEnoughCapacity,
+    NotEnoughCapacity(T),
     #[error("The other end of the buffer disconnected.")]
-    Disconnected,
+    Disconnected(T),
 }
 
 /// Initializes a new buffer with the provided capacity.
@@ -117,11 +117,11 @@ impl<T> BufferAppender<T> {
     ///
     /// # Errors
     /// Returns an error if there is not enough capacity or the [`BufferStream`] was dropped.
-    pub fn try_send(&mut self, item: T, size_needed: usize) -> Result<(), BufferError> {
+    pub fn try_send(&mut self, item: T, size_needed: usize) -> Result<(), BufferError<T>> {
         let size_needed = min(self.max_item_weight, size_needed);
 
         if self.capacity.load(Ordering::Acquire) < size_needed {
-            return Err(BufferError::NotEnoughCapacity);
+            return Err(BufferError::NotEnoughCapacity(item));
         }
 
         let prev_size = self.capacity.fetch_sub(size_needed, Ordering::AcqRel);
@@ -131,7 +131,7 @@ impl<T> BufferAppender<T> {
 
         self.queue
             .unbounded_send((item, size_needed))
-            .map_err(|_| BufferError::Disconnected)?;
+            .map_err(|e| BufferError::Disconnected(e.into_inner().0))?;
 
         Ok(())
     }
@@ -158,7 +158,7 @@ pub struct BufferSinkSend<'a, T> {
 }
 
 impl<T> Future for BufferSinkSend<'_, T> {
-    type Output = Result<(), BufferError>;
+    type Output = Result<(), BufferError<T>>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();

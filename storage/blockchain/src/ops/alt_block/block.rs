@@ -5,6 +5,8 @@ use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableV
 use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};
 use cuprate_types::{AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, HardFork};
 
+use crate::database::BLOCK_INFOS;
+use crate::types::BlockInfo;
 use crate::{
     ops::{
         alt_block::{add_alt_transaction_blob, get_alt_transaction, update_alt_chain_info},
@@ -13,8 +15,6 @@ use crate::{
     tables::{Tables, TablesMut},
     types::{AltBlockHeight, BlockHash, BlockHeight, CompactAltBlockInfo},
 };
-use crate::database::BLOCK_INFOS;
-use crate::types::BlockInfo;
 
 /// Flush all alt-block data from all the alt-block tables.
 ///
@@ -56,8 +56,7 @@ pub fn add_alt_block(alt_block: &AltBlockInformation, tables: &mut impl TablesMu
 
     tables
         .alt_block_heights_mut()
-        .put(&alt_block.block_hash, &alt_block_height,         false
-        )?;
+        .put(&alt_block.block_hash, &alt_block_height, false)?;
 
     update_alt_chain_info(&alt_block_height, &alt_block.block.header.previous, tables)?;
 
@@ -76,13 +75,12 @@ pub fn add_alt_block(alt_block: &AltBlockInformation, tables: &mut impl TablesMu
 
     tables
         .alt_blocks_info_mut()
-        .put(&alt_block_height, &alt_block_info,         false
-        )?;
+        .put(&alt_block_height, &alt_block_info, false)?;
 
     tables.alt_block_blobs_mut().put(
         &alt_block_height,
-        StorableVec::wrap_ref(&alt_block.block_blob),        false
-
+        StorableVec::wrap_ref(&alt_block.block_blob),
+        false,
     )?;
 
     assert_eq!(alt_block.txs.len(), alt_block.block.transactions.len());
@@ -169,9 +167,10 @@ pub fn get_alt_block_hash(
 
     // Get the block hash.
     match original_chain {
-        Chain::Main => {
-            block_info_tape.try_get(*block_height).map(|info| info.block_hash).ok_or(RuntimeError::KeyNotFound)
-        }
+        Chain::Main => block_info_tape
+            .try_get(*block_height)
+            .map(|info| info.block_hash)
+            .ok_or(RuntimeError::KeyNotFound),
         Chain::Alt(chain_id) => tables
             .alt_blocks_info()
             .get(&AltBlockHeight {

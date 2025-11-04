@@ -464,7 +464,15 @@ mod tests {
     fn a() {
         let strip = get_block_pruning_stripe(53247, usize::MAX, 3).unwrap();
 
-        assert_eq!(strip, get_block_pruning_stripe(53247 + CRYPTONOTE_PRUNING_STRIPE_SIZE *7 + 1 , usize::MAX, 3).unwrap())
+        assert_eq!(
+            strip,
+            get_block_pruning_stripe(
+                53247 + CRYPTONOTE_PRUNING_STRIPE_SIZE * 7 + 1,
+                usize::MAX,
+                3
+            )
+            .unwrap()
+        )
     }
 
     #[test]

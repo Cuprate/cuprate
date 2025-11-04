@@ -4,12 +4,6 @@ use std::io::Write;
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
 use bytes::{BufMut, Bytes};
-use monero_oxide::{
-    block::{Block, BlockHeader},
-    transaction::Transaction,
-};
-use monero_oxide::transaction::{NotPruned, Pruned};
-use parking_lot::RwLockUpgradableReadGuard;
 use cuprate_database::{
     DbResult, RuntimeError, StorableVec, {DatabaseRo, DatabaseRw},
 };
@@ -24,6 +18,12 @@ use cuprate_types::{
     AltBlockInformation, BlockCompleteEntry, ChainId, ExtendedBlockHeader, HardFork,
     PrunedTxBlobEntry, TransactionBlobs, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
+use monero_oxide::transaction::{NotPruned, Pruned};
+use monero_oxide::{
+    block::{Block, BlockHeader},
+    transaction::Transaction,
+};
+use parking_lot::RwLockUpgradableReadGuard;
 
 use crate::database::{BLOCK_INFOS, PRUNABLE_BLOBS, PRUNED_BLOBS, TX_INFOS};
 use crate::types::{RctOutput, TxInfo};
@@ -43,7 +43,7 @@ pub fn add_prunable_blocks_blobs(
     blocks: &[VerifiedBlockInformation],
     tape_appender: &mut cuprate_linear_tape::Appender,
 ) -> Result<usize, RuntimeError> {
-     fn add_prunable_blocks_blobs_inner(
+    fn add_prunable_blocks_blobs_inner(
         blocks: &[VerifiedBlockInformation],
         prunable_blob_tape: &mut LinearBlobTapeAppender<'_>,
     ) -> Result<usize, ResizeNeeded> {
@@ -51,18 +51,21 @@ pub fn add_prunable_blocks_blobs(
 
         impl cuprate_linear_tape::Blob for PrunableTapeWriter<'_> {
             fn len(&self) -> usize {
-                self.0.iter().map(|block| {
-                    block.txs
-                        .iter()
-                        .map(|tx| tx.tx_prunable_blob.len())
-                        .sum::<usize>()
-                }).sum::<usize>()
+                self.0
+                    .iter()
+                    .map(|block| {
+                        block
+                            .txs
+                            .iter()
+                            .map(|tx| tx.tx_prunable_blob.len())
+                            .sum::<usize>()
+                    })
+                    .sum::<usize>()
             }
             fn write(&self, buf: &mut [u8]) {
                 let mut writer = buf.writer();
 
                 for block in self.0 {
-
                     for blob in &block.txs {
                         writer.write_all(&blob.tx_prunable_blob).unwrap();
                     }
@@ -73,9 +76,10 @@ pub fn add_prunable_blocks_blobs(
         prunable_blob_tape.push_bytes(&PrunableTapeWriter(blocks))
     }
 
-    let stripe = cuprate_pruning::get_block_pruning_stripe(blocks[0].height, usize::MAX, 3).unwrap();
+    let stripe =
+        cuprate_pruning::get_block_pruning_stripe(blocks[0].height, usize::MAX, 3).unwrap();
 
-    let mut pruned_appender =  tape_appender.blob_tape_appender(PRUNABLE_BLOBS[stripe as usize -1 ]);
+    let mut pruned_appender = tape_appender.blob_tape_appender(PRUNABLE_BLOBS[stripe as usize - 1]);
 
     Ok(add_prunable_blocks_blobs_inner(blocks, &mut pruned_appender).unwrap())
 }
@@ -92,14 +96,17 @@ pub fn add_pruned_blocks_blobs(
 
         impl cuprate_linear_tape::Blob for BlockTapeWriter<'_> {
             fn len(&self) -> usize {
-                self.0.iter().map(|block| {
-                    block.block_blob.len()
-                        + block
-                        .txs
-                        .iter()
-                        .map(|tx| tx.tx_pruned.len() + 32)
-                        .sum::<usize>()
-                }).sum::<usize>()
+                self.0
+                    .iter()
+                    .map(|block| {
+                        block.block_blob.len()
+                            + block
+                                .txs
+                                .iter()
+                                .map(|tx| tx.tx_pruned.len() + 32)
+                                .sum::<usize>()
+                    })
+                    .sum::<usize>()
             }
             fn write(&self, buf: &mut [u8]) {
                 let mut writer = buf.writer();
@@ -204,7 +211,7 @@ pub fn add_block(
             numb_rct_outs,
             tables,
             rct_outputs,
-            tape_appender
+            tape_appender,
         )?
     };
 
@@ -221,7 +228,7 @@ pub fn add_block(
             numb_rct_outs,
             tables,
             rct_outputs,
-            tape_appender
+            tape_appender,
         )?;
         *pruned_tape_idx += tx.tx_pruned.len() + 32;
         *prunable_tape_idx += tx.tx_prunable_blob.len();
@@ -232,15 +239,18 @@ pub fn add_block(
     let mut block_info_appender = tape_appender.fixed_sized_tape_appender::<BlockInfo>(BLOCK_INFOS);
 
     // `saturating_add` is used here as cumulative generated coins overflows due to tail emission.
-    let cumulative_generated_coins = block_info_appender.try_get(block.height.saturating_sub(1)).map(|i| i.cumulative_generated_coins).unwrap_or(0).saturating_add(block.generated_coins);
+    let cumulative_generated_coins = block_info_appender
+        .try_get(block.height.saturating_sub(1))
+        .map(|i| i.cumulative_generated_coins)
+        .unwrap_or(0)
+        .saturating_add(block.generated_coins);
 
     let (cumulative_difficulty_low, cumulative_difficulty_high) =
         split_u128_into_low_high_bits(block.cumulative_difficulty);
 
     // Block Info.
-    block_info_appender.push_entries(
-
-        &[BlockInfo {
+    block_info_appender
+        .push_entries(&[BlockInfo {
             cumulative_difficulty_low,
             cumulative_difficulty_high,
             cumulative_generated_coins,
@@ -250,8 +260,8 @@ pub fn add_block(
             long_term_weight: block.long_term_weight,
             mining_tx_index,
             blob_idx: block_blob_idx,
-        }]
-    ).unwrap();
+        }])
+        .unwrap();
 
     // Block heights.
     tables
@@ -415,22 +425,22 @@ pub fn get_block_complete_entry_from_height(
     )
     .unwrap();
 
-    let pruned_tape_reader = tapes
-        .blob_tape_tape_reader(PRUNED_BLOBS);
+    let pruned_tape_reader = tapes.blob_tape_tape_reader(PRUNED_BLOBS);
     let block_info_tape_reader = tapes.fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS);
 
-    let prunable_tape_reader = tapes.blob_tape_tape_reader(PRUNABLE_BLOBS[pruning_stripe as usize - 1]);
+    let prunable_tape_reader =
+        tapes.blob_tape_tape_reader(PRUNABLE_BLOBS[pruning_stripe as usize - 1]);
     let tx_infos_reader = tapes.fixed_sized_tape_reader::<TxInfo>(TX_INFOS);
 
-    let block_info = block_info_tape_reader.try_get(*block_height).ok_or(RuntimeError::KeyNotFound)?;
+    let block_info = block_info_tape_reader
+        .try_get(*block_height)
+        .ok_or(RuntimeError::KeyNotFound)?;
 
     let block_blob_start_idx = block_info.blob_idx;
     let mut block_blob_end_idx = None;
 
-
     let mut tx_info1 = tx_infos_reader.try_get((block_info.mining_tx_index + 1));
-    let mut next_tx_info =
-        tx_infos_reader.try_get((block_info.mining_tx_index + 2));
+    let mut next_tx_info = tx_infos_reader.try_get((block_info.mining_tx_index + 2));
 
     let mut txs = Vec::with_capacity(32);
 
@@ -458,7 +468,6 @@ pub fn get_block_complete_entry_from_height(
             let prunable_blob = prunable_tape_reader
                 .try_get_slice(tx_info.prunable_blob_idx, tx_info.prunable_size)
                 .unwrap();
-
 
             txs.push((pruned_blob, prunable_blob));
         }
@@ -547,11 +556,15 @@ pub fn get_block_extended_header_from_height(
 ) -> DbResult<ExtendedBlockHeader> {
     let block_info_tape_reader = tapes.fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS);
 
-    let block_info = block_info_tape_reader.try_get(*block_height).ok_or(RuntimeError::KeyNotFound)?;
-    let miner_tx_info = tapes.fixed_sized_tape_reader::<TxInfo>(TX_INFOS).try_get((block_info.mining_tx_index)).ok_or(RuntimeError::KeyNotFound)?;
+    let block_info = block_info_tape_reader
+        .try_get(*block_height)
+        .ok_or(RuntimeError::KeyNotFound)?;
+    let miner_tx_info = tapes
+        .fixed_sized_tape_reader::<TxInfo>(TX_INFOS)
+        .try_get((block_info.mining_tx_index))
+        .ok_or(RuntimeError::KeyNotFound)?;
 
-    let reader = tapes
-        .blob_tape_tape_reader(PRUNED_BLOBS);
+    let reader = tapes.blob_tape_tape_reader(PRUNED_BLOBS);
 
     let block_header_blob = reader
         .try_get_range(block_info.blob_idx..miner_tx_info.pruned_blob_idx)
@@ -597,23 +610,30 @@ pub fn get_block(
 ) -> DbResult<Block> {
     let block_info_tape_reader = tapes.fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS);
 
-    let block_info = block_info_tape_reader.try_get(*block_height).ok_or(RuntimeError::KeyNotFound)?;
+    let block_info = block_info_tape_reader
+        .try_get(*block_height)
+        .ok_or(RuntimeError::KeyNotFound)?;
 
     let block_blob_end_idx = {
-        match  tapes.fixed_sized_tape_reader::<TxInfo>(TX_INFOS).try_get((block_info.mining_tx_index)){
+        match tapes
+            .fixed_sized_tape_reader::<TxInfo>(TX_INFOS)
+            .try_get((block_info.mining_tx_index))
+        {
             Some(tx_info) => {
                 if tx_info.height != *block_height {
-                    block_info_tape_reader.try_get((*block_height+ 1)).ok_or(RuntimeError::KeyNotFound)?.blob_idx
+                    block_info_tape_reader
+                        .try_get((*block_height + 1))
+                        .ok_or(RuntimeError::KeyNotFound)?
+                        .blob_idx
                 } else {
                     tx_info.pruned_blob_idx
                 }
-            },
+            }
             None => tables.blob_tape_ends().get(&1)?.pruned_tape,
         }
     };
 
-    let reader = tapes
-        .blob_tape_tape_reader(PRUNED_BLOBS);
+    let reader = tapes.blob_tape_tape_reader(PRUNED_BLOBS);
 
     let block_blob = reader
         .try_get_range(block_info.blob_idx..block_blob_end_idx)

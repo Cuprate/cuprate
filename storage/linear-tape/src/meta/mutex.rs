@@ -13,9 +13,13 @@ impl<'a> Mutex<'a> {
     pub fn new(state: &'a AtomicU32) -> Self {
         Self { state }
     }
-    
+
     pub fn lock(&self) -> MutexGuard {
-        if self.state.compare_exchange(0, 1, Ordering::Acquire, Ordering::Relaxed).is_err() {
+        if self
+            .state
+            .compare_exchange(0, 1, Ordering::Acquire, Ordering::Relaxed)
+            .is_err()
+        {
             // The lock was already locked. :(
             lock_contended(&self.state);
         }
@@ -31,7 +35,10 @@ fn lock_contended(state: &AtomicU32) {
         std::hint::spin_loop();
     }
 
-    if state.compare_exchange(0, 1, Ordering::Acquire, Ordering::Relaxed).is_ok() {
+    if state
+        .compare_exchange(0, 1, Ordering::Acquire, Ordering::Relaxed)
+        .is_ok()
+    {
         return;
     }
 

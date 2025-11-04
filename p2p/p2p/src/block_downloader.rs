@@ -550,6 +550,7 @@ where
                         entry.peer_who_told_us_handle.ban_peer(LONG_BAN);
                     });
 
+                    self.block_queue.flush_queue().await?;
                     return Err(e);
                 }
 
@@ -654,6 +655,7 @@ where
                      // If we have no inflight requests, and we have had too many empty chain entries in a row assume the top has been found.
                     if self.inflight_requests.is_empty() && self.amount_of_empty_chain_entries >= EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED {
                         tracing::debug!("Failed to find any more chain entries, probably fround the top");
+                        self.block_queue.flush_queue().await?;
                         return Ok(());
                     }
                 }
@@ -668,6 +670,7 @@ where
                     // If we have no inflight requests, and we have had too many empty chain entries in a row assume the top has been found.
                     if self.inflight_requests.is_empty() && self.amount_of_empty_chain_entries >= EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED {
                         tracing::debug!("Failed to find any more chain entries, probably fround the top");
+                        self.block_queue.flush_queue().await?;
                         return Ok(());
                     }
                 }

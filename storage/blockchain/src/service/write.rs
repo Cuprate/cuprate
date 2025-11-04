@@ -9,10 +9,10 @@ use cuprate_types::{
     AltBlockInformation, ChainId, VerifiedBlockInformation,
 };
 
-use crate::{service::types::ResponseResult, tables::OpenTables, BlockchainDatabase};
 use crate::database::RCT_OUTPUTS;
 use crate::ops::block::{add_prunable_blocks_blobs, add_pruned_blocks_blobs};
 use crate::types::RctOutput;
+use crate::{service::types::ResponseResult, tables::OpenTables, BlockchainDatabase};
 
 /// Write functions within this module abort if the write transaction
 /// could not be aborted successfully to maintain atomicity.
@@ -70,28 +70,43 @@ fn write_blocks<E: Env>(
         let mut pruned_blob_idx = add_pruned_blocks_blobs(block, &mut tapes)?;
 
         let start_height = block[0].height;
-        let first_block_pruning_seed = cuprate_pruning::DecompressedPruningSeed::new(cuprate_pruning::get_block_pruning_stripe(start_height, usize::MAX, 3).unwrap(), 3).unwrap();
-        let next_stripe_height = first_block_pruning_seed.get_next_unpruned_block(start_height, 500_000_000).unwrap();
+        let first_block_pruning_seed = cuprate_pruning::DecompressedPruningSeed::new(
+            cuprate_pruning::get_block_pruning_stripe(start_height, usize::MAX, 3).unwrap(),
+            3,
+        )
+        .unwrap();
+        let next_stripe_height = first_block_pruning_seed
+            .get_next_unpruned_block(start_height, 500_000_000)
+            .unwrap();
 
         let (first_stripe, next_stripe) = block.split_at(next_stripe_height - start_height);
 
-        let mut numb_rct_outs = tapes.fixed_sized_tape_appender::<RctOutput>(&RCT_OUTPUTS).len() as u64;
+        let mut numb_rct_outs = tapes
+            .fixed_sized_tape_appender::<RctOutput>(&RCT_OUTPUTS)
+            .len() as u64;
         let mut rct_outputs = Vec::with_capacity(10_000);
 
         for blocks in [first_stripe, next_stripe] {
             if blocks.is_empty() {
                 continue;
             }
-           let mut prunable_idx = add_prunable_blocks_blobs(blocks, &mut tapes)?;
+            let mut prunable_idx = add_prunable_blocks_blobs(blocks, &mut tapes)?;
             for block in blocks {
-                crate::ops::block::add_block(block, &mut pruned_blob_idx, &mut prunable_idx, &mut numb_rct_outs, &mut rct_outputs, &mut tables_mut, &mut tapes)?;
+                crate::ops::block::add_block(
+                    block,
+                    &mut pruned_blob_idx,
+                    &mut prunable_idx,
+                    &mut numb_rct_outs,
+                    &mut rct_outputs,
+                    &mut tables_mut,
+                    &mut tapes,
+                )?;
             }
         }
 
         let mut appender = tapes.fixed_sized_tape_appender(&RCT_OUTPUTS);
 
-       appender.push_entries(&rct_outputs).unwrap();
-
+        appender.push_entries(&rct_outputs).unwrap();
 
         Ok(())
     };
@@ -152,11 +167,7 @@ fn pop_blocks<E: Env>(env: &BlockchainDatabase<E>, numb_blocks: usize) -> Respon
 
         // pop the blocks
         for _ in 0..numb_blocks {
-            crate::ops::block::pop_block(
-                Some(old_main_chain_id),
-                &mut tables_mut,
-                &env.tapes,
-            )?;
+            crate::ops::block::pop_block(Some(old_main_chain_id), &mut tables_mut, &env.tapes)?;
         }
 
         Ok(old_main_chain_id)

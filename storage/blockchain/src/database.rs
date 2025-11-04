@@ -6,12 +6,12 @@ use cuprate_linear_tape::{Flush, LinearBlobTapeAppender, LinearTapeAppender, Lin
 use cuprate_types::blockchain::{
     BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest,
 };
+use parking_lot::RwLock;
 use rayon::ThreadPool;
+use std::iter::once;
 use std::mem;
 use std::sync::{Arc, RwLockReadGuard};
 use std::task::{ready, Context, Poll};
-use parking_lot::RwLock;
-use std::iter::once;
 //use tokio::sync::{ OwnedRwLockReadGuard, OwnedRwLockWriteGuard, RwLock};
 use crate::config::{init_thread_pool, Config};
 use crate::service::{map_read_request, map_write_request};
@@ -21,7 +21,16 @@ use tower::Service;
 
 pub const RCT_OUTPUTS: &str = "rct_outputs";
 pub const PRUNED_BLOBS: &str = "pruned_blobs";
-pub const PRUNABLE_BLOBS: [&str; 8] = ["prunable1", "prunable2", "prunable3", "prunable4", "prunable5", "prunable6", "prunable7", "prunable8"];
+pub const PRUNABLE_BLOBS: [&str; 8] = [
+    "prunable1",
+    "prunable2",
+    "prunable3",
+    "prunable4",
+    "prunable5",
+    "prunable6",
+    "prunable7",
+    "prunable8",
+];
 
 pub const TX_INFOS: &str = "tx_infos";
 pub const BLOCK_INFOS: &str = "block_infos";

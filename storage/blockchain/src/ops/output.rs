@@ -11,10 +11,10 @@ use cuprate_helper::{
     crypto::compute_zero_commitment,
     map::u64_to_timelock,
 };
-use cuprate_linear_tape:: LinearTapeReader;
+use cuprate_linear_tape::LinearTapeReader;
 use cuprate_types::OutputOnChain;
 
-use crate::database:: RCT_OUTPUTS;
+use crate::database::RCT_OUTPUTS;
 use crate::{
     ops::{
         macros::{doc_add_block_inner_invariant, doc_error},
@@ -49,7 +49,9 @@ pub fn add_output(
         Err(e) => return Err(e),
     };
     // Update the amount of outputs.
-    tables.num_outputs_mut().put(&amount, &(num_outputs + 1), false)?;
+    tables
+        .num_outputs_mut()
+        .put(&amount, &(num_outputs + 1), false)?;
 
     let pre_rct_output_id = PreRctOutputId {
         amount,
@@ -57,7 +59,9 @@ pub fn add_output(
         amount_index: num_outputs,
     };
 
-    tables.outputs_mut().put(&pre_rct_output_id, output, false)?;
+    tables
+        .outputs_mut()
+        .put(&pre_rct_output_id, output, false)?;
     Ok(pre_rct_output_id)
 }
 
@@ -153,11 +157,7 @@ pub fn output_to_output_on_chain(
     let key = CompressedPoint(output.key);
 
     let txid = if get_txid {
-        let txid = get_tx_from_id(
-            &output.tx_idx,
-            tapes,
-        )?
-        .hash();
+        let txid = get_tx_from_id(&output.tx_idx, tapes)?.hash();
 
         Some(txid)
     } else {
@@ -203,11 +203,7 @@ pub fn rct_output_to_output_on_chain(
     let key = CompressedPoint(rct_output.key);
 
     let txid = if get_txid {
-        let txid = get_tx_from_id(
-            &rct_output.tx_idx,
-            tapes,
-        )?
-        .hash();
+        let txid = get_tx_from_id(&rct_output.tx_idx, tapes)?.hash();
 
         Some(txid)
     } else {
@@ -235,7 +231,8 @@ pub fn id_to_output_on_chain(
 ) -> DbResult<OutputOnChain> {
     // v2 transactions.
     if id.amount == 0 {
-        let rct_output = get_rct_output(id.amount_index, &tapes.fixed_sized_tape_reader(RCT_OUTPUTS))?;
+        let rct_output =
+            get_rct_output(id.amount_index, &tapes.fixed_sized_tape_reader(RCT_OUTPUTS))?;
         let output_on_chain = rct_output_to_output_on_chain(&rct_output, get_txid, tables, tapes)?;
 
         Ok(output_on_chain)

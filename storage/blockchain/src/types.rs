@@ -119,7 +119,7 @@ pub struct TxInfo {
     pub pruned_size: usize,
     pub prunable_size: usize,
     pub rct_output_start_idx: u64,
-    pub numb_rct_outputs: usize
+    pub numb_rct_outputs: usize,
 }
 
 impl Entry for TxInfo {
@@ -265,7 +265,6 @@ impl Entry for BlockInfo {
         to.copy_from_slice(bytes);
     }
 }
-
 
 //---------------------------------------------------------------------------------------------------- OutputFlags
 bitflags::bitflags! {

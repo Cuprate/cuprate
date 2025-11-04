@@ -162,7 +162,7 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     #[doc = doc_database!()]
     ///
     /// This will never [`RuntimeError::KeyExists`].
-    fn put(&mut self, key: &T::Key, value: &T::Value,append: bool) -> DbResult<()>;
+    fn put(&mut self, key: &T::Key, value: &T::Value, append: bool) -> DbResult<()>;
 
     /// Delete a key-value pair in the database.
     ///

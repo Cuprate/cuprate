@@ -310,7 +310,8 @@ where
             // Instead of setting a custom [`heed::Comparator`],
             // use this LMDB flag; it is ~10% faster.
             KeyCompare::Number => {
-                db.key_comparator::<IntegerComparator>().create(&mut tx_rw)?;
+                db.key_comparator::<IntegerComparator>()
+                    .create(&mut tx_rw)?;
             }
 
             // Use a custom comparison function if specified.

@@ -1,14 +1,14 @@
 //! Implementation of `trait Database` for `heed`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::cell::RefCell;
-use heed::{PutFlags, WithoutTls};
 use crate::{
     backend::heed::types::HeedDb,
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     error::{DbResult, RuntimeError},
     table::Table,
 };
+use heed::{PutFlags, WithoutTls};
+use std::cell::RefCell;
 
 //---------------------------------------------------------------------------------------------------- Heed Database Wrappers
 // Q. Why does `HeedTableR{o,w}` exist?
@@ -182,9 +182,16 @@ unsafe impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, '_, T> {
 impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
     #[inline]
     fn put(&mut self, key: &T::Key, value: &T::Value, append: bool) -> DbResult<()> {
-        Ok(self.db.put_with_flags(&mut self.tx_rw.borrow_mut(), if append { PutFlags::APPEND} else {
-            PutFlags::empty()
-        }, key, value)?)
+        Ok(self.db.put_with_flags(
+            &mut self.tx_rw.borrow_mut(),
+            if append {
+                PutFlags::APPEND
+            } else {
+                PutFlags::empty()
+            },
+            key,
+            value,
+        )?)
     }
 
     #[inline]

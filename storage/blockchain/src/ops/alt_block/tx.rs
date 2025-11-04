@@ -31,7 +31,7 @@ pub fn add_alt_transaction_blob(
             fee: tx.fee,
             tx_hash: tx.tx_hash,
         },
-        false
+        false,
     )?;
 
     if tables.tx_ids().get(&tx.tx_hash).is_ok()
@@ -43,7 +43,7 @@ pub fn add_alt_transaction_blob(
     tables.alt_transaction_blobs_mut().put(
         &tx.tx_hash,
         StorableVec::wrap_ref(&[tx.tx_pruned.as_slice(), tx.tx_prunable_blob.as_slice()].concat()),
-        false
+        false,
     )?;
 
     Ok(())
@@ -61,11 +61,7 @@ pub fn get_alt_transaction(
 
     let tx = match tables.alt_transaction_blobs().get(tx_hash) {
         Ok(blob) => Transaction::read(&mut blob.0.as_slice()).unwrap(),
-        Err(RuntimeError::KeyNotFound) => get_tx(
-            tx_hash,
-            tapes,
-            tables.tx_ids(),
-        )?,
+        Err(RuntimeError::KeyNotFound) => get_tx(tx_hash, tapes, tables.tx_ids())?,
         Err(e) => return Err(e),
     };
 

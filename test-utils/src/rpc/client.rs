@@ -171,7 +171,7 @@ impl HttpRpcClient {
                 let tx_weight = tx.weight();
                 assert_eq!(tx_hash, tx_hashes[i]);
 
-                let (tx, prunable)= tx.pruned_with_prunable();
+                let (tx, prunable) = tx.pruned_with_prunable();
                 VerifiedTransactionInformation {
                     tx_prunable_blob: prunable,
                     tx_pruned: tx.serialize(),

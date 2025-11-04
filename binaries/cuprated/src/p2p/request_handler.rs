@@ -310,7 +310,9 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         .unwrap()
         .current_height = current_blockchain_height;
 
-    if blockchain_context_service.blockchain_context().chain_height + 10 < request.current_blockchain_height as usize {
+    if blockchain_context_service.blockchain_context().chain_height + 10
+        < request.current_blockchain_height as usize
+    {
         return Ok(ProtocolResponse::NA);
     }
 

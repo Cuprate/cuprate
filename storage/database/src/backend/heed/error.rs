@@ -48,9 +48,7 @@ impl From<heed::Error> for crate::InitError {
                 | E2::Panic => Self::Unknown(Box::new(mdb_error)),
             },
 
-             E1::Encoding(_) | E1::Decoding(_) => {
-                Self::Unknown(Box::new(error))
-            }
+            E1::Encoding(_) | E1::Decoding(_) => Self::Unknown(Box::new(error)),
         }
     }
 }

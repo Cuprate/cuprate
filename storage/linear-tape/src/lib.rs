@@ -24,18 +24,18 @@
 #![allow(unreachable_pub)]
 
 mod blob_tape;
-mod unsafe_tape;
 mod fixed_size;
 mod meta;
+mod unsafe_tape;
 
+use crate::meta::{MetadataFile, WriteOp};
+pub use blob_tape::*;
+pub use fixed_size::*;
 use std::collections::HashMap;
 use std::fs::{create_dir, create_dir_all};
 use std::io;
 use std::path::{Path, PathBuf};
-pub use blob_tape::*;
-pub use fixed_size::*;
 pub(crate) use unsafe_tape::*;
-use crate::meta::{MetadataFile, WriteOp};
 
 /// Advice to give the OS when opening the memory map file.
 pub enum Advice {
@@ -44,12 +44,12 @@ pub enum Advice {
     /// [`memmap2::Advice::Random`]
     Random,
     /// [`memmap2::Advice::Sequential`]
-    Sequential
+    Sequential,
 }
 
 impl Advice {
     fn to_memmap2_advice(&self) -> memmap2::Advice {
-        match self { 
+        match self {
             Advice::Normal => memmap2::Advice::Normal,
             Advice::Random => memmap2::Advice::Random,
             Advice::Sequential => memmap2::Advice::Sequential,
@@ -61,7 +61,7 @@ impl Advice {
 pub enum Flush {
     Sync,
     Async,
-    NoSync
+    NoSync,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -70,21 +70,29 @@ pub struct ResizeNeeded;
 pub struct LinearTapes {
     tapes_to_index: HashMap<&'static str, usize>,
     metadata: MetadataFile,
-    
-    tapes: Vec<UnsafeTape>
+
+    tapes: Vec<UnsafeTape>,
 }
 
 pub struct Tapes {
     pub name: &'static str,
     pub path: Option<PathBuf>,
-
 }
 
 impl LinearTapes {
-    pub unsafe fn new<P: AsRef<Path>>(tapes: Vec<Tapes>, metadata_path: P) -> Result<Self, io::Error> {
+    pub unsafe fn new<P: AsRef<Path>>(
+        tapes: Vec<Tapes>,
+        metadata_path: P,
+    ) -> Result<Self, io::Error> {
         create_dir_all(metadata_path.as_ref())?;
 
-        let metadata = unsafe { MetadataFile::open(metadata_path.as_ref().join("metadata.tapes"), tapes.len(), 8)? };
+        let metadata = unsafe {
+            MetadataFile::open(
+                metadata_path.as_ref().join("metadata.tapes"),
+                tapes.len(),
+                8,
+            )?
+        };
 
         let default_tape_path = metadata_path.as_ref().join("tapes");
 
@@ -92,11 +100,20 @@ impl LinearTapes {
 
         let tapes_to_index = tapes.iter().enumerate().map(|(i, t)| (t.name, i)).collect();
 
-        let tapes = tapes.iter().map(|tape| {
-            let path = tape.path.as_ref().unwrap_or(&default_tape_path);
+        let tapes = tapes
+            .iter()
+            .map(|tape| {
+                let path = tape.path.as_ref().unwrap_or(&default_tape_path);
 
-            unsafe { UnsafeTape::open(path.join(format!("{}.tape", tape.name)), Advice::Random, 40 * 1024 * 1024 * 1024) }
-        }).collect::<Result<_, _>>()?;
+                unsafe {
+                    UnsafeTape::open(
+                        path.join(format!("{}.tape", tape.name)),
+                        Advice::Random,
+                        40 * 1024 * 1024 * 1024,
+                    )
+                }
+            })
+            .collect::<Result<_, _>>()?;
 
         Ok(LinearTapes {
             tapes_to_index,
@@ -109,7 +126,7 @@ impl LinearTapes {
         Appender {
             meta_guard: self.metadata.start_write(WriteOp::Push),
             tapes: &self,
-            added_bytes: vec![0; self.tapes.len()]
+            added_bytes: vec![0; self.tapes.len()],
         }
     }
 
@@ -128,8 +145,15 @@ pub struct Appender<'a> {
 }
 
 impl Appender<'_> {
-    pub fn fixed_sized_tape_appender<'a, E: Entry>(&'a mut self, table_name: &'static str) -> LinearTapeAppender<'a, E> {
-        let i = *self.tapes.tapes_to_index.get(table_name).expect("Tape was not specified when opening tapes");
+    pub fn fixed_sized_tape_appender<'a, E: Entry>(
+        &'a mut self,
+        table_name: &'static str,
+    ) -> LinearTapeAppender<'a, E> {
+        let i = *self
+            .tapes
+            .tapes_to_index
+            .get(table_name)
+            .expect("Tape was not specified when opening tapes");
 
         let tape = &self.tapes.tapes[i];
 
@@ -141,8 +165,15 @@ impl Appender<'_> {
         }
     }
 
-    pub fn blob_tape_appender<'a>(&'a mut self, table_name: &'static str) -> LinearBlobTapeAppender<'a> {
-        let i = *self.tapes.tapes_to_index.get(table_name).expect("Tape was not specified when opening tapes");
+    pub fn blob_tape_appender<'a>(
+        &'a mut self,
+        table_name: &'static str,
+    ) -> LinearBlobTapeAppender<'a> {
+        let i = *self
+            .tapes
+            .tapes_to_index
+            .get(table_name)
+            .expect("Tape was not specified when opening tapes");
 
         let tape = &self.tapes.tapes[i];
 
@@ -162,13 +193,21 @@ impl Appender<'_> {
             }
             Flush::Async => {
                 for (i, tape) in self.tapes.tapes.iter().enumerate() {
-                    tape.flush_range_async(self.meta_guard.tables_len_mut()[i], self.added_bytes[i])?;
+                    tape.flush_range_async(
+                        self.meta_guard.tables_len_mut()[i],
+                        self.added_bytes[i],
+                    )?;
                 }
             }
             Flush::NoSync => {}
         }
 
-        for (len, added_bytes) in self.meta_guard.tables_len_mut().iter_mut().zip(&self.added_bytes) {
+        for (len, added_bytes) in self
+            .meta_guard
+            .tables_len_mut()
+            .iter_mut()
+            .zip(&self.added_bytes)
+        {
             *len += added_bytes
         }
 
@@ -184,11 +223,17 @@ pub struct Reader<'a> {
 }
 
 impl Reader<'_> {
-    pub fn fixed_sized_tape_reader<'a, E: Entry>(&'a self, table_name: &'static str) -> LinearTapeReader<'a, E> {
-        let i = *self.tapes.tapes_to_index.get(table_name).expect("Tape was not specified when opening tapes");
+    pub fn fixed_sized_tape_reader<'a, E: Entry>(
+        &'a self,
+        table_name: &'static str,
+    ) -> LinearTapeReader<'a, E> {
+        let i = *self
+            .tapes
+            .tapes_to_index
+            .get(table_name)
+            .expect("Tape was not specified when opening tapes");
 
         let tape = &self.tapes.tapes[i];
-
 
         LinearTapeReader {
             backing_file: tape,
@@ -197,11 +242,17 @@ impl Reader<'_> {
         }
     }
 
-    pub fn blob_tape_tape_reader<'a>(&'a self, table_name: &'static str) -> LinearBlobTapeReader<'a> {
-        let i = *self.tapes.tapes_to_index.get(table_name).expect("Tape was not specified when opening tapes");
+    pub fn blob_tape_tape_reader<'a>(
+        &'a self,
+        table_name: &'static str,
+    ) -> LinearBlobTapeReader<'a> {
+        let i = *self
+            .tapes
+            .tapes_to_index
+            .get(table_name)
+            .expect("Tape was not specified when opening tapes");
 
         let tape = &self.tapes.tapes[i];
-
 
         LinearBlobTapeReader {
             backing_file: tape,

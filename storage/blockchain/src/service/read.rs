@@ -32,7 +32,9 @@ use std::{
 };
 use thread_local::ThreadLocal;
 
+use crate::database::{BLOCK_INFOS, RCT_OUTPUTS, TX_INFOS};
 use crate::ops::tx::get_tx_blob_from_id;
+use crate::types::{BlockInfo, RctOutput, TxInfo};
 use crate::{
     ops::{
         alt_block::{
@@ -52,16 +54,12 @@ use crate::{
         free::{compact_history_genesis_not_included, compact_history_index_to_height_offset},
         types::ResponseResult,
     },
-    tables::{
-        AltBlockHeights, BlockHeights, OpenTables, Tables, TablesIter, TxIds, TxOutputs,
-    },
+    tables::{AltBlockHeights, BlockHeights, OpenTables, Tables, TablesIter, TxIds, TxOutputs},
     types::{
         AltBlockHeight, Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId,
     },
     BlockchainDatabase,
 };
-use crate::database::{BLOCK_INFOS, RCT_OUTPUTS, TX_INFOS};
-use crate::types::{BlockInfo, RctOutput, TxInfo};
 //---------------------------------------------------------------------------------------------------- Request Mapping
 // This function maps [`Request`]s to function calls
 // executed by the rayon DB reader threadpool.
@@ -291,10 +289,18 @@ fn block_hash<E: Env>(
     let block_infos_tape = tapes.fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS);
 
     let block_hash = match chain {
-        Chain::Main => block_infos_tape.try_get(block_height).ok_or(RuntimeError::KeyNotFound)?.block_hash,
-        Chain::Alt(chain) => {
-            get_alt_block_hash(&block_height, chain, &env_inner.open_tables(&tx_ro)?, &block_infos_tape)?
+        Chain::Main => {
+            block_infos_tape
+                .try_get(block_height)
+                .ok_or(RuntimeError::KeyNotFound)?
+                .block_hash
         }
+        Chain::Alt(chain) => get_alt_block_hash(
+            &block_height,
+            chain,
+            &env_inner.open_tables(&tx_ro)?,
+            &block_infos_tape,
+        )?,
     };
 
     Ok(BlockchainResponse::BlockHash(block_hash))
@@ -314,17 +320,24 @@ fn block_hash_in_range<E: Env>(
     let tapes = env.tapes.reader();
     let block_infos_tape = tapes.fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS);
 
-
     let block_hash = range
         .into_par_iter()
         .map(|block_height| {
             let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
 
             let block_hash = match chain {
-                Chain::Main => block_infos_tape.try_get(block_height).ok_or(RuntimeError::KeyNotFound)?.block_hash,
-                Chain::Alt(chain) => {
-                    get_alt_block_hash(&block_height, chain, &env_inner.open_tables(tx_ro)?, &block_infos_tape)?
+                Chain::Main => {
+                    block_infos_tape
+                        .try_get(block_height)
+                        .ok_or(RuntimeError::KeyNotFound)?
+                        .block_hash
                 }
+                Chain::Alt(chain) => get_alt_block_hash(
+                    &block_height,
+                    chain,
+                    &env_inner.open_tables(tx_ro)?,
+                    &block_infos_tape,
+                )?,
             };
 
             Ok(block_hash)
@@ -464,8 +477,10 @@ fn chain_height<E: Env>(env: &BlockchainDatabase<E>) -> ResponseResult {
     let block_info_tape_reader = tapes.fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS);
 
     let chain_height = crate::ops::blockchain::chain_height(&table_block_heights)?;
-    let block_hash =
-        block_info_tape_reader.try_get(chain_height.saturating_sub(1)).ok_or(RuntimeError::KeyNotFound)?.block_hash;
+    let block_hash = block_info_tape_reader
+        .try_get(chain_height.saturating_sub(1))
+        .ok_or(RuntimeError::KeyNotFound)?
+        .block_hash;
 
     Ok(BlockchainResponse::ChainHeight(chain_height, block_hash))
 }
@@ -476,9 +491,11 @@ fn generated_coins<E: Env>(env: &BlockchainDatabase<E>, height: usize) -> Respon
     let tapes = env.tapes.reader();
     let block_info_tape_reader = tapes.fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS);
 
-
     Ok(BlockchainResponse::GeneratedCoins(
-        block_info_tape_reader.try_get(height).ok_or(RuntimeError::KeyNotFound)?.cumulative_generated_coins,
+        block_info_tape_reader
+            .try_get(height)
+            .ok_or(RuntimeError::KeyNotFound)?
+            .cumulative_generated_coins,
     ))
 }
 
@@ -583,7 +600,10 @@ fn number_outputs_with_amount<E: Env>(
         reason = "INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`"
     )]
     let num_rct_outputs = {
-        env.tapes.reader().fixed_sized_tape_reader::<RctOutput>(RCT_OUTPUTS).len()
+        env.tapes
+            .reader()
+            .fixed_sized_tape_reader::<RctOutput>(RCT_OUTPUTS)
+            .len()
     };
 
     // Collect results using `rayon`.
@@ -693,7 +713,9 @@ fn compact_chain_history<E: Env>(env: &BlockchainDatabase<E>) -> ResponseResult 
 
     let top_block_height = top_block_height(&table_block_heights)?;
 
-    let top_block_info = block_info_tape_reader.try_get(top_block_height).ok_or(RuntimeError::KeyNotFound)?;
+    let top_block_info = block_info_tape_reader
+        .try_get(top_block_height)
+        .ok_or(RuntimeError::KeyNotFound)?;
     let cumulative_difficulty = combine_low_high_bits_to_u128(
         top_block_info.cumulative_difficulty_low,
         top_block_info.cumulative_difficulty_high,
@@ -706,11 +728,21 @@ fn compact_chain_history<E: Env>(env: &BlockchainDatabase<E>) -> ResponseResult 
     let mut block_ids = (0..)
         .map(compact_history_index_to_height_offset::<INITIAL_BLOCKS>)
         .map_while(|i| top_block_height.checked_sub(i))
-        .map(|height| Ok(block_info_tape_reader.try_get(height).ok_or(RuntimeError::KeyNotFound)?.block_hash))
+        .map(|height| {
+            Ok(block_info_tape_reader
+                .try_get(height)
+                .ok_or(RuntimeError::KeyNotFound)?
+                .block_hash)
+        })
         .collect::<DbResult<Vec<_>>>()?;
 
     if compact_history_genesis_not_included::<INITIAL_BLOCKS>(top_block_height) {
-        block_ids.push(block_info_tape_reader.try_get(0).ok_or(RuntimeError::KeyNotFound)?.block_hash);
+        block_ids.push(
+            block_info_tape_reader
+                .try_get(0)
+                .ok_or(RuntimeError::KeyNotFound)?
+                .block_hash,
+        );
     }
 
     Ok(BlockchainResponse::CompactChainHistory {
@@ -769,24 +801,21 @@ fn next_chain_entry<E: Env>(
 
     let (block_ids, block_weights) = (first_known_height..last_height_in_chain_entry)
         .map(|height| {
-            let block_info = block_info_tape_reader.try_get(height).ok_or(RuntimeError::KeyNotFound)?;
+            let block_info = block_info_tape_reader
+                .try_get(height)
+                .ok_or(RuntimeError::KeyNotFound)?;
 
             Ok((block_info.block_hash, block_info.weight))
         })
         .collect::<DbResult<(Vec<_>, Vec<_>)>>()?;
 
-    let top_block_info = block_info_tape_reader.try_get((chain_height - 1)).ok_or(RuntimeError::KeyNotFound)?;
+    let top_block_info = block_info_tape_reader
+        .try_get((chain_height - 1))
+        .ok_or(RuntimeError::KeyNotFound)?;
 
     let first_block_blob = if block_ids.len() >= 2 {
         // TODO:
-        Some(
-            get_block(
-                &tables,
-                &env.tapes.reader(),
-                &(first_known_height + 1),
-            )?
-            .serialize(),
-        )
+        Some(get_block(&tables, &env.tapes.reader(), &(first_known_height + 1))?.serialize())
     } else {
         None
     };
@@ -854,7 +883,9 @@ fn txs_in_block<E: Env>(
     let block_height = tables.block_heights().get(&block_hash)?;
     let block_info_tape_reader = tapes.fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS);
 
-    let block_info = block_info_tape_reader.try_get(block_height).ok_or(RuntimeError::KeyNotFound)?;
+    let block_info = block_info_tape_reader
+        .try_get(block_height)
+        .ok_or(RuntimeError::KeyNotFound)?;
 
     let block = get_block(&tables, &tapes, &block_height)?;
 
@@ -1005,7 +1036,11 @@ fn transactions<E: Env>(
 /// [`BlockchainReadRequest::TotalRctOutputs`]
 fn total_rct_outputs<E: Env>(env: &BlockchainDatabase<E>) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
-    let len = env.tapes.reader().fixed_sized_tape_reader::<RctOutput>(RCT_OUTPUTS).len() as u64;
+    let len = env
+        .tapes
+        .reader()
+        .fixed_sized_tape_reader::<RctOutput>(RCT_OUTPUTS)
+        .len() as u64;
 
     Ok(BlockchainResponse::TotalRctOutputs(len))
 }
@@ -1015,17 +1050,25 @@ fn tx_output_indexes<E: Env>(env: &BlockchainDatabase<E>, tx_hash: &[u8; 32]) ->
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.dynamic_tables.env_inner();
 
-
     let tx_ro = env_inner.tx_ro()?;
     let tx_id = env_inner.open_db_ro::<TxIds>(&tx_ro)?.get(tx_hash)?;
 
-    let tx_info = env.tapes.reader().fixed_sized_tape_reader::<TxInfo>(TX_INFOS).try_get(tx_id).ok_or(RuntimeError::KeyNotFound)?;
+    let tx_info = env
+        .tapes
+        .reader()
+        .fixed_sized_tape_reader::<TxInfo>(TX_INFOS)
+        .try_get(tx_id)
+        .ok_or(RuntimeError::KeyNotFound)?;
 
     if tx_info.rct_output_start_idx == u64::MAX {
         let o_indexes = env_inner.open_db_ro::<TxOutputs>(&tx_ro)?.get(&tx_id)?;
         Ok(BlockchainResponse::TxOutputIndexes(o_indexes.0))
     } else {
-        Ok(BlockchainResponse::TxOutputIndexes((0..tx_info.numb_rct_outputs).map(|i| i as u64 + tx_info.rct_output_start_idx).collect()))
+        Ok(BlockchainResponse::TxOutputIndexes(
+            (0..tx_info.numb_rct_outputs)
+                .map(|i| i as u64 + tx_info.rct_output_start_idx)
+                .collect(),
+        ))
     }
 }
 

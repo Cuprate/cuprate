@@ -104,12 +104,12 @@ pub async fn validate_entries<N: NetworkZone>(
             <BlockchainDatabaseService<ConcreteEnv> as ServiceExt<BlockchainReadRequest>>::ready(
                 blockchain_read_handle,
             )
-                .await?
-                .call(BlockchainReadRequest::BlockHashInRange(
-                    hashes_start_height..start_height,
-                    Chain::Main,
-                ))
-                .await?
+            .await?
+            .call(BlockchainReadRequest::BlockHashInRange(
+                hashes_start_height..start_height,
+                Chain::Main,
+            ))
+            .await?
         else {
             unreachable!()
         };
@@ -222,7 +222,7 @@ pub fn block_to_verified_block_information(
     for tx in &block.transactions {
         let data = txs.remove(tx).expect("fast sync block invalid");
 
-        let (tx, prunable)= data.tx.pruned_with_prunable();
+        let (tx, prunable) = data.tx.pruned_with_prunable();
         verified_txs.push(VerifiedTransactionInformation {
             tx_prunable_blob: prunable,
             tx_pruned: tx.serialize(),

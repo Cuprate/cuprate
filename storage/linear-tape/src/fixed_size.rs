@@ -1,6 +1,6 @@
-use std::{marker::PhantomData, ops::Range, io, path::Path};
+use std::{io, marker::PhantomData, ops::Range, path::Path};
 
-use crate::{Advice, Flush, ResizeNeeded, unsafe_tape::UnsafeTape};
+use crate::{unsafe_tape::UnsafeTape, Advice, Flush, ResizeNeeded};
 
 /// A type that can be inserted into a [`LinearFixedSizeTape`].
 pub trait Entry: Sized {
@@ -68,7 +68,7 @@ impl<E: Entry> LinearTapeAppender<'_, E> {
 
         unsafe { Some(E::read(&self.backing_file.range(entry_byte_range::<E>(i)))) }
     }
-    
+
     /// Returns the length of the tape if this transaction is flushed.
     pub fn len(&self) -> usize {
         self.current_used_bytes / E::SIZE + *self.entries_added
@@ -120,8 +120,7 @@ impl<E: Entry> LinearTapePopper<'_, E> {
     pub fn pop_entries(&mut self, amt: usize) {
         self.entries_popped += amt;
     }
-    
-    
+
     /// Cancel this change, the tape will be restored to where it was before this operation.
     pub fn cancel(&mut self) {
         self.entries_popped = 0;
