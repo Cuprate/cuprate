@@ -38,6 +38,7 @@ use crate::{
     tables::{BlockHeights, Tables, TablesIter, TablesMut},
     types::{BlockHash, BlockHeight, BlockInfo},
 };
+use crate::ops::output::V1OutputWriter;
 
 pub fn add_prunable_blocks_blobs(
     blocks: &[VerifiedBlockInformation],
@@ -154,6 +155,7 @@ pub fn add_block(
     prunable_tape_idx: &mut usize,
     numb_rct_outs: &mut u64,
     rct_outputs: &mut Vec<RctOutput>,
+    v1_outputs: &mut V1OutputWriter,
     tables: &mut impl TablesMut,
     tape_appender: &mut cuprate_linear_tape::Appender,
 ) -> DbResult<()> {
@@ -211,6 +213,7 @@ pub fn add_block(
             numb_rct_outs,
             tables,
             rct_outputs,
+            v1_outputs,
             tape_appender,
         )?
     };
@@ -228,6 +231,7 @@ pub fn add_block(
             numb_rct_outs,
             tables,
             rct_outputs,
+            v1_outputs,
             tape_appender,
         )?;
         *pruned_tape_idx += tx.tx_pruned.len() + 32;

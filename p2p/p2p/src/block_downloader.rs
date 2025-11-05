@@ -148,8 +148,8 @@ pub fn download_blocks<N: NetworkZone, C>(
 ) -> BufferStream<BlockBatch>
 where
     C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>
-    + Send
-    + 'static,
+        + Send
+        + 'static,
     C::Future: Send + 'static,
 {
     let (buffer_appender, buffer_stream) = cuprate_async_buffer::new_buffer(config.buffer_bytes);
@@ -232,8 +232,8 @@ struct BlockDownloader<N: NetworkZone, C> {
 impl<N: NetworkZone, C> BlockDownloader<N, C>
 where
     C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>
-    + Send
-    + 'static,
+        + Send
+        + 'static,
     C::Future: Send + 'static,
 {
     /// Creates a new [`BlockDownloader`]
@@ -468,10 +468,10 @@ where
                         BLOCK_DOWNLOADER_REQUEST_TIMEOUT,
                         request_chain_entry_from_peer(client, history),
                     )
-                        .await
-                        .map_err(|_| BlockDownloadError::TimedOut)?
+                    .await
+                    .map_err(|_| BlockDownloadError::TimedOut)?
                 }
-                    .instrument(tracing::debug_span!(
+                .instrument(tracing::debug_span!(
                     "request_chain_entry",
                     current_height = chain_tracker.top_height()
                 )),
@@ -589,10 +589,10 @@ where
                 // again.
                 if start_height
                     > self
-                    .most_recent_batch_sizes
-                    .peek()
-                    .map(|Reverse((height, _))| *height)
-                    .unwrap_or_default()
+                        .most_recent_batch_sizes
+                        .peek()
+                        .map(|Reverse((height, _))| *height)
+                        .unwrap_or_default()
                 {
                     self.most_recent_batch_sizes.push(Reverse((
                         start_height,

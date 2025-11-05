@@ -54,7 +54,7 @@ pub fn new_buffer<T>(max_item_weight: usize) -> (BufferAppender<T>, BufferStream
             queue: rx,
             sink_waker,
             capacity: capacity_atomic,
-            max_item_weight
+            max_item_weight,
         },
     )
 }
@@ -67,7 +67,7 @@ pub struct BufferStream<T> {
     sink_waker: Arc<AtomicWaker>,
     /// The current capacity of the buffer.
     capacity: Arc<AtomicUsize>,
-    max_item_weight: usize
+    max_item_weight: usize,
 }
 
 impl<T> Stream for BufferStream<T> {

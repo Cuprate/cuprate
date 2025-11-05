@@ -1,5 +1,6 @@
 //! Output functions.
 
+use std::collections::HashMap;
 //---------------------------------------------------------------------------------------------------- Import
 use monero_oxide::{io::CompressedPoint, transaction::Timelock};
 
@@ -23,6 +24,60 @@ use crate::{
     tables::{Outputs, Tables, TablesMut, TxUnlockTime},
     types::{Amount, AmountIndex, Output, OutputFlags, PreRctOutputId, RctOutput},
 };
+
+pub struct V1OutputWriter {
+    numb_outs: HashMap<u64, u64>,
+    outputs: Vec<(PreRctOutputId, Output)>,
+}
+
+impl V1OutputWriter {
+    pub fn new() -> Self {
+        Self {
+            numb_outs: HashMap::with_capacity(64),
+            outputs: Vec::with_capacity(64),
+        }
+    }
+
+    pub fn write_output(
+        &mut self,
+        amount: Amount,
+        output: Output,
+        tables: &mut impl TablesMut,
+    ) -> PreRctOutputId {
+        let numb_outs = self
+            .numb_outs
+            .entry(amount)
+            .or_insert_with(|| tables.num_outputs().get(&amount).unwrap_or(0));
+
+        let pre_rct_output_id = PreRctOutputId {
+            amount,
+            // The new `amount_index` is the length of amount of outputs with same amount.
+            amount_index: *numb_outs,
+        };
+
+        *numb_outs += 1;
+
+        self.outputs.push((pre_rct_output_id, output));
+
+        pre_rct_output_id
+    }
+
+    pub fn flush_to_tables(self, tables: &mut impl TablesMut) -> DbResult<()> {
+        for (output_amt, numb_outputs) in self.numb_outs.into_iter() {
+            tables
+                .num_outputs_mut()
+                .put(&output_amt, &numb_outputs, false)?;
+        }
+
+        for (pre_rct_output_id, output) in self.outputs {
+            tables
+                .outputs_mut()
+                .put(&pre_rct_output_id, &output, false)?;
+        }
+
+        Ok(())
+    }
+}
 
 //---------------------------------------------------------------------------------------------------- Pre-RCT Outputs
 /// Add a Pre-RCT [`Output`] to the database.

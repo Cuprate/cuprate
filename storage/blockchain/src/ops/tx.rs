@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 use std::hash::Hash;
 //---------------------------------------------------------------------------------------------------- Import
 use crate::database::{PRUNABLE_BLOBS, PRUNED_BLOBS, TX_INFOS};
+use crate::ops::output::V1OutputWriter;
 use crate::types::TxInfo;
 use crate::{
     ops::{
@@ -61,6 +62,7 @@ pub fn add_tx(
     numb_rct_outs: &mut u64,
     tables: &mut impl TablesMut,
     rct_outputs: &mut Vec<RctOutput>,
+    v1_outputs: &mut V1OutputWriter,
     tape_appender: &mut cuprate_linear_tape::Appender,
 ) -> DbResult<TxId> {
     tracing::debug!("writing tx");
@@ -146,17 +148,18 @@ pub fn add_tx(
             .iter()
             .map(|output| {
                 // Pre-RingCT outputs.
-                Ok(add_output(
-                    output.amount.unwrap_or(0),
-                    &Output {
-                        key: output.key.0,
-                        height,
-                        output_flags,
-                        tx_idx: tx_id,
-                    },
-                    tables,
-                )?
-                .amount_index)
+                Ok(v1_outputs
+                    .write_output(
+                        output.amount.unwrap_or(0),
+                        Output {
+                            key: output.key.0,
+                            height,
+                            output_flags,
+                            tx_idx: tx_id,
+                        },
+                        tables,
+                    )
+                    .amount_index)
             })
             .collect::<DbResult<Vec<_>>>()?,
         Transaction::V2 { prefix, proofs } => prefix

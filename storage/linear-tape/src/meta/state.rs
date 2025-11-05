@@ -19,18 +19,27 @@ impl MetadataState<'_> {
     }
 
     pub fn check_add_reader(&self) -> bool {
-        let state = self.0.load(Ordering::Acquire);
+        loop {
+            let state = self.0.load(Ordering::Acquire);
 
-        if state & METADATA_OLD == METADATA_OLD {
-            return false;
+            if state & METADATA_OLD == METADATA_OLD {
+                return false;
+            }
+
+            if state & READER_COUNT_MASK == READER_COUNT_MASK - 1 {
+                panic!("Too many readers");
+            }
+
+            match self.0.compare_exchange_weak(
+                state,
+                state + 1,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => return true,
+                Err(_) => continue,
+            }
         }
-
-        if state & READER_COUNT_MASK == READER_COUNT_MASK - 1 {
-            panic!("Too many readers");
-        }
-
-        self.0.store(state + 1, Ordering::Release);
-        true
     }
 
     pub fn mark_old(&self) {
@@ -60,7 +69,7 @@ impl MetadataState<'_> {
     pub fn remove_reader(&self) {
         let old = self.0.fetch_sub(1, Ordering::AcqRel);
 
-        if old & READER_COUNT_MASK == 0 && old & WRITER_WAITING == WRITER_WAITING {
+        if old & READER_COUNT_MASK == 1 && old & WRITER_WAITING == WRITER_WAITING {
             atomic_wait::wake_all(self.0)
         }
     }

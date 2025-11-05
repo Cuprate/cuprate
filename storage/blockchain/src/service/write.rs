@@ -13,6 +13,7 @@ use crate::database::RCT_OUTPUTS;
 use crate::ops::block::{add_prunable_blocks_blobs, add_pruned_blocks_blobs};
 use crate::types::RctOutput;
 use crate::{service::types::ResponseResult, tables::OpenTables, BlockchainDatabase};
+use crate::ops::output::V1OutputWriter;
 
 /// Write functions within this module abort if the write transaction
 /// could not be aborted successfully to maintain atomicity.
@@ -86,6 +87,7 @@ fn write_blocks<E: Env>(
             .fixed_sized_tape_appender::<RctOutput>(&RCT_OUTPUTS)
             .len() as u64;
         let mut rct_outputs = Vec::with_capacity(10_000);
+        let mut v1_outputs = V1OutputWriter::new();
 
         for blocks in [first_stripe, next_stripe] {
             if blocks.is_empty() {
@@ -102,13 +104,17 @@ fn write_blocks<E: Env>(
                     &mut prunable_idx,
                     &mut numb_rct_outs,
                     &mut rct_outputs,
+                    &mut v1_outputs,
                     &mut tables_mut,
                     &mut tapes,
                 )?;
             }
         }
 
-        tracing::debug!("writing outputs.");
+        tracing::debug!("writing v1 outputs.");
+        v1_outputs.flush_to_tables(&mut tables_mut)?;
+
+        tracing::debug!("writing v2 outputs.");
         let mut appender = tapes.fixed_sized_tape_appender(&RCT_OUTPUTS);
 
         appender.push_entries(&rct_outputs).unwrap();
