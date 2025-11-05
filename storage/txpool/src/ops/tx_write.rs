@@ -4,7 +4,7 @@
 use bytemuck::TransparentWrapper;
 use monero_oxide::transaction::{NotPruned, Transaction};
 
-use cuprate_database::{DatabaseRw, DbResult, StorableVec};
+use cuprate_database::{DatabaseRw, DbResult, StorableVec, WriteMode};
 use cuprate_helper::time::current_unix_timestamp;
 use cuprate_types::TransactionVerificationData;
 
@@ -32,7 +32,7 @@ pub fn add_transaction(
     // Add the tx blob to table 0.
     tables
         .transaction_blobs_mut()
-        .put(&tx.tx_hash, StorableVec::wrap_ref(&tx.tx_blob), false)?;
+        .put(&tx.tx_hash, StorableVec::wrap_ref(&tx.tx_blob), WriteMode::Normal)?;
 
     let mut flags = TxStateFlags::empty();
     flags.set(TxStateFlags::STATE_STEM, state_stem);
@@ -47,14 +47,14 @@ pub fn add_transaction(
             flags,
             _padding: [0; 7],
         },
-        false,
+        WriteMode::Normal,
     )?;
 
     // Add the cached verification state to table 2.
     let cached_verification_state = tx.cached_verification_state.into();
     tables
         .cached_verification_state_mut()
-        .put(&tx.tx_hash, &cached_verification_state, false)?;
+        .put(&tx.tx_hash, &cached_verification_state, WriteMode::Normal)?;
 
     // Add the tx key images to table 3.
     let kis_table = tables.spent_key_images_mut();
@@ -64,7 +64,7 @@ pub fn add_transaction(
     let blob_hash = transaction_blob_hash(&tx.tx_blob);
     tables
         .known_blob_hashes_mut()
-        .put(&blob_hash, &tx.tx_hash, false)?;
+        .put(&blob_hash, &tx.tx_hash, WriteMode::Normal)?;
 
     Ok(())
 }

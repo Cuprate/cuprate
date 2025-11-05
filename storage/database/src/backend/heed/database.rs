@@ -9,7 +9,7 @@ use crate::{
 };
 use heed::{PutFlags, WithoutTls};
 use std::cell::RefCell;
-
+use crate::database::WriteMode;
 //---------------------------------------------------------------------------------------------------- Heed Database Wrappers
 // Q. Why does `HeedTableR{o,w}` exist?
 // A. These wrapper types combine `heed`'s database/table
@@ -181,13 +181,13 @@ unsafe impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, '_, T> {
 
 impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
     #[inline]
-    fn put(&mut self, key: &T::Key, value: &T::Value, append: bool) -> DbResult<()> {
+    fn put(&mut self, key: &T::Key, value: &T::Value, mode: WriteMode) -> DbResult<()> {
         Ok(self.db.put_with_flags(
             &mut self.tx_rw.borrow_mut(),
-            if append {
-                PutFlags::APPEND
-            } else {
-                PutFlags::empty()
+            match mode {
+                WriteMode::Normal => PutFlags::empty(),
+                WriteMode::Append => PutFlags::APPEND,
+                WriteMode::AppendDup => PutFlags::APPEND_DUP,
             },
             key,
             value,

@@ -17,12 +17,7 @@
 
 use cuprate_database::StorableStr;
 //---------------------------------------------------------------------------------------------------- Import
-use crate::types::{
-    AltBlockHeight, AltChainInfo, AltTransactionInfo, Amount, AmountIndex, AmountIndices,
-    BlobTapeEnd, BlockBlob, BlockHash, BlockHeaderBlob, BlockHeight, BlockInfo, BlockTxHashes,
-    CompactAltBlockInfo, KeyImage, Output, PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob,
-    RawChainId, RctOutput, TxBlob, TxHash, TxId, TxInfo, UnlockTime,
-};
+use crate::types::{AltBlockHeight, AltChainInfo, AltTransactionInfo, Amount, AmountIndex, AmountIndices, BlobTapeEnd, BlockBlob, BlockHash, BlockHeaderBlob, BlockHeight, BlockInfo, BlockTxHashes, CompactAltBlockInfo, KeyImage, Output, PreRctOutputId, PreRctOutputTableKey, PrunableBlob, PrunableHash, PrunedBlob, RawChainId, RctOutput, TxBlob, TxHash, TxId, TxInfo, UnlockTime};
 
 //---------------------------------------------------------------------------------------------------- Tables
 // Notes:
@@ -55,7 +50,7 @@ cuprate_database::define_tables! {
 
     /// Pre-RCT output data.
     3 => Outputs,
-    PreRctOutputId => Output,
+    PreRctOutputTableKey => Output,
 
     // SOMEDAY: impl a properties table:
     // - db version

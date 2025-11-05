@@ -34,7 +34,7 @@ impl MetadataState<'_> {
                 state,
                 state + 1,
                 Ordering::AcqRel,
-                Ordering::Acquire,
+                Ordering::Relaxed,
             ) {
                 Ok(_) => return true,
                 Err(_) => continue,

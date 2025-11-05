@@ -4,9 +4,7 @@ use std::io::Write;
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
 use bytes::{BufMut, Bytes};
-use cuprate_database::{
-    DbResult, RuntimeError, StorableVec, {DatabaseRo, DatabaseRw},
-};
+use cuprate_database::{DbResult, RuntimeError, StorableVec, WriteMode, {DatabaseRo, DatabaseRw}};
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_helper::{
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
@@ -270,14 +268,14 @@ pub fn add_block(
     // Block heights.
     tables
         .block_heights_mut()
-        .put(&block.block_hash, &block.height, false)?;
+        .put(&block.block_hash, &block.height, WriteMode::Normal)?;
 
     let mut blob_ends = tables.blob_tape_ends().get(&1)?;
 
     blob_ends.pruned_tape = *pruned_tape_idx;
     blob_ends.prunable_tapes[stripe - 1] = *prunable_tape_idx;
 
-    tables.blob_tape_ends_mut().put(&1, &blob_ends, false)?;
+    tables.blob_tape_ends_mut().put(&1, &blob_ends, WriteMode::Normal)?;
 
     Ok(())
 }

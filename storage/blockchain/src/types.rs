@@ -47,7 +47,7 @@ use bytemuck::{Pod, Zeroable};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use cuprate_database::{Key, StorableVec};
+use cuprate_database::{Key, KeyCompare, StorableVec};
 use cuprate_linear_tape::Entry;
 use cuprate_types::{Chain, ChainId};
 
@@ -330,6 +330,7 @@ bitflags::bitflags! {
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(C)]
 pub struct Output {
+    pub amount_idx: u64,
     /// The public key of the output.
     pub key: [u8; 32],
     /// The block height this output belongs to.
@@ -340,6 +341,17 @@ pub struct Output {
     pub output_flags: OutputFlags,
     /// The index of the transaction this output belongs to.
     pub tx_idx: usize,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[repr(C)]
+pub struct PreRctOutputTableKey {
+    pub(crate) amount: u64
+}
+
+impl Key for PreRctOutputTableKey {
+    const KEY_COMPARE: KeyCompare = KeyCompare::Number;
+    const VALUE_COMPARE: KeyCompare = KeyCompare::Number;
 }
 
 //---------------------------------------------------------------------------------------------------- RctOutput

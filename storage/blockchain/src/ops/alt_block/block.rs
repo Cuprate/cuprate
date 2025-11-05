@@ -1,7 +1,7 @@
 use bytemuck::TransparentWrapper;
 use monero_oxide::block::{Block, BlockHeader};
 
-use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableVec};
+use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableVec, WriteMode};
 use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};
 use cuprate_types::{AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, HardFork};
 
@@ -56,7 +56,7 @@ pub fn add_alt_block(alt_block: &AltBlockInformation, tables: &mut impl TablesMu
 
     tables
         .alt_block_heights_mut()
-        .put(&alt_block.block_hash, &alt_block_height, false)?;
+        .put(&alt_block.block_hash, &alt_block_height, WriteMode::Normal)?;
 
     update_alt_chain_info(&alt_block_height, &alt_block.block.header.previous, tables)?;
 
@@ -75,12 +75,12 @@ pub fn add_alt_block(alt_block: &AltBlockInformation, tables: &mut impl TablesMu
 
     tables
         .alt_blocks_info_mut()
-        .put(&alt_block_height, &alt_block_info, false)?;
+        .put(&alt_block_height, &alt_block_info, WriteMode::Normal)?;
 
     tables.alt_block_blobs_mut().put(
         &alt_block_height,
         StorableVec::wrap_ref(&alt_block.block_blob),
-        false,
+        WriteMode::Normal,
     )?;
 
     assert_eq!(alt_block.txs.len(), alt_block.block.transactions.len());

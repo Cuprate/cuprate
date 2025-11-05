@@ -4,9 +4,7 @@ use std::collections::HashMap;
 //---------------------------------------------------------------------------------------------------- Import
 use monero_oxide::{io::CompressedPoint, transaction::Timelock};
 
-use cuprate_database::{
-    DbResult, RuntimeError, {DatabaseRo, DatabaseRw},
-};
+use cuprate_database::{DbResult, RuntimeError, WriteMode, {DatabaseRo, DatabaseRw}};
 use cuprate_helper::{
     cast::{u32_to_usize, u64_to_usize},
     crypto::compute_zero_commitment,
@@ -24,10 +22,11 @@ use crate::{
     tables::{Outputs, Tables, TablesMut, TxUnlockTime},
     types::{Amount, AmountIndex, Output, OutputFlags, PreRctOutputId, RctOutput},
 };
+use crate::types::PreRctOutputTableKey;
 
 pub struct V1OutputWriter {
     numb_outs: HashMap<u64, u64>,
-    outputs: Vec<(PreRctOutputId, Output)>,
+    outputs: Vec<(u64, Output)>,
 }
 
 impl V1OutputWriter {
@@ -40,39 +39,46 @@ impl V1OutputWriter {
 
     pub fn write_output(
         &mut self,
-        amount: Amount,
-        output: Output,
+        amount: u64,
+        key: [u8; 32],
+        height: u32,
+        output_flags: OutputFlags,
+        tx_idx: usize,
         tables: &mut impl TablesMut,
-    ) -> PreRctOutputId {
+    ) -> u64 {
         let numb_outs = self
             .numb_outs
             .entry(amount)
             .or_insert_with(|| tables.num_outputs().get(&amount).unwrap_or(0));
-
-        let pre_rct_output_id = PreRctOutputId {
-            amount,
-            // The new `amount_index` is the length of amount of outputs with same amount.
-            amount_index: *numb_outs,
-        };
-
+        
+        
+        let amount_idx = *numb_outs;
+        self.outputs.push((amount, Output {
+            amount_idx ,
+            key,
+            height,
+            output_flags,
+            tx_idx,
+        }));
+        
         *numb_outs += 1;
 
-        self.outputs.push((pre_rct_output_id, output));
-
-        pre_rct_output_id
+        amount_idx
     }
 
     pub fn flush_to_tables(self, tables: &mut impl TablesMut) -> DbResult<()> {
         for (output_amt, numb_outputs) in self.numb_outs.into_iter() {
             tables
                 .num_outputs_mut()
-                .put(&output_amt, &numb_outputs, false)?;
+                .put(&output_amt, &numb_outputs, WriteMode::Normal)?;
         }
 
-        for (pre_rct_output_id, output) in self.outputs {
+        for (amount, output) in self.outputs {
             tables
                 .outputs_mut()
-                .put(&pre_rct_output_id, &output, false)?;
+                .put(&PreRctOutputTableKey {
+                    amount
+                }, &output, WriteMode::AppendDup)?;
         }
 
         Ok(())
@@ -93,6 +99,8 @@ pub fn add_output(
     output: &Output,
     tables: &mut impl TablesMut,
 ) -> DbResult<PreRctOutputId> {
+    todo!()
+    /*
     // FIXME: this would be much better expressed with a
     // `btree_map::Entry`-like API, fix `trait DatabaseRw`.
     let num_outputs = match tables.num_outputs().get(&amount) {
@@ -106,7 +114,7 @@ pub fn add_output(
     // Update the amount of outputs.
     tables
         .num_outputs_mut()
-        .put(&amount, &(num_outputs + 1), false)?;
+        .put(&amount, &(num_outputs + 1), WriteMode::Normal)?;
 
     let pre_rct_output_id = PreRctOutputId {
         amount,
@@ -116,8 +124,10 @@ pub fn add_output(
 
     tables
         .outputs_mut()
-        .put(&pre_rct_output_id, output, false)?;
+        .put(&pre_rct_output_id, output, WriteMode::Normal)?;
     Ok(pre_rct_output_id)
+    
+     */
 }
 
 /// Remove a Pre-RCT [`Output`] from the database.
@@ -128,6 +138,8 @@ pub fn remove_output(
     pre_rct_output_id: &PreRctOutputId,
     tables: &mut impl TablesMut,
 ) -> DbResult<()> {
+    todo!()
+/*
     // Decrement the amount index by 1, or delete the entry out-right.
     // FIXME: this would be much better expressed with a
     // `btree_map::Entry`-like API, fix `trait DatabaseRw`.
@@ -144,6 +156,8 @@ pub fn remove_output(
 
     // Delete the output data itself.
     tables.outputs_mut().delete(pre_rct_output_id)
+    
+ */
 }
 
 /// Retrieve a Pre-RCT [`Output`] from the database.
@@ -153,7 +167,8 @@ pub fn get_output(
     pre_rct_output_id: &PreRctOutputId,
     table_outputs: &impl DatabaseRo<Outputs>,
 ) -> DbResult<Output> {
-    table_outputs.get(pre_rct_output_id)
+    //table_outputs.get(pre_rct_output_id)
+    todo!()
 }
 
 /// How many pre-RCT [`Output`]s are there?

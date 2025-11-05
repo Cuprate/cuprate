@@ -1,7 +1,7 @@
 //! Tx-pool key image ops.
 use monero_oxide::transaction::Input;
 
-use cuprate_database::{DatabaseRw, DbResult};
+use cuprate_database::{DatabaseRw, DbResult, WriteMode};
 
 use crate::{ops::TxPoolWriteError, tables::SpentKeyImages, types::TransactionHash};
 
@@ -21,7 +21,7 @@ pub(super) fn add_tx_key_images(
             return Err(TxPoolWriteError::DoubleSpend(double_spend_tx_hash));
         }
 
-        kis_table.put(&ki, tx_hash, false)?;
+        kis_table.put(&ki, tx_hash, WriteMode::Normal)?;
     }
 
     Ok(())

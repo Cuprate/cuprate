@@ -1,7 +1,7 @@
 use bytemuck::TransparentWrapper;
 use monero_oxide::transaction::Transaction;
 
-use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableVec};
+use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableVec, WriteMode};
 use cuprate_types::VerifiedTransactionInformation;
 
 use crate::ops::tx::get_tx;
@@ -31,7 +31,7 @@ pub fn add_alt_transaction_blob(
             fee: tx.fee,
             tx_hash: tx.tx_hash,
         },
-        false,
+        WriteMode::Normal,
     )?;
 
     if tables.tx_ids().get(&tx.tx_hash).is_ok()
@@ -43,7 +43,7 @@ pub fn add_alt_transaction_blob(
     tables.alt_transaction_blobs_mut().put(
         &tx.tx_hash,
         StorableVec::wrap_ref(&[tx.tx_pruned.as_slice(), tx.tx_prunable_blob.as_slice()].concat()),
-        false,
+        WriteMode::Normal,
     )?;
 
     Ok(())

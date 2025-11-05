@@ -67,6 +67,7 @@ pub trait Key: Storable + Sized + Ord {
     /// );
     /// ```
     const KEY_COMPARE: KeyCompare = KeyCompare::Default;
+    const VALUE_COMPARE: KeyCompare = KeyCompare::Default;
 }
 
 //---------------------------------------------------------------------------------------------------- Impl

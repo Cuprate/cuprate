@@ -7,7 +7,7 @@ use std::{
     sync::{RwLock, RwLockReadGuard},
 };
 
-use heed::{DatabaseFlags, EnvFlags, EnvOpenOptions, IntegerComparator, WithoutTls};
+use heed::{Comparator, DatabaseFlags, DatabaseOpenOptions, EnvFlags, EnvOpenOptions, IntegerComparator, RwTxn, WithoutTls};
 use tracing::{debug, warn};
 
 use crate::{
@@ -24,6 +24,7 @@ use crate::{
     resize::ResizeAlgorithm,
     table::Table,
 };
+use crate::backend::heed::storable::ValueSortHeed;
 
 //---------------------------------------------------------------------------------------------------- ConcreteEnv
 /// A strongly typed, concrete database environment, backed by `heed`.
@@ -107,7 +108,7 @@ impl Env for ConcreteEnv {
     /// Also see:
     /// - <https://github.com/Cuprate/cuprate/pull/102#discussion_r1548695610>
     /// - <https://github.com/Cuprate/cuprate/pull/104>
-    type TxRw<'tx> = RefCell<heed::RwTxn<'tx>>;
+    type TxRw<'tx> = RefCell<RwTxn<'tx>>;
 
     #[cold]
     #[inline(never)] // called once.
@@ -249,7 +250,7 @@ where
 {
     type Ro<'a> = heed::RoTxn<'a, WithoutTls>;
 
-    type Rw<'a> = RefCell<heed::RwTxn<'a>>;
+    type Rw<'a> = RefCell<RwTxn<'a>>;
 
     #[inline]
     fn tx_ro(&self) -> DbResult<Self::Ro<'_>> {
@@ -300,24 +301,47 @@ where
         let mut db = self.database_options();
         db.name(T::NAME);
 
+        fn set_value_cmp<T: Table, HT: 'static, KC: 'static, DC: 'static, C: Comparator + 'static, CDUP: Comparator + 'static>(database: DatabaseOpenOptions<HT, KC, DC, C, CDUP>, tx_rw: &mut RwTxn) -> heed::Result<()> {
+            match <T::Key>::VALUE_COMPARE {
+                // Use LMDB's default comparison function.
+                KeyCompare::Default => {
+                    database.create(tx_rw)?;
+                }
+
+                // Instead of setting a custom [`heed::Comparator`],
+                // use this LMDB flag; it is ~10% faster.
+                KeyCompare::Number => {
+                    database.dup_sort_comparator::<IntegerComparator>().flags(DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED)
+                        .create(tx_rw)?;
+                }
+
+                // Use a custom comparison function if specified.
+                KeyCompare::Custom(_) => {
+                    database.dup_sort_comparator::<ValueSortHeed<T::Key>>().flags(DatabaseFlags::DUP_SORT)
+                        .create(tx_rw)?;
+                }
+            }
+
+            Ok(())
+        }
+
+
         // Set the key comparison behavior.
         match <T::Key>::KEY_COMPARE {
             // Use LMDB's default comparison function.
             KeyCompare::Default => {
-                db.create(&mut tx_rw)?;
+                set_value_cmp::<T, _, _,_,_,_>(db, &mut tx_rw)?;
             }
 
             // Instead of setting a custom [`heed::Comparator`],
             // use this LMDB flag; it is ~10% faster.
             KeyCompare::Number => {
-                db.key_comparator::<IntegerComparator>()
-                    .create(&mut tx_rw)?;
+                set_value_cmp::<T, _, _,_,_,_>(db.key_comparator::<IntegerComparator>(), &mut tx_rw)?;
             }
 
             // Use a custom comparison function if specified.
             KeyCompare::Custom(_) => {
-                db.key_comparator::<StorableHeed<T::Key>>()
-                    .create(&mut tx_rw)?;
+                set_value_cmp::<T, _, _,_,_,_>(db.key_comparator::<StorableHeed<T::Key>>(), &mut tx_rw)?;
             }
         }
 

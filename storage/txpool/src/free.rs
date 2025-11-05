@@ -2,9 +2,7 @@
 
 use std::borrow::Cow;
 
-use cuprate_database::{
-    ConcreteEnv, DatabaseRo, Env, EnvInner, InitError, RuntimeError, StorableStr, TxRw,
-};
+use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, InitError, RuntimeError, StorableStr, TxRw, WriteMode};
 use cuprate_database::{DatabaseRw, TxRo};
 
 use crate::{
@@ -91,7 +89,7 @@ pub fn open(config: &Config) -> Result<ConcreteEnv, InitError> {
         if fresh_db {
             // If the database is new, add the version.
             metadata
-                .put(&VERSION_KEY, &DATABASE_VERSION, false)
+                .put(&VERSION_KEY, &DATABASE_VERSION, WriteMode::Normal)
                 .map_err(runtime_to_init_error)?;
         }
 

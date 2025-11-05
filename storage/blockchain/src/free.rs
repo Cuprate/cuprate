@@ -1,6 +1,6 @@
 //! General free functions (related to the database).
 
-use cuprate_database::DatabaseRw;
+use cuprate_database::{DatabaseRw, WriteMode};
 use parking_lot::RwLock;
 use std::fs::{create_dir, create_dir_all};
 use std::io;
@@ -74,7 +74,7 @@ pub fn open<E: Env>(config: Config) -> Result<BlockchainDatabase<E>, InitError> 
                     pruned_tape: 0,
                     prunable_tapes: [0; 8],
                 },
-                false,
+                WriteMode::Normal,
             )
             .unwrap();
         drop(table);

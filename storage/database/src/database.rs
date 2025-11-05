@@ -150,6 +150,12 @@ pub unsafe trait DatabaseRo<T: Table> {
     fn is_empty(&self) -> DbResult<bool>;
 }
 
+pub enum WriteMode {
+    Normal,
+    Append,
+    AppendDup
+}
+
 //---------------------------------------------------------------------------------------------------- DatabaseRw
 /// Database (key-value store) read/write abstraction.
 ///
@@ -162,7 +168,7 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     #[doc = doc_database!()]
     ///
     /// This will never [`RuntimeError::KeyExists`].
-    fn put(&mut self, key: &T::Key, value: &T::Value, append: bool) -> DbResult<()>;
+    fn put(&mut self, key: &T::Key, value: &T::Value, mode: WriteMode) -> DbResult<()>;
 
     /// Delete a key-value pair in the database.
     ///
@@ -200,7 +206,7 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
         let value = DatabaseRo::get(self, key)?;
 
         match f(value) {
-            Some(value) => DatabaseRw::put(self, key, &value, false),
+            Some(value) => DatabaseRw::put(self, key, &value, WriteMode::Normal),
             None => DatabaseRw::delete(self, key),
         }
     }

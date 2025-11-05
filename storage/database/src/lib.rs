@@ -49,7 +49,7 @@ pub use backend::ConcreteEnv;
 pub use constants::{
     DATABASE_BACKEND, DATABASE_CORRUPT_MSG, DATABASE_DATA_FILENAME, DATABASE_LOCK_FILENAME,
 };
-pub use database::{DatabaseIter, DatabaseRo, DatabaseRw};
+pub use database::{DatabaseIter, DatabaseRo, DatabaseRw, WriteMode};
 pub use env::{Env, EnvInner};
 pub use error::{DbResult, InitError, RuntimeError};
 pub use key::{Key, KeyCompare};

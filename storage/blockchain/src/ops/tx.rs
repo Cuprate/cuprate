@@ -16,7 +16,7 @@ use crate::{
     types::{BlockHeight, Output, OutputFlags, PreRctOutputId, RctOutput, TxHash, TxId},
 };
 use bytemuck::TransparentWrapper;
-use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableVec};
+use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableVec, WriteMode};
 use cuprate_helper::crypto::compute_zero_commitment;
 use cuprate_linear_tape::{LinearTapeAppender, LinearTapes};
 use cuprate_pruning::{CRYPTONOTE_PRUNING_LOG_STRIPES, CRYPTONOTE_PRUNING_STRIPE_SIZE};
@@ -69,7 +69,7 @@ pub fn add_tx(
     let tx_id = get_num_tx(tables.tx_ids_mut())? as usize;
 
     //------------------------------------------------------ Transaction data
-    tables.tx_ids_mut().put(tx_hash, &tx_id, false)?;
+    tables.tx_ids_mut().put(tx_hash, &tx_id, WriteMode::Normal)?;
     tape_appender
         .fixed_sized_tape_appender(TX_INFOS)
         .push_entries(&[TxInfo {
@@ -98,9 +98,9 @@ pub fn add_tx(
         Timelock::Block(height) => {
             tables
                 .tx_unlock_time_mut()
-                .put(&tx_id, &(height as u64), true)?
+                .put(&tx_id, &(height as u64), WriteMode::Append)?
         }
-        Timelock::Time(time) => tables.tx_unlock_time_mut().put(&tx_id, &time, true)?,
+        Timelock::Time(time) => tables.tx_unlock_time_mut().put(&tx_id, &time, WriteMode::Append)?,
     }
 
     //------------------------------------------------------ Pruning
@@ -151,15 +151,12 @@ pub fn add_tx(
                 Ok(v1_outputs
                     .write_output(
                         output.amount.unwrap_or(0),
-                        Output {
-                            key: output.key.0,
+                            output.key.0,
                             height,
                             output_flags,
-                            tx_idx: tx_id,
-                        },
+                             tx_id,
                         tables,
-                    )
-                    .amount_index)
+                    ))
             })
             .collect::<DbResult<Vec<_>>>()?,
         Transaction::V2 { prefix, proofs } => prefix
@@ -198,7 +195,7 @@ pub fn add_tx(
     if tx.version() == 1 {
         tables
             .tx_outputs_mut()
-            .put(&tx_id, &StorableVec(amount_indices), true)?;
+            .put(&tx_id, &StorableVec(amount_indices), WriteMode::Append)?;
     }
 
     Ok(tx_id)

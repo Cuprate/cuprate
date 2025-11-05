@@ -7,6 +7,20 @@ use heed::{BoxedError, BytesDecode, BytesEncode};
 
 use crate::{storable::Storable, Key};
 
+pub struct ValueSortHeed<T>(PhantomData<T>)
+where
+    T: Storable + ?Sized;
+
+
+impl<T> heed::Comparator for ValueSortHeed<T>
+where
+    T: Key,
+{
+    #[inline]
+    fn compare(a: &[u8], b: &[u8]) -> Ordering {
+        <T as Key>::VALUE_COMPARE.as_compare_fn::<T>()(a, b)
+    }
+}
 //---------------------------------------------------------------------------------------------------- StorableHeed
 /// The glue struct that implements `heed`'s (de)serialization
 /// traits on any type that implements `cuprate_database::Storable`.

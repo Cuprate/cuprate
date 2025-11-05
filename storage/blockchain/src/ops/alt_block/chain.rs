@@ -1,6 +1,6 @@
 use std::cmp::{max, min};
 
-use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError};
+use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, WriteMode};
 use cuprate_types::{Chain, ChainId};
 
 use crate::{
@@ -60,7 +60,7 @@ pub fn update_alt_chain_info(
             common_ancestor_height: alt_block_height.height.checked_sub(1).unwrap(),
             chain_height: alt_block_height.height + 1,
         },
-        false,
+        WriteMode::Normal,
     )
 }
 

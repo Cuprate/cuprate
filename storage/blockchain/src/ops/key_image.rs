@@ -1,7 +1,7 @@
 //! Key image functions.
 
 //---------------------------------------------------------------------------------------------------- Import
-use cuprate_database::{DatabaseRo, DatabaseRw, DbResult};
+use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, WriteMode};
 
 use crate::{
     ops::macros::{doc_add_block_inner_invariant, doc_error},
@@ -18,7 +18,7 @@ pub fn add_key_image(
     key_image: &KeyImage,
     table_key_images: &mut impl DatabaseRw<KeyImages>,
 ) -> DbResult<()> {
-    table_key_images.put(key_image, &(), false)
+    table_key_images.put(key_image, &(), WriteMode::Normal)
 }
 
 /// Remove a [`KeyImage`] from the "spent" set in the database.
