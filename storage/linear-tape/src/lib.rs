@@ -84,7 +84,7 @@ impl LinearTapes {
         tapes: Vec<Tapes>,
         metadata_path: P,
     ) -> Result<Self, io::Error> {
-        create_dir_all(metadata_path.as_ref())?;
+        create_dir_all(metadata_path.as_ref());
 
         let metadata = unsafe {
             MetadataFile::open(
@@ -96,7 +96,7 @@ impl LinearTapes {
 
         let default_tape_path = metadata_path.as_ref().join("tapes");
 
-        create_dir(default_tape_path.as_path())?;
+        create_dir(default_tape_path.as_path());
 
         let tapes_to_index = tapes.iter().enumerate().map(|(i, t)| (t.name, i)).collect();
 
