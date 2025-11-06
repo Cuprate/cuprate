@@ -14,6 +14,7 @@ use clap::Parser;
 use safelog::DisplayRedacted;
 use serde::{Deserialize, Serialize};
 
+use anyhow::bail;
 use cuprate_consensus::ContextConfig;
 use cuprate_helper::{
     fs::{CUPRATE_CONFIG_DIR, DEFAULT_CONFIG_FILE_NAME},
@@ -333,34 +334,34 @@ impl Config {
         match TcpListener::bind((ip, port)) {
             Ok(_) => Ok(()),
             Err(e) => {
-                anyhow::bail!("Failed to bind {ip}:{port} - {e}")
+                bail!("Failed to bind {ip}:{port} - {e}")
             }
         }
     }
 
-    /// Checks if a path exists and has proper read/write permissions.
-    fn check_path_permissions(path: &Path) -> Result<(), anyhow::Error> {
+    /// Checks if a directory exists and has proper read/write permissions.
+    fn check_dir_permissions(path: &Path) -> Result<(), anyhow::Error> {
         if !path.exists() {
-            anyhow::bail!("Path does not exist {}", path.display())
+            bail!("Path does not exist {}", path.display())
         }
 
         if let Err(e) = std::fs::read_dir(path) {
-            anyhow::bail!("No read permission for {}", path.display())
+            bail!("No read permission for {}", path.display())
         }
 
         let test_file = path.join(".cuprate_write_test");
         if let Err(e) = std::fs::write(&test_file, b"Cuprate") {
-            anyhow::bail!("No write permission for {}", path.display());
+            bail!("No write permission for {}", path.display());
         }
 
         if let Err(e) = std::fs::remove_file(&test_file) {
-            anyhow::bail!("Cannot remove temporary file from {}", path.display());
+            bail!("Cannot remove temporary file from {}", path.display());
         }
 
         Ok(())
     }
 
-    pub fn dry_run_check(&self) {
+    pub fn dry_run_check(self) -> ! {
         let mut errors = Vec::new();
 
         if self.p2p.clear_net.enable_inbound {
@@ -389,7 +390,7 @@ impl Config {
             }
         }
 
-        match Self::check_path_permissions(&self.fs.data_directory) {
+        match Self::check_dir_permissions(&self.fs.data_directory) {
             Ok(()) => println!("Permissions are ok at {}", self.fs.data_directory.display()),
             Err(e) => {
                 eprintln_red(&format!("Error: {e}"));
@@ -397,7 +398,7 @@ impl Config {
             }
         }
 
-        match Self::check_path_permissions(&self.fs.cache_directory) {
+        match Self::check_dir_permissions(&self.fs.cache_directory) {
             Ok(()) => println!(
                 "Permissions are ok at {}",
                 self.fs.cache_directory.display()
@@ -408,13 +409,15 @@ impl Config {
             }
         }
 
-        if errors.is_empty() {
+        let code = if errors.is_empty() {
             println!("All checks passed successfully!");
-            std::process::exit(0);
+            0
         } else {
             eprintln_red("Checks failed.");
-            std::process::exit(1);
-        }
+            1
+        };
+
+        std::process::exit(code)
     }
 }
 
@@ -470,11 +473,11 @@ mod test {
         let tmp_dir = tempdir().unwrap();
         let path = tmp_dir.path().join("new_dir");
 
-        // Check path permissions on a non-existing directory
-        let err = Config::check_path_permissions(&path).unwrap_err();
+        // Check on a non-existing directory
+        let err = Config::check_dir_permissions(&path).unwrap_err();
         assert!(err.to_string().contains("Path does not exist"));
 
         fs::create_dir(&path).unwrap();
-        assert!(Config::check_path_permissions(&path).is_ok());
+        assert!(Config::check_dir_permissions(&path).is_ok());
     }
 }
