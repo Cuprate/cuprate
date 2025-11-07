@@ -38,7 +38,6 @@ cuprate-txpool            = { workspace = true }
 cuprate-types             = { workspace = true, features = ["json"] }
 cuprate-wire              = { workspace = true }
 
-
 # TODO: after v1.0.0, remove unneeded dependencies.
 axum                  = { workspace = true, features = ["tokio", "http1", "http2"] }
 anyhow                = { workspace = true }
