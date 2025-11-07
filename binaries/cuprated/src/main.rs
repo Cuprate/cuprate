@@ -44,7 +44,6 @@ mod blockchain;
 mod commands;
 mod config;
 mod constants;
-mod killswitch;
 mod logging;
 mod p2p;
 mod rpc;
@@ -57,9 +56,6 @@ mod version;
 fn main() {
     // Set global private permissions for created files.
     cuprate_helper::fs::set_private_global_file_permissions();
-
-    // Initialize the killswitch.
-    killswitch::init_killswitch();
 
     // Initialize global static `LazyLock` data.
     statics::init_lazylock_statics();

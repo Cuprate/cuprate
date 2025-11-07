@@ -32,4 +32,3 @@ The `--version` flag outputs the following info in JSON.
 | `semantic_version`      | String | Semantic version of `cuprated`                        |
 | `build`                 | String | Build of `cuprated`, either `debug` or `release`      |
 | `commit`                | String | `git` commit hash of `cuprated`                       |
-| `killswitch_timestamp`  | Number | Timestamp at which `cuprated`'s killswitch activates  |
