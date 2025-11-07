@@ -237,6 +237,13 @@ pub fn address_book_path(cache_dir: &Path, network: Network) -> PathBuf {
 //
 // # Windows
 // TODO: does nothing.
+#[cfg_attr(
+    target_os = "windows",
+    expect(
+        clippy::missing_const_for_fn,
+        reason = "remove when Windows is implemented"
+    )
+)]
 pub fn set_private_global_file_permissions() {
     #[cfg(target_family = "unix")]
     // SAFETY: calling C.
