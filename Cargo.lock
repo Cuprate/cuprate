@@ -1486,6 +1486,7 @@ dependencies = [
  "cuprate-p2p-core",
  "cuprate-test-utils",
  "cuprate-types",
+ "getrandom 0.2.16",
  "hex",
  "hex-literal 1.1.0",
  "paste",

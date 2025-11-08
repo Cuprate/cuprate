@@ -10,6 +10,8 @@ default = ["std", "serde"]
 std = ["bytes/std", "dep:thiserror"]
 serde = ["bytes/serde", "dep:serde"]
 
+__not_public_32_bit = []
+
 [dependencies]
 thiserror = { workspace = true, optional = true }
 bytes = { workspace = true }
