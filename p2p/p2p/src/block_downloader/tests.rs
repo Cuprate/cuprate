@@ -119,8 +119,8 @@ prop_compose! {
         )
     -> (Block, Vec<Transaction>) {
        (
-           Block {
-                header: BlockHeader {
+           Block::new(
+                 BlockHeader {
                     hardfork_version: 0,
                     hardfork_signal: 0,
                     timestamp: 0,
@@ -128,8 +128,8 @@ prop_compose! {
                     nonce: 0,
                 },
                 miner_transaction,
-                transactions: txs.iter().map(Transaction::hash).collect(),
-           },
+                 txs.iter().map(Transaction::hash).collect(),
+           ).unwrap(),
            txs
        )
     }
@@ -156,7 +156,9 @@ prop_compose! {
         for (height, mut block) in  blocks.into_iter().enumerate() {
             if let Some(last) = blockchain.last() {
                 block.0.header.previous = *last.0;
-                block.0.miner_transaction.prefix_mut().inputs = vec![Input::Gen(height)];
+                let mut miner_transactions = block.0.miner_transaction().clone();
+                miner_transactions.prefix_mut().inputs = vec![Input::Gen(height)];
+                block.0 = Block::new(block.0.header, miner_transactions, block.0.transactions ).unwrap();
             }
 
             blockchain.insert(block.0.hash(), block);
