@@ -29,6 +29,8 @@ members = [
 	"storage/service",
 	"storage/txpool",
 	"storage/database",
+	"storage/linear-tape",
+	"storage/linear-tape/rcu-ring",
 
 	# Types
 	"types/types",
@@ -87,6 +89,8 @@ default-members = [
 	"storage/service",
 	"storage/txpool",
 	"storage/database",
+	"storage/linear-tape",
+	"storage/linear-tape/rcu-ring",
 
 	# Types
 	"types/types",
@@ -152,6 +156,8 @@ cuprate-blockchain        = { path = "storage/blockchain",        default-featur
 cuprate-database          = { path = "storage/database",          default-features = false }
 cuprate-database-service  = { path = "storage/service",           default-features = false }
 cuprate-txpool            = { path = "storage/txpool",            default-features = false }
+cuprate-linear-tapes      = { path = "storage/linear-tape",       default-features = false }
+cuprate-rcu-ring          = { path = "storage/linear-tape/rcu-ring",default-features = false }
 cuprate-pruning           = { path = "pruning",                   default-features = false }
 cuprate-test-utils        = { path = "test-utils",                default-features = false }
 cuprate-types             = { path = "types/types",               default-features = false }
@@ -187,6 +193,7 @@ futures               = { version = "0.3", default-features = false }
 hex                   = { version = "0.4", default-features = false }
 hex-literal           = { version = "1", default-features = false }
 indexmap              = { version = "2", default-features = false }
+memmap2               = { version = "0.9", default-features = false }
 monero-address        = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "68d5a5e", default-features = false }
 monero-oxide          = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "68d5a5e", default-features = false }
 nu-ansi-term          = { version = "0.46", default-features = false }
@@ -345,7 +352,6 @@ unseparated_literal_suffix = "deny"
 unnecessary_safety_doc = "deny"
 unnecessary_safety_comment = "deny"
 unnecessary_self_imports = "deny"
-string_to_string = "deny"
 rest_pat_in_fully_bound_structs = "deny"
 redundant_type_annotations = "deny"
 infinite_loop = "deny"
