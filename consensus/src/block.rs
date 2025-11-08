@@ -72,7 +72,7 @@ impl PreparedBlockExPow {
         let (hf_version, hf_vote) = HardFork::from_block_header(&block.header)
             .map_err(|_| BlockError::HardForkError(HardForkError::HardForkUnknown))?;
 
-        let Some(Input::Gen(height)) = block.miner_transaction.prefix().inputs.first() else {
+        let Some(Input::Gen(height)) = block.miner_transaction().prefix().inputs.first() else {
             return Err(ConsensusError::Block(BlockError::MinerTxError(
                 MinerTxError::InputNotOfTypeGen,
             )));
@@ -86,7 +86,7 @@ impl PreparedBlockExPow {
             block_hash: block.hash(),
             height: *height,
 
-            miner_tx_weight: block.miner_transaction.weight(),
+            miner_tx_weight: block.miner_transaction().weight(),
             block,
         })
     }
@@ -123,7 +123,7 @@ impl PreparedBlock {
         let (hf_version, hf_vote) = HardFork::from_block_header(&block.header)
             .map_err(|_| BlockError::HardForkError(HardForkError::HardForkUnknown))?;
 
-        let [Input::Gen(height)] = &block.miner_transaction.prefix().inputs[..] else {
+        let [Input::Gen(height)] = &block.miner_transaction().prefix().inputs[..] else {
             return Err(ConsensusError::Block(BlockError::MinerTxError(
                 MinerTxError::InputNotOfTypeGen,
             )));
@@ -142,7 +142,7 @@ impl PreparedBlock {
                 &hf_version,
             )?,
 
-            miner_tx_weight: block.miner_transaction.weight(),
+            miner_tx_weight: block.miner_transaction().weight(),
             block,
         })
     }
@@ -172,7 +172,7 @@ impl PreparedBlock {
                 &block.hf_version,
             )?,
 
-            miner_tx_weight: block.block.miner_transaction.weight(),
+            miner_tx_weight: block.block.miner_transaction().weight(),
             block: block.block,
         })
     }
@@ -186,7 +186,7 @@ impl PreparedBlock {
             hf_version: HardFork::from_vote(block.block.header.hardfork_signal),
             block_hash: block.block_hash,
             pow_hash: block.pow_hash,
-            miner_tx_weight: block.block.miner_transaction.weight(),
+            miner_tx_weight: block.block.miner_transaction().weight(),
             block: block.block,
         })
     }

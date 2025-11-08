@@ -5,6 +5,9 @@
     reason = "macros (internal + serde) make this lint hard to satisfy"
 )]
 
+#[cfg(feature = "__not_public_32_bit")]
+use getrandom as _;
+
 mod constants;
 #[cfg(any(feature = "serde", feature = "epee"))]
 mod defaults;

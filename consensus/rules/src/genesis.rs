@@ -27,17 +27,18 @@ fn genesis_miner_tx(network: Network) -> Transaction {
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/genesis_block.html>
 pub fn generate_genesis_block(network: Network) -> Block {
-    Block {
-        header: BlockHeader {
+    Block::new(
+        BlockHeader {
             hardfork_version: 1,
             hardfork_signal: 0,
             timestamp: 0,
             previous: [0; 32],
             nonce: genesis_nonce(network),
         },
-        miner_transaction: genesis_miner_tx(network),
-        transactions: vec![],
-    }
+        genesis_miner_tx(network),
+        vec![],
+    )
+    .unwrap()
 }
 
 #[cfg(test)]

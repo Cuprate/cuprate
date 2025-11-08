@@ -87,7 +87,7 @@ jobs:
           targets: wasm32-unknown-unknown
 
       - name: Build WASM 32-bit
-        run: cargo build --target wasm32-unknown-unknown -p ${{ matrix.crate }}
+        run: cargo build --target wasm32-unknown-unknown --features __not_public_32_bit -p ${{ matrix.crate }}
 
   # CI, runs on GitHub provided OSs.
   ci:

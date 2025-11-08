@@ -80,7 +80,7 @@ pub(super) async fn block_header(
     let (difficulty_top64, difficulty) = split_u128_into_low_high_bits(difficulty);
 
     let reward = block
-        .miner_transaction
+        .miner_transaction()
         .prefix()
         .outputs
         .iter()
@@ -98,7 +98,7 @@ pub(super) async fn block_header(
         height,
         long_term_weight: usize_to_u64(header.long_term_weight),
         major_version: header.version,
-        miner_tx_hash: block.miner_transaction.hash(),
+        miner_tx_hash: block.miner_transaction().hash(),
         minor_version: header.vote,
         nonce: block.header.nonce,
         num_txes: usize_to_u64(block.transactions.len()),
