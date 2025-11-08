@@ -34,33 +34,28 @@ use cuprate_types::{
     Chain, ChainId, ExtendedBlockHeader, OutputDistributionInput, TxsInBlock,
 };
 
-use crate::{
-    ops::{
-        alt_block::{
-            get_alt_block, get_alt_block_extended_header_from_height, get_alt_block_hash,
-            get_alt_chain_history_ranges,
-        },
-        block::{
-            block_exists, get_block, get_block_blob_with_tx_indexes, get_block_by_hash,
-            get_block_complete_entry, get_block_complete_entry_from_height,
-            get_block_extended_header_from_height, get_block_height, get_block_info,
-        },
-        blockchain::{cumulative_generated_coins, find_split_point, top_block_height},
-        key_image::key_image_exists,
-        output::id_to_output_on_chain,
+use crate::{ops::{
+    alt_block::{
+        get_alt_block, get_alt_block_extended_header_from_height, get_alt_block_hash,
+        get_alt_chain_history_ranges,
     },
-    service::{
-        free::{compact_history_genesis_not_included, compact_history_index_to_height_offset},
-        types::{BlockchainReadHandle, ResponseResult},
+    block::{
+        block_exists, get_block, get_block_blob_with_tx_indexes, get_block_by_hash,
+        get_block_complete_entry, get_block_complete_entry_from_height,
+        get_block_extended_header_from_height, get_block_height, get_block_info,
     },
-    tables::{
-        AltBlockHeights, BlockHeights, BlockInfos, OpenTables, RctOutputs, Tables, TablesIter,
-        TxIds, TxOutputs,
-    },
-    types::{
-        AltBlockHeight, Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId,
-    },
-};
+    blockchain::{cumulative_generated_coins, find_split_point, top_block_height},
+    key_image::key_image_exists,
+    output::id_to_output_on_chain,
+}, service::{
+    free::{compact_history_genesis_not_included, compact_history_index_to_height_offset},
+    types::{BlockchainReadHandle, ResponseResult},
+}, tables::{
+    AltBlockHeights, BlockHeights, BlockInfos, OpenTables, RctOutputs, Tables, TablesIter,
+    TxIds, TxOutputs,
+}, types::{
+    AltBlockHeight, Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId,
+}, Database};
 
 //---------------------------------------------------------------------------------------------------- init_read_service
 /// Initialize the [`BlockchainReadHandle`] thread-pool backed by [`rayon`].
@@ -102,7 +97,7 @@ pub fn init_read_service_with_pool(
 /// 2. Handler function is called
 /// 3. [`BlockchainResponse`] is returned
 fn map_request(
-    env: &ConcreteEnv,              // Access to the database
+    env: &Database,              // Access to the database
     request: BlockchainReadRequest, // The request we must fulfill
 ) -> ResponseResult {
     use BlockchainReadRequest as R;

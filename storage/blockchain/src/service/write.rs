@@ -9,10 +9,7 @@ use cuprate_types::{
     AltBlockInformation, ChainId, VerifiedBlockInformation,
 };
 
-use crate::{
-    service::types::{BlockchainWriteHandle, ResponseResult},
-    tables::OpenTables,
-};
+use crate::{service::types::{BlockchainWriteHandle, ResponseResult}, tables::OpenTables, Database};
 
 /// Write functions within this module abort if the write transaction
 /// could not be aborted successfully to maintain atomicity.
@@ -23,14 +20,14 @@ const TX_RW_ABORT_FAIL: &str =
 
 //---------------------------------------------------------------------------------------------------- init_write_service
 /// Initialize the blockchain write service from a [`ConcreteEnv`].
-pub fn init_write_service(env: Arc<ConcreteEnv>) -> BlockchainWriteHandle {
+pub fn init_write_service(env: Arc<Database>) -> BlockchainWriteHandle {
     DatabaseWriteHandle::init(env, handle_blockchain_request)
 }
 
 //---------------------------------------------------------------------------------------------------- handle_bc_request
 /// Handle an incoming [`BlockchainWriteRequest`], returning a [`BlockchainResponse`].
 fn handle_blockchain_request(
-    env: &ConcreteEnv,
+    env: &Arc<Database>,
     req: &BlockchainWriteRequest,
 ) -> DbResult<BlockchainResponse> {
     match req {

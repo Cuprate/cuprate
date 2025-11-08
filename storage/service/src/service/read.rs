@@ -7,7 +7,7 @@ use futures::channel::oneshot;
 use rayon::ThreadPool;
 use tower::Service;
 
-use cuprate_database::{ConcreteEnv, DbResult, RuntimeError};
+use cuprate_database::{DbResult, RuntimeError};
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
 /// The [`rayon::ThreadPool`] service.
@@ -48,10 +48,10 @@ where
     /// is the correct way to get multiple handles to the database.
     #[cold]
     #[inline(never)] // Only called once.
-    pub fn new(
-        env: Arc<ConcreteEnv>,
+    pub fn new<D: Send + Sync + 'static>(
+        env: Arc<D>,
         pool: Arc<ThreadPool>,
-        req_handler: impl Fn(&ConcreteEnv, Req) -> DbResult<Res> + Send + Sync + 'static,
+        req_handler: impl Fn(&D, Req) -> DbResult<Res> + Send + Sync + 'static,
     ) -> Self {
         let inner_handler = Arc::new(move |req| req_handler(&env, req));
 

@@ -89,7 +89,7 @@ pub enum Flush {
 pub struct ResizeNeeded;
 
 /// A tape in the database.
-pub struct Tapes {
+pub struct Tape {
     /// The name of the tape, must be unique.
     pub name: &'static str,
     /// The path to use for the tape, if [`None`] will use the default of being under a `tapes` directory
@@ -142,7 +142,7 @@ impl LinearTapes {
     /// This is marked unsafe as modifications to the underlying file can lead to UB.
     /// You must ensure across all processes that no unsafe accesses are done.
     pub unsafe fn new<P: AsRef<Path>>(
-        mut tapes: Vec<Tapes>,
+        mut tapes: Vec<Tape>,
         metadata_path: P,
         min_resize: u64,
     ) -> Result<Self, io::Error> {

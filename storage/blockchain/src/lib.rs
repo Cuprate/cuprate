@@ -22,10 +22,13 @@ compile_error!("Cuprate is only compatible with 64-bit CPUs");
 
 mod constants;
 mod free;
+mod database;
+
 
 pub use constants::DATABASE_VERSION;
 pub use cuprate_database;
 pub use free::open;
+pub use database::Database;
 
 pub mod config;
 pub mod ops;
