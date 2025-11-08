@@ -220,7 +220,7 @@ impl LinearTapes {
     /// to no longer be accessing the bytes in the range popped, so this thread will block waiting for readers
     /// to not be accessing old state if it follows a pop.
     ///
-    /// Once you have finished appending data to the tapes your changes must be commited with [`Appender::flush`].
+    /// Once you have finished appending data to the tapes your changes must be committed with [`Appender::flush`].
     pub fn appender(&self) -> Appender<'_> {
         let meta_guard = self.metadata.start_write(APPEND_OP);
 
@@ -253,7 +253,7 @@ impl LinearTapes {
     /// Only one write operation can be active at a given time, this will block if another write operation
     /// is active util it is finished.
     ///
-    /// Once you have finished popping data from the tapes your changes must be commited with [`Popper::flush`]
+    /// Once you have finished popping data from the tapes your changes must be committed with [`Popper::flush`]
     pub fn popper(&self) -> Popper<'_> {
         let meta_guard = self.metadata.start_write(POP_OP);
 
@@ -319,7 +319,7 @@ impl LinearTapes {
 /// - for fixed sized tapes: [`Appender::fixed_sized_tape_appender`]
 /// - for blob tapes: [`Appender::blob_tape_appender`]
 ///
-/// Once finished changes must be commited with: [`Appender::flush`]
+/// Once finished changes must be committed with: [`Appender::flush`]
 pub struct Appender<'a> {
     /// The metadata guard for this writer.
     meta_guard: metadata::MetadataWriteGuard<'a>,
@@ -458,11 +458,11 @@ impl Appender<'_> {
 /// - for fixed sized tapes: [`Popper::fixed_sized_tape_popper`]
 /// - for blob tapes: [`Popper::blob_tape_popper`]
 ///
-/// Once finished changes must be commited with: [`Popper::flush`]
+/// Once finished changes must be committed with: [`Popper::flush`]
 pub struct Popper<'a> {
     /// The metadata guard for this writer.
     meta_guard: metadata::MetadataWriteGuard<'a>,
-    /// Tha tapes database.
+    /// The tapes database.
     tapes: &'a LinearTapes,
 }
 
