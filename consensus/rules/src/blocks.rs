@@ -267,7 +267,7 @@ pub fn check_block(
     check_txs_unique(&block.transactions)?;
 
     let generated_coins = check_miner_tx(
-        &block.miner_transaction,
+        block.miner_transaction(),
         total_fees,
         block_chain_ctx.chain_height,
         block_weight,

@@ -19,6 +19,7 @@ from    = [
 	"dep:cuprate-p2p-core",
 	"dep:hex"
 ]
+__not_public_32_bit = ["getrandom"]
 
 [dependencies]
 cuprate-fixed-bytes   = { workspace = true }
@@ -31,6 +32,8 @@ cuprate-p2p-core      = { workspace = true, optional = true, default-features = 
 paste = { workspace = true }
 serde = { workspace = true, optional = true }
 hex   = { workspace = true, optional = true }
+
+getrandom = { version = "0.2", optional = true, features = ["js"] }
 
 [dev-dependencies]
 cuprate-test-utils = { workspace = true }

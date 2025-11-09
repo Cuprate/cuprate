@@ -64,7 +64,7 @@ where
     };
 
     // Check if the block's miner input is formed correctly.
-    let [Input::Gen(height)] = &block.miner_transaction.prefix().inputs[..] else {
+    let [Input::Gen(height)] = &block.miner_transaction().prefix().inputs[..] else {
         return Err(ConsensusError::Block(BlockError::MinerTxError(
             MinerTxError::InputNotOfTypeGen,
         ))

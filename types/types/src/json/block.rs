@@ -28,7 +28,8 @@ pub struct Block {
 
 impl From<block::Block> for Block {
     fn from(b: block::Block) -> Self {
-        let Ok(miner_tx) = MinerTransaction::try_from(b.miner_transaction) else {
+        // TODO: remove the clone and add a method in monero-oxide to deconstruct a block.
+        let Ok(miner_tx) = MinerTransaction::try_from(b.miner_transaction().clone()) else {
             unreachable!("input is a miner tx, this should never fail");
         };
 
