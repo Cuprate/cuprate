@@ -26,7 +26,7 @@ pub(super) fn init_write_service(env: Arc<ConcreteEnv>) -> TxpoolWriteHandle {
 //---------------------------------------------------------------------------------------------------- handle_txpool_request
 /// Handle an incoming [`TxpoolWriteRequest`], returning a [`TxpoolWriteResponse`].
 fn handle_txpool_request(
-    env: &ConcreteEnv,
+    env: &Arc<ConcreteEnv>,
     req: &TxpoolWriteRequest,
 ) -> DbResult<TxpoolWriteResponse> {
     match req {

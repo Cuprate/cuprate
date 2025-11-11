@@ -51,9 +51,14 @@ use cuprate_helper::{
     fs::{blockchain_path, CUPRATE_DATA_DIR},
     network::Network,
 };
+use cuprate_linear_tapes::{Advice, Tape};
 
 // re-exports
 pub use cuprate_database_service::ReaderThreads;
+
+use crate::database::{
+    BLOCK_INFOS, PRUNABLE_BLOBS, PRUNED_BLOBS, RCT_OUTPUTS, TX_INFOS, V1_PRUNABLE_BLOBS,
+};
 
 //---------------------------------------------------------------------------------------------------- ConfigBuilder
 /// Builder for [`Config`].
@@ -113,6 +118,7 @@ impl ConfigBuilder {
 
         Config {
             db_config,
+            blob_data_dir: None,
             reader_threads,
         }
     }
@@ -205,6 +211,9 @@ pub struct Config {
     /// The database configuration.
     pub db_config: cuprate_database::config::Config,
 
+    /// The directory to store block/tx blobs.
+    pub blob_data_dir: Option<PathBuf>,
+
     /// Database reader thread count.
     pub reader_threads: ReaderThreads,
 }
@@ -253,4 +262,41 @@ impl Default for Config {
     fn default() -> Self {
         Self::new()
     }
+}
+
+pub fn linear_tapes_config(blob_data_dir: Option<PathBuf>) -> Vec<Tape> {
+    [
+        Tape {
+            name: RCT_OUTPUTS,
+            path: None,
+            advice: Advice::Random,
+        },
+        Tape {
+            name: TX_INFOS,
+            path: None,
+            advice: Advice::Random,
+        },
+        Tape {
+            name: BLOCK_INFOS,
+            path: None,
+            advice: Advice::Random,
+        },
+        Tape {
+            name: PRUNED_BLOBS,
+            path: blob_data_dir.clone(),
+            advice: Advice::Sequential,
+        },
+        Tape {
+            name: V1_PRUNABLE_BLOBS,
+            path: blob_data_dir.clone(),
+            advice: Advice::Sequential,
+        },
+    ]
+    .into_iter()
+    .chain(PRUNABLE_BLOBS.into_iter().map(|name| Tape {
+        name,
+        path: blob_data_dir.clone(),
+        advice: Advice::Sequential,
+    }))
+    .collect()
 }

@@ -7,13 +7,10 @@ use rayon::ThreadPool;
 
 use cuprate_database::{ConcreteEnv, InitError};
 
-use crate::{
-    config::Config,
-    service::{
-        init_read_service, init_read_service_with_pool, init_write_service,
-        types::{BlockchainReadHandle, BlockchainWriteHandle},
-    },
-};
+use crate::{config::Config, service::{
+    init_read_service, init_read_service_with_pool, init_write_service,
+    types::{BlockchainReadHandle, BlockchainWriteHandle},
+}, Database};
 
 //---------------------------------------------------------------------------------------------------- Init
 #[cold]
@@ -31,7 +28,7 @@ pub fn init(
     (
         BlockchainReadHandle,
         BlockchainWriteHandle,
-        Arc<ConcreteEnv>,
+        Arc<Database>,
     ),
     InitError,
 > {
@@ -66,7 +63,7 @@ pub fn init_with_pool(
     (
         BlockchainReadHandle,
         BlockchainWriteHandle,
-        Arc<ConcreteEnv>,
+        Arc<Database>,
     ),
     InitError,
 > {

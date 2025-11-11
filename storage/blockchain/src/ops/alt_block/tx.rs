@@ -9,6 +9,7 @@ use crate::{
     tables::{Tables, TablesMut},
     types::{AltTransactionInfo, TxHash},
 };
+use crate::ops::tx::get_tx;
 
 /// Adds a [`VerifiedTransactionInformation`] from an alt-block
 /// if it is not already in the DB.
@@ -38,9 +39,10 @@ pub fn add_alt_transaction_blob(
         return Ok(());
     }
 
+    // TODO: the below can be made more efficient pretty easily.
     tables
         .alt_transaction_blobs_mut()
-        .put(&tx.tx_hash, StorableVec::wrap_ref(&tx.tx_blob))?;
+        .put(&tx.tx_hash, StorableVec::wrap_ref(&[tx.tx_pruned.as_slice(), tx.tx_prunable_blob.as_slice()].concat()))?;
 
     Ok(())
 }
@@ -51,26 +53,29 @@ pub fn add_alt_transaction_blob(
 pub fn get_alt_transaction(
     tx_hash: &TxHash,
     tables: &impl Tables,
+    tapes: &cuprate_linear_tapes::Reader,
 ) -> DbResult<VerifiedTransactionInformation> {
     let tx_info = tables.alt_transaction_infos().get(tx_hash)?;
 
-    let tx_blob = match tables.alt_transaction_blobs().get(tx_hash) {
-        Ok(blob) => blob.0,
+    let tx = match tables.alt_transaction_blobs().get(tx_hash) {
+        Ok(tx_blob) => Transaction::read(&mut tx_blob.0.as_slice()).unwrap(),
         Err(RuntimeError::KeyNotFound) => {
-            let tx_id = tables.tx_ids().get(tx_hash)?;
 
-            let blob = tables.tx_blobs().get(&tx_id)?;
-
-            blob.0
+            get_tx(tx_hash, tables.tx_ids(), tapes)?
         }
         Err(e) => return Err(e),
     };
 
+    let tx_weight = tx_info.tx_weight;
+    let fee = tx_info.fee;
+    let (tx, tx_prunable_blob) = tx.pruned_with_prunable();
+
     Ok(VerifiedTransactionInformation {
-        tx: Transaction::read(&mut tx_blob.as_slice()).unwrap(),
-        tx_blob,
-        tx_weight: tx_info.tx_weight,
-        fee: tx_info.fee,
-        tx_hash: tx_info.tx_hash,
+        tx_prunable_blob,
+        tx_pruned: tx.serialize(),
+        tx_weight,
+        fee,
+        tx_hash: *tx_hash,
+        tx,
     })
 }

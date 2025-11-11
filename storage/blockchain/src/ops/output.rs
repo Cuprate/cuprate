@@ -6,11 +6,7 @@ use monero_oxide::{io::CompressedPoint, transaction::Timelock};
 use cuprate_database::{
     DbResult, RuntimeError, {DatabaseRo, DatabaseRw},
 };
-use cuprate_helper::{
-    cast::{u32_to_usize, u64_to_usize},
-    crypto::compute_zero_commitment,
-    map::u64_to_timelock,
-};
+use cuprate_helper::{cast::u32_to_usize, crypto::compute_zero_commitment, map::u64_to_timelock};
 use cuprate_types::OutputOnChain;
 
 use crate::{
@@ -18,11 +14,10 @@ use crate::{
         macros::{doc_add_block_inner_invariant, doc_error},
         tx::get_tx_from_id,
     },
-    tables::{
-        BlockInfos, BlockTxsHashes, Outputs, RctOutputs, Tables, TablesMut, TxBlobs, TxUnlockTime,
-    },
+    tables::{Outputs, Tables, TablesMut, TxUnlockTime},
     types::{Amount, AmountIndex, Output, OutputFlags, PreRctOutputId, RctOutput},
 };
+use crate::database::RCT_OUTPUTS;
 
 //---------------------------------------------------------------------------------------------------- Pre-RCT Outputs
 /// Add a Pre-RCT [`Output`] to the database.
@@ -106,53 +101,6 @@ pub fn get_num_outputs(table_outputs: &impl DatabaseRo<Outputs>) -> DbResult<u64
     table_outputs.len()
 }
 
-//---------------------------------------------------------------------------------------------------- RCT Outputs
-/// Add an [`RctOutput`] to the database.
-///
-/// Upon [`Ok`], this function returns the [`AmountIndex`] that
-/// can be used to lookup the `RctOutput` in [`get_rct_output()`].
-#[doc = doc_add_block_inner_invariant!()]
-#[doc = doc_error!()]
-#[inline]
-pub fn add_rct_output(
-    rct_output: &RctOutput,
-    table_rct_outputs: &mut impl DatabaseRw<RctOutputs>,
-) -> DbResult<AmountIndex> {
-    let amount_index = get_rct_num_outputs(table_rct_outputs)?;
-    table_rct_outputs.put(&amount_index, rct_output)?;
-    Ok(amount_index)
-}
-
-/// Remove an [`RctOutput`] from the database.
-#[doc = doc_add_block_inner_invariant!()]
-#[doc = doc_error!()]
-#[inline]
-pub fn remove_rct_output(
-    amount_index: &AmountIndex,
-    table_rct_outputs: &mut impl DatabaseRw<RctOutputs>,
-) -> DbResult<()> {
-    table_rct_outputs.delete(amount_index)
-}
-
-/// Retrieve an [`RctOutput`] from the database.
-#[doc = doc_error!()]
-#[inline]
-pub fn get_rct_output(
-    amount_index: &AmountIndex,
-    table_rct_outputs: &impl DatabaseRo<RctOutputs>,
-) -> DbResult<RctOutput> {
-    table_rct_outputs.get(amount_index)
-}
-
-/// How many [`RctOutput`]s are there?
-///
-/// This returns the amount of RCT outputs currently stored.
-#[doc = doc_error!()]
-#[inline]
-pub fn get_rct_num_outputs(table_rct_outputs: &impl DatabaseRo<RctOutputs>) -> DbResult<u64> {
-    table_rct_outputs.len()
-}
-
 //---------------------------------------------------------------------------------------------------- Mapping functions
 /// Map an [`Output`] to a [`cuprate_types::OutputOnChain`].
 #[doc = doc_error!()]
@@ -161,9 +109,7 @@ pub fn output_to_output_on_chain(
     amount: Amount,
     get_txid: bool,
     table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
-    table_block_txs_hashes: &impl DatabaseRo<BlockTxsHashes>,
-    table_block_infos: &impl DatabaseRo<BlockInfos>,
-    table_tx_blobs: &impl DatabaseRo<TxBlobs>,
+    tapes: &cuprate_linear_tapes::Reader,
 ) -> DbResult<OutputOnChain> {
     let commitment = compute_zero_commitment(amount);
 
@@ -179,16 +125,7 @@ pub fn output_to_output_on_chain(
     let key = CompressedPoint(output.key);
 
     let txid = if get_txid {
-        let height = u32_to_usize(output.height);
-
-        let miner_tx_id = table_block_infos.get(&height)?.mining_tx_index;
-
-        let txid = if miner_tx_id == output.tx_idx {
-            get_tx_from_id(&miner_tx_id, table_tx_blobs)?.hash()
-        } else {
-            let idx = u64_to_usize(output.tx_idx - miner_tx_id - 1);
-            table_block_txs_hashes.get(&height)?[idx]
-        };
+        let txid = get_tx_from_id(&output.tx_idx, tapes)?.hash();
 
         Some(txid)
     } else {
@@ -217,9 +154,7 @@ pub fn rct_output_to_output_on_chain(
     rct_output: &RctOutput,
     get_txid: bool,
     table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
-    table_block_txs_hashes: &impl DatabaseRo<BlockTxsHashes>,
-    table_block_infos: &impl DatabaseRo<BlockInfos>,
-    table_tx_blobs: &impl DatabaseRo<TxBlobs>,
+    tapes: &cuprate_linear_tapes::Reader,
 ) -> DbResult<OutputOnChain> {
     // INVARIANT: Commitments stored are valid when stored by the database.
     let commitment = CompressedPoint(rct_output.commitment);
@@ -236,16 +171,7 @@ pub fn rct_output_to_output_on_chain(
     let key = CompressedPoint(rct_output.key);
 
     let txid = if get_txid {
-        let height = u32_to_usize(rct_output.height);
-
-        let miner_tx_id = table_block_infos.get(&height)?.mining_tx_index;
-
-        let txid = if miner_tx_id == rct_output.tx_idx {
-            get_tx_from_id(&miner_tx_id, table_tx_blobs)?.hash()
-        } else {
-            let idx = u64_to_usize(rct_output.tx_idx - miner_tx_id - 1);
-            table_block_txs_hashes.get(&height)?[idx]
-        };
+        let txid = get_tx_from_id(&rct_output.tx_idx, tapes)?.hash();
 
         Some(txid)
     } else {
@@ -269,18 +195,13 @@ pub fn id_to_output_on_chain(
     id: &PreRctOutputId,
     get_txid: bool,
     tables: &impl Tables,
+    tapes: &cuprate_linear_tapes::Reader,
 ) -> DbResult<OutputOnChain> {
     // v2 transactions.
     if id.amount == 0 {
-        let rct_output = get_rct_output(&id.amount_index, tables.rct_outputs())?;
-        let output_on_chain = rct_output_to_output_on_chain(
-            &rct_output,
-            get_txid,
-            tables.tx_unlock_time(),
-            tables.block_txs_hashes(),
-            tables.block_infos(),
-            tables.tx_blobs(),
-        )?;
+        let rct_output = tapes.fixed_sized_tape_reader(RCT_OUTPUTS).try_get(id.amount_index as usize).ok_or(RuntimeError::KeyNotFound)?;
+        let output_on_chain =
+            rct_output_to_output_on_chain(&rct_output, get_txid, tables.tx_unlock_time(), tapes)?;
 
         Ok(output_on_chain)
     } else {
@@ -291,9 +212,7 @@ pub fn id_to_output_on_chain(
             id.amount,
             get_txid,
             tables.tx_unlock_time(),
-            tables.block_txs_hashes(),
-            tables.block_infos(),
-            tables.tx_blobs(),
+            tapes,
         )?;
 
         Ok(output_on_chain)

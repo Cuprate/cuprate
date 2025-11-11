@@ -192,7 +192,7 @@ pub fn block_to_verified_block_information(
 
     let block_blob = block.serialize();
 
-    let Some(Input::Gen(height)) = block.miner_transaction.prefix().inputs.first() else {
+    let Some(Input::Gen(height)) = block.miner_transaction().prefix().inputs.first() else {
         panic!("fast sync block invalid");
     };
 
@@ -214,18 +214,20 @@ pub fn block_to_verified_block_information(
     for tx in &block.transactions {
         let data = txs.remove(tx).expect("fast sync block invalid");
 
+        let (tx, prunable) = data.tx.pruned_with_prunable();
         verified_txs.push(VerifiedTransactionInformation {
-            tx_blob: data.tx_blob,
+            tx_prunable_blob: prunable,
+            tx_pruned: tx.serialize(),
             tx_weight: data.tx_weight,
             fee: data.fee,
             tx_hash: data.tx_hash,
-            tx: data.tx,
+            tx,
         });
     }
 
     let total_fees = verified_txs.iter().map(|tx| tx.fee).sum::<u64>();
     let total_outputs = block
-        .miner_transaction
+        .miner_transaction()
         .prefix()
         .outputs
         .iter()
@@ -234,7 +236,7 @@ pub fn block_to_verified_block_information(
 
     let generated_coins = total_outputs - total_fees;
 
-    let weight = block.miner_transaction.weight()
+    let weight = block.miner_transaction().weight()
         + verified_txs.iter().map(|tx| tx.tx_weight).sum::<usize>();
 
     VerifiedBlockInformation {

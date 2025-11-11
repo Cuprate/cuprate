@@ -112,7 +112,7 @@ fn keccak1600(input: &[u8], out: &mut [u8; KECCAK1600_BYTE_SIZE]) {
     let mut hasher = sha3::Keccak256Full::new();
     _ = hasher.write(input).unwrap();
     let result = hasher.finalize();
-    out.copy_from_slice(result.as_slice());
+    out.copy_from_slice(result.as_ref());
 }
 
 /// Original C code:

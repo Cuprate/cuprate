@@ -68,15 +68,15 @@ async fn mock_manager(data_dir: PathBuf) -> BlockchainManager {
 }
 
 fn generate_block(context: &BlockchainContext) -> Block {
-    Block {
-        header: BlockHeader {
+    Block::new(
+        BlockHeader {
             hardfork_version: 16,
             hardfork_signal: 16,
             timestamp: 1000,
             previous: context.top_hash,
             nonce: 0,
         },
-        miner_transaction: Transaction::V2 {
+        Transaction::V2 {
             prefix: TransactionPrefix {
                 additional_timelock: Timelock::Block(context.chain_height + 60),
                 inputs: vec![Input::Gen(context.chain_height)],
@@ -95,8 +95,9 @@ fn generate_block(context: &BlockchainContext) -> Block {
             },
             proofs: None,
         },
-        transactions: vec![],
-    }
+        vec![],
+    )
+    .unwrap()
 }
 
 #[tokio::test]

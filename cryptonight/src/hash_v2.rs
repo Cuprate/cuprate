@@ -425,7 +425,7 @@ mod tests {
             for block in long_state {
                 hash.update(block.to_le_bytes());
             }
-            let hash = hex::encode(hash.finalize().as_slice());
+            let hash = hex::encode(hash.finalize());
 
             assert_eq!(hash, long_state_end_hash);
         }
