@@ -46,6 +46,15 @@ pub struct Args {
     /// Print misc version information in JSON.
     #[arg(short, long)]
     pub version: bool,
+
+    /// Perform a dry run to validate configuration.
+    ///
+    /// This will verify:
+    /// - Config file can be deserialized correctly
+    /// - All specified paths exist and have proper permissions
+    /// - Required network ports can be bound to
+    #[arg(long)]
+    pub dry_run: bool,
 }
 
 impl Args {
