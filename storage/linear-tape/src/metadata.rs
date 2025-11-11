@@ -55,6 +55,14 @@ impl MetadataWriteGuard<'_> {
         }
     }
 
+    pub(crate) fn tables_len(&self) -> &[usize] {
+        let len = self.write_guard.data().len();
+        // Safety:
+        //    RcuRing ensures the returned slice is 8-byte aligned.
+        //    We only support 64-bit targets.
+        unsafe { std::slice::from_raw_parts(self.write_guard.data().as_ptr().cast(), len / 8) }
+    }
+
     pub(crate) fn current_data_slot_idx(&self) -> usize {
         self.write_guard.current_data_slot_idx()
     }

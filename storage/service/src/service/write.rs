@@ -112,10 +112,9 @@ fn database_writer<Req, Res, D>(
             // ones cannot come in.
             return;
         };
-        
+
         let response = inner_handler(env, &request);
-        
-    
+
         // Send the response back, whether if it's an `Ok` or `Err`.
         if let Err(e) = response_sender.send(response) {
             warn!("Database writer failed to send response: {e:?}");

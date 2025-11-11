@@ -58,7 +58,7 @@ pub struct WriteGuard<'a> {
     /// The [`DataSlotState`] of the slot we are writing to.
     next_data_slot_state: DataSlotState<'a>,
     /// The data of the slot we are writing to.
-    data: &'a mut [u8],
+    data: *mut [u8],
 }
 
 impl WriteGuard<'_> {
@@ -66,7 +66,13 @@ impl WriteGuard<'_> {
     ///
     /// This is guaranteed to be at least 8-byte aligned.
     pub fn data_mut(&mut self) -> &mut [u8] {
-        self.data
+        // Safety: we are taking a mutable reference to self in this function.
+        unsafe { &mut *self.data }
+    }
+
+    pub fn data(&self) -> &[u8] {
+        // Safety: we are taking a non-mutable reference to self in this function.
+        unsafe { &*self.data }
     }
 
     /// The current index up-to-date readers will see.

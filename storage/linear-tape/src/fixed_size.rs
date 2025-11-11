@@ -173,6 +173,35 @@ pub struct FixedSizedTapePopper<'a, E: Entry> {
 }
 
 impl<E: Entry> FixedSizedTapePopper<'_, E> {
+    pub fn pop_last(&mut self) -> Option<(usize, E)> {
+        if *self.current_used_bytes == 0 {
+            return None;
+        }
+
+        let start_idx = *self.current_used_bytes - E::SIZE;
+
+        // Safety: we are taking a non-mutable reference and we know this is in range.
+        let last = unsafe { E::read(self.backing_file.slice(start_idx, E::SIZE)) };
+
+        *self.current_used_bytes = start_idx;
+
+        Some((start_idx / E::SIZE, last))
+    }
+
+    /// Set the length of the tape to the given length.
+    ///
+    /// # Panics
+    ///
+    /// This will panic if you give a value higher than the last recorded one.
+    /// So once you call this function with a value, if you call it again it must be with a value
+    /// less than or equal to.
+    pub fn set_new_len(&mut self, new_len: usize) {
+        let new_len = new_len * E::SIZE;
+
+        assert!(new_len <= *self.current_used_bytes);
+        *self.current_used_bytes = new_len;
+    }
+
     /// Pop some entries from the tape.
     ///
     /// # Panics

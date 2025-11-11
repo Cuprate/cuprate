@@ -4,7 +4,11 @@
 use cuprate_database::{ConcreteEnv, Env, EnvInner, InitError, RuntimeError, TxRw};
 use cuprate_linear_tapes::LinearTapes;
 
-use crate::{config::{Config, linear_tapes_config}, tables::OpenTables, Database};
+use crate::{
+    config::{linear_tapes_config, Config},
+    tables::OpenTables,
+    Database,
+};
 
 //---------------------------------------------------------------------------------------------------- Free functions
 /// Open the blockchain database using the passed [`Config`].
@@ -58,14 +62,16 @@ pub fn open(config: Config) -> Result<Database, InitError> {
 
         TxRw::commit(tx_rw).map_err(runtime_to_init_error)?;
     }
-    
+
     let tapes = linear_tapes_config(config.blob_data_dir);
 
-    let linear_tapes = unsafe { LinearTapes::new(tapes, config.db_config.db_directory(),  1024 * 1204 * 1024)? };
-    
+    let linear_tapes =
+        unsafe { LinearTapes::new(tapes, config.db_config.db_directory(), 1024 * 1204 * 1024)? };
+
+    tracing::debug!("opened db");
     Ok(Database {
         dynamic_tables: env,
-        linear_tapes
+        linear_tapes,
     })
 }
 

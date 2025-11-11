@@ -1090,6 +1090,7 @@ dependencies = [
  "cuprate-database",
  "cuprate-database-service",
  "cuprate-helper",
+ "cuprate-linear-tapes",
  "cuprate-pruning",
  "cuprate-test-utils",
  "cuprate-types",
@@ -1106,6 +1107,7 @@ dependencies = [
  "thread_local",
  "tokio",
  "tower",
+ "tracing",
 ]
 
 [[package]]
@@ -1362,6 +1364,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-linear-tapes"
+version = "0.0.1"
+dependencies = [
+ "cuprate-rcu-ring",
+ "memmap2",
+ "tempfile",
+]
+
+[[package]]
 name = "cuprate-p2p"
 version = "0.1.0"
 dependencies = [
@@ -1453,6 +1464,14 @@ dependencies = [
  "borsh",
  "cuprate-constants",
  "thiserror 2.0.17",
+]
+
+[[package]]
+name = "cuprate-rcu-ring"
+version = "0.0.1"
+dependencies = [
+ "libc",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

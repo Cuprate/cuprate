@@ -505,6 +505,44 @@ impl Popper<'_> {
         }
     }
 
+    /// Opens a handle to read from a fixed-sized tape.
+    pub fn fixed_sized_tape_reader<'a, E: Entry>(
+        &'a self,
+        table_name: &'static str,
+    ) -> FixedSizedTapeReader<'a, E> {
+        let i = *self
+            .tapes
+            .tapes_to_index
+            .get(table_name)
+            .expect("Tape was not specified when opening tapes");
+
+        let tape = &self.tapes.tapes[i];
+
+        FixedSizedTapeReader {
+            // Safety: We are holding a write lock and only writers will drop tapes.
+            backing_file: unsafe { &*tape.load(Ordering::Acquire) },
+            phantom: Default::default(),
+            len: self.meta_guard.tables_len()[i] / E::SIZE,
+        }
+    }
+
+    /// Opens a handle to read from a blob tape.
+    pub fn blob_tape_tape_reader<'a>(&'a self, table_name: &'static str) -> BlobTapeReader<'a> {
+        let i = *self
+            .tapes
+            .tapes_to_index
+            .get(table_name)
+            .expect("Tape was not specified when opening tapes");
+
+        let tape = &self.tapes.tapes[i];
+
+        BlobTapeReader {
+            // Safety: We are holding a write lock and only writers will drop tapes.
+            backing_file: unsafe { &*tape.load(Ordering::Acquire) },
+            used_bytes: self.meta_guard.tables_len()[i],
+        }
+    }
+
     /// Flush the changes to the database.
     ///
     /// Using a [`Flush`] mode other than [`Flush::Sync`] can leave the database in an invalid state if a crash
@@ -527,6 +565,9 @@ pub struct Reader<'a> {
     tapes: &'a LinearTapes,
 }
 
+unsafe impl Sync for Reader<'_> {}
+unsafe impl Send for Reader<'_> {}
+
 impl Reader<'_> {
     /// Opens a handle to read from a fixed-sized tape.
     pub fn fixed_sized_tape_reader<'a, E: Entry>(
@@ -545,7 +586,7 @@ impl Reader<'_> {
         FixedSizedTapeReader {
             backing_file,
             phantom: Default::default(),
-            len: self.meta_guard[i],
+            len: self.meta_guard[i] / E::SIZE,
         }
     }
 

@@ -1,15 +1,25 @@
 //! Database writer thread definitions and logic.
+
+use std::net::Shutdown::Read;
 //---------------------------------------------------------------------------------------------------- Import
 use std::sync::Arc;
 
-use cuprate_database::{ConcreteEnv, DbResult, Env, EnvInner, TxRw};
+use cuprate_database::{ConcreteEnv, DbResult, Env, EnvInner, RuntimeError, TxRw};
 use cuprate_database_service::DatabaseWriteHandle;
+use cuprate_linear_tapes::Flush;
 use cuprate_types::{
     blockchain::{BlockchainResponse, BlockchainWriteRequest},
     AltBlockInformation, ChainId, VerifiedBlockInformation,
 };
 
-use crate::{service::types::{BlockchainWriteHandle, ResponseResult}, tables::OpenTables, Database};
+use crate::{
+    service::types::{BlockchainWriteHandle, ResponseResult},
+    tables::OpenTables,
+    Database,
+};
+use crate::database::TX_INFOS;
+use crate::ops::block::add_blocks_to_tapes;
+use crate::types::TxInfo;
 
 /// Write functions within this module abort if the write transaction
 /// could not be aborted successfully to maintain atomicity.
@@ -50,84 +60,87 @@ fn handle_blockchain_request(
 
 /// [`BlockchainWriteRequest::WriteBlock`].
 #[inline]
-fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseResult {
-    let env_inner = env.env_inner();
-    let tx_rw = env_inner.tx_rw()?;
-
-    let result = {
-        let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
-        crate::ops::block::add_block(block, &mut tables_mut)
-    };
-
-    match result {
-        Ok(()) => {
-            TxRw::commit(tx_rw)?;
-            Ok(BlockchainResponse::Ok)
-        }
-        Err(e) => {
-            TxRw::abort(tx_rw).expect(TX_RW_ABORT_FAIL);
-            Err(e)
-        }
-    }
+fn write_block(db: &Database, block: &VerifiedBlockInformation) -> ResponseResult {
+    write_blocks(db, std::slice::from_ref(block))
 }
 
 /// [`BlockchainWriteRequest::BatchWriteBlocks`].
 #[inline]
-fn write_blocks(env: &ConcreteEnv, block: &Vec<VerifiedBlockInformation>) -> ResponseResult {
-    let env_inner = env.env_inner();
-    let tx_rw = env_inner.tx_rw()?;
+fn write_blocks(db: &Database, blocks: &[VerifiedBlockInformation]) -> ResponseResult {
+    let mut tapes = db.linear_tapes.appender();
+    let mut numb_transactions = tapes.fixed_sized_tape_appender::<TxInfo>(TX_INFOS).len();
+    add_blocks_to_tapes(blocks, &mut tapes)?;
 
-    let result = {
+    let mut tapes = Some(tapes);
+
+    let mut result = move || {
+        let env_inner = db.dynamic_tables.env_inner();
+        let tx_rw = env_inner.tx_rw()?;
+
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
-        for block in block {
-            crate::ops::block::add_block(block, &mut tables_mut)?;
+        for block in blocks {
+           crate::ops::block::add_block_to_dynamic_tables(block, &mut numb_transactions, &mut tables_mut)?;
         }
 
-        Ok(())
+        drop(tables_mut);
+
+        if let Some(tapes) = tapes.take() {
+            tapes.flush(Flush::NoSync)?;
+        }
+
+        TxRw::commit(tx_rw)?;
+
+        Ok(BlockchainResponse::Ok)
     };
 
-    match result {
-        Ok(()) => {
-            TxRw::commit(tx_rw)?;
-            Ok(BlockchainResponse::Ok)
+    loop{
+        let result = result();
+
+        if matches!(result, Err(RuntimeError::ResizeNeeded)) {
+            db.dynamic_tables.resize_map(None);
+            continue;
         }
-        Err(e) => {
-            TxRw::abort(tx_rw).expect(TX_RW_ABORT_FAIL);
-            Err(e)
-        }
+
+        return result
     }
 }
 
 /// [`BlockchainWriteRequest::WriteAltBlock`].
 #[inline]
-fn write_alt_block(env: &ConcreteEnv, block: &AltBlockInformation) -> ResponseResult {
-    let env_inner = env.env_inner();
-    let tx_rw = env_inner.tx_rw()?;
+fn write_alt_block(db: &Database, block: &AltBlockInformation) -> ResponseResult {
+    let result = || {
+        let env_inner = db.dynamic_tables.env_inner();
+        let tx_rw = env_inner.tx_rw()?;
 
-    let result = {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
-        crate::ops::alt_block::add_alt_block(block, &mut tables_mut)
+        crate::ops::alt_block::add_alt_block(block, &mut tables_mut)?;
+
+        drop(tables_mut);
+        TxRw::commit(tx_rw)?;
+
+        Ok(BlockchainResponse::Ok)
     };
 
-    match result {
-        Ok(()) => {
-            TxRw::commit(tx_rw)?;
-            Ok(BlockchainResponse::Ok)
+    loop{
+        let result = result();
+
+        if matches!(result, Err(RuntimeError::ResizeNeeded)) {
+            db.dynamic_tables.resize_map(None);
+            continue;
         }
-        Err(e) => {
-            TxRw::abort(tx_rw).expect(TX_RW_ABORT_FAIL);
-            Err(e)
-        }
+
+        return result
     }
 }
 
 /// [`BlockchainWriteRequest::PopBlocks`].
-fn pop_blocks(env: &ConcreteEnv, numb_blocks: usize) -> ResponseResult {
-    let env_inner = env.env_inner();
-    let mut tx_rw = env_inner.tx_rw()?;
-
+fn pop_blocks(db: &Database, numb_blocks: usize) -> ResponseResult {
     // FIXME: turn this function into a try block once stable.
     let mut result = || {
+        let env_inner = db.dynamic_tables.env_inner();
+        let mut tx_rw = env_inner.tx_rw()?;
+        let mut tapes = db.linear_tapes.popper();
+
         // flush all the current alt blocks as they may reference blocks to be popped.
         crate::ops::alt_block::flush_alt_blocks(&env_inner, &mut tx_rw)?;
 
@@ -137,40 +150,52 @@ fn pop_blocks(env: &ConcreteEnv, numb_blocks: usize) -> ResponseResult {
 
         // pop the blocks
         for _ in 0..numb_blocks {
-            crate::ops::block::pop_block(Some(old_main_chain_id), &mut tables_mut)?;
+            crate::ops::block::pop_block(Some(old_main_chain_id), &mut tables_mut, &mut tapes)?;
         }
 
-        Ok(old_main_chain_id)
+        drop(tables_mut);
+
+        TxRw::commit(tx_rw)?;
+        tapes.flush(Flush::NoSync)?;
+        Ok(BlockchainResponse::PopBlocks(old_main_chain_id))
+
     };
 
-    match result() {
-        Ok(old_main_chain_id) => {
-            TxRw::commit(tx_rw)?;
-            Ok(BlockchainResponse::PopBlocks(old_main_chain_id))
+    loop{
+        let result = result();
+
+        if matches!(result, Err(RuntimeError::ResizeNeeded)) {
+            db.dynamic_tables.resize_map(None);
+            continue;
         }
-        Err(e) => {
-            TxRw::abort(tx_rw).expect(TX_RW_ABORT_FAIL);
-            Err(e)
-        }
+
+        return result
     }
 }
 
 /// [`BlockchainWriteRequest::FlushAltBlocks`].
 #[inline]
-fn flush_alt_blocks(env: &ConcreteEnv) -> ResponseResult {
-    let env_inner = env.env_inner();
-    let mut tx_rw = env_inner.tx_rw()?;
+fn flush_alt_blocks(db: &Database) -> ResponseResult {
+    let result = || {
+        let env_inner = db.dynamic_tables.env_inner();
+        let mut tx_rw = env_inner.tx_rw()?;
 
-    let result = crate::ops::alt_block::flush_alt_blocks(&env_inner, &mut tx_rw);
+        crate::ops::alt_block::flush_alt_blocks(&env_inner, &mut tx_rw)?;
 
-    match result {
-        Ok(()) => {
-            TxRw::commit(tx_rw)?;
-            Ok(BlockchainResponse::Ok)
+        TxRw::commit(tx_rw)?;
+
+        Ok(BlockchainResponse::Ok)
+
+    };
+
+    loop{
+        let result = result();
+
+        if matches!(result, Err(RuntimeError::ResizeNeeded)) {
+            db.dynamic_tables.resize_map(None);
+            continue;
         }
-        Err(e) => {
-            TxRw::abort(tx_rw).expect(TX_RW_ABORT_FAIL);
-            Err(e)
-        }
+
+        return result
     }
 }

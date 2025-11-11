@@ -214,12 +214,14 @@ pub fn block_to_verified_block_information(
     for tx in &block.transactions {
         let data = txs.remove(tx).expect("fast sync block invalid");
 
+        let (tx, prunable) = data.tx.pruned_with_prunable();
         verified_txs.push(VerifiedTransactionInformation {
-            tx_blob: data.tx_blob,
+            tx_prunable_blob: prunable,
+            tx_pruned: tx.serialize(),
             tx_weight: data.tx_weight,
             fee: data.fee,
             tx_hash: data.tx_hash,
-            tx: data.tx,
+            tx,
         });
     }
 

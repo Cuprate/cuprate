@@ -35,7 +35,7 @@ cuprate_database::define_tables! {
     /// Contains the height of all blocks.
     0 => BlockHeights,
     BlockHash => BlockHeight,
-
+    
     /// Set of key images.
     ///
     /// Contains all the key images known to be spent.
@@ -55,69 +55,64 @@ cuprate_database::define_tables! {
     /// Pre-RCT output data.
     3 => Outputs,
     PreRctOutputId => Output,
-    
+
     // SOMEDAY: impl a properties table:
     // - db version
     // - pruning seed
     // Properties,
     // StorableString => StorableVec,
-
-    /// RCT output data.
-    4 => RctOutputs,
-    AmountIndex => RctOutput,
-    
     /// Transaction indices.
     ///
     /// Contains the indices all transactions.
-    5 => TxIds,
+    4 => TxIds,
     TxHash => TxId,
-    
+
     /// Transaction outputs.
     ///
     /// Contains the list of `AmountIndex`'s of the
     /// outputs associated with all transactions.
-    6 => TxOutputs,
+    5 => TxOutputs,
     TxId => AmountIndices,
 
     /// Transaction unlock time.
     ///
     /// Contains the unlock time of transactions IF they have one.
     /// Transactions without unlock times will not exist in this table.
-    7 => TxUnlockTime,
+    6 => TxUnlockTime,
     TxId => UnlockTime,
 
     /// Information on alt-chains.
-    8 => AltChainInfos,
+    7 => AltChainInfos,
     RawChainId => AltChainInfo,
 
     /// Alt-block heights.
     ///
     /// Contains the height of all alt-blocks.
-    9 => AltBlockHeights,
+    8 => AltBlockHeights,
     BlockHash => AltBlockHeight,
 
     /// Alt-block information.
     ///
     /// Contains information on all alt-blocks.
-    10 => AltBlocksInfo,
+    9 => AltBlocksInfo,
     AltBlockHeight => CompactAltBlockInfo,
 
     /// Alt-block blobs.
     ///
     /// Contains the raw bytes of all alt-blocks.
-    11 => AltBlockBlobs,
+    10 => AltBlockBlobs,
     AltBlockHeight => BlockBlob,
 
     /// Alt-block transaction blobs.
     ///
     /// Contains the raw bytes of alt transactions, if those transactions are not in the main-chain.
-    12 => AltTransactionBlobs,
+    11 => AltTransactionBlobs,
     TxHash => TxBlob,
 
     /// Alt-block transaction information.
     ///
     /// Contains information on all alt transactions, even if they are in the main-chain.
-    13 => AltTransactionInfos,
+    12 => AltTransactionInfos,
     TxHash => AltTransactionInfo,
 }
 

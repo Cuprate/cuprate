@@ -1,7 +1,7 @@
-use std::iter::{once, Once};
+use crate::config::Config;
 use cuprate_database::ConcreteEnv;
 use cuprate_linear_tapes::{Advice, LinearTapes, Tape};
-use crate::config::Config;
+use std::iter::{once, Once};
 
 /// The name of the ringCT outputs tape.
 pub const RCT_OUTPUTS: &str = "rct_outputs";
@@ -25,8 +25,7 @@ pub const TX_INFOS: &str = "tx_infos";
 /// The name of the block infos tape.
 pub const BLOCK_INFOS: &str = "block_infos";
 
-
 pub struct Database {
     pub(crate) dynamic_tables: ConcreteEnv,
-    pub(crate) linear_tapes: LinearTapes
+    pub(crate) linear_tapes: LinearTapes,
 }

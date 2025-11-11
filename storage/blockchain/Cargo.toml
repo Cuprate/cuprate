@@ -25,6 +25,7 @@ cuprate-types            = { workspace = true, features = ["blockchain"] }
 cuprate-pruning          = { workspace = true }
 cuprate-linear-tapes     = { workspace = true }
 
+tracing = { workspace = true }
 bitflags         = { workspace = true, features = ["std", "serde", "bytemuck"] }
 bytemuck         = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 rand             = { workspace = true, features = ["std", "std_rng"] }

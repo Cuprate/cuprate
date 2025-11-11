@@ -185,4 +185,16 @@ impl BlobTapeReader<'_> {
         // Safety: This is synchronised by the metadata, and we just checked the slice is in range above.
         unsafe { Some(self.backing_file.slice(start_idx, len)) }
     }
+
+    /// Try to get a slice from the database.
+    ///
+    /// Returns [`None`] if  [`Self::len`] < `start_idx`
+    pub fn try_get_slice_to_end(&self, start_idx: usize) -> Option<&[u8]> {
+        if self.used_bytes < start_idx {
+            return None;
+        }
+
+        // Safety: This is synchronised by the metadata, and we just checked the slice is in range above.
+        unsafe { Some(self.backing_file.slice(start_idx, self.len())) }
+    }
 }
