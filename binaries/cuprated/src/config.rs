@@ -339,10 +339,22 @@ impl Config {
         }
     }
 
-    /// Checks if a directory exists and has proper read/write permissions.
+    /// Create directory at path if it doesn't exists.
+    /// Checks if directory has proper read/write permissions.
     fn check_dir_permissions(path: &Path) -> Result<(), anyhow::Error> {
         if !path.exists() {
-            bail!("Path does not exist {}", path.display())
+            if let Err(e) = std::fs::create_dir_all(path) {
+                bail!("Cannot create directory {}: {e}", path.display());
+            }
+        }
+
+        let metadata = match std::fs::metadata(path) {
+            Ok(m) => m,
+            Err(e) => bail!("Cannot access {}: {e}", path.display()),
+        };
+
+        if !metadata.is_dir() {
+            bail!("Path {} is not a directory", path.display());
         }
 
         if let Err(e) = std::fs::read_dir(path) {
@@ -473,11 +485,12 @@ mod test {
         let tmp_dir = tempdir().unwrap();
         let path = tmp_dir.path().join("new_dir");
 
-        // Check on a non-existing directory
-        let err = Config::check_dir_permissions(&path).unwrap_err();
-        assert!(err.to_string().contains("Path does not exist"));
+        // Test on non existing directory
+        assert!(!path.exists());
+        assert!(Config::check_dir_permissions(&path).is_ok());
+        assert!(path.exists());
 
-        fs::create_dir(&path).unwrap();
+        // Test on an existing directory
         assert!(Config::check_dir_permissions(&path).is_ok());
     }
 }
