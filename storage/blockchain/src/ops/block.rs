@@ -166,7 +166,8 @@ pub fn add_blocks_to_tapes(
     )
     .unwrap();
     let next_stripe_height = first_block_pruning_seed
-        .get_next_unpruned_block(start_height, 500_000_000)
+        .get_next_pruned_block(start_height, 500_000_000)
+        .unwrap()
         .unwrap();
 
     let (first_stripe, next_stripe) =
@@ -178,7 +179,7 @@ pub fn add_blocks_to_tapes(
         }
 
         let stripe =
-            cuprate_pruning::get_block_pruning_stripe(start_height, usize::MAX, 3).unwrap();
+            cuprate_pruning::get_block_pruning_stripe(blocks[0].height, usize::MAX, 3).unwrap();
         let w = PrunableTapeWriter(&blocks);
         let mut v2_prunable_index = tapes
             .blob_tape_appender(PRUNABLE_BLOBS[stripe as usize - 1])
