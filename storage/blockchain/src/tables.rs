@@ -35,7 +35,7 @@ cuprate_database::define_tables! {
     /// Contains the height of all blocks.
     0 => BlockHeights,
     BlockHash => BlockHeight,
-    
+
     /// Set of key images.
     ///
     /// Contains all the key images known to be spent.
@@ -74,45 +74,38 @@ cuprate_database::define_tables! {
     5 => TxOutputs,
     TxId => AmountIndices,
 
-    /// Transaction unlock time.
-    ///
-    /// Contains the unlock time of transactions IF they have one.
-    /// Transactions without unlock times will not exist in this table.
-    6 => TxUnlockTime,
-    TxId => UnlockTime,
-
     /// Information on alt-chains.
-    7 => AltChainInfos,
+    6 => AltChainInfos,
     RawChainId => AltChainInfo,
 
     /// Alt-block heights.
     ///
     /// Contains the height of all alt-blocks.
-    8 => AltBlockHeights,
+    7 => AltBlockHeights,
     BlockHash => AltBlockHeight,
 
     /// Alt-block information.
     ///
     /// Contains information on all alt-blocks.
-    9 => AltBlocksInfo,
+    8 => AltBlocksInfo,
     AltBlockHeight => CompactAltBlockInfo,
 
     /// Alt-block blobs.
     ///
     /// Contains the raw bytes of all alt-blocks.
-    10 => AltBlockBlobs,
+    9 => AltBlockBlobs,
     AltBlockHeight => BlockBlob,
 
     /// Alt-block transaction blobs.
     ///
     /// Contains the raw bytes of alt transactions, if those transactions are not in the main-chain.
-    11 => AltTransactionBlobs,
+    10 => AltTransactionBlobs,
     TxHash => TxBlob,
 
     /// Alt-block transaction information.
     ///
     /// Contains information on all alt transactions, even if they are in the main-chain.
-    12 => AltTransactionInfos,
+    11 => AltTransactionInfos,
     TxHash => AltTransactionInfo,
 }
 

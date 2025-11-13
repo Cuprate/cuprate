@@ -20,7 +20,7 @@ use crate::{
         },
     },
     tables::{TablesMut, TxIds},
-    types::{BlockHeight, Output, OutputFlags, PreRctOutputId, RctOutput, TxHash, TxId},
+    types::{BlockHeight, Output, PreRctOutputId, RctOutput, TxHash, TxId},
 };
 
 //---------------------------------------------------------------------------------------------------- Private
@@ -56,7 +56,7 @@ pub fn add_tx_to_tapes(
     prunable_blob_idx: usize,
     pruned_size: usize,
     prunable_size: usize,
-    block_height: &BlockHeight,
+    height: &BlockHeight,
     numb_rct_outputs: &mut u64,
     tapes: &mut cuprate_linear_tapes::Appender,
 ) -> DbResult<TxId> {
@@ -64,12 +64,12 @@ pub fn add_tx_to_tapes(
     let tx_id = tx_info_appender.len();
 
     tx_info_appender.push_entries(&[TxInfo {
-        height: *block_height,
+        height: *height,
         pruned_blob_idx,
         prunable_blob_idx,
         pruned_size,
         prunable_size,
-        rct_output_start_idx: *numb_rct_outputs,
+        rct_output_start_idx: if tx.version() == 1 { u64::MAX } else { *numb_rct_outputs },
         numb_rct_outputs: tx.prefix().outputs.len(),
     }])?;
 
@@ -81,9 +81,10 @@ pub fn add_tx_to_tapes(
     // SOMEDAY: what to store here? which table?
     // }
 
-    //------------------------------------------------------
-    let Ok(height) = u32::try_from(*block_height) else {
-        panic!("add_tx(): block_height ({block_height}) > u32::MAX");
+    let timelock = match tx.prefix().additional_timelock {
+        Timelock::None => 0,
+        Timelock::Block(height) => height as u64,
+        Timelock::Time(time) => time,
     };
 
     //------------------------------------------------------ Key Images
@@ -92,13 +93,6 @@ pub fn add_tx_to_tapes(
     // <https://github.com/monero-project/monero/blob/eac1b86bb2818ac552457380c9dd421fb8935e5b/src/blockchain_db/blockchain_db.cpp#L212-L216>
     let miner_tx = matches!(tx.prefix().inputs.as_slice(), &[Input::Gen(_)]);
 
-    //------------------------------------------------------ Outputs
-    // Output bit flags.
-    // Set to a non-zero bit value if the unlock time is non-zero.
-    let output_flags = match tx.prefix().additional_timelock {
-        Timelock::None => OutputFlags::empty(),
-        Timelock::Block(_) | Timelock::Time(_) => OutputFlags::NON_ZERO_UNLOCK_TIME,
-    };
 
     if let Transaction::V2 { prefix, proofs } = &tx {
         for (i, output) in prefix.outputs.iter().enumerate() {
@@ -115,11 +109,13 @@ pub fn add_tx_to_tapes(
 
             rct_output_appender.push_entries(&[RctOutput {
                 key: output.key.0,
-                height,
-                output_flags,
+                height: *height,
+                timelock,
                 tx_idx: tx_id,
                 commitment: commitment.0,
             }])?;
+
+            *numb_rct_outputs += 1;
         }
     };
 
@@ -130,7 +126,7 @@ pub fn add_tx_to_dynamic_tables(
     tx: &Transaction<Pruned>,
     tx_id: TxId,
     tx_hash: &TxHash,
-    block_height: &BlockHeight,
+    height: &BlockHeight,
     tables: &mut impl TablesMut,
 ) -> DbResult<()> {
     tables.tx_ids_mut().put(tx_hash, &tx_id)?;
@@ -141,11 +137,11 @@ pub fn add_tx_to_dynamic_tables(
     // so the `u64/usize` is stored without any tag.
     //
     // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1558504285>
-    match tx.prefix().additional_timelock {
-        Timelock::None => (),
-        Timelock::Block(height) => tables.tx_unlock_time_mut().put(&tx_id, &(height as u64))?,
-        Timelock::Time(time) => tables.tx_unlock_time_mut().put(&tx_id, &time)?,
-    }
+    let time_lock = match tx.prefix().additional_timelock {
+        Timelock::None => 0,
+        Timelock::Block(height) => height as u64,
+        Timelock::Time(time) => time,
+    };
 
     for inputs in &tx.prefix().inputs {
         match inputs {
@@ -158,16 +154,6 @@ pub fn add_tx_to_dynamic_tables(
         }
     }
 
-    //------------------------------------------------------
-    let Ok(height) = u32::try_from(*block_height) else {
-        panic!("add_tx(): block_height ({block_height}) > u32::MAX");
-    };
-
-    let output_flags = match tx.prefix().additional_timelock {
-        Timelock::None => OutputFlags::empty(),
-        Timelock::Block(_) | Timelock::Time(_) => OutputFlags::NON_ZERO_UNLOCK_TIME,
-    };
-
     match &tx {
         Transaction::V1 { prefix, .. } => {
             let amount_indices = prefix
@@ -179,8 +165,8 @@ pub fn add_tx_to_dynamic_tables(
                         output.amount.unwrap_or(0),
                         &Output {
                             key: output.key.0,
-                            height,
-                            output_flags,
+                            height: *height,
+                            timelock: time_lock,
                             tx_idx: tx_id,
                         },
                         tables,
@@ -226,12 +212,6 @@ pub fn remove_tx_from_dynamic_tables(
     let tx_id = tables.tx_ids_mut().take(tx_hash)?;
 
     //------------------------------------------------------ Unlock Time
-    match tables.tx_unlock_time_mut().delete(&tx_id) {
-        Ok(()) | Err(RuntimeError::KeyNotFound) => (),
-        // An actual error occurred, return.
-        Err(e) => return Err(e),
-    }
-
     let tx_info = tapes
         .fixed_sized_tape_reader::<TxInfo>(TX_INFOS)
         .try_get(tx_id)

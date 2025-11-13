@@ -274,40 +274,6 @@ impl Entry for BlockInfo {
     }
 }
 
-//---------------------------------------------------------------------------------------------------- OutputFlags
-bitflags::bitflags! {
-    /// Bit flags for [`Output`]s and [`RctOutput`]s,
-    ///
-    /// Currently only the first bit is used and, if set,
-    /// it means this output has a non-zero unlock time.
-    ///
-    /// ```rust
-    /// # use std::borrow::*;
-    /// # use cuprate_blockchain::{*, types::*};
-    /// use cuprate_database::Storable;
-    ///
-    /// // Assert Storable is correct.
-    /// let a = OutputFlags::NON_ZERO_UNLOCK_TIME;
-    /// let b = Storable::as_bytes(&a);
-    /// let c: OutputFlags = Storable::from_bytes(b);
-    /// assert_eq!(a, c);
-    /// ```
-    ///
-    /// # Size & Alignment
-    /// ```rust
-    /// # use cuprate_blockchain::types::*;
-    /// assert_eq!(size_of::<OutputFlags>(), 4);
-    /// assert_eq!(align_of::<OutputFlags>(), 4);
-    /// ```
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-    #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
-    #[repr(transparent)]
-    pub struct OutputFlags: u32 {
-        /// This output has a non-zero unlock time.
-        const NON_ZERO_UNLOCK_TIME = 0b0000_0001;
-    }
-}
-
 //---------------------------------------------------------------------------------------------------- Output
 /// A pre-RCT (v1) output's data.
 ///
@@ -343,9 +309,9 @@ pub struct Output {
     /// The block height this output belongs to.
     // PERF: We could get this from the tx_idx with the `TxHeights`
     // table but that would require another look up per out.
-    pub height: u32,
-    /// Bit flags for this output.
-    pub output_flags: OutputFlags,
+    pub height: usize,
+    /// The time lock of this output.
+    pub timelock: u64,
     /// The index of the transaction this output belongs to.
     pub tx_idx: TxId,
 }
@@ -386,9 +352,9 @@ pub struct RctOutput {
     /// The block height this output belongs to.
     // PERF: We could get this from the tx_idx with the `TxHeights`
     // table but that would require another look up per out.
-    pub height: u32,
-    /// Bit flags for this output, currently only the first bit is used and, if set, it means this output has a non-zero unlock time.
-    pub output_flags: OutputFlags,
+    pub height: usize,
+    /// The time lock of this output.
+    pub timelock: u64,
     /// The index of the transaction this output belongs to.
     pub tx_idx: TxId,
     /// The amount commitment of this output.

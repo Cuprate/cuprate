@@ -68,12 +68,14 @@ fn write_block(db: &Database, block: &VerifiedBlockInformation) -> ResponseResul
 #[inline]
 fn write_blocks(db: &Database, blocks: &[VerifiedBlockInformation]) -> ResponseResult {
     let mut tapes = db.linear_tapes.appender();
-    let mut numb_transactions = tapes.fixed_sized_tape_appender::<TxInfo>(TX_INFOS).len();
+    let numb_transactions = tapes.fixed_sized_tape_appender::<TxInfo>(TX_INFOS).len();
     add_blocks_to_tapes(blocks, &mut tapes)?;
 
     let mut tapes = Some(tapes);
 
     let mut result = move || {
+        let mut numb_transactions = numb_transactions;
+
         let env_inner = db.dynamic_tables.env_inner();
         let tx_rw = env_inner.tx_rw()?;
 
@@ -85,7 +87,7 @@ fn write_blocks(db: &Database, blocks: &[VerifiedBlockInformation]) -> ResponseR
         drop(tables_mut);
 
         if let Some(tapes) = tapes.take() {
-            tapes.flush(Flush::NoSync)?;
+            tapes.flush(Flush::Async)?;
         }
 
         TxRw::commit(tx_rw)?;

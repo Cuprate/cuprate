@@ -116,6 +116,7 @@ impl<E: Entry> FixedSizedTapeAppender<'_, E> {
             return Ok(None);
         }
 
+        // TODO: check the entry is all in range
         if self.backing_file().map_size() < self.current_used_bytes + *self.bytes_added {
             self.resize_to_fit_extra(None)?;
         }

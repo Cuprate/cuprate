@@ -14,8 +14,8 @@ use crate::{
         macros::{doc_add_block_inner_invariant, doc_error},
         tx::get_tx_from_id,
     },
-    tables::{Outputs, Tables, TablesMut, TxUnlockTime},
-    types::{Amount, AmountIndex, Output, OutputFlags, PreRctOutputId, RctOutput},
+    tables::{Outputs, Tables, TablesMut},
+    types::{Amount, AmountIndex, Output, PreRctOutputId, RctOutput},
 };
 use crate::database::RCT_OUTPUTS;
 
@@ -108,19 +108,9 @@ pub fn output_to_output_on_chain(
     output: &Output,
     amount: Amount,
     get_txid: bool,
-    table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
     tapes: &cuprate_linear_tapes::Reader,
 ) -> DbResult<OutputOnChain> {
     let commitment = compute_zero_commitment(amount);
-
-    let time_lock = if output
-        .output_flags
-        .contains(OutputFlags::NON_ZERO_UNLOCK_TIME)
-    {
-        u64_to_timelock(table_tx_unlock_time.get(&output.tx_idx)?)
-    } else {
-        Timelock::None
-    };
 
     let key = CompressedPoint(output.key);
 
@@ -133,8 +123,8 @@ pub fn output_to_output_on_chain(
     };
 
     Ok(OutputOnChain {
-        height: u32_to_usize(output.height),
-        time_lock,
+        height: output.height,
+        time_lock: u64_to_timelock(output.timelock),
         key,
         commitment,
         txid,
@@ -153,20 +143,10 @@ pub fn output_to_output_on_chain(
 pub fn rct_output_to_output_on_chain(
     rct_output: &RctOutput,
     get_txid: bool,
-    table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
     tapes: &cuprate_linear_tapes::Reader,
 ) -> DbResult<OutputOnChain> {
     // INVARIANT: Commitments stored are valid when stored by the database.
     let commitment = CompressedPoint(rct_output.commitment);
-
-    let time_lock = if rct_output
-        .output_flags
-        .contains(OutputFlags::NON_ZERO_UNLOCK_TIME)
-    {
-        u64_to_timelock(table_tx_unlock_time.get(&rct_output.tx_idx)?)
-    } else {
-        Timelock::None
-    };
 
     let key = CompressedPoint(rct_output.key);
 
@@ -179,8 +159,8 @@ pub fn rct_output_to_output_on_chain(
     };
 
     Ok(OutputOnChain {
-        height: u32_to_usize(rct_output.height),
-        time_lock,
+        height: rct_output.height,
+        time_lock: u64_to_timelock(rct_output.timelock),
         key,
         commitment,
         txid,
@@ -199,9 +179,9 @@ pub fn id_to_output_on_chain(
 ) -> DbResult<OutputOnChain> {
     // v2 transactions.
     if id.amount == 0 {
-        let rct_output = tapes.fixed_sized_tape_reader(RCT_OUTPUTS).try_get(id.amount_index as usize).ok_or(RuntimeError::KeyNotFound)?;
+        let rct_output = tapes.fixed_sized_tape_reader::<RctOutput>(RCT_OUTPUTS).try_get(id.amount_index as usize).ok_or(RuntimeError::KeyNotFound)?;
         let output_on_chain =
-            rct_output_to_output_on_chain(&rct_output, get_txid, tables.tx_unlock_time(), tapes)?;
+            rct_output_to_output_on_chain(&rct_output, get_txid, tapes)?;
 
         Ok(output_on_chain)
     } else {
@@ -211,7 +191,6 @@ pub fn id_to_output_on_chain(
             &output,
             id.amount,
             get_txid,
-            tables.tx_unlock_time(),
             tapes,
         )?;
 
