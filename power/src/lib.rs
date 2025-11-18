@@ -44,18 +44,19 @@ mod rpc;
 pub use p2p::PowerChallengeP2p;
 pub use rpc::PowerChallengeRpc;
 
-use blake2::{
-    Blake2bVar,
-    digest::{Update, VariableOutput},
-};
+use blake2::{Blake2b, Digest, digest::consts::U4};
 
 use equix::Solution;
 
 pub use equix;
 
+/// Input counts greater than this require PoWER.
 pub const POWER_INPUT_THRESHOLD: usize = 8;
+/// Number of recent block hashes viable for RPC.
 pub const POWER_HEIGHT_WINDOW: usize = 2;
+/// Fixed difficulty for valid PoW.
 pub const POWER_DIFFICULTY: u32 = 20;
+/// Personalization string used in PoWER hashes.
 pub const POWER_CHALLENGE_PERSONALIZATION_STRING: &str = "Monero PoWER";
 
 /// Solution to a [`PowerChallenge`].
@@ -133,9 +134,9 @@ where
         };
 
         for solution in solutions {
-            let scalar = equix_solution_to_difficulty_scalar(&solution);
+            let scalar = create_difficulty_scalar(self.as_ref(), &solution);
 
-            if check_power_difficulty(scalar, difficulty) {
+            if check_difficulty(scalar, difficulty) {
                 return Some(PowerSolution {
                     challenge: self.as_ref().to_vec(),
                     solution,
@@ -148,6 +149,9 @@ where
     }
 
     /// Loop through `nonce` values until a solution is found.
+    ///
+    /// This iterates on `1..` assuming that the
+    /// [`PowerSolution::nonce`] is set to `0`.
     fn solve(mut self, difficulty: u32) -> PowerSolution {
         for nonce in 1.. {
             if let Some(t) = self.try_solve(difficulty) {
@@ -162,28 +166,28 @@ where
 
     /// Verify that `solution`:
     /// - is a valid Equi-X solution for this [`PowerChallenge`].
-    /// - it satisfies `difficulty`.
+    /// - satisfies `difficulty`.
     fn verify(&self, solution: &Solution, difficulty: u32) -> bool {
         if equix::verify(self.as_ref(), solution).is_err() {
             return false;
         }
 
-        let scalar = equix_solution_to_difficulty_scalar(solution);
-        check_power_difficulty(scalar, difficulty)
+        let scalar = create_difficulty_scalar(self.as_ref(), solution);
+        check_difficulty(scalar, difficulty)
     }
 }
 
-/// Transform an Equi-X [`Solution`] to a scalar used for [`check_power_difficulty`].
-pub fn equix_solution_to_difficulty_scalar(solution: &Solution) -> u32 {
-    let mut h = Blake2bVar::new(4).unwrap();
-    h.update(&solution.to_bytes());
-    let mut buf = [0; 4];
-    h.finalize_variable(&mut buf).unwrap();
-    u32::from_le_bytes(buf)
+/// Create the diffculty scalar used for [`check_difficulty`].
+pub fn create_difficulty_scalar(challenge: &[u8], solution: &Solution) -> u32 {
+    let mut h = Blake2b::<U4>::new();
+    h.update(POWER_CHALLENGE_PERSONALIZATION_STRING.as_bytes());
+    h.update(challenge);
+    h.update(solution.to_bytes());
+    u32::from_le_bytes(h.finalize().into())
 }
 
 /// Returns [`true`] if `scalar * difficulty <= u32::MAX`.
-pub const fn check_power_difficulty(scalar: u32, difficulty: u32) -> bool {
+pub const fn check_difficulty(scalar: u32, difficulty: u32) -> bool {
     scalar.checked_mul(difficulty).is_some()
 }
 
@@ -197,6 +201,8 @@ mod tests {
     #[test]
     fn solve() {
         fn test(test: Vec<(impl PowerChallenge, &'static str, &'static str, u32, u32)>) {
+            let difficulty = POWER_DIFFICULTY;
+
             for (
                 challenge,
                 expected_challenge,
@@ -205,8 +211,8 @@ mod tests {
                 expected_scalar,
             ) in test
             {
-                let p = challenge.solve(POWER_DIFFICULTY);
-                let scalar = equix_solution_to_difficulty_scalar(&p.solution);
+                let p = challenge.solve(difficulty);
+                let scalar = create_difficulty_scalar(&p.challenge, &p.solution);
 
                 assert_eq!(hex::encode(p.challenge), expected_challenge);
                 assert_eq!(hex::encode(p.solution.to_bytes()), expected_solution);
