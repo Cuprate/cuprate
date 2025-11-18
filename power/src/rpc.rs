@@ -1,9 +1,17 @@
-use crate::PowerChallenge;
+use crate::{POWER_CHALLENGE_PERSONALIZATION_STRING, PowerChallenge};
 
-const SIZE: usize = size_of::<[u8; 32]>() + size_of::<[u8; 32]>() + size_of::<u32>();
+const SIZE: usize = POWER_CHALLENGE_PERSONALIZATION_STRING.len()
+    + size_of::<[u8; 32]>()
+    + size_of::<[u8; 32]>()
+    + size_of::<u32>();
+
+const _: () = assert!(SIZE == 80);
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Ord, PartialOrd)]
+/// A [`PowerChallenge`] for the RPC interface.
+///
+/// This creates well-formed challenges for RPC.
 pub struct PowerChallengeRpc([u8; SIZE]);
 
 impl AsRef<[u8]> for PowerChallengeRpc {
@@ -43,14 +51,19 @@ impl PowerChallenge for PowerChallengeRpc {
         let nonce = input.2;
 
         let mut this = [0; SIZE];
-        this[..32].copy_from_slice(&tx_prefix_hash);
-        this[32..64].copy_from_slice(&recent_block_hash);
-        this[64..].copy_from_slice(&u32::to_le_bytes(nonce));
+        this[..12].copy_from_slice(POWER_CHALLENGE_PERSONALIZATION_STRING.as_bytes());
+        this[12..44].copy_from_slice(&tx_prefix_hash);
+        this[44..76].copy_from_slice(&recent_block_hash);
+        this[76..].copy_from_slice(&u32::to_le_bytes(nonce));
 
         Self(this)
     }
 
     fn update_nonce(&mut self, nonce: u32) {
-        self.0[64..].copy_from_slice(&u32::to_le_bytes(nonce));
+        self.0[76..].copy_from_slice(&u32::to_le_bytes(nonce));
+    }
+
+    fn nonce(&self) -> u32 {
+        u32::from_le_bytes(self.0[76..80].try_into().unwrap())
     }
 }

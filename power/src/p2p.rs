@@ -1,9 +1,17 @@
-use crate::PowerChallenge;
+use crate::{POWER_CHALLENGE_PERSONALIZATION_STRING, PowerChallenge};
 
-const SIZE: usize = size_of::<u64>() + size_of::<u64>() + size_of::<u32>();
+const SIZE: usize = POWER_CHALLENGE_PERSONALIZATION_STRING.len()
+    + size_of::<u64>()
+    + size_of::<u64>()
+    + size_of::<u32>();
+
+const _: () = assert!(SIZE == 32);
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Ord, PartialOrd)]
+/// A [`PowerChallenge`] for the P2P interface.
+///
+/// This creates well-formed challenges for P2P.
 pub struct PowerChallengeP2p([u8; SIZE]);
 
 impl AsRef<[u8]> for PowerChallengeP2p {
@@ -42,13 +50,19 @@ impl PowerChallenge for PowerChallengeP2p {
         let nonce = input.1;
 
         let mut this = [0; SIZE];
-        this[..16].copy_from_slice(&u128::to_le_bytes(power_challenge_nonce));
-        this[16..].copy_from_slice(&u32::to_le_bytes(nonce));
+
+        this[..12].copy_from_slice(POWER_CHALLENGE_PERSONALIZATION_STRING.as_bytes());
+        this[12..28].copy_from_slice(&u128::to_le_bytes(power_challenge_nonce));
+        this[28..32].copy_from_slice(&u32::to_le_bytes(nonce));
 
         Self(this)
     }
 
     fn update_nonce(&mut self, nonce: u32) {
-        self.0[16..].copy_from_slice(&u32::to_le_bytes(nonce));
+        self.0[28..].copy_from_slice(&u32::to_le_bytes(nonce));
+    }
+
+    fn nonce(&self) -> u32 {
+        u32::from_le_bytes(self.0[28..32].try_into().unwrap())
     }
 }
