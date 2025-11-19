@@ -152,6 +152,12 @@ where
     ///
     /// This iterates on `1..` assuming that the
     /// [`PowerSolution::nonce`] is set to `0`.
+    ///
+    /// # Panics
+    /// This will technically panic if `difficulty` is set to an
+    /// unrealistically high number which prevents a solution from being found.
+    ///
+    /// It should not panic in real use-cases.
     fn solve(mut self, difficulty: u32) -> PowerSolution {
         for nonce in 1.. {
             if let Some(t) = self.try_solve(difficulty) {
