@@ -60,9 +60,7 @@ pub(crate) async fn calculate_pow(
     block: Block,
     seed_hash: [u8; 32],
 ) -> Result<[u8; 32], Error> {
-    let Some(height) = block.number() else {
-        return Err(anyhow!("Block is missing height"));
-    };
+    let height = block.number();
 
     let block = Box::new(block);
 

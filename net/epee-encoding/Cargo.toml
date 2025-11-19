@@ -13,6 +13,8 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/net/epee-encoding"
 default = ["std"]
 std = ["dep:thiserror", "bytes/std", "cuprate-fixed-bytes/std"]
 
+__not_public_32_bit = []
+
 [dependencies]
 cuprate-fixed-bytes = { workspace = true, default-features = false }
 cuprate-hex         = { workspace = true, default-features = false }

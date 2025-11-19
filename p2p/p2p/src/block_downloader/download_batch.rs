@@ -143,10 +143,7 @@ fn deserialize_batch(
 
             // Check the height lines up as expected.
             // This must happen after the hash check.
-            if block
-                .number()
-                .is_none_or(|height| height != expected_height)
-            {
+            if block.number() != expected_height {
                 tracing::warn!(
                     "Invalid chain, expected height: {expected_height}, got height: {:?}",
                     block.number()
