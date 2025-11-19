@@ -16,13 +16,7 @@
 //! let recent_block_hash = hex!("32d50ed6f691416afc78cb4102821b6392f49bae9a3c2edc513f42564379e936");
 //! let nonce = 0;
 //!
-//! let challenge =PowerChallengeRpc::new_from_input((
-//!     tx_prefix_hash,
-//!     recent_block_hash,
-//!     nonce
-//! ));
-//!
-//! let solution = challenge.solve();
+//! let solution = solve_rpc(tx_prefix_hash, recent_block_hash, nonce);
 //!
 //! // Now include:
 //! //
@@ -195,6 +189,58 @@ pub fn create_difficulty_scalar(challenge: &[u8], solution: &Solution) -> u32 {
 /// Returns [`true`] if `scalar * difficulty <= u32::MAX`.
 pub const fn check_difficulty(scalar: u32, difficulty: u32) -> bool {
     scalar.checked_mul(difficulty).is_some()
+}
+
+/// Solve a PoWER challenge for RPC.
+///
+/// This assumes the difficulty is [`POWER_DIFFICULTY`].
+pub fn solve_rpc(
+    tx_prefix_hash: [u8; 32],
+    recent_block_hash: [u8; 32],
+    nonce: u32,
+) -> PowerSolution {
+    PowerChallengeRpc::new_from_input((tx_prefix_hash, recent_block_hash, nonce))
+        .solve(POWER_DIFFICULTY)
+}
+
+/// Solve a PoWER challenge for P2P.
+///
+/// This assumes the difficulty is [`POWER_DIFFICULTY`].
+pub fn solve_p2p(power_challenge_nonce: u128, nonce: u32) -> PowerSolution {
+    PowerChallengeP2p::new_from_input((power_challenge_nonce, nonce)).solve(POWER_DIFFICULTY)
+}
+
+/// Verify a PoWER challenge for RPC.
+///
+/// Returns [`true`] if:
+/// - `solution` is well-formed.
+/// - `solution` satisfies `challenge`.
+/// - `solution` passes [`POWER_DIFFICULTY`].
+pub fn verify_rpc(
+    tx_prefix_hash: [u8; 32],
+    recent_block_hash: [u8; 32],
+    nonce: u32,
+    solution: &[u8; 16],
+) -> bool {
+    let Ok(solution) = Solution::try_from_bytes(solution) else {
+        return false;
+    };
+    PowerChallengeRpc::new_from_input((tx_prefix_hash, recent_block_hash, nonce))
+        .verify(&solution, POWER_DIFFICULTY)
+}
+
+/// Verify a PoWER challenge for P2P.
+///
+/// Returns [`true`] if:
+/// - `solution` is well-formed.
+/// - `solution` satisfies `challenge`.
+/// - `solution` passes [`POWER_DIFFICULTY`].
+pub fn verify_p2p(power_challenge_nonce: u128, nonce: u32, solution: &[u8; 16]) -> bool {
+    let Ok(solution) = Solution::try_from_bytes(solution) else {
+        return false;
+    };
+    PowerChallengeP2p::new_from_input((power_challenge_nonce, nonce))
+        .verify(&solution, POWER_DIFFICULTY)
 }
 
 #[cfg(test)]
