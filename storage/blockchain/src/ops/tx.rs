@@ -4,22 +4,22 @@
 use std::io::Read;
 
 use bytemuck::TransparentWrapper;
+use heed::PutFlags;
 use monero_oxide::transaction::{Input, Pruned, Timelock, Transaction};
 
-use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableVec};
 use cuprate_helper::crypto::compute_zero_commitment;
 
-use crate::database::{PRUNABLE_BLOBS, PRUNED_BLOBS, RCT_OUTPUTS, TX_INFOS, V1_PRUNABLE_BLOBS};
-use crate::types::TxInfo;
+use crate::database::{
+    KEY_IMAGES, PRUNABLE_BLOBS, PRUNED_BLOBS, RCT_OUTPUTS, TX_IDS, TX_INFOS, TX_OUTPUTS,
+    V1_PRUNABLE_BLOBS,
+};
+use crate::error::{BlockchainError, DbResult};
+use crate::types::{TxInfo, ZeroKey};
 use crate::{
     ops::{
-        key_image::{add_key_image, remove_key_image},
         macros::{doc_add_block_inner_invariant, doc_error},
-        output::{
-            add_output, remove_output,
-        },
+        output::{add_output, remove_output},
     },
-    tables::{TablesMut, TxIds},
     types::{BlockHeight, Output, PreRctOutputId, RctOutput, TxHash, TxId},
 };
 
@@ -69,7 +69,11 @@ pub fn add_tx_to_tapes(
         prunable_blob_idx,
         pruned_size,
         prunable_size,
-        rct_output_start_idx: if tx.version() == 1 { u64::MAX } else { *numb_rct_outputs },
+        rct_output_start_idx: if tx.version() == 1 {
+            u64::MAX
+        } else {
+            *numb_rct_outputs
+        },
         numb_rct_outputs: tx.prefix().outputs.len(),
     }])?;
 
@@ -92,7 +96,6 @@ pub fn add_tx_to_tapes(
     // Which table we add the output data to depends on this.
     // <https://github.com/monero-project/monero/blob/eac1b86bb2818ac552457380c9dd421fb8935e5b/src/blockchain_db/blockchain_db.cpp#L212-L216>
     let miner_tx = matches!(tx.prefix().inputs.as_slice(), &[Input::Gen(_)]);
-
 
     if let Transaction::V2 { prefix, proofs } = &tx {
         for (i, output) in prefix.outputs.iter().enumerate() {
@@ -127,9 +130,9 @@ pub fn add_tx_to_dynamic_tables(
     tx_id: TxId,
     tx_hash: &TxHash,
     height: &BlockHeight,
-    tables: &mut impl TablesMut,
+    tx_rw: &mut heed::RwTxn,
 ) -> DbResult<()> {
-    tables.tx_ids_mut().put(tx_hash, &tx_id)?;
+    TX_IDS.get().unwrap().put(tx_rw, tx_hash, &tx_id)?;
 
     //------------------------------------------------------ Timelocks
     // Height/time is not differentiated via type, but rather:
@@ -147,7 +150,12 @@ pub fn add_tx_to_dynamic_tables(
         match inputs {
             // Key images.
             Input::ToKey { key_image, .. } => {
-                add_key_image(key_image.as_bytes(), tables.key_images_mut())?;
+                KEY_IMAGES.get().unwrap().put_with_flags(
+                    tx_rw,
+                    PutFlags::NO_DUP_DATA,
+                    &ZeroKey,
+                    key_image.as_bytes(),
+                )?;
             }
             // This is a miner transaction.
             Input::Gen(_) => (),
@@ -163,21 +171,22 @@ pub fn add_tx_to_dynamic_tables(
                     // Pre-RingCT outputs.
                     Ok(add_output(
                         output.amount.unwrap_or(0),
-                        &Output {
-                            key: output.key.0,
-                            height: *height,
-                            timelock: time_lock,
-                            tx_idx: tx_id,
-                        },
-                        tables,
+                        output.key.0,
+                        *height,
+                        time_lock,
+                        tx_id,
+                        tx_rw,
                     )?
                     .amount_index)
                 })
                 .collect::<DbResult<Vec<_>>>()?;
 
-            tables
-                .tx_outputs_mut()
-                .put(&tx_id, &StorableVec(amount_indices))?;
+            TX_OUTPUTS.get().unwrap().put_with_flags(
+                tx_rw,
+                PutFlags::APPEND,
+                &tx_id,
+                &amount_indices,
+            )?;
         }
         Transaction::V2 { .. } => return Ok(()),
     };
@@ -205,9 +214,11 @@ pub fn add_tx_to_dynamic_tables(
 pub fn remove_tx_from_dynamic_tables(
     tx_hash: &TxHash,
     height: BlockHeight,
-    tables: &mut impl TablesMut,
+    tx_rw: &mut heed::RwTxn,
     tapes: &cuprate_linear_tapes::Popper,
 ) -> DbResult<(TxId, Transaction)> {
+    todo!()
+    /*
     //------------------------------------------------------ Transaction data
     let tx_id = tables.tx_ids_mut().take(tx_hash)?;
 
@@ -272,6 +283,8 @@ pub fn remove_tx_from_dynamic_tables(
     tables.tx_outputs_mut().delete(&tx_id)?;
 
     Ok((tx_id, tx))
+
+     */
 }
 
 //---------------------------------------------------------------------------------------------------- `get_tx_*`
@@ -280,10 +293,17 @@ pub fn remove_tx_from_dynamic_tables(
 #[inline]
 pub fn get_tx(
     tx_hash: &TxHash,
-    table_tx_ids: &impl DatabaseRo<TxIds>,
+    tx_ro: &heed::RoTxn,
     tapes: &cuprate_linear_tapes::Reader,
 ) -> DbResult<Transaction> {
-    get_tx_from_id(&table_tx_ids.get(tx_hash)?, tapes)
+    get_tx_from_id(
+        &TX_IDS
+            .get()
+            .unwrap()
+            .get(tx_ro, tx_hash)?
+            .ok_or(BlockchainError::NotFound)?,
+        tapes,
+    )
 }
 
 /// Retrieve a [`Transaction`] from the database with its [`TxId`].
@@ -317,7 +337,10 @@ pub fn get_tx_from_id(tx_id: &TxId, tapes: &cuprate_linear_tapes::Reader) -> DbR
     Ok(tx)
 }
 
-pub fn get_tx_blob_from_id(tx_id: &TxId, tapes: &cuprate_linear_tapes::Reader) -> DbResult<Vec<u8>> {
+pub fn get_tx_blob_from_id(
+    tx_id: &TxId,
+    tapes: &cuprate_linear_tapes::Reader,
+) -> DbResult<Vec<u8>> {
     let tx_info = tapes
         .fixed_sized_tape_reader::<TxInfo>(TX_INFOS)
         .try_get(*tx_id)
@@ -343,7 +366,6 @@ pub fn get_tx_blob_from_id(tx_id: &TxId, tapes: &cuprate_linear_tapes::Reader) -
     Ok([pruned, prunable].concat())
 }
 
-
 //----------------------------------------------------------------------------------------------------
 /// How many [`Transaction`]s are there?
 ///
@@ -356,8 +378,8 @@ pub fn get_tx_blob_from_id(tx_id: &TxId, tapes: &cuprate_linear_tapes::Reader) -
 /// - etc
 #[doc = doc_error!()]
 #[inline]
-pub fn get_num_tx(table_tx_ids: &impl DatabaseRo<TxIds>) -> DbResult<u64> {
-    table_tx_ids.len()
+pub fn get_num_tx(tx_ro: &heed::RoTxn) -> DbResult<u64> {
+    Ok(TX_IDS.get().unwrap().len(tx_ro)?)
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -366,8 +388,8 @@ pub fn get_num_tx(table_tx_ids: &impl DatabaseRo<TxIds>) -> DbResult<u64> {
 /// Returns `true` if it does, else `false`.
 #[doc = doc_error!()]
 #[inline]
-pub fn tx_exists(tx_hash: &TxHash, table_tx_ids: &impl DatabaseRo<TxIds>) -> DbResult<bool> {
-    table_tx_ids.contains(tx_hash)
+pub fn tx_exists(tx_hash: &TxHash, tx_ro: &heed::RoTxn) -> DbResult<bool> {
+    Ok(TX_IDS.get().unwrap().get(tx_ro, tx_hash)?.is_some())
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

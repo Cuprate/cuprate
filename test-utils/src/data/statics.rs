@@ -100,7 +100,7 @@ impl VerifiedBlockMap {
 // Same as [`VerifiedBlockMap`] but for [`VerifiedTransactionInformation`].
 fn to_tx_verification_data(tx_blob: impl AsRef<[u8]>) -> VerifiedTransactionInformation {
     let tx = Transaction::read(&mut tx_blob.as_ref()).unwrap();
-    let  tx_weight = tx.weight();
+    let tx_weight = tx.weight();
     let fee = tx_fee(&tx);
     let tx_hash = tx.hash();
 

@@ -1,15 +1,14 @@
 use bytemuck::TransparentWrapper;
+use cuprate_types::VerifiedTransactionInformation;
 use monero_oxide::transaction::Transaction;
 
-use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableVec};
-use cuprate_types::VerifiedTransactionInformation;
-
+use crate::database::{ALT_TRANSACTION_BLOBS, ALT_TRANSACTION_INFOS, TX_IDS};
+use crate::error::{BlockchainError, DbResult};
+use crate::ops::tx::get_tx;
 use crate::{
     ops::macros::{doc_add_alt_block_inner_invariant, doc_error},
-    tables::{Tables, TablesMut},
     types::{AltTransactionInfo, TxHash},
 };
-use crate::ops::tx::get_tx;
 
 /// Adds a [`VerifiedTransactionInformation`] from an alt-block
 /// if it is not already in the DB.
@@ -22,9 +21,10 @@ use crate::ops::tx::get_tx;
 #[doc = doc_error!()]
 pub fn add_alt_transaction_blob(
     tx: &VerifiedTransactionInformation,
-    tables: &mut impl TablesMut,
+    tx_rw: &mut heed::RwTxn,
 ) -> DbResult<()> {
-    tables.alt_transaction_infos_mut().put(
+    ALT_TRANSACTION_INFOS.get().unwrap().put(
+        tx_rw,
         &tx.tx_hash,
         &AltTransactionInfo {
             tx_weight: tx.tx_weight,
@@ -33,16 +33,25 @@ pub fn add_alt_transaction_blob(
         },
     )?;
 
-    if tables.tx_ids().get(&tx.tx_hash).is_ok()
-        || tables.alt_transaction_blobs().get(&tx.tx_hash).is_ok()
+    if TX_IDS.get().unwrap().get(tx_rw, &tx.tx_hash).is_ok()
+        || ALT_TRANSACTION_BLOBS
+            .get()
+            .unwrap()
+            .get(tx_rw, &tx.tx_hash)
+            .as_ref()
+            .is_ok_and(Option::is_some)
     {
         return Ok(());
     }
 
     // TODO: the below can be made more efficient pretty easily.
-    tables
-        .alt_transaction_blobs_mut()
-        .put(&tx.tx_hash, StorableVec::wrap_ref(&[tx.tx_pruned.as_slice(), tx.tx_prunable_blob.as_slice()].concat()))?;
+    ALT_TRANSACTION_BLOBS.get().unwrap().put(
+        tx_rw,
+        &tx.tx_hash,
+        [tx.tx_pruned.as_slice(), tx.tx_prunable_blob.as_slice()]
+            .concat()
+            .as_slice(),
+    )?;
 
     Ok(())
 }
@@ -52,18 +61,18 @@ pub fn add_alt_transaction_blob(
 #[doc = doc_error!()]
 pub fn get_alt_transaction(
     tx_hash: &TxHash,
-    tables: &impl Tables,
+    tx_ro: &heed::RoTxn,
     tapes: &cuprate_linear_tapes::Reader,
 ) -> DbResult<VerifiedTransactionInformation> {
-    let tx_info = tables.alt_transaction_infos().get(tx_hash)?;
+    let tx_info = ALT_TRANSACTION_INFOS
+        .get()
+        .unwrap()
+        .get(tx_ro, tx_hash)?
+        .ok_or(BlockchainError::NotFound)?;
 
-    let tx = match tables.alt_transaction_blobs().get(tx_hash) {
-        Ok(tx_blob) => Transaction::read(&mut tx_blob.0.as_slice()).unwrap(),
-        Err(RuntimeError::KeyNotFound) => {
-
-            get_tx(tx_hash, tables.tx_ids(), tapes)?
-        }
-        Err(e) => return Err(e),
+    let tx = match ALT_TRANSACTION_BLOBS.get().unwrap().get(tx_ro, tx_hash)? {
+        Some(mut tx_blob) => Transaction::read(&mut tx_blob).unwrap(),
+        None => get_tx(tx_hash, tx_ro, tapes)?,
     };
 
     let tx_weight = tx_info.tx_weight;

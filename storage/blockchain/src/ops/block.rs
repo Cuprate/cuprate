@@ -6,14 +6,12 @@ use std::io::Write;
 
 use bytemuck::TransparentWrapper;
 use bytes::Bytes;
+use heed::types::U64;
 use monero_oxide::{
     block::{Block, BlockHeader},
     transaction::Transaction,
 };
 
-use cuprate_database::{
-    DbResult, RuntimeError, StorableVec, {DatabaseRo, DatabaseRw},
-};
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_helper::{
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
@@ -26,17 +24,14 @@ use cuprate_types::{
 };
 
 use crate::database::{
-    BLOCK_INFOS, PRUNABLE_BLOBS, PRUNED_BLOBS, RCT_OUTPUTS, TX_INFOS, V1_PRUNABLE_BLOBS,
+    BLOCK_HEIGHTS, BLOCK_INFOS, PRUNABLE_BLOBS, PRUNED_BLOBS, RCT_OUTPUTS, TX_INFOS,
+    V1_PRUNABLE_BLOBS,
 };
+use crate::error::{BlockchainError, DbResult};
 use crate::ops::tx::{add_tx_to_dynamic_tables, add_tx_to_tapes, remove_tx_from_dynamic_tables};
-use crate::types::{RctOutput, TxInfo};
+use crate::types::{Hash32Bytes, RctOutput, TxInfo};
 use crate::{
-    ops::{
-        alt_block,
-        blockchain::chain_height,
-        macros::doc_error,
-    },
-    tables::{BlockHeights, Tables, TablesIter, TablesMut},
+    ops::{alt_block, blockchain::chain_height, macros::doc_error},
     types::{BlockHash, BlockHeight, BlockInfo},
 };
 
@@ -284,7 +279,7 @@ pub fn add_blocks_to_tapes(
 pub fn add_block_to_dynamic_tables(
     block: &VerifiedBlockInformation,
     numb_transactions: &mut usize,
-    tables: &mut impl TablesMut,
+    tx_rw: &mut heed::RwTxn,
 ) -> DbResult<()> {
     //------------------------------------------------------ Check preconditions first
 
@@ -297,7 +292,7 @@ pub fn add_block_to_dynamic_tables(
         block.height,
     );
 
-    let chain_height = chain_height(tables.block_heights())?;
+    let chain_height = chain_height(tx_rw)?;
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
     // Add the miner transaction first.
@@ -307,7 +302,7 @@ pub fn add_block_to_dynamic_tables(
         *numb_transactions,
         &tx.hash(),
         &chain_height,
-        tables,
+        tx_rw,
     )?;
     *numb_transactions += 1;
 
@@ -317,15 +312,15 @@ pub fn add_block_to_dynamic_tables(
             *numb_transactions,
             &tx.tx_hash,
             &chain_height,
-            tables,
+            tx_rw,
         )?;
         *numb_transactions += 1;
     }
 
-    // Block heights.
-    tables
-        .block_heights_mut()
-        .put(&block.block_hash, &block.height)?;
+    BLOCK_HEIGHTS
+        .get()
+        .unwrap()
+        .put(tx_rw, &block.block_hash, &block.height)?;
 
     Ok(())
 }
@@ -344,9 +339,11 @@ pub fn add_block_to_dynamic_tables(
 // no inline, too big
 pub fn pop_block(
     move_to_alt_chain: Option<ChainId>,
-    tables: &mut impl TablesMut,
+    tx_rw: &mut heed::RwTxn,
     tapes: &mut cuprate_linear_tapes::Popper,
 ) -> DbResult<(BlockHeight, BlockHash, Block)> {
+    todo!()
+    /*
     //------------------------------------------------------ Block Info
     let mut block_info_tape = tapes.fixed_sized_tape_popper::<BlockInfo>(BLOCK_INFOS);
 
@@ -455,6 +452,8 @@ pub fn pop_block(
         .set_new_len(cumulative_rct_outs as usize);
 
     Ok((block_height, block_info.block_hash, block))
+
+     */
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_complete_entry_*`
@@ -464,23 +463,27 @@ pub fn pop_block(
 pub fn get_block_complete_entry(
     block_hash: &BlockHash,
     pruned: bool,
-    tables: &impl TablesIter,
+    tx_ro: &heed::RoTxn,
     tapes: &cuprate_linear_tapes::Reader,
-) -> Result<BlockCompleteEntry, RuntimeError> {
-    let block_height = tables.block_heights().get(block_hash)?;
-    get_block_complete_entry_from_height(&block_height, pruned, tapes)
+) -> DbResult<BlockCompleteEntry> {
+    let block_height = BLOCK_HEIGHTS
+        .get()
+        .unwrap()
+        .get(tx_ro, &block_hash)?
+        .ok_or(BlockchainError::NotFound)?;
+    get_block_complete_entry_from_height(block_height, pruned, tapes)
 }
 
 /// Retrieve a [`BlockCompleteEntry`] from the database.
 ///
 #[doc = doc_error!()]
 pub fn get_block_complete_entry_from_height(
-    block_height: &BlockHeight,
+    block_height: BlockHeight,
     pruned: bool,
     tapes: &cuprate_linear_tapes::Reader,
-) -> Result<BlockCompleteEntry, RuntimeError> {
+) -> DbResult<BlockCompleteEntry> {
     let pruning_stripe = cuprate_pruning::get_block_pruning_stripe(
-        *block_height,
+        block_height,
         usize::MAX,
         CRYPTONOTE_PRUNING_LOG_STRIPES,
     )
@@ -496,17 +499,17 @@ pub fn get_block_complete_entry_from_height(
     let tx_infos_reader = tapes.fixed_sized_tape_reader::<TxInfo>(TX_INFOS);
 
     let block_info = block_info_tape_reader
-        .try_get(*block_height)
-        .ok_or(RuntimeError::KeyNotFound)?;
+        .try_get(block_height)
+        .ok_or(BlockchainError::NotFound)?;
 
     let block_blob_start_idx = block_info.pruned_blob_idx;
     let mut block_blob_end_idx = None;
-    
+
     let mut txs = Vec::with_capacity(32);
 
     let mut i = 1;
     while let Some(tx_info) = tx_infos_reader.try_get((block_info.mining_tx_index + i)) {
-        if tx_info.height != *block_height {
+        if tx_info.height != block_height {
             break;
         }
 
@@ -525,7 +528,7 @@ pub fn get_block_complete_entry_from_height(
             let pruned_blob = pruned_tape_reader
                 .try_get_slice(tx_info.pruned_blob_idx, tx_info.pruned_size)
                 .unwrap();
-            
+
             let prunable_blob = if tx_info.rct_output_start_idx == u64::MAX {
                 &v1_prunable_tape_reader
             } else {
@@ -562,7 +565,7 @@ pub fn get_block_complete_entry_from_height(
 
     let block_blob = {
         let block_blob_end_idx = block_blob_end_idx.unwrap_or_else(|| {
-            let next_block_info = block_info_tape_reader.try_get((*block_height + 1));
+            let next_block_info = block_info_tape_reader.try_get((block_height + 1));
 
             if let Some(info) = next_block_info {
                 return info.pruned_blob_idx;
@@ -599,10 +602,17 @@ pub fn get_block_complete_entry_from_height(
 #[inline]
 pub fn get_block_extended_header(
     block_hash: &BlockHash,
-    tables: &impl Tables,
+    tx_ro: &heed::RoTxn,
     tapes: &cuprate_linear_tapes::Reader,
 ) -> DbResult<ExtendedBlockHeader> {
-    get_block_extended_header_from_height(&tables.block_heights().get(block_hash)?, tapes)
+    get_block_extended_header_from_height(
+        BLOCK_HEIGHTS
+            .get()
+            .unwrap()
+            .get(tx_ro, block_hash)?
+            .ok_or(BlockchainError::NotFound)?,
+        tapes,
+    )
 }
 
 /// Same as [`get_block_extended_header`] but with a [`BlockHeight`].
@@ -613,23 +623,23 @@ pub fn get_block_extended_header(
 )]
 #[inline]
 pub fn get_block_extended_header_from_height(
-    block_height: &BlockHeight,
+    block_height: BlockHeight,
     tapes: &cuprate_linear_tapes::Reader,
 ) -> DbResult<ExtendedBlockHeader> {
     let blocks_infos = tapes.fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS);
 
     let block_info = blocks_infos
-        .try_get(*block_height)
-        .ok_or(RuntimeError::KeyNotFound)?;
+        .try_get(block_height)
+        .ok_or(BlockchainError::NotFound)?;
     let miner_tx_info = tapes
         .fixed_sized_tape_reader::<TxInfo>(TX_INFOS)
         .try_get(block_info.mining_tx_index)
-        .ok_or(RuntimeError::KeyNotFound)?;
+        .ok_or(BlockchainError::NotFound)?;
 
     let pruned_tape = tapes.blob_tape_tape_reader(PRUNED_BLOBS);
     let mut block_header_blob = pruned_tape
         .try_get_range(block_info.pruned_blob_idx..miner_tx_info.pruned_blob_idx)
-        .ok_or(RuntimeError::KeyNotFound)?;
+        .ok_or(BlockchainError::NotFound)?;
 
     let block_header = BlockHeader::read(&mut block_header_blob)?;
 
@@ -657,7 +667,7 @@ pub fn get_block_extended_header_top(
 ) -> DbResult<(ExtendedBlockHeader, BlockHeight)> {
     let blocks_infos = tapes.fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS);
     let height = blocks_infos.len();
-    let header = get_block_extended_header_from_height(&height, tapes)?;
+    let header = get_block_extended_header_from_height(height, tapes)?;
     Ok((header, height))
 }
 
@@ -672,14 +682,14 @@ pub fn get_block(
     let block_infos = tapes.fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS);
     let block_info = block_infos
         .try_get(*block_height)
-        .ok_or(RuntimeError::KeyNotFound)?;
+        .ok_or(BlockchainError::NotFound)?;
 
     let pruned_blobs = tapes.blob_tape_tape_reader(PRUNED_BLOBS);
 
     Ok(Block::read(
         &mut pruned_blobs
             .try_get_slice_to_end(block_info.pruned_blob_idx)
-            .ok_or(RuntimeError::KeyNotFound)?,
+            .ok_or(BlockchainError::NotFound)?,
     )?)
 }
 
@@ -688,10 +698,14 @@ pub fn get_block(
 #[inline]
 pub fn get_block_by_hash(
     block_hash: &BlockHash,
-    tables: &impl Tables,
+    tx_ro: &heed::RoTxn,
     tapes: &cuprate_linear_tapes::Reader,
 ) -> DbResult<Block> {
-    let block_height = tables.block_heights().get(block_hash)?;
+    let block_height = BLOCK_HEIGHTS
+        .get()
+        .unwrap()
+        .get(tx_ro, block_hash)?
+        .ok_or(BlockchainError::NotFound)?;
     get_block(&block_height, tapes)
 }
 
@@ -699,11 +713,12 @@ pub fn get_block_by_hash(
 /// Retrieve a [`BlockHeight`] via its [`BlockHash`].
 #[doc = doc_error!()]
 #[inline]
-pub fn get_block_height(
-    block_hash: &BlockHash,
-    table_block_heights: &impl DatabaseRo<BlockHeights>,
-) -> DbResult<BlockHeight> {
-    table_block_heights.get(block_hash)
+pub fn get_block_height(block_hash: &BlockHash, tx_ro: &heed::RoTxn) -> DbResult<BlockHeight> {
+    Ok(BLOCK_HEIGHTS
+        .get()
+        .unwrap()
+        .get(tx_ro, block_hash)?
+        .ok_or(BlockchainError::NotFound)?)
 }
 
 /// Check if a block exists in the database.
@@ -714,11 +729,12 @@ pub fn get_block_height(
 ///
 /// Other errors may still occur.
 #[inline]
-pub fn block_exists(
-    block_hash: &BlockHash,
-    table_block_heights: &impl DatabaseRo<BlockHeights>,
-) -> DbResult<bool> {
-    table_block_heights.contains(block_hash)
+pub fn block_exists(block_hash: &BlockHash, tx_ro: &heed::RoTxn) -> DbResult<bool> {
+    Ok(BLOCK_HEIGHTS
+        .get()
+        .unwrap()
+        .get(tx_ro, block_hash)?
+        .is_some())
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

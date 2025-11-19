@@ -40,14 +40,17 @@
 // actually i still don't trust you. no unsafe.
 #![forbid(unsafe_code)] // if you remove this line i will steal your monero
 
+use std::borrow::Cow;
+use std::cmp::Ordering;
+use std::marker::PhantomData;
 //---------------------------------------------------------------------------------------------------- Import
 use std::num::NonZero;
 
 use bytemuck::{Pod, Zeroable};
+use heed::{BoxedError, BytesDecode, BytesEncode};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use cuprate_database::{Key, StorableVec};
 use cuprate_linear_tapes::Entry;
 use cuprate_types::{Chain, ChainId};
 
@@ -62,16 +65,7 @@ pub type Amount = u64;
 pub type AmountIndex = u64;
 
 /// A list of [`AmountIndex`]s.
-pub type AmountIndices = StorableVec<AmountIndex>;
-
-/// A serialized block.
-pub type BlockBlob = StorableVec<u8>;
-
-/// A serialized block header
-pub type BlockHeaderBlob = StorableVec<u8>;
-
-/// A block transaction hashes
-pub type BlockTxHashes = StorableVec<[u8; 32]>;
+pub type AmountIndices = Vec<AmountIndex>;
 
 /// A block's hash.
 pub type BlockHash = [u8; 32];
@@ -82,17 +76,8 @@ pub type BlockHeight = usize;
 /// A key image.
 pub type KeyImage = [u8; 32];
 
-/// Pruned serialized bytes.
-pub type PrunedBlob = StorableVec<u8>;
-
-/// A prunable serialized bytes.
-pub type PrunableBlob = StorableVec<u8>;
-
 /// A prunable hash.
 pub type PrunableHash = [u8; 32];
-
-/// A serialized transaction.
-pub type TxBlob = StorableVec<u8>;
 
 /// A transaction's global index, or ID.
 pub type TxId = usize;
@@ -102,6 +87,78 @@ pub type TxHash = [u8; 32];
 
 /// The unlock time value of an output.
 pub type UnlockTime = u64;
+
+pub struct HeedAmountIndices;
+
+impl<'a> heed::BytesDecode<'a> for HeedAmountIndices {
+    type DItem = Vec<AmountIndex>;
+
+    fn bytes_decode(item: &'a [u8]) -> Result<Self::DItem, BoxedError> {
+        Ok(bytemuck::pod_collect_to_vec(item))
+    }
+}
+
+impl<'a> heed::BytesEncode<'a> for HeedAmountIndices {
+    type EItem = Vec<AmountIndex>;
+
+    fn bytes_encode(item: &'a Self::EItem) -> Result<Cow<'a, [u8]>, BoxedError> {
+        Ok(Cow::Borrowed(bytemuck::cast_slice(item.as_slice())))
+    }
+}
+
+pub struct HeedUsize;
+
+impl<'a> heed::BytesDecode<'a> for HeedUsize {
+    type DItem = usize;
+
+    fn bytes_decode(v: &'a [u8]) -> Result<Self::DItem, BoxedError> {
+        Ok(usize::from_ne_bytes(v.try_into()?))
+    }
+}
+
+impl<'a> heed::BytesEncode<'a> for HeedUsize {
+    type EItem = usize;
+
+    fn bytes_encode(v: &'a Self::EItem) -> Result<Cow<'a, [u8]>, BoxedError> {
+        Ok(Cow::Owned(v.to_ne_bytes().to_vec()))
+    }
+}
+
+pub struct Hash32Bytes;
+
+impl<'a> heed::BytesDecode<'a> for Hash32Bytes {
+    type DItem = [u8; 32];
+
+    fn bytes_decode(hash: &'a [u8]) -> Result<Self::DItem, BoxedError> {
+        Ok(hash.try_into()?)
+    }
+}
+
+impl<'a> heed::BytesEncode<'a> for Hash32Bytes {
+    type EItem = [u8; 32];
+
+    fn bytes_encode(hash: &'a Self::EItem) -> Result<Cow<'a, [u8]>, BoxedError> {
+        Ok(Cow::Borrowed(hash))
+    }
+}
+
+pub struct ZeroKey;
+
+impl<'a> heed::BytesDecode<'a> for ZeroKey {
+    type DItem = Self;
+
+    fn bytes_decode(_: &'a [u8]) -> Result<Self::DItem, BoxedError> {
+        Ok(Self)
+    }
+}
+
+impl<'a> heed::BytesEncode<'a> for ZeroKey {
+    type EItem = Self;
+
+    fn bytes_encode(_: &'a Self::EItem) -> Result<Cow<'a, [u8]>, BoxedError> {
+        Ok(Cow::Borrowed(&[0_u8; 8]))
+    }
+}
 
 /// Information on a transaction in the blockchain.
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
@@ -191,8 +248,6 @@ pub struct PreRctOutputId {
     /// global index of _all_ `RctOutput`s
     pub amount_index: AmountIndex,
 }
-
-impl Key for PreRctOutputId {}
 
 //---------------------------------------------------------------------------------------------------- BlockInfoV3
 /// Block information.
@@ -304,6 +359,7 @@ impl Entry for BlockInfo {
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(C)]
 pub struct Output {
+    pub amount_index: AmountIndex,
     /// The public key of the output.
     pub key: [u8; 32],
     /// The block height this output belongs to.
@@ -314,6 +370,22 @@ pub struct Output {
     pub timelock: u64,
     /// The index of the transaction this output belongs to.
     pub tx_idx: TxId,
+}
+
+impl<'a> BytesDecode<'a> for Output {
+    type DItem = Self;
+
+    fn bytes_decode(bytes: &'a [u8]) -> Result<Self::DItem, BoxedError> {
+        Ok(bytemuck::pod_read_unaligned(bytes))
+    }
+}
+
+impl<'a> BytesEncode<'a> for Output {
+    type EItem = Self;
+
+    fn bytes_encode(item: &'a Self::EItem) -> Result<Cow<'a, [u8]>, BoxedError> {
+        Ok(Cow::Borrowed(bytemuck::bytes_of(item)))
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- RctOutput
@@ -471,8 +543,6 @@ impl From<RawChainId> for ChainId {
     }
 }
 
-impl Key for RawChainId {}
-
 //---------------------------------------------------------------------------------------------------- AltChainInfo
 /// Information on an alternative chain.
 ///
@@ -543,8 +613,6 @@ pub struct AltBlockHeight {
     /// The height of this alt-block.
     pub height: usize,
 }
-
-impl Key for AltBlockHeight {}
 
 //---------------------------------------------------------------------------------------------------- CompactAltBlockInfo
 /// Represents information on an alt-chain.
@@ -630,6 +698,42 @@ pub struct AltTransactionInfo {
     pub fee: u64,
     /// The transaction's hash.
     pub tx_hash: [u8; 32],
+}
+
+//---------------------------------------------------------------------------------------------------- StorableHeed
+/// The glue struct that implements `heed`'s (de)serialization
+/// traits on any type that implements `cuprate_database::Storable`.
+///
+/// Never actually gets constructed, just used for trait bound translations.
+pub(super) struct StorableHeed<T>(PhantomData<T>)
+where
+    T: Pod + ?Sized;
+
+//---------------------------------------------------------------------------------------------------- BytesDecode/Encode
+impl<'a, T> BytesDecode<'a> for StorableHeed<T>
+where
+    T: Pod + 'static,
+{
+    type DItem = T;
+
+    #[inline]
+    /// This function is infallible (will always return `Ok`).
+    fn bytes_decode(bytes: &'a [u8]) -> Result<Self::DItem, BoxedError> {
+        Ok(bytemuck::pod_read_unaligned(bytes))
+    }
+}
+
+impl<'a, T> BytesEncode<'a> for StorableHeed<T>
+where
+    T: Pod + ?Sized + 'a,
+{
+    type EItem = T;
+
+    #[inline]
+    /// This function is infallible (will always return `Ok`).
+    fn bytes_encode(item: &'a Self::EItem) -> Result<Cow<'a, [u8]>, BoxedError> {
+        Ok(Cow::Borrowed(bytemuck::bytes_of(item)))
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

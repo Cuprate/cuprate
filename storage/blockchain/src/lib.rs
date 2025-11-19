@@ -2,7 +2,9 @@
 #![allow(
     // See `cuprate-database` for reasoning.
     clippy::significant_drop_tightening,
-unreachable_pub
+unreachable_pub,
+unused,
+unused_qualifications,
 )]
 extern crate core;
 
@@ -27,18 +29,18 @@ mod database;
 mod free;
 
 pub use constants::DATABASE_VERSION;
-pub use cuprate_database;
-pub use database::Database;
+pub use database::Blockchain;
 pub use free::open;
 
 pub mod config;
 pub mod ops;
 pub mod service;
-pub mod tables;
+//pub mod tables;
 pub mod types;
 
 //---------------------------------------------------------------------------------------------------- Private
 #[cfg(test)]
 pub(crate) mod tests;
 
+mod error;
 pub(crate) mod unsafe_sendable;

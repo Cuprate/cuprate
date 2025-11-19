@@ -1,11 +1,11 @@
 use std::cmp::{max, min};
 
-use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError};
 use cuprate_types::{Chain, ChainId};
 
+use crate::database::{ALT_BLOCK_HEIGHTS, ALT_CHAIN_INFOS};
+use crate::error::{BlockchainError, DbResult};
 use crate::{
     ops::macros::{doc_add_alt_block_inner_invariant, doc_error},
-    tables::{AltChainInfos, TablesMut},
     types::{AltBlockHeight, AltChainInfo, BlockHash, BlockHeight},
 };
 
@@ -20,47 +20,48 @@ use crate::{
 pub fn update_alt_chain_info(
     alt_block_height: &AltBlockHeight,
     prev_hash: &BlockHash,
-    tables: &mut impl TablesMut,
+    tx_rw: &mut heed::RwTxn,
 ) -> DbResult<()> {
-    let parent_chain = match tables.alt_block_heights().get(prev_hash) {
-        Ok(alt_parent_height) => Chain::Alt(alt_parent_height.chain_id.into()),
-        Err(RuntimeError::KeyNotFound) => Chain::Main,
-        Err(e) => return Err(e),
+    let parent_chain = match ALT_BLOCK_HEIGHTS.get().unwrap().get(tx_rw, prev_hash) {
+        Ok(Some(alt_parent_height)) => Chain::Alt(alt_parent_height.chain_id.into()),
+        Ok(None) => Chain::Main,
+        Err(e) => Err(e)?,
     };
 
-    // try update the info if one exists for this chain.
-    let update = tables
-        .alt_chain_infos_mut()
-        .update(&alt_block_height.chain_id, |mut info| {
-            if info.chain_height < alt_block_height.height + 1 {
-                // If the chain height is increasing we only need to update the chain height.
-                info.chain_height = alt_block_height.height + 1;
-            } else {
-                // If the chain height is not increasing we are popping blocks and need to update the
-                // split point.
-                info.common_ancestor_height = alt_block_height.height.checked_sub(1).unwrap();
-                info.parent_chain = parent_chain.into();
-            }
+    let Some(mut info) = ALT_CHAIN_INFOS
+        .get()
+        .unwrap()
+        .get(tx_rw, &alt_block_height.chain_id)?
+    else {
+        ALT_CHAIN_INFOS.get().unwrap().put(
+            tx_rw,
+            &alt_block_height.chain_id,
+            &AltChainInfo {
+                parent_chain: parent_chain.into(),
+                common_ancestor_height: alt_block_height.height.checked_sub(1).unwrap(),
+                chain_height: alt_block_height.height + 1,
+            },
+        )?;
 
-            Some(info)
-        });
+        return Ok(());
+    };
 
-    match update {
-        Ok(()) => return Ok(()),
-        Err(RuntimeError::KeyNotFound) => (),
-        Err(e) => return Err(e),
+    if info.chain_height < alt_block_height.height + 1 {
+        // If the chain height is increasing we only need to update the chain height.
+        info.chain_height = alt_block_height.height + 1;
+    } else {
+        // If the chain height is not increasing we are popping blocks and need to update the
+        // split point.
+        info.common_ancestor_height = alt_block_height.height.checked_sub(1).unwrap();
+        info.parent_chain = parent_chain.into();
     }
 
-    // If one doesn't already exist add it.
+    ALT_CHAIN_INFOS
+        .get()
+        .unwrap()
+        .put(tx_rw, &alt_block_height.chain_id, &info)?;
 
-    tables.alt_chain_infos_mut().put(
-        &alt_block_height.chain_id,
-        &AltChainInfo {
-            parent_chain: parent_chain.into(),
-            common_ancestor_height: alt_block_height.height.checked_sub(1).unwrap(),
-            chain_height: alt_block_height.height + 1,
-        },
-    )
+    Ok(())
 }
 
 /// Get the height history of an alt-chain in reverse chronological order.
@@ -72,14 +73,18 @@ pub fn update_alt_chain_info(
 pub fn get_alt_chain_history_ranges(
     range: std::ops::Range<BlockHeight>,
     alt_chain: ChainId,
-    alt_chain_infos: &impl DatabaseRo<AltChainInfos>,
+    tx_ro: &heed::RoTxn,
 ) -> DbResult<Vec<(Chain, std::ops::Range<BlockHeight>)>> {
     let mut ranges = Vec::with_capacity(5);
 
     let mut i = range.end;
     let mut current_chain_id = alt_chain.into();
     while i > range.start {
-        let chain_info = alt_chain_infos.get(&current_chain_id)?;
+        let chain_info = ALT_CHAIN_INFOS
+            .get()
+            .unwrap()
+            .get(tx_ro, &current_chain_id)?
+            .ok_or(BlockchainError::NotFound)?;
 
         let start_height = max(range.start, chain_info.common_ancestor_height + 1);
         let end_height = min(i, chain_info.chain_height);
@@ -101,7 +106,7 @@ pub fn get_alt_chain_history_ranges(
                 // This shouldn't be possible to hit, however in a test with custom (invalid) block data
                 // this caused an infinite loop.
                 if alt_chain_id == current_chain_id {
-                    return Err(RuntimeError::Io(std::io::Error::other(
+                    return Err(BlockchainError::IO(std::io::Error::other(
                         "Loop detected in ChainIDs, invalid alt chain.",
                     )));
                 }

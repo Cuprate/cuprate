@@ -1,23 +1,22 @@
 //! Output functions.
 
+use heed::PutFlags;
 //---------------------------------------------------------------------------------------------------- Import
 use monero_oxide::{io::CompressedPoint, transaction::Timelock};
 
-use cuprate_database::{
-    DbResult, RuntimeError, {DatabaseRo, DatabaseRw},
-};
 use cuprate_helper::{cast::u32_to_usize, crypto::compute_zero_commitment, map::u64_to_timelock};
 use cuprate_types::OutputOnChain;
 
+use crate::database::{PRE_RCT_OUTPUTS, RCT_OUTPUTS, TX_OUTPUTS};
+use crate::error::{BlockchainError, DbResult};
+use crate::types::TxId;
 use crate::{
     ops::{
         macros::{doc_add_block_inner_invariant, doc_error},
         tx::get_tx_from_id,
     },
-    tables::{Outputs, Tables, TablesMut},
     types::{Amount, AmountIndex, Output, PreRctOutputId, RctOutput},
 };
-use crate::database::RCT_OUTPUTS;
 
 //---------------------------------------------------------------------------------------------------- Pre-RCT Outputs
 /// Add a Pre-RCT [`Output`] to the database.
@@ -30,21 +29,21 @@ use crate::database::RCT_OUTPUTS;
 #[inline]
 pub fn add_output(
     amount: Amount,
-    output: &Output,
-    tables: &mut impl TablesMut,
+    key: [u8; 32],
+    height: usize,
+    timelock: u64,
+    tx_idx: TxId,
+    tx_rw: &mut heed::RwTxn,
 ) -> DbResult<PreRctOutputId> {
-    // FIXME: this would be much better expressed with a
-    // `btree_map::Entry`-like API, fix `trait DatabaseRw`.
-    let num_outputs = match tables.num_outputs().get(&amount) {
-        // Entry with `amount` already exists.
-        Ok(num_outputs) => num_outputs,
-        // Entry with `amount` didn't exist, this is
-        // the 1st output with this amount.
-        Err(RuntimeError::KeyNotFound) => 0,
-        Err(e) => return Err(e),
+    let num_outputs = if let Some(mut rw_iter) = PRE_RCT_OUTPUTS
+        .get()
+        .unwrap()
+        .get_duplicates(tx_rw, &amount)?
+    {
+        rw_iter.last().unwrap()?.1.amount_index + 1
+    } else {
+        0
     };
-    // Update the amount of outputs.
-    tables.num_outputs_mut().put(&amount, &(num_outputs + 1))?;
 
     let pre_rct_output_id = PreRctOutputId {
         amount,
@@ -52,7 +51,19 @@ pub fn add_output(
         amount_index: num_outputs,
     };
 
-    tables.outputs_mut().put(&pre_rct_output_id, output)?;
+    PRE_RCT_OUTPUTS.get().unwrap().put_with_flags(
+        tx_rw,
+        PutFlags::APPEND_DUP,
+        &amount,
+        &Output {
+            amount_index: num_outputs,
+            key,
+            height,
+            timelock,
+            tx_idx,
+        },
+    )?;
+
     Ok(pre_rct_output_id)
 }
 
@@ -60,36 +71,41 @@ pub fn add_output(
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
 #[inline]
-pub fn remove_output(
-    pre_rct_output_id: &PreRctOutputId,
-    tables: &mut impl TablesMut,
-) -> DbResult<()> {
-    // Decrement the amount index by 1, or delete the entry out-right.
-    // FIXME: this would be much better expressed with a
-    // `btree_map::Entry`-like API, fix `trait DatabaseRw`.
-    tables
-        .num_outputs_mut()
-        .update(&pre_rct_output_id.amount, |num_outputs| {
-            // INVARIANT: Should never be 0.
-            if num_outputs == 1 {
-                None
-            } else {
-                Some(num_outputs - 1)
-            }
-        })?;
+pub fn remove_output(pre_rct_output_id: &PreRctOutputId, tx_rw: &mut heed::RwTxn) -> DbResult<()> {
+    PRE_RCT_OUTPUTS.get().unwrap().delete_one_duplicate(
+        tx_rw,
+        &pre_rct_output_id.amount,
+        &Output {
+            amount_index: pre_rct_output_id.amount_index,
+            key: [0; 32],
+            height: 0,
+            timelock: 0,
+            tx_idx: 0,
+        },
+    )?;
 
-    // Delete the output data itself.
-    tables.outputs_mut().delete(pre_rct_output_id)
+    Ok(())
 }
 
 /// Retrieve a Pre-RCT [`Output`] from the database.
 #[doc = doc_error!()]
 #[inline]
-pub fn get_output(
-    pre_rct_output_id: &PreRctOutputId,
-    table_outputs: &impl DatabaseRo<Outputs>,
-) -> DbResult<Output> {
-    table_outputs.get(pre_rct_output_id)
+pub fn get_output(pre_rct_output_id: &PreRctOutputId, tx_ro: &heed::RoTxn) -> DbResult<Output> {
+    PRE_RCT_OUTPUTS
+        .get()
+        .unwrap()
+        .get_duplicate(
+            tx_ro,
+            &pre_rct_output_id.amount,
+            &Output {
+                amount_index: pre_rct_output_id.amount_index,
+                key: [0; 32],
+                height: 0,
+                timelock: 0,
+                tx_idx: 0,
+            },
+        )?
+        .ok_or(BlockchainError::NotFound)
 }
 
 /// How many pre-RCT [`Output`]s are there?
@@ -97,8 +113,18 @@ pub fn get_output(
 /// This returns the amount of pre-RCT outputs currently stored.
 #[doc = doc_error!()]
 #[inline]
-pub fn get_num_outputs(table_outputs: &impl DatabaseRo<Outputs>) -> DbResult<u64> {
-    table_outputs.len()
+pub fn get_num_outputs(tx_ro: &heed::RoTxn) -> DbResult<u64> {
+    Ok(PRE_RCT_OUTPUTS.get().unwrap().len(tx_ro)?)
+}
+
+#[inline]
+pub fn get_num_outputs_with_amount(tx_ro: &heed::RoTxn, amount: Amount) -> DbResult<u64> {
+    let outs = PRE_RCT_OUTPUTS
+        .get()
+        .unwrap()
+        .get_duplicates(tx_ro, &amount)?;
+
+    outs.map_or(Ok(0), |o| Ok(o.last().unwrap()?.1.amount_index + 1))
 }
 
 //---------------------------------------------------------------------------------------------------- Mapping functions
@@ -174,25 +200,22 @@ pub fn rct_output_to_output_on_chain(
 pub fn id_to_output_on_chain(
     id: &PreRctOutputId,
     get_txid: bool,
-    tables: &impl Tables,
+    tx_ro: &heed::RoTxn,
     tapes: &cuprate_linear_tapes::Reader,
 ) -> DbResult<OutputOnChain> {
     // v2 transactions.
     if id.amount == 0 {
-        let rct_output = tapes.fixed_sized_tape_reader::<RctOutput>(RCT_OUTPUTS).try_get(id.amount_index as usize).ok_or(RuntimeError::KeyNotFound)?;
-        let output_on_chain =
-            rct_output_to_output_on_chain(&rct_output, get_txid, tapes)?;
+        let rct_output = tapes
+            .fixed_sized_tape_reader::<RctOutput>(RCT_OUTPUTS)
+            .try_get(id.amount_index as usize)
+            .ok_or(BlockchainError::NotFound)?;
+        let output_on_chain = rct_output_to_output_on_chain(&rct_output, get_txid, tapes)?;
 
         Ok(output_on_chain)
     } else {
         // v1 transactions.
-        let output = get_output(id, tables.outputs())?;
-        let output_on_chain = output_to_output_on_chain(
-            &output,
-            id.amount,
-            get_txid,
-            tapes,
-        )?;
+        let output = get_output(id, tx_ro)?;
+        let output_on_chain = output_to_output_on_chain(&output, id.amount, get_txid, tapes)?;
 
         Ok(output_on_chain)
     }

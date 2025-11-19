@@ -46,7 +46,6 @@ use std::{borrow::Cow, path::PathBuf};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use cuprate_database::{config::SyncMode, resize::ResizeAlgorithm};
 use cuprate_helper::{
     fs::{blockchain_path, CUPRATE_DATA_DIR},
     network::Network,
@@ -71,9 +70,6 @@ pub struct ConfigBuilder {
 
     data_dir: Option<PathBuf>,
 
-    /// [`Config::cuprate_database_config`].
-    db_config: cuprate_database::config::ConfigBuilder,
-
     /// [`Config::reader_threads`].
     reader_threads: Option<ReaderThreads>,
 }
@@ -87,10 +83,6 @@ impl ConfigBuilder {
         Self {
             network: Network::default(),
             data_dir: None,
-            db_config: cuprate_database::config::ConfigBuilder::new(Cow::Owned(blockchain_path(
-                &CUPRATE_DATA_DIR,
-                Network::Mainnet,
-            ))),
             reader_threads: None,
         }
     }
@@ -110,14 +102,9 @@ impl ConfigBuilder {
             .unwrap_or_else(|| CUPRATE_DATA_DIR.to_path_buf());
 
         let reader_threads = self.reader_threads.unwrap_or_default();
-        let db_config = self
-            .db_config
-            .db_directory(Cow::Owned(blockchain_path(&data_dir, self.network)))
-            .reader_threads(reader_threads.as_threads())
-            .build();
 
         Config {
-            db_config,
+            data_dir: blockchain_path(&data_dir, self.network),
             blob_data_dir: None,
             reader_threads,
         }
@@ -137,20 +124,6 @@ impl ConfigBuilder {
         self
     }
 
-    /// Calls [`cuprate_database::config::ConfigBuilder::sync_mode`].
-    #[must_use]
-    pub fn sync_mode(mut self, sync_mode: SyncMode) -> Self {
-        self.db_config = self.db_config.sync_mode(sync_mode);
-        self
-    }
-
-    /// Calls [`cuprate_database::config::ConfigBuilder::resize_algorithm`].
-    #[must_use]
-    pub fn resize_algorithm(mut self, resize_algorithm: ResizeAlgorithm) -> Self {
-        self.db_config = self.db_config.resize_algorithm(resize_algorithm);
-        self
-    }
-
     /// Set a custom [`ReaderThreads`].
     #[must_use]
     pub const fn reader_threads(mut self, reader_threads: ReaderThreads) -> Self {
@@ -164,8 +137,6 @@ impl ConfigBuilder {
     /// Good default for testing, and resource-available machines.
     #[must_use]
     pub fn fast(mut self) -> Self {
-        self.db_config = self.db_config.fast();
-
         self.reader_threads = Some(ReaderThreads::OnePerThread);
         self
     }
@@ -176,8 +147,6 @@ impl ConfigBuilder {
     /// Good default for resource-limited machines, e.g. a cheap VPS.
     #[must_use]
     pub fn low_power(mut self) -> Self {
-        self.db_config = self.db_config.low_power();
-
         self.reader_threads = Some(ReaderThreads::One);
         self
     }
@@ -187,11 +156,7 @@ impl Default for ConfigBuilder {
     fn default() -> Self {
         Self {
             network: Network::default(),
-            data_dir: Some(CUPRATE_DATA_DIR.to_path_buf()),
-            db_config: cuprate_database::config::ConfigBuilder::new(Cow::Owned(blockchain_path(
-                &CUPRATE_DATA_DIR,
-                Network::default(),
-            ))),
+            data_dir: Some(blockchain_path(&CUPRATE_DATA_DIR, Network::default())),
             reader_threads: Some(ReaderThreads::default()),
         }
     }
@@ -208,8 +173,7 @@ impl Default for ConfigBuilder {
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Config {
-    /// The database configuration.
-    pub db_config: cuprate_database::config::Config,
+    pub data_dir: PathBuf,
 
     /// The directory to store block/tx blobs.
     pub blob_data_dir: Option<PathBuf>,

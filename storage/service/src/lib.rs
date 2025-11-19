@@ -1,4 +1,5 @@
 #![doc = include_str!("../README.md")]
+pub use cuprate_database::RuntimeError;
 
 mod reader_threads;
 mod service;

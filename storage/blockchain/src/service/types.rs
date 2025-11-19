@@ -1,7 +1,7 @@
 //! Database service type aliases.
 
 //---------------------------------------------------------------------------------------------------- Use
-use cuprate_database::DbResult;
+use crate::error::DbResult;
 use cuprate_database_service::{DatabaseReadService, DatabaseWriteHandle};
 use cuprate_types::blockchain::{
     BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest,

@@ -299,7 +299,7 @@ impl Config {
         cuprate_blockchain::config::ConfigBuilder::default()
             .network(self.network)
             .data_directory(self.fs.data_directory.clone())
-            .sync_mode(blockchain.sync_mode)
+          //  .sync_mode(blockchain.sync_mode)
             .build()
     }
 

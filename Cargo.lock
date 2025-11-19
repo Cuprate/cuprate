@@ -714,7 +714,7 @@ dependencies = [
  "rand_core 0.6.4",
  "sha2",
  "sha3",
- "std-shims 0.1.5",
+ "std-shims",
  "subtle",
  "zeroize",
 ]
@@ -1086,23 +1086,25 @@ dependencies = [
  "bytemuck",
  "bytes",
  "cuprate-constants",
- "cuprate-database",
  "cuprate-database-service",
  "cuprate-helper",
  "cuprate-linear-tapes",
  "cuprate-pruning",
  "cuprate-test-utils",
  "cuprate-types",
+ "heed 0.22.0",
  "hex",
  "hex-literal 1.1.0",
  "indexmap 2.12.0",
- "monero-oxide 0.1.4-alpha (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
+ "itertools 0.14.0",
+ "monero-oxide",
  "pretty_assertions",
  "proptest",
  "rand 0.8.5",
  "rayon",
  "serde",
  "tempfile",
+ "thiserror 2.0.17",
  "thread_local",
  "tokio",
  "tower",
@@ -1124,7 +1126,7 @@ dependencies = [
  "hex",
  "hex-literal 1.1.0",
  "indexmap 2.12.0",
- "monero-oxide 0.1.4-alpha (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
+ "monero-oxide",
  "proptest",
  "proptest-derive",
  "rand 0.8.5",
@@ -1147,7 +1149,7 @@ dependencies = [
  "cuprate-types",
  "futures",
  "hex",
- "monero-oxide 0.1.4-alpha (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
+ "monero-oxide",
  "randomx-rs",
  "rayon",
  "thiserror 2.0.17",
@@ -1172,7 +1174,7 @@ dependencies = [
  "hex",
  "hex-literal 1.1.0",
  "indexmap 2.12.0",
- "monero-oxide 0.1.4-alpha (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
+ "monero-oxide",
  "proptest",
  "proptest-derive",
  "rand 0.8.5",
@@ -1223,7 +1225,7 @@ dependencies = [
  "bytemuck",
  "bytes",
  "cfg-if",
- "heed",
+ "heed 0.20.5",
  "page_size",
  "paste",
  "redb",
@@ -1274,7 +1276,7 @@ dependencies = [
  "cuprate-p2p-core",
  "cuprate-types",
  "hex",
- "monero-oxide 0.1.4-alpha (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
+ "monero-oxide",
  "proptest",
  "serde_json",
  "tempfile",
@@ -1303,7 +1305,7 @@ dependencies = [
  "cuprate-levin",
  "cuprate-wire",
  "libfuzzer-sys",
- "monero-oxide 0.1.4-alpha (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
+ "monero-oxide",
  "tokio-util",
 ]
 
@@ -1318,7 +1320,7 @@ dependencies = [
  "dirs",
  "futures",
  "libc",
- "monero-oxide 0.1.4-alpha (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
+ "monero-oxide",
  "rayon",
  "serde",
  "tokio",
@@ -1389,7 +1391,7 @@ dependencies = [
  "cuprate-wire",
  "futures",
  "indexmap 2.12.0",
- "monero-oxide 0.1.4-alpha (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
+ "monero-oxide",
  "pin-project",
  "proptest",
  "rand 0.8.5",
@@ -1525,7 +1527,7 @@ dependencies = [
  "cuprate-wire",
  "hex",
  "hex-literal 1.1.0",
- "monero-oxide 0.1.4-alpha (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
+ "monero-oxide",
  "monero-rpc",
  "monero-simple-request-rpc",
  "paste",
@@ -1550,7 +1552,7 @@ dependencies = [
  "cuprate-types",
  "hex",
  "hex-literal 1.1.0",
- "monero-oxide 0.1.4-alpha (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
+ "monero-oxide",
  "rayon",
  "serde",
  "tempfile",
@@ -1573,7 +1575,7 @@ dependencies = [
  "cuprate-hex",
  "hex-literal 1.1.0",
  "indexmap 2.12.0",
- "monero-oxide 0.1.4-alpha (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
+ "monero-oxide",
  "pretty_assertions",
  "proptest",
  "proptest-derive",
@@ -1666,7 +1668,7 @@ dependencies = [
  "hex-literal 1.1.0",
  "indexmap 2.12.0",
  "monero-address",
- "monero-oxide 0.1.4-alpha (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
+ "monero-oxide",
  "nu-ansi-term 0.46.0",
  "paste",
  "pin-project",
@@ -2076,21 +2078,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
-name = "ec-divisors"
-version = "0.1.0"
-source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f#27b1c7f2918444560c7383e7a5fbddb481dbf2d2"
-dependencies = [
- "crypto-bigint 0.5.5",
- "dalek-ff-group 0.5.0",
- "ff",
- "group",
- "rand_core 0.6.4",
- "std-shims 0.1.5",
- "subtle",
- "zeroize",
-]
-
-[[package]]
 name = "ecdsa"
 version = "0.16.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2227,16 +2214,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37909eebbb50d72f9059c3b6d82c0463f2ff062c9e95845c43a6c9c0355411be"
 
 [[package]]
-name = "fcmp-pp-tree"
-version = "0.1.0"
-dependencies = [
- "curve25519-dalek",
- "monero-fcmp-plus-plus",
- "monero-oxide 0.1.4-alpha (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "std-shims 0.2.0",
-]
-
-[[package]]
 name = "ff"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2303,7 +2280,7 @@ dependencies = [
  "blake2",
  "digest",
  "merlin",
- "std-shims 0.1.5",
+ "std-shims",
  "subtle",
  "zeroize",
 ]
@@ -2403,24 +2380,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "full-chain-membership-proofs"
-version = "0.1.0"
-source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f#27b1c7f2918444560c7383e7a5fbddb481dbf2d2"
-dependencies = [
- "blake2",
- "ciphersuite",
- "ec-divisors",
- "generalized-bulletproofs",
- "generalized-bulletproofs-circuit-abstraction",
- "generalized-bulletproofs-ec-gadgets",
- "generic-array 1.3.5",
- "multiexp",
- "rand_core 0.6.4",
- "std-shims 0.1.5",
- "zeroize",
-]
-
-[[package]]
 name = "funty"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2513,43 +2472,6 @@ dependencies = [
  "pin-project-lite",
  "pin-utils",
  "slab",
-]
-
-[[package]]
-name = "generalized-bulletproofs"
-version = "0.1.0"
-source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f#27b1c7f2918444560c7383e7a5fbddb481dbf2d2"
-dependencies = [
- "blake2",
- "ciphersuite",
- "ff",
- "flexible-transcript",
- "multiexp",
- "rand_core 0.6.4",
- "std-shims 0.1.5",
- "zeroize",
-]
-
-[[package]]
-name = "generalized-bulletproofs-circuit-abstraction"
-version = "0.1.0"
-source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f#27b1c7f2918444560c7383e7a5fbddb481dbf2d2"
-dependencies = [
- "ciphersuite",
- "generalized-bulletproofs",
- "std-shims 0.1.5",
- "zeroize",
-]
-
-[[package]]
-name = "generalized-bulletproofs-ec-gadgets"
-version = "0.1.0"
-source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f#27b1c7f2918444560c7383e7a5fbddb481dbf2d2"
-dependencies = [
- "ciphersuite",
- "generalized-bulletproofs-circuit-abstraction",
- "generic-array 1.3.5",
- "std-shims 0.1.5",
 ]
 
 [[package]]
@@ -2721,10 +2643,28 @@ checksum = "7d4f449bab7320c56003d37732a917e18798e2f1709d80263face2b4f9436ddb"
 dependencies = [
  "bitflags 2.10.0",
  "byteorder",
- "heed-traits",
- "heed-types",
+ "heed-traits 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heed-types 0.20.1",
  "libc",
- "lmdb-master-sys",
+ "lmdb-master-sys 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "once_cell",
+ "page_size",
+ "serde",
+ "synchronoise",
+ "url",
+]
+
+[[package]]
+name = "heed"
+version = "0.22.0"
+source = "git+https://github.com/Boog900/heed.git?branch=wip#8e65b8832d1ed7fb16c1da8f33574f9ef0ef71d7"
+dependencies = [
+ "bitflags 2.10.0",
+ "byteorder",
+ "heed-traits 0.20.0 (git+https://github.com/Boog900/heed.git?branch=wip)",
+ "heed-types 0.21.0",
+ "libc",
+ "lmdb-master-sys 0.2.5 (git+https://github.com/Boog900/heed.git?branch=wip)",
  "once_cell",
  "page_size",
  "serde",
@@ -2739,6 +2679,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eb3130048d404c57ce5a1ac61a903696e8fcde7e8c2991e9fcfc1f27c3ef74ff"
 
 [[package]]
+name = "heed-traits"
+version = "0.20.0"
+source = "git+https://github.com/Boog900/heed.git?branch=wip#8e65b8832d1ed7fb16c1da8f33574f9ef0ef71d7"
+
+[[package]]
 name = "heed-types"
 version = "0.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2746,27 +2691,21 @@ checksum = "9d3f528b053a6d700b2734eabcd0fd49cb8230647aa72958467527b0b7917114"
 dependencies = [
  "bincode 1.3.3",
  "byteorder",
- "heed-traits",
+ "heed-traits 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
 ]
 
 [[package]]
-name = "helioselene"
-version = "0.1.0"
-source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f#27b1c7f2918444560c7383e7a5fbddb481dbf2d2"
+name = "heed-types"
+version = "0.21.0"
+source = "git+https://github.com/Boog900/heed.git?branch=wip#8e65b8832d1ed7fb16c1da8f33574f9ef0ef71d7"
 dependencies = [
- "blake2",
- "ciphersuite",
- "crypto-bigint 0.5.5",
- "dalek-ff-group 0.5.0",
- "ec-divisors",
- "ff",
- "group",
- "rand_core 0.6.4",
- "std-shims 0.1.5",
- "subtle",
- "zeroize",
+ "bincode 1.3.3",
+ "byteorder",
+ "heed-traits 0.20.0 (git+https://github.com/Boog900/heed.git?branch=wip)",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3346,6 +3285,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "lmdb-master-sys"
+version = "0.2.5"
+source = "git+https://github.com/Boog900/heed.git?branch=wip#8e65b8832d1ed7fb16c1da8f33574f9ef0ef71d7"
+dependencies = [
+ "cc",
+ "doxygen-rs",
+ "libc",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3469,8 +3418,8 @@ source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f
 dependencies = [
  "curve25519-dalek",
  "monero-base58",
- "monero-io 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
- "monero-primitives 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
+ "monero-io",
+ "monero-primitives",
  "thiserror 2.0.17",
  "zeroize",
 ]
@@ -3480,21 +3429,8 @@ name = "monero-base58"
 version = "0.1.0"
 source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc#7c288b058ae7f1e3d36600a2af11b3176102bcfc"
 dependencies = [
- "monero-primitives 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
- "std-shims 0.1.5",
-]
-
-[[package]]
-name = "monero-borromean"
-version = "0.1.0"
-source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f#27b1c7f2918444560c7383e7a5fbddb481dbf2d2"
-dependencies = [
- "curve25519-dalek",
- "monero-generators 0.4.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "monero-io 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "monero-primitives 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "std-shims 0.1.5",
- "zeroize",
+ "monero-primitives",
+ "std-shims",
 ]
 
 [[package]]
@@ -3503,25 +3439,10 @@ version = "0.1.0"
 source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc#7c288b058ae7f1e3d36600a2af11b3176102bcfc"
 dependencies = [
  "curve25519-dalek",
- "monero-generators 0.4.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
- "monero-io 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
- "monero-primitives 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
- "std-shims 0.1.5",
- "zeroize",
-]
-
-[[package]]
-name = "monero-bulletproofs"
-version = "0.1.0"
-source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f#27b1c7f2918444560c7383e7a5fbddb481dbf2d2"
-dependencies = [
- "curve25519-dalek",
- "monero-generators 0.4.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "monero-io 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "monero-primitives 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "rand_core 0.6.4",
- "std-shims 0.1.5",
- "thiserror 2.0.17",
+ "monero-generators",
+ "monero-io",
+ "monero-primitives",
+ "std-shims",
  "zeroize",
 ]
 
@@ -3531,29 +3452,11 @@ version = "0.1.0"
 source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc#7c288b058ae7f1e3d36600a2af11b3176102bcfc"
 dependencies = [
  "curve25519-dalek",
- "monero-generators 0.4.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
- "monero-io 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
- "monero-primitives 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
+ "monero-generators",
+ "monero-io",
+ "monero-primitives",
  "rand_core 0.6.4",
- "std-shims 0.1.5",
- "thiserror 2.0.17",
- "zeroize",
-]
-
-[[package]]
-name = "monero-clsag"
-version = "0.1.0"
-source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f#27b1c7f2918444560c7383e7a5fbddb481dbf2d2"
-dependencies = [
- "curve25519-dalek",
- "group",
- "monero-generators 0.4.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "monero-io 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "monero-primitives 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "rand_chacha 0.3.1",
- "rand_core 0.6.4",
- "std-shims 0.1.5",
- "subtle",
+ "std-shims",
  "thiserror 2.0.17",
  "zeroize",
 ]
@@ -3565,58 +3468,15 @@ source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f
 dependencies = [
  "curve25519-dalek",
  "group",
- "monero-generators 0.4.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
- "monero-io 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
- "monero-primitives 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
+ "monero-generators",
+ "monero-io",
+ "monero-primitives",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
- "std-shims 0.1.5",
+ "std-shims",
  "subtle",
  "thiserror 2.0.17",
  "zeroize",
-]
-
-[[package]]
-name = "monero-fcmp-plus-plus"
-version = "0.1.0"
-source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f#27b1c7f2918444560c7383e7a5fbddb481dbf2d2"
-dependencies = [
- "blake2",
- "ciphersuite",
- "dalek-ff-group 0.5.0",
- "ec-divisors",
- "flexible-transcript",
- "full-chain-membership-proofs",
- "generalized-bulletproofs",
- "generalized-bulletproofs-ec-gadgets",
- "generic-array 1.3.5",
- "helioselene",
- "monero-generators 0.4.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "multiexp",
- "rand_chacha 0.3.1",
- "rand_core 0.6.4",
- "std-shims 0.1.5",
- "zeroize",
-]
-
-[[package]]
-name = "monero-generators"
-version = "0.4.0"
-source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f#27b1c7f2918444560c7383e7a5fbddb481dbf2d2"
-dependencies = [
- "blake2",
- "ciphersuite",
- "crypto-bigint 0.5.5",
- "curve25519-dalek",
- "dalek-ff-group 0.5.0",
- "full-chain-membership-proofs",
- "generalized-bulletproofs",
- "group",
- "helioselene",
- "monero-io 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "sha3",
- "std-shims 0.1.5",
- "subtle",
 ]
 
 [[package]]
@@ -3628,43 +3488,19 @@ dependencies = [
  "curve25519-dalek",
  "dalek-ff-group 0.5.0",
  "group",
- "monero-io 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
+ "monero-io",
  "sha3",
- "std-shims 0.1.5",
+ "std-shims",
  "subtle",
 ]
 
 [[package]]
 name = "monero-io"
 version = "0.1.0"
-source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f#27b1c7f2918444560c7383e7a5fbddb481dbf2d2"
-dependencies = [
- "curve25519-dalek",
- "std-shims 0.1.5",
- "zeroize",
-]
-
-[[package]]
-name = "monero-io"
-version = "0.1.0"
 source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc#7c288b058ae7f1e3d36600a2af11b3176102bcfc"
 dependencies = [
  "curve25519-dalek",
- "std-shims 0.1.5",
- "zeroize",
-]
-
-[[package]]
-name = "monero-mlsag"
-version = "0.1.0"
-source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f#27b1c7f2918444560c7383e7a5fbddb481dbf2d2"
-dependencies = [
- "curve25519-dalek",
- "monero-generators 0.4.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "monero-io 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "monero-primitives 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "std-shims 0.1.5",
- "thiserror 2.0.17",
+ "std-shims",
  "zeroize",
 ]
 
@@ -3674,30 +3510,11 @@ version = "0.1.0"
 source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc#7c288b058ae7f1e3d36600a2af11b3176102bcfc"
 dependencies = [
  "curve25519-dalek",
- "monero-generators 0.4.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
- "monero-io 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
- "monero-primitives 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
- "std-shims 0.1.5",
+ "monero-generators",
+ "monero-io",
+ "monero-primitives",
+ "std-shims",
  "thiserror 2.0.17",
- "zeroize",
-]
-
-[[package]]
-name = "monero-oxide"
-version = "0.1.4-alpha"
-source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f#27b1c7f2918444560c7383e7a5fbddb481dbf2d2"
-dependencies = [
- "curve25519-dalek",
- "hex-literal 1.1.0",
- "monero-borromean 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "monero-bulletproofs 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "monero-clsag 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "monero-fcmp-plus-plus",
- "monero-generators 0.4.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "monero-io 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "monero-mlsag 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "monero-primitives 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "std-shims 0.1.5",
  "zeroize",
 ]
 
@@ -3708,27 +3525,14 @@ source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f
 dependencies = [
  "curve25519-dalek",
  "hex-literal 1.1.0",
- "monero-borromean 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
- "monero-bulletproofs 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
- "monero-clsag 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
- "monero-generators 0.4.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
- "monero-io 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
- "monero-mlsag 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
- "monero-primitives 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
- "std-shims 0.1.5",
- "zeroize",
-]
-
-[[package]]
-name = "monero-primitives"
-version = "0.1.0"
-source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f#27b1c7f2918444560c7383e7a5fbddb481dbf2d2"
-dependencies = [
- "curve25519-dalek",
- "monero-generators 0.4.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "monero-io 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=27b1c7f)",
- "sha3",
- "std-shims 0.1.5",
+ "monero-borromean",
+ "monero-bulletproofs",
+ "monero-clsag",
+ "monero-generators",
+ "monero-io",
+ "monero-mlsag",
+ "monero-primitives",
+ "std-shims",
  "zeroize",
 ]
 
@@ -3738,10 +3542,10 @@ version = "0.1.0"
 source = "git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc#7c288b058ae7f1e3d36600a2af11b3176102bcfc"
 dependencies = [
  "curve25519-dalek",
- "monero-generators 0.4.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
- "monero-io 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
+ "monero-generators",
+ "monero-io",
  "sha3",
- "std-shims 0.1.5",
+ "std-shims",
  "zeroize",
 ]
 
@@ -3753,10 +3557,10 @@ dependencies = [
  "curve25519-dalek",
  "hex",
  "monero-address",
- "monero-oxide 0.1.4-alpha (git+https://github.com/monero-oxide/monero-oxide.git?rev=7c288b058ae7f1e3d36600a2af11b3176102bcfc)",
+ "monero-oxide",
  "serde",
  "serde_json",
- "std-shims 0.1.5",
+ "std-shims",
  "thiserror 2.0.17",
  "zeroize",
 ]
@@ -3771,20 +3575,6 @@ dependencies = [
  "monero-rpc",
  "simple-request",
  "tokio",
- "zeroize",
-]
-
-[[package]]
-name = "multiexp"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ec2ce93a6f06ac6cae04c1da3f2a6a24fcfc1f0eb0b4e0f3d302f0df45326cb"
-dependencies = [
- "ff",
- "group",
- "rand_core 0.6.4",
- "rustversion",
- "std-shims 0.1.5",
  "zeroize",
 ]
 
@@ -5389,17 +5179,6 @@ name = "std-shims"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "227c4f8561598188d0df96dbe749824576174bba278b5b6bb2eacff1066067d0"
-dependencies = [
- "hashbrown 0.16.0",
- "rustversion",
- "spin 0.10.0",
-]
-
-[[package]]
-name = "std-shims"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "416d52c8265d7341e3f369ab5d2c5dd7fca21b81ea6b76804f95c53130d07127"
 dependencies = [
  "hashbrown 0.16.0",
  "rustversion",

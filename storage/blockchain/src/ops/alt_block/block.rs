@@ -1,39 +1,34 @@
 use bytemuck::TransparentWrapper;
 use monero_oxide::block::{Block, BlockHeader};
 
-use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableVec};
 use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};
 use cuprate_types::{AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, HardFork};
 
+use crate::database::{
+    ALT_BLOCKS_INFO, ALT_BLOCK_BLOBS, ALT_BLOCK_HEIGHTS, ALT_CHAIN_INFOS, ALT_TRANSACTION_BLOBS,
+    ALT_TRANSACTION_INFOS, BLOCK_INFOS,
+};
+use crate::error::{BlockchainError, DbResult};
+use crate::types::BlockInfo;
 use crate::{
     ops::{
         alt_block::{add_alt_transaction_blob, get_alt_transaction, update_alt_chain_info},
         macros::doc_error,
     },
-    tables::{Tables, TablesMut},
     types::{AltBlockHeight, BlockHash, BlockHeight, CompactAltBlockInfo},
 };
-use crate::database::BLOCK_INFOS;
-use crate::types::BlockInfo;
 
 /// Flush all alt-block data from all the alt-block tables.
 ///
 /// This function completely empties the alt block tables.
-pub fn flush_alt_blocks<'a, E: cuprate_database::EnvInner<'a>>(
-    env_inner: &E,
-    tx_rw: &mut E::Rw<'_>,
-) -> DbResult<()> {
-    use crate::tables::{
-        AltBlockBlobs, AltBlockHeights, AltBlocksInfo, AltChainInfos, AltTransactionBlobs,
-        AltTransactionInfos,
-    };
-
-    env_inner.clear_db::<AltChainInfos>(tx_rw)?;
-    env_inner.clear_db::<AltBlockHeights>(tx_rw)?;
-    env_inner.clear_db::<AltBlocksInfo>(tx_rw)?;
-    env_inner.clear_db::<AltBlockBlobs>(tx_rw)?;
-    env_inner.clear_db::<AltTransactionBlobs>(tx_rw)?;
-    env_inner.clear_db::<AltTransactionInfos>(tx_rw)
+pub fn flush_alt_blocks(tx_rw: &mut heed::RwTxn) -> DbResult<()> {
+    ALT_CHAIN_INFOS.get().unwrap().clear(tx_rw)?;
+    ALT_BLOCK_HEIGHTS.get().unwrap().clear(tx_rw)?;
+    ALT_BLOCKS_INFO.get().unwrap().clear(tx_rw)?;
+    ALT_BLOCK_BLOBS.get().unwrap().clear(tx_rw)?;
+    ALT_TRANSACTION_BLOBS.get().unwrap().clear(tx_rw)?;
+    ALT_TRANSACTION_INFOS.get().unwrap().clear(tx_rw)?;
+    Ok(())
 }
 
 /// Add a [`AltBlockInformation`] to the database.
@@ -48,17 +43,18 @@ pub fn flush_alt_blocks<'a, E: cuprate_database::EnvInner<'a>>(
 /// - `alt_block.height` is == `0`
 /// - `alt_block.txs.len()` != `alt_block.block.transactions.len()`
 ///
-pub fn add_alt_block(alt_block: &AltBlockInformation, tables: &mut impl TablesMut) -> DbResult<()> {
+pub fn add_alt_block(alt_block: &AltBlockInformation, tx_rw: &mut heed::RwTxn) -> DbResult<()> {
     let alt_block_height = AltBlockHeight {
         chain_id: alt_block.chain_id.into(),
         height: alt_block.height,
     };
 
-    tables
-        .alt_block_heights_mut()
-        .put(&alt_block.block_hash, &alt_block_height)?;
+    ALT_BLOCK_HEIGHTS
+        .get()
+        .unwrap()
+        .put(tx_rw, &alt_block.block_hash, &alt_block_height)?;
 
-    update_alt_chain_info(&alt_block_height, &alt_block.block.header.previous, tables)?;
+    update_alt_chain_info(&alt_block_height, &alt_block.block.header.previous, tx_rw)?;
 
     let (cumulative_difficulty_low, cumulative_difficulty_high) =
         split_u128_into_low_high_bits(alt_block.cumulative_difficulty);
@@ -73,18 +69,18 @@ pub fn add_alt_block(alt_block: &AltBlockInformation, tables: &mut impl TablesMu
         cumulative_difficulty_high,
     };
 
-    tables
-        .alt_blocks_info_mut()
-        .put(&alt_block_height, &alt_block_info)?;
-
-    tables.alt_block_blobs_mut().put(
-        &alt_block_height,
-        StorableVec::wrap_ref(&alt_block.block_blob),
-    )?;
+    ALT_BLOCKS_INFO
+        .get()
+        .unwrap()
+        .put(tx_rw, &alt_block_height, &alt_block_info)?;
+    ALT_BLOCK_BLOBS
+        .get()
+        .unwrap()
+        .put(tx_rw, &alt_block_height, &alt_block.block_blob)?;
 
     assert_eq!(alt_block.txs.len(), alt_block.block.transactions.len());
     for tx in &alt_block.txs {
-        add_alt_transaction_blob(tx, tables)?;
+        add_alt_transaction_blob(tx, tx_rw)?;
     }
 
     Ok(())
@@ -97,19 +93,28 @@ pub fn add_alt_block(alt_block: &AltBlockInformation, tables: &mut impl TablesMu
 #[doc = doc_error!()]
 pub fn get_alt_block(
     alt_block_height: &AltBlockHeight,
-    tables: &impl Tables,
+    tx_ro: &heed::RoTxn,
     tapes: &cuprate_linear_tapes::Reader,
 ) -> DbResult<AltBlockInformation> {
-    let block_info = tables.alt_blocks_info().get(alt_block_height)?;
+    let block_info = ALT_BLOCKS_INFO
+        .get()
+        .unwrap()
+        .get(tx_ro, alt_block_height)?
+        .ok_or(BlockchainError::NotFound)?;
 
-    let block_blob = tables.alt_block_blobs().get(alt_block_height)?.0;
+    let block_blob = ALT_BLOCK_BLOBS
+        .get()
+        .unwrap()
+        .get(tx_ro, alt_block_height)?
+        .ok_or(BlockchainError::NotFound)?
+        .to_vec();
 
     let block = Block::read(&mut block_blob.as_slice())?;
 
     let txs = block
         .transactions
         .iter()
-        .map(|tx_hash| get_alt_transaction(tx_hash, tables, tapes))
+        .map(|tx_hash| get_alt_transaction(tx_hash, tx_ro, tapes))
         .collect::<DbResult<_>>()?;
 
     Ok(AltBlockInformation {
@@ -139,16 +144,18 @@ pub fn get_alt_block(
 pub fn get_alt_block_hash(
     block_height: &BlockHeight,
     alt_chain: ChainId,
-    tables: &impl Tables,
-    tapes: &cuprate_linear_tapes::Reader
+    tx_ro: &heed::RoTxn,
+    tapes: &cuprate_linear_tapes::Reader,
 ) -> DbResult<BlockHash> {
-    let alt_chains = tables.alt_chain_infos();
+    let alt_chains = ALT_CHAIN_INFOS.get().unwrap();
 
     // First find what [`ChainId`] this block would be stored under.
     let original_chain = {
         let mut chain = alt_chain.into();
         loop {
-            let chain_info = alt_chains.get(&chain)?;
+            let chain_info = alt_chains
+                .get(tx_ro, &chain)?
+                .ok_or(BlockchainError::NotFound)?;
 
             if chain_info.common_ancestor_height < *block_height {
                 break Chain::Alt(chain.into());
@@ -166,16 +173,23 @@ pub fn get_alt_block_hash(
 
     // Get the block hash.
     match original_chain {
-        Chain::Main => {
-            tapes.fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS).try_get(*block_height).map(|info| info.block_hash).ok_or(RuntimeError::KeyNotFound)
-        }
-        Chain::Alt(chain_id) => tables
-            .alt_blocks_info()
-            .get(&AltBlockHeight {
-                chain_id: chain_id.into(),
-                height: *block_height,
-            })
-            .map(|info| info.block_hash),
+        Chain::Main => tapes
+            .fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS)
+            .try_get(*block_height)
+            .map(|info| info.block_hash)
+            .ok_or(BlockchainError::NotFound),
+        Chain::Alt(chain_id) => ALT_BLOCKS_INFO
+            .get()
+            .unwrap()
+            .get(
+                tx_ro,
+                &AltBlockHeight {
+                    chain_id: chain_id.into(),
+                    height: *block_height,
+                },
+            )?
+            .map(|info| info.block_hash)
+            .ok_or(BlockchainError::NotFound),
     }
 }
 
@@ -187,13 +201,21 @@ pub fn get_alt_block_hash(
 #[doc = doc_error!()]
 pub fn get_alt_block_extended_header_from_height(
     height: &AltBlockHeight,
-    table: &impl Tables,
+    tx_ro: &heed::RoTxn,
 ) -> DbResult<ExtendedBlockHeader> {
-    let block_info = table.alt_blocks_info().get(height)?;
+    let block_info = ALT_BLOCKS_INFO
+        .get()
+        .unwrap()
+        .get(tx_ro, height)?
+        .ok_or(BlockchainError::NotFound)?;
 
-    let block_blob = table.alt_block_blobs().get(height)?.0;
+    let mut block_blob = ALT_BLOCK_BLOBS
+        .get()
+        .unwrap()
+        .get(tx_ro, height)?
+        .ok_or(BlockchainError::NotFound)?;
 
-    let block_header = BlockHeader::read(&mut block_blob.as_slice())?;
+    let block_header = BlockHeader::read(&mut block_blob)?;
 
     Ok(ExtendedBlockHeader {
         version: HardFork::from_version(block_header.hardfork_version)

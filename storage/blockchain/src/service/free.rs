@@ -5,12 +5,15 @@ use std::sync::Arc;
 
 use rayon::ThreadPool;
 
-use cuprate_database::{ConcreteEnv, InitError};
-
-use crate::{config::Config, service::{
-    init_read_service, init_read_service_with_pool, init_write_service,
-    types::{BlockchainReadHandle, BlockchainWriteHandle},
-}, Database};
+use crate::error::BlockchainError;
+use crate::{
+    config::Config,
+    service::{
+        init_read_service, init_read_service_with_pool, init_write_service,
+        types::{BlockchainReadHandle, BlockchainWriteHandle},
+    },
+    Blockchain,
+};
 
 //---------------------------------------------------------------------------------------------------- Init
 #[cold]
@@ -24,14 +27,7 @@ use crate::{config::Config, service::{
 /// This will forward the error if [`crate::open`] failed.
 pub fn init(
     config: Config,
-) -> Result<
-    (
-        BlockchainReadHandle,
-        BlockchainWriteHandle,
-        Arc<Database>,
-    ),
-    InitError,
-> {
+) -> Result<(BlockchainReadHandle, BlockchainWriteHandle, Arc<Blockchain>), BlockchainError> {
     let reader_threads = config.reader_threads;
 
     // Initialize the database itself.
@@ -59,14 +55,7 @@ pub fn init(
 pub fn init_with_pool(
     config: Config,
     pool: Arc<ThreadPool>,
-) -> Result<
-    (
-        BlockchainReadHandle,
-        BlockchainWriteHandle,
-        Arc<Database>,
-    ),
-    InitError,
-> {
+) -> Result<(BlockchainReadHandle, BlockchainWriteHandle, Arc<Blockchain>), BlockchainError> {
     // Initialize the database itself.
     let db = Arc::new(crate::open(config)?);
 

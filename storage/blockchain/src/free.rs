@@ -1,13 +1,16 @@
 //! General free functions (related to the database).
 
+use heed::{DatabaseFlags, DefaultComparator, EnvFlags, EnvOpenOptions};
 //---------------------------------------------------------------------------------------------------- Import
-use cuprate_database::{ConcreteEnv, Env, EnvInner, InitError, RuntimeError, TxRw};
 use cuprate_linear_tapes::LinearTapes;
 
+use crate::database::{
+    ALT_BLOCKS_INFO, ALT_BLOCK_BLOBS, ALT_BLOCK_HEIGHTS, ALT_CHAIN_INFOS, ALT_TRANSACTION_BLOBS,
+    ALT_TRANSACTION_INFOS, BLOCK_HEIGHTS, KEY_IMAGES, PRE_RCT_OUTPUTS, TX_IDS, TX_OUTPUTS,
+};
 use crate::{
     config::{linear_tapes_config, Config},
-    tables::OpenTables,
-    Database,
+    Blockchain,
 };
 
 //---------------------------------------------------------------------------------------------------- Free functions
@@ -27,49 +30,178 @@ use crate::{
 /// - A table could not be created/opened
 #[cold]
 #[inline(never)] // only called once
-pub fn open(config: Config) -> Result<Database, InitError> {
+pub fn open(config: Config) -> Result<Blockchain, heed::Error> {
     // Attempt to open the database environment.
-    let env = <ConcreteEnv as Env>::open(config.db_config.clone())?;
+    let env = {
+        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
 
-    /// Convert runtime errors to init errors.
-    ///
-    /// INVARIANT:
-    /// `cuprate_database`'s functions mostly return the former
-    /// so we must convert them. We have knowledge of which errors
-    /// makes sense in this functions context so we panic on
-    /// unexpected ones.
-    fn runtime_to_init_error(runtime: RuntimeError) -> InitError {
-        match runtime {
-            RuntimeError::Io(io_error) => io_error.into(),
+        let mut env_open_options = EnvOpenOptions::new();
 
-            // These errors shouldn't be happening here.
-            RuntimeError::KeyExists
-            | RuntimeError::KeyNotFound
-            | RuntimeError::ResizeNeeded
-            | RuntimeError::TableNotFound => unreachable!(),
+        // SAFETY: the flags we're setting are 'unsafe'
+        // from a data durability perspective, although,
+        // the user config wanted this.
+        //
+        // MAYBE: We may need to open/create tables with certain flags
+        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
+        // MAYBE: Set comparison functions for certain tables
+        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
+        unsafe {
+            env_open_options.flags(
+                EnvFlags::NO_READ_AHEAD
+                    | EnvFlags::NO_SYNC
+                    | EnvFlags::WRITE_MAP
+                    | EnvFlags::MAP_ASYNC,
+            );
         }
-    }
 
-    // INVARIANT: We must ensure that all tables are created,
-    // `cuprate_database` has no way of knowing _which_ tables
-    // we want since it is agnostic, so we are responsible for this.
+        // Set the max amount of database tables.
+        // We know at compile time how many tables there are.
+        // SOMEDAY: ...how many?
+        env_open_options.max_dbs(32);
+
+        env_open_options.map_size(30 * 1024 * 1024 * 1024);
+
+        // LMDB documentation:
+        // ```
+        // Number of slots in the reader table.
+        // This value was chosen somewhat arbitrarily. 126 readers plus a
+        // couple mutexes fit exactly into 8KB on my development machine.
+        // ```
+        // <https://github.com/LMDB/lmdb/blob/b8e54b4c31378932b69f1298972de54a565185b1/libraries/liblmdb/mdb.c#L794-L799>
+        //
+        // So, we're going to be following these rules:
+        // - Use at least 126 reader threads
+        // - Add 16 extra reader threads if <126
+        //
+        // FIXME: This behavior is from `monerod`:
+        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
+        // I believe this could be adjusted percentage-wise so very high
+        // thread PCs can benefit from something like (cuprated + anything that uses the DB in the future).
+        // For now:
+        // - No other program using our DB exists
+        // - Almost no-one has a 126+ thread CPU
+        let reader_threads =
+            u32::try_from(config.reader_threads.as_threads().get()).unwrap_or(u32::MAX);
+        env_open_options.max_readers(if reader_threads < 110 {
+            126
+        } else {
+            reader_threads.saturating_add(16)
+        });
+
+        // Create the database directory if it doesn't exist.
+        std::fs::create_dir_all(&config.data_dir)?;
+        // Open the environment in the user's PATH.
+        // SAFETY: LMDB uses a memory-map backed file.
+        // <https://docs.rs/heed/0.20.0/heed/struct.EnvOpenOptions.html#method.open>
+        unsafe { env_open_options.open(&config.data_dir)? }
+    };
+
     {
-        let env_inner = env.env_inner();
-        let tx_rw = env_inner.tx_rw().map_err(runtime_to_init_error)?;
+        let mut rw_tx = env.write_txn()?;
 
-        // Create all tables.
-        OpenTables::create_tables(&env_inner, &tx_rw).map_err(runtime_to_init_error)?;
+        BLOCK_HEIGHTS
+            .set(
+                env.database_options()
+                    .name("BLOCK_HEIGHTS")
+                    .types()
+                    .create(&mut rw_tx)?,
+            )
+            .unwrap();
+        KEY_IMAGES
+            .set(
+                env.database_options()
+                    .name("KEY_IMAGES")
+                    .types()
+                    .flags(DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED)
+                    .create(&mut rw_tx)?,
+            )
+            .unwrap();
+        PRE_RCT_OUTPUTS
+            .set(
+                env.database_options()
+                    .name("PRE_RCT_OUTPUTS")
+                    .types()
+                    .key_comparator()
+                    .dup_sort_comparator()
+                    .flags(DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED)
+                    .create(&mut rw_tx)?,
+            )
+            .unwrap();
+        TX_IDS
+            .set(
+                env.database_options()
+                    .name("TX_IDS")
+                    .types()
+                    .create(&mut rw_tx)?,
+            )
+            .unwrap();
+        TX_OUTPUTS
+            .set(
+                env.database_options()
+                    .name("TX_OUTPUTS")
+                    .types()
+                    .key_comparator()
+                    .create(&mut rw_tx)?,
+            )
+            .unwrap();
+        ALT_CHAIN_INFOS
+            .set(
+                env.database_options()
+                    .name("ALT_CHAIN_INFOS")
+                    .types()
+                    .create(&mut rw_tx)?,
+            )
+            .unwrap();
+        ALT_BLOCK_HEIGHTS
+            .set(
+                env.database_options()
+                    .name("ALT_BLOCK_HEIGHTS")
+                    .types()
+                    .create(&mut rw_tx)?,
+            )
+            .unwrap();
+        ALT_BLOCKS_INFO
+            .set(
+                env.database_options()
+                    .name("ALT_BLOCKS_INFO")
+                    .types()
+                    .create(&mut rw_tx)?,
+            )
+            .unwrap();
+        ALT_BLOCK_BLOBS
+            .set(
+                env.database_options()
+                    .name("ALT_BLOCK_BLOBS")
+                    .types()
+                    .create(&mut rw_tx)?,
+            )
+            .unwrap();
+        ALT_TRANSACTION_BLOBS
+            .set(
+                env.database_options()
+                    .name("ALT_TRANSACTION_BLOBS")
+                    .types()
+                    .create(&mut rw_tx)?,
+            )
+            .unwrap();
+        ALT_TRANSACTION_INFOS
+            .set(
+                env.database_options()
+                    .name("ALT_TRANSACTION_INFOS")
+                    .types()
+                    .create(&mut rw_tx)?,
+            )
+            .unwrap();
 
-        TxRw::commit(tx_rw).map_err(runtime_to_init_error)?;
+        rw_tx.commit()?;
     }
 
     let tapes = linear_tapes_config(config.blob_data_dir);
 
-    let linear_tapes =
-        unsafe { LinearTapes::new(tapes, config.db_config.db_directory(), 1024 * 1204 * 1024)? };
+    let linear_tapes = unsafe { LinearTapes::new(tapes, config.data_dir, 1024 * 1204 * 1024)? };
 
     tracing::debug!("opened db");
-    Ok(Database {
+    Ok(Blockchain {
         dynamic_tables: env,
         linear_tapes,
     })

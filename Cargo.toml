@@ -193,6 +193,7 @@ futures               = { version = "0.3", default-features = false }
 hex                   = { version = "0.4", default-features = false }
 hex-literal           = { version = "1", default-features = false }
 indexmap              = { version = "2", default-features = false }
+itertools             = { version = "0.14", default-features = false, features = ["use_std"] }
 memmap2               = { version = "0.9", default-features = false }
 monero-address        = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "7c288b058ae7f1e3d36600a2af11b3176102bcfc", default-features = false }
 monero-oxide          = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "7c288b058ae7f1e3d36600a2af11b3176102bcfc", default-features = false, features = ["std"] }

@@ -1,11 +1,12 @@
 //! Blockchain functions - chain height, generated coins, etc.
 
+use heed::Error;
+use std::io;
 //---------------------------------------------------------------------------------------------------- Import
-use cuprate_database::{DatabaseRo, DbResult, RuntimeError};
-
+use crate::database::{ALT_BLOCK_HEIGHTS, BLOCK_HEIGHTS};
+use crate::error::{BlockchainError, DbResult};
 use crate::{
     ops::{block, macros::doc_error},
-    tables::{AltBlockHeights, BlockHeights},
     types::{BlockHash, BlockHeight},
 };
 
@@ -22,9 +23,13 @@ use crate::{
 /// So the height of a new block would be `chain_height()`.
 #[doc = doc_error!()]
 #[inline]
-pub fn chain_height(table_block_heights: &impl DatabaseRo<BlockHeights>) -> DbResult<BlockHeight> {
+pub fn chain_height(tx_ro: &heed::RoTxn) -> DbResult<BlockHeight> {
     #[expect(clippy::cast_possible_truncation, reason = "we enforce 64-bit")]
-    table_block_heights.len().map(|height| height as usize)
+    Ok(BLOCK_HEIGHTS
+        .get()
+        .unwrap()
+        .len(tx_ro)
+        .map(|height| height as usize)?)
 }
 
 /// Retrieve the height of the top block.
@@ -41,13 +46,11 @@ pub fn chain_height(table_block_heights: &impl DatabaseRo<BlockHeights>) -> DbRe
 ///
 #[doc = doc_error!()]
 #[inline]
-pub fn top_block_height(
-    table_block_heights: &impl DatabaseRo<BlockHeights>,
-) -> DbResult<BlockHeight> {
-    match table_block_heights.len()? {
-        0 => Err(RuntimeError::KeyNotFound),
+pub fn top_block_height(tx_ro: &heed::RoTxn) -> DbResult<BlockHeight> {
+    match chain_height(tx_ro)? {
+        0 => Err(BlockchainError::NotFound),
         #[expect(clippy::cast_possible_truncation, reason = "we enforce 64-bit")]
-        height => Ok(height as usize - 1),
+        height => Ok(height - 1),
     }
 }
 
@@ -67,14 +70,19 @@ pub fn find_split_point(
     block_ids: &[BlockHash],
     chronological_order: bool,
     include_alt_blocks: bool,
-    table_block_heights: &impl DatabaseRo<BlockHeights>,
-    table_alt_block_heights: &impl DatabaseRo<AltBlockHeights>,
-) -> Result<usize, RuntimeError> {
+    tx_ro: &heed::RoTxn,
+) -> DbResult<usize> {
     let mut err = None;
 
     let block_exists = |block_id| {
-        block::block_exists(&block_id, table_block_heights).and_then(|exists| {
-            Ok(exists | (include_alt_blocks & table_alt_block_heights.contains(&block_id)?))
+        block::block_exists(&block_id, tx_ro).and_then(|exists| {
+            Ok(exists
+                | (include_alt_blocks
+                    & ALT_BLOCK_HEIGHTS
+                        .get()
+                        .unwrap()
+                        .get(tx_ro, &block_id)?
+                        .is_some()))
         })
     };
 
