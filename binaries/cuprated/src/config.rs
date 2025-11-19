@@ -9,12 +9,12 @@ use std::{
     time::Duration,
 };
 
+use anyhow::bail;
 use arti_client::KeystoreSelector;
 use clap::Parser;
 use safelog::DisplayRedacted;
 use serde::{Deserialize, Serialize};
 
-use anyhow::bail;
 use cuprate_consensus::ContextConfig;
 use cuprate_helper::{
     fs::{CUPRATE_CONFIG_DIR, DEFAULT_CONFIG_FILE_NAME},
@@ -381,7 +381,7 @@ impl Config {
             let ip = self.p2p.clear_net.listen_on;
 
             match Self::check_port(IpAddr::V4(ip), port) {
-                Ok(()) => println!("Port {ip}:{port} available."),
+                Ok(()) => println!("P2P clearnet {ip}:{port} available."),
                 Err(e) => {
                     eprintln_red(&format!("Error: {e}"));
                     errors.push(e);
@@ -394,7 +394,46 @@ impl Config {
             let ip = self.p2p.clear_net.listen_on_v6;
 
             match Self::check_port(IpAddr::V6(ip), port) {
-                Ok(()) => println!("Port {ip}:{port} available."),
+                Ok(()) => println!("P2P clearnet {ip}:{port} available."),
+                Err(e) => {
+                    eprintln_red(&format!("Error: {e}"));
+                    errors.push(e);
+                }
+            }
+        }
+
+        if self.rpc.restricted.enable {
+            let port = p2p_port(self.rpc.restricted.port, self.network);
+            let ip = self.rpc.restricted.address;
+
+            match Self::check_port(ip, port) {
+                Ok(()) => println!("Rpc restricted {ip}:{port} available."),
+                Err(e) => {
+                    eprintln_red(&format!("Error: {e}"));
+                    errors.push(e);
+                }
+            }
+        }
+
+        if self.rpc.unrestricted.enable {
+            let port = p2p_port(self.rpc.unrestricted.port, self.network);
+            let ip = self.rpc.unrestricted.address;
+
+            match Self::check_port(ip, port) {
+                Ok(()) => println!("Rpc unrestricted {ip}:{port} available."),
+                Err(e) => {
+                    eprintln_red(&format!("Error: {e}"));
+                    errors.push(e);
+                }
+            }
+        }
+
+        if self.tor.mode != TorMode::Off {
+            let port = self.tor.daemon.listening_addr.port();
+            let ip = self.tor.daemon.listening_addr.ip();
+
+            match Self::check_port(ip, port) {
+                Ok(()) => println!("Tor daemon {ip}:{port} available."),
                 Err(e) => {
                     eprintln_red(&format!("Error: {e}"));
                     errors.push(e);
@@ -418,6 +457,19 @@ impl Config {
             Err(e) => {
                 eprintln_red(&format!("Error {e}"));
                 errors.push(e);
+            }
+        }
+
+        if self.tor.mode == TorMode::Arti {
+            match Self::check_dir_permissions(&self.tor.arti.directory_path) {
+                Ok(()) => println!(
+                    "Permissions are ok at {}",
+                    self.tor.arti.directory_path.display()
+                ),
+                Err(e) => {
+                    eprintln_red(&format!("Error: {e}"));
+                    errors.push(e);
+                }
             }
         }
 
