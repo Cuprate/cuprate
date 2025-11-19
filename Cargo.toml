@@ -48,6 +48,7 @@ members = [
 	"cryptonight",
 	"helper",
 	"pruning",
+	"power",
 	"test-utils",
 
 	# Fuzz
@@ -170,6 +171,7 @@ arrayvec              = { version = "0.7", default-features = false }
 arti-client           = { version = "0.33", default-features = false }
 async-trait           = { version = "0.1", default-features = false }
 bitflags              = { version = "2", default-features = false }
+blake2                = { version = "0.10", default-features = false }
 blake3                = { version = "1", default-features = false }
 borsh                 = { version = "1", default-features = false }
 bytemuck              = { version = "1", default-features = false }
