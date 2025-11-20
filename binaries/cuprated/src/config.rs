@@ -374,7 +374,7 @@ impl Config {
     }
 
     pub fn dry_run_check(self) -> ! {
-        let mut errors = Vec::new();
+        let mut error = false;
 
         if self.p2p.clear_net.enable_inbound {
             let port = p2p_port(self.p2p.clear_net.p2p_port, self.network);
@@ -384,7 +384,7 @@ impl Config {
                 Ok(()) => println!("P2P clearnet {ip}:{port} available."),
                 Err(e) => {
                     eprintln_red(&format!("Error: {e}"));
-                    errors.push(e);
+                    error = true;
                 }
             }
         }
@@ -397,7 +397,7 @@ impl Config {
                 Ok(()) => println!("P2P clearnet {ip}:{port} available."),
                 Err(e) => {
                     eprintln_red(&format!("Error: {e}"));
-                    errors.push(e);
+                    error = true;
                 }
             }
         }
@@ -407,10 +407,10 @@ impl Config {
             let ip = self.rpc.restricted.address;
 
             match Self::check_port(ip, port) {
-                Ok(()) => println!("Rpc restricted {ip}:{port} available."),
+                Ok(()) => println!("RPC restricted {ip}:{port} available."),
                 Err(e) => {
                     eprintln_red(&format!("Error: {e}"));
-                    errors.push(e);
+                    error = true;
                 }
             }
         }
@@ -420,10 +420,10 @@ impl Config {
             let ip = self.rpc.unrestricted.address;
 
             match Self::check_port(ip, port) {
-                Ok(()) => println!("Rpc unrestricted {ip}:{port} available."),
+                Ok(()) => println!("RPC unrestricted {ip}:{port} available."),
                 Err(e) => {
                     eprintln_red(&format!("Error: {e}"));
-                    errors.push(e);
+                    error = true;
                 }
             }
         }
@@ -436,7 +436,7 @@ impl Config {
                 Ok(()) => println!("Tor daemon {ip}:{port} available."),
                 Err(e) => {
                     eprintln_red(&format!("Error: {e}"));
-                    errors.push(e);
+                    error = true;
                 }
             }
         }
@@ -445,7 +445,7 @@ impl Config {
             Ok(()) => println!("Permissions are ok at {}", self.fs.data_directory.display()),
             Err(e) => {
                 eprintln_red(&format!("Error: {e}"));
-                errors.push(e);
+                error = true;
             }
         }
 
@@ -456,7 +456,7 @@ impl Config {
             ),
             Err(e) => {
                 eprintln_red(&format!("Error {e}"));
-                errors.push(e);
+                error = true;
             }
         }
 
@@ -468,17 +468,17 @@ impl Config {
                 ),
                 Err(e) => {
                     eprintln_red(&format!("Error: {e}"));
-                    errors.push(e);
+                    error = true;
                 }
             }
         }
 
-        let code = if errors.is_empty() {
-            println!("All checks passed successfully!");
-            0
-        } else {
+        let code = if error {
             eprintln_red("Checks failed.");
             1
+        } else {
+            println!("All checks passed successfully!");
+            0
         };
 
         std::process::exit(code)
