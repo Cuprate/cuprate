@@ -34,7 +34,7 @@ pub const BLOCK_INFOS: &str = "block_infos";
 
 pub static BLOCK_HEIGHTS: OnceLock<heed::Database<Hash32Bytes, HeedUsize>> = OnceLock::new();
 
-pub static KEY_IMAGES: OnceLock<heed::Database<ZeroKey, Hash32Bytes>> = OnceLock::new();
+pub static KEY_IMAGES: OnceLock<heed::Database<ZeroKey, Hash32Bytes, IntegerComparator>> = OnceLock::new();
 
 pub static PRE_RCT_OUTPUTS: OnceLock<
     heed::Database<

@@ -1,6 +1,6 @@
 //! General free functions (related to the database).
 
-use heed::{DatabaseFlags, DefaultComparator, EnvFlags, EnvOpenOptions};
+use heed::{DatabaseFlags, DefaultComparator, EnvFlags, EnvOpenOptions, IntegerComparator};
 //---------------------------------------------------------------------------------------------------- Import
 use cuprate_linear_tapes::LinearTapes;
 
@@ -112,6 +112,7 @@ pub fn open(config: Config) -> Result<Blockchain, heed::Error> {
                 env.database_options()
                     .name("KEY_IMAGES")
                     .types()
+                    .key_comparator()
                     .flags(DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED)
                     .create(&mut rw_tx)?,
             )
