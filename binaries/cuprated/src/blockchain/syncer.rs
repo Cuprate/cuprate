@@ -59,7 +59,13 @@ where
 
     let mut sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
     loop {
-        check_sync_interval.tick().await;
+        tokio::select! {
+            _ = check_sync_interval.tick() => {}
+            () = incoming_block_batch_tx.closed() => {
+                tracing::info!("Shutting down syncer.");
+                return Ok(());
+            }
+        }
 
         tracing::trace!("Checking connected peers to see if we are behind",);
 
@@ -105,6 +111,10 @@ where
                     if incoming_block_batch_tx.send((batch, Arc::clone(&sync_permit))).await.is_err() {
                         return Err(SyncerError::IncomingBlockChannelClosed);
                     }
+                }
+                () = incoming_block_batch_tx.closed() => {
+                    tracing::info!("Shutting down syncer.");
+                    return Ok(());
                 }
             }
         }

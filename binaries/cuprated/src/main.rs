@@ -20,6 +20,7 @@ use std::{mem, sync::Arc};
 
 use p2p::initialize_zones_p2p;
 use tokio::sync::mpsc;
+use tokio_util::task::TaskTracker;
 use tower::{Service, ServiceExt};
 use tracing::{error, info, level_filters::LevelFilter};
 use tracing_subscriber::{layer::SubscriberExt, reload::Handle, util::SubscriberInitExt, Registry};
@@ -39,6 +40,7 @@ use crate::{
     logging::CupratedTracingFilter,
     tor::{initialize_tor_if_enabled, TorMode},
 };
+use crate::blockchain::handle::BlockchainManagerHandle;
 
 mod blockchain;
 mod commands;
@@ -52,6 +54,7 @@ mod statics;
 mod tor;
 mod txpool;
 mod version;
+mod monitor;
 
 fn main() {
     // Initialize global static `LazyLock` data.
@@ -95,6 +98,8 @@ fn main() {
     // Initialize async tasks.
 
     rt.block_on(async move {
+        let (mut monitor, tasks) = monitor::new();
+        
         // TODO: Add an argument/option for keeping alt blocks between restart.
         blockchain_write_handle
             .ready()
@@ -121,18 +126,22 @@ fn main() {
         // Bootstrap or configure Tor if enabled.
         let tor_context = initialize_tor_if_enabled(&config).await;
 
+        let (blockchain_manager_handle, blockchain_manager_handle_setter) = BlockchainManagerHandle::new();
+
         // Start p2p network zones
         let (network_interfaces, tx_handler_subscribers) = p2p::initialize_zones_p2p(
             &config,
             context_svc.clone(),
             blockchain_read_handle.clone(),
             txpool_read_handle.clone(),
+            blockchain_manager_handle.clone(),
             tor_context,
         )
         .await;
 
         // Create the incoming tx handler service.
         let tx_handler = IncomingTxHandler::init(
+            &tasks,
             config.storage.txpool.clone(),
             network_interfaces.clearnet_network_interface.clone(),
             network_interfaces.tor_network_interface,
@@ -152,6 +161,8 @@ fn main() {
 
         // Initialize the blockchain manager.
         blockchain::init_blockchain_manager(
+            &tasks,
+            blockchain_manager_handle_setter,
             network_interfaces.clearnet_network_interface,
             blockchain_write_handle,
             blockchain_read_handle.clone(),
@@ -160,6 +171,7 @@ fn main() {
             config.block_downloader_config(),
         )
         .await;
+
 
         // Initialize the RPC server(s).
         rpc::init_rpc_servers(
@@ -177,7 +189,7 @@ fn main() {
             std::thread::spawn(|| commands::command_listener(command_tx));
 
             // Wait on the io_loop, spawned on a separate task as this improves performance.
-            tokio::spawn(commands::io_loop(command_rx, context_svc))
+            tokio::spawn(commands::io_loop(command_rx, context_svc, blockchain_manager_handle, monitor))
                 .await
                 .unwrap();
         } else {

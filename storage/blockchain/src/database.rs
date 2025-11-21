@@ -34,7 +34,8 @@ pub const BLOCK_INFOS: &str = "block_infos";
 
 pub static BLOCK_HEIGHTS: OnceLock<heed::Database<Hash32Bytes, HeedUsize>> = OnceLock::new();
 
-pub static KEY_IMAGES: OnceLock<heed::Database<ZeroKey, Hash32Bytes, IntegerComparator>> = OnceLock::new();
+pub static KEY_IMAGES: OnceLock<heed::Database<ZeroKey, Hash32Bytes, IntegerComparator>> =
+    OnceLock::new();
 
 pub static PRE_RCT_OUTPUTS: OnceLock<
     heed::Database<
@@ -75,4 +76,11 @@ pub static ALT_TRANSACTION_INFOS: OnceLock<
 pub struct Blockchain {
     pub(crate) dynamic_tables: heed::Env,
     pub(crate) linear_tapes: LinearTapes,
+}
+
+impl Drop for Blockchain {
+    fn drop(&mut self) {
+        tracing::info!("Syncing blockchain database to storage.");
+        self.dynamic_tables.force_sync();
+    }
 }

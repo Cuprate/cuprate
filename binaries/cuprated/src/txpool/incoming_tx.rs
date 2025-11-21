@@ -8,6 +8,7 @@ use bytes::Bytes;
 use futures::{future::BoxFuture, FutureExt};
 use monero_oxide::transaction::Transaction;
 use tokio::sync::mpsc;
+use tokio_util::task::TaskTracker;
 use tower::{BoxError, Service, ServiceExt};
 use tracing::instrument;
 
@@ -38,6 +39,7 @@ use cuprate_types::TransactionVerificationData;
 use crate::{
     blockchain::ConsensusBlockchainReadHandle,
     config::TxpoolConfig,
+    monitor::CupratedTask,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     p2p::CrossNetworkInternalPeerId,
     signals::REORG_LOCK,
@@ -110,6 +112,7 @@ impl IncomingTxHandler {
     #[expect(clippy::significant_drop_tightening)]
     #[instrument(level = "info", skip_all, name = "start_txpool")]
     pub async fn init(
+        tasks: &CupratedTask,
         txpool_config: TxpoolConfig,
         clear_net: NetworkInterface<ClearNet>,
         tor_net: Option<NetworkInterface<Tor>>,
@@ -135,6 +138,7 @@ impl IncomingTxHandler {
         );
 
         let txpool_manager = start_txpool_manager(
+            tasks,
             txpool_write_handle,
             txpool_read_handle.clone(),
             promote_rx,

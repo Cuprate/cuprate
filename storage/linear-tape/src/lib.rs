@@ -128,7 +128,9 @@ impl Drop for LinearTapes {
         for tape in &self.tapes {
             // Safety: same as above.
             unsafe {
-                drop(Box::from_raw(tape.load(Ordering::Acquire)));
+                let tape = Box::from_raw(tape.load(Ordering::Acquire));
+
+                tape.flush_range()
             }
         }
     }

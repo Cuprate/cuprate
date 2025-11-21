@@ -9,6 +9,7 @@ use indexmap::IndexMap;
 use rand::Rng;
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::{time::delay_queue, time::DelayQueue};
+use tokio_util::task::TaskTracker;
 use tower::{Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
@@ -34,6 +35,7 @@ use crate::{
         incoming_tx::{DandelionTx, TxId},
     },
 };
+use crate::monitor::CupratedTask;
 
 const INCOMING_TX_QUEUE_SIZE: usize = 100;
 
@@ -43,6 +45,7 @@ const INCOMING_TX_QUEUE_SIZE: usize = 100;
 ///
 /// This function may panic if any inner service has an unrecoverable error.
 pub async fn start_txpool_manager(
+    task: &CupratedTask,
     mut txpool_write_handle: TxpoolWriteHandle,
     mut txpool_read_handle: TxpoolReadHandle,
     promote_tx_channel: mpsc::UnboundedReceiver<[u8; 32]>,
@@ -110,7 +113,7 @@ pub async fn start_txpool_manager(
     let (tx_tx, tx_rx) = mpsc::channel(INCOMING_TX_QUEUE_SIZE);
     let (spent_kis_tx, spent_kis_rx) = mpsc::channel(1);
 
-    tokio::spawn(manager.run(tx_rx, spent_kis_rx));
+    task.task_tracker.spawn(manager.run(task.clone(), tx_rx, spent_kis_rx));
 
     TxpoolManagerHandle {
         tx_tx,
@@ -450,6 +453,7 @@ impl TxpoolManager {
     #[expect(clippy::let_underscore_must_use)]
     async fn run(
         mut self,
+        tasks: CupratedTask,
         mut tx_rx: mpsc::Receiver<(
             TransactionVerificationData,
             TxState<CrossNetworkInternalPeerId>,
@@ -458,6 +462,10 @@ impl TxpoolManager {
     ) {
         loop {
             tokio::select! {
+                _ = tasks.cancellation_token.cancelled() => {
+                    tracing::info!("Shutting down txpool manager");
+                    break;
+                }
                 Some(tx) = self.tx_timeouts.next() => {
                     self.handle_tx_timeout(tx.into_inner()).await;
                 }

@@ -60,7 +60,6 @@ use cuprate_types::{
 };
 
 use crate::{
-    blockchain::interface as blockchain_interface,
     constants::VERSION_BUILD,
     rpc::{
         constants::{FIELD_NOT_SUPPORTED, UNSUPPORTED_RPC_CALL},
@@ -236,6 +235,7 @@ async fn submit_block(
     let block = Block::read(&mut blob.as_slice())?;
     let block_id = Hex(block.hash());
 
+    todo!()/*
     // Attempt to relay the block.
     blockchain_interface::handle_incoming_block(
         block,
@@ -249,6 +249,7 @@ async fn submit_block(
         base: helper::response_base(false),
         block_id,
     })
+    */
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2268-L2340>

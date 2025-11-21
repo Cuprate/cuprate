@@ -46,7 +46,7 @@ use cuprate_wire::protocol::{
 };
 
 use crate::{
-    blockchain::interface::{self as blockchain_interface, IncomingBlockError},
+    blockchain::handle::{BlockchainManagerHandle, IncomingBlockError},
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     p2p::CrossNetworkInternalPeerId,
     txpool::{IncomingTxError, IncomingTxHandler, IncomingTxs},
@@ -58,6 +58,7 @@ pub struct P2pProtocolRequestHandlerMaker {
     pub blockchain_read_handle: BlockchainReadHandle,
     pub blockchain_context_service: BlockchainContextService,
     pub txpool_read_handle: TxpoolReadHandle,
+    pub blockchain_manager_handle: BlockchainManagerHandle,
 
     /// The [`IncomingTxHandler`], wrapped in an [`Option`] as there is a cyclic reference between [`P2pProtocolRequestHandlerMaker`]
     /// and the [`IncomingTxHandler`].
@@ -103,6 +104,7 @@ where
             peer_information,
             blockchain_read_handle,
             blockchain_context_service: self.blockchain_context_service.clone(),
+            blockchain_manager_handle: self.blockchain_manager_handle.clone(),
             txpool_read_handle,
             incoming_tx_handler,
         }))
@@ -115,6 +117,7 @@ pub struct P2pProtocolRequestHandler<N: NetZoneAddress> {
     peer_information: PeerInformation<N>,
     blockchain_read_handle: BlockchainReadHandle,
     blockchain_context_service: BlockchainContextService,
+    blockchain_manager_handle: BlockchainManagerHandle,
     txpool_read_handle: TxpoolReadHandle,
     incoming_tx_handler: IncomingTxHandler,
 }
@@ -151,6 +154,7 @@ where
                 r,
                 self.blockchain_read_handle.clone(),
                 self.txpool_read_handle.clone(),
+                self.blockchain_manager_handle.clone(),
             )
             .boxed(),
             ProtocolRequest::NewTransactions(r) => new_transactions(
@@ -299,6 +303,7 @@ async fn new_fluffy_block<A: NetZoneAddress>(
     request: NewFluffyBlock,
     mut blockchain_read_handle: BlockchainReadHandle,
     mut txpool_read_handle: TxpoolReadHandle,
+    mut blockchain_manager_handle: BlockchainManagerHandle,
 ) -> anyhow::Result<ProtocolResponse> {
     // TODO: check context service here and ignore the block?
     let current_blockchain_height = request.current_blockchain_height;
@@ -337,7 +342,7 @@ async fn new_fluffy_block<A: NetZoneAddress>(
     })
     .await?;
 
-    let res = blockchain_interface::handle_incoming_block(
+    let res = blockchain_manager_handle.handle_incoming_block(
         block,
         txs,
         &mut blockchain_read_handle,
