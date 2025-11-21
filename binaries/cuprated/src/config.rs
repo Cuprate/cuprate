@@ -3,11 +3,13 @@ use std::{
     fmt,
     fs::{read_to_string, File},
     io,
+    net::{IpAddr, TcpListener},
     path::Path,
     str::FromStr,
     time::Duration,
 };
 
+use anyhow::bail;
 use arti_client::KeystoreSelector;
 use clap::Parser;
 use safelog::DisplayRedacted;
@@ -105,7 +107,13 @@ pub fn read_config_and_args() -> Config {
             .unwrap_or_default()
     };
 
-    args.apply_args(config)
+    let config = args.apply_args(config);
+
+    if args.dry_run {
+        config.dry_run_check();
+    }
+
+    config
 }
 
 config_struct! {
@@ -319,6 +327,162 @@ impl Config {
     pub fn block_downloader_config(&self) -> BlockDownloaderConfig {
         self.p2p.block_downloader.clone().into()
     }
+
+    /// Checks if a port can be bound to.
+    /// Returns `Ok(())` if the port is available, otherwise returns an error.
+    fn check_port(ip: IpAddr, port: u16) -> Result<(), anyhow::Error> {
+        match TcpListener::bind((ip, port)) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                bail!("Failed to bind {ip}:{port} - {e}")
+            }
+        }
+    }
+
+    /// Create directory at path if it doesn't exists.
+    /// Checks if directory has proper read/write permissions.
+    fn check_dir_permissions(path: &Path) -> Result<(), anyhow::Error> {
+        if !path.exists() {
+            if let Err(e) = std::fs::create_dir_all(path) {
+                bail!("Cannot create directory {}: {e}", path.display());
+            }
+        }
+
+        let metadata = match std::fs::metadata(path) {
+            Ok(m) => m,
+            Err(e) => bail!("Cannot access {}: {e}", path.display()),
+        };
+
+        if !metadata.is_dir() {
+            bail!("Path {} is not a directory", path.display());
+        }
+
+        if let Err(e) = std::fs::read_dir(path) {
+            bail!("No read permission for {}", path.display())
+        }
+
+        let test_file = path.join(".cuprate_write_test");
+        if let Err(e) = std::fs::write(&test_file, b"Cuprate") {
+            bail!("No write permission for {}", path.display());
+        }
+
+        if let Err(e) = std::fs::remove_file(&test_file) {
+            bail!("Cannot remove temporary file from {}", path.display());
+        }
+
+        Ok(())
+    }
+
+    pub fn dry_run_check(self) -> ! {
+        let mut error = false;
+
+        if self.p2p.clear_net.enable_inbound {
+            let port = p2p_port(self.p2p.clear_net.p2p_port, self.network);
+            let ip = self.p2p.clear_net.listen_on;
+
+            match Self::check_port(IpAddr::V4(ip), port) {
+                Ok(()) => println!("P2P clearnet {ip}:{port} available."),
+                Err(e) => {
+                    eprintln_red(&format!("Error: {e}"));
+                    error = true;
+                }
+            }
+        }
+
+        if self.p2p.clear_net.enable_inbound_v6 {
+            let port = p2p_port(self.p2p.clear_net.p2p_port, self.network);
+            let ip = self.p2p.clear_net.listen_on_v6;
+
+            match Self::check_port(IpAddr::V6(ip), port) {
+                Ok(()) => println!("P2P clearnet {ip}:{port} available."),
+                Err(e) => {
+                    eprintln_red(&format!("Error: {e}"));
+                    error = true;
+                }
+            }
+        }
+
+        if self.rpc.restricted.enable {
+            let port = restricted_rpc_port(self.rpc.restricted.port, self.network);
+            let ip = self.rpc.restricted.address;
+
+            match Self::check_port(ip, port) {
+                Ok(()) => println!("RPC restricted {ip}:{port} available."),
+                Err(e) => {
+                    eprintln_red(&format!("Error: {e}"));
+                    error = true;
+                }
+            }
+        }
+
+        if self.rpc.unrestricted.enable {
+            let port = unrestricted_rpc_port(self.rpc.unrestricted.port, self.network);
+            let ip = self.rpc.unrestricted.address;
+
+            match Self::check_port(ip, port) {
+                Ok(()) => println!("RPC unrestricted {ip}:{port} available."),
+                Err(e) => {
+                    eprintln_red(&format!("Error: {e}"));
+                    error = true;
+                }
+            }
+        }
+
+        if self.tor.mode != TorMode::Off {
+            let port = self.tor.daemon.listening_addr.port();
+            let ip = self.tor.daemon.listening_addr.ip();
+
+            match Self::check_port(ip, port) {
+                Ok(()) => println!("Tor daemon {ip}:{port} available."),
+                Err(e) => {
+                    eprintln_red(&format!("Error: {e}"));
+                    error = true;
+                }
+            }
+        }
+
+        match Self::check_dir_permissions(&self.fs.data_directory) {
+            Ok(()) => println!("Permissions are ok at {}", self.fs.data_directory.display()),
+            Err(e) => {
+                eprintln_red(&format!("Error: {e}"));
+                error = true;
+            }
+        }
+
+        match Self::check_dir_permissions(&self.fs.cache_directory) {
+            Ok(()) => println!(
+                "Permissions are ok at {}",
+                self.fs.cache_directory.display()
+            ),
+            Err(e) => {
+                eprintln_red(&format!("Error {e}"));
+                error = true;
+            }
+        }
+
+        if self.tor.mode == TorMode::Arti {
+            match Self::check_dir_permissions(&self.tor.arti.directory_path) {
+                Ok(()) => println!(
+                    "Permissions are ok at {}",
+                    self.tor.arti.directory_path.display()
+                ),
+                Err(e) => {
+                    eprintln_red(&format!("Error: {e}"));
+                    error = true;
+                }
+            }
+        }
+
+        let code = if error {
+            eprintln_red("Checks failed.");
+            1
+        } else {
+            println!("All checks passed successfully!");
+            0
+        };
+
+        std::process::exit(code)
+    }
 }
 
 impl fmt::Display for Config {
@@ -333,7 +497,9 @@ impl fmt::Display for Config {
 #[cfg(test)]
 mod test {
     use pretty_assertions::assert_eq;
-    use toml::from_str;
+    use std::fs;
+    use tempfile::tempdir;
+    use toml::{from_str, to_string};
 
     use super::*;
 
@@ -343,5 +509,40 @@ mod test {
         let conf: Config = from_str(&str).unwrap();
 
         assert_eq!(conf, Config::default());
+    }
+
+    #[test]
+    fn test_check_port() {
+        let port = 18080;
+        let ip = IpAddr::from_str("127.0.0.1").unwrap();
+        assert!(Config::check_port(ip, port).is_ok());
+
+        let _listener = TcpListener::bind((ip, port)).expect("fail to bind to the port for test");
+        assert!(Config::check_port(ip, port).is_err());
+    }
+
+    #[test]
+    fn test_read_from_path() {
+        let tmp_dir = tempdir().unwrap();
+        let config_path = tmp_dir.path().join("config.toml");
+        let config_str = to_string(&Config::default()).unwrap();
+        fs::write(&config_path, config_str).unwrap();
+
+        let config = Config::read_from_path(config_path).unwrap();
+        assert_eq!(config, Config::default());
+    }
+
+    #[test]
+    fn test_check_file_permissions() {
+        let tmp_dir = tempdir().unwrap();
+        let path = tmp_dir.path().join("new_dir");
+
+        // Test on non existing directory
+        assert!(!path.exists());
+        assert!(Config::check_dir_permissions(&path).is_ok());
+        assert!(path.exists());
+
+        // Test on an existing directory
+        assert!(Config::check_dir_permissions(&path).is_ok());
     }
 }
