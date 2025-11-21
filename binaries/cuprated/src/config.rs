@@ -403,7 +403,7 @@ impl Config {
         }
 
         if self.rpc.restricted.enable {
-            let port = p2p_port(self.rpc.restricted.port, self.network);
+            let port = restricted_rpc_port(self.rpc.restricted.port, self.network);
             let ip = self.rpc.restricted.address;
 
             match Self::check_port(ip, port) {
@@ -416,7 +416,7 @@ impl Config {
         }
 
         if self.rpc.unrestricted.enable {
-            let port = p2p_port(self.rpc.unrestricted.port, self.network);
+            let port = unrestricted_rpc_port(self.rpc.unrestricted.port, self.network);
             let ip = self.rpc.unrestricted.address;
 
             match Self::check_port(ip, port) {
