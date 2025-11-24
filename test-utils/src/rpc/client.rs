@@ -123,7 +123,7 @@ impl HttpRpcClient {
 
         let total_tx_fees = txs.iter().map(|tx| tx.fee).sum::<u64>();
         let generated_coins = block
-            .miner_transaction
+            .miner_transaction()
             .prefix()
             .outputs
             .iter()

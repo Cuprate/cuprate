@@ -38,7 +38,7 @@ macro_rules! const_block_blob {
         #[doc = concat!("assert_eq!(block.header.hardfork_signal, ", $minor_version, ");")]
         #[doc = concat!("assert_eq!(block.header.timestamp, ", $timestamp, ");")]
         #[doc = concat!("assert_eq!(block.header.nonce, ", $nonce, ");")]
-        #[doc = concat!("assert!(matches!(block.miner_transaction.prefix().inputs[0], Input::Gen(", $height, ")));")]
+        #[doc = concat!("assert!(matches!(block.miner_transaction().prefix().inputs[0], Input::Gen(", $height, ")));")]
         #[doc = concat!("assert_eq!(block.transactions.len(), ", $tx_len, ");")]
         #[doc = concat!("assert_eq!(hex::encode(block.hash()), \"", $hash, "\")")]
         /// ```

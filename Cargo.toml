@@ -187,8 +187,8 @@ futures               = { version = "0.3", default-features = false }
 hex                   = { version = "0.4", default-features = false }
 hex-literal           = { version = "1", default-features = false }
 indexmap              = { version = "2", default-features = false }
-monero-address        = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "68d5a5e", default-features = false }
-monero-oxide          = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "68d5a5e", default-features = false }
+monero-address        = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "7c288b058ae7f1e3d36600a2af11b3176102bcfc", default-features = false }
+monero-oxide          = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "7c288b058ae7f1e3d36600a2af11b3176102bcfc", default-features = false, features = ["std"] }
 nu-ansi-term          = { version = "0.46", default-features = false }
 paste                 = { version = "1", default-features = false }
 pin-project           = { version = "1", default-features = false }
@@ -222,8 +222,8 @@ tracing-subscriber    = { version = "0.3", default-features = false }
 tracing               = { version = "0.1", default-features = false }
 
 ## workspace.dev-dependencies
-monero-rpc                = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "68d5a5e" }
-monero-simple-request-rpc = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "68d5a5e" }
+monero-rpc                = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "7c288b058ae7f1e3d36600a2af11b3176102bcfc" }
+monero-simple-request-rpc = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "7c288b058ae7f1e3d36600a2af11b3176102bcfc" }
 tempfile                  = { version = "3" }
 pretty_assertions         = { version = "1" }
 proptest                  = { version = "1" }
@@ -345,7 +345,6 @@ unseparated_literal_suffix = "deny"
 unnecessary_safety_doc = "deny"
 unnecessary_safety_comment = "deny"
 unnecessary_self_imports = "deny"
-string_to_string = "deny"
 rest_pat_in_fully_bound_structs = "deny"
 redundant_type_annotations = "deny"
 infinite_loop = "deny"

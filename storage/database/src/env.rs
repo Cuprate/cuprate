@@ -121,9 +121,12 @@ pub trait Env: Sized {
     /// # Invariant
     /// This function _must_ be re-implemented if [`Env::MANUAL_RESIZE`] is `true`.
     ///
-    /// Otherwise, this function will panic with `unreachable!()`.
+    /// Calling this function when [`Env::MANUAL_RESIZE`] is `false` will result in a compile-time error.
     #[expect(unused_variables)]
     fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) -> NonZeroUsize {
+        const {
+            assert!(!Self::MANUAL_RESIZE, "This function should not be called as this database backend automatically resizes.");
+        }
         unreachable!()
     }
 
@@ -133,6 +136,9 @@ pub trait Env: Sized {
     /// 1. This function _must_ be re-implemented if [`Env::MANUAL_RESIZE`] is `true`.
     /// 2. This function must be accurate, as [`Env::resize_map()`] may depend on it.
     fn current_map_size(&self) -> usize {
+        const {
+            assert!(!Self::MANUAL_RESIZE, "This function should not be called as this database backend automatically resizes.");
+        }
         unreachable!()
     }
 

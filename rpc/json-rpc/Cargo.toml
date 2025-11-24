@@ -12,7 +12,7 @@ categories  = ["encoding"]
 [features]
 
 [dependencies]
-serde      = { workspace = true, features = ["derive"] }
+serde      = { workspace = true, features = ["derive", "std"] }
 serde_json = { workspace = true, features = ["std"] }
 thiserror  = { workspace = true }
 

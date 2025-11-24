@@ -79,7 +79,7 @@ pub fn add_block(block: &VerifiedBlockInformation, tables: &mut impl TablesMut) 
     //------------------------------------------------------ Transaction / Outputs / Key Images
     // Add the miner transaction first.
     let mining_tx_index = {
-        let tx = &block.block.miner_transaction;
+        let tx = &block.block.miner_transaction();
         add_tx(tx, &tx.serialize(), &tx.hash(), &chain_height, tables)?
     };
 
@@ -168,14 +168,15 @@ pub fn pop_block(
     let block_header = tables.block_header_blobs_mut().take(&block_height)?.0;
     let block_txs_hashes = tables.block_txs_hashes_mut().take(&block_height)?.0;
     let miner_transaction = tables.tx_blobs().get(&block_info.mining_tx_index)?.0;
-    let block = Block {
-        header: BlockHeader::read(&mut block_header.as_slice())?,
-        miner_transaction: Transaction::read(&mut miner_transaction.as_slice())?,
-        transactions: block_txs_hashes,
-    };
+    let block = Block::new(
+        BlockHeader::read(&mut block_header.as_slice())?,
+        Transaction::read(&mut miner_transaction.as_slice())?,
+        block_txs_hashes,
+    )
+    .unwrap();
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
-    remove_tx(&block.miner_transaction.hash(), tables)?;
+    remove_tx(&block.miner_transaction().hash(), tables)?;
 
     let remove_tx_iter = block.transactions.iter().map(|tx_hash| {
         let (_, tx) = remove_tx(tx_hash, tables)?;
@@ -245,7 +246,7 @@ pub fn get_block_blob_with_tx_indexes(
     block.append(&mut miner_tx_blob);
 
     // Add the blocks tx hashes.
-    monero_oxide::io::write_varint(&block_txs.len(), &mut block)
+    monero_oxide::io::VarInt::write(&block_txs.len(), &mut block)
         .expect("The number of txs per block will not exceed u64::MAX");
 
     let block_txs_bytes = bytemuck::must_cast_slice(&block_txs);
@@ -366,11 +367,7 @@ pub fn get_block(tables: &impl Tables, block_height: &BlockHeight) -> DbResult<B
     let miner_tx_id = tables.block_infos().get(block_height)?.mining_tx_index;
     let miner_transaction = crate::ops::tx::get_tx_from_id(&miner_tx_id, tables.tx_blobs())?;
 
-    Ok(Block {
-        header,
-        miner_transaction,
-        transactions,
-    })
+    Ok(Block::new(header, miner_transaction, transactions).unwrap())
 }
 
 /// Retrieve a [`Block`] via its [`BlockHash`].
