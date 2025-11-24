@@ -1596,7 +1596,7 @@ dependencies = [
 
 [[package]]
 name = "cuprated"
-version = "0.0.7"
+version = "0.0.8"
 dependencies = [
  "anyhow",
  "arti-client",
