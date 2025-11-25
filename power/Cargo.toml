@@ -1,6 +1,6 @@
 [package]
 name        = "cuprate-power"
-version     = "0.0.0"
+version     = "0.0.1"
 edition     = "2024"
 description = "PoWER utilities"
 license     = "MIT"

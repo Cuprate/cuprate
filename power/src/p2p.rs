@@ -34,7 +34,7 @@ impl From<PowerChallengeP2p> for [u8; SIZE] {
 
 impl PowerChallenge for PowerChallengeP2p {
     /// `(power_challenge_nonce || nonce)`
-    type ChallengeInput = (u128, u32);
+    type ChallengeInput = (u64, u64, u32);
 
     const SIZE: usize = SIZE;
 
@@ -46,8 +46,12 @@ impl PowerChallenge for PowerChallengeP2p {
     }
 
     fn new_from_input(input: Self::ChallengeInput) -> Self {
-        let power_challenge_nonce = input.0;
-        let nonce = input.1;
+        let power_challenge_nonce = {
+            let (low, high) = (input.0, input.1);
+            let res = u128::from(high) << 64;
+            res | u128::from(low)
+        };
+        let nonce = input.2;
 
         let mut this = [0; SIZE];
 

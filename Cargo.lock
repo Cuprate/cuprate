@@ -1470,7 +1470,7 @@ dependencies = [
 
 [[package]]
 name = "cuprate-power"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "blake2",
  "equix",
