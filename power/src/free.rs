@@ -6,7 +6,7 @@ use crate::{
     PowerSolution,
 };
 
-/// Create the diffculty scalar used for [`check_difficulty`].
+/// Create the difficulty scalar used for [`check_difficulty`].
 pub fn create_difficulty_scalar(challenge: &[u8], solution: &Solution) -> u32 {
     let mut h = Blake2b::<U4>::new();
     h.update(POWER_CHALLENGE_PERSONALIZATION_STRING.as_bytes());
