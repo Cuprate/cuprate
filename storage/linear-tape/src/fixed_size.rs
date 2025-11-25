@@ -1,79 +1,41 @@
-use std::{cmp::max, io, marker::PhantomData, ops::Range};
+use std::{cmp::max, io, marker::PhantomData, ops::Deref, cell::RefMut};
+
+use bytemuck::Pod;
 
 use crate::unsafe_tape::UnsafeTape;
 
-/// A type that can be inserted into a fixed-sized tape.
-pub trait Entry: Sized {
-    /// The size of this type on disk.
-    const SIZE: usize;
+/// The full range of values in a fixed-sized tape.
+pub struct FixedSizeTapeSlice<'a, T> {
+    pub(crate) slice: &'a [T],
+}
 
-    /// Write the item to the byte slice provided, this slice will be the exact length of [`Self::SIZE`].
-    ///
-    /// There are no guarantees made on the contents of the bytes before being written to or the byte's alignment.
-    fn write(&self, to: &mut [u8]);
+impl<T> Deref for FixedSizeTapeSlice<'_, T> {
+    type Target = [T];
 
-    /// Read an item from a byte slice, this slice will be the exact length of [`Self::SIZE`].
-    ///
-    /// There are no guarantees made on the byte's alignment.
-    fn read(from: &[u8]) -> Self;
-
-    /// Write a batch of items to the slice provided, this slice will be the exact length of [`Self::SIZE`] * len.
-    ///
-    /// There are no guarantees made on the contents of the bytes before being written to or the byte's alignment.
-    fn batch_write(from: &[Self], mut to: &mut [u8]) {
-        for this in from {
-            this.write(&mut to[..Self::SIZE]);
-            to = &mut to[Self::SIZE..];
-        }
+    fn deref(&self) -> &Self::Target {
+        &self.slice
     }
 }
 
-/// A reader for a fixed-sized tape.
-pub struct FixedSizedTapeReader<'a, E: Entry> {
-    /// The backing tape file.
-    pub(crate) backing_file: &'a UnsafeTape,
-    /// The amount of fixed-sized objects in the tape.
-    pub(crate) len: usize,
-    pub(crate) phantom: PhantomData<E>,
-}
-
-impl<E: Entry> FixedSizedTapeReader<'_, E> {
-    /// Returns the amount of entries in the tape.
-    pub fn len(&self) -> usize {
-        self.len
-    }
-
-    /// Try to get a value from the tape.
-    ///
-    /// returns [`None`] if the index is out of range.
-    pub fn try_get(&self, i: usize) -> Option<E> {
-        if self.len <= i {
-            return None;
-        }
-
-        // Safety: we checked the index is in range above.
-        unsafe { Some(E::read(self.backing_file.range(entry_byte_range::<E>(i)))) }
-    }
-}
 
 /// An appender for a fixed-sized tape.
-pub struct FixedSizedTapeAppender<'a, E: Entry> {
+pub struct FixedSizedTapeAppender<'a, P: Pod> {
     /// The backing tape file that all up-to-date readers see.
     pub(crate) backing_file: &'a UnsafeTape,
     /// A mutable reference to a slot we can put a new instance of a tape in, if it needed a resize.
-    pub(crate) resized_backing_file: &'a mut Option<UnsafeTape>,
+    pub(crate) resized_backing_file: RefMut<'a, Option<UnsafeTape>>,
 
     /// The minimum amount to resize by.
     pub(crate) min_resize: u64,
     /// The current amount of bytes used in the database, that up-to-date readers will be seeing.
     pub(crate) current_used_bytes: usize,
     /// The amount of bytes that have been added to this tape.
-    pub(crate) bytes_added: &'a mut usize,
+    pub(crate) bytes_added: RefMut<'a, usize>,
 
-    pub(crate) phantom: PhantomData<E>,
+    pub(crate) phantom: PhantomData<P>,
 }
 
-impl<E: Entry> FixedSizedTapeAppender<'_, E> {
+impl<P: Pod> FixedSizedTapeAppender<'_, P> {
     /// Returns the backing tape handle that should be used for all operations in this writer
     fn backing_file(&self) -> &UnsafeTape {
         // If we have a resized tape then we need to use that, otherwise we can use the tape currently
@@ -104,43 +66,39 @@ impl<E: Entry> FixedSizedTapeAppender<'_, E> {
         Ok(())
     }
 
-    /// Try to get a value from the tape.
-    ///
-    /// returns [`None`] if the index is out of range.
-    ///
-    /// # Errors
-    ///
-    /// This will error if a resize attempt failed.
-    pub fn try_get(&mut self, i: usize) -> io::Result<Option<E>> {
-        if self.len() <= i {
-            return Ok(None);
-        }
-
-        // TODO: check the entry is all in range
+    pub fn reader_slice(&mut self) -> io::Result<FixedSizeTapeSlice<'_, P>> {
         if self.backing_file().map_size() < self.current_used_bytes + *self.bytes_added {
             self.resize_to_fit_extra(None)?;
         }
 
-        // Safety: we just checked we have enough bytes above.
-        unsafe {
-            Ok(Some(E::read(
-                self.backing_file().range(entry_byte_range::<E>(i)),
-            )))
-        }
+        let bytes = unsafe { self.backing_file().slice(0, self.current_used_bytes + *self.bytes_added) };
+
+        Ok(FixedSizeTapeSlice {
+            slice: bytemuck::cast_slice(bytes),
+        })
     }
 
     /// Returns the length of the tape including data written in this transaction.
     pub fn len(&self) -> usize {
-        (self.current_used_bytes + *self.bytes_added) / E::SIZE
+        (self.current_used_bytes + *self.bytes_added) / size_of::<P>()
     }
 
-    /// Push some entries onto the tape.
+    /// Get a mutable slice to a region above the tape that can be written to.
+    /// The slice will be indexed from the top of the region that the readers are reading. So `0` will
+    /// be the first slot that you can write to.
     ///
+    /// The current values in the slice will be meaningless unless already written to.
+    ///
+    /// # Note
+    /// 
+    /// It is important to remember that the amount of entries in the tape will be increased by the
+    /// capacity no matter if you write to each entry in the returned slice or not.
+    /// 
     /// # Errors
     ///
     /// This will error if a resize is needed and a resize attempt failed.
-    pub fn push_entries(&mut self, entries: &[E]) -> io::Result<()> {
-        let bytes_needed = entries.len() * E::SIZE;
+    pub fn slice_to_write(&mut self, capacity: usize) -> io::Result<&mut [P]> {
+        let bytes_needed = capacity * size_of::<P>();
 
         if self.backing_file().map_size()
             < bytes_needed + self.current_used_bytes + *self.bytes_added
@@ -151,42 +109,40 @@ impl<E: Entry> FixedSizedTapeAppender<'_, E> {
         let start = self.current_used_bytes + *self.bytes_added;
         let end = start + bytes_needed;
 
+        *self.bytes_added += bytes_needed;
+
         // Safety: We take a mutable reference to self and the range this writer can write in is synchronised by the
         // metadata.
         let buf = unsafe { self.backing_file().range_mut(start..end) };
-
-        E::batch_write(entries, buf);
-
-        *self.bytes_added += bytes_needed;
-
-        Ok(())
+        
+        Ok(bytemuck::cast_slice_mut(buf))
     }
 }
 
 /// A fixed-sized tape popper.
-pub struct FixedSizedTapePopper<'a, E: Entry> {
+pub struct FixedSizedTapePopper<'a, P: Pod> {
     #[expect(dead_code)]
     /// The backing tape (unused currently, but this type could access data in the future?)
     pub(crate) backing_file: &'a UnsafeTape,
     /// A mutable reference to the new value for the amount of used bytes in this tape.
     pub(crate) current_used_bytes: &'a mut usize,
-    pub(crate) phantom: PhantomData<E>,
+    pub(crate) phantom: PhantomData<P>,
 }
 
-impl<E: Entry> FixedSizedTapePopper<'_, E> {
-    pub fn pop_last(&mut self) -> Option<(usize, E)> {
+impl<P: Pod> FixedSizedTapePopper<'_, P> {
+    pub fn pop_last(&mut self) -> Option<(usize, &P)> {
         if *self.current_used_bytes == 0 {
             return None;
         }
 
-        let start_idx = *self.current_used_bytes - E::SIZE;
+        let start_idx = *self.current_used_bytes - size_of::<P>();
 
         // Safety: we are taking a non-mutable reference and we know this is in range.
-        let last = unsafe { E::read(self.backing_file.slice(start_idx, E::SIZE)) };
+        let last = unsafe { self.backing_file.slice(start_idx, size_of::<P>()) };
 
         *self.current_used_bytes = start_idx;
 
-        Some((start_idx / E::SIZE, last))
+        Some((start_idx / size_of::<P>(), bytemuck::from_bytes(last)))
     }
 
     /// Set the length of the tape to the given length.
@@ -197,7 +153,7 @@ impl<E: Entry> FixedSizedTapePopper<'_, E> {
     /// So once you call this function with a value, if you call it again it must be with a value
     /// less than or equal to.
     pub fn set_new_len(&mut self, new_len: usize) {
-        let new_len = new_len * E::SIZE;
+        let new_len = new_len * size_of::<P>();
 
         assert!(new_len <= *self.current_used_bytes);
         *self.current_used_bytes = new_len;
@@ -209,13 +165,6 @@ impl<E: Entry> FixedSizedTapePopper<'_, E> {
     ///
     /// This will panic if more entries are popped than are in the tape.
     pub fn pop_entries(&mut self, amt: usize) {
-        *self.current_used_bytes = self.current_used_bytes.checked_sub(amt * E::SIZE).unwrap();
+        *self.current_used_bytes = self.current_used_bytes.checked_sub(amt * size_of::<P>()).unwrap();
     }
-}
-
-const fn entry_byte_range<E: Entry>(i: usize) -> Range<usize> {
-    let start = i * E::SIZE;
-    let end = start + E::SIZE;
-
-    start..end
 }

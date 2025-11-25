@@ -11,7 +11,7 @@ use std::{
 
 use memmap2::{MmapOptions, MmapRaw};
 
-use crate::Advice;
+use crate::{Advice, Flush};
 
 #[cfg(target_endian = "big")]
 const BE_NOT_SUPPORTED: u8 = panic!();
@@ -98,8 +98,12 @@ impl UnsafeTape {
     /// # Safety
     ///
     /// This memory map must be initialised in this range.
-    pub(crate) fn flush_range(&self, offset: usize, len: usize) -> io::Result<()> {
-        self.mmap.flush_range(offset, len)
+    pub(crate) fn flush_range(&self, offset: usize, len: usize, mode: Flush) -> io::Result<()> {
+        match mode {
+            Flush::Sync => self.mmap.flush_range(offset, len),
+            Flush::Async => self.mmap.flush_async_range(offset, len),
+            Flush::NoSync => Ok(())
+        }
     }
 
     /// Take a mutable range of bytes from the memory map.

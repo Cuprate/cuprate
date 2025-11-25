@@ -34,14 +34,16 @@ use std::{
     ptr,
     sync::atomic::{fence, AtomicBool, AtomicPtr, Ordering},
 };
+use std::cell::{RefCell, RefMut};
+use bytemuck::Pod;
 
 mod blob_tape;
 mod fixed_size;
 mod metadata;
 mod unsafe_tape;
 
-pub use blob_tape::{Blob, BlobTapeAppender, BlobTapePopper, BlobTapeReader};
-pub use fixed_size::{Entry, FixedSizedTapeAppender, FixedSizedTapePopper, FixedSizedTapeReader};
+pub use blob_tape::{Blob, BlobTapeAppender, BlobTapePopper, BlobTapeSlice};
+pub use fixed_size::{FixedSizedTapeAppender, FixedSizedTapePopper, FixedSizeTapeSlice};
 use metadata::{Metadata, APPEND_OP, POP_OP};
 use unsafe_tape::UnsafeTape;
 
@@ -129,8 +131,6 @@ impl Drop for LinearTapes {
             // Safety: same as above.
             unsafe {
                 let tape = Box::from_raw(tape.load(Ordering::Acquire));
-
-                tape.flush_range()
             }
         }
     }
@@ -245,12 +245,12 @@ impl LinearTapes {
             meta_guard,
             tapes: self,
             min_resize: self.min_resize,
-            added_bytes: vec![0; self.tapes.len()],
-            resized_tapes: (0..self.tapes.len()).map(|_| None).collect(),
+            added_bytes: vec![RefCell::new(0); self.tapes.len()],
+            resized_tapes: (0..self.tapes.len()).map(|_| RefCell::new(None)).collect(),
         }
     }
 
-    /// Start a new database appender.
+    /// Start a new database popper.
     ///
     /// Only one write operation can be active at a given time, this will block if another write operation
     /// is active util it is finished.
@@ -331,17 +331,22 @@ pub struct Appender<'a> {
     min_resize: u64,
     /// A vec with the same length as the amount of tapes, representing the amount of bytes that have
     /// been added to each.
-    added_bytes: Vec<usize>,
+    added_bytes: Vec<RefCell<usize>>,
     /// A vec with the same length as the amount of tapes, which holds new tapes handles that have been resized.
-    resized_tapes: Vec<Option<UnsafeTape>>,
+    resized_tapes: Vec<RefCell<Option<UnsafeTape>>>,
 }
 
 impl Appender<'_> {
     /// Opens a handle to append to a fixed-sized tape.
-    pub fn fixed_sized_tape_appender<'a, E: Entry>(
-        &'a mut self,
+    ///
+    /// # Panics
+    ///
+    /// This will panic if you open the same tape twice without dropping the first handle first.
+    /// Only 1 appender an exist for a given tape at a time.
+    pub fn fixed_sized_tape_appender<'a, P: Pod>(
+        &'a self,
         table_name: &'static str,
-    ) -> FixedSizedTapeAppender<'a, E> {
+    ) -> FixedSizedTapeAppender<'a, P> {
         let i = *self
             .tapes
             .tapes_to_index
@@ -353,11 +358,11 @@ impl Appender<'_> {
         FixedSizedTapeAppender {
             // Safety: We are holding a write lock and only writers will drop tapes.
             backing_file: unsafe { &*tape.load(Ordering::Acquire) },
-            resized_backing_file: &mut self.resized_tapes[i],
+            resized_backing_file: self.resized_tapes[i].borrow_mut(),
             min_resize: self.min_resize,
             phantom: Default::default(),
-            current_used_bytes: self.meta_guard.tables_len_mut()[i],
-            bytes_added: &mut self.added_bytes[i],
+            current_used_bytes: self.meta_guard.tables_len()[i],
+            bytes_added: self.added_bytes[i].borrow_mut(),
         }
     }
 
@@ -374,10 +379,10 @@ impl Appender<'_> {
         BlobTapeAppender {
             // Safety: We are holding a write lock and only writers will drop tapes.
             backing_file: unsafe { &*tape.load(Ordering::Acquire) },
-            resized_backing_file: &mut self.resized_tapes[i],
+            resized_backing_file: self.resized_tapes[i].borrow_mut(),
             min_resize: self.min_resize,
             current_used_bytes: self.meta_guard.tables_len_mut()[i],
-            bytes_added: &mut self.added_bytes[i],
+            bytes_added: self.added_bytes[i].borrow_mut(),
         }
     }
 
@@ -413,32 +418,17 @@ impl Appender<'_> {
 
         // flush each tapes changes to disk.
         // `Acquire` so we don't see the pointer before the allocation is done.
-        match mode {
-            Flush::Sync => {
-                for (i, tape) in self.tapes.tapes.iter().enumerate() {
-                    if self.added_bytes[i] != 0 {
-                        // Safety: We are holding a write lock and only writers will drop tapes.
-                        unsafe { &*tape.load(Ordering::Acquire) }.flush_range(
-                            self.meta_guard.tables_len_mut()[i],
-                            self.added_bytes[i],
-                        )?;
-                    }
-                }
+        for (i, tape) in self.tapes.tapes.iter().enumerate() {
+            if *self.added_bytes[i].borrow() != 0 {
+                // Safety: We are holding a write lock and only writers will drop tapes.
+                unsafe { &*tape.load(Ordering::Acquire) }.flush_range(
+                    self.meta_guard.tables_len_mut()[i],
+                    *self.added_bytes[i].borrow(),
+                    mode
+                )?;
             }
-            Flush::Async => {
-                for (i, tape) in self.tapes.tapes.iter().enumerate() {
-                    if self.added_bytes[i] != 0 {
-                        // Safety: We are holding a write lock and only writers will drop tapes.
-                        unsafe { &*tape.load(Ordering::Acquire) }.flush_range_async(
-                            self.meta_guard.tables_len_mut()[i],
-                            self.added_bytes[i],
-                        )?;
-                    }
-                }
-            }
-            Flush::NoSync => {}
         }
-
+        
         // Updated the length of each table in the metadata.
         for (len, added_bytes) in self
             .meta_guard
@@ -446,7 +436,7 @@ impl Appender<'_> {
             .iter_mut()
             .zip(&self.added_bytes)
         {
-            *len += added_bytes;
+            *len += *added_bytes.borrow();
         }
 
         // push the update for readers to see.
@@ -470,10 +460,10 @@ pub struct Popper<'a> {
 
 impl Popper<'_> {
     /// Opens a handle to pop from a fixed-sized tape.
-    pub fn fixed_sized_tape_popper<'a, E: Entry>(
+    pub fn fixed_sized_tape_popper<'a, P: Pod>(
         &'a mut self,
         table_name: &'static str,
-    ) -> FixedSizedTapePopper<'a, E> {
+    ) -> FixedSizedTapePopper<'a, P> {
         let i = *self
             .tapes
             .tapes_to_index
@@ -508,40 +498,37 @@ impl Popper<'_> {
     }
 
     /// Opens a handle to read from a fixed-sized tape.
-    pub fn fixed_sized_tape_reader<'a, E: Entry>(
+    pub fn fixed_sized_tape_slice<'a, P: Pod>(
         &'a self,
         table_name: &'static str,
-    ) -> FixedSizedTapeReader<'a, E> {
+    ) -> FixedSizeTapeSlice<'a, P> {
         let i = *self
             .tapes
             .tapes_to_index
             .get(table_name)
             .expect("Tape was not specified when opening tapes");
 
-        let tape = &self.tapes.tapes[i];
+        let backing_file = unsafe { &*self.tapes.tapes[i].load(Ordering::Acquire) };
+        let bytes = unsafe {  backing_file.slice(0, self.meta_guard.tables_len()[i]) };
 
-        FixedSizedTapeReader {
-            // Safety: We are holding a write lock and only writers will drop tapes.
-            backing_file: unsafe { &*tape.load(Ordering::Acquire) },
-            phantom: Default::default(),
-            len: self.meta_guard.tables_len()[i] / E::SIZE,
+        FixedSizeTapeSlice {
+            slice: bytemuck::cast_slice(bytes),
         }
     }
 
     /// Opens a handle to read from a blob tape.
-    pub fn blob_tape_tape_reader<'a>(&'a self, table_name: &'static str) -> BlobTapeReader<'a> {
+    pub fn blob_tape_tape_reader<'a>(&'a self, table_name: &'static str) -> BlobTapeSlice<'a> {
         let i = *self
             .tapes
             .tapes_to_index
             .get(table_name)
             .expect("Tape was not specified when opening tapes");
 
-        let tape = &self.tapes.tapes[i];
+        let backing_file = unsafe { &*self.tapes.tapes[i].load(Ordering::Acquire) };
+        let bytes = unsafe {  backing_file.slice(0, self.meta_guard.tables_len()[i]) };
 
-        BlobTapeReader {
-            // Safety: We are holding a write lock and only writers will drop tapes.
-            backing_file: unsafe { &*tape.load(Ordering::Acquire) },
-            used_bytes: self.meta_guard.tables_len()[i],
+        BlobTapeSlice { 
+            slice: bytes
         }
     }
 
@@ -571,11 +558,10 @@ unsafe impl Sync for Reader<'_> {}
 unsafe impl Send for Reader<'_> {}
 
 impl Reader<'_> {
-    /// Opens a handle to read from a fixed-sized tape.
-    pub fn fixed_sized_tape_reader<'a, E: Entry>(
-        &'a self,
+    pub fn fixed_sized_tape_slice<P: Pod>(
+        &self,
         table_name: &'static str,
-    ) -> FixedSizedTapeReader<'a, E> {
+    ) -> FixedSizeTapeSlice<'_, P> {
         let i = *self
             .tapes
             .tapes_to_index
@@ -584,16 +570,16 @@ impl Reader<'_> {
 
         // Safety: We are holding a reader guard so this will not be dropped.
         let backing_file = unsafe { &*self.loaded_tapes[i] };
+        let bytes = unsafe {  backing_file.slice(0, self.meta_guard[i]) };
 
-        FixedSizedTapeReader {
-            backing_file,
-            phantom: Default::default(),
-            len: self.meta_guard[i] / E::SIZE,
+        FixedSizeTapeSlice {
+            slice: bytemuck::cast_slice(bytes),
         }
     }
 
+
     /// Opens a handle to read from a blob tape.
-    pub fn blob_tape_tape_reader<'a>(&'a self, table_name: &'static str) -> BlobTapeReader<'a> {
+    pub fn blob_tape_tape_slice<'a>(&'a self, table_name: &'static str) -> BlobTapeSlice<'a> {
         let i = *self
             .tapes
             .tapes_to_index
@@ -602,10 +588,10 @@ impl Reader<'_> {
 
         // Safety: We are holding a reader guard so this will not be dropped.
         let backing_file = unsafe { &*self.loaded_tapes[i] };
+        let bytes = unsafe {  backing_file.slice(0, self.meta_guard[i]) };
 
-        BlobTapeReader {
-            backing_file,
-            used_bytes: self.meta_guard[i],
+        BlobTapeSlice {
+            slice: bytes,
         }
     }
 }

@@ -174,8 +174,8 @@ pub fn get_alt_block_hash(
     // Get the block hash.
     match original_chain {
         Chain::Main => tapes
-            .fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS)
-            .try_get(*block_height)
+            .fixed_sized_tape_slice::<BlockInfo>(BLOCK_INFOS)
+            .get(*block_height)
             .map(|info| info.block_hash)
             .ok_or(BlockchainError::NotFound),
         Chain::Alt(chain_id) => ALT_BLOCKS_INFO

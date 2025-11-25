@@ -237,7 +237,7 @@ pub fn add_blocks_to_tapes(
             let mut block_info_appender = tapes.fixed_sized_tape_appender::<BlockInfo>(BLOCK_INFOS);
             // `saturating_add` is used here as cumulative generated coins overflows due to tail emission.
             let cumulative_generated_coins = block_info_appender
-                .try_get(block.height.saturating_sub(1))?
+                .reader_slice()?.get(block.height.saturating_sub(1))
                 .map(|i| i.cumulative_generated_coins)
                 .unwrap_or(0)
                 .saturating_add(block.generated_coins);
@@ -245,7 +245,7 @@ pub fn add_blocks_to_tapes(
             let (cumulative_difficulty_low, cumulative_difficulty_high) =
                 split_u128_into_low_high_bits(block.cumulative_difficulty);
 
-            block_info_appender.push_entries(&[BlockInfo {
+            block_info_appender.slice_to_write(1)?[0] = BlockInfo {
                 cumulative_difficulty_low,
                 cumulative_difficulty_high,
                 cumulative_generated_coins,
@@ -257,7 +257,7 @@ pub fn add_blocks_to_tapes(
                 pruned_blob_idx: block_pruned_blob_idx,
                 v1_prunable_blob_idx: block_v1_prunable_idx,
                 prunable_blob_idx: block_v2_prunable_idx,
-            }])?;
+            };
         }
     }
 
@@ -489,17 +489,17 @@ pub fn get_block_complete_entry_from_height(
     )
     .unwrap();
 
-    let pruned_tape_reader = tapes.blob_tape_tape_reader(PRUNED_BLOBS);
-    let block_info_tape_reader = tapes.fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS);
+    let pruned_tape_reader = tapes.blob_tape_tape_slice(PRUNED_BLOBS);
+    let block_info_tape_reader = tapes.fixed_sized_tape_slice::<BlockInfo>(BLOCK_INFOS);
 
     let prunable_tape_reader =
-        tapes.blob_tape_tape_reader(PRUNABLE_BLOBS[pruning_stripe as usize - 1]);
-    let v1_prunable_tape_reader = tapes.blob_tape_tape_reader(V1_PRUNABLE_BLOBS);
+        tapes.blob_tape_tape_slice(PRUNABLE_BLOBS[pruning_stripe as usize - 1]);
+    let v1_prunable_tape_reader = tapes.blob_tape_tape_slice(V1_PRUNABLE_BLOBS);
 
-    let tx_infos_reader = tapes.fixed_sized_tape_reader::<TxInfo>(TX_INFOS);
+    let tx_infos_reader = tapes.fixed_sized_tape_slice::<TxInfo>(TX_INFOS);
 
     let block_info = block_info_tape_reader
-        .try_get(block_height)
+        .get(block_height)
         .ok_or(BlockchainError::NotFound)?;
 
     let block_blob_start_idx = block_info.pruned_blob_idx;
@@ -508,7 +508,7 @@ pub fn get_block_complete_entry_from_height(
     let mut txs = Vec::with_capacity(32);
 
     let mut i = 1;
-    while let Some(tx_info) = tx_infos_reader.try_get((block_info.mining_tx_index + i)) {
+    while let Some(tx_info) = tx_infos_reader.get((block_info.mining_tx_index + i)) {
         if tx_info.height != block_height {
             break;
         }
@@ -516,26 +516,21 @@ pub fn get_block_complete_entry_from_height(
         block_blob_end_idx.get_or_insert(tx_info.pruned_blob_idx);
 
         if pruned {
-            let blob = pruned_tape_reader
-                .try_get_slice(tx_info.pruned_blob_idx, tx_info.pruned_size)
-                .unwrap();
-            let prunable_hash = pruned_tape_reader
-                .try_get_slice(tx_info.pruned_blob_idx + tx_info.pruned_size, 32)
-                .unwrap();
+            let blob = &pruned_tape_reader
+                [tx_info.pruned_blob_idx..(tx_info.pruned_blob_idx + tx_info.pruned_size)];
+            let prunable_hash = &pruned_tape_reader[tx_info.pruned_blob_idx + tx_info.pruned_size.. (32 + tx_info.pruned_blob_idx + tx_info.pruned_size)];
 
             txs.push((blob, prunable_hash));
         } else {
-            let pruned_blob = pruned_tape_reader
-                .try_get_slice(tx_info.pruned_blob_idx, tx_info.pruned_size)
-                .unwrap();
+            let pruned_blob = &pruned_tape_reader
+                [tx_info.pruned_blob_idx..(tx_info.pruned_blob_idx + tx_info.pruned_size)];
 
-            let prunable_blob = if tx_info.rct_output_start_idx == u64::MAX {
+            let prunable_blob = &if tx_info.rct_output_start_idx == u64::MAX {
                 &v1_prunable_tape_reader
             } else {
                 &prunable_tape_reader
             }
-            .try_get_slice(tx_info.prunable_blob_idx, tx_info.prunable_size)
-            .unwrap();
+            [tx_info.prunable_blob_idx..(tx_info.prunable_blob_idx + tx_info.prunable_size)];
 
             txs.push((pruned_blob, prunable_blob));
         }
@@ -565,7 +560,7 @@ pub fn get_block_complete_entry_from_height(
 
     let block_blob = {
         let block_blob_end_idx = block_blob_end_idx.unwrap_or_else(|| {
-            let next_block_info = block_info_tape_reader.try_get((block_height + 1));
+            let next_block_info = block_info_tape_reader.get((block_height + 1));
 
             if let Some(info) = next_block_info {
                 return info.pruned_blob_idx;
@@ -574,9 +569,7 @@ pub fn get_block_complete_entry_from_height(
             pruned_tape_reader.len()
         });
 
-        let blob = pruned_tape_reader
-            .try_get_range(block_blob_start_idx..block_blob_end_idx)
-            .unwrap();
+        let blob = &pruned_tape_reader[block_blob_start_idx..block_blob_end_idx];
 
         Bytes::copy_from_slice(blob)
     };
@@ -626,19 +619,19 @@ pub fn get_block_extended_header_from_height(
     block_height: BlockHeight,
     tapes: &cuprate_linear_tapes::Reader,
 ) -> DbResult<ExtendedBlockHeader> {
-    let blocks_infos = tapes.fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS);
+    let blocks_infos = tapes.fixed_sized_tape_slice::<BlockInfo>(BLOCK_INFOS);
 
     let block_info = blocks_infos
-        .try_get(block_height)
+        .get(block_height)
         .ok_or(BlockchainError::NotFound)?;
-    let miner_tx_info = tapes
-        .fixed_sized_tape_reader::<TxInfo>(TX_INFOS)
-        .try_get(block_info.mining_tx_index)
+    let miner_tx_info = *tapes
+        .fixed_sized_tape_slice::<TxInfo>(TX_INFOS)
+        .get(block_info.mining_tx_index)
         .ok_or(BlockchainError::NotFound)?;
 
-    let pruned_tape = tapes.blob_tape_tape_reader(PRUNED_BLOBS);
+    let pruned_tape = tapes.blob_tape_tape_slice(PRUNED_BLOBS);
     let mut block_header_blob = pruned_tape
-        .try_get_range(block_info.pruned_blob_idx..miner_tx_info.pruned_blob_idx)
+        .get(block_info.pruned_blob_idx..miner_tx_info.pruned_blob_idx)
         .ok_or(BlockchainError::NotFound)?;
 
     let block_header = BlockHeader::read(&mut block_header_blob)?;
@@ -665,7 +658,7 @@ pub fn get_block_extended_header_from_height(
 pub fn get_block_extended_header_top(
     tapes: &cuprate_linear_tapes::Reader,
 ) -> DbResult<(ExtendedBlockHeader, BlockHeight)> {
-    let blocks_infos = tapes.fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS);
+    let blocks_infos = tapes.fixed_sized_tape_slice::<BlockInfo>(BLOCK_INFOS);
     let height = blocks_infos.len();
     let header = get_block_extended_header_from_height(height, tapes)?;
     Ok((header, height))
@@ -679,16 +672,16 @@ pub fn get_block(
     block_height: &BlockHeight,
     tapes: &cuprate_linear_tapes::Reader,
 ) -> DbResult<Block> {
-    let block_infos = tapes.fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS);
+    let block_infos = tapes.fixed_sized_tape_slice::<BlockInfo>(BLOCK_INFOS);
     let block_info = block_infos
-        .try_get(*block_height)
+        .get(*block_height)
         .ok_or(BlockchainError::NotFound)?;
 
-    let pruned_blobs = tapes.blob_tape_tape_reader(PRUNED_BLOBS);
+    let pruned_blobs = tapes.blob_tape_tape_slice(PRUNED_BLOBS);
 
     Ok(Block::read(
         &mut pruned_blobs
-            .try_get_slice_to_end(block_info.pruned_blob_idx)
+            .get(block_info.pruned_blob_idx..)
             .ok_or(BlockchainError::NotFound)?,
     )?)
 }

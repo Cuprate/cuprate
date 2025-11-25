@@ -6,7 +6,7 @@ use std::io::Read;
 use bytemuck::TransparentWrapper;
 use heed::PutFlags;
 use monero_oxide::transaction::{Input, Pruned, Timelock, Transaction};
-
+use cuprate_database_service::RuntimeError;
 use cuprate_helper::crypto::compute_zero_commitment;
 
 use crate::database::{
@@ -63,7 +63,7 @@ pub fn add_tx_to_tapes(
     let mut tx_info_appender = tapes.fixed_sized_tape_appender(TX_INFOS);
     let tx_id = tx_info_appender.len();
 
-    tx_info_appender.push_entries(&[TxInfo {
+    tx_info_appender.slice_to_write(1)?[0] = TxInfo {
         height: *height,
         pruned_blob_idx,
         prunable_blob_idx,
@@ -75,10 +75,8 @@ pub fn add_tx_to_tapes(
             *numb_rct_outputs
         },
         numb_rct_outputs: tx.prefix().outputs.len(),
-    }])?;
-
-    let mut rct_output_appender = tapes.fixed_sized_tape_appender(RCT_OUTPUTS);
-
+    };
+    
     //------------------------------------------------------ Pruning
     // SOMEDAY: implement pruning after `monero-oxide` does.
     // if let PruningSeed::Pruned(decompressed_pruning_seed) = get_blockchain_pruning_seed()? {
@@ -96,8 +94,12 @@ pub fn add_tx_to_tapes(
     // Which table we add the output data to depends on this.
     // <https://github.com/monero-project/monero/blob/eac1b86bb2818ac552457380c9dd421fb8935e5b/src/blockchain_db/blockchain_db.cpp#L212-L216>
     let miner_tx = matches!(tx.prefix().inputs.as_slice(), &[Input::Gen(_)]);
-
+    
     if let Transaction::V2 { prefix, proofs } = &tx {
+        let mut rct_output_appender = tapes.fixed_sized_tape_appender(RCT_OUTPUTS);
+
+        let rct_mut_slice = rct_output_appender.slice_to_write(prefix.outputs.len())?;
+
         for (i, output) in prefix.outputs.iter().enumerate() {
             // Create commitment.
             let commitment = if miner_tx {
@@ -110,13 +112,13 @@ pub fn add_tx_to_tapes(
                     .commitments[i]
             };
 
-            rct_output_appender.push_entries(&[RctOutput {
+            rct_mut_slice[i] = RctOutput {
                 key: output.key.0,
                 height: *height,
                 timelock,
                 tx_idx: tx_id,
                 commitment: commitment.0,
-            }])?;
+            };
 
             *numb_rct_outputs += 1;
         }
@@ -310,27 +312,23 @@ pub fn get_tx(
 #[doc = doc_error!()]
 #[inline]
 pub fn get_tx_from_id(tx_id: &TxId, tapes: &cuprate_linear_tapes::Reader) -> DbResult<Transaction> {
-    let tx_info = tapes
-        .fixed_sized_tape_reader::<TxInfo>(TX_INFOS)
-        .try_get(*tx_id)
+    let tx_info = *tapes
+        .fixed_sized_tape_slice::<TxInfo>(TX_INFOS)
+        .get(*tx_id)
         .unwrap();
 
-    let pruned_tape = tapes.blob_tape_tape_reader(PRUNED_BLOBS);
+    let pruned_tape = tapes.blob_tape_tape_slice(PRUNED_BLOBS);
 
     let prunable_tape = if tx_info.rct_output_start_idx == u64::MAX {
-        tapes.blob_tape_tape_reader(V1_PRUNABLE_BLOBS)
+        tapes.blob_tape_tape_slice(V1_PRUNABLE_BLOBS)
     } else {
         let stripe =
             cuprate_pruning::get_block_pruning_stripe(tx_info.height, usize::MAX, 3).unwrap();
-        tapes.blob_tape_tape_reader(PRUNABLE_BLOBS[stripe as usize - 1])
+        tapes.blob_tape_tape_slice(PRUNABLE_BLOBS[stripe as usize - 1])
     };
 
-    let mut pruned = pruned_tape
-        .try_get_slice(tx_info.pruned_blob_idx, tx_info.pruned_size)
-        .unwrap();
-    let mut prunable = prunable_tape
-        .try_get_slice(tx_info.prunable_blob_idx, tx_info.prunable_size)
-        .unwrap();
+    let mut pruned = &pruned_tape[tx_info.pruned_blob_idx..(tx_info.pruned_blob_idx + tx_info.pruned_size)];
+    let mut prunable = &prunable_tape[tx_info.prunable_blob_idx.. (tx_info.prunable_blob_idx + tx_info.prunable_size)];
 
     let tx = Transaction::read(&mut (&mut pruned).chain(&mut prunable))?;
 
@@ -341,27 +339,23 @@ pub fn get_tx_blob_from_id(
     tx_id: &TxId,
     tapes: &cuprate_linear_tapes::Reader,
 ) -> DbResult<Vec<u8>> {
-    let tx_info = tapes
-        .fixed_sized_tape_reader::<TxInfo>(TX_INFOS)
-        .try_get(*tx_id)
-        .unwrap();
+    let tx_info = *tapes
+        .fixed_sized_tape_slice::<TxInfo>(TX_INFOS)
+        .get(*tx_id)
+        .ok_or(BlockchainError::NotFound)?;
 
-    let pruned_tape = tapes.blob_tape_tape_reader(PRUNED_BLOBS);
+    let pruned_tape = tapes.blob_tape_tape_slice(PRUNED_BLOBS);
 
     let prunable_tape = if tx_info.rct_output_start_idx == u64::MAX {
-        tapes.blob_tape_tape_reader(V1_PRUNABLE_BLOBS)
+        tapes.blob_tape_tape_slice(V1_PRUNABLE_BLOBS)
     } else {
         let stripe =
             cuprate_pruning::get_block_pruning_stripe(tx_info.height, usize::MAX, 3).unwrap();
-        tapes.blob_tape_tape_reader(PRUNABLE_BLOBS[stripe as usize - 1])
+        tapes.blob_tape_tape_slice(PRUNABLE_BLOBS[stripe as usize - 1])
     };
 
-    let mut pruned = pruned_tape
-        .try_get_slice(tx_info.pruned_blob_idx, tx_info.pruned_size)
-        .unwrap();
-    let mut prunable = prunable_tape
-        .try_get_slice(tx_info.prunable_blob_idx, tx_info.prunable_size)
-        .unwrap();
+    let mut pruned = &pruned_tape[tx_info.pruned_blob_idx..(tx_info.pruned_blob_idx + tx_info.pruned_size)];
+    let mut prunable = &prunable_tape[tx_info.prunable_blob_idx.. (tx_info.prunable_blob_idx + tx_info.prunable_size)];
 
     Ok([pruned, prunable].concat())
 }

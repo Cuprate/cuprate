@@ -11,6 +11,7 @@ keywords    = ["cuprate", "database"]
 [dependencies]
 memmap2 = { workspace = true }
 cuprate-rcu-ring = { workspace = true }
+bytemuck = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

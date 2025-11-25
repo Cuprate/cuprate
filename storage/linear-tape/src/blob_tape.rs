@@ -1,4 +1,6 @@
 use std::{cmp::max, io, ops::Range};
+use std::cell::RefMut;
+use std::ops::Deref;
 
 use crate::unsafe_tape::UnsafeTape;
 
@@ -29,13 +31,13 @@ pub struct BlobTapeAppender<'a> {
     /// by readers.
     pub(crate) backing_file: &'a UnsafeTape,
     /// A mutable reference to a slot we can put a new instance of a tape in, if it needed a resize.
-    pub(crate) resized_backing_file: &'a mut Option<UnsafeTape>,
+    pub(crate) resized_backing_file: RefMut<'a,  Option<UnsafeTape>>,
     /// The minimum amount to resize by.
     pub(crate) min_resize: u64,
     /// The current amount of bytes used in the database, that up-to-date readers will be seeing.
     pub(crate) current_used_bytes: usize,
     /// The amount of bytes that have been added to this tape.
-    pub(crate) bytes_added: &'a mut usize,
+    pub(crate) bytes_added: RefMut<'a, usize>,
 }
 
 impl BlobTapeAppender<'_> {
@@ -148,53 +150,14 @@ impl BlobTapePopper<'_> {
     }
 }
 
-/// A reader for a blob tape.
-pub struct BlobTapeReader<'a> {
-    /// The backing tape file.
-    pub(crate) backing_file: &'a UnsafeTape,
-    /// The amount of bytes we are allowed to read.
-    pub(crate) used_bytes: usize,
+pub struct BlobTapeSlice<'a> {
+    pub(crate) slice: &'a [u8],
 }
 
-impl BlobTapeReader<'_> {
-    /// The current length of the tape, from this readers' perspective.
-    pub fn len(&self) -> usize {
-        self.used_bytes
-    }
+impl Deref for BlobTapeSlice<'_> {
+    type Target = [u8];
 
-    /// Try to get a slice from the database.
-    ///
-    /// Returns [`None`] if the range covers more bytes than we can read.
-    pub fn try_get_range(&self, range: Range<usize>) -> Option<&[u8]> {
-        if self.used_bytes < range.start || self.used_bytes < range.end {
-            return None;
-        }
-
-        // Safety: This is synchronised by the metadata, and we just checked the slice is in range above.
-        unsafe { Some(self.backing_file.range(range)) }
-    }
-
-    /// Try to get a slice from the database.
-    ///
-    /// Returns [`None`] if  [`Self::len`] < `start_idx` + `len`
-    pub fn try_get_slice(&self, start_idx: usize, len: usize) -> Option<&[u8]> {
-        if self.used_bytes < start_idx + len {
-            return None;
-        }
-
-        // Safety: This is synchronised by the metadata, and we just checked the slice is in range above.
-        unsafe { Some(self.backing_file.slice(start_idx, len)) }
-    }
-
-    /// Try to get a slice from the database.
-    ///
-    /// Returns [`None`] if  [`Self::len`] < `start_idx`
-    pub fn try_get_slice_to_end(&self, start_idx: usize) -> Option<&[u8]> {
-        if self.used_bytes < start_idx {
-            return None;
-        }
-
-        // Safety: This is synchronised by the metadata, and we just checked the slice is in range above.
-        unsafe { Some(self.backing_file.slice(start_idx, self.len())) }
+    fn deref(&self) -> &Self::Target {
+        &self.slice
     }
 }

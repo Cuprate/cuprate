@@ -166,6 +166,7 @@ pub fn output_to_output_on_chain(
 /// This should normally not happen as commitments that
 /// are stored in the database should always be valid.
 #[doc = doc_error!()]
+#[inline]
 pub fn rct_output_to_output_on_chain(
     rct_output: &RctOutput,
     get_txid: bool,
@@ -202,14 +203,14 @@ pub fn id_to_output_on_chain(
     get_txid: bool,
     tx_ro: &heed::RoTxn,
     tapes: &cuprate_linear_tapes::Reader,
+    rct_tape: &cuprate_linear_tapes::FixedSizeTapeSlice<RctOutput>
 ) -> DbResult<OutputOnChain> {
     // v2 transactions.
     if id.amount == 0 {
-        let rct_output = tapes
-            .fixed_sized_tape_reader::<RctOutput>(RCT_OUTPUTS)
-            .try_get(id.amount_index as usize)
+        let rct_output = rct_tape
+            .get(id.amount_index as usize)
             .ok_or(BlockchainError::NotFound)?;
-        let output_on_chain = rct_output_to_output_on_chain(&rct_output, get_txid, tapes)?;
+        let output_on_chain = rct_output_to_output_on_chain(rct_output, get_txid, tapes)?;
 
         Ok(output_on_chain)
     } else {

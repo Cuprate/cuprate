@@ -261,8 +261,8 @@ fn block_hash(db: &Blockchain, block_height: BlockHeight, chain: Chain) -> Respo
     let block_hash = match chain {
         Chain::Main => {
             tapes
-                .fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS)
-                .try_get(block_height)
+                .fixed_sized_tape_slice::<BlockInfo>(BLOCK_INFOS)
+                .get(block_height)
                 .ok_or(BlockchainError::NotFound)?
                 .block_hash
         }
@@ -288,8 +288,8 @@ fn block_hash_in_range(db: &Blockchain, range: Range<usize>, chain: Chain) -> Re
             let block_hash = match chain {
                 Chain::Main => {
                     tapes
-                        .fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS)
-                        .try_get(block_height)
+                        .fixed_sized_tape_slice::<BlockInfo>(BLOCK_INFOS)
+                        .get(block_height)
                         .ok_or(BlockchainError::NotFound)?
                         .block_hash
                 }
@@ -396,7 +396,7 @@ fn chain_height(db: &Blockchain) -> ResponseResult {
         .linear_tapes
         .reader()
         .expect("Cuprate should be the only writer to the tapes");
-    let block_infos = tapes.fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS);
+    let block_infos = tapes.fixed_sized_tape_slice::<BlockInfo>(BLOCK_INFOS);
 
     let chain_height = block_infos.len();
 
@@ -405,7 +405,7 @@ fn chain_height(db: &Blockchain) -> ResponseResult {
     }
 
     let block_hash = block_infos
-        .try_get(block_infos.len() - 1)
+        .last()
         .unwrap()
         .block_hash;
 
@@ -419,13 +419,13 @@ fn generated_coins(db: &Blockchain, height: usize) -> ResponseResult {
         .linear_tapes
         .reader()
         .expect("Cuprate should be the only writer to the tapes");
-    let block_infos = tapes.fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS);
+    let block_infos = tapes.fixed_sized_tape_slice::<BlockInfo>(BLOCK_INFOS);
 
     Ok(BlockchainResponse::GeneratedCoins(
         block_infos
-            .try_get(height)
-            .unwrap()
-            .cumulative_generated_coins,
+            .get(height)
+            .map(|b| b.cumulative_generated_coins)
+            .unwrap_or(0)
     ))
 }
 
@@ -444,6 +444,8 @@ fn outputs(
         .linear_tapes
         .reader()
         .expect("Cuprate should be the only writer to the tapes");
+    
+    let rct_tape = tapes.fixed_sized_tape_slice::<RctOutput>(RCT_OUTPUTS);
 
     let amount_of_outs = outputs
         .iter()
@@ -452,7 +454,7 @@ fn outputs(
                 Ok((
                     amount,
                     tapes
-                        .fixed_sized_tape_reader::<RctOutput>(RCT_OUTPUTS)
+                        .fixed_sized_tape_slice::<RctOutput>(RCT_OUTPUTS)
                         .len() as u64,
                 ))
             } else {
@@ -473,7 +475,7 @@ fn outputs(
             amount_index,
         };
 
-        let output_on_chain = match id_to_output_on_chain(&id, get_txid, &tx_ro, &tapes) {
+        let output_on_chain = match id_to_output_on_chain(&id, get_txid, &tx_ro, &tapes, &rct_tape) {
             Ok(output) => output,
             Err(BlockchainError::NotFound) => return Ok(Either::Right(amount_index)),
             Err(e) => return Err(e),
@@ -531,7 +533,7 @@ fn number_outputs_with_amount(db: &Blockchain, amounts: Vec<Amount>) -> Response
         reason = "INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`"
     )]
     let num_rct_outputs = tapes
-        .fixed_sized_tape_reader::<RctOutput>(RCT_OUTPUTS)
+        .fixed_sized_tape_slice::<RctOutput>(RCT_OUTPUTS)
         .len();
 
     // Collect results using `rayon`.
@@ -616,9 +618,9 @@ fn compact_chain_history(db: &Blockchain) -> ResponseResult {
         .reader()
         .expect("Cuprate should be the only writer to the tapes");
 
-    let block_infos = tapes.fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS);
+    let block_infos = tapes.fixed_sized_tape_slice::<BlockInfo>(BLOCK_INFOS);
 
-    let get_block_info = |height| block_infos.try_get(height).ok_or(BlockchainError::NotFound);
+    let get_block_info = |height| block_infos.get(height).ok_or(BlockchainError::NotFound);
 
     let top_block_height = block_infos.len() - 1;
 
@@ -666,7 +668,7 @@ fn next_chain_entry(
         .reader()
         .expect("Cuprate should be the only writer to the tapes");
 
-    let block_infos = tapes.fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS);
+    let block_infos = tapes.fixed_sized_tape_slice::<BlockInfo>(BLOCK_INFOS);
 
     let idx = find_split_point(block_ids, false, false, &tx_ro)?;
 
@@ -696,7 +698,7 @@ fn next_chain_entry(
     let (block_ids, block_weights) = (first_known_height..last_height_in_chain_entry)
         .map(|height| {
             let block_info = block_infos
-                .try_get(height)
+                .get(height)
                 .ok_or(BlockchainError::NotFound)?;
 
             Ok((block_info.block_hash, block_info.weight))
@@ -704,7 +706,7 @@ fn next_chain_entry(
         .collect::<DbResult<(Vec<_>, Vec<_>)>>()?;
 
     let top_block_info = block_infos
-        .try_get(chain_height - 1)
+        .get(chain_height - 1)
         .ok_or(BlockchainError::NotFound)?;
 
     let first_block_blob = if block_ids.len() >= 2 {
@@ -759,10 +761,10 @@ fn txs_in_block(db: &Blockchain, block_hash: [u8; 32], missing_txs: Vec<u64>) ->
         .unwrap()
         .get(&tx_ro, &block_hash)?
         .ok_or(BlockchainError::NotFound)?;
-    let block_info_tape_reader = tapes.fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS);
+    let block_info_tape_reader = tapes.fixed_sized_tape_slice::<BlockInfo>(BLOCK_INFOS);
 
     let block_info = block_info_tape_reader
-        .try_get(block_height)
+        .get(block_height)
         .ok_or(BlockchainError::NotFound)?;
 
     let block = get_block(&block_height, &tapes)?;
@@ -888,7 +890,7 @@ fn total_rct_outputs(db: &Blockchain) -> ResponseResult {
     let tapes = db.linear_tapes.reader().expect("TODO");
 
     let len = tapes
-        .fixed_sized_tape_reader::<RctOutput>(RCT_OUTPUTS)
+        .fixed_sized_tape_slice::<RctOutput>(RCT_OUTPUTS)
         .len() as u64;
 
     Ok(BlockchainResponse::TotalRctOutputs(len))
@@ -905,10 +907,12 @@ fn tx_output_indexes(db: &Blockchain, tx_hash: &[u8; 32]) -> ResponseResult {
         .ok_or(BlockchainError::NotFound)?;
 
     let tapes = db.linear_tapes.reader().expect("TODO");
+    let tx_infos = tapes
+        .fixed_sized_tape_slice::<TxInfo>(TX_INFOS);
 
-    let tx_info = tapes
-        .fixed_sized_tape_reader::<TxInfo>(TX_INFOS)
-        .try_get(tx_id)
+
+    let tx_info = tx_infos
+        .get(tx_id)
         .ok_or(BlockchainError::NotFound)?;
 
     let o_indexes = if tx_info.rct_output_start_idx == u64::MAX {

@@ -1368,6 +1368,7 @@ dependencies = [
 name = "cuprate-linear-tapes"
 version = "0.0.1"
 dependencies = [
+ "bytemuck",
  "cuprate-rcu-ring",
  "memmap2",
  "tempfile",

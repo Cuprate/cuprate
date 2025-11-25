@@ -51,7 +51,6 @@ use heed::{BoxedError, BytesDecode, BytesEncode};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use cuprate_linear_tapes::Entry;
 use cuprate_types::{Chain, ChainId};
 
 //---------------------------------------------------------------------------------------------------- Aliases
@@ -184,23 +183,6 @@ pub struct TxInfo {
     pub numb_rct_outputs: usize,
 }
 
-impl Entry for TxInfo {
-    const SIZE: usize = size_of::<Self>();
-
-    fn write(&self, to: &mut [u8]) {
-        to.copy_from_slice(bytemuck::bytes_of(self));
-    }
-
-    fn read(from: &[u8]) -> Self {
-        bytemuck::pod_read_unaligned(from)
-    }
-
-    fn batch_write(from: &[Self], to: &mut [u8]) {
-        let bytes = bytemuck::cast_slice(from);
-        to.copy_from_slice(bytes);
-    }
-}
-
 //---------------------------------------------------------------------------------------------------- BlockInfoV1
 /// A identifier for a pre-RCT [`Output`].
 ///
@@ -312,23 +294,6 @@ pub struct BlockInfo {
     pub pruned_blob_idx: usize,
 }
 
-impl Entry for BlockInfo {
-    const SIZE: usize = size_of::<Self>();
-
-    fn write(&self, to: &mut [u8]) {
-        to.copy_from_slice(bytemuck::bytes_of(self));
-    }
-
-    fn read(from: &[u8]) -> Self {
-        bytemuck::pod_read_unaligned(from)
-    }
-
-    fn batch_write(from: &[Self], to: &mut [u8]) {
-        let bytes = bytemuck::cast_slice(from);
-        to.copy_from_slice(bytes);
-    }
-}
-
 //---------------------------------------------------------------------------------------------------- Output
 /// A pre-RCT (v1) output's data.
 ///
@@ -433,23 +398,6 @@ pub struct RctOutput {
     pub commitment: [u8; 32],
 }
 // TODO: local_index?
-
-impl Entry for RctOutput {
-    const SIZE: usize = size_of::<Self>();
-
-    fn write(&self, to: &mut [u8]) {
-        to.copy_from_slice(bytemuck::bytes_of(self));
-    }
-
-    fn read(from: &[u8]) -> Self {
-        bytemuck::pod_read_unaligned(from)
-    }
-
-    fn batch_write(from: &[Self], to: &mut [u8]) {
-        let bytes = bytemuck::cast_slice(from);
-        to.copy_from_slice(bytes);
-    }
-}
 
 //---------------------------------------------------------------------------------------------------- RawChain
 /// [`Chain`] in a format which can be stored in the DB.
