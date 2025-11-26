@@ -253,7 +253,9 @@ pub fn set_private_global_file_permissions() {
 
     #[cfg(target_os = "windows")]
     // TODO: impl for Windows.
-    {}
+    {
+        use target_os_lib as _;
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
