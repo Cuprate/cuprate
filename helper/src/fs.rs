@@ -230,6 +230,34 @@ pub fn address_book_path(cache_dir: &Path, network: Network) -> PathBuf {
     path_with_network(cache_dir, network).join("addressbook")
 }
 
+// Set global private permissions for created files.
+//
+// # Unix
+// `rwxr-x---`
+//
+// # Windows
+// TODO: does nothing.
+#[cfg_attr(
+    target_os = "windows",
+    expect(
+        clippy::missing_const_for_fn,
+        reason = "remove when Windows is implemented"
+    )
+)]
+pub fn set_private_global_file_permissions() {
+    #[cfg(target_family = "unix")]
+    // SAFETY: calling C.
+    unsafe {
+        target_os_lib::umask(0o027);
+    }
+
+    #[cfg(target_os = "windows")]
+    // TODO: impl for Windows.
+    {
+        use target_os_lib as _;
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
