@@ -2,7 +2,7 @@
 
 use heed::{DatabaseFlags, DefaultComparator, EnvFlags, EnvOpenOptions, IntegerComparator};
 //---------------------------------------------------------------------------------------------------- Import
-use cuprate_linear_tapes::LinearTapes;
+use tapes::{MmapFileOpenOption, Tapes};
 
 use crate::database::{
     ALT_BLOCKS_INFO, ALT_BLOCK_BLOBS, ALT_BLOCK_HEIGHTS, ALT_CHAIN_INFOS, ALT_TRANSACTION_BLOBS,
@@ -197,9 +197,9 @@ pub fn open(config: Config) -> Result<Blockchain, heed::Error> {
         rw_tx.commit()?;
     }
 
-    let tapes = linear_tapes_config(config.blob_data_dir);
+    let tapes = linear_tapes_config(config.data_dir.clone(), config.blob_data_dir);
 
-    let linear_tapes = unsafe { LinearTapes::new(tapes, config.data_dir, 1024 * 1204 * 1024)? };
+    let linear_tapes = unsafe { Tapes::new(tapes,MmapFileOpenOption {dir: config.data_dir}, 1024 * 1204 * 1024)? };
 
     tracing::debug!("opened db");
     Ok(Blockchain {

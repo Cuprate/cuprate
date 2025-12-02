@@ -3,7 +3,7 @@
 use heed::PutFlags;
 //---------------------------------------------------------------------------------------------------- Import
 use monero_oxide::{io::CompressedPoint, transaction::Timelock};
-
+use tapes::MmapFile;
 use cuprate_helper::{cast::u32_to_usize, crypto::compute_zero_commitment, map::u64_to_timelock};
 use cuprate_types::OutputOnChain;
 
@@ -134,7 +134,7 @@ pub fn output_to_output_on_chain(
     output: &Output,
     amount: Amount,
     get_txid: bool,
-    tapes: &cuprate_linear_tapes::Reader,
+    tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<OutputOnChain> {
     let commitment = compute_zero_commitment(amount);
 
@@ -170,7 +170,7 @@ pub fn output_to_output_on_chain(
 pub fn rct_output_to_output_on_chain(
     rct_output: &RctOutput,
     get_txid: bool,
-    tapes: &cuprate_linear_tapes::Reader,
+    tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<OutputOnChain> {
     // INVARIANT: Commitments stored are valid when stored by the database.
     let commitment = CompressedPoint(rct_output.commitment);
@@ -202,8 +202,8 @@ pub fn id_to_output_on_chain(
     id: &PreRctOutputId,
     get_txid: bool,
     tx_ro: &heed::RoTxn,
-    tapes: &cuprate_linear_tapes::Reader,
-    rct_tape: &cuprate_linear_tapes::FixedSizeTapeSlice<RctOutput>
+    tapes: &tapes::Reader<MmapFile>,
+    rct_tape: &tapes::FixedSizedTapeSlice<RctOutput>
 ) -> DbResult<OutputOnChain> {
     // v2 transactions.
     if id.amount == 0 {

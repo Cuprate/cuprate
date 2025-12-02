@@ -1,7 +1,7 @@
 use bytemuck::TransparentWrapper;
 use cuprate_types::VerifiedTransactionInformation;
 use monero_oxide::transaction::Transaction;
-
+use tapes::MmapFile;
 use crate::database::{ALT_TRANSACTION_BLOBS, ALT_TRANSACTION_INFOS, TX_IDS};
 use crate::error::{BlockchainError, DbResult};
 use crate::ops::tx::get_tx;
@@ -62,7 +62,7 @@ pub fn add_alt_transaction_blob(
 pub fn get_alt_transaction(
     tx_hash: &TxHash,
     tx_ro: &heed::RoTxn,
-    tapes: &cuprate_linear_tapes::Reader,
+    tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<VerifiedTransactionInformation> {
     let tx_info = ALT_TRANSACTION_INFOS
         .get()

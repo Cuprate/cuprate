@@ -9,7 +9,7 @@ use clap::Parser;
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::{
-    config::ConfigBuilder, cuprate_database::DbResult, service::BlockchainReadHandle,
+    config::ConfigBuilder, service::BlockchainReadHandle,
 };
 use cuprate_hex::Hex;
 use cuprate_types::{
@@ -22,7 +22,7 @@ use cuprate_fast_sync::FAST_SYNC_BATCH_LEN;
 async fn read_batch(
     handle: &mut BlockchainReadHandle,
     height_from: usize,
-) -> DbResult<Vec<[u8; 32]>> {
+) -> Result<Vec<[u8; 32]>, tower::BoxError> {
     let request = BlockchainReadRequest::BlockHashInRange(
         height_from..(height_from + FAST_SYNC_BATCH_LEN),
         Chain::Main,

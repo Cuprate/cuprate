@@ -1088,7 +1088,6 @@ dependencies = [
  "cuprate-constants",
  "cuprate-database-service",
  "cuprate-helper",
- "cuprate-linear-tapes",
  "cuprate-pruning",
  "cuprate-test-utils",
  "cuprate-types",
@@ -1103,6 +1102,7 @@ dependencies = [
  "rand 0.8.5",
  "rayon",
  "serde",
+ "tapes",
  "tempfile",
  "thiserror 2.0.17",
  "thread_local",
@@ -1365,16 +1365,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cuprate-linear-tapes"
-version = "0.0.1"
-dependencies = [
- "bytemuck",
- "cuprate-rcu-ring",
- "memmap2",
- "tempfile",
-]
-
-[[package]]
 name = "cuprate-p2p"
 version = "0.1.0"
 dependencies = [
@@ -1466,14 +1456,6 @@ dependencies = [
  "borsh",
  "cuprate-constants",
  "thiserror 2.0.17",
-]
-
-[[package]]
-name = "cuprate-rcu-ring"
-version = "0.0.1"
-dependencies = [
- "libc",
- "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4412,6 +4394,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rcu-ring"
+version = "0.0.1"
+source = "git+https://github.com/Cuprate/Tapes.git?rev=7db3a4d#7db3a4dec15f9c63abc5588d4be301ed7b97936a"
+dependencies = [
+ "libc",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "rdrand"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5292,6 +5283,16 @@ name = "tap"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
+
+[[package]]
+name = "tapes"
+version = "0.0.1"
+source = "git+https://github.com/Cuprate/Tapes.git?rev=7db3a4d#7db3a4dec15f9c63abc5588d4be301ed7b97936a"
+dependencies = [
+ "bytemuck",
+ "memmap2",
+ "rcu-ring",
+]
 
 [[package]]
 name = "tempfile"

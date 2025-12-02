@@ -6,6 +6,7 @@ use std::io::Read;
 use bytemuck::TransparentWrapper;
 use heed::PutFlags;
 use monero_oxide::transaction::{Input, Pruned, Timelock, Transaction};
+use tapes::MmapFile;
 use cuprate_database_service::RuntimeError;
 use cuprate_helper::crypto::compute_zero_commitment;
 
@@ -58,7 +59,7 @@ pub fn add_tx_to_tapes(
     prunable_size: usize,
     height: &BlockHeight,
     numb_rct_outputs: &mut u64,
-    tapes: &mut cuprate_linear_tapes::Appender,
+    tapes: &mut tapes::Appender<MmapFile>,
 ) -> DbResult<TxId> {
     let mut tx_info_appender = tapes.fixed_sized_tape_appender(TX_INFOS);
     let tx_id = tx_info_appender.len();
@@ -217,7 +218,7 @@ pub fn remove_tx_from_dynamic_tables(
     tx_hash: &TxHash,
     height: BlockHeight,
     tx_rw: &mut heed::RwTxn,
-    tapes: &cuprate_linear_tapes::Popper,
+    tapes: &tapes::Popper<MmapFile>,
 ) -> DbResult<(TxId, Transaction)> {
     todo!()
     /*
@@ -296,7 +297,7 @@ pub fn remove_tx_from_dynamic_tables(
 pub fn get_tx(
     tx_hash: &TxHash,
     tx_ro: &heed::RoTxn,
-    tapes: &cuprate_linear_tapes::Reader,
+    tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<Transaction> {
     get_tx_from_id(
         &TX_IDS
@@ -311,7 +312,7 @@ pub fn get_tx(
 /// Retrieve a [`Transaction`] from the database with its [`TxId`].
 #[doc = doc_error!()]
 #[inline]
-pub fn get_tx_from_id(tx_id: &TxId, tapes: &cuprate_linear_tapes::Reader) -> DbResult<Transaction> {
+pub fn get_tx_from_id(tx_id: &TxId, tapes: &tapes::Reader<MmapFile>) -> DbResult<Transaction> {
     let tx_info = *tapes
         .fixed_sized_tape_slice::<TxInfo>(TX_INFOS)
         .get(*tx_id)
@@ -337,7 +338,7 @@ pub fn get_tx_from_id(tx_id: &TxId, tapes: &cuprate_linear_tapes::Reader) -> DbR
 
 pub fn get_tx_blob_from_id(
     tx_id: &TxId,
-    tapes: &cuprate_linear_tapes::Reader,
+    tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<Vec<u8>> {
     let tx_info = *tapes
         .fixed_sized_tape_slice::<TxInfo>(TX_INFOS)

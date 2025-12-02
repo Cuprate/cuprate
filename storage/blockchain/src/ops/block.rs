@@ -11,7 +11,7 @@ use monero_oxide::{
     block::{Block, BlockHeader},
     transaction::Transaction,
 };
-
+use tapes::MmapFile;
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_helper::{
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
@@ -38,7 +38,7 @@ use crate::{
 //---------------------------------------------------------------------------------------------------- `add_block_*`
 pub fn add_blocks_to_tapes(
     blocks: &[VerifiedBlockInformation],
-    tapes: &mut cuprate_linear_tapes::Appender,
+    tapes: &mut tapes::Appender<MmapFile>,
 ) -> DbResult<()> {
     mod adapters {
         use super::*;
@@ -46,7 +46,7 @@ pub fn add_blocks_to_tapes(
         /// A writer for the pruned tape.
         pub(crate) struct PrunedTapeWriter<'a>(pub &'a [VerifiedBlockInformation]);
 
-        impl cuprate_linear_tapes::Blob for PrunedTapeWriter<'_> {
+        impl tapes::Blob for PrunedTapeWriter<'_> {
             fn len(&self) -> usize {
                 self.0
                     .iter()
@@ -83,7 +83,7 @@ pub fn add_blocks_to_tapes(
         /// A writer to write all prunable blobs across all blocks into a tape.
         pub(crate) struct PrunableTapeWriter<'a>(pub &'a [VerifiedBlockInformation]);
 
-        impl cuprate_linear_tapes::Blob for PrunableTapeWriter<'_> {
+        impl tapes::Blob for PrunableTapeWriter<'_> {
             fn len(&self) -> usize {
                 self.0
                     .iter()
@@ -116,7 +116,7 @@ pub fn add_blocks_to_tapes(
         /// A writer to write all prunable blobs across all blocks into a tape.
         pub(crate) struct V1PrunableTapeWriter<'a>(pub &'a [VerifiedBlockInformation]);
 
-        impl cuprate_linear_tapes::Blob for V1PrunableTapeWriter<'_> {
+        impl tapes::Blob for V1PrunableTapeWriter<'_> {
             fn len(&self) -> usize {
                 self.0
                     .iter()
@@ -340,7 +340,7 @@ pub fn add_block_to_dynamic_tables(
 pub fn pop_block(
     move_to_alt_chain: Option<ChainId>,
     tx_rw: &mut heed::RwTxn,
-    tapes: &mut cuprate_linear_tapes::Popper,
+    tapes: &mut tapes::Popper<MmapFile>,
 ) -> DbResult<(BlockHeight, BlockHash, Block)> {
     todo!()
     /*
@@ -464,7 +464,7 @@ pub fn get_block_complete_entry(
     block_hash: &BlockHash,
     pruned: bool,
     tx_ro: &heed::RoTxn,
-    tapes: &cuprate_linear_tapes::Reader,
+    tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<BlockCompleteEntry> {
     let block_height = BLOCK_HEIGHTS
         .get()
@@ -480,7 +480,7 @@ pub fn get_block_complete_entry(
 pub fn get_block_complete_entry_from_height(
     block_height: BlockHeight,
     pruned: bool,
-    tapes: &cuprate_linear_tapes::Reader,
+    tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<BlockCompleteEntry> {
     let pruning_stripe = cuprate_pruning::get_block_pruning_stripe(
         block_height,
@@ -596,7 +596,7 @@ pub fn get_block_complete_entry_from_height(
 pub fn get_block_extended_header(
     block_hash: &BlockHash,
     tx_ro: &heed::RoTxn,
-    tapes: &cuprate_linear_tapes::Reader,
+    tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<ExtendedBlockHeader> {
     get_block_extended_header_from_height(
         BLOCK_HEIGHTS
@@ -617,7 +617,7 @@ pub fn get_block_extended_header(
 #[inline]
 pub fn get_block_extended_header_from_height(
     block_height: BlockHeight,
-    tapes: &cuprate_linear_tapes::Reader,
+    tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<ExtendedBlockHeader> {
     let blocks_infos = tapes.fixed_sized_tape_slice::<BlockInfo>(BLOCK_INFOS);
 
@@ -656,7 +656,7 @@ pub fn get_block_extended_header_from_height(
 #[doc = doc_error!()]
 #[inline]
 pub fn get_block_extended_header_top(
-    tapes: &cuprate_linear_tapes::Reader,
+    tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<(ExtendedBlockHeader, BlockHeight)> {
     let blocks_infos = tapes.fixed_sized_tape_slice::<BlockInfo>(BLOCK_INFOS);
     let height = blocks_infos.len();
@@ -670,7 +670,7 @@ pub fn get_block_extended_header_top(
 #[inline]
 pub fn get_block(
     block_height: &BlockHeight,
-    tapes: &cuprate_linear_tapes::Reader,
+    tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<Block> {
     let block_infos = tapes.fixed_sized_tape_slice::<BlockInfo>(BLOCK_INFOS);
     let block_info = block_infos
@@ -692,7 +692,7 @@ pub fn get_block(
 pub fn get_block_by_hash(
     block_hash: &BlockHash,
     tx_ro: &heed::RoTxn,
-    tapes: &cuprate_linear_tapes::Reader,
+    tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<Block> {
     let block_height = BLOCK_HEIGHTS
         .get()

@@ -50,7 +50,7 @@ use cuprate_helper::{
     fs::{blockchain_path, CUPRATE_DATA_DIR},
     network::Network,
 };
-use cuprate_linear_tapes::{Advice, Tape};
+use tapes::{Advice, MmapFile, MmapFileOpenOption, Tape};
 
 // re-exports
 pub use cuprate_database_service::ReaderThreads;
@@ -228,38 +228,56 @@ impl Default for Config {
     }
 }
 
-pub fn linear_tapes_config(blob_data_dir: Option<PathBuf>) -> Vec<Tape> {
+pub fn linear_tapes_config(data_dir: PathBuf, blob_data_dir: Option<PathBuf>) -> Vec<Tape<MmapFile>> {
     [
         Tape {
             name: RCT_OUTPUTS,
-            path: None,
             advice: Advice::Random,
+            backing_memory_options: MmapFileOpenOption {
+                dir: data_dir.clone(),
+            },
+            initial_memory_size: 0,
         },
         Tape {
             name: TX_INFOS,
-            path: None,
+            backing_memory_options: MmapFileOpenOption {
+                dir: data_dir.clone(),
+            },
+            initial_memory_size: 0,
             advice: Advice::Random,
         },
         Tape {
             name: BLOCK_INFOS,
-            path: None,
+            backing_memory_options: MmapFileOpenOption {
+                dir: data_dir.clone(),
+            },
+            initial_memory_size: 0,
             advice: Advice::Random,
         },
         Tape {
             name: PRUNED_BLOBS,
-            path: blob_data_dir.clone(),
+            backing_memory_options: MmapFileOpenOption {
+                dir: blob_data_dir.clone().unwrap_or_else(|| data_dir.clone()),
+            },
+            initial_memory_size: 0,
             advice: Advice::Sequential,
         },
         Tape {
             name: V1_PRUNABLE_BLOBS,
-            path: blob_data_dir.clone(),
+            backing_memory_options: MmapFileOpenOption {
+                dir: blob_data_dir.clone().unwrap_or_else(|| data_dir.clone()),
+            },
+            initial_memory_size: 0,
             advice: Advice::Sequential,
         },
     ]
     .into_iter()
     .chain(PRUNABLE_BLOBS.into_iter().map(|name| Tape {
         name,
-        path: blob_data_dir.clone(),
+        backing_memory_options: MmapFileOpenOption {
+            dir: blob_data_dir.clone().unwrap_or_else(|| data_dir.clone()),
+        },
+        initial_memory_size: 0,
         advice: Advice::Sequential,
     }))
     .collect()

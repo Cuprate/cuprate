@@ -1,6 +1,6 @@
 use bytemuck::TransparentWrapper;
 use monero_oxide::block::{Block, BlockHeader};
-
+use tapes::MmapFile;
 use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};
 use cuprate_types::{AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, HardFork};
 
@@ -94,7 +94,7 @@ pub fn add_alt_block(alt_block: &AltBlockInformation, tx_rw: &mut heed::RwTxn) -
 pub fn get_alt_block(
     alt_block_height: &AltBlockHeight,
     tx_ro: &heed::RoTxn,
-    tapes: &cuprate_linear_tapes::Reader,
+    tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<AltBlockInformation> {
     let block_info = ALT_BLOCKS_INFO
         .get()
@@ -145,7 +145,7 @@ pub fn get_alt_block_hash(
     block_height: &BlockHeight,
     alt_chain: ChainId,
     tx_ro: &heed::RoTxn,
-    tapes: &cuprate_linear_tapes::Reader,
+    tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<BlockHash> {
     let alt_chains = ALT_CHAIN_INFOS.get().unwrap();
 

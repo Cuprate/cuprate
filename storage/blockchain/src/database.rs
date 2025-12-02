@@ -4,7 +4,7 @@ use crate::types::{
     BlockHeight, CompactAltBlockInfo, Hash32Bytes, HeedAmountIndices, HeedUsize, KeyImage, Output,
     PreRctOutputId, RawChainId, StorableHeed, TxHash, TxId, ZeroKey,
 };
-use cuprate_linear_tapes::{Advice, LinearTapes, Tape};
+use tapes::{Advice, Tapes, Tape, MmapFile};
 use heed::types::U64;
 use heed::{DefaultComparator, IntegerComparator};
 use std::iter::{once, Once};
@@ -75,7 +75,7 @@ pub static ALT_TRANSACTION_INFOS: OnceLock<
 
 pub struct Blockchain {
     pub(crate) dynamic_tables: heed::Env,
-    pub(crate) linear_tapes: LinearTapes,
+    pub(crate) linear_tapes: Tapes<MmapFile>,
 }
 
 impl Drop for Blockchain {
