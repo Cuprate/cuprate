@@ -4396,7 +4396,7 @@ dependencies = [
 [[package]]
 name = "rcu-ring"
 version = "0.0.1"
-source = "git+https://github.com/Cuprate/Tapes.git?rev=7db3a4d#7db3a4dec15f9c63abc5588d4be301ed7b97936a"
+source = "git+https://github.com/Cuprate/Tapes.git?rev=efac3c9#efac3c90a3e99332523fc06b9ddb852defa8e84e"
 dependencies = [
  "libc",
  "windows-sys 0.61.2",
@@ -5287,7 +5287,7 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 [[package]]
 name = "tapes"
 version = "0.0.1"
-source = "git+https://github.com/Cuprate/Tapes.git?rev=7db3a4d#7db3a4dec15f9c63abc5588d4be301ed7b97936a"
+source = "git+https://github.com/Cuprate/Tapes.git?rev=efac3c9#efac3c90a3e99332523fc06b9ddb852defa8e84e"
 dependencies = [
  "bytemuck",
  "memmap2",

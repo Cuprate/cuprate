@@ -342,19 +342,17 @@ pub fn pop_block(
     tx_rw: &mut heed::RwTxn,
     tapes: &mut tapes::Popper<MmapFile>,
 ) -> DbResult<(BlockHeight, BlockHash, Block)> {
-    todo!()
-    /*
     //------------------------------------------------------ Block Info
     let mut block_info_tape = tapes.fixed_sized_tape_popper::<BlockInfo>(BLOCK_INFOS);
 
     // Remove block data from tables.
-    let (block_height, block_info) = block_info_tape
+    let (block_height, &block_info) = block_info_tape
         .pop_last()
-        .ok_or(RuntimeError::KeyNotFound)?;
+        .ok_or(BlockchainError::NotFound)?;
 
-    // Block heights.
-    tables.block_heights_mut().delete(&block_info.block_hash)?;
+    BLOCK_HEIGHTS.get().unwrap().delete(tx_rw, &block_info.block_hash)?;
 
+    drop(block_info_tape);
     // Block blobs.
     //
     // We deserialize the block header blob and mining transaction blob
@@ -364,22 +362,23 @@ pub fn pop_block(
 
     let block = Block::read(
         &mut pruned_blobs
-            .try_get_slice_to_end(block_info.pruned_blob_idx)
+            .get(block_info.pruned_blob_idx..)
             .unwrap(),
     )
     .unwrap();
 
+    drop(pruned_blobs);
     //------------------------------------------------------ Transaction / Outputs / Key Images
     remove_tx_from_dynamic_tables(
         &block.miner_transaction().hash(),
         block_height,
-        tables,
+        tx_rw,
         tapes,
     )?;
 
     let remove_tx_iter = block.transactions.iter().map(|tx_hash| {
-        let (_, tx) = remove_tx_from_dynamic_tables(tx_hash, block_height, tables, tapes)?;
-        Ok::<_, RuntimeError>(tx)
+        let (_, tx) = remove_tx_from_dynamic_tables(tx_hash, block_height, tx_rw, tapes)?;
+        Ok::<_, BlockchainError>(tx)
     });
 
     if let Some(chain_id) = move_to_alt_chain {
@@ -419,7 +418,7 @@ pub fn pop_block(
                 ),
                 chain_id,
             },
-            tables,
+            tx_rw,
         )?;
     } else {
         for result in remove_tx_iter {
@@ -443,8 +442,8 @@ pub fn pop_block(
         .set_new_len(block_info.mining_tx_index);
 
     let cumulative_rct_outs = tapes
-        .fixed_sized_tape_reader::<BlockInfo>(BLOCK_INFOS)
-        .try_get(block_height - 1)
+        .fixed_sized_tape_slice::<BlockInfo>(BLOCK_INFOS)
+        .get(block_height - 1)
         .map_or(0, |info| info.cumulative_rct_outs);
 
     tapes
@@ -452,8 +451,6 @@ pub fn pop_block(
         .set_new_len(cumulative_rct_outs as usize);
 
     Ok((block_height, block_info.block_hash, block))
-
-     */
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_complete_entry_*`

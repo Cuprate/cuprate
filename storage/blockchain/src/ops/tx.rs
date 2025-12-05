@@ -220,15 +220,13 @@ pub fn remove_tx_from_dynamic_tables(
     tx_rw: &mut heed::RwTxn,
     tapes: &tapes::Popper<MmapFile>,
 ) -> DbResult<(TxId, Transaction)> {
-    todo!()
-    /*
     //------------------------------------------------------ Transaction data
-    let tx_id = tables.tx_ids_mut().take(tx_hash)?;
+    let tx_id = TX_IDS.get().unwrap().get(tx_rw, tx_hash)?.ok_or(BlockchainError::NotFound)?;
 
     //------------------------------------------------------ Unlock Time
-    let tx_info = tapes
-        .fixed_sized_tape_reader::<TxInfo>(TX_INFOS)
-        .try_get(tx_id)
+    let tx_info = *tapes
+        .fixed_sized_tape_slice::<TxInfo>(TX_INFOS)
+        .get(tx_id)
         .unwrap();
 
     let pruned_tape = tapes.blob_tape_tape_reader(PRUNED_BLOBS);
@@ -241,10 +239,10 @@ pub fn remove_tx_from_dynamic_tables(
     };
 
     let mut pruned = pruned_tape
-        .try_get_slice(tx_info.pruned_blob_idx, tx_info.pruned_size)
+        .get(tx_info.pruned_blob_idx.. tx_info.pruned_blob_idx + tx_info.pruned_size)
         .unwrap();
     let mut prunable = prunable_tape
-        .try_get_slice(tx_info.prunable_blob_idx, tx_info.prunable_size)
+        .get(tx_info.prunable_blob_idx..tx_info.prunable_blob_idx+tx_info.prunable_size)
         .unwrap();
 
     //------------------------------------------------------
@@ -256,7 +254,7 @@ pub fn remove_tx_from_dynamic_tables(
         match inputs {
             // Key images.
             Input::ToKey { key_image, .. } => {
-                remove_key_image(key_image.as_bytes(), tables.key_images_mut())?;
+                KEY_IMAGES.get().unwrap().delete_one_duplicate(tx_rw, &ZeroKey,  key_image.as_bytes())?;
             }
             // This is a miner transaction, set it for later use.
             Input::Gen(_) => (),
@@ -269,25 +267,21 @@ pub fn remove_tx_from_dynamic_tables(
 
     //------------------------------------------------------ Outputs
     // Remove each output in the transaction.
-    for output in &tx.prefix().outputs {
-        // Outputs with clear amounts.
-        if let Some(amount) = output.amount {
-            let amount_index = tables.num_outputs_mut().get(&amount)? - 1;
-            remove_output(
-                &PreRctOutputId {
+    if tx.version() == 1 {
+        for output in &tx.prefix().outputs {
+            // Outputs with clear amounts.
+            if let Some(amount) = output.amount {
+                remove_output(
                     amount,
-                    amount_index,
-                },
-                tables,
-            )?;
+                    tx_rw,
+                )?;
+            }
         }
+        
+        TX_OUTPUTS.get().unwrap().delete(tx_rw, &tx_id)?;
     }
-
-    tables.tx_outputs_mut().delete(&tx_id)?;
-
+    
     Ok((tx_id, tx))
-
-     */
 }
 
 //---------------------------------------------------------------------------------------------------- `get_tx_*`

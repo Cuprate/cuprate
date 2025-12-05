@@ -71,12 +71,12 @@ pub fn add_output(
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
 #[inline]
-pub fn remove_output(pre_rct_output_id: &PreRctOutputId, tx_rw: &mut heed::RwTxn) -> DbResult<()> {
+pub fn remove_output(amount: Amount, tx_rw: &mut heed::RwTxn) -> DbResult<()> {
     PRE_RCT_OUTPUTS.get().unwrap().delete_one_duplicate(
         tx_rw,
-        &pre_rct_output_id.amount,
+        &amount,
         &Output {
-            amount_index: pre_rct_output_id.amount_index,
+            amount_index: get_num_outputs_with_amount(tx_rw, amount)? - 1,
             key: [0; 32],
             height: 0,
             timelock: 0,

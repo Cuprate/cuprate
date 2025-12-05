@@ -119,7 +119,6 @@ impl BlockchainManager {
     ) {
         loop {
             tokio::select! {
-                biased;
                  _ = tasks.cancellation_token.cancelled() => {
                     tracing::info!("Shutting down blockchain manager");
                     break;
