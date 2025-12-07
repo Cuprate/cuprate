@@ -19,7 +19,6 @@ use cuprate_rpc_types::{
         BinRequest, BinResponse, GetBlocksByHeightRequest, GetBlocksByHeightResponse,
         GetBlocksRequest, GetBlocksResponse, GetHashesRequest, GetHashesResponse,
         GetOutputIndexesRequest, GetOutputIndexesResponse, GetOutsRequest, GetOutsResponse,
-        GetTransactionPoolHashesRequest, GetTransactionPoolHashesResponse,
     },
     json::{GetOutputDistributionRequest, GetOutputDistributionResponse},
     misc::RequestedInfo,
@@ -49,7 +48,6 @@ pub async fn map_request(
         Req::GetHashes(r) => Resp::GetHashes(not_available()?),
         Req::GetOutputIndexes(r) => Resp::GetOutputIndexes(not_available()?),
         Req::GetOuts(r) => Resp::GetOuts(not_available()?),
-        Req::GetTransactionPoolHashes(r) => Resp::GetTransactionPoolHashes(not_available()?),
         Req::GetOutputDistribution(r) => Resp::GetOutputDistribution(not_available()?),
     })
 }
@@ -225,19 +223,6 @@ async fn get_outs(
     request: GetOutsRequest,
 ) -> Result<GetOutsResponse, Error> {
     shared::get_outs(state, request).await
-}
-
-/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1689-L1711>
-async fn get_transaction_pool_hashes(
-    mut state: CupratedRpcHandler,
-    _: GetTransactionPoolHashesRequest,
-) -> Result<GetTransactionPoolHashesResponse, Error> {
-    Ok(GetTransactionPoolHashesResponse {
-        base: helper::access_response_base(false),
-        tx_hashes: shared::get_transaction_pool_hashes(state)
-            .await
-            .map(ByteArrayVec::from)?,
-    })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3352-L3398>
