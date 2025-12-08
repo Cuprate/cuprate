@@ -29,7 +29,6 @@ Tier 2 targets can be thought of as "guaranteed to build".
 | Target                      | Notes  |
 |-----------------------------|--------|
 | `x86_64-pc-windows-msvc`    | x64 Windows (MSVC, Windows Server 2022+)
-| `x86_64-apple-darwin`       | x64 macOS
 
 ## Tier 3
 

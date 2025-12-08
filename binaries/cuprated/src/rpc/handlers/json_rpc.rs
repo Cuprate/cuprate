@@ -5,6 +5,7 @@
 //! <https://github.com/Cuprate/cuprate/pull/355>
 
 use std::{
+    borrow::Cow,
     collections::HashMap,
     net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4},
     num::NonZero,
@@ -32,8 +33,8 @@ use cuprate_rpc_types::{
     base::{AccessResponseBase, ResponseBase},
     json::{
         AddAuxPowRequest, AddAuxPowResponse, BannedRequest, BannedResponse, CalcPowRequest,
-        CalcPowResponse, FlushCacheRequest, FlushCacheResponse, FlushTransactionPoolRequest,
-        FlushTransactionPoolResponse, GenerateBlocksRequest, GenerateBlocksResponse,
+        CalcPowResponse, FlushCacheRequest, FlushCacheResponse, FlushTxpoolRequest,
+        FlushTxpoolResponse, GenerateBlocksRequest, GenerateBlocksResponse,
         GetAlternateChainsRequest, GetAlternateChainsResponse, GetBansRequest, GetBansResponse,
         GetBlockCountRequest, GetBlockCountResponse, GetBlockHeaderByHashRequest,
         GetBlockHeaderByHashResponse, GetBlockHeaderByHeightRequest,
@@ -44,12 +45,13 @@ use cuprate_rpc_types::{
         GetInfoResponse, GetLastBlockHeaderRequest, GetLastBlockHeaderResponse,
         GetMinerDataRequest, GetMinerDataResponse, GetOutputDistributionRequest,
         GetOutputDistributionResponse, GetOutputHistogramRequest, GetOutputHistogramResponse,
-        GetTransactionPoolBacklogRequest, GetTransactionPoolBacklogResponse, GetTxIdsLooseRequest,
-        GetTxIdsLooseResponse, GetVersionRequest, GetVersionResponse, HardForkInfoRequest,
+        GetTxIdsLooseRequest, GetTxIdsLooseResponse, GetTxpoolBacklogRequest,
+        GetTxpoolBacklogResponse, GetVersionRequest, GetVersionResponse, HardForkInfoRequest,
         HardForkInfoResponse, JsonRpcRequest, JsonRpcResponse, OnGetBlockHashRequest,
         OnGetBlockHashResponse, PruneBlockchainRequest, PruneBlockchainResponse, RelayTxRequest,
-        RelayTxResponse, SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse,
-        SyncInfoRequest, SyncInfoResponse,
+        RelayTxResponse, RpcAccessInfoResponse, RpcAccessPayResponse, RpcAccessSubmitNonceResponse,
+        SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse, SyncInfoRequest,
+        SyncInfoResponse,
     },
     misc::{BlockHeader, ChainInfo, Distribution, GetBan, HistogramEntry, Status, SyncInfoPeer},
     CORE_RPC_VERSION,
@@ -103,7 +105,7 @@ pub async fn map_request(
         Req::SetBans(r) => Resp::SetBans(not_available()?),
         Req::GetBans(r) => Resp::GetBans(not_available()?),
         Req::Banned(r) => Resp::Banned(not_available()?),
-        Req::FlushTransactionPool(r) => Resp::FlushTransactionPool(not_available()?),
+        Req::FlushTxpool(r) => Resp::FlushTxpool(not_available()?),
         Req::GetOutputHistogram(r) => Resp::GetOutputHistogram(not_available()?),
         Req::GetCoinbaseTxSum(r) => Resp::GetCoinbaseTxSum(not_available()?),
         Req::GetVersion(r) => Resp::GetVersion(not_available()?),
@@ -111,16 +113,53 @@ pub async fn map_request(
         Req::GetAlternateChains(r) => Resp::GetAlternateChains(not_available()?),
         Req::RelayTx(r) => Resp::RelayTx(not_available()?),
         Req::SyncInfo(r) => Resp::SyncInfo(not_available()?),
-        Req::GetTransactionPoolBacklog(r) => Resp::GetTransactionPoolBacklog(not_available()?),
+        Req::GetTxpoolBacklog(r) => Resp::GetTxpoolBacklog(not_available()?),
         Req::GetMinerData(r) => Resp::GetMinerData(not_available()?),
         Req::PruneBlockchain(r) => Resp::PruneBlockchain(not_available()?),
         Req::CalcPow(r) => Resp::CalcPow(not_available()?),
         Req::AddAuxPow(r) => Resp::AddAuxPow(not_available()?),
+        Req::GetOutputDistribution(_) => Resp::GetOutputDistribution(not_available()?),
+        Req::RpcAccessInfo(_) => Resp::RpcAccessInfo(RPC_ACCESS_INFO_RESPONSE),
+        Req::RpcAccessSubmitNonce(_) => Resp::RpcAccessSubmitNonce(RPC_ACCESS_SUBMIT_NONCE),
+        Req::RpcAccessPay(_) => Resp::RpcAccessPay(RPC_ACCESS_PAY),
 
         // Unsupported RPC calls.
-        Req::GetTxIdsLoose(_) | Req::FlushCache(_) => return Err(anyhow!(UNSUPPORTED_RPC_CALL)),
+        Req::GetTxIdsLoose(_)
+        | Req::FlushCache(_)
+        | Req::RpcAccessTracking(_)
+        | Req::RpcAccessData(_)
+        | Req::RpcAccessAccount(_) => return Err(anyhow!(UNSUPPORTED_RPC_CALL)),
     })
 }
+
+const RPC_ACCESS_INFO_RESPONSE: RpcAccessInfoResponse = RpcAccessInfoResponse {
+    base: helper::access_response_base(false),
+    hashing_blob: String::new(),
+    seed_height: 0,
+    seed_hash: String::new(),
+    next_seed_hash: String::new(),
+    cookie: 0,
+    diff: 0,
+    credits_per_hash_found: 0,
+    height: 0,
+};
+
+const RPC_ACCESS_PAYMENT_NOT_NEEDED_BASE: AccessResponseBase = AccessResponseBase {
+    response_base: ResponseBase {
+        status: Status::Other(Cow::Borrowed("Payment not necessary")),
+        untrusted: false,
+    },
+    credits: 0,
+    top_hash: String::new(),
+};
+
+const RPC_ACCESS_SUBMIT_NONCE: RpcAccessSubmitNonceResponse = RpcAccessSubmitNonceResponse {
+    base: RPC_ACCESS_PAYMENT_NOT_NEEDED_BASE,
+};
+
+const RPC_ACCESS_PAY: RpcAccessPayResponse = RpcAccessPayResponse {
+    base: RPC_ACCESS_PAYMENT_NOT_NEEDED_BASE,
+};
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1911-L2005>
 async fn get_block_template(
@@ -730,8 +769,8 @@ async fn banned(
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2880-L2932>
 async fn flush_transaction_pool(
     mut state: CupratedRpcHandler,
-    request: FlushTransactionPoolRequest,
-) -> Result<FlushTransactionPoolResponse, Error> {
+    request: FlushTxpoolRequest,
+) -> Result<FlushTxpoolResponse, Error> {
     let tx_hashes = request
         .txids
         .into_iter()
@@ -740,7 +779,7 @@ async fn flush_transaction_pool(
 
     txpool::flush(todo!(), tx_hashes).await?;
 
-    Ok(FlushTransactionPoolResponse { status: Status::Ok })
+    Ok(FlushTxpoolResponse { status: Status::Ok })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2934-L2979>
@@ -923,8 +962,8 @@ async fn sync_info(
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3332-L3350>
 async fn get_transaction_pool_backlog(
     mut state: CupratedRpcHandler,
-    _: GetTransactionPoolBacklogRequest,
-) -> Result<GetTransactionPoolBacklogResponse, Error> {
+    _: GetTxpoolBacklogRequest,
+) -> Result<GetTxpoolBacklogResponse, Error> {
     let now = current_unix_timestamp();
 
     let backlog = txpool::backlog(&mut state.txpool_read)
@@ -937,7 +976,7 @@ async fn get_transaction_pool_backlog(
         })
         .collect();
 
-    Ok(GetTransactionPoolBacklogResponse {
+    Ok(GetTxpoolBacklogResponse {
         base: helper::response_base(false),
         backlog,
     })

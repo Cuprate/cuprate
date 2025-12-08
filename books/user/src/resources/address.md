@@ -1,6 +1,11 @@
 # Address
 IP addresses and ports used by `cuprated`.
 
+Depending on the network used, the 1st number of the port used will change:
+- Mainnet: `1` (e.g. `18080`)
+- Testnet: `2` (e.g. `28080`)
+- Stagenet: `3` (e.g. `38080`)
+
 ### P2P
 `cuprated` can bind to a [IPv4](https://en.wikipedia.org/wiki/IPv4) or [IPv6](https://en.wikipedia.org/wiki/IPv6) address for P2P connections.
 

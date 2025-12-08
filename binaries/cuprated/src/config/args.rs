@@ -14,11 +14,10 @@ pub struct Args {
     /// The network to run on.
     #[arg(
         long,
-        default_value_t = Network::Mainnet,
         value_parser = clap::builder::PossibleValuesParser::new(["mainnet", "testnet", "stagenet"])
-            .map(|s| s.parse::<Network>().unwrap()),
+            .map(|s| Some(s.parse::<Network>().unwrap())),
     )]
-    pub network: Network,
+    pub network: Option<Network>,
 
     /// Disable fast sync, all past blocks will undergo full verification when syncing.
     ///
@@ -46,6 +45,15 @@ pub struct Args {
     /// Print misc version information in JSON.
     #[arg(short, long)]
     pub version: bool,
+
+    /// Perform a dry run to validate configuration.
+    ///
+    /// This will verify:
+    /// - Config file can be deserialized correctly
+    /// - All specified paths exist and have proper permissions
+    /// - Required network ports can be bound to
+    #[arg(long)]
+    pub dry_run: bool,
 }
 
 impl Args {
@@ -70,7 +78,9 @@ impl Args {
     ///
     /// This may exit the program if a config value was set that requires an early exit.
     pub const fn apply_args(&self, mut config: Config) -> Config {
-        config.network = self.network;
+        if let Some(network) = self.network {
+            config.network = network;
+        }
         config.fast_sync = config.fast_sync && !self.no_fast_sync;
 
         if let Some(outbound_connections) = self.outbound_connections {
