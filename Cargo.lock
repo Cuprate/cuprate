@@ -1152,6 +1152,7 @@ dependencies = [
  "monero-oxide",
  "randomx-rs",
  "rayon",
+ "strum",
  "thiserror 2.0.17",
  "thread_local",
  "tokio",
@@ -1599,7 +1600,7 @@ dependencies = [
 
 [[package]]
 name = "cuprated"
-version = "0.0.7"
+version = "0.0.8"
 dependencies = [
  "anyhow",
  "arti-client",
@@ -4396,7 +4397,7 @@ dependencies = [
 [[package]]
 name = "rcu-ring"
 version = "0.0.1"
-source = "git+https://github.com/Cuprate/Tapes.git?rev=efac3c9#efac3c90a3e99332523fc06b9ddb852defa8e84e"
+source = "git+https://github.com/Cuprate/Tapes.git?rev=e7e9168#e7e9168d2d336d918378a062d8d9c08f728012d9"
 dependencies = [
  "libc",
  "windows-sys 0.61.2",
@@ -5287,7 +5288,7 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 [[package]]
 name = "tapes"
 version = "0.0.1"
-source = "git+https://github.com/Cuprate/Tapes.git?rev=efac3c9#efac3c90a3e99332523fc06b9ddb852defa8e84e"
+source = "git+https://github.com/Cuprate/Tapes.git?rev=e7e9168#e7e9168d2d336d918378a062d8d9c08f728012d9"
 dependencies = [
  "bytemuck",
  "memmap2",
@@ -6633,6 +6634,7 @@ dependencies = [
  "pin-project-lite",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]

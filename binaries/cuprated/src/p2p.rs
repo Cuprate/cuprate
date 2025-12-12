@@ -36,8 +36,8 @@ mod core_sync_service;
 mod network_address;
 pub mod request_handler;
 
-pub use network_address::CrossNetworkInternalPeerId;
 use crate::blockchain::handle::BlockchainManagerHandle;
+pub use network_address::CrossNetworkInternalPeerId;
 
 /// A simple parsing enum for the `p2p.clear_net.proxy` field
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -111,8 +111,8 @@ pub async fn initialize_zones_p2p(
                 start_zone_p2p::<ClearNet, Tcp>(
                     blockchain_read_handle.clone(),
                     context_svc.clone(),
-                    txpool_read_handle.clone(),                        blockchain_manager_handle.clone(),
-
+                    txpool_read_handle.clone(),
+                    blockchain_manager_handle.clone(),
                     config.clearnet_p2p_config(),
                     config.p2p.clear_net.tcp_transport_config(config.network),
                 )
@@ -134,8 +134,8 @@ pub async fn initialize_zones_p2p(
                 start_zone_p2p::<Tor, Daemon>(
                     blockchain_read_handle.clone(),
                     context_svc.clone(),
-                    txpool_read_handle.clone(),                        blockchain_manager_handle.clone(),
-
+                    txpool_read_handle.clone(),
+                    blockchain_manager_handle.clone(),
                     config.tor_p2p_config(&tor_ctx),
                     transport_daemon_config(config),
                 )
@@ -146,8 +146,8 @@ pub async fn initialize_zones_p2p(
                 start_zone_p2p::<Tor, Arti>(
                     blockchain_read_handle.clone(),
                     context_svc.clone(),
-                    txpool_read_handle.clone(),                        blockchain_manager_handle.clone(),
-
+                    txpool_read_handle.clone(),
+                    blockchain_manager_handle.clone(),
                     config.tor_p2p_config(&tor_ctx),
                     transport_arti_config(config, tor_ctx),
                 )

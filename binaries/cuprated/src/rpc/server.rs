@@ -92,8 +92,8 @@ pub fn init_rpc_servers(
                 SocketAddr::new(addr, port),
                 request_byte_limit,
             )
-            .await
-            .unwrap();
+                .await
+                .unwrap();
         });
     }
 }
@@ -118,12 +118,18 @@ async fn run_rpc_server(
     // - enable aliases automatically `other_get_height` + `other_getheight`?
     let router = RouterBuilder::new()
         .json_rpc()
+        .bin_get_hashes()
+        .bin_gethashes()
+        .bin_get_blocks()
+        .bin_getblocks()
+        .bin_get_transaction_pool_hashes()
         .other_get_height()
         .other_send_raw_transaction()
         .other_sendrawtransaction()
         .fallback()
         .build()
         .with_state(rpc_handler);
+
 
     // Add restrictive layers if restricted RPC.
     //
@@ -133,6 +139,8 @@ async fn run_rpc_server(
     } else {
         router
     };
+
+    let router= router.layer(tower_http::trace::TraceLayer::new_for_http());
 
     // Start the server.
     //

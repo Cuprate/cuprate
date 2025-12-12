@@ -34,19 +34,20 @@ use cuprate_p2p_core::{transports::Tcp, ClearNet};
 use cuprate_types::blockchain::BlockchainWriteRequest;
 use txpool::IncomingTxHandler;
 
+use crate::blockchain::handle::BlockchainManagerHandle;
 use crate::{
     config::Config,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     logging::CupratedTracingFilter,
     tor::{initialize_tor_if_enabled, TorMode},
 };
-use crate::blockchain::handle::BlockchainManagerHandle;
 
 mod blockchain;
 mod commands;
 mod config;
 mod constants;
 mod logging;
+mod monitor;
 mod p2p;
 mod rpc;
 mod signals;
@@ -54,7 +55,6 @@ mod statics;
 mod tor;
 mod txpool;
 mod version;
-mod monitor;
 
 fn main() {
     // Set global private permissions for created files.
@@ -102,7 +102,7 @@ fn main() {
 
     rt.block_on(async move {
         let (mut monitor, tasks) = monitor::new();
-        
+
         // TODO: Add an argument/option for keeping alt blocks between restart.
         blockchain_write_handle
             .ready()
@@ -129,7 +129,8 @@ fn main() {
         // Bootstrap or configure Tor if enabled.
         let tor_context = initialize_tor_if_enabled(&config).await;
 
-        let (blockchain_manager_handle, blockchain_manager_handle_setter) = BlockchainManagerHandle::new();
+        let (blockchain_manager_handle, blockchain_manager_handle_setter) =
+            BlockchainManagerHandle::new();
 
         // Start p2p network zones
         let (network_interfaces, tx_handler_subscribers) = p2p::initialize_zones_p2p(
@@ -175,7 +176,6 @@ fn main() {
         )
         .await;
 
-
         // Initialize the RPC server(s).
         rpc::init_rpc_servers(
             config.rpc,
@@ -192,9 +192,14 @@ fn main() {
             std::thread::spawn(|| commands::command_listener(command_tx));
 
             // Wait on the io_loop, spawned on a separate task as this improves performance.
-            tokio::spawn(commands::io_loop(command_rx, context_svc, blockchain_manager_handle, monitor))
-                .await
-                .unwrap();
+            tokio::spawn(commands::io_loop(
+                command_rx,
+                context_svc,
+                blockchain_manager_handle,
+                monitor,
+            ))
+            .await
+            .unwrap();
         } else {
             // If no STDIN, await OS exit signal.
             info!("Terminal/TTY not detected, disabling STDIN commands");

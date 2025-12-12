@@ -50,7 +50,8 @@ pub fn open(config: Config) -> Result<Blockchain, heed::Error> {
                 EnvFlags::NO_READ_AHEAD
                     | EnvFlags::NO_SYNC
                     | EnvFlags::WRITE_MAP
-                    | EnvFlags::MAP_ASYNC,
+                    | EnvFlags::MAP_ASYNC
+                    | EnvFlags::NO_LOCK,
             );
         }
 
@@ -199,7 +200,15 @@ pub fn open(config: Config) -> Result<Blockchain, heed::Error> {
 
     let tapes = linear_tapes_config(config.data_dir.clone(), config.blob_data_dir);
 
-    let linear_tapes = unsafe { Tapes::new(tapes,MmapFileOpenOption {dir: config.data_dir}, 1024 * 1204 * 1024)? };
+    let linear_tapes = unsafe {
+        Tapes::new(
+            tapes,
+            MmapFileOpenOption {
+                dir: config.data_dir,
+            },
+            1024 * 1204 * 1024,
+        )?
+    };
 
     tracing::debug!("opened db");
     Ok(Blockchain {

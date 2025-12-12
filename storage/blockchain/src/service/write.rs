@@ -3,13 +3,13 @@
 use std::net::Shutdown::Read;
 //---------------------------------------------------------------------------------------------------- Import
 use cuprate_database_service::{DatabaseWriteHandle, RuntimeError};
-use tapes::Flush;
 use cuprate_types::{
     blockchain::{BlockchainResponse, BlockchainWriteRequest},
     AltBlockInformation, ChainId, VerifiedBlockInformation,
 };
 use heed::MdbError;
 use std::sync::Arc;
+use tapes::Flush;
 
 use crate::database::TX_INFOS;
 use crate::error::{BlockchainError, DbResult};

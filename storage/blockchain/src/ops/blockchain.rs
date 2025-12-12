@@ -63,7 +63,7 @@ pub fn top_block_height(tx_ro: &heed::RoTxn) -> DbResult<BlockHeight> {
 /// chronologically ordered chains this will return the index of the first known.
 ///
 /// If all blocks are known for chronologically ordered chains or unknown for reverse chronologically
-/// ordered chains then the length of the chain will be returned.
+/// ordered chains then the length of the `block_ids` will be returned.
 #[doc = doc_error!()]
 #[inline]
 pub fn find_split_point(

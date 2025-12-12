@@ -123,7 +123,7 @@ where
 pub struct BlockchainContext {
     /// The current cumulative difficulty.
     pub cumulative_difficulty: u128,
-    /// Context to verify a block, as needed by [`cuprate_consensus_rules`]
+    /// Context to verify a block, as needed by [`cuprate-consensus-rules`]
     pub context_to_verify_block: ContextToVerifyBlock,
     /// The median long term block weight.
     median_long_term_weight: usize,
@@ -226,8 +226,8 @@ pub enum BlockChainContextRequest {
         numb_blocks: usize,
     },
 
-    /// Get information on a certain hardfork.
-    HardForkInfo(HardFork),
+    /// Get information on all hardfork.
+    HardForkInfos,
 
     /// Get the current fee estimate.
     FeeEstimate {
@@ -336,8 +336,8 @@ pub enum BlockChainContextResponse {
     /// A list of difficulties.
     BatchDifficulties(Vec<u128>),
 
-    /// Response to [`BlockChainContextRequest::HardForkInfo`]
-    HardForkInfo(HardForkInfo),
+    /// Response to [`BlockChainContextRequest::HardForkInfos`]
+    HardForkInfos(Vec<HardForkInfo>),
 
     /// Response to [`BlockChainContextRequest::FeeEstimate`]
     FeeEstimate(FeeEstimate),

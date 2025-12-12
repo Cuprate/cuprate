@@ -5,11 +5,11 @@ use cuprate_consensus::transactions::new_tx_verification_data;
 use cuprate_txpool::service::interface::{TxpoolReadRequest, TxpoolReadResponse};
 use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
+use futures::SinkExt;
 use monero_oxide::block::Block;
 use monero_oxide::transaction::Transaction;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, LazyLock, Mutex, OnceLock};
-use futures::SinkExt;
 use tokio::sync::{mpsc, oneshot};
 use tower::{Service, ServiceExt};
 
@@ -28,7 +28,6 @@ pub enum IncomingBlockError {
     #[error(transparent)]
     InvalidBlock(anyhow::Error),
 }
-
 
 pub struct BlockchainManagerHandleSetter {
     tx: Arc<OnceLock<mpsc::Sender<BlockchainManagerCommand>>>,

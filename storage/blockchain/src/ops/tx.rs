@@ -4,11 +4,11 @@
 use std::io::Read;
 
 use bytemuck::TransparentWrapper;
+use cuprate_database_service::RuntimeError;
+use cuprate_helper::crypto::compute_zero_commitment;
 use heed::PutFlags;
 use monero_oxide::transaction::{Input, Pruned, Timelock, Transaction};
 use tapes::MmapFile;
-use cuprate_database_service::RuntimeError;
-use cuprate_helper::crypto::compute_zero_commitment;
 
 use crate::database::{
     KEY_IMAGES, PRUNABLE_BLOBS, PRUNED_BLOBS, RCT_OUTPUTS, TX_IDS, TX_INFOS, TX_OUTPUTS,
@@ -77,7 +77,7 @@ pub fn add_tx_to_tapes(
         },
         numb_rct_outputs: tx.prefix().outputs.len(),
     };
-    
+
     //------------------------------------------------------ Pruning
     // SOMEDAY: implement pruning after `monero-oxide` does.
     // if let PruningSeed::Pruned(decompressed_pruning_seed) = get_blockchain_pruning_seed()? {
@@ -95,7 +95,7 @@ pub fn add_tx_to_tapes(
     // Which table we add the output data to depends on this.
     // <https://github.com/monero-project/monero/blob/eac1b86bb2818ac552457380c9dd421fb8935e5b/src/blockchain_db/blockchain_db.cpp#L212-L216>
     let miner_tx = matches!(tx.prefix().inputs.as_slice(), &[Input::Gen(_)]);
-    
+
     if let Transaction::V2 { prefix, proofs } = &tx {
         let mut rct_output_appender = tapes.fixed_sized_tape_appender(RCT_OUTPUTS);
 
@@ -221,7 +221,11 @@ pub fn remove_tx_from_dynamic_tables(
     tapes: &tapes::Popper<MmapFile>,
 ) -> DbResult<(TxId, Transaction)> {
     //------------------------------------------------------ Transaction data
-    let tx_id = TX_IDS.get().unwrap().get(tx_rw, tx_hash)?.ok_or(BlockchainError::NotFound)?;
+    let tx_id = TX_IDS
+        .get()
+        .unwrap()
+        .get(tx_rw, tx_hash)?
+        .ok_or(BlockchainError::NotFound)?;
 
     //------------------------------------------------------ Unlock Time
     let tx_info = *tapes
@@ -239,10 +243,10 @@ pub fn remove_tx_from_dynamic_tables(
     };
 
     let mut pruned = pruned_tape
-        .get(tx_info.pruned_blob_idx.. tx_info.pruned_blob_idx + tx_info.pruned_size)
+        .get(tx_info.pruned_blob_idx..tx_info.pruned_blob_idx + tx_info.pruned_size)
         .unwrap();
     let mut prunable = prunable_tape
-        .get(tx_info.prunable_blob_idx..tx_info.prunable_blob_idx+tx_info.prunable_size)
+        .get(tx_info.prunable_blob_idx..tx_info.prunable_blob_idx + tx_info.prunable_size)
         .unwrap();
 
     //------------------------------------------------------
@@ -254,7 +258,11 @@ pub fn remove_tx_from_dynamic_tables(
         match inputs {
             // Key images.
             Input::ToKey { key_image, .. } => {
-                KEY_IMAGES.get().unwrap().delete_one_duplicate(tx_rw, &ZeroKey,  key_image.as_bytes())?;
+                KEY_IMAGES.get().unwrap().delete_one_duplicate(
+                    tx_rw,
+                    &ZeroKey,
+                    key_image.as_bytes(),
+                )?;
             }
             // This is a miner transaction, set it for later use.
             Input::Gen(_) => (),
@@ -271,16 +279,13 @@ pub fn remove_tx_from_dynamic_tables(
         for output in &tx.prefix().outputs {
             // Outputs with clear amounts.
             if let Some(amount) = output.amount {
-                remove_output(
-                    amount,
-                    tx_rw,
-                )?;
+                remove_output(amount, tx_rw)?;
             }
         }
-        
+
         TX_OUTPUTS.get().unwrap().delete(tx_rw, &tx_id)?;
     }
-    
+
     Ok((tx_id, tx))
 }
 
@@ -322,18 +327,17 @@ pub fn get_tx_from_id(tx_id: &TxId, tapes: &tapes::Reader<MmapFile>) -> DbResult
         tapes.blob_tape_tape_slice(PRUNABLE_BLOBS[stripe as usize - 1])
     };
 
-    let mut pruned = &pruned_tape[tx_info.pruned_blob_idx..(tx_info.pruned_blob_idx + tx_info.pruned_size)];
-    let mut prunable = &prunable_tape[tx_info.prunable_blob_idx.. (tx_info.prunable_blob_idx + tx_info.prunable_size)];
+    let mut pruned =
+        &pruned_tape[tx_info.pruned_blob_idx..(tx_info.pruned_blob_idx + tx_info.pruned_size)];
+    let mut prunable = &prunable_tape
+        [tx_info.prunable_blob_idx..(tx_info.prunable_blob_idx + tx_info.prunable_size)];
 
     let tx = Transaction::read(&mut (&mut pruned).chain(&mut prunable))?;
 
     Ok(tx)
 }
 
-pub fn get_tx_blob_from_id(
-    tx_id: &TxId,
-    tapes: &tapes::Reader<MmapFile>,
-) -> DbResult<Vec<u8>> {
+pub fn get_tx_blob_from_id(tx_id: &TxId, tapes: &tapes::Reader<MmapFile>) -> DbResult<Vec<u8>> {
     let tx_info = *tapes
         .fixed_sized_tape_slice::<TxInfo>(TX_INFOS)
         .get(*tx_id)
@@ -349,8 +353,10 @@ pub fn get_tx_blob_from_id(
         tapes.blob_tape_tape_slice(PRUNABLE_BLOBS[stripe as usize - 1])
     };
 
-    let mut pruned = &pruned_tape[tx_info.pruned_blob_idx..(tx_info.pruned_blob_idx + tx_info.pruned_size)];
-    let mut prunable = &prunable_tape[tx_info.prunable_blob_idx.. (tx_info.prunable_blob_idx + tx_info.prunable_size)];
+    let mut pruned =
+        &pruned_tape[tx_info.pruned_blob_idx..(tx_info.pruned_blob_idx + tx_info.pruned_size)];
+    let mut prunable = &prunable_tape
+        [tx_info.prunable_blob_idx..(tx_info.prunable_blob_idx + tx_info.prunable_size)];
 
     Ok([pruned, prunable].concat())
 }

@@ -1,7 +1,3 @@
-use bytemuck::TransparentWrapper;
-use cuprate_types::VerifiedTransactionInformation;
-use monero_oxide::transaction::Transaction;
-use tapes::MmapFile;
 use crate::database::{ALT_TRANSACTION_BLOBS, ALT_TRANSACTION_INFOS, TX_IDS};
 use crate::error::{BlockchainError, DbResult};
 use crate::ops::tx::get_tx;
@@ -9,6 +5,10 @@ use crate::{
     ops::macros::{doc_add_alt_block_inner_invariant, doc_error},
     types::{AltTransactionInfo, TxHash},
 };
+use bytemuck::TransparentWrapper;
+use cuprate_types::VerifiedTransactionInformation;
+use monero_oxide::transaction::Transaction;
+use tapes::MmapFile;
 
 /// Adds a [`VerifiedTransactionInformation`] from an alt-block
 /// if it is not already in the DB.

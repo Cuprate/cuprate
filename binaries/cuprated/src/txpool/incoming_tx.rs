@@ -39,8 +39,8 @@ use cuprate_types::TransactionVerificationData;
 use crate::{
     blockchain::ConsensusBlockchainReadHandle,
     config::TxpoolConfig,
-    monitor::CupratedTask,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
+    monitor::CupratedTask,
     p2p::CrossNetworkInternalPeerId,
     signals::REORG_LOCK,
     txpool::{

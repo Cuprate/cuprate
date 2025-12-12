@@ -42,6 +42,13 @@ pub enum BlockchainReadRequest {
     /// The input is the block heights.
     BlockCompleteEntriesByHeight(Vec<usize>),
 
+    BlockCompleteEntriesAboveSplitPoint {
+        chain: Vec<[u8; 32]>,
+        get_indices: bool,
+        len: usize,
+        pruned: bool,
+    },
+
     /// Request a block's extended header.
     ///
     /// The input is the block's height.
@@ -256,6 +263,8 @@ pub enum BlockchainResponse {
     BlockCompleteEntries {
         /// The [`BlockCompleteEntry`]s that we had.
         blocks: Vec<BlockCompleteEntry>,
+        /// The output indices of all transaction outputs across all blocks.
+        output_indices: Vec<Vec<Vec<u64>>>,
         /// The hashes of blocks that were requested, but we don't have.
         missing_hashes: Vec<[u8; 32]>,
         /// Our blockchain height.
@@ -264,6 +273,17 @@ pub enum BlockchainResponse {
 
     /// Response to [`BlockchainReadRequest::BlockCompleteEntriesByHeight`].
     BlockCompleteEntriesByHeight(Vec<BlockCompleteEntry>),
+
+    /// Response to [`BlockchainReadRequest::BlockCompleteEntriesAboveSplitPoint`].
+    BlockCompleteEntriesAboveSplitPoint {
+        /// The [`BlockCompleteEntry`]s that we had.
+        blocks: Vec<BlockCompleteEntry>,
+        /// The output indices of all transaction outputs across all blocks.
+        output_indices: Vec<Vec<Vec<u64>>>,
+        /// Our blockchain height.
+        blockchain_height: usize,
+        start_height: usize
+    },
 
     /// Response to [`BlockchainReadRequest::BlockExtendedHeader`].
     ///

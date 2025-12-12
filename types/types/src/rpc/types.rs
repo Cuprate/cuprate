@@ -285,6 +285,7 @@ define_struct_and_impl_epee! {
         "rpc/core_rpc_server_commands_defs.h",
         192..=199
     )]
+    #[repr(transparent)]
     TxOutputIndices {
         indices: Vec<u64>,
     }
@@ -294,6 +295,7 @@ define_struct_and_impl_epee! {
         "rpc/core_rpc_server_commands_defs.h",
         201..=208
     )]
+    #[repr(transparent)]
     BlockOutputIndices {
         indices: Vec<TxOutputIndices>,
     }

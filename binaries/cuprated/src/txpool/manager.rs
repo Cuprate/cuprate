@@ -8,8 +8,8 @@ use futures::StreamExt;
 use indexmap::IndexMap;
 use rand::Rng;
 use tokio::sync::{mpsc, oneshot};
-use tokio_util::{time::delay_queue, time::DelayQueue};
 use tokio_util::task::TaskTracker;
+use tokio_util::{time::delay_queue, time::DelayQueue};
 use tower::{Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
@@ -26,6 +26,7 @@ use cuprate_txpool::service::{
 };
 use cuprate_types::TransactionVerificationData;
 
+use crate::monitor::CupratedTask;
 use crate::{
     config::TxpoolConfig,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
@@ -35,7 +36,6 @@ use crate::{
         incoming_tx::{DandelionTx, TxId},
     },
 };
-use crate::monitor::CupratedTask;
 
 const INCOMING_TX_QUEUE_SIZE: usize = 100;
 
@@ -113,7 +113,8 @@ pub async fn start_txpool_manager(
     let (tx_tx, tx_rx) = mpsc::channel(INCOMING_TX_QUEUE_SIZE);
     let (spent_kis_tx, spent_kis_rx) = mpsc::channel(1);
 
-    task.task_tracker.spawn(manager.run(task.clone(), tx_rx, spent_kis_rx));
+    task.task_tracker
+        .spawn(manager.run(task.clone(), tx_rx, spent_kis_rx));
 
     TxpoolManagerHandle {
         tx_tx,

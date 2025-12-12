@@ -188,6 +188,7 @@ async fn get_objects(
         blocks,
         missing_hashes,
         blockchain_height,
+        ..
     } = blockchain_read_handle
         .ready()
         .await?
@@ -342,13 +343,14 @@ async fn new_fluffy_block<A: NetZoneAddress>(
     })
     .await?;
 
-    let res = blockchain_manager_handle.handle_incoming_block(
-        block,
-        txs,
-        &mut blockchain_read_handle,
-        &mut txpool_read_handle,
-    )
-    .await;
+    let res = blockchain_manager_handle
+        .handle_incoming_block(
+            block,
+            txs,
+            &mut blockchain_read_handle,
+            &mut txpool_read_handle,
+        )
+        .await;
 
     match res {
         Ok(_) => Ok(ProtocolResponse::NA),

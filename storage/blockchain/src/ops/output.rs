@@ -2,10 +2,10 @@
 
 use heed::PutFlags;
 //---------------------------------------------------------------------------------------------------- Import
-use monero_oxide::{io::CompressedPoint, transaction::Timelock};
-use tapes::MmapFile;
 use cuprate_helper::{cast::u32_to_usize, crypto::compute_zero_commitment, map::u64_to_timelock};
 use cuprate_types::OutputOnChain;
+use monero_oxide::{io::CompressedPoint, transaction::Timelock};
+use tapes::MmapFile;
 
 use crate::database::{PRE_RCT_OUTPUTS, RCT_OUTPUTS, TX_OUTPUTS};
 use crate::error::{BlockchainError, DbResult};
@@ -203,7 +203,7 @@ pub fn id_to_output_on_chain(
     get_txid: bool,
     tx_ro: &heed::RoTxn,
     tapes: &tapes::Reader<MmapFile>,
-    rct_tape: &tapes::FixedSizedTapeSlice<RctOutput>
+    rct_tape: &tapes::FixedSizedTapeSlice<RctOutput>,
 ) -> DbResult<OutputOnChain> {
     // v2 transactions.
     if id.amount == 0 {

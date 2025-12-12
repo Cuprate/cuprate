@@ -16,9 +16,9 @@ pub fn new() -> (CupratedMonitor, CupratedTask) {
         CupratedTask {
             task_tracker: task_trackers,
             error_set,
-            cancellation_token
-        }
-        )
+            cancellation_token,
+        },
+    )
 }
 
 pub struct CupratedMonitor {
@@ -33,7 +33,3 @@ pub struct CupratedTask {
     pub error_set: watch::Sender<bool>,
     pub cancellation_token: CancellationToken,
 }
-
-
-
-

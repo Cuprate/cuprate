@@ -1,9 +1,9 @@
 //! Commands
 //!
 //! `cuprated` [`Command`] definition and handling.
-use std::{io, thread::sleep, time::Duration};
-use std::process::exit;
 use clap::{builder::TypedValueParser, Parser, ValueEnum};
+use std::process::exit;
+use std::{io, thread::sleep, time::Duration};
 use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
@@ -13,13 +13,13 @@ use cuprate_consensus_context::{
 };
 use cuprate_helper::time::secs_to_hms;
 
+use crate::blockchain::handle::BlockchainManagerHandle;
+use crate::monitor::CupratedMonitor;
 use crate::{
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     logging::{self, CupratedTracingFilter},
     statics,
 };
-use crate::blockchain::handle::BlockchainManagerHandle;
-use crate::monitor::CupratedMonitor;
 
 /// A command received from [`io::stdin`].
 #[derive(Debug, Parser)]
@@ -54,7 +54,9 @@ pub enum Command {
     FastSyncStopHeight,
 
     /// Pop blocks from the top of the blockchain.
-    PopBlocks { numb_blocks: usize },
+    PopBlocks {
+        numb_blocks: usize,
+    },
 
     Exit,
 }
@@ -99,14 +101,13 @@ pub async fn io_loop(
     mut incoming_commands: mpsc::Receiver<Command>,
     mut context_service: BlockchainContextService,
     mut blockchain_manager_handle: BlockchainManagerHandle,
-    mut monitor: CupratedMonitor
+    mut monitor: CupratedMonitor,
 ) {
     loop {
         let Some(command) = incoming_commands.recv().await else {
             tracing::warn!("Shutting down io_loop command channel closed.");
             return;
         };
-
 
         match command {
             Command::SetLog {
@@ -149,7 +150,7 @@ pub async fn io_loop(
                     Ok(()) => println!("Popped {numb_blocks} blocks."),
                     Err(e) => println!("Failed to pop blocks: {e}"),
                 }
-            },
+            }
             Command::Exit => {
                 shutdown(monitor).await;
                 return;
@@ -158,7 +159,7 @@ pub async fn io_loop(
     }
 }
 
-async fn shutdown(mut monitor: CupratedMonitor){
+async fn shutdown(mut monitor: CupratedMonitor) {
     tracing::info!("Exiting cuprated");
     monitor.cancellation_token.cancel();
 

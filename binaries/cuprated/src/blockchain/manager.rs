@@ -23,12 +23,12 @@ use cuprate_types::{
 };
 
 use crate::{
-    monitor::CupratedTask,
     blockchain::{
         chain_service::ChainService, handle::BlockchainManagerHandleSetter, syncer,
         types::ConsensusBlockchainReadHandle,
     },
     constants::PANIC_CRITICAL_SERVICE_ERROR,
+    monitor::CupratedTask,
     txpool::TxpoolManagerHandle,
 };
 
@@ -53,7 +53,7 @@ pub async fn init_blockchain_manager(
     txpool_manager_handle: TxpoolManagerHandle,
     mut blockchain_context_service: BlockchainContextService,
     block_downloader_config: BlockDownloaderConfig,
-)  {
+) {
     // TODO: find good values for these size limits
     let (batch_tx, batch_rx) = mpsc::channel(1);
     let stop_current_block_downloader = Arc::new(Notify::new());
@@ -82,7 +82,9 @@ pub async fn init_blockchain_manager(
         broadcast_svc: clearnet_interface.broadcast_svc(),
     };
 
-    tasks.task_tracker.spawn(manager.run(tasks.clone(),batch_rx, command_rx));
+    tasks
+        .task_tracker
+        .spawn(manager.run(tasks.clone(), batch_rx, command_rx));
 }
 
 /// The blockchain manager.

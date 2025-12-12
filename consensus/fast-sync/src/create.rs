@@ -8,9 +8,7 @@ use std::fs::write;
 use clap::Parser;
 use tower::{Service, ServiceExt};
 
-use cuprate_blockchain::{
-    config::ConfigBuilder, service::BlockchainReadHandle,
-};
+use cuprate_blockchain::{config::ConfigBuilder, service::BlockchainReadHandle};
 use cuprate_hex::Hex;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},

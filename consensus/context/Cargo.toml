@@ -17,6 +17,7 @@ tokio-util = { workspace = true }
 tower = { workspace = true, features = ["util"] }
 tracing = { workspace = true, features = ["std", "attributes"] }
 thiserror = { workspace = true }
+strum = { workspace = true, features = ["std"] }
 
 monero-oxide = { workspace = true, features = ["std"] }
 randomx-rs = { workspace = true }

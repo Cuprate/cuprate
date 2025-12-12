@@ -289,7 +289,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                         &self.difficulty_cache,
                         self.database.clone(),
                     )
-                    .await?,
+                        .await?,
                 )
             }
             BlockChainContextRequest::AltChainWeightCache { prev_id, _token } => {
@@ -311,8 +311,10 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                 self.alt_chain_cache_map.add_alt_cache(cache);
                 BlockChainContextResponse::Ok
             }
-            BlockChainContextRequest::HardForkInfo(_)
-            | BlockChainContextRequest::FeeEstimate { .. }
+            BlockChainContextRequest::HardForkInfos => {
+                BlockChainContextResponse::HardForkInfos(self.hardfork_state.hardfork_infos())
+            }
+            BlockChainContextRequest::FeeEstimate { .. }
             | BlockChainContextRequest::AltChains
             | BlockChainContextRequest::CalculatePow { .. } => {
                 todo!("finish https://github.com/Cuprate/cuprate/pull/297")

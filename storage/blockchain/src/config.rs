@@ -228,7 +228,10 @@ impl Default for Config {
     }
 }
 
-pub fn linear_tapes_config(data_dir: PathBuf, blob_data_dir: Option<PathBuf>) -> Vec<Tape<MmapFile>> {
+pub fn linear_tapes_config(
+    data_dir: PathBuf,
+    blob_data_dir: Option<PathBuf>,
+) -> Vec<Tape<MmapFile>> {
     [
         Tape {
             name: RCT_OUTPUTS,

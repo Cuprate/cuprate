@@ -4,11 +4,11 @@ use crate::types::{
     BlockHeight, CompactAltBlockInfo, Hash32Bytes, HeedAmountIndices, HeedUsize, KeyImage, Output,
     PreRctOutputId, RawChainId, StorableHeed, TxHash, TxId, ZeroKey,
 };
-use tapes::{Advice, Tapes, Tape, MmapFile};
 use heed::types::U64;
 use heed::{DefaultComparator, IntegerComparator};
 use std::iter::{once, Once};
 use std::sync::OnceLock;
+use tapes::{Advice, MmapFile, Tape, Tapes};
 
 /// The name of the ringCT outputs tape.
 pub const RCT_OUTPUTS: &str = "rct_outputs";

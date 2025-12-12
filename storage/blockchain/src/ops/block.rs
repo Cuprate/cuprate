@@ -6,12 +6,6 @@ use std::io::Write;
 
 use bytemuck::TransparentWrapper;
 use bytes::Bytes;
-use heed::types::U64;
-use monero_oxide::{
-    block::{Block, BlockHeader},
-    transaction::Transaction,
-};
-use tapes::MmapFile;
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_helper::{
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
@@ -22,6 +16,12 @@ use cuprate_types::{
     AltBlockInformation, BlockCompleteEntry, ChainId, ExtendedBlockHeader, HardFork,
     PrunedTxBlobEntry, TransactionBlobs, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
+use heed::types::U64;
+use monero_oxide::{
+    block::{Block, BlockHeader},
+    transaction::Transaction,
+};
+use tapes::MmapFile;
 
 use crate::database::{
     BLOCK_HEIGHTS, BLOCK_INFOS, PRUNABLE_BLOBS, PRUNED_BLOBS, RCT_OUTPUTS, TX_INFOS,
@@ -237,7 +237,8 @@ pub fn add_blocks_to_tapes(
             let mut block_info_appender = tapes.fixed_sized_tape_appender::<BlockInfo>(BLOCK_INFOS);
             // `saturating_add` is used here as cumulative generated coins overflows due to tail emission.
             let cumulative_generated_coins = block_info_appender
-                .reader_slice()?.get(block.height.saturating_sub(1))
+                .reader_slice()?
+                .get(block.height.saturating_sub(1))
                 .map(|i| i.cumulative_generated_coins)
                 .unwrap_or(0)
                 .saturating_add(block.generated_coins);
@@ -350,7 +351,10 @@ pub fn pop_block(
         .pop_last()
         .ok_or(BlockchainError::NotFound)?;
 
-    BLOCK_HEIGHTS.get().unwrap().delete(tx_rw, &block_info.block_hash)?;
+    BLOCK_HEIGHTS
+        .get()
+        .unwrap()
+        .delete(tx_rw, &block_info.block_hash)?;
 
     drop(block_info_tape);
     // Block blobs.
@@ -360,12 +364,7 @@ pub fn pop_block(
     // later.
     let pruned_blobs = tapes.blob_tape_tape_reader(PRUNED_BLOBS);
 
-    let block = Block::read(
-        &mut pruned_blobs
-            .get(block_info.pruned_blob_idx..)
-            .unwrap(),
-    )
-    .unwrap();
+    let block = Block::read(&mut pruned_blobs.get(block_info.pruned_blob_idx..).unwrap()).unwrap();
 
     drop(pruned_blobs);
     //------------------------------------------------------ Transaction / Outputs / Key Images
@@ -515,7 +514,8 @@ pub fn get_block_complete_entry_from_height(
         if pruned {
             let blob = &pruned_tape_reader
                 [tx_info.pruned_blob_idx..(tx_info.pruned_blob_idx + tx_info.pruned_size)];
-            let prunable_hash = &pruned_tape_reader[tx_info.pruned_blob_idx + tx_info.pruned_size.. (32 + tx_info.pruned_blob_idx + tx_info.pruned_size)];
+            let prunable_hash = &pruned_tape_reader[tx_info.pruned_blob_idx + tx_info.pruned_size
+                ..(32 + tx_info.pruned_blob_idx + tx_info.pruned_size)];
 
             txs.push((blob, prunable_hash));
         } else {
@@ -526,8 +526,7 @@ pub fn get_block_complete_entry_from_height(
                 &v1_prunable_tape_reader
             } else {
                 &prunable_tape_reader
-            }
-            [tx_info.prunable_blob_idx..(tx_info.prunable_blob_idx + tx_info.prunable_size)];
+            }[tx_info.prunable_blob_idx..(tx_info.prunable_blob_idx + tx_info.prunable_size)];
 
             txs.push((pruned_blob, prunable_blob));
         }
@@ -665,10 +664,7 @@ pub fn get_block_extended_header_top(
 /// Retrieve a [`Block`] via its [`BlockHeight`].
 #[doc = doc_error!()]
 #[inline]
-pub fn get_block(
-    block_height: &BlockHeight,
-    tapes: &tapes::Reader<MmapFile>,
-) -> DbResult<Block> {
+pub fn get_block(block_height: &BlockHeight, tapes: &tapes::Reader<MmapFile>) -> DbResult<Block> {
     let block_infos = tapes.fixed_sized_tape_slice::<BlockInfo>(BLOCK_INFOS);
     let block_info = block_infos
         .get(*block_height)
