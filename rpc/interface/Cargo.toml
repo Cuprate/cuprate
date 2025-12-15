@@ -24,6 +24,7 @@ serde      = { workspace = true, optional = true }
 tower      = { workspace = true, features = ["util"] }
 paste      = { workspace = true }
 futures    = { workspace = true, optional = true }
+tracing = { workspace = true }
 
 [dev-dependencies]
 cuprate-test-utils = { workspace = true }

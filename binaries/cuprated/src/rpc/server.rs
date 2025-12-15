@@ -130,7 +130,7 @@ async fn run_rpc_server(
         .build()
         .with_state(rpc_handler);
 
-
+/*
     // Add restrictive layers if restricted RPC.
     //
     // TODO: <https://github.com/Cuprate/cuprate/issues/445>
@@ -140,6 +140,8 @@ async fn run_rpc_server(
         router
     };
 
+
+ */
     let router= router.layer(tower_http::trace::TraceLayer::new_for_http());
 
     // Start the server.

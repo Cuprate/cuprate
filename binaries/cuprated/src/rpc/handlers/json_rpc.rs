@@ -80,7 +80,7 @@ pub async fn map_request(
     use JsonRpcRequest as Req;
     use JsonRpcResponse as Resp;
 
-    tracing::trace!("Request: {:?}", request);
+    tracing::debug!("Request: {:?}", request);
 
     Ok(match request {
         Req::GetBlockTemplate(r) => Resp::GetBlockTemplate(not_available()?),
@@ -855,7 +855,7 @@ async fn get_version(
     mut state: CupratedRpcHandler,
     _: GetVersionRequest,
 ) -> Result<GetVersionResponse, Error> {
-    let current_height = helper::top_height(&mut state).await?.0;
+    let current_height = helper::top_height(&mut state).await?.0 + 1;
     let target_height = current_height;
 
     let mut hard_forks =

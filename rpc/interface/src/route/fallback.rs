@@ -8,6 +8,7 @@ use axum::http::StatusCode;
 ///
 /// This is used as the fallback endpoint in [`crate::RouterBuilder`].
 pub(crate) async fn fallback() -> StatusCode {
+    tracing::info!("Routing fallback route");
     StatusCode::NOT_FOUND
 }
 

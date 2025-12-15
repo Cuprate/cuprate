@@ -544,7 +544,7 @@ pub async fn block_complete_entries_above_split_point(
         .call(BlockchainReadRequest::BlockCompleteEntriesAboveSplitPoint {
             chain,
             get_indices,
-            len: 100,
+            len: 1000,
             pruned,
         })
         .await?

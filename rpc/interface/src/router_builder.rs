@@ -180,7 +180,7 @@ generate_router_builder! {
     bin_gethashes                   => "/gethashes.bin"                   => bin::get_hashes                  => (get, post),
     bin_get_o_indexes               => "/get_o_indexes.bin"               => bin::get_o_indexes               => (get, post),
     bin_get_outs                    => "/get_outs.bin"                    => bin::get_outs                    => (get, post),
-    bin_get_transaction_pool_hashes => "/get_transaction_pool_hashes.bin" => other_json::get_transaction_pool_hashes => (get, post),
+    bin_get_transaction_pool_hashes => "/get_transaction_pool_hashes.bin" => bin::get_transaction_pool_hashes => (get, post),
     bin_get_output_distribution     => "/get_output_distribution.bin"     => bin::get_output_distribution     => (get, post),
 }
 

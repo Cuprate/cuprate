@@ -27,7 +27,7 @@ use cuprate_types::{
     rpc::{BlockOutputIndices, PoolInfo, PoolInfoExtent, TxOutputIndices},
     BlockCompleteEntry,
 };
-
+use cuprate_types::rpc::{PoolInfoFull, PoolInfoIncremental};
 use crate::rpc::{
     handlers::{helper, shared, shared::not_available},
     service::{blockchain, txpool},
@@ -43,7 +43,7 @@ pub async fn map_request(
     use BinResponse as Resp;
 
     Ok(match request {
-        Req::GetBlocks(r) => Resp::GetBlocks(get_blocks(state, r).await?),
+        Req::GetBlocks(r) => Resp::GetBlocks(get_blocks(state, r).await.unwrap()),
         Req::GetBlocksByHeight(r) => Resp::GetBlocksByHeight(not_available()?),
         Req::GetHashes(r) => Resp::GetHashes(get_hashes(state, r).await?),
         Req::GetOutputIndexes(r) => Resp::GetOutputIndexes(not_available()?),
@@ -57,9 +57,11 @@ async fn get_blocks(
     mut state: CupratedRpcHandler,
     request: GetBlocksRequest,
 ) -> Result<GetBlocksResponse, Error> {
+    tracing::info!("Get blocks");
+
     // Time should be set early:
     // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L628-L631>
-    let daemon_time = 0; //cuprate_helper::time::current_unix_timestamp();
+    let daemon_time = cuprate_helper::time::current_unix_timestamp();
 
     tracing::trace!("req: {:?}", request);
 
@@ -85,7 +87,7 @@ async fn get_blocks(
         RequestedInfo::PoolOnly => (false, true),
     };
 
-    let pool_info_extent = PoolInfoExtent::None;
+    let mut pool_info_extent = PoolInfoExtent::None;
 
     let pool_info = if get_pool {
         /*
@@ -106,9 +108,15 @@ async fn get_blocks(
         )
         .await?
         */
-        PoolInfo::None
+        if request.pool_info_since == 0 {
+            pool_info_extent = PoolInfoExtent::Full;
+        } else {
+            pool_info_extent = PoolInfoExtent::Incremental;
+
+        }
+
     } else {
-        PoolInfo::None
+        pool_info_extent = PoolInfoExtent::None;
     };
 
     let resp = GetBlocksResponse {
@@ -118,12 +126,18 @@ async fn get_blocks(
         current_height: 0,
         output_indices: vec![],
         daemon_time,
-        pool_info,
+        pool_info_extent: PoolInfoExtent::None,
+        added_pool_txs: vec![],
+        remaining_added_pool_txids: Default::default(),
+        removed_pool_txids: Default::default(),
     };
 
+    /*
     if !get_blocks {
         return Ok(resp);
     }
+
+     */
 
     if let Some(block_id) = block_hashes.first() {
         let (height, hash) = helper::top_height(&mut state).await?;
@@ -136,8 +150,6 @@ async fn get_blocks(
         }
     }
 
-    tracing::info!("Get blocks");
-
     let (blocks, height, start_height, output_indices) =
         blockchain::block_complete_entries_above_split_point(
             &mut state.blockchain_read,
@@ -149,8 +161,9 @@ async fn get_blocks(
 
     tracing::info!("Got blocks");
 
+    //tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-    tracing::trace!("blocks: {:?}", blocks.len());
+    //tracing::trace!("blocks: {:?}", blocks);
     tracing::trace!("outputs: {:?}", output_indices.len());
 
     Ok(GetBlocksResponse {

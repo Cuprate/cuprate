@@ -15,7 +15,7 @@ use cuprate_types::{
     rpc::{BlockOutputIndices, PoolInfo},
     BlockCompleteEntry,
 };
-
+use cuprate_types::rpc::{PoolInfoExtent, PoolTxInfo};
 use crate::{
     base::AccessResponseBase,
     macros::define_request_and_response,
@@ -124,7 +124,10 @@ define_request_and_response! {
         current_height: u64,
         output_indices: Vec<BlockOutputIndices> = default::<Vec<BlockOutputIndices>>(), "default",
         daemon_time: u64 = default::<u64>(), "default",
-        pool_info: PoolInfo = default::<PoolInfo>(), "default",
+        pool_info_extent: PoolInfoExtent,
+        added_pool_txs: Vec<PoolTxInfo>,
+        remaining_added_pool_txids: ByteArrayVec<32>,
+        removed_pool_txids: ByteArrayVec<32>,
     }
 }
 

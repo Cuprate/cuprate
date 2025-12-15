@@ -1,7 +1,8 @@
 //! Binary route functions.
 
 //---------------------------------------------------------------------------------------------------- Import
-use axum::{body::Bytes, extract::State, http::StatusCode};
+use axum::{body::Bytes, extract::State, http::StatusCode, Json};
+use serde::{Deserialize, Serialize};
 use tower::ServiceExt;
 
 use cuprate_epee_encoding::from_bytes;
@@ -88,6 +89,19 @@ generate_endpoints_with_input! {
     get_o_indexes => GetOutputIndexes,
     get_outs => GetOuts,
     get_output_distribution => GetOutputDistribution
+}
+
+#[derive(Serialize, Deserialize)]
+pub( crate ) struct Null {}
+
+pub ( crate ) async fn get_transaction_pool_hashes<H: RpcHandler>(State ( handler ): State<H>, Json(Null { }): Json<Null>) -> Result<String, StatusCode> {
+    Ok(format!(r#"{{
+    "credits": 0,
+    "status": "OK",
+    "top_hash": "",
+    "untrusted": false
+    }}
+    "#))
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
