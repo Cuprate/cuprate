@@ -289,7 +289,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                         &self.difficulty_cache,
                         self.database.clone(),
                     )
-                        .await?,
+                    .await?,
                 )
             }
             BlockChainContextRequest::AltChainWeightCache { prev_id, _token } => {

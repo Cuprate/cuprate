@@ -116,7 +116,7 @@ impl EpeeObject for PoolInfo {
 
         match self {
             Self::None => {
-               // write_field(PoolInfoExtent::None.to_u8(), FIELD, w)?;
+                // write_field(PoolInfoExtent::None.to_u8(), FIELD, w)?;
             }
             Self::Incremental(s) => {
                 s.write_fields(w)?;

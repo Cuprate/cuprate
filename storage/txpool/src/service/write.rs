@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
+use cuprate_database::resize::ResizeAlgorithm;
 use cuprate_database::{
     ConcreteEnv, DatabaseRo, DatabaseRw, DbResult, Env, EnvInner, RuntimeError, TxRw,
 };
-use cuprate_database::resize::ResizeAlgorithm;
 use cuprate_database_service::DatabaseWriteHandle;
 use cuprate_helper::time::current_unix_timestamp;
 use cuprate_types::TransactionVerificationData;
@@ -30,24 +30,19 @@ fn handle_txpool_request(
     env: &Arc<ConcreteEnv>,
     req: &TxpoolWriteRequest,
 ) -> DbResult<TxpoolWriteResponse> {
-    let result = || {
-        match req {
-            TxpoolWriteRequest::AddTransaction { tx, state_stem } => {
-                add_transaction(env, tx, *state_stem)
-            }
-            TxpoolWriteRequest::RemoveTransaction(tx_hash) => remove_transaction(env, tx_hash),
-            TxpoolWriteRequest::Promote(tx_hash) => promote(env, tx_hash),
-            TxpoolWriteRequest::NewBlock { spent_key_images } => new_block(env, spent_key_images),
+    let result = || match req {
+        TxpoolWriteRequest::AddTransaction { tx, state_stem } => {
+            add_transaction(env, tx, *state_stem)
         }
+        TxpoolWriteRequest::RemoveTransaction(tx_hash) => remove_transaction(env, tx_hash),
+        TxpoolWriteRequest::Promote(tx_hash) => promote(env, tx_hash),
+        TxpoolWriteRequest::NewBlock { spent_key_images } => new_block(env, spent_key_images),
     };
 
     loop {
         let result = result();
 
-        if matches!(
-            result,
-            Err(RuntimeError::ResizeNeeded)
-        ) {
+        if matches!(result, Err(RuntimeError::ResizeNeeded)) {
             env.resize_map(Some(ResizeAlgorithm::Monero));
             continue;
         }

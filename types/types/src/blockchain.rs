@@ -282,7 +282,7 @@ pub enum BlockchainResponse {
         output_indices: Vec<Vec<Vec<u64>>>,
         /// Our blockchain height.
         blockchain_height: usize,
-        start_height: usize
+        start_height: usize,
     },
 
     /// Response to [`BlockchainReadRequest::BlockExtendedHeader`].

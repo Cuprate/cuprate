@@ -93,7 +93,9 @@ pub async fn map_request(
         Req::GetNetStats(r) => Resp::GetNetStats(not_available()?),
         Req::GetOuts(r) => Resp::GetOuts(not_available()?),
         Req::PopBlocks(r) => Resp::PopBlocks(not_available()?),
-        Req::GetTransactionPoolHashes(r) => Resp::GetTransactionPoolHashes(get_transaction_pool_hashes(state, r).await?),
+        Req::GetTransactionPoolHashes(r) => {
+            Resp::GetTransactionPoolHashes(get_transaction_pool_hashes(state, r).await?)
+        }
         Req::GetPublicNodes(r) => Resp::GetPublicNodes(not_available()?),
 
         // Unsupported requests.
@@ -658,11 +660,11 @@ async fn get_outs(
             get_txid: request.get_txid,
         },
     )
-        .await?
-        .outs
-        .into_iter()
-        .map(Into::into)
-        .collect();
+    .await?
+    .outs
+    .into_iter()
+    .map(Into::into)
+    .collect();
 
     Ok(GetOutsResponse {
         base: helper::response_base(false),
@@ -691,13 +693,13 @@ async fn get_transaction_pool_hashes(
     tracing::info!("giving tx pool response");
     Ok(GetTransactionPoolHashesResponse {
         base: helper::response_base(false),
-        tx_hashes: vec![],/*shared::get_transaction_pool_hashes(state)
-            .await?
-            .into_iter()
-            .map(Hex)
-            .collect()
-            ,
-            */
+        tx_hashes: vec![], /*shared::get_transaction_pool_hashes(state)
+                           .await?
+                           .into_iter()
+                           .map(Hex)
+                           .collect()
+                           ,
+                           */
     })
 }
 

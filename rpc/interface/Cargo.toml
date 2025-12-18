@@ -9,7 +9,7 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/rpc/cuprate-rpc-inte
 keywords    = ["cuprate", "rpc", "interface"]
 
 [features]
-default  = ["dummy", "serde"]
+default  = ["dummy"]
 dummy    = ["dep:cuprate-helper", "dep:futures"]
 
 [dependencies]
@@ -20,7 +20,7 @@ cuprate-helper        = { workspace = true, features = ["asynch"], default-featu
 
 anyhow     = { workspace = true }
 axum       = { workspace = true, features = ["json"], default-features = false }
-serde      = { workspace = true, optional = true }
+serde      = { workspace = true }
 tower      = { workspace = true, features = ["util"] }
 paste      = { workspace = true }
 futures    = { workspace = true, optional = true }

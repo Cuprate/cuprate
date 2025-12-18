@@ -524,15 +524,7 @@ pub async fn block_complete_entries_above_split_point(
     chain: Vec<[u8; 32]>,
     get_indices: bool,
     pruned: bool,
-) -> Result<
-    (
-        Vec<BlockCompleteEntry>,
-        usize,
-        usize,
-        Vec<Vec<Vec<u64>>>,
-    ),
-    Error,
-> {
+) -> Result<(Vec<BlockCompleteEntry>, usize, usize, Vec<Vec<Vec<u64>>>), Error> {
     let BlockchainResponse::BlockCompleteEntriesAboveSplitPoint {
         blocks,
         output_indices,
@@ -552,7 +544,7 @@ pub async fn block_complete_entries_above_split_point(
         unreachable!();
     };
 
-    Ok((blocks, blockchain_height,start_height, output_indices))
+    Ok((blocks, blockchain_height, start_height, output_indices))
 }
 
 /// [`BlockchainReadRequest::BlockCompleteEntriesByHeight`].

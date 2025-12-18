@@ -9,19 +9,20 @@
 )]
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    cmp::min,
-    collections::{HashMap, HashSet},
-    ops::Range,
-    sync::Arc,
-};
-use std::cmp::max;
+use bytes::Bytes;
 use indexmap::{IndexMap, IndexSet};
 use itertools::Itertools;
 use rayon::{
     iter::{Either, IntoParallelIterator, ParallelIterator},
     prelude::*,
     ThreadPool,
+};
+use std::cmp::max;
+use std::{
+    cmp::min,
+    collections::{HashMap, HashSet},
+    ops::Range,
+    sync::Arc,
 };
 use thread_local::ThreadLocal;
 
@@ -33,7 +34,7 @@ use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     output_cache::OutputCache,
     rpc::OutputHistogramInput,
-    Chain, ChainId, ExtendedBlockHeader, OutputDistributionInput, TxsInBlock,
+    Chain, ChainId, ExtendedBlockHeader, OutputDistributionInput, TransactionBlobs, TxsInBlock,
 };
 
 use crate::database::{
@@ -250,6 +251,9 @@ fn block_complete_entries_above_split_point(
     len: usize,
     pruned: bool,
 ) -> ResponseResult {
+    const MAX_TOTAL_SIZE: usize = 50 * 1024 * 1024;
+    const MAX_TOTAL_TXS: usize = 10_000;
+
     let tx_ro = &db.dynamic_tables.read_txn()?;
 
     let tapes = db
@@ -274,9 +278,33 @@ fn block_complete_entries_above_split_point(
         todo!()
     }
 
+    let mut tx_count = 0;
+    let mut total_size = 0;
+
     let blocks: Vec<_> = (height..min(height + len, blockchain_height))
-        .into_iter()
-        .map(|height| get_block_complete_entry_from_height(height, pruned, &tapes))
+        .map_while(|height| {
+            let block = match get_block_complete_entry_from_height(height, pruned, &tapes) {
+                Ok(v) => v,
+                Err(e) => return Some(Err(e)),
+            };
+
+            let first = tx_count == 0;
+            tx_count += block.txs.len() + 1;
+
+            let tx_blobs_size = match &block.txs {
+                TransactionBlobs::None => 0,
+                TransactionBlobs::Normal(b) => b.iter().map(Bytes::len).sum(),
+                TransactionBlobs::Pruned(p) => p.iter().map(|p| p.blob.len() + 32).sum(),
+            };
+
+            total_size += block.block.len() + tx_blobs_size;
+
+            if first || (total_size < MAX_TOTAL_SIZE && tx_count < MAX_TOTAL_TXS) {
+                Some(Ok(block))
+            } else {
+                None
+            }
+        })
         .collect::<DbResult<_>>()?;
 
     let output_indices = if get_indices {
@@ -324,7 +352,7 @@ fn block_complete_entries_above_split_point(
         blocks,
         output_indices,
         blockchain_height,
-        start_height: height
+        start_height: height,
     })
 }
 
@@ -497,10 +525,7 @@ fn chain_height(db: &Blockchain) -> ResponseResult {
         return Err(BlockchainError::NotFound);
     }
 
-    let block_hash = block_infos
-        .last()
-        .unwrap()
-        .block_hash;
+    let block_hash = block_infos.last().unwrap().block_hash;
 
     Ok(BlockchainResponse::ChainHeight(chain_height, block_hash))
 }

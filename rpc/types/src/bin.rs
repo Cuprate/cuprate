@@ -11,16 +11,16 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::container_as_blob::ContainerAsBlob;
 
-use cuprate_types::{
-    rpc::{BlockOutputIndices, PoolInfo},
-    BlockCompleteEntry,
-};
-use cuprate_types::rpc::{PoolInfoExtent, PoolTxInfo};
 use crate::{
     base::AccessResponseBase,
     macros::define_request_and_response,
     misc::{GetOutputsOut, OutKeyBin},
     rpc_call::RpcCallValue,
+};
+use cuprate_types::rpc::{PoolInfoExtent, PoolTxInfo};
+use cuprate_types::{
+    rpc::{BlockOutputIndices, PoolInfo},
+    BlockCompleteEntry,
 };
 
 #[cfg(any(feature = "epee", feature = "serde"))]

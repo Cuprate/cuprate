@@ -1,5 +1,6 @@
 //! Various types (in)directly used in RPC.
 
+use bytes::Bytes;
 use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_hex::Hex;
 
@@ -521,7 +522,7 @@ define_struct_and_impl_epee! {
     )]
     PoolTxInfo {
         tx_hash: [u8; 32],
-        tx_blob: Vec<u8>,
+        tx_blob: Bytes,
         double_spend_seen: bool,
     }
 

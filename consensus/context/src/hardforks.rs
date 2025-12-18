@@ -1,16 +1,16 @@
-use strum::VariantArray;
 use std::ops::Range;
+use strum::VariantArray;
 
 use tower::ServiceExt;
 use tracing::instrument;
 
+use crate::{ContextCacheError, Database};
 use cuprate_consensus_rules::{HFVotes, HFsInfo, HardFork};
+use cuprate_types::rpc::HardForkInfo;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain,
 };
-use cuprate_types::rpc::HardForkInfo;
-use crate::{ContextCacheError, Database};
 
 /// The default amount of hard-fork votes to track to decide on activation of a hard-fork.
 ///
@@ -134,7 +134,7 @@ impl HardForkState {
                 self.config,
                 database,
             )
-                .await?;
+            .await?;
 
             return Ok(());
         };
@@ -147,11 +147,11 @@ impl HardForkState {
                 .saturating_sub(self.config.window)
                 .saturating_sub(numb_blocks)
                 ..current_chain_height
-                .saturating_sub(numb_blocks)
-                .saturating_sub(retained_blocks),
+                    .saturating_sub(numb_blocks)
+                    .saturating_sub(retained_blocks),
             numb_blocks,
         )
-            .await?;
+        .await?;
 
         self.votes.reverse_blocks(numb_blocks, oldest_votes);
         self.last_height -= numb_blocks;
@@ -196,19 +196,22 @@ impl HardForkState {
 
     pub fn hardfork_infos(&self) -> Vec<HardForkInfo> {
         let current = self.current_hardfork;
-        HardFork::VARIANTS.iter().map(|hf| {
-            let info = self.config.info.info_for_hf(hf);
-            HardForkInfo {
-                earliest_height: info.height() as u64,
-                enabled: current >= *hf,
-                state: 2,
-                threshold: info.threshold() as u32,
-                version: hf.as_u8(),
-                votes: self.votes.votes_for_hf(&hf) as u32,
-                voting: HardFork::V16.as_u8(),
-                window: self.votes.total_votes() as u32,
-            }
-        }).collect()
+        HardFork::VARIANTS
+            .iter()
+            .map(|hf| {
+                let info = self.config.info.info_for_hf(hf);
+                HardForkInfo {
+                    earliest_height: info.height() as u64,
+                    enabled: current >= *hf,
+                    state: 2,
+                    threshold: info.threshold() as u32,
+                    version: hf.as_u8(),
+                    votes: self.votes.votes_for_hf(&hf) as u32,
+                    voting: HardFork::V16.as_u8(),
+                    window: self.votes.total_votes() as u32,
+                }
+            })
+            .collect()
     }
 
     /// Returns the current hard-fork.

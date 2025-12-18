@@ -40,7 +40,7 @@ cuprate-wire              = { workspace = true }
 
 # TODO: after v1.0.0, remove unneeded dependencies.
 axum                  = { workspace = true, features = ["tokio", "http1", "tracing"] }
-hyper = { version = "1.8", features = ["tracing"] }
+hyper = { version = "1.8" }
 anyhow                = { workspace = true }
 arti-client           = { workspace = true, features = ["tokio", "native-tls", "onion-service-client", "onion-service-service", "static"] }
 async-trait           = { workspace = true }
