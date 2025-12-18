@@ -24,10 +24,11 @@ use monero_oxide::{
 use tapes::MmapFile;
 
 use crate::database::{
-    BLOCK_HEIGHTS, BLOCK_INFOS, PRUNABLE_BLOBS, PRUNED_BLOBS, RCT_OUTPUTS, TX_INFOS,
+    BLOCK_INFOS, PRUNABLE_BLOBS, PRUNED_BLOBS, RCT_OUTPUTS, TX_INFOS,
     V1_PRUNABLE_BLOBS,
 };
 use crate::error::{BlockchainError, DbResult};
+use crate::Blockchain;
 use crate::ops::tx::{add_tx_to_dynamic_tables, add_tx_to_tapes, remove_tx_from_dynamic_tables};
 use crate::types::{Hash32Bytes, RctOutput, TxInfo};
 use crate::{
@@ -278,6 +279,7 @@ pub fn add_blocks_to_tapes(
 /// - `block.height` is != [`chain_height`]
 // no inline, too big.
 pub fn add_block_to_dynamic_tables(
+    db: &Blockchain,
     block: &VerifiedBlockInformation,
     numb_transactions: &mut usize,
     tx_rw: &mut heed::RwTxn,
@@ -293,12 +295,13 @@ pub fn add_block_to_dynamic_tables(
         block.height,
     );
 
-    let chain_height = chain_height(tx_rw)?;
+    let chain_height = chain_height(db, tx_rw)?;
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
     // Add the miner transaction first.
     let tx = block.block.miner_transaction();
     add_tx_to_dynamic_tables(
+        db,
         &tx.clone().into(),
         *numb_transactions,
         &tx.hash(),
@@ -309,6 +312,7 @@ pub fn add_block_to_dynamic_tables(
 
     for tx in &block.txs {
         add_tx_to_dynamic_tables(
+            db,
             &tx.tx,
             *numb_transactions,
             &tx.tx_hash,
@@ -318,9 +322,7 @@ pub fn add_block_to_dynamic_tables(
         *numb_transactions += 1;
     }
 
-    BLOCK_HEIGHTS
-        .get()
-        .unwrap()
+    db.block_heights
         .put(tx_rw, &block.block_hash, &block.height)?;
 
     Ok(())
@@ -339,6 +341,7 @@ pub fn add_block_to_dynamic_tables(
 /// will be returned if there are no blocks left.
 // no inline, too big
 pub fn pop_block(
+    db: &Blockchain,
     move_to_alt_chain: Option<ChainId>,
     tx_rw: &mut heed::RwTxn,
     tapes: &mut tapes::Popper<MmapFile>,
@@ -351,9 +354,7 @@ pub fn pop_block(
         .pop_last()
         .ok_or(BlockchainError::NotFound)?;
 
-    BLOCK_HEIGHTS
-        .get()
-        .unwrap()
+    db.block_heights
         .delete(tx_rw, &block_info.block_hash)?;
 
     drop(block_info_tape);
@@ -369,6 +370,7 @@ pub fn pop_block(
     drop(pruned_blobs);
     //------------------------------------------------------ Transaction / Outputs / Key Images
     remove_tx_from_dynamic_tables(
+        db,
         &block.miner_transaction().hash(),
         block_height,
         tx_rw,
@@ -376,7 +378,7 @@ pub fn pop_block(
     )?;
 
     let remove_tx_iter = block.transactions.iter().map(|tx_hash| {
-        let (_, tx) = remove_tx_from_dynamic_tables(tx_hash, block_height, tx_rw, tapes)?;
+        let (_, tx) = remove_tx_from_dynamic_tables(db, tx_hash, block_height, tx_rw, tapes)?;
         Ok::<_, BlockchainError>(tx)
     });
 
@@ -401,6 +403,7 @@ pub fn pop_block(
             .collect::<DbResult<Vec<VerifiedTransactionInformation>>>()?;
 
         alt_block::add_alt_block(
+            db,
             &AltBlockInformation {
                 block: block.clone(),
                 block_blob: block.serialize(),
@@ -457,14 +460,13 @@ pub fn pop_block(
 ///
 #[doc = doc_error!()]
 pub fn get_block_complete_entry(
+    db: &Blockchain,
     block_hash: &BlockHash,
     pruned: bool,
     tx_ro: &heed::RoTxn,
     tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<BlockCompleteEntry> {
-    let block_height = BLOCK_HEIGHTS
-        .get()
-        .unwrap()
+    let block_height = db.block_heights
         .get(tx_ro, &block_hash)?
         .ok_or(BlockchainError::NotFound)?;
     get_block_complete_entry_from_height(block_height, pruned, tapes)
@@ -590,14 +592,13 @@ pub fn get_block_complete_entry_from_height(
 #[doc = doc_error!()]
 #[inline]
 pub fn get_block_extended_header(
+    db: &Blockchain,
     block_hash: &BlockHash,
     tx_ro: &heed::RoTxn,
     tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<ExtendedBlockHeader> {
     get_block_extended_header_from_height(
-        BLOCK_HEIGHTS
-            .get()
-            .unwrap()
+        db.block_heights
             .get(tx_ro, block_hash)?
             .ok_or(BlockchainError::NotFound)?,
         tapes,
@@ -683,13 +684,12 @@ pub fn get_block(block_height: &BlockHeight, tapes: &tapes::Reader<MmapFile>) ->
 #[doc = doc_error!()]
 #[inline]
 pub fn get_block_by_hash(
+    db: &Blockchain,
     block_hash: &BlockHash,
     tx_ro: &heed::RoTxn,
     tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<Block> {
-    let block_height = BLOCK_HEIGHTS
-        .get()
-        .unwrap()
+    let block_height = db.block_heights
         .get(tx_ro, block_hash)?
         .ok_or(BlockchainError::NotFound)?;
     get_block(&block_height, tapes)
@@ -699,10 +699,8 @@ pub fn get_block_by_hash(
 /// Retrieve a [`BlockHeight`] via its [`BlockHash`].
 #[doc = doc_error!()]
 #[inline]
-pub fn get_block_height(block_hash: &BlockHash, tx_ro: &heed::RoTxn) -> DbResult<BlockHeight> {
-    Ok(BLOCK_HEIGHTS
-        .get()
-        .unwrap()
+pub fn get_block_height(db: &Blockchain, block_hash: &BlockHash, tx_ro: &heed::RoTxn) -> DbResult<BlockHeight> {
+    Ok(db.block_heights
         .get(tx_ro, block_hash)?
         .ok_or(BlockchainError::NotFound)?)
 }
@@ -715,10 +713,8 @@ pub fn get_block_height(block_hash: &BlockHash, tx_ro: &heed::RoTxn) -> DbResult
 ///
 /// Other errors may still occur.
 #[inline]
-pub fn block_exists(block_hash: &BlockHash, tx_ro: &heed::RoTxn) -> DbResult<bool> {
-    Ok(BLOCK_HEIGHTS
-        .get()
-        .unwrap()
+pub fn block_exists(db: &Blockchain, block_hash: &BlockHash, tx_ro: &heed::RoTxn) -> DbResult<bool> {
+    Ok(db.block_heights
         .get(tx_ro, block_hash)?
         .is_some())
 }

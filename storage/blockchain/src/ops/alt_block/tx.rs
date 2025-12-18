@@ -1,9 +1,10 @@
-use crate::database::{ALT_TRANSACTION_BLOBS, ALT_TRANSACTION_INFOS, TX_IDS};
+use crate::types::Hash32Bytes;
 use crate::error::{BlockchainError, DbResult};
 use crate::ops::tx::get_tx;
 use crate::{
     ops::macros::{doc_add_alt_block_inner_invariant, doc_error},
     types::{AltTransactionInfo, TxHash},
+    Blockchain,
 };
 use bytemuck::TransparentWrapper;
 use cuprate_types::VerifiedTransactionInformation;
@@ -20,10 +21,11 @@ use tapes::MmapFile;
 #[doc = doc_add_alt_block_inner_invariant!()]
 #[doc = doc_error!()]
 pub fn add_alt_transaction_blob(
+    db: &Blockchain,
     tx: &VerifiedTransactionInformation,
     tx_rw: &mut heed::RwTxn,
 ) -> DbResult<()> {
-    ALT_TRANSACTION_INFOS.get().unwrap().put(
+    db.alt_transaction_infos.put(
         tx_rw,
         &tx.tx_hash,
         &AltTransactionInfo {
@@ -33,10 +35,8 @@ pub fn add_alt_transaction_blob(
         },
     )?;
 
-    if TX_IDS.get().unwrap().get(tx_rw, &tx.tx_hash).is_ok()
-        || ALT_TRANSACTION_BLOBS
-            .get()
-            .unwrap()
+    if db.tx_ids.get(tx_rw, &tx.tx_hash).is_ok()
+        || db.alt_transaction_blobs
             .get(tx_rw, &tx.tx_hash)
             .as_ref()
             .is_ok_and(Option::is_some)
@@ -45,7 +45,7 @@ pub fn add_alt_transaction_blob(
     }
 
     // TODO: the below can be made more efficient pretty easily.
-    ALT_TRANSACTION_BLOBS.get().unwrap().put(
+    db.alt_transaction_blobs.put(
         tx_rw,
         &tx.tx_hash,
         [tx.tx_pruned.as_slice(), tx.tx_prunable_blob.as_slice()]
@@ -60,19 +60,18 @@ pub fn add_alt_transaction_blob(
 ///
 #[doc = doc_error!()]
 pub fn get_alt_transaction(
+    db: &Blockchain,
     tx_hash: &TxHash,
     tx_ro: &heed::RoTxn,
     tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<VerifiedTransactionInformation> {
-    let tx_info = ALT_TRANSACTION_INFOS
-        .get()
-        .unwrap()
+    let tx_info = db.alt_transaction_infos
         .get(tx_ro, tx_hash)?
         .ok_or(BlockchainError::NotFound)?;
 
-    let tx = match ALT_TRANSACTION_BLOBS.get().unwrap().get(tx_ro, tx_hash)? {
+    let tx = match db.alt_transaction_blobs.get(tx_ro, tx_hash)? {
         Some(mut tx_blob) => Transaction::read(&mut tx_blob).unwrap(),
-        None => get_tx(tx_hash, tx_ro, tapes)?,
+        None => get_tx(db, tx_hash, tx_ro, tapes)?,
     };
 
     let tx_weight = tx_info.tx_weight;

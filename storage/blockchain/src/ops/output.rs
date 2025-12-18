@@ -7,9 +7,10 @@ use cuprate_types::OutputOnChain;
 use monero_oxide::{io::CompressedPoint, transaction::Timelock};
 use tapes::MmapFile;
 
-use crate::database::{PRE_RCT_OUTPUTS, RCT_OUTPUTS, TX_OUTPUTS};
+use crate::database::RCT_OUTPUTS;
 use crate::error::{BlockchainError, DbResult};
 use crate::types::TxId;
+use crate::Blockchain;
 use crate::{
     ops::{
         macros::{doc_add_block_inner_invariant, doc_error},
@@ -28,6 +29,7 @@ use crate::{
 #[doc = doc_error!()]
 #[inline]
 pub fn add_output(
+    db: &Blockchain,
     amount: Amount,
     key: [u8; 32],
     height: usize,
@@ -35,9 +37,7 @@ pub fn add_output(
     tx_idx: TxId,
     tx_rw: &mut heed::RwTxn,
 ) -> DbResult<PreRctOutputId> {
-    let num_outputs = if let Some(mut rw_iter) = PRE_RCT_OUTPUTS
-        .get()
-        .unwrap()
+    let num_outputs = if let Some(mut rw_iter) = db.pre_rct_outputs
         .get_duplicates(tx_rw, &amount)?
     {
         rw_iter.last().unwrap()?.1.amount_index + 1
@@ -51,7 +51,7 @@ pub fn add_output(
         amount_index: num_outputs,
     };
 
-    PRE_RCT_OUTPUTS.get().unwrap().put_with_flags(
+    db.pre_rct_outputs.put_with_flags(
         tx_rw,
         PutFlags::APPEND_DUP,
         &amount,
@@ -71,12 +71,12 @@ pub fn add_output(
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
 #[inline]
-pub fn remove_output(amount: Amount, tx_rw: &mut heed::RwTxn) -> DbResult<()> {
-    PRE_RCT_OUTPUTS.get().unwrap().delete_one_duplicate(
+pub fn remove_output(db: &Blockchain, amount: Amount, tx_rw: &mut heed::RwTxn) -> DbResult<()> {
+    db.pre_rct_outputs.delete_one_duplicate(
         tx_rw,
         &amount,
         &Output {
-            amount_index: get_num_outputs_with_amount(tx_rw, amount)? - 1,
+            amount_index: get_num_outputs_with_amount(db, tx_rw, amount)? - 1,
             key: [0; 32],
             height: 0,
             timelock: 0,
@@ -90,10 +90,8 @@ pub fn remove_output(amount: Amount, tx_rw: &mut heed::RwTxn) -> DbResult<()> {
 /// Retrieve a Pre-RCT [`Output`] from the database.
 #[doc = doc_error!()]
 #[inline]
-pub fn get_output(pre_rct_output_id: &PreRctOutputId, tx_ro: &heed::RoTxn) -> DbResult<Output> {
-    PRE_RCT_OUTPUTS
-        .get()
-        .unwrap()
+pub fn get_output(db: &Blockchain, pre_rct_output_id: &PreRctOutputId, tx_ro: &heed::RoTxn) -> DbResult<Output> {
+    db.pre_rct_outputs
         .get_duplicate(
             tx_ro,
             &pre_rct_output_id.amount,
@@ -113,15 +111,13 @@ pub fn get_output(pre_rct_output_id: &PreRctOutputId, tx_ro: &heed::RoTxn) -> Db
 /// This returns the amount of pre-RCT outputs currently stored.
 #[doc = doc_error!()]
 #[inline]
-pub fn get_num_outputs(tx_ro: &heed::RoTxn) -> DbResult<u64> {
-    Ok(PRE_RCT_OUTPUTS.get().unwrap().len(tx_ro)?)
+pub fn get_num_outputs(db: &Blockchain, tx_ro: &heed::RoTxn) -> DbResult<u64> {
+    Ok(db.pre_rct_outputs.len(tx_ro)?)
 }
 
 #[inline]
-pub fn get_num_outputs_with_amount(tx_ro: &heed::RoTxn, amount: Amount) -> DbResult<u64> {
-    let outs = PRE_RCT_OUTPUTS
-        .get()
-        .unwrap()
+pub fn get_num_outputs_with_amount(db: &Blockchain, tx_ro: &heed::RoTxn, amount: Amount) -> DbResult<u64> {
+    let outs = db.pre_rct_outputs
         .get_duplicates(tx_ro, &amount)?;
 
     outs.map_or(Ok(0), |o| Ok(o.last().unwrap()?.1.amount_index + 1))
@@ -199,6 +195,7 @@ pub fn rct_output_to_output_on_chain(
 /// Note that this still support RCT outputs, in that case, [`PreRctOutputId::amount`] should be `0`.
 #[doc = doc_error!()]
 pub fn id_to_output_on_chain(
+    db: &Blockchain,
     id: &PreRctOutputId,
     get_txid: bool,
     tx_ro: &heed::RoTxn,
@@ -215,7 +212,7 @@ pub fn id_to_output_on_chain(
         Ok(output_on_chain)
     } else {
         // v1 transactions.
-        let output = get_output(id, tx_ro)?;
+        let output = get_output(db, id, tx_ro)?;
         let output_on_chain = output_to_output_on_chain(&output, id.amount, get_txid, tapes)?;
 
         Ok(output_on_chain)

@@ -4,10 +4,7 @@ use heed::{DatabaseFlags, DefaultComparator, EnvFlags, EnvOpenOptions, IntegerCo
 //---------------------------------------------------------------------------------------------------- Import
 use tapes::{MmapFileOpenOption, Tapes};
 
-use crate::database::{
-    ALT_BLOCKS_INFO, ALT_BLOCK_BLOBS, ALT_BLOCK_HEIGHTS, ALT_CHAIN_INFOS, ALT_TRANSACTION_BLOBS,
-    ALT_TRANSACTION_INFOS, BLOCK_HEIGHTS, KEY_IMAGES, PRE_RCT_OUTPUTS, TX_IDS, TX_OUTPUTS,
-};
+
 use crate::{
     config::{linear_tapes_config, Config},
     Blockchain,
@@ -96,107 +93,69 @@ pub fn open(config: Config) -> Result<Blockchain, heed::Error> {
         // <https://docs.rs/heed/0.20.0/heed/struct.EnvOpenOptions.html#method.open>
         unsafe { env_open_options.open(&config.data_dir)? }
     };
+/*
+Hello,
 
-    {
+I wouldn't class
+ */
+    let (block_heights, key_images, pre_rct_outputs, tx_ids, tx_outputs, alt_chain_infos, alt_block_heights, alt_blocks_info, alt_block_blobs, alt_transaction_blobs, alt_transaction_infos) = {
         let mut rw_tx = env.write_txn()?;
 
-        BLOCK_HEIGHTS
-            .set(
-                env.database_options()
-                    .name("BLOCK_HEIGHTS")
-                    .types()
-                    .create(&mut rw_tx)?,
-            )
-            .unwrap();
-        KEY_IMAGES
-            .set(
-                env.database_options()
-                    .name("KEY_IMAGES")
-                    .types()
-                    .key_comparator()
-                    .flags(DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED)
-                    .create(&mut rw_tx)?,
-            )
-            .unwrap();
-        PRE_RCT_OUTPUTS
-            .set(
-                env.database_options()
-                    .name("PRE_RCT_OUTPUTS")
-                    .types()
-                    .key_comparator()
-                    .dup_sort_comparator()
-                    .flags(DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED)
-                    .create(&mut rw_tx)?,
-            )
-            .unwrap();
-        TX_IDS
-            .set(
-                env.database_options()
-                    .name("TX_IDS")
-                    .types()
-                    .create(&mut rw_tx)?,
-            )
-            .unwrap();
-        TX_OUTPUTS
-            .set(
-                env.database_options()
-                    .name("TX_OUTPUTS")
-                    .types()
-                    .key_comparator()
-                    .create(&mut rw_tx)?,
-            )
-            .unwrap();
-        ALT_CHAIN_INFOS
-            .set(
-                env.database_options()
-                    .name("ALT_CHAIN_INFOS")
-                    .types()
-                    .create(&mut rw_tx)?,
-            )
-            .unwrap();
-        ALT_BLOCK_HEIGHTS
-            .set(
-                env.database_options()
-                    .name("ALT_BLOCK_HEIGHTS")
-                    .types()
-                    .create(&mut rw_tx)?,
-            )
-            .unwrap();
-        ALT_BLOCKS_INFO
-            .set(
-                env.database_options()
-                    .name("ALT_BLOCKS_INFO")
-                    .types()
-                    .create(&mut rw_tx)?,
-            )
-            .unwrap();
-        ALT_BLOCK_BLOBS
-            .set(
-                env.database_options()
-                    .name("ALT_BLOCK_BLOBS")
-                    .types()
-                    .create(&mut rw_tx)?,
-            )
-            .unwrap();
-        ALT_TRANSACTION_BLOBS
-            .set(
-                env.database_options()
-                    .name("ALT_TRANSACTION_BLOBS")
-                    .types()
-                    .create(&mut rw_tx)?,
-            )
-            .unwrap();
-        ALT_TRANSACTION_INFOS
-            .set(
-                env.database_options()
-                    .name("ALT_TRANSACTION_INFOS")
-                    .types()
-                    .create(&mut rw_tx)?,
-            )
-            .unwrap();
+        let block_heights = env.database_options()
+            .name("BLOCK_HEIGHTS")
+            .types()
+            .create(&mut rw_tx)?;
+        let key_images = env.database_options()
+            .name("KEY_IMAGES")
+            .types()
+            .key_comparator()
+            .flags(DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED)
+            .create(&mut rw_tx)?;
+        let pre_rct_outputs = env.database_options()
+            .name("PRE_RCT_OUTPUTS")
+            .types()
+            .key_comparator()
+            .dup_sort_comparator()
+            .flags(DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED)
+            .create(&mut rw_tx)?;
+        let tx_ids = env.database_options()
+            .name("TX_IDS")
+            .types()
+            .create(&mut rw_tx)?;
+        let tx_outputs = env.database_options()
+            .name("TX_OUTPUTS")
+            .types()
+            .key_comparator()
+            .create(&mut rw_tx)?;
+        let alt_chain_infos = env.database_options()
+            .name("ALT_CHAIN_INFOS")
+            .types()
+            .create(&mut rw_tx)?;
+        let alt_block_heights = env.database_options()
+            .name("ALT_BLOCK_HEIGHTS")
+            .types()
+            .create(&mut rw_tx)?;
+        let alt_blocks_info = env.database_options()
+            .name("ALT_BLOCKS_INFO")
+            .types()
+            .create(&mut rw_tx)?;
+        let alt_block_blobs = env.database_options()
+            .name("ALT_BLOCK_BLOBS")
+            .types()
+            .create(&mut rw_tx)?;
+        let alt_transaction_blobs = env.database_options()
+            .name("ALT_TRANSACTION_BLOBS")
+            .types()
+            .create(&mut rw_tx)?;
+        let alt_transaction_infos = env.database_options()
+            .name("ALT_TRANSACTION_INFOS")
+            .types()
+            .create(&mut rw_tx)?;
 
         rw_tx.commit()?;
-    }
+
+        (block_heights, key_images, pre_rct_outputs, tx_ids, tx_outputs, alt_chain_infos, alt_block_heights, alt_blocks_info, alt_block_blobs, alt_transaction_blobs, alt_transaction_infos)
+    };
 
     let tapes = linear_tapes_config(config.data_dir.clone(), config.blob_data_dir);
 
@@ -214,6 +173,17 @@ pub fn open(config: Config) -> Result<Blockchain, heed::Error> {
     Ok(Blockchain {
         dynamic_tables: env,
         linear_tapes,
+        block_heights,
+        key_images,
+        pre_rct_outputs,
+        tx_ids,
+        tx_outputs,
+        alt_chain_infos,
+        alt_block_heights,
+        alt_blocks_info,
+        alt_block_blobs,
+        alt_transaction_blobs,
+        alt_transaction_infos,
     })
 }
 

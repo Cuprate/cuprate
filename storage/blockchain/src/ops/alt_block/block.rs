@@ -4,10 +4,11 @@ use cuprate_types::{AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, Ha
 use monero_oxide::block::{Block, BlockHeader};
 use tapes::MmapFile;
 
-use crate::database::{
-    ALT_BLOCKS_INFO, ALT_BLOCK_BLOBS, ALT_BLOCK_HEIGHTS, ALT_CHAIN_INFOS, ALT_TRANSACTION_BLOBS,
-    ALT_TRANSACTION_INFOS, BLOCK_INFOS,
+use crate::database::BLOCK_INFOS;
+use crate::types::{
+    AltBlockHeight, AltChainInfo, AltTransactionInfo, CompactAltBlockInfo, Hash32Bytes, RawChainId, StorableHeed,
 };
+use crate::Blockchain;
 use crate::error::{BlockchainError, DbResult};
 use crate::types::BlockInfo;
 use crate::{
@@ -15,19 +16,19 @@ use crate::{
         alt_block::{add_alt_transaction_blob, get_alt_transaction, update_alt_chain_info},
         macros::doc_error,
     },
-    types::{AltBlockHeight, BlockHash, BlockHeight, CompactAltBlockInfo},
+    types::{BlockHash, BlockHeight},
 };
 
 /// Flush all alt-block data from all the alt-block tables.
 ///
 /// This function completely empties the alt block tables.
-pub fn flush_alt_blocks(tx_rw: &mut heed::RwTxn) -> DbResult<()> {
-    ALT_CHAIN_INFOS.get().unwrap().clear(tx_rw)?;
-    ALT_BLOCK_HEIGHTS.get().unwrap().clear(tx_rw)?;
-    ALT_BLOCKS_INFO.get().unwrap().clear(tx_rw)?;
-    ALT_BLOCK_BLOBS.get().unwrap().clear(tx_rw)?;
-    ALT_TRANSACTION_BLOBS.get().unwrap().clear(tx_rw)?;
-    ALT_TRANSACTION_INFOS.get().unwrap().clear(tx_rw)?;
+pub fn flush_alt_blocks(db: &Blockchain, tx_rw: &mut heed::RwTxn) -> DbResult<()> {
+    db.alt_chain_infos.clear(tx_rw)?;
+    db.alt_block_heights.clear(tx_rw)?;
+    db.alt_blocks_info.clear(tx_rw)?;
+    db.alt_block_blobs.clear(tx_rw)?;
+    db.alt_transaction_blobs.clear(tx_rw)?;
+    db.alt_transaction_infos.clear(tx_rw)?;
     Ok(())
 }
 
@@ -43,18 +44,20 @@ pub fn flush_alt_blocks(tx_rw: &mut heed::RwTxn) -> DbResult<()> {
 /// - `alt_block.height` is == `0`
 /// - `alt_block.txs.len()` != `alt_block.block.transactions.len()`
 ///
-pub fn add_alt_block(alt_block: &AltBlockInformation, tx_rw: &mut heed::RwTxn) -> DbResult<()> {
+pub fn add_alt_block(
+    db: &Blockchain,
+    alt_block: &AltBlockInformation,
+    tx_rw: &mut heed::RwTxn,
+) -> DbResult<()> {
     let alt_block_height = AltBlockHeight {
         chain_id: alt_block.chain_id.into(),
         height: alt_block.height,
     };
 
-    ALT_BLOCK_HEIGHTS
-        .get()
-        .unwrap()
+    db.alt_block_heights
         .put(tx_rw, &alt_block.block_hash, &alt_block_height)?;
 
-    update_alt_chain_info(&alt_block_height, &alt_block.block.header.previous, tx_rw)?;
+    update_alt_chain_info(db, &alt_block_height, &alt_block.block.header.previous, tx_rw)?;
 
     let (cumulative_difficulty_low, cumulative_difficulty_high) =
         split_u128_into_low_high_bits(alt_block.cumulative_difficulty);
@@ -69,18 +72,14 @@ pub fn add_alt_block(alt_block: &AltBlockInformation, tx_rw: &mut heed::RwTxn) -
         cumulative_difficulty_high,
     };
 
-    ALT_BLOCKS_INFO
-        .get()
-        .unwrap()
+    db.alt_blocks_info
         .put(tx_rw, &alt_block_height, &alt_block_info)?;
-    ALT_BLOCK_BLOBS
-        .get()
-        .unwrap()
+    db.alt_block_blobs
         .put(tx_rw, &alt_block_height, &alt_block.block_blob)?;
 
     assert_eq!(alt_block.txs.len(), alt_block.block.transactions.len());
     for tx in &alt_block.txs {
-        add_alt_transaction_blob(tx, tx_rw)?;
+        add_alt_transaction_blob(db, tx, tx_rw)?;
     }
 
     Ok(())
@@ -92,34 +91,30 @@ pub fn add_alt_block(alt_block: &AltBlockInformation, tx_rw: &mut heed::RwTxn) -
 /// even if they are technically part of this chain.
 #[doc = doc_error!()]
 pub fn get_alt_block(
+    db: &Blockchain,
     alt_block_height: &AltBlockHeight,
     tx_ro: &heed::RoTxn,
     tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<AltBlockInformation> {
-    let block_info = ALT_BLOCKS_INFO
-        .get()
-        .unwrap()
+    let block_info = db.alt_blocks_info
         .get(tx_ro, alt_block_height)?
         .ok_or(BlockchainError::NotFound)?;
 
-    let block_blob = ALT_BLOCK_BLOBS
-        .get()
-        .unwrap()
+    let block_blob = db.alt_block_blobs
         .get(tx_ro, alt_block_height)?
-        .ok_or(BlockchainError::NotFound)?
-        .to_vec();
+        .ok_or(BlockchainError::NotFound)?;
 
-    let block = Block::read(&mut block_blob.as_slice())?;
+    let block = Block::read(&mut block_blob.as_ref()).unwrap();
 
     let txs = block
         .transactions
         .iter()
-        .map(|tx_hash| get_alt_transaction(tx_hash, tx_ro, tapes))
-        .collect::<DbResult<_>>()?;
+        .map(|tx_hash| get_alt_transaction(db, tx_hash, tx_ro, tapes))
+        .collect::<DbResult<Vec<_>>>()?;
 
     Ok(AltBlockInformation {
         block,
-        block_blob,
+        block_blob: block_blob.to_vec(),
         txs,
         block_hash: block_info.block_hash,
         pow_hash: block_info.pow_hash,
@@ -142,18 +137,17 @@ pub fn get_alt_block(
 ///
 #[doc = doc_error!()]
 pub fn get_alt_block_hash(
+    db: &Blockchain,
     block_height: &BlockHeight,
     alt_chain: ChainId,
     tx_ro: &heed::RoTxn,
     tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<BlockHash> {
-    let alt_chains = ALT_CHAIN_INFOS.get().unwrap();
-
     // First find what [`ChainId`] this block would be stored under.
     let original_chain = {
         let mut chain = alt_chain.into();
         loop {
-            let chain_info = alt_chains
+            let chain_info = db.alt_chain_infos
                 .get(tx_ro, &chain)?
                 .ok_or(BlockchainError::NotFound)?;
 
@@ -178,9 +172,7 @@ pub fn get_alt_block_hash(
             .get(*block_height)
             .map(|info| info.block_hash)
             .ok_or(BlockchainError::NotFound),
-        Chain::Alt(chain_id) => ALT_BLOCKS_INFO
-            .get()
-            .unwrap()
+        Chain::Alt(chain_id) => db.alt_blocks_info
             .get(
                 tx_ro,
                 &AltBlockHeight {
@@ -200,18 +192,15 @@ pub fn get_alt_block_hash(
 ///
 #[doc = doc_error!()]
 pub fn get_alt_block_extended_header_from_height(
+    db: &Blockchain,
     height: &AltBlockHeight,
     tx_ro: &heed::RoTxn,
 ) -> DbResult<ExtendedBlockHeader> {
-    let block_info = ALT_BLOCKS_INFO
-        .get()
-        .unwrap()
+    let block_info = db.alt_blocks_info
         .get(tx_ro, height)?
         .ok_or(BlockchainError::NotFound)?;
 
-    let mut block_blob = ALT_BLOCK_BLOBS
-        .get()
-        .unwrap()
+    let mut block_blob = db.alt_block_blobs
         .get(tx_ro, height)?
         .ok_or(BlockchainError::NotFound)?;
 
@@ -293,7 +282,13 @@ mod tests {
                 alt_block.block.header.previous = prev_hash;
                 alt_block.block_blob = alt_block.block.serialize();
 
-                add_alt_block(&alt_block, &mut tables).unwrap();
+                add_alt_block(
+                    &tables.alt_block_heights,
+                    &tables.alt_blocks_info,
+                    &tables.alt_block_blobs,
+                    &alt_block,
+                    &mut tables,
+                ).unwrap();
 
                 let alt_height = AltBlockHeight {
                     chain_id: chain_id.into(),
@@ -304,9 +299,10 @@ mod tests {
                 assert_eq!(alt_block.block, alt_block_2.block);
 
                 let headers = get_alt_chain_history_ranges(
+                    &tables.alt_chain_infos,
                     0..(height + 1),
                     chain_id,
-                    tables.alt_chain_infos(),
+                    &tables.tx_ro(),
                 )
                 .unwrap();
 
@@ -344,7 +340,18 @@ mod tests {
         {
             let mut tx_rw = env_inner.tx_rw().unwrap();
 
-            flush_alt_blocks(&env_inner, &mut tx_rw).unwrap();
+            {
+                let tables = env_inner.open_tables(&tx_rw).unwrap();
+                flush_alt_blocks(
+                    &tables.alt_chain_infos,
+                    &tables.alt_block_heights,
+                    &tables.alt_blocks_info,
+                    &tables.alt_block_blobs,
+                    &tables.alt_transaction_blobs,
+                    &tables.alt_transaction_infos,
+                    &mut tx_rw,
+                ).unwrap();
+            }
 
             let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
             pop_block(None, &mut tables).unwrap();

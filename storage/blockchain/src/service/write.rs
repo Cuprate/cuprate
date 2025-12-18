@@ -80,6 +80,7 @@ fn write_blocks(db: &Blockchain, blocks: &[VerifiedBlockInformation]) -> Respons
 
         for block in blocks {
             crate::ops::block::add_block_to_dynamic_tables(
+                db,
                 block,
                 &mut numb_transactions,
                 &mut tx_rw,
@@ -116,7 +117,7 @@ fn write_alt_block(db: &Blockchain, block: &AltBlockInformation) -> ResponseResu
     let result = || {
         let mut tx_rw = db.dynamic_tables.write_txn()?;
 
-        crate::ops::alt_block::add_alt_block(block, &mut tx_rw)?;
+        crate::ops::alt_block::add_alt_block(db, block, &mut tx_rw)?;
 
         tx_rw.commit()?;
 
@@ -146,14 +147,14 @@ fn pop_blocks(db: &Blockchain, numb_blocks: usize) -> ResponseResult {
         let mut tapes = db.linear_tapes.popper();
 
         // flush all the current alt blocks as they may reference blocks to be popped.
-        crate::ops::alt_block::flush_alt_blocks(&mut tx_rw)?;
+        crate::ops::alt_block::flush_alt_blocks(db, &mut tx_rw)?;
 
         // generate a `ChainId` for the popped blocks.
         let old_main_chain_id = ChainId(rand::random());
 
         // pop the blocks
         for _ in 0..numb_blocks {
-            crate::ops::block::pop_block(Some(old_main_chain_id), &mut tx_rw, &mut tapes)?;
+            crate::ops::block::pop_block(db, Some(old_main_chain_id), &mut tx_rw, &mut tapes)?;
         }
 
         tx_rw.commit()?;
@@ -182,7 +183,7 @@ fn flush_alt_blocks(db: &Blockchain) -> ResponseResult {
     let result = || {
         let mut tx_rw = db.dynamic_tables.write_txn()?;
 
-        crate::ops::alt_block::flush_alt_blocks(&mut tx_rw)?;
+        crate::ops::alt_block::flush_alt_blocks(db, &mut tx_rw)?;
 
         tx_rw.commit()?;
 

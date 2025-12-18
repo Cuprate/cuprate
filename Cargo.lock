@@ -3865,6 +3865,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "p2p_connect"
+version = "0.1.0"
+dependencies = [
+ "cuprate-helper",
+ "cuprate-p2p-core",
+ "cuprate-wire",
+ "tokio",
+ "tower",
+]
+
+[[package]]
 name = "p384"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

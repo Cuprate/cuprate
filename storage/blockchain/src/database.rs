@@ -32,50 +32,27 @@ pub const TX_INFOS: &str = "tx_infos";
 /// The name of the block infos tape.
 pub const BLOCK_INFOS: &str = "block_infos";
 
-pub static BLOCK_HEIGHTS: OnceLock<heed::Database<Hash32Bytes, HeedUsize>> = OnceLock::new();
 
-pub static KEY_IMAGES: OnceLock<heed::Database<ZeroKey, Hash32Bytes, IntegerComparator>> =
-    OnceLock::new();
 
-pub static PRE_RCT_OUTPUTS: OnceLock<
-    heed::Database<
+pub struct Blockchain {
+    pub(crate) dynamic_tables: heed::Env,
+    pub(crate) linear_tapes: Tapes<MmapFile>,
+    pub(crate) block_heights: heed::Database<Hash32Bytes, HeedUsize>,
+    pub(crate) key_images: heed::Database<ZeroKey, Hash32Bytes, IntegerComparator>,
+    pub(crate) pre_rct_outputs: heed::Database<
         U64<heed::byteorder::NativeEndian>,
         Output,
         IntegerComparator,
         IntegerComparator,
     >,
-> = OnceLock::new();
-
-pub static TX_IDS: OnceLock<heed::Database<Hash32Bytes, HeedUsize>> = OnceLock::new();
-
-pub static TX_OUTPUTS: OnceLock<heed::Database<HeedUsize, HeedAmountIndices, IntegerComparator>> =
-    OnceLock::new();
-
-pub static ALT_CHAIN_INFOS: OnceLock<
-    heed::Database<StorableHeed<RawChainId>, StorableHeed<AltChainInfo>>,
-> = OnceLock::new();
-
-pub static ALT_BLOCK_HEIGHTS: OnceLock<heed::Database<Hash32Bytes, StorableHeed<AltBlockHeight>>> =
-    OnceLock::new();
-
-pub static ALT_BLOCKS_INFO: OnceLock<
-    heed::Database<StorableHeed<AltBlockHeight>, StorableHeed<CompactAltBlockInfo>>,
-> = OnceLock::new();
-
-pub static ALT_BLOCK_BLOBS: OnceLock<
-    heed::Database<StorableHeed<AltBlockHeight>, heed::types::Bytes>,
-> = OnceLock::new();
-
-pub static ALT_TRANSACTION_BLOBS: OnceLock<heed::Database<Hash32Bytes, heed::types::Bytes>> =
-    OnceLock::new();
-
-pub static ALT_TRANSACTION_INFOS: OnceLock<
-    heed::Database<Hash32Bytes, StorableHeed<AltTransactionInfo>>,
-> = OnceLock::new();
-
-pub struct Blockchain {
-    pub(crate) dynamic_tables: heed::Env,
-    pub(crate) linear_tapes: Tapes<MmapFile>,
+    pub(crate) tx_ids: heed::Database<Hash32Bytes, HeedUsize>,
+    pub(crate) tx_outputs: heed::Database<HeedUsize, HeedAmountIndices, IntegerComparator>,
+    pub(crate) alt_chain_infos: heed::Database<StorableHeed<RawChainId>, StorableHeed<AltChainInfo>>,
+    pub(crate) alt_block_heights: heed::Database<Hash32Bytes, StorableHeed<AltBlockHeight>>,
+    pub(crate) alt_blocks_info: heed::Database<StorableHeed<AltBlockHeight>, StorableHeed<CompactAltBlockInfo>>,
+    pub(crate) alt_block_blobs: heed::Database<StorableHeed<AltBlockHeight>, heed::types::Bytes>,
+    pub(crate) alt_transaction_blobs: heed::Database<Hash32Bytes, heed::types::Bytes>,
+    pub(crate) alt_transaction_infos: heed::Database<Hash32Bytes, StorableHeed<AltTransactionInfo>>,
 }
 
 impl Drop for Blockchain {

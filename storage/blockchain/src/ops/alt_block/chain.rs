@@ -2,12 +2,12 @@ use std::cmp::{max, min};
 
 use cuprate_types::{Chain, ChainId};
 
-use crate::database::{ALT_BLOCK_HEIGHTS, ALT_CHAIN_INFOS};
-use crate::error::{BlockchainError, DbResult};
-use crate::{
-    ops::macros::{doc_add_alt_block_inner_invariant, doc_error},
-    types::{AltBlockHeight, AltChainInfo, BlockHash, BlockHeight},
+use crate::types::{
+    AltBlockHeight, AltChainInfo, BlockHash, BlockHeight, Hash32Bytes, RawChainId, StorableHeed,
 };
+use crate::Blockchain;
+use crate::error::{BlockchainError, DbResult};
+use crate::ops::macros::{doc_add_alt_block_inner_invariant, doc_error};
 
 /// Updates the [`AltChainInfo`] with information on a new alt-block.
 ///
@@ -18,48 +18,32 @@ use crate::{
 ///
 /// This will panic if [`AltBlockHeight::height`] == `0`.
 pub fn update_alt_chain_info(
+    db: &Blockchain,
     alt_block_height: &AltBlockHeight,
     prev_hash: &BlockHash,
     tx_rw: &mut heed::RwTxn,
 ) -> DbResult<()> {
-    let parent_chain = match ALT_BLOCK_HEIGHTS.get().unwrap().get(tx_rw, prev_hash) {
+    let parent_chain = match db.alt_block_heights.get(tx_rw, prev_hash) {
         Ok(Some(alt_parent_height)) => Chain::Alt(alt_parent_height.chain_id.into()),
         Ok(None) => Chain::Main,
         Err(e) => Err(e)?,
     };
 
-    let Some(mut info) = ALT_CHAIN_INFOS
-        .get()
-        .unwrap()
-        .get(tx_rw, &alt_block_height.chain_id)?
-    else {
-        ALT_CHAIN_INFOS.get().unwrap().put(
-            tx_rw,
-            &alt_block_height.chain_id,
-            &AltChainInfo {
-                parent_chain: parent_chain.into(),
-                common_ancestor_height: alt_block_height.height.checked_sub(1).unwrap(),
-                chain_height: alt_block_height.height + 1,
-            },
-        )?;
+    let current_chain_id = alt_block_height.chain_id;
 
-        return Ok(());
-    };
+    let mut info = db.alt_chain_infos
+        .get(tx_rw, &current_chain_id)?
+        .unwrap_or(AltChainInfo {
+            parent_chain: parent_chain.into(),
+            common_ancestor_height: 0,
+            chain_height: 0,
+        });
 
     if info.chain_height < alt_block_height.height + 1 {
-        // If the chain height is increasing we only need to update the chain height.
         info.chain_height = alt_block_height.height + 1;
-    } else {
-        // If the chain height is not increasing we are popping blocks and need to update the
-        // split point.
-        info.common_ancestor_height = alt_block_height.height.checked_sub(1).unwrap();
-        info.parent_chain = parent_chain.into();
     }
 
-    ALT_CHAIN_INFOS
-        .get()
-        .unwrap()
-        .put(tx_rw, &alt_block_height.chain_id, &info)?;
+    db.alt_chain_infos.put(tx_rw, &current_chain_id, &info)?;
 
     Ok(())
 }
@@ -71,6 +55,7 @@ pub fn update_alt_chain_info(
 /// upto the height where the first split occurs.
 #[doc = doc_error!()]
 pub fn get_alt_chain_history_ranges(
+    db: &Blockchain,
     range: std::ops::Range<BlockHeight>,
     alt_chain: ChainId,
     tx_ro: &heed::RoTxn,
@@ -80,9 +65,7 @@ pub fn get_alt_chain_history_ranges(
     let mut i = range.end;
     let mut current_chain_id = alt_chain.into();
     while i > range.start {
-        let chain_info = ALT_CHAIN_INFOS
-            .get()
-            .unwrap()
+        let chain_info = db.alt_chain_infos
             .get(tx_ro, &current_chain_id)?
             .ok_or(BlockchainError::NotFound)?;
 

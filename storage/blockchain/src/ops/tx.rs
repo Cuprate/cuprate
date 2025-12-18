@@ -11,10 +11,11 @@ use monero_oxide::transaction::{Input, Pruned, Timelock, Transaction};
 use tapes::MmapFile;
 
 use crate::database::{
-    KEY_IMAGES, PRUNABLE_BLOBS, PRUNED_BLOBS, RCT_OUTPUTS, TX_IDS, TX_INFOS, TX_OUTPUTS,
+    PRUNABLE_BLOBS, PRUNED_BLOBS, RCT_OUTPUTS, TX_INFOS,
     V1_PRUNABLE_BLOBS,
 };
 use crate::error::{BlockchainError, DbResult};
+use crate::Blockchain;
 use crate::types::{TxInfo, ZeroKey};
 use crate::{
     ops::{
@@ -129,13 +130,14 @@ pub fn add_tx_to_tapes(
 }
 
 pub fn add_tx_to_dynamic_tables(
+    db: &Blockchain,
     tx: &Transaction<Pruned>,
     tx_id: TxId,
     tx_hash: &TxHash,
     height: &BlockHeight,
     tx_rw: &mut heed::RwTxn,
 ) -> DbResult<()> {
-    TX_IDS.get().unwrap().put(tx_rw, tx_hash, &tx_id)?;
+    db.tx_ids.put(tx_rw, tx_hash, &tx_id)?;
 
     //------------------------------------------------------ Timelocks
     // Height/time is not differentiated via type, but rather:
@@ -153,7 +155,7 @@ pub fn add_tx_to_dynamic_tables(
         match inputs {
             // Key images.
             Input::ToKey { key_image, .. } => {
-                KEY_IMAGES.get().unwrap().put_with_flags(
+                db.key_images.put_with_flags(
                     tx_rw,
                     PutFlags::NO_DUP_DATA,
                     &ZeroKey,
@@ -173,6 +175,7 @@ pub fn add_tx_to_dynamic_tables(
                 .map(|output| {
                     // Pre-RingCT outputs.
                     Ok(add_output(
+                        db,
                         output.amount.unwrap_or(0),
                         output.key.0,
                         *height,
@@ -184,7 +187,7 @@ pub fn add_tx_to_dynamic_tables(
                 })
                 .collect::<DbResult<Vec<_>>>()?;
 
-            TX_OUTPUTS.get().unwrap().put_with_flags(
+            db.tx_outputs.put_with_flags(
                 tx_rw,
                 PutFlags::APPEND,
                 &tx_id,
@@ -215,15 +218,14 @@ pub fn add_tx_to_dynamic_tables(
 #[doc = doc_error!()]
 #[inline]
 pub fn remove_tx_from_dynamic_tables(
+    db: &Blockchain,
     tx_hash: &TxHash,
     height: BlockHeight,
     tx_rw: &mut heed::RwTxn,
     tapes: &tapes::Popper<MmapFile>,
 ) -> DbResult<(TxId, Transaction)> {
     //------------------------------------------------------ Transaction data
-    let tx_id = TX_IDS
-        .get()
-        .unwrap()
+    let tx_id = db.tx_ids
         .get(tx_rw, tx_hash)?
         .ok_or(BlockchainError::NotFound)?;
 
@@ -258,7 +260,7 @@ pub fn remove_tx_from_dynamic_tables(
         match inputs {
             // Key images.
             Input::ToKey { key_image, .. } => {
-                KEY_IMAGES.get().unwrap().delete_one_duplicate(
+                db.key_images.delete_one_duplicate(
                     tx_rw,
                     &ZeroKey,
                     key_image.as_bytes(),
@@ -279,11 +281,11 @@ pub fn remove_tx_from_dynamic_tables(
         for output in &tx.prefix().outputs {
             // Outputs with clear amounts.
             if let Some(amount) = output.amount {
-                remove_output(amount, tx_rw)?;
+                remove_output(db, amount, tx_rw)?;
             }
         }
 
-        TX_OUTPUTS.get().unwrap().delete(tx_rw, &tx_id)?;
+        db.tx_outputs.delete(tx_rw, &tx_id)?;
     }
 
     Ok((tx_id, tx))
@@ -294,14 +296,13 @@ pub fn remove_tx_from_dynamic_tables(
 #[doc = doc_error!()]
 #[inline]
 pub fn get_tx(
+    db: &Blockchain,
     tx_hash: &TxHash,
     tx_ro: &heed::RoTxn,
     tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<Transaction> {
     get_tx_from_id(
-        &TX_IDS
-            .get()
-            .unwrap()
+        &db.tx_ids
             .get(tx_ro, tx_hash)?
             .ok_or(BlockchainError::NotFound)?,
         tapes,
@@ -373,8 +374,8 @@ pub fn get_tx_blob_from_id(tx_id: &TxId, tapes: &tapes::Reader<MmapFile>) -> DbR
 /// - etc
 #[doc = doc_error!()]
 #[inline]
-pub fn get_num_tx(tx_ro: &heed::RoTxn) -> DbResult<u64> {
-    Ok(TX_IDS.get().unwrap().len(tx_ro)?)
+pub fn get_num_tx(db: &Blockchain, tx_ro: &heed::RoTxn) -> DbResult<u64> {
+    Ok(db.tx_ids.len(tx_ro)?)
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -383,8 +384,8 @@ pub fn get_num_tx(tx_ro: &heed::RoTxn) -> DbResult<u64> {
 /// Returns `true` if it does, else `false`.
 #[doc = doc_error!()]
 #[inline]
-pub fn tx_exists(tx_hash: &TxHash, tx_ro: &heed::RoTxn) -> DbResult<bool> {
-    Ok(TX_IDS.get().unwrap().get(tx_ro, tx_hash)?.is_some())
+pub fn tx_exists(db: &Blockchain, tx_hash: &TxHash, tx_ro: &heed::RoTxn) -> DbResult<bool> {
+    Ok(db.tx_ids.get(tx_ro, tx_hash)?.is_some())
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

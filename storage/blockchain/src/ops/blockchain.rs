@@ -3,8 +3,10 @@
 use heed::Error;
 use std::io;
 //---------------------------------------------------------------------------------------------------- Import
-use crate::database::{ALT_BLOCK_HEIGHTS, BLOCK_HEIGHTS};
+
 use crate::error::{BlockchainError, DbResult};
+use crate::types::{Hash32Bytes, HeedUsize};
+use crate::Blockchain;
 use crate::{
     ops::{block, macros::doc_error},
     types::{BlockHash, BlockHeight},
@@ -23,13 +25,9 @@ use crate::{
 /// So the height of a new block would be `chain_height()`.
 #[doc = doc_error!()]
 #[inline]
-pub fn chain_height(tx_ro: &heed::RoTxn) -> DbResult<BlockHeight> {
+pub fn chain_height(db: &Blockchain, tx_ro: &heed::RoTxn) -> DbResult<BlockHeight> {
     #[expect(clippy::cast_possible_truncation, reason = "we enforce 64-bit")]
-    Ok(BLOCK_HEIGHTS
-        .get()
-        .unwrap()
-        .len(tx_ro)
-        .map(|height| height as usize)?)
+    Ok(db.block_heights.len(tx_ro)? as BlockHeight)
 }
 
 /// Retrieve the height of the top block.
@@ -46,8 +44,8 @@ pub fn chain_height(tx_ro: &heed::RoTxn) -> DbResult<BlockHeight> {
 ///
 #[doc = doc_error!()]
 #[inline]
-pub fn top_block_height(tx_ro: &heed::RoTxn) -> DbResult<BlockHeight> {
-    match chain_height(tx_ro)? {
+pub fn top_block_height(db: &Blockchain, tx_ro: &heed::RoTxn) -> DbResult<BlockHeight> {
+    match chain_height(db, tx_ro)? {
         0 => Err(BlockchainError::NotFound),
         #[expect(clippy::cast_possible_truncation, reason = "we enforce 64-bit")]
         height => Ok(height - 1),
@@ -67,6 +65,7 @@ pub fn top_block_height(tx_ro: &heed::RoTxn) -> DbResult<BlockHeight> {
 #[doc = doc_error!()]
 #[inline]
 pub fn find_split_point(
+    db: &Blockchain,
     block_ids: &[BlockHash],
     chronological_order: bool,
     include_alt_blocks: bool,
@@ -75,12 +74,10 @@ pub fn find_split_point(
     let mut err = None;
 
     let block_exists = |block_id| {
-        block::block_exists(&block_id, tx_ro).and_then(|exists| {
+        block::block_exists(db, &block_id, tx_ro).and_then(|exists| {
             Ok(exists
                 | (include_alt_blocks
-                    & ALT_BLOCK_HEIGHTS
-                        .get()
-                        .unwrap()
+                    & db.alt_block_heights
                         .get(tx_ro, &block_id)?
                         .is_some()))
         })
