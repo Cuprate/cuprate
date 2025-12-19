@@ -128,12 +128,10 @@ async fn get_blocks(
         removed_pool_txids: Default::default(),
     };
 
-    /*
     if !get_blocks {
         return Ok(resp);
     }
 
-     */
 
     if let Some(block_id) = block_hashes.first() {
         let (height, hash) = helper::top_height(&mut state).await?;

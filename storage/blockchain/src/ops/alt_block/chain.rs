@@ -29,21 +29,36 @@ pub fn update_alt_chain_info(
         Err(e) => Err(e)?,
     };
 
-    let current_chain_id = alt_block_height.chain_id;
+    let Some(mut info) = db.alt_chain_infos
+        .get(tx_rw, &alt_block_height.chain_id)?
+    else {
+        db.alt_chain_infos.put(
+            tx_rw,
+            &alt_block_height.chain_id,
+            &AltChainInfo {
+                parent_chain: parent_chain.into(),
+                common_ancestor_height: alt_block_height.height.checked_sub(1).unwrap(),
+                chain_height: alt_block_height.height + 1,
+            },
+        )?;
 
-    let mut info = db.alt_chain_infos
-        .get(tx_rw, &current_chain_id)?
-        .unwrap_or(AltChainInfo {
-            parent_chain: parent_chain.into(),
-            common_ancestor_height: 0,
-            chain_height: 0,
-        });
+        return Ok(());
+    };
 
     if info.chain_height < alt_block_height.height + 1 {
+        // If the chain height is increasing we only need to update the chain height.
         info.chain_height = alt_block_height.height + 1;
+    } else {
+        // If the chain height is not increasing we are popping blocks and need to update the
+        // split point.
+        info.common_ancestor_height = alt_block_height.height.checked_sub(1).unwrap();
+        info.parent_chain = parent_chain.into();
     }
 
-    db.alt_chain_infos.put(tx_rw, &current_chain_id, &info)?;
+    db.alt_chain_infos
+        .put(tx_rw, &alt_block_height.chain_id, &info)?;
+
+    db.alt_chain_infos.put(tx_rw, &alt_block_height.chain_id, &info)?;
 
     Ok(())
 }

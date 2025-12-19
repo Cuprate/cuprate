@@ -3,7 +3,6 @@ resolver = "3"
 members = [
 	# Binaries
 	"binaries/cuprated",
-	"binaries/p2p_connect",
 
 	# Consensus
 	"consensus",
@@ -63,7 +62,6 @@ members = [
 default-members = [
 	# Binaries
 	"binaries/cuprated",
-	"binaries/p2p_connect",
 
 	# Consensus
 	"consensus",

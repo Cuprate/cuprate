@@ -93,11 +93,7 @@ pub fn open(config: Config) -> Result<Blockchain, heed::Error> {
         // <https://docs.rs/heed/0.20.0/heed/struct.EnvOpenOptions.html#method.open>
         unsafe { env_open_options.open(&config.data_dir)? }
     };
-/*
-Hello,
 
-I wouldn't class
- */
     let (block_heights, key_images, pre_rct_outputs, tx_ids, tx_outputs, alt_chain_infos, alt_block_heights, alt_blocks_info, alt_block_blobs, alt_transaction_blobs, alt_transaction_infos) = {
         let mut rw_tx = env.write_txn()?;
 
