@@ -1,5 +1,4 @@
 //! Output functions.
-
 use heed::PutFlags;
 //---------------------------------------------------------------------------------------------------- Import
 use cuprate_helper::{cast::u32_to_usize, crypto::compute_zero_commitment, map::u64_to_timelock};
@@ -63,6 +62,47 @@ pub fn add_output(
             tx_idx,
         },
     )?;
+
+    Ok(pre_rct_output_id)
+}
+
+//---------------------------------------------------------------------------------------------------- Pre-RCT Outputs
+/// Add a Pre-RCT [`Output`] to the database.
+///
+/// Upon [`Ok`], this function returns the [`PreRctOutputId`] that
+/// can be used to lookup the `Output` in [`get_output()`].
+///
+#[doc = doc_add_block_inner_invariant!()]
+#[doc = doc_error!()]
+#[inline]
+pub fn add_output_fjall(
+    db: &Blockchain,
+    amount: Amount,
+    key: [u8; 32],
+    height: usize,
+    timelock: u64,
+    tx_idx: TxId,
+    tx_rw: &mut fjall::SingleWriterWriteTx,
+) -> DbResult<PreRctOutputId> {
+
+
+    let num_outputs = u64::from_le_bytes(key[0..8].try_into().unwrap());
+
+    let pre_rct_output_id = PreRctOutputId {
+        amount,
+        // The new `amount_index` is the length of amount of outputs with same amount.
+        amount_index: num_outputs,
+    };
+
+    let data =  Output {
+        amount_index: num_outputs,
+        key,
+        height,
+        timelock,
+        tx_idx,
+    };
+
+    tx_rw.insert(&db.pre_rct_outputs_fjall, amount.to_le_bytes(), bytemuck::bytes_of(&data));
 
     Ok(pre_rct_output_id)
 }

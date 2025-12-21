@@ -9,6 +9,7 @@ use cuprate_types::{
 };
 use heed::MdbError;
 use std::sync::Arc;
+use fjall::PersistMode;
 use tapes::Flush;
 
 use crate::database::TX_INFOS;
@@ -76,10 +77,10 @@ fn write_blocks(db: &Blockchain, blocks: &[VerifiedBlockInformation]) -> Respons
     let mut result = move || {
         let mut numb_transactions = numb_transactions;
 
-        let mut tx_rw = db.dynamic_tables.write_txn()?;
+        let mut tx_rw = db.fjall_keyspace.write_tx();
 
         for block in blocks {
-            crate::ops::block::add_block_to_dynamic_tables(
+            crate::ops::block::add_block_to_dynamic_tables_fjall(
                 db,
                 block,
                 &mut numb_transactions,
@@ -91,7 +92,8 @@ fn write_blocks(db: &Blockchain, blocks: &[VerifiedBlockInformation]) -> Respons
             tapes.flush(Flush::Async)?;
         }
 
-        tx_rw.commit()?;
+        tx_rw.commit().unwrap();
+        db.fjall_keyspace.persist(PersistMode::Buffer).unwrap();
 
         Ok(BlockchainResponse::Ok)
     };

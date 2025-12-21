@@ -37,6 +37,8 @@ pub const BLOCK_INFOS: &str = "block_infos";
 pub struct Blockchain {
     pub(crate) dynamic_tables: heed::Env,
     pub(crate) linear_tapes: Tapes<MmapFile>,
+    pub(crate) fjall_keyspace: fjall::SingleWriterTxDatabase,
+
     pub(crate) block_heights: heed::Database<Hash32Bytes, HeedUsize>,
     pub(crate) key_images: heed::Database<ZeroKey, Hash32Bytes, IntegerComparator>,
     pub(crate) pre_rct_outputs: heed::Database<
@@ -47,6 +49,13 @@ pub struct Blockchain {
     >,
     pub(crate) tx_ids: heed::Database<Hash32Bytes, HeedUsize>,
     pub(crate) tx_outputs: heed::Database<HeedUsize, HeedAmountIndices, IntegerComparator>,
+
+    pub(crate) block_heights_fjall: fjall::SingleWriterTxKeyspace,
+    pub(crate) key_images_fjall: fjall::SingleWriterTxKeyspace,
+    pub(crate) pre_rct_outputs_fjall: fjall::SingleWriterTxKeyspace,
+    pub(crate) tx_ids_fjall: fjall::SingleWriterTxKeyspace,
+    pub(crate) tx_outputs_fjall: fjall::SingleWriterTxKeyspace,
+
     pub(crate) alt_chain_infos: heed::Database<StorableHeed<RawChainId>, StorableHeed<AltChainInfo>>,
     pub(crate) alt_block_heights: heed::Database<Hash32Bytes, StorableHeed<AltBlockHeight>>,
     pub(crate) alt_blocks_info: heed::Database<StorableHeed<AltBlockHeight>, StorableHeed<CompactAltBlockInfo>>,

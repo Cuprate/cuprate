@@ -9,6 +9,7 @@
 )]
 
 //---------------------------------------------------------------------------------------------------- Import
+use fjall::Readable;
 use bytes::Bytes;
 use indexmap::{IndexMap, IndexSet};
 use itertools::Itertools;
@@ -67,6 +68,7 @@ use crate::{
     },
     Blockchain,
 };
+use crate::ops::blockchain::find_split_point_fjall;
 
 //---------------------------------------------------------------------------------------------------- init_read_service
 /// Initialize the [`BlockchainReadHandle`] thread-pool backed by [`rayon`].
@@ -836,16 +838,16 @@ fn next_chain_entry(
 /// the returned result is unspecified and meaningless, as this function
 /// performs a binary search.
 fn find_first_unknown(db: &Blockchain, block_ids: &[BlockHash]) -> ResponseResult {
-    let tx_ro = db.dynamic_tables.read_txn()?;
+    let tx_ro = db.fjall_keyspace.read_tx();
 
-    let idx = find_split_point(db, block_ids, true, true, &tx_ro)?;
+    let idx = find_split_point_fjall(db, block_ids, true, true, &tx_ro)?;
 
     Ok(if idx == block_ids.len() {
         BlockchainResponse::FindFirstUnknown(None)
     } else if idx == 0 {
         BlockchainResponse::FindFirstUnknown(Some((0, 0)))
     } else {
-        let last_known_height = get_block_height(db, &block_ids[idx - 1], &tx_ro)?;
+        let last_known_height = usize::from_le_bytes(tx_ro.get(&db.block_heights_fjall,&block_ids[idx - 1] ).unwrap().unwrap().as_ref().try_into().unwrap());
 
         BlockchainResponse::FindFirstUnknown(Some((idx, last_known_height + 1)))
     })

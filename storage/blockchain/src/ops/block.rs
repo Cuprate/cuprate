@@ -6,6 +6,7 @@ use std::io::Write;
 
 use bytemuck::TransparentWrapper;
 use bytes::Bytes;
+use fjall::Readable;
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_helper::{
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
@@ -29,7 +30,7 @@ use crate::database::{
 };
 use crate::error::{BlockchainError, DbResult};
 use crate::Blockchain;
-use crate::ops::tx::{add_tx_to_dynamic_tables, add_tx_to_tapes, remove_tx_from_dynamic_tables};
+use crate::ops::tx::{add_tx_to_dynamic_tables, add_tx_to_dynamic_tables_fjall, add_tx_to_tapes, remove_tx_from_dynamic_tables};
 use crate::types::{Hash32Bytes, RctOutput, TxInfo};
 use crate::{
     ops::{alt_block, blockchain::chain_height, macros::doc_error},
@@ -327,6 +328,68 @@ pub fn add_block_to_dynamic_tables(
 
     Ok(())
 }
+
+/// Add a [`VerifiedBlockInformation`] to the database.
+///
+/// This extracts all the data from the input block and
+/// maps/adds them to the appropriate database tables.
+///
+#[doc = doc_error!()]
+///
+/// # Panics
+/// This function will panic if:
+/// - `block.height > u32::MAX` (not normally possible)
+/// - `block.height` is != [`chain_height`]
+// no inline, too big.
+pub fn add_block_to_dynamic_tables_fjall(
+    db: &Blockchain,
+    block: &VerifiedBlockInformation,
+    numb_transactions: &mut usize,
+    tx_rw: &mut fjall::SingleWriterWriteTx,
+) -> DbResult<()> {
+    //------------------------------------------------------ Check preconditions first
+
+    // Cast height to `u32` for storage (handled at top of function).
+    // Panic (should never happen) instead of allowing DB corruption.
+    // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1560020991>
+    assert!(
+        u32::try_from(block.height).is_ok(),
+        "block.height ({}) > u32::MAX",
+        block.height,
+    );
+
+    let chain_height = tx_rw.last_key_value(&db.block_heights_fjall).map_or(0, |kv| usize::from_le_bytes(kv.value().unwrap().as_ref().try_into().unwrap()));
+
+    //------------------------------------------------------ Transaction / Outputs / Key Images
+    // Add the miner transaction first.
+    let tx = block.block.miner_transaction();
+    add_tx_to_dynamic_tables_fjall(
+        db,
+        &tx.clone().into(),
+        *numb_transactions,
+        &tx.hash(),
+        &chain_height,
+        tx_rw,
+    )?;
+    *numb_transactions += 1;
+
+    for tx in &block.txs {
+        add_tx_to_dynamic_tables_fjall(
+            db,
+            &tx.tx,
+            *numb_transactions,
+            &tx.tx_hash,
+            &chain_height,
+            tx_rw,
+        )?;
+        *numb_transactions += 1;
+    }
+
+    tx_rw.insert(&db.block_heights_fjall, &block.block_hash, &block.height.to_le_bytes());
+
+    Ok(())
+}
+
 
 //---------------------------------------------------------------------------------------------------- `pop_block`
 /// Remove the top/latest block from the database.

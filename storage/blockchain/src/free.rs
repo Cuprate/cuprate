@@ -1,5 +1,6 @@
 //! General free functions (related to the database).
 
+use fjall::{CompressionType, KeyspaceCreateOptions};
 use heed::{DatabaseFlags, DefaultComparator, EnvFlags, EnvOpenOptions, IntegerComparator};
 //---------------------------------------------------------------------------------------------------- Import
 use tapes::{MmapFileOpenOption, Tapes};
@@ -153,6 +154,16 @@ pub fn open(config: Config) -> Result<Blockchain, heed::Error> {
         (block_heights, key_images, pre_rct_outputs, tx_ids, tx_outputs, alt_chain_infos, alt_block_heights, alt_blocks_info, alt_block_blobs, alt_transaction_blobs, alt_transaction_infos)
     };
 
+
+    let fjall_keyspace = fjall::SingleWriterTxDatabase::builder(&config.data_dir).manual_journal_persist(true).max_write_buffer_size(512 * 1024 * 1024).open().unwrap();
+
+      let block_heights_fjall = fjall_keyspace.keyspace("BLOCK_HEIGHTS",|| KeyspaceCreateOptions::default().manual_journal_persist(true).max_memtable_size(512 * 1024 * 1024)).unwrap();
+        let key_images_fjall = fjall_keyspace.keyspace("key_images_fjall", || KeyspaceCreateOptions::default().manual_journal_persist(true).max_memtable_size(512 * 1024 * 1024)).unwrap();
+        let pre_rct_outputs_fjall = fjall_keyspace.keyspace("pre_rct_outputs_fjall", || KeyspaceCreateOptions::default().manual_journal_persist(true).max_memtable_size(512 * 1024 * 1024)).unwrap();
+        let tx_ids_fjall = fjall_keyspace.keyspace("tx_ids_fjall", || KeyspaceCreateOptions::default().manual_journal_persist(true).max_memtable_size(512 * 1024 * 1024)).unwrap();
+        let tx_outputs_fjall = fjall_keyspace.keyspace("tx_outputs_fjall", || KeyspaceCreateOptions::default().manual_journal_persist(true).max_memtable_size(512 * 1024 * 1024)).unwrap();
+
+
     let tapes = linear_tapes_config(config.data_dir.clone(), config.blob_data_dir);
 
     let linear_tapes = unsafe {
@@ -168,12 +179,18 @@ pub fn open(config: Config) -> Result<Blockchain, heed::Error> {
     tracing::debug!("opened db");
     Ok(Blockchain {
         dynamic_tables: env,
+        fjall_keyspace,
         linear_tapes,
         block_heights,
         key_images,
         pre_rct_outputs,
         tx_ids,
         tx_outputs,
+        block_heights_fjall,
+        key_images_fjall,
+        pre_rct_outputs_fjall,
+        tx_ids_fjall,
+        tx_outputs_fjall,
         alt_chain_infos,
         alt_block_heights,
         alt_blocks_info,

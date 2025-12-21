@@ -433,3 +433,190 @@ async fn recover_bad_reorg() {
         manager_1.blockchain_context_service.blockchain_context()
     );
 }
+
+#[tokio::test]
+async fn reorg_back() {
+    println!("tes");
+
+    // create 2 managers
+    let data_dir_1 = tempfile::tempdir().unwrap();
+    let mut manager_1 = mock_manager(data_dir_1.path().to_path_buf()).await;
+
+    let data_dir_2 = tempfile::tempdir().unwrap();
+    let mut manager_2 = mock_manager(data_dir_2.path().to_path_buf()).await;
+
+    let context_1 = manager_1
+        .blockchain_context_service
+        .blockchain_context()
+        .clone();
+
+    // build the main chain on both managers
+    let block_1 = generate_block(&context_1);
+
+    let (tx, rx) = oneshot::channel();
+    manager_1
+        .handle_command(BlockchainManagerCommand::AddBlock {
+            block: block_1.clone(),
+            prepped_txs: HashMap::new(),
+            response_tx: tx,
+        })
+        .await;
+    rx.await.unwrap().unwrap();
+
+    let (tx, rx) = oneshot::channel();
+    manager_2
+        .handle_command(BlockchainManagerCommand::AddBlock {
+            block: block_1,
+            prepped_txs: HashMap::new(),
+            response_tx: tx,
+        })
+        .await;
+    rx.await.unwrap().unwrap();
+
+    let context_2 = manager_1
+        .blockchain_context_service
+        .blockchain_context()
+        .clone();
+
+    let block_2 = generate_block(&context_2);
+
+    let (tx, rx) = oneshot::channel();
+    manager_1
+        .handle_command(BlockchainManagerCommand::AddBlock {
+            block: block_2.clone(),
+            prepped_txs: HashMap::new(),
+            response_tx: tx,
+        })
+        .await;
+    rx.await.unwrap().unwrap();
+
+    let (tx, rx) = oneshot::channel();
+    manager_2
+        .handle_command(BlockchainManagerCommand::AddBlock {
+            block: block_2.clone(),
+            prepped_txs: HashMap::new(),
+            response_tx: tx,
+        })
+        .await;
+    rx.await.unwrap().unwrap();
+
+    assert_eq!(
+        manager_1.blockchain_context_service.blockchain_context(),
+        manager_2.blockchain_context_service.blockchain_context()
+    );
+
+    // manager_1 builds the alt chain and reorgs
+    let block_1_alt = generate_block(&context_1);
+
+    let (tx, rx) = oneshot::channel();
+    manager_1
+        .handle_command(BlockchainManagerCommand::AddBlock {
+            block: block_1_alt.clone(),
+            prepped_txs: HashMap::new(),
+            response_tx: tx,
+        })
+        .await;
+    rx.await.unwrap().unwrap();
+
+    let mut block_2_alt = generate_block(&context_2);
+    block_2_alt.header.previous = block_1_alt.hash();
+
+    let (tx, rx) = oneshot::channel();
+    manager_1
+        .handle_command(BlockchainManagerCommand::AddBlock {
+            block: block_2_alt.clone(),
+            prepped_txs: HashMap::new(),
+            response_tx: tx,
+        })
+        .await;
+    rx.await.unwrap().unwrap();
+
+    let mut block_3_alt = generate_block(manager_1.blockchain_context_service.blockchain_context());
+    block_3_alt.header.previous = block_2_alt.hash();
+
+    let (tx, rx) = oneshot::channel();
+    manager_1
+        .handle_command(BlockchainManagerCommand::AddBlock {
+            block: block_3_alt,
+            prepped_txs: HashMap::new(),
+            response_tx: tx,
+        })
+        .await;
+    rx.await.unwrap().unwrap();
+
+    // manager_1 reorged to alt chain
+    assert_ne!(
+        manager_1.blockchain_context_service.blockchain_context(),
+        manager_2.blockchain_context_service.blockchain_context()
+    );
+    assert_eq!(
+        manager_1
+            .blockchain_context_service
+            .blockchain_context()
+            .chain_height,
+        4
+    );
+
+    // extend the main chain on both managers
+    let mut block_3 = generate_block(&manager_2.blockchain_context_service.blockchain_context());
+    block_3.header.previous = block_2.hash();
+
+    let (tx, rx) = oneshot::channel();
+    manager_1
+        .handle_command(BlockchainManagerCommand::AddBlock {
+            block: block_3.clone(),
+            prepped_txs: HashMap::new(),
+            response_tx: tx,
+        })
+        .await;
+    assert!(rx.await.is_ok());
+
+    let (tx, rx) = oneshot::channel();
+    manager_2
+        .handle_command(BlockchainManagerCommand::AddBlock {
+            block: block_3.clone(),
+            prepped_txs: HashMap::new(),
+            response_tx: tx,
+        })
+        .await;
+    assert!(rx.await.is_ok());
+
+    let mut block_4 = generate_block(manager_2.blockchain_context_service.blockchain_context());
+    block_4.header.previous = block_3.hash();
+
+    println!("m1");
+    let (tx, rx) = oneshot::channel();
+    manager_1
+        .handle_command(BlockchainManagerCommand::AddBlock {
+            block: block_4.clone(),
+            prepped_txs: HashMap::new(),
+            response_tx: tx,
+        })
+        .await;
+    rx.await.unwrap().unwrap();
+
+    println!("m2");
+
+    let (tx, rx) = oneshot::channel();
+    manager_2
+        .handle_command(BlockchainManagerCommand::AddBlock {
+            block: block_4,
+            prepped_txs: HashMap::new(),
+            response_tx: tx,
+        })
+        .await;
+    rx.await.unwrap().unwrap();
+
+    // manager_1 should have reorged back to the main chain, matching manager_2
+    assert_eq!(
+        manager_1.blockchain_context_service.blockchain_context(),
+        manager_2.blockchain_context_service.blockchain_context()
+    );
+    assert_eq!(
+        manager_1
+            .blockchain_context_service
+            .blockchain_context()
+            .chain_height,
+        5
+    );
+}

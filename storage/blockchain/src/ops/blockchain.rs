@@ -2,6 +2,7 @@
 
 use heed::Error;
 use std::io;
+use fjall::Readable;
 //---------------------------------------------------------------------------------------------------- Import
 
 use crate::error::{BlockchainError, DbResult};
@@ -101,6 +102,41 @@ pub fn find_split_point(
 
     Ok(idx)
 }
+
+pub fn find_split_point_fjall(
+    db: &Blockchain,
+    block_ids: &[BlockHash],
+    chronological_order: bool,
+    include_alt_blocks: bool,
+    tx_ro: &fjall::Snapshot,
+) -> DbResult<usize> {
+    let mut err = None;
+
+    let block_exists = |block_id| {
+        tx_ro.contains_key(&db.block_heights_fjall, &block_id).and_then(|exists| {
+            Ok(exists)
+        })
+    };
+
+    // Do a binary search to find the first unknown/known block in the batch.
+    let idx = block_ids.partition_point(|block_id| {
+        match block_exists(*block_id) {
+            Ok(exists) => exists == chronological_order,
+            Err(e) => {
+                err.get_or_insert(e);
+                // if this happens the search is scrapped, just return `false` back.
+                false
+            }
+        }
+    });
+
+    if let Some(e) = err {
+        panic!();
+    }
+
+    Ok(idx)
+}
+
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]

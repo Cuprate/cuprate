@@ -24,6 +24,7 @@ use crate::{
     },
     types::{BlockHeight, Output, PreRctOutputId, RctOutput, TxHash, TxId},
 };
+use crate::ops::output::add_output_fjall;
 
 //---------------------------------------------------------------------------------------------------- Private
 /// Add a [`Transaction`] (and related data) to the database.
@@ -199,6 +200,69 @@ pub fn add_tx_to_dynamic_tables(
 
     Ok(())
 }
+
+pub fn add_tx_to_dynamic_tables_fjall(
+    db: &Blockchain,
+    tx: &Transaction<Pruned>,
+    tx_id: TxId,
+    tx_hash: &TxHash,
+    height: &BlockHeight,
+    tx_rw: &mut fjall::SingleWriterWriteTx,
+) -> DbResult<()> {
+    tx_rw.insert(&db.tx_ids_fjall, tx_hash, tx_id.to_le_bytes());
+
+    //------------------------------------------------------ Timelocks
+    // Height/time is not differentiated via type, but rather:
+    // "height is any value less than 500_000_000 and timestamp is any value above"
+    // so the `u64/usize` is stored without any tag.
+    //
+    // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1558504285>
+    let time_lock = match tx.prefix().additional_timelock {
+        Timelock::None => 0,
+        Timelock::Block(height) => height as u64,
+        Timelock::Time(time) => time,
+    };
+
+    for inputs in &tx.prefix().inputs {
+        match inputs {
+            // Key images.
+            Input::ToKey { key_image, .. } => {
+                tx_rw.insert(&db.key_images_fjall, key_image.as_bytes(), &[]);
+            }
+            // This is a miner transaction.
+            Input::Gen(_) => (),
+        }
+    }
+
+    match &tx {
+        Transaction::V1 { prefix, .. } => {
+            let amount_indices = prefix
+                .outputs
+                .iter()
+                .map(|output| {
+                    // Pre-RingCT outputs.
+                    Ok(add_output_fjall(
+                        db,
+                        output.amount.unwrap_or(0),
+                        output.key.0,
+                        *height,
+                        time_lock,
+                        tx_id,
+                        tx_rw,
+                    )?
+                        .amount_index)
+                })
+                .collect::<DbResult<Vec<_>>>()?;
+
+            tx_rw.insert(&db.tx_outputs_fjall, &tx_id.to_le_bytes(), bytemuck::cast_slice::<_, u8>(&amount_indices));
+
+        }
+        Transaction::V2 { .. } => return Ok(()),
+    };
+
+    Ok(())
+}
+
 
 /// Remove a transaction from the database with its [`TxHash`].
 ///
