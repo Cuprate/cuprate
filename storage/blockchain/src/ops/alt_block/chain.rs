@@ -58,8 +58,6 @@ pub fn update_alt_chain_info(
     db.alt_chain_infos
         .put(tx_rw, &alt_block_height.chain_id, &info)?;
 
-    db.alt_chain_infos.put(tx_rw, &alt_block_height.chain_id, &info)?;
-
     Ok(())
 }
 

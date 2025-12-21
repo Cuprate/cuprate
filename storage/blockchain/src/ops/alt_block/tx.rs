@@ -35,7 +35,7 @@ pub fn add_alt_transaction_blob(
         },
     )?;
 
-    if db.tx_ids.get(tx_rw, &tx.tx_hash).is_ok()
+    if db.tx_ids.get(tx_rw, &tx.tx_hash).as_ref().is_ok_and(Option::is_some)
         || db.alt_transaction_blobs
             .get(tx_rw, &tx.tx_hash)
             .as_ref()
@@ -67,11 +67,11 @@ pub fn get_alt_transaction(
 ) -> DbResult<VerifiedTransactionInformation> {
     let tx_info = db.alt_transaction_infos
         .get(tx_ro, tx_hash)?
-        .ok_or(BlockchainError::NotFound)?;
+        .ok_or(BlockchainError::NotFound).unwrap();
 
-    let tx = match db.alt_transaction_blobs.get(tx_ro, tx_hash)? {
+    let tx = match db.alt_transaction_blobs.get(tx_ro, tx_hash).unwrap() {
         Some(mut tx_blob) => Transaction::read(&mut tx_blob).unwrap(),
-        None => get_tx(db, tx_hash, tx_ro, tapes)?,
+        None => get_tx(db, tx_hash, tx_ro, tapes).unwrap(),
     };
 
     let tx_weight = tx_info.tx_weight;
