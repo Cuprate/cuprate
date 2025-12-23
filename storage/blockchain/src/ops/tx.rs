@@ -1,12 +1,13 @@
 //! Transaction functions.
 
+use std::collections::HashMap;
 //---------------------------------------------------------------------------------------------------- Import
 use std::io::Read;
 
 use bytemuck::TransparentWrapper;
+use fjall::Readable;
 use cuprate_database_service::RuntimeError;
 use cuprate_helper::crypto::compute_zero_commitment;
-use heed::PutFlags;
 use monero_oxide::transaction::{Input, Pruned, Timelock, Transaction};
 use tapes::MmapFile;
 
@@ -16,7 +17,7 @@ use crate::database::{
 };
 use crate::error::{BlockchainError, DbResult};
 use crate::Blockchain;
-use crate::types::{TxInfo, ZeroKey};
+use crate::types::{Amount, TxInfo};
 use crate::{
     ops::{
         macros::{doc_add_block_inner_invariant, doc_error},
@@ -24,7 +25,6 @@ use crate::{
     },
     types::{BlockHeight, Output, PreRctOutputId, RctOutput, TxHash, TxId},
 };
-use crate::ops::output::add_output_fjall;
 
 //---------------------------------------------------------------------------------------------------- Private
 /// Add a [`Transaction`] (and related data) to the database.
@@ -136,78 +136,8 @@ pub fn add_tx_to_dynamic_tables(
     tx_id: TxId,
     tx_hash: &TxHash,
     height: &BlockHeight,
-    tx_rw: &mut heed::RwTxn,
-) -> DbResult<()> {
-    db.tx_ids.put(tx_rw, tx_hash, &tx_id)?;
-
-    //------------------------------------------------------ Timelocks
-    // Height/time is not differentiated via type, but rather:
-    // "height is any value less than 500_000_000 and timestamp is any value above"
-    // so the `u64/usize` is stored without any tag.
-    //
-    // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1558504285>
-    let time_lock = match tx.prefix().additional_timelock {
-        Timelock::None => 0,
-        Timelock::Block(height) => height as u64,
-        Timelock::Time(time) => time,
-    };
-
-    for inputs in &tx.prefix().inputs {
-        match inputs {
-            // Key images.
-            Input::ToKey { key_image, .. } => {
-                db.key_images.put_with_flags(
-                    tx_rw,
-                    PutFlags::NO_DUP_DATA,
-                    &ZeroKey,
-                    key_image.as_bytes(),
-                )?;
-            }
-            // This is a miner transaction.
-            Input::Gen(_) => (),
-        }
-    }
-
-    match &tx {
-        Transaction::V1 { prefix, .. } => {
-            let amount_indices = prefix
-                .outputs
-                .iter()
-                .map(|output| {
-                    // Pre-RingCT outputs.
-                    Ok(add_output(
-                        db,
-                        output.amount.unwrap_or(0),
-                        output.key.0,
-                        *height,
-                        time_lock,
-                        tx_id,
-                        tx_rw,
-                    )?
-                    .amount_index)
-                })
-                .collect::<DbResult<Vec<_>>>()?;
-
-            db.tx_outputs.put_with_flags(
-                tx_rw,
-                PutFlags::APPEND,
-                &tx_id,
-                &amount_indices,
-            )?;
-        }
-        Transaction::V2 { .. } => return Ok(()),
-    };
-
-    Ok(())
-}
-
-pub fn add_tx_to_dynamic_tables_fjall(
-    db: &Blockchain,
-    tx: &Transaction<Pruned>,
-    tx_id: TxId,
-    tx_hash: &TxHash,
-    height: &BlockHeight,
     tx_rw: &mut fjall::SingleWriterWriteTx,
+    pre_rct_numb_outputs_cache: &mut HashMap<Amount, u64>,
 ) -> DbResult<()> {
     tx_rw.insert(&db.tx_ids_fjall, tx_hash, tx_id.to_le_bytes());
 
@@ -217,7 +147,7 @@ pub fn add_tx_to_dynamic_tables_fjall(
     // so the `u64/usize` is stored without any tag.
     //
     // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1558504285>
-    let time_lock = match tx.prefix().additional_timelock {
+    let timelock = match tx.prefix().additional_timelock {
         Timelock::None => 0,
         Timelock::Block(height) => height as u64,
         Timelock::Time(time) => time,
@@ -241,14 +171,17 @@ pub fn add_tx_to_dynamic_tables_fjall(
                 .iter()
                 .map(|output| {
                     // Pre-RingCT outputs.
-                    Ok(add_output_fjall(
+                    Ok(add_output(
                         db,
                         output.amount.unwrap_or(0),
-                        output.key.0,
-                        *height,
-                        time_lock,
-                        tx_id,
+                        &Output {
+                            key: output.key.0,
+                            height: *height,
+                            timelock,
+                            tx_idx: tx_id,
+                        },
                         tx_rw,
+                        pre_rct_numb_outputs_cache,
                     )?
                         .amount_index)
                 })
@@ -285,13 +218,14 @@ pub fn remove_tx_from_dynamic_tables(
     db: &Blockchain,
     tx_hash: &TxHash,
     height: BlockHeight,
-    tx_rw: &mut heed::RwTxn,
+    tx_rw: &mut fjall::SingleWriterWriteTx,
     tapes: &tapes::Popper<MmapFile>,
 ) -> DbResult<(TxId, Transaction)> {
+    todo!()
+    /*
     //------------------------------------------------------ Transaction data
-    let tx_id = db.tx_ids
-        .get(tx_rw, tx_hash)?
-        .ok_or(BlockchainError::NotFound)?;
+    let tx_id = usize::from_le_bytes( tx_rw.get(db.tx_ids_fjall, tx_hash).expect("TODO")
+        .ok_or(BlockchainError::NotFound)?.as_ref().try_into().unwrap());
 
     //------------------------------------------------------ Unlock Time
     let tx_info = *tapes
@@ -324,11 +258,7 @@ pub fn remove_tx_from_dynamic_tables(
         match inputs {
             // Key images.
             Input::ToKey { key_image, .. } => {
-                db.key_images.delete_one_duplicate(
-                    tx_rw,
-                    &ZeroKey,
-                    key_image.as_bytes(),
-                )?;
+                tx_rw.remove(&db.key_images_fjall, key_image.as_bytes())?;
             }
             // This is a miner transaction, set it for later use.
             Input::Gen(_) => (),
@@ -349,10 +279,12 @@ pub fn remove_tx_from_dynamic_tables(
             }
         }
 
-        db.tx_outputs.delete(tx_rw, &tx_id)?;
+        tx_rw.remove(&db.tx_outputs_fjall, &tx_id);
     }
 
     Ok((tx_id, tx))
+
+     */
 }
 
 //---------------------------------------------------------------------------------------------------- `get_tx_*`
@@ -362,13 +294,13 @@ pub fn remove_tx_from_dynamic_tables(
 pub fn get_tx(
     db: &Blockchain,
     tx_hash: &TxHash,
-    tx_ro: &heed::RoTxn,
+    tx_ro: &fjall::Snapshot,
     tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<Transaction> {
+    let tx_id = tx_ro.get(&db.tx_ids_fjall, tx_hash).expect("TODO").ok_or(BlockchainError::NotFound)?;
+
     get_tx_from_id(
-        &db.tx_ids
-            .get(tx_ro, tx_hash)?
-            .ok_or(BlockchainError::NotFound)?,
+        &usize::from_le_bytes(tx_id.as_ref().try_into().unwrap()),
         tapes,
     )
 }
@@ -438,8 +370,8 @@ pub fn get_tx_blob_from_id(tx_id: &TxId, tapes: &tapes::Reader<MmapFile>) -> DbR
 /// - etc
 #[doc = doc_error!()]
 #[inline]
-pub fn get_num_tx(db: &Blockchain, tx_ro: &heed::RoTxn) -> DbResult<u64> {
-    Ok(db.tx_ids.len(tx_ro)?)
+pub fn get_num_tx(db: &Blockchain, tx_ro: &fjall::Snapshot) -> DbResult<u64> {
+    Ok(tx_ro.len(&db.tx_ids_fjall).expect("TODO") as u64)
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -448,8 +380,8 @@ pub fn get_num_tx(db: &Blockchain, tx_ro: &heed::RoTxn) -> DbResult<u64> {
 /// Returns `true` if it does, else `false`.
 #[doc = doc_error!()]
 #[inline]
-pub fn tx_exists(db: &Blockchain, tx_hash: &TxHash, tx_ro: &heed::RoTxn) -> DbResult<bool> {
-    Ok(db.tx_ids.get(tx_ro, tx_hash)?.is_some())
+pub fn tx_exists(db: &Blockchain, tx_hash: &TxHash, tx_ro: &fjall::Snapshot) -> DbResult<bool> {
+    Ok(tx_ro.contains_key(&db.tx_ids_fjall, tx_hash).expect("TODO"))
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

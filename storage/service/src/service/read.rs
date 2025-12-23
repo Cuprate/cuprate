@@ -87,7 +87,7 @@ where
         // such that any `rayon` parallel code that runs within
         // the passed closure uses the same `rayon` threadpool.
         self.pool.spawn(move || {
-            drop(response_sender.send(handler(req)));
+            drop(response_sender.send(handler(req).inspect_err(|e| tracing::error!("{:?}", e))));
         });
 
         InfallibleOneshotReceiver::from(receiver)

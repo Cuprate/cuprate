@@ -7,7 +7,6 @@ use cuprate_types::{
     blockchain::{BlockchainResponse, BlockchainWriteRequest},
     AltBlockInformation, ChainId, VerifiedBlockInformation,
 };
-use heed::MdbError;
 use std::sync::Arc;
 use fjall::PersistMode;
 use tapes::Flush;
@@ -74,17 +73,20 @@ fn write_blocks(db: &Blockchain, blocks: &[VerifiedBlockInformation]) -> Respons
 
     let mut tapes = Some(tapes);
 
+    let mut pre_rct_numb_outputs_cache = db.pre_rct_numb_outputs_cache.lock().unwrap();
+
     let mut result = move || {
         let mut numb_transactions = numb_transactions;
 
-        let mut tx_rw = db.fjall_keyspace.write_tx();
+        let mut tx_rw = db.fjall_keyspace.write_tx().durability(Some(PersistMode::Buffer));
 
         for block in blocks {
-            crate::ops::block::add_block_to_dynamic_tables_fjall(
+            crate::ops::block::add_block_to_dynamic_tables(
                 db,
                 block,
                 &mut numb_transactions,
                 &mut tx_rw,
+                &mut pre_rct_numb_outputs_cache
             )?;
         }
 
@@ -93,7 +95,6 @@ fn write_blocks(db: &Blockchain, blocks: &[VerifiedBlockInformation]) -> Respons
         }
 
         tx_rw.commit().unwrap();
-        db.fjall_keyspace.persist(PersistMode::Buffer).unwrap();
 
         Ok(BlockchainResponse::Ok)
     };
@@ -101,13 +102,6 @@ fn write_blocks(db: &Blockchain, blocks: &[VerifiedBlockInformation]) -> Respons
     loop {
         let result = result();
 
-        if matches!(
-            result,
-            Err(BlockchainError::Heed(heed::Error::Mdb(MdbError::MapFull)))
-        ) {
-            todo!();
-            continue;
-        }
 
         return result;
     }
@@ -116,6 +110,8 @@ fn write_blocks(db: &Blockchain, blocks: &[VerifiedBlockInformation]) -> Respons
 /// [`BlockchainWriteRequest::WriteAltBlock`].
 #[inline]
 fn write_alt_block(db: &Blockchain, block: &AltBlockInformation) -> ResponseResult {
+    todo!()
+    /*
     let result = || {
         let mut tx_rw = db.dynamic_tables.write_txn()?;
 
@@ -139,10 +135,14 @@ fn write_alt_block(db: &Blockchain, block: &AltBlockInformation) -> ResponseResu
 
         return result;
     }
+
+     */
 }
 
 /// [`BlockchainWriteRequest::PopBlocks`].
 fn pop_blocks(db: &Blockchain, numb_blocks: usize) -> ResponseResult {
+    todo!()
+    /*
     // FIXME: turn this function into a try block once stable.
     let mut result = || {
         let mut tx_rw = db.dynamic_tables.write_txn()?;
@@ -177,11 +177,15 @@ fn pop_blocks(db: &Blockchain, numb_blocks: usize) -> ResponseResult {
 
         return result;
     }
+
+     */
 }
 
 /// [`BlockchainWriteRequest::FlushAltBlocks`].
 #[inline]
 fn flush_alt_blocks(db: &Blockchain) -> ResponseResult {
+    Ok(BlockchainResponse::Ok)
+    /*
     let result = || {
         let mut tx_rw = db.dynamic_tables.write_txn()?;
 
@@ -205,4 +209,6 @@ fn flush_alt_blocks(db: &Blockchain) -> ResponseResult {
 
         return result;
     }
+
+     */
 }

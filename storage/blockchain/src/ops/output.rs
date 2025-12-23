@@ -1,5 +1,8 @@
 //! Output functions.
-use heed::PutFlags;
+
+use std::collections::HashMap;
+use std::ops::AddAssign;
+use fjall::Readable;
 //---------------------------------------------------------------------------------------------------- Import
 use cuprate_helper::{cast::u32_to_usize, crypto::compute_zero_commitment, map::u64_to_timelock};
 use cuprate_types::OutputOnChain;
@@ -18,6 +21,20 @@ use crate::{
     types::{Amount, AmountIndex, Output, PreRctOutputId, RctOutput},
 };
 
+fn pre_rct_output_id_to_bytes(pre_rct_output_id: &PreRctOutputId) -> [u8; 16] {
+    let mut buf = [0; 16];
+    buf[..8].copy_from_slice(&pre_rct_output_id.amount.to_be_bytes());
+    buf[8..].copy_from_slice(&pre_rct_output_id.amount_index.to_be_bytes());
+    buf
+}
+
+fn bytes_to_pre_rct_output_id(bytes: &[u8; 16]) -> PreRctOutputId {
+    PreRctOutputId {
+        amount: Amount::from_be_bytes(bytes[..8].try_into().unwrap()),
+        amount_index: AmountIndex::from_be_bytes(bytes[8..].try_into().unwrap()),
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- Pre-RCT Outputs
 /// Add a Pre-RCT [`Output`] to the database.
 ///
@@ -30,79 +47,23 @@ use crate::{
 pub fn add_output(
     db: &Blockchain,
     amount: Amount,
-    key: [u8; 32],
-    height: usize,
-    timelock: u64,
-    tx_idx: TxId,
-    tx_rw: &mut heed::RwTxn,
-) -> DbResult<PreRctOutputId> {
-    let num_outputs = if let Some(mut rw_iter) = db.pre_rct_outputs
-        .get_duplicates(tx_rw, &amount)?
-    {
-        rw_iter.last().unwrap()?.1.amount_index + 1
-    } else {
-        0
-    };
-
-    let pre_rct_output_id = PreRctOutputId {
-        amount,
-        // The new `amount_index` is the length of amount of outputs with same amount.
-        amount_index: num_outputs,
-    };
-
-    db.pre_rct_outputs.put_with_flags(
-        tx_rw,
-        PutFlags::APPEND_DUP,
-        &amount,
-        &Output {
-            amount_index: num_outputs,
-            key,
-            height,
-            timelock,
-            tx_idx,
-        },
-    )?;
-
-    Ok(pre_rct_output_id)
-}
-
-//---------------------------------------------------------------------------------------------------- Pre-RCT Outputs
-/// Add a Pre-RCT [`Output`] to the database.
-///
-/// Upon [`Ok`], this function returns the [`PreRctOutputId`] that
-/// can be used to lookup the `Output` in [`get_output()`].
-///
-#[doc = doc_add_block_inner_invariant!()]
-#[doc = doc_error!()]
-#[inline]
-pub fn add_output_fjall(
-    db: &Blockchain,
-    amount: Amount,
-    key: [u8; 32],
-    height: usize,
-    timelock: u64,
-    tx_idx: TxId,
+    output: &Output,
     tx_rw: &mut fjall::SingleWriterWriteTx,
+    pre_rct_numb_outputs_cache: &mut HashMap<Amount, u64>,
 ) -> DbResult<PreRctOutputId> {
-
-
-    let num_outputs = u64::from_le_bytes(key[0..8].try_into().unwrap());
+    let num_outputs = pre_rct_numb_outputs_cache.entry(amount).or_insert_with(|| {
+        0 //TODO
+    });
 
     let pre_rct_output_id = PreRctOutputId {
         amount,
         // The new `amount_index` is the length of amount of outputs with same amount.
-        amount_index: num_outputs,
+        amount_index:* num_outputs,
     };
 
-    let data =  Output {
-        amount_index: num_outputs,
-        key,
-        height,
-        timelock,
-        tx_idx,
-    };
+    tx_rw.insert(&db.pre_rct_outputs_fjall, pre_rct_output_id_to_bytes(&pre_rct_output_id), bytemuck::bytes_of(output));
 
-    tx_rw.insert(&db.pre_rct_outputs_fjall, amount.to_le_bytes(), bytemuck::bytes_of(&data));
+    num_outputs.add_assign(1);
 
     Ok(pre_rct_output_id)
 }
@@ -111,39 +72,17 @@ pub fn add_output_fjall(
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
 #[inline]
-pub fn remove_output(db: &Blockchain, amount: Amount, tx_rw: &mut heed::RwTxn) -> DbResult<()> {
-    db.pre_rct_outputs.delete_one_duplicate(
-        tx_rw,
-        &amount,
-        &Output {
-            amount_index: get_num_outputs_with_amount(db, tx_rw, amount)? - 1,
-            key: [0; 32],
-            height: 0,
-            timelock: 0,
-            tx_idx: 0,
-        },
-    )?;
-
-    Ok(())
+pub fn remove_output(db: &Blockchain, amount: Amount, tx_rw: &mut fjall::SingleWriterWriteTx) -> DbResult<()> {
+    todo!()
 }
 
 /// Retrieve a Pre-RCT [`Output`] from the database.
 #[doc = doc_error!()]
 #[inline]
-pub fn get_output(db: &Blockchain, pre_rct_output_id: &PreRctOutputId, tx_ro: &heed::RoTxn) -> DbResult<Output> {
-    db.pre_rct_outputs
-        .get_duplicate(
-            tx_ro,
-            &pre_rct_output_id.amount,
-            &Output {
-                amount_index: pre_rct_output_id.amount_index,
-                key: [0; 32],
-                height: 0,
-                timelock: 0,
-                tx_idx: 0,
-            },
-        )?
-        .ok_or(BlockchainError::NotFound)
+pub fn get_output(db: &Blockchain, pre_rct_output_id: &PreRctOutputId, tx_ro: &fjall::Snapshot) -> DbResult<Output> {
+    let output  = tx_ro.get(&db.pre_rct_outputs_fjall, pre_rct_output_id_to_bytes(pre_rct_output_id)).expect("TODO").ok_or(BlockchainError::NotFound)?;
+
+    Ok(*bytemuck::from_bytes(output.as_ref()))
 }
 
 /// How many pre-RCT [`Output`]s are there?
@@ -151,19 +90,18 @@ pub fn get_output(db: &Blockchain, pre_rct_output_id: &PreRctOutputId, tx_ro: &h
 /// This returns the amount of pre-RCT outputs currently stored.
 #[doc = doc_error!()]
 #[inline]
-pub fn get_num_outputs(db: &Blockchain, tx_ro: &heed::RoTxn) -> DbResult<u64> {
-    Ok(db.pre_rct_outputs.len(tx_ro)?)
+pub fn get_num_outputs(db: &Blockchain, tx_ro: &fjall::Snapshot) -> DbResult<u64> {
+    Ok(tx_ro.len(&db.pre_rct_outputs_fjall).expect("TODO") as u64)
 }
 
 #[inline]
-pub fn get_num_outputs_with_amount(db: &Blockchain, tx_ro: &heed::RoTxn, amount: Amount) -> DbResult<u64> {
-    let outs = db.pre_rct_outputs
-        .get_duplicates(tx_ro, &amount)?;
+pub fn get_num_outputs_with_amount(db: &Blockchain, tx_ro: &fjall::Snapshot, amount: Amount) -> DbResult<u64> {
+    let last_out = tx_ro.prefix(&db.pre_rct_outputs_fjall, &amount.to_be_bytes()).next_back();
 
-    outs.map_or(Ok(0), |o| Ok(o.last().unwrap()?.1.amount_index + 1))
+    last_out.map_or(Ok(0), |o| Ok(u64::from_be_bytes(o.key().expect("TODO")[8..].try_into().unwrap()) + 1))
 }
 
-//---------------------------------------------------------------------------------------------------- Mapping functions
+//-xe--------------------------------------------------------- Mapping functions
 /// Map an [`Output`] to a [`cuprate_types::OutputOnChain`].
 #[doc = doc_error!()]
 pub fn output_to_output_on_chain(
@@ -238,7 +176,7 @@ pub fn id_to_output_on_chain(
     db: &Blockchain,
     id: &PreRctOutputId,
     get_txid: bool,
-    tx_ro: &heed::RoTxn,
+    tx_ro: &fjall::Snapshot,
     tapes: &tapes::Reader<MmapFile>,
     rct_tape: &tapes::FixedSizedTapeSlice<RctOutput>,
 ) -> DbResult<OutputOnChain> {

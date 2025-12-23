@@ -1,13 +1,13 @@
+use std::collections::HashMap;
 use crate::config::Config;
 use crate::types::{
     AltBlockHeight, AltChainInfo, AltTransactionInfo, Amount, AmountIndices, BlockHash,
-    BlockHeight, CompactAltBlockInfo, Hash32Bytes, HeedAmountIndices, HeedUsize, KeyImage, Output,
-    PreRctOutputId, RawChainId, StorableHeed, TxHash, TxId, ZeroKey,
+    BlockHeight, CompactAltBlockInfo, KeyImage, Output,
+    PreRctOutputId, RawChainId, TxHash, TxId,
 };
-use heed::types::U64;
-use heed::{DefaultComparator, IntegerComparator};
 use std::iter::{once, Once};
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
+use fjall::PersistMode;
 use tapes::{Advice, MmapFile, Tape, Tapes};
 
 /// The name of the ringCT outputs tape.
@@ -35,20 +35,8 @@ pub const BLOCK_INFOS: &str = "block_infos";
 
 
 pub struct Blockchain {
-    pub(crate) dynamic_tables: heed::Env,
     pub(crate) linear_tapes: Tapes<MmapFile>,
     pub(crate) fjall_keyspace: fjall::SingleWriterTxDatabase,
-
-    pub(crate) block_heights: heed::Database<Hash32Bytes, HeedUsize>,
-    pub(crate) key_images: heed::Database<ZeroKey, Hash32Bytes, IntegerComparator>,
-    pub(crate) pre_rct_outputs: heed::Database<
-        U64<heed::byteorder::NativeEndian>,
-        Output,
-        IntegerComparator,
-        IntegerComparator,
-    >,
-    pub(crate) tx_ids: heed::Database<Hash32Bytes, HeedUsize>,
-    pub(crate) tx_outputs: heed::Database<HeedUsize, HeedAmountIndices, IntegerComparator>,
 
     pub(crate) block_heights_fjall: fjall::SingleWriterTxKeyspace,
     pub(crate) key_images_fjall: fjall::SingleWriterTxKeyspace,
@@ -56,17 +44,22 @@ pub struct Blockchain {
     pub(crate) tx_ids_fjall: fjall::SingleWriterTxKeyspace,
     pub(crate) tx_outputs_fjall: fjall::SingleWriterTxKeyspace,
 
+    pub(crate) pre_rct_numb_outputs_cache: Mutex<HashMap<Amount, u64>>,
+
+/*
     pub(crate) alt_chain_infos: heed::Database<StorableHeed<RawChainId>, StorableHeed<AltChainInfo>>,
     pub(crate) alt_block_heights: heed::Database<Hash32Bytes, StorableHeed<AltBlockHeight>>,
     pub(crate) alt_blocks_info: heed::Database<StorableHeed<AltBlockHeight>, StorableHeed<CompactAltBlockInfo>>,
     pub(crate) alt_block_blobs: heed::Database<StorableHeed<AltBlockHeight>, heed::types::Bytes>,
     pub(crate) alt_transaction_blobs: heed::Database<Hash32Bytes, heed::types::Bytes>,
     pub(crate) alt_transaction_infos: heed::Database<Hash32Bytes, StorableHeed<AltTransactionInfo>>,
+    
+ */
 }
 
 impl Drop for Blockchain {
     fn drop(&mut self) {
         tracing::info!("Syncing blockchain database to storage.");
-        self.dynamic_tables.force_sync();
+        self.fjall_keyspace.persist(PersistMode::SyncAll);
     }
 }

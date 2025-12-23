@@ -1,12 +1,10 @@
 //! Blockchain functions - chain height, generated coins, etc.
 
-use heed::Error;
 use std::io;
 use fjall::Readable;
 //---------------------------------------------------------------------------------------------------- Import
 
 use crate::error::{BlockchainError, DbResult};
-use crate::types::{Hash32Bytes, HeedUsize};
 use crate::Blockchain;
 use crate::{
     ops::{block, macros::doc_error},
@@ -26,9 +24,9 @@ use crate::{
 /// So the height of a new block would be `chain_height()`.
 #[doc = doc_error!()]
 #[inline]
-pub fn chain_height(db: &Blockchain, tx_ro: &heed::RoTxn) -> DbResult<BlockHeight> {
+pub fn chain_height(db: &Blockchain, tx_ro: &fjall::Snapshot) -> DbResult<BlockHeight> {
     #[expect(clippy::cast_possible_truncation, reason = "we enforce 64-bit")]
-    Ok(db.block_heights.len(tx_ro)? as BlockHeight)
+    Ok(tx_ro.len(&db.block_heights_fjall).expect("TODO"))
 }
 
 /// Retrieve the height of the top block.
@@ -45,7 +43,7 @@ pub fn chain_height(db: &Blockchain, tx_ro: &heed::RoTxn) -> DbResult<BlockHeigh
 ///
 #[doc = doc_error!()]
 #[inline]
-pub fn top_block_height(db: &Blockchain, tx_ro: &heed::RoTxn) -> DbResult<BlockHeight> {
+pub fn top_block_height(db: &Blockchain, tx_ro: &fjall::Snapshot) -> DbResult<BlockHeight> {
     match chain_height(db, tx_ro)? {
         0 => Err(BlockchainError::NotFound),
         #[expect(clippy::cast_possible_truncation, reason = "we enforce 64-bit")]
@@ -66,44 +64,6 @@ pub fn top_block_height(db: &Blockchain, tx_ro: &heed::RoTxn) -> DbResult<BlockH
 #[doc = doc_error!()]
 #[inline]
 pub fn find_split_point(
-    db: &Blockchain,
-    block_ids: &[BlockHash],
-    chronological_order: bool,
-    include_alt_blocks: bool,
-    tx_ro: &heed::RoTxn,
-) -> DbResult<usize> {
-    let mut err = None;
-
-    let block_exists = |block_id| {
-        block::block_exists(db, &block_id, tx_ro).and_then(|exists| {
-            Ok(exists
-                | (include_alt_blocks
-                    & db.alt_block_heights
-                        .get(tx_ro, &block_id)?
-                        .is_some()))
-        })
-    };
-
-    // Do a binary search to find the first unknown/known block in the batch.
-    let idx = block_ids.partition_point(|block_id| {
-        match block_exists(*block_id) {
-            Ok(exists) => exists == chronological_order,
-            Err(e) => {
-                err.get_or_insert(e);
-                // if this happens the search is scrapped, just return `false` back.
-                false
-            }
-        }
-    });
-
-    if let Some(e) = err {
-        return Err(e);
-    }
-
-    Ok(idx)
-}
-
-pub fn find_split_point_fjall(
     db: &Blockchain,
     block_ids: &[BlockHash],
     chronological_order: bool,

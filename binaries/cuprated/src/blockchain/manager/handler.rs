@@ -217,32 +217,40 @@ impl super::BlockchainManager {
             return;
         }
 
-        let Ok((prepped_blocks, mut output_cache)) = batch_prepare_main_chain_blocks(
+        let (prepped_blocks, mut output_cache) = match batch_prepare_main_chain_blocks(
             batch.blocks,
             &mut self.blockchain_context_service,
             self.blockchain_read_handle.clone(),
         )
-        .await
-        else {
-            batch.peer_handle.ban_peer(LONG_BAN);
-            self.stop_current_block_downloader.notify_one();
-            return;
+            .await {
+            Ok((prepped_blocks, output_cache)) => (prepped_blocks, output_cache),
+            Err(e) => {
+                tracing::error!("{e}");
+                batch.peer_handle.ban_peer(LONG_BAN);
+                self.stop_current_block_downloader.notify_one();
+                return;
+            }
         };
 
+
         for (block, txs) in prepped_blocks {
-            let Ok(verified_block) = verify_prepped_main_chain_block(
+
+            let verified_block = match verify_prepped_main_chain_block(
                 block,
                 txs,
                 &mut self.blockchain_context_service,
                 self.blockchain_read_handle.clone(),
                 Some(&mut output_cache),
-            )
-            .await
-            else {
-                batch.peer_handle.ban_peer(LONG_BAN);
-                self.stop_current_block_downloader.notify_one();
-                return;
+            ).await {
+                Ok(verified_block) => verified_block,
+                Err(e) =>{
+                    tracing::error!("{e}");
+                    batch.peer_handle.ban_peer(LONG_BAN);
+                    self.stop_current_block_downloader.notify_one();
+                    return;
+                }
             };
+
 
             self.add_valid_block_to_main_chain(verified_block).await;
         }

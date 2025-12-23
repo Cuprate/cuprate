@@ -1,6 +1,7 @@
 //! Block functions.
 
 use std::cmp::min;
+use std::collections::HashMap;
 //---------------------------------------------------------------------------------------------------- Import
 use std::io::Write;
 
@@ -17,7 +18,6 @@ use cuprate_types::{
     AltBlockInformation, BlockCompleteEntry, ChainId, ExtendedBlockHeader, HardFork,
     PrunedTxBlobEntry, TransactionBlobs, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
-use heed::types::U64;
 use monero_oxide::{
     block::{Block, BlockHeader},
     transaction::Transaction,
@@ -30,8 +30,8 @@ use crate::database::{
 };
 use crate::error::{BlockchainError, DbResult};
 use crate::Blockchain;
-use crate::ops::tx::{add_tx_to_dynamic_tables, add_tx_to_dynamic_tables_fjall, add_tx_to_tapes, remove_tx_from_dynamic_tables};
-use crate::types::{Hash32Bytes, RctOutput, TxInfo};
+use crate::ops::tx::{add_tx_to_dynamic_tables, add_tx_to_tapes, remove_tx_from_dynamic_tables};
+use crate::types::{Amount, RctOutput, TxInfo};
 use crate::{
     ops::{alt_block, blockchain::chain_height, macros::doc_error},
     types::{BlockHash, BlockHeight, BlockInfo},
@@ -283,69 +283,8 @@ pub fn add_block_to_dynamic_tables(
     db: &Blockchain,
     block: &VerifiedBlockInformation,
     numb_transactions: &mut usize,
-    tx_rw: &mut heed::RwTxn,
-) -> DbResult<()> {
-    //------------------------------------------------------ Check preconditions first
-
-    // Cast height to `u32` for storage (handled at top of function).
-    // Panic (should never happen) instead of allowing DB corruption.
-    // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1560020991>
-    assert!(
-        u32::try_from(block.height).is_ok(),
-        "block.height ({}) > u32::MAX",
-        block.height,
-    );
-
-    let chain_height = chain_height(db, tx_rw)?;
-
-    //------------------------------------------------------ Transaction / Outputs / Key Images
-    // Add the miner transaction first.
-    let tx = block.block.miner_transaction();
-    add_tx_to_dynamic_tables(
-        db,
-        &tx.clone().into(),
-        *numb_transactions,
-        &tx.hash(),
-        &chain_height,
-        tx_rw,
-    )?;
-    *numb_transactions += 1;
-
-    for tx in &block.txs {
-        add_tx_to_dynamic_tables(
-            db,
-            &tx.tx,
-            *numb_transactions,
-            &tx.tx_hash,
-            &chain_height,
-            tx_rw,
-        )?;
-        *numb_transactions += 1;
-    }
-
-    db.block_heights
-        .put(tx_rw, &block.block_hash, &block.height)?;
-
-    Ok(())
-}
-
-/// Add a [`VerifiedBlockInformation`] to the database.
-///
-/// This extracts all the data from the input block and
-/// maps/adds them to the appropriate database tables.
-///
-#[doc = doc_error!()]
-///
-/// # Panics
-/// This function will panic if:
-/// - `block.height > u32::MAX` (not normally possible)
-/// - `block.height` is != [`chain_height`]
-// no inline, too big.
-pub fn add_block_to_dynamic_tables_fjall(
-    db: &Blockchain,
-    block: &VerifiedBlockInformation,
-    numb_transactions: &mut usize,
     tx_rw: &mut fjall::SingleWriterWriteTx,
+    pre_rct_numb_outputs_cache: &mut HashMap<Amount, u64>,
 ) -> DbResult<()> {
     //------------------------------------------------------ Check preconditions first
 
@@ -363,24 +302,26 @@ pub fn add_block_to_dynamic_tables_fjall(
     //------------------------------------------------------ Transaction / Outputs / Key Images
     // Add the miner transaction first.
     let tx = block.block.miner_transaction();
-    add_tx_to_dynamic_tables_fjall(
+    add_tx_to_dynamic_tables(
         db,
         &tx.clone().into(),
         *numb_transactions,
         &tx.hash(),
         &chain_height,
         tx_rw,
+        pre_rct_numb_outputs_cache,
     )?;
     *numb_transactions += 1;
 
     for tx in &block.txs {
-        add_tx_to_dynamic_tables_fjall(
+        add_tx_to_dynamic_tables(
             db,
             &tx.tx,
             *numb_transactions,
             &tx.tx_hash,
             &chain_height,
             tx_rw,
+            pre_rct_numb_outputs_cache
         )?;
         *numb_transactions += 1;
     }
@@ -406,9 +347,11 @@ pub fn add_block_to_dynamic_tables_fjall(
 pub fn pop_block(
     db: &Blockchain,
     move_to_alt_chain: Option<ChainId>,
-    tx_rw: &mut heed::RwTxn,
+    tx_rw: &mut fjall::SingleWriterWriteTx,
     tapes: &mut tapes::Popper<MmapFile>,
 ) -> DbResult<(BlockHeight, BlockHash, Block)> {
+    todo!()
+    /*
     //------------------------------------------------------ Block Info
     let mut block_info_tape = tapes.fixed_sized_tape_popper::<BlockInfo>(BLOCK_INFOS);
 
@@ -417,8 +360,7 @@ pub fn pop_block(
         .pop_last()
         .ok_or(BlockchainError::NotFound)?;
 
-    db.block_heights
-        .delete(tx_rw, &block_info.block_hash)?;
+    tx_rw.remove(&db.block_heights_fjall, &block_info.block_hash);
 
     drop(block_info_tape);
     // Block blobs.
@@ -516,6 +458,8 @@ pub fn pop_block(
         .set_new_len(cumulative_rct_outs as usize);
 
     Ok((block_height, block_info.block_hash, block))
+    
+     */
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_complete_entry_*`
@@ -526,13 +470,12 @@ pub fn get_block_complete_entry(
     db: &Blockchain,
     block_hash: &BlockHash,
     pruned: bool,
-    tx_ro: &heed::RoTxn,
+    tx_ro: &fjall::Snapshot,
     tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<BlockCompleteEntry> {
-    let block_height = db.block_heights
-        .get(tx_ro, &block_hash)?
+    let block_height = tx_ro.get(&db.block_heights_fjall, &block_hash).expect("TODO")
         .ok_or(BlockchainError::NotFound)?;
-    get_block_complete_entry_from_height(block_height, pruned, tapes)
+    get_block_complete_entry_from_height(usize::from_le_bytes( block_height.as_ref().try_into().unwrap()), pruned, tapes)
 }
 
 /// Retrieve a [`BlockCompleteEntry`] from the database.
@@ -657,13 +600,14 @@ pub fn get_block_complete_entry_from_height(
 pub fn get_block_extended_header(
     db: &Blockchain,
     block_hash: &BlockHash,
-    tx_ro: &heed::RoTxn,
+    tx_ro: &fjall::Snapshot,
     tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<ExtendedBlockHeader> {
+    let block_height = tx_ro.get(&db.block_heights_fjall, &block_hash).expect("TODO")
+        .ok_or(BlockchainError::NotFound)?;
+
     get_block_extended_header_from_height(
-        db.block_heights
-            .get(tx_ro, block_hash)?
-            .ok_or(BlockchainError::NotFound)?,
+        usize::from_le_bytes( block_height.as_ref().try_into().unwrap()),
         tapes,
     )
 }
@@ -749,23 +693,24 @@ pub fn get_block(block_height: &BlockHeight, tapes: &tapes::Reader<MmapFile>) ->
 pub fn get_block_by_hash(
     db: &Blockchain,
     block_hash: &BlockHash,
-    tx_ro: &heed::RoTxn,
+    tx_ro: &fjall::Snapshot,
     tapes: &tapes::Reader<MmapFile>,
 ) -> DbResult<Block> {
-    let block_height = db.block_heights
-        .get(tx_ro, block_hash)?
+    let block_height = tx_ro.get(&db.block_heights_fjall, &block_hash).expect("TODO")
         .ok_or(BlockchainError::NotFound)?;
-    get_block(&block_height, tapes)
+
+    get_block(&usize::from_le_bytes( block_height.as_ref().try_into().unwrap()), tapes)
 }
 
 //---------------------------------------------------------------------------------------------------- Misc
 /// Retrieve a [`BlockHeight`] via its [`BlockHash`].
 #[doc = doc_error!()]
 #[inline]
-pub fn get_block_height(db: &Blockchain, block_hash: &BlockHash, tx_ro: &heed::RoTxn) -> DbResult<BlockHeight> {
-    Ok(db.block_heights
-        .get(tx_ro, block_hash)?
-        .ok_or(BlockchainError::NotFound)?)
+pub fn get_block_height(db: &Blockchain, block_hash: &BlockHash, tx_ro: &fjall::Snapshot) -> DbResult<BlockHeight> {
+    let block_height = tx_ro.get(&db.block_heights_fjall, &block_hash).expect("TODO")
+        .ok_or(BlockchainError::NotFound)?;
+
+    Ok(usize::from_le_bytes( block_height.as_ref().try_into().unwrap()))
 }
 
 /// Check if a block exists in the database.
@@ -776,10 +721,8 @@ pub fn get_block_height(db: &Blockchain, block_hash: &BlockHash, tx_ro: &heed::R
 ///
 /// Other errors may still occur.
 #[inline]
-pub fn block_exists(db: &Blockchain, block_hash: &BlockHash, tx_ro: &heed::RoTxn) -> DbResult<bool> {
-    Ok(db.block_heights
-        .get(tx_ro, block_hash)?
-        .is_some())
+pub fn block_exists(db: &Blockchain, block_hash: &BlockHash, tx_ro: &fjall::Snapshot) -> DbResult<bool> {
+    Ok(tx_ro.contains_key(&db.block_heights_fjall, &block_hash).expect("TODO"))
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

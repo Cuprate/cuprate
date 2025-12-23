@@ -2,10 +2,10 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::sync::Arc;
-
+use fjall::Readable;
 use rayon::ThreadPool;
 
-use crate::error::BlockchainError;
+use crate::error::{BlockchainError, DbResult};
 use crate::{
     config::Config,
     service::{
@@ -102,6 +102,12 @@ pub(super) const fn compact_history_genesis_not_included<const INITIAL_BLOCKS: u
     // So if `top_block_height - INITIAL_BLOCKS + 2` is a power of 2 then the genesis block is in
     // the compact history already.
     top_block_height > INITIAL_BLOCKS && !(top_block_height - INITIAL_BLOCKS + 2).is_power_of_two()
+}
+
+pub(super) fn block_height(db: &Blockchain, tx_ro: &fjall::Snapshot,  hash: &[u8; 32]) -> DbResult<Option<usize>> {
+    let Some(block_height) = tx_ro.get(&db.block_heights_fjall, &hash).expect("TODO")  else { return Ok(None) };
+    
+    Ok(Some(usize::from_le_bytes(block_height.as_ref().try_into().unwrap())))
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

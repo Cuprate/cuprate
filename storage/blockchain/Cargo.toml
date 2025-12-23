@@ -27,11 +27,9 @@ cuprate-pruning          = { workspace = true }
 tapes     = { workspace = true }
 tracing = { workspace = true }
 bytemuck         = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
-rand             = { workspace = true, features = ["std", "std_rng"] }
 monero-oxide     = { workspace = true, features = ["std"] }
 serde            = { workspace = true, optional = true }
 fjall = {version = "3.0.0-rc.6"}
-heed  = { git = "https://github.com/Boog900/heed.git", branch = "wip" }
 
 itertools    = { workspace = true }
 indexmap     = { workspace = true, features = ["rayon", "std"] }
