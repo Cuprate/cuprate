@@ -48,6 +48,7 @@ use cuprate_types::{
 };
 
 use crate::{
+    logging,
     rpc::{
         constants::UNSUPPORTED_RPC_CALL,
         handlers::{
@@ -81,8 +82,8 @@ pub async fn map_request(
         }
         Req::SaveBc(r) => Resp::SaveBc(not_available()?),
         Req::GetPeerList(r) => Resp::GetPeerList(not_available()?),
-        Req::SetLogLevel(r) => Resp::SetLogLevel(not_available()?),
-        Req::SetLogCategories(r) => Resp::SetLogCategories(not_available()?),
+        Req::SetLogLevel(r) => Resp::SetLogLevel(set_log_level(state, r).await?),
+        Req::SetLogCategories(r) => Resp::SetLogCategories(set_log_categories(state, r).await?),
         Req::GetTransactionPool(r) => Resp::GetTransactionPool(not_available()?),
         Req::GetTransactionPoolStats(r) => Resp::GetTransactionPoolStats(not_available()?),
         Req::StopDaemon(r) => Resp::StopDaemon(not_available()?),
@@ -757,18 +758,77 @@ async fn update(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1641-L1652>
 async fn set_log_level(
-    state: CupratedRpcHandler,
+    _state: CupratedRpcHandler,
     request: SetLogLevelRequest,
 ) -> Result<SetLogLevelResponse, Error> {
-    todo!()
+    use tracing::level_filters::LevelFilter;
+
+    let level = match request.level {
+        0 => LevelFilter::ERROR,
+        1 => LevelFilter::WARN,
+        2 => LevelFilter::INFO,
+        3 => LevelFilter::DEBUG,
+        4 => LevelFilter::TRACE,
+        _ => {
+            return Err(anyhow!(
+                "Invalid log level: {}. Valid range is 0-4",
+                request.level
+            ))
+        }
+    };
+
+    logging::modify_stdout_output(|filter| {
+        filter.level = level;
+    });
+    logging::modify_file_output(|filter| {
+        filter.level = level;
+    });
+
+    Ok(SetLogLevelResponse {
+        base: helper::response_base(false),
+    })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1654-L1661>
 async fn set_log_categories(
-    state: CupratedRpcHandler,
+    _state: CupratedRpcHandler,
     request: SetLogCategoriesRequest,
 ) -> Result<SetLogCategoriesResponse, Error> {
-    todo!()
+    use tracing::level_filters::LevelFilter;
+    use tracing_subscriber::filter::EnvFilter;
+
+    let categories = if request.categories.is_empty() {
+        "*:INFO".to_string()
+    } else {
+        request.categories.clone()
+    };
+
+    let level_filter = if let Ok(_env_filter) = EnvFilter::try_new(&categories) {
+        if categories.starts_with("*:") {
+            let level_str = categories.strip_prefix("*:").unwrap_or("INFO");
+            level_str
+                .parse::<LevelFilter>()
+                .unwrap_or(LevelFilter::INFO)
+        } else {
+            LevelFilter::INFO
+        }
+    } else {
+        categories
+            .parse::<LevelFilter>()
+            .unwrap_or(LevelFilter::INFO)
+    };
+
+    logging::modify_stdout_output(|filter| {
+        filter.level = level_filter;
+    });
+    logging::modify_file_output(|filter| {
+        filter.level = level_filter;
+    });
+
+    Ok(SetLogCategoriesResponse {
+        base: helper::response_base(false),
+        categories,
+    })
 }
 
 //---------------------------------------------------------------------------------------------------- Unsupported RPC calls (forever)
