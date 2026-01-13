@@ -1,14 +1,10 @@
 use std::collections::HashMap;
 use crate::config::Config;
-use crate::types::{
-    AltBlockHeight, AltChainInfo, AltTransactionInfo, Amount, AmountIndices, BlockHash,
-    BlockHeight, CompactAltBlockInfo, KeyImage, Output,
-    PreRctOutputId, RawChainId, TxHash, TxId,
-};
+use crate::types::{AltBlockHeight, AltChainInfo, AltTransactionInfo, Amount, AmountIndices, BlockHash, BlockHeight, BlockInfo, CompactAltBlockInfo, KeyImage, Output, PreRctOutputId, RawChainId, RctOutput, TxHash, TxId, TxInfo};
 use std::iter::{once, Once};
 use std::sync::{Mutex, OnceLock};
 use fjall::PersistMode;
-use tapes::{Advice, MmapFile, Tape, Tapes};
+use tapes::Tapes;
 
 /// The name of the ringCT outputs tape.
 pub const RCT_OUTPUTS: &str = "rct_outputs";
@@ -35,7 +31,7 @@ pub const BLOCK_INFOS: &str = "block_infos";
 
 
 pub struct Blockchain {
-    pub(crate) linear_tapes: Tapes<MmapFile>,
+    pub(crate) linear_tapes: Tapes,
     pub(crate) fjall_keyspace: fjall::SingleWriterTxDatabase,
 
     pub(crate) block_heights_fjall: fjall::SingleWriterTxKeyspace,
@@ -43,6 +39,14 @@ pub struct Blockchain {
     pub(crate) pre_rct_outputs_fjall: fjall::SingleWriterTxKeyspace,
     pub(crate) tx_ids_fjall: fjall::SingleWriterTxKeyspace,
     pub(crate) tx_outputs_fjall: fjall::SingleWriterTxKeyspace,
+
+    pub(crate) rct_outputs: tapes::FixedSizedTape<RctOutput>,
+    pub(crate) tx_infos: tapes::FixedSizedTape<TxInfo>,
+    pub(crate) block_infos: tapes::FixedSizedTape<BlockInfo>,
+    pub(crate) pruned_blobs: tapes::BlobTape,
+    pub(crate) v1_prunable_blobs: tapes::BlobTape,
+    pub(crate) prunable_blobs: Vec<tapes::BlobTape>,
+    
 
     pub(crate) pre_rct_numb_outputs_cache: Mutex<HashMap<Amount, u64>>,
 

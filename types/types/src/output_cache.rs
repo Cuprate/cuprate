@@ -113,6 +113,12 @@ impl OutputCache {
             self.add_tx::<false>(block.height, &tx.tx);
         }
     }
+
+    pub fn join(&mut self, other: Self) {
+        self.cached_outputs.extend(other.cached_outputs);
+        self.number_of_outputs.extend(other.number_of_outputs);
+        self.wanted_outputs.extend(other.wanted_outputs);
+    }
 }
 
 /// Returns the amount commitment for the output at the given index `i` in the [`Transaction`]

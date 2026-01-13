@@ -620,9 +620,9 @@ dependencies = [
 
 [[package]]
 name = "byteview"
-version = "0.9.1"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6e3a2110d267b9881afe689e6eebcc7635534a827928bd69bef59a8f9db644a"
+checksum = "dda4398f387cc6395a3e93b3867cd9abda914c97a0b344d1eefb2e5c51785fca"
 
 [[package]]
 name = "caret"
@@ -2290,9 +2290,9 @@ checksum = "3a3076410a55c90011c298b04d0cfa770b00fa04e1e3c97d3f6c9de105a03844"
 
 [[package]]
 name = "fjall"
-version = "3.0.0-rc.6"
+version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff63be4348f42ed3c0c50175785ff14d0a833915c6b499a31f91d0e3ec5fc337"
+checksum = "4f69637c02d38ad1b0f003101d0195a60368130aa17d9ef78b1557d265a22093"
 dependencies = [
  "byteorder-lite",
  "byteview",
@@ -2337,9 +2337,9 @@ checksum = "749cff877dc1af878a0b31a41dd221a753634401ea0ef2f87b62d3171522485a"
 
 [[package]]
 name = "flume"
-version = "0.11.1"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da0e4dd2a88388a1f4ccc7c9ce104604dab68d9f408dc34cd45823d5a9069095"
+checksum = "5e139bc46ca777eb5efaf62df0ab8cc5fd400866427e56c68b22e414e53bd3be"
 dependencies = [
  "spin 0.9.8",
 ]
@@ -3246,9 +3246,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.177"
+version = "0.2.180"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2874a2af47a2325c2001a6e6fad9b16a53b802102b528163885171cf92b15976"
+checksum = "bcc35a38544a891a5f7c865aca548a982ccb3b8650a5b06d0fd33a10283c56fc"
 
 [[package]]
 name = "libfuzzer-sys"
@@ -3328,9 +3328,9 @@ checksum = "34080505efa8e45a4b816c349525ebe327ceaa8559756f0356cba97ef3bf7432"
 
 [[package]]
 name = "lsm-tree"
-version = "3.0.0-rc.7"
+version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58db607ef63b47ede3640944f69e0872bc169e938253bcaa8dcf32631638ceab"
+checksum = "b875f1dfe14f557f805b167fb9b0fc54c5560c7a4bd6ae02535b2846f276a8cb"
 dependencies = [
  "byteorder-lite",
  "byteview",
@@ -4469,15 +4469,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rcu-ring"
-version = "0.0.1"
-source = "git+https://github.com/Cuprate/Tapes.git?rev=e7e9168#e7e9168d2d336d918378a062d8d9c08f728012d9"
-dependencies = [
- "libc",
- "windows-sys 0.61.2",
-]
-
-[[package]]
 name = "rdrand"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5021,9 +5012,9 @@ dependencies = [
 
 [[package]]
 name = "sfa"
-version = "0.1.0"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86cc3fab8d5eb0e19832083e29d69607305b01ae6a16d5790b3e5374c5da3d91"
+checksum = "a1296838937cab56cd6c4eeeb8718ec777383700c33f060e2869867bd01d1175"
 dependencies = [
  "byteorder-lite",
  "log",
@@ -5387,12 +5378,15 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
 name = "tapes"
-version = "0.0.1"
-source = "git+https://github.com/Cuprate/Tapes.git?rev=e7e9168#e7e9168d2d336d918378a062d8d9c08f728012d9"
+version = "0.1.0"
+source = "git+https://github.com/Cuprate/Tapes.git?rev=a30a526#a30a5261564b12b21b126599149a88d5a0c5087c"
 dependencies = [
+ "blake2",
+ "borsh",
  "bytemuck",
- "memmap2",
- "rcu-ring",
+ "libc",
+ "parking_lot",
+ "slab",
 ]
 
 [[package]]

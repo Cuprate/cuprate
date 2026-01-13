@@ -18,7 +18,7 @@ config_struct! {
 impl Default for RayonConfig {
     fn default() -> Self {
         Self {
-            threads: cuprate_helper::thread::threads_75().get(),
+            threads: cuprate_helper::thread::threads().get(),
         }
     }
 }

@@ -1,13 +1,13 @@
 //! Output functions.
 
 use std::collections::HashMap;
+use std::io;
 use std::ops::AddAssign;
 use fjall::Readable;
 //---------------------------------------------------------------------------------------------------- Import
 use cuprate_helper::{cast::u32_to_usize, crypto::compute_zero_commitment, map::u64_to_timelock};
 use cuprate_types::OutputOnChain;
 use monero_oxide::{io::CompressedPoint, transaction::Timelock};
-use tapes::MmapFile;
 
 use crate::database::RCT_OUTPUTS;
 use crate::error::{BlockchainError, DbResult};
@@ -82,7 +82,7 @@ pub fn remove_output(db: &Blockchain, amount: Amount, tx_rw: &mut fjall::SingleW
 pub fn get_output(db: &Blockchain, pre_rct_output_id: &PreRctOutputId, tx_ro: &fjall::Snapshot) -> DbResult<Output> {
     let output  = tx_ro.get(&db.pre_rct_outputs_fjall, pre_rct_output_id_to_bytes(pre_rct_output_id)).expect("TODO").ok_or(BlockchainError::NotFound)?;
 
-    Ok(*bytemuck::from_bytes(output.as_ref()))
+    Ok(bytemuck::pod_read_unaligned(output.as_ref()))
 }
 
 /// How many pre-RCT [`Output`]s are there?
@@ -108,14 +108,15 @@ pub fn output_to_output_on_chain(
     output: &Output,
     amount: Amount,
     get_txid: bool,
-    tapes: &tapes::Reader<MmapFile>,
+    tapes: &tapes::TapesReadTransaction,
+    db: &Blockchain,
 ) -> DbResult<OutputOnChain> {
     let commitment = compute_zero_commitment(amount);
 
     let key = CompressedPoint(output.key);
 
     let txid = if get_txid {
-        let txid = get_tx_from_id(&output.tx_idx, tapes)?.hash();
+        let txid = get_tx_from_id(&output.tx_idx, tapes, db)?.hash();
 
         Some(txid)
     } else {
@@ -144,7 +145,8 @@ pub fn output_to_output_on_chain(
 pub fn rct_output_to_output_on_chain(
     rct_output: &RctOutput,
     get_txid: bool,
-    tapes: &tapes::Reader<MmapFile>,
+    tapes: &tapes::TapesReadTransaction,
+    db: &Blockchain,
 ) -> DbResult<OutputOnChain> {
     // INVARIANT: Commitments stored are valid when stored by the database.
     let commitment = CompressedPoint(rct_output.commitment);
@@ -152,7 +154,7 @@ pub fn rct_output_to_output_on_chain(
     let key = CompressedPoint(rct_output.key);
 
     let txid = if get_txid {
-        let txid = get_tx_from_id(&rct_output.tx_idx, tapes)?.hash();
+        let txid = get_tx_from_id(&rct_output.tx_idx, tapes, db)?.hash();
 
         Some(txid)
     } else {
@@ -177,21 +179,18 @@ pub fn id_to_output_on_chain(
     id: &PreRctOutputId,
     get_txid: bool,
     tx_ro: &fjall::Snapshot,
-    tapes: &tapes::Reader<MmapFile>,
-    rct_tape: &tapes::FixedSizedTapeSlice<RctOutput>,
+    tapes: &tapes::TapesReadTransaction,
 ) -> DbResult<OutputOnChain> {
     // v2 transactions.
     if id.amount == 0 {
-        let rct_output = rct_tape
-            .get(id.amount_index as usize)
-            .ok_or(BlockchainError::NotFound)?;
-        let output_on_chain = rct_output_to_output_on_chain(rct_output, get_txid, tapes)?;
+        let rct_output = tapes.read_entry(&db.rct_outputs, id.amount_index)?.ok_or(BlockchainError::NotFound)?;
+        let output_on_chain = rct_output_to_output_on_chain(&rct_output, get_txid, tapes, db)?;
 
         Ok(output_on_chain)
     } else {
         // v1 transactions.
         let output = get_output(db, id, tx_ro)?;
-        let output_on_chain = output_to_output_on_chain(&output, id.amount, get_txid, tapes)?;
+        let output_on_chain = output_to_output_on_chain(&output, id.amount, get_txid, tapes, db)?;
 
         Ok(output_on_chain)
     }

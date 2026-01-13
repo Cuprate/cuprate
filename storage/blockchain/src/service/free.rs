@@ -105,7 +105,7 @@ pub(super) const fn compact_history_genesis_not_included<const INITIAL_BLOCKS: u
 }
 
 pub(super) fn block_height(db: &Blockchain, tx_ro: &fjall::Snapshot,  hash: &[u8; 32]) -> DbResult<Option<usize>> {
-    let Some(block_height) = tx_ro.get(&db.block_heights_fjall, &hash).expect("TODO")  else { return Ok(None) };
+    let Some(block_height) = tx_ro.get(&db.block_heights_fjall, hash).expect("TODO")  else { return Ok(None) };
     
     Ok(Some(usize::from_le_bytes(block_height.as_ref().try_into().unwrap())))
 }

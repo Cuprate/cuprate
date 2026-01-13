@@ -9,7 +9,7 @@ use cuprate_types::{
 };
 use std::sync::Arc;
 use fjall::PersistMode;
-use tapes::Flush;
+use tapes::Persistence;
 
 use crate::database::TX_INFOS;
 use crate::error::{BlockchainError, DbResult};
@@ -67,9 +67,9 @@ fn write_block(db: &Blockchain, block: &VerifiedBlockInformation) -> ResponseRes
 /// [`BlockchainWriteRequest::BatchWriteBlocks`].
 #[inline]
 fn write_blocks(db: &Blockchain, blocks: &[VerifiedBlockInformation]) -> ResponseResult {
-    let mut tapes = db.linear_tapes.appender();
-    let numb_transactions = tapes.fixed_sized_tape_appender::<TxInfo>(TX_INFOS).len();
-    add_blocks_to_tapes(blocks, &mut tapes)?;
+    let mut tapes = db.linear_tapes.append();
+    let numb_transactions = tapes.fixed_sized_tape_len(&db.tx_infos).expect("required tape not open");
+    add_blocks_to_tapes(blocks,db,  &mut tapes)?;
 
     let mut tapes = Some(tapes);
 
@@ -78,7 +78,7 @@ fn write_blocks(db: &Blockchain, blocks: &[VerifiedBlockInformation]) -> Respons
     let mut result = move || {
         let mut numb_transactions = numb_transactions;
 
-        let mut tx_rw = db.fjall_keyspace.write_tx().durability(Some(PersistMode::Buffer));
+        let mut tx_rw = db.fjall_keyspace.write_tx();
 
         for block in blocks {
             crate::ops::block::add_block_to_dynamic_tables(
@@ -90,10 +90,10 @@ fn write_blocks(db: &Blockchain, blocks: &[VerifiedBlockInformation]) -> Respons
             )?;
         }
 
-        if let Some(tapes) = tapes.take() {
-            tapes.flush(Flush::Async)?;
+        if let Some(mut tapes) = tapes.take() {
+            tapes.commit(Persistence::Buffer)?;
         }
-
+        
         tx_rw.commit().unwrap();
 
         Ok(BlockchainResponse::Ok)

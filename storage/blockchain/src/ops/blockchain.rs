@@ -24,9 +24,9 @@ use crate::{
 /// So the height of a new block would be `chain_height()`.
 #[doc = doc_error!()]
 #[inline]
-pub fn chain_height(db: &Blockchain, tx_ro: &fjall::Snapshot) -> DbResult<BlockHeight> {
+pub fn chain_height(db: &Blockchain, tapes: &tapes::TapesReadTransaction) -> DbResult<BlockHeight> {
     #[expect(clippy::cast_possible_truncation, reason = "we enforce 64-bit")]
-    Ok(tx_ro.len(&db.block_heights_fjall).expect("TODO"))
+    Ok(tapes.fixed_sized_tape_len(&db.block_infos).expect("TODO") as usize)
 }
 
 /// Retrieve the height of the top block.
@@ -43,8 +43,8 @@ pub fn chain_height(db: &Blockchain, tx_ro: &fjall::Snapshot) -> DbResult<BlockH
 ///
 #[doc = doc_error!()]
 #[inline]
-pub fn top_block_height(db: &Blockchain, tx_ro: &fjall::Snapshot) -> DbResult<BlockHeight> {
-    match chain_height(db, tx_ro)? {
+pub fn top_block_height(db: &Blockchain, tapes: &tapes::TapesReadTransaction) -> DbResult<BlockHeight> {
+    match chain_height(db, tapes)? {
         0 => Err(BlockchainError::NotFound),
         #[expect(clippy::cast_possible_truncation, reason = "we enforce 64-bit")]
         height => Ok(height - 1),

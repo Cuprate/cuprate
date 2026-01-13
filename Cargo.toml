@@ -197,7 +197,7 @@ pin-project           = { version = "1", default-features = false }
 randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev = "567bdca", default-features = false }
 rand                  = { version = "0.8", default-features = false }
 rand_distr            = { version = "0.4", default-features = false }
-rayon                 = { version = "1", default-features = false }
+rayon                 = { version = "1.11", default-features = false }
 safelog               = { version = "0.4", default-features = false }
 serde_bytes           = { version = "0.11", default-features = false }
 serde_json            = { version = "1", default-features = false }

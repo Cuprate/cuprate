@@ -78,7 +78,7 @@ pub type KeyImage = [u8; 32];
 pub type PrunableHash = [u8; 32];
 
 /// A transaction's global index, or ID.
-pub type TxId = usize;
+pub type TxId = u64;
 
 /// A transaction's hash.
 pub type TxHash = [u8; 32];
@@ -95,13 +95,13 @@ pub struct TxInfo {
     /// The height of this transaction.
     pub height: usize,
     /// The index of the transactions pruned blob in the pruned tape.
-    pub pruned_blob_idx: usize,
+    pub pruned_blob_idx: u64,
     /// The index of the transactions prunable blob in the corresponding prunable tape.
-    pub prunable_blob_idx: usize,
+    pub prunable_blob_idx: u64,
     /// The size of the transactions pruned blob.
-    pub pruned_size: usize,
+    pub pruned_size: u64,
     /// The size of th transaction prunable blob.
-    pub prunable_size: usize,
+    pub prunable_size: u64,
     /// The index of the first V2 output in this transaction.
     ///
     /// will be [`u64::MAX`] for V1 transactions.
@@ -194,7 +194,7 @@ pub struct PreRctOutputId {
 /// assert_eq!(align_of::<BlockInfo>(), 8);
 /// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable, Default)]
 #[repr(C)]
 pub struct BlockInfo {
     /// The total amount of coins mined in all blocks so far, including this block's.
@@ -218,9 +218,9 @@ pub struct BlockInfo {
     /// [`TxId`] (u64) of the block coinbase transaction.
     pub mining_tx_index: TxId,
 
-    pub prunable_blob_idx: usize,
-    pub v1_prunable_blob_idx: usize,
-    pub pruned_blob_idx: usize,
+    pub prunable_blob_idx: u64,
+    pub v1_prunable_blob_idx: u64,
+    pub pruned_blob_idx: u64,
 }
 
 //---------------------------------------------------------------------------------------------------- Output
