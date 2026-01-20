@@ -1,11 +1,12 @@
-use crate::{POWER_CHALLENGE_PERSONALIZATION_STRING, PowerChallenge};
+use crate::{POWER_PERSONALIZATION_STRING, PowerChallenge};
 
-const SIZE: usize = POWER_CHALLENGE_PERSONALIZATION_STRING.len()
+const SIZE: usize = POWER_PERSONALIZATION_STRING.len()
     + size_of::<u64>()
     + size_of::<u64>()
+    + size_of::<u32>()
     + size_of::<u32>();
 
-const _: () = assert!(SIZE == 32);
+const _: () = assert!(SIZE == 36);
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Ord, PartialOrd)]
@@ -33,8 +34,8 @@ impl From<PowerChallengeP2p> for [u8; SIZE] {
 }
 
 impl PowerChallenge for PowerChallengeP2p {
-    /// `(power_challenge_nonce || nonce)`
-    type ChallengeInput = (u64, u64, u32);
+    /// `(seed || seed_top64 || difficulty || nonce)`
+    type ChallengeInput = (u64, u64, u32, u32);
 
     const SIZE: usize = SIZE;
 
@@ -46,27 +47,28 @@ impl PowerChallenge for PowerChallengeP2p {
     }
 
     fn new_from_input(input: Self::ChallengeInput) -> Self {
-        let power_challenge_nonce = {
+        let seed = {
             let (low, high) = (input.0, input.1);
-            let res = u128::from(high) << 64;
-            res | u128::from(low)
+            (u128::from(high) << 64) | u128::from(low)
         };
-        let nonce = input.2;
+        let difficulty = input.2;
+        let nonce = input.3;
 
         let mut this = [0; SIZE];
 
-        this[..12].copy_from_slice(POWER_CHALLENGE_PERSONALIZATION_STRING.as_bytes());
-        this[12..28].copy_from_slice(&u128::to_le_bytes(power_challenge_nonce));
-        this[28..32].copy_from_slice(&u32::to_le_bytes(nonce));
+        this[..12].copy_from_slice(POWER_PERSONALIZATION_STRING.as_bytes());
+        this[12..28].copy_from_slice(&u128::to_le_bytes(seed));
+        this[28..32].copy_from_slice(&u32::to_le_bytes(difficulty));
+        this[32..36].copy_from_slice(&u32::to_le_bytes(nonce));
 
         Self(this)
     }
 
     fn update_nonce(&mut self, nonce: u32) {
-        self.0[28..].copy_from_slice(&u32::to_le_bytes(nonce));
+        self.0[32..].copy_from_slice(&u32::to_le_bytes(nonce));
     }
 
     fn nonce(&self) -> u32 {
-        u32::from_le_bytes(self.0[28..32].try_into().unwrap())
+        u32::from_le_bytes(self.0[32..36].try_into().unwrap())
     }
 }

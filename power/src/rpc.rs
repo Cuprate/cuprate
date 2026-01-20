@@ -1,6 +1,6 @@
-use crate::{POWER_CHALLENGE_PERSONALIZATION_STRING, PowerChallenge};
+use crate::{POWER_PERSONALIZATION_STRING, PowerChallenge};
 
-const SIZE: usize = POWER_CHALLENGE_PERSONALIZATION_STRING.len()
+const SIZE: usize = POWER_PERSONALIZATION_STRING.len()
     + size_of::<[u8; 32]>()
     + size_of::<[u8; 32]>()
     + size_of::<u32>();
@@ -51,7 +51,7 @@ impl PowerChallenge for PowerChallengeRpc {
         let nonce = input.2;
 
         let mut this = [0; SIZE];
-        this[..12].copy_from_slice(POWER_CHALLENGE_PERSONALIZATION_STRING.as_bytes());
+        this[..12].copy_from_slice(POWER_PERSONALIZATION_STRING.as_bytes());
         this[12..44].copy_from_slice(&tx_prefix_hash);
         this[44..76].copy_from_slice(&recent_block_hash);
         this[76..].copy_from_slice(&u32::to_le_bytes(nonce));

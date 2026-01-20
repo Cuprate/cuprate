@@ -53,12 +53,7 @@ mod rpc;
 pub use equix;
 
 pub use challenge::{PowerChallenge, PowerSolution};
-pub use constants::{
-    POWER_CHALLENGE_PERSONALIZATION_STRING, POWER_DIFFICULTY, POWER_HEIGHT_WINDOW,
-    POWER_INPUT_THRESHOLD,
-};
-pub use free::{
-    check_difficulty, create_difficulty_scalar, solve_p2p, solve_rpc, verify_p2p, verify_rpc,
-};
+pub use constants::*;
+pub use free::*;
 pub use p2p::PowerChallengeP2p;
 pub use rpc::PowerChallengeRpc;
