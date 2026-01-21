@@ -1,6 +1,6 @@
 use std::{
     future::{ready, Future, Ready},
-    pin::{pin, Pin},
+    pin::Pin,
     task::{Context, Poll},
 };
 
