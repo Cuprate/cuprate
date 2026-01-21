@@ -83,7 +83,7 @@ mod tests {
     }
 
     #[test]
-    #[expect(clippy::unused_assignments)]
+    #[expect(unused_assignments)]
     fn test_subarray_copy() {
         let mut array = [1_u8, 2, 3, 4, 5];
         let sub_copied: [u8; 3] = subarray_copy(&array, 1);
