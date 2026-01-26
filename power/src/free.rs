@@ -24,15 +24,14 @@ pub const fn check_difficulty(scalar: u32, difficulty: u32) -> bool {
 pub fn solve_rpc(
     tx_prefix_hash: [u8; 32],
     recent_block_hash: [u8; 32],
-    nonce: u32,
     difficulty: u32,
 ) -> PowerSolution {
-    PowerChallengeRpc::new_from_input((tx_prefix_hash, recent_block_hash, nonce)).solve(difficulty)
+    PowerChallengeRpc::new_from_input((tx_prefix_hash, recent_block_hash, 0)).solve(difficulty)
 }
 
 /// Solve a PoWER challenge for P2P.
-pub fn solve_p2p(seed: u64, seed_top64: u64, difficulty: u32, nonce: u32) -> PowerSolution {
-    PowerChallengeP2p::new_from_input((seed, seed_top64, difficulty, nonce)).solve(difficulty)
+pub fn solve_p2p(seed: u64, seed_top64: u64, difficulty: u32) -> PowerSolution {
+    PowerChallengeP2p::new_from_input((seed, seed_top64, difficulty, 0)).solve(difficulty)
 }
 
 /// Verify a PoWER challenge for RPC.
