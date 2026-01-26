@@ -3,7 +3,7 @@
 use cuprate_epee_encoding::{epee_object, from_bytes};
 
 struct ObjSeq {
-    seq: Vec<ObjSeq>,
+    seq: Vec<Self>,
 }
 
 epee_object!(
