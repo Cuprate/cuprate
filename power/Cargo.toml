@@ -1,0 +1,24 @@
+[package]
+name        = "cuprate-power"
+version     = "0.0.1"
+edition     = "2024"
+description = "PoWER utilities"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/cuprate-power"
+keywords    = ["cuprate", "power"]
+
+[features]
+default = []
+
+[dependencies]
+equix  = { version = "0.5" }
+blake2 = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+hex               = { workspace = true }
+hex-literal       = { workspace = true }
+
+[lints]
+workspace = true
