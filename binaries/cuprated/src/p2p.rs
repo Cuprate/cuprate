@@ -4,11 +4,9 @@
 
 use std::convert::From;
 
-use arti_client::TorClient;
 use futures::{FutureExt, TryFutureExt};
 use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot::{self, Sender};
-use tor_rtcompat::PreferredRuntime;
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
@@ -17,18 +15,19 @@ use cuprate_p2p::{config::TransportConfig, NetworkInterface, P2PConfig};
 use cuprate_p2p_core::{
     client::InternalPeerID, transports::Tcp, ClearNet, NetworkZone, Tor, Transport,
 };
-use cuprate_p2p_transport::{Arti, ArtiClientConfig, Daemon};
+#[cfg(feature = "arti")]
+use cuprate_p2p_transport::Arti;
+use cuprate_p2p_transport::Daemon;
 use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
 use cuprate_types::blockchain::BlockchainWriteRequest;
 
+#[cfg(feature = "arti")]
+use crate::tor::{transport_arti_config, transport_clearnet_arti_config};
 use crate::{
     blockchain,
     config::Config,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
-    tor::{
-        transport_arti_config, transport_clearnet_arti_config, transport_daemon_config, TorContext,
-        TorMode,
-    },
+    tor::{transport_daemon_config, TorContext, TorMode},
     txpool::{self, IncomingTxHandler},
 };
 
@@ -78,6 +77,7 @@ pub async fn initialize_zones_p2p(
         // If proxy is set
         match config.p2p.clear_net.proxy {
             ProxySettings::Tor => match tor_ctx.mode {
+                #[cfg(feature = "arti")]
                 TorMode::Arti => {
                     tracing::info!("Anonymizing clearnet connections through Arti.");
                     start_zone_p2p::<ClearNet, Arti>(
@@ -137,6 +137,7 @@ pub async fn initialize_zones_p2p(
                 .await
                 .unwrap(),
             ),
+            #[cfg(feature = "arti")]
             TorMode::Arti => Some(
                 start_zone_p2p::<Tor, Arti>(
                     blockchain_read_handle.clone(),
