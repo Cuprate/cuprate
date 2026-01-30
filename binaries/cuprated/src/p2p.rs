@@ -21,6 +21,8 @@ use cuprate_p2p_transport::Daemon;
 use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
 use cuprate_types::blockchain::BlockchainWriteRequest;
 
+#[cfg(feature = "arti")]
+use crate::tor::{transport_arti_config, transport_clearnet_arti_config};
 use crate::{
     blockchain,
     config::Config,
@@ -28,8 +30,6 @@ use crate::{
     tor::{transport_daemon_config, TorContext, TorMode},
     txpool::{self, IncomingTxHandler},
 };
-#[cfg(feature = "arti")]
-use crate::tor::{transport_arti_config, transport_clearnet_arti_config};
 
 mod core_sync_service;
 mod network_address;
