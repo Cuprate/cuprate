@@ -5,12 +5,7 @@ use std::{
     time::Duration,
 };
 
-use arti_client::{
-    config::onion_service::{OnionServiceConfig, OnionServiceConfigBuilder},
-    TorClient, TorClientBuilder, TorClientConfig,
-};
 use serde::{Deserialize, Serialize};
-use tor_rtcompat::PreferredRuntime;
 
 use cuprate_helper::{fs::address_book_path, network::Network};
 use cuprate_p2p::config::TransportConfig;
@@ -18,7 +13,6 @@ use cuprate_p2p_core::{
     transports::{Tcp, TcpServerConfig},
     ClearNet, NetworkZone, Tor, Transport,
 };
-use cuprate_p2p_transport::{Arti, ArtiClientConfig, ArtiServerConfig};
 use cuprate_wire::OnionAddr;
 
 use crate::{p2p::ProxySettings, tor::TorMode};
