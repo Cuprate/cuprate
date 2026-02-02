@@ -6,7 +6,7 @@ use std::{
 use futures::{future::BoxFuture, FutureExt, TryFutureExt};
 use tower::{Service, ServiceExt};
 
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::PollSender;
 
 use cuprate_dandelion_tower::{
@@ -53,16 +53,18 @@ pub(super) type ConcreteDandelionRouter<Z> = DandelionRouter<
 pub(super) struct MainDandelionRouter {
     clearnet_router: ConcreteDandelionRouter<ClearNet>,
     tor_router: Option<AnonTxService<Tor>>,
+    tor_net_rx: Option<oneshot::Receiver<NetworkInterface<Tor>>>,
 }
 
 impl MainDandelionRouter {
     pub const fn new(
         clearnet_router: ConcreteDandelionRouter<ClearNet>,
-        tor_router: Option<AnonTxService<Tor>>,
+        tor_net_rx: Option<oneshot::Receiver<NetworkInterface<Tor>>>,
     ) -> Self {
         Self {
             clearnet_router,
-            tor_router,
+            tor_router: None,
+            tor_net_rx,
         }
     }
 }
@@ -73,6 +75,23 @@ impl Service<DandelionRouteReq<DandelionTx, CrossNetworkInternalPeerId>> for Mai
     type Future = BoxFuture<'static, Result<State, DandelionRouterError>>;
 
     fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
+        // Check if Tor router has arrived
+        if self.tor_router.is_none() {
+            if let Some(rx) = self.tor_net_rx.as_mut() {
+                match rx.try_recv() {
+                    Ok(interface) => {
+                        self.tor_router = Some(AnonTxService::new(interface));
+                        self.tor_net_rx = None;
+                        tracing::info!("Tor P2P zone is now available.");
+                    }
+                    Err(oneshot::error::TryRecvError::Empty) => {}
+                    Err(oneshot::error::TryRecvError::Closed) => {
+                        self.tor_net_rx = None;
+                    }
+                }
+            }
+        }
+
         if let Some(tor_router) = self.tor_router.as_mut() {
             ready!(tor_router.poll_ready(cx))?;
         }

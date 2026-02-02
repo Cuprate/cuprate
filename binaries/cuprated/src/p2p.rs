@@ -88,36 +88,34 @@ impl NetworkInterfaces {
     }
 }
 
-/// Initialize all P2P network zones. Returning a [`NetworkInterfaces`] collection and
-/// a [`Vec<Sender<IncomingTxHandler>>`] for propagating the tx handler.
-pub async fn initialize_zones_p2p(
+/// Initialize the clearnet P2P network zone. Returns [`NetworkInterface<ClearNet>`] and
+/// [`Sender<IncomingTxHandler>`] for propagating the tx handler.
+pub async fn initialize_clearnet_p2p(
     config: &Config,
     context_svc: BlockchainContextService,
-    mut blockchain_read_handle: BlockchainReadHandle,
+    blockchain_read_handle: BlockchainReadHandle,
     txpool_read_handle: TxpoolReadHandle,
-    tor_ctx: TorContext,
-) -> (NetworkInterfaces, Vec<Sender<IncomingTxHandler>>) {
-    // Start clearnet P2P.
-    let (clearnet, incoming_tx_handler_tx) = {
-        // If proxy is set
-        match config.p2p.clear_net.proxy {
-            ProxySettings::Tor => match tor_ctx.mode {
+    tor_ctx: &TorContext,
+) -> (NetworkInterface<ClearNet>, Sender<IncomingTxHandler>) {
+    match config.p2p.clear_net.proxy {
+        ProxySettings::Tor => {
+            match tor_ctx.mode {
                 TorMode::Arti => {
                     tracing::info!("Anonymizing clearnet connections through Arti.");
                     start_zone_p2p::<ClearNet, Arti>(
-                        blockchain_read_handle.clone(),
-                        context_svc.clone(),
-                        txpool_read_handle.clone(),
+                        blockchain_read_handle,
+                        context_svc,
+                        txpool_read_handle,
                         config.clearnet_p2p_config(),
-                        transport_clearnet_arti_config(&tor_ctx),
+                        transport_clearnet_arti_config(tor_ctx),
                     )
                     .await
                     .unwrap()
                 }
                 TorMode::Daemon => start_zone_p2p::<ClearNet, Socks>(
-                    blockchain_read_handle.clone(),
-                    context_svc.clone(),
-                    txpool_read_handle.clone(),
+                    blockchain_read_handle,
+                    context_svc,
+                    txpool_read_handle,
                     config.clearnet_p2p_config(),
                     transport_clearnet_daemon_config(config),
                 )
@@ -127,76 +125,69 @@ pub async fn initialize_zones_p2p(
                     tracing::error!("Clearnet proxy set to \"tor\" but Tor is actually off. Please be sure to set a mode in the configuration or command line");
                     std::process::exit(0);
                 }
-            },
-            ProxySettings::Socks(ref s) => {
-                if s.is_empty() {
-                    start_zone_p2p::<ClearNet, Tcp>(
-                        blockchain_read_handle.clone(),
-                        context_svc.clone(),
-                        txpool_read_handle.clone(),
-                        config.clearnet_p2p_config(),
-                        config.p2p.clear_net.tcp_transport_config(config.network),
-                    )
-                    .await
-                    .unwrap()
-                } else {
-                    start_zone_p2p::<ClearNet, Socks>(
-                        blockchain_read_handle.clone(),
-                        context_svc.clone(),
-                        txpool_read_handle.clone(),
-                        config.clearnet_p2p_config(),
-                        TransportConfig {
-                            client_config: socks_proxy_str_to_config(s).unwrap(),
-                            server_config: None,
-                        },
-                    )
-                    .await
-                    .unwrap()
-                }
             }
         }
-    };
-
-    // Create network interface collection
-    let mut network_interfaces = NetworkInterfaces::new(clearnet);
-    let mut tx_handler_subscribers = vec![incoming_tx_handler_tx];
-
-    // Start Tor P2P (if enabled)
-    let tor = if config.p2p.tor_net.enabled {
-        match tor_ctx.mode {
-            TorMode::Off => None,
-            TorMode::Daemon => Some(
-                start_zone_p2p::<Tor, Daemon>(
-                    blockchain_read_handle.clone(),
-                    context_svc.clone(),
-                    txpool_read_handle.clone(),
-                    config.tor_p2p_config(&tor_ctx),
-                    transport_daemon_config(config),
+        ProxySettings::Socks(ref s) => {
+            if s.is_empty() {
+                start_zone_p2p::<ClearNet, Tcp>(
+                    blockchain_read_handle,
+                    context_svc,
+                    txpool_read_handle,
+                    config.clearnet_p2p_config(),
+                    config.p2p.clear_net.tcp_transport_config(config.network),
                 )
                 .await
-                .unwrap(),
-            ),
-            TorMode::Arti => Some(
-                start_zone_p2p::<Tor, Arti>(
-                    blockchain_read_handle.clone(),
-                    context_svc.clone(),
-                    txpool_read_handle.clone(),
-                    config.tor_p2p_config(&tor_ctx),
-                    transport_arti_config(config, tor_ctx),
+                .unwrap()
+            } else {
+                start_zone_p2p::<ClearNet, Socks>(
+                    blockchain_read_handle,
+                    context_svc,
+                    txpool_read_handle,
+                    config.clearnet_p2p_config(),
+                    TransportConfig {
+                        client_config: socks_proxy_str_to_config(s).unwrap(),
+                        server_config: None,
+                    },
                 )
                 .await
-                .unwrap(),
-            ),
+                .unwrap()
+            }
         }
-    } else {
-        None
-    };
-    if let Some((tor, incoming_tx_handler_tx)) = tor {
-        network_interfaces.tor_network_interface = Some(tor);
-        tx_handler_subscribers.push(incoming_tx_handler_tx);
     }
+}
 
-    (network_interfaces, tx_handler_subscribers)
+/// Start the Tor P2P network zone. Returns [`NetworkInterface<Tor>`] and
+/// a [`Sender<IncomingTxHandler>`] for propagating the tx handler.
+pub async fn start_tor_p2p(
+    config: &Config,
+    context_svc: BlockchainContextService,
+    blockchain_read_handle: BlockchainReadHandle,
+    txpool_read_handle: TxpoolReadHandle,
+    tor_ctx: TorContext,
+) -> (NetworkInterface<Tor>, Sender<IncomingTxHandler>) {
+    match tor_ctx.mode {
+        TorMode::Off => {
+            unreachable!("start_tor_p2p called with TorMode::Off");
+        }
+        TorMode::Daemon => start_zone_p2p::<Tor, Daemon>(
+            blockchain_read_handle,
+            context_svc,
+            txpool_read_handle,
+            config.tor_p2p_config(&tor_ctx),
+            transport_daemon_config(config),
+        )
+        .await
+        .unwrap(),
+        TorMode::Arti => start_zone_p2p::<Tor, Arti>(
+            blockchain_read_handle,
+            context_svc,
+            txpool_read_handle,
+            config.tor_p2p_config(&tor_ctx),
+            transport_arti_config(config, tor_ctx),
+        )
+        .await
+        .unwrap(),
+    }
 }
 
 /// Starts the P2P network zone, returning a [`NetworkInterface`] to interact with it.

@@ -50,6 +50,7 @@ pub async fn init_blockchain_manager(
     txpool_manager_handle: TxpoolManagerHandle,
     mut blockchain_context_service: BlockchainContextService,
     block_downloader_config: BlockDownloaderConfig,
+    synced_notify: Arc<Notify>,
 ) {
     // TODO: find good values for these size limits
     let (batch_tx, batch_rx) = mpsc::channel(1);
@@ -65,6 +66,7 @@ pub async fn init_blockchain_manager(
         batch_tx,
         Arc::clone(&stop_current_block_downloader),
         block_downloader_config,
+        synced_notify,
     ));
 
     let manager = BlockchainManager {
