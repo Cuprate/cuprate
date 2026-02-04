@@ -143,22 +143,21 @@ impl BlockchainContext {
     ///
     /// ref: <https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#getting-the-current-time>
     pub fn current_adjusted_timestamp_for_time_lock(&self) -> u64 {
-        if self.current_hf < HardFork::V13 || self.median_block_timestamp.is_none() {
-            current_unix_timestamp()
-        } else {
-            // This is safe as we just checked if this was None.
-            let median = self.median_block_timestamp.unwrap();
-
-            let adjusted_median = median
-                + (BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW + 1) * self.current_hf.block_time().as_secs()
-                    / 2;
-
-            // This is safe as we just checked if the median was None and this will only be none for genesis and the first block.
-            let adjusted_top_block =
-                self.top_block_timestamp.unwrap() + self.current_hf.block_time().as_secs();
-
-            min(adjusted_median, adjusted_top_block)
+        if self.current_hf < HardFork::V13 {
+            return current_unix_timestamp();
         }
+
+        let Some(median) = self.median_block_timestamp else {
+            return current_unix_timestamp();
+        };
+
+        let block_time = self.current_hf.block_time().as_secs();
+        let adjusted_median = median + (BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW + 1) * block_time / 2;
+
+        // This is safe as we just checked if the median was None and this will only be none for genesis and the first block.
+        let adjusted_top_block = self.top_block_timestamp.unwrap() + block_time;
+
+        min(adjusted_median, adjusted_top_block)
     }
 
     /// Returns the next blocks long term weight from its block weight.
