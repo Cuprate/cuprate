@@ -83,12 +83,12 @@ mod tests {
     }
 
     #[test]
+    #[expect(unused_assignments)]
     fn test_subarray_copy() {
         let mut array = [1_u8, 2, 3, 4, 5];
         let sub_copied: [u8; 3] = subarray_copy(&array, 1);
         assert_eq!(sub_copied, [2, 3, 4]);
         array[1] = 10;
-        assert_eq!(array[1], 10);
         assert_eq!(sub_copied, [2, 3, 4]); // copy, not affected
     }
 
