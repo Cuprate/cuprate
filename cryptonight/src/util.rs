@@ -88,6 +88,7 @@ mod tests {
         let sub_copied: [u8; 3] = subarray_copy(&array, 1);
         assert_eq!(sub_copied, [2, 3, 4]);
         array[1] = 10;
+        assert_eq!(array[1], 10);
         assert_eq!(sub_copied, [2, 3, 4]); // copy, not affected
     }
 
