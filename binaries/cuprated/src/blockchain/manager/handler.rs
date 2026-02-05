@@ -122,12 +122,19 @@ impl super::BlockchainManager {
             let block_hash = block.hash();
             let res = self.handle_incoming_alt_block(block, prepared_txs).await?;
 
-            if matches!(res, AddAltBlock::Cached(true)) {
+            if let AddAltBlock::NewlyCached(block_blob) = res {
                 info!(
                     alt_block = true,
                     hash = hex::encode(block_hash),
                     "Successfully added block"
                 );
+
+                let chain_height = self
+                    .blockchain_context_service
+                    .blockchain_context()
+                    .chain_height;
+
+                self.broadcast_block(block_blob, chain_height).await;
             }
 
             return Ok(IncomingBlockOk::AddedToAltChain);
@@ -324,7 +331,7 @@ impl super::BlockchainManager {
                     return;
                 }
                 // continue adding alt blocks.
-                Ok(AddAltBlock::Cached(_)) => (),
+                Ok(AddAltBlock::NewlyCached(_) | AddAltBlock::AlreadyCached) => (),
             }
         }
 
@@ -366,7 +373,7 @@ impl super::BlockchainManager {
         };
 
         match chain {
-            Some((Chain::Alt(_), _)) => return Ok(AddAltBlock::Cached(false)),
+            Some((Chain::Alt(_), _)) => return Ok(AddAltBlock::AlreadyCached),
             Some((Chain::Main, _)) => anyhow::bail!("Alt block already in main chain"),
             None => (),
         }
@@ -386,6 +393,7 @@ impl super::BlockchainManager {
             return Ok(AddAltBlock::Reorged);
         }
 
+        let block_blob = Bytes::copy_from_slice(&alt_block_info.block_blob);
         self.blockchain_write_handle
             .ready()
             .await
@@ -393,7 +401,7 @@ impl super::BlockchainManager {
             .call(BlockchainWriteRequest::WriteAltBlock(alt_block_info))
             .await?;
 
-        Ok(AddAltBlock::Cached(true))
+        Ok(AddAltBlock::NewlyCached(block_blob))
     }
 
     /// Attempt a re-org with the given top block of the alt-chain.
@@ -693,10 +701,10 @@ impl super::BlockchainManager {
 
 /// The result from successfully adding an alt-block.
 enum AddAltBlock {
-    /// The alt-block was cached.
-    ///
-    /// The inner `bool` is for if the block was cached before [`false`] or was cached during the call [`true`].
-    Cached(bool),
+    /// We already had this alt-block cached.
+    AlreadyCached,
+    /// The alt-block was newly cached. Contains the block blob.
+    NewlyCached(Bytes),
     /// The chain was reorged.
     Reorged,
 }
