@@ -10,7 +10,14 @@ use std::{
     net::SocketAddr,
 };
 
-use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::{
+        tcp::{OwnedReadHalf, OwnedWriteHalf},
+        TcpStream,
+    },
+    time::{timeout, Duration},
+};
 use tokio_socks::tcp::Socks5Stream;
 use tokio_util::codec::{FramedRead, FramedWrite};
 
@@ -18,6 +25,21 @@ use cuprate_p2p_core::{ClearNet, NetworkZone, Transport};
 use cuprate_wire::MoneroWireCodec;
 
 use crate::DisabledListener;
+
+/// Check if a Socks5 proxy is listening at `addr` via a protocol handshake.
+pub async fn is_socks5_proxy(addr: SocketAddr) -> bool {
+    let Ok(Ok(mut stream)) = timeout(Duration::from_secs(3), TcpStream::connect(addr)).await else {
+        return false;
+    };
+
+    // Socks5 greeting
+    if stream.write_all(&[0x05, 0x01, 0x00]).await.is_err() {
+        return false;
+    }
+
+    let mut buf = [0u8; 2];
+    stream.read_exact(&mut buf).await.is_ok() && buf[0] == 0x05
+}
 
 //---------------------------------------------------------------------------------------------------- Configuration
 

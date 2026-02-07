@@ -270,7 +270,8 @@ impl Config {
                     .to_string();
 
                 OnionAddr::new(&addr, tor_p2p_port).unwrap()
-            })
+            }),
+            TorMode::Auto => unreachable!("Auto mode should be resolved before this point"),
         };
 
         cuprate_p2p::P2PConfig {
@@ -460,7 +461,7 @@ impl Config {
             }
         }
 
-        if self.tor.mode == TorMode::Arti {
+        if matches!(self.tor.mode, TorMode::Arti | TorMode::Auto) {
             match Self::check_dir_permissions(&self.tor.arti.directory_path) {
                 Ok(()) => println!(
                     "Permissions are ok at {}",

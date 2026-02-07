@@ -124,6 +124,7 @@ pub async fn initialize_clearnet_p2p(
                 tracing::error!("Clearnet proxy set to \"tor\" but Tor is actually off. Please be sure to set a mode in the configuration or command line");
                 std::process::exit(0);
             }
+            TorMode::Auto => unreachable!("Auto mode should be resolved before this point"),
         },
         ProxySettings::Socks(ref s) => {
             if s.is_empty() {
@@ -185,6 +186,7 @@ pub async fn start_tor_p2p(
         )
         .await
         .unwrap(),
+        TorMode::Auto => unreachable!("Auto mode should be resolved before this point"),
     }
 }
 

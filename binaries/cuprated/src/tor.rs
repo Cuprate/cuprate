@@ -21,8 +21,8 @@ use cuprate_helper::fs::CUPRATE_DATA_DIR;
 use cuprate_p2p::TransportConfig;
 use cuprate_p2p_core::{ClearNet, Tor};
 use cuprate_p2p_transport::{
-    Arti, ArtiClientConfig, ArtiServerConfig, Daemon, DaemonClientConfig, DaemonServerConfig,
-    Socks, SocksClientConfig,
+    is_socks5_proxy, Arti, ArtiClientConfig, ArtiServerConfig, Daemon, DaemonClientConfig,
+    DaemonServerConfig, Socks, SocksClientConfig,
 };
 use cuprate_wire::OnionAddr;
 
@@ -35,12 +35,14 @@ use crate::{
 #[derive(Clone, Default, Debug, Copy, PartialEq, Eq, Serialize, Deserialize)]
 /// Describe if Tor is enabled and how
 pub enum TorMode {
+    #[default]
+    /// Automatically select Tor backend
+    Auto,
     /// Use of the [`arti_client`] library.
     Arti,
     /// Use of external tor daemon
     Daemon,
 
-    #[default]
     /// Tor is disabled
     Off,
 }
@@ -65,7 +67,16 @@ pub struct TorContext {
 /// This function will bootstrap Arti if needed by Tor network zone or
 /// clearnet as a proxy.
 pub async fn initialize_tor_if_enabled(config: &Config) -> TorContext {
-    let mode = config.tor.mode;
+    let mode = match config.tor.mode {
+        TorMode::Auto => {
+            if is_socks5_proxy(config.tor.daemon.address).await {
+                TorMode::Daemon
+            } else {
+                TorMode::Arti
+            }
+        }
+        other => other,
+    };
     let anonymize_clearnet = matches!(config.p2p.clear_net.proxy, ProxySettings::Tor);
 
     // Start Arti client
