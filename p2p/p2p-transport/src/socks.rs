@@ -37,7 +37,7 @@ pub async fn is_socks5_proxy(addr: SocketAddr) -> bool {
         return false;
     }
 
-    let mut buf = [0u8; 2];
+    let mut buf = [0_u8; 2];
     stream.read_exact(&mut buf).await.is_ok() && buf[0] == 0x05
 }
 

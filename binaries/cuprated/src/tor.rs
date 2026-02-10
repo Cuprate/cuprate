@@ -67,15 +67,14 @@ pub async fn initialize_tor_if_enabled(config: &Config) -> TorContext {
     let anonymize_clearnet = matches!(config.p2p.clear_net.proxy, ProxySettings::Tor);
     let tor_enabled = config.p2p.tor_net.enabled || anonymize_clearnet;
 
-    let mode = match config.tor.mode {
-        TorMode::Auto if tor_enabled => {
-            if is_socks5_proxy(config.tor.daemon.address).await {
-                TorMode::Daemon
-            } else {
-                TorMode::Arti
-            }
+    let mode = if config.tor.mode == TorMode::Auto && tor_enabled {
+        if is_socks5_proxy(config.tor.daemon.address).await {
+            TorMode::Daemon
+        } else {
+            TorMode::Arti
         }
-        other => other,
+    } else {
+        config.tor.mode
     };
 
     // Start Arti client
