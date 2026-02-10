@@ -143,6 +143,7 @@ impl BlockchainContext {
     ///
     /// ref: <https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#getting-the-current-time>
     pub fn current_adjusted_timestamp_for_time_lock(&self) -> u64 {
+        // FIXME: use if let chain with Rust 2024.
         if self.current_hf < HardFork::V13 {
             return current_unix_timestamp();
         }
