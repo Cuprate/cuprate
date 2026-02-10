@@ -33,10 +33,8 @@ use cuprate_types::blockchain::BlockchainWriteRequest;
 use txpool::IncomingTxHandler;
 
 use crate::{
-    config::Config,
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
-    logging::CupratedTracingFilter,
-    tor::{initialize_tor_if_enabled, TorMode},
+    config::Config, constants::PANIC_CRITICAL_SERVICE_ERROR, logging::CupratedTracingFilter,
+    tor::initialize_tor_if_enabled,
 };
 
 mod blockchain;
@@ -122,7 +120,7 @@ fn main() {
 
         // Bootstrap or configure Tor if enabled.
         let tor_context = initialize_tor_if_enabled(&config).await;
-        let tor_enabled = config.p2p.tor_net.enabled && tor_context.mode != TorMode::Off;
+        let tor_enabled = config.p2p.tor_net.enabled;
 
         // Start clearnet P2P zone
         let (clearnet_interface, clearnet_tx_handler_subscriber) = p2p::initialize_clearnet_p2p(

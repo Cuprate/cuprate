@@ -42,9 +42,6 @@ pub enum TorMode {
     Arti,
     /// Use of external tor daemon
     Daemon,
-
-    /// Tor is disabled
-    Off,
 }
 
 /// Contains the necessary Tor configuration or structures
