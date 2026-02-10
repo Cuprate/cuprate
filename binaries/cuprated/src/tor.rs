@@ -64,8 +64,11 @@ pub struct TorContext {
 /// This function will bootstrap Arti if needed by Tor network zone or
 /// clearnet as a proxy.
 pub async fn initialize_tor_if_enabled(config: &Config) -> TorContext {
+    let anonymize_clearnet = matches!(config.p2p.clear_net.proxy, ProxySettings::Tor);
+    let tor_enabled = config.p2p.tor_net.enabled || anonymize_clearnet;
+
     let mode = match config.tor.mode {
-        TorMode::Auto => {
+        TorMode::Auto if tor_enabled => {
             if is_socks5_proxy(config.tor.daemon.address).await {
                 TorMode::Daemon
             } else {
@@ -74,11 +77,10 @@ pub async fn initialize_tor_if_enabled(config: &Config) -> TorContext {
         }
         other => other,
     };
-    let anonymize_clearnet = matches!(config.p2p.clear_net.proxy, ProxySettings::Tor);
-
+    
     // Start Arti client
     let (bootstrapped_client, arti_client_config) =
-        if mode == TorMode::Arti && (config.p2p.tor_net.enabled || anonymize_clearnet) {
+        if mode == TorMode::Arti && tor_enabled {
             Some(initialize_arti_client(config).await)
         } else {
             None
