@@ -3,7 +3,7 @@
 //! This module handles broadcasting messages to multiple peers with the [`BroadcastSvc`].
 use std::{
     future::{ready, Future, Ready},
-    pin::{pin, Pin},
+    pin::Pin,
     task::{ready, Context, Poll},
     time::Duration,
 };
