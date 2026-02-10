@@ -88,13 +88,16 @@ config_struct! {
     pub struct TorConfig {
 
         #[comment_out = true]
-        /// Enable Tor network by specifying how to connect to it.
+        /// Specify how to connect to the Tor network.
+        ///
+        /// Only applies when `p2p.tor_net.enabled` is true or
+        /// `p2p.clear_net.proxy` is set to "Tor".
         ///
         /// When "Daemon" is set, the Tor daemon address to use can be
-        /// specified in `tor.daemon_addr`.
+        /// specified in `tor.daemon.address`.
         ///
         /// Type         | String
-        /// Valid values | "Arti", "Daemon", "Off"
+        /// Valid values | "Auto", "Arti", "Daemon"
         /// Examples     | "Arti"
         pub mode: TorMode,
 

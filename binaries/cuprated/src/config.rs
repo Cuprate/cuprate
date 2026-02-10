@@ -254,7 +254,6 @@ impl Config {
         let tor_p2p_port = p2p_port(self.p2p.tor_net.p2p_port, self.network);
 
         let our_onion_address = match ctx.mode {
-            TorMode::Off => None,
             TorMode::Daemon => inbound_enabled.then(||
                 OnionAddr::new(
                     &self.tor.daemon.anonymous_inbound,
@@ -270,7 +269,8 @@ impl Config {
                     .to_string();
 
                 OnionAddr::new(&addr, tor_p2p_port).unwrap()
-            })
+            }),
+            TorMode::Auto => unreachable!("Auto mode should be resolved before this point"),
         };
 
         cuprate_p2p::P2PConfig {
@@ -428,7 +428,7 @@ impl Config {
             }
         }
 
-        if self.tor.mode != TorMode::Off {
+        if self.tor.mode == TorMode::Daemon {
             let port = self.tor.daemon.listening_addr.port();
             let ip = self.tor.daemon.listening_addr.ip();
 
@@ -460,7 +460,7 @@ impl Config {
             }
         }
 
-        if self.tor.mode == TorMode::Arti {
+        if matches!(self.tor.mode, TorMode::Arti | TorMode::Auto) {
             match Self::check_dir_permissions(&self.tor.arti.directory_path) {
                 Ok(()) => println!(
                     "Permissions are ok at {}",
