@@ -98,35 +98,33 @@ pub async fn initialize_clearnet_p2p(
     tor_ctx: &TorContext,
 ) -> (NetworkInterface<ClearNet>, Sender<IncomingTxHandler>) {
     match config.p2p.clear_net.proxy {
-        ProxySettings::Tor => {
-            match tor_ctx.mode {
-                TorMode::Arti => {
-                    tracing::info!("Anonymizing clearnet connections through Arti.");
-                    start_zone_p2p::<ClearNet, Arti>(
-                        blockchain_read_handle,
-                        context_svc,
-                        txpool_read_handle,
-                        config.clearnet_p2p_config(),
-                        transport_clearnet_arti_config(tor_ctx),
-                    )
-                    .await
-                    .unwrap()
-                }
-                TorMode::Daemon => start_zone_p2p::<ClearNet, Socks>(
+        ProxySettings::Tor => match tor_ctx.mode {
+            TorMode::Arti => {
+                tracing::info!("Anonymizing clearnet connections through Arti.");
+                start_zone_p2p::<ClearNet, Arti>(
                     blockchain_read_handle,
                     context_svc,
                     txpool_read_handle,
                     config.clearnet_p2p_config(),
-                    transport_clearnet_daemon_config(config),
+                    transport_clearnet_arti_config(tor_ctx),
                 )
                 .await
-                .unwrap(),
-                TorMode::Off => {
-                    tracing::error!("Clearnet proxy set to \"tor\" but Tor is actually off. Please be sure to set a mode in the configuration or command line");
-                    std::process::exit(0);
-                }
+                .unwrap()
             }
-        }
+            TorMode::Daemon => start_zone_p2p::<ClearNet, Socks>(
+                blockchain_read_handle,
+                context_svc,
+                txpool_read_handle,
+                config.clearnet_p2p_config(),
+                transport_clearnet_daemon_config(config),
+            )
+            .await
+            .unwrap(),
+            TorMode::Off => {
+                tracing::error!("Clearnet proxy set to \"tor\" but Tor is actually off. Please be sure to set a mode in the configuration or command line");
+                std::process::exit(0);
+            }
+        },
         ProxySettings::Socks(ref s) => {
             if s.is_empty() {
                 start_zone_p2p::<ClearNet, Tcp>(
