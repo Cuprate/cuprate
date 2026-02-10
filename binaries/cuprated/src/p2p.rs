@@ -47,34 +47,27 @@ pub enum ProxySettings {
     Socks(String),
 }
 
-impl TryFrom<ProxySettings> for SocksClientConfig {
-    type Error = anyhow::Error;
+/// Converts a `str` to a [`SocksClientConfig`].
+fn socks_proxy_str_to_config(url: &str) -> Result<SocksClientConfig, anyhow::Error> {
+    let Some((_, url)) = url.split_once("socks5://") else {
+        return Err(anyhow!("Invalid proxy url header."));
+    };
 
-    fn try_from(value: ProxySettings) -> Result<Self, Self::Error> {
-        let ProxySettings::Socks(url) = value else {
-            panic!("Tor proxy setting should not be parsed!")
-        };
-
-        let Some((_, url)) = url.split_once("socks5://") else {
-            return Err(anyhow!("Invalid proxy url header."));
-        };
-
-        let (authentication, addr) = url
-            .split_once('@')
-            .map(|(up, ad)| {
-                (
-                    up.split_once(':')
-                        .map(|(a, b)| (a.to_string(), b.to_string())),
-                    ad,
-                )
-            })
-            .unwrap_or((None, url));
-
-        Ok(Self {
-            proxy: addr.parse()?,
-            authentication,
+    let (authentication, addr) = url
+        .split_once('@')
+        .map(|(up, ad)| {
+            (
+                up.split_once(':')
+                    .map(|(a, b)| (a.to_string(), b.to_string())),
+                ad,
+            )
         })
-    }
+        .unwrap_or((None, url));
+
+    Ok(SocksClientConfig {
+        proxy: addr.parse()?,
+        authentication,
+    })
 }
 
 /// This struct collect all supported and optional network zone interfaces.
@@ -152,7 +145,10 @@ pub async fn initialize_zones_p2p(
                         context_svc.clone(),
                         txpool_read_handle.clone(),
                         config.clearnet_p2p_config(),
-                        config.p2p.clear_net.socks_transport_config(),
+                        TransportConfig {
+                            client_config: socks_proxy_str_to_config(s).unwrap(),
+                            server_config: None,
+                        },
                     )
                     .await
                     .unwrap()
