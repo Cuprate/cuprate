@@ -18,7 +18,7 @@ use cuprate_p2p_core::{
     transports::{Tcp, TcpServerConfig},
     ClearNet, NetworkZone, Tor, Transport,
 };
-use cuprate_p2p_transport::{Arti, ArtiClientConfig, ArtiServerConfig};
+use cuprate_p2p_transport::{Arti, ArtiClientConfig, ArtiServerConfig, Socks, SocksClientConfig};
 use cuprate_wire::OnionAddr;
 
 use crate::{p2p::ProxySettings, tor::TorMode};

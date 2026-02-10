@@ -2,8 +2,9 @@
 //!
 //! Will handle initiating the P2P and contains a protocol request handler.
 
-use std::convert::From;
+use std::{convert::From, str::FromStr};
 
+use anyhow::anyhow;
 use arti_client::TorClient;
 use futures::{FutureExt, TryFutureExt};
 use serde::{Deserialize, Serialize};
@@ -17,7 +18,7 @@ use cuprate_p2p::{config::TransportConfig, NetworkInterface, P2PConfig};
 use cuprate_p2p_core::{
     client::InternalPeerID, transports::Tcp, ClearNet, NetworkZone, Tor, Transport,
 };
-use cuprate_p2p_transport::{Arti, ArtiClientConfig, Daemon};
+use cuprate_p2p_transport::{Arti, ArtiClientConfig, Daemon, Socks, SocksClientConfig};
 use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
 use cuprate_types::blockchain::BlockchainWriteRequest;
 
@@ -26,8 +27,8 @@ use crate::{
     config::Config,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     tor::{
-        transport_arti_config, transport_clearnet_arti_config, transport_daemon_config, TorContext,
-        TorMode,
+        transport_arti_config, transport_clearnet_arti_config, transport_clearnet_daemon_config,
+        transport_daemon_config, TorContext, TorMode,
     },
     txpool::{self, IncomingTxHandler},
 };
@@ -39,11 +40,34 @@ pub mod request_handler;
 pub use network_address::CrossNetworkInternalPeerId;
 
 /// A simple parsing enum for the `p2p.clear_net.proxy` field
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub enum ProxySettings {
     Tor,
     #[serde(untagged)]
     Socks(String),
+}
+
+/// Converts a `str` to a [`SocksClientConfig`].
+fn socks_proxy_str_to_config(url: &str) -> Result<SocksClientConfig, anyhow::Error> {
+    let Some((_, url)) = url.split_once("socks5://") else {
+        return Err(anyhow!("Invalid proxy url header."));
+    };
+
+    let (authentication, addr) = url
+        .split_once('@')
+        .map(|(up, ad)| {
+            (
+                up.split_once(':')
+                    .map(|(a, b)| (a.to_string(), b.to_string())),
+                ad,
+            )
+        })
+        .unwrap_or((None, url));
+
+    Ok(SocksClientConfig {
+        proxy: addr.parse()?,
+        authentication,
+    })
 }
 
 /// This struct collect all supported and optional network zone interfaces.
@@ -90,30 +114,45 @@ pub async fn initialize_zones_p2p(
                     .await
                     .unwrap()
                 }
-                TorMode::Daemon => {
-                    tracing::error!("Anonymizing clearnet connections through the Tor daemon is not yet supported.");
-                    std::process::exit(0);
-                }
+                TorMode::Daemon => start_zone_p2p::<ClearNet, Socks>(
+                    blockchain_read_handle.clone(),
+                    context_svc.clone(),
+                    txpool_read_handle.clone(),
+                    config.clearnet_p2p_config(),
+                    transport_clearnet_daemon_config(config),
+                )
+                .await
+                .unwrap(),
                 TorMode::Off => {
                     tracing::error!("Clearnet proxy set to \"tor\" but Tor is actually off. Please be sure to set a mode in the configuration or command line");
                     std::process::exit(0);
                 }
             },
             ProxySettings::Socks(ref s) => {
-                if !s.is_empty() {
-                    tracing::error!("Socks proxy is not yet supported.");
-                    std::process::exit(0);
+                if s.is_empty() {
+                    start_zone_p2p::<ClearNet, Tcp>(
+                        blockchain_read_handle.clone(),
+                        context_svc.clone(),
+                        txpool_read_handle.clone(),
+                        config.clearnet_p2p_config(),
+                        config.p2p.clear_net.tcp_transport_config(config.network),
+                    )
+                    .await
+                    .unwrap()
+                } else {
+                    start_zone_p2p::<ClearNet, Socks>(
+                        blockchain_read_handle.clone(),
+                        context_svc.clone(),
+                        txpool_read_handle.clone(),
+                        config.clearnet_p2p_config(),
+                        TransportConfig {
+                            client_config: socks_proxy_str_to_config(s).unwrap(),
+                            server_config: None,
+                        },
+                    )
+                    .await
+                    .unwrap()
                 }
-
-                start_zone_p2p::<ClearNet, Tcp>(
-                    blockchain_read_handle.clone(),
-                    context_svc.clone(),
-                    txpool_read_handle.clone(),
-                    config.clearnet_p2p_config(),
-                    config.p2p.clear_net.tcp_transport_config(config.network),
-                )
-                .await
-                .unwrap()
             }
         }
     };
