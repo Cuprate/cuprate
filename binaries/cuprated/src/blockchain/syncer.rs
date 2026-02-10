@@ -38,6 +38,7 @@ pub async fn syncer<CN>(
     incoming_block_batch_tx: mpsc::Sender<(BlockBatch, Arc<OwnedSemaphorePermit>)>,
     stop_current_block_downloader: Arc<Notify>,
     block_downloader_config: BlockDownloaderConfig,
+    synced_notify: Arc<Notify>,
 ) -> Result<(), SyncerError>
 where
     CN: Service<
@@ -65,8 +66,13 @@ where
 
         let blockchain_context = context_svc.blockchain_context();
 
-        if !check_behind_peers(blockchain_context, &mut clearnet_interface).await? {
-            continue;
+        match check_sync_status(blockchain_context, &mut clearnet_interface).await? {
+            SyncStatus::BehindPeers => {}
+            SyncStatus::NoPeers => continue,
+            SyncStatus::Synced => {
+                synced_notify.notify_one();
+                continue;
+            }
         }
 
         tracing::debug!(
@@ -94,8 +100,9 @@ where
 
                         let blockchain_context = context_svc.blockchain_context();
 
-                        if !check_behind_peers(blockchain_context, &mut clearnet_interface).await? {
+                        if check_sync_status(blockchain_context, &mut clearnet_interface).await? == SyncStatus::Synced {
                             tracing::info!("Synchronised with the network.");
+                            synced_notify.notify_one();
                         }
 
                         break;
@@ -111,11 +118,18 @@ where
     }
 }
 
-/// Returns `true` if we are behind the current connected network peers.
-async fn check_behind_peers(
+#[derive(Debug, PartialEq)]
+enum SyncStatus {
+    NoPeers,
+    BehindPeers,
+    Synced,
+}
+
+/// Checks if we are behind the connected peers.
+async fn check_sync_status(
     blockchain_context: &BlockchainContext,
     mut clearnet_interface: &mut NetworkInterface<ClearNet>,
-) -> Result<bool, tower::BoxError> {
+) -> Result<SyncStatus, tower::BoxError> {
     let PeerSetResponse::MostPoWSeen {
         cumulative_difficulty,
         ..
@@ -129,9 +143,13 @@ async fn check_behind_peers(
         unreachable!();
     };
 
-    if cumulative_difficulty <= blockchain_context.cumulative_difficulty {
-        return Ok(false);
+    if cumulative_difficulty == 0 {
+        return Ok(SyncStatus::NoPeers);
     }
 
-    Ok(true)
+    if cumulative_difficulty > blockchain_context.cumulative_difficulty {
+        return Ok(SyncStatus::BehindPeers);
+    }
+
+    Ok(SyncStatus::Synced)
 }

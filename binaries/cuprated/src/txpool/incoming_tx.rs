@@ -7,7 +7,7 @@ use std::{
 use bytes::Bytes;
 use futures::{future::BoxFuture, FutureExt};
 use monero_oxide::transaction::Transaction;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 use tower::{BoxError, Service, ServiceExt};
 use tracing::instrument;
 
@@ -112,7 +112,7 @@ impl IncomingTxHandler {
     pub async fn init(
         txpool_config: TxpoolConfig,
         clear_net: NetworkInterface<ClearNet>,
-        tor_net: Option<NetworkInterface<Tor>>,
+        tor_net_rx: Option<oneshot::Receiver<NetworkInterface<Tor>>>,
         txpool_write_handle: TxpoolWriteHandle,
         txpool_read_handle: TxpoolReadHandle,
         blockchain_context_cache: BlockchainContextService,
@@ -122,9 +122,8 @@ impl IncomingTxHandler {
             clear_net_broadcast_service: clear_net.broadcast_svc(),
         };
         let clearnet_router = dandelion::dandelion_router(clear_net);
-        let tor_router = tor_net.map(AnonTxService::new);
 
-        let dandelion_router = MainDandelionRouter::new(clearnet_router, tor_router);
+        let dandelion_router = MainDandelionRouter::new(clearnet_router, tor_net_rx);
 
         let (promote_tx, promote_rx) = mpsc::unbounded_channel();
 

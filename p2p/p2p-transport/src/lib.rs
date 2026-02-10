@@ -10,6 +10,10 @@ pub use arti::{Arti, ArtiClientConfig, ArtiServerConfig};
 mod tor;
 pub use tor::{Daemon, DaemonClientConfig, DaemonServerConfig};
 
+/// SOCKS5 implementation
+mod socks;
+pub use socks::{Socks, SocksClientConfig};
+
 /// Disabled listener
 mod disabled;
 pub(crate) use disabled::DisabledListener;
