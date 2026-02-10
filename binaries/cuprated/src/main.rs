@@ -18,7 +18,7 @@
 
 use std::{mem, sync::Arc};
 
-use tokio::sync::{mpsc, oneshot, Notify};
+use tokio::sync::{mpsc, oneshot};
 use tower::{Service, ServiceExt};
 use tracing::{error, info, level_filters::LevelFilter};
 use tracing_subscriber::{layer::SubscriberExt, reload::Handle, util::SubscriberInitExt, Registry};
@@ -157,18 +157,14 @@ fn main() {
             unreachable!()
         }
 
-        // Create the synced notification
-        let synced_notify = Arc::new(Notify::new());
-
         // Initialize the blockchain manager.
-        blockchain::init_blockchain_manager(
+        let synced_notify = blockchain::init_blockchain_manager(
             clearnet_interface,
             blockchain_write_handle,
             blockchain_read_handle.clone(),
             tx_handler.txpool_manager.clone(),
             context_svc.clone(),
             config.block_downloader_config(),
-            Arc::clone(&synced_notify),
         )
         .await;
 
