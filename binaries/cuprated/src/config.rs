@@ -428,7 +428,7 @@ impl Config {
             }
         }
 
-        if matches!(self.tor.mode, TorMode::Daemon | TorMode::Auto) {
+        if self.tor.mode == TorMode::Daemon {
             let port = self.tor.daemon.listening_addr.port();
             let ip = self.tor.daemon.listening_addr.ip();
 
