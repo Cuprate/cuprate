@@ -77,15 +77,14 @@ pub async fn initialize_tor_if_enabled(config: &Config) -> TorContext {
         }
         other => other,
     };
-    
+
     // Start Arti client
-    let (bootstrapped_client, arti_client_config) =
-        if mode == TorMode::Arti && tor_enabled {
-            Some(initialize_arti_client(config).await)
-        } else {
-            None
-        }
-        .unzip();
+    let (bootstrapped_client, arti_client_config) = if mode == TorMode::Arti && tor_enabled {
+        Some(initialize_arti_client(config).await)
+    } else {
+        None
+    }
+    .unzip();
 
     // Start Arti onion service
     let arti_onion_service = arti_client_config
