@@ -10,9 +10,7 @@ use std::{
 };
 
 use anyhow::bail;
-use arti_client::KeystoreSelector;
 use clap::Parser;
-use safelog::DisplayRedacted;
 use serde::{Deserialize, Serialize};
 
 use cuprate_consensus::ContextConfig;
@@ -29,6 +27,9 @@ use crate::{
     logging::eprintln_red,
     tor::{TorContext, TorMode},
 };
+
+#[cfg(feature = "arti")]
+use {arti_client::KeystoreSelector, safelog::DisplayRedacted};
 
 mod args;
 mod default;
@@ -259,6 +260,7 @@ impl Config {
                     &self.tor.daemon.anonymous_inbound,
                     tor_p2p_port
                 ).expect("Unable to parse supplied `anonymous_inbound` onion address. Please make sure the address is correct.")),
+            #[cfg(feature = "arti")]
             TorMode::Arti => inbound_enabled.then(|| {
                 let addr = ctx.arti_onion_service
                     .as_ref()
@@ -460,6 +462,7 @@ impl Config {
             }
         }
 
+        #[cfg(feature = "arti")]
         if matches!(self.tor.mode, TorMode::Arti | TorMode::Auto) {
             match Self::check_dir_permissions(&self.tor.arti.directory_path) {
                 Ok(()) => println!(
