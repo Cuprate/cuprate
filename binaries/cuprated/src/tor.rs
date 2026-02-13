@@ -78,7 +78,7 @@ pub async fn initialize_tor_if_enabled(config: &Config) -> TorContext {
     let mode = if config.tor.mode == TorMode::Auto && tor_enabled {
         #[cfg(not(feature = "arti"))]
         {
-            tracing::warn!("Feature 'arti' not available, falling back to daemon mode.");
+            tracing::warn!("Feature `arti` not available, falling back to daemon mode.");
             TorMode::Daemon
         }
         #[cfg(feature = "arti")]
