@@ -304,16 +304,6 @@ async fn new_fluffy_block<A: NetZoneAddress>(
 ) -> anyhow::Result<ProtocolResponse> {
     let current_blockchain_height = request.current_blockchain_height;
 
-    let context = blockchain_context_service.blockchain_context();
-    if current_blockchain_height + 10 < usize_to_u64(context.chain_height) {
-        tracing::debug!(
-            our_height = context.chain_height,
-            block_height = current_blockchain_height,
-            "fluffy block too old, ignoring."
-        );
-        return Ok(ProtocolResponse::NA);
-    }
-
     peer_information
         .core_sync_data
         .lock()
@@ -347,6 +337,16 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         Ok((block, txs))
     })
     .await?;
+
+    let context = blockchain_context_service.blockchain_context();
+    if block.number() + 10 < context.chain_height {
+        tracing::debug!(
+            our_height = context.chain_height,
+            block_height = block.number(),
+            "fluffy block too old, ignoring."
+        );
+        return Ok(ProtocolResponse::NA);
+    }
 
     let res = blockchain_interface::handle_incoming_block(
         block,
