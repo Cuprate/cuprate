@@ -150,6 +150,7 @@ where
                 self.peer_information.clone(),
                 r,
                 self.blockchain_read_handle.clone(),
+                self.blockchain_context_service.clone(),
                 self.txpool_read_handle.clone(),
             )
             .boxed(),
@@ -298,9 +299,9 @@ async fn new_fluffy_block<A: NetZoneAddress>(
     peer_information: PeerInformation<A>,
     request: NewFluffyBlock,
     mut blockchain_read_handle: BlockchainReadHandle,
+    mut blockchain_context_service: BlockchainContextService,
     mut txpool_read_handle: TxpoolReadHandle,
 ) -> anyhow::Result<ProtocolResponse> {
-    // TODO: check context service here and ignore the block?
     let current_blockchain_height = request.current_blockchain_height;
 
     peer_information
@@ -336,6 +337,16 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         Ok((block, txs))
     })
     .await?;
+
+    let context = blockchain_context_service.blockchain_context();
+    if block.number() + 10 < context.chain_height {
+        tracing::debug!(
+            our_height = context.chain_height,
+            block_height = block.number(),
+            "fluffy block too old, ignoring."
+        );
+        return Ok(ProtocolResponse::NA);
+    }
 
     let res = blockchain_interface::handle_incoming_block(
         block,
