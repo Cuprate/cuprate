@@ -40,16 +40,15 @@ use crate::{
     config::TxpoolConfig,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     p2p::CrossNetworkInternalPeerId,
-    signals::REORG_LOCK,
     txpool::{
-        dandelion::{
-            self, AnonTxService, ConcreteDandelionRouter, DiffuseService, MainDandelionRouter,
-        },
+        dandelion::{self, DiffuseService},
         manager::{start_txpool_manager, TxpoolManagerHandle},
-        relay_rules::{check_tx_relay_rules, RelayRuleError},
+        relay_rules::check_tx_relay_rules,
         txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
+        RelayRuleError,
     },
 };
+use crate::txpool::dandelion::{AnonTxService, MainDandelionRouter};
 
 /// An error that can happen handling an incoming tx.
 #[derive(Debug, thiserror::Error)]
@@ -133,9 +132,14 @@ impl IncomingTxHandler {
             promote_tx,
         );
 
+        let blockchain_read_handle =
+            ConsensusBlockchainReadHandle::new(blockchain_read_handle, BoxError::from);
+
         let txpool_manager = start_txpool_manager(
             txpool_write_handle,
             txpool_read_handle.clone(),
+            blockchain_context_cache.clone(),
+            blockchain_read_handle.clone(),
             promote_rx,
             diffuse_service,
             dandelion_pool_manager.clone(),
@@ -149,10 +153,7 @@ impl IncomingTxHandler {
             dandelion_pool_manager,
             txpool_manager,
             txpool_read_handle,
-            blockchain_read_handle: ConsensusBlockchainReadHandle::new(
-                blockchain_read_handle,
-                BoxError::from,
-            ),
+            blockchain_read_handle,
         }
     }
 }
@@ -195,25 +196,14 @@ async fn handle_incoming_txs(
     mut txpool_manager_handle: TxpoolManagerHandle,
     mut dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
 ) -> Result<(), IncomingTxError> {
-    let _reorg_guard = REORG_LOCK.read().await;
-
     let (txs, stem_pool_txs, txs_being_handled_guard) =
         prepare_incoming_txs(txs, txs_being_handled, &mut txpool_read_handle).await?;
-
-    let context = blockchain_context_cache.blockchain_context();
 
     let txs = start_tx_verification()
         .append_prepped_txs(txs)
         .prepare()
         .map_err(|e| IncomingTxError::Consensus(e.into()))?
-        .full(
-            context.chain_height,
-            context.top_hash,
-            context.current_adjusted_timestamp_for_time_lock(),
-            context.current_hf,
-            blockchain_read_handle,
-            None,
-        )
+        .full(&mut blockchain_context_cache, blockchain_read_handle, None)
         .verify()
         .await
         .map_err(IncomingTxError::Consensus)?;
@@ -221,7 +211,7 @@ async fn handle_incoming_txs(
     for tx in txs {
         // TODO: this could be a DoS, if someone spams us with txs that violate these rules?
         // Maybe we should remember these invalid txs for some time to prevent them getting repeatedly sent.
-        if let Err(e) = check_tx_relay_rules(&tx, context) {
+        if let Err(e) = check_tx_relay_rules(&tx, blockchain_context_cache.blockchain_context()) {
             if drop_relay_rule_errors {
                 tracing::debug!(err = %e, tx = hex::encode(tx.tx_hash), "Tx failed relay check, skipping.");
                 continue;
