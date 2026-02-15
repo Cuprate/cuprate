@@ -11,7 +11,7 @@ use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{generate_genesis_block, BlockchainContextService, ContextConfig};
 use cuprate_cryptonight::cryptonight_hash_v0;
 use cuprate_p2p::{block_downloader::BlockDownloaderConfig, NetworkInterface};
-use cuprate_p2p_core::{ClearNet, Network, SyncerWake};
+use cuprate_p2p_core::{ClearNet, Network};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainWriteRequest},
     VerifiedBlockInformation,
@@ -29,12 +29,6 @@ mod types;
 pub use fast_sync::set_fast_sync_hashes;
 pub use manager::init_blockchain_manager;
 pub use types::ConsensusBlockchainReadHandle;
-
-/// Creates a [`SyncerWake`] seeded with the current cumulative difficulty.
-pub fn create_syncer_wake(context_svc: &mut BlockchainContextService) -> Arc<SyncerWake> {
-    let cd = context_svc.blockchain_context().cumulative_difficulty;
-    Arc::new(SyncerWake::new(cd))
-}
 
 /// Checks if the genesis block is in the blockchain and adds it if not.
 pub async fn check_add_genesis(

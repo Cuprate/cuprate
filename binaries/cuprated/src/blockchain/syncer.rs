@@ -12,7 +12,7 @@ use cuprate_p2p::{
     block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
     NetworkInterface, PeerSetRequest, PeerSetResponse,
 };
-use cuprate_p2p_core::{ClearNet, NetworkZone, SyncerWake};
+use cuprate_p2p_core::{ClearNet, NetworkZone};
 
 /// An error returned from the [`syncer`].
 #[derive(Debug, thiserror::Error)]
@@ -21,6 +21,16 @@ pub enum SyncerError {
     IncomingBlockChannelClosed,
     #[error("One of our services returned an error: {0}.")]
     ServiceError(#[from] tower::BoxError),
+}
+
+/// The outcome of a block download session.
+enum DownloadOutcome {
+    /// The downloader was stopped.
+    Stopped,
+    /// The downloader received at least one batch before the stream ended.
+    GotBlocks,
+    /// The stream ended without producing any blocks.
+    EmptyStream,
 }
 
 /// The syncer tasks that makes sure we are fully synchronised with our connected peers.
@@ -34,7 +44,7 @@ pub async fn syncer<CN>(
     stop_current_block_downloader: Arc<Notify>,
     block_downloader_config: BlockDownloaderConfig,
     synced_notify: Arc<Notify>,
-    syncer_wake: Arc<SyncerWake>,
+    syncer_wake: Arc<Notify>,
 ) -> Result<(), SyncerError>
 where
     CN: Service<
@@ -79,8 +89,7 @@ where
         let mut block_batch_stream =
             clearnet_interface.block_downloader(our_chain.clone(), block_downloader_config);
 
-        let mut was_stopped = false;
-        let mut got_blocks = false;
+        let mut outcome = DownloadOutcome::EmptyStream;
 
         loop {
             tokio::select! {
@@ -90,7 +99,7 @@ where
                     drop(sync_permit);
                     sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
 
-                    was_stopped = true;
+                    outcome = DownloadOutcome::Stopped;
                     break;
                 }
                 batch = block_batch_stream.next() => {
@@ -104,7 +113,7 @@ where
                     };
 
                     tracing::debug!("Got batch, len: {}", batch.blocks.len());
-                    got_blocks = true;
+                    outcome = DownloadOutcome::GotBlocks;
                     if incoming_block_batch_tx.send((batch, Arc::clone(&sync_permit))).await.is_err() {
                         return Err(SyncerError::IncomingBlockChannelClosed);
                     }
@@ -113,12 +122,23 @@ where
         }
 
         // Preemptively stopped or got blocks - start the downloader again to check if we are behind or not.
-        if was_stopped || got_blocks {
+        if matches!(
+            outcome,
+            DownloadOutcome::Stopped | DownloadOutcome::GotBlocks
+        ) {
             continue;
         }
 
-        tracing::info!("Synchronised with the network.");
-        synced_notify.notify_one();
+        // Check if we are still behind or not before announcing we are synced.
+        match check_sync_status(context_svc.blockchain_context(), &mut clearnet_interface).await? {
+            SyncStatus::BehindPeers => continue,
+            SyncStatus::Synced => {
+                tracing::info!("Synchronised with the network.");
+                synced_notify.notify_one();
+            }
+            SyncStatus::NoPeers => {}
+        }
+
         tracing::debug!("Waiting for new sync info.");
         notified.await;
     }

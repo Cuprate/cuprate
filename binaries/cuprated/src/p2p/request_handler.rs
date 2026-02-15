@@ -12,7 +12,7 @@ use futures::{
     FutureExt,
 };
 use monero_oxide::{block::Block, transaction::Transaction};
-use tokio::sync::{broadcast, oneshot, watch};
+use tokio::sync::{broadcast, oneshot, watch, Notify};
 use tokio_stream::wrappers::WatchStream;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
@@ -34,7 +34,7 @@ use cuprate_p2p::constants::{
 };
 use cuprate_p2p_core::{
     client::{InternalPeerID, PeerInformation},
-    NetZoneAddress, NetworkZone, ProtocolRequest, ProtocolResponse, SyncerWake,
+    NetZoneAddress, NetworkZone, ProtocolRequest, ProtocolResponse,
 };
 use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::{
@@ -59,7 +59,7 @@ pub struct P2pProtocolRequestHandlerMaker {
     pub blockchain_read_handle: BlockchainReadHandle,
     pub blockchain_context_service: BlockchainContextService,
     pub txpool_read_handle: TxpoolReadHandle,
-    pub syncer_wake: Option<Arc<SyncerWake>>,
+    pub syncer_wake: Option<Arc<Notify>>,
 
     /// The [`IncomingTxHandler`], wrapped in an [`Option`] as there is a cyclic reference between [`P2pProtocolRequestHandlerMaker`]
     /// and the [`IncomingTxHandler`].
@@ -120,7 +120,7 @@ pub struct P2pProtocolRequestHandler<N: NetZoneAddress> {
     blockchain_context_service: BlockchainContextService,
     txpool_read_handle: TxpoolReadHandle,
     incoming_tx_handler: IncomingTxHandler,
-    syncer_wake: Option<Arc<SyncerWake>>,
+    syncer_wake: Option<Arc<Notify>>,
 }
 
 impl<A: NetZoneAddress> Service<ProtocolRequest> for P2pProtocolRequestHandler<A>
@@ -306,7 +306,7 @@ async fn new_fluffy_block<A: NetZoneAddress>(
     mut blockchain_read_handle: BlockchainReadHandle,
     mut blockchain_context_service: BlockchainContextService,
     mut txpool_read_handle: TxpoolReadHandle,
-    syncer_wake: Option<Arc<SyncerWake>>,
+    syncer_wake: Option<Arc<Notify>>,
 ) -> anyhow::Result<ProtocolResponse> {
     let current_blockchain_height = request.current_blockchain_height;
 
@@ -374,7 +374,7 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         Err(IncomingBlockError::Orphan) => {
             // Block's parent was unknown, could be syncing?
             if let Some(syncer_wake) = &syncer_wake {
-                syncer_wake.wake();
+                syncer_wake.notify_one();
             }
             Ok(ProtocolResponse::NA)
         }

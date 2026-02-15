@@ -7,14 +7,17 @@ use std::{convert::From, str::FromStr, sync::Arc};
 use anyhow::anyhow;
 use futures::{FutureExt, TryFutureExt};
 use serde::{Deserialize, Serialize};
-use tokio::sync::oneshot::{self, Sender};
+use tokio::sync::{
+    oneshot::{self, Sender},
+    Notify,
+};
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::BlockchainContextService;
 use cuprate_p2p::{config::TransportConfig, NetworkInterface, P2PConfig};
 use cuprate_p2p_core::{
-    client::InternalPeerID, transports::Tcp, ClearNet, NetworkZone, SyncerWake, Tor, Transport,
+    client::InternalPeerID, transports::Tcp, ClearNet, NetworkZone, Tor, Transport,
 };
 use cuprate_p2p_transport::{Daemon, Socks, SocksClientConfig};
 use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
@@ -99,7 +102,7 @@ pub async fn initialize_clearnet_p2p(
     blockchain_read_handle: BlockchainReadHandle,
     txpool_read_handle: TxpoolReadHandle,
     tor_ctx: &TorContext,
-    syncer_wake: Arc<SyncerWake>,
+    syncer_wake: Arc<Notify>,
 ) -> (NetworkInterface<ClearNet>, Sender<IncomingTxHandler>) {
     match config.p2p.clear_net.proxy {
         ProxySettings::Tor => match tor_ctx.mode {
@@ -205,7 +208,7 @@ pub async fn start_zone_p2p<N, T>(
     txpool_read_handle: TxpoolReadHandle,
     config: P2PConfig<N>,
     transport_config: TransportConfig<N, T>,
-    syncer_wake: Option<Arc<SyncerWake>>,
+    syncer_wake: Option<Arc<Notify>>,
 ) -> Result<(NetworkInterface<N>, Sender<IncomingTxHandler>), tower::BoxError>
 where
     N: NetworkZone,

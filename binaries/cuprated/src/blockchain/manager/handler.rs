@@ -635,9 +635,6 @@ impl super::BlockchainManager {
         self.add_valid_block_to_blockchain_cache(&verified_block)
             .await;
 
-        self.syncer_wake
-            .set_cumulative_difficulty(verified_block.cumulative_difficulty);
-
         self.blockchain_write_handle
             .ready()
             .await

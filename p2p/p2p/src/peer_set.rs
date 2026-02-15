@@ -8,14 +8,14 @@ use std::{
 use futures::{stream::FuturesUnordered, StreamExt};
 use indexmap::{IndexMap, IndexSet};
 use rand::{seq::index::sample, thread_rng};
-use tokio::sync::mpsc::Receiver;
+use tokio::sync::{mpsc::Receiver, Notify};
 use tokio_util::sync::WaitForCancellationFutureOwned;
 use tower::Service;
 
 use cuprate_helper::cast::u64_to_usize;
 use cuprate_p2p_core::{
     client::{Client, InternalPeerID},
-    ConnectionDirection, NetworkZone, SyncerWake,
+    ConnectionDirection, NetworkZone,
 };
 
 mod client_wrappers;
@@ -86,14 +86,11 @@ pub(crate) struct PeerSet<N: NetworkZone> {
     /// A channel of new peers from the inbound server or outbound connector.
     new_peers: Receiver<Client<N>>,
     /// The syncer wake handle.
-    syncer_wake: Option<Arc<SyncerWake>>,
+    syncer_wake: Option<Arc<Notify>>,
 }
 
 impl<N: NetworkZone> PeerSet<N> {
-    pub(crate) fn new(
-        new_peers: Receiver<Client<N>>,
-        syncer_wake: Option<Arc<SyncerWake>>,
-    ) -> Self {
+    pub(crate) fn new(new_peers: Receiver<Client<N>>, syncer_wake: Option<Arc<Notify>>) -> Self {
         Self {
             peers: IndexMap::new(),
             closed_connections: FuturesUnordered::new(),
@@ -110,13 +107,6 @@ impl<N: NetworkZone> PeerSet<N> {
                 self.outbound_peers.insert(new_peer.info.id);
             }
 
-            // If PeerSet was empty, wake the syncer to start syncing from the first peer immediately.
-            if self.peers.is_empty() {
-                if let Some(syncer_wake) = &self.syncer_wake {
-                    syncer_wake.wake();
-                }
-            }
-
             self.closed_connections.push(ClosedConnectionFuture {
                 fut: new_peer.info.handle.closed(),
                 id: Some(new_peer.info.id),
@@ -124,6 +114,11 @@ impl<N: NetworkZone> PeerSet<N> {
 
             self.peers
                 .insert(new_peer.info.id, StoredClient::new(new_peer));
+
+            // Wake the syncer to check if we are behind after adding a new peer.
+            if let Some(syncer_wake) = &self.syncer_wake {
+                syncer_wake.notify_one();
+            }
         }
     }
 

@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use futures::FutureExt;
 use tokio::{
-    sync::mpsc,
+    sync::{mpsc, Notify},
     task::JoinSet,
     time::{sleep, Duration},
 };
@@ -17,7 +17,7 @@ use cuprate_async_buffer::BufferStream;
 use cuprate_p2p_core::{
     client::Connector,
     services::{AddressBookRequest, AddressBookResponse},
-    CoreSyncSvc, NetworkZone, ProtocolRequestHandlerMaker, SyncerWake, Transport,
+    CoreSyncSvc, NetworkZone, ProtocolRequestHandlerMaker, Transport,
 };
 
 pub mod block_downloader;
@@ -83,7 +83,7 @@ pub async fn initialize_network<Z, T, PR, CS>(
     core_sync_svc: CS,
     config: P2PConfig<Z>,
     transport_config: TransportConfig<Z, T>,
-    syncer_wake: Option<Arc<SyncerWake>>,
+    syncer_wake: Option<Arc<Notify>>,
 ) -> Result<NetworkInterface<Z>, tower::BoxError>
 where
     Z: NetworkZone,

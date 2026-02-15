@@ -1,6 +1,7 @@
 use std::{convert::Infallible, marker::PhantomData, sync::Arc};
 
 use futures::{stream, Stream};
+use tokio::sync::Notify;
 use tower::{make::Shared, util::MapErr};
 use tracing::Span;
 
@@ -9,7 +10,7 @@ use cuprate_wire::BasicNodeData;
 use crate::{
     client::{handshaker::HandShaker, InternalPeerID},
     AddressBook, BroadcastMessage, CoreSyncSvc, NetworkZone, ProtocolRequestHandlerMaker,
-    SyncerWake, Transport,
+    Transport,
 };
 
 mod dummy;
@@ -48,7 +49,7 @@ pub struct HandshakerBuilder<
     connection_parent_span: Option<Span>,
 
     /// The syncer wake handle.
-    syncer_wake: Option<Arc<SyncerWake>>,
+    syncer_wake: Option<Arc<Notify>>,
 
     /// Transport method client configuration to use.
     transport_client_config: T::ClientConfig,
@@ -243,13 +244,13 @@ impl<N: NetworkZone, T: Transport<N>, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr>
         }
     }
 
-    /// Sets the [`SyncerWake`] handle used to wake the syncer on peer sync data updates.
+    /// Sets the [`Notify`] handle used to wake the syncer on peer sync data updates.
     ///
     /// ## Default
     ///
     /// No syncer wake is set by default.
     #[must_use]
-    pub fn with_syncer_wake(self, syncer_wake: Arc<SyncerWake>) -> Self {
+    pub fn with_syncer_wake(self, syncer_wake: Arc<Notify>) -> Self {
         Self {
             syncer_wake: Some(syncer_wake),
             ..self

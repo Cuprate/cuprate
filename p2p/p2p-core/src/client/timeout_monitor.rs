@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use futures::channel::oneshot;
 use tokio::{
-    sync::{mpsc, Semaphore},
+    sync::{mpsc, Notify, Semaphore},
     time::{interval, MissedTickBehavior},
 };
 use tower::ServiceExt;
@@ -18,7 +18,7 @@ use crate::{
     client::{connection::ConnectionTaskRequest, PeerInformation},
     constants::{MAX_PEERS_IN_PEER_LIST_MESSAGE, TIMEOUT_INTERVAL},
     services::{AddressBookRequest, CoreSyncDataRequest, CoreSyncDataResponse},
-    AddressBook, CoreSyncSvc, NetworkZone, PeerRequest, PeerResponse, SyncerWake,
+    AddressBook, CoreSyncSvc, NetworkZone, PeerRequest, PeerResponse,
 };
 
 /// The timeout monitor task, this task will send periodic timed sync requests to the peer to make sure it is still active.
@@ -36,7 +36,7 @@ pub(super) async fn connection_timeout_monitor_task<N: NetworkZone, AdrBook, CSy
 
     mut address_book_svc: AdrBook,
     mut core_sync_svc: CSync,
-    syncer_wake: Option<Arc<SyncerWake>>,
+    syncer_wake: Option<Arc<Notify>>,
 ) -> Result<(), tower::BoxError>
 where
     AdrBook: AddressBook<N>,
@@ -129,10 +129,17 @@ where
             ))
             .await?;
 
-        let cd = timed_sync.payload_data.cumulative_difficulty();
-        *peer_information.core_sync_data.lock().unwrap() = timed_sync.payload_data;
-        if let Some(syncer_wake) = &syncer_wake {
-            syncer_wake.peer_reported(cd);
+        let cd_changed = {
+            let mut core_sync_data = peer_information.core_sync_data.lock().unwrap();
+            let old_cd = core_sync_data.cumulative_difficulty();
+            *core_sync_data = timed_sync.payload_data;
+            core_sync_data.cumulative_difficulty() != old_cd
+        };
+
+        if cd_changed {
+            if let Some(syncer_wake) = &syncer_wake {
+                syncer_wake.notify_one();
+            }
         }
     }
 }

@@ -14,7 +14,7 @@ use std::{
 
 use futures::{FutureExt, SinkExt, Stream, StreamExt};
 use tokio::{
-    sync::{mpsc, OwnedSemaphorePermit, Semaphore},
+    sync::{mpsc, Notify, OwnedSemaphorePermit, Semaphore},
     time::{error::Elapsed, timeout},
 };
 use tower::{Service, ServiceExt};
@@ -42,7 +42,7 @@ use crate::{
     handles::HandleBuilder,
     AddressBook, AddressBookRequest, AddressBookResponse, BroadcastMessage, ConnectionDirection,
     CoreSyncDataRequest, CoreSyncDataResponse, CoreSyncSvc, NetZoneAddress, NetworkZone,
-    ProtocolRequestHandlerMaker, SharedError, SyncerWake, Transport,
+    ProtocolRequestHandlerMaker, SharedError, Transport,
 };
 
 pub mod builder;
@@ -104,7 +104,7 @@ pub struct HandShaker<Z: NetworkZone, T: Transport<Z>, AdrBook, CSync, ProtoHdlr
     connection_parent_span: Span,
 
     /// Used to wake the syncer on peer sync data updates.
-    syncer_wake: Option<Arc<SyncerWake>>,
+    syncer_wake: Option<Arc<Notify>>,
 
     /// Client configuration used by the handshaker for this transport
     transport_client_config: T::ClientConfig,
@@ -125,7 +125,7 @@ impl<Z: NetworkZone, T: Transport<Z>, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMk
         broadcast_stream_maker: BrdcstStrmMkr,
         our_basic_node_data: BasicNodeData,
         connection_parent_span: Span,
-        syncer_wake: Option<Arc<SyncerWake>>,
+        syncer_wake: Option<Arc<Notify>>,
         transport_client_config: T::ClientConfig,
     ) -> Self {
         Self {
@@ -270,7 +270,7 @@ async fn handshake<
     mut protocol_request_svc_maker: ProtoHdlrMkr,
     our_basic_node_data: BasicNodeData,
     connection_parent_span: Span,
-    syncer_wake: Option<Arc<SyncerWake>>,
+    syncer_wake: Option<Arc<Notify>>,
 ) -> Result<Client<Z>, HandshakeError>
 where
     AdrBook: AddressBook<Z> + Clone,
@@ -490,10 +490,6 @@ where
     // Set up the connection data.
     let error_slot = SharedError::new();
     let (connection_tx, client_rx) = mpsc::channel(CLIENT_QUEUE_SIZE);
-
-    if let Some(syncer_wake) = &syncer_wake {
-        syncer_wake.peer_reported(peer_core_sync.cumulative_difficulty());
-    }
 
     let info = PeerInformation {
         id: addr,

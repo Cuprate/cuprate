@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use futures::TryFutureExt;
 use rand::{thread_rng, Rng};
+use tokio::sync::Notify;
 use tower::ServiceExt;
 
 use cuprate_pruning::PruningSeed;
@@ -21,7 +22,6 @@ use crate::{
         ZoneSpecificPeerListEntryBase,
     },
     AddressBook, CoreSyncSvc, NetworkZone, PeerRequest, PeerResponse, ProtocolRequestHandler,
-    SyncerWake,
 };
 
 #[derive(thiserror::Error, Debug, Copy, Clone, Eq, PartialEq)]
@@ -48,7 +48,7 @@ pub(crate) struct PeerRequestHandler<Z: NetworkZone, A, CS, PR> {
     pub peer_info: PeerInformation<Z::Addr>,
 
     /// The syncer wake handle.
-    pub syncer_wake: Option<Arc<SyncerWake>>,
+    pub syncer_wake: Option<Arc<Notify>>,
 }
 
 impl<Z, A, CS, PR> PeerRequestHandler<Z, A, CS, PR>
@@ -108,10 +108,17 @@ where
     ) -> Result<TimedSyncResponse, tower::BoxError> {
         // TODO: add a limit on the amount of these requests in a certain time period.
 
-        let cd = req.payload_data.cumulative_difficulty();
-        *self.peer_info.core_sync_data.lock().unwrap() = req.payload_data;
-        if let Some(syncer_wake) = &self.syncer_wake {
-            syncer_wake.peer_reported(cd);
+        let cd_changed = {
+            let mut core_sync_data = self.peer_info.core_sync_data.lock().unwrap();
+            let old_cd = core_sync_data.cumulative_difficulty();
+            *core_sync_data = req.payload_data;
+            core_sync_data.cumulative_difficulty() != old_cd
+        };
+
+        if cd_changed {
+            if let Some(syncer_wake) = &self.syncer_wake {
+                syncer_wake.notify_one();
+            }
         }
 
         // Fetch core sync data.
