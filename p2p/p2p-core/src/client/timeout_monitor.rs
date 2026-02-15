@@ -18,7 +18,7 @@ use crate::{
     client::{connection::ConnectionTaskRequest, PeerInformation},
     constants::{MAX_PEERS_IN_PEER_LIST_MESSAGE, TIMEOUT_INTERVAL},
     services::{AddressBookRequest, CoreSyncDataRequest, CoreSyncDataResponse},
-    AddressBook, CoreSyncSvc, NetworkZone, PeerRequest, PeerResponse,
+    AddressBook, CoreSyncSvc, NetworkZone, PeerRequest, PeerResponse, SyncerWake,
 };
 
 /// The timeout monitor task, this task will send periodic timed sync requests to the peer to make sure it is still active.
@@ -36,6 +36,7 @@ pub(super) async fn connection_timeout_monitor_task<N: NetworkZone, AdrBook, CSy
 
     mut address_book_svc: AdrBook,
     mut core_sync_svc: CSync,
+    syncer_wake: Option<Arc<SyncerWake>>,
 ) -> Result<(), tower::BoxError>
 where
     AdrBook: AddressBook<N>,
@@ -128,6 +129,10 @@ where
             ))
             .await?;
 
+        let cd = timed_sync.payload_data.cumulative_difficulty();
         *peer_information.core_sync_data.lock().unwrap() = timed_sync.payload_data;
+        if let Some(syncer_wake) = &syncer_wake {
+            syncer_wake.peer_reported(cd);
+        }
     }
 }

@@ -12,7 +12,7 @@ use cuprate_consensus_context::{BlockchainContext, ContextConfig};
 use cuprate_consensus_rules::{hard_forks::HFInfo, miner_tx::calculate_block_reward, HFsInfo};
 use cuprate_helper::network::Network;
 use cuprate_p2p::{block_downloader::BlockBatch, BroadcastSvc};
-use cuprate_p2p_core::handles::HandleBuilder;
+use cuprate_p2p_core::{handles::HandleBuilder, SyncerWake};
 use cuprate_types::{CachedVerificationState, TransactionVerificationData, TxVersion};
 
 use crate::{
@@ -64,6 +64,7 @@ async fn mock_manager(data_dir: PathBuf) -> BlockchainManager {
         blockchain_context_service,
         stop_current_block_downloader: Arc::new(Default::default()),
         broadcast_svc: BroadcastSvc::mock(),
+        syncer_wake: Arc::new(SyncerWake::new(0)),
     }
 }
 

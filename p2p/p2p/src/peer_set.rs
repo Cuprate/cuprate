@@ -1,6 +1,7 @@
 use std::{
     future::{ready, Future, Ready},
     pin::Pin,
+    sync::Arc,
     task::{Context, Poll},
 };
 
@@ -14,7 +15,7 @@ use tower::Service;
 use cuprate_helper::cast::u64_to_usize;
 use cuprate_p2p_core::{
     client::{Client, InternalPeerID},
-    ConnectionDirection, NetworkZone,
+    ConnectionDirection, NetworkZone, SyncerWake,
 };
 
 mod client_wrappers;
@@ -84,15 +85,21 @@ pub(crate) struct PeerSet<N: NetworkZone> {
     outbound_peers: IndexSet<InternalPeerID<N::Addr>>,
     /// A channel of new peers from the inbound server or outbound connector.
     new_peers: Receiver<Client<N>>,
+    /// The syncer wake handle.
+    syncer_wake: Option<Arc<SyncerWake>>,
 }
 
 impl<N: NetworkZone> PeerSet<N> {
-    pub(crate) fn new(new_peers: Receiver<Client<N>>) -> Self {
+    pub(crate) fn new(
+        new_peers: Receiver<Client<N>>,
+        syncer_wake: Option<Arc<SyncerWake>>,
+    ) -> Self {
         Self {
             peers: IndexMap::new(),
             closed_connections: FuturesUnordered::new(),
             outbound_peers: IndexSet::new(),
             new_peers,
+            syncer_wake,
         }
     }
 
@@ -101,6 +108,13 @@ impl<N: NetworkZone> PeerSet<N> {
         while let Poll::Ready(Some(new_peer)) = self.new_peers.poll_recv(cx) {
             if new_peer.info.direction == ConnectionDirection::Outbound {
                 self.outbound_peers.insert(new_peer.info.id);
+            }
+
+            // If PeerSet was empty, wake the syncer to start syncing from the first peer immediately.
+            if self.peers.is_empty() {
+                if let Some(syncer_wake) = &self.syncer_wake {
+                    syncer_wake.wake();
+                }
             }
 
             self.closed_connections.push(ClosedConnectionFuture {

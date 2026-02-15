@@ -113,7 +113,7 @@ fn main() {
         .await;
 
         // Start the context service and the block/tx verifier.
-        let context_svc =
+        let mut context_svc =
             blockchain::init_consensus(blockchain_read_handle.clone(), config.context_config())
                 .await
                 .unwrap();
@@ -122,6 +122,9 @@ fn main() {
         let tor_context = initialize_tor_if_enabled(&config).await;
         let tor_enabled = config.p2p.tor_net.enabled;
 
+        // Create the syncer wake handle, shared between P2P and the blockchain manager.
+        let syncer_wake = blockchain::create_syncer_wake(&mut context_svc);
+
         // Start clearnet P2P zone
         let (clearnet_interface, clearnet_tx_handler_subscriber) = p2p::initialize_clearnet_p2p(
             &config,
@@ -129,6 +132,7 @@ fn main() {
             blockchain_read_handle.clone(),
             txpool_read_handle.clone(),
             &tor_context,
+            Arc::clone(&syncer_wake),
         )
         .await;
 
@@ -163,6 +167,7 @@ fn main() {
             tx_handler.txpool_manager.clone(),
             context_svc.clone(),
             config.block_downloader_config(),
+            syncer_wake,
         )
         .await;
 

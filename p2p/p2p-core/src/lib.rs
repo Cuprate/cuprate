@@ -67,7 +67,11 @@ cfg_if::cfg_if! {
     }
 }
 
-use std::{fmt::Debug, hash::Hash};
+use std::{
+    fmt::Debug,
+    hash::Hash,
+    sync::{Mutex, PoisonError},
+};
 
 use futures::{Sink, Stream};
 
@@ -93,6 +97,53 @@ use services::*;
 //re-export
 pub use cuprate_helper::network::Network;
 pub use cuprate_wire::CoreSyncData;
+
+/// Wakes the syncer.
+#[derive(Debug)]
+pub struct SyncerWake {
+    our_cumulative_difficulty: Mutex<u128>,
+    notify: tokio::sync::Notify,
+}
+
+impl SyncerWake {
+    /// Create a new [`SyncerWake`] with the given initial cumulative difficulty.
+    pub fn new(cumulative_difficulty: u128) -> Self {
+        Self {
+            our_cumulative_difficulty: Mutex::new(cumulative_difficulty),
+            notify: tokio::sync::Notify::new(),
+        }
+    }
+
+    /// Update our cumulative difficulty.
+    pub fn set_cumulative_difficulty(&self, cd: u128) {
+        *self
+            .our_cumulative_difficulty
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = cd;
+    }
+
+    /// A peer reported their cumulative difficulty. Wakes the syncer if they
+    /// claim to be ahead of us.
+    pub fn peer_reported(&self, peer_cd: u128) {
+        let our_cd = *self
+            .our_cumulative_difficulty
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        if peer_cd > our_cd {
+            self.notify.notify_one();
+        }
+    }
+
+    /// Unconditionally wake the syncer.
+    pub fn wake(&self) {
+        self.notify.notify_one();
+    }
+
+    /// Returns a future that completes when the syncer is woken.
+    pub fn notified(&self) -> tokio::sync::futures::Notified<'_> {
+        self.notify.notified()
+    }
+}
 
 /// The direction of a connection.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

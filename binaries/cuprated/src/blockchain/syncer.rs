@@ -1,11 +1,8 @@
 // FIXME: This whole module is not great and should be rewritten when the PeerSet is made.
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use futures::StreamExt;
-use tokio::{
-    sync::{mpsc, Notify, OwnedSemaphorePermit, Semaphore},
-    time::interval,
-};
+use tokio::sync::{mpsc, Notify, OwnedSemaphorePermit, Semaphore};
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
@@ -15,9 +12,7 @@ use cuprate_p2p::{
     block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
     NetworkInterface, PeerSetRequest, PeerSetResponse,
 };
-use cuprate_p2p_core::{ClearNet, NetworkZone};
-
-const CHECK_SYNC_FREQUENCY: Duration = Duration::from_secs(30);
+use cuprate_p2p_core::{ClearNet, NetworkZone, SyncerWake};
 
 /// An error returned from the [`syncer`].
 #[derive(Debug, thiserror::Error)]
@@ -30,7 +25,7 @@ pub enum SyncerError {
 
 /// The syncer tasks that makes sure we are fully synchronised with our connected peers.
 #[instrument(level = "debug", skip_all)]
-#[expect(clippy::significant_drop_tightening)]
+#[expect(clippy::significant_drop_tightening, clippy::too_many_arguments)]
 pub async fn syncer<CN>(
     mut context_svc: BlockchainContextService,
     our_chain: CN,
@@ -39,6 +34,7 @@ pub async fn syncer<CN>(
     stop_current_block_downloader: Arc<Notify>,
     block_downloader_config: BlockDownloaderConfig,
     synced_notify: Arc<Notify>,
+    syncer_wake: Arc<SyncerWake>,
 ) -> Result<(), SyncerError>
 where
     CN: Service<
@@ -50,36 +46,41 @@ where
         + 'static,
     CN::Future: Send + 'static,
 {
-    tracing::info!("Starting blockchain syncer");
-
-    let mut check_sync_interval = interval(CHECK_SYNC_FREQUENCY);
-
-    tracing::debug!("Waiting for new sync info in top sync channel");
-
     let semaphore = Arc::new(Semaphore::new(1));
 
     let mut sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
+
+    tracing::trace!("Checking connected peers to see if we are behind.");
+    // Wait until we have peers to sync from before entering the download loop.
     loop {
-        check_sync_interval.tick().await;
-
-        tracing::trace!("Checking connected peers to see if we are behind",);
-
-        let blockchain_context = context_svc.blockchain_context();
-
-        match check_sync_status(blockchain_context, &mut clearnet_interface).await? {
-            SyncStatus::BehindPeers => {}
-            SyncStatus::NoPeers => continue,
+        let notified = syncer_wake.notified();
+        match check_sync_status(context_svc.blockchain_context(), &mut clearnet_interface).await? {
+            SyncStatus::BehindPeers => break,
             SyncStatus::Synced => {
                 synced_notify.notify_one();
-                continue;
+                tracing::debug!("Waiting for new sync info.");
+                notified.await;
+            }
+            SyncStatus::NoPeers => {
+                tracing::debug!("Waiting for new sync info.");
+                notified.await;
             }
         }
+    }
+
+    tracing::info!("Starting blockchain syncer");
+
+    loop {
+        let notified = syncer_wake.notified();
 
         tracing::debug!(
             "We are behind peers claimed cumulative difficulty, starting block downloader"
         );
         let mut block_batch_stream =
             clearnet_interface.block_downloader(our_chain.clone(), block_downloader_config);
+
+        let mut was_stopped = false;
+        let mut got_blocks = false;
 
         loop {
             tokio::select! {
@@ -89,6 +90,7 @@ where
                     drop(sync_permit);
                     sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
 
+                    was_stopped = true;
                     break;
                 }
                 batch = block_batch_stream.next() => {
@@ -98,23 +100,27 @@ where
                         drop(sync_permit);
                         sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
 
-                        let blockchain_context = context_svc.blockchain_context();
-
-                        if check_sync_status(blockchain_context, &mut clearnet_interface).await? == SyncStatus::Synced {
-                            tracing::info!("Synchronised with the network.");
-                            synced_notify.notify_one();
-                        }
-
                         break;
                     };
 
                     tracing::debug!("Got batch, len: {}", batch.blocks.len());
+                    got_blocks = true;
                     if incoming_block_batch_tx.send((batch, Arc::clone(&sync_permit))).await.is_err() {
                         return Err(SyncerError::IncomingBlockChannelClosed);
                     }
                 }
             }
         }
+
+        // Preemptively stopped or got blocks - start the downloader again to check if we are behind or not.
+        if was_stopped || got_blocks {
+            continue;
+        }
+
+        tracing::info!("Synchronised with the network.");
+        synced_notify.notify_one();
+        tracing::debug!("Waiting for new sync info.");
+        notified.await;
     }
 }
 

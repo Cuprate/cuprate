@@ -15,7 +15,7 @@ use cuprate_p2p::{
     block_downloader::{BlockBatch, BlockDownloaderConfig},
     BroadcastSvc, NetworkInterface,
 };
-use cuprate_p2p_core::ClearNet;
+use cuprate_p2p_core::{ClearNet, SyncerWake};
 use cuprate_txpool::service::TxpoolWriteHandle;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
@@ -52,6 +52,7 @@ pub async fn init_blockchain_manager(
     txpool_manager_handle: TxpoolManagerHandle,
     mut blockchain_context_service: BlockchainContextService,
     block_downloader_config: BlockDownloaderConfig,
+    syncer_wake: Arc<SyncerWake>,
 ) -> Arc<Notify> {
     // TODO: find good values for these size limits
     let (batch_tx, batch_rx) = mpsc::channel(1);
@@ -70,6 +71,7 @@ pub async fn init_blockchain_manager(
         Arc::clone(&stop_current_block_downloader),
         block_downloader_config,
         Arc::clone(&synced_notify),
+        Arc::clone(&syncer_wake),
     ));
 
     let manager = BlockchainManager {
@@ -82,6 +84,7 @@ pub async fn init_blockchain_manager(
         blockchain_context_service,
         stop_current_block_downloader,
         broadcast_svc: clearnet_interface.broadcast_svc(),
+        syncer_wake,
     };
 
     tokio::spawn(manager.run(batch_rx, command_rx));
@@ -111,6 +114,8 @@ pub struct BlockchainManager {
     stop_current_block_downloader: Arc<Notify>,
     /// The broadcast service, to broadcast new blocks.
     broadcast_svc: BroadcastSvc<ClearNet>,
+    /// The syncer wake handle, updated after each block to keep the CD threshold current.
+    syncer_wake: Arc<SyncerWake>,
 }
 
 impl BlockchainManager {

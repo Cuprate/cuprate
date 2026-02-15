@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use futures::TryFutureExt;
 use rand::{thread_rng, Rng};
 use tower::ServiceExt;
@@ -19,6 +21,7 @@ use crate::{
         ZoneSpecificPeerListEntryBase,
     },
     AddressBook, CoreSyncSvc, NetworkZone, PeerRequest, PeerResponse, ProtocolRequestHandler,
+    SyncerWake,
 };
 
 #[derive(thiserror::Error, Debug, Copy, Clone, Eq, PartialEq)]
@@ -43,6 +46,9 @@ pub(crate) struct PeerRequestHandler<Z: NetworkZone, A, CS, PR> {
 
     /// The information on the connected peer.
     pub peer_info: PeerInformation<Z::Addr>,
+
+    /// The syncer wake handle.
+    pub syncer_wake: Option<Arc<SyncerWake>>,
 }
 
 impl<Z, A, CS, PR> PeerRequestHandler<Z, A, CS, PR>
@@ -102,7 +108,11 @@ where
     ) -> Result<TimedSyncResponse, tower::BoxError> {
         // TODO: add a limit on the amount of these requests in a certain time period.
 
+        let cd = req.payload_data.cumulative_difficulty();
         *self.peer_info.core_sync_data.lock().unwrap() = req.payload_data;
+        if let Some(syncer_wake) = &self.syncer_wake {
+            syncer_wake.peer_reported(cd);
+        }
 
         // Fetch core sync data.
         let CoreSyncDataResponse(core_sync_data) = self

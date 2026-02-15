@@ -17,7 +17,7 @@ use cuprate_async_buffer::BufferStream;
 use cuprate_p2p_core::{
     client::Connector,
     services::{AddressBookRequest, AddressBookResponse},
-    CoreSyncSvc, NetworkZone, ProtocolRequestHandlerMaker, Transport,
+    CoreSyncSvc, NetworkZone, ProtocolRequestHandlerMaker, SyncerWake, Transport,
 };
 
 pub mod block_downloader;
@@ -83,6 +83,7 @@ pub async fn initialize_network<Z, T, PR, CS>(
     core_sync_svc: CS,
     config: P2PConfig<Z>,
     transport_config: TransportConfig<Z, T>,
+    syncer_wake: Option<Arc<SyncerWake>>,
 ) -> Result<NetworkInterface<Z>, tower::BoxError>
 where
     Z: NetworkZone,
@@ -112,7 +113,7 @@ where
         basic_node_data.peer_id = 1;
     }
 
-    let outbound_handshaker_builder =
+    let mut outbound_handshaker_builder =
         cuprate_p2p_core::client::HandshakerBuilder::<Z, T, _, _, _, _>::new(
             basic_node_data,
             transport_config.client_config,
@@ -122,6 +123,10 @@ where
         .with_protocol_request_handler_maker(protocol_request_handler_maker)
         .with_broadcast_stream_maker(outbound_mkr)
         .with_connection_parent_span(Span::current());
+
+    if let Some(ref sw) = syncer_wake {
+        outbound_handshaker_builder = outbound_handshaker_builder.with_syncer_wake(Arc::clone(sw));
+    }
 
     let inbound_handshaker = outbound_handshaker_builder
         .clone()
@@ -147,7 +152,7 @@ where
         outbound_connector,
     );
 
-    let peer_set = PeerSet::new(new_connection_rx);
+    let peer_set = PeerSet::new(new_connection_rx, syncer_wake);
 
     // Create semaphore for limiting inbound connections and monitoring
     let inbound_semaphore = Arc::new(tokio::sync::Semaphore::new(config.max_inbound_connections));

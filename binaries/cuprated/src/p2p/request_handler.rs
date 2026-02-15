@@ -2,6 +2,7 @@ use std::{
     collections::HashSet,
     future::{ready, Ready},
     hash::Hash,
+    sync::Arc,
     task::{Context, Poll},
 };
 
@@ -33,7 +34,7 @@ use cuprate_p2p::constants::{
 };
 use cuprate_p2p_core::{
     client::{InternalPeerID, PeerInformation},
-    NetZoneAddress, NetworkZone, ProtocolRequest, ProtocolResponse,
+    NetZoneAddress, NetworkZone, ProtocolRequest, ProtocolResponse, SyncerWake,
 };
 use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::{
@@ -58,6 +59,7 @@ pub struct P2pProtocolRequestHandlerMaker {
     pub blockchain_read_handle: BlockchainReadHandle,
     pub blockchain_context_service: BlockchainContextService,
     pub txpool_read_handle: TxpoolReadHandle,
+    pub syncer_wake: Option<Arc<SyncerWake>>,
 
     /// The [`IncomingTxHandler`], wrapped in an [`Option`] as there is a cyclic reference between [`P2pProtocolRequestHandlerMaker`]
     /// and the [`IncomingTxHandler`].
@@ -105,6 +107,7 @@ where
             blockchain_context_service: self.blockchain_context_service.clone(),
             txpool_read_handle,
             incoming_tx_handler,
+            syncer_wake: self.syncer_wake.clone(),
         }))
     }
 }
@@ -117,6 +120,7 @@ pub struct P2pProtocolRequestHandler<N: NetZoneAddress> {
     blockchain_context_service: BlockchainContextService,
     txpool_read_handle: TxpoolReadHandle,
     incoming_tx_handler: IncomingTxHandler,
+    syncer_wake: Option<Arc<SyncerWake>>,
 }
 
 impl<A: NetZoneAddress> Service<ProtocolRequest> for P2pProtocolRequestHandler<A>
@@ -151,6 +155,7 @@ where
                 r,
                 self.blockchain_read_handle.clone(),
                 self.txpool_read_handle.clone(),
+                self.syncer_wake.clone(),
             )
             .boxed(),
             ProtocolRequest::NewTransactions(r) => new_transactions(
@@ -299,6 +304,7 @@ async fn new_fluffy_block<A: NetZoneAddress>(
     request: NewFluffyBlock,
     mut blockchain_read_handle: BlockchainReadHandle,
     mut txpool_read_handle: TxpoolReadHandle,
+    syncer_wake: Option<Arc<SyncerWake>>,
 ) -> anyhow::Result<ProtocolResponse> {
     // TODO: check context service here and ignore the block?
     let current_blockchain_height = request.current_blockchain_height;
@@ -356,6 +362,9 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         ),
         Err(IncomingBlockError::Orphan) => {
             // Block's parent was unknown, could be syncing?
+            if let Some(syncer_wake) = &syncer_wake {
+                syncer_wake.wake();
+            }
             Ok(ProtocolResponse::NA)
         }
         Err(e) => Err(e.into()),

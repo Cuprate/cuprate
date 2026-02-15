@@ -42,7 +42,7 @@ use crate::{
     handles::HandleBuilder,
     AddressBook, AddressBookRequest, AddressBookResponse, BroadcastMessage, ConnectionDirection,
     CoreSyncDataRequest, CoreSyncDataResponse, CoreSyncSvc, NetZoneAddress, NetworkZone,
-    ProtocolRequestHandlerMaker, SharedError, Transport,
+    ProtocolRequestHandlerMaker, SharedError, SyncerWake, Transport,
 };
 
 pub mod builder;
@@ -103,6 +103,9 @@ pub struct HandShaker<Z: NetworkZone, T: Transport<Z>, AdrBook, CSync, ProtoHdlr
 
     connection_parent_span: Span,
 
+    /// Used to wake the syncer on peer sync data updates.
+    syncer_wake: Option<Arc<SyncerWake>>,
+
     /// Client configuration used by the handshaker for this transport
     transport_client_config: T::ClientConfig,
 
@@ -114,6 +117,7 @@ impl<Z: NetworkZone, T: Transport<Z>, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMk
     HandShaker<Z, T, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
 {
     /// Creates a new handshaker.
+    #[expect(clippy::too_many_arguments)]
     const fn new(
         address_book: AdrBook,
         core_sync_svc: CSync,
@@ -121,6 +125,7 @@ impl<Z: NetworkZone, T: Transport<Z>, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMk
         broadcast_stream_maker: BrdcstStrmMkr,
         our_basic_node_data: BasicNodeData,
         connection_parent_span: Span,
+        syncer_wake: Option<Arc<SyncerWake>>,
         transport_client_config: T::ClientConfig,
     ) -> Self {
         Self {
@@ -130,6 +135,7 @@ impl<Z: NetworkZone, T: Transport<Z>, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMk
             broadcast_stream_maker,
             our_basic_node_data,
             connection_parent_span,
+            syncer_wake,
             transport_client_config,
             _zone: PhantomData,
         }
@@ -170,6 +176,7 @@ where
         let our_basic_node_data = self.our_basic_node_data.clone();
 
         let connection_parent_span = self.connection_parent_span.clone();
+        let syncer_wake = self.syncer_wake.clone();
 
         let transport_client_config = self.transport_client_config.clone();
 
@@ -187,6 +194,7 @@ where
                     protocol_request_svc_maker,
                     our_basic_node_data,
                     connection_parent_span,
+                    syncer_wake,
                 ),
             )
             .await?
@@ -262,6 +270,7 @@ async fn handshake<
     mut protocol_request_svc_maker: ProtoHdlrMkr,
     our_basic_node_data: BasicNodeData,
     connection_parent_span: Span,
+    syncer_wake: Option<Arc<SyncerWake>>,
 ) -> Result<Client<Z>, HandshakeError>
 where
     AdrBook: AddressBook<Z> + Clone,
@@ -482,6 +491,10 @@ where
     let error_slot = SharedError::new();
     let (connection_tx, client_rx) = mpsc::channel(CLIENT_QUEUE_SIZE);
 
+    if let Some(syncer_wake) = &syncer_wake {
+        syncer_wake.peer_reported(peer_core_sync.cumulative_difficulty());
+    }
+
     let info = PeerInformation {
         id: addr,
         handle,
@@ -503,6 +516,7 @@ where
         protocol_request_handler,
         our_basic_node_data,
         peer_info: info.clone(),
+        syncer_wake: syncer_wake.clone(),
     };
 
     let connection = Connection::<Z, T, _, _, _, _>::new(
@@ -530,6 +544,7 @@ where
         Arc::clone(&semaphore),
         address_book,
         core_sync_svc,
+        syncer_wake,
     ));
 
     let client = Client::<Z>::new(
