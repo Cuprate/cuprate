@@ -75,7 +75,7 @@ impl Service<JsonRpcRequest> for RpcHandlerDummy {
             Req::SetBans(_) => Resp::SetBans(Default::default()),
             Req::GetBans(_) => Resp::GetBans(Default::default()),
             Req::Banned(_) => Resp::Banned(Default::default()),
-            Req::FlushTransactionPool(_) => Resp::FlushTransactionPool(Default::default()),
+            Req::FlushTxpool(_) => Resp::FlushTxpool(Default::default()),
             Req::GetOutputHistogram(_) => Resp::GetOutputHistogram(Default::default()),
             Req::GetCoinbaseTxSum(_) => Resp::GetCoinbaseTxSum(Default::default()),
             Req::GetVersion(_) => Resp::GetVersion(Default::default()),
@@ -83,15 +83,20 @@ impl Service<JsonRpcRequest> for RpcHandlerDummy {
             Req::GetAlternateChains(_) => Resp::GetAlternateChains(Default::default()),
             Req::RelayTx(_) => Resp::RelayTx(Default::default()),
             Req::SyncInfo(_) => Resp::SyncInfo(Default::default()),
-            Req::GetTransactionPoolBacklog(_) => {
-                Resp::GetTransactionPoolBacklog(Default::default())
-            }
+            Req::GetTxpoolBacklog(_) => Resp::GetTxpoolBacklog(Default::default()),
             Req::GetMinerData(_) => Resp::GetMinerData(Default::default()),
             Req::PruneBlockchain(_) => Resp::PruneBlockchain(Default::default()),
             Req::CalcPow(_) => Resp::CalcPow(Default::default()),
             Req::FlushCache(_) => Resp::FlushCache(Default::default()),
             Req::AddAuxPow(_) => Resp::AddAuxPow(Default::default()),
             Req::GetTxIdsLoose(_) => Resp::GetTxIdsLoose(Default::default()),
+            Req::GetOutputDistribution(_) => Resp::GetOutputDistribution(Default::default()),
+            Req::RpcAccessInfo(_) => Resp::RpcAccessInfo(Default::default()),
+            Req::RpcAccessSubmitNonce(_) => Resp::RpcAccessSubmitNonce(Default::default()),
+            Req::RpcAccessPay(_) => Resp::RpcAccessPay(Default::default()),
+            Req::RpcAccessTracking(_) => Resp::RpcAccessTracking(Default::default()),
+            Req::RpcAccessData(_) => Resp::RpcAccessData(Default::default()),
+            Req::RpcAccessAccount(_) => Resp::RpcAccessAccount(Default::default()),
         };
 
         let (tx, rx) = channel();
@@ -120,7 +125,6 @@ impl Service<BinRequest> for RpcHandlerDummy {
             Req::GetHashes(_) => Resp::GetHashes(Default::default()),
             Req::GetOutputIndexes(_) => Resp::GetOutputIndexes(Default::default()),
             Req::GetOuts(_) => Resp::GetOuts(Default::default()),
-            Req::GetTransactionPoolHashes(_) => Resp::GetTransactionPoolHashes(Default::default()),
             Req::GetOutputDistribution(_) => Resp::GetOutputDistribution(Default::default()),
         };
 
