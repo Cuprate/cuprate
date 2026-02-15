@@ -23,16 +23,6 @@ pub enum SyncerError {
     ServiceError(#[from] tower::BoxError),
 }
 
-/// The outcome of a block download session.
-enum DownloadOutcome {
-    /// The downloader was stopped.
-    Stopped,
-    /// The downloader received at least one batch before the stream ended.
-    GotBlocks,
-    /// The stream ended without producing any blocks.
-    EmptyStream,
-}
-
 /// The syncer tasks that makes sure we are fully synchronised with our connected peers.
 #[instrument(level = "debug", skip_all)]
 #[expect(clippy::significant_drop_tightening, clippy::too_many_arguments)]
@@ -60,36 +50,38 @@ where
 
     let mut sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
 
-    tracing::trace!("Checking connected peers to see if we are behind.");
-    // Wait until we have peers to sync from before entering the download loop.
-    loop {
-        let notified = syncer_wake.notified();
+    tracing::info!("Starting blockchain syncer");
+
+    let mut initial_sync = true;
+
+    'outer: loop {
+        tracing::trace!("Checking connected peers to see if we are behind.");
+
+        // Wait until we are behind peers before starting the block downloader.
         match check_sync_status(context_svc.blockchain_context(), &mut clearnet_interface).await? {
-            SyncStatus::BehindPeers => break,
+            SyncStatus::BehindPeers => {}
             SyncStatus::Synced => {
-                synced_notify.notify_one();
+                if initial_sync {
+                    tracing::info!("Synchronised with the network.");
+                    synced_notify.notify_one();
+                    initial_sync = false;
+                }
                 tracing::debug!("Waiting for new sync info.");
-                notified.await;
+                syncer_wake.notified().await;
+                continue;
             }
             SyncStatus::NoPeers => {
                 tracing::debug!("Waiting for new sync info.");
-                notified.await;
+                syncer_wake.notified().await;
+                continue;
             }
         }
-    }
-
-    tracing::info!("Starting blockchain syncer");
-
-    loop {
-        let notified = syncer_wake.notified();
 
         tracing::debug!(
             "We are behind peers claimed cumulative difficulty, starting block downloader"
         );
         let mut block_batch_stream =
             clearnet_interface.block_downloader(our_chain.clone(), block_downloader_config);
-
-        let mut outcome = DownloadOutcome::EmptyStream;
 
         loop {
             tokio::select! {
@@ -99,8 +91,7 @@ where
                     drop(sync_permit);
                     sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
 
-                    outcome = DownloadOutcome::Stopped;
-                    break;
+                    continue 'outer;
                 }
                 batch = block_batch_stream.next() => {
                     let Some(batch) = batch else {
@@ -113,34 +104,12 @@ where
                     };
 
                     tracing::debug!("Got batch, len: {}", batch.blocks.len());
-                    outcome = DownloadOutcome::GotBlocks;
                     if incoming_block_batch_tx.send((batch, Arc::clone(&sync_permit))).await.is_err() {
                         return Err(SyncerError::IncomingBlockChannelClosed);
                     }
                 }
             }
         }
-
-        // Preemptively stopped or got blocks - start the downloader again to check if we are behind or not.
-        if matches!(
-            outcome,
-            DownloadOutcome::Stopped | DownloadOutcome::GotBlocks
-        ) {
-            continue;
-        }
-
-        // Check if we are still behind or not before announcing we are synced.
-        match check_sync_status(context_svc.blockchain_context(), &mut clearnet_interface).await? {
-            SyncStatus::BehindPeers => continue,
-            SyncStatus::Synced => {
-                tracing::info!("Synchronised with the network.");
-                synced_notify.notify_one();
-            }
-            SyncStatus::NoPeers => {}
-        }
-
-        tracing::debug!("Waiting for new sync info.");
-        notified.await;
     }
 }
 
