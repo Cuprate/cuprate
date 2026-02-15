@@ -14,6 +14,8 @@ pub struct OutputCache {
     number_of_outputs: IndexMap<u64, u64>,
     /// A set of outputs that were requested but were not currently in the DB.
     wanted_outputs: IndexMap<u64, IndexSet<u64>>,
+    /// The hash of the top block in the blockchain.
+    top_hash: [u8; 32],
 }
 
 impl OutputCache {
@@ -22,12 +24,19 @@ impl OutputCache {
         cached_outputs: IndexMap<u64, IndexMap<u64, OutputOnChain>>,
         number_of_outputs: IndexMap<u64, u64>,
         wanted_outputs: IndexMap<u64, IndexSet<u64>>,
+        top_hash: [u8; 32],
     ) -> Self {
         Self {
             cached_outputs,
             number_of_outputs,
             wanted_outputs,
+            top_hash,
         }
+    }
+
+    /// Returns the hash of the top block in the blockchain when this cache was created/updated.
+    pub const fn top_hash(&self) -> [u8; 32] {
+        self.top_hash
     }
 
     /// Returns the set of currently cached outputs.
@@ -106,6 +115,8 @@ impl OutputCache {
         for tx in &block.txs {
             self.add_tx::<false>(block.height, &tx.tx);
         }
+
+        self.top_hash = block.block_hash;
     }
 }
 

@@ -4,6 +4,19 @@ use std::{
 };
 
 use bytes::Bytes;
+use cuprate_consensus::transactions::start_tx_verification;
+use cuprate_consensus_context::BlockchainContextService;
+use cuprate_dandelion_tower::{
+    pool::{DandelionPoolService, IncomingTx, IncomingTxBuilder},
+    traits::DiffuseRequest,
+    TxState,
+};
+use cuprate_helper::time::current_unix_timestamp;
+use cuprate_txpool::service::{
+    interface::{TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest, TxpoolWriteResponse},
+    TxpoolReadHandle, TxpoolWriteHandle,
+};
+use cuprate_types::TransactionVerificationData;
 use futures::StreamExt;
 use indexmap::IndexMap;
 use rand::Rng;
@@ -11,20 +24,9 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_util::{time::delay_queue, time::DelayQueue};
 use tower::{Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
-
-use cuprate_dandelion_tower::{
-    pool::{DandelionPoolService, IncomingTx, IncomingTxBuilder},
-    traits::DiffuseRequest,
-    TxState,
-};
-use cuprate_helper::time::current_unix_timestamp;
 use cuprate_p2p_core::ClearNet;
-use cuprate_txpool::service::{
-    interface::{TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest, TxpoolWriteResponse},
-    TxpoolReadHandle, TxpoolWriteHandle,
-};
-use cuprate_types::TransactionVerificationData;
-
+use crate::blockchain::ConsensusBlockchainReadHandle;
+use crate::txpool::IncomingTxError;
 use crate::{
     config::TxpoolConfig,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
@@ -45,11 +47,16 @@ const INCOMING_TX_QUEUE_SIZE: usize = 100;
 pub async fn start_txpool_manager(
     mut txpool_write_handle: TxpoolWriteHandle,
     mut txpool_read_handle: TxpoolReadHandle,
+    mut blockchain_context_cache: BlockchainContextService,
+    blockchain_read_handle: ConsensusBlockchainReadHandle,
     promote_tx_channel: mpsc::UnboundedReceiver<[u8; 32]>,
     diffuse_service: DiffuseService<ClearNet>,
     dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
     config: TxpoolConfig,
 ) -> TxpoolManagerHandle {
+    let (tx_tx, tx_rx) = mpsc::channel(100);
+    let (new_block_tx, new_block_rx) = mpsc::channel(1);
+
     let TxpoolReadResponse::Backlog(backlog) = txpool_read_handle
         .ready()
         .await
@@ -95,9 +102,13 @@ pub async fn start_txpool_manager(
         tx_timeouts,
         txpool_write_handle,
         txpool_read_handle,
+        top_hash: blockchain_context_cache.blockchain_context().top_hash,
+        blockchain_context_cache,
+        blockchain_read_handle,
         dandelion_pool_manager,
         promote_tx_channel,
         diffuse_service,
+        tx_tx: tx_tx.downgrade(),
         config,
     };
 
@@ -107,15 +118,17 @@ pub async fn start_txpool_manager(
         manager.promote_tx(tx).await;
     }
 
-    let (tx_tx, tx_rx) = mpsc::channel(INCOMING_TX_QUEUE_SIZE);
-    let (spent_kis_tx, spent_kis_rx) = mpsc::channel(1);
-
-    tokio::spawn(manager.run(tx_rx, spent_kis_rx));
+    tokio::spawn(manager.run(tx_rx, new_block_rx));
 
     TxpoolManagerHandle {
         tx_tx,
-        spent_kis_tx,
+        new_block_tx,
     }
+}
+
+struct NewBlock {
+    spent_key_images: Vec<[u8; 32]>,
+    block_hash: [u8; 32],
 }
 
 /// A handle to the tx-pool manager.
@@ -127,8 +140,7 @@ pub struct TxpoolManagerHandle {
         TxState<CrossNetworkInternalPeerId>,
     )>,
 
-    /// The spent key images in a new block tx.
-    spent_kis_tx: mpsc::Sender<(Vec<[u8; 32]>, oneshot::Sender<()>)>,
+    new_block_tx: mpsc::Sender<(NewBlock, oneshot::Sender<()>)>,
 }
 
 impl TxpoolManagerHandle {
@@ -137,12 +149,12 @@ impl TxpoolManagerHandle {
     /// Useful for testing.
     #[expect(clippy::let_underscore_must_use)]
     pub fn mock() -> Self {
-        let (spent_kis_tx, mut spent_kis_rx) = mpsc::channel(1);
+        let (new_block_tx, mut new_block_rx) = mpsc::channel(1);
         let (tx_tx, mut tx_rx) = mpsc::channel(100);
 
         tokio::spawn(async move {
             loop {
-                let Some(rec): Option<(_, oneshot::Sender<()>)> = spent_kis_rx.recv().await else {
+                let Some(rec): Option<(_, oneshot::Sender<()>)> = new_block_rx.recv().await else {
                     return;
                 };
 
@@ -160,15 +172,29 @@ impl TxpoolManagerHandle {
 
         Self {
             tx_tx,
-            spent_kis_tx,
+            new_block_tx,
         }
     }
 
     /// Tell the tx-pool about spent key images in an incoming block.
-    pub async fn new_block(&mut self, spent_key_images: Vec<[u8; 32]>) -> anyhow::Result<()> {
+    pub async fn new_block(
+        &mut self,
+        spent_key_images: Vec<[u8; 32]>,
+        block_hash: [u8; 32],
+    ) -> anyhow::Result<()> {
         let (tx, rx) = oneshot::channel();
 
-        drop(self.spent_kis_tx.send((spent_key_images, tx)).await);
+        drop(
+            self.new_block_tx
+                .send((
+                    NewBlock {
+                        spent_key_images,
+                        block_hash,
+                    },
+                    tx,
+                ))
+                .await,
+        );
 
         rx.await
             .map_err(|_| anyhow::anyhow!("txpool manager stopped"))
@@ -203,6 +229,9 @@ struct TxpoolManager {
     txpool_write_handle: TxpoolWriteHandle,
     txpool_read_handle: TxpoolReadHandle,
 
+    blockchain_context_cache: BlockchainContextService,
+    blockchain_read_handle: ConsensusBlockchainReadHandle,
+
     dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
     /// The channel the dandelion manager will use to communicate that a tx should be promoted to the
     /// public pool.
@@ -211,6 +240,13 @@ struct TxpoolManager {
     ///
     /// Used for re-relays.
     diffuse_service: DiffuseService<ClearNet>,
+
+    tx_tx: mpsc::WeakSender<(
+        TransactionVerificationData,
+        TxState<CrossNetworkInternalPeerId>,
+    )>,
+
+    top_hash: [u8; 32],
 
     config: TxpoolConfig,
 }
@@ -345,6 +381,33 @@ impl TxpoolManager {
     ) {
         tracing::debug!("handling new tx");
 
+        if tx.cached_verification_state.verified_at_block_hash() != Some(self.top_hash) {
+            let (mut blockchain_context_cache, blockchain_read_handle, Some(tx_tx)) = (
+                self.blockchain_context_cache.clone(),
+                self.blockchain_read_handle.clone(),
+                self.tx_tx.upgrade(),
+            ) else {
+                return;
+            };
+
+            tokio::spawn(async move {
+                let mut tx = start_tx_verification()
+                    .append_prepped_txs(vec![tx])
+                    .prepare()
+                    .map_err(|e| IncomingTxError::Consensus(e.into()))?
+                    .full(&mut blockchain_context_cache, blockchain_read_handle, None)
+                    .verify()
+                    .await
+                    .map_err(IncomingTxError::Consensus)?;
+
+                drop(tx_tx.send((tx.pop().unwrap(), state)).await);
+
+                Ok::<_, anyhow::Error>(())
+            });
+
+            return;
+        }
+
         let incoming_tx =
             IncomingTxBuilder::new(DandelionTx(Bytes::copy_from_slice(&tx.tx_blob)), tx.tx_hash);
 
@@ -427,7 +490,7 @@ impl TxpoolManager {
 
     /// Handles removing all transactions that have been included/double spent in an incoming block.
     #[instrument(level = "debug", skip_all)]
-    async fn new_block(&mut self, spent_key_images: Vec<[u8; 32]>) {
+    async fn new_block(&mut self, new_block: NewBlock) {
         tracing::debug!("handling new block");
 
         let TxpoolWriteResponse::NewBlock(removed_txs) = self
@@ -435,7 +498,9 @@ impl TxpoolManager {
             .ready()
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR)
-            .call(TxpoolWriteRequest::NewBlock { spent_key_images })
+            .call(TxpoolWriteRequest::NewBlock {
+                spent_key_images: new_block.spent_key_images,
+            })
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR)
         else {
@@ -445,6 +510,8 @@ impl TxpoolManager {
         for tx in removed_txs {
             self.remove_tx_from_pool(tx, false).await;
         }
+
+        self.top_hash = new_block.block_hash;
     }
 
     #[expect(clippy::let_underscore_must_use)]
@@ -454,7 +521,7 @@ impl TxpoolManager {
             TransactionVerificationData,
             TxState<CrossNetworkInternalPeerId>,
         )>,
-        mut block_rx: mpsc::Receiver<(Vec<[u8; 32]>, oneshot::Sender<()>)>,
+        mut block_rx: mpsc::Receiver<(NewBlock, oneshot::Sender<()>)>,
     ) {
         loop {
             tokio::select! {
@@ -467,8 +534,8 @@ impl TxpoolManager {
                 Some(tx) = self.promote_tx_channel.recv() => {
                     self.promote_tx(tx).await;
                 }
-                Some((spent_kis, tx)) = block_rx.recv() => {
-                    self.new_block(spent_kis).await;
+                Some((new_block, tx)) = block_rx.recv() => {
+                    self.new_block(new_block).await;
                     let _ = tx.send(());
                 }
             }

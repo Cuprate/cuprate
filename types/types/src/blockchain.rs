@@ -319,7 +319,9 @@ pub enum BlockchainResponse {
     /// Inner value is a `HashMap` of all the outputs requested where:
     /// - Key = output amount
     /// - Value = count of outputs with the same amount
-    NumberOutputsWithAmount(HashMap<u64, usize>),
+    ///
+    /// and the hash of the top block in the blockchain when this data was got.
+    NumberOutputsWithAmount(HashMap<u64, usize>, [u8; 32]),
 
     /// Response to [`BlockchainReadRequest::KeyImagesSpent`].
     ///
