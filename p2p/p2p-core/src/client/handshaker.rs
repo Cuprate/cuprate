@@ -119,7 +119,7 @@ impl<Z: NetworkZone, T: Transport<Z>, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMk
 {
     /// Creates a new handshaker.
     #[expect(clippy::too_many_arguments)]
-    fn new(
+    const fn new(
         address_book: AdrBook,
         core_sync_svc: CSync,
         protocol_request_svc_maker: ProtoHdlrMkr,
