@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use futures::FutureExt;
 use tokio::{
-    sync::{mpsc, Notify},
+    sync::mpsc,
     task::JoinSet,
     time::{sleep, Duration},
 };
@@ -15,7 +15,7 @@ use tracing::{instrument, Instrument, Span};
 
 use cuprate_async_buffer::BufferStream;
 use cuprate_p2p_core::{
-    client::Connector,
+    client::{Connector, PeerSyncCallback},
     services::{AddressBookRequest, AddressBookResponse},
     CoreSyncSvc, NetworkZone, ProtocolRequestHandlerMaker, Transport,
 };
@@ -83,7 +83,7 @@ pub async fn initialize_network<Z, T, PR, CS>(
     core_sync_svc: CS,
     config: P2PConfig<Z>,
     transport_config: TransportConfig<Z, T>,
-    syncer_wake: Option<Arc<Notify>>,
+    on_peer_sync: Option<PeerSyncCallback>,
 ) -> Result<NetworkInterface<Z>, tower::BoxError>
 where
     Z: NetworkZone,
@@ -124,8 +124,9 @@ where
         .with_broadcast_stream_maker(outbound_mkr)
         .with_connection_parent_span(Span::current());
 
-    if let Some(ref sw) = syncer_wake {
-        outbound_handshaker_builder = outbound_handshaker_builder.with_syncer_wake(Arc::clone(sw));
+    if let Some(ref cb) = on_peer_sync {
+        outbound_handshaker_builder =
+            outbound_handshaker_builder.with_peer_sync_callback(cb.clone());
     }
 
     let inbound_handshaker = outbound_handshaker_builder
@@ -150,9 +151,10 @@ where
         make_connection_rx,
         address_book.clone(),
         outbound_connector,
+        on_peer_sync.clone(),
     );
 
-    let peer_set = PeerSet::new(new_connection_rx, syncer_wake);
+    let peer_set = PeerSet::new(new_connection_rx);
 
     // Create semaphore for limiting inbound connections and monitoring
     let inbound_semaphore = Arc::new(tokio::sync::Semaphore::new(config.max_inbound_connections));
@@ -183,6 +185,7 @@ where
             config,
             transport_config.server_config,
             inbound_semaphore,
+            on_peer_sync,
         )
         .map(|res| {
             if let Err(e) = res {

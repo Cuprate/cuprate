@@ -1,14 +1,13 @@
 use std::{
     future::{ready, Future, Ready},
     pin::Pin,
-    sync::Arc,
     task::{Context, Poll},
 };
 
 use futures::{stream::FuturesUnordered, StreamExt};
 use indexmap::{IndexMap, IndexSet};
 use rand::{seq::index::sample, thread_rng};
-use tokio::sync::{mpsc::Receiver, Notify};
+use tokio::sync::mpsc::Receiver;
 use tokio_util::sync::WaitForCancellationFutureOwned;
 use tower::Service;
 
@@ -85,18 +84,15 @@ pub(crate) struct PeerSet<N: NetworkZone> {
     outbound_peers: IndexSet<InternalPeerID<N::Addr>>,
     /// A channel of new peers from the inbound server or outbound connector.
     new_peers: Receiver<Client<N>>,
-    /// The syncer wake handle.
-    syncer_wake: Option<Arc<Notify>>,
 }
 
 impl<N: NetworkZone> PeerSet<N> {
-    pub(crate) fn new(new_peers: Receiver<Client<N>>, syncer_wake: Option<Arc<Notify>>) -> Self {
+    pub(crate) fn new(new_peers: Receiver<Client<N>>) -> Self {
         Self {
             peers: IndexMap::new(),
             closed_connections: FuturesUnordered::new(),
             outbound_peers: IndexSet::new(),
             new_peers,
-            syncer_wake,
         }
     }
 
@@ -114,11 +110,6 @@ impl<N: NetworkZone> PeerSet<N> {
 
             self.peers
                 .insert(new_peer.info.id, StoredClient::new(new_peer));
-
-            // Wake the syncer to check if we are behind after adding a new peer.
-            if let Some(syncer_wake) = &self.syncer_wake {
-                syncer_wake.notify_one();
-            }
         }
     }
 

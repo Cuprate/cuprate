@@ -14,7 +14,7 @@ use std::{
 
 use futures::{FutureExt, SinkExt, Stream, StreamExt};
 use tokio::{
-    sync::{mpsc, Notify, OwnedSemaphorePermit, Semaphore},
+    sync::{mpsc, OwnedSemaphorePermit, Semaphore},
     time::{error::Elapsed, timeout},
 };
 use tower::{Service, ServiceExt};
@@ -34,6 +34,7 @@ use crate::{
     client::{
         connection::Connection, request_handler::PeerRequestHandler,
         timeout_monitor::connection_timeout_monitor_task, Client, InternalPeerID, PeerInformation,
+        PeerSyncCallback,
     },
     constants::{
         CLIENT_QUEUE_SIZE, HANDSHAKE_TIMEOUT, MAX_EAGER_PROTOCOL_MESSAGES,
@@ -103,8 +104,8 @@ pub struct HandShaker<Z: NetworkZone, T: Transport<Z>, AdrBook, CSync, ProtoHdlr
 
     connection_parent_span: Span,
 
-    /// Used to wake the syncer on peer sync data updates.
-    syncer_wake: Option<Arc<Notify>>,
+    /// Called with the peer's cumulative difficulty.
+    on_peer_sync: Option<PeerSyncCallback>,
 
     /// Client configuration used by the handshaker for this transport
     transport_client_config: T::ClientConfig,
@@ -118,14 +119,14 @@ impl<Z: NetworkZone, T: Transport<Z>, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMk
 {
     /// Creates a new handshaker.
     #[expect(clippy::too_many_arguments)]
-    const fn new(
+    fn new(
         address_book: AdrBook,
         core_sync_svc: CSync,
         protocol_request_svc_maker: ProtoHdlrMkr,
         broadcast_stream_maker: BrdcstStrmMkr,
         our_basic_node_data: BasicNodeData,
         connection_parent_span: Span,
-        syncer_wake: Option<Arc<Notify>>,
+        on_peer_sync: Option<PeerSyncCallback>,
         transport_client_config: T::ClientConfig,
     ) -> Self {
         Self {
@@ -135,7 +136,7 @@ impl<Z: NetworkZone, T: Transport<Z>, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMk
             broadcast_stream_maker,
             our_basic_node_data,
             connection_parent_span,
-            syncer_wake,
+            on_peer_sync,
             transport_client_config,
             _zone: PhantomData,
         }
@@ -176,7 +177,7 @@ where
         let our_basic_node_data = self.our_basic_node_data.clone();
 
         let connection_parent_span = self.connection_parent_span.clone();
-        let syncer_wake = self.syncer_wake.clone();
+        let on_peer_sync = self.on_peer_sync.clone();
 
         let transport_client_config = self.transport_client_config.clone();
 
@@ -194,7 +195,7 @@ where
                     protocol_request_svc_maker,
                     our_basic_node_data,
                     connection_parent_span,
-                    syncer_wake,
+                    on_peer_sync,
                 ),
             )
             .await?
@@ -270,7 +271,7 @@ async fn handshake<
     mut protocol_request_svc_maker: ProtoHdlrMkr,
     our_basic_node_data: BasicNodeData,
     connection_parent_span: Span,
-    syncer_wake: Option<Arc<Notify>>,
+    on_peer_sync: Option<PeerSyncCallback>,
 ) -> Result<Client<Z>, HandshakeError>
 where
     AdrBook: AddressBook<Z> + Clone,
@@ -512,7 +513,7 @@ where
         protocol_request_handler,
         our_basic_node_data,
         peer_info: info.clone(),
-        syncer_wake: syncer_wake.clone(),
+        on_peer_sync: on_peer_sync.clone(),
     };
 
     let connection = Connection::<Z, T, _, _, _, _>::new(
@@ -540,7 +541,7 @@ where
         Arc::clone(&semaphore),
         address_book,
         core_sync_svc,
-        syncer_wake,
+        on_peer_sync,
     ));
 
     let client = Client::<Z>::new(

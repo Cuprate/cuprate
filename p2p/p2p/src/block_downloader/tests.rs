@@ -54,7 +54,7 @@ proptest! {
             timeout(Duration::from_secs(600), async move {
                 let (new_connection_tx, new_connection_rx) = mpsc::channel(peers);
 
-                let peer_set = PeerSet::new(new_connection_rx, None);
+                let peer_set = PeerSet::new(new_connection_rx);
 
                 for _ in 0..peers {
                     let client = mock_block_downloader_client(Arc::clone(&blockchain));

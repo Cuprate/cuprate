@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use futures::channel::oneshot;
 use tokio::{
-    sync::{mpsc, Notify, Semaphore},
+    sync::{mpsc, Semaphore},
     time::{interval, MissedTickBehavior},
 };
 use tower::ServiceExt;
@@ -15,7 +15,7 @@ use tracing::instrument;
 use cuprate_wire::{admin::TimedSyncRequest, AdminRequestMessage, AdminResponseMessage};
 
 use crate::{
-    client::{connection::ConnectionTaskRequest, PeerInformation},
+    client::{connection::ConnectionTaskRequest, PeerInformation, PeerSyncCallback},
     constants::{MAX_PEERS_IN_PEER_LIST_MESSAGE, TIMEOUT_INTERVAL},
     services::{AddressBookRequest, CoreSyncDataRequest, CoreSyncDataResponse},
     AddressBook, CoreSyncSvc, NetworkZone, PeerRequest, PeerResponse,
@@ -36,7 +36,7 @@ pub(super) async fn connection_timeout_monitor_task<N: NetworkZone, AdrBook, CSy
 
     mut address_book_svc: AdrBook,
     mut core_sync_svc: CSync,
-    syncer_wake: Option<Arc<Notify>>,
+    on_peer_sync: Option<PeerSyncCallback>,
 ) -> Result<(), tower::BoxError>
 where
     AdrBook: AddressBook<N>,
@@ -129,17 +129,11 @@ where
             ))
             .await?;
 
-        let cd_changed = {
-            let mut core_sync_data = peer_information.core_sync_data.lock().unwrap();
-            let old_cd = core_sync_data.cumulative_difficulty();
-            *core_sync_data = timed_sync.payload_data;
-            core_sync_data.cumulative_difficulty() != old_cd
-        };
+        let new_cd = timed_sync.payload_data.cumulative_difficulty();
+        *peer_information.core_sync_data.lock().unwrap() = timed_sync.payload_data;
 
-        if cd_changed {
-            if let Some(syncer_wake) = &syncer_wake {
-                syncer_wake.notify_one();
-            }
+        if let Some(on_peer_sync) = &on_peer_sync {
+            on_peer_sync.call(new_cd);
         }
     }
 }

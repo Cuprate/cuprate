@@ -1,8 +1,5 @@
-use std::sync::Arc;
-
 use futures::TryFutureExt;
 use rand::{thread_rng, Rng};
-use tokio::sync::Notify;
 use tower::ServiceExt;
 
 use cuprate_pruning::PruningSeed;
@@ -15,7 +12,7 @@ use cuprate_wire::{
 };
 
 use crate::{
-    client::PeerInformation,
+    client::{PeerInformation, PeerSyncCallback},
     constants::MAX_PEERS_IN_PEER_LIST_MESSAGE,
     services::{
         AddressBookRequest, AddressBookResponse, CoreSyncDataRequest, CoreSyncDataResponse,
@@ -47,8 +44,8 @@ pub(crate) struct PeerRequestHandler<Z: NetworkZone, A, CS, PR> {
     /// The information on the connected peer.
     pub peer_info: PeerInformation<Z::Addr>,
 
-    /// The syncer wake handle.
-    pub syncer_wake: Option<Arc<Notify>>,
+    /// Called with the peer's cumulative difficulty.
+    pub on_peer_sync: Option<PeerSyncCallback>,
 }
 
 impl<Z, A, CS, PR> PeerRequestHandler<Z, A, CS, PR>
@@ -108,17 +105,11 @@ where
     ) -> Result<TimedSyncResponse, tower::BoxError> {
         // TODO: add a limit on the amount of these requests in a certain time period.
 
-        let cd_changed = {
-            let mut core_sync_data = self.peer_info.core_sync_data.lock().unwrap();
-            let old_cd = core_sync_data.cumulative_difficulty();
-            *core_sync_data = req.payload_data;
-            core_sync_data.cumulative_difficulty() != old_cd
-        };
+        let new_cd = req.payload_data.cumulative_difficulty();
+        *self.peer_info.core_sync_data.lock().unwrap() = req.payload_data;
 
-        if cd_changed {
-            if let Some(syncer_wake) = &self.syncer_wake {
-                syncer_wake.notify_one();
-            }
+        if let Some(on_peer_sync) = &self.on_peer_sync {
+            on_peer_sync.call(new_cd);
         }
 
         // Fetch core sync data.

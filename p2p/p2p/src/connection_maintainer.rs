@@ -15,7 +15,7 @@ use tower::{Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
 use cuprate_p2p_core::{
-    client::{Client, ConnectRequest, HandshakeError},
+    client::{Client, ConnectRequest, HandshakeError, PeerSyncCallback},
     services::{AddressBookRequest, AddressBookResponse},
     AddressBook, NetworkZone,
 };
@@ -65,6 +65,8 @@ pub struct OutboundConnectionKeeper<Z: NetworkZone, A, C> {
     ///
     /// This is weighted to the percentage given in `config`.
     pub peer_type_gen: Bernoulli,
+    /// Called once after the first peer is added to the peer set.
+    pub on_peer_sync: Option<PeerSyncCallback>,
 }
 
 impl<Z, A, C> OutboundConnectionKeeper<Z, A, C>
@@ -80,6 +82,7 @@ where
         make_connection_rx: mpsc::Receiver<MakeConnectionRequest>,
         address_book_svc: A,
         connector_svc: C,
+        on_peer_sync: Option<PeerSyncCallback>,
     ) -> Self {
         let peer_type_gen = Bernoulli::new(config.gray_peers_percent)
             .expect("Gray peer percent is incorrect should be 0..=1");
@@ -93,6 +96,7 @@ where
             extra_peers: 0,
             config,
             peer_type_gen,
+            on_peer_sync,
         }
     }
 
@@ -146,6 +150,7 @@ where
     #[instrument(level = "info", skip_all)]
     async fn connect_to_outbound_peer(&mut self, permit: OwnedSemaphorePermit, addr: Z::Addr) {
         let new_peers_tx = self.new_peers_tx.clone();
+        let on_peer_sync = self.on_peer_sync.clone();
         let connection_fut = self
             .connector_svc
             .ready()
@@ -160,6 +165,9 @@ where
             async move {
                 if let Ok(Ok(peer)) = timeout(HANDSHAKE_TIMEOUT, connection_fut).await {
                     drop(new_peers_tx.send(peer).await);
+                    if let Some(ref on_peer_sync) = on_peer_sync {
+                        on_peer_sync.wake_on_first_peers();
+                    }
                 }
             }
             .instrument(Span::current()),

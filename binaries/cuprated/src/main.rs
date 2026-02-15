@@ -19,6 +19,8 @@
 use std::{mem, sync::Arc};
 
 use tokio::sync::{mpsc, oneshot, Notify};
+
+use cuprate_p2p_core::client::PeerSyncCallback;
 use tower::{Service, ServiceExt};
 use tracing::{error, info, level_filters::LevelFilter};
 use tracing_subscriber::{layer::SubscriberExt, reload::Handle, util::SubscriberInitExt, Registry};
@@ -122,8 +124,14 @@ fn main() {
         let tor_context = initialize_tor_if_enabled(&config).await;
         let tor_enabled = config.p2p.tor_net.enabled;
 
-        // Create the syncer wake handle, shared between P2P and the blockchain manager.
-        let syncer_wake = Arc::new(Notify::new());
+        // Create the peer sync callback, shared between P2P and the blockchain syncer.
+        let peer_sync_callback = {
+            let context_svc = context_svc.clone();
+            PeerSyncCallback::new(
+                Box::new(move |peer_cd: u128| peer_cd > context_svc.cumulative_difficulty()),
+                Arc::new(Notify::new()),
+            )
+        };
 
         // Start clearnet P2P zone
         let (clearnet_interface, clearnet_tx_handler_subscriber) = p2p::initialize_clearnet_p2p(
@@ -132,7 +140,7 @@ fn main() {
             blockchain_read_handle.clone(),
             txpool_read_handle.clone(),
             &tor_context,
-            Arc::clone(&syncer_wake),
+            peer_sync_callback.clone(),
         )
         .await;
 
@@ -167,7 +175,7 @@ fn main() {
             tx_handler.txpool_manager.clone(),
             context_svc.clone(),
             config.block_downloader_config(),
-            syncer_wake,
+            peer_sync_callback,
         )
         .await;
 

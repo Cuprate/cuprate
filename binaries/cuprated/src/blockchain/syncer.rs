@@ -12,7 +12,7 @@ use cuprate_p2p::{
     block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
     NetworkInterface, PeerSetRequest, PeerSetResponse,
 };
-use cuprate_p2p_core::{ClearNet, NetworkZone};
+use cuprate_p2p_core::{client::PeerSyncCallback, ClearNet, NetworkZone};
 
 /// An error returned from the [`syncer`].
 #[derive(Debug, thiserror::Error)]
@@ -34,7 +34,7 @@ pub async fn syncer<CN>(
     stop_current_block_downloader: Arc<Notify>,
     block_downloader_config: BlockDownloaderConfig,
     synced_notify: Arc<Notify>,
-    syncer_wake: Arc<Notify>,
+    peer_sync_callback: PeerSyncCallback,
 ) -> Result<(), SyncerError>
 where
     CN: Service<
@@ -67,12 +67,13 @@ where
                     initial_sync = false;
                 }
                 tracing::debug!("Waiting for new sync info.");
-                syncer_wake.notified().await;
+                peer_sync_callback.notified().await;
                 continue;
             }
             SyncStatus::NoPeers => {
-                tracing::debug!("Waiting for new sync info.");
-                syncer_wake.notified().await;
+                tracing::debug!("Waiting for peers to connect.");
+                peer_sync_callback.wake_on_first_peers_arm();
+                peer_sync_callback.notified().await;
                 continue;
             }
         }

@@ -1,14 +1,13 @@
-use std::{convert::Infallible, marker::PhantomData, sync::Arc};
+use std::{convert::Infallible, marker::PhantomData};
 
 use futures::{stream, Stream};
-use tokio::sync::Notify;
 use tower::{make::Shared, util::MapErr};
 use tracing::Span;
 
 use cuprate_wire::BasicNodeData;
 
 use crate::{
-    client::{handshaker::HandShaker, InternalPeerID},
+    client::{handshaker::HandShaker, InternalPeerID, PeerSyncCallback},
     AddressBook, BroadcastMessage, CoreSyncSvc, NetworkZone, ProtocolRequestHandlerMaker,
     Transport,
 };
@@ -48,8 +47,8 @@ pub struct HandshakerBuilder<
     /// The [`Span`] that will set as the parent to the connection [`Span`].
     connection_parent_span: Option<Span>,
 
-    /// The syncer wake handle.
-    syncer_wake: Option<Arc<Notify>>,
+    /// Called with the peer's cumulative difficulty.
+    on_peer_sync: Option<PeerSyncCallback>,
 
     /// Transport method client configuration to use.
     transport_client_config: T::ClientConfig,
@@ -73,7 +72,7 @@ impl<N: NetworkZone, T: Transport<N>> HandshakerBuilder<N, T> {
             our_basic_node_data,
             broadcast_stream_maker: |_| stream::pending(),
             connection_parent_span: None,
-            syncer_wake: None,
+            on_peer_sync: None,
             transport_client_config,
             _zone: PhantomData,
         }
@@ -104,7 +103,7 @@ impl<N: NetworkZone, T: Transport<N>, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr>
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
-            syncer_wake,
+            on_peer_sync,
             transport_client_config,
             ..
         } = self;
@@ -116,7 +115,7 @@ impl<N: NetworkZone, T: Transport<N>, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr>
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
-            syncer_wake,
+            on_peer_sync,
             transport_client_config,
             _zone: PhantomData,
         }
@@ -148,7 +147,7 @@ impl<N: NetworkZone, T: Transport<N>, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr>
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
-            syncer_wake,
+            on_peer_sync,
             transport_client_config,
             ..
         } = self;
@@ -160,7 +159,7 @@ impl<N: NetworkZone, T: Transport<N>, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr>
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
-            syncer_wake,
+            on_peer_sync,
             transport_client_config,
             _zone: PhantomData,
         }
@@ -187,7 +186,7 @@ impl<N: NetworkZone, T: Transport<N>, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr>
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
-            syncer_wake,
+            on_peer_sync,
             transport_client_config,
             ..
         } = self;
@@ -199,7 +198,7 @@ impl<N: NetworkZone, T: Transport<N>, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr>
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
-            syncer_wake,
+            on_peer_sync,
             transport_client_config,
             _zone: PhantomData,
         }
@@ -226,7 +225,7 @@ impl<N: NetworkZone, T: Transport<N>, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr>
             protocol_request_svc_maker,
             our_basic_node_data,
             connection_parent_span,
-            syncer_wake,
+            on_peer_sync,
             transport_client_config,
             ..
         } = self;
@@ -238,21 +237,21 @@ impl<N: NetworkZone, T: Transport<N>, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr>
             our_basic_node_data,
             broadcast_stream_maker: new_broadcast_stream_maker,
             connection_parent_span,
-            syncer_wake,
+            on_peer_sync,
             transport_client_config,
             _zone: PhantomData,
         }
     }
 
-    /// Sets the [`Notify`] handle used to wake the syncer on peer sync data updates.
+    /// Sets the callback invoked with a peer's cumulative difficulty.
     ///
     /// ## Default
     ///
-    /// No syncer wake is set by default.
+    /// No callback is set by default.
     #[must_use]
-    pub fn with_syncer_wake(self, syncer_wake: Arc<Notify>) -> Self {
+    pub fn with_peer_sync_callback(self, on_peer_sync: PeerSyncCallback) -> Self {
         Self {
-            syncer_wake: Some(syncer_wake),
+            on_peer_sync: Some(on_peer_sync),
             ..self
         }
     }
@@ -279,7 +278,7 @@ impl<N: NetworkZone, T: Transport<N>, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr>
             self.broadcast_stream_maker,
             self.our_basic_node_data,
             self.connection_parent_span.unwrap_or(Span::none()),
-            self.syncer_wake,
+            self.on_peer_sync,
             self.transport_client_config,
         )
     }

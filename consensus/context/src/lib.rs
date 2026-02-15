@@ -376,6 +376,11 @@ impl BlockchainContextService {
     pub fn blockchain_context(&mut self) -> &BlockchainContext {
         self.cached_context.load()
     }
+
+    /// Get the current cumulative difficulty.
+    pub fn cumulative_difficulty(&self) -> u128 {
+        self.cached_context.arc_swap().load().cumulative_difficulty
+    }
 }
 
 impl Service<BlockChainContextRequest> for BlockchainContextService {
