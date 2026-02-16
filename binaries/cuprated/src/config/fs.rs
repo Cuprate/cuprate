@@ -12,10 +12,10 @@ config_struct! {
     #[serde(deny_unknown_fields, default)]
     pub struct FileSystemConfig {
         #[comment_out = true]
-        /// The data directory.
+        /// The fast data directory.
         ///
-        /// This directory store the blockchain, transaction pool,
-        /// log files, and any misc data files.
+        /// This directory stores any long-term data where it is beneficial for fast access. This will
+        /// be the same as the `slow_data_directory` unless changed.
         ///
         /// The default directories for each OS:
         ///
@@ -24,7 +24,22 @@ config_struct! {
         /// | Windows | "C:\Users\Alice\AppData\Roaming\Cuprate\"           |
         /// | macOS   | "/Users/Alice/Library/Application Support/Cuprate/" |
         /// | Linux   | "/home/alice/.local/share/cuprate/"                 |
-        pub data_directory: PathBuf,
+        pub fast_data_directory: PathBuf,
+
+        #[comment_out = true]
+        /// The slow data directory.
+        ///
+        /// This directory stores any long-term data where it is not that beneficial for fast access. This will
+        /// be the same as the `fast_data_directory` unless changed.
+        ///
+        /// The default directories for each OS:
+        ///
+        /// | OS      | Path                                                |
+        /// |---------|-----------------------------------------------------|
+        /// | Windows | "C:\Users\Alice\AppData\Roaming\Cuprate\"           |
+        /// | macOS   | "/Users/Alice/Library/Application Support/Cuprate/" |
+        /// | Linux   | "/home/alice/.local/share/cuprate/"                 |
+        pub slow_data_directory: PathBuf,
 
         #[comment_out = true]
         /// The cache directory.
@@ -47,7 +62,8 @@ config_struct! {
 impl Default for FileSystemConfig {
     fn default() -> Self {
         Self {
-            data_directory: CUPRATE_DATA_DIR.to_path_buf(),
+            fast_data_directory: CUPRATE_DATA_DIR.to_path_buf(),
+            slow_data_directory: CUPRATE_DATA_DIR.to_path_buf(),
             cache_directory: CUPRATE_CACHE_DIR.to_path_buf(),
         }
     }

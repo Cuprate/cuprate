@@ -27,12 +27,12 @@ use tracing_subscriber::{layer::SubscriberExt, reload::Handle, util::SubscriberI
 use cuprate_consensus_context::{
     BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
 };
-use cuprate_database::{InitError, DATABASE_CORRUPT_MSG};
 use cuprate_helper::time::secs_to_hms;
 use cuprate_p2p_core::{transports::Tcp, ClearNet};
 use cuprate_types::blockchain::BlockchainWriteRequest;
 use txpool::IncomingTxHandler;
 
+use crate::constants::DATABASE_CORRUPT_MSG;
 use crate::{
     config::Config,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
@@ -76,22 +76,31 @@ fn main() {
 
     let rt = init_tokio_rt(&config);
 
-    let db_thread_pool = cuprate_database_service::init_thread_pool(
-        cuprate_database_service::ReaderThreads::Number(config.storage.reader_threads),
+    let db_thread_pool = Arc::new(
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(config.storage.reader_threads)
+            .build()
+            .unwrap(),
     );
 
     // Start the blockchain & tx-pool databases.
 
+    let fjall_db = fjall::Database::builder(config.fjall_directory())
+        .cache_size(2 * 1024 * 1024 * 1024)
+        .open()
+        .unwrap();
+
     let (mut blockchain_read_handle, mut blockchain_write_handle, _) =
         cuprate_blockchain::service::init_with_pool(
             config.blockchain_config(),
+            fjall_db.clone(),
             Arc::clone(&db_thread_pool),
         )
         .inspect_err(|e| error!("Blockchain database error: {e}"))
         .expect(DATABASE_CORRUPT_MSG);
 
-    let (txpool_read_handle, txpool_write_handle, _) =
-        cuprate_txpool::service::init_with_pool(&config.txpool_config(), db_thread_pool)
+    let (txpool_read_handle, txpool_write_handle) =
+        cuprate_txpool::service::init_with_pool(fjall_db, db_thread_pool)
             .inspect_err(|e| error!("Txpool database error: {e}"))
             .expect(DATABASE_CORRUPT_MSG);
 

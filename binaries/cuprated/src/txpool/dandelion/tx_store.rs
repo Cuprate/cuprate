@@ -8,17 +8,16 @@ use futures::{future::BoxFuture, FutureExt};
 use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
 
+use super::{DandelionTx, TxId};
 use cuprate_dandelion_tower::{
     traits::{TxStoreRequest, TxStoreResponse},
     State,
 };
-use cuprate_database::RuntimeError;
 use cuprate_txpool::service::{
     interface::{TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest},
     TxpoolReadHandle, TxpoolWriteHandle,
 };
-
-use super::{DandelionTx, TxId};
+use cuprate_txpool::TxPoolError;
 
 /// The dandelion tx-store service.
 ///
@@ -59,7 +58,7 @@ impl Service<TxStoreRequest<TxId>> for TxStoreService {
                             state,
                         ))))
                     }
-                    Err(RuntimeError::KeyNotFound) => Ok(TxStoreResponse::Transaction(None)),
+                    Err(TxPoolError::NotFound) => Ok(TxStoreResponse::Transaction(None)),
                     Err(e) => Err(e.into()),
                     Ok(_) => unreachable!(),
                 })

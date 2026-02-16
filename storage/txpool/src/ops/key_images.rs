@@ -1,9 +1,9 @@
 //! Tx-pool key image ops.
 use monero_oxide::transaction::Input;
 
-use cuprate_database::{DatabaseRw, DbResult};
-
-use crate::{ops::TxPoolWriteError, tables::SpentKeyImages, types::TransactionHash};
+use crate::error::TxPoolError;
+use crate::txpool::TxpoolDatabase;
+use crate::{ops::TxPoolWriteError, types::TransactionHash};
 
 /// Adds the transaction key images to the [`SpentKeyImages`] table.
 ///
@@ -14,14 +14,17 @@ use crate::{ops::TxPoolWriteError, tables::SpentKeyImages, types::TransactionHas
 pub(super) fn add_tx_key_images(
     inputs: &[Input],
     tx_hash: &TransactionHash,
-    kis_table: &mut impl DatabaseRw<SpentKeyImages>,
+    writer: &mut fjall::OwnedWriteBatch,
+    db: &TxpoolDatabase,
 ) -> Result<(), TxPoolWriteError> {
     for ki in inputs.iter().map(ki_from_input) {
-        if let Ok(double_spend_tx_hash) = kis_table.get(&ki) {
-            return Err(TxPoolWriteError::DoubleSpend(double_spend_tx_hash));
+        if let Some(ki) = db.spent_key_images.get(&ki).map_err(TxPoolError::Fjall)? {
+            return Err(TxPoolWriteError::DoubleSpend(
+                ki.as_ref().try_into().unwrap(),
+            ));
         }
 
-        kis_table.put(&ki, tx_hash)?;
+        writer.insert(&db.spent_key_images, &ki, tx_hash);
     }
 
     Ok(())
@@ -33,10 +36,11 @@ pub(super) fn add_tx_key_images(
 /// This function will panic if any of the [`Input`]s are not [`Input::ToKey`]
 pub(super) fn remove_tx_key_images(
     inputs: &[Input],
-    kis_table: &mut impl DatabaseRw<SpentKeyImages>,
-) -> DbResult<()> {
+    writer: &mut fjall::OwnedWriteBatch,
+    db: &TxpoolDatabase,
+) -> Result<(), TxPoolError> {
     for ki in inputs.iter().map(ki_from_input) {
-        kis_table.delete(&ki)?;
+        writer.remove(&db.spent_key_images, &ki);
     }
 
     Ok(())
@@ -46,7 +50,7 @@ pub(super) fn remove_tx_key_images(
 ///
 /// # Panics
 /// This function will panic if the [`Input`] is not [`Input::ToKey`]
-fn ki_from_input(input: &Input) -> [u8; 32] {
+pub(super) fn ki_from_input(input: &Input) -> [u8; 32] {
     match input {
         Input::ToKey { key_image, .. } => key_image.0,
         Input::Gen(_) => panic!("miner tx cannot be added to the txpool"),

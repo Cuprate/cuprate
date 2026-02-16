@@ -85,6 +85,7 @@ mod key_images;
 mod tx_read;
 mod tx_write;
 
+use crate::error::TxPoolError;
 pub use tx_read::{get_transaction_verification_data, in_stem_pool};
 pub use tx_write::{add_transaction, remove_transaction};
 
@@ -96,7 +97,6 @@ pub enum TxPoolWriteError {
     /// The inner value is the hash of the transaction that was double spent.
     #[error("Transaction doubles spent transaction already in the pool ({}).", hex::encode(.0))]
     DoubleSpend(crate::types::TransactionHash),
-    /// A database error.
-    #[error("Database error: {0}")]
-    Database(#[from] cuprate_database::RuntimeError),
+    #[error("{0}")]
+    TxPool(#[from] TxPoolError),
 }

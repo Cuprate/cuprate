@@ -1,4 +1,19 @@
 //! cuprated config
+use anyhow::bail;
+use arti_client::KeystoreSelector;
+use clap::Parser;
+use cuprate_blockchain::config::CacheSizes;
+use cuprate_consensus::ContextConfig;
+use cuprate_helper::{
+    fs::{CUPRATE_CONFIG_DIR, DEFAULT_CONFIG_FILE_NAME},
+    network::Network,
+};
+use cuprate_p2p::block_downloader::BlockDownloaderConfig;
+use cuprate_p2p_core::{ClearNet, Tor};
+use cuprate_wire::OnionAddr;
+use safelog::DisplayRedacted;
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::{
     fmt,
     fs::{read_to_string, File},
@@ -8,21 +23,6 @@ use std::{
     str::FromStr,
     time::Duration,
 };
-
-use anyhow::bail;
-use arti_client::KeystoreSelector;
-use clap::Parser;
-use safelog::DisplayRedacted;
-use serde::{Deserialize, Serialize};
-
-use cuprate_consensus::ContextConfig;
-use cuprate_helper::{
-    fs::{CUPRATE_CONFIG_DIR, DEFAULT_CONFIG_FILE_NAME},
-    network::Network,
-};
-use cuprate_p2p::block_downloader::BlockDownloaderConfig;
-use cuprate_p2p_core::{ClearNet, Tor};
-use cuprate_wire::OnionAddr;
 
 use crate::{
     constants::{DEFAULT_CONFIG_STARTUP_DELAY, DEFAULT_CONFIG_WARNING},
@@ -303,24 +303,24 @@ impl Config {
     pub fn blockchain_config(&self) -> cuprate_blockchain::config::Config {
         let blockchain = &self.storage.blockchain;
 
-        // We don't set reader threads as we manually make the reader threadpool.
-        cuprate_blockchain::config::ConfigBuilder::default()
-            .network(self.network)
-            .data_directory(self.fs.data_directory.clone())
-            .sync_mode(blockchain.sync_mode)
-            .build()
+        cuprate_blockchain::config::Config {
+            blob_dir: self.fs.fast_data_directory.clone(),
+            index_dir: self.fs.slow_data_directory.clone(),
+            cache_sizes: CacheSizes {
+                rct_outputs: 100 * 1024 * 1024,
+                tx_infos: 10 * 1024 * 1024,
+                block_infos: 10 * 1024 * 1024,
+                pruned_blobs: 25 * 1024 * 1024,
+                v1_prunable_blobs: 8 * 1024,
+                prunable_blobs: 8 * 1024,
+            },
+        }
     }
 
-    /// The [`cuprate_txpool`] config.
-    pub fn txpool_config(&self) -> cuprate_txpool::config::Config {
-        let txpool = &self.storage.txpool;
-
-        // We don't set reader threads as we manually make the reader threadpool.
-        cuprate_txpool::config::ConfigBuilder::default()
-            .network(self.network)
-            .data_directory(self.fs.data_directory.clone())
-            .sync_mode(txpool.sync_mode)
-            .build()
+    /// The directory for fjall.
+    pub fn fjall_directory(&self) -> PathBuf {
+        cuprate_helper::fs::path_with_network(&self.fs.fast_data_directory, self.network)
+            .join("fjall")
     }
 
     /// The [`BlockDownloaderConfig`].
@@ -441,8 +441,22 @@ impl Config {
             }
         }
 
-        match Self::check_dir_permissions(&self.fs.data_directory) {
-            Ok(()) => println!("Permissions are ok at {}", self.fs.data_directory.display()),
+        match Self::check_dir_permissions(&self.fs.fast_data_directory) {
+            Ok(()) => println!(
+                "Permissions are ok at {}",
+                self.fs.fast_data_directory.display()
+            ),
+            Err(e) => {
+                eprintln_red(&format!("Error: {e}"));
+                error = true;
+            }
+        }
+
+        match Self::check_dir_permissions(&self.fs.slow_data_directory) {
+            Ok(()) => println!(
+                "Permissions are ok at {}",
+                self.fs.slow_data_directory.display()
+            ),
             Err(e) => {
                 eprintln_red(&format!("Error: {e}"));
                 error = true;

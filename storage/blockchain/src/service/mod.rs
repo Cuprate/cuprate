@@ -119,18 +119,24 @@
 //! ```
 
 // needed for docs
+use crate::error::DbResult;
+use cuprate_types::blockchain::BlockchainResponse;
 use tower as _;
 
 mod read;
-pub use read::{init_read_service, init_read_service_with_pool};
 
 mod write;
-pub use write::init_write_service;
+pub use read::BlockchainReadHandle;
+pub use write::{init_write_service, BlockchainWriteHandle};
 
 mod free;
-pub use free::{init, init_with_pool};
-mod types;
-pub use types::{BlockchainReadHandle, BlockchainWriteHandle};
+pub use free::init_with_pool;
+
+//---------------------------------------------------------------------------------------------------- Types
+/// The actual type of the response.
+///
+/// Either our [`BlockchainResponse`], or a database error occurred.
+pub(super) type ResponseResult = DbResult<BlockchainResponse>;
 
 #[cfg(test)]
 mod tests;

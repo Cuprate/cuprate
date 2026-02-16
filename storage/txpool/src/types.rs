@@ -47,13 +47,14 @@ pub struct TransactionInfo {
     pub weight: usize,
     /// The UNIX timestamp of when this tx was received.
     pub received_at: u64,
+    pub cached_verification_state: RawCachedVerificationState,
     /// [`TxStateFlags`] of this transaction.
     pub flags: TxStateFlags,
     #[expect(clippy::pub_underscore_fields)]
     /// Explicit padding so that we have no implicit padding bytes in `repr(C)`.
     ///
     /// Allows potential future expansion of this type.
-    pub _padding: [u8; 7],
+    pub _padding: [u8; 6],
 }
 
 /// [`CachedVerificationState`] in a format that can be stored into the database.

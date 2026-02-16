@@ -18,8 +18,6 @@ cuprate-consensus         = { workspace = true }
 cuprate-constants         = { workspace = true, features = ["build", "rpc"] }
 cuprate-cryptonight       = { workspace = true }
 cuprate-dandelion-tower   = { workspace = true, features = ["txpool"] }
-cuprate-database-service  = { workspace = true, features = ["serde"] }
-cuprate-database          = { workspace = true, features = ["serde"] }
 cuprate-epee-encoding     = { workspace = true }
 cuprate-fast-sync         = { workspace = true }
 cuprate-fixed-bytes       = { workspace = true }
@@ -56,6 +54,7 @@ curve25519-dalek      = { workspace = true }
 const_format          = { workspace = true, features = ["all"] }
 dashmap               = { workspace = true }
 dirs                  = { workspace = true }
+fjall                 = { workspace = true }
 futures               = { workspace = true }
 hex                   = { workspace = true }
 hex-literal           = { workspace = true }

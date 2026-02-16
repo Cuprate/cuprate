@@ -1,20 +1,19 @@
 //! Transaction writing ops.
 //!
 //! This module handles writing full transaction data, like removing or adding a transaction.
-use bytemuck::TransparentWrapper;
-use monero_oxide::transaction::{NotPruned, Transaction};
+use monero_oxide::transaction::{Pruned, Transaction};
 
-use cuprate_database::{DatabaseRw, DbResult, StorableVec};
 use cuprate_helper::time::current_unix_timestamp;
 use cuprate_types::TransactionVerificationData;
 
+use crate::error::TxPoolError;
+use crate::txpool::TxpoolDatabase;
 use crate::{
     free::transaction_blob_hash,
     ops::{
         key_images::{add_tx_key_images, remove_tx_key_images},
         TxPoolWriteError,
     },
-    tables::TablesMut,
     types::{TransactionHash, TransactionInfo, TxStateFlags},
 };
 
@@ -27,67 +26,63 @@ use crate::{
 pub fn add_transaction(
     tx: &TransactionVerificationData,
     state_stem: bool,
-    tables: &mut impl TablesMut,
+    w: &mut fjall::OwnedWriteBatch,
+    db: &TxpoolDatabase,
 ) -> Result<(), TxPoolWriteError> {
-    // Add the tx blob to table 0.
-    tables
-        .transaction_blobs_mut()
-        .put(&tx.tx_hash, StorableVec::wrap_ref(&tx.tx_blob))?;
+    add_tx_key_images(&tx.tx.prefix().inputs, &tx.tx_hash, w, db)?;
+
+    // Add the tx blob.
+    w.insert(&db.tx_blobs, &tx.tx_hash, &tx.tx_blob);
 
     let mut flags = TxStateFlags::empty();
     flags.set(TxStateFlags::STATE_STEM, state_stem);
 
-    // Add the tx info to table 1.
-    tables.transaction_infos_mut().put(
+    // Add the tx info.
+    w.insert(
+        &db.tx_infos,
         &tx.tx_hash,
-        &TransactionInfo {
+        bytemuck::bytes_of(&TransactionInfo {
             fee: tx.fee,
             weight: tx.tx_weight,
             received_at: current_unix_timestamp(),
+            cached_verification_state: tx.cached_verification_state.into(),
             flags,
-            _padding: [0; 7],
-        },
-    )?;
-
-    // Add the cached verification state to table 2.
-    let cached_verification_state = tx.cached_verification_state.into();
-    tables
-        .cached_verification_state_mut()
-        .put(&tx.tx_hash, &cached_verification_state)?;
-
-    // Add the tx key images to table 3.
-    let kis_table = tables.spent_key_images_mut();
-    add_tx_key_images(&tx.tx.prefix().inputs, &tx.tx_hash, kis_table)?;
+            _padding: [0; 6],
+        }),
+    );
 
     // Add the blob hash to table 4.
     let blob_hash = transaction_blob_hash(&tx.tx_blob);
-    tables
-        .known_blob_hashes_mut()
-        .put(&blob_hash, &tx.tx_hash)?;
+    w.insert(&db.known_blob_hashes, &blob_hash, &tx.tx_hash);
 
     Ok(())
 }
 
 /// Removes a transaction from the transaction pool.
-pub fn remove_transaction(tx_hash: &TransactionHash, tables: &mut impl TablesMut) -> DbResult<()> {
-    // Remove the tx blob from table 0.
-    let tx_blob = tables.transaction_blobs_mut().take(tx_hash)?.0;
+pub fn remove_transaction(
+    tx_hash: &TransactionHash,
+    w: &mut fjall::OwnedWriteBatch,
+    db: &TxpoolDatabase,
+) -> Result<(), TxPoolError> {
+    // Remove the tx blob.
+    w.remove(&db.tx_blobs, tx_hash);
 
-    // Remove the tx info from table 1.
-    tables.transaction_infos_mut().delete(tx_hash)?;
+    w.remove(&db.tx_infos, tx_hash);
 
-    // Remove the cached verification state from table 2.
-    tables.cached_verification_state_mut().delete(tx_hash)?;
+    let tx_blob = db
+        .tx_blobs
+        .get(tx_hash.as_ref())?
+        .ok_or(TxPoolError::NotFound)?;
 
     // Remove the tx key images from table 3.
-    let tx = Transaction::<NotPruned>::read(&mut tx_blob.as_slice())
+    let tx = Transaction::<Pruned>::read(&mut tx_blob.as_ref())
         .expect("Tx in the tx-pool must be parseable");
-    let kis_table = tables.spent_key_images_mut();
-    remove_tx_key_images(&tx.prefix().inputs, kis_table)?;
+
+    remove_tx_key_images(&tx.prefix().inputs, w, db)?;
 
     // Remove the blob hash from table 4.
     let blob_hash = transaction_blob_hash(&tx_blob);
-    tables.known_blob_hashes_mut().delete(&blob_hash)?;
+    w.remove(&db.known_blob_hashes, &blob_hash);
 
     Ok(())
 }

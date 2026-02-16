@@ -1,39 +1,238 @@
 //! Block functions.
 
+use std::borrow::Cow;
+use std::cmp::min;
+use std::collections::HashMap;
+use std::io;
 //---------------------------------------------------------------------------------------------------- Import
+use std::io::Write;
+
+use crate::error::{BlockchainError, DbResult};
+use crate::ops::tx::{add_tx_to_dynamic_tables, add_tx_to_tapes, remove_tx_from_dynamic_tables};
+use crate::types::{Amount, RctOutput, TxInfo};
+use crate::BlockchainDatabase;
+use crate::{
+    ops::{alt_block, blockchain::chain_height, macros::doc_error},
+    types::{BlockHash, BlockHeight, BlockInfo},
+};
 use bytemuck::TransparentWrapper;
 use bytes::Bytes;
-use monero_oxide::{
-    block::{Block, BlockHeader},
-    transaction::Transaction,
-};
-
-use cuprate_database::{
-    DbResult, RuntimeError, StorableVec, {DatabaseRo, DatabaseRw},
-};
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_helper::{
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
     tx::tx_fee,
 };
+use cuprate_pruning::CRYPTONOTE_PRUNING_LOG_STRIPES;
 use cuprate_types::{
     AltBlockInformation, BlockCompleteEntry, ChainId, ExtendedBlockHeader, HardFork,
-    TransactionBlobs, VerifiedBlockInformation, VerifiedTransactionInformation,
+    PrunedTxBlobEntry, TransactionBlobs, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
-
-use crate::{
-    ops::{
-        alt_block,
-        blockchain::{chain_height, cumulative_generated_coins},
-        macros::doc_error,
-        output::get_rct_num_outputs,
-        tx::{add_tx, remove_tx},
-    },
-    tables::{BlockHeights, BlockInfos, Tables, TablesIter, TablesMut},
-    types::{BlockHash, BlockHeight, BlockInfo},
+use fjall::Readable;
+use monero_oxide::transaction::Pruned;
+use monero_oxide::{
+    block::{Block, BlockHeader},
+    transaction::Transaction,
 };
+use tapes::{TapesAppend, TapesRead, TapesTruncate};
+use tracing::instrument;
 
-//---------------------------------------------------------------------------------------------------- `add_block_*`
+#[instrument(skip_all, level = "info")]
+pub fn add_blocks_to_tapes(
+    blocks: &[VerifiedBlockInformation],
+    db: &BlockchainDatabase,
+    append_tx: &mut tapes::TapesAppendTransaction,
+) -> DbResult<()> {
+    let mut pruned_tape_index = append_tx.blob_tape_len(&db.pruned_blobs).unwrap_or(0);
+    for block in blocks {
+        append_tx.append_bytes(&db.pruned_blobs, &block.block_blob)?;
+
+        for tx in &block.txs {
+            append_tx.append_bytes(&db.pruned_blobs, tx.tx_pruned.as_slice())?;
+
+            let prunable_hash = if tx.tx_prunable_blob.is_empty() || tx.tx.version() == 1 {
+                [0; 32]
+            } else {
+                monero_oxide::primitives::keccak256(&tx.tx_prunable_blob)
+            };
+            append_tx.append_bytes(&db.pruned_blobs, &prunable_hash)?;
+        }
+    }
+
+    tracing::trace!("pruned_tape_index: {}", pruned_tape_index);
+
+    let mut write_v2_prunable_data = |append_tx: &mut tapes::TapesAppendTransaction,
+                                      tape,
+                                      blocks: &[VerifiedBlockInformation]|
+     -> io::Result<u64> {
+        let mut first_idx = append_tx
+            .blob_tape_len(tape)
+            .expect("Required tape not found");
+        for block in blocks {
+            for tx in &block.txs {
+                if tx.tx.version() != 1 {
+                    append_tx.append_bytes(tape, tx.tx_prunable_blob.as_slice())?;
+                }
+            }
+        }
+
+        Ok(first_idx)
+    };
+
+    let mut write_v1_prunable_data = |append_tx: &mut tapes::TapesAppendTransaction,
+                                      blocks: &[VerifiedBlockInformation]|
+     -> io::Result<u64> {
+        let mut first_idx = u64::MAX;
+        let mut first_idx = append_tx
+            .blob_tape_len(&db.v1_prunable_blobs)
+            .expect("Required tape not found");
+
+        for block in blocks {
+            for tx in &block.txs {
+                if tx.tx.version() == 1 {
+                    append_tx.append_bytes(&db.v1_prunable_blobs, &tx.tx_prunable_blob)?;
+                }
+            }
+        }
+
+        Ok(first_idx)
+    };
+
+    // Split the blocks at the point the pruning stripe changes.
+    let start_height = blocks[0].height;
+    let first_block_pruning_seed = cuprate_pruning::DecompressedPruningSeed::new(
+        cuprate_pruning::get_block_pruning_stripe(start_height, usize::MAX, 3).unwrap(),
+        3,
+    )
+    .unwrap();
+    let next_stripe_height = first_block_pruning_seed
+        .get_next_pruned_block(start_height, 500_000_000)
+        .unwrap()
+        .unwrap();
+
+    let (first_stripe, next_stripe) =
+        blocks.split_at(min(next_stripe_height - start_height, blocks.len()));
+
+    tracing::debug!(
+        start_height,
+        ?first_block_pruning_seed,
+        next_stripe_height,
+        first_stripe_len = first_stripe.len(),
+        next_stripe_len = next_stripe.len()
+    );
+
+    for blocks in [first_stripe, next_stripe] {
+        if blocks.is_empty() {
+            continue;
+        }
+
+        let stripe =
+            cuprate_pruning::get_block_pruning_stripe(blocks[0].height, usize::MAX, 3).unwrap();
+        let mut v2_prunable_index =
+            write_v2_prunable_data(append_tx, &db.prunable_blobs[stripe as usize - 1], &blocks)?;
+
+        let mut v1_prunable_index = write_v1_prunable_data(append_tx, &blocks)?;
+
+        let mut numb_rct_outs = append_tx
+            .fixed_sized_tape_len(&db.rct_outputs)
+            .expect("Required tape not found");
+
+        tracing::debug!(
+            chunk_start = blocks[0].height,
+            stripe,
+            v1_prunable_index,
+            v2_prunable_index,
+            numb_rct_outs
+        );
+
+        for block in blocks {
+            let block_pruned_blob_idx = pruned_tape_index;
+            let block_v1_prunable_idx = v1_prunable_index;
+            let block_v2_prunable_idx = v2_prunable_index;
+
+            let header_len = block.block.header.serialize().len() as u64;
+
+            let mining_tx_index = {
+                let tx = block.block.miner_transaction();
+                add_tx_to_tapes(
+                    &tx.clone().into(),
+                    pruned_tape_index + header_len,
+                    0,
+                    tx.serialize().len() as u64,
+                    0,
+                    &block.height,
+                    &mut numb_rct_outs,
+                    append_tx,
+                    db,
+                )?
+            };
+
+            pruned_tape_index += block.block_blob.len() as u64;
+
+            for tx in &block.txs {
+                add_tx_to_tapes(
+                    &tx.tx,
+                    pruned_tape_index,
+                    if tx.tx.version() == 1 {
+                        v1_prunable_index
+                    } else {
+                        v2_prunable_index
+                    },
+                    tx.tx_pruned.len() as u64,
+                    tx.tx_prunable_blob.len() as u64,
+                    &block.height,
+                    &mut numb_rct_outs,
+                    append_tx,
+                    db,
+                )?;
+
+                pruned_tape_index += tx.tx_pruned.len() as u64 + 32;
+                if tx.tx.version() == 1 {
+                    v1_prunable_index += tx.tx_prunable_blob.len() as u64;
+                } else {
+                    v2_prunable_index += tx.tx_prunable_blob.len() as u64;
+                }
+            }
+
+            // `saturating_add` is used here as cumulative generated coins overflows due to tail emission.
+            let cumulative_generated_coins = append_tx
+                .read_entry(&db.block_infos, block.height.saturating_sub(1) as u64)?
+                .map_or(0, |prev| prev.cumulative_generated_coins)
+                .saturating_add(block.generated_coins);
+
+            let (cumulative_difficulty_low, cumulative_difficulty_high) =
+                split_u128_into_low_high_bits(block.cumulative_difficulty);
+
+            append_tx.append_entries(
+                &db.block_infos,
+                &[BlockInfo {
+                    cumulative_difficulty_low,
+                    cumulative_difficulty_high,
+                    cumulative_generated_coins,
+                    cumulative_rct_outs: numb_rct_outs,
+                    block_hash: block.block_hash,
+                    weight: block.weight,
+                    long_term_weight: block.long_term_weight,
+                    mining_tx_index,
+                    pruned_blob_idx: block_pruned_blob_idx,
+                    v1_prunable_blob_idx: block_v1_prunable_idx,
+                    prunable_blob_idx: block_v2_prunable_idx,
+                }],
+            )?;
+
+            tracing::debug!(
+                height = block.height,
+                block_pruned_blob_idx,
+                block_v1_prunable_idx,
+                block_v2_prunable_idx,
+                cumulative_generated_coins,
+                "added block to tapes"
+            );
+        }
+    }
+
+    Ok(())
+}
+
 /// Add a [`VerifiedBlockInformation`] to the database.
 ///
 /// This extracts all the data from the input block and
@@ -45,94 +244,56 @@ use crate::{
 /// This function will panic if:
 /// - `block.height > u32::MAX` (not normally possible)
 /// - `block.height` is != [`chain_height`]
+#[expect(single_use_lifetimes)]
 // no inline, too big.
-pub fn add_block(block: &VerifiedBlockInformation, tables: &mut impl TablesMut) -> DbResult<()> {
+pub fn add_block_to_dynamic_tables<'a>(
+    db: &BlockchainDatabase,
+    block: &Block,
+    block_hash: &BlockHash,
+    txs: impl Iterator<Item = Cow<'a, Transaction<Pruned>>>,
+    numb_transactions: &mut u64,
+    w: &mut fjall::OwnedWriteBatch,
+    pre_rct_numb_outputs_cache: &mut HashMap<Amount, u64>,
+) -> DbResult<()> {
     //------------------------------------------------------ Check preconditions first
 
     // Cast height to `u32` for storage (handled at top of function).
     // Panic (should never happen) instead of allowing DB corruption.
     // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1560020991>
     assert!(
-        u32::try_from(block.height).is_ok(),
+        u32::try_from(block.number()).is_ok(),
         "block.height ({}) > u32::MAX",
-        block.height,
+        block.number(),
     );
-
-    let chain_height = chain_height(tables.block_heights())?;
-    assert_eq!(
-        block.height, chain_height,
-        "block.height ({}) != chain_height ({})",
-        block.height, chain_height,
-    );
-
-    // Expensive checks - debug only.
-    #[cfg(debug_assertions)]
-    {
-        assert_eq!(block.block.serialize(), block.block_blob);
-        assert_eq!(block.block.transactions.len(), block.txs.len());
-        for (i, tx) in block.txs.iter().enumerate() {
-            assert_eq!(tx.tx_blob, tx.tx.serialize());
-            assert_eq!(tx.tx_hash, block.block.transactions[i]);
-        }
-    }
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
     // Add the miner transaction first.
-    let mining_tx_index = {
-        let tx = &block.block.miner_transaction();
-        add_tx(tx, &tx.serialize(), &tx.hash(), &chain_height, tables)?
-    };
+    let tx = block.miner_transaction();
+    add_tx_to_dynamic_tables(
+        db,
+        &tx.clone().into(),
+        *numb_transactions,
+        &tx.hash(),
+        &block.number(),
+        w,
+        pre_rct_numb_outputs_cache,
+    )?;
+    *numb_transactions += 1;
 
-    for tx in &block.txs {
-        add_tx(&tx.tx, &tx.tx_blob, &tx.tx_hash, &chain_height, tables)?;
+    for (tx, tx_hash) in txs.zip(&block.transactions) {
+        add_tx_to_dynamic_tables(
+            db,
+            &tx,
+            *numb_transactions,
+            &tx_hash,
+            &block.number(),
+            w,
+            pre_rct_numb_outputs_cache,
+        )?;
+        *numb_transactions += 1;
     }
 
-    //------------------------------------------------------ Block Info
-
-    // INVARIANT: must be below the above transaction loop since this
-    // RCT output count needs account for _this_ block's outputs.
-    let cumulative_rct_outs = get_rct_num_outputs(tables.rct_outputs())?;
-
-    // `saturating_add` is used here as cumulative generated coins overflows due to tail emission.
-    let cumulative_generated_coins =
-        cumulative_generated_coins(&block.height.saturating_sub(1), tables.block_infos())?
-            .saturating_add(block.generated_coins);
-
-    let (cumulative_difficulty_low, cumulative_difficulty_high) =
-        split_u128_into_low_high_bits(block.cumulative_difficulty);
-
-    // Block Info.
-    tables.block_infos_mut().put(
-        &block.height,
-        &BlockInfo {
-            cumulative_difficulty_low,
-            cumulative_difficulty_high,
-            cumulative_generated_coins,
-            cumulative_rct_outs,
-            timestamp: block.block.header.timestamp,
-            block_hash: block.block_hash,
-            weight: block.weight,
-            long_term_weight: block.long_term_weight,
-            mining_tx_index,
-        },
-    )?;
-
-    // Block header blob.
-    tables.block_header_blobs_mut().put(
-        &block.height,
-        StorableVec::wrap_ref(&block.block.header.serialize()),
-    )?;
-
-    // Block transaction hashes
-    tables.block_txs_hashes_mut().put(
-        &block.height,
-        StorableVec::wrap_ref(&block.block.transactions),
-    )?;
-
-    // Block heights.
-    tables
-        .block_heights_mut()
-        .put(&block.block_hash, &block.height)?;
+    w.insert(&db.block_heights, block_hash, &block.number().to_le_bytes());
 
     Ok(())
 }
@@ -150,54 +311,64 @@ pub fn add_block(block: &VerifiedBlockInformation, tables: &mut impl TablesMut) 
 /// will be returned if there are no blocks left.
 // no inline, too big
 pub fn pop_block(
+    db: &BlockchainDatabase,
     move_to_alt_chain: Option<ChainId>,
-    tables: &mut impl TablesMut,
+    tx_rw: &mut fjall::OwnedWriteBatch,
+    tapes: &mut tapes::TapesTruncateTransaction,
 ) -> DbResult<(BlockHeight, BlockHash, Block)> {
     //------------------------------------------------------ Block Info
     // Remove block data from tables.
-    let (block_height, block_info) = tables.block_infos_mut().pop_last()?;
+    let (block_height, block_info) = tapes
+        .pop_fixed_sized_tape(&db.block_infos)?
+        .ok_or(BlockchainError::NotFound)?;
 
-    // Block heights.
-    tables.block_heights_mut().delete(&block_info.block_hash)?;
+    let block_height = block_height as usize;
+
+    tx_rw.remove(&db.block_heights, &block_info.block_hash);
 
     // Block blobs.
     //
     // We deserialize the block header blob and mining transaction blob
     // to form a `Block`, such that we can remove the associated transactions
     // later.
-    let block_header = tables.block_header_blobs_mut().take(&block_height)?.0;
-    let block_txs_hashes = tables.block_txs_hashes_mut().take(&block_height)?.0;
-    let miner_transaction = tables.tx_blobs().get(&block_info.mining_tx_index)?.0;
-    let block = Block::new(
-        BlockHeader::read(&mut block_header.as_slice())?,
-        Transaction::read(&mut miner_transaction.as_slice())?,
-        block_txs_hashes,
-    )
-    .unwrap();
 
+    let block = get_block(&block_height, tapes, db)?;
     //------------------------------------------------------ Transaction / Outputs / Key Images
-    remove_tx(&block.miner_transaction().hash(), tables)?;
+    remove_tx_from_dynamic_tables(
+        db,
+        &block.miner_transaction().hash(),
+        block_height,
+        tx_rw,
+        tapes,
+    )?;
 
     let remove_tx_iter = block.transactions.iter().map(|tx_hash| {
-        let (_, tx) = remove_tx(tx_hash, tables)?;
-        Ok::<_, RuntimeError>(tx)
+        let (_, tx) = remove_tx_from_dynamic_tables(db, tx_hash, block_height, tx_rw, tapes)?;
+        Ok::<_, BlockchainError>(tx)
     });
 
     if let Some(chain_id) = move_to_alt_chain {
         let txs = remove_tx_iter
             .map(|result| {
                 let tx = result?;
+                let tx_weight = tx.weight();
+                let tx_hash = tx.hash();
+                let fee = tx_fee(&tx);
+                let (tx_pruned, prunable) = tx.pruned_with_prunable();
+
                 Ok(VerifiedTransactionInformation {
-                    tx_weight: tx.weight(),
-                    tx_blob: tx.serialize(),
-                    tx_hash: tx.hash(),
-                    fee: tx_fee(&tx),
-                    tx,
+                    tx_weight,
+                    tx_pruned: tx_pruned.serialize(),
+                    tx_prunable_blob: prunable,
+                    tx_hash,
+                    fee,
+                    tx: tx_pruned,
                 })
             })
             .collect::<DbResult<Vec<VerifiedTransactionInformation>>>()?;
 
         alt_block::add_alt_block(
+            db,
             &AltBlockInformation {
                 block: block.clone(),
                 block_blob: block.serialize(),
@@ -214,7 +385,7 @@ pub fn pop_block(
                 ),
                 chain_id,
             },
-            tables,
+            tx_rw,
         )?;
     } else {
         for result in remove_tx_iter {
@@ -222,37 +393,23 @@ pub fn pop_block(
         }
     }
 
+    tapes.truncate_blob_tape(&db.pruned_blobs, block_info.pruned_blob_idx);
+    tapes.truncate_blob_tape(&db.v1_prunable_blobs, block_info.v1_prunable_blob_idx);
+    let stripe = cuprate_pruning::get_block_pruning_stripe(block_height, usize::MAX, 3).unwrap();
+    tapes.truncate_blob_tape(
+        &db.prunable_blobs[stripe as usize - 1],
+        block_info.prunable_blob_idx,
+    );
+
+    tapes.truncate_fixed_sized_tape(&db.tx_infos, block_info.mining_tx_index);
+
+    let cumulative_rct_outs = tapes
+        .read_entry(&db.block_infos, block_height as u64 - 1)?
+        .map_or(0, |info| info.cumulative_rct_outs);
+
+    tapes.truncate_fixed_sized_tape(&db.rct_outputs, cumulative_rct_outs);
+
     Ok((block_height, block_info.block_hash, block))
-}
-
-//---------------------------------------------------------------------------------------------------- `get_block_blob_with_tx_indexes`
-/// Retrieve a block's raw bytes, the index of the miner transaction and the number of non miner-txs in the block.
-///
-#[doc = doc_error!()]
-pub fn get_block_blob_with_tx_indexes(
-    block_height: &BlockHeight,
-    tables: &impl Tables,
-) -> Result<(Vec<u8>, u64, usize), RuntimeError> {
-    let miner_tx_idx = tables.block_infos().get(block_height)?.mining_tx_index;
-
-    let block_txs = tables.block_txs_hashes().get(block_height)?.0;
-    let numb_txs = block_txs.len();
-
-    // Get the block header
-    let mut block = tables.block_header_blobs().get(block_height)?.0;
-
-    // Add the miner tx to the blob.
-    let mut miner_tx_blob = tables.tx_blobs().get(&miner_tx_idx)?.0;
-    block.append(&mut miner_tx_blob);
-
-    // Add the blocks tx hashes.
-    monero_oxide::io::VarInt::write(&block_txs.len(), &mut block)
-        .expect("The number of txs per block will not exceed u64::MAX");
-
-    let block_txs_bytes = bytemuck::must_cast_slice(&block_txs);
-    block.extend_from_slice(block_txs_bytes);
-
-    Ok((block, miner_tx_idx, numb_txs))
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_complete_entry_*`
@@ -260,38 +417,139 @@ pub fn get_block_blob_with_tx_indexes(
 ///
 #[doc = doc_error!()]
 pub fn get_block_complete_entry(
+    db: &BlockchainDatabase,
     block_hash: &BlockHash,
-    tables: &impl TablesIter,
-) -> Result<BlockCompleteEntry, RuntimeError> {
-    let block_height = tables.block_heights().get(block_hash)?;
-    get_block_complete_entry_from_height(&block_height, tables)
+    pruned: bool,
+    tx_ro: &fjall::Snapshot,
+    tapes: &tapes::TapesReadTransaction,
+) -> DbResult<BlockCompleteEntry> {
+    let block_height = tx_ro
+        .get(&db.block_heights, &block_hash)
+        .expect("TODO")
+        .ok_or(BlockchainError::NotFound)?;
+    get_block_complete_entry_from_height(
+        usize::from_le_bytes(block_height.as_ref().try_into().unwrap()),
+        pruned,
+        tapes,
+        db,
+    )
 }
 
 /// Retrieve a [`BlockCompleteEntry`] from the database.
 ///
 #[doc = doc_error!()]
 pub fn get_block_complete_entry_from_height(
-    block_height: &BlockHeight,
-    tables: &impl TablesIter,
-) -> Result<BlockCompleteEntry, RuntimeError> {
-    let (block_blob, miner_tx_idx, numb_non_miner_txs) =
-        get_block_blob_with_tx_indexes(block_height, tables)?;
+    block_height: BlockHeight,
+    pruned: bool,
+    tapes: &tapes::TapesReadTransaction,
+    db: &BlockchainDatabase,
+) -> DbResult<BlockCompleteEntry> {
+    let pruning_stripe = cuprate_pruning::get_block_pruning_stripe(
+        block_height,
+        usize::MAX,
+        CRYPTONOTE_PRUNING_LOG_STRIPES,
+    )
+    .unwrap();
 
-    let first_tx_idx = miner_tx_idx + 1;
+    let mut block_info = tapes
+        .read_entry(&db.block_infos, block_height as u64)?
+        .ok_or(BlockchainError::NotFound)?;
 
-    let tx_blobs = (first_tx_idx..(usize_to_u64(numb_non_miner_txs) + first_tx_idx))
-        .map(|idx| {
-            let tx_blob = tables.tx_blobs().get(&idx)?.0;
+    let block_blob_start_idx = block_info.pruned_blob_idx;
+    let mut block_blob_end_idx = None;
 
-            Ok(Bytes::from(tx_blob))
-        })
-        .collect::<Result<_, RuntimeError>>()?;
+    let mut txs = Vec::with_capacity(32);
+
+    for tx_info in tapes.iter_from(&db.tx_infos, block_info.mining_tx_index + 1)? {
+        let tx_info = tx_info?;
+
+        if tx_info.height != block_height {
+            break;
+        }
+
+        block_blob_end_idx.get_or_insert(tx_info.pruned_blob_idx);
+
+        txs.push(tx_info);
+    }
+
+    let txs = if txs.is_empty() {
+        TransactionBlobs::None
+    } else if pruned {
+        let first_blob_idx = txs.first().unwrap().pruned_blob_idx;
+        let mut blob = vec![
+            0;
+            (txs.last().unwrap().pruned_blob_idx - first_blob_idx
+                + txs.last().unwrap().pruned_size
+                + 32) as usize
+        ];
+        tapes.read_bytes(&db.pruned_blobs, first_blob_idx, &mut blob)?;
+
+        let mut bytes = Bytes::from(blob);
+
+        TransactionBlobs::Pruned(
+            txs.into_iter()
+                .map(|tx_info| PrunedTxBlobEntry {
+                    blob: bytes.split_to(tx_info.pruned_size as usize),
+                    prunable_hash: bytes.split_to(32).try_into().unwrap(),
+                })
+                .collect(),
+        )
+    } else {
+        TransactionBlobs::Normal(
+            txs.into_iter()
+                .map(|tx_info| {
+                    let mut blob = vec![0; (tx_info.pruned_size + tx_info.prunable_size) as usize];
+
+                    tapes.read_bytes(
+                        &db.pruned_blobs,
+                        tx_info.pruned_blob_idx,
+                        &mut blob[..tx_info.pruned_size as usize],
+                    )?;
+                    if tx_info.rct_output_start_idx == u64::MAX {
+                        tapes.read_bytes(
+                            &db.v1_prunable_blobs,
+                            tx_info.prunable_blob_idx,
+                            &mut blob[(tx_info.pruned_size as usize)..],
+                        )?;
+                    } else {
+                        tapes.read_bytes(
+                            &db.prunable_blobs[pruning_stripe as usize - 1],
+                            tx_info.prunable_blob_idx,
+                            &mut blob[(tx_info.pruned_size as usize)..],
+                        )?;
+                    }
+
+                    Ok(Bytes::from(blob))
+                })
+                .collect::<Result<_, BlockchainError>>()?,
+        )
+    };
+
+    let block_blob = {
+        let block_blob_end_idx = block_blob_end_idx.map(Ok).unwrap_or_else(|| {
+            let next_block_info = tapes.read_entry(&db.block_infos, (block_height + 1) as u64)?;
+
+            if let Some(info) = next_block_info {
+                return Ok::<_, BlockchainError>(info.pruned_blob_idx);
+            };
+
+            Ok(tapes
+                .blob_tape_len(&db.pruned_blobs)
+                .expect("Required tape not found"))
+        })?;
+
+        let mut blob = vec![0; (block_blob_end_idx - block_blob_start_idx) as usize];
+
+        tapes.read_bytes(&db.pruned_blobs, block_blob_start_idx, &mut blob)?;
+
+        Bytes::from(blob)
+    };
 
     Ok(BlockCompleteEntry {
-        block: Bytes::from(block_blob),
-        txs: TransactionBlobs::Normal(tx_blobs),
-        pruned: false,
-        block_weight: 0,
+        block: block_blob,
+        txs,
+        pruned,
+        block_weight: if pruned { block_info.weight as u64 } else { 0 },
     })
 }
 
@@ -307,10 +565,21 @@ pub fn get_block_complete_entry_from_height(
 #[doc = doc_error!()]
 #[inline]
 pub fn get_block_extended_header(
+    db: &BlockchainDatabase,
     block_hash: &BlockHash,
-    tables: &impl Tables,
+    tx_ro: &fjall::Snapshot,
+    tapes: &tapes::TapesReadTransaction,
 ) -> DbResult<ExtendedBlockHeader> {
-    get_block_extended_header_from_height(&tables.block_heights().get(block_hash)?, tables)
+    let block_height = tx_ro
+        .get(&db.block_heights, &block_hash)
+        .expect("TODO")
+        .ok_or(BlockchainError::NotFound)?;
+
+    get_block_extended_header_from_height(
+        usize::from_le_bytes(block_height.as_ref().try_into().unwrap()),
+        tapes,
+        db,
+    )
 }
 
 /// Same as [`get_block_extended_header`] but with a [`BlockHeight`].
@@ -321,12 +590,26 @@ pub fn get_block_extended_header(
 )]
 #[inline]
 pub fn get_block_extended_header_from_height(
-    block_height: &BlockHeight,
-    tables: &impl Tables,
+    block_height: BlockHeight,
+    tapes: &tapes::TapesReadTransaction,
+    db: &BlockchainDatabase,
 ) -> DbResult<ExtendedBlockHeader> {
-    let block_info = tables.block_infos().get(block_height)?;
-    let block_header_blob = tables.block_header_blobs().get(block_height)?.0;
-    let block_header = BlockHeader::read(&mut block_header_blob.as_slice())?;
+    let block_info = tapes
+        .read_entry(&db.block_infos, block_height as u64)?
+        .ok_or(BlockchainError::NotFound)?;
+    let miner_tx_info = tapes
+        .read_entry(&db.tx_infos, block_info.mining_tx_index)?
+        .ok_or(BlockchainError::NotFound)?;
+
+    let mut block_header_blob =
+        vec![0; (miner_tx_info.pruned_blob_idx - block_info.pruned_blob_idx) as usize];
+    tapes.read_bytes(
+        &db.pruned_blobs,
+        block_info.pruned_blob_idx,
+        &mut block_header_blob,
+    )?;
+
+    let block_header = BlockHeader::read(&mut block_header_blob.as_slice()).unwrap();
 
     let cumulative_difficulty = combine_low_high_bits_to_u128(
         block_info.cumulative_difficulty_low,
@@ -348,10 +631,13 @@ pub fn get_block_extended_header_from_height(
 #[doc = doc_error!()]
 #[inline]
 pub fn get_block_extended_header_top(
-    tables: &impl Tables,
+    db: &BlockchainDatabase,
+    tapes: &tapes::TapesReadTransaction,
 ) -> DbResult<(ExtendedBlockHeader, BlockHeight)> {
-    let height = chain_height(tables.block_heights())?.saturating_sub(1);
-    let header = get_block_extended_header_from_height(&height, tables)?;
+    let height = tapes
+        .fixed_sized_tape_len(&db.block_infos)
+        .expect("Require tape not found") as usize;
+    let header = get_block_extended_header_from_height(height, tapes, db)?;
     Ok((header, height))
 }
 
@@ -359,44 +645,74 @@ pub fn get_block_extended_header_top(
 /// Retrieve a [`Block`] via its [`BlockHeight`].
 #[doc = doc_error!()]
 #[inline]
-pub fn get_block(tables: &impl Tables, block_height: &BlockHeight) -> DbResult<Block> {
-    let header_blob = tables.block_header_blobs().get(block_height)?.0;
-    let header = BlockHeader::read(&mut header_blob.as_slice())?;
+pub fn get_block(
+    block_height: &BlockHeight,
+    tapes: &impl tapes::TapesRead,
+    db: &BlockchainDatabase,
+) -> DbResult<Block> {
+    let block_info = tapes
+        .read_entry(&db.block_infos, *block_height as u64)?
+        .ok_or(BlockchainError::NotFound)?;
 
-    let transactions = tables.block_txs_hashes().get(block_height)?.0;
-    let miner_tx_id = tables.block_infos().get(block_height)?.mining_tx_index;
-    let miner_transaction = crate::ops::tx::get_tx_from_id(&miner_tx_id, tables.tx_blobs())?;
+    let pruned_end_blob_idx =
+        match tapes.read_entry(&db.tx_infos, block_info.mining_tx_index + 1)? {
+            Some(tx_info) if tx_info.height == *block_height => tx_info.pruned_blob_idx,
+            Some(_) => {
+                tapes
+                    .read_entry(&db.block_infos, (*block_height + 1) as u64)?
+                    .ok_or(BlockchainError::NotFound)?
+                    .pruned_blob_idx
+            }
+            None => tapes
+                .blob_tape_len(&db.pruned_blobs)
+                .expect("Required tape not found"),
+        };
 
-    Ok(Block::new(header, miner_transaction, transactions).unwrap())
+    let mut blob = vec![0; (pruned_end_blob_idx - block_info.pruned_blob_idx) as usize];
+
+    tapes.read_bytes(&db.pruned_blobs, block_info.pruned_blob_idx, &mut blob)?;
+
+    Ok(Block::read(&mut blob.as_slice())?)
 }
 
 /// Retrieve a [`Block`] via its [`BlockHash`].
 #[doc = doc_error!()]
 #[inline]
-pub fn get_block_by_hash(tables: &impl Tables, block_hash: &BlockHash) -> DbResult<Block> {
-    let block_height = tables.block_heights().get(block_hash)?;
-    get_block(tables, &block_height)
+pub fn get_block_by_hash(
+    db: &BlockchainDatabase,
+    block_hash: &BlockHash,
+    tx_ro: &fjall::Snapshot,
+    tapes: &tapes::TapesReadTransaction,
+) -> DbResult<Block> {
+    let block_height = tx_ro
+        .get(&db.block_heights, &block_hash)
+        .expect("TODO")
+        .ok_or(BlockchainError::NotFound)?;
+
+    get_block(
+        &usize::from_le_bytes(block_height.as_ref().try_into().unwrap()),
+        tapes,
+        db,
+    )
 }
 
 //---------------------------------------------------------------------------------------------------- Misc
-/// Retrieve a [`BlockInfo`] via its [`BlockHeight`].
-#[doc = doc_error!()]
-#[inline]
-pub fn get_block_info(
-    block_height: &BlockHeight,
-    table_block_infos: &impl DatabaseRo<BlockInfos>,
-) -> DbResult<BlockInfo> {
-    table_block_infos.get(block_height)
-}
-
 /// Retrieve a [`BlockHeight`] via its [`BlockHash`].
 #[doc = doc_error!()]
 #[inline]
 pub fn get_block_height(
+    db: &BlockchainDatabase,
     block_hash: &BlockHash,
-    table_block_heights: &impl DatabaseRo<BlockHeights>,
+    tx_ro: &fjall::Snapshot,
 ) -> DbResult<BlockHeight> {
-    table_block_heights.get(block_hash)
+    let block_height = tx_ro
+        .get(&db.block_heights, &block_hash)
+        .expect("TODO")
+        .ok_or(BlockchainError::NotFound)?;
+
+    Ok(usize::from_le_bytes(
+        block_height.as_ref().try_into().unwrap(),
+    ))
 }
 
 /// Check if a block exists in the database.
@@ -408,10 +724,27 @@ pub fn get_block_height(
 /// Other errors may still occur.
 #[inline]
 pub fn block_exists(
+    db: &BlockchainDatabase,
     block_hash: &BlockHash,
-    table_block_heights: &impl DatabaseRo<BlockHeights>,
+    tx_ro: &fjall::Snapshot,
 ) -> DbResult<bool> {
-    table_block_heights.contains(block_hash)
+    Ok(tx_ro
+        .contains_key(&db.block_heights, &block_hash)
+        .expect("TODO"))
+}
+
+pub(crate) fn block_height(
+    db: &BlockchainDatabase,
+    tx_ro: &fjall::Snapshot,
+    hash: &[u8; 32],
+) -> DbResult<Option<usize>> {
+    let Some(block_height) = tx_ro.get(&db.block_heights, hash).expect("TODO") else {
+        return Ok(None);
+    };
+
+    Ok(Some(usize::from_le_bytes(
+        block_height.as_ref().try_into().unwrap(),
+    )))
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

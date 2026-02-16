@@ -3,10 +3,9 @@
 //! SOMEDAY: the database `properties` table is not yet implemented.
 
 //---------------------------------------------------------------------------------------------------- Import
-use cuprate_database::DbResult;
-use cuprate_pruning::PruningSeed;
-
+use crate::error::DbResult;
 use crate::ops::macros::doc_error;
+use cuprate_pruning::PruningSeed;
 
 //---------------------------------------------------------------------------------------------------- Free Functions
 /// SOMEDAY

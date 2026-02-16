@@ -1,11 +1,14 @@
 //! Blockchain functions - chain height, generated coins, etc.
 
+use fjall::Readable;
+use std::io;
+use tapes::TapesRead;
 //---------------------------------------------------------------------------------------------------- Import
-use cuprate_database::{DatabaseRo, DbResult, RuntimeError};
 
+use crate::error::{BlockchainError, DbResult};
+use crate::BlockchainDatabase;
 use crate::{
     ops::{block, macros::doc_error},
-    tables::{AltBlockHeights, BlockHeights, BlockInfos},
     types::{BlockHash, BlockHeight},
 };
 
@@ -22,9 +25,12 @@ use crate::{
 /// So the height of a new block would be `chain_height()`.
 #[doc = doc_error!()]
 #[inline]
-pub fn chain_height(table_block_heights: &impl DatabaseRo<BlockHeights>) -> DbResult<BlockHeight> {
+pub fn chain_height(
+    db: &BlockchainDatabase,
+    tapes: &tapes::TapesReadTransaction,
+) -> DbResult<BlockHeight> {
     #[expect(clippy::cast_possible_truncation, reason = "we enforce 64-bit")]
-    table_block_heights.len().map(|height| height as usize)
+    Ok(tapes.fixed_sized_tape_len(&db.block_infos).expect("TODO") as usize)
 }
 
 /// Retrieve the height of the top block.
@@ -42,37 +48,13 @@ pub fn chain_height(table_block_heights: &impl DatabaseRo<BlockHeights>) -> DbRe
 #[doc = doc_error!()]
 #[inline]
 pub fn top_block_height(
-    table_block_heights: &impl DatabaseRo<BlockHeights>,
+    db: &BlockchainDatabase,
+    tapes: &tapes::TapesReadTransaction,
 ) -> DbResult<BlockHeight> {
-    match table_block_heights.len()? {
-        0 => Err(RuntimeError::KeyNotFound),
+    match chain_height(db, tapes)? {
+        0 => Err(BlockchainError::NotFound),
         #[expect(clippy::cast_possible_truncation, reason = "we enforce 64-bit")]
-        height => Ok(height as usize - 1),
-    }
-}
-
-/// Check how many cumulative generated coins there have been until a certain [`BlockHeight`].
-///
-/// This returns the total amount of Monero generated up to `block_height`
-/// (including the block itself) in atomic units.
-///
-/// For example:
-/// - on the genesis block `0`, this returns the amount block `0` generated
-/// - on the next block `1`, this returns the amount block `0` and `1` generated
-///
-/// If no blocks have been added and `block_height == 0`
-/// (i.e., the cumulative generated coins before genesis block is being calculated),
-/// this returns `Ok(0)`.
-#[doc = doc_error!()]
-#[inline]
-pub fn cumulative_generated_coins(
-    block_height: &BlockHeight,
-    table_block_infos: &impl DatabaseRo<BlockInfos>,
-) -> DbResult<u64> {
-    match table_block_infos.get(block_height) {
-        Ok(block_info) => Ok(block_info.cumulative_generated_coins),
-        Err(RuntimeError::KeyNotFound) if block_height == &0 => Ok(0),
-        Err(e) => Err(e),
+        height => Ok(height - 1),
     }
 }
 
@@ -85,22 +67,22 @@ pub fn cumulative_generated_coins(
 /// chronologically ordered chains this will return the index of the first known.
 ///
 /// If all blocks are known for chronologically ordered chains or unknown for reverse chronologically
-/// ordered chains then the length of the chain will be returned.
+/// ordered chains then the length of the `block_ids` will be returned.
 #[doc = doc_error!()]
 #[inline]
 pub fn find_split_point(
+    db: &BlockchainDatabase,
     block_ids: &[BlockHash],
     chronological_order: bool,
     include_alt_blocks: bool,
-    table_block_heights: &impl DatabaseRo<BlockHeights>,
-    table_alt_block_heights: &impl DatabaseRo<AltBlockHeights>,
-) -> Result<usize, RuntimeError> {
+    tx_ro: &fjall::Snapshot,
+) -> DbResult<usize> {
     let mut err = None;
 
     let block_exists = |block_id| {
-        block::block_exists(&block_id, table_block_heights).and_then(|exists| {
-            Ok(exists | (include_alt_blocks & table_alt_block_heights.contains(&block_id)?))
-        })
+        tx_ro
+            .contains_key(&db.block_heights, &block_id)
+            .and_then(|exists| Ok(exists))
     };
 
     // Do a binary search to find the first unknown/known block in the batch.
@@ -116,7 +98,7 @@ pub fn find_split_point(
     });
 
     if let Some(e) = err {
-        return Err(e);
+        panic!();
     }
 
     Ok(idx)

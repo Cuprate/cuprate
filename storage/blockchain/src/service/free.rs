@@ -1,51 +1,14 @@
 //! General free functions used (related to `cuprate_blockchain::service`).
 
 //---------------------------------------------------------------------------------------------------- Import
+use fjall::Readable;
+use rayon::ThreadPool;
 use std::sync::Arc;
 
-use rayon::ThreadPool;
-
-use cuprate_database::{ConcreteEnv, InitError};
-
-use crate::{
-    config::Config,
-    service::{
-        init_read_service, init_read_service_with_pool, init_write_service,
-        types::{BlockchainReadHandle, BlockchainWriteHandle},
-    },
-};
-
-//---------------------------------------------------------------------------------------------------- Init
-#[cold]
-#[inline(never)] // Only called once (?)
-/// Initialize a database & thread-pool, and return a read/write handle to it.
-///
-/// Once the returned handles are [`Drop::drop`]ed, the reader
-/// thread-pool and writer thread will exit automatically.
-///
-/// # Errors
-/// This will forward the error if [`crate::open`] failed.
-pub fn init(
-    config: Config,
-) -> Result<
-    (
-        BlockchainReadHandle,
-        BlockchainWriteHandle,
-        Arc<ConcreteEnv>,
-    ),
-    InitError,
-> {
-    let reader_threads = config.reader_threads;
-
-    // Initialize the database itself.
-    let db = Arc::new(crate::open(config)?);
-
-    // Spawn the Reader thread pool and Writer.
-    let readers = init_read_service(Arc::clone(&db), reader_threads);
-    let writer = init_write_service(Arc::clone(&db));
-
-    Ok((readers, writer, db))
-}
+use crate::error::{BlockchainError, DbResult};
+use crate::service::read::BlockchainReadHandle;
+use crate::service::write::BlockchainWriteHandle;
+use crate::{config::Config, service::init_write_service, BlockchainDatabase};
 
 #[cold]
 #[inline(never)] // Only called once (?)
@@ -61,20 +24,25 @@ pub fn init(
 /// This will forward the error if [`crate::open`] failed.
 pub fn init_with_pool(
     config: Config,
+    fjall: fjall::Database,
     pool: Arc<ThreadPool>,
 ) -> Result<
     (
         BlockchainReadHandle,
         BlockchainWriteHandle,
-        Arc<ConcreteEnv>,
+        Arc<BlockchainDatabase>,
     ),
-    InitError,
+    BlockchainError,
 > {
     // Initialize the database itself.
-    let db = Arc::new(crate::open(config)?);
+    let db = Arc::new(BlockchainDatabase::open_with_fjall_database(config, fjall)?);
+    db.make_consistent()?;
 
     // Spawn the Reader thread pool and Writer.
-    let readers = init_read_service_with_pool(Arc::clone(&db), pool);
+    let readers = BlockchainReadHandle {
+        blockchain: Arc::clone(&db),
+        pool,
+    };
     let writer = init_write_service(Arc::clone(&db));
 
     Ok((readers, writer, db))

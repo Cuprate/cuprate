@@ -99,13 +99,18 @@ impl VerifiedBlockMap {
 
 // Same as [`VerifiedBlockMap`] but for [`VerifiedTransactionInformation`].
 fn to_tx_verification_data(tx_blob: impl AsRef<[u8]>) -> VerifiedTransactionInformation {
-    let tx_blob = tx_blob.as_ref().to_vec();
-    let tx = Transaction::read(&mut tx_blob.as_slice()).unwrap();
+    let tx = Transaction::read(&mut tx_blob.as_ref()).unwrap();
+    let tx_weight = tx.weight();
+    let fee = tx_fee(&tx);
+    let tx_hash = tx.hash();
+
+    let (tx, tx_prunable_blob) = tx.pruned_with_prunable();
     VerifiedTransactionInformation {
-        tx_weight: tx.weight(),
-        fee: tx_fee(&tx),
-        tx_hash: tx.hash(),
-        tx_blob,
+        tx_weight,
+        fee,
+        tx_hash,
+        tx_prunable_blob,
+        tx_pruned: tx.serialize(),
         tx,
     }
 }

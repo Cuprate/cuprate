@@ -7,20 +7,17 @@
 // Used in docs: <https://github.com/Cuprate/cuprate/pull/170#discussion_r1823644357>.
 use tower as _;
 
-pub mod config;
+mod error;
 mod free;
 pub mod ops;
 pub mod service;
-pub mod tables;
 mod tx;
+mod txpool;
 pub mod types;
 
-pub use config::Config;
-pub use free::{open, transaction_blob_hash, DATABASE_VERSION, VERSION_KEY};
+pub use error::TxPoolError;
+pub use free::transaction_blob_hash;
 pub use tx::TxEntry;
-
-//re-exports
-pub use cuprate_database;
 
 #[cfg(test)]
 mod test {
