@@ -1,19 +1,4 @@
 //! cuprated config
-use anyhow::bail;
-use arti_client::KeystoreSelector;
-use clap::Parser;
-use cuprate_blockchain::config::CacheSizes;
-use cuprate_consensus::ContextConfig;
-use cuprate_helper::{
-    fs::{CUPRATE_CONFIG_DIR, DEFAULT_CONFIG_FILE_NAME},
-    network::Network,
-};
-use cuprate_p2p::block_downloader::BlockDownloaderConfig;
-use cuprate_p2p_core::{ClearNet, Tor};
-use cuprate_wire::OnionAddr;
-use safelog::DisplayRedacted;
-use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use std::{
     fmt,
     fs::{read_to_string, File},
@@ -24,11 +9,28 @@ use std::{
     time::Duration,
 };
 
+use cuprate_blockchain::config::CacheSizes;
+use anyhow::bail;
+use clap::Parser;
+use serde::{Deserialize, Serialize};
+
+use cuprate_consensus::ContextConfig;
+use cuprate_helper::{
+    fs::{CUPRATE_CONFIG_DIR, DEFAULT_CONFIG_FILE_NAME},
+    network::Network,
+};
+use cuprate_p2p::block_downloader::BlockDownloaderConfig;
+use cuprate_p2p_core::{ClearNet, Tor};
+use cuprate_wire::OnionAddr;
+
 use crate::{
     constants::{DEFAULT_CONFIG_STARTUP_DELAY, DEFAULT_CONFIG_WARNING},
     logging::eprintln_red,
     tor::{TorContext, TorMode},
 };
+
+#[cfg(feature = "arti")]
+use {arti_client::KeystoreSelector, safelog::DisplayRedacted};
 
 mod args;
 mod default;
@@ -254,12 +256,12 @@ impl Config {
         let tor_p2p_port = p2p_port(self.p2p.tor_net.p2p_port, self.network);
 
         let our_onion_address = match ctx.mode {
-            TorMode::Off => None,
             TorMode::Daemon => inbound_enabled.then(||
                 OnionAddr::new(
                     &self.tor.daemon.anonymous_inbound,
                     tor_p2p_port
                 ).expect("Unable to parse supplied `anonymous_inbound` onion address. Please make sure the address is correct.")),
+            #[cfg(feature = "arti")]
             TorMode::Arti => inbound_enabled.then(|| {
                 let addr = ctx.arti_onion_service
                     .as_ref()
@@ -270,7 +272,8 @@ impl Config {
                     .to_string();
 
                 OnionAddr::new(&addr, tor_p2p_port).unwrap()
-            })
+            }),
+            TorMode::Auto => unreachable!("Auto mode should be resolved before this point"),
         };
 
         cuprate_p2p::P2PConfig {
@@ -428,7 +431,7 @@ impl Config {
             }
         }
 
-        if self.tor.mode != TorMode::Off {
+        if self.tor.mode == TorMode::Daemon {
             let port = self.tor.daemon.listening_addr.port();
             let ip = self.tor.daemon.listening_addr.ip();
 
@@ -474,7 +477,8 @@ impl Config {
             }
         }
 
-        if self.tor.mode == TorMode::Arti {
+        #[cfg(feature = "arti")]
+        if matches!(self.tor.mode, TorMode::Arti | TorMode::Auto) {
             match Self::check_dir_permissions(&self.tor.arti.directory_path) {
                 Ok(()) => println!(
                     "Permissions are ok at {}",

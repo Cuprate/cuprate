@@ -1,28 +1,18 @@
 //! Tor initialization
 //!
-//! Extract configuration and initialize Arti.
+//! Extract configuration and initialize Tor.
 
 //---------------------------------------------------------------------------------------------------- Imports
 
 use std::{default, sync::Arc};
 
-use arti_client::{
-    config::{onion_service::OnionServiceConfigBuilder, CfgPath, TorClientConfigBuilder},
-    KeystoreSelector, StreamPrefs, TorClient, TorClientBuilder, TorClientConfig,
-};
-use futures::Stream;
 use serde::{Deserialize, Serialize};
-use tor_hsservice::{OnionService, RendRequest, RunningOnionService};
-use tor_persist::hsnickname::HsNickname;
-use tor_rtcompat::PreferredRuntime;
 use tracing::info;
 
-use cuprate_helper::fs::CUPRATE_DATA_DIR;
 use cuprate_p2p::TransportConfig;
 use cuprate_p2p_core::{ClearNet, Tor};
 use cuprate_p2p_transport::{
-    Arti, ArtiClientConfig, ArtiServerConfig, Daemon, DaemonClientConfig, DaemonServerConfig,
-    Socks, SocksClientConfig,
+    is_socks5_proxy, Daemon, DaemonClientConfig, DaemonServerConfig, Socks, SocksClientConfig,
 };
 use cuprate_wire::OnionAddr;
 
@@ -30,19 +20,33 @@ use crate::{
     config::{p2p_port, Config},
     p2p::ProxySettings,
 };
+
+#[cfg(feature = "arti")]
+use {
+    arti_client::{
+        config::{onion_service::OnionServiceConfigBuilder, CfgPath, TorClientConfigBuilder},
+        KeystoreSelector, StreamPrefs, TorClient, TorClientBuilder, TorClientConfig,
+    },
+    cuprate_helper::fs::CUPRATE_DATA_DIR,
+    cuprate_p2p_transport::{Arti, ArtiClientConfig, ArtiServerConfig},
+    futures::Stream,
+    tor_hsservice::{OnionService, RendRequest, RunningOnionService},
+    tor_persist::hsnickname::HsNickname,
+    tor_rtcompat::PreferredRuntime,
+};
 //---------------------------------------------------------------------------------------------------- Initialization
 
 #[derive(Clone, Default, Debug, Copy, PartialEq, Eq, Serialize, Deserialize)]
 /// Describe if Tor is enabled and how
 pub enum TorMode {
+    #[default]
+    /// Automatically select Tor backend
+    Auto,
     /// Use of the [`arti_client`] library.
+    #[cfg(feature = "arti")]
     Arti,
     /// Use of external tor daemon
     Daemon,
-
-    #[default]
-    /// Tor is disabled
-    Off,
 }
 
 /// Contains the necessary Tor configuration or structures
@@ -53,10 +57,13 @@ pub struct TorContext {
 
     // -------- Only in Arti mode
     /// Arti bootstrapped [`TorClient`].
+    #[cfg(feature = "arti")]
     pub bootstrapped_client: Option<TorClient<PreferredRuntime>>,
     /// Arti bootstrapped client config
+    #[cfg(feature = "arti")]
     pub arti_client_config: Option<TorClientConfig>,
     /// Arti onion service address.
+    #[cfg(feature = "arti")]
     pub arti_onion_service: Option<OnionService>,
 }
 
@@ -65,32 +72,55 @@ pub struct TorContext {
 /// This function will bootstrap Arti if needed by Tor network zone or
 /// clearnet as a proxy.
 pub async fn initialize_tor_if_enabled(config: &Config) -> TorContext {
-    let mode = config.tor.mode;
     let anonymize_clearnet = matches!(config.p2p.clear_net.proxy, ProxySettings::Tor);
+    let tor_enabled = config.p2p.tor_net.enabled || anonymize_clearnet;
+
+    let mode = if config.tor.mode == TorMode::Auto && tor_enabled {
+        #[cfg(not(feature = "arti"))]
+        {
+            tracing::warn!("Feature `arti` not available, falling back to daemon mode.");
+            TorMode::Daemon
+        }
+        #[cfg(feature = "arti")]
+        {
+            if is_socks5_proxy(config.tor.daemon.address).await {
+                TorMode::Daemon
+            } else {
+                TorMode::Arti
+            }
+        }
+    } else {
+        config.tor.mode
+    };
 
     // Start Arti client
-    let (bootstrapped_client, arti_client_config) =
-        if mode == TorMode::Arti && (config.p2p.tor_net.enabled || anonymize_clearnet) {
-            Some(initialize_arti_client(config).await)
-        } else {
-            None
-        }
-        .unzip();
+    #[cfg(feature = "arti")]
+    let (bootstrapped_client, arti_client_config) = if mode == TorMode::Arti && tor_enabled {
+        Some(initialize_arti_client(config).await)
+    } else {
+        None
+    }
+    .unzip();
 
     // Start Arti onion service
+    #[cfg(feature = "arti")]
     let arti_onion_service = arti_client_config
         .as_ref()
         .map(|client_config| initialize_arti_onion_service(client_config, config));
 
     TorContext {
         mode,
+        #[cfg(feature = "arti")]
         bootstrapped_client,
+        #[cfg(feature = "arti")]
         arti_client_config,
+        #[cfg(feature = "arti")]
         arti_onion_service,
     }
 }
 
 /// Initialize Arti Tor client.
+#[cfg(feature = "arti")]
 async fn initialize_arti_client(config: &Config) -> (TorClient<PreferredRuntime>, TorClientConfig) {
     // Configuration
     let mut tor_config = TorClientConfig::builder();
@@ -123,6 +153,7 @@ async fn initialize_arti_client(config: &Config) -> (TorClient<PreferredRuntime>
     (tor_client, tor_config)
 }
 
+#[cfg(feature = "arti")]
 fn initialize_arti_onion_service(client_config: &TorClientConfig, config: &Config) -> OnionService {
     let onion_svc_config = OnionServiceConfigBuilder::default()
         .enable_pow(config.tor.arti.onion_service_pow)
@@ -136,6 +167,7 @@ fn initialize_arti_onion_service(client_config: &TorClientConfig, config: &Confi
 
 //---------------------------------------------------------------------------------------------------- Transport configuration
 
+#[cfg(feature = "arti")]
 pub fn transport_arti_config(config: &Config, ctx: TorContext) -> TransportConfig<Tor, Arti> {
     // Extracting
     let (Some(bootstrapped_client), Some(client_config)) =
@@ -165,6 +197,7 @@ pub fn transport_arti_config(config: &Config, ctx: TorContext) -> TransportConfi
     }
 }
 
+#[cfg(feature = "arti")]
 pub fn transport_clearnet_arti_config(ctx: &TorContext) -> TransportConfig<ClearNet, Arti> {
     let Some(bootstrapped_client) = &ctx.bootstrapped_client else {
         panic!("Arti enabled but no TorClient initialized!");

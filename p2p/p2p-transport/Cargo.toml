@@ -6,8 +6,8 @@ license = "MIT"
 authors = ["SyntheticBird"]
 
 [features]
-default = ["static"]
-static = ["arti-client/static"]
+arti = ["arti-client", "tor-config-path", "tor-cell", "tor-hsservice", "tor-proto", "tor-rtcompat"]
+static = ["arti", "arti-client/static"]
 
 [dependencies]
 cuprate-p2p-core = { workspace = true }
@@ -18,12 +18,12 @@ futures = { workspace = true }
 tokio = { workspace = true, features = ["net"] }
 tokio-socks   = { workspace = true, features = ["tokio"] }
 tokio-util = { workspace = true, features = ["codec"] }
-arti-client = { workspace = true, features = ["tokio", "native-tls", "onion-service-client", "onion-service-service", "experimental-api", "static-sqlite"] }
-tor-config-path = { workspace = true }
-tor-cell        = { workspace = true }
-tor-hsservice   = { workspace = true }
-tor-proto       = { workspace = true }
-tor-rtcompat    = { workspace = true }
+arti-client = { workspace = true, features = ["tokio", "native-tls", "onion-service-client", "onion-service-service", "experimental-api", "static-sqlite"], optional = true }
+tor-config-path = { workspace = true, optional = true }
+tor-cell        = { workspace = true, optional = true }
+tor-hsservice   = { workspace = true, optional = true }
+tor-proto       = { workspace = true, optional = true }
+tor-rtcompat    = { workspace = true, optional = true }
 
 [lints]
 workspace = true

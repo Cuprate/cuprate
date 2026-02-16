@@ -7,6 +7,10 @@ license = "AGPL-3.0-only"
 authors = ["Boog900", "hinto-janai", "SyntheticBird45"]
 repository = "https://github.com/Cuprate/cuprate/tree/main/binaries/cuprated"
 
+[features]
+default = ["arti"]
+arti = ["arti-client", "tor-hsservice", "tor-persist", "tor-rtcompat", "cuprate-p2p-transport/arti"]
+
 [dependencies]
 # TODO: after v1.0.0, remove unneeded dependencies.
 cuprate-address-book      = { workspace = true }
@@ -39,7 +43,7 @@ cuprate-wire              = { workspace = true }
 # TODO: after v1.0.0, remove unneeded dependencies.
 axum                  = { workspace = true, features = ["tokio", "http1", "http2"] }
 anyhow                = { workspace = true }
-arti-client           = { workspace = true, features = ["tokio", "native-tls", "onion-service-client", "onion-service-service", "static"] }
+arti-client           = { workspace = true, features = ["tokio", "native-tls", "onion-service-client", "onion-service-service", "static"], optional = true }
 async-trait           = { workspace = true }
 bitflags              = { workspace = true }
 borsh                 = { workspace = true }
@@ -80,9 +84,9 @@ tokio-stream          = { workspace = true }
 tokio                 = { workspace = true }
 toml                  = { workspace = true, features = ["parse", "display", "serde"]}
 toml_edit             = { workspace = true, features = ["parse", "display"] }
-tor-hsservice         = { workspace = true }
-tor-persist           = { workspace = true }
-tor-rtcompat          = { workspace = true }
+tor-hsservice         = { workspace = true, optional = true }
+tor-persist           = { workspace = true, optional = true }
+tor-rtcompat          = { workspace = true, optional = true }
 tower                 = { workspace = true, features = ["limit"] }
 tower-http            = { workspace = true, features = ["limit"] }
 tracing-appender      = { workspace = true }
