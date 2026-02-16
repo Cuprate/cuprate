@@ -52,35 +52,28 @@ where
 
     tracing::info!("Starting blockchain syncer");
 
-    let mut initial_sync = true;
+    let mut incoming_block_rx = peer_sync_callback.subscribe_incoming_block();
+    let mut first_sync_done = false;
 
-    'outer: loop {
-        tracing::trace!("Checking connected peers to see if we are behind.");
+    // On startup, determine initial sync state after getting peers.
+    wait_until_behind(
+        &mut context_svc,
+        &mut clearnet_interface,
+        &peer_sync_callback,
+        &mut first_sync_done,
+        &synced_notify,
+    )
+    .await?;
 
-        // Wait until we are behind peers before starting the block downloader.
-        match check_sync_status(context_svc.blockchain_context(), &mut clearnet_interface).await? {
-            SyncStatus::BehindPeers => {}
-            SyncStatus::Synced => {
-                if initial_sync {
-                    tracing::info!("Synchronised with the network.");
-                    synced_notify.notify_one();
-                    initial_sync = false;
-                }
-                tracing::debug!("Waiting for new sync info.");
+    loop {
+        if *incoming_block_rx.borrow() > 0 {
+            incoming_block_rx.wait_for(|&c| c == 0).await.ok();
+            if first_sync_done {
                 peer_sync_callback.notified().await;
-                continue;
             }
-            SyncStatus::NoPeers => {
-                tracing::debug!("Waiting for peers to connect.");
-                peer_sync_callback.wake_on_first_peers_arm();
-                peer_sync_callback.notified().await;
-                continue;
-            }
+            continue;
         }
 
-        tracing::debug!(
-            "We are behind peers claimed cumulative difficulty, starting block downloader"
-        );
         let mut block_batch_stream =
             clearnet_interface.block_downloader(our_chain.clone(), block_downloader_config);
 
@@ -92,7 +85,7 @@ where
                     drop(sync_permit);
                     sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
 
-                    continue 'outer;
+                    break;
                 }
                 batch = block_batch_stream.next() => {
                     let Some(batch) = batch else {
@@ -101,6 +94,14 @@ where
                         drop(sync_permit);
                         sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
 
+                        wait_until_behind(
+                            &mut context_svc,
+                            &mut clearnet_interface,
+                            &peer_sync_callback,
+                            &mut first_sync_done,
+                            &synced_notify,
+                        )
+                        .await?;
                         break;
                     };
 
@@ -109,6 +110,42 @@ where
                         return Err(SyncerError::IncomingBlockChannelClosed);
                     }
                 }
+            }
+        }
+    }
+}
+
+/// Waits until we are behind our peers and need to download blocks.
+async fn wait_until_behind(
+    context_svc: &mut BlockchainContextService,
+    clearnet_interface: &mut NetworkInterface<ClearNet>,
+    peer_sync_callback: &PeerSyncCallback,
+    first_sync_done: &mut bool,
+    synced_notify: &Notify,
+) -> Result<(), tower::BoxError> {
+    loop {
+        tracing::trace!("Checking connected peers to see if we are behind.");
+        match check_sync_status(context_svc.blockchain_context(), clearnet_interface).await? {
+            SyncStatus::BehindPeers => {
+                tracing::debug!(
+                    "We are behind peers claimed cumulative difficulty, starting block downloader"
+                );
+                return Ok(());
+            }
+            SyncStatus::Synced => {
+                if !*first_sync_done {
+                    tracing::info!("Synchronised with the network.");
+                    synced_notify.notify_one();
+                    *first_sync_done = true;
+                }
+                tracing::debug!("Waiting for new sync info.");
+                peer_sync_callback.notified().await;
+            }
+            SyncStatus::NoPeers => {
+                tracing::debug!("Waiting for peers to connect.");
+                *first_sync_done = false;
+                peer_sync_callback.wake_on_first_peers_arm();
+                peer_sync_callback.notified().await;
             }
         }
     }
@@ -124,7 +161,7 @@ enum SyncStatus {
 /// Checks if we are behind the connected peers.
 async fn check_sync_status(
     blockchain_context: &BlockchainContext,
-    mut clearnet_interface: &mut NetworkInterface<ClearNet>,
+    clearnet_interface: &mut NetworkInterface<ClearNet>,
 ) -> Result<SyncStatus, tower::BoxError> {
     let PeerSetResponse::MostPoWSeen {
         cumulative_difficulty,

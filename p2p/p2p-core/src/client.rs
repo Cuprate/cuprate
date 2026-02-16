@@ -1,15 +1,12 @@
 use std::{
-    fmt::{Debug, Display, Formatter},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
-    },
+    fmt::{Display, Formatter},
+    sync::{Arc, Mutex},
     task::{ready, Context, Poll},
 };
 
 use futures::channel::oneshot;
 use tokio::{
-    sync::{mpsc, Notify, OwnedSemaphorePermit, Semaphore},
+    sync::{mpsc, OwnedSemaphorePermit, Semaphore},
     task::JoinHandle,
 };
 use tokio_util::sync::{PollSemaphore, PollSender};
@@ -29,71 +26,14 @@ mod connection;
 mod connector;
 pub mod handshaker;
 mod request_handler;
+mod sync_callback;
 mod timeout_monitor;
 mod weak;
 
 pub use connector::{ConnectRequest, Connector};
 pub use handshaker::{DoHandshakeRequest, HandshakeError, HandshakerBuilder};
+pub use sync_callback::PeerSyncCallback;
 pub use weak::{WeakBroadcastClient, WeakClient};
-
-/// A callback for the syncer, called with a peer's cumulative difficulty when sync data is updated.
-#[derive(Clone)]
-pub struct PeerSyncCallback(Arc<PeerSyncCallbackInner>);
-
-struct PeerSyncCallbackInner {
-    /// Returns `true` if the syncer should be woken for this peer's cumulative difficulty.
-    filter: Box<dyn Fn(u128) -> bool + Send + Sync>,
-    /// The syncer wake handle.
-    wake: Arc<Notify>,
-    /// Whether we have at least one connected peer.
-    has_peers: AtomicBool,
-}
-
-impl PeerSyncCallback {
-    /// Create a new [`PeerSyncCallback`].
-    pub fn new(filter: Box<dyn Fn(u128) -> bool + Send + Sync>, wake: Arc<Notify>) -> Self {
-        Self(Arc::new(PeerSyncCallbackInner {
-            filter,
-            wake,
-            has_peers: AtomicBool::new(false),
-        }))
-    }
-
-    /// Wake the syncer if the peer's cumulative difficulty passes the filter.
-    pub fn call(&self, peer_cd: u128) {
-        if (self.0.filter)(peer_cd) {
-            self.0.wake.notify_one();
-        }
-    }
-
-    /// Wake the syncer unconditionally, bypassing the filter.
-    pub fn wake_unconditionally(&self) {
-        self.0.wake.notify_one();
-    }
-
-    /// Wake the syncer when we get our first peers, marking that peers are now present.
-    pub fn wake_on_first_peers(&self) {
-        if !self.0.has_peers.swap(true, Ordering::Relaxed) {
-            self.0.wake.notify_one();
-        }
-    }
-
-    /// Reset the peer tracking, allowing [`wake_on_first_peers`](Self::wake_on_first_peers) to fire again.
-    pub fn wake_on_first_peers_arm(&self) {
-        self.0.has_peers.store(false, Ordering::Relaxed);
-    }
-
-    /// Wait for the syncer to be notified.
-    pub async fn notified(&self) {
-        self.0.wake.notified().await;
-    }
-}
-
-impl Debug for PeerSyncCallback {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str("PeerSyncCallback")
-    }
-}
 
 /// An internal identifier for a given peer, will be their address if known
 /// or a random u128 if not.

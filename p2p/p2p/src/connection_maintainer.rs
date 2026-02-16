@@ -164,9 +164,17 @@ where
         tokio::spawn(
             async move {
                 if let Ok(Ok(peer)) = timeout(HANDSHAKE_TIMEOUT, connection_fut).await {
+                    let cd = peer
+                        .info
+                        .core_sync_data
+                        .lock()
+                        .unwrap()
+                        .cumulative_difficulty();
                     drop(new_peers_tx.send(peer).await);
                     if let Some(ref on_peer_sync) = on_peer_sync {
-                        on_peer_sync.wake_on_first_peers();
+                        if !on_peer_sync.wake_on_first_peers() {
+                            on_peer_sync.call(cd);
+                        }
                     }
                 }
             }

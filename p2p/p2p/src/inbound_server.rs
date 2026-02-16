@@ -123,9 +123,17 @@ where
 
                     match client {
                         Ok(Ok(peer)) => {
+                            let cd = peer
+                                .info
+                                .core_sync_data
+                                .lock()
+                                .unwrap()
+                                .cumulative_difficulty();
                             drop(new_connection_tx.send(peer).await);
                             if let Some(ref on_peer_sync) = on_peer_sync {
-                                on_peer_sync.wake_on_first_peers();
+                                if !on_peer_sync.wake_on_first_peers() {
+                                    on_peer_sync.call(cd);
+                                }
                             }
                         }
                         Err(_) => tracing::debug!("Timed out"),
