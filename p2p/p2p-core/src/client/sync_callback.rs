@@ -106,7 +106,7 @@ impl PeerSyncCallback {
     pub async fn notified(&self) -> WakeReason {
         loop {
             let notified = self.0.wake.notified();
-                match self.0.wake_reason.swap(0, Ordering::Relaxed) {
+            match self.0.wake_reason.swap(0, Ordering::Relaxed) {
                 0 => notified.await,
                 r => return WakeReason::from_raw(r),
             }
@@ -138,7 +138,7 @@ pub struct IncomingBlockGuard(PeerSyncCallback);
 
 impl Drop for IncomingBlockGuard {
     fn drop(&mut self) {
-        self.0.0.incoming_block_tx.send_modify(|c| {
+        self.0 .0.incoming_block_tx.send_modify(|c| {
             *c = c.checked_sub(1).expect("incoming block count underflow");
         });
     }
