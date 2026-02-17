@@ -315,6 +315,10 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         .unwrap()
         .current_height = current_blockchain_height;
 
+    let guard = peer_sync_callback
+        .as_ref()
+        .map(PeerSyncCallback::incoming_block_guard);
+
     let (block, txs) = rayon_spawn_async(move || -> Result<_, anyhow::Error> {
         let block = Block::read(&mut request.b.block.as_ref())?;
 
@@ -353,10 +357,6 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         return Ok(ProtocolResponse::NA);
     }
 
-    if let Some(cb) = &peer_sync_callback {
-        cb.incoming_block_in_flight();
-    }
-
     let res = blockchain_interface::handle_incoming_block(
         block,
         txs,
@@ -365,9 +365,7 @@ async fn new_fluffy_block<A: NetZoneAddress>(
     )
     .await;
 
-    if let Some(cb) = &peer_sync_callback {
-        cb.incoming_block_done();
-    }
+    drop(guard);
 
     match res {
         Ok(_) => Ok(ProtocolResponse::NA),

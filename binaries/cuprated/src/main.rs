@@ -18,7 +18,7 @@
 
 use std::{mem, sync::Arc};
 
-use tokio::sync::{mpsc, oneshot, Notify};
+use tokio::sync::{mpsc, oneshot};
 
 use cuprate_p2p_core::client::PeerSyncCallback;
 use tower::{Service, ServiceExt};
@@ -127,10 +127,9 @@ fn main() {
         // Create the peer sync callback, shared between P2P and the blockchain syncer.
         let peer_sync_callback = {
             let context_svc = context_svc.clone();
-            PeerSyncCallback::new(
-                Box::new(move |peer_cd: u128| peer_cd > context_svc.cumulative_difficulty()),
-                Arc::new(Notify::new()),
-            )
+            PeerSyncCallback::new(Box::new(move |peer_cd: u128| {
+                peer_cd > context_svc.cumulative_difficulty()
+            }))
         };
 
         // Start clearnet P2P zone

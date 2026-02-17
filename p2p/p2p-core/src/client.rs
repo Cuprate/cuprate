@@ -32,7 +32,7 @@ mod weak;
 
 pub use connector::{ConnectRequest, Connector};
 pub use handshaker::{DoHandshakeRequest, HandshakeError, HandshakerBuilder};
-pub use sync_callback::PeerSyncCallback;
+pub use sync_callback::{PeerSyncCallback, WakeReason};
 pub use weak::{WeakBroadcastClient, WeakClient};
 
 /// An internal identifier for a given peer, will be their address if known
