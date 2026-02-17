@@ -232,7 +232,7 @@ impl super::BlockchainManager {
         .await
         else {
             batch.peer_handle.ban_peer(LONG_BAN);
-            self.stop_current_block_downloader.notify_one();
+            self.stop_current_block_downloader.notify_waiters();
             return;
         };
 
@@ -247,7 +247,7 @@ impl super::BlockchainManager {
             .await
             else {
                 batch.peer_handle.ban_peer(LONG_BAN);
-                self.stop_current_block_downloader.notify_one();
+                self.stop_current_block_downloader.notify_waiters();
                 return;
             };
 
@@ -316,7 +316,7 @@ impl super::BlockchainManager {
             match res {
                 Err(e) => {
                     batch.peer_handle.ban_peer(LONG_BAN);
-                    self.stop_current_block_downloader.notify_one();
+                    self.stop_current_block_downloader.notify_waiters();
                     return;
                 }
                 Ok(AddAltBlock::Reorged) => {
