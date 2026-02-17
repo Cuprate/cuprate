@@ -113,12 +113,14 @@ async fn wait_until_behind(
 ) -> Result<(), tower::BoxError> {
     'check: loop {
         tracing::trace!("Checking connected peers to see if we are behind.");
-        match check_sync_status(context_svc.blockchain_context(), clearnet_interface).await? {
+        let status =
+            check_sync_status(context_svc.blockchain_context(), clearnet_interface).await?;
+        match status {
             SyncStatus::BehindPeers => {
                 tracing::debug!("We are behind peers claimed cumulative difficulty");
             }
-            SyncStatus::Synced => {
-                if !*first_sync_done {
+            SyncStatus::Synced | SyncStatus::AheadOfPeers => {
+                if !*first_sync_done && status == SyncStatus::Synced {
                     tracing::info!("Synchronised with the network.");
                     synced_notify.notify_one();
                     *first_sync_done = true;
@@ -126,9 +128,7 @@ async fn wait_until_behind(
                 tracing::debug!("Parking syncer.");
                 match peer_sync_callback.notified().await {
                     WakeReason::BehindPeers => {}
-                    WakeReason::Recheck => {
-                        continue;
-                    }
+                    WakeReason::Recheck => continue,
                 }
             }
             SyncStatus::NoPeers => {
@@ -177,6 +177,7 @@ enum SyncStatus {
     NoPeers,
     BehindPeers,
     Synced,
+    AheadOfPeers,
 }
 
 /// Checks if we are behind the connected peers.
@@ -201,9 +202,11 @@ async fn check_sync_status(
         return Ok(SyncStatus::NoPeers);
     }
 
-    if cumulative_difficulty > blockchain_context.cumulative_difficulty {
-        return Ok(SyncStatus::BehindPeers);
-    }
-
-    Ok(SyncStatus::Synced)
+    Ok(
+        match cumulative_difficulty.cmp(&blockchain_context.cumulative_difficulty) {
+            std::cmp::Ordering::Greater => SyncStatus::BehindPeers,
+            std::cmp::Ordering::Less => SyncStatus::AheadOfPeers,
+            std::cmp::Ordering::Equal => SyncStatus::Synced,
+        },
+    )
 }
