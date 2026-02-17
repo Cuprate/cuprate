@@ -1,8 +1,10 @@
-// FIXME: This whole module is not great and should be rewritten when the PeerSet is made.
 use std::sync::Arc;
 
 use futures::StreamExt;
-use tokio::sync::{mpsc, Notify, OwnedSemaphorePermit, Semaphore};
+use tokio::{
+    sync::{mpsc, Notify, OwnedSemaphorePermit, Semaphore},
+    time::timeout,
+};
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
@@ -12,7 +14,10 @@ use cuprate_p2p::{
     block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
     NetworkInterface, PeerSetRequest, PeerSetResponse,
 };
-use cuprate_p2p_core::{client::PeerSyncCallback, ClearNet, NetworkZone};
+use cuprate_p2p_core::{
+    client::{PeerSyncCallback, WakeReason},
+    ClearNet, NetworkZone,
+};
 
 /// An error returned from the [`syncer`].
 #[derive(Debug, thiserror::Error)]
@@ -47,7 +52,6 @@ where
     CN::Future: Send + 'static,
 {
     let semaphore = Arc::new(Semaphore::new(1));
-
     let mut sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
 
     tracing::info!("Starting blockchain syncer");
@@ -55,24 +59,16 @@ where
     let mut incoming_block_rx = peer_sync_callback.subscribe_incoming_block();
     let mut first_sync_done = false;
 
-    // On startup, determine initial sync state after getting peers.
-    wait_until_behind(
-        &mut context_svc,
-        &mut clearnet_interface,
-        &peer_sync_callback,
-        &mut first_sync_done,
-        &synced_notify,
-    )
-    .await?;
-
     loop {
-        if *incoming_block_rx.borrow() > 0 {
-            incoming_block_rx.wait_for(|&c| c == 0).await.ok();
-            if first_sync_done {
-                peer_sync_callback.notified().await;
-            }
-            continue;
-        }
+        wait_until_behind(
+            &mut context_svc,
+            &mut clearnet_interface,
+            &peer_sync_callback,
+            &mut first_sync_done,
+            &synced_notify,
+            &mut incoming_block_rx,
+        )
+        .await?;
 
         let mut block_batch_stream =
             clearnet_interface.block_downloader(our_chain.clone(), block_downloader_config);
@@ -93,15 +89,6 @@ where
                         // have been handled before checking if we are synced.
                         drop(sync_permit);
                         sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
-
-                        wait_until_behind(
-                            &mut context_svc,
-                            &mut clearnet_interface,
-                            &peer_sync_callback,
-                            &mut first_sync_done,
-                            &synced_notify,
-                        )
-                        .await?;
                         break;
                     };
 
@@ -122,15 +109,13 @@ async fn wait_until_behind(
     peer_sync_callback: &PeerSyncCallback,
     first_sync_done: &mut bool,
     synced_notify: &Notify,
+    incoming_block_rx: &mut tokio::sync::watch::Receiver<u32>,
 ) -> Result<(), tower::BoxError> {
-    loop {
+    'check: loop {
         tracing::trace!("Checking connected peers to see if we are behind.");
         match check_sync_status(context_svc.blockchain_context(), clearnet_interface).await? {
             SyncStatus::BehindPeers => {
-                tracing::debug!(
-                    "We are behind peers claimed cumulative difficulty, starting block downloader"
-                );
-                return Ok(());
+                tracing::debug!("We are behind peers claimed cumulative difficulty");
             }
             SyncStatus::Synced => {
                 if !*first_sync_done {
@@ -138,16 +123,52 @@ async fn wait_until_behind(
                     synced_notify.notify_one();
                     *first_sync_done = true;
                 }
-                tracing::debug!("Waiting for new sync info.");
-                peer_sync_callback.notified().await;
+                tracing::debug!("Parking syncer.");
+                match peer_sync_callback.notified().await {
+                    WakeReason::BehindPeers => {}
+                    WakeReason::Recheck => {
+                        continue;
+                    }
+                }
             }
             SyncStatus::NoPeers => {
                 tracing::debug!("Waiting for peers to connect.");
                 *first_sync_done = false;
                 peer_sync_callback.wake_on_first_peers_arm();
                 peer_sync_callback.notified().await;
+                continue;
             }
         }
+
+        if *first_sync_done {
+            'incoming_blocks: loop {
+                let arriving = timeout(
+                    std::time::Duration::from_secs(1),
+                    incoming_block_rx.wait_for(|&c| c > 0),
+                )
+                .await
+                .is_ok();
+
+                if arriving || *incoming_block_rx.borrow() > 0 {
+                    incoming_block_rx.wait_for(|&c| c == 0).await.ok();
+                    peer_sync_callback.clear_pending_behind_peers();
+                    match peer_sync_callback.notified().await {
+                        WakeReason::BehindPeers => {
+                            continue 'incoming_blocks;
+                        }
+                        WakeReason::Recheck => {
+                            continue 'check;
+                        }
+                    }
+                }
+
+                break 'incoming_blocks;
+            }
+        }
+
+        tracing::debug!("Starting block downloader");
+
+        return Ok(());
     }
 }
 
