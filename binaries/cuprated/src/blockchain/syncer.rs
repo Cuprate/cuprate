@@ -141,6 +141,8 @@ async fn wait_until_behind(
         }
 
         if *first_sync_done {
+            let mut our_cd = context_svc.blockchain_context().cumulative_difficulty;
+
             'incoming_blocks: loop {
                 let arriving = timeout(
                     std::time::Duration::from_secs(1),
@@ -159,6 +161,14 @@ async fn wait_until_behind(
                         WakeReason::Recheck => {
                             continue 'check;
                         }
+                    }
+                }
+
+                if context_svc.blockchain_context().cumulative_difficulty > our_cd {
+                    our_cd = context_svc.blockchain_context().cumulative_difficulty;
+                    match peer_sync_callback.notified().await {
+                        WakeReason::BehindPeers => continue 'incoming_blocks,
+                        WakeReason::Recheck => continue 'check,
                     }
                 }
 
