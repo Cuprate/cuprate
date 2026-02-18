@@ -8,7 +8,7 @@ use futures::StreamExt;
 use indexmap::IndexMap;
 use rand::Rng;
 use tokio::sync::{mpsc, oneshot};
-use tokio_util::{time::delay_queue, time::DelayQueue};
+use tokio_util::{sync::CancellationToken, time::delay_queue, time::DelayQueue};
 use tower::{Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
@@ -28,6 +28,7 @@ use cuprate_types::TransactionVerificationData;
 use crate::{
     config::TxpoolConfig,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
+    monitor::CupratedTask,
     p2p::{CrossNetworkInternalPeerId, NetworkInterfaces},
     txpool::{
         dandelion::DiffuseService,
@@ -49,6 +50,7 @@ pub async fn start_txpool_manager(
     diffuse_service: DiffuseService<ClearNet>,
     dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
     config: TxpoolConfig,
+    task: CupratedTask,
 ) -> TxpoolManagerHandle {
     let TxpoolReadResponse::Backlog(backlog) = txpool_read_handle
         .ready()
@@ -110,7 +112,8 @@ pub async fn start_txpool_manager(
     let (tx_tx, tx_rx) = mpsc::channel(INCOMING_TX_QUEUE_SIZE);
     let (spent_kis_tx, spent_kis_rx) = mpsc::channel(1);
 
-    tokio::spawn(manager.run(tx_rx, spent_kis_rx));
+    task.task_tracker
+        .spawn(manager.run(tx_rx, spent_kis_rx, task.cancellation_token));
 
     TxpoolManagerHandle {
         tx_tx,
@@ -455,9 +458,18 @@ impl TxpoolManager {
             TxState<CrossNetworkInternalPeerId>,
         )>,
         mut block_rx: mpsc::Receiver<(Vec<[u8; 32]>, oneshot::Sender<()>)>,
+        shutdown_token: CancellationToken,
     ) {
         loop {
             tokio::select! {
+                biased;
+                () = shutdown_token.cancelled() => {
+                    break;
+                }
+                Some((spent_kis, tx)) = block_rx.recv() => {
+                    self.new_block(spent_kis).await;
+                    let _ = tx.send(());
+                }
                 Some(tx) = self.tx_timeouts.next() => {
                     self.handle_tx_timeout(tx.into_inner()).await;
                 }
@@ -467,12 +479,10 @@ impl TxpoolManager {
                 Some(tx) = self.promote_tx_channel.recv() => {
                     self.promote_tx(tx).await;
                 }
-                Some((spent_kis, tx)) = block_rx.recv() => {
-                    self.new_block(spent_kis).await;
-                    let _ = tx.send(());
-                }
             }
         }
+
+        tracing::info!("Txpool manager shut down.");
     }
 }
 

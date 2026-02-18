@@ -42,6 +42,7 @@ mod commands;
 mod config;
 mod constants;
 mod logging;
+mod monitor;
 mod p2p;
 mod rpc;
 mod signals;
@@ -95,6 +96,10 @@ fn main() {
     // Initialize async tasks.
 
     rt.block_on(async move {
+        // Create the monitor and task handle, spawn signal handlers.
+        let (mut monitor, task) = monitor::new();
+        monitor::spawn_signal_handler(monitor.cancellation_token.clone());
+
         // TODO: Add an argument/option for keeping alt blocks between restart.
         blockchain_write_handle
             .ready()
@@ -144,6 +149,7 @@ fn main() {
             txpool_read_handle.clone(),
             context_svc.clone(),
             blockchain_read_handle.clone(),
+            task.clone(),
         )
         .await;
 
@@ -163,6 +169,7 @@ fn main() {
             tx_handler.txpool_manager.clone(),
             context_svc.clone(),
             config.block_downloader_config(),
+            task.clone(),
         )
         .await;
 
@@ -174,16 +181,23 @@ fn main() {
             context_svc.clone(),
             txpool_read_handle.clone(),
             tx_handler.clone(),
+            task.clone(),
         );
 
         // Start Tor P2P zone after sync completes.
         if tor_enabled {
             info!("Tor P2P zone will start after sync.");
             let context_svc = context_svc.clone();
+            let cancellation_token = task.cancellation_token.clone();
 
-            tokio::spawn(async move {
-                // Wait for the node to synchronize with the network
-                synced_notify.notified().await;
+            task.task_tracker.spawn(async move {
+                // Wait for the node to synchronize with the network, or shutdown.
+                tokio::select! {
+                    () = synced_notify.notified() => {}
+                    () = cancellation_token.cancelled() => {
+                        return;
+                    }
+                }
                 tracing::info!("Starting Tor P2P zone.");
 
                 let (tor_interface, tor_tx_handler_tx) = p2p::start_tor_p2p(
@@ -216,15 +230,27 @@ fn main() {
             std::thread::spawn(|| commands::command_listener(command_tx));
 
             // Wait on the io_loop, spawned on a separate task as this improves performance.
-            tokio::spawn(commands::io_loop(command_rx, context_svc))
-                .await
-                .unwrap();
+            task.task_tracker.spawn(commands::io_loop(
+                command_rx,
+                context_svc,
+                task.cancellation_token.clone(),
+            ));
         } else {
-            // If no STDIN, await OS exit signal.
             info!("Terminal/TTY not detected, disabling STDIN commands");
-            tokio::signal::ctrl_c().await.unwrap();
         }
+        // Wait for shutdown signal or task error.
+        tokio::select! {
+            () = monitor.cancellation_token.cancelled() => {}
+            Ok(()) = monitor.error_watch.changed() => {
+                tracing::error!("Error detected, initiating graceful shutdown.");
+                monitor::trigger_shutdown(&monitor.cancellation_token);
+            }
+        }
+        monitor.task_tracker.close();
+        monitor.task_tracker.wait().await;
     });
+    drop(rt);
+    info!("Shutdown complete.");
 }
 
 /// Initialize the [`tokio`] runtime.
