@@ -41,8 +41,6 @@ pub fn new() -> (CupratedMonitor, CupratedTask) {
     )
 }
 
-const FORCE_EXIT_GRACE: Duration = Duration::from_secs(3);
-
 /// Trigger a graceful shutdown.
 pub fn trigger_shutdown(token: &CancellationToken) {
     info!("Shutting down gracefully... Press Ctrl+C again to exit immediately.");
