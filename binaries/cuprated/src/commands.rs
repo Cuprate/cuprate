@@ -5,6 +5,7 @@ use std::{io, thread::sleep, time::Duration};
 
 use clap::{builder::TypedValueParser, Parser, ValueEnum};
 use tokio::sync::mpsc;
+use tokio_util::sync::CancellationToken;
 use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
 
@@ -53,6 +54,9 @@ pub enum Command {
 
     /// Pop blocks from the top of the blockchain.
     PopBlocks { numb_blocks: usize },
+
+    /// Gracefully shut down the daemon.
+    Exit,
 }
 
 /// The log output target.
@@ -66,25 +70,30 @@ pub enum OutputTarget {
 }
 
 /// The [`Command`] listener loop.
-pub fn command_listener(incoming_commands: mpsc::Sender<Command>) -> ! {
+pub fn command_listener(incoming_commands: mpsc::Sender<Command>) {
     let mut stdin = io::stdin();
     let mut line = String::new();
 
     loop {
         line.clear();
 
-        if let Err(e) = stdin.read_line(&mut line) {
-            eprintln!("Failed to read from stdin: {e}");
-            sleep(Duration::from_secs(1));
-            continue;
+        match stdin.read_line(&mut line) {
+            Ok(0) => return,
+            Err(e) => {
+                eprintln!("Failed to read from stdin: {e}");
+                sleep(Duration::from_secs(1));
+                continue;
+            }
+            Ok(_) => {}
         }
 
         match Command::try_parse_from(line.split_whitespace()) {
-            Ok(command) => drop(
-                incoming_commands
-                    .blocking_send(command)
-                    .inspect_err(|err| eprintln!("Failed to send command: {err}")),
-            ),
+            Ok(command) => {
+                if incoming_commands.blocking_send(command).is_err() {
+                    // Shutdown in progress.
+                    return;
+                }
+            }
             Err(err) => err.print().unwrap(),
         }
     }
@@ -94,11 +103,16 @@ pub fn command_listener(incoming_commands: mpsc::Sender<Command>) -> ! {
 pub async fn io_loop(
     mut incoming_commands: mpsc::Receiver<Command>,
     mut context_service: BlockchainContextService,
+    shutdown_token: CancellationToken,
 ) {
     loop {
-        let Some(command) = incoming_commands.recv().await else {
-            tracing::warn!("Shutting down io_loop command channel closed.");
-            return;
+        let command = tokio::select! {
+            biased;
+            () = shutdown_token.cancelled() => break,
+            cmd = incoming_commands.recv() => {
+                let Some(cmd) = cmd else { break };
+                cmd
+            }
         };
 
         match command {
@@ -143,6 +157,12 @@ pub async fn io_loop(
                     Err(e) => println!("Failed to pop blocks: {e}"),
                 }
             }
+            Command::Exit => {
+                crate::monitor::trigger_shutdown(&shutdown_token);
+                break;
+            }
         }
     }
+
+    tracing::info!("Command listener shut down.");
 }

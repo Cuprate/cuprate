@@ -7,6 +7,7 @@ use std::{
 
 use anyhow::Error;
 use tokio::net::TcpListener;
+use tokio_util::sync::CancellationToken;
 use tower::limit::rate::RateLimitLayer;
 use tower_http::limit::RequestBodyLimitLayer;
 use tracing::{info, warn};
@@ -19,6 +20,7 @@ use cuprate_txpool::service::TxpoolReadHandle;
 
 use crate::{
     config::{restricted_rpc_port, unrestricted_rpc_port, RpcConfig},
+    monitor::CupratedTask,
     rpc::{rpc_handler::BlockchainManagerHandle, CupratedRpcHandler},
     txpool::IncomingTxHandler,
 };
@@ -37,6 +39,7 @@ pub fn init_rpc_servers(
     blockchain_context: BlockchainContextService,
     txpool_read: TxpoolReadHandle,
     tx_handler: IncomingTxHandler,
+    task: CupratedTask,
 ) {
     for ((enable, addr, port, request_byte_limit), restricted) in [
         (
@@ -83,17 +86,21 @@ pub fn init_rpc_servers(
             blockchain_context.clone(),
             txpool_read.clone(),
             tx_handler.clone(),
+            task.cancellation_token.clone(),
         );
 
-        tokio::task::spawn(async move {
+        let token = task.cancellation_token.clone();
+        task.task_tracker.spawn(async move {
             run_rpc_server(
                 rpc_handler,
                 restricted,
                 SocketAddr::new(addr, port),
                 request_byte_limit,
+                token,
             )
             .await
             .unwrap();
+            info!(restricted, "RPC server shut down.");
         });
     }
 }
@@ -106,6 +113,7 @@ async fn run_rpc_server(
     restricted: bool,
     address: SocketAddr,
     request_byte_limit: usize,
+    shutdown_token: CancellationToken,
 ) -> Result<(), Error> {
     info!(
         restricted,
@@ -138,7 +146,9 @@ async fn run_rpc_server(
     //
     // TODO: impl custom server code, don't use axum.
     let listener = TcpListener::bind(address).await?;
-    axum::serve(listener, router).await?;
+    axum::serve(listener, router)
+        .with_graceful_shutdown(shutdown_token.cancelled_owned())
+        .await?;
 
     Ok(())
 }
