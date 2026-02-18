@@ -77,7 +77,7 @@ async fn shutdown_signal() {
     let terminate = std::future::pending::<()>();
 
     tokio::select! {
-        () = ctrl_c => {}
-        () = terminate => {}
+        _ = ctrl_c => {}
+        _ = terminate => {}
     }
 }
