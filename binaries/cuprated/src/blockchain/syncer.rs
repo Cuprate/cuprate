@@ -151,28 +151,25 @@ async fn wait_until_behind(
                 .await
                 .is_ok();
 
-                if arriving || *incoming_block_rx.borrow() > 0 {
+                let should_park = if arriving || *incoming_block_rx.borrow() > 0 {
                     incoming_block_rx.wait_for(|&c| c == 0).await.ok();
                     peer_sync_callback.clear_pending_behind_peers();
-                    match peer_sync_callback.notified().await {
-                        WakeReason::BehindPeers => {
-                            continue 'incoming_blocks;
-                        }
-                        WakeReason::Recheck => {
-                            continue 'check;
-                        }
-                    }
-                }
-
-                if context_svc.blockchain_context().cumulative_difficulty > our_cd {
+                    true
+                } else if context_svc.blockchain_context().cumulative_difficulty > our_cd {
                     our_cd = context_svc.blockchain_context().cumulative_difficulty;
-                    match peer_sync_callback.notified().await {
-                        WakeReason::BehindPeers => continue 'incoming_blocks,
-                        WakeReason::Recheck => continue 'check,
-                    }
+                    true
+                } else {
+                    false
+                };
+
+                if !should_park {
+                    break 'incoming_blocks;
                 }
 
-                break 'incoming_blocks;
+                match peer_sync_callback.notified().await {
+                    WakeReason::BehindPeers => continue 'incoming_blocks,
+                    WakeReason::Recheck => continue 'check,
+                }
             }
         }
 
