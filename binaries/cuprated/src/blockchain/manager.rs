@@ -15,7 +15,7 @@ use cuprate_p2p::{
     block_downloader::{BlockBatch, BlockDownloaderConfig},
     BroadcastSvc, NetworkInterface,
 };
-use cuprate_p2p_core::ClearNet;
+use cuprate_p2p_core::{client::PeerSyncCallback, ClearNet};
 use cuprate_txpool::service::TxpoolWriteHandle;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
@@ -52,6 +52,7 @@ pub async fn init_blockchain_manager(
     txpool_manager_handle: TxpoolManagerHandle,
     mut blockchain_context_service: BlockchainContextService,
     block_downloader_config: BlockDownloaderConfig,
+    peer_sync_callback: PeerSyncCallback,
 ) -> Arc<Notify> {
     // TODO: find good values for these size limits
     let (batch_tx, batch_rx) = mpsc::channel(1);
@@ -70,6 +71,7 @@ pub async fn init_blockchain_manager(
         Arc::clone(&stop_current_block_downloader),
         block_downloader_config,
         Arc::clone(&synced_notify),
+        peer_sync_callback,
     ));
 
     let manager = BlockchainManager {
