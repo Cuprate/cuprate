@@ -60,6 +60,7 @@ use crate::{
         CupratedRpcHandler,
     },
     statics::START_INSTANT_UNIX,
+    supervisor,
     txpool::IncomingTxs,
 };
 
@@ -469,7 +470,8 @@ async fn send_raw_transaction(
         do_not_relay: request.do_not_relay,
     };
 
-    let tx_relay_checks = tx_handler::handle_incoming_txs(&mut state.tx_handler, txs).await?;
+    let tx_relay_checks =
+        tx_handler::handle_incoming_txs(&mut state.tx_handler, txs, &state.shutdown_token).await?;
 
     if tx_relay_checks.is_empty() {
         return Ok(resp);
@@ -571,7 +573,7 @@ async fn stop_daemon(
     mut state: CupratedRpcHandler,
     _: StopDaemonRequest,
 ) -> Result<StopDaemonResponse, Error> {
-    crate::monitor::trigger_shutdown(&state.shutdown_token);
+    supervisor::trigger_shutdown(&state.shutdown_token);
     Ok(StopDaemonResponse { status: Status::Ok })
 }
 

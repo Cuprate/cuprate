@@ -20,18 +20,17 @@ use cuprate_txpool::service::TxpoolReadHandle;
 
 use crate::{
     config::{restricted_rpc_port, unrestricted_rpc_port, RpcConfig},
-    monitor::CupratedTask,
+    error::CupratedError,
     rpc::{rpc_handler::BlockchainManagerHandle, CupratedRpcHandler},
+    supervisor::CupratedTask,
     txpool::IncomingTxHandler,
 };
 
 /// Initialize the RPC server(s).
 ///
 /// # Panics
-/// This function will panic if:
-/// - the server(s) could not be started
-/// - unrestricted RPC is started on non-local
-///   address without override option
+/// This function will panic if unrestricted RPC is started on a non-local
+/// address without the override option.
 pub fn init_rpc_servers(
     config: RpcConfig,
     network: Network,
@@ -90,7 +89,7 @@ pub fn init_rpc_servers(
         );
 
         let token = task.cancellation_token.clone();
-        task.task_tracker.spawn(async move {
+        task.spawn_critical(async move {
             run_rpc_server(
                 rpc_handler,
                 restricted,
@@ -99,8 +98,7 @@ pub fn init_rpc_servers(
                 token,
             )
             .await
-            .unwrap();
-            info!(restricted, "RPC server shut down.");
+            .map_err(CupratedError::Rpc)
         });
     }
 }
@@ -150,5 +148,6 @@ async fn run_rpc_server(
         .with_graceful_shutdown(shutdown_token.cancelled_owned())
         .await?;
 
+    info!(restricted, "RPC server shut down.");
     Ok(())
 }

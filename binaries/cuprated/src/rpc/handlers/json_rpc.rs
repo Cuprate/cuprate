@@ -60,7 +60,7 @@ use cuprate_types::{
 };
 
 use crate::{
-    blockchain::interface as blockchain_interface,
+    blockchain::interface::{self as blockchain_interface, IncomingBlockError},
     constants::VERSION_BUILD,
     rpc::{
         constants::{FIELD_NOT_SUPPORTED, UNSUPPORTED_RPC_CALL},
@@ -69,6 +69,7 @@ use crate::{
         CupratedRpcHandler,
     },
     statics::START_INSTANT_UNIX,
+    supervisor,
 };
 
 /// Map a [`JsonRpcRequest`] to the function that will lead to a [`JsonRpcResponse`].
@@ -237,13 +238,19 @@ async fn submit_block(
     let block_id = Hex(block.hash());
 
     // Attempt to relay the block.
-    blockchain_interface::handle_incoming_block(
+    if let Err(e) = blockchain_interface::handle_incoming_block(
         block,
         HashMap::new(), // this function reads the txpool
         &mut state.blockchain_read,
         &mut state.txpool_read,
     )
-    .await?;
+    .await
+    {
+        if matches!(&e, IncomingBlockError::Service(_)) {
+            supervisor::trigger_shutdown(&state.shutdown_token);
+        }
+        return Err(e.into());
+    }
 
     Ok(SubmitBlockResponse {
         base: helper::response_base(false),

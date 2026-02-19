@@ -1,6 +1,6 @@
 //! Functions to send [`BlockChainContextRequest`]s.
 
-use anyhow::{anyhow, Error};
+use anyhow::Error;
 use monero_oxide::block::Block;
 use tower::{Service, ServiceExt};
 
@@ -23,10 +23,10 @@ pub(crate) async fn hard_fork_info(
     let BlockChainContextResponse::HardForkInfo(hf_info) = blockchain_context
         .ready()
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
         .call(BlockChainContextRequest::HardForkInfo(hard_fork))
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
     else {
         unreachable!();
     };
@@ -42,10 +42,10 @@ pub(crate) async fn fee_estimate(
     let BlockChainContextResponse::FeeEstimate(fee) = blockchain_context
         .ready()
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
         .call(BlockChainContextRequest::FeeEstimate { grace_blocks })
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
     else {
         unreachable!();
     };
@@ -67,7 +67,7 @@ pub(crate) async fn calculate_pow(
     let BlockChainContextResponse::CalculatePow(hash) = blockchain_context
         .ready()
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
         .call(BlockChainContextRequest::CalculatePow {
             hardfork,
             height,
@@ -75,7 +75,7 @@ pub(crate) async fn calculate_pow(
             seed_hash,
         })
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
     else {
         unreachable!();
     };
@@ -91,10 +91,10 @@ pub async fn batch_get_difficulties(
     let BlockChainContextResponse::BatchDifficulties(resp) = blockchain_context
         .ready()
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
         .call(BlockChainContextRequest::BatchGetDifficulties(difficulties))
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
     else {
         unreachable!();
     };

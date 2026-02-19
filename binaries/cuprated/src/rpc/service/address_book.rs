@@ -2,7 +2,7 @@
 
 use std::net::SocketAddrV4;
 
-use anyhow::{anyhow, Error};
+use anyhow::Error;
 use tower::ServiceExt;
 
 use cuprate_helper::{cast::usize_to_u64, map::u32_from_ipv4};
@@ -23,10 +23,10 @@ pub async fn peerlist_size<Z: NetworkZone>(
     let AddressBookResponse::PeerlistSize { white, grey } = address_book
         .ready()
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
         .call(AddressBookRequest::PeerlistSize)
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
     else {
         unreachable!();
     };
@@ -41,10 +41,10 @@ pub async fn connection_info<Z: NetworkZone>(
     let AddressBookResponse::ConnectionInfo(vec) = address_book
         .ready()
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
         .call(AddressBookRequest::ConnectionInfo)
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
     else {
         unreachable!();
     };
@@ -98,10 +98,10 @@ pub async fn connection_count<Z: NetworkZone>(
     let AddressBookResponse::ConnectionCount { incoming, outgoing } = address_book
         .ready()
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
         .call(AddressBookRequest::ConnectionCount)
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
     else {
         unreachable!();
     };
@@ -117,10 +117,10 @@ pub async fn set_ban<Z: NetworkZone>(
     let AddressBookResponse::Ok = address_book
         .ready()
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
         .call(AddressBookRequest::SetBan(set_ban))
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
     else {
         unreachable!();
     };
@@ -136,10 +136,10 @@ pub async fn get_ban<Z: NetworkZone>(
     let AddressBookResponse::GetBan { unban_instant } = address_book
         .ready()
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
         .call(AddressBookRequest::GetBan(peer))
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
     else {
         unreachable!();
     };
@@ -154,10 +154,10 @@ pub async fn get_bans<Z: NetworkZone>(
     let AddressBookResponse::GetBans(bans) = address_book
         .ready()
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
         .call(AddressBookRequest::GetBans)
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
     else {
         unreachable!();
     };
@@ -172,10 +172,10 @@ pub async fn peerlist<Z: NetworkZone>(
     let AddressBookResponse::Peerlist(peerlist) = address_book
         .ready()
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
         .call(AddressBookRequest::Peerlist)
         .await
-        .map_err(|e| anyhow!(e))?
+        .map_err(Error::from_boxed)?
     else {
         unreachable!();
     };
