@@ -1,9 +1,6 @@
-use std::{
-    collections::HashSet,
-    sync::Arc,
-    task::{Context, Poll},
-};
+use std::{collections::HashSet, sync::Arc, task::Poll};
 
+use anyhow::Context;
 use bytes::Bytes;
 use futures::{future::BoxFuture, FutureExt};
 use monero_oxide::transaction::Transaction;
@@ -21,6 +18,7 @@ use cuprate_dandelion_tower::{
     pool::{DandelionPoolService, IncomingTxBuilder},
     State, TxState,
 };
+use cuprate_database::RuntimeError;
 use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_p2p::NetworkInterface;
 use cuprate_p2p_core::{ClearNet, Tor};
@@ -38,10 +36,9 @@ use cuprate_types::TransactionVerificationData;
 use crate::{
     blockchain::ConsensusBlockchainReadHandle,
     config::TxpoolConfig,
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
-    monitor::CupratedTask,
     p2p::CrossNetworkInternalPeerId,
     signals::REORG_LOCK,
+    supervisor::CupratedTask,
     txpool::{
         dandelion::{
             self, AnonTxService, ConcreteDandelionRouter, DiffuseService, MainDandelionRouter,
@@ -63,6 +60,8 @@ pub enum IncomingTxError {
     DuplicateTransaction,
     #[error("Relay rule was broken: {0}")]
     RelayRule(RelayRuleError),
+    #[error(transparent)]
+    Internal(anyhow::Error),
 }
 
 /// Incoming transactions.
@@ -165,7 +164,7 @@ impl Service<IncomingTxs> for IncomingTxHandler {
     type Error = IncomingTxError;
     type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
     }
 
@@ -219,7 +218,15 @@ async fn handle_incoming_txs(
         )
         .verify()
         .await
-        .map_err(IncomingTxError::Consensus)?;
+        .map_err(
+            #[expect(clippy::wildcard_enum_match_arm)]
+            |e| match e {
+                ExtendedConsensusError::DBErr(e) => {
+                    IncomingTxError::Internal(anyhow::Error::from_boxed(e))
+                }
+                e => IncomingTxError::Consensus(e),
+            },
+        )?;
 
     for tx in txs {
         // TODO: this could be a DoS, if someone spams us with txs that violate these rules?
@@ -246,8 +253,9 @@ async fn handle_incoming_txs(
             .await
             .is_err()
         {
-            tracing::warn!("The txpool manager has been stopped, dropping incoming txs");
-            return Ok(());
+            return Err(IncomingTxError::Internal(anyhow::anyhow!(
+                "txpool manager channel closed"
+            )));
         }
     }
 
@@ -259,7 +267,7 @@ async fn handle_incoming_txs(
             &mut txpool_read_handle,
             &mut dandelion_pool_manager,
         )
-        .await;
+        .await?;
     }
 
     Ok(())
@@ -317,10 +325,10 @@ async fn prepare_incoming_txs(
     } = txpool_read_handle
         .ready()
         .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .map_err(IncomingTxError::Internal)?
         .call(TxpoolReadRequest::FilterKnownTxBlobHashes(tx_blob_hashes))
         .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .map_err(IncomingTxError::Internal)?
     else {
         unreachable!()
     };
@@ -361,16 +369,25 @@ async fn rerelay_stem_tx(
         TxId,
         CrossNetworkInternalPeerId,
     >,
-) {
-    let Ok(TxpoolReadResponse::TxBlob { tx_blob, .. }) = txpool_read_handle
+) -> Result<(), IncomingTxError> {
+    let tx_blob = match txpool_read_handle
         .ready()
         .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .map_err(IncomingTxError::Internal)?
         .call(TxpoolReadRequest::TxBlob(*tx_hash))
         .await
-    else {
-        // The tx could have been dropped from the pool.
-        return;
+    {
+        Ok(TxpoolReadResponse::TxBlob { tx_blob, .. }) => tx_blob,
+        Ok(_) => unreachable!(),
+        Err(RuntimeError::KeyNotFound) => {
+            // The tx could have been dropped from the pool.
+            return Ok(());
+        }
+        Err(e) => {
+            return Err(IncomingTxError::Internal(
+                anyhow::Error::from(e).context("txpool read failed during stem tx re-relay"),
+            ));
+        }
     };
 
     let incoming_tx =
@@ -385,8 +402,10 @@ async fn rerelay_stem_tx(
     dandelion_pool_manager
         .ready()
         .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .map_err(IncomingTxError::Internal)?
         .call(incoming_tx)
         .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR);
+        .map_err(IncomingTxError::Internal)?;
+
+    Ok(())
 }
