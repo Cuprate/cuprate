@@ -1,6 +1,7 @@
 //! The blockchain manager handler functions.
 use std::{collections::HashMap, sync::Arc};
 
+use anyhow::Context;
 use bytes::Bytes;
 use futures::{TryFutureExt, TryStreamExt};
 use monero_oxide::{
@@ -33,45 +34,60 @@ use cuprate_types::{
 
 use crate::{
     blockchain::manager::commands::{BlockchainManagerCommand, IncomingBlockOk},
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
+    error::CupratedError,
     signals::REORG_LOCK,
 };
+
+/// An error from handling an incoming block.
+#[derive(Debug, thiserror::Error)]
+enum HandleBlockError {
+    /// A validation/consensus error. The block or its transactions were invalid.
+    #[error(transparent)]
+    Validation(anyhow::Error),
+    /// An internal service error. Unrecoverable, should trigger shutdown.
+    #[error(transparent)]
+    Service(#[from] CupratedError),
+}
 
 impl super::BlockchainManager {
     /// Handle an incoming command from another part of Cuprate.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// This function will error if any internal service returns an unexpected error that we cannot
     /// recover from.
-    pub async fn handle_command(&mut self, command: BlockchainManagerCommand) {
+    pub async fn handle_command(
+        &mut self,
+        command: BlockchainManagerCommand,
+    ) -> Result<(), CupratedError> {
         match command {
             BlockchainManagerCommand::AddBlock {
                 block,
                 prepped_txs,
                 response_tx,
-            } => {
-                let res = self.handle_incoming_block(block, prepped_txs).await;
-
-                drop(response_tx.send(res));
-            }
+            } => match self.handle_incoming_block(block, prepped_txs).await {
+                Ok(ok) => drop(response_tx.send(Ok(ok))),
+                Err(HandleBlockError::Validation(e)) => drop(response_tx.send(Err(e))),
+                Err(HandleBlockError::Service(e)) => return Err(e),
+            },
             BlockchainManagerCommand::PopBlocks {
                 numb_blocks,
                 response_tx,
             } => {
                 let _guard = REORG_LOCK.write().await;
-                self.pop_blocks(numb_blocks).await;
+                self.pop_blocks(numb_blocks).await?;
                 self.blockchain_write_handle
                     .ready()
                     .await
-                    .expect(PANIC_CRITICAL_SERVICE_ERROR)
+                    .map_err(|e| CupratedError::Blockchain(e.into()))?
                     .call(BlockchainWriteRequest::FlushAltBlocks)
                     .await
-                    .expect(PANIC_CRITICAL_SERVICE_ERROR);
+                    .map_err(|e| CupratedError::Blockchain(e.into()))?;
                 #[expect(clippy::let_underscore_must_use)]
                 let _ = response_tx.send(());
             }
         }
+        Ok(())
     }
 
     /// Broadcast a valid block to the network.
@@ -95,9 +111,9 @@ impl super::BlockchainManager {
     ///
     /// Otherwise, this function will validate and add the block to the main chain.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// This function will error if any internal service returns an unexpected error that we cannot
     /// recover from.
     #[instrument(
         name = "incoming_block",
@@ -108,11 +124,11 @@ impl super::BlockchainManager {
             txs = block.transactions.len(),
         )
     )]
-    pub async fn handle_incoming_block(
+    async fn handle_incoming_block(
         &mut self,
         block: Block,
         prepared_txs: HashMap<[u8; 32], TransactionVerificationData>,
-    ) -> Result<IncomingBlockOk, anyhow::Error> {
+    ) -> Result<IncomingBlockOk, HandleBlockError> {
         if block.header.previous
             != self
                 .blockchain_context_service
@@ -140,16 +156,25 @@ impl super::BlockchainManager {
             return Ok(IncomingBlockOk::AddedToAltChain);
         }
 
-        let verified_block = verify_main_chain_block(
+        let verified_block = match verify_main_chain_block(
             block,
             prepared_txs,
             &mut self.blockchain_context_service,
             self.blockchain_read_handle.clone(),
         )
-        .await?;
+        .await
+        {
+            Ok(v) => v,
+            Err(ExtendedConsensusError::DBErr(e)) => {
+                return Err(HandleBlockError::Service(CupratedError::Blockchain(
+                    anyhow::Error::from_boxed(e),
+                )));
+            }
+            Err(e) => return Err(HandleBlockError::Validation(e.into())),
+        };
 
         let block_blob = Bytes::copy_from_slice(&verified_block.block_blob);
-        self.add_valid_block_to_main_chain(verified_block).await;
+        self.add_valid_block_to_main_chain(verified_block).await?;
 
         let chain_height = self
             .blockchain_context_service
@@ -175,10 +200,14 @@ impl super::BlockchainManager {
     /// This function will route to [`Self::handle_incoming_block_batch_main_chain`] or [`Self::handle_incoming_block_batch_alt_chain`]
     /// depending on if the first block in the batch follows from the top of our chain.
     ///
+    /// # Errors
+    ///
+    /// This function will error if any internal service returns an unexpected error that we cannot
+    /// recover from.
+    ///
     /// # Panics
     ///
-    /// This function will panic if the batch is empty or if any internal service returns an unexpected
-    /// error that we cannot recover from or if the incoming batch contains no blocks.
+    /// This function will panic if the incoming batch contains no blocks.
     #[instrument(
         name = "incoming_block_batch",
         skip_all,
@@ -188,7 +217,10 @@ impl super::BlockchainManager {
             len = batch.blocks.len()
         )
     )]
-    pub async fn handle_incoming_block_batch(&mut self, batch: BlockBatch) {
+    pub async fn handle_incoming_block_batch(
+        &mut self,
+        batch: BlockBatch,
+    ) -> Result<(), CupratedError> {
         let (first_block, _) = batch
             .blocks
             .first()
@@ -200,10 +232,12 @@ impl super::BlockchainManager {
                 .blockchain_context()
                 .top_hash
         {
-            self.handle_incoming_block_batch_main_chain(batch).await;
+            self.handle_incoming_block_batch_main_chain(batch).await?;
         } else {
-            self.handle_incoming_block_batch_alt_chain(batch).await;
+            self.handle_incoming_block_batch_alt_chain(batch).await?;
         }
+
+        Ok(())
     }
 
     /// Handles an incoming [`BlockBatch`] that follows the main chain.
@@ -214,30 +248,43 @@ impl super::BlockchainManager {
     /// This function will also handle banning the peer and canceling the block downloader if the
     /// block is invalid.
     ///
+    /// # Errors
+    ///
+    /// This function will error if any internal service returns an unexpected error that we cannot
+    /// recover from.
+    ///
     /// # Panics
     ///
-    /// This function will panic if any internal service returns an unexpected error that we cannot
-    /// recover from or if the incoming batch contains no blocks.
-    async fn handle_incoming_block_batch_main_chain(&mut self, batch: BlockBatch) {
+    /// This function will panic if the incoming batch contains no blocks.
+    async fn handle_incoming_block_batch_main_chain(
+        &mut self,
+        batch: BlockBatch,
+    ) -> Result<(), CupratedError> {
         if batch.blocks.last().unwrap().0.number() < fast_sync_stop_height() {
-            self.handle_incoming_block_batch_fast_sync(batch).await;
-            return;
+            self.handle_incoming_block_batch_fast_sync(batch).await?;
+            return Ok(());
         }
 
-        let Ok((prepped_blocks, mut output_cache)) = batch_prepare_main_chain_blocks(
+        let (prepped_blocks, mut output_cache) = match batch_prepare_main_chain_blocks(
             batch.blocks,
             &mut self.blockchain_context_service,
             self.blockchain_read_handle.clone(),
         )
         .await
-        else {
-            batch.peer_handle.ban_peer(LONG_BAN);
-            self.stop_current_block_downloader.notify_one();
-            return;
+        {
+            Ok(v) => v,
+            Err(ExtendedConsensusError::DBErr(e)) => {
+                return Err(CupratedError::Blockchain(anyhow::Error::from_boxed(e)));
+            }
+            Err(_) => {
+                batch.peer_handle.ban_peer(LONG_BAN);
+                self.stop_current_block_downloader.notify_one();
+                return Ok(());
+            }
         };
 
         for (block, txs) in prepped_blocks {
-            let Ok(verified_block) = verify_prepped_main_chain_block(
+            let verified_block = match verify_prepped_main_chain_block(
                 block,
                 txs,
                 &mut self.blockchain_context_service,
@@ -245,24 +292,34 @@ impl super::BlockchainManager {
                 Some(&mut output_cache),
             )
             .await
-            else {
-                batch.peer_handle.ban_peer(LONG_BAN);
-                self.stop_current_block_downloader.notify_one();
-                return;
+            {
+                Ok(v) => v,
+                Err(ExtendedConsensusError::DBErr(e)) => {
+                    return Err(CupratedError::Blockchain(anyhow::Error::from_boxed(e)));
+                }
+                Err(_) => {
+                    batch.peer_handle.ban_peer(LONG_BAN);
+                    self.stop_current_block_downloader.notify_one();
+                    return Ok(());
+                }
             };
 
-            self.add_valid_block_to_main_chain(verified_block).await;
+            self.add_valid_block_to_main_chain(verified_block).await?;
         }
         info!(fast_sync = false, "Successfully added block batch");
+        Ok(())
     }
 
     /// Handles an incoming block batch while we are under the fast sync height.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// This function will error if any internal service returns an unexpected error that we cannot
     /// recover from.
-    async fn handle_incoming_block_batch_fast_sync(&mut self, batch: BlockBatch) {
+    async fn handle_incoming_block_batch_fast_sync(
+        &mut self,
+        batch: BlockBatch,
+    ) -> Result<(), CupratedError> {
         let mut valid_blocks = Vec::with_capacity(batch.blocks.len());
         for (block, txs) in batch.blocks {
             let block = block_to_verified_block_information(
@@ -270,15 +327,16 @@ impl super::BlockchainManager {
                 txs,
                 self.blockchain_context_service.blockchain_context(),
             );
-            self.add_valid_block_to_blockchain_cache(&block).await;
+            self.add_valid_block_to_blockchain_cache(&block).await?;
 
             valid_blocks.push(block);
         }
 
         self.batch_add_valid_block_to_blockchain_database(valid_blocks)
-            .await;
+            .await?;
 
         info!(fast_sync = true, "Successfully added block batch");
+        Ok(())
     }
 
     /// Handles an incoming [`BlockBatch`] that does not follow the main-chain.
@@ -289,46 +347,51 @@ impl super::BlockchainManager {
     /// This function will also handle banning the peer and canceling the block downloader if the
     /// alt block is invalid or if a reorg fails.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// This function will error if any internal service returns an unexpected error that we cannot
     /// recover from.
-    async fn handle_incoming_block_batch_alt_chain(&mut self, mut batch: BlockBatch) {
+    async fn handle_incoming_block_batch_alt_chain(
+        &mut self,
+        mut batch: BlockBatch,
+    ) -> Result<(), CupratedError> {
         let mut blocks = batch.blocks.into_iter();
 
         while let Some((block, txs)) = blocks.next() {
             // async blocks work as try blocks.
-            let res = async {
+            let res: Result<_, HandleBlockError> = async {
                 let txs = txs
                     .into_par_iter()
                     .map(|tx| {
                         let tx = new_tx_verification_data(tx)?;
                         Ok((tx.tx_hash, tx))
                     })
-                    .collect::<Result<_, anyhow::Error>>()?;
+                    .collect::<Result<_, anyhow::Error>>()
+                    .map_err(HandleBlockError::Validation)?;
 
                 let reorged = self.handle_incoming_alt_block(block, txs).await?;
 
-                Ok::<_, anyhow::Error>(reorged)
+                Ok(reorged)
             }
             .await;
 
             match res {
-                Err(e) => {
+                Err(HandleBlockError::Service(e)) => return Err(e),
+                Err(HandleBlockError::Validation(_)) => {
                     batch.peer_handle.ban_peer(LONG_BAN);
                     self.stop_current_block_downloader.notify_one();
-                    return;
+                    return Ok(());
                 }
                 Ok(AddAltBlock::Reorged) => {
                     // Collect the remaining blocks and add them to the main chain instead.
                     batch.blocks = blocks.collect();
 
                     if batch.blocks.is_empty() {
-                        return;
+                        return Ok(());
                     }
 
-                    self.handle_incoming_block_batch_main_chain(batch).await;
-                    return;
+                    self.handle_incoming_block_batch_main_chain(batch).await?;
+                    return Ok(());
                 }
                 // continue adding alt blocks.
                 Ok(AddAltBlock::NewlyCached(_) | AddAltBlock::AlreadyCached) => (),
@@ -336,6 +399,7 @@ impl super::BlockchainManager {
         }
 
         info!(alt_chain = true, "Successfully added block batch");
+        Ok(())
     }
 
     /// Handles an incoming alt [`Block`].
@@ -349,38 +413,50 @@ impl super::BlockchainManager {
     /// This will return an [`Err`] if:
     ///  - The alt block was invalid.
     ///  - An attempt to reorg the chain failed.
-    ///
-    /// # Panics
-    ///
-    /// This function will panic if any internal service returns an unexpected error that we cannot
-    /// recover from.
+    ///  - An internal service returned an unexpected error.
     async fn handle_incoming_alt_block(
         &mut self,
         block: Block,
         prepared_txs: HashMap<[u8; 32], TransactionVerificationData>,
-    ) -> Result<AddAltBlock, anyhow::Error> {
+    ) -> Result<AddAltBlock, HandleBlockError> {
         // Check if a block already exists.
         let BlockchainResponse::FindBlock(chain) = self
             .blockchain_read_handle
             .ready()
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .map_err(|e| CupratedError::Blockchain(anyhow::Error::from_boxed(e)))?
             .call(BlockchainReadRequest::FindBlock(block.hash()))
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .map_err(|e| CupratedError::Blockchain(anyhow::Error::from_boxed(e)))?
         else {
             unreachable!();
         };
 
         match chain {
             Some((Chain::Alt(_), _)) => return Ok(AddAltBlock::AlreadyCached),
-            Some((Chain::Main, _)) => anyhow::bail!("Alt block already in main chain"),
+            Some((Chain::Main, _)) => {
+                return Err(HandleBlockError::Validation(anyhow::anyhow!(
+                    "Alt block already in main chain"
+                )));
+            }
             None => (),
         }
 
-        let alt_block_info =
-            sanity_check_alt_block(block, prepared_txs, self.blockchain_context_service.clone())
-                .await?;
+        let alt_block_info = match sanity_check_alt_block(
+            block,
+            prepared_txs,
+            self.blockchain_context_service.clone(),
+        )
+        .await
+        {
+            Ok(v) => v,
+            Err(ExtendedConsensusError::DBErr(e)) => {
+                return Err(HandleBlockError::Service(CupratedError::Blockchain(
+                    anyhow::Error::from_boxed(e),
+                )));
+            }
+            Err(e) => return Err(HandleBlockError::Validation(e.into())),
+        };
 
         // If this alt chain has more cumulative difficulty, reorg.
         if alt_block_info.cumulative_difficulty
@@ -397,9 +473,10 @@ impl super::BlockchainManager {
         self.blockchain_write_handle
             .ready()
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .map_err(|e| CupratedError::Blockchain(e.into()))?
             .call(BlockchainWriteRequest::WriteAltBlock(alt_block_info))
-            .await?;
+            .await
+            .map_err(|e| CupratedError::Blockchain(e.into()))?;
 
         Ok(AddAltBlock::NewlyCached(block_blob))
     }
@@ -414,28 +491,23 @@ impl super::BlockchainManager {
     ///
     /// This function will return an [`Err`] if the re-org was unsuccessful, if this happens the chain
     /// will be returned back into its state it was at when then function was called.
-    ///
-    /// # Panics
-    ///
-    /// This function will panic if any internal service returns an unexpected error that we cannot
-    /// recover from.
     #[instrument(name = "try_do_reorg", skip_all, level = "info")]
     async fn try_do_reorg(
         &mut self,
         top_alt_block: AltBlockInformation,
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<(), HandleBlockError> {
         let _guard = REORG_LOCK.write().await;
 
         let BlockchainResponse::AltBlocksInChain(mut alt_blocks) = self
             .blockchain_read_handle
             .ready()
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .map_err(|e| CupratedError::Blockchain(anyhow::Error::from_boxed(e)))?
             .call(BlockchainReadRequest::AltBlocksInChain(
                 top_alt_block.chain_id,
             ))
             .await
-            .map_err(|e| anyhow::anyhow!(e))?
+            .map_err(|e| CupratedError::Blockchain(anyhow::Error::from_boxed(e)))?
         else {
             unreachable!();
         };
@@ -452,7 +524,7 @@ impl super::BlockchainManager {
 
         let old_main_chain_id = self
             .pop_blocks(current_main_chain_height - split_height)
-            .await;
+            .await?;
 
         let reorg_res = self.verify_add_alt_blocks_to_main_chain(alt_blocks).await;
 
@@ -469,7 +541,7 @@ impl super::BlockchainManager {
                 Ok(())
             }
             Err(e) => {
-                self.reverse_reorg(old_main_chain_id).await;
+                self.reverse_reorg(old_main_chain_id).await?;
                 Err(e)
             }
         }
@@ -480,22 +552,22 @@ impl super::BlockchainManager {
     /// This function takes the old chain's [`ChainId`] and reverts the chain state to back to before
     /// the reorg was attempted.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// This function will panic if any internal service returns an unexpected error that we cannot
-    /// recover from.
+    /// This function will return an error if any internal service returns an unexpected error that
+    /// we cannot recover from.
     #[instrument(name = "reverse_reorg", skip_all, level = "info")]
-    async fn reverse_reorg(&mut self, old_main_chain_id: ChainId) {
+    async fn reverse_reorg(&mut self, old_main_chain_id: ChainId) -> Result<(), CupratedError> {
         warn!("Reorg failed, reverting to old chain.");
 
         let BlockchainResponse::AltBlocksInChain(mut blocks) = self
             .blockchain_read_handle
             .ready()
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .map_err(|e| CupratedError::Blockchain(anyhow::Error::from_boxed(e)))?
             .call(BlockchainReadRequest::AltBlocksInChain(old_main_chain_id))
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .map_err(|e| CupratedError::Blockchain(anyhow::Error::from_boxed(e)))?
         else {
             unreachable!();
         };
@@ -510,7 +582,7 @@ impl super::BlockchainManager {
 
         if numb_blocks > 0 {
             self.pop_blocks(current_main_chain_height - split_height)
-                .await;
+                .await?;
         }
 
         for block in blocks {
@@ -518,38 +590,39 @@ impl super::BlockchainManager {
                 block,
                 self.blockchain_context_service.blockchain_context(),
             );
-            self.add_valid_block_to_main_chain(verified_block).await;
+            self.add_valid_block_to_main_chain(verified_block).await?;
         }
 
         self.blockchain_write_handle
             .ready()
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .map_err(|e| CupratedError::Blockchain(e.into()))?
             .call(BlockchainWriteRequest::FlushAltBlocks)
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+            .map_err(|e| CupratedError::Blockchain(e.into()))?;
 
         info!("Successfully reversed reorg");
+        Ok(())
     }
 
     /// Pop blocks from the main chain, moving them to alt-blocks. This function will flush all other alt-blocks.
     ///
     /// This returns the [`ChainId`] of the blocks that were popped.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// This function will panic if any internal service returns an unexpected error that we cannot
-    /// recover from.
+    /// This function will return an error if any internal service returns an unexpected error that
+    /// we cannot recover from.
     #[instrument(name = "pop_blocks", skip(self), level = "info")]
-    async fn pop_blocks(&mut self, numb_blocks: usize) -> ChainId {
+    async fn pop_blocks(&mut self, numb_blocks: usize) -> Result<ChainId, CupratedError> {
         let BlockchainResponse::PopBlocks(old_main_chain_id) = self
             .blockchain_write_handle
             .ready()
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .map_err(|e| CupratedError::Blockchain(e.into()))?
             .call(BlockchainWriteRequest::PopBlocks(numb_blocks))
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .map_err(|e| CupratedError::Blockchain(e.into()))?
         else {
             unreachable!();
         };
@@ -557,12 +630,12 @@ impl super::BlockchainManager {
         self.blockchain_context_service
             .ready()
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .map_err(|e| CupratedError::Blockchain(anyhow::Error::from_boxed(e)))?
             .call(BlockChainContextRequest::PopBlocks { numb_blocks })
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+            .map_err(|e| CupratedError::Blockchain(anyhow::Error::from_boxed(e)))?;
 
-        old_main_chain_id
+        Ok(old_main_chain_id)
     }
 
     /// Verify and add a list of [`AltBlockInformation`]s to the main-chain.
@@ -573,36 +646,43 @@ impl super::BlockchainManager {
     ///
     /// # Errors
     ///
-    /// This function will return an [`Err`] if the alt-blocks were invalid, in this case the re-org should
+    /// This function will return an [`Err`] if any internal service returns an unexpected error that we cannot
+    /// recover from, or if the alt-blocks were invalid. In this case the re-org should
     /// be aborted and the chain should be returned to its previous state.
-    ///
-    /// # Panics
-    ///
-    /// This function will panic if any internal service returns an unexpected error that we cannot
-    /// recover from.
     async fn verify_add_alt_blocks_to_main_chain(
         &mut self,
         alt_blocks: Vec<AltBlockInformation>,
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<(), HandleBlockError> {
         for mut alt_block in alt_blocks {
             let prepped_txs = alt_block
                 .txs
                 .drain(..)
                 .map(|tx| Ok(tx.try_into()?))
-                .collect::<Result<_, anyhow::Error>>()?;
+                .collect::<Result<_, anyhow::Error>>()
+                .map_err(HandleBlockError::Validation)?;
 
-            let prepped_block = PreparedBlock::new_alt_block(alt_block)?;
+            let prepped_block =
+                PreparedBlock::new_alt_block(alt_block).map_err(HandleBlockError::Validation)?;
 
-            let verified_block = verify_prepped_main_chain_block(
+            let verified_block = match verify_prepped_main_chain_block(
                 prepped_block,
                 prepped_txs,
                 &mut self.blockchain_context_service,
                 self.blockchain_read_handle.clone(),
                 None,
             )
-            .await?;
+            .await
+            {
+                Ok(v) => v,
+                Err(ExtendedConsensusError::DBErr(e)) => {
+                    return Err(HandleBlockError::Service(CupratedError::Blockchain(
+                        anyhow::Error::from_boxed(e),
+                    )));
+                }
+                Err(e) => return Err(HandleBlockError::Validation(e.into())),
+            };
 
-            self.add_valid_block_to_main_chain(verified_block).await;
+            self.add_valid_block_to_main_chain(verified_block).await?;
         }
 
         Ok(())
@@ -612,14 +692,14 @@ impl super::BlockchainManager {
     ///
     /// This function will update the blockchain database and the context cache.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// This function will error if any internal service returns an unexpected error that we cannot
     /// recover from.
     pub async fn add_valid_block_to_main_chain(
         &mut self,
         verified_block: VerifiedBlockInformation,
-    ) {
+    ) -> Result<(), CupratedError> {
         // FIXME: this is pretty inefficient, we should probably return the KI map created in the consensus crate.
         let spent_key_images = verified_block
             .txs
@@ -633,36 +713,37 @@ impl super::BlockchainManager {
             .collect::<Vec<[u8; 32]>>();
 
         self.add_valid_block_to_blockchain_cache(&verified_block)
-            .await;
+            .await?;
 
         self.blockchain_write_handle
             .ready()
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .map_err(|e| CupratedError::Blockchain(e.into()))?
             .call(BlockchainWriteRequest::WriteBlock(verified_block))
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+            .map_err(|e| CupratedError::Blockchain(e.into()))?;
 
         self.txpool_manager_handle
             .new_block(spent_key_images)
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+            .await?;
+
+        Ok(())
     }
 
     /// Adds a [`VerifiedBlockInformation`] to the blockchain context cache.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// This function will error if any internal service returns an unexpected error that we cannot
     /// recover from.
     async fn add_valid_block_to_blockchain_cache(
         &mut self,
         verified_block: &VerifiedBlockInformation,
-    ) {
+    ) -> Result<(), CupratedError> {
         self.blockchain_context_service
             .ready()
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .map_err(|e| CupratedError::Blockchain(anyhow::Error::from_boxed(e)))?
             .call(BlockChainContextRequest::Update(NewBlockData {
                 block_hash: verified_block.block_hash,
                 height: verified_block.height,
@@ -674,28 +755,32 @@ impl super::BlockchainManager {
                 cumulative_difficulty: verified_block.cumulative_difficulty,
             }))
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+            .map_err(|e| CupratedError::Blockchain(anyhow::Error::from_boxed(e)))?;
+
+        Ok(())
     }
 
     /// Batch writes the [`VerifiedBlockInformation`]s to the database.
     ///
     /// The blocks must be sequential.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// This function will error if any internal service returns an unexpected error that we cannot
     /// recover from.
     async fn batch_add_valid_block_to_blockchain_database(
         &mut self,
         blocks: Vec<VerifiedBlockInformation>,
-    ) {
+    ) -> Result<(), CupratedError> {
         self.blockchain_write_handle
             .ready()
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .map_err(|e| CupratedError::Blockchain(e.into()))?
             .call(BlockchainWriteRequest::BatchWriteBlocks(blocks))
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+            .map_err(|e| CupratedError::Blockchain(e.into()))?;
+
+        Ok(())
     }
 }
 
