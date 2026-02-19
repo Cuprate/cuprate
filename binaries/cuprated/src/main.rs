@@ -41,12 +41,13 @@ mod blockchain;
 mod commands;
 mod config;
 mod constants;
+mod error;
 mod logging;
-mod monitor;
 mod p2p;
 mod rpc;
 mod signals;
 mod statics;
+mod supervisor;
 mod tor;
 mod txpool;
 mod version;
@@ -96,9 +97,9 @@ fn main() {
     // Initialize async tasks.
 
     rt.block_on(async move {
-        // Create the monitor and task handle, spawn signal handlers.
-        let (mut monitor, task) = monitor::new();
-        monitor::spawn_signal_handler(monitor.cancellation_token.clone());
+        // Create the supervisor and task handle, spawn signal handlers.
+        let (mut supervisor, task) = supervisor::new();
+        supervisor::spawn_signal_handler(supervisor.cancellation_token.clone());
 
         // TODO: Add an argument/option for keeping alt blocks between restart.
         blockchain_write_handle
@@ -134,6 +135,7 @@ fn main() {
             blockchain_read_handle.clone(),
             txpool_read_handle.clone(),
             &tor_context,
+            task.cancellation_token.clone(),
         )
         .await;
 
@@ -206,6 +208,7 @@ fn main() {
                     blockchain_read_handle,
                     txpool_read_handle,
                     tor_context,
+                    cancellation_token.clone(),
                 )
                 .await;
 
@@ -238,16 +241,10 @@ fn main() {
         } else {
             info!("Terminal/TTY not detected, disabling STDIN commands");
         }
-        // Wait for shutdown signal or task error.
-        tokio::select! {
-            () = monitor.cancellation_token.cancelled() => {}
-            Ok(()) = monitor.error_watch.changed() => {
-                tracing::error!("Error detected, initiating graceful shutdown.");
-                monitor::trigger_shutdown(&monitor.cancellation_token);
-            }
-        }
-        monitor.task_tracker.close();
-        monitor.task_tracker.wait().await;
+        // Wait for shutdown (signal, command, or critical task failure).
+        supervisor.cancellation_token.cancelled().await;
+        supervisor.task_tracker.close();
+        supervisor.task_tracker.wait().await;
     });
     drop(rt);
     info!("Shutdown complete.");

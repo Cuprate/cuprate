@@ -15,7 +15,6 @@ use cuprate_consensus_context::{
 use cuprate_helper::time::secs_to_hms;
 
 use crate::{
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
     logging::{self, CupratedTracingFilter},
     statics,
 };
@@ -158,7 +157,7 @@ pub async fn io_loop(
                 }
             }
             Command::Exit => {
-                crate::monitor::trigger_shutdown(&shutdown_token);
+                crate::supervisor::trigger_shutdown(&shutdown_token);
                 break;
             }
         }

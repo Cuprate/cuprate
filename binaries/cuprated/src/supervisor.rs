@@ -1,14 +1,15 @@
-use std::time::Duration;
+use std::future::Future;
 
-use tokio::sync::watch;
+use tokio::task::JoinHandle;
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tracing::info;
 
-/// Owned by `main`. Used to wait for all tracked tasks after cancellation.
-pub struct CupratedMonitor {
+use crate::error::CupratedError;
+
+/// Used to wait for all tracked tasks after cancellation.
+pub struct CupratedSupervisor {
     pub task_tracker: TaskTracker,
     pub cancellation_token: CancellationToken,
-    pub error_watch: watch::Receiver<bool>,
 }
 
 /// A cloneable handle passed to tasks for spawning sub-tasks.
@@ -16,27 +17,41 @@ pub struct CupratedMonitor {
 pub struct CupratedTask {
     pub task_tracker: TaskTracker,
     pub cancellation_token: CancellationToken,
-    pub error_set: watch::Sender<bool>,
 }
 
-/// Create a new [`CupratedMonitor`] and [`CupratedTask`] pair.
+impl CupratedTask {
+    /// Spawn a task whose failure triggers a graceful shutdown.
+    pub fn spawn_critical<F>(&self, fut: F) -> JoinHandle<Result<(), CupratedError>>
+    where
+        F: Future<Output = Result<(), CupratedError>> + Send + 'static,
+    {
+        let token = self.cancellation_token.clone();
+        self.task_tracker.spawn(async move {
+            let result = fut.await;
+            if let Err(ref e) = result {
+                tracing::error!("{e}");
+                trigger_shutdown(&token);
+            }
+            result
+        })
+    }
+}
+
+/// Create a new [`CupratedSupervisor`] and [`CupratedTask`] pair.
 ///
 /// Must be called exactly once at startup.
-pub fn new() -> (CupratedMonitor, CupratedTask) {
-    let (error_set, error_watch) = watch::channel(false);
+pub fn new() -> (CupratedSupervisor, CupratedTask) {
     let task_tracker = TaskTracker::new();
     let cancellation_token = CancellationToken::new();
 
     (
-        CupratedMonitor {
+        CupratedSupervisor {
             task_tracker: task_tracker.clone(),
             cancellation_token: cancellation_token.clone(),
-            error_watch,
         },
         CupratedTask {
             task_tracker,
             cancellation_token,
-            error_set,
         },
     )
 }
@@ -51,8 +66,10 @@ pub fn trigger_shutdown(token: &CancellationToken) {
 pub fn spawn_signal_handler(token: CancellationToken) {
     tokio::spawn(async move {
         shutdown_signal().await;
+        eprintln!();
         trigger_shutdown(&token);
         shutdown_signal().await;
+        eprintln!();
         std::process::exit(1);
     });
 }
