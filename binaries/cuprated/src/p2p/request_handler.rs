@@ -13,6 +13,7 @@ use futures::{
 use monero_oxide::{block::Block, transaction::Transaction};
 use tokio::sync::{broadcast, oneshot, watch};
 use tokio_stream::wrappers::WatchStream;
+use tokio_util::sync::CancellationToken;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
@@ -47,8 +48,8 @@ use cuprate_wire::protocol::{
 
 use crate::{
     blockchain::interface::{self as blockchain_interface, IncomingBlockError},
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
     p2p::CrossNetworkInternalPeerId,
+    supervisor,
     txpool::{IncomingTxError, IncomingTxHandler, IncomingTxs},
 };
 
@@ -58,6 +59,7 @@ pub struct P2pProtocolRequestHandlerMaker {
     pub blockchain_read_handle: BlockchainReadHandle,
     pub blockchain_context_service: BlockchainContextService,
     pub txpool_read_handle: TxpoolReadHandle,
+    pub shutdown_token: CancellationToken,
 
     /// The [`IncomingTxHandler`], wrapped in an [`Option`] as there is a cyclic reference between [`P2pProtocolRequestHandlerMaker`]
     /// and the [`IncomingTxHandler`].
@@ -105,6 +107,7 @@ where
             blockchain_context_service: self.blockchain_context_service.clone(),
             txpool_read_handle,
             incoming_tx_handler,
+            shutdown_token: self.shutdown_token.clone(),
         }))
     }
 }
@@ -117,6 +120,7 @@ pub struct P2pProtocolRequestHandler<N: NetZoneAddress> {
     blockchain_context_service: BlockchainContextService,
     txpool_read_handle: TxpoolReadHandle,
     incoming_tx_handler: IncomingTxHandler,
+    shutdown_token: CancellationToken,
 }
 
 impl<A: NetZoneAddress> Service<ProtocolRequest> for P2pProtocolRequestHandler<A>
@@ -152,6 +156,7 @@ where
                 self.blockchain_read_handle.clone(),
                 self.blockchain_context_service.clone(),
                 self.txpool_read_handle.clone(),
+                self.shutdown_token.clone(),
             )
             .boxed(),
             ProtocolRequest::NewTransactions(r) => new_transactions(
@@ -159,6 +164,7 @@ where
                 r,
                 self.blockchain_context_service.clone(),
                 self.incoming_tx_handler.clone(),
+                self.shutdown_token.clone(),
             )
             .boxed(),
             ProtocolRequest::GetTxPoolCompliment(_) => ready(Ok(ProtocolResponse::NA)).boxed(), // TODO: should we support this?
@@ -301,6 +307,7 @@ async fn new_fluffy_block<A: NetZoneAddress>(
     mut blockchain_read_handle: BlockchainReadHandle,
     mut blockchain_context_service: BlockchainContextService,
     mut txpool_read_handle: TxpoolReadHandle,
+    shutdown_token: CancellationToken,
 ) -> anyhow::Result<ProtocolResponse> {
     let current_blockchain_height = request.current_blockchain_height;
 
@@ -369,6 +376,10 @@ async fn new_fluffy_block<A: NetZoneAddress>(
             // Block's parent was unknown, could be syncing?
             Ok(ProtocolResponse::NA)
         }
+        Err(IncomingBlockError::Service(e)) => {
+            supervisor::trigger_shutdown(&shutdown_token);
+            Err(e)
+        }
         Err(e) => Err(e.into()),
     }
 }
@@ -380,6 +391,7 @@ async fn new_transactions<A>(
     request: NewTransactions,
     mut blockchain_context_service: BlockchainContextService,
     mut incoming_tx_handler: IncomingTxHandler,
+    shutdown_token: CancellationToken,
 ) -> anyhow::Result<ProtocolResponse>
 where
     A: NetZoneAddress,
@@ -417,10 +429,15 @@ where
     // Drop all the data except the stuff we still need.
     let NewTransactions { txs, .. } = request;
 
-    let res = incoming_tx_handler
-        .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+    let ready = match incoming_tx_handler.ready().await {
+        Ok(r) => r,
+        Err(e) => {
+            supervisor::trigger_shutdown(&shutdown_token);
+            return Err(anyhow::Error::from(e));
+        }
+    };
+
+    let res = ready
         .call(IncomingTxs {
             txs,
             state,
@@ -431,6 +448,10 @@ where
 
     match res {
         Ok(()) => Ok(ProtocolResponse::NA),
+        Err(IncomingTxError::Internal(e)) => {
+            supervisor::trigger_shutdown(&shutdown_token);
+            Err(e)
+        }
         Err(e) => Err(e.into()),
     }
 }
