@@ -6,7 +6,7 @@ use std::{
     num::NonZero,
 };
 
-use anyhow::Error;
+use anyhow::{anyhow, Error};
 use monero_oxide::transaction::Transaction;
 use tower::{Service, ServiceExt};
 
@@ -31,10 +31,10 @@ pub async fn backlog(txpool_read: &mut TxpoolReadHandle) -> Result<Vec<TxEntry>,
     let TxpoolReadResponse::Backlog(tx_entries) = txpool_read
         .ready()
         .await
-        .map_err(Error::from)?
+        .map_err(|e| anyhow!(e))?
         .call(TxpoolReadRequest::Backlog)
         .await
-        .map_err(Error::from)?
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };
@@ -50,12 +50,12 @@ pub async fn size(
     let TxpoolReadResponse::Size(size) = txpool_read
         .ready()
         .await
-        .map_err(Error::from)?
+        .map_err(|e| anyhow!(e))?
         .call(TxpoolReadRequest::Size {
             include_sensitive_txs,
         })
         .await
-        .map_err(Error::from)?
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };
@@ -73,14 +73,14 @@ pub async fn pool_info(
     let TxpoolReadResponse::PoolInfo(pool_info) = txpool_read
         .ready()
         .await
-        .map_err(Error::from)?
+        .map_err(|e| anyhow!(e))?
         .call(TxpoolReadRequest::PoolInfo {
             include_sensitive_txs,
             max_tx_count,
             start_time,
         })
         .await
-        .map_err(Error::from)?
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };
@@ -97,13 +97,13 @@ pub async fn txs_by_hash(
     let TxpoolReadResponse::TxsByHash(txs_in_pool) = txpool_read
         .ready()
         .await
-        .map_err(Error::from)?
+        .map_err(|e| anyhow!(e))?
         .call(TxpoolReadRequest::TxsByHash {
             tx_hashes,
             include_sensitive_txs,
         })
         .await
-        .map_err(Error::from)?
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };
@@ -120,13 +120,13 @@ pub async fn key_images_spent(
     let TxpoolReadResponse::KeyImagesSpent(status) = txpool_read
         .ready()
         .await
-        .map_err(Error::from)?
+        .map_err(|e| anyhow!(e))?
         .call(TxpoolReadRequest::KeyImagesSpent {
             key_images,
             include_sensitive_txs,
         })
         .await
-        .map_err(Error::from)?
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };
@@ -143,13 +143,13 @@ pub async fn key_images_spent_vec(
     let TxpoolReadResponse::KeyImagesSpentVec(status) = txpool_read
         .ready()
         .await
-        .map_err(Error::from)?
+        .map_err(|e| anyhow!(e))?
         .call(TxpoolReadRequest::KeyImagesSpentVec {
             key_images,
             include_sensitive_txs,
         })
         .await
-        .map_err(Error::from)?
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };
@@ -168,12 +168,12 @@ pub async fn pool(
     } = txpool_read
         .ready()
         .await
-        .map_err(Error::from)?
+        .map_err(|e| anyhow!(e))?
         .call(TxpoolReadRequest::Pool {
             include_sensitive_txs,
         })
         .await
-        .map_err(Error::from)?
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };
@@ -192,12 +192,12 @@ pub async fn pool_stats(
     let TxpoolReadResponse::PoolStats(txpool_stats) = txpool_read
         .ready()
         .await
-        .map_err(Error::from)?
+        .map_err(|e| anyhow!(e))?
         .call(TxpoolReadRequest::PoolStats {
             include_sensitive_txs,
         })
         .await
-        .map_err(Error::from)?
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };
@@ -213,12 +213,12 @@ pub async fn all_hashes(
     let TxpoolReadResponse::AllHashes(hashes) = txpool_read
         .ready()
         .await
-        .map_err(Error::from)?
+        .map_err(|e| anyhow!(e))?
         .call(TxpoolReadRequest::AllHashes {
             include_sensitive_txs,
         })
         .await
-        .map_err(Error::from)?
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };
@@ -234,10 +234,10 @@ pub async fn txs_for_block(
     let TxpoolReadResponse::TxsForBlock { txs, missing } = txpool_read
         .ready()
         .await
-        .map_err(Error::from)?
+        .map_err(|e| anyhow!(e))?
         .call(TxpoolReadRequest::TxsForBlock(tx_hashes))
         .await
-        .map_err(Error::from)?
+        .map_err(|e| anyhow!(e))?
     else {
         unreachable!();
     };

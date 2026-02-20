@@ -325,10 +325,10 @@ async fn prepare_incoming_txs(
     } = txpool_read_handle
         .ready()
         .await
-        .map_err(IncomingTxError::Internal)?
+        .map_err(|e| IncomingTxError::Internal(e.into()))?
         .call(TxpoolReadRequest::FilterKnownTxBlobHashes(tx_blob_hashes))
         .await
-        .map_err(IncomingTxError::Internal)?
+        .map_err(|e| IncomingTxError::Internal(e.into()))?
     else {
         unreachable!()
     };
@@ -373,7 +373,7 @@ async fn rerelay_stem_tx(
     let tx_blob = match txpool_read_handle
         .ready()
         .await
-        .map_err(IncomingTxError::Internal)?
+        .map_err(|e| IncomingTxError::Internal(e.into()))?
         .call(TxpoolReadRequest::TxBlob(*tx_hash))
         .await
     {
@@ -402,10 +402,10 @@ async fn rerelay_stem_tx(
     dandelion_pool_manager
         .ready()
         .await
-        .map_err(IncomingTxError::Internal)?
+        .map_err(|e| IncomingTxError::Internal(e.into()))?
         .call(incoming_tx)
         .await
-        .map_err(IncomingTxError::Internal)?;
+        .map_err(|e| IncomingTxError::Internal(e.into()))?;
 
     Ok(())
 }

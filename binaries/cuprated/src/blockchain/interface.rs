@@ -99,10 +99,10 @@ pub async fn handle_incoming_block(
     let TxpoolReadResponse::TxsForBlock { mut txs, missing } = txpool_read_handle
         .ready()
         .await
-        .map_err(IncomingBlockError::Service)?
+        .map_err(|e| IncomingBlockError::Service(e.into()))?
         .call(TxpoolReadRequest::TxsForBlock(block.transactions.clone()))
         .await
-        .map_err(IncomingBlockError::Service)?
+        .map_err(|e| IncomingBlockError::Service(e.into()))?
     else {
         unreachable!()
     };
@@ -163,11 +163,11 @@ pub async fn handle_incoming_block(
             response_tx,
         })
         .await
-        .map_err(IncomingBlockError::Service)?;
+        .map_err(|e| IncomingBlockError::Service(e.into()))?;
 
     response_rx
         .await
-        .map_err(IncomingBlockError::Service)?
+        .map_err(|e| IncomingBlockError::Service(e.into()))?
         .map_err(IncomingBlockError::InvalidBlock)
 }
 

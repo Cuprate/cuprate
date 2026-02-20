@@ -661,8 +661,8 @@ impl super::BlockchainManager {
                 .collect::<Result<_, anyhow::Error>>()
                 .map_err(HandleBlockError::Validation)?;
 
-            let prepped_block =
-                PreparedBlock::new_alt_block(alt_block).map_err(HandleBlockError::Validation)?;
+            let prepped_block = PreparedBlock::new_alt_block(alt_block)
+                .map_err(|e| HandleBlockError::Validation(e.into()))?;
 
             let verified_block = match verify_prepped_main_chain_block(
                 prepped_block,
