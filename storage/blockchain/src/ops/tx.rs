@@ -1,6 +1,5 @@
 //! Transaction functions.
 
-use std::arch::x86_64::_t1mskc_u32;
 use std::collections::HashMap;
 //---------------------------------------------------------------------------------------------------- Import
 use std::io::Read;
