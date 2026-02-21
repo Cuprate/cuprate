@@ -1,7 +1,7 @@
 //! Transaction writing ops.
 //!
 //! This module handles writing full transaction data, like removing or adding a transaction.
-use monero_oxide::transaction::{Pruned, Transaction};
+use monero_oxide::transaction::{NotPruned, Pruned, Transaction};
 
 use cuprate_helper::time::current_unix_timestamp;
 use cuprate_types::TransactionVerificationData;

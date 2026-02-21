@@ -332,7 +332,7 @@ pub fn pop_block(
     // to form a `Block`, such that we can remove the associated transactions
     // later.
 
-    let block = get_block(&block_height, tapes, db)?;
+    let block = get_block(&block_height, Some(&block_info), tapes, db).unwrap();
     //------------------------------------------------------ Transaction / Outputs / Key Images
     remove_tx_from_dynamic_tables(
         db,
@@ -647,12 +647,16 @@ pub fn get_block_extended_header_top(
 #[inline]
 pub fn get_block(
     block_height: &BlockHeight,
+    blocks_info: Option<&BlockInfo>,
     tapes: &impl tapes::TapesRead,
     db: &BlockchainDatabase,
 ) -> DbResult<Block> {
-    let block_info = tapes
-        .read_entry(&db.block_infos, *block_height as u64)?
-        .ok_or(BlockchainError::NotFound)?;
+    let block_info = match blocks_info {
+        Some(blocks_info) => *blocks_info,
+        None => tapes
+            .read_entry(&db.block_infos, *block_height as u64)?
+            .ok_or(BlockchainError::NotFound)?,
+    };
 
     let pruned_end_blob_idx =
         match tapes.read_entry(&db.tx_infos, block_info.mining_tx_index + 1)? {
@@ -691,6 +695,7 @@ pub fn get_block_by_hash(
 
     get_block(
         &usize::from_le_bytes(block_height.as_ref().try_into().unwrap()),
+        None,
         tapes,
         db,
     )

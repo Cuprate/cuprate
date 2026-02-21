@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
-use serde::{Deserialize, Serialize};
-
-use cuprate_helper::fs::CUPRATE_DATA_DIR;
-
 use super::macros::config_struct;
+use crate::config::default::DefaultOrCustom;
+use cuprate_blockchain::config::CacheSizes;
+use cuprate_helper::fs::CUPRATE_DATA_DIR;
+use serde::{Deserialize, Serialize};
 
 config_struct! {
     /// The storage config.
@@ -21,6 +21,9 @@ config_struct! {
         /// Examples     | 1, 16, 10
         pub reader_threads: usize,
 
+        /// Test
+        pub fjall_cache_size: DefaultOrCustom<u64>,
+
         #[child = true]
         /// The tx-pool config.
         pub txpool: TxpoolConfig,
@@ -35,6 +38,7 @@ impl Default for StorageConfig {
     fn default() -> Self {
         Self {
             reader_threads: cuprate_helper::thread::threads_25().get(),
+            fjall_cache_size: DefaultOrCustom::Default,
             txpool: Default::default(),
             blockchain: Default::default(),
         }
@@ -42,11 +46,6 @@ impl Default for StorageConfig {
 }
 
 config_struct! {
-    /// The blockchain config.
-    #[derive(Default, Debug, Deserialize, Serialize, PartialEq, Eq)]
-    #[serde(deny_unknown_fields, default)]
-    pub struct BlockchainConfig { }
-
     /// The tx-pool config.
     #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
@@ -66,6 +65,17 @@ config_struct! {
         /// Examples     | 100_000_000, 50_000_000
         pub maximum_age_secs: u64,
     }
+}
+
+config_struct! {
+    /// The blockchain config.
+    #[derive(Default, Debug, Deserialize, Serialize, PartialEq, Eq)]
+    #[serde(deny_unknown_fields, default)]
+    pub struct BlockchainConfig {
+        /// Test
+        pub tapes_chache_sizes: CacheSizes,
+    }
+
 }
 
 impl Default for TxpoolConfig {

@@ -177,7 +177,7 @@ const_format          = { version = "0.2", default-features = false }
 curve25519-dalek      = { version = "4", default-features = false }
 dashmap               = { version = "6", default-features = false }
 dirs                  = { version = "6", default-features = false }
-fjall                 = { version = "3.0.1", default-features = false }
+fjall                 = { version = "3.0.2", default-features = false }
 futures               = { version = "0.3", default-features = false }
 hex                   = { version = "0.4", default-features = false }
 hex-literal           = { version = "1", default-features = false }

@@ -51,7 +51,9 @@ use cuprate_helper::{
     network::Network,
 };
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields, default))]
 pub struct CacheSizes {
     pub rct_outputs: u64,
     pub tx_infos: u64,
@@ -59,6 +61,19 @@ pub struct CacheSizes {
     pub pruned_blobs: u64,
     pub v1_prunable_blobs: u64,
     pub prunable_blobs: u64,
+}
+
+impl Default for CacheSizes {
+    fn default() -> Self {
+        Self {
+            rct_outputs: 100 * 1024 * 1024,
+            tx_infos: 1024 * 1024,
+            block_infos: 1024 * 1024,
+            pruned_blobs: 25 * 1024 * 1024,
+            v1_prunable_blobs: 8 * 1024,
+            prunable_blobs: 8 * 1024,
+        }
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Config

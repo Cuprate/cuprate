@@ -8,6 +8,7 @@ use crate::{
 };
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_types::TransactionVerificationData;
+use fjall::PersistMode;
 use futures::channel::oneshot;
 use monero_oxide::transaction::Input;
 use rayon::ThreadPool;

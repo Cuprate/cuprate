@@ -16,7 +16,7 @@ cuprate-helper           = { workspace = true, features = ["fs", "map", "crypto"
 cuprate-types            = { workspace = true, features = ["blockchain"] }
 cuprate-pruning          = { workspace = true }
 
-tapes     = { path = "../../../../RustroverProjects/tapes" }
+tapes     = { git = "https://github.com/Cuprate/Tapes.git", rev = "3d0e169" }
 tracing = { workspace = true }
 bytemuck         = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 monero-oxide     = { workspace = true, features = ["std"] }
@@ -25,6 +25,7 @@ fjall = { workspace = true }
 
 futures = { workspace = true, features = ["std"]}
 
+rand         = { workspace = true, features = ["std"] }
 itertools    = { workspace = true }
 indexmap     = { workspace = true, features = ["rayon", "std"] }
 tower        = { workspace = true }

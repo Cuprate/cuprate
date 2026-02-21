@@ -350,7 +350,7 @@ mod tests {
                     .build();
 
                 let (mut blockchain_read_handle, _, _) =
-                    cuprate_blockchain::service::init(blockchain_config).unwrap();
+                    cuprate_blockchain::service::init_with_pool(blockchain_config).unwrap();
 
 
                 let ret = validate_entries::<ClearNet>(entries, 0, &mut blockchain_read_handle).await.unwrap();

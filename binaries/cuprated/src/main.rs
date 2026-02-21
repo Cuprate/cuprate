@@ -82,8 +82,16 @@ fn main() {
 
     // Start the blockchain & tx-pool databases.
 
+    let mut info = sysinfo::System::new();
+    info.refresh_memory();
+
     let fjall_db = fjall::Database::builder(config.fjall_directory())
-        .cache_size(2 * 1024 * 1024 * 1024)
+        .cache_size(
+            *config
+                .storage
+                .fjall_cache_size
+                .get_value(&(info.total_memory() / 5)),
+        )
         .open()
         .unwrap();
 

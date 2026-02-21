@@ -13,3 +13,12 @@ pub enum DefaultOrCustom<T> {
     #[serde(untagged)]
     Custom(T),
 }
+
+impl<T> DefaultOrCustom<T> {
+    pub fn get_value<'a>(&'a self, default: &'a T) -> &'a T {
+        match self {
+            DefaultOrCustom::Default => default,
+            DefaultOrCustom::Custom(value) => value,
+        }
+    }
+}

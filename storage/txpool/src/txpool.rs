@@ -22,12 +22,12 @@ impl TxpoolDatabase {
                     KvSeparationOptions::default().separation_threshold(3_000),
                 ))
             })?,
-            tx_infos: fjall_database.keyspace("tx_infos", || KeyspaceCreateOptions::default())?,
+            tx_infos: fjall_database.keyspace("tx_infos", KeyspaceCreateOptions::default)?,
             spent_key_images: fjall_database
-                .keyspace("spent_key_images", || KeyspaceCreateOptions::default())?,
+                .keyspace("spent_key_images", KeyspaceCreateOptions::default)?,
             known_blob_hashes: fjall_database
-                .keyspace("known_blob_hashes", || KeyspaceCreateOptions::default())?,
-            metadata: fjall_database.keyspace("metadata", || KeyspaceCreateOptions::default())?,
+                .keyspace("known_blob_hashes", KeyspaceCreateOptions::default)?,
+            metadata: fjall_database.keyspace("metadata", KeyspaceCreateOptions::default)?,
             fjall_database,
             in_progress_key_images: Mutex::new(HashMap::new()),
         };

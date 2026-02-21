@@ -231,13 +231,17 @@ impl BlockchainDatabase {
             Cow::Owned(tx)
         });
 
-        let mut batch = self.fjall_keyspace.batch();
+        let mut batch = self
+            .fjall_keyspace
+            .batch()
+            .durability(Some(PersistMode::Buffer));
         let mut numb_txs = 0;
         for height in 0..tapes_reader
             .fixed_sized_tape_len(&self.block_infos)
             .expect("block_infos tape exists")
         {
-            let block = crate::ops::block::get_block(&(height as usize), &tapes_reader, self)?;
+            let block =
+                crate::ops::block::get_block(&(height as usize), None, &tapes_reader, self)?;
 
             crate::ops::block::add_block_to_dynamic_tables(
                 self,
@@ -251,7 +255,12 @@ impl BlockchainDatabase {
 
             if height % 1000 == 0 {
                 tracing::info!("{} blocks processed", height);
-                let old_batch = std::mem::replace(&mut batch, self.fjall_keyspace.batch());
+                let old_batch = std::mem::replace(
+                    &mut batch,
+                    self.fjall_keyspace
+                        .batch()
+                        .durability(Some(PersistMode::Buffer)),
+                );
 
                 old_batch.commit()?;
             }

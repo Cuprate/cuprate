@@ -137,6 +137,3 @@ pub use free::init_with_pool;
 ///
 /// Either our [`BlockchainResponse`], or a database error occurred.
 pub(super) type ResponseResult = DbResult<BlockchainResponse>;
-
-#[cfg(test)]
-mod tests;

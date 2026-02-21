@@ -1,4 +1,9 @@
 //! cuprated config
+use anyhow::bail;
+use clap::Parser;
+use cuprate_blockchain::config::CacheSizes;
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::{
     fmt,
     fs::{read_to_string, File},
@@ -8,11 +13,6 @@ use std::{
     str::FromStr,
     time::Duration,
 };
-
-use cuprate_blockchain::config::CacheSizes;
-use anyhow::bail;
-use clap::Parser;
-use serde::{Deserialize, Serialize};
 
 use cuprate_consensus::ContextConfig;
 use cuprate_helper::{
@@ -309,14 +309,7 @@ impl Config {
         cuprate_blockchain::config::Config {
             blob_dir: self.fs.fast_data_directory.clone(),
             index_dir: self.fs.slow_data_directory.clone(),
-            cache_sizes: CacheSizes {
-                rct_outputs: 100 * 1024 * 1024,
-                tx_infos: 10 * 1024 * 1024,
-                block_infos: 10 * 1024 * 1024,
-                pruned_blobs: 25 * 1024 * 1024,
-                v1_prunable_blobs: 8 * 1024,
-                prunable_blobs: 8 * 1024,
-            },
+            cache_sizes: self.storage.blockchain.tapes_chache_sizes.clone(),
         }
     }
 

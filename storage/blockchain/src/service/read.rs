@@ -40,6 +40,7 @@ use thread_local::ThreadLocal;
 use tower::Service;
 
 use crate::error::{BlockchainError, DbResult};
+use crate::ops::alt_block::{get_alt_block, get_alt_chain_history_ranges};
 use crate::ops::output::get_num_outputs_with_amount;
 use crate::ops::tx::get_tx_blob_from_id;
 use crate::types::{BlockInfo, RctOutput, TxInfo};
@@ -677,11 +678,12 @@ fn key_images_spent(db: &BlockchainDatabase, key_images: HashSet<KeyImage>) -> R
         // `Err` => an error was found, return early
         //
         // Else, `Ok(false)` will continue the iterator.
-        .find(|result| !matches!(result, Ok(true)))
+        .find(|result| !matches!(result, Ok(false)))
     {
-        None | Some(Ok(false)) => Ok(BlockchainResponse::KeyImagesSpent(false)), // Key image was NOT found.
+        None => Ok(BlockchainResponse::KeyImagesSpent(false)), // Key image was NOT found.
         Some(Ok(true)) => Ok(BlockchainResponse::KeyImagesSpent(true)), // Key image was found.
-        Some(Err(e)) => Err(e).expect("TODO"), // A database error occurred.
+        Some(Err(e)) => Err(e).expect("TODO"),                 // A database error occurred.
+        Some(Ok(false)) => unreachable!(),
     }
 }
 
@@ -791,7 +793,7 @@ fn next_chain_entry(
         .ok_or(BlockchainError::NotFound)?;
 
     let first_block_blob = if block_ids.len() >= 2 {
-        Some(get_block(&(first_known_height + 1), &tapes, db)?.serialize())
+        Some(get_block(&(first_known_height + 1), None, &tapes, db)?.serialize())
     } else {
         None
     };
@@ -861,7 +863,7 @@ fn txs_in_block(
         .read_entry(&db.block_infos, block_height as u64)?
         .ok_or(BlockchainError::NotFound)?;
 
-    let block = get_block(&block_height, &tapes, db)?;
+    let block = get_block(&block_height, None, &tapes, db)?;
 
     if block.transactions.len() < missing_txs.len() {
         return Ok(BlockchainResponse::TxsInBlock(None));
@@ -886,11 +888,9 @@ fn txs_in_block(
 
 /// [`BlockchainReadRequest::AltBlocksInChain`]
 fn alt_blocks_in_chain(db: &BlockchainDatabase, chain_id: ChainId) -> ResponseResult {
-    todo!()
-    /*
-    let tx_ro = db.dynamic_tables.read_txn()?;
+    let tx_ro = db.fjall_keyspace.snapshot();
 
-    let tapes = db.linear_tapes.reader().expect("TODO");
+    let tapes = db.linear_tapes.reader();
 
     // Get the history of this alt-chain.
     let history = { get_alt_chain_history_ranges(db, 0..usize::MAX, chain_id, &tx_ro)? };
@@ -920,8 +920,6 @@ fn alt_blocks_in_chain(db: &BlockchainDatabase, chain_id: ChainId) -> ResponseRe
         .collect::<DbResult<_>>()?;
 
     Ok(BlockchainResponse::AltBlocksInChain(blocks))
-
-     */
 }
 
 /// [`BlockchainReadRequest::Block`]
@@ -930,6 +928,7 @@ fn block(db: &BlockchainDatabase, block_height: BlockHeight) -> ResponseResult {
 
     Ok(BlockchainResponse::Block(get_block(
         &block_height,
+        None,
         &tapes,
         db,
     )?))
@@ -1003,23 +1002,25 @@ fn total_rct_outputs(db: &BlockchainDatabase) -> ResponseResult {
 
 /// [`BlockchainReadRequest::TxOutputIndexes`]
 fn tx_output_indexes(db: &BlockchainDatabase, tx_hash: &[u8; 32]) -> ResponseResult {
-    todo!()
-    /*
-    let tx_ro = db.dynamic_tables.read_txn()?;
+    let tx_ro = db.fjall_keyspace.snapshot();
+    let tapes = db.linear_tapes.reader();
 
-    let tx_id = db.tx_ids
-        .get(&tx_ro, tx_hash)?
+    let tx_id = tx_ro
+        .get(&db.tx_ids, tx_hash)?
         .ok_or(BlockchainError::NotFound)?;
 
-    let tapes = db.linear_tapes.reader().expect("TODO");
-    let tx_infos = tapes.fixed_sized_tape_slice::<TxInfo>(TX_INFOS);
+    let tx_id = u64::from_le_bytes(tx_id.as_ref().try_into().unwrap());
 
-    let tx_info = tx_infos.get(tx_id).ok_or(BlockchainError::NotFound)?;
+    let tx_info = tapes
+        .read_entry(&db.tx_infos, tx_id)?
+        .ok_or(BlockchainError::NotFound)?;
 
     let o_indexes = if tx_info.rct_output_start_idx == u64::MAX {
-        db.tx_outputs
-            .get(&tx_ro, &tx_id)?
-            .ok_or(BlockchainError::NotFound)?
+        let bytes = tx_ro
+            .get(&db.v1_tx_outputs, tx_id.to_le_bytes())?
+            .ok_or(BlockchainError::NotFound)?;
+
+        bytemuck::pod_collect_to_vec(bytes.as_ref())
     } else {
         (0..tx_info.numb_rct_outputs)
             .map(|i| i as u64 + tx_info.rct_output_start_idx)
@@ -1027,8 +1028,6 @@ fn tx_output_indexes(db: &BlockchainDatabase, tx_hash: &[u8; 32]) -> ResponseRes
     };
 
     Ok(BlockchainResponse::TxOutputIndexes(o_indexes))
-
-     */
 }
 
 /// [`BlockchainReadRequest::OutputDistribution`]

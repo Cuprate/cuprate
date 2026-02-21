@@ -1100,6 +1100,7 @@ dependencies = [
  "monero-oxide",
  "pretty_assertions",
  "proptest",
+ "rand 0.8.5",
  "rayon",
  "serde",
  "tapes",
@@ -1631,6 +1632,7 @@ dependencies = [
  "serde_bytes",
  "serde_json",
  "strum",
+ "sysinfo 0.38.0",
  "tempfile",
  "thiserror 2.0.18",
  "thread_local",
@@ -2215,9 +2217,9 @@ checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 
 [[package]]
 name = "fjall"
-version = "3.0.1"
+version = "3.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f69637c02d38ad1b0f003101d0195a60368130aa17d9ef78b1557d265a22093"
+checksum = "5a2799b4198427a08c774838e44d0b77f677208f19a1927671cd2cd36bb30d69"
 dependencies = [
  "byteorder-lite",
  "byteview",
@@ -3227,9 +3229,9 @@ checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 
 [[package]]
 name = "lsm-tree"
-version = "3.0.1"
+version = "3.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b875f1dfe14f557f805b167fb9b0fc54c5560c7a4bd6ae02535b2846f276a8cb"
+checksum = "86e8d0b8e0cf2531a437788ce94d95570dbaabfe9888db20022c2d5ccec9b221"
 dependencies = [
  "byteorder-lite",
  "byteview",
@@ -5223,6 +5225,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "sysinfo"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe840c5b1afe259a5657392a4dbb74473a14c8db999c3ec2f4ae812e028a94da"
+dependencies = [
+ "libc",
+ "memchr",
+ "ntapi",
+ "objc2-core-foundation",
+ "objc2-io-kit",
+ "windows 0.62.2",
+]
+
+[[package]]
 name = "tap"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5231,6 +5247,7 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 [[package]]
 name = "tapes"
 version = "0.1.0"
+source = "git+https://github.com/Cuprate/Tapes.git?rev=3d0e169#3d0e169d553a918dfb87d58a629d66eda70705f4"
 dependencies = [
  "blake2",
  "borsh",
@@ -6249,7 +6266,7 @@ dependencies = [
  "serde",
  "slotmap-careful",
  "static_assertions",
- "sysinfo",
+ "sysinfo 0.36.1",
  "thiserror 2.0.18",
  "tor-async-utils",
  "tor-basic-utils",

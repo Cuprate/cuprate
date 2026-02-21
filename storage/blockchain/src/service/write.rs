@@ -178,85 +178,40 @@ fn write_blocks(db: &BlockchainDatabase, blocks: &[VerifiedBlockInformation]) ->
         Ok(BlockchainResponse::Ok)
     };
 
-    loop {
-        let result = result();
-
-        return result;
-    }
+    result()
 }
 
 /// [`BlockchainWriteRequest::WriteAltBlock`].
 #[inline]
 fn write_alt_block(db: &BlockchainDatabase, block: &AltBlockInformation) -> ResponseResult {
-    todo!()
-    /*
-    let result = || {
-        let mut tx_rw = db.dynamic_tables.write_txn()?;
+    let mut tx_rw = db.fjall_keyspace.batch();
 
-        crate::ops::alt_block::add_alt_block(db, block, &mut tx_rw)?;
+    crate::ops::alt_block::add_alt_block(db, block, &mut tx_rw)?;
 
-        tx_rw.commit()?;
+    tx_rw.commit()?;
 
-        Ok(BlockchainResponse::Ok)
-    };
-
-    loop {
-        let result = result();
-
-        if matches!(
-            result,
-            Err(BlockchainError::Heed(heed::Error::Mdb(MdbError::MapFull)))
-        ) {
-            todo!();
-            continue;
-        }
-
-        return result;
-    }
-
-     */
+    Ok(BlockchainResponse::Ok)
 }
 
 /// [`BlockchainWriteRequest::PopBlocks`].
 fn pop_blocks(db: &BlockchainDatabase, numb_blocks: usize) -> ResponseResult {
-    todo!()
-    /*
-    // FIXME: turn this function into a try block once stable.
-    let mut result = || {
-        let mut tx_rw = db.dynamic_tables.write_txn()?;
-        let mut tapes = db.linear_tapes.popper();
+    let mut tapes = db.linear_tapes.truncate();
+    let mut tx_rw = db.fjall_keyspace.batch();
 
-        // flush all the current alt blocks as they may reference blocks to be popped.
-        crate::ops::alt_block::flush_alt_blocks(db, &mut tx_rw)?;
+    // flush all the current alt blocks as they may reference blocks to be popped.
+    crate::ops::alt_block::flush_alt_blocks(db)?;
 
-        // generate a `ChainId` for the popped blocks.
-        let old_main_chain_id = ChainId(rand::random());
+    // generate a `ChainId` for the popped blocks.
+    let old_main_chain_id = ChainId(rand::random());
 
-        // pop the blocks
-        for _ in 0..numb_blocks {
-            crate::ops::block::pop_block(db, Some(old_main_chain_id), &mut tx_rw, &mut tapes)?;
-        }
-
-        tx_rw.commit()?;
-        tapes.flush(Flush::NoSync)?;
-        Ok(BlockchainResponse::PopBlocks(old_main_chain_id))
-    };
-
-    loop {
-        let result = result();
-
-        if matches!(
-            result,
-            Err(BlockchainError::Heed(heed::Error::Mdb(MdbError::MapFull)))
-        ) {
-            todo!();
-            continue;
-        }
-
-        return result;
+    // pop the blocks
+    for _ in 0..numb_blocks {
+        crate::ops::block::pop_block(db, Some(old_main_chain_id), &mut tx_rw, &mut tapes)?;
     }
 
-     */
+    tx_rw.commit()?;
+    tapes.commit(Persistence::SyncAll)?;
+    Ok(BlockchainResponse::PopBlocks(old_main_chain_id))
 }
 
 /// [`BlockchainWriteRequest::FlushAltBlocks`].
