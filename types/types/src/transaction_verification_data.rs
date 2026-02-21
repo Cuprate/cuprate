@@ -101,10 +101,13 @@ impl TryFrom<VerifiedTransactionInformation> for TransactionVerificationData {
     type Error = TxConversionError;
 
     fn try_from(value: VerifiedTransactionInformation) -> Result<Self, Self::Error> {
+        let tx_blob = [value.tx_pruned, value.tx_prunable_blob].concat();
+        let tx = Transaction::read(&mut tx_blob.as_slice()).map_err(|_| TxConversionError)?;
+
         Ok(Self {
             version: TxVersion::from_raw(value.tx.version()).ok_or(TxConversionError)?,
-            tx: value.tx,
-            tx_blob: value.tx_blob,
+            tx,
+            tx_blob,
             tx_weight: value.tx_weight,
             fee: value.fee,
             tx_hash: value.tx_hash,

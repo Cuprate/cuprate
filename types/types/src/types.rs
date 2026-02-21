@@ -2,13 +2,13 @@
 
 use std::num::NonZero;
 
+use crate::HardFork;
+use monero_oxide::transaction::Pruned;
 use monero_oxide::{
     block::Block,
     io::CompressedPoint,
     transaction::{Timelock, Transaction},
 };
-
-use crate::HardFork;
 
 /// Extended header data of a block.
 ///
@@ -41,11 +41,11 @@ pub struct ExtendedBlockHeader {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedTransactionInformation {
     /// The transaction itself.
-    pub tx: Transaction,
-    /// The serialized byte form of [`Self::tx`].
-    ///
-    /// [`Transaction::serialize`].
-    pub tx_blob: Vec<u8>,
+    pub tx: Transaction<Pruned>,
+    /// The pruned blob of the transaction.
+    pub tx_pruned: Vec<u8>,
+    /// The prunable blob of the transaction.
+    pub tx_prunable_blob: Vec<u8>,
     /// The transaction's weight.
     ///
     /// [`Transaction::weight`].

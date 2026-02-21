@@ -34,6 +34,9 @@ pub const DEFAULT_CONFIG_WARNING: &str = formatcp!(
 
 pub const DEFAULT_CONFIG_STARTUP_DELAY: Duration = Duration::from_secs(15);
 
+// TODO:
+pub const DATABASE_CORRUPT_MSG: &str = "Failed to initialize database, database may be corrupted";
+
 #[cfg(test)]
 mod test {
     use super::*;

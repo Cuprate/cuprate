@@ -40,6 +40,9 @@
 // actually i still don't trust you. no unsafe.
 #![forbid(unsafe_code)] // if you remove this line i will steal your monero
 
+use std::borrow::Cow;
+use std::cmp::Ordering;
+use std::marker::PhantomData;
 //---------------------------------------------------------------------------------------------------- Import
 use std::num::NonZero;
 
@@ -47,7 +50,6 @@ use bytemuck::{Pod, Zeroable};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use cuprate_database::{Key, StorableVec};
 use cuprate_types::{Chain, ChainId};
 
 //---------------------------------------------------------------------------------------------------- Aliases
@@ -61,16 +63,7 @@ pub type Amount = u64;
 pub type AmountIndex = u64;
 
 /// A list of [`AmountIndex`]s.
-pub type AmountIndices = StorableVec<AmountIndex>;
-
-/// A serialized block.
-pub type BlockBlob = StorableVec<u8>;
-
-/// A serialized block header
-pub type BlockHeaderBlob = StorableVec<u8>;
-
-/// A block transaction hashes
-pub type BlockTxHashes = StorableVec<[u8; 32]>;
+pub type AmountIndices = Vec<AmountIndex>;
 
 /// A block's hash.
 pub type BlockHash = [u8; 32];
@@ -81,17 +74,8 @@ pub type BlockHeight = usize;
 /// A key image.
 pub type KeyImage = [u8; 32];
 
-/// Pruned serialized bytes.
-pub type PrunedBlob = StorableVec<u8>;
-
-/// A prunable serialized bytes.
-pub type PrunableBlob = StorableVec<u8>;
-
 /// A prunable hash.
 pub type PrunableHash = [u8; 32];
-
-/// A serialized transaction.
-pub type TxBlob = StorableVec<u8>;
 
 /// A transaction's global index, or ID.
 pub type TxId = u64;
@@ -101,6 +85,30 @@ pub type TxHash = [u8; 32];
 
 /// The unlock time value of an output.
 pub type UnlockTime = u64;
+
+/// Information on a transaction in the blockchain.
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[repr(C)]
+pub struct TxInfo {
+    /// The height of this transaction.
+    pub height: usize,
+    /// The index of the transactions pruned blob in the pruned tape.
+    pub pruned_blob_idx: u64,
+    /// The index of the transactions prunable blob in the corresponding prunable tape.
+    pub prunable_blob_idx: u64,
+    /// The size of the transactions pruned blob.
+    pub pruned_size: u64,
+    /// The size of th transaction prunable blob.
+    pub prunable_size: u64,
+    /// The index of the first V2 output in this transaction.
+    ///
+    /// will be [`u64::MAX`] for V1 transactions.
+    pub rct_output_start_idx: u64,
+    /// The number of RCT outputs in this transaction.
+    ///
+    /// Undefined for V1 transactions.
+    pub numb_rct_outputs: usize,
+}
 
 //---------------------------------------------------------------------------------------------------- BlockInfoV1
 /// A identifier for a pre-RCT [`Output`].
@@ -150,8 +158,6 @@ pub struct PreRctOutputId {
     pub amount_index: AmountIndex,
 }
 
-impl Key for PreRctOutputId {}
-
 //---------------------------------------------------------------------------------------------------- BlockInfoV3
 /// Block information.
 ///
@@ -186,11 +192,9 @@ impl Key for PreRctOutputId {}
 /// assert_eq!(align_of::<BlockInfo>(), 8);
 /// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable, Default)]
 #[repr(C)]
 pub struct BlockInfo {
-    /// The UNIX time at which the block was mined.
-    pub timestamp: u64,
     /// The total amount of coins mined in all blocks so far, including this block's.
     pub cumulative_generated_coins: u64,
     /// The adjusted block size, in bytes.
@@ -211,40 +215,10 @@ pub struct BlockInfo {
     pub long_term_weight: usize,
     /// [`TxId`] (u64) of the block coinbase transaction.
     pub mining_tx_index: TxId,
-}
 
-//---------------------------------------------------------------------------------------------------- OutputFlags
-bitflags::bitflags! {
-    /// Bit flags for [`Output`]s and [`RctOutput`]s,
-    ///
-    /// Currently only the first bit is used and, if set,
-    /// it means this output has a non-zero unlock time.
-    ///
-    /// ```rust
-    /// # use std::borrow::*;
-    /// # use cuprate_blockchain::{*, types::*};
-    /// use cuprate_database::Storable;
-    ///
-    /// // Assert Storable is correct.
-    /// let a = OutputFlags::NON_ZERO_UNLOCK_TIME;
-    /// let b = Storable::as_bytes(&a);
-    /// let c: OutputFlags = Storable::from_bytes(b);
-    /// assert_eq!(a, c);
-    /// ```
-    ///
-    /// # Size & Alignment
-    /// ```rust
-    /// # use cuprate_blockchain::types::*;
-    /// assert_eq!(size_of::<OutputFlags>(), 4);
-    /// assert_eq!(align_of::<OutputFlags>(), 4);
-    /// ```
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-    #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
-    #[repr(transparent)]
-    pub struct OutputFlags: u32 {
-        /// This output has a non-zero unlock time.
-        const NON_ZERO_UNLOCK_TIME = 0b0000_0001;
-    }
+    pub prunable_blob_idx: u64,
+    pub v1_prunable_blob_idx: u64,
+    pub pruned_blob_idx: u64,
 }
 
 //---------------------------------------------------------------------------------------------------- Output
@@ -282,11 +256,11 @@ pub struct Output {
     /// The block height this output belongs to.
     // PERF: We could get this from the tx_idx with the `TxHeights`
     // table but that would require another look up per out.
-    pub height: u32,
-    /// Bit flags for this output.
-    pub output_flags: OutputFlags,
+    pub height: usize,
+    /// The time lock of this output.
+    pub timelock: u64,
     /// The index of the transaction this output belongs to.
-    pub tx_idx: u64,
+    pub tx_idx: TxId,
 }
 
 //---------------------------------------------------------------------------------------------------- RctOutput
@@ -325,11 +299,11 @@ pub struct RctOutput {
     /// The block height this output belongs to.
     // PERF: We could get this from the tx_idx with the `TxHeights`
     // table but that would require another look up per out.
-    pub height: u32,
-    /// Bit flags for this output, currently only the first bit is used and, if set, it means this output has a non-zero unlock time.
-    pub output_flags: OutputFlags,
+    pub height: usize,
+    /// The time lock of this output.
+    pub timelock: u64,
     /// The index of the transaction this output belongs to.
-    pub tx_idx: u64,
+    pub tx_idx: TxId,
     /// The amount commitment of this output.
     pub commitment: [u8; 32],
 }
@@ -413,7 +387,7 @@ impl From<RawChainId> for RawChain {
 /// ```
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(transparent)]
-pub struct RawChainId(u64);
+pub struct RawChainId(pub(crate) u64);
 
 impl From<ChainId> for RawChainId {
     fn from(value: ChainId) -> Self {
@@ -426,8 +400,6 @@ impl From<RawChainId> for ChainId {
         Self(NonZero::new(value.0).expect("RawChainId cannot have a value of `0`"))
     }
 }
-
-impl Key for RawChainId {}
 
 //---------------------------------------------------------------------------------------------------- AltChainInfo
 /// Information on an alternative chain.
@@ -499,8 +471,6 @@ pub struct AltBlockHeight {
     /// The height of this alt-block.
     pub height: usize,
 }
-
-impl Key for AltBlockHeight {}
 
 //---------------------------------------------------------------------------------------------------- CompactAltBlockInfo
 /// Represents information on an alt-chain.

@@ -5,55 +5,55 @@
     clippy::needless_pass_by_value,
     reason = "TODO: finish implementing the signatures from <https://github.com/Cuprate/cuprate/pull/297>"
 )]
+use crate::error::TxPoolError;
+use crate::txpool::TxpoolDatabase;
+use crate::types::TransactionInfo;
+use crate::{
+    ops::{get_transaction_verification_data, in_stem_pool},
+    service::interface::{TxpoolReadRequest, TxpoolReadResponse},
+    types::{TransactionBlobHash, TransactionHash},
+    TxEntry,
+};
+use cuprate_helper::asynch::InfallibleOneshotReceiver;
+use fjall::Readable;
+use futures::channel::oneshot;
+use rayon::ThreadPool;
+use std::task::{Context, Poll};
 use std::{
     collections::{HashMap, HashSet},
     num::NonZero,
     sync::Arc,
 };
+use tower::Service;
 
-use rayon::ThreadPool;
+#[derive(Clone)]
+pub struct TxpoolReadHandle {
+    pub(crate) pool: Arc<ThreadPool>,
 
-use cuprate_database::{
-    ConcreteEnv, DatabaseIter, DatabaseRo, DbResult, Env, EnvInner, RuntimeError,
-};
-use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
-
-use crate::{
-    ops::{get_transaction_verification_data, in_stem_pool},
-    service::{
-        interface::{TxpoolReadRequest, TxpoolReadResponse},
-        types::{ReadResponseResult, TxpoolReadHandle},
-    },
-    tables::{KnownBlobHashes, OpenTables, TransactionBlobs, TransactionInfos},
-    types::{TransactionBlobHash, TransactionHash},
-    TxEntry,
-};
-
-// TODO: update the docs here
-//---------------------------------------------------------------------------------------------------- init_read_service
-/// Initialize the [`TxpoolReadHandle`] thread-pool backed by `rayon`.
-///
-/// This spawns `threads` amount of reader threads
-/// attached to `env` and returns a handle to the pool.
-///
-/// Should be called _once_ per actual database.
-#[cold]
-#[inline(never)] // Only called once.
-pub(super) fn init_read_service(env: Arc<ConcreteEnv>, threads: ReaderThreads) -> TxpoolReadHandle {
-    init_read_service_with_pool(env, init_thread_pool(threads))
+    pub(crate) txpool: Arc<TxpoolDatabase>,
 }
 
-/// Initialize the [`TxpoolReadHandle`], with a specific rayon thread-pool instead of
-/// creating a new one.
-///
-/// Should be called _once_ per actual database.
-#[cold]
-#[inline(never)] // Only called once.
-pub(super) fn init_read_service_with_pool(
-    env: Arc<ConcreteEnv>,
-    pool: Arc<ThreadPool>,
-) -> TxpoolReadHandle {
-    DatabaseReadService::new(env, pool, map_request)
+impl Service<TxpoolReadRequest> for TxpoolReadHandle {
+    type Response = TxpoolReadResponse;
+    type Error = TxPoolError;
+    type Future = InfallibleOneshotReceiver<Result<Self::Response, Self::Error>>;
+
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, req: TxpoolReadRequest) -> Self::Future {
+        let (tx, rx) = oneshot::channel();
+
+        let db = self.txpool.clone();
+        self.pool.spawn(move || {
+            let res = map_request(&db, req);
+
+            let _ = tx.send(res);
+        });
+
+        InfallibleOneshotReceiver::from(rx)
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Request Mapping
@@ -68,46 +68,46 @@ pub(super) fn init_read_service_with_pool(
 /// 2. Handler function is called
 /// 3. [`TxpoolReadResponse`] is returned
 fn map_request(
-    env: &ConcreteEnv,          // Access to the database
+    db: &TxpoolDatabase,        // Access to the database
     request: TxpoolReadRequest, // The request we must fulfill
-) -> ReadResponseResult {
+) -> Result<TxpoolReadResponse, TxPoolError> {
     match request {
-        TxpoolReadRequest::TxBlob(tx_hash) => tx_blob(env, &tx_hash),
-        TxpoolReadRequest::TxVerificationData(tx_hash) => tx_verification_data(env, &tx_hash),
+        TxpoolReadRequest::TxBlob(tx_hash) => tx_blob(db, &tx_hash),
+        TxpoolReadRequest::TxVerificationData(tx_hash) => tx_verification_data(db, &tx_hash),
         TxpoolReadRequest::FilterKnownTxBlobHashes(blob_hashes) => {
-            filter_known_tx_blob_hashes(env, blob_hashes)
+            filter_known_tx_blob_hashes(db, blob_hashes)
         }
-        TxpoolReadRequest::TxsForBlock(txs_needed) => txs_for_block(env, txs_needed),
-        TxpoolReadRequest::Backlog => backlog(env),
+        TxpoolReadRequest::TxsForBlock(txs_needed) => txs_for_block(db, txs_needed),
+        TxpoolReadRequest::Backlog => backlog(db),
         TxpoolReadRequest::Size {
             include_sensitive_txs,
-        } => size(env, include_sensitive_txs),
+        } => size(db, include_sensitive_txs),
         TxpoolReadRequest::PoolInfo {
             include_sensitive_txs,
             max_tx_count,
             start_time,
-        } => pool_info(env, include_sensitive_txs, max_tx_count, start_time),
+        } => pool_info(db, include_sensitive_txs, max_tx_count, start_time),
         TxpoolReadRequest::TxsByHash {
             tx_hashes,
             include_sensitive_txs,
-        } => txs_by_hash(env, tx_hashes, include_sensitive_txs),
+        } => txs_by_hash(db, tx_hashes, include_sensitive_txs),
         TxpoolReadRequest::KeyImagesSpent {
             key_images,
             include_sensitive_txs,
-        } => key_images_spent(env, key_images, include_sensitive_txs),
+        } => key_images_spent(db, key_images, include_sensitive_txs),
         TxpoolReadRequest::KeyImagesSpentVec {
             key_images,
             include_sensitive_txs,
-        } => key_images_spent_vec(env, key_images, include_sensitive_txs),
+        } => key_images_spent_vec(db, key_images, include_sensitive_txs),
         TxpoolReadRequest::Pool {
             include_sensitive_txs,
-        } => pool(env, include_sensitive_txs),
+        } => pool(db, include_sensitive_txs),
         TxpoolReadRequest::PoolStats {
             include_sensitive_txs,
-        } => pool_stats(env, include_sensitive_txs),
+        } => pool_stats(db, include_sensitive_txs),
         TxpoolReadRequest::AllHashes {
             include_sensitive_txs,
-        } => all_hashes(env, include_sensitive_txs),
+        } => all_hashes(db, include_sensitive_txs),
     }
 }
 
@@ -130,57 +130,57 @@ fn map_request(
 
 /// [`TxpoolReadRequest::TxBlob`].
 #[inline]
-fn tx_blob(env: &ConcreteEnv, tx_hash: &TransactionHash) -> ReadResponseResult {
-    let inner_env = env.env_inner();
-    let tx_ro = inner_env.tx_ro()?;
+fn tx_blob(
+    db: &TxpoolDatabase,
+    tx_hash: &TransactionHash,
+) -> Result<TxpoolReadResponse, TxPoolError> {
+    let snapshot = db.fjall_database.snapshot();
 
-    let tx_blobs_table = inner_env.open_db_ro::<TransactionBlobs>(&tx_ro)?;
-    let tx_infos_table = inner_env.open_db_ro::<TransactionInfos>(&tx_ro)?;
-
-    let tx_blob = tx_blobs_table.get(tx_hash)?.0;
+    let tx_blob = snapshot
+        .get(&db.tx_blobs, tx_hash)?
+        .ok_or(TxPoolError::NotFound)?
+        .to_vec();
 
     Ok(TxpoolReadResponse::TxBlob {
         tx_blob,
-        state_stem: in_stem_pool(tx_hash, &tx_infos_table)?,
+        state_stem: in_stem_pool(tx_hash, &snapshot, db)?,
     })
 }
 
 /// [`TxpoolReadRequest::TxVerificationData`].
 #[inline]
-fn tx_verification_data(env: &ConcreteEnv, tx_hash: &TransactionHash) -> ReadResponseResult {
-    let inner_env = env.env_inner();
-    let tx_ro = inner_env.tx_ro()?;
+fn tx_verification_data(
+    db: &TxpoolDatabase,
+    tx_hash: &TransactionHash,
+) -> Result<TxpoolReadResponse, TxPoolError> {
+    let snapshot = db.fjall_database.snapshot();
 
-    let tables = inner_env.open_tables(&tx_ro)?;
-
-    get_transaction_verification_data(tx_hash, &tables).map(TxpoolReadResponse::TxVerificationData)
+    get_transaction_verification_data(tx_hash, &snapshot, db)
+        .map(TxpoolReadResponse::TxVerificationData)
 }
 
 /// [`TxpoolReadRequest::FilterKnownTxBlobHashes`].
 fn filter_known_tx_blob_hashes(
-    env: &ConcreteEnv,
+    db: &TxpoolDatabase,
     mut blob_hashes: HashSet<TransactionBlobHash>,
-) -> ReadResponseResult {
-    let inner_env = env.env_inner();
-    let tx_ro = inner_env.tx_ro()?;
-
-    let tx_blob_hashes = inner_env.open_db_ro::<KnownBlobHashes>(&tx_ro)?;
-    let tx_infos = inner_env.open_db_ro::<TransactionInfos>(&tx_ro)?;
+) -> Result<TxpoolReadResponse, TxPoolError> {
+    let snapshot = db.fjall_database.snapshot();
 
     let mut stem_pool_hashes = Vec::new();
 
     // A closure that returns `true` if a tx with a certain blob hash is unknown.
     // This also fills in `stem_tx_hashes`.
-    let mut tx_unknown = |blob_hash| -> DbResult<bool> {
-        match tx_blob_hashes.get(&blob_hash) {
-            Ok(tx_hash) => {
-                if in_stem_pool(&tx_hash, &tx_infos)? {
+    let mut tx_unknown = |blob_hash| -> Result<bool, TxPoolError> {
+        match snapshot.get(&db.known_blob_hashes, &blob_hash)? {
+            Some(tx_hash) => {
+                let tx_hash = tx_hash.as_ref().try_into().unwrap();
+
+                if in_stem_pool(&tx_hash, &snapshot, db)? {
                     stem_pool_hashes.push(tx_hash);
                 }
                 Ok(false)
             }
-            Err(RuntimeError::KeyNotFound) => Ok(true),
-            Err(e) => Err(e),
+            None => Ok(true),
         }
     };
 
@@ -204,21 +204,21 @@ fn filter_known_tx_blob_hashes(
 }
 
 /// [`TxpoolReadRequest::TxsForBlock`].
-fn txs_for_block(env: &ConcreteEnv, txs: Vec<TransactionHash>) -> ReadResponseResult {
-    let inner_env = env.env_inner();
-    let tx_ro = inner_env.tx_ro()?;
-
-    let tables = inner_env.open_tables(&tx_ro)?;
+fn txs_for_block(
+    db: &TxpoolDatabase,
+    txs: Vec<TransactionHash>,
+) -> Result<TxpoolReadResponse, TxPoolError> {
+    let snapshot = db.fjall_database.snapshot();
 
     let mut missing_tx_indexes = Vec::with_capacity(txs.len());
     let mut txs_verification_data = HashMap::with_capacity(txs.len());
 
     for (i, tx_hash) in txs.into_iter().enumerate() {
-        match get_transaction_verification_data(&tx_hash, &tables) {
+        match get_transaction_verification_data(&tx_hash, &snapshot, db) {
             Ok(tx) => {
                 txs_verification_data.insert(tx_hash, tx);
             }
-            Err(RuntimeError::KeyNotFound) => missing_tx_indexes.push(i),
+            Err(TxPoolError::NotFound) => missing_tx_indexes.push(i),
             Err(e) => return Err(e),
         }
     }
@@ -231,75 +231,80 @@ fn txs_for_block(env: &ConcreteEnv, txs: Vec<TransactionHash>) -> ReadResponseRe
 
 /// [`TxpoolReadRequest::Backlog`].
 #[inline]
-fn backlog(env: &ConcreteEnv) -> ReadResponseResult {
-    let inner_env = env.env_inner();
-    let tx_ro = inner_env.tx_ro()?;
+fn backlog(db: &TxpoolDatabase) -> Result<TxpoolReadResponse, TxPoolError> {
+    let snapshot = db.fjall_database.snapshot();
 
-    let tx_infos_table = inner_env.open_db_ro::<TransactionInfos>(&tx_ro)?;
-
-    let backlog = tx_infos_table
-        .iter()?
+    let backlog = snapshot
+        .iter(&db.tx_infos)
         .map(|info| {
-            let (id, info) = info?;
+            let (id, tx_info) = info.into_inner()?;
+
+            let tx_info: TransactionInfo = bytemuck::pod_read_unaligned(tx_info.as_ref());
 
             Ok(TxEntry {
-                id,
-                weight: info.weight,
-                fee: info.fee,
-                private: info.flags.private(),
-                received_at: info.received_at,
+                id: id.as_ref().try_into().unwrap(),
+                weight: tx_info.weight,
+                fee: tx_info.fee,
+                private: tx_info.flags.private(),
+                received_at: tx_info.received_at,
             })
         })
-        .collect::<Result<_, RuntimeError>>()?;
+        .collect::<Result<_, TxPoolError>>()?;
 
     Ok(TxpoolReadResponse::Backlog(backlog))
 }
 
 /// [`TxpoolReadRequest::Size`].
 #[inline]
-fn size(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
+fn size(
+    db: &TxpoolDatabase,
+    include_sensitive_txs: bool,
+) -> Result<TxpoolReadResponse, TxPoolError> {
     Ok(TxpoolReadResponse::Size(todo!()))
 }
 
 /// [`TxpoolReadRequest::PoolInfo`].
 fn pool_info(
-    env: &ConcreteEnv,
+    db: &TxpoolDatabase,
     include_sensitive_txs: bool,
     max_tx_count: usize,
     start_time: Option<NonZero<usize>>,
-) -> ReadResponseResult {
+) -> Result<TxpoolReadResponse, TxPoolError> {
     Ok(TxpoolReadResponse::PoolInfo(todo!()))
 }
 
 /// [`TxpoolReadRequest::TxsByHash`].
 fn txs_by_hash(
-    env: &ConcreteEnv,
+    db: &TxpoolDatabase,
     tx_hashes: Vec<[u8; 32]>,
     include_sensitive_txs: bool,
-) -> ReadResponseResult {
+) -> Result<TxpoolReadResponse, TxPoolError> {
     Ok(TxpoolReadResponse::TxsByHash(todo!()))
 }
 
 /// [`TxpoolReadRequest::KeyImagesSpent`].
 fn key_images_spent(
-    env: &ConcreteEnv,
+    db: &TxpoolDatabase,
     key_images: HashSet<[u8; 32]>,
     include_sensitive_txs: bool,
-) -> ReadResponseResult {
+) -> Result<TxpoolReadResponse, TxPoolError> {
     Ok(TxpoolReadResponse::KeyImagesSpent(todo!()))
 }
 
 /// [`TxpoolReadRequest::KeyImagesSpentVec`].
 fn key_images_spent_vec(
-    env: &ConcreteEnv,
+    db: &TxpoolDatabase,
     key_images: Vec<[u8; 32]>,
     include_sensitive_txs: bool,
-) -> ReadResponseResult {
+) -> Result<TxpoolReadResponse, TxPoolError> {
     Ok(TxpoolReadResponse::KeyImagesSpent(todo!()))
 }
 
 /// [`TxpoolReadRequest::Pool`].
-fn pool(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
+fn pool(
+    db: &TxpoolDatabase,
+    include_sensitive_txs: bool,
+) -> Result<TxpoolReadResponse, TxPoolError> {
     Ok(TxpoolReadResponse::Pool {
         txs: todo!(),
         spent_key_images: todo!(),
@@ -307,11 +312,17 @@ fn pool(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
 }
 
 /// [`TxpoolReadRequest::PoolStats`].
-fn pool_stats(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
+fn pool_stats(
+    db: &TxpoolDatabase,
+    include_sensitive_txs: bool,
+) -> Result<TxpoolReadResponse, TxPoolError> {
     Ok(TxpoolReadResponse::PoolStats(todo!()))
 }
 
 /// [`TxpoolReadRequest::AllHashes`].
-fn all_hashes(env: &ConcreteEnv, include_sensitive_txs: bool) -> ReadResponseResult {
+fn all_hashes(
+    db: &TxpoolDatabase,
+    include_sensitive_txs: bool,
+) -> Result<TxpoolReadResponse, TxPoolError> {
     Ok(TxpoolReadResponse::AllHashes(todo!()))
 }
