@@ -126,17 +126,16 @@ impl super::BlockchainManager {
             let res = self.handle_incoming_alt_block(block, prepared_txs).await?;
 
             if let AddAltBlock::NewlyCached(block_blob) = res {
+                info!(
+                    alt_block = true,
+                    hash = hex::encode(block_hash),
+                    "Successfully added block"
+                );
+
                 let chain_height = self
                     .blockchain_context_service
                     .blockchain_context()
                     .chain_height;
-
-                info!(
-                    alt_block = true,
-                    hash = hex::encode(block_hash),
-                    "Successfully added block{}",
-                    format_sync_progress(&self.sync_target_height, chain_height)
-                );
 
                 self.broadcast_block(block_blob, chain_height).await;
             }
@@ -358,16 +357,7 @@ impl super::BlockchainManager {
             }
         }
 
-        info!(
-            alt_chain = true,
-            "Successfully added block batch{}",
-            format_sync_progress(
-                &self.sync_target_height,
-                self.blockchain_context_service
-                    .blockchain_context()
-                    .chain_height
-            )
-        );
+        info!(alt_chain = true, "Successfully added block batch");
     }
 
     /// Handles an incoming alt [`Block`].
