@@ -1,13 +1,6 @@
 //! Abstracted Monero tx-pool database operations.
 //!
-//! This module contains many free functions that use the
-//! traits in [`cuprate_database`] to generically call Monero-related
-//! tx-pool database operations.
-//!
 //! # `impl Table`
-//! Functions in this module take [`Tables`](crate::tables::Tables) and
-//! [`TablesMut`](crate::tables::TablesMut) directly - these are
-//! _already opened_ database tables.
 //!
 //! As such, the responsibility of
 //! transactions, tables, etc, are on the caller.
@@ -19,9 +12,6 @@
 //! As transactions are handled by the _caller_ of these functions,
 //! it is up to the caller to decide what happens if one them return
 //! an error.
-//!
-//! To maintain atomicity, transactions should be [`abort`](cuprate_database::TxRw::abort)ed
-//! if one of the functions failed.
 //!
 //! For example, if [`add_transaction`] is called and returns an [`Err`],
 //! `abort`ing the transaction that opened the input `TableMut` would reverse all tables

@@ -29,7 +29,7 @@ const TX_RW_ABORT_FAIL: &str =
     "Could not maintain blockchain database atomicity by aborting write transaction";
 
 //---------------------------------------------------------------------------------------------------- init_write_service
-/// Initialize the blockchain write service from a [`ConcreteEnv`].
+/// Initialise the blockchain write service from a [`BlockchainDatabase`].
 pub fn init_write_service(env: Arc<BlockchainDatabase>) -> BlockchainWriteHandle {
     let (sender, receiver) = crossbeam::channel::unbounded();
 

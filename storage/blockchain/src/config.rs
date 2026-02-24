@@ -1,12 +1,6 @@
 //! Database configuration.
 //!
-//! This module contains the main [`Config`]uration struct
-//! for the database [`Env`](cuprate_database::Env)ironment,
-//! and blockchain-specific configuration.
-//!
 //! It also contains types related to configuration settings.
-//!
-//! The main constructor is the [`ConfigBuilder`].
 //!
 //! These configurations are processed at runtime, meaning
 //! the `Env` can/will dynamically adjust its behavior based
@@ -77,13 +71,7 @@ impl Default for CacheSizes {
 }
 
 //---------------------------------------------------------------------------------------------------- Config
-/// `cuprate_blockchain` configuration.
-///
-/// This is a configuration built on-top of [`cuprate_database::config::Config`].
-///
-/// It contains configuration specific to this crate, plus the database config.
-///
-/// For construction, either use [`ConfigBuilder`] or [`Config::default`].
+/// TODO.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Config {
@@ -94,34 +82,7 @@ pub struct Config {
 }
 
 impl Config {
-    /// Create a new [`Config`] with sane default settings.
-    ///
-    /// The [`cuprate_database::config::Config::db_directory`]
-    /// will be set to [`blockchain_path`] with [`CUPRATE_DATA_DIR`] [`Network::Mainnet`].
-    ///
-    /// All other values will be [`Default::default`].
-    ///
-    /// Same as [`Config::default`].
-    ///
-    /// ```rust
-    /// use cuprate_database::{
-    ///     config::SyncMode,
-    ///     resize::ResizeAlgorithm,
-    ///     DATABASE_DATA_FILENAME,
-    /// };
-    /// use cuprate_helper::{fs::*, network::Network};
-    ///
-    /// use cuprate_blockchain::config::*;
-    ///
-    /// let config = Config::new();
-    ///
-    /// assert_eq!(config.db_config.db_directory().as_ref(), blockchain_path(&CUPRATE_DATA_DIR, Network::Mainnet).as_path());
-    /// assert!(config.db_config.db_file().starts_with(&*CUPRATE_DATA_DIR));
-    /// assert!(config.db_config.db_file().ends_with(DATABASE_DATA_FILENAME));
-    /// assert_eq!(config.db_config.sync_mode, SyncMode::default());
-    /// assert_eq!(config.db_config.resize_algorithm, ResizeAlgorithm::default());
-    /// assert_eq!(config.reader_threads, ReaderThreads::default());
-    /// ```
+    /// TODO
     pub fn new() -> Self {
         Self {
             blob_dir: blockchain_path(&CUPRATE_DATA_DIR, Network::Mainnet),

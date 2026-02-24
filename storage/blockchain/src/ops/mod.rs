@@ -5,9 +5,6 @@
 //! database operations.
 //!
 //! # `impl Table`
-//! Functions in this module take [`Tables`](crate::tables::Tables) and
-//! [`TablesMut`](crate::tables::TablesMut) directly - these are
-//! _already opened_ database tables.
 //!
 //! As such, the responsibility of
 //! transactions, tables, etc, are on the caller.
@@ -20,20 +17,10 @@
 //! it is up to the caller to decide what happens if one them return
 //! an error.
 //!
-//! To maintain atomicity, transactions should be [`abort`](cuprate_database::TxRw::abort)ed
-//! if one of the functions failed.
-//!
-//! For example, if [`add_block()`](block::add_block) is called and returns an [`Err`],
-//! `abort`ing the transaction that opened the input `TableMut` would reverse all tables
-//! mutated by `add_block()` up until the error, leaving it in the state it was in before
-//! `add_block()` was called.
-//!
 //! # Sub-functions
 //! The main functions within this module are mostly within the [`block`] module.
 //!
 //! Practically speaking, you should only be using 2 functions for mutation:
-//! - [`add_block`](block::add_block)
-//! - [`pop_block`](block::pop_block)
 //!
 //! The `block` functions are "parent" functions, calling other
 //! sub-functions such as [`add_output()`](output::add_output).

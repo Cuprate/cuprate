@@ -8,7 +8,7 @@
 //! sending database [`Request`][req_r]s and receiving [`Response`][resp]s `async`hronously -
 //! without having to actually worry and handle the database themselves.
 //!
-//! The system is managed by this crate, and only requires [`init`] by the user.
+//! The system is managed by this crate, and only requires initialisation by the user.
 //!
 //! ## Handles
 //! The 2 handles to the database are:
@@ -24,7 +24,7 @@
 //! writes, so it is passed there and used.
 //!
 //! ## Initialization
-//! The database & thread-pool system can be initialized with [`init()`].
+//! The database can be initialized with [`init_with_pool()`].
 //!
 //! This causes the underlying database/threads to be setup
 //! and returns a read/write handle to that database.
@@ -34,9 +34,7 @@
 //! - The last [`BlockchainReadHandle`] is dropped => reader thread-pool exits
 //! - The last [`BlockchainWriteHandle`] is dropped => writer thread exits
 //!
-//! TODO: update this when `ConcreteEnv` is removed
-//!
-//! Upon dropping the [`cuprate_database::ConcreteEnv`]:
+//! Upon dropping the [`BlockchainDatabase`]:
 //! - All un-processed database transactions are completed
 //! - All data gets flushed to disk (caused by [`Drop::drop`] impl on `ConcreteEnv`)
 //!
@@ -130,6 +128,7 @@ pub use read::BlockchainReadHandle;
 pub use write::{init_write_service, BlockchainWriteHandle};
 
 mod free;
+use crate::BlockchainDatabase;
 pub use free::init_with_pool;
 
 //---------------------------------------------------------------------------------------------------- Types

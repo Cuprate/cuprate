@@ -8,7 +8,7 @@
 //! sending database [`Request`][req_r]s and receiving [`Response`][resp]s `async`hronously -
 //! without having to actually worry and handle the database themselves.
 //!
-//! The system is managed by this crate, and only requires [`init`] by the user.
+//! The system is managed by this crate, and only requires init by the user.
 //!
 //! ## Handles
 //! The 2 handles to the database are:
@@ -22,7 +22,7 @@
 //! Both the handles are cheaply [`Clone`]able.
 //!
 //! ## Initialization
-//! The database & thread-pool system can be initialized with [`init()`].
+//! The database & thread-pool system can be initialized with [`init_with_pool()`].
 //!
 //! This causes the underlying database/threads to be setup
 //! and returns a read/write handle to that database.
@@ -31,10 +31,6 @@
 //! Upon the above handles being dropped, the corresponding thread(s) will automatically exit, i.e:
 //! - The last [`TxpoolReadHandle`] is dropped => reader thread-pool exits
 //! - The last [`TxpoolWriteHandle`] is dropped => writer thread exits
-//!
-//! Upon dropping the [`cuprate_database::Env`]:
-//! - All un-processed database transactions are completed
-//! - All data gets flushed to disk (caused by [`Drop::drop`] impl on `Env`)
 //!
 //! ## Request and Response
 //! To interact with the database (whether reading or writing data),

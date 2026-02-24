@@ -14,14 +14,11 @@ use crate::{config::Config, service::init_write_service, BlockchainDatabase};
 #[inline(never)] // Only called once (?)
 /// Initialize a database, and return a read/write handle to it.
 ///
-/// Unlike [`init`] this will not create a thread-pool, instead using
-/// the one passed in.
-///
 /// Once the returned handles are [`Drop::drop`]ed, the reader
 /// thread-pool and writer thread will exit automatically.
 ///
 /// # Errors
-/// This will forward the error if [`crate::open`] failed.
+/// This will error if we fail to open the database.
 pub fn init_with_pool(
     config: &Config,
     fjall: fjall::Database,
@@ -34,7 +31,7 @@ pub fn init_with_pool(
     ),
     BlockchainError,
 > {
-    // Initialize the database itself.
+    // Initialise the database itself.
     let db = Arc::new(BlockchainDatabase::open_with_fjall_database(config, fjall)?);
     db.make_consistent()?;
 

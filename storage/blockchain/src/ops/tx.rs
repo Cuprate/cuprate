@@ -21,32 +21,7 @@ use monero_oxide::transaction::{Input, Pruned, Timelock, Transaction};
 use tapes::{TapesAppend, TapesRead, TapesTruncate};
 
 //---------------------------------------------------------------------------------------------------- Private
-/// Add a [`Transaction`] (and related data) to the database.
-///
-/// The `block_height` is the block that this `tx` belongs to.
-///
-/// Note that the caller's input is trusted implicitly and no checks
-/// are done (in this function) whether the `block_height` is correct or not.
-///
-#[doc = doc_add_block_inner_invariant!()]
-///
-/// # Notes
-/// This function is different from other sub-functions and slightly more similar to
-/// [`add_block()`](crate::ops::block::add_block) in that it calls other sub-functions.
-///
-/// This function calls:
-/// - [`add_output()`]
-/// - [`add_rct_output()`]
-/// - [`add_key_image()`]
-///
-/// Thus, after [`add_tx`], those values (outputs and key images)
-/// will be added to database tables as well.
-///
-/// # Panics
-/// This function will panic if:
-/// - `block.height > u32::MAX` (not normally possible)
-#[doc = doc_error!()]
-#[inline]
+///  TODO
 #[expect(clippy::too_many_arguments)]
 pub fn add_tx_to_tapes(
     tx: &Transaction<Pruned>,
@@ -198,22 +173,7 @@ pub fn add_tx_to_dynamic_tables(
     Ok(())
 }
 
-/// Remove a transaction from the database with its [`TxHash`].
-///
-/// This returns the [`TxId`] and [`TxBlob`](crate::types::TxBlob) of the removed transaction.
-///
-#[doc = doc_add_block_inner_invariant!()]
-///
-/// # Notes
-/// As mentioned in [`add_tx`], this function will call other sub-functions:
-/// - [`remove_output()`]
-/// - [`remove_rct_output()`]
-/// - [`remove_key_image()`]
-///
-/// Thus, after [`remove_tx`], those values (outputs and key images)
-/// will be remove from database tables as well.
-///
-#[doc = doc_error!()]
+/// TODO
 #[inline]
 pub fn remove_tx_from_dynamic_tables(
     db: &BlockchainDatabase,

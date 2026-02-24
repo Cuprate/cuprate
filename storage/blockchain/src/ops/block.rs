@@ -299,16 +299,7 @@ pub fn add_block_to_dynamic_tables<'a>(
 }
 
 //---------------------------------------------------------------------------------------------------- `pop_block`
-/// Remove the top/latest block from the database.
-///
-/// The removed block's data is returned.
-///
-/// If a [`ChainId`] is specified the popped block will be added to the alt block tables under
-/// that [`ChainId`]. Otherwise, the block will be completely removed from the DB.
-#[doc = doc_error!()]
-///
-/// In `pop_block()`'s case, [`RuntimeError::KeyNotFound`]
-/// will be returned if there are no blocks left.
+/// TODO.
 // no inline, too big
 pub fn pop_block(
     db: &BlockchainDatabase,

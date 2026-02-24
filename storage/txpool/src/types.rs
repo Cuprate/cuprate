@@ -1,4 +1,4 @@
-//! Tx-pool [table](crate::tables) types.
+//! Tx-pool types.
 //!
 //! This module contains all types used by the database tables,
 //! and aliases for common  types that use the same underlying

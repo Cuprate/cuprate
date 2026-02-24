@@ -10,12 +10,7 @@ use cuprate_types::VerifiedTransactionInformation;
 use fjall::Readable;
 use monero_oxide::transaction::Transaction;
 
-/// Adds a [`VerifiedTransactionInformation`] from an alt-block
-/// if it is not already in the DB.
-///
-/// If the transaction is in the main-chain this function will still fill in the
-/// [`AltTransactionInfos`](crate::tables::AltTransactionInfos) table, as that
-/// table holds data which we don't keep around for main-chain txs.
+/// TODO.
 ///
 #[doc = doc_add_alt_block_inner_invariant!()]
 #[doc = doc_error!()]

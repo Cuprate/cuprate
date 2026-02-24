@@ -1,4 +1,4 @@
-//! Blockchain [table](crate::tables) types.
+//! Blockchain types.
 //!
 //! This module contains all types used by the database tables,
 //! and aliases for common Monero-related types that use the
@@ -117,8 +117,6 @@ pub struct TxInfo {
 /// when [`PreRctOutputId::amount`] is set to `0`, although,
 /// in that case, only [`AmountIndex`] needs to be known.
 ///
-/// This is the key to the [`Outputs`](crate::tables::Outputs) table.
-///
 /// ```rust
 /// # use std::borrow::*;
 /// # use cuprate_blockchain::{*, types::*};
@@ -160,8 +158,6 @@ pub struct PreRctOutputId {
 
 //---------------------------------------------------------------------------------------------------- BlockInfoV3
 /// Block information.
-///
-/// This is the value in the [`BlockInfos`](crate::tables::BlockInfos) table.
 ///
 /// ```rust
 /// # use std::borrow::*;

@@ -37,7 +37,7 @@ config_struct! {
 impl Default for StorageConfig {
     fn default() -> Self {
         Self {
-            reader_threads: cuprate_helper::thread::threads_25().get(),
+            reader_threads: cuprate_helper::thread::threads().get() * 4,
             fjall_cache_size: DefaultOrCustom::Default,
             txpool: Default::default(),
             blockchain: Default::default(),
