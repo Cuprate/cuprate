@@ -3,7 +3,9 @@ use std::collections::HashSet;
 use crypto_bigint::{CheckedMul, U256};
 use monero_oxide::block::Block;
 
-use cuprate_cryptonight::*;
+use cuprate_cryptonight::{
+    cryptonight_hash_r, cryptonight_hash_v0, cryptonight_hash_v1, cryptonight_hash_v2,
+};
 
 use crate::{
     check_block_version_vote, current_unix_timestamp,
