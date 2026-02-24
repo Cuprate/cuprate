@@ -1,4 +1,9 @@
-use std::{collections::HashMap, env::temp_dir, path::PathBuf, sync::Arc};
+use std::{
+    collections::HashMap,
+    env::temp_dir,
+    path::PathBuf,
+    sync::{atomic::AtomicUsize, Arc},
+};
 
 use monero_oxide::{
     block::{Block, BlockHeader},
@@ -64,6 +69,7 @@ async fn mock_manager(data_dir: PathBuf) -> BlockchainManager {
         blockchain_context_service,
         stop_current_block_downloader: Arc::new(Default::default()),
         broadcast_svc: BroadcastSvc::mock(),
+        sync_target_height: Arc::new(AtomicUsize::new(0)),
     }
 }
 

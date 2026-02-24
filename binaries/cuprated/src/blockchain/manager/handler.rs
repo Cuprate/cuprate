@@ -32,7 +32,10 @@ use cuprate_types::{
 };
 
 use crate::{
-    blockchain::manager::commands::{BlockchainManagerCommand, IncomingBlockOk},
+    blockchain::{
+        manager::commands::{BlockchainManagerCommand, IncomingBlockOk},
+        syncer::format_sync_progress,
+    },
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     signals::REORG_LOCK,
 };
@@ -164,7 +167,8 @@ impl super::BlockchainManager {
                     .blockchain_context()
                     .top_hash
             ),
-            "Successfully added block"
+            "Successfully added block{}",
+            format_sync_progress(&self.sync_target_height, chain_height)
         );
 
         Ok(IncomingBlockOk::AddedToMainChain)
@@ -253,7 +257,16 @@ impl super::BlockchainManager {
 
             self.add_valid_block_to_main_chain(verified_block).await;
         }
-        info!(fast_sync = false, "Successfully added block batch");
+        info!(
+            fast_sync = false,
+            "Successfully added block batch{}",
+            format_sync_progress(
+                &self.sync_target_height,
+                self.blockchain_context_service
+                    .blockchain_context()
+                    .chain_height
+            )
+        );
     }
 
     /// Handles an incoming block batch while we are under the fast sync height.
@@ -278,7 +291,16 @@ impl super::BlockchainManager {
         self.batch_add_valid_block_to_blockchain_database(valid_blocks)
             .await;
 
-        info!(fast_sync = true, "Successfully added block batch");
+        info!(
+            fast_sync = true,
+            "Successfully added block batch{}",
+            format_sync_progress(
+                &self.sync_target_height,
+                self.blockchain_context_service
+                    .blockchain_context()
+                    .chain_height
+            )
+        );
     }
 
     /// Handles an incoming [`BlockBatch`] that does not follow the main-chain.
