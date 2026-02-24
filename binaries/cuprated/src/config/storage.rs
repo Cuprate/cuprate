@@ -73,7 +73,7 @@ config_struct! {
     #[serde(deny_unknown_fields, default)]
     pub struct BlockchainConfig {
         /// Test
-        pub tapes_chache_sizes: CacheSizes,
+        pub tapes_cache_sizes: CacheSizes,
     }
 
 }

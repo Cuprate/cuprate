@@ -316,7 +316,7 @@ fn block_complete_entries_above_split_point(
             let o_indexes = if tx_info.rct_output_start_idx == u64::MAX {
                 let res = tx_ro
                     .get(&db.v1_tx_outputs, &(first_tx_idx + i as u64).to_le_bytes())
-                    .expect("TDOD")
+                    .expect("TODO")
                     .ok_or(BlockchainError::NotFound)?;
 
                 res.chunks(8)

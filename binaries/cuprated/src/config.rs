@@ -309,7 +309,7 @@ impl Config {
         cuprate_blockchain::config::Config {
             blob_dir: self.fs.fast_data_directory.clone(),
             index_dir: self.fs.slow_data_directory.clone(),
-            cache_sizes: self.storage.blockchain.tapes_chache_sizes.clone(),
+            cache_sizes: self.storage.blockchain.tapes_cache_sizes.clone(),
         }
     }
 
