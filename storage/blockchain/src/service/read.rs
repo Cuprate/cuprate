@@ -40,33 +40,28 @@ use thread_local::ThreadLocal;
 use tower::Service;
 
 use crate::error::{BlockchainError, DbResult};
-use crate::ops::alt_block::{get_alt_block, get_alt_chain_history_ranges};
-use crate::ops::output::get_num_outputs_with_amount;
-use crate::ops::tx::get_tx_blob_from_id;
-use crate::types::{BlockInfo, RctOutput, TxInfo};
 use crate::{
     ops::{
-        /*
         alt_block::{
             get_alt_block, get_alt_block_extended_header_from_height, get_alt_block_hash,
             get_alt_chain_history_ranges,
         },
-
-         */
         block::{
             block_exists, block_height, get_block, get_block_by_hash, get_block_complete_entry,
             get_block_complete_entry_from_height, get_block_extended_header_from_height,
             get_block_height,
         },
         blockchain::find_split_point,
-        output::id_to_output_on_chain,
+        output::{get_num_outputs_with_amount, id_to_output_on_chain},
+        tx::get_tx_blob_from_id,
     },
     service::{
         free::{compact_history_genesis_not_included, compact_history_index_to_height_offset},
         ResponseResult,
     },
     types::{
-        AltBlockHeight, Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId,
+        AltBlockHeight, Amount, AmountIndex, BlockHash, BlockHeight, BlockInfo, KeyImage,
+        PreRctOutputId, RctOutput, TxInfo,
     },
     BlockchainDatabase,
 };
@@ -94,7 +89,7 @@ impl Service<BlockchainReadRequest> for BlockchainReadHandle {
     fn call(&mut self, req: BlockchainReadRequest) -> Self::Future {
         let (mut tx, rx) = oneshot::channel();
 
-        let db = self.blockchain.clone();
+        let db = Arc::clone(&self.blockchain);
         self.pool.spawn(move || {
             let res = map_request(&db, req);
 
@@ -417,22 +412,21 @@ fn find_block(db: &BlockchainDatabase, block_hash: BlockHash) -> ResponseResult 
     let tx_ro = db.fjall_keyspace.snapshot();
 
     // Check the main chain first.
-    match block_height(db, &tx_ro, &block_hash)? {
-        Some(height) => return Ok(BlockchainResponse::FindBlock(Some((Chain::Main, height)))),
-        None => (),
+    if let Some(height) = block_height(db, &tx_ro, &block_hash)? {
+        return Ok(BlockchainResponse::FindBlock(Some((Chain::Main, height))));
     }
 
-    Ok(BlockchainResponse::FindBlock(None))
-    /*
-    match db.alt_block_heights.get(&tx_ro, &block_hash)? {
-        Some(height) => Ok(BlockchainResponse::FindBlock(Some((
-            Chain::Alt(height.chain_id.into()),
-            height.height,
-        )))),
+    match tx_ro.get(&db.alt_block_heights, block_hash)? {
+        Some(height) => {
+            let height: AltBlockHeight = bytemuck::pod_read_unaligned(height.as_ref());
+
+            Ok(BlockchainResponse::FindBlock(Some((
+                Chain::Alt(height.chain_id.into()),
+                height.height,
+            ))))
+        }
         None => Ok(BlockchainResponse::FindBlock(None)),
     }
-
-     */
 }
 
 /// [`BlockchainReadRequest::FilterUnknownHashes`].
@@ -526,7 +520,7 @@ fn chain_height(db: &BlockchainDatabase) -> ResponseResult {
         .block_hash;
 
     Ok(BlockchainResponse::ChainHeight(
-        chain_height as usize,
+        chain_height.try_into().unwrap(),
         block_hash,
     ))
 }
@@ -672,7 +666,7 @@ fn key_images_spent(db: &BlockchainDatabase, key_images: HashSet<KeyImage>) -> R
     // Collect results using `rayon`.
     match key_images
         .into_iter()
-        .map(|ki| tx_ro.contains_key(&db.key_images, &ki))
+        .map(|ki| tx_ro.contains_key(&db.key_images, ki))
         // If the result is either:
         // `Ok(true)` => a key image was found, return early
         // `Err` => an error was found, return early
@@ -682,7 +676,7 @@ fn key_images_spent(db: &BlockchainDatabase, key_images: HashSet<KeyImage>) -> R
     {
         None => Ok(BlockchainResponse::KeyImagesSpent(false)), // Key image was NOT found.
         Some(Ok(true)) => Ok(BlockchainResponse::KeyImagesSpent(true)), // Key image was found.
-        Some(Err(e)) => Err(e).expect("TODO"),                 // A database error occurred.
+        Some(Err(e)) => Err(e.into()),                         // A database error occurred.
         Some(Ok(false)) => unreachable!(),
     }
 }
@@ -695,9 +689,8 @@ fn key_images_spent_vec(db: &BlockchainDatabase, key_images: Vec<KeyImage>) -> R
     Ok(BlockchainResponse::KeyImagesSpentVec(
         key_images
             .into_iter()
-            .map(|ki| tx_ro.contains_key(&db.key_images, &ki))
-            .collect::<Result<_, _>>()
-            .expect("TODO"),
+            .map(|ki| tx_ro.contains_key(&db.key_images, ki))
+            .collect::<Result<_, _>>()?,
     ))
 }
 
@@ -706,9 +699,9 @@ fn compact_chain_history(db: &BlockchainDatabase) -> ResponseResult {
     let tapes = db.linear_tapes.reader();
 
     let get_block_info = |height| -> Result<_, BlockchainError> {
-        Ok(tapes
+        tapes
             .read_entry(&db.block_infos, height)?
-            .ok_or(BlockchainError::NotFound)?)
+            .ok_or(BlockchainError::NotFound)
     };
 
     let top_block_height = tapes
@@ -732,7 +725,8 @@ fn compact_chain_history(db: &BlockchainDatabase) -> ResponseResult {
         .map(|height| Ok(get_block_info(height)?.block_hash))
         .collect::<DbResult<Vec<_>>>()?;
 
-    if compact_history_genesis_not_included::<INITIAL_BLOCKS>(top_block_height as usize) {
+    if compact_history_genesis_not_included::<INITIAL_BLOCKS>(top_block_height.try_into().unwrap())
+    {
         block_ids.push(get_block_info(0)?.block_hash);
     }
 
@@ -829,7 +823,7 @@ fn find_first_unknown(db: &BlockchainDatabase, block_ids: &[BlockHash]) -> Respo
     } else {
         let last_known_height = usize::from_le_bytes(
             tx_ro
-                .get(&db.block_heights, &block_ids[idx - 1])?
+                .get(&db.block_heights, block_ids[idx - 1])?
                 .unwrap()
                 .as_ref()
                 .try_into()
@@ -852,7 +846,7 @@ fn txs_in_block(
 
     let block_height = usize::from_le_bytes(
         tx_ro
-            .get(&db.block_heights, &block_hash)?
+            .get(&db.block_heights, block_hash)?
             .ok_or(BlockchainError::NotFound)?
             .as_ref()
             .try_into()
@@ -872,11 +866,7 @@ fn txs_in_block(
     let txs = missing_txs
         .into_iter()
         .map(|index_offset| {
-            Ok(get_tx_blob_from_id(
-                &(block_info.mining_tx_index + index_offset),
-                &tapes,
-                db,
-            )?)
+            get_tx_blob_from_id(&(block_info.mining_tx_index + index_offset), &tapes, db)
         })
         .collect::<DbResult<_>>()?;
 
@@ -905,7 +895,7 @@ fn alt_blocks_in_chain(db: &BlockchainDatabase, chain_id: ChainId) -> ResponseRe
                 panic!("Should not have main chain blocks here we skipped last range");
             };
 
-            range.clone().into_iter().map(|height| {
+            range.clone().map(|height| {
                 get_alt_block(
                     db,
                     &AltBlockHeight {

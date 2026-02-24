@@ -35,7 +35,7 @@ pub fn init_write_service(env: Arc<BlockchainDatabase>) -> BlockchainWriteHandle
 
     std::thread::Builder::new()
         .name("cuprate_blockchain_writer".into())
-        .spawn(move || writer_thread(env, receiver))
+        .spawn(move || writer_thread(&env, &receiver))
         .unwrap();
 
     BlockchainWriteHandle { sender }
@@ -75,8 +75,8 @@ impl Service<BlockchainWriteRequest> for BlockchainWriteHandle {
     level = "error"
 )]
 fn writer_thread(
-    env: Arc<BlockchainDatabase>,
-    receiver: Receiver<(
+    env: &Arc<BlockchainDatabase>,
+    receiver: &Receiver<(
         BlockchainWriteRequest,
         oneshot::Sender<DbResult<BlockchainResponse>>,
     )>,
@@ -84,7 +84,7 @@ fn writer_thread(
     while let Ok((req, response_sender)) = receiver.recv() {
         let span = tracing::debug_span!("write_request");
         span.in_scope(|| {
-            let response = handle_blockchain_request(&env, &req);
+            let response = handle_blockchain_request(env, &req);
 
             match &response {
                 Ok(_) => tracing::debug!("Sending successful write response."),
@@ -94,7 +94,7 @@ fn writer_thread(
             }
 
             let _ = response_sender.send(response).inspect_err(|_| {
-                tracing::warn!("Failed to send write response, rx wasn't waiting.")
+                tracing::warn!("Failed to send write response, rx wasn't waiting.");
             });
         });
     }
@@ -217,31 +217,7 @@ fn pop_blocks(db: &BlockchainDatabase, numb_blocks: usize) -> ResponseResult {
 /// [`BlockchainWriteRequest::FlushAltBlocks`].
 #[inline]
 fn flush_alt_blocks(db: &BlockchainDatabase) -> ResponseResult {
+    crate::ops::alt_block::flush_alt_blocks(db)?;
+
     Ok(BlockchainResponse::Ok)
-    /*
-    let result = || {
-        let mut tx_rw = db.dynamic_tables.write_txn()?;
-
-        crate::ops::alt_block::flush_alt_blocks(db, &mut tx_rw)?;
-
-        tx_rw.commit()?;
-
-        Ok(BlockchainResponse::Ok)
-    };
-
-    loop {
-        let result = result();
-
-        if matches!(
-            result,
-            Err(BlockchainError::Heed(heed::Error::Mdb(MdbError::MapFull)))
-        ) {
-            todo!();
-            continue;
-        }
-
-        return result;
-    }
-
-     */
 }

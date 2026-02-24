@@ -15,10 +15,12 @@ pub enum DefaultOrCustom<T> {
 }
 
 impl<T> DefaultOrCustom<T> {
-    pub fn get_value<'a>(&'a self, default: &'a T) -> &'a T {
+    /// Returns the given default value if this is [`DefaultOrCustom::Default`], otherwise returns
+    /// the custom value.
+    pub const fn value<'a>(&'a self, default: &'a T) -> &'a T {
         match self {
-            DefaultOrCustom::Default => default,
-            DefaultOrCustom::Custom(value) => value,
+            Self::Default => default,
+            Self::Custom(value) => value,
         }
     }
 }

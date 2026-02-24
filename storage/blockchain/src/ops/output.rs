@@ -52,7 +52,7 @@ pub fn add_output(
     pre_rct_numb_outputs_cache: &mut HashMap<Amount, u64>,
 ) -> DbResult<PreRctOutputId> {
     let num_outputs = pre_rct_numb_outputs_cache.entry(amount).or_insert_with(|| {
-        let last_out = db.pre_rct_outputs.prefix(&amount.to_be_bytes()).next_back();
+        let last_out = db.pre_rct_outputs.prefix(amount.to_be_bytes()).next_back();
 
         last_out.map_or(0, |o| {
             u64::from_be_bytes(o.key().expect("TODO")[8..].try_into().unwrap()) + 1
@@ -86,13 +86,27 @@ pub fn remove_output(
     tx_rw: &mut fjall::OwnedWriteBatch,
 ) -> DbResult<()> {
     let mut pre_rct_numb_outputs_cache = db.pre_rct_numb_outputs_cache.lock().unwrap();
+
+    let mut err = None;
+
     let num_outputs = pre_rct_numb_outputs_cache.entry(amount).or_insert_with(|| {
-        let last_out = db.pre_rct_outputs.prefix(&amount.to_be_bytes()).next_back();
+        let last_out = db.pre_rct_outputs.prefix(amount.to_be_bytes()).next_back();
 
         last_out.map_or(0, |o| {
-            u64::from_be_bytes(o.key().expect("TODO")[8..].try_into().unwrap()) + 1
+            u64::from_be_bytes(
+                o.key().unwrap_or_else(|e| {
+                    err = Some(e);
+                    [0; 16].into()
+                })[8..]
+                    .try_into()
+                    .unwrap(),
+            ) + 1
         })
     });
+
+    if let Some(e) = err {
+        return Err(e.into());
+    }
 
     let pre_rct_output_id = PreRctOutputId {
         amount,
@@ -144,11 +158,11 @@ pub fn get_num_outputs_with_amount(
     amount: Amount,
 ) -> DbResult<u64> {
     let last_out = tx_ro
-        .prefix(&db.pre_rct_outputs, &amount.to_be_bytes())
+        .prefix(&db.pre_rct_outputs, amount.to_be_bytes())
         .next_back();
 
     last_out.map_or(Ok(0), |o| {
-        Ok(u64::from_be_bytes(o.key().expect("TODO")[8..].try_into().unwrap()) + 1)
+        Ok(u64::from_be_bytes(o.key()?[8..].try_into().unwrap()) + 1)
     })
 }
 
@@ -246,135 +260,5 @@ pub fn id_to_output_on_chain(
         let output_on_chain = output_to_output_on_chain(&output, id.amount, get_txid, tapes, db)?;
 
         Ok(output_on_chain)
-    }
-}
-
-//---------------------------------------------------------------------------------------------------- Tests
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    use pretty_assertions::assert_eq;
-
-    use cuprate_database::{Env, EnvInner};
-
-    use crate::{
-        tables::{OpenTables, Tables, TablesMut},
-        tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
-        types::OutputFlags,
-    };
-
-    /// Dummy `Output`.
-    const OUTPUT: Output = Output {
-        key: [44; 32],
-        height: 0,
-        output_flags: OutputFlags::NON_ZERO_UNLOCK_TIME,
-        tx_idx: 0,
-    };
-
-    /// Dummy `RctOutput`.
-    const RCT_OUTPUT: RctOutput = RctOutput {
-        key: [88; 32],
-        height: 1,
-        output_flags: OutputFlags::empty(),
-        tx_idx: 1,
-        commitment: [100; 32],
-    };
-
-    /// Dummy `Amount`
-    const AMOUNT: Amount = 22;
-
-    /// Tests all above output functions when only inputting `Output` data (no Block).
-    ///
-    /// Note that this doesn't test the correctness of values added, as the
-    /// functions have a pre-condition that the caller handles this.
-    ///
-    /// It simply tests if the proper tables are mutated, and if the data
-    /// stored and retrieved is the same.
-    #[test]
-    fn all_output_functions() {
-        let (env, _tmp) = tmp_concrete_env();
-        let env_inner = env.env_inner();
-        assert_all_tables_are_empty(&env);
-
-        let tx_rw = env_inner.tx_rw().unwrap();
-        let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
-
-        // Assert length is correct.
-        assert_eq!(get_num_outputs(tables.outputs()).unwrap(), 0);
-        assert_eq!(get_rct_num_outputs(tables.rct_outputs()).unwrap(), 0);
-
-        // Add outputs.
-        let pre_rct_output_id = add_output(AMOUNT, &OUTPUT, &mut tables).unwrap();
-        let amount_index = add_rct_output(&RCT_OUTPUT, tables.rct_outputs_mut()).unwrap();
-
-        assert_eq!(
-            pre_rct_output_id,
-            PreRctOutputId {
-                amount: AMOUNT,
-                amount_index: 0,
-            }
-        );
-
-        // Assert all reads of the outputs are OK.
-        {
-            // Assert proper tables were added to.
-            AssertTableLen {
-                block_infos: 0,
-                block_header_blobs: 0,
-                block_txs_hashes: 0,
-                block_heights: 0,
-                key_images: 0,
-                num_outputs: 1,
-                pruned_tx_blobs: 0,
-                prunable_hashes: 0,
-                outputs: 1,
-                prunable_tx_blobs: 0,
-                rct_outputs: 1,
-                tx_blobs: 0,
-                tx_ids: 0,
-                tx_heights: 0,
-                tx_unlock_time: 0,
-            }
-            .assert(&tables);
-
-            // Assert length is correct.
-            assert_eq!(get_num_outputs(tables.outputs()).unwrap(), 1);
-            assert_eq!(get_rct_num_outputs(tables.rct_outputs()).unwrap(), 1);
-            assert_eq!(1, tables.num_outputs().get(&AMOUNT).unwrap());
-
-            // Assert value is save after retrieval.
-            assert_eq!(
-                OUTPUT,
-                get_output(&pre_rct_output_id, tables.outputs()).unwrap(),
-            );
-
-            assert_eq!(
-                RCT_OUTPUT,
-                get_rct_output(&amount_index, tables.rct_outputs()).unwrap(),
-            );
-        }
-
-        // Remove the outputs.
-        {
-            remove_output(&pre_rct_output_id, &mut tables).unwrap();
-            remove_rct_output(&amount_index, tables.rct_outputs_mut()).unwrap();
-
-            // Assert value no longer exists.
-            assert!(matches!(
-                get_output(&pre_rct_output_id, tables.outputs()),
-                Err(RuntimeError::KeyNotFound)
-            ));
-            assert!(matches!(
-                get_rct_output(&amount_index, tables.rct_outputs()),
-                Err(RuntimeError::KeyNotFound)
-            ));
-
-            // Assert length is correct.
-            assert_eq!(get_num_outputs(tables.outputs()).unwrap(), 0);
-            assert_eq!(get_rct_num_outputs(tables.rct_outputs()).unwrap(), 0);
-        }
-
-        assert_all_tables_are_empty(&env);
     }
 }

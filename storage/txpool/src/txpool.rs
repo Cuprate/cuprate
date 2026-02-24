@@ -9,6 +9,7 @@ pub struct TxpoolDatabase {
     pub(crate) tx_infos: fjall::Keyspace,
     pub(crate) spent_key_images: fjall::Keyspace,
     pub(crate) known_blob_hashes: fjall::Keyspace,
+    #[expect(dead_code)]
     pub(crate) metadata: fjall::Keyspace,
 
     pub(crate) in_progress_key_images: Mutex<HashMap<[u8; 32], [u8; 32]>>,

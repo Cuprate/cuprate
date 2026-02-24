@@ -47,12 +47,13 @@ use tapes::{TapesAppend, TapesRead, TapesTruncate};
 /// - `block.height > u32::MAX` (not normally possible)
 #[doc = doc_error!()]
 #[inline]
+#[expect(clippy::too_many_arguments)]
 pub fn add_tx_to_tapes(
     tx: &Transaction<Pruned>,
     pruned_blob_idx: u64,
     prunable_blob_idx: u64,
-    pruned_size: u64,
-    prunable_size: u64,
+    pruned_size: usize,
+    prunable_size: usize,
     height: &BlockHeight,
     numb_rct_outputs: &mut u64,
     append_tx: &mut tapes::TapesAppendTransaction,
@@ -123,7 +124,7 @@ pub fn add_tx_to_tapes(
 
             *numb_rct_outputs += 1;
         }
-    };
+    }
 
     Ok(tx_id)
 }
@@ -155,7 +156,7 @@ pub fn add_tx_to_dynamic_tables(
         match inputs {
             // Key images.
             Input::ToKey { key_image, .. } => {
-                w.insert(&db.key_images, key_image.as_bytes(), &[]);
+                w.insert(&db.key_images, key_image.as_bytes(), []);
             }
             // This is a miner transaction.
             Input::Gen(_) => (),
@@ -187,12 +188,12 @@ pub fn add_tx_to_dynamic_tables(
 
             w.insert(
                 &db.v1_tx_outputs,
-                &tx_id.to_le_bytes(),
+                tx_id.to_le_bytes(),
                 bytemuck::cast_slice::<_, u8>(&amount_indices),
             );
         }
         Transaction::V2 { .. } => return Ok(()),
-    };
+    }
 
     Ok(())
 }
@@ -265,7 +266,7 @@ pub fn remove_tx_from_dynamic_tables(
             }
         }
 
-        tx_rw.remove(&db.v1_tx_outputs, &tx_id.to_le_bytes());
+        tx_rw.remove(&db.v1_tx_outputs, tx_id.to_le_bytes());
     }
 
     Ok((tx_id, tx))
@@ -324,17 +325,17 @@ pub fn get_tx_blob_from_id(
         &db.prunable_blobs[stripe as usize - 1]
     };
 
-    let mut blob = vec![0; (tx_info.pruned_size + tx_info.prunable_size) as usize];
+    let mut blob = vec![0; tx_info.pruned_size + tx_info.prunable_size];
 
     tapes.read_bytes(
         &db.pruned_blobs,
         tx_info.pruned_blob_idx,
-        &mut blob[..tx_info.pruned_size as usize],
+        &mut blob[..tx_info.pruned_size],
     )?;
     tapes.read_bytes(
-        &prunable_tape,
+        prunable_tape,
         tx_info.prunable_blob_idx,
-        &mut blob[(tx_info.pruned_size) as usize..],
+        &mut blob[tx_info.pruned_size..],
     )?;
 
     Ok(blob)

@@ -1,7 +1,7 @@
 //! Transaction writing ops.
 //!
 //! This module handles writing full transaction data, like removing or adding a transaction.
-use monero_oxide::transaction::{NotPruned, Pruned, Transaction};
+use monero_oxide::transaction::{Pruned, Transaction};
 
 use cuprate_helper::time::current_unix_timestamp;
 use cuprate_types::TransactionVerificationData;
@@ -32,7 +32,7 @@ pub fn add_transaction(
     add_tx_key_images(&tx.tx.prefix().inputs, &tx.tx_hash, w, db)?;
 
     // Add the tx blob.
-    w.insert(&db.tx_blobs, &tx.tx_hash, &tx.tx_blob);
+    w.insert(&db.tx_blobs, tx.tx_hash, &tx.tx_blob);
 
     let mut flags = TxStateFlags::empty();
     flags.set(TxStateFlags::STATE_STEM, state_stem);
@@ -40,7 +40,7 @@ pub fn add_transaction(
     // Add the tx info.
     w.insert(
         &db.tx_infos,
-        &tx.tx_hash,
+        tx.tx_hash,
         bytemuck::bytes_of(&TransactionInfo {
             fee: tx.fee,
             weight: tx.tx_weight,
@@ -53,7 +53,7 @@ pub fn add_transaction(
 
     // Add the blob hash to table 4.
     let blob_hash = transaction_blob_hash(&tx.tx_blob);
-    w.insert(&db.known_blob_hashes, &blob_hash, &tx.tx_hash);
+    w.insert(&db.known_blob_hashes, blob_hash, tx.tx_hash);
 
     Ok(())
 }
@@ -78,11 +78,11 @@ pub fn remove_transaction(
     let tx = Transaction::<Pruned>::read(&mut tx_blob.as_ref())
         .expect("Tx in the tx-pool must be parseable");
 
-    remove_tx_key_images(&tx.prefix().inputs, w, db)?;
+    remove_tx_key_images(&tx.prefix().inputs, w, db);
 
     // Remove the blob hash from table 4.
     let blob_hash = transaction_blob_hash(&tx_blob);
-    w.remove(&db.known_blob_hashes, &blob_hash);
+    w.remove(&db.known_blob_hashes, blob_hash);
 
     Ok(())
 }

@@ -23,7 +23,7 @@ use crate::{config::Config, service::init_write_service, BlockchainDatabase};
 /// # Errors
 /// This will forward the error if [`crate::open`] failed.
 pub fn init_with_pool(
-    config: Config,
+    config: &Config,
     fjall: fjall::Database,
     pool: Arc<ThreadPool>,
 ) -> Result<

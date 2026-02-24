@@ -24,5 +24,4 @@ mod test {
     use cuprate_test_utils as _;
     use hex_literal as _;
     use tempfile as _;
-    use tokio as _;
 }

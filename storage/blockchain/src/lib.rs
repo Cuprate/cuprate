@@ -36,8 +36,5 @@ pub mod service;
 pub mod types;
 
 //---------------------------------------------------------------------------------------------------- Private
-#[cfg(test)]
-pub(crate) mod tests;
-
 mod error;
-pub use error::BlockchainError;
+pub use error::{BlockchainError, DbResult};

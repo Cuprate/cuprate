@@ -19,6 +19,7 @@ use crate::{p2p::ProxySettings, tor::TorMode};
 
 use super::{default::DefaultOrCustom, macros::config_struct};
 
+use cuprate_helper::cast::u64_to_usize;
 #[cfg(feature = "arti")]
 use {
     arti_client::{
@@ -105,11 +106,11 @@ impl From<BlockDownloaderConfig> for cuprate_p2p::block_downloader::BlockDownloa
         let mut info = sysinfo::System::new();
         info.refresh_memory();
 
-        let buffer_mem = min(info.total_memory() / 5, 1024 * 1024 * 1024) as usize;
+        let buffer_mem = u64_to_usize(min(info.total_memory() / 5, 1024 * 1024 * 1024));
 
         Self {
-            buffer_bytes: *value.buffer_bytes.get_value(&buffer_mem),
-            in_progress_queue_bytes: *value.in_progress_queue_bytes.get_value(&(buffer_mem / 2)),
+            buffer_bytes: *value.buffer_bytes.value(&buffer_mem),
+            in_progress_queue_bytes: *value.in_progress_queue_bytes.value(&(buffer_mem / 2)),
             check_client_pool_interval: value.check_client_pool_interval,
             target_batch_bytes: value.target_batch_bytes,
             initial_batch_len: 1,

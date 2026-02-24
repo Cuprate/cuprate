@@ -18,13 +18,13 @@ pub(super) fn add_tx_key_images(
     db: &TxpoolDatabase,
 ) -> Result<(), TxPoolWriteError> {
     for ki in inputs.iter().map(ki_from_input) {
-        if let Some(ki) = db.spent_key_images.get(&ki).map_err(TxPoolError::Fjall)? {
+        if let Some(ki) = db.spent_key_images.get(ki).map_err(TxPoolError::Fjall)? {
             return Err(TxPoolWriteError::DoubleSpend(
                 ki.as_ref().try_into().unwrap(),
             ));
         }
 
-        writer.insert(&db.spent_key_images, &ki, tx_hash);
+        writer.insert(&db.spent_key_images, ki, tx_hash);
     }
 
     Ok(())
@@ -38,12 +38,10 @@ pub(super) fn remove_tx_key_images(
     inputs: &[Input],
     writer: &mut fjall::OwnedWriteBatch,
     db: &TxpoolDatabase,
-) -> Result<(), TxPoolError> {
+) {
     for ki in inputs.iter().map(ki_from_input) {
-        writer.remove(&db.spent_key_images, &ki);
+        writer.remove(&db.spent_key_images, ki);
     }
-
-    Ok(())
 }
 
 /// Maps an input to a key image.

@@ -9,7 +9,6 @@ use crate::error::TxPoolError;
 use crate::txpool::TxpoolDatabase;
 use crate::types::TransactionInfo;
 use crate::types::{TransactionHash, TxStateFlags};
-use cuprate_types::rpc::PoolTxInfo;
 use cuprate_types::{TransactionVerificationData, TxVersion};
 
 /// Gets the [`TransactionVerificationData`] of a transaction in the tx-pool, leaving the tx in the pool.
@@ -19,12 +18,12 @@ pub fn get_transaction_verification_data(
     db: &TxpoolDatabase,
 ) -> Result<TransactionVerificationData, TxPoolError> {
     let tx_blob = snapshot
-        .get(&db.tx_blobs, &tx_hash)?
+        .get(&db.tx_blobs, tx_hash)?
         .ok_or(TxPoolError::NotFound)?
         .to_vec();
 
     let tx_info = snapshot
-        .get(&db.tx_infos, &tx_hash)?
+        .get(&db.tx_infos, tx_hash)?
         .ok_or(TxPoolError::NotFound)?;
 
     let tx_info: TransactionInfo = bytemuck::pod_read_unaligned(tx_info.as_ref());

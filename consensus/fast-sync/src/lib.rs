@@ -1,8 +1,11 @@
 // Used in `create.rs`
 use clap as _;
 use cuprate_blockchain as _;
+use cuprate_helper as _;
 use cuprate_hex as _;
+use fjall as _;
 use hex as _;
+use rayon as _;
 use serde_json as _;
 use tokio as _;
 

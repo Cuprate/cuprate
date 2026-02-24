@@ -51,7 +51,7 @@ use cuprate_helper::{
     network::Network,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields, default))]
 pub struct CacheSizes {
@@ -84,7 +84,7 @@ impl Default for CacheSizes {
 /// It contains configuration specific to this crate, plus the database config.
 ///
 /// For construction, either use [`ConfigBuilder`] or [`Config::default`].
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Config {
     pub blob_dir: PathBuf,
@@ -123,7 +123,11 @@ impl Config {
     /// assert_eq!(config.reader_threads, ReaderThreads::default());
     /// ```
     pub fn new() -> Self {
-        todo!()
+        Self {
+            blob_dir: blockchain_path(&CUPRATE_DATA_DIR, Network::Mainnet),
+            index_dir: blockchain_path(&CUPRATE_DATA_DIR, Network::Mainnet),
+            cache_sizes: CacheSizes::default(),
+        }
     }
 }
 

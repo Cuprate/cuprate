@@ -19,7 +19,7 @@ pub fn init_with_pool(
     // Spawn the Reader thread pool and Writer.
     let readers = TxpoolReadHandle {
         txpool: Arc::clone(&database),
-        pool: pool.clone(),
+        pool: Arc::clone(&pool),
     };
     let writer = TxpoolWriteHandle {
         txpool: Arc::clone(&database),

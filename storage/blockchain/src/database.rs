@@ -5,11 +5,6 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
-use fjall::{KeyspaceCreateOptions, PersistMode};
-use itertools::Itertools;
-use monero_oxide::transaction::Transaction;
-use tapes::{Persistence, TapeOpenOptions, Tapes, TapesRead};
-
 use crate::{
     config::Config,
     types::{
@@ -19,6 +14,11 @@ use crate::{
     },
     BlockchainError,
 };
+use cuprate_helper::cast::u64_to_usize;
+use fjall::{KeyspaceCreateOptions, PersistMode};
+use itertools::Itertools;
+use monero_oxide::transaction::Transaction;
+use tapes::{Persistence, TapeOpenOptions, Tapes, TapesRead};
 
 pub struct BlockchainDatabase {
     pub(crate) linear_tapes: Tapes,
@@ -48,43 +48,30 @@ pub struct BlockchainDatabase {
 
 impl BlockchainDatabase {
     pub fn open_with_fjall_database(
-        config: Config,
+        config: &Config,
         fjall_keyspace: fjall::Database,
     ) -> Result<Self, BlockchainError> {
-        let block_heights = fjall_keyspace
-            .keyspace("block_heights", || KeyspaceCreateOptions::default())
-            .unwrap();
-        let key_images = fjall_keyspace
-            .keyspace("key_images", || KeyspaceCreateOptions::default())
-            .unwrap();
-        let pre_rct_outputs = fjall_keyspace
-            .keyspace("pre_rct_output", || KeyspaceCreateOptions::default())
-            .unwrap();
-        let tx_ids = fjall_keyspace
-            .keyspace("tx_ids", || KeyspaceCreateOptions::default())
-            .unwrap();
-        let v1_tx_outputs = fjall_keyspace
-            .keyspace("tx_outputs", || KeyspaceCreateOptions::default())
-            .unwrap();
+        let block_heights =
+            fjall_keyspace.keyspace("block_heights", KeyspaceCreateOptions::default)?;
+        let key_images = fjall_keyspace.keyspace("key_images", KeyspaceCreateOptions::default)?;
+        let pre_rct_outputs =
+            fjall_keyspace.keyspace("pre_rct_output", KeyspaceCreateOptions::default)?;
+        let tx_ids = fjall_keyspace.keyspace("tx_ids", KeyspaceCreateOptions::default)?;
+        let v1_tx_outputs =
+            fjall_keyspace.keyspace("tx_outputs", KeyspaceCreateOptions::default)?;
 
-        let alt_chain_infos = fjall_keyspace
-            .keyspace("alt_chain_infos", || KeyspaceCreateOptions::default())
-            .unwrap();
-        let alt_block_heights = fjall_keyspace
-            .keyspace("alt_block_heights", || KeyspaceCreateOptions::default())
-            .unwrap();
-        let alt_blocks_info = fjall_keyspace
-            .keyspace("alt_blocks_infos", || KeyspaceCreateOptions::default())
-            .unwrap();
-        let alt_block_blobs = fjall_keyspace
-            .keyspace("alt_block_blobs", || KeyspaceCreateOptions::default())
-            .unwrap();
-        let alt_transaction_blobs = fjall_keyspace
-            .keyspace("alt_transaction_blobs", || KeyspaceCreateOptions::default())
-            .unwrap();
-        let alt_transaction_infos = fjall_keyspace
-            .keyspace("alt_transaction_infos", || KeyspaceCreateOptions::default())
-            .unwrap();
+        let alt_chain_infos =
+            fjall_keyspace.keyspace("alt_chain_infos", KeyspaceCreateOptions::default)?;
+        let alt_block_heights =
+            fjall_keyspace.keyspace("alt_block_heights", KeyspaceCreateOptions::default)?;
+        let alt_blocks_info =
+            fjall_keyspace.keyspace("alt_blocks_infos", KeyspaceCreateOptions::default)?;
+        let alt_block_blobs =
+            fjall_keyspace.keyspace("alt_block_blobs", KeyspaceCreateOptions::default)?;
+        let alt_transaction_blobs =
+            fjall_keyspace.keyspace("alt_transaction_blobs", KeyspaceCreateOptions::default)?;
+        let alt_transaction_infos =
+            fjall_keyspace.keyspace("alt_transaction_infos", KeyspaceCreateOptions::default)?;
 
         let tapes_index_dir = config.index_dir.join("tapes");
         let tapes_blob_dir = config.blob_dir.join("tapes");
@@ -110,7 +97,7 @@ impl BlockchainDatabase {
             "block_infos",
             &TapeOpenOptions {
                 top_cache_size: config.cache_sizes.block_infos,
-                dir: tapes_index_dir.clone(),
+                dir: tapes_index_dir,
             },
         )?;
         let pruned_blobs = tape_append_tx.open_blob_tape(
@@ -221,7 +208,7 @@ impl BlockchainDatabase {
         let mut tx_iter = tx_infos_iter.map(|tx_info| {
             let tx_info = tx_info.unwrap();
 
-            let mut tx_blob = vec![0; tx_info.pruned_size as usize];
+            let mut tx_blob = vec![0; tx_info.pruned_size];
             tapes_reader
                 .read_bytes(&self.pruned_blobs, tx_info.pruned_blob_idx, &mut tx_blob)
                 .unwrap();
@@ -241,7 +228,7 @@ impl BlockchainDatabase {
             .expect("block_infos tape exists")
         {
             let block =
-                crate::ops::block::get_block(&(height as usize), None, &tapes_reader, self)?;
+                crate::ops::block::get_block(&u64_to_usize(height), None, &tapes_reader, self)?;
 
             crate::ops::block::add_block_to_dynamic_tables(
                 self,

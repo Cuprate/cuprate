@@ -90,14 +90,14 @@ fn main() {
             *config
                 .storage
                 .fjall_cache_size
-                .get_value(&(info.total_memory() / 5)),
+                .value(&(info.total_memory() / 5)),
         )
         .open()
         .unwrap();
 
     let (mut blockchain_read_handle, mut blockchain_write_handle, _) =
         cuprate_blockchain::service::init_with_pool(
-            config.blockchain_config(),
+            &config.blockchain_config(),
             fjall_db.clone(),
             Arc::clone(&db_thread_pool),
         )

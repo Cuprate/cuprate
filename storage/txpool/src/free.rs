@@ -1,7 +1,5 @@
 //! General free functions (related to the tx-pool database).
 
-use std::borrow::Cow;
-
 use crate::types::TransactionBlobHash;
 
 /// Calculate the transaction blob hash.

@@ -45,7 +45,7 @@ impl Service<TxpoolReadRequest> for TxpoolReadHandle {
     fn call(&mut self, req: TxpoolReadRequest) -> Self::Future {
         let (tx, rx) = oneshot::channel();
 
-        let db = self.txpool.clone();
+        let db = Arc::clone(&self.txpool);
         self.pool.spawn(move || {
             let res = map_request(&db, req);
 
@@ -171,7 +171,7 @@ fn filter_known_tx_blob_hashes(
     // A closure that returns `true` if a tx with a certain blob hash is unknown.
     // This also fills in `stem_tx_hashes`.
     let mut tx_unknown = |blob_hash| -> Result<bool, TxPoolError> {
-        match snapshot.get(&db.known_blob_hashes, &blob_hash)? {
+        match snapshot.get(&db.known_blob_hashes, blob_hash)? {
             Some(tx_hash) => {
                 let tx_hash = tx_hash.as_ref().try_into().unwrap();
 

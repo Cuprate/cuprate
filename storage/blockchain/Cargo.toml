@@ -36,15 +36,8 @@ thiserror    = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 cuprate-constants  = { workspace = true }
-cuprate-helper     = { workspace = true, features = ["thread", "cast"] }
-cuprate-test-utils = { workspace = true }
 
-tokio             = { workspace = true, features = ["full"] }
-tempfile          = { workspace = true }
-pretty_assertions = { workspace = true }
 proptest          = { workspace = true }
-hex               = { workspace = true }
-hex-literal       = { workspace = true }
 
 [lints]
 workspace = true

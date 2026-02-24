@@ -97,9 +97,9 @@ pub struct TxInfo {
     /// The index of the transactions prunable blob in the corresponding prunable tape.
     pub prunable_blob_idx: u64,
     /// The size of the transactions pruned blob.
-    pub pruned_size: u64,
+    pub pruned_size: usize,
     /// The size of th transaction prunable blob.
-    pub prunable_size: u64,
+    pub prunable_size: usize,
     /// The index of the first V2 output in this transaction.
     ///
     /// will be [`u64::MAX`] for V1 transactions.

@@ -18,7 +18,6 @@ pub fn update_alt_chain_info(
     db: &BlockchainDatabase,
     alt_block_height: &AltBlockHeight,
     prev_hash: &BlockHash,
-    tx_rw: &mut fjall::OwnedWriteBatch,
 ) -> DbResult<()> {
     let parent_chain = match db.alt_block_heights.get(prev_hash) {
         Ok(Some(alt_parent_height)) => {
@@ -27,16 +26,15 @@ pub fn update_alt_chain_info(
             Chain::Alt(alt_parent_height.chain_id.into())
         }
         Ok(None) => Chain::Main,
-        Err(e) => Err(e)?,
+        Err(e) => return Err(e.into()),
     };
 
     let Some(info) = db
         .alt_chain_infos
         .get(alt_block_height.chain_id.0.to_le_bytes())?
     else {
-        tx_rw.insert(
-            &db.alt_chain_infos,
-            &alt_block_height.chain_id.0.to_le_bytes(),
+        db.alt_chain_infos.insert(
+            alt_block_height.chain_id.0.to_le_bytes(),
             bytemuck::bytes_of(&AltChainInfo {
                 parent_chain: parent_chain.into(),
                 common_ancestor_height: alt_block_height.height.checked_sub(1).unwrap(),
@@ -59,9 +57,8 @@ pub fn update_alt_chain_info(
         info.parent_chain = parent_chain.into();
     }
 
-    tx_rw.insert(
-        &db.alt_chain_infos,
-        &alt_block_height.chain_id.0.to_le_bytes(),
+    db.alt_chain_infos.insert(
+        alt_block_height.chain_id.0.to_le_bytes(),
         bytemuck::bytes_of(&info),
     );
 

@@ -26,7 +26,7 @@ pub fn add_alt_transaction_blob(
 ) -> DbResult<()> {
     tx_rw.insert(
         &db.alt_transaction_infos,
-        &tx.tx_hash,
+        tx.tx_hash,
         bytemuck::bytes_of(&AltTransactionInfo {
             tx_weight: tx.tx_weight,
             fee: tx.fee,
@@ -34,14 +34,14 @@ pub fn add_alt_transaction_blob(
         }),
     );
 
-    if db.tx_ids.contains_key(&tx.tx_hash)? || db.alt_transaction_blobs.contains_key(&tx.tx_hash)? {
+    if db.tx_ids.contains_key(tx.tx_hash)? || db.alt_transaction_blobs.contains_key(tx.tx_hash)? {
         return Ok(());
     }
 
     // TODO: the below can be made more efficient pretty easily.
     tx_rw.insert(
         &db.alt_transaction_blobs,
-        &tx.tx_hash,
+        tx.tx_hash,
         [tx.tx_pruned.as_slice(), tx.tx_prunable_blob.as_slice()]
             .concat()
             .as_slice(),

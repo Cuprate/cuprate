@@ -3,14 +3,13 @@
     reason = "binary shares same Cargo.toml as library"
 )]
 
-use std::fs::write;
-
 use clap::Parser;
+use std::fs::write;
+use std::sync::Arc;
 use tower::{Service, ServiceExt};
 
-use cuprate_blockchain::{
-    config::ConfigBuilder, cuprate_database::DbResult, service::BlockchainReadHandle,
-};
+use cuprate_blockchain::config::Config;
+use cuprate_blockchain::{service::BlockchainReadHandle, DbResult};
 use cuprate_hex::Hex;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
@@ -18,6 +17,7 @@ use cuprate_types::{
 };
 
 use cuprate_fast_sync::FAST_SYNC_BATCH_LEN;
+use cuprate_helper::fs::CUPRATE_DATA_DIR;
 
 async fn read_batch(
     handle: &mut BlockchainReadHandle,
@@ -49,9 +49,15 @@ async fn main() {
     let args = Args::parse();
     let height_target = args.height;
 
-    let config = ConfigBuilder::new().build();
+    let config = Config::default();
+    let fjall_dir = CUPRATE_DATA_DIR.to_path_buf().join("fjall");
 
-    let (mut read_handle, _, _) = cuprate_blockchain::service::init(config).unwrap();
+    let fjall = fjall::Database::builder(fjall_dir).open().unwrap();
+
+    let thread_pool = Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap());
+
+    let (mut read_handle, _, _) =
+        cuprate_blockchain::service::init_with_pool(&config, fjall, thread_pool).unwrap();
 
     let mut hashes_of_hashes = Vec::new();
 

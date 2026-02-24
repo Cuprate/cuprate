@@ -9,6 +9,7 @@ name = "create-fs-file"
 path = "src/create.rs"
 
 [dependencies]
+cuprate-helper              = { workspace = true, features = ["fs"] }
 cuprate-blockchain          = { workspace = true }
 cuprate-consensus           = { workspace = true }
 cuprate-consensus-context   = { workspace = true }
@@ -18,10 +19,12 @@ cuprate-p2p                 = { workspace = true }
 cuprate-p2p-core            = { workspace = true }
 
 clap         = { workspace = true, features = ["derive", "std"] }
+fjall        = { workspace = true }
 hex          = { workspace = true }
 monero-oxide = { workspace = true }
 blake3       = { workspace = true }
 tokio        = { workspace = true, features = ["full"] }
+rayon        = { workspace = true }
 tower        = { workspace = true }
 serde_json   = { workspace = true }
 
