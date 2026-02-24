@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{atomic::AtomicUsize, Arc},
+};
 
 use futures::StreamExt;
 use monero_oxide::block::Block;
@@ -61,6 +64,7 @@ pub async fn init_blockchain_manager(
     COMMAND_TX.set(command_tx).unwrap();
 
     let synced_notify = Arc::new(Notify::new());
+    let sync_target_height = Arc::new(AtomicUsize::new(0));
 
     tokio::spawn(syncer::syncer(
         blockchain_context_service.clone(),
@@ -70,6 +74,7 @@ pub async fn init_blockchain_manager(
         Arc::clone(&stop_current_block_downloader),
         block_downloader_config,
         Arc::clone(&synced_notify),
+        Arc::clone(&sync_target_height),
     ));
 
     let manager = BlockchainManager {
@@ -82,6 +87,7 @@ pub async fn init_blockchain_manager(
         blockchain_context_service,
         stop_current_block_downloader,
         broadcast_svc: clearnet_interface.broadcast_svc(),
+        sync_target_height,
     };
 
     tokio::spawn(manager.run(batch_rx, command_rx));
@@ -111,6 +117,9 @@ pub struct BlockchainManager {
     stop_current_block_downloader: Arc<Notify>,
     /// The broadcast service, to broadcast new blocks.
     broadcast_svc: BroadcastSvc<ClearNet>,
+    /// The target height we are syncing to. `0` means not syncing.
+    /// Written by the syncer, read by the handler for progress logs.
+    sync_target_height: Arc<AtomicUsize>,
 }
 
 impl BlockchainManager {
