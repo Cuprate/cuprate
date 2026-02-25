@@ -12,10 +12,6 @@ use cuprate_pruning::PruningSeed;
 ///
 #[doc = doc_error!()]
 ///
-/// # Example
-/// ```rust
-/// // SOMEDAY
-/// ```
 #[inline]
 pub const fn get_blockchain_pruning_seed() -> DbResult<PruningSeed> {
     // SOMEDAY: impl pruning.
@@ -27,10 +23,6 @@ pub const fn get_blockchain_pruning_seed() -> DbResult<PruningSeed> {
 ///
 #[doc = doc_error!()]
 ///
-/// # Example
-/// ```rust
-/// // SOMEDAY
-/// ```
 #[inline]
 pub const fn db_version() -> DbResult<u64> {
     // SOMEDAY: We need a DB properties table.
