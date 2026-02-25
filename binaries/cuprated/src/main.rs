@@ -128,7 +128,10 @@ fn main() {
         let peer_sync_callback = {
             let context_svc = context_svc.clone();
             PeerSyncCallback::new(Box::new(move |peer_cd: u128| {
-                peer_cd > context_svc.cumulative_difficulty()
+                peer_cd
+                    > context_svc
+                        .blockchain_context_snapshot()
+                        .cumulative_difficulty
             }))
         };
 

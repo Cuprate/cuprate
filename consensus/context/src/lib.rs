@@ -377,9 +377,9 @@ impl BlockchainContextService {
         self.cached_context.load()
     }
 
-    /// Get the current cumulative difficulty.
-    pub fn cumulative_difficulty(&self) -> u128 {
-        self.cached_context.arc_swap().load().cumulative_difficulty
+    /// Get a snapshot of the current [`BlockchainContext`].
+    pub fn blockchain_context_snapshot(&self) -> arc_swap::Guard<Arc<BlockchainContext>> {
+        self.cached_context.arc_swap().load()
     }
 }
 
