@@ -21,10 +21,7 @@ env:
   # Build commands.
   CMD_DOC: cargo doc --all-features --no-deps
   CMD_CLIPPY: cargo clippy --all-features --all-targets -- -D warnings
-  CMD_TEST: |
-    # HACK: how to test both DB backends that are feature-gated?
-    cargo test --all-features
-    cargo test --package cuprate-blockchain --no-default-features --features redb
+  CMD_TEST: cargo test --all-features
   CMD_BUILD: cargo build --all-features --all-targets
   CMD_HACK: |
     cargo install cargo-hack --locked
