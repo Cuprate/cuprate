@@ -376,6 +376,11 @@ impl BlockchainContextService {
     pub fn blockchain_context(&mut self) -> &BlockchainContext {
         self.cached_context.load()
     }
+
+    /// Get a snapshot of the current [`BlockchainContext`].
+    pub fn blockchain_context_snapshot(&self) -> arc_swap::Guard<Arc<BlockchainContext>> {
+        self.cached_context.arc_swap().load()
+    }
 }
 
 impl Service<BlockChainContextRequest> for BlockchainContextService {

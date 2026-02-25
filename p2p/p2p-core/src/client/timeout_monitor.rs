@@ -15,7 +15,7 @@ use tracing::instrument;
 use cuprate_wire::{admin::TimedSyncRequest, AdminRequestMessage, AdminResponseMessage};
 
 use crate::{
-    client::{connection::ConnectionTaskRequest, PeerInformation},
+    client::{connection::ConnectionTaskRequest, PeerInformation, PeerSyncCallback},
     constants::{MAX_PEERS_IN_PEER_LIST_MESSAGE, TIMEOUT_INTERVAL},
     services::{AddressBookRequest, CoreSyncDataRequest, CoreSyncDataResponse},
     AddressBook, CoreSyncSvc, NetworkZone, PeerRequest, PeerResponse,
@@ -36,6 +36,7 @@ pub(super) async fn connection_timeout_monitor_task<N: NetworkZone, AdrBook, CSy
 
     mut address_book_svc: AdrBook,
     mut core_sync_svc: CSync,
+    on_peer_sync: Option<PeerSyncCallback>,
 ) -> Result<(), tower::BoxError>
 where
     AdrBook: AddressBook<N>,
@@ -128,6 +129,11 @@ where
             ))
             .await?;
 
+        let new_cd = timed_sync.payload_data.cumulative_difficulty();
         *peer_information.core_sync_data.lock().unwrap() = timed_sync.payload_data;
+
+        if let Some(on_peer_sync) = &on_peer_sync {
+            on_peer_sync.call(new_cd);
+        }
     }
 }
