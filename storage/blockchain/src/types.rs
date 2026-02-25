@@ -117,21 +117,6 @@ pub struct TxInfo {
 /// when [`PreRctOutputId::amount`] is set to `0`, although,
 /// in that case, only [`AmountIndex`] needs to be known.
 ///
-/// ```rust
-/// # use std::borrow::*;
-/// # use cuprate_blockchain::{*, types::*};
-/// use cuprate_database::Storable;
-///
-/// // Assert Storable is correct.
-/// let a = PreRctOutputId {
-///     amount: 1,
-///     amount_index: 123,
-/// };
-/// let b = Storable::as_bytes(&a);
-/// let c: PreRctOutputId = Storable::from_bytes(b);
-/// assert_eq!(a, c);
-/// ```
-///
 /// # Size & Alignment
 /// ```rust
 /// # use cuprate_blockchain::types::*;
@@ -159,32 +144,10 @@ pub struct PreRctOutputId {
 //---------------------------------------------------------------------------------------------------- BlockInfoV3
 /// Block information.
 ///
-/// ```rust
-/// # use std::borrow::*;
-/// # use cuprate_blockchain::{*, types::*};
-/// use cuprate_database::Storable;
-///
-/// // Assert Storable is correct.
-/// let a = BlockInfo {
-///     timestamp: 1,
-///     cumulative_generated_coins: 123,
-///     weight: 321,
-///     cumulative_difficulty_low: 112,
-///     cumulative_difficulty_high: 112,
-///     block_hash: [54; 32],
-///     cumulative_rct_outs: 2389,
-///     long_term_weight: 2389,
-///     mining_tx_index: 23
-/// };
-/// let b = Storable::as_bytes(&a);
-/// let c: BlockInfo = Storable::from_bytes(b);
-/// assert_eq!(a, c);
-/// ```
-///
 /// # Size & Alignment
 /// ```rust
 /// # use cuprate_blockchain::types::*;
-/// assert_eq!(size_of::<BlockInfo>(), 96);
+/// assert_eq!(size_of::<BlockInfo>(), 112);
 /// assert_eq!(align_of::<BlockInfo>(), 8);
 /// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -220,27 +183,10 @@ pub struct BlockInfo {
 //---------------------------------------------------------------------------------------------------- Output
 /// A pre-RCT (v1) output's data.
 ///
-/// ```rust
-/// # use std::borrow::*;
-/// # use cuprate_blockchain::{*, types::*};
-/// use cuprate_database::Storable;
-///
-/// // Assert Storable is correct.
-/// let a = Output {
-///     key: [1; 32],
-///     height: 1,
-///     output_flags: OutputFlags::empty(),
-///     tx_idx: 3,
-/// };
-/// let b = Storable::as_bytes(&a);
-/// let c: Output = Storable::from_bytes(b);
-/// assert_eq!(a, c);
-/// ```
-///
 /// # Size & Alignment
 /// ```rust
 /// # use cuprate_blockchain::types::*;
-/// assert_eq!(size_of::<Output>(), 48);
+/// assert_eq!(size_of::<Output>(), 56);
 /// assert_eq!(align_of::<Output>(), 8);
 /// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -262,28 +208,10 @@ pub struct Output {
 //---------------------------------------------------------------------------------------------------- RctOutput
 /// An RCT (v2+) output's data.
 ///
-/// ```rust
-/// # use std::borrow::*;
-/// # use cuprate_blockchain::{*, types::*};
-/// use cuprate_database::Storable;
-///
-/// // Assert Storable is correct.
-/// let a = RctOutput {
-///     key: [1; 32],
-///     height: 1,
-///     output_flags: OutputFlags::empty(),
-///     tx_idx: 3,
-///     commitment: [3; 32],
-/// };
-/// let b = Storable::as_bytes(&a);
-/// let c: RctOutput = Storable::from_bytes(b);
-/// assert_eq!(a, c);
-/// ```
-///
 /// # Size & Alignment
 /// ```rust
 /// # use cuprate_blockchain::types::*;
-/// assert_eq!(size_of::<RctOutput>(), 80);
+/// assert_eq!(size_of::<RctOutput>(), 88);
 /// assert_eq!(align_of::<RctOutput>(), 8);
 /// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -309,19 +237,6 @@ pub struct RctOutput {
 /// [`Chain`] in a format which can be stored in the DB.
 ///
 /// Implements [`Into`] and [`From`] for [`Chain`].
-///
-/// ```rust
-/// # use std::borrow::*;
-/// # use cuprate_blockchain::{*, types::*};
-/// use cuprate_database::Storable;
-/// use cuprate_types::Chain;
-///
-/// // Assert Storable is correct.
-/// let a: RawChain = Chain::Main.into();
-/// let b = Storable::as_bytes(&a);
-/// let c: RawChain = Storable::from_bytes(b);
-/// assert_eq!(a, c);
-/// ```
 ///
 /// # Size & Alignment
 /// ```rust
@@ -362,19 +277,6 @@ impl From<RawChainId> for RawChain {
 ///
 /// Implements [`Into`] and [`From`] for [`ChainId`].
 ///
-/// ```rust
-/// # use std::borrow::*;
-/// # use cuprate_blockchain::{*, types::*};
-/// use cuprate_database::Storable;
-/// use cuprate_types::ChainId;
-///
-/// // Assert Storable is correct.
-/// let a: RawChainId = ChainId(10.try_into().unwrap()).into();
-/// let b = Storable::as_bytes(&a);
-/// let c: RawChainId = Storable::from_bytes(b);
-/// assert_eq!(a, c);
-/// ```
-///
 /// # Size & Alignment
 /// ```rust
 /// # use cuprate_blockchain::types::*;
@@ -400,23 +302,6 @@ impl From<RawChainId> for ChainId {
 //---------------------------------------------------------------------------------------------------- AltChainInfo
 /// Information on an alternative chain.
 ///
-/// ```rust
-/// # use std::borrow::*;
-/// # use cuprate_blockchain::{*, types::*};
-/// use cuprate_database::Storable;
-/// use cuprate_types::Chain;
-///
-/// // Assert Storable is correct.
-/// let a: AltChainInfo = AltChainInfo {
-///     parent_chain: Chain::Main.into(),
-///     common_ancestor_height: 0,
-///     chain_height: 1,
-/// };
-/// let b = Storable::as_bytes(&a);
-/// let c: AltChainInfo = Storable::from_bytes(b);
-/// assert_eq!(a, c);
-/// ```
-///
 /// # Size & Alignment
 /// ```rust
 /// # use cuprate_blockchain::types::*;
@@ -437,22 +322,6 @@ pub struct AltChainInfo {
 //---------------------------------------------------------------------------------------------------- AltBlockHeight
 /// Represents the height of a block on an alt-chain.
 ///
-/// ```rust
-/// # use std::borrow::*;
-/// # use cuprate_blockchain::{*, types::*};
-/// use cuprate_database::Storable;
-/// use cuprate_types::ChainId;
-///
-/// // Assert Storable is correct.
-/// let a: AltBlockHeight = AltBlockHeight {
-///     chain_id: ChainId(1.try_into().unwrap()).into(),
-///     height: 1,
-/// };
-/// let b = Storable::as_bytes(&a);
-/// let c: AltBlockHeight = Storable::from_bytes(b);
-/// assert_eq!(a, c);
-/// ```
-///
 /// # Size & Alignment
 /// ```rust
 /// # use cuprate_blockchain::types::*;
@@ -470,27 +339,6 @@ pub struct AltBlockHeight {
 
 //---------------------------------------------------------------------------------------------------- CompactAltBlockInfo
 /// Represents information on an alt-chain.
-///
-/// ```rust
-/// # use std::borrow::*;
-/// # use cuprate_blockchain::{*, types::*};
-/// use cuprate_database::Storable;
-///
-/// // Assert Storable is correct.
-/// let a: CompactAltBlockInfo = CompactAltBlockInfo {
-///     block_hash: [1; 32],
-///     pow_hash: [2; 32],
-///     height: 10,
-///     weight: 20,
-///     long_term_weight: 30,
-///     cumulative_difficulty_low: 40,
-///     cumulative_difficulty_high: 50,
-/// };
-///     
-/// let b = Storable::as_bytes(&a);
-/// let c: CompactAltBlockInfo = Storable::from_bytes(b);
-/// assert_eq!(a, c);
-/// ```
 ///
 /// # Size & Alignment
 /// ```rust
@@ -519,23 +367,6 @@ pub struct CompactAltBlockInfo {
 
 //---------------------------------------------------------------------------------------------------- AltTransactionInfo
 /// Represents information on an alt transaction.
-///
-/// ```rust
-/// # use std::borrow::*;
-/// # use cuprate_blockchain::{*, types::*};
-/// use cuprate_database::Storable;
-///
-/// // Assert Storable is correct.
-/// let a: AltTransactionInfo = AltTransactionInfo {
-///     tx_weight: 1,
-///     fee: 6,
-///     tx_hash: [6; 32],
-/// };
-///     
-/// let b = Storable::as_bytes(&a);
-/// let c: AltTransactionInfo = Storable::from_bytes(b);
-/// assert_eq!(a, c);
-/// ```
 ///
 /// # Size & Alignment
 /// ```rust

@@ -9,7 +9,7 @@ use cuprate_epee_encoding::{
     macros::bytes::{Buf, BufMut},
     read_epee_value, write_field, EpeeObject, EpeeObjectBuilder,
 };
-
+#[cfg(feature = "epee")]
 use cuprate_fixed_bytes::ByteArrayVec;
 
 use crate::rpc::{PoolInfoFull, PoolInfoIncremental, PoolTxInfo};

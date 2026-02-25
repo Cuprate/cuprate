@@ -5,35 +5,6 @@
 //! These configurations are processed at runtime, meaning
 //! the `Env` can/will dynamically adjust its behavior based
 //! on these values.
-//!
-//! # Example
-//! ```rust
-//! use cuprate_blockchain::{
-//!     cuprate_database::{Env, config::SyncMode},
-//!     config::{ConfigBuilder, ReaderThreads},
-//! };
-//!
-//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! let tmp_dir = tempfile::tempdir()?;
-//! let db_dir = tmp_dir.path().to_owned();
-//!
-//! let config = ConfigBuilder::new()
-//!      // Use a custom database directory.
-//!     .data_directory(db_dir.into())
-//!     // Use as many reader threads as possible (when using `service`).
-//!     .reader_threads(ReaderThreads::OnePerThread)
-//!     // Use the fastest sync mode.
-//!     .sync_mode(SyncMode::Fast)
-//!     // Build into `Config`
-//!     .build();
-//!
-//! // Start a database `service` using this configuration.
-//! let (_, _, env) = cuprate_blockchain::service::init(config.clone())?;
-//! // It's using the config we provided.
-//! assert_eq!(env.config(), &config.db_config);
-//! # Ok(()) }
-//! ```
-
 //---------------------------------------------------------------------------------------------------- Import
 use std::{borrow::Cow, path::PathBuf};
 

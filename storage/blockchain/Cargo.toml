@@ -12,12 +12,12 @@ keywords    = ["cuprate", "blockchain", "database"]
 
 [dependencies]
 crossbeam = { workspace = true, features = ["std", "crossbeam-channel"] }
-cuprate-helper           = { workspace = true, features = ["fs", "map", "crypto", "tx", "thread"] }
+cuprate-helper           = { workspace = true, features = ["fs", "map", "crypto", "tx", "thread", "asynch"] }
 cuprate-types            = { workspace = true, features = ["blockchain"] }
 cuprate-pruning          = { workspace = true }
 
 tapes     = { git = "https://github.com/Cuprate/Tapes.git", rev = "3d0e169" }
-tracing = { workspace = true }
+tracing          = { workspace = true, features = ["std", "attributes"] }
 bytemuck         = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 monero-oxide     = { workspace = true, features = ["std"] }
 serde            = { workspace = true, optional = true }
@@ -25,7 +25,7 @@ fjall = { workspace = true }
 
 futures = { workspace = true, features = ["std"]}
 
-rand         = { workspace = true, features = ["std"] }
+rand         = { workspace = true, features = ["std", "std_rng"] }
 itertools    = { workspace = true }
 indexmap     = { workspace = true, features = ["rayon", "std"] }
 tower        = { workspace = true }

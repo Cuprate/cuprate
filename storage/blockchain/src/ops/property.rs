@@ -14,7 +14,6 @@ use cuprate_pruning::PruningSeed;
 ///
 /// # Example
 /// ```rust
-/// # use cuprate_blockchain::{*, tables::*, ops::block::*, ops::tx::*};
 /// // SOMEDAY
 /// ```
 #[inline]
@@ -30,7 +29,6 @@ pub const fn get_blockchain_pruning_seed() -> DbResult<PruningSeed> {
 ///
 /// # Example
 /// ```rust
-/// # use cuprate_blockchain::{*, tables::*, ops::block::*, ops::tx::*};
 /// // SOMEDAY
 /// ```
 #[inline]
