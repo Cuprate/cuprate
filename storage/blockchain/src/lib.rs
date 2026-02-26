@@ -1,8 +1,12 @@
 #![doc = include_str!("../README.md")]
 #![allow(
     // See `cuprate-database` for reasoning.
-    clippy::significant_drop_tightening
+    clippy::significant_drop_tightening,
+unreachable_pub,
+unused,
+unused_qualifications,
 )]
+extern crate core;
 
 // Only allow building 64-bit targets.
 //
@@ -21,20 +25,16 @@ compile_error!("Cuprate is only compatible with 64-bit CPUs");
 // Documentation for each module is located in the respective file.
 
 mod constants;
-mod free;
+mod database;
 
 pub use constants::DATABASE_VERSION;
-pub use cuprate_database;
-pub use free::open;
+pub use database::BlockchainDatabase;
 
 pub mod config;
 pub mod ops;
 pub mod service;
-pub mod tables;
 pub mod types;
 
 //---------------------------------------------------------------------------------------------------- Private
-#[cfg(test)]
-pub(crate) mod tests;
-
-pub(crate) mod unsafe_sendable;
+mod error;
+pub use error::{BlockchainError, DbResult};

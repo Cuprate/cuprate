@@ -61,6 +61,8 @@ pub async fn start_txpool_manager(
         unreachable!()
     };
 
+    // TODO: add height to txpool
+
     tracing::info!(txs_in_pool = backlog.len(), "starting txpool manager");
 
     let mut stem_txs = Vec::new();

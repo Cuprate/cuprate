@@ -1,12 +1,10 @@
 use std::path::PathBuf;
 
-use serde::{Deserialize, Serialize};
-
-use cuprate_database::config::SyncMode;
-use cuprate_database_service::ReaderThreads;
-use cuprate_helper::fs::CUPRATE_DATA_DIR;
-
 use super::macros::config_struct;
+use crate::config::default::DefaultOrCustom;
+use cuprate_blockchain::config::CacheSizes;
+use cuprate_helper::fs::CUPRATE_DATA_DIR;
+use serde::{Deserialize, Serialize};
 
 config_struct! {
     /// The storage config.
@@ -23,6 +21,9 @@ config_struct! {
         /// Examples     | 1, 16, 10
         pub reader_threads: usize,
 
+        /// Test
+        pub fjall_cache_size: DefaultOrCustom<u64>,
+
         #[child = true]
         /// The tx-pool config.
         pub txpool: TxpoolConfig,
@@ -36,7 +37,8 @@ config_struct! {
 impl Default for StorageConfig {
     fn default() -> Self {
         Self {
-            reader_threads: cuprate_helper::thread::threads_25().get(),
+            reader_threads: cuprate_helper::thread::threads().get() * 4,
+            fjall_cache_size: DefaultOrCustom::Default,
             txpool: Default::default(),
             blockchain: Default::default(),
         }
@@ -44,23 +46,6 @@ impl Default for StorageConfig {
 }
 
 config_struct! {
-    Shared {
-        #[comment_out = true]
-        /// The sync mode of the database.
-        ///
-        /// Using "Safe" makes the DB less likely to corrupt
-        /// if there is an unexpected crash, although it will
-        /// make DB writes much slower.
-        ///
-        /// Valid values | "Fast", "Safe"
-        pub sync_mode: SyncMode,
-    }
-
-    /// The blockchain config.
-    #[derive(Default, Debug, Deserialize, Serialize, PartialEq, Eq)]
-    #[serde(deny_unknown_fields, default)]
-    pub struct BlockchainConfig { }
-
     /// The tx-pool config.
     #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
@@ -82,10 +67,20 @@ config_struct! {
     }
 }
 
+config_struct! {
+    /// The blockchain config.
+    #[derive(Default, Debug, Deserialize, Serialize, PartialEq, Eq)]
+    #[serde(deny_unknown_fields, default)]
+    pub struct BlockchainConfig {
+        /// Test
+        pub tapes_cache_sizes: CacheSizes,
+    }
+
+}
+
 impl Default for TxpoolConfig {
     fn default() -> Self {
         Self {
-            sync_mode: SyncMode::default(),
             max_txpool_byte_size: 100_000_000,
             maximum_age_secs: 60 * 60 * 24,
         }

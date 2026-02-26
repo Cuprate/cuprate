@@ -9,44 +9,35 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/storage/cuprate-bloc
 keywords    = ["cuprate", "blockchain", "database"]
 
 [features]
-default     = ["heed"]
-# default     = ["redb", "service"]
-# default     = ["redb-memory", "service"]
-heed        = ["cuprate-database/heed"]
-redb        = ["cuprate-database/redb"]
-redb-memory = ["cuprate-database/redb-memory"]
-serde       = ["dep:serde", "cuprate-database/serde", "cuprate-database-service/serde", "cuprate-helper/serde"]
 
 [dependencies]
-cuprate-database         = { workspace = true }
-cuprate-database-service = { workspace = true }
-cuprate-helper           = { workspace = true, features = ["fs", "map", "crypto", "tx", "thread"] }
+crossbeam = { workspace = true, features = ["std", "crossbeam-channel"] }
+cuprate-helper           = { workspace = true, features = ["fs", "map", "crypto", "tx", "thread", "asynch"] }
 cuprate-types            = { workspace = true, features = ["blockchain"] }
 cuprate-pruning          = { workspace = true }
 
-bitflags         = { workspace = true, features = ["std", "serde", "bytemuck"] }
+tapes     = { git = "https://github.com/Cuprate/Tapes.git", rev = "3d0e169" }
+tracing          = { workspace = true, features = ["std", "attributes"] }
 bytemuck         = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
-rand             = { workspace = true, features = ["std", "std_rng"] }
 monero-oxide     = { workspace = true, features = ["std"] }
 serde            = { workspace = true, optional = true }
+fjall = { workspace = true }
 
-indexmap     = { workspace = true, features = ["rayon"] }
+futures = { workspace = true, features = ["std"]}
+
+rand         = { workspace = true, features = ["std", "std_rng"] }
+itertools    = { workspace = true }
+indexmap     = { workspace = true, features = ["rayon", "std"] }
 tower        = { workspace = true }
 thread_local = { workspace = true }
 rayon        = { workspace = true }
 bytes        = { workspace = true }
+thiserror    = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 cuprate-constants  = { workspace = true }
-cuprate-helper     = { workspace = true, features = ["thread", "cast"] }
-cuprate-test-utils = { workspace = true }
 
-tokio             = { workspace = true, features = ["full"] }
-tempfile          = { workspace = true }
-pretty_assertions = { workspace = true }
 proptest          = { workspace = true }
-hex               = { workspace = true }
-hex-literal       = { workspace = true }
 
 [lints]
 workspace = true

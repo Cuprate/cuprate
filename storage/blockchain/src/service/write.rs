@@ -1,18 +1,25 @@
 //! Database writer thread definitions and logic.
-//---------------------------------------------------------------------------------------------------- Import
-use std::sync::Arc;
 
-use cuprate_database::{ConcreteEnv, DbResult, Env, EnvInner, TxRw};
-use cuprate_database_service::DatabaseWriteHandle;
+use std::borrow::Cow;
+use std::net::Shutdown::Read;
+//---------------------------------------------------------------------------------------------------- Import
+use crate::error::{BlockchainError, DbResult};
+use crate::ops::block::add_blocks_to_tapes;
+use crate::types::TxInfo;
+use crate::{service::ResponseResult, BlockchainDatabase};
+use crossbeam::channel::Receiver;
 use cuprate_types::{
     blockchain::{BlockchainResponse, BlockchainWriteRequest},
     AltBlockInformation, ChainId, VerifiedBlockInformation,
 };
-
-use crate::{
-    service::types::{BlockchainWriteHandle, ResponseResult},
-    tables::OpenTables,
-};
+use fjall::PersistMode;
+use futures::channel::oneshot;
+use std::sync::Arc;
+use std::task::{Context, Poll};
+use tapes::Persistence;
+use tapes::{TapesAppend, TapesRead, TapesTruncate};
+use tower::Service;
+use tracing::instrument;
 
 /// Write functions within this module abort if the write transaction
 /// could not be aborted successfully to maintain atomicity.
@@ -22,17 +29,83 @@ const TX_RW_ABORT_FAIL: &str =
     "Could not maintain blockchain database atomicity by aborting write transaction";
 
 //---------------------------------------------------------------------------------------------------- init_write_service
-/// Initialize the blockchain write service from a [`ConcreteEnv`].
-pub fn init_write_service(env: Arc<ConcreteEnv>) -> BlockchainWriteHandle {
-    DatabaseWriteHandle::init(env, handle_blockchain_request)
+/// Initialise the blockchain write service from a [`BlockchainDatabase`].
+pub fn init_write_service(env: Arc<BlockchainDatabase>) -> BlockchainWriteHandle {
+    let (sender, receiver) = crossbeam::channel::unbounded();
+
+    std::thread::Builder::new()
+        .name("cuprate_blockchain_writer".into())
+        .spawn(move || writer_thread(&env, &receiver))
+        .unwrap();
+
+    BlockchainWriteHandle { sender }
+}
+
+pub struct BlockchainWriteHandle {
+    /// Sender channel to the database write thread-pool.
+    ///
+    /// We provide the response channel for the thread-pool.
+    sender: crossbeam::channel::Sender<(
+        BlockchainWriteRequest,
+        oneshot::Sender<DbResult<BlockchainResponse>>,
+    )>,
+}
+
+impl Service<BlockchainWriteRequest> for BlockchainWriteHandle {
+    type Response = BlockchainResponse;
+    type Error = BlockchainError;
+    type Future = cuprate_helper::asynch::InfallibleOneshotReceiver<DbResult<BlockchainResponse>>;
+
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, req: BlockchainWriteRequest) -> Self::Future {
+        let (response_sender, receiver) = oneshot::channel();
+
+        self.sender.try_send((req, response_sender)).unwrap();
+
+        cuprate_helper::asynch::InfallibleOneshotReceiver::from(receiver)
+    }
+}
+
+#[instrument(
+    name = "blockchain_writer_thread",
+    skip(env, receiver),
+    level = "error"
+)]
+fn writer_thread(
+    env: &Arc<BlockchainDatabase>,
+    receiver: &Receiver<(
+        BlockchainWriteRequest,
+        oneshot::Sender<DbResult<BlockchainResponse>>,
+    )>,
+) {
+    while let Ok((req, response_sender)) = receiver.recv() {
+        let span = tracing::debug_span!("write_request");
+        span.in_scope(|| {
+            let response = handle_blockchain_request(env, &req);
+
+            match &response {
+                Ok(_) => tracing::debug!("Sending successful write response."),
+                Err(e) => {
+                    tracing::error!("Failed to handle write request: {e:?}");
+                }
+            }
+
+            let _ = response_sender.send(response).inspect_err(|_| {
+                tracing::warn!("Failed to send write response, rx wasn't waiting.");
+            });
+        });
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- handle_bc_request
 /// Handle an incoming [`BlockchainWriteRequest`], returning a [`BlockchainResponse`].
 fn handle_blockchain_request(
-    env: &ConcreteEnv,
+    env: &Arc<BlockchainDatabase>,
     req: &BlockchainWriteRequest,
-) -> DbResult<BlockchainResponse> {
+) -> Result<BlockchainResponse, BlockchainError> {
     match req {
         BlockchainWriteRequest::WriteBlock(block) => write_block(env, block),
         BlockchainWriteRequest::BatchWriteBlocks(blocks) => write_blocks(env, blocks),
@@ -53,127 +126,98 @@ fn handle_blockchain_request(
 
 /// [`BlockchainWriteRequest::WriteBlock`].
 #[inline]
-fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseResult {
-    let env_inner = env.env_inner();
-    let tx_rw = env_inner.tx_rw()?;
-
-    let result = {
-        let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
-        crate::ops::block::add_block(block, &mut tables_mut)
-    };
-
-    match result {
-        Ok(()) => {
-            TxRw::commit(tx_rw)?;
-            Ok(BlockchainResponse::Ok)
-        }
-        Err(e) => {
-            TxRw::abort(tx_rw).expect(TX_RW_ABORT_FAIL);
-            Err(e)
-        }
-    }
+#[instrument(skip(db, block), level = "debug")]
+fn write_block(db: &BlockchainDatabase, block: &VerifiedBlockInformation) -> ResponseResult {
+    write_blocks(db, std::slice::from_ref(block))
 }
 
 /// [`BlockchainWriteRequest::BatchWriteBlocks`].
 #[inline]
-fn write_blocks(env: &ConcreteEnv, block: &Vec<VerifiedBlockInformation>) -> ResponseResult {
-    let env_inner = env.env_inner();
-    let tx_rw = env_inner.tx_rw()?;
+#[instrument(skip(db, blocks), level = "debug")]
+fn write_blocks(db: &BlockchainDatabase, blocks: &[VerifiedBlockInformation]) -> ResponseResult {
+    tracing::debug!("Writing {} block(s) to database.", blocks.len());
 
-    let result = {
-        let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
-        for block in block {
-            crate::ops::block::add_block(block, &mut tables_mut)?;
+    let mut tapes = db.linear_tapes.append();
+
+    let numb_transactions = tapes
+        .fixed_sized_tape_len(&db.tx_infos)
+        .expect("required tape not open");
+
+    add_blocks_to_tapes(blocks, db, &mut tapes)?;
+
+    let mut tapes = Some(tapes);
+
+    let mut pre_rct_numb_outputs_cache = db.pre_rct_numb_outputs_cache.lock().unwrap();
+
+    let mut result = move || {
+        let mut numb_transactions = numb_transactions;
+
+        let mut tx_rw = db
+            .fjall_keyspace
+            .batch()
+            .durability(Some(PersistMode::Buffer));
+
+        for block in blocks {
+            crate::ops::block::add_block_to_dynamic_tables(
+                db,
+                &block.block,
+                &block.block_hash,
+                block.txs.iter().map(|tx| Cow::Borrowed(&tx.tx)),
+                &mut numb_transactions,
+                &mut tx_rw,
+                &mut pre_rct_numb_outputs_cache,
+            )?;
         }
 
-        Ok(())
+        if let Some(mut tapes) = tapes.take() {
+            tapes.commit(Persistence::Buffer)?;
+        }
+
+        tx_rw.commit().unwrap();
+
+        Ok(BlockchainResponse::Ok)
     };
 
-    match result {
-        Ok(()) => {
-            TxRw::commit(tx_rw)?;
-            Ok(BlockchainResponse::Ok)
-        }
-        Err(e) => {
-            TxRw::abort(tx_rw).expect(TX_RW_ABORT_FAIL);
-            Err(e)
-        }
-    }
+    result()
 }
 
 /// [`BlockchainWriteRequest::WriteAltBlock`].
 #[inline]
-fn write_alt_block(env: &ConcreteEnv, block: &AltBlockInformation) -> ResponseResult {
-    let env_inner = env.env_inner();
-    let tx_rw = env_inner.tx_rw()?;
+fn write_alt_block(db: &BlockchainDatabase, block: &AltBlockInformation) -> ResponseResult {
+    let mut tx_rw = db.fjall_keyspace.batch();
 
-    let result = {
-        let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
-        crate::ops::alt_block::add_alt_block(block, &mut tables_mut)
-    };
+    crate::ops::alt_block::add_alt_block(db, block, &mut tx_rw)?;
 
-    match result {
-        Ok(()) => {
-            TxRw::commit(tx_rw)?;
-            Ok(BlockchainResponse::Ok)
-        }
-        Err(e) => {
-            TxRw::abort(tx_rw).expect(TX_RW_ABORT_FAIL);
-            Err(e)
-        }
-    }
+    tx_rw.commit()?;
+
+    Ok(BlockchainResponse::Ok)
 }
 
 /// [`BlockchainWriteRequest::PopBlocks`].
-fn pop_blocks(env: &ConcreteEnv, numb_blocks: usize) -> ResponseResult {
-    let env_inner = env.env_inner();
-    let mut tx_rw = env_inner.tx_rw()?;
+fn pop_blocks(db: &BlockchainDatabase, numb_blocks: usize) -> ResponseResult {
+    let mut tapes = db.linear_tapes.truncate();
+    let mut tx_rw = db.fjall_keyspace.batch();
 
-    // FIXME: turn this function into a try block once stable.
-    let mut result = || {
-        // flush all the current alt blocks as they may reference blocks to be popped.
-        crate::ops::alt_block::flush_alt_blocks(&env_inner, &mut tx_rw)?;
+    // flush all the current alt blocks as they may reference blocks to be popped.
+    crate::ops::alt_block::flush_alt_blocks(db)?;
 
-        let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
-        // generate a `ChainId` for the popped blocks.
-        let old_main_chain_id = ChainId(rand::random());
+    // generate a `ChainId` for the popped blocks.
+    let old_main_chain_id = ChainId(rand::random());
 
-        // pop the blocks
-        for _ in 0..numb_blocks {
-            crate::ops::block::pop_block(Some(old_main_chain_id), &mut tables_mut)?;
-        }
-
-        Ok(old_main_chain_id)
-    };
-
-    match result() {
-        Ok(old_main_chain_id) => {
-            TxRw::commit(tx_rw)?;
-            Ok(BlockchainResponse::PopBlocks(old_main_chain_id))
-        }
-        Err(e) => {
-            TxRw::abort(tx_rw).expect(TX_RW_ABORT_FAIL);
-            Err(e)
-        }
+    // pop the blocks
+    for _ in 0..numb_blocks {
+        crate::ops::block::pop_block(db, Some(old_main_chain_id), &mut tx_rw, &mut tapes)?;
     }
+
+    tx_rw.commit()?;
+    tapes.commit(Persistence::SyncAll)?;
+    Ok(BlockchainResponse::PopBlocks(old_main_chain_id))
 }
 
 /// [`BlockchainWriteRequest::FlushAltBlocks`].
 #[inline]
-fn flush_alt_blocks(env: &ConcreteEnv) -> ResponseResult {
-    let env_inner = env.env_inner();
-    let mut tx_rw = env_inner.tx_rw()?;
+fn flush_alt_blocks(db: &BlockchainDatabase) -> ResponseResult {
+    crate::ops::alt_block::flush_alt_blocks(db)?;
 
-    let result = crate::ops::alt_block::flush_alt_blocks(&env_inner, &mut tx_rw);
-
-    match result {
-        Ok(()) => {
-            TxRw::commit(tx_rw)?;
-            Ok(BlockchainResponse::Ok)
-        }
-        Err(e) => {
-            TxRw::abort(tx_rw).expect(TX_RW_ABORT_FAIL);
-            Err(e)
-        }
-    }
+    Ok(BlockchainResponse::Ok)
 }

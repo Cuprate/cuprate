@@ -1,4 +1,9 @@
 //! cuprated config
+use anyhow::bail;
+use clap::Parser;
+use cuprate_blockchain::config::CacheSizes;
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::{
     fmt,
     fs::{read_to_string, File},
@@ -8,10 +13,6 @@ use std::{
     str::FromStr,
     time::Duration,
 };
-
-use anyhow::bail;
-use clap::Parser;
-use serde::{Deserialize, Serialize};
 
 use cuprate_consensus::ContextConfig;
 use cuprate_helper::{
@@ -305,24 +306,17 @@ impl Config {
     pub fn blockchain_config(&self) -> cuprate_blockchain::config::Config {
         let blockchain = &self.storage.blockchain;
 
-        // We don't set reader threads as we manually make the reader threadpool.
-        cuprate_blockchain::config::ConfigBuilder::default()
-            .network(self.network)
-            .data_directory(self.fs.data_directory.clone())
-            .sync_mode(blockchain.sync_mode)
-            .build()
+        cuprate_blockchain::config::Config {
+            blob_dir: self.fs.fast_data_directory.clone(),
+            index_dir: self.fs.slow_data_directory.clone(),
+            cache_sizes: self.storage.blockchain.tapes_cache_sizes.clone(),
+        }
     }
 
-    /// The [`cuprate_txpool`] config.
-    pub fn txpool_config(&self) -> cuprate_txpool::config::Config {
-        let txpool = &self.storage.txpool;
-
-        // We don't set reader threads as we manually make the reader threadpool.
-        cuprate_txpool::config::ConfigBuilder::default()
-            .network(self.network)
-            .data_directory(self.fs.data_directory.clone())
-            .sync_mode(txpool.sync_mode)
-            .build()
+    /// The directory for fjall.
+    pub fn fjall_directory(&self) -> PathBuf {
+        cuprate_helper::fs::path_with_network(&self.fs.fast_data_directory, self.network)
+            .join("fjall")
     }
 
     /// The [`BlockDownloaderConfig`].
@@ -443,8 +437,22 @@ impl Config {
             }
         }
 
-        match Self::check_dir_permissions(&self.fs.data_directory) {
-            Ok(()) => println!("Permissions are ok at {}", self.fs.data_directory.display()),
+        match Self::check_dir_permissions(&self.fs.fast_data_directory) {
+            Ok(()) => println!(
+                "Permissions are ok at {}",
+                self.fs.fast_data_directory.display()
+            ),
+            Err(e) => {
+                eprintln_red(&format!("Error: {e}"));
+                error = true;
+            }
+        }
+
+        match Self::check_dir_permissions(&self.fs.slow_data_directory) {
+            Ok(()) => println!(
+                "Permissions are ok at {}",
+                self.fs.slow_data_directory.display()
+            ),
             Err(e) => {
                 eprintln_red(&format!("Error: {e}"));
                 error = true;

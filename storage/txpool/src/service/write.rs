@@ -1,41 +1,69 @@
-use std::sync::Arc;
-
-use cuprate_database::{
-    ConcreteEnv, DatabaseRo, DatabaseRw, DbResult, Env, EnvInner, RuntimeError, TxRw,
-};
-use cuprate_database_service::DatabaseWriteHandle;
-use cuprate_helper::time::current_unix_timestamp;
-use cuprate_types::TransactionVerificationData;
-
+use crate::error::TxPoolError;
+use crate::txpool::TxpoolDatabase;
+use crate::types::TransactionInfo;
 use crate::{
     ops::{self, TxPoolWriteError},
-    service::{
-        interface::{TxpoolWriteRequest, TxpoolWriteResponse},
-        types::TxpoolWriteHandle,
-    },
-    tables::{OpenTables, Tables, TransactionInfos},
+    service::interface::{TxpoolWriteRequest, TxpoolWriteResponse},
     types::{KeyImage, TransactionHash, TxStateFlags},
 };
+use cuprate_helper::asynch::InfallibleOneshotReceiver;
+use cuprate_types::TransactionVerificationData;
+use futures::channel::oneshot;
+use monero_oxide::transaction::Input;
+use rayon::ThreadPool;
+use std::collections::hash_map::Entry;
+use std::collections::HashSet;
+use std::sync::Arc;
+use std::task::{Context, Poll};
+use tower::Service;
 
-//---------------------------------------------------------------------------------------------------- init_write_service
-/// Initialize the txpool write service from a [`ConcreteEnv`].
-pub(super) fn init_write_service(env: Arc<ConcreteEnv>) -> TxpoolWriteHandle {
-    DatabaseWriteHandle::init(env, handle_txpool_request)
+#[derive(Clone)]
+pub struct TxpoolWriteHandle {
+    /// Handle to the custom `rayon` DB reader thread-pool.
+    ///
+    /// Requests are [`rayon::ThreadPool::spawn`]ed in this thread-pool,
+    /// and responses are returned via a channel we (the caller) provide.
+    pub pool: Arc<ThreadPool>,
+
+    pub txpool: Arc<TxpoolDatabase>,
+}
+
+impl Service<TxpoolWriteRequest> for TxpoolWriteHandle {
+    type Response = TxpoolWriteResponse;
+    type Error = TxPoolError;
+    type Future = InfallibleOneshotReceiver<Result<Self::Response, Self::Error>>;
+
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, req: TxpoolWriteRequest) -> Self::Future {
+        let (tx, rx) = oneshot::channel();
+
+        let db = Arc::clone(&self.txpool);
+        self.pool.spawn(move || {
+            let res = handle_txpool_request(&db, req);
+
+            drop(tx.send(res));
+        });
+
+        InfallibleOneshotReceiver::from(rx)
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- handle_txpool_request
 /// Handle an incoming [`TxpoolWriteRequest`], returning a [`TxpoolWriteResponse`].
 fn handle_txpool_request(
-    env: &ConcreteEnv,
-    req: &TxpoolWriteRequest,
-) -> DbResult<TxpoolWriteResponse> {
+    env: &TxpoolDatabase,
+    req: TxpoolWriteRequest,
+) -> Result<TxpoolWriteResponse, TxPoolError> {
     match req {
         TxpoolWriteRequest::AddTransaction { tx, state_stem } => {
-            add_transaction(env, tx, *state_stem)
+            add_transaction(env, &tx, state_stem)
         }
-        TxpoolWriteRequest::RemoveTransaction(tx_hash) => remove_transaction(env, tx_hash),
-        TxpoolWriteRequest::Promote(tx_hash) => promote(env, tx_hash),
-        TxpoolWriteRequest::NewBlock { spent_key_images } => new_block(env, spent_key_images),
+        TxpoolWriteRequest::RemoveTransaction(tx_hash) => remove_transaction(env, &tx_hash),
+        TxpoolWriteRequest::Promote(tx_hash) => promote(env, &tx_hash),
+        TxpoolWriteRequest::NewBlock { spent_key_images } => new_block(env, &spent_key_images),
     }
 }
 
@@ -50,20 +78,45 @@ fn handle_txpool_request(
 
 /// [`TxpoolWriteRequest::AddTransaction`]
 fn add_transaction(
-    env: &ConcreteEnv,
+    db: &TxpoolDatabase,
     tx: &TransactionVerificationData,
     state_stem: bool,
-) -> DbResult<TxpoolWriteResponse> {
-    let env_inner = env.env_inner();
-    let tx_rw = env_inner.tx_rw()?;
+) -> Result<TxpoolWriteResponse, TxPoolError> {
+    struct KiDropGuard<'a>(Vec<[u8; 32]>, &'a TxpoolDatabase);
 
-    let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
+    impl Drop for KiDropGuard<'_> {
+        fn drop(&mut self) {
+            for ki in &self.0 {
+                self.1.in_progress_key_images.lock().unwrap().remove(ki);
+            }
+        }
+    }
 
-    if let Err(e) = ops::add_transaction(tx, state_stem, &mut tables_mut) {
-        drop(tables_mut);
+    let mut guard = KiDropGuard(Vec::with_capacity(tx.tx.prefix().inputs.len()), db);
+
+    let mut in_progress_key_images = db.in_progress_key_images.lock().unwrap();
+    for ki in tx.tx.prefix().inputs.iter().map(|i| match i {
+        Input::ToKey { key_image, .. } => key_image,
+        Input::Gen(_) => unreachable!(),
+    }) {
+        let e = in_progress_key_images.entry(*ki.as_bytes());
+
+        match e {
+            Entry::Occupied(o) => return Ok(TxpoolWriteResponse::AddTransaction(Some(*o.get()))),
+            Entry::Vacant(v) => {
+                v.insert(*ki.as_bytes());
+            }
+        }
+
+        guard.0.push(*ki.as_bytes());
+    }
+    drop(in_progress_key_images);
+
+    let mut writer = db.fjall_database.batch();
+
+    if let Err(e) = ops::add_transaction(tx, state_stem, &mut writer, db) {
         // error adding the tx, abort the DB transaction.
-        TxRw::abort(tx_rw)
-            .expect("could not maintain database atomicity by aborting write transaction");
+        drop(writer);
 
         return match e {
             TxPoolWriteError::DoubleSpend(tx_hash) => {
@@ -72,101 +125,75 @@ fn add_transaction(
                 // TODO: mark the double spent tx?
                 Ok(TxpoolWriteResponse::AddTransaction(Some(tx_hash)))
             }
-            TxPoolWriteError::Database(e) => Err(e),
+            TxPoolWriteError::TxPool(e) => Err(e),
         };
     }
 
-    drop(tables_mut);
     // The tx was added to the pool successfully.
-    TxRw::commit(tx_rw)?;
+    writer.commit()?;
+
     Ok(TxpoolWriteResponse::AddTransaction(None))
 }
 
 /// [`TxpoolWriteRequest::RemoveTransaction`]
 fn remove_transaction(
-    env: &ConcreteEnv,
+    db: &TxpoolDatabase,
     tx_hash: &TransactionHash,
-) -> DbResult<TxpoolWriteResponse> {
-    let env_inner = env.env_inner();
-    let tx_rw = env_inner.tx_rw()?;
+) -> Result<TxpoolWriteResponse, TxPoolError> {
+    let mut writer = db.fjall_database.batch();
 
-    let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
+    ops::remove_transaction(tx_hash, &mut writer, db)?;
 
-    if let Err(e) = ops::remove_transaction(tx_hash, &mut tables_mut) {
-        drop(tables_mut);
-        // error removing the tx, abort the DB transaction.
-        TxRw::abort(tx_rw)
-            .expect("could not maintain database atomicity by aborting write transaction");
+    writer.commit()?;
 
-        return Err(e);
-    }
-
-    drop(tables_mut);
-
-    TxRw::commit(tx_rw)?;
     Ok(TxpoolWriteResponse::Ok)
 }
 
 /// [`TxpoolWriteRequest::Promote`]
-fn promote(env: &ConcreteEnv, tx_hash: &TransactionHash) -> DbResult<TxpoolWriteResponse> {
-    let env_inner = env.env_inner();
-    let tx_rw = env_inner.tx_rw()?;
+fn promote(
+    db: &TxpoolDatabase,
+    tx_hash: &TransactionHash,
+) -> Result<TxpoolWriteResponse, TxPoolError> {
+    let tx_info = db.tx_infos.get(tx_hash)?.ok_or(TxPoolError::NotFound)?;
+    let mut tx_info: TransactionInfo = bytemuck::pod_read_unaligned(tx_info.as_ref());
 
-    let res = || {
-        let mut tx_infos = env_inner.open_db_rw::<TransactionInfos>(&tx_rw)?;
-
-        tx_infos.update(tx_hash, |mut info| {
-            info.received_at = current_unix_timestamp();
-            info.flags.remove(TxStateFlags::STATE_STEM);
-            Some(info)
-        })
-    };
-
-    if let Err(e) = res() {
-        // error promoting the tx, abort the DB transaction.
-        TxRw::abort(tx_rw)
-            .expect("could not maintain database atomicity by aborting write transaction");
-
-        return Err(e);
+    if !tx_info.flags.contains(TxStateFlags::STATE_STEM) {
+        return Ok(TxpoolWriteResponse::Ok);
     }
 
-    TxRw::commit(tx_rw)?;
+    tx_info.flags.remove(TxStateFlags::STATE_STEM);
+
+    db.tx_infos.insert(tx_hash, bytemuck::bytes_of(&tx_info))?;
+
+    if !db.tx_blobs.contains_key(tx_hash)? {
+        db.tx_infos.remove(tx_hash)?;
+    }
+
     Ok(TxpoolWriteResponse::Ok)
 }
 
 /// [`TxpoolWriteRequest::NewBlock`]
-fn new_block(env: &ConcreteEnv, spent_key_images: &[KeyImage]) -> DbResult<TxpoolWriteResponse> {
-    let env_inner = env.env_inner();
-    let tx_rw = env_inner.tx_rw()?;
+fn new_block(
+    db: &TxpoolDatabase,
+    spent_key_images: &[KeyImage],
+) -> Result<TxpoolWriteResponse, TxPoolError> {
+    let mut txs_removed = HashSet::new();
 
-    let mut txs_removed = Vec::new();
+    let mut writer = db.fjall_database.batch();
 
-    // FIXME: use try blocks once stable.
-    let mut result = || {
-        let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
+    // Remove all txs which spend key images that were spent in the new block.
+    for key_image in spent_key_images {
+        if let Some(tx_hash) = db.spent_key_images.get(key_image)? {
+            let tx_hash = tx_hash.as_ref().try_into().unwrap();
 
-        // Remove all txs which spend key images that were spent in the new block.
-        for key_image in spent_key_images {
-            match tables_mut
-                .spent_key_images()
-                .get(key_image)
-                .and_then(|tx_hash| {
-                    txs_removed.push(tx_hash);
-                    ops::remove_transaction(&tx_hash, &mut tables_mut)
-                }) {
-                Ok(()) | Err(RuntimeError::KeyNotFound) => (),
-                Err(e) => return Err(e),
+            if txs_removed.insert(tx_hash) {
+                ops::remove_transaction(&tx_hash, &mut writer, db)?;
             }
         }
-
-        Ok(())
-    };
-
-    if let Err(e) = result() {
-        TxRw::abort(tx_rw)?;
-        return Err(e);
     }
 
-    TxRw::commit(tx_rw)?;
-    Ok(TxpoolWriteResponse::NewBlock(txs_removed))
+    writer.commit()?;
+    Ok(TxpoolWriteResponse::NewBlock(
+        txs_removed.into_iter().collect(),
+    ))
 }

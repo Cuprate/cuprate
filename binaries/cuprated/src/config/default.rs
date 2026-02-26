@@ -13,3 +13,14 @@ pub enum DefaultOrCustom<T> {
     #[serde(untagged)]
     Custom(T),
 }
+
+impl<T> DefaultOrCustom<T> {
+    /// Returns the given default value if this is [`DefaultOrCustom::Default`], otherwise returns
+    /// the custom value.
+    pub const fn value<'a>(&'a self, default: &'a T) -> &'a T {
+        match self {
+            Self::Default => default,
+            Self::Custom(value) => value,
+        }
+    }
+}
