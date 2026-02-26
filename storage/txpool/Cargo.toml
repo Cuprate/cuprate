@@ -12,8 +12,8 @@ keywords    = ["cuprate", "txpool", "transaction", "pool", "database"]
 
 [dependencies]
 cuprate-types            = { workspace = true, features = ["rpc"] }
-cuprate-helper           = { workspace = true, default-features = false, features = ["constants", "time"] }
-fjall = { version = "3.0.1" }
+cuprate-helper           = { workspace = true, default-features = false, features = ["constants", "time", "asynch"] }
+fjall                    = { version = "3.0.1" }
 
 monero-oxide             = { workspace = true, features = ["std"] }
 bytemuck                 = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
@@ -21,13 +21,10 @@ bitflags                 = { workspace = true, features = ["std", "serde", "byte
 thiserror                = { workspace = true }
 hex                      = { workspace = true, features = ["std"] }
 blake3                   = { workspace = true, features = ["std"] }
-#tracing                  = { workspace = true }
 
 tower                    = { workspace = true }
 rayon                    = { workspace = true }
-futures                  = { workspace = true }
-
-#serde                    = { workspace = true, optional = true }
+futures                  = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 cuprate-test-utils = { workspace = true }
