@@ -251,8 +251,7 @@ macro_rules! transaction_verification_data {
         #[doc = "# use cuprate_test_utils::data::*;"]
         #[doc = "# use hex_literal::hex;"]
         #[doc = concat!("let tx = &*", stringify!($name), ";")]
-        #[doc = concat!("assert_eq!(&tx.tx.serialize(), ", stringify!($tx_blob), ");")]
-        #[doc = concat!("assert_eq!(tx.tx_blob, ", stringify!($tx_blob), ");")]
+        #[doc = concat!("assert_eq!([tx.tx_pruned.as_slice(), tx.tx_prunable_blob.as_slice()].concat(), ", stringify!($tx_blob), ");")]
         #[doc = concat!("assert_eq!(tx.tx_weight, ", $weight, ");")]
         #[doc = concat!("assert_eq!(tx.tx_hash, hex!(\"", $hash, "\"));")]
         /// ```

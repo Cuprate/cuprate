@@ -18,58 +18,6 @@
 //! mutated by [`add_transaction`] up until the error, leaving it in the state it was in before
 //! [`add_transaction`] was called.
 //!
-//! # Example
-//! Simple usage of `ops`.
-//!
-//! ```rust
-//! use hex_literal::hex;
-//!
-//! use cuprate_test_utils::data::TX_V1_SIG2;
-//! use cuprate_txpool::{
-//!     cuprate_database::{
-//!         ConcreteEnv,
-//!         Env, EnvInner,
-//!         DatabaseRo, DatabaseRw, TxRo, TxRw,
-//!     },
-//!     config::ConfigBuilder,
-//!     tables::{Tables, TablesMut, OpenTables},
-//!     ops::{add_transaction, get_transaction_verification_data},
-//! };
-//!
-//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! // Create a configuration for the database environment.
-//! let tmp_dir = tempfile::tempdir()?;
-//! let db_dir = tmp_dir.path().to_owned();
-//! let config = ConfigBuilder::new()
-//!     .data_directory(db_dir.into())
-//!     .build();
-//!
-//! // Initialize the database environment.
-//! let env = cuprate_txpool::open(&config)?;
-//!
-//! // Open up a transaction + tables for writing.
-//! let env_inner = env.env_inner();
-//! let tx_rw = env_inner.tx_rw()?;
-//! let mut tables = env_inner.open_tables_mut(&tx_rw)?;
-//!
-//! // Write a tx to the database.
-//! let mut tx = TX_V1_SIG2.clone();
-//! let tx_hash = tx.tx_hash;
-//! add_transaction(&tx.try_into().unwrap(), true, &mut tables)?;
-//!
-//! // Commit the data written.
-//! drop(tables);
-//! TxRw::commit(tx_rw)?;
-//!
-//! // Read the data, assert it is correct.
-//! let tx_rw = env_inner.tx_rw()?;
-//! let mut tables = env_inner.open_tables_mut(&tx_rw)?;
-//! let tx = get_transaction_verification_data(&tx_hash, &mut tables)?;
-//!
-//! assert_eq!(tx.tx_hash, tx_hash);
-//! assert_eq!(tx.tx, TX_V1_SIG2.tx);
-//! # Ok(()) }
-//! ```
 
 mod key_images;
 mod tx_read;
