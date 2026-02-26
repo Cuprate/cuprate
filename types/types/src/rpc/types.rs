@@ -5,6 +5,7 @@ use cuprate_hex::Hex;
 
 use crate::{AddressType, ConnectionState, HardFork};
 
+#[cfg(feature = "serde")]
 const fn default_string() -> String {
     String::new()
 }
