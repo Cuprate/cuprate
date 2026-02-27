@@ -97,7 +97,7 @@ pub async fn init_blockchain_manager(
 
     let shutdown_token = task.cancellation_token.clone();
     task.spawn_critical(manager.run(batch_rx, command_rx, shutdown_token), || {
-        tracing::info!("Blockchain manager shut down.")
+        tracing::info!("Blockchain manager shut down.");
     });
 
     synced_notify

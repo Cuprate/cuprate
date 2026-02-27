@@ -118,7 +118,7 @@ pub async fn start_txpool_manager(
 
     let shutdown_token = task.cancellation_token.clone();
     task.spawn_critical(manager.run(tx_rx, spent_kis_rx, shutdown_token), || {
-        tracing::info!("Txpool manager shut down.")
+        tracing::info!("Txpool manager shut down.");
     });
 
     TxpoolManagerHandle {
