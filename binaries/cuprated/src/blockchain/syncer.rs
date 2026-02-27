@@ -63,6 +63,7 @@ where
     let mut sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
     loop {
         tokio::select! {
+            biased;
             () = shutdown_token.cancelled() => {
                 tracing::info!("Blockchain syncer shut down.");
                 return Ok(());

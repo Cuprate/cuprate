@@ -18,10 +18,7 @@ pub async fn handle_incoming_txs(
 ) -> Result<TxRelayChecks, Error> {
     let resp = match tx_handler.ready().await {
         Ok(r) => r.call(incoming_txs).await,
-        Err(e) => {
-            supervisor::trigger_shutdown(shutdown_token);
-            return Err(Error::from(e));
-        }
+        Err(e) => return supervisor::shutdown_or_err(shutdown_token, e, TxRelayChecks::empty()),
     };
 
     Ok(match resp {
@@ -71,8 +68,7 @@ pub async fn handle_incoming_txs(
             }
             IncomingTxError::DuplicateTransaction => TxRelayChecks::DOUBLE_SPEND,
             IncomingTxError::Internal(e) => {
-                supervisor::trigger_shutdown(shutdown_token);
-                return Err(e);
+                return supervisor::shutdown_or_err(shutdown_token, e, TxRelayChecks::empty());
             }
         },
     })

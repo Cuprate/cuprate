@@ -377,8 +377,7 @@ async fn new_fluffy_block<A: NetZoneAddress>(
             Ok(ProtocolResponse::NA)
         }
         Err(IncomingBlockError::Service(e)) => {
-            supervisor::trigger_shutdown(&shutdown_token);
-            Err(e)
+            supervisor::shutdown_or_err(&shutdown_token, e, ProtocolResponse::NA)
         }
         Err(e) => Err(e.into()),
     }
@@ -431,10 +430,7 @@ where
 
     let ready = match incoming_tx_handler.ready().await {
         Ok(r) => r,
-        Err(e) => {
-            supervisor::trigger_shutdown(&shutdown_token);
-            return Err(anyhow::Error::from(e));
-        }
+        Err(e) => return supervisor::shutdown_or_err(&shutdown_token, e, ProtocolResponse::NA),
     };
 
     let res = ready
@@ -449,8 +445,7 @@ where
     match res {
         Ok(()) => Ok(ProtocolResponse::NA),
         Err(IncomingTxError::Internal(e)) => {
-            supervisor::trigger_shutdown(&shutdown_token);
-            Err(e)
+            supervisor::shutdown_or_err(&shutdown_token, e, ProtocolResponse::NA)
         }
         Err(e) => Err(e.into()),
     }

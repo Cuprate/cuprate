@@ -29,8 +29,10 @@ impl CupratedTask {
         self.task_tracker.spawn(async move {
             let result = fut.await;
             if let Err(ref e) = result {
-                tracing::error!("{e}");
-                trigger_shutdown(&token);
+                if !token.is_cancelled() {
+                    tracing::error!("{e}");
+                    trigger_shutdown(&token);
+                }
             }
             result
         })
@@ -54,6 +56,20 @@ pub fn new() -> (CupratedSupervisor, CupratedTask) {
             cancellation_token,
         },
     )
+}
+
+/// Service error handler: suppress if shutting down, otherwise trigger shutdown and return error.
+pub fn shutdown_or_err<T>(
+    token: &CancellationToken,
+    error: impl Into<anyhow::Error>,
+    default: T,
+) -> Result<T, anyhow::Error> {
+    if token.is_cancelled() {
+        Ok(default)
+    } else {
+        trigger_shutdown(token);
+        Err(error.into())
+    }
 }
 
 /// Trigger a graceful shutdown.
