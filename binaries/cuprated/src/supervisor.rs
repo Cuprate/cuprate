@@ -58,7 +58,9 @@ pub fn new() -> (CupratedSupervisor, CupratedTask) {
 
 /// Trigger a graceful shutdown.
 pub fn trigger_shutdown(token: &CancellationToken) {
-    info!("Shutting down gracefully... Press Ctrl+C again to exit immediately.");
+    if !token.is_cancelled() {
+        info!("Shutting down gracefully... Press Ctrl+C again to exit immediately.");
+    }
     token.cancel();
 }
 
