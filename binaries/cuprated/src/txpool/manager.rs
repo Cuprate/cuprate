@@ -117,7 +117,9 @@ pub async fn start_txpool_manager(
     let (spent_kis_tx, spent_kis_rx) = mpsc::channel(1);
 
     let shutdown_token = task.cancellation_token.clone();
-    task.spawn_critical(manager.run(tx_rx, spent_kis_rx, shutdown_token));
+    task.spawn_critical(manager.run(tx_rx, spent_kis_rx, shutdown_token), || {
+        tracing::info!("Txpool manager shut down.")
+    });
 
     TxpoolManagerHandle {
         tx_tx,
@@ -510,7 +512,6 @@ impl TxpoolManager {
             }
         }
 
-        tracing::info!("Txpool manager shut down.");
         Ok(())
     }
 }

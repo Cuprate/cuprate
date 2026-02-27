@@ -21,7 +21,11 @@ pub struct CupratedTask {
 
 impl CupratedTask {
     /// Spawn a task whose failure triggers a graceful shutdown.
-    pub fn spawn_critical<F>(&self, fut: F) -> JoinHandle<Result<(), CupratedError>>
+    pub fn spawn_critical<F>(
+        &self,
+        fut: F,
+        on_shutdown: impl FnOnce() + Send + 'static,
+    ) -> JoinHandle<Result<(), CupratedError>>
     where
         F: Future<Output = Result<(), CupratedError>> + Send + 'static,
     {
@@ -34,6 +38,7 @@ impl CupratedTask {
                     trigger_shutdown(&token);
                 }
             }
+            on_shutdown();
             result
         })
     }

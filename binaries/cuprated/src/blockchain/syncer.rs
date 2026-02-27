@@ -65,7 +65,6 @@ where
         tokio::select! {
             biased;
             () = shutdown_token.cancelled() => {
-                tracing::info!("Blockchain syncer shut down.");
                 return Ok(());
             }
             _ = check_sync_interval.tick() => {}
@@ -94,7 +93,6 @@ where
             tokio::select! {
                 biased;
                 () = shutdown_token.cancelled() => {
-                    tracing::info!("Blockchain syncer shut down.");
                     return Ok(());
                 }
                 () = stop_current_block_downloader.notified() => {

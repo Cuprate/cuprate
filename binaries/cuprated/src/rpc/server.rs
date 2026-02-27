@@ -89,17 +89,20 @@ pub fn init_rpc_servers(
         );
 
         let token = task.cancellation_token.clone();
-        task.spawn_critical(async move {
-            run_rpc_server(
-                rpc_handler,
-                restricted,
-                SocketAddr::new(addr, port),
-                request_byte_limit,
-                token,
-            )
-            .await
-            .map_err(CupratedError::Rpc)
-        });
+        task.spawn_critical(
+            async move {
+                run_rpc_server(
+                    rpc_handler,
+                    restricted,
+                    SocketAddr::new(addr, port),
+                    request_byte_limit,
+                    token,
+                )
+                .await
+                .map_err(CupratedError::Rpc)
+            },
+            move || info!(restricted, "RPC server shut down."),
+        );
     }
 }
 
@@ -148,6 +151,5 @@ async fn run_rpc_server(
         .with_graceful_shutdown(shutdown_token.cancelled_owned())
         .await?;
 
-    info!(restricted, "RPC server shut down.");
     Ok(())
 }

@@ -74,11 +74,14 @@ pub async fn init_blockchain_manager(
         Arc::clone(&synced_notify),
         task.cancellation_token.clone(),
     );
-    task.spawn_critical(async move {
-        syncer_fut
-            .await
-            .map_err(|e| CupratedError::Syncer(e.into()))
-    });
+    task.spawn_critical(
+        async move {
+            syncer_fut
+                .await
+                .map_err(|e| CupratedError::Syncer(e.into()))
+        },
+        || tracing::info!("Blockchain syncer shut down."),
+    );
 
     let manager = BlockchainManager {
         blockchain_write_handle,
@@ -93,7 +96,9 @@ pub async fn init_blockchain_manager(
     };
 
     let shutdown_token = task.cancellation_token.clone();
-    task.spawn_critical(manager.run(batch_rx, command_rx, shutdown_token));
+    task.spawn_critical(manager.run(batch_rx, command_rx, shutdown_token), || {
+        tracing::info!("Blockchain manager shut down.")
+    });
 
     synced_notify
 }
@@ -152,7 +157,6 @@ impl BlockchainManager {
             }
         }
 
-        tracing::info!("Blockchain manager shut down.");
         Ok(())
     }
 }
