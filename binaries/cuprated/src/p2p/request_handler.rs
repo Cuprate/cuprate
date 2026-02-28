@@ -178,7 +178,7 @@ where
             fut.await.map_err(|e| match e {
                 HandlerError::Peer(e) => e,
                 HandlerError::Service(e) => {
-                    shutdown_handle.handle_service_error(&e, ());
+                    shutdown_handle.report_service_error(&e);
                     e
                 }
             })

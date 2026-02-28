@@ -246,7 +246,7 @@ async fn submit_block(
     .await
     {
         if matches!(&e, IncomingBlockError::Service(_)) {
-            state.shutdown_handle.handle_service_error(&e, ());
+            state.shutdown_handle.report_service_error(&e);
         }
         return Err(e.into());
     }

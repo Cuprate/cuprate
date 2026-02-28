@@ -40,10 +40,9 @@ impl ShutdownHandle {
         self.trigger_shutdown();
     }
 
-    /// Handle a service error by triggering a fatal shutdown.
-    pub fn handle_service_error<T>(&self, error: impl std::fmt::Display, default: T) -> T {
+    /// Report a service error and trigger a shutdown.
+    pub fn report_service_error(&self, error: impl std::fmt::Display) {
         self.fatal(&error);
-        default
     }
 }
 

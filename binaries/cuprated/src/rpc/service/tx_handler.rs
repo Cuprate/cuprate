@@ -17,7 +17,10 @@ pub async fn handle_incoming_txs(
 ) -> Result<TxRelayChecks, Error> {
     let resp = match tx_handler.ready().await {
         Ok(r) => r.call(incoming_txs).await,
-        Err(e) => return Ok(shutdown_handle.handle_service_error(e, TxRelayChecks::empty())),
+        Err(e) => {
+            shutdown_handle.report_service_error(&e);
+            return Err(e.into());
+        }
     };
 
     Ok(match resp {
@@ -67,7 +70,8 @@ pub async fn handle_incoming_txs(
             }
             IncomingTxError::DuplicateTransaction => TxRelayChecks::DOUBLE_SPEND,
             IncomingTxError::Internal(e) => {
-                return Ok(shutdown_handle.handle_service_error(e, TxRelayChecks::empty()));
+                shutdown_handle.report_service_error(&e);
+                return Err(e);
             }
         },
     })
