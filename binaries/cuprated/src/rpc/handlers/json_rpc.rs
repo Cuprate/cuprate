@@ -69,7 +69,6 @@ use crate::{
         CupratedRpcHandler,
     },
     statics::START_INSTANT_UNIX,
-    supervisor,
 };
 
 /// Map a [`JsonRpcRequest`] to the function that will lead to a [`JsonRpcResponse`].
@@ -247,7 +246,7 @@ async fn submit_block(
     .await
     {
         if matches!(&e, IncomingBlockError::Service(_)) {
-            supervisor::trigger_shutdown(&state.shutdown_token);
+            state.shutdown_handle.handle_service_error(&e, ());
         }
         return Err(e.into());
     }

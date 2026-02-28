@@ -6,17 +6,58 @@ use tracing::info;
 
 use crate::error::CupratedError;
 
+/// A handle for triggering shutdown.
+#[derive(Clone)]
+pub struct ShutdownHandle {
+    token: CancellationToken,
+}
+
+impl ShutdownHandle {
+    /// Get a clone of the cancellation token.
+    pub fn token(&self) -> CancellationToken {
+        self.token.clone()
+    }
+
+    /// Returns a future that completes when shutdown is triggered.
+    pub async fn cancelled(&self) {
+        self.token.cancelled().await;
+    }
+
+    /// Trigger a graceful shutdown.
+    pub fn trigger_shutdown(&self) {
+        if !self.token.is_cancelled() {
+            info!("Shutting down gracefully... Press Ctrl+C to exit immediately.");
+        }
+        self.token.cancel();
+    }
+
+    /// Log a fatal error and trigger shutdown.
+    fn fatal(&self, error: &impl std::fmt::Display) {
+        if self.token.is_cancelled() {
+            return;
+        }
+        tracing::error!("{error}");
+        self.trigger_shutdown();
+    }
+
+    /// Handle a service error by triggering a fatal shutdown.
+    pub fn handle_service_error<T>(&self, error: impl std::fmt::Display, default: T) -> T {
+        self.fatal(&error);
+        default
+    }
+}
+
 /// Used to wait for all tracked tasks after cancellation.
 pub struct CupratedSupervisor {
     pub task_tracker: TaskTracker,
-    pub cancellation_token: CancellationToken,
+    pub shutdown_handle: ShutdownHandle,
 }
 
 /// A cloneable handle passed to tasks for spawning sub-tasks.
 #[derive(Clone)]
 pub struct CupratedTask {
     pub task_tracker: TaskTracker,
-    pub cancellation_token: CancellationToken,
+    pub shutdown_handle: ShutdownHandle,
 }
 
 impl CupratedTask {
@@ -29,14 +70,11 @@ impl CupratedTask {
     where
         F: Future<Output = Result<(), CupratedError>> + Send + 'static,
     {
-        let token = self.cancellation_token.clone();
+        let handle = self.shutdown_handle.clone();
         self.task_tracker.spawn(async move {
             let result = fut.await;
             if let Err(ref e) = result {
-                if !token.is_cancelled() {
-                    tracing::error!("{e}");
-                    trigger_shutdown(&token);
-                }
+                handle.fatal(e);
             }
             on_shutdown();
             result
@@ -49,48 +87,28 @@ impl CupratedTask {
 /// Must be called exactly once at startup.
 pub fn new() -> (CupratedSupervisor, CupratedTask) {
     let task_tracker = TaskTracker::new();
-    let cancellation_token = CancellationToken::new();
+    let shutdown_handle = ShutdownHandle {
+        token: CancellationToken::new(),
+    };
 
     (
         CupratedSupervisor {
             task_tracker: task_tracker.clone(),
-            cancellation_token: cancellation_token.clone(),
+            shutdown_handle: shutdown_handle.clone(),
         },
         CupratedTask {
             task_tracker,
-            cancellation_token,
+            shutdown_handle,
         },
     )
 }
 
-/// Service error handler: suppress if shutting down, otherwise trigger shutdown and return error.
-pub fn shutdown_or_err<T>(
-    token: &CancellationToken,
-    error: impl Into<anyhow::Error>,
-    default: T,
-) -> Result<T, anyhow::Error> {
-    if token.is_cancelled() {
-        Ok(default)
-    } else {
-        trigger_shutdown(token);
-        Err(error.into())
-    }
-}
-
-/// Trigger a graceful shutdown.
-pub fn trigger_shutdown(token: &CancellationToken) {
-    if !token.is_cancelled() {
-        info!("Shutting down gracefully... Press Ctrl+C again to exit immediately.");
-    }
-    token.cancel();
-}
-
 /// Spawn a task that listens for OS signals and initiates shutdown.
-pub fn spawn_signal_handler(token: CancellationToken) {
+pub fn spawn_signal_handler(handle: ShutdownHandle) {
     tokio::spawn(async move {
         shutdown_signal().await;
         eprintln!();
-        trigger_shutdown(&token);
+        handle.trigger_shutdown();
         shutdown_signal().await;
         eprintln!();
         std::process::exit(1);

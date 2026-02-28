@@ -5,7 +5,6 @@ use std::{io, thread::sleep, time::Duration};
 
 use clap::{builder::TypedValueParser, Parser, ValueEnum};
 use tokio::sync::mpsc;
-use tokio_util::sync::CancellationToken;
 use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
 
@@ -17,6 +16,7 @@ use cuprate_helper::time::secs_to_hms;
 use crate::{
     logging::{self, CupratedTracingFilter},
     statics,
+    supervisor::ShutdownHandle,
 };
 
 /// A command received from [`io::stdin`].
@@ -102,12 +102,12 @@ pub fn command_listener(incoming_commands: mpsc::Sender<Command>) {
 pub async fn io_loop(
     mut incoming_commands: mpsc::Receiver<Command>,
     mut context_service: BlockchainContextService,
-    shutdown_token: CancellationToken,
+    shutdown_handle: ShutdownHandle,
 ) {
     loop {
         let command = tokio::select! {
             biased;
-            () = shutdown_token.cancelled() => break,
+            () = shutdown_handle.cancelled() => break,
             cmd = incoming_commands.recv() => {
                 let Some(cmd) = cmd else { break };
                 cmd
@@ -157,7 +157,7 @@ pub async fn io_loop(
                 }
             }
             Command::Exit => {
-                crate::supervisor::trigger_shutdown(&shutdown_token);
+                shutdown_handle.trigger_shutdown();
                 break;
             }
         }

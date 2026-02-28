@@ -98,8 +98,8 @@ fn main() {
 
     rt.block_on(async move {
         // Create the supervisor and task handle, spawn signal handlers.
-        let (mut supervisor, task) = supervisor::new();
-        supervisor::spawn_signal_handler(supervisor.cancellation_token.clone());
+        let (supervisor, task) = supervisor::new();
+        supervisor::spawn_signal_handler(supervisor.shutdown_handle.clone());
 
         // TODO: Add an argument/option for keeping alt blocks between restart.
         blockchain_write_handle
@@ -135,7 +135,7 @@ fn main() {
             blockchain_read_handle.clone(),
             txpool_read_handle.clone(),
             &tor_context,
-            task.cancellation_token.clone(),
+            task.shutdown_handle.clone(),
         )
         .await;
 
@@ -190,13 +190,13 @@ fn main() {
         if tor_enabled {
             info!("Tor P2P zone will start after sync.");
             let context_svc = context_svc.clone();
-            let cancellation_token = task.cancellation_token.clone();
+            let shutdown_handle = task.shutdown_handle.clone();
 
             task.task_tracker.spawn(async move {
                 // Wait for the node to synchronize with the network, or shutdown.
                 tokio::select! {
                     () = synced_notify.notified() => {}
-                    () = cancellation_token.cancelled() => {
+                    () = shutdown_handle.cancelled() => {
                         return;
                     }
                 }
@@ -208,7 +208,7 @@ fn main() {
                     blockchain_read_handle,
                     txpool_read_handle,
                     tor_context,
-                    cancellation_token.clone(),
+                    shutdown_handle.clone(),
                 )
                 .await;
 
@@ -236,13 +236,13 @@ fn main() {
             task.task_tracker.spawn(commands::io_loop(
                 command_rx,
                 context_svc,
-                task.cancellation_token.clone(),
+                task.shutdown_handle.clone(),
             ));
         } else {
             info!("Terminal/TTY not detected, disabling STDIN commands");
         }
         // Wait for shutdown (signal, command, or critical task failure).
-        supervisor.cancellation_token.cancelled().await;
+        supervisor.shutdown_handle.cancelled().await;
         supervisor.task_tracker.close();
         supervisor.task_tracker.wait().await;
     });

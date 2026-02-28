@@ -72,7 +72,7 @@ pub async fn init_blockchain_manager(
         Arc::clone(&stop_current_block_downloader),
         block_downloader_config,
         Arc::clone(&synced_notify),
-        task.cancellation_token.clone(),
+        task.shutdown_handle.token(),
     );
     task.spawn_critical(
         async move {
@@ -95,7 +95,7 @@ pub async fn init_blockchain_manager(
         broadcast_svc: clearnet_interface.broadcast_svc(),
     };
 
-    let shutdown_token = task.cancellation_token.clone();
+    let shutdown_token = task.shutdown_handle.token();
     task.spawn_critical(manager.run(batch_rx, command_rx, shutdown_token), || {
         tracing::info!("Blockchain manager shut down.");
     });

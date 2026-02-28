@@ -85,10 +85,10 @@ pub fn init_rpc_servers(
             blockchain_context.clone(),
             txpool_read.clone(),
             tx_handler.clone(),
-            task.cancellation_token.clone(),
+            task.shutdown_handle.clone(),
         );
 
-        let token = task.cancellation_token.clone();
+        let token = task.shutdown_handle.token();
         task.spawn_critical(
             async move {
                 run_rpc_server(

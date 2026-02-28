@@ -5,7 +5,6 @@ use std::task::{Context, Poll};
 use anyhow::Error;
 use futures::future::BoxFuture;
 use monero_oxide::block::Block;
-use tokio_util::sync::CancellationToken;
 use tower::Service;
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
@@ -20,7 +19,7 @@ use cuprate_rpc_types::{
 use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::BlockTemplate;
 
-use crate::{rpc::handlers, txpool::IncomingTxHandler};
+use crate::{rpc::handlers, supervisor::ShutdownHandle, txpool::IncomingTxHandler};
 
 /// TODO: use real type when public.
 #[derive(Clone)]
@@ -173,8 +172,8 @@ pub struct CupratedRpcHandler {
 
     pub tx_handler: IncomingTxHandler,
 
-    /// Cancellation token used to trigger a graceful shutdown.
-    pub shutdown_token: CancellationToken,
+    /// Handle for triggering a graceful shutdown.
+    pub shutdown_handle: ShutdownHandle,
 }
 
 impl CupratedRpcHandler {
@@ -185,7 +184,7 @@ impl CupratedRpcHandler {
         blockchain_context: BlockchainContextService,
         txpool_read: TxpoolReadHandle,
         tx_handler: IncomingTxHandler,
-        shutdown_token: CancellationToken,
+        shutdown_handle: ShutdownHandle,
     ) -> Self {
         Self {
             restricted,
@@ -193,7 +192,7 @@ impl CupratedRpcHandler {
             blockchain_context,
             txpool_read,
             tx_handler,
-            shutdown_token,
+            shutdown_handle,
         }
     }
 }

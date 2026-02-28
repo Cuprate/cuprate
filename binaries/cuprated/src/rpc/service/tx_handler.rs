@@ -1,24 +1,23 @@
 use anyhow::{anyhow, Error};
 use cuprate_consensus::ExtendedConsensusError;
 use cuprate_consensus_rules::{transactions::TransactionError, ConsensusError};
-use tokio_util::sync::CancellationToken;
 use tower::{Service, ServiceExt};
 
 use cuprate_types::TxRelayChecks;
 
 use crate::{
-    supervisor,
+    supervisor::ShutdownHandle,
     txpool::{IncomingTxError, IncomingTxHandler, IncomingTxs, RelayRuleError},
 };
 
 pub async fn handle_incoming_txs(
     tx_handler: &mut IncomingTxHandler,
     incoming_txs: IncomingTxs,
-    shutdown_token: &CancellationToken,
+    shutdown_handle: &ShutdownHandle,
 ) -> Result<TxRelayChecks, Error> {
     let resp = match tx_handler.ready().await {
         Ok(r) => r.call(incoming_txs).await,
-        Err(e) => return supervisor::shutdown_or_err(shutdown_token, e, TxRelayChecks::empty()),
+        Err(e) => return Ok(shutdown_handle.handle_service_error(e, TxRelayChecks::empty())),
     };
 
     Ok(match resp {
@@ -68,7 +67,7 @@ pub async fn handle_incoming_txs(
             }
             IncomingTxError::DuplicateTransaction => TxRelayChecks::DOUBLE_SPEND,
             IncomingTxError::Internal(e) => {
-                return supervisor::shutdown_or_err(shutdown_token, e, TxRelayChecks::empty());
+                return Ok(shutdown_handle.handle_service_error(e, TxRelayChecks::empty()));
             }
         },
     })
