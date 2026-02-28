@@ -23,7 +23,7 @@ use cuprate_types::blockchain::BlockchainWriteRequest;
 use crate::{
     blockchain,
     config::Config,
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
+    supervisor::ShutdownHandle,
     tor::{transport_clearnet_daemon_config, transport_daemon_config, TorContext, TorMode},
     txpool::{self, IncomingTxHandler},
 };
@@ -99,6 +99,7 @@ pub async fn initialize_clearnet_p2p(
     blockchain_read_handle: BlockchainReadHandle,
     txpool_read_handle: TxpoolReadHandle,
     tor_ctx: &TorContext,
+    shutdown_handle: ShutdownHandle,
 ) -> (NetworkInterface<ClearNet>, Sender<IncomingTxHandler>) {
     match config.p2p.clear_net.proxy {
         ProxySettings::Tor => match tor_ctx.mode {
@@ -111,6 +112,7 @@ pub async fn initialize_clearnet_p2p(
                     txpool_read_handle,
                     config.clearnet_p2p_config(),
                     transport_clearnet_arti_config(tor_ctx),
+                    shutdown_handle,
                 )
                 .await
                 .unwrap()
@@ -121,6 +123,7 @@ pub async fn initialize_clearnet_p2p(
                 txpool_read_handle,
                 config.clearnet_p2p_config(),
                 transport_clearnet_daemon_config(config),
+                shutdown_handle,
             )
             .await
             .unwrap(),
@@ -134,6 +137,7 @@ pub async fn initialize_clearnet_p2p(
                     txpool_read_handle,
                     config.clearnet_p2p_config(),
                     config.p2p.clear_net.tcp_transport_config(config.network),
+                    shutdown_handle.clone(),
                 )
                 .await
                 .unwrap()
@@ -147,6 +151,7 @@ pub async fn initialize_clearnet_p2p(
                         client_config: socks_proxy_str_to_config(s).unwrap(),
                         server_config: None,
                     },
+                    shutdown_handle.clone(),
                 )
                 .await
                 .unwrap()
@@ -163,6 +168,7 @@ pub async fn start_tor_p2p(
     blockchain_read_handle: BlockchainReadHandle,
     txpool_read_handle: TxpoolReadHandle,
     tor_ctx: TorContext,
+    shutdown_handle: ShutdownHandle,
 ) -> (NetworkInterface<Tor>, Sender<IncomingTxHandler>) {
     match tor_ctx.mode {
         TorMode::Daemon => start_zone_p2p::<Tor, Daemon>(
@@ -171,6 +177,7 @@ pub async fn start_tor_p2p(
             txpool_read_handle,
             config.tor_p2p_config(&tor_ctx),
             transport_daemon_config(config),
+            shutdown_handle,
         )
         .await
         .unwrap(),
@@ -181,6 +188,7 @@ pub async fn start_tor_p2p(
             txpool_read_handle,
             config.tor_p2p_config(&tor_ctx),
             transport_arti_config(config, tor_ctx),
+            shutdown_handle,
         )
         .await
         .unwrap(),
@@ -198,6 +206,7 @@ pub async fn start_zone_p2p<N, T>(
     txpool_read_handle: TxpoolReadHandle,
     config: P2PConfig<N>,
     transport_config: TransportConfig<N, T>,
+    shutdown_handle: ShutdownHandle,
 ) -> Result<(NetworkInterface<N>, Sender<IncomingTxHandler>), tower::BoxError>
 where
     N: NetworkZone,
@@ -211,6 +220,7 @@ where
         blockchain_read_handle,
         blockchain_context_service: blockchain_context_service.clone(),
         txpool_read_handle,
+        shutdown_handle,
         incoming_tx_handler: None,
         incoming_tx_handler_fut: incoming_tx_handler_rx.shared(),
     };

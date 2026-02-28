@@ -197,7 +197,7 @@ where
             .address_book_svc
             .ready()
             .await
-            .expect("Error in address book!")
+            .map_err(|_| OutboundConnectorError::NoAvailablePeers)?
             .call(AddressBookRequest::TakeRandomPeer {
                 height: req.block_needed,
             })
@@ -249,7 +249,7 @@ where
             .address_book_svc
             .ready()
             .await
-            .expect("Error in address book!")
+            .map_err(|_| OutboundConnectorError::NoAvailablePeers)?
             .call(req)
             .await
         else {

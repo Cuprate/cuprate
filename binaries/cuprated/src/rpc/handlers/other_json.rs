@@ -85,7 +85,7 @@ pub async fn map_request(
         Req::SetLogCategories(r) => Resp::SetLogCategories(not_available()?),
         Req::GetTransactionPool(r) => Resp::GetTransactionPool(not_available()?),
         Req::GetTransactionPoolStats(r) => Resp::GetTransactionPoolStats(not_available()?),
-        Req::StopDaemon(r) => Resp::StopDaemon(not_available()?),
+        Req::StopDaemon(r) => Resp::StopDaemon(stop_daemon(state, r).await?),
         Req::GetLimit(r) => Resp::GetLimit(not_available()?),
         Req::SetLimit(r) => Resp::SetLimit(not_available()?),
         Req::OutPeers(r) => Resp::OutPeers(not_available()?),
@@ -469,7 +469,8 @@ async fn send_raw_transaction(
         do_not_relay: request.do_not_relay,
     };
 
-    let tx_relay_checks = tx_handler::handle_incoming_txs(&mut state.tx_handler, txs).await?;
+    let tx_relay_checks =
+        tx_handler::handle_incoming_txs(&mut state.tx_handler, txs, &state.shutdown_handle).await?;
 
     if tx_relay_checks.is_empty() {
         return Ok(resp);
@@ -571,7 +572,7 @@ async fn stop_daemon(
     mut state: CupratedRpcHandler,
     _: StopDaemonRequest,
 ) -> Result<StopDaemonResponse, Error> {
-    blockchain_manager::stop(todo!()).await?;
+    state.shutdown_handle.trigger_shutdown();
     Ok(StopDaemonResponse { status: Status::Ok })
 }
 
