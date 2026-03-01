@@ -83,7 +83,11 @@ impl<S> Filter<S> for CupratedTracingFilter {
 }
 
 /// Initialize [`tracing`] for logging to stdout and to a file.
-pub fn init_logging(config: &Config) {
+///
+/// # Errors
+///
+/// Returns an error if the log file appender cannot be created.
+pub fn init_logging(config: &Config) -> Result<(), anyhow::Error> {
     // initialize the stdout filter, set `STDOUT_FILTER_HANDLE` and create the layer.
     let (stdout_filter, stdout_handle) = ReloadLayer::new(CupratedTracingFilter {
         level: config.tracing.stdout.level,
@@ -101,8 +105,7 @@ pub fn init_logging(config: &Config) {
         tracing_appender::rolling::Builder::new()
             .rotation(Rotation::DAILY)
             .max_log_files(appender_config.max_log_files)
-            .build(logs_path(&config.fs.data_directory, config.network()))
-            .unwrap(),
+            .build(logs_path(&config.fs.data_directory, config.network()))?,
     );
 
     // TODO: drop this when we shutdown.
@@ -125,6 +128,8 @@ pub fn init_logging(config: &Config) {
         .with(appender_layer)
         .with(stdout_layer)
         .init();
+
+    Ok(())
 }
 
 /// Modify the stdout [`CupratedTracingFilter`].

@@ -16,7 +16,7 @@
     reason = "TODO: remove after v1.0.0"
 )]
 
-use std::{mem, sync::Arc};
+use std::{mem, process::ExitCode, sync::Arc};
 
 use tokio::sync::{mpsc, oneshot};
 use tower::{Service, ServiceExt};
@@ -33,7 +33,9 @@ use cuprate_types::blockchain::BlockchainWriteRequest;
 use txpool::IncomingTxHandler;
 
 use crate::{
-    config::Config, constants::PANIC_CRITICAL_SERVICE_ERROR, logging::CupratedTracingFilter,
+    config::Config,
+    constants::PANIC_CRITICAL_SERVICE_ERROR,
+    logging::{eprintln_red, CupratedTracingFilter},
     tor::initialize_tor_if_enabled,
 };
 
@@ -41,37 +43,49 @@ mod blockchain;
 mod commands;
 mod config;
 mod constants;
+mod error;
 mod logging;
 mod p2p;
 mod rpc;
 mod signals;
 mod statics;
+mod supervisor;
 mod tor;
 mod txpool;
 mod version;
 
-fn main() {
+fn main() -> ExitCode {
+    match main_inner() {
+        Ok(code) => code,
+        Err(e) => {
+            eprintln_red(&e.to_string());
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn main_inner() -> Result<ExitCode, anyhow::Error> {
     // Set global private permissions for created files.
     cuprate_helper::fs::set_private_global_file_permissions();
 
     // Initialize global static `LazyLock` data.
     statics::init_lazylock_statics();
 
-    let config = config::read_config_and_args();
+    let config = config::read_config_and_args()?;
 
     blockchain::set_fast_sync_hashes(config.fast_sync, config.network());
 
     // Initialize logging.
-    logging::init_logging(&config);
+    logging::init_logging(&config)?;
 
     //Printing configuration
     info!("{config}");
 
     // Initialize the thread-pools
 
-    init_global_rayon_pool(&config);
+    init_global_rayon_pool(&config)?;
 
-    let rt = init_tokio_rt(&config);
+    let rt = init_tokio_rt(&config)?;
 
     let db_thread_pool = cuprate_database_service::init_thread_pool(
         cuprate_database_service::ReaderThreads::Number(config.storage.reader_threads),
@@ -92,9 +106,16 @@ fn main() {
             .inspect_err(|e| error!("Txpool database error: {e}"))
             .expect(DATABASE_CORRUPT_MSG);
 
+    // Create the supervisor and task handle.
+    let (supervisor, task) = supervisor::new();
+    let shutdown_handle = supervisor.shutdown_handle.clone();
+
     // Initialize async tasks.
 
     rt.block_on(async move {
+        // Spawn signal handlers.
+        supervisor::spawn_signal_handler(supervisor.shutdown_handle.clone());
+
         // TODO: Add an argument/option for keeping alt blocks between restart.
         blockchain_write_handle
             .ready()
@@ -110,13 +131,13 @@ fn main() {
             &mut blockchain_write_handle,
             config.network(),
         )
-        .await;
+        .await?;
 
         // Start the context service and the block/tx verifier.
         let context_svc =
             blockchain::init_consensus(blockchain_read_handle.clone(), config.context_config())
                 .await
-                .unwrap();
+                .map_err(anyhow::Error::from_boxed)?;
 
         // Bootstrap or configure Tor if enabled.
         let tor_context = initialize_tor_if_enabled(&config).await;
@@ -129,8 +150,9 @@ fn main() {
             blockchain_read_handle.clone(),
             txpool_read_handle.clone(),
             &tor_context,
+            task.shutdown_handle.clone(),
         )
-        .await;
+        .await?;
 
         // Create Tor router delivery channel.
         let (tor_router_tx, tor_router_rx) = tor_enabled.then(oneshot::channel).unzip();
@@ -144,6 +166,7 @@ fn main() {
             txpool_read_handle.clone(),
             context_svc.clone(),
             blockchain_read_handle.clone(),
+            task.clone(),
         )
         .await;
 
@@ -163,6 +186,7 @@ fn main() {
             tx_handler.txpool_manager.clone(),
             context_svc.clone(),
             config.block_downloader_config(),
+            task.clone(),
         )
         .await;
 
@@ -174,26 +198,37 @@ fn main() {
             context_svc.clone(),
             txpool_read_handle.clone(),
             tx_handler.clone(),
-        );
+            task.clone(),
+        )?;
 
         // Start Tor P2P zone after sync completes.
         if tor_enabled {
             info!("Tor P2P zone will start after sync.");
             let context_svc = context_svc.clone();
+            let shutdown_handle = task.shutdown_handle.clone();
 
-            tokio::spawn(async move {
-                // Wait for the node to synchronize with the network
-                synced_notify.notified().await;
+            task.task_tracker.spawn(async move {
+                // Wait for the node to synchronize with the network, or shutdown.
+                tokio::select! {
+                    () = synced_notify.notified() => {}
+                    () = shutdown_handle.cancelled() => {
+                        return;
+                    }
+                }
                 tracing::info!("Starting Tor P2P zone.");
 
-                let (tor_interface, tor_tx_handler_tx) = p2p::start_tor_p2p(
+                let Ok((tor_interface, tor_tx_handler_tx)) = p2p::start_tor_p2p(
                     &config,
                     context_svc,
                     blockchain_read_handle,
                     txpool_read_handle,
                     tor_context,
+                    shutdown_handle,
                 )
-                .await;
+                .await
+                .inspect_err(|e| tracing::warn!("Failed to start Tor P2P zone: {e}")) else {
+                    return;
+                };
 
                 // Send the tx handler to the Tor zone
                 if tor_tx_handler_tx.send(tx_handler).is_err() {
@@ -216,32 +251,41 @@ fn main() {
             std::thread::spawn(|| commands::command_listener(command_tx));
 
             // Wait on the io_loop, spawned on a separate task as this improves performance.
-            tokio::spawn(commands::io_loop(command_rx, context_svc))
-                .await
-                .unwrap();
+            task.task_tracker.spawn(commands::io_loop(
+                command_rx,
+                context_svc,
+                task.shutdown_handle.clone(),
+            ));
         } else {
-            // If no STDIN, await OS exit signal.
             info!("Terminal/TTY not detected, disabling STDIN commands");
-            tokio::signal::ctrl_c().await.unwrap();
         }
-    });
+        // Wait for shutdown (signal, command, or critical task failure).
+        supervisor.shutdown_handle.cancelled().await;
+        supervisor.task_tracker.close();
+        supervisor.task_tracker.wait().await;
+
+        Ok::<(), anyhow::Error>(())
+    })?;
+
+    drop(rt);
+    info!("Shutdown complete.");
+
+    Ok(ExitCode::from(shutdown_handle.exit_code()))
 }
 
 /// Initialize the [`tokio`] runtime.
-fn init_tokio_rt(config: &Config) -> tokio::runtime::Runtime {
-    tokio::runtime::Builder::new_multi_thread()
+fn init_tokio_rt(config: &Config) -> Result<tokio::runtime::Runtime, anyhow::Error> {
+    Ok(tokio::runtime::Builder::new_multi_thread()
         .worker_threads(config.tokio.threads)
         .thread_name("cuprated-tokio")
         .enable_all()
-        .build()
-        .unwrap()
+        .build()?)
 }
 
 /// Initialize the global [`rayon`] thread-pool.
-fn init_global_rayon_pool(config: &Config) {
-    rayon::ThreadPoolBuilder::new()
+fn init_global_rayon_pool(config: &Config) -> Result<(), anyhow::Error> {
+    Ok(rayon::ThreadPoolBuilder::new()
         .num_threads(config.rayon.threads)
         .thread_name(|index| format!("cuprated-rayon-{index}"))
-        .build_global()
-        .unwrap();
+        .build_global()?)
 }

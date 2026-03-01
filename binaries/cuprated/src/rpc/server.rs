@@ -7,6 +7,7 @@ use std::{
 
 use anyhow::Error;
 use tokio::net::TcpListener;
+use tokio_util::sync::CancellationToken;
 use tower::limit::rate::RateLimitLayer;
 use tower_http::limit::RequestBodyLimitLayer;
 use tracing::{info, warn};
@@ -19,17 +20,17 @@ use cuprate_txpool::service::TxpoolReadHandle;
 
 use crate::{
     config::{restricted_rpc_port, unrestricted_rpc_port, RpcConfig},
+    error::CupratedError,
     rpc::{rpc_handler::BlockchainManagerHandle, CupratedRpcHandler},
+    supervisor::CupratedTask,
     txpool::IncomingTxHandler,
 };
 
 /// Initialize the RPC server(s).
 ///
-/// # Panics
-/// This function will panic if:
-/// - the server(s) could not be started
-/// - unrestricted RPC is started on non-local
-///   address without override option
+/// # Errors
+/// Returns an error if unrestricted RPC is started on a non-local
+/// address without the override option.
 pub fn init_rpc_servers(
     config: RpcConfig,
     network: Network,
@@ -37,7 +38,8 @@ pub fn init_rpc_servers(
     blockchain_context: BlockchainContextService,
     txpool_read: TxpoolReadHandle,
     tx_handler: IncomingTxHandler,
-) {
+    task: CupratedTask,
+) -> Result<(), Error> {
     for ((enable, addr, port, request_byte_limit), restricted) in [
         (
             (
@@ -73,7 +75,7 @@ pub fn init_rpc_servers(
                     "Starting unrestricted RPC on non-local address, this is dangerous!"
                 );
             } else {
-                panic!("Refusing to start unrestricted RPC on a non-local address ({addr})");
+                anyhow::bail!("Refusing to start unrestricted RPC on a non-local address ({addr})");
             }
         }
 
@@ -83,19 +85,27 @@ pub fn init_rpc_servers(
             blockchain_context.clone(),
             txpool_read.clone(),
             tx_handler.clone(),
+            task.shutdown_handle.clone(),
         );
 
-        tokio::task::spawn(async move {
-            run_rpc_server(
-                rpc_handler,
-                restricted,
-                SocketAddr::new(addr, port),
-                request_byte_limit,
-            )
-            .await
-            .unwrap();
-        });
+        let token = task.shutdown_handle.token();
+        task.spawn_critical(
+            async move {
+                run_rpc_server(
+                    rpc_handler,
+                    restricted,
+                    SocketAddr::new(addr, port),
+                    request_byte_limit,
+                    token,
+                )
+                .await
+                .map_err(CupratedError::Rpc)
+            },
+            move || info!(restricted, "RPC server shut down."),
+        );
     }
+
+    Ok(())
 }
 
 /// This initializes and runs an RPC server.
@@ -106,6 +116,7 @@ async fn run_rpc_server(
     restricted: bool,
     address: SocketAddr,
     request_byte_limit: usize,
+    shutdown_token: CancellationToken,
 ) -> Result<(), Error> {
     info!(
         restricted,
@@ -138,7 +149,9 @@ async fn run_rpc_server(
     //
     // TODO: impl custom server code, don't use axum.
     let listener = TcpListener::bind(address).await?;
-    axum::serve(listener, router).await?;
+    axum::serve(listener, router)
+        .with_graceful_shutdown(shutdown_token.cancelled_owned())
+        .await?;
 
     Ok(())
 }

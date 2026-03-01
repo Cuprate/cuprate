@@ -5,18 +5,23 @@ use tower::{Service, ServiceExt};
 
 use cuprate_types::TxRelayChecks;
 
-use crate::txpool::{IncomingTxError, IncomingTxHandler, IncomingTxs, RelayRuleError};
+use crate::{
+    supervisor::ShutdownHandle,
+    txpool::{IncomingTxError, IncomingTxHandler, IncomingTxs, RelayRuleError},
+};
 
 pub async fn handle_incoming_txs(
     tx_handler: &mut IncomingTxHandler,
     incoming_txs: IncomingTxs,
+    shutdown_handle: &ShutdownHandle,
 ) -> Result<TxRelayChecks, Error> {
-    let resp = tx_handler
-        .ready()
-        .await
-        .map_err(|e| anyhow!(e))?
-        .call(incoming_txs)
-        .await;
+    let resp = match tx_handler.ready().await {
+        Ok(r) => r.call(incoming_txs).await,
+        Err(e) => {
+            shutdown_handle.report_service_error(&e);
+            return Err(e.into());
+        }
+    };
 
     Ok(match resp {
         Ok(()) => TxRelayChecks::empty(),
@@ -64,6 +69,10 @@ pub async fn handle_incoming_txs(
                 TxRelayChecks::FEE_TOO_LOW
             }
             IncomingTxError::DuplicateTransaction => TxRelayChecks::DOUBLE_SPEND,
+            IncomingTxError::Internal(e) => {
+                shutdown_handle.report_service_error(&e);
+                return Err(e);
+            }
         },
     })
 }

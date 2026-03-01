@@ -6,6 +6,7 @@ use tokio::{
     sync::{mpsc, Notify, OwnedSemaphorePermit, Semaphore},
     time::interval,
 };
+use tokio_util::sync::CancellationToken;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
@@ -30,7 +31,7 @@ pub enum SyncerError {
 
 /// The syncer tasks that makes sure we are fully synchronised with our connected peers.
 #[instrument(level = "debug", skip_all)]
-#[expect(clippy::significant_drop_tightening)]
+#[expect(clippy::significant_drop_tightening, clippy::too_many_arguments)]
 pub async fn syncer<CN>(
     mut context_svc: BlockchainContextService,
     our_chain: CN,
@@ -39,6 +40,7 @@ pub async fn syncer<CN>(
     stop_current_block_downloader: Arc<Notify>,
     block_downloader_config: BlockDownloaderConfig,
     synced_notify: Arc<Notify>,
+    shutdown_token: CancellationToken,
 ) -> Result<(), SyncerError>
 where
     CN: Service<
@@ -60,7 +62,13 @@ where
 
     let mut sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
     loop {
-        check_sync_interval.tick().await;
+        tokio::select! {
+            biased;
+            () = shutdown_token.cancelled() => {
+                return Ok(());
+            }
+            _ = check_sync_interval.tick() => {}
+        }
 
         tracing::trace!("Checking connected peers to see if we are behind",);
 
@@ -83,6 +91,10 @@ where
 
         loop {
             tokio::select! {
+                biased;
+                () = shutdown_token.cancelled() => {
+                    return Ok(());
+                }
                 () = stop_current_block_downloader.notified() => {
                     tracing::info!("Received stop signal, stopping block downloader");
 

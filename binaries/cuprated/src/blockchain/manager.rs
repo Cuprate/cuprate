@@ -3,8 +3,8 @@ use std::{collections::HashMap, sync::Arc};
 use futures::StreamExt;
 use monero_oxide::block::Block;
 use tokio::sync::{mpsc, oneshot, Notify, OwnedSemaphorePermit};
+use tokio_util::sync::CancellationToken;
 use tower::{BoxError, Service, ServiceExt};
-use tracing::error;
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{
@@ -27,7 +27,8 @@ use crate::{
         chain_service::ChainService, interface::COMMAND_TX, syncer,
         types::ConsensusBlockchainReadHandle,
     },
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
+    error::CupratedError,
+    supervisor::CupratedTask,
     txpool::TxpoolManagerHandle,
 };
 
@@ -52,6 +53,7 @@ pub async fn init_blockchain_manager(
     txpool_manager_handle: TxpoolManagerHandle,
     mut blockchain_context_service: BlockchainContextService,
     block_downloader_config: BlockDownloaderConfig,
+    task: CupratedTask,
 ) -> Arc<Notify> {
     // TODO: find good values for these size limits
     let (batch_tx, batch_rx) = mpsc::channel(1);
@@ -62,7 +64,7 @@ pub async fn init_blockchain_manager(
 
     let synced_notify = Arc::new(Notify::new());
 
-    tokio::spawn(syncer::syncer(
+    let syncer_fut = syncer::syncer(
         blockchain_context_service.clone(),
         ChainService(blockchain_read_handle.clone()),
         clearnet_interface.clone(),
@@ -70,7 +72,16 @@ pub async fn init_blockchain_manager(
         Arc::clone(&stop_current_block_downloader),
         block_downloader_config,
         Arc::clone(&synced_notify),
-    ));
+        task.shutdown_handle.token(),
+    );
+    task.spawn_critical(
+        async move {
+            syncer_fut
+                .await
+                .map_err(|e| CupratedError::Syncer(e.into()))
+        },
+        || tracing::info!("Blockchain syncer shut down."),
+    );
 
     let manager = BlockchainManager {
         blockchain_write_handle,
@@ -84,7 +95,10 @@ pub async fn init_blockchain_manager(
         broadcast_svc: clearnet_interface.broadcast_svc(),
     };
 
-    tokio::spawn(manager.run(batch_rx, command_rx));
+    let shutdown_token = task.shutdown_handle.token();
+    task.spawn_critical(manager.run(batch_rx, command_rx, shutdown_token), || {
+        tracing::info!("Blockchain manager shut down.");
+    });
 
     synced_notify
 }
@@ -119,23 +133,30 @@ impl BlockchainManager {
         mut self,
         mut block_batch_rx: mpsc::Receiver<(BlockBatch, Arc<OwnedSemaphorePermit>)>,
         mut command_rx: mpsc::Receiver<BlockchainManagerCommand>,
-    ) {
+        shutdown_token: CancellationToken,
+    ) -> Result<(), CupratedError> {
         loop {
             tokio::select! {
+                biased;
+                () = shutdown_token.cancelled() => {
+                    break;
+                }
                 Some((batch, permit)) = block_batch_rx.recv() => {
                     self.handle_incoming_block_batch(
                         batch,
-                    ).await;
+                    ).await?;
 
                     drop(permit);
                 }
                 Some(incoming_command) = command_rx.recv() => {
-                    self.handle_command(incoming_command).await;
+                    self.handle_command(incoming_command).await?;
                 }
                 else => {
-                    todo!("TODO: exit the BC manager")
+                    break;
                 }
             }
         }
+
+        Ok(())
     }
 }
