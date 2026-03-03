@@ -1,7 +1,10 @@
-use cuprate_helper::{cast::u64_to_usize, crypto::compute_zero_commitment};
 use indexmap::{IndexMap, IndexSet};
-use monero_oxide::transaction::Pruned;
-use monero_oxide::{io::CompressedPoint, transaction::Transaction};
+use monero_oxide::{
+    io::CompressedPoint,
+    transaction::{Pruned, Transaction},
+};
+
+use cuprate_helper::{cast::u64_to_usize, crypto::compute_zero_commitment};
 
 use crate::{OutputOnChain, VerifiedBlockInformation};
 

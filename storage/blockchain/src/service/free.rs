@@ -1,14 +1,16 @@
 //! General free functions used (related to `cuprate_blockchain::service`).
-
-//---------------------------------------------------------------------------------------------------- Import
-use fjall::Readable;
-use rayon::ThreadPool;
 use std::sync::Arc;
 
-use crate::error::{BlockchainError, DbResult};
-use crate::service::read::BlockchainReadHandle;
-use crate::service::write::BlockchainWriteHandle;
-use crate::{config::Config, service::init_write_service, BlockchainDatabase};
+use fjall::Readable;
+use rayon::ThreadPool;
+
+use crate::{
+    config::Config,
+    error::{BlockchainError, DbResult},
+    service::init_write_service,
+    service::{read::BlockchainReadHandle, write::BlockchainWriteHandle},
+    BlockchainDatabase,
+};
 
 #[cold]
 #[inline(never)] // Only called once (?)

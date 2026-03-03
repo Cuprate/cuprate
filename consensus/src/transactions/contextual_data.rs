@@ -33,7 +33,7 @@ use cuprate_types::{
 };
 
 use crate::{transactions::TransactionVerificationData, Database, ExtendedConsensusError};
-
+// b679151addde566485de2e1b8d31494ff2949b7fb159b9ab54954ced8bf66a1a
 /// Get the ring members for the inputs from the outputs on the chain.
 ///
 /// Will error if `outputs` does not contain the outputs needed.
@@ -55,6 +55,9 @@ fn get_ring_members_for_inputs(
                     .map(|offset| {
                         get_outputs(amount.unwrap_or(0), *offset)
                             .ok_or(TransactionError::RingMemberNotFoundOrInvalid)
+                            .inspect_err(|_| {
+                                tracing::error!("Ring member not found: {:?}, {}", amount, offset)
+                            })
                     })
                     .collect::<Result<_, TransactionError>>()?)
             }

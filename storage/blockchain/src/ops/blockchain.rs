@@ -1,15 +1,15 @@
 //! Blockchain functions - chain height, generated coins, etc.
 
-use fjall::Readable;
 use std::io;
-use tapes::TapesRead;
-//---------------------------------------------------------------------------------------------------- Import
 
-use crate::error::{BlockchainError, DbResult};
-use crate::BlockchainDatabase;
+use fjall::Readable;
+use tapes::TapesRead;
+
 use crate::{
-    ops::{block, macros::doc_error},
+    error::{BlockchainError, DbResult},
+    ops::block,
     types::{BlockHash, BlockHeight},
+    BlockchainDatabase,
 };
 
 //---------------------------------------------------------------------------------------------------- Free Functions
@@ -23,7 +23,6 @@ use crate::{
 /// - The blockchain has 2 blocks (height 1) => this returns `2`
 ///
 /// So the height of a new block would be `chain_height()`.
-#[doc = doc_error!()]
 #[inline]
 pub fn chain_height(
     db: &BlockchainDatabase,
@@ -40,14 +39,13 @@ pub fn chain_height(
 /// This returns the height of the top block, not the [`chain_height`].
 ///
 /// For example:
-/// - The blockchain has 0 blocks => this returns `Err(RuntimeError::KeyNotFound)`
+/// - The blockchain has 0 blocks => this returns `Err(BlockchainError::KeyNotFound)`
 /// - The blockchain has 1 block (height 0) => this returns `Ok(0)`
 /// - The blockchain has 2 blocks (height 1) => this returns `Ok(1)`
 ///
 /// Note that in cases where no blocks have been written to the
-/// database yet, an error is returned: `Err(RuntimeError::KeyNotFound)`.
+/// database yet, an error is returned: `Err(BlockchainError::KeyNotFound)`.
 ///
-#[doc = doc_error!()]
 #[inline]
 pub fn top_block_height(
     db: &BlockchainDatabase,
@@ -69,7 +67,6 @@ pub fn top_block_height(
 ///
 /// If all blocks are known for chronologically ordered chains or unknown for reverse chronologically
 /// ordered chains then the length of the `block_ids` will be returned.
-#[doc = doc_error!()]
 #[inline]
 pub fn find_split_point(
     db: &BlockchainDatabase,
@@ -95,7 +92,7 @@ pub fn find_split_point(
     });
 
     if let Some(e) = err {
-        panic!();
+        return Err(e.into());
     }
 
     Ok(idx)

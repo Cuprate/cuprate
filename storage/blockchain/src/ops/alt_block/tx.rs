@@ -1,19 +1,21 @@
-use crate::error::{BlockchainError, DbResult};
-use crate::ops::tx::get_tx;
-use crate::{
-    ops::macros::{doc_add_alt_block_inner_invariant, doc_error},
-    types::{AltTransactionInfo, TxHash},
-    BlockchainDatabase,
-};
-use bytemuck::TransparentWrapper;
 use cuprate_types::VerifiedTransactionInformation;
+
+use bytemuck::TransparentWrapper;
 use fjall::Readable;
 use monero_oxide::transaction::Transaction;
 
-/// TODO.
+use crate::{
+    error::{BlockchainError, DbResult},
+    ops::tx::get_tx,
+    types::{AltTransactionInfo, TxHash},
+    BlockchainDatabase,
+};
+
+/// Adds a [`VerifiedTransactionInformation`] from an alt-block if it is not already in the DB.
 ///
-#[doc = doc_add_alt_block_inner_invariant!()]
-#[doc = doc_error!()]
+/// If the transaction is in the main-chain this function will still fill in the tx info table, as that
+/// table holds data which we don't keep around for main-chain txs.
+///
 pub fn add_alt_transaction_blob(
     db: &BlockchainDatabase,
     tx: &VerifiedTransactionInformation,
@@ -33,7 +35,6 @@ pub fn add_alt_transaction_blob(
         return Ok(());
     }
 
-    // TODO: the below can be made more efficient pretty easily.
     tx_rw.insert(
         &db.alt_transaction_blobs,
         tx.tx_hash,
@@ -47,7 +48,6 @@ pub fn add_alt_transaction_blob(
 
 /// Retrieve a [`VerifiedTransactionInformation`] from the database.
 ///
-#[doc = doc_error!()]
 pub fn get_alt_transaction(
     db: &BlockchainDatabase,
     tx_hash: &TxHash,

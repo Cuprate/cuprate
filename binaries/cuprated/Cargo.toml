@@ -77,7 +77,7 @@ serde_bytes           = { workspace = true }
 serde_json            = { workspace = true }
 serde                 = { workspace = true }
 strum                 = { workspace = true }
-sysinfo               = { version = "0.38" }
+sysinfo               = { workspace = true, features = ["system"] }
 thiserror             = { workspace = true }
 thread_local          = { workspace = true }
 tokio-util            = { workspace = true, features = ["rt"] }

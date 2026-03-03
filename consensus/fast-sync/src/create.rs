@@ -2,10 +2,9 @@
     unused_crate_dependencies,
     reason = "binary shares same Cargo.toml as library"
 )]
+use std::{fs::write, sync::Arc};
 
 use clap::Parser;
-use std::fs::write;
-use std::sync::Arc;
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::config::Config;
@@ -49,7 +48,9 @@ async fn main() {
     let args = Args::parse();
     let height_target = args.height;
 
+    // TODO: use the cuprated config here?
     let config = Config::default();
+
     let fjall_dir = CUPRATE_DATA_DIR.to_path_buf().join("fjall");
 
     let fjall = fjall::Database::builder(fjall_dir).open().unwrap();

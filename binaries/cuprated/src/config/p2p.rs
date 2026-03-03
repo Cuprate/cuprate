@@ -1,11 +1,12 @@
-use serde::{Deserialize, Serialize};
-use std::cmp::{max, min};
 use std::{
+    cmp::{max, min},
     marker::PhantomData,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     path::Path,
     time::Duration,
 };
+
+use serde::{Deserialize, Serialize};
 
 use cuprate_helper::{fs::address_book_path, network::Network};
 use cuprate_p2p::config::TransportConfig;

@@ -1,18 +1,18 @@
 //! cuprated config
-use anyhow::bail;
-use clap::Parser;
-use cuprate_blockchain::config::CacheSizes;
-use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use std::{
     fmt,
     fs::{read_to_string, File},
     io,
     net::{IpAddr, TcpListener},
-    path::Path,
+    path::{Path, PathBuf},
     str::FromStr,
     time::Duration,
 };
+
+use anyhow::bail;
+use clap::Parser;
+use cuprate_blockchain::config::CacheSizes;
+use serde::{Deserialize, Serialize};
 
 use cuprate_consensus::ContextConfig;
 use cuprate_helper::{

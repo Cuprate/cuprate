@@ -8,7 +8,6 @@ use futures::{future::BoxFuture, FutureExt};
 use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
 
-use super::{DandelionTx, TxId};
 use cuprate_dandelion_tower::{
     traits::{TxStoreRequest, TxStoreResponse},
     State,
@@ -18,6 +17,8 @@ use cuprate_txpool::service::{
     TxpoolReadHandle, TxpoolWriteHandle,
 };
 use cuprate_txpool::TxPoolError;
+
+use super::{DandelionTx, TxId};
 
 /// The dandelion tx-store service.
 ///

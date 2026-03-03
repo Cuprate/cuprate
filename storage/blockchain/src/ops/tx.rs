@@ -1,29 +1,23 @@
 //! Transaction functions.
+use std::{collections::HashMap, io::Read};
 
-use std::collections::HashMap;
-//---------------------------------------------------------------------------------------------------- Import
-use std::io::Read;
-
-use crate::error::{BlockchainError, DbResult};
-use crate::types::{Amount, TxInfo};
-use crate::BlockchainDatabase;
-use crate::{
-    ops::{
-        macros::{doc_add_block_inner_invariant, doc_error},
-        output::{add_output, remove_output},
-    },
-    types::{BlockHeight, Output, PreRctOutputId, RctOutput, TxHash, TxId},
-};
-use bytemuck::TransparentWrapper;
 use cuprate_helper::crypto::compute_zero_commitment;
+
+use bytemuck::TransparentWrapper;
 use fjall::Readable;
 use monero_oxide::transaction::{Input, Pruned, Timelock, Transaction};
 use tapes::{TapesAppend, TapesRead, TapesTruncate};
 
-//---------------------------------------------------------------------------------------------------- Private
-///  TODO
+use crate::{
+    error::{BlockchainError, DbResult},
+    ops::output::{add_output, remove_output},
+    types::{Amount, BlockHeight, Output, PreRctOutputId, RctOutput, TxHash, TxId, TxInfo},
+    BlockchainDatabase,
+};
+
+/// Adds the tx info and related data to the tapes, this does not add the tx blob to the tapes.
 #[expect(clippy::too_many_arguments)]
-pub fn add_tx_to_tapes(
+pub fn add_tx_info_to_tapes(
     tx: &Transaction<Pruned>,
     pruned_blob_idx: u64,
     prunable_blob_idx: u64,
@@ -54,12 +48,6 @@ pub fn add_tx_to_tapes(
             numb_rct_outputs: tx.prefix().outputs.len(),
         }],
     )?;
-
-    //------------------------------------------------------ Pruning
-    // SOMEDAY: implement pruning after `monero-oxide` does.
-    // if let PruningSeed::Pruned(decompressed_pruning_seed) = get_blockchain_pruning_seed()? {
-    // SOMEDAY: what to store here? which table?
-    // }
 
     let timelock = match tx.prefix().additional_timelock {
         Timelock::None => 0,
@@ -104,7 +92,8 @@ pub fn add_tx_to_tapes(
     Ok(tx_id)
 }
 
-pub fn add_tx_to_dynamic_tables(
+/// Adds the tx info and related data to the dynamic tables.
+pub fn add_tx_info_to_dynamic_tables(
     db: &BlockchainDatabase,
     tx: &Transaction<Pruned>,
     tx_id: TxId,
@@ -173,7 +162,7 @@ pub fn add_tx_to_dynamic_tables(
     Ok(())
 }
 
-/// TODO
+/// Removes a transaction from the dynamic tables.
 #[inline]
 pub fn remove_tx_from_dynamic_tables(
     db: &BlockchainDatabase,
@@ -182,18 +171,15 @@ pub fn remove_tx_from_dynamic_tables(
     tx_rw: &mut fjall::OwnedWriteBatch,
     tapes: &tapes::TapesTruncateTransaction,
 ) -> DbResult<(TxId, Transaction)> {
-    //------------------------------------------------------ Transaction data
     let tx_id = u64::from_le_bytes(
         db.tx_ids
-            .get(tx_hash)
-            .expect("TODO")
+            .get(tx_hash)?
             .ok_or(BlockchainError::NotFound)?
             .as_ref()
             .try_into()
             .unwrap(),
     );
 
-    //------------------------------------------------------ Unlock Time
     let tx_info = tapes.read_entry::<TxInfo>(&db.tx_infos, tx_id)?.unwrap();
 
     //------------------------------------------------------
@@ -234,7 +220,6 @@ pub fn remove_tx_from_dynamic_tables(
 
 //---------------------------------------------------------------------------------------------------- `get_tx_*`
 /// Retrieve a [`Transaction`] from the database with its [`TxHash`].
-#[doc = doc_error!()]
 #[inline]
 pub fn get_tx(
     db: &BlockchainDatabase,
@@ -243,8 +228,7 @@ pub fn get_tx(
     tapes: &impl tapes::TapesRead,
 ) -> DbResult<Transaction> {
     let tx_id = tx_ro
-        .get(&db.tx_ids, tx_hash)
-        .expect("TODO")
+        .get(&db.tx_ids, tx_hash)?
         .ok_or(BlockchainError::NotFound)?;
 
     get_tx_from_id(
@@ -255,7 +239,6 @@ pub fn get_tx(
 }
 
 /// Retrieve a [`Transaction`] from the database with its [`TxId`].
-#[doc = doc_error!()]
 #[inline]
 pub fn get_tx_from_id(
     tx_id: &TxId,
@@ -268,6 +251,7 @@ pub fn get_tx_from_id(
     Ok(tx)
 }
 
+/// Returns the tx-blob from a tx id.
 pub fn get_tx_blob_from_id(
     tx_id: &TxId,
     tapes: &impl tapes::TapesRead,
@@ -277,7 +261,7 @@ pub fn get_tx_blob_from_id(
         .read_entry(&db.tx_infos, *tx_id)?
         .ok_or(BlockchainError::NotFound)?;
 
-    let prunable_tape = if tx_info.rct_output_start_idx == u64::MAX {
+    let prunable_tape = if tx_info.is_v1_tx() {
         &db.v1_prunable_blobs
     } else {
         let stripe =
@@ -311,22 +295,20 @@ pub fn get_tx_blob_from_id(
 /// - 1 transactions exist => returns 1
 /// - 5 transactions exist => returns 5
 /// - etc
-#[doc = doc_error!()]
 #[inline]
 pub fn get_num_tx(db: &BlockchainDatabase, tx_ro: &fjall::Snapshot) -> DbResult<u64> {
-    Ok(tx_ro.len(&db.tx_ids).expect("TODO") as u64)
+    Ok(tx_ro.len(&db.tx_ids)? as u64)
 }
 
 //----------------------------------------------------------------------------------------------------
 /// Check if a transaction exists in the database.
 ///
 /// Returns `true` if it does, else `false`.
-#[doc = doc_error!()]
 #[inline]
 pub fn tx_exists(
     db: &BlockchainDatabase,
     tx_hash: &TxHash,
     tx_ro: &fjall::Snapshot,
 ) -> DbResult<bool> {
-    Ok(tx_ro.contains_key(&db.tx_ids, tx_hash).expect("TODO"))
+    Ok(tx_ro.contains_key(&db.tx_ids, tx_hash)?)
 }

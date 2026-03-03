@@ -1,19 +1,22 @@
-use crate::error::{BlockchainError, DbResult};
-use crate::ops::macros::{doc_add_alt_block_inner_invariant, doc_error};
-use crate::types::{AltBlockHeight, AltChainInfo, BlockHash, BlockHeight, RawChainId};
-use crate::BlockchainDatabase;
+use std::cmp::{max, min};
+
 use cuprate_types::{Chain, ChainId};
 use fjall::Readable;
-use std::cmp::{max, min};
+
+use crate::{
+    error::{BlockchainError, DbResult},
+    types::{AltBlockHeight, AltChainInfo, BlockHash, BlockHeight, RawChainId},
+    BlockchainDatabase,
+};
 
 /// Updates the [`AltChainInfo`] with information on a new alt-block.
 ///
-#[doc = doc_add_alt_block_inner_invariant!()]
-#[doc = doc_error!()]
-///
 /// # Panics
 ///
-/// This will panic if [`AltBlockHeight::height`] == `0`.
+/// This may panic if the block is invalid.
+///
+/// **THIS IS NOT ATOMIC**
+///
 pub fn update_alt_chain_info(
     db: &BlockchainDatabase,
     alt_block_height: &AltBlockHeight,
@@ -70,7 +73,7 @@ pub fn update_alt_chain_info(
 /// Height history is a list of height ranges with the corresponding [`Chain`] they are stored under.
 /// For example if your range goes from height `0` the last entry in the list will be [`Chain::Main`]
 /// upto the height where the first split occurs.
-#[doc = doc_error!()]
+///
 pub fn get_alt_chain_history_ranges(
     db: &BlockchainDatabase,
     range: std::ops::Range<BlockHeight>,

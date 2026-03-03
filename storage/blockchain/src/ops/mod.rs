@@ -4,13 +4,6 @@
 //! traits in this crate to generically call Monero-related
 //! database operations.
 //!
-//! # `impl Table`
-//!
-//! As such, the responsibility of
-//! transactions, tables, etc, are on the caller.
-//!
-//! Notably, this means that these functions are as lean
-//! as possible, so calling them in a loop should be okay.
 //!
 //! # Atomicity
 //! As transactions are handled by the _caller_ of these functions,
@@ -42,5 +35,3 @@ pub mod blockchain;
 pub mod output;
 pub mod property;
 pub mod tx;
-
-mod macros;

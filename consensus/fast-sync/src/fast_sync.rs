@@ -255,14 +255,19 @@ pub fn block_to_verified_block_information(
 
 #[cfg(test)]
 mod tests {
+    use std::{
+        collections::VecDeque,
+        path::PathBuf,
+        slice,
+        sync::{Arc, LazyLock},
+    };
+
+    use proptest::proptest;
+
     use cuprate_blockchain::config::Config;
     use cuprate_blockchain::service::BlockchainReadHandle;
     use cuprate_p2p::block_downloader::ChainEntry;
     use cuprate_p2p_core::{client::InternalPeerID, handles::HandleBuilder, ClearNet};
-    use proptest::proptest;
-    use std::path::PathBuf;
-    use std::sync::Arc;
-    use std::{collections::VecDeque, slice, sync::LazyLock};
 
     use crate::{
         fast_sync_stop_height, set_fast_sync_hashes, validate_entries, FAST_SYNC_BATCH_LEN,

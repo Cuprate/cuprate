@@ -13,7 +13,7 @@ keywords    = ["cuprate", "txpool", "transaction", "pool", "database"]
 [dependencies]
 cuprate-types            = { workspace = true, features = ["rpc"] }
 cuprate-helper           = { workspace = true, default-features = false, features = ["constants", "time", "asynch"] }
-fjall                    = { version = "3.0.1" }
+fjall                    = { workspace = true, features = ["default"] }
 
 monero-oxide             = { workspace = true, features = ["std"] }
 bytemuck                 = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }

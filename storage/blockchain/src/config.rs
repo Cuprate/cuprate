@@ -1,11 +1,4 @@
 //! Database configuration.
-//!
-//! It also contains types related to configuration settings.
-//!
-//! These configurations are processed at runtime, meaning
-//! the `Env` can/will dynamically adjust its behavior based
-//! on these values.
-//---------------------------------------------------------------------------------------------------- Import
 use std::{borrow::Cow, path::PathBuf};
 
 #[cfg(feature = "serde")]
@@ -16,6 +9,7 @@ use cuprate_helper::{
     network::Network,
 };
 
+/// The tapes cache sizes.
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields, default))]
@@ -42,25 +36,16 @@ impl Default for CacheSizes {
 }
 
 //---------------------------------------------------------------------------------------------------- Config
-/// TODO.
+/// The blockchain database configuration.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Config {
+    /// The directory where the blockchain blobs are stored.
     pub blob_dir: PathBuf,
+    /// The directory where the blockchain indexes are stored.
     pub index_dir: PathBuf,
-
+    /// The tapes cache sizes.
     pub cache_sizes: CacheSizes,
-}
-
-impl Config {
-    /// TODO
-    pub fn new() -> Self {
-        Self {
-            blob_dir: blockchain_path(&CUPRATE_DATA_DIR, Network::Mainnet),
-            index_dir: blockchain_path(&CUPRATE_DATA_DIR, Network::Mainnet),
-            cache_sizes: CacheSizes::default(),
-        }
-    }
 }
 
 impl Default for Config {
@@ -71,6 +56,10 @@ impl Default for Config {
     /// assert_eq!(Config::default(), Config::new());
     /// ```
     fn default() -> Self {
-        Self::new()
+        Self {
+            blob_dir: CUPRATE_DATA_DIR.to_path_buf(),
+            index_dir: CUPRATE_DATA_DIR.to_path_buf(),
+            cache_sizes: CacheSizes::default(),
+        }
     }
 }

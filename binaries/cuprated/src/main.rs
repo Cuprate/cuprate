@@ -31,9 +31,10 @@ use cuprate_p2p_core::{transports::Tcp, ClearNet};
 use cuprate_types::blockchain::BlockchainWriteRequest;
 use txpool::IncomingTxHandler;
 
-use crate::constants::DATABASE_CORRUPT_MSG;
 use crate::{
-    config::Config, constants::PANIC_CRITICAL_SERVICE_ERROR, logging::CupratedTracingFilter,
+    config::Config,
+    constants::{DATABASE_CORRUPT_MSG, PANIC_CRITICAL_SERVICE_ERROR},
+    logging::CupratedTracingFilter,
     tor::initialize_tor_if_enabled,
 };
 

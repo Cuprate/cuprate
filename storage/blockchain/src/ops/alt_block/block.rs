@@ -1,26 +1,25 @@
 use bytemuck::TransparentWrapper;
-use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};
-use cuprate_types::{AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, HardFork};
 use fjall::Readable;
 use monero_oxide::block::{Block, BlockHeader};
 
-use crate::error::{BlockchainError, DbResult};
-use crate::types::BlockInfo;
-use crate::types::{
-    AltBlockHeight, AltChainInfo, AltTransactionInfo, CompactAltBlockInfo, RawChainId,
-};
-use crate::BlockchainDatabase;
+use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};
+use cuprate_types::{AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, HardFork};
+
 use crate::{
-    ops::{
-        alt_block::{add_alt_transaction_blob, get_alt_transaction, update_alt_chain_info},
-        macros::doc_error,
+    error::{BlockchainError, DbResult},
+    ops::alt_block::{add_alt_transaction_blob, get_alt_transaction, update_alt_chain_info},
+    types::{
+        AltBlockHeight, AltChainInfo, AltTransactionInfo, BlockHash, BlockHeight, BlockInfo,
+        CompactAltBlockInfo, RawChainId,
     },
-    types::{BlockHash, BlockHeight},
+    BlockchainDatabase,
 };
 
 /// Flush all alt-block data from all the alt-block tables.
 ///
 /// This function completely empties the alt block tables.
+///
+/// **THIS IS NOT ATOMIC**
 pub fn flush_alt_blocks(db: &BlockchainDatabase) -> DbResult<()> {
     db.alt_chain_infos.clear()?;
     db.alt_block_heights.clear()?;
@@ -37,13 +36,10 @@ pub fn flush_alt_blocks(db: &BlockchainDatabase) -> DbResult<()> {
 /// This extracts all the data from the input block and
 /// maps/adds them to the appropriate database tables.
 ///
-#[doc = doc_error!()]
-///
 /// # Panics
-/// This function will panic if:
-/// - `alt_block.height` is == `0`
-/// - `alt_block.txs.len()` != `alt_block.block.transactions.len()`
+/// This function may panic if the given block data is invalid.
 ///
+/// **THIS IS NOT ATOMIC**
 pub fn add_alt_block(
     db: &BlockchainDatabase,
     alt_block: &AltBlockInformation,
@@ -97,7 +93,6 @@ pub fn add_alt_block(
 ///
 /// This function will look at only the blocks with the given [`AltBlockHeight::chain_id`], no others
 /// even if they are technically part of this chain.
-#[doc = doc_error!()]
 pub fn get_alt_block(
     db: &BlockchainDatabase,
     alt_block_height: &AltBlockHeight,
@@ -145,7 +140,6 @@ pub fn get_alt_block(
 /// This function will get blocks from the whole chain, for example if you were to ask for height
 /// `0` with any [`ChainId`] (as long that chain actually exists) you will get the main chain genesis.
 ///
-#[doc = doc_error!()]
 pub fn get_alt_block_hash(
     db: &BlockchainDatabase,
     block_height: &BlockHeight,
@@ -203,8 +197,6 @@ pub fn get_alt_block_hash(
 ///
 /// This function will look at only the blocks with the given [`AltBlockHeight::chain_id`], no others
 /// even if they are technically part of this chain.
-///
-#[doc = doc_error!()]
 pub fn get_alt_block_extended_header_from_height(
     db: &BlockchainDatabase,
     height: &AltBlockHeight,

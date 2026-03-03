@@ -2,13 +2,13 @@
 
 use std::num::NonZero;
 
-use crate::HardFork;
-use monero_oxide::transaction::Pruned;
 use monero_oxide::{
     block::Block,
     io::CompressedPoint,
-    transaction::{Timelock, Transaction},
+    transaction::{Pruned, Timelock, Transaction},
 };
+
+use crate::HardFork;
 
 /// Extended header data of a block.
 ///

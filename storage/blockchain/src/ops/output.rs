@@ -1,48 +1,27 @@
 //! Output functions.
+use std::{
+    collections::HashMap,
+    io,
+    ops::{AddAssign, SubAssign},
+};
 
 use fjall::Readable;
-use std::collections::HashMap;
-use std::io;
-use std::ops::{AddAssign, SubAssign};
-//---------------------------------------------------------------------------------------------------- Import
-use cuprate_helper::{cast::u32_to_usize, crypto::compute_zero_commitment, map::u64_to_timelock};
-use cuprate_types::OutputOnChain;
 use monero_oxide::{io::CompressedPoint, transaction::Timelock};
 use tapes::{TapesAppend, TapesRead, TapesTruncate};
 
-use crate::error::{BlockchainError, DbResult};
-use crate::types::TxId;
-use crate::BlockchainDatabase;
+use cuprate_helper::{cast::u32_to_usize, crypto::compute_zero_commitment, map::u64_to_timelock};
+use cuprate_types::OutputOnChain;
+
 use crate::{
-    ops::{
-        macros::{doc_add_block_inner_invariant, doc_error},
-        tx::get_tx_from_id,
-    },
+    error::{BlockchainError, DbResult},
+    ops::tx::get_tx_from_id,
+    types::TxId,
     types::{Amount, AmountIndex, Output, PreRctOutputId, RctOutput},
+    BlockchainDatabase,
 };
 
-fn pre_rct_output_id_to_bytes(pre_rct_output_id: &PreRctOutputId) -> [u8; 16] {
-    let mut buf = [0; 16];
-    buf[..8].copy_from_slice(&pre_rct_output_id.amount.to_be_bytes());
-    buf[8..].copy_from_slice(&pre_rct_output_id.amount_index.to_be_bytes());
-    buf
-}
-
-fn bytes_to_pre_rct_output_id(bytes: &[u8; 16]) -> PreRctOutputId {
-    PreRctOutputId {
-        amount: Amount::from_be_bytes(bytes[..8].try_into().unwrap()),
-        amount_index: AmountIndex::from_be_bytes(bytes[8..].try_into().unwrap()),
-    }
-}
-
-//---------------------------------------------------------------------------------------------------- Pre-RCT Outputs
 /// Add a Pre-RCT [`Output`] to the database.
 ///
-/// Upon [`Ok`], this function returns the [`PreRctOutputId`] that
-/// can be used to lookup the `Output` in [`get_output()`].
-///
-#[doc = doc_add_block_inner_invariant!()]
-#[doc = doc_error!()]
 #[inline]
 pub fn add_output(
     db: &BlockchainDatabase,
@@ -67,7 +46,7 @@ pub fn add_output(
 
     w.insert(
         &db.pre_rct_outputs,
-        pre_rct_output_id_to_bytes(&pre_rct_output_id),
+        pre_rct_output_id.to_bytes(),
         bytemuck::bytes_of(output),
     );
 
@@ -77,8 +56,6 @@ pub fn add_output(
 }
 
 /// Remove a Pre-RCT [`Output`] from the database.
-#[doc = doc_add_block_inner_invariant!()]
-#[doc = doc_error!()]
 #[inline]
 pub fn remove_output(
     db: &BlockchainDatabase,
@@ -95,6 +72,7 @@ pub fn remove_output(
         last_out.map_or(0, |o| {
             u64::from_be_bytes(
                 o.key().unwrap_or_else(|e| {
+                    // On error set the error and return a default.
                     err = Some(e);
                     [0; 16].into()
                 })[8..]
@@ -114,17 +92,13 @@ pub fn remove_output(
         amount_index: *num_outputs,
     };
 
-    tx_rw.remove(
-        &db.pre_rct_outputs,
-        pre_rct_output_id_to_bytes(&pre_rct_output_id),
-    );
+    tx_rw.remove(&db.pre_rct_outputs, pre_rct_output_id.to_bytes());
 
     num_outputs.sub_assign(1);
     Ok(())
 }
 
 /// Retrieve a Pre-RCT [`Output`] from the database.
-#[doc = doc_error!()]
 #[inline]
 pub fn get_output(
     db: &BlockchainDatabase,
@@ -132,25 +106,13 @@ pub fn get_output(
     tx_ro: &fjall::Snapshot,
 ) -> DbResult<Output> {
     let output = tx_ro
-        .get(
-            &db.pre_rct_outputs,
-            pre_rct_output_id_to_bytes(pre_rct_output_id),
-        )
-        .expect("TODO")
+        .get(&db.pre_rct_outputs, pre_rct_output_id.to_bytes())?
         .ok_or(BlockchainError::NotFound)?;
 
     Ok(bytemuck::pod_read_unaligned(output.as_ref()))
 }
 
-/// How many pre-RCT [`Output`]s are there?
-///
-/// This returns the amount of pre-RCT outputs currently stored.
-#[doc = doc_error!()]
-#[inline]
-pub fn get_num_outputs(db: &BlockchainDatabase, tx_ro: &fjall::Snapshot) -> DbResult<u64> {
-    Ok(tx_ro.len(&db.pre_rct_outputs).expect("TODO") as u64)
-}
-
+/// Get the number of outputs with a given amount.
 #[inline]
 pub fn get_num_outputs_with_amount(
     db: &BlockchainDatabase,
@@ -166,9 +128,7 @@ pub fn get_num_outputs_with_amount(
     })
 }
 
-//-xe--------------------------------------------------------- Mapping functions
 /// Map an [`Output`] to a [`cuprate_types::OutputOnChain`].
-#[doc = doc_error!()]
 pub fn output_to_output_on_chain(
     output: &Output,
     amount: Amount,
@@ -197,15 +157,7 @@ pub fn output_to_output_on_chain(
     })
 }
 
-/// Map an [`RctOutput`] to a [`cuprate_types::OutputOnChain`].
-///
-/// # Panics
-/// This function will panic if `rct_output`'s `commitment` fails to decompress
-/// into a valid Ed25519 point.
-///
-/// This should normally not happen as commitments that
-/// are stored in the database should always be valid.
-#[doc = doc_error!()]
+/// Map a [`RctOutput`] to a [`cuprate_types::OutputOnChain`].
 #[inline]
 pub fn rct_output_to_output_on_chain(
     rct_output: &RctOutput,
@@ -238,7 +190,6 @@ pub fn rct_output_to_output_on_chain(
 /// Map an [`PreRctOutputId`] to an [`OutputOnChain`].
 ///
 /// Note that this still support RCT outputs, in that case, [`PreRctOutputId::amount`] should be `0`.
-#[doc = doc_error!()]
 pub fn id_to_output_on_chain(
     db: &BlockchainDatabase,
     id: &PreRctOutputId,

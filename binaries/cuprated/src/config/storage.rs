@@ -1,10 +1,11 @@
 use std::path::PathBuf;
 
-use super::macros::config_struct;
-use crate::config::default::DefaultOrCustom;
+use serde::{Deserialize, Serialize};
+
 use cuprate_blockchain::config::CacheSizes;
 use cuprate_helper::fs::CUPRATE_DATA_DIR;
-use serde::{Deserialize, Serialize};
+
+use super::{default::DefaultOrCustom, macros::config_struct};
 
 config_struct! {
     /// The storage config.
@@ -21,7 +22,14 @@ config_struct! {
         /// Examples     | 1, 16, 10
         pub reader_threads: usize,
 
-        /// Test
+        #[comment_out = true]
+        /// The size of the fjall read cache.
+        ///
+        /// Fjall recommends using 20 to 25 % of available memory.
+        ///
+        /// Type         | Number
+        /// Valid values | >= 0
+        /// Examples     | 64_000_000
         pub fjall_cache_size: DefaultOrCustom<u64>,
 
         #[child = true]
@@ -72,10 +80,13 @@ config_struct! {
     #[derive(Default, Debug, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
     pub struct BlockchainConfig {
-        /// Test
+        #[inline = true]
+        #[comment_out = true]
+        /// The size of each tape cache.
+        ///
+        /// You probably do not need to edit these values.
         pub tapes_cache_sizes: CacheSizes,
     }
-
 }
 
 impl Default for TxpoolConfig {

@@ -1,12 +1,12 @@
 //! Database writer thread definitions and logic.
 
-use std::borrow::Cow;
-use std::net::Shutdown::Read;
-//---------------------------------------------------------------------------------------------------- Import
-use crate::error::{BlockchainError, DbResult};
-use crate::ops::block::add_blocks_to_tapes;
-use crate::types::TxInfo;
-use crate::{service::ResponseResult, BlockchainDatabase};
+use std::{
+    borrow::Cow,
+    net::Shutdown::Read,
+    sync::Arc,
+    task::{Context, Poll},
+};
+
 use crossbeam::channel::Receiver;
 use cuprate_types::{
     blockchain::{BlockchainResponse, BlockchainWriteRequest},
@@ -14,12 +14,18 @@ use cuprate_types::{
 };
 use fjall::PersistMode;
 use futures::channel::oneshot;
-use std::sync::Arc;
-use std::task::{Context, Poll};
 use tapes::Persistence;
 use tapes::{TapesAppend, TapesRead, TapesTruncate};
 use tower::Service;
 use tracing::instrument;
+
+use crate::{
+    error::{BlockchainError, DbResult},
+    ops::block::add_blocks_to_tapes,
+    service::ResponseResult,
+    types::TxInfo,
+    BlockchainDatabase,
+};
 
 /// Write functions within this module abort if the write transaction
 /// could not be aborted successfully to maintain atomicity.
@@ -41,6 +47,7 @@ pub fn init_write_service(env: Arc<BlockchainDatabase>) -> BlockchainWriteHandle
     BlockchainWriteHandle { sender }
 }
 
+/// The [`tower::Service`] handle to write to the database.
 pub struct BlockchainWriteHandle {
     /// Sender channel to the database write thread-pool.
     ///
@@ -152,10 +159,7 @@ fn write_blocks(db: &BlockchainDatabase, blocks: &[VerifiedBlockInformation]) ->
     let mut result = move || {
         let mut numb_transactions = numb_transactions;
 
-        let mut tx_rw = db
-            .fjall_keyspace
-            .batch()
-            .durability(Some(PersistMode::Buffer));
+        let mut tx_rw = db.fjall.batch().durability(Some(PersistMode::Buffer));
 
         for block in blocks {
             crate::ops::block::add_block_to_dynamic_tables(
@@ -184,7 +188,7 @@ fn write_blocks(db: &BlockchainDatabase, blocks: &[VerifiedBlockInformation]) ->
 /// [`BlockchainWriteRequest::WriteAltBlock`].
 #[inline]
 fn write_alt_block(db: &BlockchainDatabase, block: &AltBlockInformation) -> ResponseResult {
-    let mut tx_rw = db.fjall_keyspace.batch();
+    let mut tx_rw = db.fjall.batch();
 
     crate::ops::alt_block::add_alt_block(db, block, &mut tx_rw)?;
 
@@ -196,7 +200,7 @@ fn write_alt_block(db: &BlockchainDatabase, block: &AltBlockInformation) -> Resp
 /// [`BlockchainWriteRequest::PopBlocks`].
 fn pop_blocks(db: &BlockchainDatabase, numb_blocks: usize) -> ResponseResult {
     let mut tapes = db.linear_tapes.truncate();
-    let mut tx_rw = db.fjall_keyspace.batch();
+    let mut tx_rw = db.fjall.batch();
 
     // flush all the current alt blocks as they may reference blocks to be popped.
     crate::ops::alt_block::flush_alt_blocks(db)?;

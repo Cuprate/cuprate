@@ -40,11 +40,7 @@
 // actually i still don't trust you. no unsafe.
 #![forbid(unsafe_code)] // if you remove this line i will steal your monero
 
-use std::borrow::Cow;
-use std::cmp::Ordering;
-use std::marker::PhantomData;
-//---------------------------------------------------------------------------------------------------- Import
-use std::num::NonZero;
+use std::{borrow::Cow, cmp::Ordering, marker::PhantomData, num::NonZero};
 
 use bytemuck::{Pod, Zeroable};
 #[cfg(feature = "serde")]
@@ -110,6 +106,12 @@ pub struct TxInfo {
     pub numb_rct_outputs: usize,
 }
 
+impl TxInfo {
+    pub const fn is_v1_tx(&self) -> bool {
+        self.rct_output_start_idx == u64::MAX
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- BlockInfoV1
 /// A identifier for a pre-RCT [`Output`].
 ///
@@ -124,7 +126,7 @@ pub struct TxInfo {
 /// assert_eq!(align_of::<PreRctOutputId>(), 8);
 /// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[repr(C)]
 pub struct PreRctOutputId {
     /// Amount of the output.
@@ -139,6 +141,24 @@ pub struct PreRctOutputId {
     /// In the case of [`RctOutput`]'s, this is the
     /// global index of _all_ `RctOutput`s
     pub amount_index: AmountIndex,
+}
+
+impl PreRctOutputId {
+    /// Serializes the [`PreRctOutputId`] into bytes.
+    pub fn to_bytes(&self) -> [u8; 16] {
+        let mut buf = [0; 16];
+        buf[..8].copy_from_slice(&self.amount.to_be_bytes());
+        buf[8..].copy_from_slice(&self.amount_index.to_be_bytes());
+        buf
+    }
+
+    /// Deserializes the bytes into a [`PreRctOutputId`]
+    pub fn from_bytes(bytes: &[u8; 16]) -> Self {
+        Self {
+            amount: Amount::from_be_bytes(bytes[..8].try_into().unwrap()),
+            amount_index: AmountIndex::from_be_bytes(bytes[8..].try_into().unwrap()),
+        }
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- BlockInfoV3
@@ -174,9 +194,11 @@ pub struct BlockInfo {
     pub long_term_weight: usize,
     /// [`TxId`] (u64) of the block coinbase transaction.
     pub mining_tx_index: TxId,
-
+    /// The index of the block blob in the v2 prunable tape.
     pub prunable_blob_idx: u64,
+    /// The index of the block blob in the v1 prunable tape.
     pub v1_prunable_blob_idx: u64,
+    /// The index of the block blob in the pruned tape.
     pub pruned_blob_idx: u64,
 }
 

@@ -2,15 +2,12 @@
 //!
 //! SOMEDAY: the database `properties` table is not yet implemented.
 
-//---------------------------------------------------------------------------------------------------- Import
-use crate::error::DbResult;
-use crate::ops::macros::doc_error;
 use cuprate_pruning::PruningSeed;
+
+use crate::error::DbResult;
 
 //---------------------------------------------------------------------------------------------------- Free Functions
 /// SOMEDAY
-///
-#[doc = doc_error!()]
 ///
 #[inline]
 pub const fn get_blockchain_pruning_seed() -> DbResult<PruningSeed> {
@@ -20,8 +17,6 @@ pub const fn get_blockchain_pruning_seed() -> DbResult<PruningSeed> {
 }
 
 /// SOMEDAY
-///
-#[doc = doc_error!()]
 ///
 #[inline]
 pub const fn db_version() -> DbResult<u64> {
