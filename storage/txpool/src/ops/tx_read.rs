@@ -5,11 +5,13 @@
 use fjall::Readable;
 use monero_oxide::transaction::Transaction;
 
-use crate::error::TxPoolError;
-use crate::txpool::TxpoolDatabase;
-use crate::types::TransactionInfo;
-use crate::types::{TransactionHash, TxStateFlags};
 use cuprate_types::{TransactionVerificationData, TxVersion};
+
+use crate::{
+    error::TxPoolError,
+    txpool::TxpoolDatabase,
+    types::{TransactionHash, TransactionInfo, TxStateFlags},
+};
 
 /// Gets the [`TransactionVerificationData`] of a transaction in the tx-pool, leaving the tx in the pool.
 pub fn get_transaction_verification_data(

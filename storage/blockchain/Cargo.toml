@@ -25,10 +25,8 @@ fjall            = { workspace = true }
 
 futures      = { workspace = true, features = ["std"]}
 rand         = { workspace = true, features = ["std", "std_rng"] }
-itertools    = { workspace = true }
 indexmap     = { workspace = true, features = ["rayon", "std"] }
 tower        = { workspace = true }
-thread_local = { workspace = true }
 rayon        = { workspace = true }
 bytes        = { workspace = true }
 thiserror    = { workspace = true, features = ["std"] }

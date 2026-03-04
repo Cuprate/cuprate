@@ -1,4 +1,3 @@
-use bytemuck::TransparentWrapper;
 use fjall::Readable;
 use monero_oxide::block::{Block, BlockHeader};
 
@@ -9,8 +8,8 @@ use crate::{
     error::{BlockchainError, DbResult},
     ops::alt_block::{add_alt_transaction_blob, get_alt_transaction, update_alt_chain_info},
     types::{
-        AltBlockHeight, AltChainInfo, AltTransactionInfo, BlockHash, BlockHeight, BlockInfo,
-        CompactAltBlockInfo, RawChainId,
+        AltBlockHeight, AltChainInfo, BlockHash, BlockHeight, BlockInfo, CompactAltBlockInfo,
+        RawChainId,
     },
     BlockchainDatabase,
 };
@@ -52,8 +51,8 @@ pub fn add_alt_block(
 
     tx_rw.insert(
         &db.alt_block_heights,
-        bytemuck::bytes_of(&alt_block_height),
         alt_block.block_hash,
+        bytemuck::bytes_of(&alt_block_height),
     );
     update_alt_chain_info(db, &alt_block_height, &alt_block.block.header.previous)?;
 
@@ -208,7 +207,7 @@ pub fn get_alt_block_extended_header_from_height(
 
     let block_info: CompactAltBlockInfo = bytemuck::pod_read_unaligned(block_info.as_ref());
 
-    let mut block_blob = tx_ro
+    let block_blob = tx_ro
         .get(&db.alt_block_blobs, bytemuck::bytes_of(height))?
         .ok_or(BlockchainError::NotFound)?;
 

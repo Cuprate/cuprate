@@ -6,14 +6,14 @@ use monero_oxide::transaction::{Pruned, Transaction};
 use cuprate_helper::time::current_unix_timestamp;
 use cuprate_types::TransactionVerificationData;
 
-use crate::error::TxPoolError;
-use crate::txpool::TxpoolDatabase;
 use crate::{
+    error::TxPoolError,
     free::transaction_blob_hash,
     ops::{
         key_images::{add_tx_key_images, remove_tx_key_images},
         TxPoolWriteError,
     },
+    txpool::TxpoolDatabase,
     types::{TransactionHash, TransactionInfo, TxStateFlags},
 };
 

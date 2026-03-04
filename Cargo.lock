@@ -1083,7 +1083,6 @@ dependencies = [
  "fjall",
  "futures",
  "indexmap 2.13.0",
- "itertools 0.14.0",
  "monero-oxide",
  "proptest",
  "rand 0.8.5",
@@ -1091,7 +1090,6 @@ dependencies = [
  "serde",
  "tapes",
  "thiserror 2.0.18",
- "thread_local",
  "tower",
  "tracing",
 ]
@@ -1231,6 +1229,7 @@ dependencies = [
  "cuprate-p2p-core",
  "cuprate-types",
  "fjall",
+ "futures",
  "hex",
  "monero-oxide",
  "proptest",
@@ -1240,6 +1239,7 @@ dependencies = [
  "tokio",
  "tokio-test",
  "tower",
+ "tracing-subscriber",
 ]
 
 [[package]]

@@ -4,10 +4,12 @@ use cuprate_blockchain as _;
 use cuprate_helper as _;
 use cuprate_hex as _;
 use fjall as _;
+use futures as _;
 use hex as _;
 use rayon as _;
 use serde_json as _;
 use tokio as _;
+use tracing_subscriber as _;
 
 mod fast_sync;
 

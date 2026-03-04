@@ -40,7 +40,7 @@
 // actually i still don't trust you. no unsafe.
 #![forbid(unsafe_code)] // if you remove this line i will steal your monero
 
-use std::{borrow::Cow, cmp::Ordering, marker::PhantomData, num::NonZero};
+use std::num::NonZero;
 
 use bytemuck::{Pod, Zeroable};
 #[cfg(feature = "serde")]

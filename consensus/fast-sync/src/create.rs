@@ -5,10 +5,10 @@
 use std::{fs::write, sync::Arc};
 
 use clap::Parser;
+use futures::TryStreamExt;
 use tower::{Service, ServiceExt};
 
-use cuprate_blockchain::config::Config;
-use cuprate_blockchain::{service::BlockchainReadHandle, DbResult};
+use cuprate_blockchain::{config::Config, service::BlockchainReadHandle, DbResult};
 use cuprate_hex::Hex;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
@@ -46,6 +46,8 @@ struct Args {
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
+    tracing_subscriber::fmt().init();
+
     let height_target = args.height;
 
     // TODO: use the cuprated config here?
@@ -57,25 +59,30 @@ async fn main() {
 
     let thread_pool = Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap());
 
-    let (mut read_handle, _, _) =
+    let (read_handle, _, _) =
         cuprate_blockchain::service::init_with_pool(&config, fjall, thread_pool).unwrap();
 
-    let mut hashes_of_hashes = Vec::new();
+    let time = std::time::Instant::now();
 
-    let mut height = 0_usize;
+    let fut = (0..height_target)
+        .step_by(FAST_SYNC_BATCH_LEN)
+        .map(|height| {
+            let mut read_handle = read_handle.clone();
+            async move {
+                println!("height: {height}");
 
-    while (height + FAST_SYNC_BATCH_LEN) < height_target {
-        if let Ok(block_ids) = read_batch(&mut read_handle, height).await {
-            let hash = hash_of_hashes(block_ids.as_slice());
-            hashes_of_hashes.push(Hex(hash));
-        } else {
-            println!("Failed to read next batch from database");
-            break;
-        }
-        height += FAST_SYNC_BATCH_LEN;
+                if let Ok(block_ids) = read_batch(&mut read_handle, height).await {
+                    let hash = hash_of_hashes(block_ids.as_slice());
+                    Ok(Hex(hash))
+                } else {
+                    println!("Failed to read next batch from database");
+                    Err("Failed to read next batch from database")
+                }
+            }
+        })
+        .collect::<futures::stream::FuturesUnordered<_>>();
 
-        println!("height: {height}");
-    }
+    let hashes_of_hashes = fut.try_collect::<Vec<_>>().await.unwrap();
 
     drop(read_handle);
 
@@ -85,7 +92,11 @@ async fn main() {
     )
     .unwrap();
 
-    println!("Generated hashes up to block height {height}");
+    println!(
+        "Generated hashes up to block height {} in {} milliseconds.",
+        hashes_of_hashes.len() * FAST_SYNC_BATCH_LEN,
+        time.elapsed().as_millis()
+    );
 }
 
 pub fn hash_of_hashes(hashes: &[[u8; 32]]) -> [u8; 32] {

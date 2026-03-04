@@ -1,6 +1,5 @@
 use cuprate_types::VerifiedTransactionInformation;
 
-use bytemuck::TransparentWrapper;
 use fjall::Readable;
 use monero_oxide::transaction::Transaction;
 
@@ -61,7 +60,7 @@ pub fn get_alt_transaction(
     let tx_info: AltTransactionInfo = bytemuck::pod_read_unaligned(tx_info.as_ref());
 
     let tx = match tx_ro.get(&db.alt_transaction_blobs, tx_hash)? {
-        Some(mut tx_blob) => Transaction::read(&mut tx_blob.as_ref()).unwrap(),
+        Some(tx_blob) => Transaction::read(&mut tx_blob.as_ref()).unwrap(),
         None => get_tx(db, tx_hash, tx_ro, tapes)?,
     };
 

@@ -264,8 +264,7 @@ mod tests {
 
     use proptest::proptest;
 
-    use cuprate_blockchain::config::Config;
-    use cuprate_blockchain::service::BlockchainReadHandle;
+    use cuprate_blockchain::{config::Config, service::BlockchainReadHandle};
     use cuprate_p2p::block_downloader::ChainEntry;
     use cuprate_p2p_core::{client::InternalPeerID, handles::HandleBuilder, ClearNet};
 

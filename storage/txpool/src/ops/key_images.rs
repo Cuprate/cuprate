@@ -1,9 +1,9 @@
 //! Tx-pool key image ops.
 use monero_oxide::transaction::Input;
 
-use crate::error::TxPoolError;
-use crate::txpool::TxpoolDatabase;
-use crate::{ops::TxPoolWriteError, types::TransactionHash};
+use crate::{
+    error::TxPoolError, ops::TxPoolWriteError, txpool::TxpoolDatabase, types::TransactionHash,
+};
 
 /// Adds the transaction key images to the [`SpentKeyImages`] table.
 ///

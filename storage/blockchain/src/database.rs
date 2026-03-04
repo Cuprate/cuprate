@@ -1,26 +1,18 @@
-use std::{
-    borrow::Cow,
-    collections::HashMap,
-    iter::{once, Once},
-    sync::{Mutex, OnceLock},
-};
+use std::{borrow::Cow, collections::HashMap, sync::Mutex};
 
-use cuprate_helper::cast::u64_to_usize;
 use fjall::{KeyspaceCreateOptions, PersistMode};
-use itertools::Itertools;
 use monero_oxide::transaction::Transaction;
 use tapes::{Persistence, TapeOpenOptions, Tapes, TapesRead};
 
+use cuprate_helper::cast::u64_to_usize;
+
 use crate::{
     config::Config,
-    types::{
-        AltBlockHeight, AltChainInfo, AltTransactionInfo, Amount, AmountIndices, BlockHash,
-        BlockHeight, BlockInfo, CompactAltBlockInfo, KeyImage, Output, PreRctOutputId, RawChainId,
-        RctOutput, TxHash, TxId, TxInfo,
-    },
+    types::{Amount, BlockInfo, RctOutput, TxInfo},
     BlockchainError,
 };
 
+/// The blockchain database.
 pub struct BlockchainDatabase {
     pub(crate) linear_tapes: Tapes,
     pub(crate) fjall: fjall::Database,
@@ -44,6 +36,8 @@ pub struct BlockchainDatabase {
     pub(crate) v1_prunable_blobs: tapes::BlobTape,
     pub(crate) prunable_blobs: Vec<tapes::BlobTape>,
 
+    /// A runtime cache of the number of outputs for each pre-rct output amount.
+    /// This is filled in lazily.
     pub(crate) pre_rct_numb_outputs_cache: Mutex<HashMap<Amount, u64>>,
 }
 
@@ -159,7 +153,7 @@ impl BlockchainDatabase {
             pruned_blobs,
             v1_prunable_blobs,
             prunable_blobs,
-            pre_rct_numb_outputs_cache: std::sync::Mutex::new(std::collections::HashMap::new()),
+            pre_rct_numb_outputs_cache: Mutex::new(HashMap::new()),
         })
     }
 
@@ -259,8 +253,8 @@ impl Drop for BlockchainDatabase {
     fn drop(&mut self) {
         tracing::info!("Syncing blockchain database to storage.");
 
-        self.fjall.persist(PersistMode::SyncAll);
+        let _ = self.fjall.persist(PersistMode::SyncAll);
 
-        self.linear_tapes.append().commit(Persistence::SyncAll);
+        let _ = self.linear_tapes.append().commit(Persistence::SyncAll);
     }
 }

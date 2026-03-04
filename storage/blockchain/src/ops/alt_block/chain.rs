@@ -1,7 +1,8 @@
 use std::cmp::{max, min};
 
-use cuprate_types::{Chain, ChainId};
 use fjall::Readable;
+
+use cuprate_types::{Chain, ChainId};
 
 use crate::{
     error::{BlockchainError, DbResult},
@@ -43,7 +44,7 @@ pub fn update_alt_chain_info(
                 common_ancestor_height: alt_block_height.height.checked_sub(1).unwrap(),
                 chain_height: alt_block_height.height + 1,
             }),
-        );
+        )?;
 
         return Ok(());
     };
@@ -63,7 +64,7 @@ pub fn update_alt_chain_info(
     db.alt_chain_infos.insert(
         alt_block_height.chain_id.0.to_le_bytes(),
         bytemuck::bytes_of(&info),
-    );
+    )?;
 
     Ok(())
 }

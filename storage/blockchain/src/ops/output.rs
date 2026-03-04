@@ -1,22 +1,20 @@
 //! Output functions.
 use std::{
     collections::HashMap,
-    io,
     ops::{AddAssign, SubAssign},
 };
 
 use fjall::Readable;
-use monero_oxide::{io::CompressedPoint, transaction::Timelock};
-use tapes::{TapesAppend, TapesRead, TapesTruncate};
+use monero_oxide::io::CompressedPoint;
+use tapes::TapesRead;
 
-use cuprate_helper::{cast::u32_to_usize, crypto::compute_zero_commitment, map::u64_to_timelock};
+use cuprate_helper::{crypto::compute_zero_commitment, map::u64_to_timelock};
 use cuprate_types::OutputOnChain;
 
 use crate::{
     error::{BlockchainError, DbResult},
     ops::tx::get_tx_from_id,
-    types::TxId,
-    types::{Amount, AmountIndex, Output, PreRctOutputId, RctOutput},
+    types::{Amount, Output, PreRctOutputId, RctOutput},
     BlockchainDatabase,
 };
 
@@ -30,13 +28,23 @@ pub fn add_output(
     w: &mut fjall::OwnedWriteBatch,
     pre_rct_numb_outputs_cache: &mut HashMap<Amount, u64>,
 ) -> DbResult<PreRctOutputId> {
+    let mut err = None;
     let num_outputs = pre_rct_numb_outputs_cache.entry(amount).or_insert_with(|| {
         let last_out = db.pre_rct_outputs.prefix(amount.to_be_bytes()).next_back();
 
-        last_out.map_or(0, |o| {
-            u64::from_be_bytes(o.key().expect("TODO")[8..].try_into().unwrap()) + 1
-        })
+        match last_out.map(fjall::Guard::key) {
+            None => 0,
+            Some(Ok(o)) => u64::from_be_bytes(o[8..].try_into().unwrap()) + 1,
+            Some(Err(e)) => {
+                err = Some(e);
+                0
+            }
+        }
     });
+
+    if let Some(e) = err {
+        return Err(e.into());
+    }
 
     let pre_rct_output_id = PreRctOutputId {
         amount,
@@ -65,21 +73,17 @@ pub fn remove_output(
     let mut pre_rct_numb_outputs_cache = db.pre_rct_numb_outputs_cache.lock().unwrap();
 
     let mut err = None;
-
     let num_outputs = pre_rct_numb_outputs_cache.entry(amount).or_insert_with(|| {
         let last_out = db.pre_rct_outputs.prefix(amount.to_be_bytes()).next_back();
 
-        last_out.map_or(0, |o| {
-            u64::from_be_bytes(
-                o.key().unwrap_or_else(|e| {
-                    // On error set the error and return a default.
-                    err = Some(e);
-                    [0; 16].into()
-                })[8..]
-                    .try_into()
-                    .unwrap(),
-            ) + 1
-        })
+        match last_out.map(fjall::Guard::key) {
+            None => 0,
+            Some(Ok(o)) => u64::from_be_bytes(o[8..].try_into().unwrap()) + 1,
+            Some(Err(e)) => {
+                err = Some(e);
+                0
+            }
+        }
     });
 
     if let Some(e) = err {

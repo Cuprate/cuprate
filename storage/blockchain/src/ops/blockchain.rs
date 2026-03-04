@@ -1,13 +1,10 @@
 //! Blockchain functions - chain height, generated coins, etc.
 
-use std::io;
-
 use fjall::Readable;
 use tapes::TapesRead;
 
 use crate::{
     error::{BlockchainError, DbResult},
-    ops::block,
     types::{BlockHash, BlockHeight},
     BlockchainDatabase,
 };
@@ -75,9 +72,12 @@ pub fn find_split_point(
     include_alt_blocks: bool,
     tx_ro: &fjall::Snapshot,
 ) -> DbResult<usize> {
-    let mut err = None;
+    let mut err: Option<BlockchainError> = None;
 
-    let block_exists = |block_id| tx_ro.contains_key(&db.block_heights, block_id);
+    let block_exists = |block_id| {
+        Ok(tx_ro.contains_key(&db.block_heights, block_id)?
+            || (include_alt_blocks && tx_ro.contains_key(&db.alt_block_heights, block_id)?))
+    };
 
     // Do a binary search to find the first unknown/known block in the batch.
     let idx = block_ids.partition_point(|block_id| {
@@ -92,7 +92,7 @@ pub fn find_split_point(
     });
 
     if let Some(e) = err {
-        return Err(e.into());
+        return Err(e);
     }
 
     Ok(idx)

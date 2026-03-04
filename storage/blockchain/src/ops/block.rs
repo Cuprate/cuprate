@@ -1,15 +1,8 @@
 //! Block functions.
+use std::{borrow::Cow, cmp::min, collections::HashMap, io};
 
-//---------------------------------------------------------------------------------------------------- Import
-use std::{
-    borrow::Cow,
-    cmp::min,
-    collections::HashMap,
-    io::{self, Write},
-};
-
-use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_helper::{
+    cast::u64_to_usize,
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
     tx::tx_fee,
 };
@@ -19,7 +12,6 @@ use cuprate_types::{
     PrunedTxBlobEntry, TransactionBlobs, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 
-use bytemuck::TransparentWrapper;
 use bytes::Bytes;
 use fjall::Readable;
 use monero_oxide::{
@@ -33,13 +25,9 @@ use crate::{
     error::{BlockchainError, DbResult},
     ops::{
         alt_block,
-        blockchain::chain_height,
-        tx::{
-            add_tx_info_to_dynamic_tables, add_tx_info_to_tapes, get_tx, get_tx_from_id,
-            remove_tx_from_dynamic_tables,
-        },
+        tx::{add_tx_info_to_dynamic_tables, add_tx_info_to_tapes, remove_tx_from_dynamic_tables},
     },
-    types::{Amount, BlockHash, BlockHeight, BlockInfo, RctOutput, TxInfo},
+    types::{Amount, BlockHash, BlockHeight, BlockInfo},
     BlockchainDatabase,
 };
 
@@ -50,7 +38,7 @@ use crate::{
 /// # Panic
 ///
 /// This will panic if the given blocks cross 3 pruning stripes, i.e. you give more blocks than the amount
-/// of blocks in a single pruning stripe.
+/// of blocks in 2 pruning stripes.
 #[instrument(skip_all, level = "info")]
 pub fn add_blocks_to_tapes(
     blocks: &[VerifiedBlockInformation],
@@ -63,7 +51,7 @@ pub fn add_blocks_to_tapes(
         tape: &tapes::BlobTape,
         blocks: &[VerifiedBlockInformation],
     ) -> io::Result<u64> {
-        let mut first_idx = append_tx
+        let first_idx = append_tx
             .blob_tape_len(tape)
             .expect("Required tape not found");
         for block in blocks {
@@ -83,8 +71,7 @@ pub fn add_blocks_to_tapes(
         db: &BlockchainDatabase,
         blocks: &[VerifiedBlockInformation],
     ) -> io::Result<u64> {
-        let mut first_idx = u64::MAX;
-        let mut first_idx = append_tx
+        let first_idx = append_tx
             .blob_tape_len(&db.v1_prunable_blobs)
             .expect("Required tape not found");
 
@@ -97,7 +84,7 @@ pub fn add_blocks_to_tapes(
         }
 
         Ok(first_idx)
-    };
+    }
 
     // First fill in the `pruned_blobs` tape.
     let mut pruned_tape_index = append_tx.blob_tape_len(&db.pruned_blobs).unwrap_or(0);
@@ -194,7 +181,7 @@ pub fn add_blocks_to_tapes(
             // Move the pruned tape index forward by the block size (header, miner tx, tx hash list).
             pruned_tape_index += block.block_blob.len() as u64;
 
-            // Loop over all the transactions in the block adding thier info to the tapes.
+            // Loop over all the transactions in the block, adding their info to the tapes.
             for tx in &block.txs {
                 add_tx_info_to_tapes(
                     &tx.tx,
@@ -308,7 +295,8 @@ pub fn add_block_to_dynamic_tables<'a>(
         #[cfg(debug_assertions)]
         {
             // Make sure the given tx is correct.
-            let tx_full = get_tx_from_id(numb_transactions, &db.linear_tapes.reader(), db)?;
+            let tx_full =
+                crate::ops::tx::get_tx_from_id(numb_transactions, &db.linear_tapes.reader(), db)?;
 
             let (pruned, _) = tx_full.pruned_with_prunable();
 
@@ -358,16 +346,10 @@ pub fn pop_block(
     // Get the block from the database, so we know what txs to remove.
     let block = get_block(&block_height, Some(&block_info), tapes, db)?;
     //------------------------------------------------------ Transaction / Outputs / Key Images
-    remove_tx_from_dynamic_tables(
-        db,
-        &block.miner_transaction().hash(),
-        block_height,
-        tx_rw,
-        tapes,
-    )?;
+    remove_tx_from_dynamic_tables(db, &block.miner_transaction().hash(), tx_rw, tapes)?;
 
     let remove_tx_iter = block.transactions.iter().map(|tx_hash| {
-        let (_, tx) = remove_tx_from_dynamic_tables(db, tx_hash, block_height, tx_rw, tapes)?;
+        let (_, tx) = remove_tx_from_dynamic_tables(db, tx_hash, tx_rw, tapes)?;
         Ok::<_, BlockchainError>(tx)
     });
 
@@ -473,7 +455,7 @@ pub fn get_block_complete_entry_from_height(
     )
     .unwrap();
 
-    let mut block_info = tapes
+    let block_info = tapes
         .read_entry(&db.block_infos, block_height as u64)?
         .ok_or(BlockchainError::NotFound)?;
 
@@ -680,7 +662,7 @@ pub fn get_block_extended_header_top(
 pub fn get_block(
     block_height: &BlockHeight,
     blocks_info: Option<&BlockInfo>,
-    tapes: &impl tapes::TapesRead,
+    tapes: &impl TapesRead,
     db: &BlockchainDatabase,
 ) -> DbResult<Block> {
     let block_info = match blocks_info {
@@ -692,13 +674,16 @@ pub fn get_block(
 
     let pruned_end_blob_idx =
         match tapes.read_entry(&db.tx_infos, block_info.mining_tx_index + 1)? {
+            // First check if the block has a tx then use that start as the block header end.
             Some(tx_info) if tx_info.height == *block_height => tx_info.pruned_blob_idx,
+            // Otherwise the next tx is in a different block, so use the start of that block header.
             Some(_) => {
                 tapes
                     .read_entry(&db.block_infos, (*block_height + 1) as u64)?
                     .ok_or(BlockchainError::NotFound)?
                     .pruned_blob_idx
             }
+            // If this is the top block, and it doesn't have a tx, then use the end of the pruned tape.
             None => tapes
                 .blob_tape_len(&db.pruned_blobs)
                 .expect("Required tape not found"),

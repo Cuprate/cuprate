@@ -5,27 +5,30 @@
     clippy::needless_pass_by_value,
     reason = "TODO: finish implementing the signatures from <https://github.com/Cuprate/cuprate/pull/297>"
 )]
-use crate::error::TxPoolError;
-use crate::txpool::TxpoolDatabase;
-use crate::types::TransactionInfo;
-use crate::{
-    ops::{get_transaction_verification_data, in_stem_pool},
-    service::interface::{TxpoolReadRequest, TxpoolReadResponse},
-    types::{TransactionBlobHash, TransactionHash},
-    TxEntry,
-};
-use cuprate_helper::asynch::InfallibleOneshotReceiver;
-use fjall::Readable;
-use futures::channel::oneshot;
-use rayon::ThreadPool;
-use std::task::{Context, Poll};
 use std::{
     collections::{HashMap, HashSet},
     num::NonZero,
     sync::Arc,
+    task::{Context, Poll},
 };
+
+use fjall::Readable;
+use futures::channel::oneshot;
+use rayon::ThreadPool;
 use tower::Service;
 
+use cuprate_helper::asynch::InfallibleOneshotReceiver;
+
+use crate::{
+    error::TxPoolError,
+    ops::{get_transaction_verification_data, in_stem_pool},
+    service::interface::{TxpoolReadRequest, TxpoolReadResponse},
+    txpool::TxpoolDatabase,
+    types::{TransactionBlobHash, TransactionHash, TransactionInfo},
+    TxEntry,
+};
+
+/// The txpool [`Service`] read handle.
 #[derive(Clone)]
 pub struct TxpoolReadHandle {
     pub(crate) pool: Arc<ThreadPool>,

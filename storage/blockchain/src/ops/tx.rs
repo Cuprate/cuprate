@@ -1,17 +1,16 @@
 //! Transaction functions.
-use std::{collections::HashMap, io::Read};
+use std::collections::HashMap;
 
 use cuprate_helper::crypto::compute_zero_commitment;
 
-use bytemuck::TransparentWrapper;
 use fjall::Readable;
 use monero_oxide::transaction::{Input, Pruned, Timelock, Transaction};
-use tapes::{TapesAppend, TapesRead, TapesTruncate};
+use tapes::{TapesAppend, TapesRead};
 
 use crate::{
     error::{BlockchainError, DbResult},
     ops::output::{add_output, remove_output},
-    types::{Amount, BlockHeight, Output, PreRctOutputId, RctOutput, TxHash, TxId, TxInfo},
+    types::{Amount, BlockHeight, Output, RctOutput, TxHash, TxId, TxInfo},
     BlockchainDatabase,
 };
 
@@ -167,7 +166,6 @@ pub fn add_tx_info_to_dynamic_tables(
 pub fn remove_tx_from_dynamic_tables(
     db: &BlockchainDatabase,
     tx_hash: &TxHash,
-    height: BlockHeight,
     tx_rw: &mut fjall::OwnedWriteBatch,
     tapes: &tapes::TapesTruncateTransaction,
 ) -> DbResult<(TxId, Transaction)> {
@@ -179,8 +177,6 @@ pub fn remove_tx_from_dynamic_tables(
             .try_into()
             .unwrap(),
     );
-
-    let tx_info = tapes.read_entry::<TxInfo>(&db.tx_infos, tx_id)?.unwrap();
 
     //------------------------------------------------------
     // Refer to the inner transaction type from now on.
@@ -225,7 +221,7 @@ pub fn get_tx(
     db: &BlockchainDatabase,
     tx_hash: &TxHash,
     tx_ro: &fjall::Snapshot,
-    tapes: &impl tapes::TapesRead,
+    tapes: &impl TapesRead,
 ) -> DbResult<Transaction> {
     let tx_id = tx_ro
         .get(&db.tx_ids, tx_hash)?
@@ -242,7 +238,7 @@ pub fn get_tx(
 #[inline]
 pub fn get_tx_from_id(
     tx_id: &TxId,
-    tapes: &impl tapes::TapesRead,
+    tapes: &impl TapesRead,
     db: &BlockchainDatabase,
 ) -> DbResult<Transaction> {
     let blob = get_tx_blob_from_id(tx_id, tapes, db)?;
@@ -254,7 +250,7 @@ pub fn get_tx_from_id(
 /// Returns the tx-blob from a tx id.
 pub fn get_tx_blob_from_id(
     tx_id: &TxId,
-    tapes: &impl tapes::TapesRead,
+    tapes: &impl TapesRead,
     db: &BlockchainDatabase,
 ) -> DbResult<Vec<u8>> {
     let tx_info = tapes

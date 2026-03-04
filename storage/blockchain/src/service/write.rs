@@ -2,37 +2,29 @@
 
 use std::{
     borrow::Cow,
-    net::Shutdown::Read,
     sync::Arc,
     task::{Context, Poll},
 };
 
 use crossbeam::channel::Receiver;
+use fjall::PersistMode;
+use futures::channel::oneshot;
+use tapes::Persistence;
+use tapes::TapesRead;
+use tower::Service;
+use tracing::instrument;
+
 use cuprate_types::{
     blockchain::{BlockchainResponse, BlockchainWriteRequest},
     AltBlockInformation, ChainId, VerifiedBlockInformation,
 };
-use fjall::PersistMode;
-use futures::channel::oneshot;
-use tapes::Persistence;
-use tapes::{TapesAppend, TapesRead, TapesTruncate};
-use tower::Service;
-use tracing::instrument;
 
 use crate::{
     error::{BlockchainError, DbResult},
     ops::block::add_blocks_to_tapes,
     service::ResponseResult,
-    types::TxInfo,
     BlockchainDatabase,
 };
-
-/// Write functions within this module abort if the write transaction
-/// could not be aborted successfully to maintain atomicity.
-///
-/// This is the panic message if the `abort()` fails.
-const TX_RW_ABORT_FAIL: &str =
-    "Could not maintain blockchain database atomicity by aborting write transaction";
 
 //---------------------------------------------------------------------------------------------------- init_write_service
 /// Initialise the blockchain write service from a [`BlockchainDatabase`].

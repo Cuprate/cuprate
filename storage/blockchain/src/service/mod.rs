@@ -15,7 +15,7 @@ use tower as _;
 
 use cuprate_types::blockchain::BlockchainResponse;
 
-use crate::{error::DbResult, BlockchainDatabase};
+use crate::error::DbResult;
 
 mod free;
 mod read;

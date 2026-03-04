@@ -2,11 +2,7 @@
 #![allow(
     // See `cuprate-database` for reasoning.
     clippy::significant_drop_tightening,
-unreachable_pub,
-unused,
-unused_qualifications,
 )]
-extern crate core;
 
 // Only allow building 64-bit targets.
 //

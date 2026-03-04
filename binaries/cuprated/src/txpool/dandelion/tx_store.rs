@@ -12,11 +12,13 @@ use cuprate_dandelion_tower::{
     traits::{TxStoreRequest, TxStoreResponse},
     State,
 };
-use cuprate_txpool::service::{
-    interface::{TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest},
-    TxpoolReadHandle, TxpoolWriteHandle,
+use cuprate_txpool::{
+    service::{
+        interface::{TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest},
+        TxpoolReadHandle, TxpoolWriteHandle,
+    },
+    TxPoolError,
 };
-use cuprate_txpool::TxPoolError;
 
 use super::{DandelionTx, TxId};
 

@@ -1,22 +1,26 @@
-use crate::error::TxPoolError;
-use crate::txpool::TxpoolDatabase;
-use crate::types::TransactionInfo;
-use crate::{
-    ops::{self, TxPoolWriteError},
-    service::interface::{TxpoolWriteRequest, TxpoolWriteResponse},
-    types::{KeyImage, TransactionHash, TxStateFlags},
+use std::{
+    collections::{hash_map::Entry, HashSet},
+    sync::Arc,
+    task::{Context, Poll},
 };
-use cuprate_helper::asynch::InfallibleOneshotReceiver;
-use cuprate_types::TransactionVerificationData;
+
 use futures::channel::oneshot;
 use monero_oxide::transaction::Input;
 use rayon::ThreadPool;
-use std::collections::hash_map::Entry;
-use std::collections::HashSet;
-use std::sync::Arc;
-use std::task::{Context, Poll};
 use tower::Service;
 
+use cuprate_helper::asynch::InfallibleOneshotReceiver;
+use cuprate_types::TransactionVerificationData;
+
+use crate::{
+    error::TxPoolError,
+    ops::{self, TxPoolWriteError},
+    service::interface::{TxpoolWriteRequest, TxpoolWriteResponse},
+    txpool::TxpoolDatabase,
+    types::{KeyImage, TransactionHash, TransactionInfo, TxStateFlags},
+};
+
+/// The txpool [`Service`] write handle.
 #[derive(Clone)]
 pub struct TxpoolWriteHandle {
     /// Handle to the custom `rayon` DB reader thread-pool.

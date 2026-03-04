@@ -2,6 +2,7 @@ use std::{collections::HashMap, sync::Mutex};
 
 use fjall::{KeyspaceCreateOptions, KvSeparationOptions};
 
+/// The txpool database.
 pub struct TxpoolDatabase {
     pub(crate) fjall_database: fjall::Database,
 
@@ -9,13 +10,14 @@ pub struct TxpoolDatabase {
     pub(crate) tx_infos: fjall::Keyspace,
     pub(crate) spent_key_images: fjall::Keyspace,
     pub(crate) known_blob_hashes: fjall::Keyspace,
-    #[expect(dead_code)]
+    #[expect(dead_code)] // TODO: version?
     pub(crate) metadata: fjall::Keyspace,
 
     pub(crate) in_progress_key_images: Mutex<HashMap<[u8; 32], [u8; 32]>>,
 }
 
 impl TxpoolDatabase {
+    /// Open a txpool database with the given fjall backing database.
     pub fn open_with_database(fjall_database: fjall::Database) -> fjall::Result<Self> {
         let s = Self {
             tx_blobs: fjall_database.keyspace("tx_blobs", || {

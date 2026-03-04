@@ -1,13 +1,10 @@
 //! Database configuration.
-use std::{borrow::Cow, path::PathBuf};
+use std::path::PathBuf;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use cuprate_helper::{
-    fs::{blockchain_path, CUPRATE_DATA_DIR},
-    network::Network,
-};
+use cuprate_helper::fs::CUPRATE_DATA_DIR;
 
 /// The tapes cache sizes.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -49,12 +46,6 @@ pub struct Config {
 }
 
 impl Default for Config {
-    /// Same as [`Config::new`].
-    ///
-    /// ```rust
-    /// # use cuprate_blockchain::config::*;
-    /// assert_eq!(Config::default(), Config::new());
-    /// ```
     fn default() -> Self {
         Self {
             blob_dir: CUPRATE_DATA_DIR.to_path_buf(),

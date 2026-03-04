@@ -1,12 +1,11 @@
 //! General free functions used (related to `cuprate_blockchain::service`).
 use std::sync::Arc;
 
-use fjall::Readable;
 use rayon::ThreadPool;
 
 use crate::{
     config::Config,
-    error::{BlockchainError, DbResult},
+    error::BlockchainError,
     service::init_write_service,
     service::{read::BlockchainReadHandle, write::BlockchainWriteHandle},
     BlockchainDatabase,

@@ -10,25 +10,22 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
-    cmp::{max, min},
+    cmp::min,
     collections::{HashMap, HashSet},
     ops::Range,
     sync::Arc,
     task::{Context, Poll},
 };
 
-use bytes::Bytes;
 use fjall::Readable;
 use futures::channel::oneshot;
 use indexmap::{IndexMap, IndexSet};
-use itertools::Itertools;
 use rayon::{
     iter::{Either, IntoParallelIterator, ParallelIterator},
     prelude::*,
     ThreadPool,
 };
-use tapes::{TapesAppend, TapesRead, TapesTruncate};
-use thread_local::ThreadLocal;
+use tapes::TapesRead;
 use tower::Service;
 
 use cuprate_helper::{
@@ -40,7 +37,7 @@ use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     output_cache::OutputCache,
     rpc::OutputHistogramInput,
-    Chain, ChainId, ExtendedBlockHeader, OutputDistributionInput, TransactionBlobs, TxsInBlock,
+    Chain, ChainId, ExtendedBlockHeader, OutputDistributionInput, TxsInBlock,
 };
 
 use crate::{
@@ -53,7 +50,6 @@ use crate::{
         block::{
             block_exists, block_height, get_block, get_block_by_hash, get_block_complete_entry,
             get_block_complete_entry_from_height, get_block_extended_header_from_height,
-            get_block_height,
         },
         blockchain::find_split_point,
         output::{get_num_outputs_with_amount, id_to_output_on_chain},
@@ -64,8 +60,7 @@ use crate::{
         ResponseResult,
     },
     types::{
-        AltBlockHeight, Amount, AmountIndex, BlockHash, BlockHeight, BlockInfo, KeyImage,
-        PreRctOutputId, RctOutput, TxInfo,
+        AltBlockHeight, Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId,
     },
     BlockchainDatabase,
 };
@@ -92,13 +87,13 @@ impl Service<BlockchainReadRequest> for BlockchainReadHandle {
     }
 
     fn call(&mut self, req: BlockchainReadRequest) -> Self::Future {
-        let (mut tx, rx) = oneshot::channel();
+        let (tx, rx) = oneshot::channel();
 
         let db = Arc::clone(&self.blockchain);
         self.pool.spawn(move || {
             let res = map_request(&db, req);
 
-            tx.send(res);
+            let _ = tx.send(res);
         });
 
         InfallibleOneshotReceiver::from(rx)
@@ -196,7 +191,6 @@ fn map_request(
 /// [`BlockchainReadRequest::BlockCompleteEntries`].
 fn block_complete_entries(db: &BlockchainDatabase, block_hashes: Vec<BlockHash>) -> ResponseResult {
     let tx_ro = db.fjall.snapshot();
-
     let tapes = db.linear_tapes.reader();
 
     let (missing_hashes, blocks) = block_hashes
@@ -279,7 +273,7 @@ fn block_hash_in_range(
         Chain::Main => tapes
             .iter_from(&db.block_infos, range.start as u64)?
             .map(|info| Ok(info?.block_hash))
-            .take(range.end - range.start)
+            .take(range.len())
             .collect::<Result<_, BlockchainError>>()?,
         Chain::Alt(chain) => range
             .into_par_iter()

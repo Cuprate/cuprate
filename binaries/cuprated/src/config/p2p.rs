@@ -8,7 +8,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use cuprate_helper::{fs::address_book_path, network::Network};
+use cuprate_helper::{cast::u64_to_usize, fs::address_book_path, network::Network};
 use cuprate_p2p::config::TransportConfig;
 use cuprate_p2p_core::{
     transports::{Tcp, TcpServerConfig},
@@ -16,11 +16,9 @@ use cuprate_p2p_core::{
 };
 use cuprate_wire::OnionAddr;
 
+use super::{default::DefaultOrCustom, macros::config_struct};
 use crate::{p2p::ProxySettings, tor::TorMode};
 
-use super::{default::DefaultOrCustom, macros::config_struct};
-
-use cuprate_helper::cast::u64_to_usize;
 #[cfg(feature = "arti")]
 use {
     arti_client::{

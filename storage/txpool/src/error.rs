@@ -1,3 +1,4 @@
+/// Txpool error.
 #[derive(thiserror::Error, Debug)]
 pub enum TxPoolError {
     #[error("{0}")]
