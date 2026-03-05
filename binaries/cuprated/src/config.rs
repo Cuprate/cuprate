@@ -1,4 +1,9 @@
 //! cuprated config
+use anyhow::bail;
+use clap::Parser;
+use cuprate_blockchain::config::CacheSizes;
+use serde::{Deserialize, Serialize};
+use std::sync::LazyLock;
 use std::{
     fmt,
     fs::{read_to_string, File},
@@ -8,11 +13,6 @@ use std::{
     str::FromStr,
     time::Duration,
 };
-
-use anyhow::bail;
-use clap::Parser;
-use cuprate_blockchain::config::CacheSizes;
-use serde::{Deserialize, Serialize};
 
 use cuprate_consensus::ContextConfig;
 use cuprate_helper::{
@@ -46,6 +46,7 @@ mod tracing_config;
 #[macro_use]
 mod macros;
 
+use default::DefaultOrCustom;
 use fs::FileSystemConfig;
 pub use p2p::{p2p_port, P2PConfig};
 use rayon::RayonConfig;
@@ -72,6 +73,23 @@ const HEADER: &str = r"##     ____                      _
 ## For more documentation, see: <https://user.cuprate.org>.
 
 ";
+
+/// A lazy-lock that reads and stores total system memory.
+static MEMORY: LazyLock<u64> = LazyLock::new(|| {
+    tracing::info!("Attempting to read total memory from system");
+
+    let mut info = sysinfo::System::new();
+    info.refresh_memory();
+
+    let memory = info.total_memory();
+
+    if memory == 0 {
+        eprintln_red("Unable to read total memory, please manually set the `target_max_memory` value in the config file.");
+        std::process::exit(1);
+    }
+
+    memory
+});
 
 /// Reads the args & config file, returning a [`Config`].
 pub fn read_config_and_args() -> Config {
@@ -139,6 +157,17 @@ config_struct! {
         /// Valid values | true, false
         pub fast_sync: bool,
 
+        /// The target maximum amount of memory to use in bytes.
+        ///
+        /// This is not a hard limit, but Cuprate will attempt to stay under this value.
+        /// You probably do not need to change this unless Cuprate can't read the amount of RAM your
+        /// system has.
+        ///
+        /// Type         | Number
+        /// Valid values | > 0
+        /// Examples     | 500_000_000, 1_000_000_000,
+        pub target_max_memory: DefaultOrCustom<u64>,
+
         #[child = true]
         /// Configuration for cuprated's logging system, tracing.
         ///
@@ -184,6 +213,7 @@ impl Default for Config {
         Self {
             network: Default::default(),
             fast_sync: true,
+            target_max_memory: DefaultOrCustom::Default,
             tracing: Default::default(),
             tokio: Default::default(),
             tor: Default::default(),
@@ -319,9 +349,27 @@ impl Config {
             .join("fjall")
     }
 
+    /// Returns the size of the fjall cache.
+    pub fn fjall_cache_size(&self) -> u64 {
+        *self
+            .storage
+            .fjall_cache_size
+            .value(&self.target_max_memory())
+    }
+
+    /// Returns the target maximum memory usage.
+    pub fn target_max_memory(&self) -> u64 {
+        match self.target_max_memory {
+            DefaultOrCustom::Default => *MEMORY,
+            DefaultOrCustom::Custom(size) => size,
+        }
+    }
+
     /// The [`BlockDownloaderConfig`].
     pub fn block_downloader_config(&self) -> BlockDownloaderConfig {
-        self.p2p.block_downloader.clone().into()
+        self.p2p
+            .block_downloader
+            .construct_inner(self.target_max_memory())
     }
 
     /// Checks if a port can be bound to.
