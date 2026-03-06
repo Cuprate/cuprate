@@ -1,9 +1,4 @@
 //! cuprated config
-use anyhow::bail;
-use clap::Parser;
-use cuprate_blockchain::config::CacheSizes;
-use serde::{Deserialize, Serialize};
-use std::sync::LazyLock;
 use std::{
     fmt,
     fs::{read_to_string, File},
@@ -11,8 +6,14 @@ use std::{
     net::{IpAddr, TcpListener},
     path::{Path, PathBuf},
     str::FromStr,
+    sync::LazyLock,
     time::Duration,
 };
+
+use anyhow::bail;
+use clap::Parser;
+use cuprate_blockchain::config::CacheSizes;
+use serde::{Deserialize, Serialize};
 
 use cuprate_consensus::ContextConfig;
 use cuprate_helper::{

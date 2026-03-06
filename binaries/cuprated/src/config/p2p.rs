@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-use std::thread::available_parallelism;
 use std::{
     cmp::{max, min},
     marker::PhantomData,
@@ -7,6 +5,8 @@ use std::{
     path::Path,
     time::Duration,
 };
+
+use serde::{Deserialize, Serialize};
 
 use cuprate_helper::{cast::u64_to_usize, fs::address_book_path, network::Network};
 use cuprate_p2p::config::TransportConfig;
