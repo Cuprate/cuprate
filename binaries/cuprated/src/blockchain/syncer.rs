@@ -1,11 +1,7 @@
-// FIXME: This whole module is not great and should be rewritten when the PeerSet is made.
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use futures::StreamExt;
-use tokio::{
-    sync::{mpsc, Notify, OwnedSemaphorePermit, Semaphore},
-    time::interval,
-};
+use tokio::sync::{mpsc, watch, Notify, OwnedSemaphorePermit, Semaphore};
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
@@ -16,8 +12,6 @@ use cuprate_p2p::{
     NetworkInterface, PeerSetRequest, PeerSetResponse,
 };
 use cuprate_p2p_core::{ClearNet, NetworkZone};
-
-const CHECK_SYNC_FREQUENCY: Duration = Duration::from_secs(30);
 
 /// An error returned from the [`syncer`].
 #[derive(Debug, thiserror::Error)]
@@ -30,7 +24,7 @@ pub enum SyncerError {
 
 /// The syncer tasks that makes sure we are fully synchronised with our connected peers.
 #[instrument(level = "debug", skip_all)]
-#[expect(clippy::significant_drop_tightening)]
+#[expect(clippy::significant_drop_tightening, clippy::too_many_arguments)]
 pub async fn syncer<CN>(
     mut context_svc: BlockchainContextService,
     our_chain: CN,
@@ -38,7 +32,8 @@ pub async fn syncer<CN>(
     incoming_block_batch_tx: mpsc::Sender<(BlockBatch, Arc<OwnedSemaphorePermit>)>,
     stop_current_block_downloader: Arc<Notify>,
     block_downloader_config: BlockDownloaderConfig,
-    synced_notify: Arc<Notify>,
+    sync_wake: Arc<Notify>,
+    synced: watch::Sender<bool>,
 ) -> Result<(), SyncerError>
 where
     CN: Service<
@@ -50,34 +45,20 @@ where
         + 'static,
     CN::Future: Send + 'static,
 {
+    let semaphore = Arc::new(Semaphore::new(1));
+    let mut sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
+
     tracing::info!("Starting blockchain syncer");
 
-    let mut check_sync_interval = interval(CHECK_SYNC_FREQUENCY);
-
-    tracing::debug!("Waiting for new sync info in top sync channel");
-
-    let semaphore = Arc::new(Semaphore::new(1));
-
-    let mut sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
     loop {
-        check_sync_interval.tick().await;
+        wait_until_behind(
+            &mut context_svc,
+            &mut clearnet_interface,
+            &sync_wake,
+            &synced,
+        )
+        .await?;
 
-        tracing::trace!("Checking connected peers to see if we are behind",);
-
-        let blockchain_context = context_svc.blockchain_context();
-
-        match check_sync_status(blockchain_context, &mut clearnet_interface).await? {
-            SyncStatus::BehindPeers => {}
-            SyncStatus::NoPeers => continue,
-            SyncStatus::Synced => {
-                synced_notify.notify_one();
-                continue;
-            }
-        }
-
-        tracing::debug!(
-            "We are behind peers claimed cumulative difficulty, starting block downloader"
-        );
         let mut block_batch_stream =
             clearnet_interface.block_downloader(our_chain.clone(), block_downloader_config);
 
@@ -97,14 +78,6 @@ where
                         // have been handled before checking if we are synced.
                         drop(sync_permit);
                         sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
-
-                        let blockchain_context = context_svc.blockchain_context();
-
-                        if check_sync_status(blockchain_context, &mut clearnet_interface).await? == SyncStatus::Synced {
-                            tracing::info!("Synchronised with the network.");
-                            synced_notify.notify_one();
-                        }
-
                         break;
                     };
 
@@ -118,17 +91,51 @@ where
     }
 }
 
+/// Waits until we are behind our peers and need to download blocks.
+async fn wait_until_behind(
+    context_svc: &mut BlockchainContextService,
+    clearnet_interface: &mut NetworkInterface<ClearNet>,
+    sync_wake: &Notify,
+    synced: &watch::Sender<bool>,
+) -> Result<(), tower::BoxError> {
+    loop {
+        tracing::trace!("Checking connected peers to see if we are behind.");
+        let status =
+            check_sync_status(context_svc.blockchain_context(), clearnet_interface).await?;
+        match status {
+            SyncStatus::BehindPeers => {
+                tracing::debug!("Starting block downloader");
+                return Ok(());
+            }
+            SyncStatus::Synced | SyncStatus::AheadOfPeers => {
+                if !*synced.borrow() && status == SyncStatus::Synced {
+                    tracing::info!("Synchronised with the network.");
+                    synced.send_replace(true);
+                }
+                tracing::debug!("Parking syncer.");
+                sync_wake.notified().await;
+            }
+            SyncStatus::NoPeers => {
+                tracing::debug!("Waiting for peers to connect.");
+                synced.send_replace(false);
+                sync_wake.notified().await;
+            }
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 enum SyncStatus {
     NoPeers,
     BehindPeers,
     Synced,
+    AheadOfPeers,
 }
 
 /// Checks if we are behind the connected peers.
 async fn check_sync_status(
     blockchain_context: &BlockchainContext,
-    mut clearnet_interface: &mut NetworkInterface<ClearNet>,
+    clearnet_interface: &mut NetworkInterface<ClearNet>,
 ) -> Result<SyncStatus, tower::BoxError> {
     let PeerSetResponse::MostPoWSeen {
         cumulative_difficulty,
@@ -147,9 +154,11 @@ async fn check_sync_status(
         return Ok(SyncStatus::NoPeers);
     }
 
-    if cumulative_difficulty > blockchain_context.cumulative_difficulty {
-        return Ok(SyncStatus::BehindPeers);
-    }
-
-    Ok(SyncStatus::Synced)
+    Ok(
+        match cumulative_difficulty.cmp(&blockchain_context.cumulative_difficulty) {
+            std::cmp::Ordering::Greater => SyncStatus::BehindPeers,
+            std::cmp::Ordering::Less => SyncStatus::AheadOfPeers,
+            std::cmp::Ordering::Equal => SyncStatus::Synced,
+        },
+    )
 }
