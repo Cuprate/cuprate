@@ -41,7 +41,7 @@ pub(super) async fn inbound_server<Z, T, HS, A>(
     config: P2PConfig<Z>,
     transport_config: Option<T::ServerConfig>,
     inbound_semaphore: Arc<Semaphore>,
-    on_peer_sync: Option<PeerSyncCallback>,
+    peer_sync_callback: Option<PeerSyncCallback>,
 ) -> Result<(), tower::BoxError>
 where
     Z: NetworkZone,
@@ -115,7 +115,7 @@ where
             });
 
             let new_connection_tx = new_connection_tx.clone();
-            let on_peer_sync = on_peer_sync.clone();
+            let peer_sync_callback = peer_sync_callback.clone();
 
             tokio::spawn(
                 async move {
@@ -123,16 +123,10 @@ where
 
                     match client {
                         Ok(Ok(peer)) => {
-                            let cd = peer
-                                .info
-                                .core_sync_data
-                                .lock()
-                                .unwrap()
-                                .cumulative_difficulty();
-                            drop(new_connection_tx.send(peer).await);
-                            if let Some(ref on_peer_sync) = on_peer_sync {
-                                if !on_peer_sync.wake_on_first_peers() {
-                                    on_peer_sync.call(cd);
+                            let csd = peer.info.core_sync_data.lock().unwrap().clone();
+                            if new_connection_tx.send(peer).await.is_ok() {
+                                if let Some(ref peer_sync_callback) = peer_sync_callback {
+                                    peer_sync_callback.call(&csd);
                                 }
                             }
                         }

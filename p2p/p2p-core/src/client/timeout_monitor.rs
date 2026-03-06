@@ -129,11 +129,10 @@ where
             ))
             .await?;
 
-        let new_cd = timed_sync.payload_data.cumulative_difficulty();
-        *peer_information.core_sync_data.lock().unwrap() = timed_sync.payload_data;
+        *peer_information.core_sync_data.lock().unwrap() = timed_sync.payload_data.clone();
 
         if let Some(on_peer_sync) = &on_peer_sync {
-            on_peer_sync.call(new_cd);
+            on_peer_sync.call(&timed_sync.payload_data);
         }
     }
 }

@@ -83,7 +83,7 @@ pub async fn initialize_network<Z, T, PR, CS>(
     core_sync_svc: CS,
     config: P2PConfig<Z>,
     transport_config: TransportConfig<Z, T>,
-    on_peer_sync: Option<PeerSyncCallback>,
+    peer_sync_callback: Option<PeerSyncCallback>,
 ) -> Result<NetworkInterface<Z>, tower::BoxError>
 where
     Z: NetworkZone,
@@ -124,7 +124,7 @@ where
         .with_broadcast_stream_maker(outbound_mkr)
         .with_connection_parent_span(Span::current());
 
-    if let Some(ref cb) = on_peer_sync {
+    if let Some(ref cb) = peer_sync_callback {
         outbound_handshaker_builder =
             outbound_handshaker_builder.with_peer_sync_callback(cb.clone());
     }
@@ -151,7 +151,7 @@ where
         make_connection_rx,
         address_book.clone(),
         outbound_connector,
-        on_peer_sync.clone(),
+        peer_sync_callback.clone(),
     );
 
     let peer_set = PeerSet::new(new_connection_rx);
@@ -185,7 +185,7 @@ where
             config,
             transport_config.server_config,
             inbound_semaphore,
-            on_peer_sync,
+            peer_sync_callback,
         )
         .map(|res| {
             if let Err(e) = res {

@@ -44,7 +44,7 @@ pub(crate) struct PeerRequestHandler<Z: NetworkZone, A, CS, PR> {
     /// The information on the connected peer.
     pub peer_info: PeerInformation<Z::Addr>,
 
-    /// Called with the peer's cumulative difficulty.
+    /// Called with a peer's [`CoreSyncData`].
     pub on_peer_sync: Option<PeerSyncCallback>,
 }
 
@@ -105,11 +105,10 @@ where
     ) -> Result<TimedSyncResponse, tower::BoxError> {
         // TODO: add a limit on the amount of these requests in a certain time period.
 
-        let new_cd = req.payload_data.cumulative_difficulty();
-        *self.peer_info.core_sync_data.lock().unwrap() = req.payload_data;
+        *self.peer_info.core_sync_data.lock().unwrap() = req.payload_data.clone();
 
         if let Some(on_peer_sync) = &self.on_peer_sync {
-            on_peer_sync.call(new_cd);
+            on_peer_sync.call(&req.payload_data);
         }
 
         // Fetch core sync data.

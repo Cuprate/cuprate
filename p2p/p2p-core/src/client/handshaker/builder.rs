@@ -47,7 +47,7 @@ pub struct HandshakerBuilder<
     /// The [`Span`] that will set as the parent to the connection [`Span`].
     connection_parent_span: Option<Span>,
 
-    /// Called with the peer's cumulative difficulty.
+    /// Called with a peer's [`CoreSyncData`].
     on_peer_sync: Option<PeerSyncCallback>,
 
     /// Transport method client configuration to use.
@@ -243,7 +243,7 @@ impl<N: NetworkZone, T: Transport<N>, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr>
         }
     }
 
-    /// Sets the callback invoked with a peer's cumulative difficulty.
+    /// Sets the callback invoked with a peer's [`CoreSyncData`](cuprate_wire::CoreSyncData).
     ///
     /// ## Default
     ///

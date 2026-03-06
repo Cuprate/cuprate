@@ -65,8 +65,8 @@ pub struct OutboundConnectionKeeper<Z: NetworkZone, A, C> {
     ///
     /// This is weighted to the percentage given in `config`.
     pub peer_type_gen: Bernoulli,
-    /// Called once after the first peer is added to the peer set.
-    pub on_peer_sync: Option<PeerSyncCallback>,
+    /// A callback used to notify the syncer about peer sync state changes.
+    pub peer_sync_callback: Option<PeerSyncCallback>,
 }
 
 impl<Z, A, C> OutboundConnectionKeeper<Z, A, C>
@@ -82,7 +82,7 @@ where
         make_connection_rx: mpsc::Receiver<MakeConnectionRequest>,
         address_book_svc: A,
         connector_svc: C,
-        on_peer_sync: Option<PeerSyncCallback>,
+        peer_sync_callback: Option<PeerSyncCallback>,
     ) -> Self {
         let peer_type_gen = Bernoulli::new(config.gray_peers_percent)
             .expect("Gray peer percent is incorrect should be 0..=1");
@@ -96,7 +96,7 @@ where
             extra_peers: 0,
             config,
             peer_type_gen,
-            on_peer_sync,
+            peer_sync_callback,
         }
     }
 
@@ -150,7 +150,7 @@ where
     #[instrument(level = "info", skip_all)]
     async fn connect_to_outbound_peer(&mut self, permit: OwnedSemaphorePermit, addr: Z::Addr) {
         let new_peers_tx = self.new_peers_tx.clone();
-        let on_peer_sync = self.on_peer_sync.clone();
+        let peer_sync_callback = self.peer_sync_callback.clone();
         let connection_fut = self
             .connector_svc
             .ready()
@@ -164,16 +164,10 @@ where
         tokio::spawn(
             async move {
                 if let Ok(Ok(peer)) = timeout(HANDSHAKE_TIMEOUT, connection_fut).await {
-                    let cd = peer
-                        .info
-                        .core_sync_data
-                        .lock()
-                        .unwrap()
-                        .cumulative_difficulty();
-                    drop(new_peers_tx.send(peer).await);
-                    if let Some(ref on_peer_sync) = on_peer_sync {
-                        if !on_peer_sync.wake_on_first_peers() {
-                            on_peer_sync.call(cd);
+                    let csd = peer.info.core_sync_data.lock().unwrap().clone();
+                    if new_peers_tx.send(peer).await.is_ok() {
+                        if let Some(ref peer_sync_callback) = peer_sync_callback {
+                            peer_sync_callback.call(&csd);
                         }
                     }
                 }

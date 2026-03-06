@@ -104,7 +104,7 @@ pub struct HandShaker<Z: NetworkZone, T: Transport<Z>, AdrBook, CSync, ProtoHdlr
 
     connection_parent_span: Span,
 
-    /// Called with the peer's cumulative difficulty.
+    /// Called with a peer's [`CoreSyncData`].
     on_peer_sync: Option<PeerSyncCallback>,
 
     /// Client configuration used by the handshaker for this transport

@@ -2,6 +2,7 @@ use std::{
     collections::HashSet,
     future::{ready, Ready},
     hash::Hash,
+    sync::Arc,
     task::{Context, Poll},
 };
 
@@ -11,7 +12,7 @@ use futures::{
     FutureExt,
 };
 use monero_oxide::{block::Block, transaction::Transaction};
-use tokio::sync::{broadcast, oneshot, watch};
+use tokio::sync::{broadcast, oneshot, watch, Notify};
 use tokio_stream::wrappers::WatchStream;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
@@ -32,7 +33,7 @@ use cuprate_p2p::constants::{
     MAX_BLOCKS_IDS_IN_CHAIN_ENTRY, MAX_BLOCK_BATCH_LEN, MAX_TRANSACTION_BLOB_SIZE, MEDIUM_BAN,
 };
 use cuprate_p2p_core::{
-    client::{InternalPeerID, PeerInformation, PeerSyncCallback},
+    client::{InternalPeerID, PeerInformation},
     NetZoneAddress, NetworkZone, ProtocolRequest, ProtocolResponse,
 };
 use cuprate_txpool::service::TxpoolReadHandle;
@@ -58,7 +59,9 @@ pub struct P2pProtocolRequestHandlerMaker {
     pub blockchain_read_handle: BlockchainReadHandle,
     pub blockchain_context_service: BlockchainContextService,
     pub txpool_read_handle: TxpoolReadHandle,
-    pub peer_sync_callback: Option<PeerSyncCallback>,
+
+    /// Notified when an orphan block is received, to wake the syncer.
+    pub sync_wake: Option<Arc<Notify>>,
 
     /// The [`IncomingTxHandler`], wrapped in an [`Option`] as there is a cyclic reference between [`P2pProtocolRequestHandlerMaker`]
     /// and the [`IncomingTxHandler`].
@@ -106,7 +109,7 @@ where
             blockchain_context_service: self.blockchain_context_service.clone(),
             txpool_read_handle,
             incoming_tx_handler,
-            peer_sync_callback: self.peer_sync_callback.clone(),
+            sync_wake: self.sync_wake.clone(),
         }))
     }
 }
@@ -119,7 +122,7 @@ pub struct P2pProtocolRequestHandler<N: NetZoneAddress> {
     blockchain_context_service: BlockchainContextService,
     txpool_read_handle: TxpoolReadHandle,
     incoming_tx_handler: IncomingTxHandler,
-    peer_sync_callback: Option<PeerSyncCallback>,
+    sync_wake: Option<Arc<Notify>>,
 }
 
 impl<A: NetZoneAddress> Service<ProtocolRequest> for P2pProtocolRequestHandler<A>
@@ -155,7 +158,7 @@ where
                 self.blockchain_read_handle.clone(),
                 self.blockchain_context_service.clone(),
                 self.txpool_read_handle.clone(),
-                self.peer_sync_callback.clone(),
+                self.sync_wake.clone(),
             )
             .boxed(),
             ProtocolRequest::NewTransactions(r) => new_transactions(
@@ -305,7 +308,7 @@ async fn new_fluffy_block<A: NetZoneAddress>(
     mut blockchain_read_handle: BlockchainReadHandle,
     mut blockchain_context_service: BlockchainContextService,
     mut txpool_read_handle: TxpoolReadHandle,
-    peer_sync_callback: Option<PeerSyncCallback>,
+    sync_wake: Option<Arc<Notify>>,
 ) -> anyhow::Result<ProtocolResponse> {
     let current_blockchain_height = request.current_blockchain_height;
 
@@ -314,10 +317,6 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         .lock()
         .unwrap()
         .current_height = current_blockchain_height;
-
-    let guard = peer_sync_callback
-        .as_ref()
-        .map(PeerSyncCallback::incoming_block_guard);
 
     let (block, txs) = rayon_spawn_async(move || -> Result<_, anyhow::Error> {
         let block = Block::read(&mut request.b.block.as_ref())?;
@@ -365,8 +364,6 @@ async fn new_fluffy_block<A: NetZoneAddress>(
     )
     .await;
 
-    drop(guard);
-
     match res {
         Ok(_) => Ok(ProtocolResponse::NA),
         Err(IncomingBlockError::UnknownTransactions(block_hash, missing_tx_indices)) => Ok(
@@ -378,8 +375,8 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         ),
         Err(IncomingBlockError::Orphan) => {
             // Block's parent was unknown, could be syncing?
-            if let Some(peer_sync_callback) = &peer_sync_callback {
-                peer_sync_callback.wake_unconditionally();
+            if let Some(sync_wake) = &sync_wake {
+                sync_wake.notify_one();
             }
             Ok(ProtocolResponse::NA)
         }

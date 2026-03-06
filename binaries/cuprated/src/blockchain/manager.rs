@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use futures::StreamExt;
 use monero_oxide::block::Block;
-use tokio::sync::{mpsc, oneshot, Notify, OwnedSemaphorePermit};
+use tokio::sync::{mpsc, oneshot, watch, Notify, OwnedSemaphorePermit};
 use tower::{BoxError, Service, ServiceExt};
 use tracing::error;
 
@@ -15,7 +15,7 @@ use cuprate_p2p::{
     block_downloader::{BlockBatch, BlockDownloaderConfig},
     BroadcastSvc, NetworkInterface,
 };
-use cuprate_p2p_core::{client::PeerSyncCallback, ClearNet};
+use cuprate_p2p_core::ClearNet;
 use cuprate_txpool::service::TxpoolWriteHandle;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
@@ -43,8 +43,7 @@ pub use commands::{BlockchainManagerCommand, IncomingBlockOk};
 ///
 /// This function sets up the [`BlockchainManager`] and the [`syncer`] so that the functions in [`interface`](super::interface)
 /// can be called.
-///
-/// Returns a [`Notify`] that signals when the node is synchronized with the network.
+#[expect(clippy::too_many_arguments)]
 pub async fn init_blockchain_manager(
     clearnet_interface: NetworkInterface<ClearNet>,
     blockchain_write_handle: BlockchainWriteHandle,
@@ -52,16 +51,15 @@ pub async fn init_blockchain_manager(
     txpool_manager_handle: TxpoolManagerHandle,
     mut blockchain_context_service: BlockchainContextService,
     block_downloader_config: BlockDownloaderConfig,
-    peer_sync_callback: PeerSyncCallback,
-) -> Arc<Notify> {
+    sync_wake: Arc<Notify>,
+    synced: watch::Sender<bool>,
+) {
     // TODO: find good values for these size limits
     let (batch_tx, batch_rx) = mpsc::channel(1);
     let stop_current_block_downloader = Arc::new(Notify::new());
     let (command_tx, command_rx) = mpsc::channel(3);
 
     COMMAND_TX.set(command_tx).unwrap();
-
-    let synced_notify = Arc::new(Notify::new());
 
     tokio::spawn(syncer::syncer(
         blockchain_context_service.clone(),
@@ -70,8 +68,8 @@ pub async fn init_blockchain_manager(
         batch_tx,
         Arc::clone(&stop_current_block_downloader),
         block_downloader_config,
-        Arc::clone(&synced_notify),
-        peer_sync_callback,
+        sync_wake,
+        synced,
     ));
 
     let manager = BlockchainManager {
@@ -87,8 +85,6 @@ pub async fn init_blockchain_manager(
     };
 
     tokio::spawn(manager.run(batch_rx, command_rx));
-
-    synced_notify
 }
 
 /// The blockchain manager.

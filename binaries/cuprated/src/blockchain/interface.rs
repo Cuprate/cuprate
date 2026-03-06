@@ -30,6 +30,22 @@ use crate::{
 /// in this file document what happens if this is not initialized when they are called.
 pub(super) static COMMAND_TX: OnceLock<mpsc::Sender<BlockchainManagerCommand>> = OnceLock::new();
 
+/// A [`HashSet`] of block hashes that the blockchain manager is currently handling.
+///
+/// This lock prevents sending the same block to the blockchain manager from multiple connections
+/// before one of them actually gets added to the chain, allowing peers to do other things.
+///
+/// This is used over something like a dashmap as we expect a lot of collisions in a short amount of
+/// time for new blocks, so we would lose the benefit of sharded locks. A dashmap is made up of `RwLocks`
+/// which are also more expensive than `Mutex`s.
+static BLOCKS_BEING_HANDLED: LazyLock<Mutex<HashSet<[u8; 32]>>> =
+    LazyLock::new(|| Mutex::new(HashSet::new()));
+
+/// Returns `true` if the given block hash is currently being handled.
+pub fn is_block_being_handled(hash: &[u8; 32]) -> bool {
+    BLOCKS_BEING_HANDLED.lock().unwrap().contains(hash)
+}
+
 /// An error that can be returned from [`handle_incoming_block`].
 #[derive(Debug, thiserror::Error)]
 pub enum IncomingBlockError {
@@ -62,17 +78,6 @@ pub async fn handle_incoming_block(
     blockchain_read_handle: &mut BlockchainReadHandle,
     txpool_read_handle: &mut TxpoolReadHandle,
 ) -> Result<IncomingBlockOk, IncomingBlockError> {
-    /// A [`HashSet`] of block hashes that the blockchain manager is currently handling.
-    ///
-    /// This lock prevents sending the same block to the blockchain manager from multiple connections
-    /// before one of them actually gets added to the chain, allowing peers to do other things.
-    ///
-    /// This is used over something like a dashmap as we expect a lot of collisions in a short amount of
-    /// time for new blocks, so we would lose the benefit of sharded locks. A dashmap is made up of `RwLocks`
-    /// which are also more expensive than `Mutex`s.
-    static BLOCKS_BEING_HANDLED: LazyLock<Mutex<HashSet<[u8; 32]>>> =
-        LazyLock::new(|| Mutex::new(HashSet::new()));
-
     if given_txs.len() > block.transactions.len() {
         return Err(IncomingBlockError::InvalidBlock(anyhow::anyhow!(
             "Too many transactions given for block"
