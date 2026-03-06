@@ -95,8 +95,8 @@ impl HttpRpcClient {
 
         // Make sure this is a trusted, `pow_hash` only works there.
         assert!(
-        	!result.block_header.pow_hash.is_empty(),
-        	"untrusted node detected, `pow_hash` will not show on these nodes - use a trusted node!"
+            !result.block_header.pow_hash.is_empty(),
+            "untrusted node detected, `pow_hash` will not show on these nodes - use a trusted node!"
         );
 
         let reward = result.block_header.reward;
@@ -168,12 +168,17 @@ impl HttpRpcClient {
             .map(|(i, tx)| {
                 let tx_hash = tx.hash();
                 assert_eq!(tx_hash, tx_hashes[i]);
+                let tx_weight = tx.weight();
+                let fee = tx_fee(&tx);
+                let (tx_pruned, prunable) = tx.pruned_with_prunable();
+
                 VerifiedTransactionInformation {
-                    tx_blob: tx.serialize(),
-                    tx_weight: tx.weight(),
+                    tx_weight,
+                    tx_pruned: tx_pruned.serialize(),
+                    tx_prunable_blob: prunable,
                     tx_hash,
-                    fee: tx_fee(&tx),
-                    tx,
+                    fee,
+                    tx: tx_pruned,
                 }
             })
     }

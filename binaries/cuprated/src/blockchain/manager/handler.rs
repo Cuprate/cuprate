@@ -237,7 +237,8 @@ impl super::BlockchainManager {
         };
 
         for (block, txs) in prepped_blocks {
-            let Ok(verified_block) = verify_prepped_main_chain_block(
+            let hash = block.block_hash;
+            let verified_block = match verify_prepped_main_chain_block(
                 block,
                 txs,
                 &mut self.blockchain_context_service,
@@ -245,10 +246,18 @@ impl super::BlockchainManager {
                 Some(&mut output_cache),
             )
             .await
-            else {
-                batch.peer_handle.ban_peer(LONG_BAN);
-                self.stop_current_block_downloader.notify_one();
-                return;
+            {
+                Ok(block) => block,
+                Err(e) => {
+                    warn!(
+                        "Failed to verify block: {}, error {}, banning peer.",
+                        hex::encode(hash),
+                        e
+                    );
+                    batch.peer_handle.ban_peer(LONG_BAN);
+                    self.stop_current_block_downloader.notify_one();
+                    return;
+                }
             };
 
             self.add_valid_block_to_main_chain(verified_block).await;
