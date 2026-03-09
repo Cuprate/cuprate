@@ -197,7 +197,7 @@ serde_json            = { version = "1", default-features = false }
 serde                 = { version = "1", default-features = false }
 strum                 = { version = "0.27", default-features = false }
 sysinfo               = { version = "0.38", default-features = false }
-tapes                 = { git = "https://github.com/Cuprate/Tapes.git", rev = "3d0e169" }
+tapes                 = { git = "https://github.com/Cuprate/Tapes.git", rev = "fad9b1f" }
 thiserror             = { version = "2", default-features = false }
 thread_local          = { version = "1", default-features = false }
 tokio-util            = { version = "0.7", default-features = false }
