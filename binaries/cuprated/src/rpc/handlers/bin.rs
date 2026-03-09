@@ -9,6 +9,11 @@ use std::num::NonZero;
 use anyhow::{anyhow, Error};
 use bytes::Bytes;
 
+use crate::rpc::{
+    handlers::{helper, shared, shared::not_available},
+    service::{blockchain, txpool},
+    CupratedRpcHandler,
+};
 use cuprate_constants::rpc::{RESTRICTED_BLOCK_COUNT, RESTRICTED_TRANSACTIONS_COUNT};
 use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
@@ -19,20 +24,14 @@ use cuprate_rpc_types::{
         BinRequest, BinResponse, GetBlocksByHeightRequest, GetBlocksByHeightResponse,
         GetBlocksRequest, GetBlocksResponse, GetHashesRequest, GetHashesResponse,
         GetOutputIndexesRequest, GetOutputIndexesResponse, GetOutsRequest, GetOutsResponse,
-        GetTransactionPoolHashesRequest, GetTransactionPoolHashesResponse,
     },
     json::{GetOutputDistributionRequest, GetOutputDistributionResponse},
     misc::RequestedInfo,
 };
+use cuprate_types::rpc::{PoolInfoFull, PoolInfoIncremental};
 use cuprate_types::{
-    rpc::{PoolInfo, PoolInfoExtent},
+    rpc::{BlockOutputIndices, PoolInfo, PoolInfoExtent, TxOutputIndices},
     BlockCompleteEntry,
-};
-
-use crate::rpc::{
-    handlers::{helper, shared, shared::not_available},
-    service::{blockchain, txpool},
-    CupratedRpcHandler,
 };
 
 /// Map a [`BinRequest`] to the function that will lead to a [`BinResponse`].
@@ -44,12 +43,11 @@ pub async fn map_request(
     use BinResponse as Resp;
 
     Ok(match request {
-        Req::GetBlocks(r) => Resp::GetBlocks(not_available()?),
+        Req::GetBlocks(r) => Resp::GetBlocks(get_blocks(state, r).await.unwrap()),
         Req::GetBlocksByHeight(r) => Resp::GetBlocksByHeight(not_available()?),
-        Req::GetHashes(r) => Resp::GetHashes(not_available()?),
+        Req::GetHashes(r) => Resp::GetHashes(get_hashes(state, r).await?),
         Req::GetOutputIndexes(r) => Resp::GetOutputIndexes(not_available()?),
         Req::GetOuts(r) => Resp::GetOuts(not_available()?),
-        Req::GetTransactionPoolHashes(r) => Resp::GetTransactionPoolHashes(not_available()?),
         Req::GetOutputDistribution(r) => Resp::GetOutputDistribution(not_available()?),
     })
 }
@@ -59,6 +57,8 @@ async fn get_blocks(
     mut state: CupratedRpcHandler,
     request: GetBlocksRequest,
 ) -> Result<GetBlocksResponse, Error> {
+    tracing::info!("Get blocks");
+
     // Time should be set early:
     // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L628-L631>
     let daemon_time = cuprate_helper::time::current_unix_timestamp();
@@ -85,9 +85,10 @@ async fn get_blocks(
         RequestedInfo::PoolOnly => (false, true),
     };
 
-    let pool_info_extent = PoolInfoExtent::None;
+    let mut pool_info_extent = PoolInfoExtent::None;
 
     let pool_info = if get_pool {
+        /*
         let is_restricted = state.is_restricted();
         let include_sensitive_txs = !is_restricted;
 
@@ -104,8 +105,14 @@ async fn get_blocks(
             NonZero::new(u64_to_usize(request.pool_info_since)),
         )
         .await?
+        */
+        if request.pool_info_since == 0 {
+            pool_info_extent = PoolInfoExtent::Full;
+        } else {
+            pool_info_extent = PoolInfoExtent::Incremental;
+        }
     } else {
-        PoolInfo::None
+        pool_info_extent = PoolInfoExtent::None;
     };
 
     let resp = GetBlocksResponse {
@@ -115,7 +122,10 @@ async fn get_blocks(
         current_height: 0,
         output_indices: vec![],
         daemon_time,
-        pool_info,
+        pool_info_extent,
+        added_pool_txs: vec![],
+        remaining_added_pool_txids: Default::default(),
+        removed_pool_txids: Default::default(),
     };
 
     if !get_blocks {
@@ -133,24 +143,35 @@ async fn get_blocks(
         }
     }
 
-    let (block_hashes, start_height, _) =
-        blockchain::next_chain_entry(&mut state.blockchain_read, block_hashes, start_height)
-            .await?;
+    let (blocks, height, start_height, output_indices) =
+        blockchain::block_complete_entries_above_split_point(
+            &mut state.blockchain_read,
+            block_hashes,
+            true,
+            prune,
+        )
+        .await?;
 
-    if start_height.is_none() {
-        return Err(anyhow!("Block IDs were not sorted properly"));
-    }
+    tracing::info!("Got blocks");
 
-    let (blocks, missing_hashes, height) =
-        blockchain::block_complete_entries(&mut state.blockchain_read, block_hashes).await?;
+    //tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-    if !missing_hashes.is_empty() {
-        return Err(anyhow!("Missing blocks"));
-    }
+    //tracing::trace!("blocks: {:?}", blocks);
+    tracing::trace!("outputs: {:?}", output_indices.len());
 
     Ok(GetBlocksResponse {
         blocks,
         current_height: usize_to_u64(height),
+        start_height: usize_to_u64(start_height),
+        output_indices: output_indices
+            .into_iter()
+            .map(|i| BlockOutputIndices {
+                indices: i
+                    .into_iter()
+                    .map(|indices| TxOutputIndices { indices })
+                    .collect(),
+            })
+            .collect(),
         ..resp
     })
 }
@@ -184,21 +205,14 @@ async fn get_hashes(
         block_ids,
     } = request;
 
-    // FIXME: impl `last()`
-    let last = {
-        let len = block_ids.len();
-
-        if len == 0 {
-            return Err(anyhow!("block_ids empty"));
-        }
-
-        block_ids[len - 1]
-    };
-
     let hashes: Vec<[u8; 32]> = (&block_ids).into();
 
-    let (m_blocks_ids, _, current_height) =
+    let (m_blocks_ids, start, current_height) =
         blockchain::next_chain_entry(&mut state.blockchain_read, hashes, start_height).await?;
+
+    if start.is_none() {
+        return Err(anyhow!("Could not find split point."));
+    }
 
     Ok(GetHashesResponse {
         base: helper::access_response_base(false),
@@ -225,19 +239,6 @@ async fn get_outs(
     request: GetOutsRequest,
 ) -> Result<GetOutsResponse, Error> {
     shared::get_outs(state, request).await
-}
-
-/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1689-L1711>
-async fn get_transaction_pool_hashes(
-    mut state: CupratedRpcHandler,
-    _: GetTransactionPoolHashesRequest,
-) -> Result<GetTransactionPoolHashesResponse, Error> {
-    Ok(GetTransactionPoolHashesResponse {
-        base: helper::access_response_base(false),
-        tx_hashes: shared::get_transaction_pool_hashes(state)
-            .await
-            .map(ByteArrayVec::from)?,
-    })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3352-L3398>

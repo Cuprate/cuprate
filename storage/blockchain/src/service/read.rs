@@ -9,14 +9,7 @@
 )]
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    cmp::min,
-    collections::{HashMap, HashSet},
-    ops::Range,
-    sync::Arc,
-    task::{Context, Poll},
-};
-
+use bytes::Bytes;
 use fjall::Readable;
 use futures::channel::oneshot;
 use indexmap::{IndexMap, IndexSet};
@@ -24,6 +17,13 @@ use rayon::{
     iter::{Either, IntoParallelIterator, ParallelIterator},
     prelude::*,
     ThreadPool,
+};
+use std::{
+    cmp::min,
+    collections::{HashMap, HashSet},
+    ops::Range,
+    sync::Arc,
+    task::{Context, Poll},
 };
 use tapes::TapesRead;
 use tower::Service;
@@ -37,7 +37,7 @@ use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     output_cache::OutputCache,
     rpc::OutputHistogramInput,
-    Chain, ChainId, ExtendedBlockHeader, OutputDistributionInput, TxsInBlock,
+    Chain, ChainId, ExtendedBlockHeader, OutputDistributionInput, TransactionBlobs, TxsInBlock,
 };
 
 use crate::{
@@ -122,6 +122,12 @@ fn map_request(
     match request {
         R::BlockCompleteEntries(block_hashes) => block_complete_entries(env, block_hashes),
         R::BlockCompleteEntriesByHeight(heights) => block_complete_entries_by_height(env, heights),
+        R::BlockCompleteEntriesAboveSplitPoint {
+            chain,
+            get_indices,
+            len,
+            pruned,
+        } => block_complete_entries_above_split_point(env, chain, get_indices, len, pruned),
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
         R::BlockHash(block, chain) => block_hash(env, block, chain),
         R::BlockHashInRange(blocks, chain) => block_hash_in_range(env, blocks, chain),
@@ -207,8 +213,118 @@ fn block_complete_entries(db: &BlockchainDatabase, block_hashes: Vec<BlockHash>)
 
     Ok(BlockchainResponse::BlockCompleteEntries {
         blocks,
+        output_indices: vec![],
         missing_hashes,
         blockchain_height,
+    })
+}
+
+/// [`BlockchainReadRequest::BlockCompleteEntriesAboveSplitPoint`].
+fn block_complete_entries_above_split_point(
+    db: &BlockchainDatabase,
+    chain: Vec<[u8; 32]>,
+    get_indices: bool,
+    len: usize,
+    pruned: bool,
+) -> ResponseResult {
+    const MAX_TOTAL_SIZE: usize = 50 * 1024 * 1024;
+    const MAX_TOTAL_TXS: usize = 10_000;
+
+    let tx_ro = db.fjall.snapshot();
+
+    let tapes = db.linear_tapes.reader();
+
+    let split = find_split_point(db, &chain, false, false, &tx_ro)?;
+
+    if split == chain.len() {
+        todo!()
+    }
+
+    let height = block_height(db, &tx_ro, &chain[split])?.ok_or(BlockchainError::NotFound)?;
+    let blockchain_height = crate::ops::blockchain::chain_height(db, &tapes)?;
+
+    if height == blockchain_height {
+        todo!()
+    }
+
+    let mut tx_count = 0;
+    let mut total_size = 0;
+
+    let blocks: Vec<_> = (height..min(height + len, blockchain_height))
+        .map_while(|height| {
+            let block = match get_block_complete_entry_from_height(height, pruned, &tapes, db) {
+                Ok(v) => v,
+                Err(e) => return Some(Err(e)),
+            };
+
+            let first = tx_count == 0;
+            tx_count += block.txs.len() + 1;
+
+            let tx_blobs_size = match &block.txs {
+                TransactionBlobs::None => 0,
+                TransactionBlobs::Normal(b) => b.iter().map(Bytes::len).sum(),
+                TransactionBlobs::Pruned(p) => p.iter().map(|p| p.blob.len() + 32).sum(),
+            };
+
+            total_size += block.block.len() + tx_blobs_size;
+
+            if first || (total_size < MAX_TOTAL_SIZE && tx_count < MAX_TOTAL_TXS) {
+                Some(Ok(block))
+            } else {
+                None
+            }
+        })
+        .collect::<DbResult<_>>()?;
+
+    let output_indices = if get_indices {
+        let first_tx_idx = tapes
+            .read_entry(&db.block_infos, height as u64)?
+            .ok_or(BlockchainError::NotFound)?
+            .mining_tx_index;
+
+        let mut output_indices = Vec::with_capacity(blocks.len());
+        output_indices.push(Vec::with_capacity(8));
+
+        let mut last_height = height;
+
+        for (i, tx_info) in tapes.iter_from(&db.tx_infos, first_tx_idx)?.enumerate() {
+            let tx_info = tx_info?;
+
+            if tx_info.height != last_height {
+                if tx_info.height == height + blocks.len() {
+                    break;
+                }
+                last_height = tx_info.height;
+                output_indices.push(Vec::with_capacity(8));
+            }
+
+            let o_indexes = if tx_info.rct_output_start_idx == u64::MAX {
+                let res = tx_ro
+                    .get(&db.v1_tx_outputs, &(first_tx_idx + i as u64).to_le_bytes())?
+                    .ok_or(BlockchainError::NotFound)?;
+
+                res.chunks(8)
+                    .map(|chunk| u64::from_le_bytes(chunk.try_into().unwrap()))
+                    .collect::<Vec<_>>()
+            } else {
+                (0..tx_info.numb_rct_outputs)
+                    .map(|i| i as u64 + tx_info.rct_output_start_idx)
+                    .collect()
+            };
+
+            output_indices.last_mut().unwrap().push(o_indexes);
+        }
+
+        output_indices
+    } else {
+        vec![]
+    };
+
+    Ok(BlockchainResponse::BlockCompleteEntriesAboveSplitPoint {
+        blocks,
+        output_indices,
+        blockchain_height,
+        start_height: height,
     })
 }
 

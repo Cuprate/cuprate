@@ -3,16 +3,15 @@
 //! All types are originally defined in [`rpc/core_rpc_server_commands_defs.h`](https://github.com/monero-project/monero/blob/"cc73fe71162d564ffda8e549b79a350bca53c454"/src/rpc/core_rpc_server_commands_defs.h).
 
 //---------------------------------------------------------------------------------------------------- Import
-use cuprate_fixed_bytes::ByteArrayVec;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::container_as_blob::ContainerAsBlob;
-
+use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_types::{
-    rpc::{BlockOutputIndices, PoolInfo},
+    rpc::{BlockOutputIndices, PoolInfoExtent, PoolTxInfo},
     BlockCompleteEntry,
 };
 
@@ -101,17 +100,6 @@ define_request_and_response! {
 }
 
 define_request_and_response! {
-    get_transaction_pool_hashesbin,
-    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
-    core_rpc_server_commands_defs.h => 1593..=1613,
-    GetTransactionPoolHashes,
-    Request {},
-    AccessResponseBase {
-        tx_hashes: ByteArrayVec<32> = default::<ByteArrayVec<32>>(), "default",
-    }
-}
-
-define_request_and_response! {
     get_blocksbin,
     "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 162..=262,
@@ -123,7 +111,7 @@ define_request_and_response! {
         block_ids: ByteArrayVec<32> = default::<ByteArrayVec<32>>(), "default",
         start_height: u64,
         prune: bool,
-        no_miner_tx: bool,
+        no_miner_tx: bool = default::<bool>(), "default",
         pool_info_since: u64 = default::<u64>(), "default",
     },
 
@@ -135,7 +123,10 @@ define_request_and_response! {
         current_height: u64,
         output_indices: Vec<BlockOutputIndices> = default::<Vec<BlockOutputIndices>>(), "default",
         daemon_time: u64 = default::<u64>(), "default",
-        pool_info: PoolInfo = default::<PoolInfo>(), "default",
+        pool_info_extent: PoolInfoExtent,
+        added_pool_txs: Vec<PoolTxInfo>,
+        remaining_added_pool_txids: ByteArrayVec<32>,
+        removed_pool_txids: ByteArrayVec<32>,
     }
 }
 
@@ -154,7 +145,6 @@ pub enum BinRequest {
     GetHashes(GetHashesRequest),
     GetOutputIndexes(GetOutputIndexesRequest),
     GetOuts(GetOutsRequest),
-    GetTransactionPoolHashes(GetTransactionPoolHashesRequest),
     GetOutputDistribution(crate::json::GetOutputDistributionRequest),
 }
 
@@ -166,7 +156,6 @@ impl RpcCallValue for BinRequest {
             Self::GetHashes(x) => x.is_restricted(),
             Self::GetOutputIndexes(x) => x.is_restricted(),
             Self::GetOuts(x) => x.is_restricted(),
-            Self::GetTransactionPoolHashes(x) => x.is_restricted(),
             Self::GetOutputDistribution(x) => x.is_restricted(),
         }
     }
@@ -178,7 +167,6 @@ impl RpcCallValue for BinRequest {
             Self::GetHashes(x) => x.is_empty(),
             Self::GetOutputIndexes(x) => x.is_empty(),
             Self::GetOuts(x) => x.is_empty(),
-            Self::GetTransactionPoolHashes(x) => x.is_empty(),
             Self::GetOutputDistribution(x) => x.is_empty(),
         }
     }
@@ -199,12 +187,5 @@ pub enum BinResponse {
     GetHashes(GetHashesResponse),
     GetOutputIndexes(GetOutputIndexesResponse),
     GetOuts(GetOutsResponse),
-    GetTransactionPoolHashes(GetTransactionPoolHashesResponse),
     GetOutputDistribution(crate::json::GetOutputDistributionResponse),
-}
-
-//---------------------------------------------------------------------------------------------------- Tests
-#[cfg(test)]
-mod test {
-    // use super::*;
 }

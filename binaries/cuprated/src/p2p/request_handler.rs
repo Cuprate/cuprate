@@ -183,6 +183,7 @@ async fn get_objects(
 
     let BlockchainResponse::BlockCompleteEntries {
         blocks,
+        output_indices: _,
         missing_hashes,
         blockchain_height,
     } = blockchain_read_handle

@@ -118,6 +118,11 @@ async fn run_rpc_server(
     // - enable aliases automatically `other_get_height` + `other_getheight`?
     let router = RouterBuilder::new()
         .json_rpc()
+        .bin_get_hashes()
+        .bin_gethashes()
+        .bin_get_blocks()
+        .bin_getblocks()
+        .bin_get_transaction_pool_hashes()
         .other_get_height()
         .other_send_raw_transaction()
         .other_sendrawtransaction()
@@ -125,14 +130,19 @@ async fn run_rpc_server(
         .build()
         .with_state(rpc_handler);
 
-    // Add restrictive layers if restricted RPC.
-    //
-    // TODO: <https://github.com/Cuprate/cuprate/issues/445>
-    let router = if request_byte_limit != 0 {
-        router.layer(RequestBodyLimitLayer::new(request_byte_limit))
-    } else {
-        router
-    };
+    /*
+       // Add restrictive layers if restricted RPC.
+       //
+       // TODO: <https://github.com/Cuprate/cuprate/issues/445>
+       let router = if request_byte_limit != 0 {
+           router.layer(RequestBodyLimitLayer::new(request_byte_limit))
+       } else {
+           router
+       };
+
+
+    */
+    let router = router.layer(tower_http::trace::TraceLayer::new_for_http());
 
     // Start the server.
     //

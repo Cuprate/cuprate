@@ -134,9 +134,3 @@ generate_endpoints_with_no_input! {
     get_net_stats => GetNetStats,
     get_transaction_pool_hashes => GetTransactionPoolHashes
 }
-
-//---------------------------------------------------------------------------------------------------- Tests
-#[cfg(test)]
-mod test {
-    // use super::*;
-}

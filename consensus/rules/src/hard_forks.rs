@@ -41,6 +41,14 @@ pub struct HFInfo {
     threshold: usize,
 }
 impl HFInfo {
+    pub const fn height(&self) -> usize {
+        self.height
+    }
+
+    pub const fn threshold(&self) -> usize {
+        self.threshold
+    }
+
     pub const fn new(height: usize, threshold: usize) -> Self {
         Self { height, threshold }
     }

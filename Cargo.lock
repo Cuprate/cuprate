@@ -1135,6 +1135,7 @@ dependencies = [
  "monero-oxide",
  "randomx-rs",
  "rayon",
+ "strum",
  "thiserror 2.0.18",
  "thread_local",
  "tokio",
@@ -6559,6 +6560,7 @@ dependencies = [
  "pin-project-lite",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]
