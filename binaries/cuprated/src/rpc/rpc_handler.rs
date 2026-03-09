@@ -148,10 +148,8 @@ pub enum BlockchainManagerResponse {
 }
 
 /// TODO: use real type when public.
-pub type BlockchainManagerHandle = cuprate_database_service::DatabaseReadService<
-    BlockchainManagerRequest,
-    BlockchainManagerResponse,
->;
+pub type BlockchainManagerHandle =
+    tower::util::BoxService<BlockchainManagerRequest, BlockchainManagerResponse, Error>;
 
 /// cuprated's RPC handler service.
 #[derive(Clone)]

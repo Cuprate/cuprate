@@ -2,15 +2,13 @@
     unused_crate_dependencies,
     reason = "binary shares same Cargo.toml as library"
 )]
-
-use std::fs::write;
+use std::{fs::write, sync::Arc};
 
 use clap::Parser;
+use futures::TryStreamExt;
 use tower::{Service, ServiceExt};
 
-use cuprate_blockchain::{
-    config::ConfigBuilder, cuprate_database::DbResult, service::BlockchainReadHandle,
-};
+use cuprate_blockchain::{config::Config, service::BlockchainReadHandle, DbResult};
 use cuprate_hex::Hex;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
@@ -18,6 +16,7 @@ use cuprate_types::{
 };
 
 use cuprate_fast_sync::FAST_SYNC_BATCH_LEN;
+use cuprate_helper::fs::CUPRATE_DATA_DIR;
 
 async fn read_batch(
     handle: &mut BlockchainReadHandle,
@@ -47,28 +46,43 @@ struct Args {
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
+    tracing_subscriber::fmt().init();
+
     let height_target = args.height;
 
-    let config = ConfigBuilder::new().build();
+    // TODO: use the cuprated config here?
+    let config = Config::default();
 
-    let (mut read_handle, _, _) = cuprate_blockchain::service::init(config).unwrap();
+    let fjall_dir = CUPRATE_DATA_DIR.to_path_buf().join("fjall");
 
-    let mut hashes_of_hashes = Vec::new();
+    let fjall = fjall::Database::builder(fjall_dir).open().unwrap();
 
-    let mut height = 0_usize;
+    let thread_pool = Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap());
 
-    while (height + FAST_SYNC_BATCH_LEN) < height_target {
-        if let Ok(block_ids) = read_batch(&mut read_handle, height).await {
-            let hash = hash_of_hashes(block_ids.as_slice());
-            hashes_of_hashes.push(Hex(hash));
-        } else {
-            println!("Failed to read next batch from database");
-            break;
-        }
-        height += FAST_SYNC_BATCH_LEN;
+    let (read_handle, _, _) =
+        cuprate_blockchain::service::init_with_pool(&config, fjall, thread_pool).unwrap();
 
-        println!("height: {height}");
-    }
+    let time = std::time::Instant::now();
+
+    let fut = (0..height_target)
+        .step_by(FAST_SYNC_BATCH_LEN)
+        .map(|height| {
+            let mut read_handle = read_handle.clone();
+            async move {
+                println!("height: {height}");
+
+                if let Ok(block_ids) = read_batch(&mut read_handle, height).await {
+                    let hash = hash_of_hashes(block_ids.as_slice());
+                    Ok(Hex(hash))
+                } else {
+                    println!("Failed to read next batch from database");
+                    Err("Failed to read next batch from database")
+                }
+            }
+        })
+        .collect::<futures::stream::FuturesUnordered<_>>();
+
+    let hashes_of_hashes = fut.try_collect::<Vec<_>>().await.unwrap();
 
     drop(read_handle);
 
@@ -78,7 +92,11 @@ async fn main() {
     )
     .unwrap();
 
-    println!("Generated hashes up to block height {height}");
+    println!(
+        "Generated hashes up to block height {} in {} milliseconds.",
+        hashes_of_hashes.len() * FAST_SYNC_BATCH_LEN,
+        time.elapsed().as_millis()
+    );
 }
 
 pub fn hash_of_hashes(hashes: &[[u8; 32]]) -> [u8; 32] {

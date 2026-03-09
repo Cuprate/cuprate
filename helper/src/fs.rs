@@ -163,7 +163,7 @@ impl_path_lazylock! {
 /// Joins the [`Network`] to the [`Path`].
 ///
 /// This will keep the path the same for [`Network::Mainnet`].
-fn path_with_network(path: &Path, network: Network) -> PathBuf {
+pub fn path_with_network(path: &Path, network: Network) -> PathBuf {
     match network {
         Network::Mainnet => path.to_path_buf(),
         Network::Testnet | Network::Stagenet => path.join(network.to_string()),
