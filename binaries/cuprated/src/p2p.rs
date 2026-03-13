@@ -105,7 +105,6 @@ pub async fn initialize_clearnet_p2p(
     txpool_read_handle: TxpoolReadHandle,
     tor_ctx: &TorContext,
     peer_sync_callback: PeerSyncCallback,
-    sync_wake: Arc<Notify>,
 ) -> (NetworkInterface<ClearNet>, Sender<IncomingTxHandler>) {
     match config.p2p.clear_net.proxy {
         ProxySettings::Tor => match tor_ctx.mode {
@@ -119,7 +118,6 @@ pub async fn initialize_clearnet_p2p(
                     config.clearnet_p2p_config(),
                     transport_clearnet_arti_config(tor_ctx),
                     Some(peer_sync_callback.clone()),
-                    Some(Arc::clone(&sync_wake)),
                 )
                 .await
                 .unwrap()
@@ -131,7 +129,6 @@ pub async fn initialize_clearnet_p2p(
                 config.clearnet_p2p_config(),
                 transport_clearnet_daemon_config(config),
                 Some(peer_sync_callback.clone()),
-                Some(Arc::clone(&sync_wake)),
             )
             .await
             .unwrap(),
@@ -146,7 +143,6 @@ pub async fn initialize_clearnet_p2p(
                     config.clearnet_p2p_config(),
                     config.p2p.clear_net.tcp_transport_config(config.network),
                     Some(peer_sync_callback.clone()),
-                    Some(Arc::clone(&sync_wake)),
                 )
                 .await
                 .unwrap()
@@ -161,7 +157,6 @@ pub async fn initialize_clearnet_p2p(
                         server_config: None,
                     },
                     Some(peer_sync_callback.clone()),
-                    Some(Arc::clone(&sync_wake)),
                 )
                 .await
                 .unwrap()
@@ -187,7 +182,6 @@ pub async fn start_tor_p2p(
             config.tor_p2p_config(&tor_ctx),
             transport_daemon_config(config),
             None,
-            None,
         )
         .await
         .unwrap(),
@@ -198,7 +192,6 @@ pub async fn start_tor_p2p(
             txpool_read_handle,
             config.tor_p2p_config(&tor_ctx),
             transport_arti_config(config, tor_ctx),
-            None,
             None,
         )
         .await
@@ -218,7 +211,6 @@ pub async fn start_zone_p2p<N, T>(
     config: P2PConfig<N>,
     transport_config: TransportConfig<N, T>,
     peer_sync_callback: Option<PeerSyncCallback>,
-    sync_wake: Option<Arc<Notify>>,
 ) -> Result<(NetworkInterface<N>, Sender<IncomingTxHandler>), tower::BoxError>
 where
     N: NetworkZone,
@@ -232,7 +224,6 @@ where
         blockchain_read_handle,
         blockchain_context_service: blockchain_context_service.clone(),
         txpool_read_handle,
-        sync_wake,
         incoming_tx_handler: None,
         incoming_tx_handler_fut: incoming_tx_handler_rx.shared(),
     };

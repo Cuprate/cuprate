@@ -18,7 +18,7 @@
 
 use std::sync::Arc;
 
-use tokio::sync::{mpsc, oneshot, watch, Notify};
+use tokio::sync::{mpsc, oneshot};
 
 use cuprate_p2p_core::client::PeerSyncCallback;
 use tower::{Service, ServiceExt};
@@ -35,8 +35,8 @@ use cuprate_types::blockchain::BlockchainWriteRequest;
 use txpool::IncomingTxHandler;
 
 use crate::{
-    config::Config, constants::PANIC_CRITICAL_SERVICE_ERROR, logging::CupratedTracingFilter,
-    tor::initialize_tor_if_enabled,
+    blockchain::SyncNotify, config::Config, constants::PANIC_CRITICAL_SERVICE_ERROR,
+    logging::CupratedTracingFilter, tor::initialize_tor_if_enabled,
 };
 
 mod blockchain;
@@ -125,24 +125,20 @@ fn main() {
         let tor_enabled = config.p2p.tor_net.enabled;
 
         // Shared state for syncer and peer sync callback.
-        let sync_wake = Arc::new(Notify::new());
-        let (synced_tx, mut synced_rx) = watch::channel(false);
+        let (sync_notify, syncer_handle) = SyncNotify::new();
 
         // Create the peer sync callback, shared between P2P and the blockchain syncer.
         let peer_sync_callback = {
-            let context_svc = context_svc.clone();
-            let sync_wake = Arc::clone(&sync_wake);
-            let synced_rx = synced_tx.subscribe();
+            let mut context_svc = context_svc.clone();
+            let sync_notify = sync_notify.clone();
             PeerSyncCallback::new(move |peer_csd| {
-                if !blockchain::interface::is_block_being_handled(&peer_csd.top_id)
-                    && (!*synced_rx.borrow()
-                        || peer_csd.cumulative_difficulty()
-                            > context_svc
-                                .blockchain_context_snapshot()
-                                .cumulative_difficulty)
-                {
-                    sync_wake.notify_one();
-                }
+                let ctx = context_svc.blockchain_context_snapshot().clone();
+
+                sync_notify.check_wake_waiters(
+                    ctx.cumulative_difficulty,
+                    ctx.chain_height,
+                    peer_csd,
+                );
             })
         };
 
@@ -154,7 +150,6 @@ fn main() {
             txpool_read_handle.clone(),
             &tor_context,
             peer_sync_callback.clone(),
-            Arc::clone(&sync_wake),
         )
         .await;
 
@@ -189,8 +184,7 @@ fn main() {
             tx_handler.txpool_manager.clone(),
             context_svc.clone(),
             config.block_downloader_config(),
-            sync_wake,
-            synced_tx,
+            syncer_handle,
         )
         .await;
 
@@ -211,10 +205,11 @@ fn main() {
 
             tokio::spawn(async move {
                 // Wait for the node to synchronize with the network
-                if synced_rx.wait_for(|&synced| synced).await.is_err() {
-                    tracing::warn!("Tor P2P zone will not start: syncer exited early.");
+                if sync_notify.wait_for_synced().await.is_err() {
+                    tracing::info!("Not starting Tor P2P zone, syncer stopped");
                     return;
                 }
+
                 tracing::info!("Starting Tor P2P zone.");
 
                 let (tor_interface, tor_tx_handler_tx) = p2p::start_tor_p2p(

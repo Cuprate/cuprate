@@ -60,9 +60,6 @@ pub struct P2pProtocolRequestHandlerMaker {
     pub blockchain_context_service: BlockchainContextService,
     pub txpool_read_handle: TxpoolReadHandle,
 
-    /// Notified when an orphan block is received, to wake the syncer.
-    pub sync_wake: Option<Arc<Notify>>,
-
     /// The [`IncomingTxHandler`], wrapped in an [`Option`] as there is a cyclic reference between [`P2pProtocolRequestHandlerMaker`]
     /// and the [`IncomingTxHandler`].
     pub incoming_tx_handler: Option<IncomingTxHandler>,
@@ -109,7 +106,6 @@ where
             blockchain_context_service: self.blockchain_context_service.clone(),
             txpool_read_handle,
             incoming_tx_handler,
-            sync_wake: self.sync_wake.clone(),
         }))
     }
 }
@@ -122,7 +118,6 @@ pub struct P2pProtocolRequestHandler<N: NetZoneAddress> {
     blockchain_context_service: BlockchainContextService,
     txpool_read_handle: TxpoolReadHandle,
     incoming_tx_handler: IncomingTxHandler,
-    sync_wake: Option<Arc<Notify>>,
 }
 
 impl<A: NetZoneAddress> Service<ProtocolRequest> for P2pProtocolRequestHandler<A>
@@ -158,7 +153,6 @@ where
                 self.blockchain_read_handle.clone(),
                 self.blockchain_context_service.clone(),
                 self.txpool_read_handle.clone(),
-                self.sync_wake.clone(),
             )
             .boxed(),
             ProtocolRequest::NewTransactions(r) => new_transactions(
@@ -308,7 +302,6 @@ async fn new_fluffy_block<A: NetZoneAddress>(
     mut blockchain_read_handle: BlockchainReadHandle,
     mut blockchain_context_service: BlockchainContextService,
     mut txpool_read_handle: TxpoolReadHandle,
-    sync_wake: Option<Arc<Notify>>,
 ) -> anyhow::Result<ProtocolResponse> {
     let current_blockchain_height = request.current_blockchain_height;
 
@@ -375,9 +368,6 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         ),
         Err(IncomingBlockError::Orphan) => {
             // Block's parent was unknown, could be syncing?
-            if let Some(sync_wake) = &sync_wake {
-                sync_wake.notify_one();
-            }
             Ok(ProtocolResponse::NA)
         }
         Err(e) => Err(e.into()),

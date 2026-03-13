@@ -37,13 +37,13 @@ mod handler;
 #[cfg(test)]
 mod tests;
 
+use crate::blockchain::syncer::{SyncNotify, SyncerHandle};
 pub use commands::{BlockchainManagerCommand, IncomingBlockOk};
 
 /// Initialize the blockchain manager.
 ///
 /// This function sets up the [`BlockchainManager`] and the [`syncer`] so that the functions in [`interface`](super::interface)
 /// can be called.
-#[expect(clippy::too_many_arguments)]
 pub async fn init_blockchain_manager(
     clearnet_interface: NetworkInterface<ClearNet>,
     blockchain_write_handle: BlockchainWriteHandle,
@@ -51,8 +51,7 @@ pub async fn init_blockchain_manager(
     txpool_manager_handle: TxpoolManagerHandle,
     mut blockchain_context_service: BlockchainContextService,
     block_downloader_config: BlockDownloaderConfig,
-    sync_wake: Arc<Notify>,
-    synced: watch::Sender<bool>,
+    syncer_handle: SyncerHandle,
 ) {
     // TODO: find good values for these size limits
     let (batch_tx, batch_rx) = mpsc::channel(1);
@@ -68,8 +67,7 @@ pub async fn init_blockchain_manager(
         batch_tx,
         Arc::clone(&stop_current_block_downloader),
         block_downloader_config,
-        sync_wake,
-        synced,
+        syncer_handle,
     ));
 
     let manager = BlockchainManager {
