@@ -32,7 +32,7 @@ use cuprate_types::blockchain::BlockchainWriteRequest;
 use txpool::IncomingTxHandler;
 
 use crate::{
-    config::Config,
+    config::Config,blockchain::SyncNotify,
     constants::{DATABASE_CORRUPT_MSG, PANIC_CRITICAL_SERVICE_ERROR},
     logging::CupratedTracingFilter,
     tor::initialize_tor_if_enabled,
@@ -132,6 +132,9 @@ fn main() {
         let tor_context = initialize_tor_if_enabled(&config).await;
         let tor_enabled = config.p2p.tor_net.enabled;
 
+        // Create the sync notifier and handle.
+        let (sync_notify, syncer_handle) = SyncNotify::new();
+
         // Start clearnet P2P zone
         let (clearnet_interface, clearnet_tx_handler_subscriber) = p2p::initialize_clearnet_p2p(
             &config,
@@ -139,6 +142,7 @@ fn main() {
             blockchain_read_handle.clone(),
             txpool_read_handle.clone(),
             &tor_context,
+            sync_notify.callback(context_svc.clone()),
         )
         .await;
 
@@ -166,13 +170,14 @@ fn main() {
         }
 
         // Initialize the blockchain manager.
-        let synced_notify = blockchain::init_blockchain_manager(
+        blockchain::init_blockchain_manager(
             clearnet_interface,
             blockchain_write_handle,
             blockchain_read_handle.clone(),
             tx_handler.txpool_manager.clone(),
             context_svc.clone(),
             config.block_downloader_config(),
+            syncer_handle,
         )
         .await;
 
@@ -193,7 +198,10 @@ fn main() {
 
             tokio::spawn(async move {
                 // Wait for the node to synchronize with the network
-                synced_notify.notified().await;
+                if sync_notify.wait_for_synced().await.is_err() {
+                    tracing::info!("Not starting Tor P2P zone, syncer stopped");
+                    return;
+                }
                 tracing::info!("Starting Tor P2P zone.");
 
                 let (tor_interface, tor_tx_handler_tx) = p2p::start_tor_p2p(
