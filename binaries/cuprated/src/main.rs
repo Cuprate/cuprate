@@ -16,10 +16,9 @@
     reason = "TODO: remove after v1.0.0"
 )]
 
-use std::sync::Arc;
+use {mem, std::sync::Arc};
 
 use tokio::sync::{mpsc, oneshot};
-
 use tower::{Service, ServiceExt};
 use tracing::{error, info, level_filters::LevelFilter};
 use tracing_subscriber::{layer::SubscriberExt, reload::Handle, util::SubscriberInitExt, Registry};
