@@ -16,7 +16,7 @@ use crate::{
         BlockDownloadError, ChainSvcRequest, ChainSvcResponse,
     },
     constants::{
-        BLOCK_DOWNLOADER_REQUEST_TIMEOUT, INITIAL_CHAIN_REQUESTS_TO_SEND,
+        INITIAL_CHAIN_REQUESTS_TO_SEND, INITIAL_CHAIN_SEARCH_TIMEOUT,
         MAX_BLOCKS_IDS_IN_CHAIN_ENTRY, MEDIUM_BAN,
     },
     peer_set::{ClientDropGuard, PeerSetRequest, PeerSetResponse},
@@ -129,7 +129,7 @@ where
 
         let cloned_req = req.clone();
         futs.spawn(timeout(
-            BLOCK_DOWNLOADER_REQUEST_TIMEOUT,
+            INITIAL_CHAIN_SEARCH_TIMEOUT,
             async move {
                 let PeerResponse::Protocol(ProtocolResponse::GetChain(chain_res)) =
                     next_peer.ready().await?.call(cloned_req).await?

@@ -46,7 +46,6 @@ pub struct HandshakerBuilder<
     broadcast_stream_maker: BrdcstStrmMkr,
     /// The [`Span`] that will set as the parent to the connection [`Span`].
     connection_parent_span: Option<Span>,
-
     /// Called with a peer's [`CoreSyncData`].
     on_peer_sync: Option<PeerSyncCallback>,
 

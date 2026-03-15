@@ -1,5 +1,5 @@
 use std::{
-    fmt::{Display, Formatter},
+    fmt::{Debug, Display, Formatter},
     sync::{Arc, Mutex},
     task::{ready, Context, Poll},
 };

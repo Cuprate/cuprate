@@ -1,7 +1,7 @@
-use std::sync::Arc;
+use std::{future::Future, sync::Arc};
 
-use futures::StreamExt;
-use tokio::sync::{mpsc, watch, Notify, OwnedSemaphorePermit, Semaphore};
+use futures::{FutureExt, StreamExt};
+use tokio::sync::{mpsc, Notify, OwnedSemaphorePermit, Semaphore};
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
@@ -11,7 +11,9 @@ use cuprate_p2p::{
     block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
     NetworkInterface, PeerSetRequest, PeerSetResponse,
 };
-use cuprate_p2p_core::{ClearNet, NetworkZone};
+use cuprate_p2p_core::{client::PeerSyncCallback, ClearNet, CoreSyncData, NetworkZone};
+
+use super::interface::is_block_being_handled;
 
 /// An error returned from the [`syncer`].
 #[derive(Debug, thiserror::Error)]
@@ -22,9 +24,9 @@ pub enum SyncerError {
     ServiceError(#[from] tower::BoxError),
 }
 
-/// The syncer tasks that makes sure we are fully synchronised with our connected peers.
+/// The syncer task that makes sure we are fully synchronised with our connected peers.
 #[instrument(level = "debug", skip_all)]
-#[expect(clippy::significant_drop_tightening, clippy::too_many_arguments)]
+#[expect(clippy::significant_drop_tightening)]
 pub async fn syncer<CN>(
     mut context_svc: BlockchainContextService,
     our_chain: CN,
@@ -32,8 +34,7 @@ pub async fn syncer<CN>(
     incoming_block_batch_tx: mpsc::Sender<(BlockBatch, Arc<OwnedSemaphorePermit>)>,
     stop_current_block_downloader: Arc<Notify>,
     block_downloader_config: BlockDownloaderConfig,
-    sync_wake: Arc<Notify>,
-    synced: watch::Sender<bool>,
+    mut syncer_handle: SyncerHandle,
 ) -> Result<(), SyncerError>
 where
     CN: Service<
@@ -51,13 +52,24 @@ where
     tracing::info!("Starting blockchain syncer");
 
     loop {
-        wait_until_behind(
-            &mut context_svc,
-            &mut clearnet_interface,
-            &sync_wake,
-            &synced,
-        )
-        .await?;
+        syncer_handle.notify_syncer.notified().await;
+
+        let blockchain_context = context_svc.blockchain_context();
+
+        match check_sync_status(blockchain_context, &mut clearnet_interface).await? {
+            SyncStatus::BehindPeers => {}
+            SyncStatus::NoPeers => continue,
+            SyncStatus::Synced => {
+                if let Some(synced) = syncer_handle.synced_tx.take() {
+                    tracing::info!("Synchronised with the network.");
+                    #[expect(clippy::let_underscore_must_use)]
+                    let _ = synced.send(());
+                }
+                continue;
+            }
+        }
+
+        tracing::debug!("Starting block downloader");
 
         let mut block_batch_stream =
             clearnet_interface.block_downloader(our_chain.clone(), block_downloader_config);
@@ -78,6 +90,17 @@ where
                         // have been handled before checking if we are synced.
                         drop(sync_permit);
                         sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
+
+                        let blockchain_context = context_svc.blockchain_context();
+
+                        if check_sync_status(blockchain_context, &mut clearnet_interface).await? == SyncStatus::Synced {
+                            tracing::info!("Synchronised with the network.");
+                            if let Some(synced) = syncer_handle.synced_tx.take() {
+                                #[expect(clippy::let_underscore_must_use)]
+                                let _ = synced.send(());
+                            }
+                        }
+
                         break;
                     };
 
@@ -91,45 +114,11 @@ where
     }
 }
 
-/// Waits until we are behind our peers and need to download blocks.
-async fn wait_until_behind(
-    context_svc: &mut BlockchainContextService,
-    clearnet_interface: &mut NetworkInterface<ClearNet>,
-    sync_wake: &Notify,
-    synced: &watch::Sender<bool>,
-) -> Result<(), tower::BoxError> {
-    loop {
-        tracing::trace!("Checking connected peers to see if we are behind.");
-        let status =
-            check_sync_status(context_svc.blockchain_context(), clearnet_interface).await?;
-        match status {
-            SyncStatus::BehindPeers => {
-                tracing::debug!("Starting block downloader");
-                return Ok(());
-            }
-            SyncStatus::Synced | SyncStatus::AheadOfPeers => {
-                if !*synced.borrow() && status == SyncStatus::Synced {
-                    tracing::info!("Synchronised with the network.");
-                    synced.send_replace(true);
-                }
-                tracing::debug!("Parking syncer.");
-                sync_wake.notified().await;
-            }
-            SyncStatus::NoPeers => {
-                tracing::debug!("Waiting for peers to connect.");
-                synced.send_replace(false);
-                sync_wake.notified().await;
-            }
-        }
-    }
-}
-
 #[derive(Debug, PartialEq)]
 enum SyncStatus {
     NoPeers,
     BehindPeers,
     Synced,
-    AheadOfPeers,
 }
 
 /// Checks if we are behind the connected peers.
@@ -154,11 +143,75 @@ async fn check_sync_status(
         return Ok(SyncStatus::NoPeers);
     }
 
-    Ok(
-        match cumulative_difficulty.cmp(&blockchain_context.cumulative_difficulty) {
-            std::cmp::Ordering::Greater => SyncStatus::BehindPeers,
-            std::cmp::Ordering::Less => SyncStatus::AheadOfPeers,
-            std::cmp::Ordering::Equal => SyncStatus::Synced,
-        },
-    )
+    if cumulative_difficulty > blockchain_context.cumulative_difficulty {
+        return Ok(SyncStatus::BehindPeers);
+    }
+
+    Ok(SyncStatus::Synced)
+}
+
+/// The handle for the blockchain syncer.
+pub struct SyncerHandle {
+    /// The syncer notify channel, used to wake the syncer.
+    notify_syncer: Arc<Notify>,
+    /// The synced notify channel, used to wake the tasks waiting on cuprate to be synced.
+    synced_tx: Option<futures::channel::oneshot::Sender<()>>,
+}
+
+/// Notifications for sync state.
+#[derive(Clone)]
+pub struct SyncNotify {
+    /// The syncer notify channel, used to wake the syncer.
+    notify_syncer: Arc<Notify>,
+    /// The synced notify channel, used to wake the tasks waiting on cuprate to be synced.
+    synced: futures::future::Shared<futures::channel::oneshot::Receiver<()>>,
+}
+
+impl SyncNotify {
+    /// Creates a new [`SyncNotify`] with the corresponding handle for the syncer.
+    pub fn new() -> (Self, SyncerHandle) {
+        let notify_syncer = Arc::new(Notify::new());
+        let (synced_tx, synced_rx) = futures::channel::oneshot::channel();
+
+        (
+            Self {
+                notify_syncer: Arc::clone(&notify_syncer),
+                synced: synced_rx.shared(),
+            },
+            SyncerHandle {
+                notify_syncer,
+                synced_tx: Some(synced_tx),
+            },
+        )
+    }
+
+    /// Creates a [`PeerSyncCallback`] that filters and wakes the syncer.
+    pub fn callback(&self, context_svc: BlockchainContextService) -> PeerSyncCallback {
+        let this = self.clone();
+        PeerSyncCallback::new(move |peer_csd: &CoreSyncData| {
+            let ctx = context_svc.blockchain_context_snapshot();
+
+            // If we are synced and the syncer hasn't yet set the node to synced, wake the syncer.
+            if peer_csd.cumulative_difficulty() == ctx.cumulative_difficulty
+                && this.synced.peek().is_none()
+            {
+                this.notify_syncer.notify_one();
+            }
+
+            // If we are behind the peer, and we aren't just one block behind with the blockchain manager handling the block, wake the syncer.
+            if peer_csd.cumulative_difficulty() > ctx.cumulative_difficulty
+                && !(peer_csd.current_height.saturating_sub(1) == ctx.chain_height as u64
+                    && is_block_being_handled(&peer_csd.top_id))
+            {
+                this.notify_syncer.notify_one();
+            }
+        })
+    }
+
+    /// A future that resolves when cuprate has synced with the network.
+    pub fn wait_for_synced(
+        &self,
+    ) -> impl Future<Output = Result<(), futures::channel::oneshot::Canceled>> + 'static {
+        self.synced.clone()
+    }
 }

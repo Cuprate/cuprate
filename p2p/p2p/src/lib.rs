@@ -15,7 +15,8 @@ use tracing::{instrument, Instrument, Span};
 
 use cuprate_async_buffer::BufferStream;
 use cuprate_p2p_core::{
-    client::{Connector, PeerSyncCallback},
+    client::Connector,
+    client::PeerSyncCallback,
     services::{AddressBookRequest, AddressBookResponse},
     CoreSyncSvc, NetworkZone, ProtocolRequestHandlerMaker, Transport,
 };
