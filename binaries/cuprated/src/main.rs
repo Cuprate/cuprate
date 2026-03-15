@@ -16,7 +16,7 @@
     reason = "TODO: remove after v1.0.0"
 )]
 
-use {mem, std::sync::Arc};
+use std::{mem, sync::Arc};
 
 use tokio::sync::{mpsc, oneshot};
 use tower::{Service, ServiceExt};
