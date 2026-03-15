@@ -11,7 +11,7 @@ use futures::{
     FutureExt,
 };
 use monero_oxide::{block::Block, transaction::Transaction};
-use tokio::sync::{broadcast, oneshot, watch};
+use tokio::sync::{broadcast, mpsc, oneshot, watch};
 use tokio_stream::wrappers::WatchStream;
 use tower::{Service, ServiceExt};
 use tracing::instrument;

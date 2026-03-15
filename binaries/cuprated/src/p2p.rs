@@ -7,21 +7,25 @@ use std::{convert::From, str::FromStr};
 use anyhow::anyhow;
 use futures::{FutureExt, TryFutureExt};
 use serde::{Deserialize, Serialize};
-use tokio::sync::oneshot::{self, Sender};
+use tokio::sync::{
+    mpsc,
+    oneshot::{self, Sender},
+};
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::BlockchainContextService;
 use cuprate_p2p::{config::TransportConfig, NetworkInterface, P2PConfig};
 use cuprate_p2p_core::{
-    client::InternalPeerID, transports::Tcp, ClearNet, NetworkZone, Tor, Transport,
+    client::{InternalPeerID, PeerSyncCallback},
+    transports::Tcp,
+    ClearNet, NetworkZone, Tor, Transport,
 };
 use cuprate_p2p_transport::{Daemon, Socks, SocksClientConfig};
 use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
 use cuprate_types::blockchain::BlockchainWriteRequest;
 
 use crate::{
-    blockchain,
     config::Config,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     tor::{transport_clearnet_daemon_config, transport_daemon_config, TorContext, TorMode},
@@ -99,6 +103,7 @@ pub async fn initialize_clearnet_p2p(
     blockchain_read_handle: BlockchainReadHandle,
     txpool_read_handle: TxpoolReadHandle,
     tor_ctx: &TorContext,
+    peer_sync_callback: PeerSyncCallback,
 ) -> (NetworkInterface<ClearNet>, Sender<IncomingTxHandler>) {
     match config.p2p.clear_net.proxy {
         ProxySettings::Tor => match tor_ctx.mode {
@@ -111,6 +116,7 @@ pub async fn initialize_clearnet_p2p(
                     txpool_read_handle,
                     config.clearnet_p2p_config(),
                     transport_clearnet_arti_config(tor_ctx),
+                    Some(peer_sync_callback.clone()),
                 )
                 .await
                 .unwrap()
@@ -121,6 +127,7 @@ pub async fn initialize_clearnet_p2p(
                 txpool_read_handle,
                 config.clearnet_p2p_config(),
                 transport_clearnet_daemon_config(config),
+                Some(peer_sync_callback.clone()),
             )
             .await
             .unwrap(),
@@ -134,6 +141,7 @@ pub async fn initialize_clearnet_p2p(
                     txpool_read_handle,
                     config.clearnet_p2p_config(),
                     config.p2p.clear_net.tcp_transport_config(config.network),
+                    Some(peer_sync_callback.clone()),
                 )
                 .await
                 .unwrap()
@@ -147,6 +155,7 @@ pub async fn initialize_clearnet_p2p(
                         client_config: socks_proxy_str_to_config(s).unwrap(),
                         server_config: None,
                     },
+                    Some(peer_sync_callback.clone()),
                 )
                 .await
                 .unwrap()
@@ -171,6 +180,7 @@ pub async fn start_tor_p2p(
             txpool_read_handle,
             config.tor_p2p_config(&tor_ctx),
             transport_daemon_config(config),
+            None,
         )
         .await
         .unwrap(),
@@ -181,6 +191,7 @@ pub async fn start_tor_p2p(
             txpool_read_handle,
             config.tor_p2p_config(&tor_ctx),
             transport_arti_config(config, tor_ctx),
+            None,
         )
         .await
         .unwrap(),
@@ -198,6 +209,7 @@ pub async fn start_zone_p2p<N, T>(
     txpool_read_handle: TxpoolReadHandle,
     config: P2PConfig<N>,
     transport_config: TransportConfig<N, T>,
+    peer_sync_callback: Option<PeerSyncCallback>,
 ) -> Result<(NetworkInterface<N>, Sender<IncomingTxHandler>), tower::BoxError>
 where
     N: NetworkZone,
@@ -221,6 +233,7 @@ where
             core_sync_service::CoreSyncService(blockchain_context_service),
             config,
             transport_config,
+            peer_sync_callback,
         )
         .await?,
         incoming_tx_handler_tx,
