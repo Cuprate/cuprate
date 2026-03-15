@@ -32,7 +32,8 @@ use cuprate_types::blockchain::BlockchainWriteRequest;
 use txpool::IncomingTxHandler;
 
 use crate::{
-    config::Config,blockchain::SyncNotify,
+    blockchain::SyncNotify,
+    config::Config,
     constants::{DATABASE_CORRUPT_MSG, PANIC_CRITICAL_SERVICE_ERROR},
     logging::CupratedTracingFilter,
     tor::initialize_tor_if_enabled,
