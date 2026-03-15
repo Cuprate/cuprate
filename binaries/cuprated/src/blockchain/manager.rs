@@ -102,7 +102,7 @@ pub struct BlockchainManager {
     /// The blockchain context cache, this caches the current state of the blockchain to quickly calculate/retrieve
     /// values without needing to go to a [`BlockchainReadHandle`].
     blockchain_context_service: BlockchainContextService,
-    /// A [`Notify`] to tell the [`Syncer`](syncer::Syncer) that we want to cancel this current download
+    /// A [`Notify`] to tell the [`syncer`](syncer::syncer) that we want to cancel this current download
     /// attempt.
     stop_current_block_downloader: Arc<Notify>,
     /// The broadcast service, to broadcast new blocks.
