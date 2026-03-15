@@ -24,7 +24,7 @@ pub enum SyncerError {
     ServiceError(#[from] tower::BoxError),
 }
 
-/// The syncer task that makes sure we are fully synchronised with our connected peers.
+/// The syncer tasks that makes sure we are fully synchronised with our connected peers.
 #[instrument(level = "debug", skip_all)]
 #[expect(clippy::significant_drop_tightening)]
 pub async fn syncer<CN>(
@@ -46,13 +46,16 @@ where
         + 'static,
     CN::Future: Send + 'static,
 {
+    tracing::info!("Starting blockchain syncer");
+    tracing::debug!("Waiting for new sync info in top sync channel");
+
     let semaphore = Arc::new(Semaphore::new(1));
     let mut sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
 
-    tracing::info!("Starting blockchain syncer");
-
     loop {
         syncer_handle.notify_syncer.notified().await;
+
+        tracing::trace!("Checking connected peers to see if we are behind",);
 
         let blockchain_context = context_svc.blockchain_context();
 
@@ -69,8 +72,9 @@ where
             }
         }
 
-        tracing::debug!("Starting block downloader");
-
+        tracing::debug!(
+            "We are behind peers claimed cumulative difficulty, starting block downloader"
+        );
         let mut block_batch_stream =
             clearnet_interface.block_downloader(our_chain.clone(), block_downloader_config);
 
