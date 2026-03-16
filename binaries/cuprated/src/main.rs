@@ -40,7 +40,7 @@ fn main() {
 
     rt.block_on(async move {
         // Start the node.
-        let cuprated::CuprateNode { context_svc, .. } = cuprated::start(config).await;
+        let cuprated::Node { context_svc, .. } = cuprated::Node::launch(config).await;
 
         // Start the command listener.
         if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
