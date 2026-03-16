@@ -164,15 +164,15 @@ pub struct SyncerHandle {
 
 /// Notifications for sync state.
 #[derive(Clone)]
-pub struct SyncNotify {
+pub struct SyncState {
     /// The syncer notify channel, used to wake the syncer.
     notify_syncer: Arc<Notify>,
     /// The synced notify channel, used to wake the tasks waiting on cuprate to be synced.
     synced: futures::future::Shared<futures::channel::oneshot::Receiver<()>>,
 }
 
-impl SyncNotify {
-    /// Creates a new [`SyncNotify`] with the corresponding handle for the syncer.
+impl SyncState {
+    /// Creates a new [`SyncState`] with the corresponding handle for the syncer.
     pub fn new() -> (Self, SyncerHandle) {
         let notify_syncer = Arc::new(Notify::new());
         let (synced_tx, synced_rx) = futures::channel::oneshot::channel();

@@ -13,7 +13,7 @@ use cuprate_consensus_context::{
 };
 use cuprate_helper::time::secs_to_hms;
 
-use crate::{
+use cuprated::{
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     logging::{self, CupratedTracingFilter},
     statics,
@@ -136,7 +136,7 @@ pub async fn io_loop(
             }
             Command::PopBlocks { numb_blocks } => {
                 tracing::info!("Popping {numb_blocks} blocks.");
-                let res = crate::blockchain::interface::pop_blocks(numb_blocks).await;
+                let res = cuprated::blockchain::interface::pop_blocks(numb_blocks).await;
 
                 match res {
                     Ok(()) => println!("Popped {numb_blocks} blocks."),

@@ -28,7 +28,7 @@ mod types;
 
 pub use fast_sync::set_fast_sync_hashes;
 pub use manager::init_blockchain_manager;
-pub use syncer::SyncNotify;
+pub use syncer::SyncState;
 pub use types::ConsensusBlockchainReadHandle;
 
 /// Checks if the genesis block is in the blockchain and adds it if not.

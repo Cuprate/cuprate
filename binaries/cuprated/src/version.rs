@@ -37,6 +37,12 @@ pub struct CupratedVersionInfo {
     commit: &'static str,
 }
 
+impl Default for CupratedVersionInfo {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CupratedVersionInfo {
     /// Generate version info.
     pub fn new() -> Self {
