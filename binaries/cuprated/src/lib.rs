@@ -32,6 +32,7 @@
 )]
 
 pub mod blockchain;
+pub mod commands;
 pub mod config;
 pub mod constants;
 pub mod logging;
@@ -46,7 +47,7 @@ mod txpool;
 
 use std::sync::Arc;
 
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc, oneshot};
 use tower::{Service, ServiceExt};
 use tracing::{error, info};
 
@@ -86,6 +87,12 @@ pub struct Node {
 
     /// Sync state.
     pub sync: SyncState,
+
+    /// Send command strings to the node.
+    pub command_tx: mpsc::Sender<String>,
+
+    /// Receive command output strings.
+    pub command_output_rx: mpsc::Receiver<String>,
 }
 
 impl Node {
@@ -206,6 +213,21 @@ impl Node {
         // Tor interface channel - populated when Tor starts after sync.
         let (tor_tx, tor_rx) = oneshot::channel();
 
+        // Command handler.
+        let (command_tx, mut command_rx) = mpsc::channel::<String>(1);
+        let (output_tx, command_output_rx) = mpsc::channel::<String>(8);
+        let mut cmd_context_svc = context_svc.clone();
+
+        tokio::spawn(async move {
+            while let Some(line) = command_rx.recv().await {
+                let output = commands::handle_command(&line, &mut cmd_context_svc).await;
+                if output_tx.send(output).await.is_err() {
+                    break;
+                }
+            }
+            tracing::warn!("Command handler shut down.");
+        });
+
         // Create the node struct with cloned service handles for the caller.
         let node = Self {
             context_svc: context_svc.clone(),
@@ -214,6 +236,8 @@ impl Node {
             clearnet: clearnet_interface.clone(),
             tor: if tor_enabled { Some(tor_rx) } else { None },
             sync: sync_state.clone(),
+            command_tx,
+            command_output_rx,
         };
 
         // Initialize the blockchain manager.

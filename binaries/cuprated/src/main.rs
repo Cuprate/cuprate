@@ -1,6 +1,6 @@
 //! `cuprated` CLI binary.
 //!
-//! Wrapper around [`cuprated::start`] that handles argument parsing,
+//! Wrapper around [`cuprated::Node::launch`] that handles argument parsing,
 //! logging setup, and the interactive command listener.
 
 #![allow(
@@ -19,10 +19,11 @@
     reason = "TODO: remove after v1.0.0"
 )]
 
+use std::io::{self, IsTerminal};
+use std::{thread::sleep, time::Duration};
+
 use tokio::sync::mpsc;
 use tracing::info;
-
-mod commands;
 
 fn main() {
     // Set global private permissions for created files.
@@ -40,23 +41,63 @@ fn main() {
 
     rt.block_on(async move {
         // Start the node.
-        let cuprated::Node { context_svc, .. } = cuprated::Node::launch(config).await;
+        let cuprated::Node {
+            command_tx,
+            command_output_rx,
+            ..
+        } = cuprated::Node::launch(config).await;
 
-        // Start the command listener.
-        if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
-            let (command_tx, command_rx) = mpsc::channel(1);
-            std::thread::spawn(|| commands::command_listener(command_tx));
+        // Spawn a task to print command outputs received from the node.
+        let mut output_rx = command_output_rx;
+        tokio::spawn(async move {
+            while let Some(output) = output_rx.recv().await {
+                println!("{output}");
+            }
+        });
 
-            // Wait on the io_loop, spawned on a separate task as this improves performance.
-            tokio::spawn(commands::io_loop(command_rx, context_svc))
-                .await
-                .unwrap();
+        // If STDIN is a terminal, spawn a blocking thread for user input.
+        if io::stdin().is_terminal() {
+            stdin_loop(command_tx).await;
         } else {
             // If no STDIN, await OS exit signal.
             info!("Terminal/TTY not detected, disabling STDIN commands");
             tokio::signal::ctrl_c().await.unwrap();
         }
     });
+}
+
+/// STDIN command listener loop.
+async fn stdin_loop(command_tx: mpsc::Sender<String>) {
+    let (tx, mut rx) = mpsc::channel::<String>(1);
+
+    std::thread::spawn(move || {
+        let mut stdin = io::stdin();
+        let mut line = String::new();
+        loop {
+            line.clear();
+            if let Err(e) = stdin.read_line(&mut line) {
+                eprintln!("Failed to read from stdin: {e}");
+                sleep(Duration::from_secs(1));
+                continue;
+            }
+            let trimmed = line.trim().to_string();
+            if tx.blocking_send(trimmed).is_err() {
+                return;
+            }
+        }
+    });
+
+    while let Some(line) = rx.recv().await {
+        if !line.is_empty()
+            && command_tx
+                .send(line)
+                .await
+                .inspect_err(|err| eprintln!("Failed to send command: {err}"))
+                .is_err()
+        {
+            break;
+        }
+    }
 }
 
 /// Initialize the [`tokio`] runtime.
