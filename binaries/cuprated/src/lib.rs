@@ -10,7 +10,7 @@
 //! cuprated::logging::init_logging(&config);
 //!
 //! let node = cuprated::Node::launch(config).await;
-//! let height = node.context_svc.blockchain_context().chain_height;
+//! let height = node.context.blockchain_context().chain_height;
 //! ```
 
 #![doc = include_str!("../README.md")]
@@ -70,29 +70,29 @@ use crate::{
 ///
 /// Returned by [`Node::launch`].
 pub struct Node {
-    /// Blockchain context service.
-    pub context_svc: BlockchainContextService,
+    /// Cached chain state (height, HF, difficulty, top hash).
+    pub context: BlockchainContextService,
 
-    /// Blockchain read handle.
-    pub blockchain_read: BlockchainReadHandle,
+    /// Blockchain database queries (blocks, transactions).
+    pub blockchain: BlockchainReadHandle,
 
-    /// Transaction pool read handle.
-    pub txpool_read: TxpoolReadHandle,
+    /// Transaction pool queries.
+    pub txpool: TxpoolReadHandle,
 
-    /// Clearnet P2P interface.
+    /// Clearnet P2P network.
     pub clearnet: NetworkInterface<ClearNet>,
 
-    /// Tor P2P interface.
+    /// Tor P2P network (available after sync).
     pub tor: Option<oneshot::Receiver<NetworkInterface<Tor>>>,
 
     /// Sync state.
     pub sync: SyncState,
 
-    /// Send command strings to the node.
-    pub command_tx: mpsc::Sender<String>,
+    /// Send commands to the node.
+    pub command_input: mpsc::Sender<String>,
 
-    /// Receive command output strings.
-    pub command_output_rx: mpsc::Receiver<String>,
+    /// Receive command output.
+    pub command_output: mpsc::Receiver<String>,
 }
 
 impl Node {
@@ -230,14 +230,14 @@ impl Node {
 
         // Create the node struct with cloned service handles for the caller.
         let node = Self {
-            context_svc: context_svc.clone(),
-            blockchain_read: blockchain_read_handle.clone(),
-            txpool_read: txpool_read_handle.clone(),
+            context: context_svc.clone(),
+            blockchain: blockchain_read_handle.clone(),
+            txpool: txpool_read_handle.clone(),
             clearnet: clearnet_interface.clone(),
             tor: if tor_enabled { Some(tor_rx) } else { None },
             sync: sync_state.clone(),
-            command_tx,
-            command_output_rx,
+            command_input: command_tx,
+            command_output: command_output_rx,
         };
 
         // Initialize the blockchain manager.
