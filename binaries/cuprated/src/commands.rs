@@ -8,12 +8,11 @@ use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
 
-use cuprate_consensus_context::{
-    BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
-};
+use cuprate_consensus_context::{BlockChainContextRequest, BlockChainContextResponse};
 use cuprate_helper::time::secs_to_hms;
 
-use crate::{
+use cuprated::{
+    blockchain::BlockchainInterface,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     logging::{self, CupratedTracingFilter},
     statics,
@@ -93,7 +92,7 @@ pub fn command_listener(incoming_commands: mpsc::Sender<Command>) -> ! {
 /// The [`Command`] handler loop.
 pub async fn io_loop(
     mut incoming_commands: mpsc::Receiver<Command>,
-    mut context_service: BlockchainContextService,
+    mut blockchain: BlockchainInterface,
 ) {
     loop {
         let Some(command) = incoming_commands.recv().await else {
@@ -119,7 +118,7 @@ pub async fn io_loop(
                 }
             }
             Command::Status => {
-                let context = context_service.blockchain_context();
+                let context = blockchain.context();
 
                 let uptime = statics::START_INSTANT.elapsed().unwrap_or_default();
 
@@ -136,7 +135,7 @@ pub async fn io_loop(
             }
             Command::PopBlocks { numb_blocks } => {
                 tracing::info!("Popping {numb_blocks} blocks.");
-                let res = crate::blockchain::interface::pop_blocks(numb_blocks).await;
+                let res = cuprated::blockchain::interface::pop_blocks(numb_blocks).await;
 
                 match res {
                     Ok(()) => println!("Popped {numb_blocks} blocks."),

@@ -8,7 +8,9 @@ use tokio::sync::{mpsc, Notify};
 use tower::{BoxError, Service, ServiceExt};
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
-use cuprate_consensus::{generate_genesis_block, BlockchainContextService, ContextConfig};
+use cuprate_consensus::{
+    generate_genesis_block, BlockchainContext, BlockchainContextService, ContextConfig,
+};
 use cuprate_cryptonight::cryptonight_hash_v0;
 use cuprate_p2p::{block_downloader::BlockDownloaderConfig, NetworkInterface};
 use cuprate_p2p_core::{ClearNet, Network};
@@ -30,6 +32,39 @@ pub use fast_sync::set_fast_sync_hashes;
 pub use manager::init_blockchain_manager;
 pub use syncer::SyncNotify;
 pub use types::ConsensusBlockchainReadHandle;
+
+/// The interface to the blockchain.
+#[derive(Clone)]
+pub struct BlockchainInterface {
+    /// A read handle to the blockchain database.
+    read: BlockchainReadHandle,
+    /// The blockchain context service.
+    context_svc: BlockchainContextService,
+}
+
+impl BlockchainInterface {
+    pub(crate) const fn new(
+        read: BlockchainReadHandle,
+        context_svc: BlockchainContextService,
+    ) -> Self {
+        Self { read, context_svc }
+    }
+
+    /// Returns a read handle to the blockchain database.
+    pub fn read(&self) -> BlockchainReadHandle {
+        self.read.clone()
+    }
+
+    /// Returns the current [`BlockchainContext`].
+    pub fn context(&mut self) -> &BlockchainContext {
+        self.context_svc.blockchain_context()
+    }
+
+    /// Returns the blockchain context service.
+    pub(crate) fn context_svc(&self) -> BlockchainContextService {
+        self.context_svc.clone()
+    }
+}
 
 /// Checks if the genesis block is in the blockchain and adds it if not.
 pub async fn check_add_genesis(
