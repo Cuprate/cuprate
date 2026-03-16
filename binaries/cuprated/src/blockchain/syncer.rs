@@ -1,11 +1,4 @@
-use std::{
-    future::Future,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    },
-    time::Duration,
-};
+use std::{future::Future, sync::Arc, time::Duration};
 
 use futures::{FutureExt, StreamExt};
 use tokio::{
@@ -25,19 +18,6 @@ use cuprate_p2p_core::{client::PeerSyncCallback, ClearNet, CoreSyncData, Network
 
 use super::interface::is_block_being_handled;
 
-/// Returns a formatted string showing the sync progress, or empty string if not syncing.
-#[expect(clippy::cast_precision_loss)]
-pub fn format_sync_progress(sync_target_height: &AtomicUsize, chain_height: usize) -> String {
-    let target = sync_target_height.load(Ordering::Relaxed);
-    if target == 0 {
-        return String::new();
-    }
-
-    let percent = f64::min((chain_height as f64 / target as f64) * 100.0, 99.99);
-    let left = target.saturating_sub(chain_height);
-    format!(" ({percent:.2}%, {left} left)")
-}
-
 /// An error returned from the [`syncer`].
 #[derive(Debug, thiserror::Error)]
 pub enum SyncerError {
@@ -49,7 +29,7 @@ pub enum SyncerError {
 
 /// The syncer tasks that makes sure we are fully synchronised with our connected peers.
 #[instrument(level = "debug", skip_all)]
-#[expect(clippy::significant_drop_tightening, clippy::too_many_arguments)]
+#[expect(clippy::significant_drop_tightening)]
 pub async fn syncer<CN>(
     mut context_svc: BlockchainContextService,
     our_chain: CN,
@@ -58,7 +38,6 @@ pub async fn syncer<CN>(
     stop_current_block_downloader: Arc<Notify>,
     block_downloader_config: BlockDownloaderConfig,
     mut syncer_handle: SyncerHandle,
-    sync_target_height: Arc<AtomicUsize>,
 ) -> Result<(), SyncerError>
 where
     CN: Service<
@@ -102,8 +81,8 @@ where
         let mut block_batch_stream =
             clearnet_interface.block_downloader(our_chain.clone(), block_downloader_config);
 
-        let (_, initial_target) = network_tip(&mut clearnet_interface).await?;
-        sync_target_height.store(initial_target, Ordering::Relaxed);
+        let (_, mut sync_target) = network_tip(&mut clearnet_interface).await?;
+        log_sync_progress(&mut context_svc, sync_target);
 
         let mut last_target_refresh = Instant::now();
         loop {
@@ -114,7 +93,6 @@ where
                     drop(sync_permit);
                     sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
 
-                    sync_target_height.store(0, Ordering::Relaxed);
 
                     break;
                 }
@@ -124,8 +102,6 @@ where
                         // have been handled before checking if we are synced.
                         drop(sync_permit);
                         sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await.unwrap());
-
-                        sync_target_height.store(0, Ordering::Relaxed);
 
                         let blockchain_context = context_svc.blockchain_context();
 
@@ -148,12 +124,29 @@ where
                     if last_target_refresh.elapsed() >= Duration::from_secs(10) {
                         last_target_refresh = Instant::now();
                         let (_, target_height) = network_tip(&mut clearnet_interface).await?;
-                        sync_target_height.store(target_height, Ordering::Relaxed);
+                        sync_target = target_height;
+
+                        log_sync_progress(&mut context_svc, sync_target);
                     }
                 }
             }
         }
     }
+}
+
+/// Logs the current sync progress.
+#[expect(clippy::cast_precision_loss)]
+fn log_sync_progress(context_svc: &mut BlockchainContextService, target: usize) {
+    let height = context_svc.blockchain_context().chain_height;
+    let percent = f64::min((height as f64 / target as f64) * 100.0, 99.99);
+    let remaining = target.saturating_sub(height);
+
+    tracing::info!(
+        height,
+        target,
+        remaining,
+        "Sync progress: {percent:.2}%",
+    );
 }
 
 /// Returns relevant information about the current network tip.
