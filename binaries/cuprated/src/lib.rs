@@ -47,7 +47,7 @@ mod txpool;
 
 use std::sync::Arc;
 
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::oneshot;
 use tower::{Service, ServiceExt};
 use tracing::{error, info};
 
@@ -60,6 +60,7 @@ use cuprate_types::blockchain::BlockchainWriteRequest;
 
 use crate::{
     blockchain::SyncState,
+    commands::CommandHandler,
     config::Config,
     constants::{DATABASE_CORRUPT_MSG, PANIC_CRITICAL_SERVICE_ERROR},
     tor::initialize_tor_if_enabled,
@@ -88,11 +89,8 @@ pub struct Node {
     /// Sync state.
     pub sync: SyncState,
 
-    /// Send commands to the node.
-    pub command_input: mpsc::Sender<String>,
-
-    /// Receive command output.
-    pub command_output: mpsc::Receiver<String>,
+    /// Command channel.
+    pub command: CommandHandler,
 }
 
 impl Node {
@@ -214,19 +212,7 @@ impl Node {
         let (tor_tx, tor_rx) = oneshot::channel();
 
         // Command handler.
-        let (command_tx, mut command_rx) = mpsc::channel::<String>(1);
-        let (output_tx, command_output_rx) = mpsc::channel::<String>(8);
-        let mut cmd_context_svc = context_svc.clone();
-
-        tokio::spawn(async move {
-            while let Some(line) = command_rx.recv().await {
-                let output = commands::handle_command(&line, &mut cmd_context_svc).await;
-                if output_tx.send(output).await.is_err() {
-                    break;
-                }
-            }
-            tracing::warn!("Command handler shut down.");
-        });
+        let command_handler = CommandHandler::init(context_svc.clone());
 
         // Create the node struct with cloned service handles for the caller.
         let node = Self {
@@ -236,8 +222,7 @@ impl Node {
             clearnet: clearnet_interface.clone(),
             tor: if tor_enabled { Some(tor_rx) } else { None },
             sync: sync_state.clone(),
-            command_input: command_tx,
-            command_output: command_output_rx,
+            command: command_handler,
         };
 
         // Initialize the blockchain manager.
