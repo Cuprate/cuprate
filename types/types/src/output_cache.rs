@@ -100,6 +100,8 @@ impl OutputCache {
     ///
     /// This function will add any outputs to the cache that were requested when building the cache
     /// but were not in the DB, if they are in the block.
+    ///
+    /// You should _not_ add blocks to the cache before the block has been verified.
     pub fn add_block_to_cache(&mut self, block: &VerifiedBlockInformation) {
         self.add_tx::<true>(block.height, block.block.miner_transaction());
 

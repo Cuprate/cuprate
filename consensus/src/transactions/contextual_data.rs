@@ -76,12 +76,12 @@ pub fn new_ring_member_info(
             .iter()
             .map(|inp_outs| {
                 inp_outs
-                    .iter()
-                    // the output with the highest height is the youngest
+                    // Use the last output declared in the ring as the youngest.
+                    .last()
                     .map(|out| out.height)
-                    .max()
                     .expect("Input must have ring members")
             })
+            // the output with the highest height is the youngest
             .max()
             .expect("Tx must have inputs"),
         time_locked_outs: used_outs
