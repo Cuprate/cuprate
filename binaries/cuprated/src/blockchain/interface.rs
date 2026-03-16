@@ -64,7 +64,7 @@ pub enum IncomingBlockError {
 
 /// Try to add a new block to the blockchain.
 ///
-/// On success returns [`IncomingBlockOk`].
+/// On success returns `IncomingBlockOk`.
 ///
 /// # Errors
 ///
