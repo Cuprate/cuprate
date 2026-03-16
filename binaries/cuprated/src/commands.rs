@@ -3,6 +3,7 @@
 //! `cuprated` command definition and handling.
 
 use clap::{builder::TypedValueParser, Parser, ValueEnum};
+use tokio::sync::mpsc;
 use tracing::level_filters::LevelFilter;
 
 use cuprate_consensus_context::BlockchainContextService;
@@ -12,6 +13,34 @@ use crate::{
     logging::{self, CupratedTracingFilter},
     statics,
 };
+
+/// Command handler for sending commands and receiving output.
+pub struct CommandHandler {
+    /// Send raw command strings.
+    pub input: mpsc::Sender<String>,
+    /// Receive command output.
+    pub output: mpsc::Receiver<String>,
+}
+
+impl CommandHandler {
+    /// Initialize the command handler task and return a handle.
+    pub fn init(mut context_svc: BlockchainContextService) -> Self {
+        let (input, mut command_rx) = mpsc::channel::<String>(1);
+        let (output_tx, output) = mpsc::channel::<String>(8);
+
+        tokio::spawn(async move {
+            while let Some(line) = command_rx.recv().await {
+                let result = handle_command(&line, &mut context_svc).await;
+                if output_tx.send(result).await.is_err() {
+                    break;
+                }
+            }
+            tracing::warn!("Command handler shut down.");
+        });
+
+        Self { input, output }
+    }
+}
 
 /// A command received from user input.
 #[derive(Debug, Parser)]
