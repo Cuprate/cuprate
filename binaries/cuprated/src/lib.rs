@@ -207,7 +207,7 @@ impl Node {
         let (tor_tx, tor_rx) = oneshot::channel();
 
         // Create the node struct with cloned service handles for the caller.
-        let node = Node {
+        let node = Self {
             context_svc: context_svc.clone(),
             blockchain_read: blockchain_read_handle.clone(),
             txpool_read: txpool_read_handle.clone(),
