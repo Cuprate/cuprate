@@ -42,13 +42,13 @@ fn main() {
     rt.block_on(async move {
         // Start the node.
         let cuprated::Node {
-            command_tx,
-            command_output_rx,
+            command_input,
+            command_output,
             ..
         } = cuprated::Node::launch(config).await;
 
         // Spawn a task to print command outputs received from the node.
-        let mut output_rx = command_output_rx;
+        let mut output_rx = command_output;
         tokio::spawn(async move {
             while let Some(output) = output_rx.recv().await {
                 println!("{output}");
@@ -57,7 +57,7 @@ fn main() {
 
         // If STDIN is a terminal, spawn a blocking thread for user input.
         if io::stdin().is_terminal() {
-            stdin_loop(command_tx).await;
+            stdin_loop(command_input).await;
         } else {
             // If no STDIN, await OS exit signal.
             info!("Terminal/TTY not detected, disabling STDIN commands");
