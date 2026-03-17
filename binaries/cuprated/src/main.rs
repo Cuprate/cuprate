@@ -23,10 +23,10 @@ use std::io::{self, IsTerminal};
 use std::{thread::sleep, time::Duration};
 
 use clap::Parser;
-use tokio::sync::mpsc;
 use tracing::info;
 
 use cuprated::{
+    commands::CommandHandle,
     config::{find_config, Args, Config},
     constants::{DEFAULT_CONFIG_STARTUP_DELAY, DEFAULT_CONFIG_WARNING},
     logging::eprintln_red,
@@ -56,17 +56,9 @@ fn main() {
         // Start the node.
         let cuprated::Node { command, .. } = cuprated::Node::launch(config).await;
 
-        // Spawn a task to print command outputs received from the node.
-        let mut output = command.output;
-        tokio::spawn(async move {
-            while let Some(msg) = output.recv().await {
-                println!("{msg}");
-            }
-        });
-
         // If STDIN is a terminal, spawn a blocking thread for user input.
         if io::stdin().is_terminal() {
-            stdin_loop(command.input).await;
+            stdin_loop(command).await;
         } else {
             // If no STDIN, await OS exit signal.
             info!("Terminal/TTY not detected, disabling STDIN commands");
@@ -76,8 +68,8 @@ fn main() {
 }
 
 /// STDIN command listener loop.
-async fn stdin_loop(command_tx: mpsc::Sender<String>) {
-    let (tx, mut rx) = mpsc::channel::<String>(1);
+async fn stdin_loop(command: CommandHandle) {
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(1);
 
     std::thread::spawn(move || {
         let mut stdin = io::stdin();
@@ -97,14 +89,15 @@ async fn stdin_loop(command_tx: mpsc::Sender<String>) {
     });
 
     while let Some(line) = rx.recv().await {
-        if !line.is_empty()
-            && command_tx
-                .send(line)
-                .await
-                .inspect_err(|err| eprintln!("Failed to send command: {err}"))
-                .is_err()
-        {
-            break;
+        if line.is_empty() {
+            continue;
+        }
+        match command.send_command(line).await {
+            Ok(output) => println!("{output}"),
+            Err(e) => {
+                eprintln!("Failed to send command: {e}");
+                break;
+            }
         }
     }
 }

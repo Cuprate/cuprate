@@ -3,7 +3,7 @@
 //! `cuprated` command definition and handling.
 
 use clap::{builder::TypedValueParser, Parser, ValueEnum};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 use tracing::level_filters::LevelFilter;
 
 use cuprate_consensus_context::BlockchainContextService;
@@ -14,32 +14,50 @@ use crate::{
     statics,
 };
 
-/// Command handler for sending commands and receiving output.
-pub struct CommandHandler {
-    /// Send raw command strings.
-    pub input: mpsc::Sender<String>,
-    /// Receive command output.
-    pub output: mpsc::Receiver<String>,
+/// A command request with a response channel.
+struct CommandRequest {
+    input: String,
+    resp: oneshot::Sender<String>,
 }
 
-impl CommandHandler {
-    /// Initialize the command handler task and return a handle.
+/// The command handler.
+#[derive(Clone)]
+pub struct CommandHandle {
+    tx: mpsc::Sender<CommandRequest>,
+}
+
+impl CommandHandle {
+    /// Initialize the command handler and return a handle.
     pub fn init(mut context_svc: BlockchainContextService) -> Self {
-        let (input, mut command_rx) = mpsc::channel::<String>(1);
-        let (output_tx, output) = mpsc::channel::<String>(8);
+        let (tx, mut rx) = mpsc::channel::<CommandRequest>(8);
 
         tokio::spawn(async move {
-            while let Some(line) = command_rx.recv().await {
-                let result = handle_command(&line, &mut context_svc).await;
-                if output_tx.send(result).await.is_err() {
-                    break;
-                }
+            while let Some(req) = rx.recv().await {
+                let result = handle_command(&req.input, &mut context_svc).await;
+                drop(req.resp.send(result));
             }
             tracing::warn!("Command handler shut down.");
         });
 
-        Self { input, output }
+        Self { tx }
     }
+
+    /// Send a command string and await the response.
+    pub async fn send_command(&self, input: String) -> Result<String, CommandError> {
+        let (resp, rx) = oneshot::channel();
+        self.tx
+            .send(CommandRequest { input, resp })
+            .await
+            .map_err(|_| CommandError::Shutdown)?;
+        rx.await.map_err(|_| CommandError::Shutdown)
+    }
+}
+
+/// Error returned when the command handler has shut down.
+#[derive(Debug, thiserror::Error)]
+pub enum CommandError {
+    #[error("command handler has shut down")]
+    Shutdown,
 }
 
 /// A command received from user input.
@@ -89,7 +107,7 @@ pub enum OutputTarget {
 }
 
 /// Parse and execute a raw command string. Returns the output.
-pub async fn handle_command(input: &str, context_service: &mut BlockchainContextService) -> String {
+async fn handle_command(input: &str, context_service: &mut BlockchainContextService) -> String {
     let command = match Command::try_parse_from(input.split_whitespace()) {
         Ok(cmd) => cmd,
         Err(err) => return format!("{err}"),

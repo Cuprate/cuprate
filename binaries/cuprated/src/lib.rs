@@ -6,10 +6,12 @@
 //! # Example
 //!
 //! ```ignore
-//! let config = cuprated::config::read_config_and_args();
+//! use cuprated::{config::Config, Node};
+//!
+//! let config = Config::read_from_path("cuprated.toml").unwrap();
 //! cuprated::logging::init_logging(&config);
 //!
-//! let node = cuprated::Node::launch(config).await;
+//! let node = Node::launch(config).await;
 //! let height = node.context.blockchain_context().chain_height;
 //! ```
 
@@ -60,7 +62,7 @@ use cuprate_types::blockchain::BlockchainWriteRequest;
 
 use crate::{
     blockchain::SyncState,
-    commands::CommandHandler,
+    commands::CommandHandle,
     config::Config,
     constants::{DATABASE_CORRUPT_MSG, PANIC_CRITICAL_SERVICE_ERROR},
     tor::initialize_tor_if_enabled,
@@ -90,7 +92,7 @@ pub struct Node {
     pub sync: SyncState,
 
     /// Command channel.
-    pub command: CommandHandler,
+    pub command: CommandHandle,
 }
 
 impl Node {
@@ -207,8 +209,8 @@ impl Node {
         // Tor interface channel - populated when Tor starts after sync.
         let (tor_tx, tor_rx) = oneshot::channel();
 
-        // Command handler.
-        let command_handler = CommandHandler::init(context_svc.clone());
+        // Command handle.
+        let command_handle = CommandHandle::init(context_svc.clone());
 
         // Create the node struct with cloned service handles for the caller.
         let node = Self {
@@ -218,7 +220,7 @@ impl Node {
             clearnet: clearnet_interface.clone(),
             tor: if tor_enabled { Some(tor_rx) } else { None },
             sync: sync_state.clone(),
-            command: command_handler,
+            command: command_handle,
         };
 
         // Initialize the blockchain manager.
