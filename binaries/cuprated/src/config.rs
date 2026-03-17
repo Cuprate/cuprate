@@ -25,7 +25,6 @@ use cuprate_p2p_core::{ClearNet, Tor};
 use cuprate_wire::OnionAddr;
 
 use crate::{
-    constants::{DEFAULT_CONFIG_STARTUP_DELAY, DEFAULT_CONFIG_WARNING},
     logging::eprintln_red,
     tor::{TorContext, TorMode},
 };
@@ -43,6 +42,8 @@ mod storage;
 mod tokio;
 mod tor;
 mod tracing_config;
+
+pub use args::Args;
 
 #[macro_use]
 mod macros;
@@ -92,49 +93,24 @@ static MEMORY: LazyLock<u64> = LazyLock::new(|| {
     memory
 });
 
-/// Reads the args & config file, returning a [`Config`].
-pub fn read_config_and_args() -> Config {
-    let args = args::Args::parse();
-    args.do_quick_requests();
-
-    let config: Config = if let Some(config_file) = &args.config_file {
-        // If a config file was set in the args try to read it and exit if we can't.
-        match Config::read_from_path(config_file) {
-            Ok(config) => config,
-            Err(e) => {
-                eprintln_red(&format!("Failed to read config from file: {e}"));
-                std::process::exit(1);
-            }
-        }
-    } else {
-        // First attempt to read the config file from the current directory.
-        std::env::current_dir()
-            .map(|path| path.join(DEFAULT_CONFIG_FILE_NAME))
-            .map_err(Into::into)
-            .and_then(Config::read_from_path)
-            .inspect_err(|e| tracing::debug!("Failed to read config from current dir: {e}"))
-            // otherwise try the main config directory.
-            .or_else(|_| {
-                let file = CUPRATE_CONFIG_DIR.join(DEFAULT_CONFIG_FILE_NAME);
-                Config::read_from_path(file)
-            })
-            .inspect_err(|e| {
-                tracing::debug!("Failed to read config from config dir: {e}");
-                if !args.skip_config_warning {
-                    eprintln_red(DEFAULT_CONFIG_WARNING);
-                    std::thread::sleep(DEFAULT_CONFIG_STARTUP_DELAY);
-                }
-            })
-            .unwrap_or_default()
-    };
-
-    let config = args.apply_args(config);
-
-    if args.dry_run {
-        config.dry_run_check();
-    }
-
-    config
+/// Finds and reads a config file from the default locations.
+///
+/// Tries the current directory first, then the config directory.
+/// Returns `None` if no config file is found.
+pub fn find_config() -> Option<Config> {
+    // First attempt to read the config file from the current directory.
+    std::env::current_dir()
+        .map(|path| path.join(DEFAULT_CONFIG_FILE_NAME))
+        .map_err(Into::into)
+        .and_then(Config::read_from_path)
+        .inspect_err(|e| tracing::debug!("Failed to read config from current dir: {e}"))
+        // otherwise try the main config directory.
+        .or_else(|_| {
+            let file = CUPRATE_CONFIG_DIR.join(DEFAULT_CONFIG_FILE_NAME);
+            Config::read_from_path(file)
+        })
+        .inspect_err(|e| tracing::debug!("Failed to read config from config dir: {e}"))
+        .ok()
 }
 
 config_struct! {
@@ -241,7 +217,7 @@ impl Config {
     /// # Errors
     ///
     /// Will return an [`Err`] if the file cannot be read or if the file is not a valid [`toml`] config.
-    fn read_from_path(file: impl AsRef<Path>) -> Result<Self, anyhow::Error> {
+    pub fn read_from_path(file: impl AsRef<Path>) -> Result<Self, anyhow::Error> {
         let file_text = read_to_string(file.as_ref())?;
 
         Ok(toml::from_str(&file_text)

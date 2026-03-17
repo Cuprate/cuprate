@@ -106,8 +106,10 @@ impl Node {
     ///
     /// Panics if the database is corrupt or critical services fail to start.
     pub async fn launch(config: Config) -> Self {
-        // Initialize the thread-pools
+        // Initialize global static `LazyLock` data.
         statics::init_lazylock_statics();
+
+        // Initialize the thread-pools.
         blockchain::set_fast_sync_hashes(config.fast_sync, config.network());
 
         rayon::ThreadPoolBuilder::new()
