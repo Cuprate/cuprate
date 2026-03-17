@@ -99,8 +99,9 @@ impl Node {
     /// Sets up thread pools, databases, P2P networking, the blockchain manager,
     /// and RPC servers.
     ///
-    /// The caller should set up tracing/logging before calling this, as the node
-    /// emits tracing events during initialization.
+    /// The caller should set up the following before calling this:
+    /// - Tracing/logging (the node emits tracing events during initialization)
+    /// - Global rayon thread pool (optional, uses rayon defaults if not set)
     ///
     /// # Panics
     ///
@@ -109,14 +110,7 @@ impl Node {
         // Initialize global static `LazyLock` data.
         statics::init_lazylock_statics();
 
-        // Initialize the thread-pools.
         blockchain::set_fast_sync_hashes(config.fast_sync, config.network());
-
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(config.rayon.threads)
-            .thread_name(|index| format!("cuprated-rayon-{index}"))
-            .build_global()
-            .unwrap();
 
         // Initialize the database thread pool.
         let db_thread_pool = Arc::new(

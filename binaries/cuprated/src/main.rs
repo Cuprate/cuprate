@@ -48,6 +48,8 @@ fn main() {
     //Printing configuration
     info!("{config}");
 
+    // Initialize thread pools.
+    init_global_rayon_pool(&config);
     let rt = init_tokio_rt(&config);
 
     rt.block_on(async move {
@@ -132,6 +134,15 @@ fn load_config(args: &Args) -> Config {
     }
 
     config
+}
+
+/// Initialize the global [`rayon`] thread-pool.
+fn init_global_rayon_pool(config: &Config) {
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(config.rayon.threads)
+        .thread_name(|index| format!("cuprated-rayon-{index}"))
+        .build_global()
+        .unwrap();
 }
 
 /// Initialize the [`tokio`] runtime.
