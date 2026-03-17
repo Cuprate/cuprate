@@ -36,7 +36,7 @@ impl CommandHandle {
                 let result = handle_command(&req.input, &mut context_svc).await;
                 drop(req.resp.send(result));
             }
-            tracing::warn!("Command handler shut down.");
+            tracing::info!("Command handler shut down.");
         });
 
         Self { tx }

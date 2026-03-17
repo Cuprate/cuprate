@@ -61,48 +61,47 @@ fn main() {
 
         // If STDIN is a terminal, spawn a blocking thread for user input.
         if io::stdin().is_terminal() {
-            stdin_loop(command).await;
+            spawn_stdin_reader(command);
         } else {
             // If no STDIN, await OS exit signal.
             info!("Terminal/TTY not detected, disabling STDIN commands");
-            tokio::signal::ctrl_c().await.unwrap();
         }
+
+        tokio::signal::ctrl_c().await.unwrap();
     });
 }
 
-/// STDIN command listener loop.
-async fn stdin_loop(command: CommandHandle) {
-    let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(1);
+/// Spawn a STDIN reader that forwards commands to the [`CommandHandle`].
+fn spawn_stdin_reader(command: CommandHandle) {
+    let rt = tokio::runtime::Handle::current();
 
     std::thread::spawn(move || {
-        let mut stdin = io::stdin();
         let mut line = String::new();
         loop {
             line.clear();
-            if let Err(e) = stdin.read_line(&mut line) {
-                eprintln!("Failed to read from stdin: {e}");
-                sleep(Duration::from_secs(1));
+            match io::stdin().read_line(&mut line) {
+                Ok(0) => return,
+                Err(e) => {
+                    eprintln!("Failed to read from stdin: {e}");
+                    sleep(Duration::from_secs(1));
+                    continue;
+                }
+                Ok(_) => {}
+            }
+
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
                 continue;
             }
-            let trimmed = line.trim().to_string();
-            if tx.blocking_send(trimmed).is_err() {
-                return;
+            match rt.block_on(command.send_command(trimmed.to_string())) {
+                Ok(output) => println!("{output}"),
+                Err(e) => {
+                    eprintln!("Failed to send command: {e}");
+                    return;
+                }
             }
         }
     });
-
-    while let Some(line) = rx.recv().await {
-        if line.is_empty() {
-            continue;
-        }
-        match command.send_command(line).await {
-            Ok(output) => println!("{output}"),
-            Err(e) => {
-                eprintln!("Failed to send command: {e}");
-                break;
-            }
-        }
-    }
 }
 
 /// Load config: explicit path from `--config-file`, auto-detect from default
