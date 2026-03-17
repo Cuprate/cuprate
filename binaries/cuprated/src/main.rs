@@ -36,6 +36,9 @@ fn main() {
     // Set global private permissions for created files.
     cuprate_helper::fs::set_private_global_file_permissions();
 
+    // Initialize global static `LazyLock` data.
+    cuprated::statics::init_lazylock_statics();
+
     // Parse CLI args and read config.
     let args = Args::parse();
     args.do_quick_requests();
