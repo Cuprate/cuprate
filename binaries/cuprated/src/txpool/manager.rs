@@ -402,6 +402,7 @@ impl TxpoolManager {
             tracing::trace!("not promoting tx, tx is already public");
             return;
         }
+        tx_info.private = false;
 
         tracing::debug!("promoting tx");
 
