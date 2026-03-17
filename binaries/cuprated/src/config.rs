@@ -96,21 +96,28 @@ static MEMORY: LazyLock<u64> = LazyLock::new(|| {
 /// Finds and reads a config file from the default locations.
 ///
 /// Tries the current directory first, then the config directory.
-/// Returns `None` if no config file is found.
-pub fn find_config() -> Option<Config> {
-    // First attempt to read the config file from the current directory.
-    std::env::current_dir()
-        .map(|path| path.join(DEFAULT_CONFIG_FILE_NAME))
-        .map_err(Into::into)
-        .and_then(Config::read_from_path)
-        .inspect_err(|e| tracing::debug!("Failed to read config from current dir: {e}"))
-        // otherwise try the main config directory.
-        .or_else(|_| {
-            let file = CUPRATE_CONFIG_DIR.join(DEFAULT_CONFIG_FILE_NAME);
-            Config::read_from_path(file)
-        })
-        .inspect_err(|e| tracing::debug!("Failed to read config from config dir: {e}"))
-        .ok()
+/// Returns `None` if no config file is found in either location.
+///
+/// # Errors
+///
+/// Returns an error if a config file is found but cannot be parsed.
+pub fn find_config() -> Result<Option<Config>, anyhow::Error> {
+    let paths = [
+        std::env::current_dir()
+            .ok()
+            .map(|p| p.join(DEFAULT_CONFIG_FILE_NAME)),
+        Some(CUPRATE_CONFIG_DIR.join(DEFAULT_CONFIG_FILE_NAME)),
+    ];
+
+    for path in paths.into_iter().flatten() {
+        if !path.exists() {
+            continue;
+        }
+
+        return Config::read_from_path(&path).map(Some);
+    }
+
+    Ok(None)
 }
 
 config_struct! {
@@ -220,16 +227,11 @@ impl Config {
     pub fn read_from_path(file: impl AsRef<Path>) -> Result<Self, anyhow::Error> {
         let file_text = read_to_string(file.as_ref())?;
 
-        Ok(toml::from_str(&file_text)
-            .inspect(|_| println!("Using config at: {}", file.as_ref().to_string_lossy()))
-            .inspect_err(|e| {
-                eprintln_red(&format!(
-                    "Failed to parse config file at: {}",
-                    file.as_ref().to_string_lossy()
-                ));
-                eprintln_red(&format!("{e}"));
-                std::process::exit(1);
-            })?)
+        let config: Self = toml::from_str(&file_text)?;
+
+        tracing::info!("Using config at: {}", file.as_ref().to_string_lossy());
+
+        Ok(config)
     }
 
     /// Returns the current [`Network`] we are running on.
