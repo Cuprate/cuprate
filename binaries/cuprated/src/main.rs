@@ -117,7 +117,10 @@ fn load_config(args: &Args) -> Config {
             eprintln_red(&format!("Failed to read config from file: {e}"));
             std::process::exit(1);
         })
-    } else if let Some(config) = find_config() {
+    } else if let Some(config) = find_config().unwrap_or_else(|e| {
+        eprintln_red(&format!("Failed to read config: {e}"));
+        std::process::exit(1);
+    }) {
         config
     } else {
         if !args.skip_config_warning {
