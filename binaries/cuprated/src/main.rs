@@ -22,14 +22,25 @@
 use std::io::{self, IsTerminal};
 use std::{thread::sleep, time::Duration};
 
+use clap::Parser;
 use tokio::sync::mpsc;
 use tracing::info;
+
+use cuprated::{
+    config::{find_config, Args, Config},
+    constants::{DEFAULT_CONFIG_STARTUP_DELAY, DEFAULT_CONFIG_WARNING},
+    logging::eprintln_red,
+};
 
 fn main() {
     // Set global private permissions for created files.
     cuprate_helper::fs::set_private_global_file_permissions();
 
-    let config = cuprated::config::read_config_and_args();
+    // Parse CLI args and read config.
+    let args = Args::parse();
+    args.do_quick_requests();
+
+    let config = load_config(&args);
 
     // Initialize logging.
     cuprated::logging::init_logging(&config);
@@ -96,8 +107,35 @@ async fn stdin_loop(command_tx: mpsc::Sender<String>) {
     }
 }
 
+/// Load config: explicit path from `--config-file`, auto-detect from default
+/// locations, or fall back to defaults with a warning.
+fn load_config(args: &Args) -> Config {
+    let config = if let Some(config_file) = &args.config_file {
+        Config::read_from_path(config_file).unwrap_or_else(|e| {
+            eprintln_red(&format!("Failed to read config from file: {e}"));
+            std::process::exit(1);
+        })
+    } else if let Some(config) = find_config() {
+        config
+    } else {
+        if !args.skip_config_warning {
+            eprintln_red(DEFAULT_CONFIG_WARNING);
+            sleep(DEFAULT_CONFIG_STARTUP_DELAY);
+        }
+        Config::default()
+    };
+
+    let config = args.apply_args(config);
+
+    if args.dry_run {
+        config.dry_run_check();
+    }
+
+    config
+}
+
 /// Initialize the [`tokio`] runtime.
-fn init_tokio_rt(config: &cuprated::config::Config) -> tokio::runtime::Runtime {
+fn init_tokio_rt(config: &Config) -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_multi_thread()
         .worker_threads(config.tokio.threads)
         .thread_name("cuprated-tokio")
