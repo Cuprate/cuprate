@@ -355,7 +355,7 @@ impl Config {
         *self
             .storage
             .fjall_cache_size
-            .value(&self.target_max_memory())
+            .value(&(self.target_max_memory() / 4))
     }
 
     /// Returns the target maximum memory usage.
