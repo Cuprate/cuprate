@@ -71,18 +71,20 @@ pub fn init_rpc_servers(config: RpcConfig, tx_handler: IncomingTxHandler, node_c
         let rpc_handler = CupratedRpcHandler::new(restricted, tx_handler.clone(), node_ctx.clone());
 
         let shutdown_token = node_ctx.task_executor.cancellation_token();
-        node_ctx.task_executor.spawn(async move {
-            run_rpc_server(
-                rpc_handler,
-                restricted,
-                SocketAddr::new(addr, port),
-                request_byte_limit,
-                shutdown_token,
-            )
-            .await
-            .unwrap();
-            info!(restricted, "RPC server shut down.");
-        });
+        node_ctx
+            .task_executor
+            .spawn_critical("rpc_server", async move {
+                run_rpc_server(
+                    rpc_handler,
+                    restricted,
+                    SocketAddr::new(addr, port),
+                    request_byte_limit,
+                    shutdown_token,
+                )
+                .await
+                .unwrap();
+                info!(restricted, "RPC server shut down.");
+            });
     }
 }
 

@@ -113,7 +113,10 @@ pub async fn start_txpool_manager(
     let (spent_kis_tx, spent_kis_rx) = mpsc::channel(1);
 
     let shutdown_token = task_executor.cancellation_token();
-    task_executor.spawn(manager.run(tx_rx, spent_kis_rx, shutdown_token));
+    task_executor.spawn_critical(
+        "txpool_manager",
+        manager.run(tx_rx, spent_kis_rx, shutdown_token),
+    );
 
     TxpoolManagerHandle {
         tx_tx,

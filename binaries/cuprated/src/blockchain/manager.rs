@@ -63,15 +63,18 @@ pub async fn init_blockchain_manager(
         fast_sync_hashes: node_ctx.fast_sync_hashes,
     };
 
-    node_ctx.task_executor.spawn(syncer.run(
-        node_ctx.blockchain_context.clone(),
-        chain_service,
-        clearnet_interface.clone(),
-        batch_tx,
-        Arc::clone(&stop_current_block_downloader),
-        block_downloader_config,
-        shutdown_token.clone(),
-    ));
+    node_ctx.task_executor.spawn_critical(
+        "syncer",
+        syncer.run(
+            node_ctx.blockchain_context.clone(),
+            chain_service,
+            clearnet_interface.clone(),
+            batch_tx,
+            Arc::clone(&stop_current_block_downloader),
+            block_downloader_config,
+            shutdown_token.clone(),
+        ),
+    );
 
     let manager = BlockchainManager {
         blockchain_write_handle,
@@ -87,9 +90,10 @@ pub async fn init_blockchain_manager(
         fast_sync_hashes: node_ctx.fast_sync_hashes,
     };
 
-    node_ctx
-        .task_executor
-        .spawn(manager.run(batch_rx, command_rx, shutdown_token));
+    node_ctx.task_executor.spawn_critical(
+        "blockchain_manager",
+        manager.run(batch_rx, command_rx, shutdown_token),
+    );
 }
 
 /// The blockchain manager.

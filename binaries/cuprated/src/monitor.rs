@@ -1,8 +1,11 @@
-use std::future::Future;
+use std::{future::Future, panic::AssertUnwindSafe};
 
+use futures::FutureExt;
 use tokio::task::JoinHandle;
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
-use tracing::info;
+use tracing::{error, info};
+
+use crate::constants::PANIC_CRITICAL_SERVICE_ERROR;
 
 /// A handle for task spawning and shutdown coordination.
 #[derive(Clone)]
@@ -33,6 +36,28 @@ impl TaskExecutor {
         F::Output: Send + 'static,
     {
         self.tracker.spawn(future)
+    }
+
+    /// Spawn a critical tracked task that triggers shutdown on completion.
+    ///
+    /// Panics in the future are treated as errors.
+    pub fn spawn_critical<F>(&self, name: &'static str, future: F) -> JoinHandle<()>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        let executor = self.clone();
+        self.tracker.spawn(async move {
+            if let Err(payload) = AssertUnwindSafe(future).catch_unwind().await {
+                let msg = payload
+                    .downcast_ref::<String>()
+                    .map(String::as_str)
+                    .or_else(|| payload.downcast_ref::<&'static str>().copied())
+                    .unwrap_or("<no panic message>");
+                error!(subsystem = name, err = %msg, "{PANIC_CRITICAL_SERVICE_ERROR}");
+            }
+            executor.trigger_shutdown();
+        })
     }
 
     /// Get a clone of the cancellation token.
