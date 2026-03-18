@@ -30,9 +30,18 @@ impl CommandHandle {
     pub fn init(node_ctx: NodeContext) -> Self {
         let (tx, mut rx) = mpsc::channel::<CommandRequest>(1);
         let mut context_svc = node_ctx.blockchain_context.clone();
+        let task_executor = node_ctx.task_executor.clone();
+        let shutdown_token = task_executor.cancellation_token().clone();
 
-        tokio::spawn(async move {
-            while let Some(req) = rx.recv().await {
+        task_executor.spawn(async move {
+            loop {
+                let req = tokio::select! {
+                    () = shutdown_token.cancelled() => break,
+                    req = rx.recv() => {
+                        let Some(req) = req else { break };
+                        req
+                    }
+                };
                 let result = handle_command(&req.input, &mut context_svc, &node_ctx).await;
                 drop(req.resp.send(result));
             }
@@ -94,6 +103,9 @@ pub enum Command {
 
     /// Pop blocks from the top of the blockchain.
     PopBlocks { numb_blocks: usize },
+
+    /// Gracefully shut down the daemon.
+    Exit,
 }
 
 /// The log output target.
@@ -162,6 +174,10 @@ async fn handle_command(
                 Ok(()) => format!("Popped {numb_blocks} blocks."),
                 Err(e) => format!("Failed to pop blocks: {e}"),
             }
+        }
+        Command::Exit => {
+            node_ctx.task_executor.cancellation_token().cancel();
+            String::from("Shutting down...")
         }
     }
 }

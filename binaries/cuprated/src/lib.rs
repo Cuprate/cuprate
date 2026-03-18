@@ -38,6 +38,7 @@ pub mod commands;
 pub mod config;
 pub mod constants;
 pub mod logging;
+pub mod monitor;
 pub mod version;
 
 mod p2p;
@@ -53,7 +54,6 @@ use tracing::{error, info};
 
 use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus_context::BlockchainContextService;
-use cuprate_database::DATABASE_CORRUPT_MSG;
 use cuprate_p2p::NetworkInterface;
 use cuprate_p2p_core::{ClearNet, Tor};
 use cuprate_txpool::service::TxpoolReadHandle;
@@ -66,6 +66,7 @@ use crate::{
     commands::CommandHandle,
     config::Config,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
+    monitor::TaskExecutor,
     tor::initialize_tor_if_enabled,
     txpool::IncomingTxHandler,
 };
@@ -113,6 +114,9 @@ pub struct NodeContext {
 
     /// The time this node was launched as a UNIX timestamp.
     pub start_instant_unix: u64,
+
+    /// Task spawning and shutdown coordination.
+    pub task_executor: TaskExecutor,
 }
 
 /// An active `cuprated` node.
@@ -144,6 +148,9 @@ pub struct Node {
 
     /// Command channel.
     pub command: CommandHandle,
+
+    /// Task spawning and shutdown executor.
+    pub task_executor: TaskExecutor,
 }
 
 impl Node {
@@ -156,10 +163,10 @@ impl Node {
     /// - Tracing/logging (the node emits tracing events during initialization)
     /// - Global rayon thread pool (optional, uses rayon defaults if not set)
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the database is corrupt or critical services fail to start.
-    pub async fn launch(config: Config) -> Self {
+    /// Returns an error if the database or critical service startup fails.
+    pub async fn launch(config: Config) -> Result<Self, anyhow::Error> {
         let fast_sync_hashes = blockchain::get_fast_sync_hashes(config.fast_sync, config.network());
 
         // Initialize the database thread pool.
@@ -173,22 +180,18 @@ impl Node {
                 config.blockchain_config(),
                 Arc::clone(&db_thread_pool),
             )
-            .inspect_err(|e| error!("Blockchain database error: {e}"))
-            .expect(DATABASE_CORRUPT_MSG);
+            .inspect_err(|e| error!("Blockchain database error: {e}"))?;
 
         let (txpool_read_handle, txpool_write_handle, _) =
             cuprate_txpool::service::init_with_pool(&config.txpool_config(), db_thread_pool)
-                .inspect_err(|e| error!("Txpool database error: {e}"))
-                .expect(DATABASE_CORRUPT_MSG);
+                .inspect_err(|e| error!("Txpool database error: {e}"))?;
 
         // TODO: Add an argument/option for keeping alt blocks between restart.
         blockchain_write_handle
             .ready()
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .await?
             .call(BlockchainWriteRequest::FlushAltBlocks)
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+            .await?;
 
         // Check add the genesis block to the blockchain.
         blockchain::check_add_genesis(
@@ -202,7 +205,7 @@ impl Node {
         let context_svc =
             blockchain::init_consensus(blockchain_read_handle.clone(), config.context_config())
                 .await
-                .unwrap();
+                .map_err(|e| anyhow::anyhow!(e))?;
 
         // Bootstrap or configure Tor if enabled.
         let tor_context = initialize_tor_if_enabled(&config).await;
@@ -213,6 +216,9 @@ impl Node {
 
         // Create the blockchain manager handle and command receiver.
         let (blockchain_manager_handle, blockchain_manager_rx) = BlockchainManagerHandle::new();
+
+        // Create the task executor for spawning and shutdown.
+        let task_executor = TaskExecutor::new();
 
         // Create the node context.
         let start_instant = std::time::SystemTime::now();
@@ -230,6 +236,7 @@ impl Node {
                 .unwrap_or_default()
                 .as_secs(),
             start_instant,
+            task_executor,
         };
 
         // Start clearnet P2P zone
@@ -282,6 +289,7 @@ impl Node {
             tor: if tor_enabled { Some(tor_rx) } else { None },
             syncer: node_ctx.syncer.clone(),
             command: command_handle,
+            task_executor: node_ctx.task_executor.clone(),
         };
 
         // Initialize the blockchain manager.
@@ -302,12 +310,21 @@ impl Node {
         // Start Tor P2P zone after sync completes.
         if tor_enabled {
             info!("Tor P2P zone will start after sync.");
+            let task_executor = node_ctx.task_executor.clone();
+            let shutdown_token = task_executor.cancellation_token().clone();
 
-            tokio::spawn(async move {
-                // Wait for the node to synchronize with the network
-                if node_ctx.syncer.wait_for_synced().await.is_err() {
-                    tracing::info!("Not starting Tor P2P zone, syncer stopped");
-                    return;
+            task_executor.spawn(async move {
+                // Wait for the node to synchronize with the network, or shutdown.
+                tokio::select! {
+                    result = node_ctx.syncer.wait_for_synced() => {
+                        if result.is_err() {
+                            tracing::info!("Not starting Tor P2P zone, syncer stopped");
+                            return;
+                        }
+                    }
+                    () = shutdown_token.cancelled() => {
+                        return;
+                    }
                 }
                 tracing::info!("Starting Tor P2P zone.");
 
@@ -332,6 +349,6 @@ impl Node {
             });
         }
 
-        node
+        Ok(node)
     }
 }

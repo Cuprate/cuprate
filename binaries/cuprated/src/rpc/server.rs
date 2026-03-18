@@ -7,6 +7,7 @@ use std::{
 
 use anyhow::Error;
 use tokio::net::TcpListener;
+use tokio_util::sync::CancellationToken;
 use tower::limit::rate::RateLimitLayer;
 use tower_http::limit::RequestBodyLimitLayer;
 use tracing::{info, warn};
@@ -69,15 +70,18 @@ pub fn init_rpc_servers(config: RpcConfig, tx_handler: IncomingTxHandler, node_c
 
         let rpc_handler = CupratedRpcHandler::new(restricted, tx_handler.clone(), node_ctx.clone());
 
-        tokio::task::spawn(async move {
+        let shutdown_token = node_ctx.task_executor.cancellation_token().clone();
+        node_ctx.task_executor.spawn(async move {
             run_rpc_server(
                 rpc_handler,
                 restricted,
                 SocketAddr::new(addr, port),
                 request_byte_limit,
+                shutdown_token,
             )
             .await
             .unwrap();
+            info!(restricted, "RPC server shut down.");
         });
     }
 }
@@ -90,6 +94,7 @@ async fn run_rpc_server(
     restricted: bool,
     address: SocketAddr,
     request_byte_limit: usize,
+    shutdown_token: CancellationToken,
 ) -> Result<(), Error> {
     info!(
         restricted,
@@ -122,7 +127,9 @@ async fn run_rpc_server(
     //
     // TODO: impl custom server code, don't use axum.
     let listener = TcpListener::bind(address).await?;
-    axum::serve(listener, router).await?;
+    axum::serve(listener, router)
+        .with_graceful_shutdown(shutdown_token.cancelled_owned())
+        .await?;
 
     Ok(())
 }

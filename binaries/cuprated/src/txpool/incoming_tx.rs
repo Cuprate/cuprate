@@ -139,6 +139,7 @@ impl IncomingTxHandler {
             diffuse_service,
             dandelion_pool_manager.clone(),
             txpool_config,
+            node_ctx.task_executor.clone(),
         )
         .await;
 
