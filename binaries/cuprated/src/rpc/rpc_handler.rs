@@ -5,6 +5,7 @@ use std::task::{Context, Poll};
 use anyhow::Error;
 use futures::future::BoxFuture;
 use monero_oxide::block::Block;
+use tokio_util::sync::CancellationToken;
 use tower::Service;
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};

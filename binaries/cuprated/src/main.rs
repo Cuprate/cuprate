@@ -68,18 +68,33 @@ fn main() {
     let rt = init_tokio_rt(&config);
     rt.block_on(async move {
         // Start the node.
-        let cuprated::Node { command, .. } = cuprated::Node::launch(config).await;
+        let node = match cuprated::Node::launch(config).await {
+            Ok(node) => node,
+            Err(e) => {
+                tracing::error!("Failed to launch node: {e:#}");
+                std::process::exit(1);
+            }
+        };
+
+        // Spawn OS signal handler.
+        cuprated::monitor::spawn_signal_handler(node.task_executor.clone());
 
         // If STDIN is a terminal, spawn a blocking thread for user input.
         if io::stdin().is_terminal() {
-            spawn_stdin_reader(command);
+            spawn_stdin_reader(node.command.clone());
         } else {
             // If no STDIN, await OS exit signal.
             info!("Terminal/TTY not detected, disabling STDIN commands");
         }
 
-        tokio::signal::ctrl_c().await.unwrap();
+        // Wait for shutdown signal.
+        node.task_executor.cancellation_token().cancelled().await;
+        node.task_executor.close();
+        node.task_executor.wait().await;
+        drop(node);
     });
+    drop(rt);
+    info!("Shutdown complete.");
 }
 
 /// Spawn a STDIN reader that forwards commands to the [`CommandHandle`].
