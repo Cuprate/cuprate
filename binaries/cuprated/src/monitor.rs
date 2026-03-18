@@ -35,6 +35,19 @@ impl TaskExecutor {
         self.tracker.spawn(future)
     }
 
+    /// Spawn a critical tracked task that triggers shutdown on completion.
+    pub fn spawn_critical<F>(&self, future: F) -> JoinHandle<()>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        let executor = self.clone();
+        self.tracker.spawn(async move {
+            drop(future.await);
+            executor.trigger_shutdown();
+        })
+    }
+
     /// Get the cancellation token.
     pub const fn cancellation_token(&self) -> &CancellationToken {
         &self.token
