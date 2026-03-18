@@ -26,7 +26,8 @@ mod manager;
 mod syncer;
 mod types;
 
-pub use fast_sync::set_fast_sync_hashes;
+pub use fast_sync::get_fast_sync_hashes;
+pub use interface::BlockchainManagerHandle;
 pub use manager::init_blockchain_manager;
 pub use syncer::SyncState;
 pub use types::ConsensusBlockchainReadHandle;

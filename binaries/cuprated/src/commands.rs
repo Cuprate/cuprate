@@ -6,12 +6,11 @@ use clap::{builder::TypedValueParser, Parser, ValueEnum};
 use tokio::sync::{mpsc, oneshot};
 use tracing::level_filters::LevelFilter;
 
-use cuprate_consensus_context::BlockchainContextService;
 use cuprate_helper::time::secs_to_hms;
 
 use crate::{
     logging::{self, CupratedTracingFilter},
-    statics,
+    statics, NodeContext,
 };
 
 /// A command request with a response channel.
@@ -28,12 +27,13 @@ pub struct CommandHandle {
 
 impl CommandHandle {
     /// Initialize the command handler and return a handle.
-    pub fn init(mut context_svc: BlockchainContextService) -> Self {
+    pub fn init(node_ctx: NodeContext) -> Self {
         let (tx, mut rx) = mpsc::channel::<CommandRequest>(8);
+        let mut context_svc = node_ctx.blockchain_context.clone();
 
         tokio::spawn(async move {
             while let Some(req) = rx.recv().await {
-                let result = handle_command(&req.input, &mut context_svc).await;
+                let result = handle_command(&req.input, &mut context_svc, &node_ctx).await;
                 drop(req.resp.send(result));
             }
             tracing::info!("Command handler shut down.");
@@ -107,7 +107,11 @@ pub enum OutputTarget {
 }
 
 /// Parse and execute a raw command string. Returns the output.
-async fn handle_command(input: &str, context_service: &mut BlockchainContextService) -> String {
+async fn handle_command(
+    input: &str,
+    context_service: &mut cuprate_consensus_context::BlockchainContextService,
+    node_ctx: &NodeContext,
+) -> String {
     let command = match Command::try_parse_from(input.split_whitespace()) {
         Ok(cmd) => cmd,
         Err(err) => return format!("{err}"),
@@ -146,13 +150,13 @@ async fn handle_command(input: &str, context_service: &mut BlockchainContextServ
             )
         }
         Command::FastSyncStopHeight => {
-            let stop_height = cuprate_fast_sync::fast_sync_stop_height();
+            let stop_height = cuprate_fast_sync::fast_sync_stop_height(node_ctx.fast_sync_hashes);
 
             format!("{stop_height}")
         }
         Command::PopBlocks { numb_blocks } => {
             tracing::info!("Popping {numb_blocks} blocks.");
-            let res = crate::blockchain::interface::pop_blocks(numb_blocks).await;
+            let res = node_ctx.blockchain_manager.pop_blocks(numb_blocks).await;
 
             match res {
                 Ok(()) => format!("Popped {numb_blocks} blocks."),
