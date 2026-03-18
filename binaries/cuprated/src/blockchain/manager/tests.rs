@@ -41,7 +41,8 @@ async fn mock_manager(data_dir: PathBuf) -> BlockchainManager {
         &mut blockchain_write_handle,
         Network::Mainnet,
     )
-    .await;
+    .await
+    .unwrap();
 
     let mut context_config = ContextConfig::main_net();
     context_config.difficulty_cfg.fixed_difficulty = Some(1);
@@ -120,7 +121,8 @@ async fn simple_reorg() {
             prepped_txs: HashMap::new(),
             response_tx: oneshot::channel().0,
         })
-        .await;
+        .await
+        .unwrap();
 
     manager_2
         .handle_command(BlockchainManagerCommand::AddBlock {
@@ -128,7 +130,8 @@ async fn simple_reorg() {
             prepped_txs: HashMap::new(),
             response_tx: oneshot::channel().0,
         })
-        .await;
+        .await
+        .unwrap();
 
     assert_eq!(
         manager_1.blockchain_context_service.blockchain_context(),
@@ -145,7 +148,8 @@ async fn simple_reorg() {
             prepped_txs: HashMap::new(),
             response_tx: oneshot::channel().0,
         })
-        .await;
+        .await
+        .unwrap();
 
     manager_2
         .handle_command(BlockchainManagerCommand::AddBlock {
@@ -153,7 +157,8 @@ async fn simple_reorg() {
             prepped_txs: HashMap::new(),
             response_tx: oneshot::channel().0,
         })
-        .await;
+        .await
+        .unwrap();
 
     let manager_1_context = manager_1
         .blockchain_context_service
@@ -172,7 +177,8 @@ async fn simple_reorg() {
             prepped_txs: HashMap::new(),
             response_tx: oneshot::channel().0,
         })
-        .await;
+        .await
+        .unwrap();
     // make sure this didn't change the context
     assert_eq!(
         &manager_1_context,
@@ -188,7 +194,8 @@ async fn simple_reorg() {
             prepped_txs: HashMap::new(),
             response_tx: oneshot::channel().0,
         })
-        .await;
+        .await
+        .unwrap();
 
     manager_2
         .handle_command(BlockchainManagerCommand::AddBlock {
@@ -196,7 +203,8 @@ async fn simple_reorg() {
             prepped_txs: HashMap::new(),
             response_tx: oneshot::channel().0,
         })
-        .await;
+        .await
+        .unwrap();
 
     // make sure manager 1 reorged.
     assert_eq!(
@@ -233,7 +241,8 @@ async fn simple_reorg_block_batch() {
             size: 0,
             peer_handle: handle.1.clone(),
         })
-        .await;
+        .await
+        .unwrap();
 
     manager_2
         .handle_incoming_block_batch(BlockBatch {
@@ -241,7 +250,8 @@ async fn simple_reorg_block_batch() {
             size: 0,
             peer_handle: handle.1.clone(),
         })
-        .await;
+        .await
+        .unwrap();
 
     assert_eq!(
         manager_1.blockchain_context_service.blockchain_context(),
@@ -258,7 +268,8 @@ async fn simple_reorg_block_batch() {
             size: 0,
             peer_handle: handle.1.clone(),
         })
-        .await;
+        .await
+        .unwrap();
 
     manager_2
         .handle_incoming_block_batch(BlockBatch {
@@ -266,7 +277,8 @@ async fn simple_reorg_block_batch() {
             size: 0,
             peer_handle: handle.1.clone(),
         })
-        .await;
+        .await
+        .unwrap();
 
     let manager_1_context = manager_1
         .blockchain_context_service
@@ -285,7 +297,8 @@ async fn simple_reorg_block_batch() {
             size: 0,
             peer_handle: handle.1.clone(),
         })
-        .await;
+        .await
+        .unwrap();
     // make sure this didn't change the context
     assert_eq!(
         &manager_1_context,
@@ -301,7 +314,8 @@ async fn simple_reorg_block_batch() {
             size: 0,
             peer_handle: handle.1.clone(),
         })
-        .await;
+        .await
+        .unwrap();
 
     manager_2
         .handle_incoming_block_batch(BlockBatch {
@@ -309,7 +323,8 @@ async fn simple_reorg_block_batch() {
             size: 0,
             peer_handle: handle.1.clone(),
         })
-        .await;
+        .await
+        .unwrap();
 
     // make sure manager 1 reorged.
     assert_eq!(
@@ -344,7 +359,8 @@ async fn recover_bad_reorg() {
             prepped_txs: HashMap::new(),
             response_tx: oneshot::channel().0,
         })
-        .await;
+        .await
+        .unwrap();
 
     let context_2 = manager_1
         .blockchain_context_service
@@ -359,7 +375,8 @@ async fn recover_bad_reorg() {
             prepped_txs: HashMap::new(),
             response_tx: oneshot::channel().0,
         })
-        .await;
+        .await
+        .unwrap();
 
     // Save this context for later to check the reorg gets reversed correctly.
     let context = manager_1
@@ -376,7 +393,8 @@ async fn recover_bad_reorg() {
             prepped_txs: HashMap::new(),
             response_tx: oneshot::channel().0,
         })
-        .await;
+        .await
+        .unwrap();
 
     // This tx is invalid and will make the reorg fail.
     let tx = Transaction::V2 {
@@ -409,7 +427,8 @@ async fn recover_bad_reorg() {
             prepped_txs: HashMap::from([(tx.tx_hash, tx)]),
             response_tx: oneshot::channel().0,
         })
-        .await;
+        .await
+        .unwrap();
 
     let mut block_3_alt = generate_block(manager_1.blockchain_context_service.blockchain_context());
     block_3_alt.header.previous = block_2_alt.hash();
@@ -425,7 +444,8 @@ async fn recover_bad_reorg() {
             prepped_txs: HashMap::new(),
             response_tx: oneshot::channel().0,
         })
-        .await;
+        .await
+        .unwrap();
 
     // make sure the reorg failed.
     assert_eq!(

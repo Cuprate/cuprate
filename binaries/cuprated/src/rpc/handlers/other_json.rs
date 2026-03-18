@@ -474,7 +474,12 @@ async fn send_raw_transaction(
         do_not_relay: request.do_not_relay,
     };
 
-    let tx_relay_checks = tx_handler::handle_incoming_txs(&mut state.tx_handler, txs).await?;
+    let tx_relay_checks = tx_handler::handle_incoming_txs(
+        &mut state.tx_handler,
+        txs,
+        state.node_ctx.task_executor.cancellation_token(),
+    )
+    .await?;
 
     if tx_relay_checks.is_empty() {
         return Ok(resp);

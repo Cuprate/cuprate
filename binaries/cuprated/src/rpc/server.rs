@@ -79,9 +79,9 @@ pub fn init_rpc_servers(config: RpcConfig, tx_handler: IncomingTxHandler, node_c
                 request_byte_limit,
                 shutdown_token,
             )
-            .await
-            .unwrap();
+            .await?;
             info!(restricted, "RPC server shut down.");
+            Ok(())
         });
     }
 }

@@ -38,12 +38,13 @@ impl TaskExecutor {
     /// Spawn a critical tracked task that triggers shutdown on completion.
     pub fn spawn_critical<F>(&self, future: F) -> JoinHandle<()>
     where
-        F: Future + Send + 'static,
-        F::Output: Send + 'static,
+        F: Future<Output = anyhow::Result<()>> + Send + 'static,
     {
         let executor = self.clone();
         self.tracker.spawn(async move {
-            drop(future.await);
+            if let Err(e) = future.await {
+                tracing::error!("{e:#}");
+            }
             executor.trigger_shutdown();
         })
     }
