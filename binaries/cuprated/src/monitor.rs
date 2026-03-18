@@ -1,4 +1,10 @@
-use std::future::Future;
+use std::{
+    future::Future,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
 use tokio::task::JoinHandle;
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
@@ -9,6 +15,7 @@ use tracing::info;
 pub struct TaskExecutor {
     token: CancellationToken,
     tracker: TaskTracker,
+    failed: Arc<AtomicBool>,
 }
 
 impl Default for TaskExecutor {
@@ -23,6 +30,7 @@ impl TaskExecutor {
         Self {
             token: CancellationToken::new(),
             tracker: TaskTracker::new(),
+            failed: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -44,6 +52,7 @@ impl TaskExecutor {
         self.tracker.spawn(async move {
             if let Err(e) = future.await {
                 tracing::error!("{e:#}");
+                executor.failed.store(true, Ordering::Relaxed);
             }
             executor.trigger_shutdown();
         })
@@ -52,6 +61,11 @@ impl TaskExecutor {
     /// Get the cancellation token.
     pub const fn cancellation_token(&self) -> &CancellationToken {
         &self.token
+    }
+
+    /// Returns true if any critical task failed.
+    pub fn has_failed(&self) -> bool {
+        self.failed.load(Ordering::Relaxed)
     }
 
     /// Trigger a graceful shutdown.
