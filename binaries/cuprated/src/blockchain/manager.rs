@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use futures::StreamExt;
 use monero_oxide::block::Block;
-use tokio::sync::{mpsc, oneshot, Notify, OwnedSemaphorePermit};
+use tokio::sync::{mpsc, oneshot, Notify, OwnedSemaphorePermit, RwLock};
 use tower::{BoxError, Service, ServiceExt};
 use tracing::error;
 
@@ -23,10 +23,7 @@ use cuprate_types::{
 };
 
 use crate::{
-    blockchain::{
-        chain_service::ChainService, interface::COMMAND_TX, syncer,
-        types::ConsensusBlockchainReadHandle,
-    },
+    blockchain::{chain_service::ChainService, syncer, types::ConsensusBlockchainReadHandle},
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     txpool::TxpoolManagerHandle,
 };
@@ -47,22 +44,24 @@ use syncer::SyncerHandle;
 pub async fn init_blockchain_manager(
     clearnet_interface: NetworkInterface<ClearNet>,
     blockchain_write_handle: BlockchainWriteHandle,
-    blockchain_read_handle: BlockchainReadHandle,
     txpool_manager_handle: TxpoolManagerHandle,
-    mut blockchain_context_service: BlockchainContextService,
     block_downloader_config: BlockDownloaderConfig,
     syncer_handle: SyncerHandle,
+    command_rx: mpsc::Receiver<BlockchainManagerCommand>,
+    node_ctx: crate::NodeContext,
 ) {
     // TODO: find good values for these size limits
     let (batch_tx, batch_rx) = mpsc::channel(1);
     let stop_current_block_downloader = Arc::new(Notify::new());
-    let (command_tx, command_rx) = mpsc::channel(3);
 
-    COMMAND_TX.set(command_tx).unwrap();
+    let chain_service = ChainService {
+        blockchain_read: node_ctx.blockchain_read.clone(),
+        fast_sync_hashes: node_ctx.fast_sync_hashes,
+    };
 
     tokio::spawn(syncer::syncer(
-        blockchain_context_service.clone(),
-        ChainService(blockchain_read_handle.clone()),
+        node_ctx.blockchain_context.clone(),
+        chain_service,
         clearnet_interface.clone(),
         batch_tx,
         Arc::clone(&stop_current_block_downloader),
@@ -73,13 +72,15 @@ pub async fn init_blockchain_manager(
     let manager = BlockchainManager {
         blockchain_write_handle,
         blockchain_read_handle: ConsensusBlockchainReadHandle::new(
-            blockchain_read_handle,
+            node_ctx.blockchain_read,
             BoxError::from,
         ),
         txpool_manager_handle,
-        blockchain_context_service,
+        blockchain_context_service: node_ctx.blockchain_context,
         stop_current_block_downloader,
         broadcast_svc: clearnet_interface.broadcast_svc(),
+        reorg_lock: node_ctx.reorg_lock,
+        fast_sync_hashes: node_ctx.fast_sync_hashes,
     };
 
     tokio::spawn(manager.run(batch_rx, command_rx));
@@ -107,6 +108,10 @@ pub struct BlockchainManager {
     stop_current_block_downloader: Arc<Notify>,
     /// The broadcast service, to broadcast new blocks.
     broadcast_svc: BroadcastSvc<ClearNet>,
+    /// Reorg lock.
+    reorg_lock: Arc<RwLock<()>>,
+    /// Fast-sync hashes for this node's network.
+    fast_sync_hashes: &'static [[u8; 32]],
 }
 
 impl BlockchainManager {

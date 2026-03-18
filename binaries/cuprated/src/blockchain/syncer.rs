@@ -13,7 +13,7 @@ use cuprate_p2p::{
 };
 use cuprate_p2p_core::{client::PeerSyncCallback, ClearNet, CoreSyncData, NetworkZone};
 
-use super::interface::is_block_being_handled;
+use super::interface::BlockchainManagerHandle;
 
 /// An error returned from the [`syncer`].
 #[derive(Debug, thiserror::Error)]
@@ -190,7 +190,11 @@ impl SyncState {
     }
 
     /// Creates a [`PeerSyncCallback`] that filters and wakes the syncer.
-    pub fn callback(&self, context_svc: BlockchainContextService) -> PeerSyncCallback {
+    pub fn callback(
+        &self,
+        context_svc: BlockchainContextService,
+        blockchain_manager: BlockchainManagerHandle,
+    ) -> PeerSyncCallback {
         let this = self.clone();
         PeerSyncCallback::new(move |peer_csd: &CoreSyncData| {
             let ctx = context_svc.blockchain_context_snapshot();
@@ -205,7 +209,7 @@ impl SyncState {
             // If we are behind the peer, and we aren't just one block behind with the blockchain manager handling the block, wake the syncer.
             if peer_csd.cumulative_difficulty() > ctx.cumulative_difficulty
                 && !(peer_csd.current_height.saturating_sub(1) == ctx.chain_height as u64
-                    && is_block_being_handled(&peer_csd.top_id))
+                    && blockchain_manager.is_block_being_handled(&peer_csd.top_id))
             {
                 this.notify_syncer.notify_one();
             }

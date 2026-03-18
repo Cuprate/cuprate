@@ -26,10 +26,12 @@ use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
 use cuprate_types::blockchain::BlockchainWriteRequest;
 
 use crate::{
+    blockchain::BlockchainManagerHandle,
     config::Config,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     tor::{transport_clearnet_daemon_config, transport_daemon_config, TorContext, TorMode},
     txpool::{self, IncomingTxHandler},
+    NodeContext,
 };
 
 #[cfg(feature = "arti")]
@@ -99,12 +101,15 @@ impl NetworkInterfaces {
 /// [`Sender<IncomingTxHandler>`] for propagating the tx handler.
 pub async fn initialize_clearnet_p2p(
     config: &Config,
-    context_svc: BlockchainContextService,
-    blockchain_read_handle: BlockchainReadHandle,
-    txpool_read_handle: TxpoolReadHandle,
+    node_ctx: &NodeContext,
     tor_ctx: &TorContext,
     peer_sync_callback: PeerSyncCallback,
 ) -> (NetworkInterface<ClearNet>, Sender<IncomingTxHandler>) {
+    let blockchain_read_handle = node_ctx.blockchain_read.clone();
+    let context_svc = node_ctx.blockchain_context.clone();
+    let txpool_read_handle = node_ctx.txpool_read.clone();
+    let blockchain_manager = node_ctx.blockchain_manager.clone();
+
     match config.p2p.clear_net.proxy {
         ProxySettings::Tor => match tor_ctx.mode {
             #[cfg(feature = "arti")]
@@ -117,6 +122,7 @@ pub async fn initialize_clearnet_p2p(
                     config.clearnet_p2p_config(),
                     transport_clearnet_arti_config(tor_ctx),
                     Some(peer_sync_callback.clone()),
+                    blockchain_manager,
                 )
                 .await
                 .unwrap()
@@ -128,6 +134,7 @@ pub async fn initialize_clearnet_p2p(
                 config.clearnet_p2p_config(),
                 transport_clearnet_daemon_config(config),
                 Some(peer_sync_callback.clone()),
+                blockchain_manager,
             )
             .await
             .unwrap(),
@@ -142,6 +149,7 @@ pub async fn initialize_clearnet_p2p(
                     config.clearnet_p2p_config(),
                     config.p2p.clear_net.tcp_transport_config(config.network),
                     Some(peer_sync_callback.clone()),
+                    blockchain_manager,
                 )
                 .await
                 .unwrap()
@@ -156,6 +164,7 @@ pub async fn initialize_clearnet_p2p(
                         server_config: None,
                     },
                     Some(peer_sync_callback.clone()),
+                    blockchain_manager,
                 )
                 .await
                 .unwrap()
@@ -168,30 +177,30 @@ pub async fn initialize_clearnet_p2p(
 /// a [`Sender<IncomingTxHandler>`] for propagating the tx handler.
 pub async fn start_tor_p2p(
     config: &Config,
-    context_svc: BlockchainContextService,
-    blockchain_read_handle: BlockchainReadHandle,
-    txpool_read_handle: TxpoolReadHandle,
     tor_ctx: TorContext,
+    node_ctx: NodeContext,
 ) -> (NetworkInterface<Tor>, Sender<IncomingTxHandler>) {
     match tor_ctx.mode {
         TorMode::Daemon => start_zone_p2p::<Tor, Daemon>(
-            blockchain_read_handle,
-            context_svc,
-            txpool_read_handle,
+            node_ctx.blockchain_read.clone(),
+            node_ctx.blockchain_context.clone(),
+            node_ctx.txpool_read.clone(),
             config.tor_p2p_config(&tor_ctx),
             transport_daemon_config(config),
             None,
+            node_ctx.blockchain_manager.clone(),
         )
         .await
         .unwrap(),
         #[cfg(feature = "arti")]
         TorMode::Arti => start_zone_p2p::<Tor, Arti>(
-            blockchain_read_handle,
-            context_svc,
-            txpool_read_handle,
+            node_ctx.blockchain_read.clone(),
+            node_ctx.blockchain_context.clone(),
+            node_ctx.txpool_read.clone(),
             config.tor_p2p_config(&tor_ctx),
             transport_arti_config(config, tor_ctx),
             None,
+            node_ctx.blockchain_manager,
         )
         .await
         .unwrap(),
@@ -210,6 +219,7 @@ pub async fn start_zone_p2p<N, T>(
     config: P2PConfig<N>,
     transport_config: TransportConfig<N, T>,
     peer_sync_callback: Option<PeerSyncCallback>,
+    blockchain_manager: BlockchainManagerHandle,
 ) -> Result<(NetworkInterface<N>, Sender<IncomingTxHandler>), tower::BoxError>
 where
     N: NetworkZone,
@@ -225,6 +235,7 @@ where
         txpool_read_handle,
         incoming_tx_handler: None,
         incoming_tx_handler_fut: incoming_tx_handler_rx.shared(),
+        blockchain_manager,
     };
 
     Ok((

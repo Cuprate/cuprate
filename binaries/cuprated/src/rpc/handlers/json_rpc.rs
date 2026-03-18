@@ -60,7 +60,6 @@ use cuprate_types::{
 };
 
 use crate::{
-    blockchain::interface as blockchain_interface,
     constants::VERSION_BUILD,
     rpc::{
         constants::{FIELD_NOT_SUPPORTED, UNSUPPORTED_RPC_CALL},
@@ -207,7 +206,7 @@ async fn get_block_count(
     Ok(GetBlockCountResponse {
         base: helper::response_base(false),
         // Block count starts at 1
-        count: blockchain::chain_height(&mut state.blockchain_read)
+        count: blockchain::chain_height(&mut state.node_ctx.blockchain_read)
             .await?
             .0,
     })
@@ -219,7 +218,8 @@ async fn on_get_block_hash(
     request: OnGetBlockHashRequest,
 ) -> Result<OnGetBlockHashResponse, Error> {
     let [height] = request.block_height;
-    let hash = blockchain::block_hash(&mut state.blockchain_read, height, Chain::Main).await?;
+    let hash =
+        blockchain::block_hash(&mut state.node_ctx.blockchain_read, height, Chain::Main).await?;
 
     Ok(OnGetBlockHashResponse {
         block_hash: Hex(hash),
@@ -237,13 +237,16 @@ async fn submit_block(
     let block_id = Hex(block.hash());
 
     // Attempt to relay the block.
-    blockchain_interface::handle_incoming_block(
-        block,
-        HashMap::new(), // this function reads the txpool
-        &mut state.blockchain_read,
-        &mut state.txpool_read,
-    )
-    .await?;
+    state
+        .node_ctx
+        .blockchain_manager
+        .handle_incoming_block(
+            block,
+            HashMap::new(), // this function reads the txpool
+            &mut state.node_ctx.blockchain_read,
+            &mut state.node_ctx.txpool_read,
+        )
+        .await?;
 
     Ok(SubmitBlockResponse {
         base: helper::response_base(false),
@@ -405,13 +408,13 @@ async fn get_block(
 ) -> Result<GetBlockResponse, Error> {
     let (block, block_header) = if request.hash.is_empty() {
         helper::check_height(&mut state, request.height).await?;
-        let block = blockchain::block(&mut state.blockchain_read, request.height).await?;
+        let block = blockchain::block(&mut state.node_ctx.blockchain_read, request.height).await?;
         let block_header =
             helper::block_header(&mut state, request.height, request.fill_pow_hash).await?;
         (block, block_header)
     } else {
         let hash: [u8; 32] = request.hash.try_into()?;
-        let block = blockchain::block_by_hash(&mut state.blockchain_read, hash).await?;
+        let block = blockchain::block_by_hash(&mut state.node_ctx.blockchain_read, hash).await?;
         let block_header =
             helper::block_header_by_hash(&mut state, hash, request.fill_pow_hash).await?;
         (block, block_header)
@@ -454,7 +457,7 @@ async fn get_info(
     _: GetInfoRequest,
 ) -> Result<GetInfoResponse, Error> {
     let restricted = state.is_restricted();
-    let c = state.blockchain_context.blockchain_context();
+    let c = state.node_ctx.blockchain_context.blockchain_context();
 
     let cumulative_difficulty = c.cumulative_difficulty;
     let adjusted_time = c.current_adjusted_timestamp_for_time_lock();
@@ -463,7 +466,7 @@ async fn get_info(
     let alt_blocks_count = if restricted {
         0
     } else {
-        blockchain::alt_chain_count(&mut state.blockchain_read).await?
+        blockchain::alt_chain_count(&mut state.node_ctx.blockchain_read).await?
     };
 
     // TODO: these values are incorrectly calculated in `monerod` and copied in `cuprated`
@@ -485,7 +488,8 @@ async fn get_info(
     let (cumulative_difficulty, cumulative_difficulty_top64) =
         split_u128_into_low_high_bits(cumulative_difficulty);
 
-    let (database_size, free_space) = blockchain::database_size(&mut state.blockchain_read).await?;
+    let (database_size, free_space) =
+        blockchain::database_size(&mut state.node_ctx.blockchain_read).await?;
     let (database_size, free_space) = if restricted {
         // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L131-L134>
         let database_size = database_size.div_ceil(5 * 1024 * 1024 * 1024);
@@ -531,8 +535,8 @@ async fn get_info(
     let target = blockchain_manager::target(todo!()).await?.as_secs();
     let top_block_hash = Hex(c.top_hash);
 
-    let tx_count = blockchain::total_tx_count(&mut state.blockchain_read).await?;
-    let tx_pool_size = txpool::size(&mut state.txpool_read, !restricted).await?;
+    let tx_count = blockchain::total_tx_count(&mut state.node_ctx.blockchain_read).await?;
+    let tx_pool_size = txpool::size(&mut state.node_ctx.txpool_read, !restricted).await?;
 
     #[expect(
         clippy::if_same_then_else,
@@ -608,11 +612,16 @@ async fn hard_fork_info(
     let hard_fork = if request.version > 0 {
         HardFork::from_version(request.version)?
     } else {
-        state.blockchain_context.blockchain_context().current_hf
+        state
+            .node_ctx
+            .blockchain_context
+            .blockchain_context()
+            .current_hf
     };
 
     let hard_fork_info =
-        blockchain_context::hard_fork_info(&mut state.blockchain_context, hard_fork).await?;
+        blockchain_context::hard_fork_info(&mut state.node_ctx.blockchain_context, hard_fork)
+            .await?;
 
     Ok(HardForkInfoResponse {
         base: helper::access_response_base(false),
@@ -755,7 +764,7 @@ async fn get_output_histogram(
         recent_cutoff: request.recent_cutoff,
     };
 
-    let histogram = blockchain::output_histogram(&mut state.blockchain_read, input)
+    let histogram = blockchain::output_histogram(&mut state.node_ctx.blockchain_read, input)
         .await?
         .into_iter()
         .map(|entry| HistogramEntry {
@@ -782,8 +791,12 @@ async fn get_coinbase_tx_sum(
         emission_amount,
         fee_amount_top64,
         fee_amount,
-    } = blockchain::coinbase_tx_sum(&mut state.blockchain_read, request.height, request.count)
-        .await?;
+    } = blockchain::coinbase_tx_sum(
+        &mut state.node_ctx.blockchain_read,
+        request.height,
+        request.count,
+    )
+    .await?;
 
     // Formats `u128` as hexadecimal strings.
     let wide_emission_amount = fee_amount.hex_prefix();
@@ -812,7 +825,8 @@ async fn get_version(
 
     // FIXME: use an async iterator `collect()` version.
     for hf in HardFork::VARIANTS {
-        if let Ok(hf) = blockchain_context::hard_fork_info(&mut state.blockchain_context, *hf).await
+        if let Ok(hf) =
+            blockchain_context::hard_fork_info(&mut state.node_ctx.blockchain_context, *hf).await
         {
             let entry = HardForkEntry {
                 height: hf.earliest_height,
@@ -839,9 +853,11 @@ async fn get_fee_estimate(
     mut state: CupratedRpcHandler,
     request: GetFeeEstimateRequest,
 ) -> Result<GetFeeEstimateResponse, Error> {
-    let estimate =
-        blockchain_context::fee_estimate(&mut state.blockchain_context, request.grace_blocks)
-            .await?;
+    let estimate = blockchain_context::fee_estimate(
+        &mut state.node_ctx.blockchain_context,
+        request.grace_blocks,
+    )
+    .await?;
 
     Ok(GetFeeEstimateResponse {
         base: helper::access_response_base(false),
@@ -856,7 +872,7 @@ async fn get_alternate_chains(
     mut state: CupratedRpcHandler,
     _: GetAlternateChainsRequest,
 ) -> Result<GetAlternateChainsResponse, Error> {
-    let chains = blockchain::alt_chains(&mut state.blockchain_read)
+    let chains = blockchain::alt_chains(&mut state.node_ctx.blockchain_read)
         .await?
         .into_iter()
         .map(Into::into)
@@ -889,7 +905,13 @@ async fn sync_info(
     mut state: CupratedRpcHandler,
     _: SyncInfoRequest,
 ) -> Result<SyncInfoResponse, Error> {
-    let height = usize_to_u64(state.blockchain_context.blockchain_context().chain_height);
+    let height = usize_to_u64(
+        state
+            .node_ctx
+            .blockchain_context
+            .blockchain_context()
+            .chain_height,
+    );
 
     let target_height = blockchain_manager::target_height(todo!()).await?;
 
@@ -926,7 +948,7 @@ async fn get_transaction_pool_backlog(
 ) -> Result<GetTransactionPoolBacklogResponse, Error> {
     let now = current_unix_timestamp();
 
-    let backlog = txpool::backlog(&mut state.txpool_read)
+    let backlog = txpool::backlog(&mut state.node_ctx.txpool_read)
         .await?
         .into_iter()
         .map(|entry| TxBacklogEntry {
@@ -955,7 +977,7 @@ async fn get_miner_data(
     mut state: CupratedRpcHandler,
     _: GetMinerDataRequest,
 ) -> Result<GetMinerDataResponse, Error> {
-    let c = state.blockchain_context.blockchain_context();
+    let c = state.node_ctx.blockchain_context.blockchain_context();
 
     let major_version = c.current_hf.as_u8();
     let height = usize_to_u64(c.chain_height);
@@ -966,7 +988,7 @@ async fn get_miner_data(
     // TODO: <https://github.com/Cuprate/cuprate/pull/355#discussion_r1911821515>
     let median_weight = usize_to_u64(c.effective_median_weight);
     let already_generated_coins = c.already_generated_coins;
-    let tx_backlog = txpool::backlog(&mut state.txpool_read)
+    let tx_backlog = txpool::backlog(&mut state.node_ctx.txpool_read)
         .await?
         .into_iter()
         .map(|entry| GetMinerDataTxBacklogEntry {
@@ -1015,7 +1037,7 @@ async fn calc_pow(
 
     // let block_weight = todo!();
 
-    // let median_for_block_reward = blockchain_context::context(&mut state.blockchain_context)
+    // let median_for_block_reward = blockchain_context::context(&mut state.node_ctx.blockchain_context)
     //     .await?
     //     .unchecked_blockchain_context()
     //     .context_to_verify_block
@@ -1030,7 +1052,7 @@ async fn calc_pow(
     // TODO: will `CalculatePow` do the above checks?
 
     let pow_hash = blockchain_context::calculate_pow(
-        &mut state.blockchain_context,
+        &mut state.node_ctx.blockchain_context,
         hardfork,
         block,
         seed_hash,

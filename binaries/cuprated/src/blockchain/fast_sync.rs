@@ -7,13 +7,15 @@ use cuprate_helper::network::Network;
 /// See `build.rs` for how this file is generated.
 static FAST_SYNC_HASHES: &[[u8; 32]] = &include!(concat!(env!("OUT_DIR"), "/fast_sync_hashes.rs"));
 
-/// Set the fast-sync hashes according to the provided values.
-pub fn set_fast_sync_hashes(fast_sync: bool, network: Network) {
-    cuprate_fast_sync::set_fast_sync_hashes(if fast_sync && network == Network::Mainnet {
+/// Returns the fast-sync hashes for the given configuration.
+///
+/// Returns a non-empty slice only for mainnet with fast sync enabled.
+pub fn get_fast_sync_hashes(fast_sync: bool, network: Network) -> &'static [[u8; 32]] {
+    if fast_sync && network == Network::Mainnet {
         FAST_SYNC_HASHES
     } else {
         &[]
-    });
+    }
 }
 
 #[cfg(test)]
