@@ -28,7 +28,6 @@ use cuprate_types::blockchain::BlockchainWriteRequest;
 use crate::{
     blockchain::BlockchainManagerHandle,
     config::Config,
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
     tor::{transport_clearnet_daemon_config, transport_daemon_config, TorContext, TorMode},
     txpool::{self, IncomingTxHandler},
     NodeContext,

@@ -219,7 +219,7 @@ impl Node {
             &mut blockchain_write_handle,
             config.network(),
         )
-        .await;
+        .await?;
 
         // Start the context service and the block/tx verifier.
         let context_svc =
@@ -281,7 +281,7 @@ impl Node {
             txpool_write_handle.clone(),
             node_ctx.clone(),
         )
-        .await;
+        .await?;
 
         // Send tx handler sender to clearnet zone
         if clearnet_tx_handler_subscriber

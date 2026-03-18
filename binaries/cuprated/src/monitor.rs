@@ -5,7 +5,7 @@ use tokio::task::JoinHandle;
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tracing::{error, info};
 
-use crate::constants::PANIC_CRITICAL_SERVICE_ERROR;
+use crate::constants::CRITICAL_SERVICE_ERROR;
 
 /// A handle for task spawning and shutdown coordination.
 #[derive(Clone)]
@@ -43,18 +43,21 @@ impl TaskExecutor {
     /// Panics in the future are treated as errors.
     pub fn spawn_critical<F>(&self, name: &'static str, future: F) -> JoinHandle<()>
     where
-        F: Future + Send + 'static,
-        F::Output: Send + 'static,
+        F: Future<Output = anyhow::Result<()>> + Send + 'static,
     {
         let executor = self.clone();
         self.tracker.spawn(async move {
-            if let Err(payload) = AssertUnwindSafe(future).catch_unwind().await {
-                let msg = payload
-                    .downcast_ref::<String>()
-                    .map(String::as_str)
-                    .or_else(|| payload.downcast_ref::<&'static str>().copied())
-                    .unwrap_or("<no panic message>");
-                error!(subsystem = name, err = %msg, "{PANIC_CRITICAL_SERVICE_ERROR}");
+            match AssertUnwindSafe(future).catch_unwind().await {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => error!(subsystem = name, "{e:#}"),
+                Err(payload) => {
+                    let msg = payload
+                        .downcast_ref::<String>()
+                        .map(String::as_str)
+                        .or_else(|| payload.downcast_ref::<&'static str>().copied())
+                        .unwrap_or("<no panic message>");
+                    error!(subsystem = name, err = msg, "{CRITICAL_SERVICE_ERROR}");
+                }
             }
             executor.trigger_shutdown();
         })

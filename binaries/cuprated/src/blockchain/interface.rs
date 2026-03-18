@@ -19,10 +19,7 @@ use cuprate_txpool::service::{
 };
 use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
 
-use crate::{
-    blockchain::manager::{BlockchainManagerCommand, IncomingBlockOk},
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
-};
+use crate::blockchain::manager::{BlockchainManagerCommand, IncomingBlockOk};
 
 /// Handle for the blockchain manager.
 ///
@@ -56,6 +53,9 @@ pub enum IncomingBlockError {
     /// The block was invalid.
     #[error(transparent)]
     InvalidBlock(anyhow::Error),
+    /// An internal service error occurred.
+    #[error(transparent)]
+    Service(anyhow::Error),
 }
 
 impl BlockchainManagerHandle {
@@ -78,7 +78,7 @@ impl BlockchainManagerHandle {
 
     /// Try to add a new block to the blockchain.
     ///
-    /// On success returns `IncomingBlockOk`
+    /// On success returns `IncomingBlockOk`.
     ///
     /// # Errors
     ///
@@ -86,6 +86,7 @@ impl BlockchainManagerHandle {
     ///  - the block was invalid
     ///  - we are missing transactions
     ///  - the block's parent is unknown
+    ///  - an internal service is unavailable
     pub async fn handle_incoming_block(
         &self,
         block: Block,
@@ -101,7 +102,7 @@ impl BlockchainManagerHandle {
 
         if !block_exists(block.header.previous, blockchain_read_handle)
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .map_err(IncomingBlockError::Service)?
         {
             return Err(IncomingBlockError::Orphan);
         }
@@ -110,7 +111,7 @@ impl BlockchainManagerHandle {
 
         if block_exists(block_hash, blockchain_read_handle)
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .map_err(IncomingBlockError::Service)?
         {
             return Ok(IncomingBlockOk::AlreadyHave);
         }
@@ -118,10 +119,10 @@ impl BlockchainManagerHandle {
         let TxpoolReadResponse::TxsForBlock { mut txs, missing } = txpool_read_handle
             .ready()
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .map_err(|e| IncomingBlockError::Service(e.into()))?
             .call(TxpoolReadRequest::TxsForBlock(block.transactions.clone()))
             .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .map_err(|e| IncomingBlockError::Service(e.into()))?
         else {
             unreachable!()
         };
@@ -176,11 +177,11 @@ impl BlockchainManagerHandle {
                 response_tx,
             })
             .await
-            .expect("TODO: don't actually panic here, an err means we are shutting down");
+            .map_err(|e| IncomingBlockError::Service(e.into()))?;
 
         response_rx
             .await
-            .expect("The blockchain manager will always respond")
+            .map_err(|e| IncomingBlockError::Service(e.into()))?
             .map_err(IncomingBlockError::InvalidBlock)
     }
 
