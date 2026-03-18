@@ -65,7 +65,6 @@ use crate::{
     blockchain::{BlockchainManagerHandle, Syncer, SyncerHandle},
     commands::CommandHandle,
     config::Config,
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
     monitor::TaskExecutor,
     tor::initialize_tor_if_enabled,
     txpool::IncomingTxHandler,
