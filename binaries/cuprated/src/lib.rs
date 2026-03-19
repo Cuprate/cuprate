@@ -351,4 +351,11 @@ impl Node {
 
         Ok(node)
     }
+
+    // Shutdown the node.
+    pub async fn shutdown(self) {
+        self.task_executor.trigger_shutdown();
+        self.task_executor.close();
+        self.task_executor.wait().await;
+    }
 }

@@ -75,9 +75,7 @@ fn main() {
 
         // Wait for shutdown signal.
         node.task_executor.cancellation_token().cancelled().await;
-        node.task_executor.close();
-        node.task_executor.wait().await;
-        drop(node);
+        node.shutdown().await;
     });
     drop(rt);
     info!("Shutdown complete.");

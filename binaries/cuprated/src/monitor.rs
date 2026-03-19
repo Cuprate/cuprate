@@ -42,7 +42,9 @@ impl TaskExecutor {
 
     /// Trigger a graceful shutdown.
     pub fn trigger_shutdown(&self) {
-        info!("Shutting down gracefully... Press Ctrl+C to exit immediately.");
+        if !self.token.is_cancelled() {
+            info!("Shutting down...");
+        }
         self.token.cancel();
     }
 
@@ -66,6 +68,7 @@ pub fn spawn_signal_handler(task_executor: TaskExecutor) {
             () = shutdown_signal() => {
                 eprintln!();
                 task_executor.trigger_shutdown();
+                info!("Press Ctrl+C to force exit.");
             }
         }
         // Wait for second signal to force exit.
