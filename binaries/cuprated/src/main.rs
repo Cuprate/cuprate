@@ -90,6 +90,7 @@ fn main() {
         // Wait for shutdown signal.
         node.task_executor.cancellation_token().cancelled().await;
         node.shutdown().await;
+        drop(node);
     });
     drop(rt);
     info!("Shutdown complete.");
