@@ -178,7 +178,7 @@ async fn handle_command(
             }
         }
         Command::Exit => {
-            node_ctx.task_executor.cancellation_token().cancel();
+            node_ctx.task_executor.trigger_shutdown();
             String::from("Shutting down...")
         }
     }
