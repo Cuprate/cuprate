@@ -28,7 +28,7 @@ pub struct CommandHandle {
 impl CommandHandle {
     /// Initialize the command handler and return a handle.
     pub fn init(node_ctx: NodeContext) -> Self {
-        let (tx, mut rx) = mpsc::channel::<CommandRequest>(8);
+        let (tx, mut rx) = mpsc::channel::<CommandRequest>(1);
         let mut context_svc = node_ctx.blockchain_context.clone();
 
         tokio::spawn(async move {
