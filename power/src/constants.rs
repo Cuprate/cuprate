@@ -1,3 +1,8 @@
+/// Ban score for peers that either:
+/// - attempt to send high-input transactions without PoWER.
+/// - send an invalid or malformed PoWER solution.
+pub const BAN_SCORE: usize = 5;
+
 /// Input counts greater than this require PoWER.
 pub const POWER_INPUT_THRESHOLD: usize = 8;
 
