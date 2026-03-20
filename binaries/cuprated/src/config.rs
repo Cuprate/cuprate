@@ -43,11 +43,10 @@ mod tokio;
 mod tor;
 mod tracing_config;
 
-pub use args::Args;
-
 #[macro_use]
 mod macros;
 
+pub use args::Args;
 use default::DefaultOrCustom;
 use fs::FileSystemConfig;
 pub use p2p::{p2p_port, P2PConfig};
