@@ -144,10 +144,13 @@ impl Node {
     /// The caller should set up the following before calling this:
     /// - Tracing/logging (the node emits tracing events during initialization)
     /// - Global rayon thread pool (optional, uses rayon defaults if not set)
+    /// - `config.target_max_memory` must be resolved (per-node budget;
+    ///   multi-node embedders divide total RAM themselves)
     ///
     /// # Panics
     ///
-    /// Panics if the database is corrupt or critical services fail to start.
+    /// Panics if the database is corrupt, critical services fail to start, or
+    /// `config.target_max_memory` is unresolved.
     pub async fn launch(config: Config) -> Self {
         // Initialize global static `LazyLock` data.
         statics::init_lazylock_statics();

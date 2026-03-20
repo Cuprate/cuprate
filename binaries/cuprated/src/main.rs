@@ -43,7 +43,19 @@ fn main() {
     let args = Args::parse();
     args.do_quick_requests();
 
-    let config = load_config(&args);
+    let mut config = load_config(&args);
+
+    // Resolve `target_max_memory` from system RAM.
+    if config.target_max_memory_is_default() {
+        let mut info = sysinfo::System::new();
+        info.refresh_memory();
+        let memory = info.total_memory();
+        if memory == 0 {
+            eprintln_red("Unable to read total memory, please manually set the `target_max_memory` value in the config file.");
+            std::process::exit(1);
+        }
+        config.set_target_max_memory_bytes(memory);
+    }
 
     // Initialize logging.
     cuprated::logging::init_logging(&config);
@@ -128,7 +140,26 @@ fn load_config(args: &Args) -> Config {
     let config = args.apply_args(config);
 
     if args.dry_run {
-        config.dry_run_check();
+        let results = config.dry_run_check();
+        let mut has_error = false;
+
+        for check in &results {
+            match &check.result {
+                Ok(()) => println!("{}", check.description),
+                Err(e) => {
+                    eprintln_red(&format!("Error: {e}"));
+                    has_error = true;
+                }
+            }
+        }
+
+        if has_error {
+            eprintln_red("Checks failed.");
+            std::process::exit(1);
+        }
+
+        println!("All checks passed successfully!");
+        std::process::exit(0);
     }
 
     config

@@ -6,7 +6,6 @@ use std::{
     net::{IpAddr, TcpListener},
     path::{Path, PathBuf},
     str::FromStr,
-    sync::LazyLock,
     time::Duration,
 };
 
@@ -24,10 +23,7 @@ use cuprate_p2p::block_downloader::BlockDownloaderConfig;
 use cuprate_p2p_core::{ClearNet, Tor};
 use cuprate_wire::OnionAddr;
 
-use crate::{
-    logging::eprintln_red,
-    tor::{TorContext, TorMode},
-};
+use crate::tor::{TorContext, TorMode};
 
 #[cfg(feature = "arti")]
 use {arti_client::KeystoreSelector, safelog::DisplayRedacted};
@@ -57,6 +53,14 @@ use tokio::TokioConfig;
 use tor::TorConfig;
 use tracing_config::TracingConfig;
 
+/// Result of a single check from [`Config::dry_run_check`].
+pub struct DryRunResult {
+    /// Description of the check.
+    pub description: String,
+    /// The result of the check.
+    pub result: Result<(), anyhow::Error>,
+}
+
 /// Header to put at the start of the generated config file.
 const HEADER: &str = r"##     ____                      _
 ##    / ___|   _ _ __  _ __ __ _| |_ ___
@@ -74,23 +78,6 @@ const HEADER: &str = r"##     ____                      _
 ## For more documentation, see: <https://user.cuprate.org>.
 
 ";
-
-/// A lazy-lock that reads and stores total system memory.
-static MEMORY: LazyLock<u64> = LazyLock::new(|| {
-    tracing::info!("Attempting to read total memory from system");
-
-    let mut info = sysinfo::System::new();
-    info.refresh_memory();
-
-    let memory = info.total_memory();
-
-    if memory == 0 {
-        eprintln_red("Unable to read total memory, please manually set the `target_max_memory` value in the config file.");
-        std::process::exit(1);
-    }
-
-    memory
-});
 
 /// Finds and reads a config file from the default locations.
 ///
@@ -334,10 +321,28 @@ impl Config {
             .value(&(self.target_max_memory() / 4))
     }
 
+    /// Returns `true` if `target_max_memory` is unresolved.
+    pub const fn target_max_memory_is_default(&self) -> bool {
+        matches!(self.target_max_memory, DefaultOrCustom::Default)
+    }
+
+    /// Sets `target_max_memory` to a concrete byte value.
+    pub const fn set_target_max_memory_bytes(&mut self, bytes: u64) {
+        self.target_max_memory = DefaultOrCustom::Custom(bytes);
+    }
+
     /// Returns the target maximum memory usage.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `target_max_memory` is unresolved. Callers must set a concrete
+    /// byte value via [`Config::set_target_max_memory_bytes`] before
+    /// [`Node::launch`](crate::Node::launch).
     pub fn target_max_memory(&self) -> u64 {
         match self.target_max_memory {
-            DefaultOrCustom::Default => *MEMORY,
+            DefaultOrCustom::Default => {
+                panic!("`target_max_memory` is unresolved; set a concrete byte value before `Node::launch`")
+            }
             DefaultOrCustom::Custom(size) => size,
         }
     }
@@ -394,130 +399,95 @@ impl Config {
         Ok(())
     }
 
-    pub fn dry_run_check(self) -> ! {
-        let mut error = false;
+    pub fn dry_run_check(&self) -> Vec<DryRunResult> {
+        let mut results = Vec::new();
 
         if self.p2p.clear_net.enable_inbound {
             let port = p2p_port(self.p2p.clear_net.p2p_port, self.network);
             let ip = self.p2p.clear_net.listen_on;
 
-            match Self::check_port(IpAddr::V4(ip), port) {
-                Ok(()) => println!("P2P clearnet {ip}:{port} available."),
-                Err(e) => {
-                    eprintln_red(&format!("Error: {e}"));
-                    error = true;
-                }
-            }
+            results.push(DryRunResult {
+                description: format!("P2P clearnet {ip}:{port} available."),
+                result: Self::check_port(IpAddr::V4(ip), port),
+            });
         }
 
         if self.p2p.clear_net.enable_inbound_v6 {
             let port = p2p_port(self.p2p.clear_net.p2p_port, self.network);
             let ip = self.p2p.clear_net.listen_on_v6;
 
-            match Self::check_port(IpAddr::V6(ip), port) {
-                Ok(()) => println!("P2P clearnet {ip}:{port} available."),
-                Err(e) => {
-                    eprintln_red(&format!("Error: {e}"));
-                    error = true;
-                }
-            }
+            results.push(DryRunResult {
+                description: format!("P2P clearnet {ip}:{port} available."),
+                result: Self::check_port(IpAddr::V6(ip), port),
+            });
         }
 
         if self.rpc.restricted.enable {
             let port = restricted_rpc_port(self.rpc.restricted.port, self.network);
             let ip = self.rpc.restricted.address;
 
-            match Self::check_port(ip, port) {
-                Ok(()) => println!("RPC restricted {ip}:{port} available."),
-                Err(e) => {
-                    eprintln_red(&format!("Error: {e}"));
-                    error = true;
-                }
-            }
+            results.push(DryRunResult {
+                description: format!("RPC restricted {ip}:{port} available."),
+                result: Self::check_port(ip, port),
+            });
         }
 
         if self.rpc.unrestricted.enable {
             let port = unrestricted_rpc_port(self.rpc.unrestricted.port, self.network);
             let ip = self.rpc.unrestricted.address;
 
-            match Self::check_port(ip, port) {
-                Ok(()) => println!("RPC unrestricted {ip}:{port} available."),
-                Err(e) => {
-                    eprintln_red(&format!("Error: {e}"));
-                    error = true;
-                }
-            }
+            results.push(DryRunResult {
+                description: format!("RPC unrestricted {ip}:{port} available."),
+                result: Self::check_port(ip, port),
+            });
         }
 
         if self.tor.mode == TorMode::Daemon {
             let port = self.tor.daemon.listening_addr.port();
             let ip = self.tor.daemon.listening_addr.ip();
 
-            match Self::check_port(ip, port) {
-                Ok(()) => println!("Tor daemon {ip}:{port} available."),
-                Err(e) => {
-                    eprintln_red(&format!("Error: {e}"));
-                    error = true;
-                }
-            }
+            results.push(DryRunResult {
+                description: format!("Tor daemon {ip}:{port} available."),
+                result: Self::check_port(ip, port),
+            });
         }
 
-        match Self::check_dir_permissions(&self.fs.fast_data_directory) {
-            Ok(()) => println!(
+        results.push(DryRunResult {
+            description: format!(
                 "Permissions are ok at {}",
                 self.fs.fast_data_directory.display()
             ),
-            Err(e) => {
-                eprintln_red(&format!("Error: {e}"));
-                error = true;
-            }
-        }
+            result: Self::check_dir_permissions(&self.fs.fast_data_directory),
+        });
 
-        match Self::check_dir_permissions(&self.fs.slow_data_directory) {
-            Ok(()) => println!(
+        results.push(DryRunResult {
+            description: format!(
                 "Permissions are ok at {}",
                 self.fs.slow_data_directory.display()
             ),
-            Err(e) => {
-                eprintln_red(&format!("Error: {e}"));
-                error = true;
-            }
-        }
+            result: Self::check_dir_permissions(&self.fs.slow_data_directory),
+        });
 
-        match Self::check_dir_permissions(&self.fs.cache_directory) {
-            Ok(()) => println!(
+        results.push(DryRunResult {
+            description: format!(
                 "Permissions are ok at {}",
                 self.fs.cache_directory.display()
             ),
-            Err(e) => {
-                eprintln_red(&format!("Error {e}"));
-                error = true;
-            }
-        }
+            result: Self::check_dir_permissions(&self.fs.cache_directory),
+        });
 
         #[cfg(feature = "arti")]
         if matches!(self.tor.mode, TorMode::Arti | TorMode::Auto) {
-            match Self::check_dir_permissions(&self.tor.arti.directory_path) {
-                Ok(()) => println!(
+            results.push(DryRunResult {
+                description: format!(
                     "Permissions are ok at {}",
                     self.tor.arti.directory_path.display()
                 ),
-                Err(e) => {
-                    eprintln_red(&format!("Error: {e}"));
-                    error = true;
-                }
-            }
+                result: Self::check_dir_permissions(&self.tor.arti.directory_path),
+            });
         }
 
-        let code = if error {
-            eprintln_red("Checks failed.");
-            1
-        } else {
-            println!("All checks passed successfully!");
-            0
-        };
-
-        std::process::exit(code)
+        results
     }
 }
 
