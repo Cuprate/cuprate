@@ -128,7 +128,26 @@ fn load_config(args: &Args) -> Config {
     let config = args.apply_args(config);
 
     if args.dry_run {
-        config.dry_run_check();
+        let results = config.dry_run_check();
+        let mut has_error = false;
+
+        for check in &results {
+            match &check.result {
+                Ok(()) => println!("{}", check.description),
+                Err(e) => {
+                    eprintln_red(&format!("Error: {e}"));
+                    has_error = true;
+                }
+            }
+        }
+
+        if has_error {
+            eprintln_red("Checks failed.");
+            std::process::exit(1);
+        }
+
+        println!("All checks passed successfully!");
+        std::process::exit(0);
     }
 
     config
