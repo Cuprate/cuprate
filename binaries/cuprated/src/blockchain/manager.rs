@@ -39,7 +39,7 @@ use syncer::SyncerHandle;
 
 /// Initialize the blockchain manager.
 ///
-/// This function sets up the blockchain manager and the syncer so that the functions in [`interface`](super::interface)
+/// This function sets up the `BlockchainManager` and the `syncer` so that the functions in [`interface`](super::interface)
 /// can be called.
 pub async fn init_blockchain_manager(
     clearnet_interface: NetworkInterface<ClearNet>,
