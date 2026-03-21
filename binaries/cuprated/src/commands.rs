@@ -10,7 +10,7 @@ use cuprate_helper::time::secs_to_hms;
 
 use crate::{
     logging::{self, CupratedTracingFilter},
-    statics, NodeContext,
+    NodeContext,
 };
 
 /// A command request with a response channel.
@@ -140,7 +140,7 @@ async fn handle_command(
         Command::Status => {
             let context = context_service.blockchain_context();
 
-            let uptime = statics::START_INSTANT.elapsed().unwrap_or_default();
+            let uptime = node_ctx.start_instant.elapsed().unwrap_or_default();
 
             let (h, m, s) = secs_to_hms(uptime.as_secs());
             let height = context.chain_height;

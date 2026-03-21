@@ -59,7 +59,6 @@ use crate::{
         },
         CupratedRpcHandler,
     },
-    statics::START_INSTANT_UNIX,
     txpool::IncomingTxs,
 };
 
@@ -645,7 +644,7 @@ async fn get_net_stats(
 
     Ok(GetNetStatsResponse {
         base: helper::response_base(false),
-        start_time: *START_INSTANT_UNIX,
+        start_time: state.node_ctx.start_instant_unix,
         total_packets_in: todo!(),
         total_bytes_in: todo!(),
         total_packets_out: todo!(),

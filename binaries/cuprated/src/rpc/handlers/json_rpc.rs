@@ -67,7 +67,6 @@ use crate::{
         service::{address_book, blockchain, blockchain_context, blockchain_manager, txpool},
         CupratedRpcHandler,
     },
-    statics::START_INSTANT_UNIX,
 };
 
 /// Map a [`JsonRpcRequest`] to the function that will lead to a [`JsonRpcResponse`].
@@ -528,7 +527,11 @@ async fn get_info(
     )]
     let rpc_connections_count = if restricted { 0 } else { 0 };
 
-    let start_time = if restricted { 0 } else { *START_INSTANT_UNIX };
+    let start_time = if restricted {
+        0
+    } else {
+        state.node_ctx.start_instant_unix
+    };
     let synchronized = blockchain_manager::synced(todo!()).await?;
 
     let target_height = blockchain_manager::target_height(todo!()).await?;
