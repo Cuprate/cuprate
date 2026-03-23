@@ -13,30 +13,21 @@ _(work-in-progress)_
 
 - [About](#about)
 - [Books](#books)
+- [Build](#build)
 - [Crates](#crates)
 - [Contributing](#contributing)
 - [Security](#security)
 - [License](#license)
-
-<!--
-TODO: add these sections someday.
-- [Status](#status) // when we're near v1.0.0
-- [Getting help](#getting-help) // issue tracker, user book, matrix channels, etc
-- [Build](#build)
-	- [Windows](#windows)
-	- [macOS](#macOS)
-	- [Linux](#Linux)
--->
 
 ## About
 
 Cuprate is an effort to create an alternative [Monero](https://getmonero.org) node implementation
 in [Rust](https://rust-lang.org).
 
-It will be able to independently validate Monero consensus rules, providing a layer of security and redundancy for the
+It is able to independently validate Monero consensus rules, providing a layer of security and redundancy for the
 Monero network.
 
-<!-- TODO: add some details about what Cuprate is and is not, goals, status -->
+See <https://user.cuprate.org> for more details.
 
 ## Books
 
@@ -46,9 +37,12 @@ Cuprate maintains various documentation books:
 
 | Book                                                            | Description                                                |
 |-----------------------------------------------------------------|------------------------------------------------------------|
-| [Cuprate's architecture book](https://architecture.cuprate.org) | Documents Cuprate's internal architecture & implementation |
 | [Monero's protocol book](https://monero-book.cuprate.org)       | Documents the Monero protocol                              |
 | [Cuprate's user book](https://user.cuprate.org)                 | Practical user-guide for using `cuprated`                  |
+
+## Build
+
+To build Cuprate from source code, see <https://user.cuprate.org/getting-started/source.html>.
 
 ## Crates
 For a detailed list of all crates, see: <https://architecture.cuprate.org/appendix/crates.html>.
