@@ -31,7 +31,7 @@ mod types;
 pub use fast_sync::get_fast_sync_hashes;
 pub use interface::BlockchainManagerHandle;
 pub use manager::init_blockchain_manager;
-pub use syncer::SyncNotify;
+pub use syncer::{Syncer, SyncerHandle};
 pub use types::ConsensusBlockchainReadHandle;
 
 /// The interface to the blockchain.

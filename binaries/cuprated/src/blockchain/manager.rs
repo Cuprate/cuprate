@@ -35,18 +35,18 @@ mod handler;
 mod tests;
 
 pub use commands::{BlockchainManagerCommand, IncomingBlockOk};
-use syncer::SyncerHandle;
+use syncer::Syncer;
 
 /// Initialize the blockchain manager.
 ///
-/// This function sets up the `BlockchainManager` and the `syncer` so that the functions in [`interface`](super::interface)
+/// This function sets up the `BlockchainManager` and the [`Syncer`] so that the functions in [`interface`](super::interface)
 /// can be called.
 pub async fn init_blockchain_manager(
     clearnet_interface: NetworkInterface<ClearNet>,
     blockchain_write_handle: BlockchainWriteHandle,
     txpool_manager_handle: TxpoolManagerHandle,
     block_downloader_config: BlockDownloaderConfig,
-    syncer_handle: SyncerHandle,
+    syncer: Syncer,
     command_rx: mpsc::Receiver<BlockchainManagerCommand>,
     node_ctx: crate::NodeContext,
 ) {
@@ -54,14 +54,13 @@ pub async fn init_blockchain_manager(
     let (batch_tx, batch_rx) = mpsc::channel(1);
     let stop_current_block_downloader = Arc::new(Notify::new());
 
-    tokio::spawn(syncer::syncer(
+    tokio::spawn(syncer.run(
         node_ctx.blockchain.context_svc(),
         ChainService(node_ctx.blockchain.read(), node_ctx.fast_sync_hashes),
         clearnet_interface.clone(),
         batch_tx,
         Arc::clone(&stop_current_block_downloader),
         block_downloader_config,
-        syncer_handle,
     ));
 
     let manager = BlockchainManager {
@@ -98,7 +97,7 @@ pub struct BlockchainManager {
     /// The blockchain context cache, this caches the current state of the blockchain to quickly calculate/retrieve
     /// values without needing to go to a [`BlockchainReadHandle`].
     blockchain_context_service: BlockchainContextService,
-    /// A [`Notify`] to tell the [`syncer`](syncer::syncer) that we want to cancel this current download
+    /// A [`Notify`] to tell the [`Syncer`] that we want to cancel this current download
     /// attempt.
     stop_current_block_downloader: Arc<Notify>,
     /// The broadcast service, to broadcast new blocks.
