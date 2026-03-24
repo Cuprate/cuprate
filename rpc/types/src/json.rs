@@ -442,7 +442,7 @@ define_request_and_response! {
     "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 2096..=2116,
 
-    FlushTransactionPool (restricted),
+    FlushTxpool (restricted),
 
     Request {
         txids: Vec<Hex<32>> = default::<Vec<Hex<32>>>(), "default",
@@ -582,7 +582,7 @@ define_request_and_response! {
     get_txpool_backlog,
     "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1637..=1664,
-    GetTransactionPoolBacklog (empty),
+    GetTxpoolBacklog (empty),
     Request {},
 
     ResponseBase {
@@ -726,6 +726,157 @@ define_request_and_response! {
     }
 }
 
+define_request_and_response! {
+    UNDOCUMENTED_METHOD,
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
+    core_rpc_server_commands_defs.h => 2522..=2556,
+
+    RpcAccessInfo,
+
+    Request {
+        client: String,
+    },
+
+    AccessResponseBase {
+        hashing_blob: String,
+        seed_height: u64,
+        seed_hash: String,
+        next_seed_hash: String,
+        cookie: u32,
+        diff: u64,
+        credits_per_hash_found: u64,
+        height: u64,
+    }
+}
+
+define_request_and_response! {
+    UNDOCUMENTED_METHOD,
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
+    core_rpc_server_commands_defs.h => 2558..=2580,
+
+    RpcAccessSubmitNonce,
+
+    Request {
+        client: String,
+        nonce: u32,
+        cookie: u32,
+    },
+
+    AccessResponseBase {}
+}
+
+define_request_and_response! {
+    UNDOCUMENTED_METHOD,
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
+    core_rpc_server_commands_defs.h => 2582..=2604,
+
+    RpcAccessPay,
+
+    Request {
+        client: String,
+        paying_for: String,
+        payment: u64,
+    },
+
+    AccessResponseBase {}
+}
+
+/// An entry in [`RpcAccessTrackingResponse`].
+#[derive(
+    serde::Serialize, serde::Deserialize, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash,
+)]
+pub struct RpcAccessTrackingEntry {
+    rpc: String,
+    count: u64,
+    time: u64,
+    credits: u64,
+}
+
+cuprate_epee_encoding::epee_object!(
+    RpcAccessTrackingEntry,
+    rpc: String,
+    count: u64,
+    time: u64,
+    credits: u64,
+);
+
+define_request_and_response! {
+    UNDOCUMENTED_METHOD,
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
+    core_rpc_server_commands_defs.h => 2606..=2644,
+
+    RpcAccessTracking (restricted),
+
+    Request {
+        clear: bool,
+    },
+
+    ResponseBase {
+        data: Vec<RpcAccessTrackingEntry>,
+    }
+}
+
+/// An entry in [`RpcAccessDataResponse`].
+#[derive(
+    serde::Serialize, serde::Deserialize, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash,
+)]
+pub struct RpcAccessDataEntry {
+    client: String,
+    balance: u64,
+    last_update_time: u64,
+    credits_total: u64,
+    credits_used: u64,
+    nonces_good: u64,
+    nonces_stale: u64,
+    nonces_bad: u64,
+    nonces_dupe: u64,
+}
+
+cuprate_epee_encoding::epee_object!(
+    RpcAccessDataEntry,
+    client: String,
+    balance: u64,
+    last_update_time: u64,
+    credits_total: u64,
+    credits_used: u64,
+    nonces_good: u64,
+    nonces_stale: u64,
+    nonces_bad: u64,
+    nonces_dupe: u64,
+);
+
+define_request_and_response! {
+    UNDOCUMENTED_METHOD,
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
+    core_rpc_server_commands_defs.h => 2646..=2692,
+
+    RpcAccessData (restricted),
+
+    Request { },
+
+    ResponseBase {
+        entries: Vec<RpcAccessDataEntry>,
+        hashrate: u32,
+    }
+}
+
+define_request_and_response! {
+    UNDOCUMENTED_METHOD,
+    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
+    core_rpc_server_commands_defs.h => 2695..=2720,
+
+    RpcAccessAccount (restricted),
+
+    Request {
+        client: String,
+        delta_balance: i64 = default::<i64>(), "default",
+    },
+
+    ResponseBase {
+        credits: u64,
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- Request
 /// JSON-RPC requests.
 ///
@@ -741,15 +892,28 @@ define_request_and_response! {
     serde(rename_all = "snake_case", tag = "method", content = "params")
 )]
 pub enum JsonRpcRequest {
-    GetBlockTemplate(GetBlockTemplateRequest),
+    #[serde(alias = "getblockcount")]
     GetBlockCount(GetBlockCountRequest),
+    #[serde(alias = "on_getblockhash")]
     OnGetBlockHash(OnGetBlockHashRequest),
+    #[serde(alias = "getblocktemplate")]
+    GetBlockTemplate(GetBlockTemplateRequest),
+    GetMinerData(GetMinerDataRequest),
+    CalcPow(CalcPowRequest),
+    AddAuxPow(AddAuxPowRequest),
+    #[serde(alias = "submitblock")]
     SubmitBlock(SubmitBlockRequest),
-    GenerateBlocks(GenerateBlocksRequest),
+    #[serde(alias = "generateblocks")]
+    GenerateBlocks(GenerateBlocksRequest), // TODO: this only has 1 endpoint: generateblocks no generate_blocks
+    #[serde(alias = "getlastblockheader")]
     GetLastBlockHeader(GetLastBlockHeaderRequest),
+    #[serde(alias = "getblockheaderbyhash")]
     GetBlockHeaderByHash(GetBlockHeaderByHashRequest),
+    #[serde(alias = "getblockheaderbyheight")]
     GetBlockHeaderByHeight(GetBlockHeaderByHeightRequest),
+    #[serde(alias = "getblockheadersrange")]
     GetBlockHeadersRange(GetBlockHeadersRangeRequest),
+    #[serde(alias = "getblock")]
     GetBlock(GetBlockRequest),
     GetConnections(GetConnectionsRequest),
     GetInfo(GetInfoRequest),
@@ -757,21 +921,25 @@ pub enum JsonRpcRequest {
     SetBans(SetBansRequest),
     GetBans(GetBansRequest),
     Banned(BannedRequest),
-    FlushTransactionPool(FlushTransactionPoolRequest),
+    FlushTxpool(FlushTxpoolRequest),
     GetOutputHistogram(GetOutputHistogramRequest),
-    GetCoinbaseTxSum(GetCoinbaseTxSumRequest),
     GetVersion(GetVersionRequest),
+    GetCoinbaseTxSum(GetCoinbaseTxSumRequest),
     GetFeeEstimate(GetFeeEstimateRequest),
     GetAlternateChains(GetAlternateChainsRequest),
     RelayTx(RelayTxRequest),
     SyncInfo(SyncInfoRequest),
-    GetTransactionPoolBacklog(GetTransactionPoolBacklogRequest),
-    GetMinerData(GetMinerDataRequest),
+    GetTxpoolBacklog(GetTxpoolBacklogRequest),
+    GetOutputDistribution(GetOutputDistributionRequest),
     PruneBlockchain(PruneBlockchainRequest),
-    CalcPow(CalcPowRequest),
     FlushCache(FlushCacheRequest),
-    AddAuxPow(AddAuxPowRequest),
     GetTxIdsLoose(GetTxIdsLooseRequest),
+    RpcAccessInfo(RpcAccessInfoRequest),
+    RpcAccessSubmitNonce(RpcAccessSubmitNonceRequest),
+    RpcAccessPay(RpcAccessPayRequest),
+    RpcAccessTracking(RpcAccessTrackingRequest),
+    RpcAccessData(RpcAccessDataRequest),
+    RpcAccessAccount(RpcAccessAccountRequest),
 }
 
 impl RpcCallValue for JsonRpcRequest {
@@ -791,7 +959,7 @@ impl RpcCallValue for JsonRpcRequest {
             Self::GetOutputHistogram(x) => x.is_restricted(),
             Self::GetVersion(x) => x.is_restricted(),
             Self::GetFeeEstimate(x) => x.is_restricted(),
-            Self::GetTransactionPoolBacklog(x) => x.is_restricted(),
+            Self::GetTxpoolBacklog(x) => x.is_restricted(),
             Self::GetMinerData(x) => x.is_restricted(),
             Self::AddAuxPow(x) => x.is_restricted(),
             Self::GetTxIdsLoose(x) => x.is_restricted(),
@@ -800,7 +968,7 @@ impl RpcCallValue for JsonRpcRequest {
             Self::SetBans(x) => x.is_restricted(),
             Self::GetBans(x) => x.is_restricted(),
             Self::Banned(x) => x.is_restricted(),
-            Self::FlushTransactionPool(x) => x.is_restricted(),
+            Self::FlushTxpool(x) => x.is_restricted(),
             Self::GetCoinbaseTxSum(x) => x.is_restricted(),
             Self::GetAlternateChains(x) => x.is_restricted(),
             Self::RelayTx(x) => x.is_restricted(),
@@ -808,6 +976,13 @@ impl RpcCallValue for JsonRpcRequest {
             Self::PruneBlockchain(x) => x.is_restricted(),
             Self::CalcPow(x) => x.is_restricted(),
             Self::FlushCache(x) => x.is_restricted(),
+            Self::GetOutputDistribution(x) => x.is_restricted(),
+            Self::RpcAccessInfo(x) => x.is_restricted(),
+            Self::RpcAccessSubmitNonce(x) => x.is_restricted(),
+            Self::RpcAccessPay(x) => x.is_restricted(),
+            Self::RpcAccessTracking(x) => x.is_restricted(),
+            Self::RpcAccessData(x) => x.is_restricted(),
+            Self::RpcAccessAccount(x) => x.is_restricted(),
         }
     }
 
@@ -827,7 +1002,7 @@ impl RpcCallValue for JsonRpcRequest {
             Self::GetOutputHistogram(x) => x.is_empty(),
             Self::GetVersion(x) => x.is_empty(),
             Self::GetFeeEstimate(x) => x.is_empty(),
-            Self::GetTransactionPoolBacklog(x) => x.is_empty(),
+            Self::GetTxpoolBacklog(x) => x.is_empty(),
             Self::GetMinerData(x) => x.is_empty(),
             Self::AddAuxPow(x) => x.is_empty(),
             Self::GetTxIdsLoose(x) => x.is_empty(),
@@ -836,7 +1011,7 @@ impl RpcCallValue for JsonRpcRequest {
             Self::SetBans(x) => x.is_empty(),
             Self::GetBans(x) => x.is_empty(),
             Self::Banned(x) => x.is_empty(),
-            Self::FlushTransactionPool(x) => x.is_empty(),
+            Self::FlushTxpool(x) => x.is_empty(),
             Self::GetCoinbaseTxSum(x) => x.is_empty(),
             Self::GetAlternateChains(x) => x.is_empty(),
             Self::RelayTx(x) => x.is_empty(),
@@ -844,6 +1019,13 @@ impl RpcCallValue for JsonRpcRequest {
             Self::PruneBlockchain(x) => x.is_empty(),
             Self::CalcPow(x) => x.is_empty(),
             Self::FlushCache(x) => x.is_empty(),
+            Self::GetOutputDistribution(x) => x.is_empty(),
+            Self::RpcAccessInfo(x) => x.is_empty(),
+            Self::RpcAccessSubmitNonce(x) => x.is_empty(),
+            Self::RpcAccessPay(x) => x.is_empty(),
+            Self::RpcAccessTracking(x) => x.is_empty(),
+            Self::RpcAccessData(x) => x.is_empty(),
+            Self::RpcAccessAccount(x) => x.is_empty(),
         }
     }
 }
@@ -892,7 +1074,7 @@ pub enum JsonRpcResponse {
     SetBans(SetBansResponse),
     GetBans(GetBansResponse),
     Banned(BannedResponse),
-    FlushTransactionPool(FlushTransactionPoolResponse),
+    FlushTxpool(FlushTxpoolResponse),
     GetOutputHistogram(GetOutputHistogramResponse),
     GetCoinbaseTxSum(GetCoinbaseTxSumResponse),
     GetVersion(GetVersionResponse),
@@ -900,13 +1082,20 @@ pub enum JsonRpcResponse {
     GetAlternateChains(GetAlternateChainsResponse),
     RelayTx(RelayTxResponse),
     SyncInfo(SyncInfoResponse),
-    GetTransactionPoolBacklog(GetTransactionPoolBacklogResponse),
+    GetTxpoolBacklog(GetTxpoolBacklogResponse),
+    GetOutputDistribution(GetOutputDistributionResponse),
     GetMinerData(GetMinerDataResponse),
     PruneBlockchain(PruneBlockchainResponse),
     CalcPow(CalcPowResponse),
     FlushCache(FlushCacheResponse),
     AddAuxPow(AddAuxPowResponse),
     GetTxIdsLoose(GetTxIdsLooseResponse),
+    RpcAccessInfo(RpcAccessInfoResponse),
+    RpcAccessSubmitNonce(RpcAccessSubmitNonceResponse),
+    RpcAccessPay(RpcAccessPayResponse),
+    RpcAccessTracking(RpcAccessTrackingResponse),
+    RpcAccessData(RpcAccessDataResponse),
+    RpcAccessAccount(RpcAccessAccountResponse),
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
@@ -1548,7 +1737,7 @@ mod test {
     fn flush_transaction_pool_request() {
         test_json_request(
             json::FLUSH_TRANSACTION_POOL_REQUEST,
-            FlushTransactionPoolRequest {
+            FlushTxpoolRequest {
                 txids: vec![Hex(hex!(
                     "dc16fa8eaffe1484ca9014ea050e13131d3acf23b419f33bb4cc0b32b6c49308"
                 ))],
@@ -1560,7 +1749,7 @@ mod test {
     fn flush_transaction_pool_response() {
         test_json_response(
             json::FLUSH_TRANSACTION_POOL_RESPONSE,
-            FlushTransactionPoolResponse { status: Status::Ok },
+            FlushTxpoolResponse { status: Status::Ok },
         );
     }
 
@@ -1773,6 +1962,35 @@ mod test {
                 },
                 SyncInfoPeer {
                     info: ConnectionInfo {
+                        address: "142.93.128.65:44986".into(),
+                        address_type: cuprate_types::AddressType::Ipv4,
+                        avg_download: 1,
+                        avg_upload: 1,
+                        connection_id: "a5803c4c2dac49e7b201dccdef54c862".into(),
+                        current_download: 2,
+                        current_upload: 1,
+                        height: 3195157,
+                        host: "142.93.128.65".into(),
+                        incoming: true,
+                        ip: "142.93.128.65".into(),
+                        live_time: 18,
+                        local_ip: false,
+                        localhost: false,
+                        peer_id: "6830e9764d3e5687".into(),
+                        port: "44986".into(),
+                        pruning_seed: 0,
+                        recv_count: 20340,
+                        recv_idle_time: 0,
+                        rpc_credits_per_hash: 0,
+                        rpc_port: 18089,
+                        send_count: 32235,
+                        send_idle_time: 6,
+                        state: cuprate_types::ConnectionState::Normal,
+                        support_flags: 1
+                    }
+                },
+                SyncInfoPeer {
+                    info: ConnectionInfo {
                         address: "4iykytmumafy5kjahdqc7uzgcs34s2vwsadfjpk4znvsa5vmcxeup2qd.onion:18083".into(),
                         address_type: cuprate_types::AddressType::Tor,
                         avg_download: 0,
@@ -1904,10 +2122,10 @@ mod test {
     #[test]
     fn calc_pow_request() {
         test_json_request(json::CALC_POW_REQUEST, CalcPowRequest {
-            major_version: 14,
-            height: 2286447,
-            block_blob: HexVec(hex!("0e0ed286da8006ecdc1aab3033cf1716c52f13f9d8ae0051615a2453643de94643b550d543becd0000000002abc78b0101ffefc68b0101fcfcf0d4b422025014bb4a1eade6622fd781cb1063381cad396efa69719b41aa28b4fce8c7ad4b5f019ce1dc670456b24a5e03c2d9058a2df10fec779e2579753b1847b74ee644f16b023c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000051399a1bc46a846474f5b33db24eae173a26393b976054ee14f9feefe99925233802867097564c9db7a36af5bb5ed33ab46e63092bd8d32cef121608c3258edd55562812e21cc7e3ac73045745a72f7d74581d9a0849d6f30e8b2923171253e864f4e9ddea3acb5bc755f1c4a878130a70c26297540bc0b7a57affb6b35c1f03d8dbd54ece8457531f8cba15bb74516779c01193e212050423020e45aa2c15dcb").into()),
-            seed_hash: Hex(hex!("d432f499205150873b2572b5f033c9c6e4b7c6f3394bd2dd93822cd7085e7307")),
+        major_version: 14,
+        height: 2286447,
+        block_blob: HexVec(hex!("0e0ed286da8006ecdc1aab3033cf1716c52f13f9d8ae0051615a2453643de94643b550d543becd0000000002abc78b0101ffefc68b0101fcfcf0d4b422025014bb4a1eade6622fd781cb1063381cad396efa69719b41aa28b4fce8c7ad4b5f019ce1dc670456b24a5e03c2d9058a2df10fec779e2579753b1847b74ee644f16b023c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000051399a1bc46a846474f5b33db24eae173a26393b976054ee14f9feefe99925233802867097564c9db7a36af5bb5ed33ab46e63092bd8d32cef121608c3258edd55562812e21cc7e3ac73045745a72f7d74581d9a0849d6f30e8b2923171253e864f4e9ddea3acb5bc755f1c4a878130a70c26297540bc0b7a57affb6b35c1f03d8dbd54ece8457531f8cba15bb74516779c01193e212050423020e45aa2c15dcb").into()),
+        seed_hash: Hex(hex!("d432f499205150873b2572b5f033c9c6e4b7c6f3394bd2dd93822cd7085e7307")),
         });
     }
 
@@ -1947,26 +2165,26 @@ mod test {
     #[test]
     fn add_aux_pow_request() {
         test_json_request(json::ADD_AUX_POW_REQUEST, AddAuxPowRequest {
-            blocktemplate_blob: HexVec(hex!("1010f4bae0b4069d648e741d85ca0e7acb4501f051b27e9b107d3cd7a3f03aa7f776089117c81a0000000002c681c30101ff8a81c3010180e0a596bb11033b7eedf47baf878f3490cb20b696079c34bd017fe59b0d070e74d73ffabc4bb0e05f011decb630f3148d0163b3bd39690dde4078e4cfb69fecf020d6278a27bad10c58023c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").into()),
-            aux_pow: vec![AuxPow {
-                id: Hex(hex!("3200b4ea97c3b2081cd4190b58e49572b2319fed00d030ad51809dff06b5d8c8")),
-                hash: Hex(hex!("7b35762de164b20885e15dbe656b1138db06bb402fa1796f5765a23933d8859a"))
-            }]
+        blocktemplate_blob: HexVec(hex!("1010f4bae0b4069d648e741d85ca0e7acb4501f051b27e9b107d3cd7a3f03aa7f776089117c81a0000000002c681c30101ff8a81c3010180e0a596bb11033b7eedf47baf878f3490cb20b696079c34bd017fe59b0d070e74d73ffabc4bb0e05f011decb630f3148d0163b3bd39690dde4078e4cfb69fecf020d6278a27bad10c58023c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").into()),
+        aux_pow: vec![AuxPow {
+        id: Hex(hex!("3200b4ea97c3b2081cd4190b58e49572b2319fed00d030ad51809dff06b5d8c8")),
+        hash: Hex(hex!("7b35762de164b20885e15dbe656b1138db06bb402fa1796f5765a23933d8859a"))
+        }]
         });
     }
 
     #[test]
     fn add_aux_pow_response() {
         test_json_response(json::ADD_AUX_POW_RESPONSE, AddAuxPowResponse {
-            base: ResponseBase::OK,
-            aux_pow: vec![AuxPow {
-                hash: Hex(hex!("7b35762de164b20885e15dbe656b1138db06bb402fa1796f5765a23933d8859a")),
-                id: Hex(hex!("3200b4ea97c3b2081cd4190b58e49572b2319fed00d030ad51809dff06b5d8c8")),
-            }],
-            blockhashing_blob: HexVec(hex!("1010ee97e2a106e9f8ebe8887e5b609949ac8ea6143e560ed13552b110cb009b21f0cfca1eaccf00000000b2685c1283a646bc9020c758daa443be145b7370ce5a6efacb3e614117032e2c22").into()),
-            blocktemplate_blob: HexVec(hex!("1010f4bae0b4069d648e741d85ca0e7acb4501f051b27e9b107d3cd7a3f03aa7f776089117c81a0000000002c681c30101ff8a81c3010180e0a596bb11033b7eedf47baf878f3490cb20b696079c34bd017fe59b0d070e74d73ffabc4bb0e05f011decb630f3148d0163b3bd39690dde4078e4cfb69fecf020d6278a27bad10c58023c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").into()),
-            merkle_root: Hex(hex!("7b35762de164b20885e15dbe656b1138db06bb402fa1796f5765a23933d8859a")),
-            merkle_tree_depth: 0,
+        base: ResponseBase::OK,
+        aux_pow: vec![AuxPow {
+        hash: Hex(hex!("7b35762de164b20885e15dbe656b1138db06bb402fa1796f5765a23933d8859a")),
+        id: Hex(hex!("3200b4ea97c3b2081cd4190b58e49572b2319fed00d030ad51809dff06b5d8c8")),
+        }],
+        blockhashing_blob: HexVec(hex!("1010ee97e2a106e9f8ebe8887e5b609949ac8ea6143e560ed13552b110cb009b21f0cfca1eaccf00000000b2685c1283a646bc9020c758daa443be145b7370ce5a6efacb3e614117032e2c22").into()),
+        blocktemplate_blob: HexVec(hex!("1010f4bae0b4069d648e741d85ca0e7acb4501f051b27e9b107d3cd7a3f03aa7f776089117c81a0000000002c681c30101ff8a81c3010180e0a596bb11033b7eedf47baf878f3490cb20b696079c34bd017fe59b0d070e74d73ffabc4bb0e05f011decb630f3148d0163b3bd39690dde4078e4cfb69fecf020d6278a27bad10c58023c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").into()),
+        merkle_root: Hex(hex!("7b35762de164b20885e15dbe656b1138db06bb402fa1796f5765a23933d8859a")),
+        merkle_tree_depth: 0,
         });
     }
 }
