@@ -46,11 +46,19 @@ use cuprate_wire::protocol::{
 };
 
 use crate::{
-    blockchain::interface::{self as blockchain_interface, IncomingBlockError},
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
+    blockchain::interface::{BlockchainManagerHandle, IncomingBlockError},
     p2p::CrossNetworkInternalPeerId,
     txpool::{IncomingTxError, IncomingTxHandler, IncomingTxs},
 };
+
+/// Distinguishes between errors caused by a misbehaving peer and errors caused
+/// by an internal service failure.
+enum HandlerError {
+    /// The peer sent an invalid or unexpected request.
+    Peer(anyhow::Error),
+    /// An internal service (blockchain, txpool, etc.) failed.
+    Service(anyhow::Error),
+}
 
 /// The P2P protocol request handler [`MakeService`](tower::MakeService).
 #[derive(Clone)]
@@ -65,6 +73,9 @@ pub struct P2pProtocolRequestHandlerMaker {
 
     /// A [`Future`](std::future::Future) that produces the [`IncomingTxHandler`].
     pub incoming_tx_handler_fut: Shared<oneshot::Receiver<IncomingTxHandler>>,
+
+    /// Handle for the blockchain manager.
+    pub blockchain_manager: BlockchainManagerHandle,
 }
 
 impl<A: NetZoneAddress> Service<PeerInformation<A>> for P2pProtocolRequestHandlerMaker
@@ -105,6 +116,7 @@ where
             blockchain_context_service: self.blockchain_context_service.clone(),
             txpool_read_handle,
             incoming_tx_handler,
+            blockchain_manager: self.blockchain_manager.clone(),
         }))
     }
 }
@@ -117,6 +129,7 @@ pub struct P2pProtocolRequestHandler<N: NetZoneAddress> {
     blockchain_context_service: BlockchainContextService,
     txpool_read_handle: TxpoolReadHandle,
     incoming_tx_handler: IncomingTxHandler,
+    blockchain_manager: BlockchainManagerHandle,
 }
 
 impl<A: NetZoneAddress> Service<ProtocolRequest> for P2pProtocolRequestHandler<A>
@@ -132,7 +145,7 @@ where
     }
 
     fn call(&mut self, request: ProtocolRequest) -> Self::Future {
-        match request {
+        let fut = match request {
             ProtocolRequest::GetObjects(r) => {
                 get_objects(r, self.blockchain_read_handle.clone()).boxed()
             }
@@ -142,9 +155,9 @@ where
             ProtocolRequest::FluffyMissingTxs(r) => {
                 fluffy_missing_txs(r, self.blockchain_read_handle.clone()).boxed()
             }
-            ProtocolRequest::NewBlock(_) => ready(Err(anyhow::anyhow!(
+            ProtocolRequest::NewBlock(_) => ready(Err(HandlerError::Peer(anyhow::anyhow!(
                 "Peer sent a full block when we support fluffy blocks"
-            )))
+            ))))
             .boxed(),
             ProtocolRequest::NewFluffyBlock(r) => new_fluffy_block(
                 self.peer_information.clone(),
@@ -152,6 +165,7 @@ where
                 self.blockchain_read_handle.clone(),
                 self.blockchain_context_service.clone(),
                 self.txpool_read_handle.clone(),
+                self.blockchain_manager.clone(),
             )
             .boxed(),
             ProtocolRequest::NewTransactions(r) => new_transactions(
@@ -161,8 +175,20 @@ where
                 self.incoming_tx_handler.clone(),
             )
             .boxed(),
-            ProtocolRequest::GetTxPoolCompliment(_) => ready(Ok(ProtocolResponse::NA)).boxed(), // TODO: should we support this?
-        }
+            ProtocolRequest::GetTxPoolCompliment(_) => {
+                ready(Ok(ProtocolResponse::NA)).boxed() // TODO: should we support this?
+            }
+        };
+
+        Box::pin(async move {
+            fut.await.map_err(|e| match e {
+                HandlerError::Peer(e) => e,
+                HandlerError::Service(e) => {
+                    tracing::error!("Internal service error in P2P handler: {e:#}");
+                    e
+                }
+            })
+        })
     }
 }
 
@@ -172,9 +198,11 @@ where
 async fn get_objects(
     request: GetObjectsRequest,
     mut blockchain_read_handle: BlockchainReadHandle,
-) -> anyhow::Result<ProtocolResponse> {
+) -> Result<ProtocolResponse, HandlerError> {
     if request.blocks.len() > MAX_BLOCK_BATCH_LEN {
-        anyhow::bail!("Peer requested more blocks than allowed.")
+        return Err(HandlerError::Peer(anyhow::anyhow!(
+            "Peer requested more blocks than allowed."
+        )));
     }
 
     let block_hashes: Vec<[u8; 32]> = (&request.blocks).into();
@@ -187,9 +215,11 @@ async fn get_objects(
         blockchain_height,
     } = blockchain_read_handle
         .ready()
-        .await?
+        .await
+        .map_err(|e| HandlerError::Service(e.into()))?
         .call(BlockchainReadRequest::BlockCompleteEntries(block_hashes))
-        .await?
+        .await
+        .map_err(|e| HandlerError::Service(e.into()))?
     else {
         unreachable!();
     };
@@ -205,9 +235,11 @@ async fn get_objects(
 async fn get_chain(
     request: ChainRequest,
     mut blockchain_read_handle: BlockchainReadHandle,
-) -> anyhow::Result<ProtocolResponse> {
+) -> Result<ProtocolResponse, HandlerError> {
     if request.block_ids.len() > MAX_BLOCKS_IDS_IN_CHAIN_ENTRY {
-        anyhow::bail!("Peer sent too many block hashes in chain request.")
+        return Err(HandlerError::Peer(anyhow::anyhow!(
+            "Peer sent too many block hashes in chain request."
+        )));
     }
 
     let block_hashes: Vec<[u8; 32]> = (&request.block_ids).into();
@@ -224,15 +256,19 @@ async fn get_chain(
         first_block_blob,
     } = blockchain_read_handle
         .ready()
-        .await?
+        .await
+        .map_err(|e| HandlerError::Service(e.into()))?
         .call(BlockchainReadRequest::NextChainEntry(block_hashes, 10_000))
-        .await?
+        .await
+        .map_err(|e| HandlerError::Service(e.into()))?
     else {
         unreachable!();
     };
 
     let Some(start_height) = start_height else {
-        anyhow::bail!("The peers chain has a different genesis block than ours.");
+        return Err(HandlerError::Peer(anyhow::anyhow!(
+            "The peers chain has a different genesis block than ours."
+        )));
     };
 
     let (cumulative_difficulty_low64, cumulative_difficulty_top64) =
@@ -258,7 +294,7 @@ async fn get_chain(
 async fn fluffy_missing_txs(
     mut request: FluffyMissingTransactionsRequest,
     mut blockchain_read_handle: BlockchainReadHandle,
-) -> anyhow::Result<ProtocolResponse> {
+) -> Result<ProtocolResponse, HandlerError> {
     let tx_indexes = std::mem::take(&mut request.missing_tx_indices);
     let block_hash: [u8; 32] = *request.block_hash;
     let current_blockchain_height = request.current_blockchain_height;
@@ -268,18 +304,22 @@ async fn fluffy_missing_txs(
 
     let BlockchainResponse::TxsInBlock(res) = blockchain_read_handle
         .ready()
-        .await?
+        .await
+        .map_err(|e| HandlerError::Service(e.into()))?
         .call(BlockchainReadRequest::TxsInBlock {
             block_hash,
             tx_indexes,
         })
-        .await?
+        .await
+        .map_err(|e| HandlerError::Service(e.into()))?
     else {
         unreachable!();
     };
 
     let Some(TxsInBlock { block, txs }) = res else {
-        anyhow::bail!("The peer requested txs out of range.");
+        return Err(HandlerError::Peer(anyhow::anyhow!(
+            "The peer requested txs out of range."
+        )));
     };
 
     Ok(ProtocolResponse::NewFluffyBlock(NewFluffyBlock {
@@ -301,7 +341,8 @@ async fn new_fluffy_block<A: NetZoneAddress>(
     mut blockchain_read_handle: BlockchainReadHandle,
     mut blockchain_context_service: BlockchainContextService,
     mut txpool_read_handle: TxpoolReadHandle,
-) -> anyhow::Result<ProtocolResponse> {
+    blockchain_manager: BlockchainManagerHandle,
+) -> Result<ProtocolResponse, HandlerError> {
     let current_blockchain_height = request.current_blockchain_height;
 
     peer_information
@@ -336,7 +377,8 @@ async fn new_fluffy_block<A: NetZoneAddress>(
 
         Ok((block, txs))
     })
-    .await?;
+    .await
+    .map_err(HandlerError::Peer)?;
 
     let context = blockchain_context_service.blockchain_context();
     if block.number() + 10 < context.chain_height {
@@ -348,13 +390,14 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         return Ok(ProtocolResponse::NA);
     }
 
-    let res = blockchain_interface::handle_incoming_block(
-        block,
-        txs,
-        &mut blockchain_read_handle,
-        &mut txpool_read_handle,
-    )
-    .await;
+    let res = blockchain_manager
+        .handle_incoming_block(
+            block,
+            txs,
+            &mut blockchain_read_handle,
+            &mut txpool_read_handle,
+        )
+        .await;
 
     match res {
         Ok(_) => Ok(ProtocolResponse::NA),
@@ -369,7 +412,8 @@ async fn new_fluffy_block<A: NetZoneAddress>(
             // Block's parent was unknown, could be syncing?
             Ok(ProtocolResponse::NA)
         }
-        Err(e) => Err(e.into()),
+        Err(IncomingBlockError::Service(e)) => Err(HandlerError::Service(e)),
+        Err(e) => Err(HandlerError::Peer(e.into())),
     }
 }
 
@@ -380,7 +424,7 @@ async fn new_transactions<A>(
     request: NewTransactions,
     mut blockchain_context_service: BlockchainContextService,
     mut incoming_tx_handler: IncomingTxHandler,
-) -> anyhow::Result<ProtocolResponse>
+) -> Result<ProtocolResponse, HandlerError>
 where
     A: NetZoneAddress,
     InternalPeerID<A>: Into<CrossNetworkInternalPeerId>,
@@ -420,7 +464,7 @@ where
     let res = incoming_tx_handler
         .ready()
         .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .map_err(|e| HandlerError::Service(e.into()))?
         .call(IncomingTxs {
             txs,
             state,
@@ -431,6 +475,6 @@ where
 
     match res {
         Ok(()) => Ok(ProtocolResponse::NA),
-        Err(e) => Err(e.into()),
+        Err(e) => Err(HandlerError::Peer(e.into())),
     }
 }
