@@ -252,9 +252,8 @@ config_struct! {
         ///
         /// In Daemon mode, setting this to `true` will enable a TCP server listening for inbound connections
         /// from your Tor daemon. Refer to the `tor.anonymous_inbound` and `tor.listening_addr` field for onion address
-        /// and listening configuration.
-        ///
-        /// The server will listen on port `p2p.tor_net.p2p_port`
+        /// and listening configuration. In this mode, `p2p.tor_net.p2p_port` field is the advertized virtual port
+        /// of the hidden service.
         ///
         /// Type         | boolean
         /// Valid values | false, true
