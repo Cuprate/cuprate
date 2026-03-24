@@ -20,10 +20,6 @@ pub const PATCH_VERSION: &str = env!("CARGO_PKG_VERSION_PATCH");
 /// If a debug build, the suffix is `-debug`, else it is `-release`.
 pub const VERSION_BUILD: &str = formatcp!("{VERSION}-{}", cuprate_constants::build::BUILD);
 
-/// The panic message used when cuprated encounters a critical service error.
-pub const PANIC_CRITICAL_SERVICE_ERROR: &str =
-    "A service critical to Cuprate's function returned an unexpected error.";
-
 pub const DEFAULT_CONFIG_WARNING: &str = formatcp!(
     "WARNING: no config file found, using default config.\
     \nThe default config may not be optimal for your setup, see the user book here: https://user.cuprate.org/.\

@@ -14,7 +14,10 @@ use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
 ///
 /// This has a more minimal interface than [`BlockchainReadRequest`] to make using the p2p crates easier.
 #[derive(Clone)]
-pub struct ChainService(pub BlockchainReadHandle);
+pub struct ChainService {
+    pub blockchain_read: BlockchainReadHandle,
+    pub fast_sync_hashes: &'static [[u8; 32]],
+}
 
 impl<N: NetworkZone> Service<ChainSvcRequest<N>> for ChainService {
     type Response = ChainSvcResponse<N>;
@@ -22,7 +25,7 @@ impl<N: NetworkZone> Service<ChainSvcRequest<N>> for ChainService {
     type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.0.poll_ready(cx).map_err(Into::into)
+        self.blockchain_read.poll_ready(cx).map_err(Into::into)
     }
 
     fn call(&mut self, req: ChainSvcRequest<N>) -> Self::Future {
@@ -42,21 +45,20 @@ impl<N: NetworkZone> Service<ChainSvcRequest<N>> for ChainService {
             _ => unreachable!(),
         };
 
+        let mut blockchain_read = self.blockchain_read.clone();
+
         match req {
-            ChainSvcRequest::CompactHistory => self
-                .0
+            ChainSvcRequest::CompactHistory => blockchain_read
                 .call(BlockchainReadRequest::CompactChainHistory)
                 .map_ok(map_res)
                 .map_err(Into::into)
                 .boxed(),
-            ChainSvcRequest::FindFirstUnknown(req) => self
-                .0
+            ChainSvcRequest::FindFirstUnknown(req) => blockchain_read
                 .call(BlockchainReadRequest::FindFirstUnknown(req))
                 .map_ok(map_res)
                 .map_err(Into::into)
                 .boxed(),
-            ChainSvcRequest::CumulativeDifficulty => self
-                .0
+            ChainSvcRequest::CumulativeDifficulty => blockchain_read
                 .call(BlockchainReadRequest::CompactChainHistory)
                 .map_ok(|res| {
                     // TODO create a custom request instead of hijacking this one.
@@ -74,12 +76,16 @@ impl<N: NetworkZone> Service<ChainSvcRequest<N>> for ChainService {
                 .map_err(Into::into)
                 .boxed(),
             ChainSvcRequest::ValidateEntries(entries, start_height) => {
-                let mut blockchain_read_handle = self.0.clone();
+                let fast_sync_hashes = self.fast_sync_hashes;
 
                 async move {
-                    let (valid, unknown) =
-                        validate_entries(entries, start_height, &mut blockchain_read_handle)
-                            .await?;
+                    let (valid, unknown) = validate_entries(
+                        entries,
+                        start_height,
+                        &mut blockchain_read,
+                        fast_sync_hashes,
+                    )
+                    .await?;
 
                     Ok(ChainSvcResponse::ValidateEntries { valid, unknown })
                 }

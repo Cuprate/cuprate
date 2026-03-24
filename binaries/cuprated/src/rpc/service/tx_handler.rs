@@ -5,11 +5,14 @@ use tower::{Service, ServiceExt};
 
 use cuprate_types::TxRelayChecks;
 
+use tokio_util::sync::CancellationToken;
+
 use crate::txpool::{IncomingTxError, IncomingTxHandler, IncomingTxs, RelayRuleError};
 
 pub async fn handle_incoming_txs(
     tx_handler: &mut IncomingTxHandler,
     incoming_txs: IncomingTxs,
+    shutdown_token: &CancellationToken,
 ) -> Result<TxRelayChecks, Error> {
     let resp = tx_handler
         .ready()
@@ -64,6 +67,10 @@ pub async fn handle_incoming_txs(
                 TxRelayChecks::FEE_TOO_LOW
             }
             IncomingTxError::DuplicateTransaction => TxRelayChecks::DOUBLE_SPEND,
+            IncomingTxError::Service(e) => {
+                shutdown_token.cancel();
+                return Err(e);
+            }
         },
     })
 }
