@@ -59,7 +59,6 @@ use crate::{
         },
         CupratedRpcHandler,
     },
-    statics::START_INSTANT_UNIX,
     txpool::IncomingTxs,
 };
 
@@ -134,7 +133,7 @@ async fn get_transactions(
 
     let (txs_in_blockchain, missed_txs) = {
         let requested_txs = request.txs_hashes.into_iter().map(|tx| tx.0).collect();
-        blockchain::transactions(&mut state.blockchain_read, requested_txs).await?
+        blockchain::transactions(&mut state.node_ctx.blockchain_read, requested_txs).await?
     };
 
     let missed_tx = missed_txs.clone().into_iter().map(Hex).collect();
@@ -144,7 +143,12 @@ async fn get_transactions(
         vec![]
     } else {
         let include_sensitive_txs = !state.is_restricted();
-        txpool::txs_by_hash(&mut state.txpool_read, missed_txs, include_sensitive_txs).await?
+        txpool::txs_by_hash(
+            &mut state.node_ctx.txpool_read,
+            missed_txs,
+            include_sensitive_txs,
+        )
+        .await?
     };
 
     let (txs, txs_as_hex, txs_as_json) = {
@@ -273,7 +277,7 @@ async fn get_alt_blocks_hashes(
     mut state: CupratedRpcHandler,
     _: GetAltBlocksHashesRequest,
 ) -> Result<GetAltBlocksHashesResponse, Error> {
-    let blks_hashes = blockchain::alt_chains(&mut state.blockchain_read)
+    let blks_hashes = blockchain::alt_chains(&mut state.node_ctx.blockchain_read)
         .await?
         .into_iter()
         .map(|info| Hex(info.block_hash))
@@ -305,7 +309,7 @@ async fn is_key_image_spent(
     let mut spent_status = Vec::with_capacity(key_images.len());
 
     // Check the blockchain for key image spend status.
-    blockchain::key_images_spent_vec(&mut state.blockchain_read, key_images.clone())
+    blockchain::key_images_spent_vec(&mut state.node_ctx.blockchain_read, key_images.clone())
         .await?
         .into_iter()
         .for_each(|ki| {
@@ -331,7 +335,7 @@ async fn is_key_image_spent(
 
     // Check if the remaining unspent key images exist in the transaction pool.
     if !key_images.is_empty() {
-        txpool::key_images_spent_vec(&mut state.txpool_read, key_images, !restricted)
+        txpool::key_images_spent_vec(&mut state.node_ctx.txpool_read, key_images, !restricted)
             .await?
             .into_iter()
             .for_each(|ki| {
@@ -441,7 +445,8 @@ async fn send_raw_transaction(
             Ok(())
         }
 
-        let rct_outs_available = blockchain::total_rct_outputs(&mut state.blockchain_read).await?;
+        let rct_outs_available =
+            blockchain::total_rct_outputs(&mut state.node_ctx.blockchain_read).await?;
 
         if let Err(e) = tx_sanity_check(&tx, rct_outs_available) {
             resp.base.response_base.status = Status::Failed;
@@ -542,7 +547,7 @@ async fn get_transaction_pool(
     let include_sensitive_txs = !state.is_restricted();
 
     let (transactions, spent_key_images) =
-        txpool::pool(&mut state.txpool_read, include_sensitive_txs).await?;
+        txpool::pool(&mut state.node_ctx.txpool_read, include_sensitive_txs).await?;
 
     Ok(GetTransactionPoolResponse {
         base: helper::access_response_base(false),
@@ -558,7 +563,8 @@ async fn get_transaction_pool_stats(
 ) -> Result<GetTransactionPoolStatsResponse, Error> {
     let include_sensitive_txs = !state.is_restricted();
 
-    let pool_stats = txpool::pool_stats(&mut state.txpool_read, include_sensitive_txs).await?;
+    let pool_stats =
+        txpool::pool_stats(&mut state.node_ctx.txpool_read, include_sensitive_txs).await?;
 
     Ok(GetTransactionPoolStatsResponse {
         base: helper::access_response_base(false),
@@ -638,7 +644,7 @@ async fn get_net_stats(
 
     Ok(GetNetStatsResponse {
         base: helper::response_base(false),
-        start_time: *START_INSTANT_UNIX,
+        start_time: state.node_ctx.start_instant_unix,
         total_packets_in: todo!(),
         total_bytes_in: todo!(),
         total_packets_out: todo!(),

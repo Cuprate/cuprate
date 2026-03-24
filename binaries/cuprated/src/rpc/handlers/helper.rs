@@ -32,8 +32,9 @@ pub(super) async fn block_header(
     height: u64,
     fill_pow_hash: bool,
 ) -> Result<BlockHeader, Error> {
-    let block = blockchain::block(&mut state.blockchain_read, height).await?;
-    let header = blockchain::block_extended_header(&mut state.blockchain_read, height).await?;
+    let block = blockchain::block(&mut state.node_ctx.blockchain_read, height).await?;
+    let header =
+        blockchain::block_extended_header(&mut state.node_ctx.blockchain_read, height).await?;
     let hardfork = HardFork::from_vote(header.vote);
     let (top_height, _) = top_height(state).await?;
 
@@ -44,7 +45,7 @@ pub(super) async fn block_header(
     // TODO: impl cheaper way to get this.
     // <https://github.com/Cuprate/cuprate/pull/355#discussion_r1904508934>
     let difficulty = blockchain_context::batch_get_difficulties(
-        &mut state.blockchain_context,
+        &mut state.node_ctx.blockchain_context,
         vec![(height, hardfork)],
     )
     .await?
@@ -56,11 +57,12 @@ pub(super) async fn block_header(
         let seed_height =
             cuprate_consensus_rules::blocks::randomx_seed_height(u64_to_usize(height));
         let seed_hash =
-            blockchain::block_hash(&mut state.blockchain_read, height, Chain::Main).await?;
+            blockchain::block_hash(&mut state.node_ctx.blockchain_read, height, Chain::Main)
+                .await?;
 
         Some(
             blockchain_context::calculate_pow(
-                &mut state.blockchain_context,
+                &mut state.node_ctx.blockchain_context,
                 hardfork,
                 // TODO: expensive clone
                 block.clone(),
@@ -117,7 +119,7 @@ pub(super) async fn block_header_by_hash(
     hash: [u8; 32],
     fill_pow_hash: bool,
 ) -> Result<BlockHeader, Error> {
-    let (_, height) = blockchain::find_block(&mut state.blockchain_read, hash)
+    let (_, height) = blockchain::find_block(&mut state.node_ctx.blockchain_read, hash)
         .await?
         .ok_or_else(|| anyhow!("Block did not exist."))?;
 
@@ -164,7 +166,8 @@ pub(super) fn hex_to_hash(hex: String) -> Result<[u8; 32], Error> {
 
 /// [`cuprate_types::blockchain::BlockchainResponse::ChainHeight`] minus 1.
 pub(super) async fn top_height(state: &mut CupratedRpcHandler) -> Result<(u64, [u8; 32]), Error> {
-    let (chain_height, hash) = blockchain::chain_height(&mut state.blockchain_read).await?;
+    let (chain_height, hash) =
+        blockchain::chain_height(&mut state.node_ctx.blockchain_read).await?;
     let height = chain_height.checked_sub(1).unwrap();
     Ok((height, hash))
 }

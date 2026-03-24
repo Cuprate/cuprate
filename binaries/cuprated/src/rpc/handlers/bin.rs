@@ -98,7 +98,7 @@ async fn get_blocks(
         };
 
         txpool::pool_info(
-            &mut state.txpool_read,
+            &mut state.node_ctx.txpool_read,
             include_sensitive_txs,
             max_tx_count,
             NonZero::new(u64_to_usize(request.pool_info_since)),
@@ -133,16 +133,20 @@ async fn get_blocks(
         }
     }
 
-    let (block_hashes, start_height, _) =
-        blockchain::next_chain_entry(&mut state.blockchain_read, block_hashes, start_height)
-            .await?;
+    let (block_hashes, start_height, _) = blockchain::next_chain_entry(
+        &mut state.node_ctx.blockchain_read,
+        block_hashes,
+        start_height,
+    )
+    .await?;
 
     if start_height.is_none() {
         return Err(anyhow!("Block IDs were not sorted properly"));
     }
 
     let (blocks, missing_hashes, height) =
-        blockchain::block_complete_entries(&mut state.blockchain_read, block_hashes).await?;
+        blockchain::block_complete_entries(&mut state.node_ctx.blockchain_read, block_hashes)
+            .await?;
 
     if !missing_hashes.is_empty() {
         return Err(anyhow!("Missing blocks"));
@@ -164,9 +168,11 @@ async fn get_blocks_by_height(
         return Err(anyhow!("Too many blocks requested in restricted mode"));
     }
 
-    let blocks =
-        blockchain::block_complete_entries_by_height(&mut state.blockchain_read, request.heights)
-            .await?;
+    let blocks = blockchain::block_complete_entries_by_height(
+        &mut state.node_ctx.blockchain_read,
+        request.heights,
+    )
+    .await?;
 
     Ok(GetBlocksByHeightResponse {
         base: helper::access_response_base(false),
@@ -198,7 +204,8 @@ async fn get_hashes(
     let hashes: Vec<[u8; 32]> = (&block_ids).into();
 
     let (m_blocks_ids, _, current_height) =
-        blockchain::next_chain_entry(&mut state.blockchain_read, hashes, start_height).await?;
+        blockchain::next_chain_entry(&mut state.node_ctx.blockchain_read, hashes, start_height)
+            .await?;
 
     Ok(GetHashesResponse {
         base: helper::access_response_base(false),
@@ -215,7 +222,8 @@ async fn get_output_indexes(
 ) -> Result<GetOutputIndexesResponse, Error> {
     Ok(GetOutputIndexesResponse {
         base: helper::access_response_base(false),
-        o_indexes: blockchain::tx_output_indexes(&mut state.blockchain_read, request.txid).await?,
+        o_indexes: blockchain::tx_output_indexes(&mut state.node_ctx.blockchain_read, request.txid)
+            .await?,
     })
 }
 
