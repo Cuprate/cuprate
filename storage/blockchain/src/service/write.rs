@@ -138,43 +138,33 @@ fn write_blocks(db: &BlockchainDatabase, blocks: &[VerifiedBlockInformation]) ->
 
     let mut tapes = db.linear_tapes.append();
 
-    let numb_transactions = tapes
+    let mut numb_transactions = tapes
         .fixed_sized_tape_len(&db.tx_infos)
         .expect("required tape not open");
 
     add_blocks_to_tapes(blocks, db, &mut tapes)?;
 
-    let mut tapes = Some(tapes);
+    tapes.commit(Persistence::Buffer)?;
 
     let mut pre_rct_numb_outputs_cache = db.pre_rct_numb_outputs_cache.lock().unwrap();
 
-    let mut result = move || {
-        let mut numb_transactions = numb_transactions;
+    let mut tx_rw = db.fjall.batch().durability(Some(PersistMode::Buffer));
 
-        let mut tx_rw = db.fjall.batch().durability(Some(PersistMode::Buffer));
+    for block in blocks {
+        crate::ops::block::add_block_to_dynamic_tables(
+            db,
+            &block.block,
+            &block.block_hash,
+            block.txs.iter().map(|tx| Cow::Borrowed(&tx.tx)),
+            &mut numb_transactions,
+            &mut tx_rw,
+            &mut pre_rct_numb_outputs_cache,
+        )?;
+    }
 
-        for block in blocks {
-            crate::ops::block::add_block_to_dynamic_tables(
-                db,
-                &block.block,
-                &block.block_hash,
-                block.txs.iter().map(|tx| Cow::Borrowed(&tx.tx)),
-                &mut numb_transactions,
-                &mut tx_rw,
-                &mut pre_rct_numb_outputs_cache,
-            )?;
-        }
+    tx_rw.commit()?;
 
-        if let Some(mut tapes) = tapes.take() {
-            tapes.commit(Persistence::Buffer)?;
-        }
-
-        tx_rw.commit().unwrap();
-
-        Ok(BlockchainResponse::Ok)
-    };
-
-    result()
+    Ok(BlockchainResponse::Ok)
 }
 
 /// [`BlockchainWriteRequest::WriteAltBlock`].
