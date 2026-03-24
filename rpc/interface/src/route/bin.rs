@@ -91,21 +91,23 @@ generate_endpoints_with_input! {
     get_output_distribution => GetOutputDistribution
 }
 
+/// A JSON serde helper that serializes to empty brackets `{}`.
+#[expect(clippy::empty_structs_with_brackets)]
 #[derive(Serialize, Deserialize)]
 pub(crate) struct Null {}
 
+/// The handler for the JSON get tx pool hashes, which uses invalid JSON so cannot be deserialized and handled properly.
 pub(crate) async fn get_transaction_pool_hashes<H: RpcHandler>(
     State(_): State<H>,
     Json(Null {}): Json<Null>,
 ) -> Result<String, StatusCode> {
-    Ok(format!(
-        r#"
-       {{
+    Ok(r#"
+       {
         "credits": 0,
         "status": "OK",
         "top_hash": "",
         "untrusted": false
-        }}
+        }
     "#
-    ))
+    .to_string())
 }

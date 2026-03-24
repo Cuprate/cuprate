@@ -9,6 +9,14 @@
 )]
 
 //---------------------------------------------------------------------------------------------------- Import
+use std::{
+    cmp::min,
+    collections::{HashMap, HashSet},
+    ops::Range,
+    sync::Arc,
+    task::{Context, Poll},
+};
+
 use bytes::Bytes;
 use fjall::Readable;
 use futures::channel::oneshot;
@@ -17,13 +25,6 @@ use rayon::{
     iter::{Either, IntoParallelIterator, ParallelIterator},
     prelude::*,
     ThreadPool,
-};
-use std::{
-    cmp::min,
-    collections::{HashMap, HashSet},
-    ops::Range,
-    sync::Arc,
-    task::{Context, Poll},
 };
 use tapes::TapesRead;
 use tower::Service;
@@ -237,14 +238,19 @@ fn block_complete_entries_above_split_point(
     let split = find_split_point(db, &chain, false, false, &tx_ro)?;
 
     if split == chain.len() {
-        todo!()
+        return Err(BlockchainError::NotFound);
     }
 
     let height = block_height(db, &tx_ro, &chain[split])?.ok_or(BlockchainError::NotFound)?;
     let blockchain_height = crate::ops::blockchain::chain_height(db, &tapes)?;
 
     if height == blockchain_height {
-        todo!()
+        return Ok(BlockchainResponse::BlockCompleteEntriesAboveSplitPoint {
+            blocks: vec![],
+            output_indices: vec![],
+            blockchain_height,
+            start_height: height,
+        });
     }
 
     let mut tx_count = 0;
@@ -298,9 +304,9 @@ fn block_complete_entries_above_split_point(
                 output_indices.push(Vec::with_capacity(8));
             }
 
-            let o_indexes = if tx_info.rct_output_start_idx == u64::MAX {
+            let o_indexes = if tx_info.is_v1_tx() {
                 let res = tx_ro
-                    .get(&db.v1_tx_outputs, &(first_tx_idx + i as u64).to_le_bytes())?
+                    .get(&db.v1_tx_outputs, (first_tx_idx + i as u64).to_le_bytes())?
                     .ok_or(BlockchainError::NotFound)?;
 
                 res.chunks(8)

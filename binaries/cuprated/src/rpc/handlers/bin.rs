@@ -9,11 +9,6 @@ use std::num::NonZero;
 use anyhow::{anyhow, Error};
 use bytes::Bytes;
 
-use crate::rpc::{
-    handlers::{helper, shared, shared::not_available},
-    service::{blockchain, txpool},
-    CupratedRpcHandler,
-};
 use cuprate_constants::rpc::{RESTRICTED_BLOCK_COUNT, RESTRICTED_TRANSACTIONS_COUNT};
 use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
@@ -28,10 +23,18 @@ use cuprate_rpc_types::{
     json::{GetOutputDistributionRequest, GetOutputDistributionResponse},
     misc::RequestedInfo,
 };
-use cuprate_types::rpc::{PoolInfoFull, PoolInfoIncremental};
 use cuprate_types::{
-    rpc::{BlockOutputIndices, PoolInfo, PoolInfoExtent, TxOutputIndices},
+    rpc::{
+        BlockOutputIndices, PoolInfo, PoolInfoExtent, PoolInfoFull, PoolInfoIncremental,
+        TxOutputIndices,
+    },
     BlockCompleteEntry,
+};
+
+use crate::rpc::{
+    handlers::{helper, shared, shared::not_available},
+    service::{blockchain, txpool},
+    CupratedRpcHandler,
 };
 
 /// Map a [`BinRequest`] to the function that will lead to a [`BinResponse`].
@@ -57,8 +60,6 @@ async fn get_blocks(
     mut state: CupratedRpcHandler,
     request: GetBlocksRequest,
 ) -> Result<GetBlocksResponse, Error> {
-    tracing::info!("Get blocks");
-
     // Time should be set early:
     // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L628-L631>
     let daemon_time = cuprate_helper::time::current_unix_timestamp();
@@ -85,9 +86,9 @@ async fn get_blocks(
         RequestedInfo::PoolOnly => (false, true),
     };
 
-    let mut pool_info_extent = PoolInfoExtent::None;
+    let mut pool_info_extent;
 
-    let pool_info = if get_pool {
+    if get_pool {
         /*
         let is_restricted = state.is_restricted();
         let include_sensitive_txs = !is_restricted;
@@ -151,13 +152,6 @@ async fn get_blocks(
             prune,
         )
         .await?;
-
-    tracing::info!("Got blocks");
-
-    //tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-
-    //tracing::trace!("blocks: {:?}", blocks);
-    tracing::trace!("outputs: {:?}", output_indices.len());
 
     Ok(GetBlocksResponse {
         blocks,

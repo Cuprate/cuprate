@@ -690,10 +690,9 @@ async fn get_transaction_pool_hashes(
     mut state: CupratedRpcHandler,
     _: GetTransactionPoolHashesRequest,
 ) -> Result<GetTransactionPoolHashesResponse, Error> {
-    tracing::info!("giving tx pool response");
     Ok(GetTransactionPoolHashesResponse {
         base: helper::response_base(false),
-        tx_hashes: vec![], /*shared::get_transaction_pool_hashes(state)
+        tx_hashes: vec![], /* TODO: shared::get_transaction_pool_hashes(state)
                            .await?
                            .into_iter()
                            .map(Hex)

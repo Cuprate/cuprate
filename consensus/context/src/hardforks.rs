@@ -1,16 +1,17 @@
 use std::ops::Range;
-use strum::VariantArray;
 
+use strum::VariantArray;
 use tower::ServiceExt;
 use tracing::instrument;
 
-use crate::{ContextCacheError, Database};
 use cuprate_consensus_rules::{HFVotes, HFsInfo, HardFork};
-use cuprate_types::rpc::HardForkInfo;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
+    rpc::HardForkInfo,
     Chain,
 };
+
+use crate::{ContextCacheError, Database};
 
 /// The default amount of hard-fork votes to track to decide on activation of a hard-fork.
 ///
@@ -194,6 +195,7 @@ impl HardForkState {
         );
     }
 
+    /// Return a vec of [`HardForkInfo`] for every hard-fork.
     pub fn hardfork_infos(&self) -> Vec<HardForkInfo> {
         let current = self.current_hardfork;
         HardFork::VARIANTS

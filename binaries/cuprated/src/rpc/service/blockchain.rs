@@ -128,6 +128,7 @@ pub async fn next_chain_entry(
     block_hashes: Vec<[u8; 32]>,
     start_height: u64,
 ) -> Result<(Vec<[u8; 32]>, Option<usize>, usize), Error> {
+    // TODO: take in start_height for request.
     let BlockchainResponse::NextChainEntry {
         block_ids,
         start_height,

@@ -89,7 +89,7 @@ tor-hsservice         = { workspace = true, optional = true }
 tor-persist           = { workspace = true, optional = true }
 tor-rtcompat          = { workspace = true, optional = true }
 tower                 = { workspace = true, features = ["limit"] }
-tower-http            = { workspace = true, features = ["limit", "trace"], version = "1.0.0" }
+tower-http            = { workspace = true, features = ["limit", "trace"] }
 tracing-appender      = { workspace = true }
 tracing-subscriber    = { workspace = true, features = ["std", "fmt", "default"] }
 tracing               = { workspace = true, features = ["default"] }

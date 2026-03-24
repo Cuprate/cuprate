@@ -80,8 +80,6 @@ pub async fn map_request(
     use JsonRpcRequest as Req;
     use JsonRpcResponse as Resp;
 
-    tracing::debug!("Request: {:?}", request);
-
     Ok(match request {
         Req::GetBlockTemplate(r) => Resp::GetBlockTemplate(not_available()?),
         Req::GetBlockCount(r) => Resp::GetBlockCount(get_block_count(state, r).await?),
@@ -134,6 +132,7 @@ pub async fn map_request(
     })
 }
 
+/// The response to [`JsonRpcRequest::RpcAccessInfo`].
 const RPC_ACCESS_INFO_RESPONSE: RpcAccessInfoResponse = RpcAccessInfoResponse {
     base: helper::access_response_base(false),
     hashing_blob: String::new(),
@@ -146,6 +145,8 @@ const RPC_ACCESS_INFO_RESPONSE: RpcAccessInfoResponse = RpcAccessInfoResponse {
     height: 0,
 };
 
+/// Used in the response to [`JsonRpcRequest::RpcAccessSubmitNonce`] and
+/// [`JsonRpcRequest::RpcAccessPay`] to signal that payment is not necessary.
 const RPC_ACCESS_PAYMENT_NOT_NEEDED_BASE: AccessResponseBase = AccessResponseBase {
     response_base: ResponseBase {
         status: Status::Other(Cow::Borrowed("Payment not necessary")),
@@ -155,10 +156,12 @@ const RPC_ACCESS_PAYMENT_NOT_NEEDED_BASE: AccessResponseBase = AccessResponseBas
     top_hash: String::new(),
 };
 
+/// The response to [`JsonRpcRequest::RpcAccessSubmitNonce`].
 const RPC_ACCESS_SUBMIT_NONCE: RpcAccessSubmitNonceResponse = RpcAccessSubmitNonceResponse {
     base: RPC_ACCESS_PAYMENT_NOT_NEEDED_BASE,
 };
 
+/// The response to [`JsonRpcRequest::RpcAccessPay`].
 const RPC_ACCESS_PAY: RpcAccessPayResponse = RpcAccessPayResponse {
     base: RPC_ACCESS_PAYMENT_NOT_NEEDED_BASE,
 };
@@ -276,21 +279,22 @@ async fn submit_block(
     let block = Block::read(&mut blob.as_slice())?;
     let block_id = Hex(block.hash());
 
-    todo!() /*
-            // Attempt to relay the block.
-            blockchain_interface::handle_incoming_block(
-                block,
-                HashMap::new(), // this function reads the txpool
-                &mut state.blockchain_read,
-                &mut state.txpool_read,
-            )
-                .await?;
+    todo!()
+    /*
+     // Attempt to relay the block.
+     blockchain_interface::handle_incoming_block(
+         block,
+         HashMap::new(), // this function reads the txpool
+         &mut state.blockchain_read,
+         &mut state.txpool_read,
+     )
+         .await?;
 
-            Ok(SubmitBlockResponse {
-                base: helper::response_base(false),
-                block_id,
-            })
-            */
+     Ok(SubmitBlockResponse {
+         base: helper::response_base(false),
+         block_id,
+     })
+    */
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2268-L2340>
@@ -506,7 +510,7 @@ async fn get_info(
         0
     } else {
         0
-        //blockchain::alt_chain_count(&mut state.blockchain_read).await?
+        // TODO: blockchain::alt_chain_count(&mut state.blockchain_read).await?
     };
 
     // TODO: these values are incorrectly calculated in `monerod` and copied in `cuprated`
@@ -523,12 +527,12 @@ async fn get_info(
         (String::new(), false)
     };
 
-    let busy_syncing = false; // blockchain_manager::syncing(todo!()).await?;
+    let busy_syncing = false; // TODO: blockchain_manager::syncing(todo!()).await?;
 
     let (cumulative_difficulty, cumulative_difficulty_top64) =
         split_u128_into_low_high_bits(cumulative_difficulty);
 
-    let (database_size, free_space) = (0_u64, 0); // blockchain::database_size(&mut state.blockchain_read).await?;
+    let (database_size, free_space) = (0_u64, 0); // TODO: blockchain::database_size(&mut state.blockchain_read).await?;
     let (database_size, free_space) = if restricted {
         // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L131-L134>
         let database_size = database_size.div_ceil(5 * 1024 * 1024 * 1024);
@@ -547,7 +551,7 @@ async fn get_info(
     } else {
         (0, 0)
 
-        //        address_book::connection_count::<ClearNet>(&mut DummyAddressBook).await?
+        // TODO: address_book::connection_count::<ClearNet>(&mut DummyAddressBook).await?
     };
 
     // TODO: This should be `cuprated`'s active network.
@@ -570,14 +574,14 @@ async fn get_info(
     let rpc_connections_count = if restricted { 0 } else { 0 };
 
     let start_time = if restricted { 0 } else { *START_INSTANT_UNIX };
-    let synchronized = true; //blockchain_manager::synced(todo!()).await?;
+    let synchronized = true; // TODO: blockchain_manager::synced(todo!()).await?;
 
-    let target_height = 0; // blockchain_manager::target_height(todo!()).await?;
-    let target = 0; //blockchain_manager::target(todo!()).await?.as_secs();
+    let target_height = 0; // TODO: blockchain_manager::target_height(todo!()).await?;
+    let target = 0; //TODO: blockchain_manager::target(todo!()).await?.as_secs();
     let top_block_hash = Hex(c.top_hash);
 
-    let tx_count = 0; //blockchain::total_tx_count(&mut state.blockchain_read).await?;
-    let tx_pool_size = 0; // txpool::size(&mut state.txpool_read, !restricted).await?;
+    let tx_count = 0; // TODO: blockchain::total_tx_count(&mut state.blockchain_read).await?;
+    let tx_pool_size = 0; // TODO: txpool::size(&mut state.txpool_read, !restricted).await?;
 
     #[expect(
         clippy::if_same_then_else,
@@ -596,7 +600,7 @@ async fn get_info(
         (0, 0)
     } else {
         (0, 0)
-        //address_book::peerlist_size::<ClearNet>(&mut DummyAddressBook).await?
+        // TODO: address_book::peerlist_size::<ClearNet>(&mut DummyAddressBook).await?
     };
 
     let wide_cumulative_difficulty = cumulative_difficulty.hex_prefix();
@@ -856,19 +860,17 @@ async fn get_version(
     _: GetVersionRequest,
 ) -> Result<GetVersionResponse, Error> {
     let current_height = helper::top_height(&mut state).await?.0 + 1;
-    let target_height = current_height;
+    let target_height = current_height; // TODO: target height
 
-    let mut hard_forks =
-
-        // FIXME: use an async iterator `collect()` version.
-        blockchain_context::hard_fork_info(&mut state.blockchain_context).await?.into_iter().map(|hf|
-            {
-                HardForkEntry {
-                    height: hf.earliest_height,
-                    hf_version: HardFork::from_version(hf.version)
-                        .expect("blockchain context should not be responding with invalid hardforks"),
-                }
-            }).collect();
+    let mut hard_forks = blockchain_context::hard_fork_info(&mut state.blockchain_context)
+        .await?
+        .into_iter()
+        .map(|hf| HardForkEntry {
+            height: hf.earliest_height,
+            hf_version: HardFork::from_version(hf.version)
+                .expect("blockchain context should not be responding with invalid hardforks"),
+        })
+        .collect();
 
     Ok(GetVersionResponse {
         base: helper::response_base(false),

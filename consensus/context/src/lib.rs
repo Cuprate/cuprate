@@ -146,16 +146,20 @@ impl BlockchainContext {
         if self.current_hf < HardFork::V13 || self.median_block_timestamp.is_none() {
             current_unix_timestamp()
         } else {
-            // This is safe as we just checked if this was None.
-            let median = self.median_block_timestamp.unwrap();
+            // FIXME: use if let chain with Rust 2024.
+            if self.current_hf < HardFork::V13 {
+                return current_unix_timestamp();
+            }
 
-            let adjusted_median = median
-                + (BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW + 1) * self.current_hf.block_time().as_secs()
-                    / 2;
+            let Some(median) = self.median_block_timestamp else {
+                return current_unix_timestamp();
+            };
+
+            let block_time = self.current_hf.block_time().as_secs();
+            let adjusted_median = median + (BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW + 1) * block_time / 2;
 
             // This is safe as we just checked if the median was None and this will only be none for genesis and the first block.
-            let adjusted_top_block =
-                self.top_block_timestamp.unwrap() + self.current_hf.block_time().as_secs();
+            let adjusted_top_block = self.top_block_timestamp.unwrap() + block_time;
 
             min(adjusted_median, adjusted_top_block)
         }

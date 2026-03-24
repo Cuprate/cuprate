@@ -130,18 +130,15 @@ async fn run_rpc_server(
         .build()
         .with_state(rpc_handler);
 
-    /*
-       // Add restrictive layers if restricted RPC.
-       //
-       // TODO: <https://github.com/Cuprate/cuprate/issues/445>
-       let router = if request_byte_limit != 0 {
-           router.layer(RequestBodyLimitLayer::new(request_byte_limit))
-       } else {
-           router
-       };
+    // Add restrictive layers if restricted RPC.
+    //
+    // TODO: <https://github.com/Cuprate/cuprate/issues/445>
+    let router = if request_byte_limit != 0 {
+        router.layer(RequestBodyLimitLayer::new(request_byte_limit))
+    } else {
+        router
+    };
 
-
-    */
     let router = router.layer(tower_http::trace::TraceLayer::new_for_http());
 
     // Start the server.
