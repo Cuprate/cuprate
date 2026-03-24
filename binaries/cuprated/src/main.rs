@@ -48,10 +48,10 @@ fn main() {
     //Printing configuration
     info!("{config}");
 
-    // Initialize thread pools.
+    // Initialize the thread-pools
     init_global_rayon_pool(&config);
-    let rt = init_tokio_rt(&config);
 
+    let rt = init_tokio_rt(&config);
     rt.block_on(async move {
         // Start the node.
         let cuprated::Node { command, .. } = cuprated::Node::launch(config).await;

@@ -1,6 +1,6 @@
 //! Commands
 //!
-//! `cuprated` command definition and handling.
+//! `cuprated` [`Command`] definition and handling.
 
 use clap::{builder::TypedValueParser, Parser, ValueEnum};
 use tokio::sync::{mpsc, oneshot};

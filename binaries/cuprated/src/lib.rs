@@ -62,7 +62,7 @@ use cuprate_types::blockchain::BlockchainWriteRequest;
 use cuprate_helper::network::Network;
 
 use crate::{
-    blockchain::{BlockchainManagerHandle, SyncState},
+    blockchain::{BlockchainManagerHandle, Syncer, SyncerHandle},
     commands::CommandHandle,
     config::Config,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
@@ -84,7 +84,13 @@ pub struct NodeContext {
     /// Per-network fast sync validation hashes.
     pub fast_sync_hashes: &'static [[u8; 32]],
 
-    /// Lock taken during chain reorganizations.
+    /// Reorg lock.
+    ///
+    /// A [`RwLock`] where a write lock is taken during a reorg and a read lock can be taken
+    /// for any operation which must complete without a reorg happening.
+    ///
+    /// Currently, the only operation that needs to take a read lock is adding txs to the tx-pool,
+    /// this can potentially be removed in the future, see: <https://github.com/Cuprate/cuprate/issues/305>
     pub reorg_lock: Arc<RwLock<()>>,
 
     /// Command channel to the blockchain manager.
@@ -99,8 +105,8 @@ pub struct NodeContext {
     /// Read handle to the transaction pool.
     pub txpool_read: TxpoolReadHandle,
 
-    /// Sync state notifications.
-    pub sync: SyncState,
+    /// Syncer handle.
+    pub syncer: SyncerHandle,
 
     /// The time this node was launched.
     pub start_instant: std::time::SystemTime,
@@ -133,8 +139,8 @@ pub struct Node {
     /// Tor P2P network (available after sync).
     pub tor: Option<oneshot::Receiver<NetworkInterface<Tor>>>,
 
-    /// Sync state.
-    pub sync: SyncState,
+    /// Syncer handle.
+    pub syncer: SyncerHandle,
 
     /// Command channel.
     pub command: CommandHandle,
@@ -202,8 +208,8 @@ impl Node {
         let tor_context = initialize_tor_if_enabled(&config).await;
         let tor_enabled = config.p2p.tor_net.enabled;
 
-        // Create the sync notifier and handle.
-        let (sync_state, syncer_handle) = SyncState::new();
+        // Create the syncer and handle.
+        let (syncer, syncer_handle) = Syncer::new();
 
         // Create the blockchain manager handle and command receiver.
         let (blockchain_manager_handle, blockchain_manager_rx) = BlockchainManagerHandle::new();
@@ -218,7 +224,7 @@ impl Node {
             blockchain_read: blockchain_read_handle.clone(),
             blockchain_context: context_svc.clone(),
             txpool_read: txpool_read_handle.clone(),
-            sync: sync_state,
+            syncer: syncer_handle,
             start_instant_unix: start_instant
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
@@ -234,7 +240,7 @@ impl Node {
             txpool_read_handle.clone(),
             &tor_context,
             node_ctx
-                .sync
+                .syncer
                 .callback(context_svc.clone(), blockchain_manager_handle.clone()),
             blockchain_manager_handle,
         )
@@ -274,7 +280,7 @@ impl Node {
             txpool: node_ctx.txpool_read.clone(),
             clearnet: clearnet_interface.clone(),
             tor: if tor_enabled { Some(tor_rx) } else { None },
-            sync: node_ctx.sync.clone(),
+            syncer: node_ctx.syncer.clone(),
             command: command_handle,
         };
 
@@ -284,7 +290,7 @@ impl Node {
             blockchain_write_handle,
             tx_handler.txpool_manager.clone(),
             config.block_downloader_config(),
-            syncer_handle,
+            syncer,
             blockchain_manager_rx,
             node_ctx.clone(),
         )
@@ -299,7 +305,7 @@ impl Node {
 
             tokio::spawn(async move {
                 // Wait for the node to synchronize with the network
-                if node_ctx.sync.wait_for_synced().await.is_err() {
+                if node_ctx.syncer.wait_for_synced().await.is_err() {
                     tracing::info!("Not starting Tor P2P zone, syncer stopped");
                     return;
                 }

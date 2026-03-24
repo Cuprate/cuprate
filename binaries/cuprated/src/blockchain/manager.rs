@@ -35,18 +35,18 @@ mod handler;
 mod tests;
 
 pub use commands::{BlockchainManagerCommand, IncomingBlockOk};
-use syncer::SyncerHandle;
+use syncer::Syncer;
 
 /// Initialize the blockchain manager.
 ///
-/// This function sets up the `BlockchainManager` and the `syncer` so that the functions in [`interface`](super::interface)
+/// This function sets up the `BlockchainManager` and the [`Syncer`](syncer::Syncer) so that the functions in [`interface`](super::interface)
 /// can be called.
 pub async fn init_blockchain_manager(
     clearnet_interface: NetworkInterface<ClearNet>,
     blockchain_write_handle: BlockchainWriteHandle,
     txpool_manager_handle: TxpoolManagerHandle,
     block_downloader_config: BlockDownloaderConfig,
-    syncer_handle: SyncerHandle,
+    syncer: Syncer,
     command_rx: mpsc::Receiver<BlockchainManagerCommand>,
     node_ctx: crate::NodeContext,
 ) {
@@ -59,14 +59,13 @@ pub async fn init_blockchain_manager(
         fast_sync_hashes: node_ctx.fast_sync_hashes,
     };
 
-    tokio::spawn(syncer::syncer(
+    tokio::spawn(syncer.run(
         node_ctx.blockchain_context.clone(),
         chain_service,
         clearnet_interface.clone(),
         batch_tx,
         Arc::clone(&stop_current_block_downloader),
         block_downloader_config,
-        syncer_handle,
     ));
 
     let manager = BlockchainManager {
