@@ -14,7 +14,7 @@ use tower::{Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
 use cuprate_p2p_core::{
-    client::{Client, DoHandshakeRequest, HandshakeError, InternalPeerID},
+    client::{Client, DoHandshakeRequest, HandshakeError, InternalPeerID, PeerSyncCallback},
     services::{AddressBookRequest, AddressBookResponse},
     AddressBook, ConnectionDirection, NetworkZone, Transport,
 };
@@ -41,6 +41,7 @@ pub(super) async fn inbound_server<Z, T, HS, A>(
     config: P2PConfig<Z>,
     transport_config: Option<T::ServerConfig>,
     inbound_semaphore: Arc<Semaphore>,
+    peer_sync_callback: Option<PeerSyncCallback>,
 ) -> Result<(), tower::BoxError>
 where
     Z: NetworkZone,
@@ -114,13 +115,21 @@ where
             });
 
             let new_connection_tx = new_connection_tx.clone();
+            let peer_sync_callback = peer_sync_callback.clone();
 
             tokio::spawn(
                 async move {
                     let client = timeout(HANDSHAKE_TIMEOUT, fut).await;
 
                     match client {
-                        Ok(Ok(peer)) => drop(new_connection_tx.send(peer).await),
+                        Ok(Ok(peer)) => {
+                            let csd = peer.info.core_sync_data.lock().unwrap().clone();
+                            if new_connection_tx.send(peer).await.is_ok() {
+                                if let Some(ref peer_sync_callback) = peer_sync_callback {
+                                    peer_sync_callback.call(&csd);
+                                }
+                            }
+                        }
                         Err(_) => tracing::debug!("Timed out"),
                         Ok(Err(e)) => tracing::debug!("error: {e:?}"),
                     }

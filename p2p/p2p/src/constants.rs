@@ -49,6 +49,9 @@ pub(crate) const INBOUND_CONNECTION_COOL_DOWN: Duration = Duration::from_millis(
 /// The initial amount of chain requests to send to find the best chain to sync from.
 pub(crate) const INITIAL_CHAIN_REQUESTS_TO_SEND: usize = 3;
 
+/// The timeout for individual peer requests during initial chain search.
+pub(crate) const INITIAL_CHAIN_SEARCH_TIMEOUT: Duration = Duration::from_secs(5);
+
 /// The enforced maximum amount of blocks to request in a batch.
 ///
 /// Requesting more than this will cause the peer to disconnect and potentially lead to bans.

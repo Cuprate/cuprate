@@ -389,7 +389,9 @@ fn block_hash_in_range(
     let tx_ro = db.fjall.snapshot();
     let tapes = db.linear_tapes.reader();
 
-    let len = tapes.fixed_sized_tape_len(&db.block_infos).unwrap();
+    if range.is_empty() {
+        return Ok(BlockchainResponse::BlockHashInRange(vec![]));
+    }
 
     let block_hash = match chain {
         Chain::Main => tapes
