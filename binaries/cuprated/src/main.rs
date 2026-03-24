@@ -19,8 +19,11 @@
     reason = "TODO: remove after v1.0.0"
 )]
 
-use std::io::{self, IsTerminal};
-use std::{thread::sleep, time::Duration};
+use std::{
+    io::{self, IsTerminal},
+    thread::sleep,
+    time::Duration,
+};
 
 use clap::Parser;
 use tracing::info;
@@ -57,13 +60,12 @@ fn main() {
     // Initialize logging.
     cuprated::logging::init_logging(&config);
 
-    //Printing configuration
+    // Print configuration.
     info!("{config}");
 
-    // Initialize thread pools.
+    // Initialize the global rayon thread-pool.
     init_global_rayon_pool(&config);
     let rt = init_tokio_rt(&config);
-
     rt.block_on(async move {
         // Start the node.
         let cuprated::Node { command, .. } = cuprated::Node::launch(config).await;
