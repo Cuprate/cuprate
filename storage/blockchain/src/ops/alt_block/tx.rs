@@ -1,76 +1,73 @@
-use bytemuck::TransparentWrapper;
-use monero_oxide::transaction::Transaction;
-
-use cuprate_database::{DatabaseRo, DatabaseRw, DbResult, RuntimeError, StorableVec};
 use cuprate_types::VerifiedTransactionInformation;
 
+use fjall::Readable;
+use monero_oxide::transaction::Transaction;
+
 use crate::{
-    ops::macros::{doc_add_alt_block_inner_invariant, doc_error},
-    tables::{Tables, TablesMut},
+    error::{BlockchainError, DbResult},
     types::{AltTransactionInfo, TxHash},
+    BlockchainDatabase,
 };
 
-/// Adds a [`VerifiedTransactionInformation`] from an alt-block
-/// if it is not already in the DB.
+/// Adds a [`VerifiedTransactionInformation`] from an alt-block if it is not already in the DB.
 ///
-/// If the transaction is in the main-chain this function will still fill in the
-/// [`AltTransactionInfos`](crate::tables::AltTransactionInfos) table, as that
+/// If the transaction is in the main-chain this function will still fill in the tx info table, as that
 /// table holds data which we don't keep around for main-chain txs.
 ///
-#[doc = doc_add_alt_block_inner_invariant!()]
-#[doc = doc_error!()]
 pub fn add_alt_transaction_blob(
+    db: &BlockchainDatabase,
     tx: &VerifiedTransactionInformation,
-    tables: &mut impl TablesMut,
+    tx_rw: &mut fjall::OwnedWriteBatch,
 ) -> DbResult<()> {
-    tables.alt_transaction_infos_mut().put(
-        &tx.tx_hash,
-        &AltTransactionInfo {
+    tx_rw.insert(
+        &db.alt_transaction_infos,
+        tx.tx_hash,
+        bytemuck::bytes_of(&AltTransactionInfo {
             tx_weight: tx.tx_weight,
             fee: tx.fee,
             tx_hash: tx.tx_hash,
-        },
-    )?;
+        }),
+    );
 
-    if tables.tx_ids().get(&tx.tx_hash).is_ok()
-        || tables.alt_transaction_blobs().get(&tx.tx_hash).is_ok()
-    {
-        return Ok(());
-    }
-
-    tables
-        .alt_transaction_blobs_mut()
-        .put(&tx.tx_hash, StorableVec::wrap_ref(&tx.tx_blob))?;
+    tx_rw.insert(
+        &db.alt_transaction_blobs,
+        tx.tx_hash,
+        [tx.tx_pruned.as_slice(), tx.tx_prunable_blob.as_slice()]
+            .concat()
+            .as_slice(),
+    );
 
     Ok(())
 }
 
 /// Retrieve a [`VerifiedTransactionInformation`] from the database.
 ///
-#[doc = doc_error!()]
 pub fn get_alt_transaction(
+    db: &BlockchainDatabase,
     tx_hash: &TxHash,
-    tables: &impl Tables,
+    tx_ro: &fjall::Snapshot,
 ) -> DbResult<VerifiedTransactionInformation> {
-    let tx_info = tables.alt_transaction_infos().get(tx_hash)?;
+    let tx_info = tx_ro
+        .get(&db.alt_transaction_infos, tx_hash)?
+        .ok_or(BlockchainError::NotFound)?;
 
-    let tx_blob = match tables.alt_transaction_blobs().get(tx_hash) {
-        Ok(blob) => blob.0,
-        Err(RuntimeError::KeyNotFound) => {
-            let tx_id = tables.tx_ids().get(tx_hash)?;
+    let tx_info: AltTransactionInfo = bytemuck::pod_read_unaligned(tx_info.as_ref());
 
-            let blob = tables.tx_blobs().get(&tx_id)?;
-
-            blob.0
-        }
-        Err(e) => return Err(e),
+    let tx = match tx_ro.get(&db.alt_transaction_blobs, tx_hash)? {
+        Some(tx_blob) => Transaction::read(&mut tx_blob.as_ref()).unwrap(),
+        None => return Err(BlockchainError::NotFound),
     };
 
+    let tx_weight = tx_info.tx_weight;
+    let fee = tx_info.fee;
+    let (tx, tx_prunable_blob) = tx.pruned_with_prunable();
+
     Ok(VerifiedTransactionInformation {
-        tx: Transaction::read(&mut tx_blob.as_slice()).unwrap(),
-        tx_blob,
-        tx_weight: tx_info.tx_weight,
-        fee: tx_info.fee,
-        tx_hash: tx_info.tx_hash,
+        tx_prunable_blob,
+        tx_pruned: tx.serialize(),
+        tx_weight,
+        fee,
+        tx_hash: *tx_hash,
+        tx,
     })
 }

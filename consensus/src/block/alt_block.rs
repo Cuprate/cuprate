@@ -150,12 +150,19 @@ where
         block_blob: prepped_block.block_blob,
         txs: ordered_txs
             .into_iter()
-            .map(|tx| VerifiedTransactionInformation {
-                tx_blob: tx.tx_blob,
-                tx_weight: tx.tx_weight,
-                fee: tx.fee,
-                tx_hash: tx.tx_hash,
-                tx: tx.tx,
+            .map(|tx| {
+                let tx_weight = tx.tx_weight;
+                let fee = tx.fee;
+                let tx_hash = tx.tx_hash;
+                let (tx, tx_prunable_blob) = tx.tx.pruned_with_prunable();
+                VerifiedTransactionInformation {
+                    tx_prunable_blob,
+                    tx_pruned: tx.serialize(),
+                    tx_weight,
+                    fee,
+                    tx_hash,
+                    tx,
+                }
             })
             .collect(),
         pow_hash: prepped_block.pow_hash,

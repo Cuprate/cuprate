@@ -34,6 +34,22 @@ pub const DEFAULT_CONFIG_WARNING: &str = formatcp!(
 
 pub const DEFAULT_CONFIG_STARTUP_DELAY: Duration = Duration::from_secs(15);
 
+/// Corrupt database error message.
+///
+/// The error message shown to end-users in panic
+/// messages if we think the database is corrupted.
+///
+/// This is meant to be user-friendly.
+pub const DATABASE_CORRUPT_MSG: &str = r"`cuprated` has encountered a fatal error. The database may be corrupted.
+
+If `cuprated` continues to crash with the current database,
+you may have to delete the database file and re-sync from scratch.
+
+See <https://user.cuprate.org/resources/disk.html>
+for more information on where database files are.
+
+If this happens frequently, consider using the `Safe` sync mode.";
+
 #[cfg(test)]
 mod test {
     use super::*;

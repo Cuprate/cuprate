@@ -1,194 +1,151 @@
 //! Output functions.
-
-//---------------------------------------------------------------------------------------------------- Import
-use monero_oxide::{io::CompressedPoint, transaction::Timelock};
-
-use cuprate_database::{
-    DbResult, RuntimeError, {DatabaseRo, DatabaseRw},
+use std::{
+    collections::HashMap,
+    ops::{AddAssign, SubAssign},
 };
-use cuprate_helper::{
-    cast::{u32_to_usize, u64_to_usize},
-    crypto::compute_zero_commitment,
-    map::u64_to_timelock,
-};
+
+use fjall::Readable;
+use monero_oxide::io::CompressedPoint;
+use tapes::TapesRead;
+
+use cuprate_helper::{crypto::compute_zero_commitment, map::u64_to_timelock};
 use cuprate_types::OutputOnChain;
 
 use crate::{
-    ops::{
-        macros::{doc_add_block_inner_invariant, doc_error},
-        tx::get_tx_from_id,
-    },
-    tables::{
-        BlockInfos, BlockTxsHashes, Outputs, RctOutputs, Tables, TablesMut, TxBlobs, TxUnlockTime,
-    },
-    types::{Amount, AmountIndex, Output, OutputFlags, PreRctOutputId, RctOutput},
+    error::{BlockchainError, DbResult},
+    ops::tx::get_tx_from_id,
+    types::{Amount, Output, PreRctOutputId, RctOutput},
+    BlockchainDatabase,
 };
 
-//---------------------------------------------------------------------------------------------------- Pre-RCT Outputs
 /// Add a Pre-RCT [`Output`] to the database.
 ///
-/// Upon [`Ok`], this function returns the [`PreRctOutputId`] that
-/// can be used to lookup the `Output` in [`get_output()`].
-///
-#[doc = doc_add_block_inner_invariant!()]
-#[doc = doc_error!()]
 #[inline]
 pub fn add_output(
+    db: &BlockchainDatabase,
     amount: Amount,
     output: &Output,
-    tables: &mut impl TablesMut,
+    w: &mut fjall::OwnedWriteBatch,
+    pre_rct_numb_outputs_cache: &mut HashMap<Amount, u64>,
 ) -> DbResult<PreRctOutputId> {
-    // FIXME: this would be much better expressed with a
-    // `btree_map::Entry`-like API, fix `trait DatabaseRw`.
-    let num_outputs = match tables.num_outputs().get(&amount) {
-        // Entry with `amount` already exists.
-        Ok(num_outputs) => num_outputs,
-        // Entry with `amount` didn't exist, this is
-        // the 1st output with this amount.
-        Err(RuntimeError::KeyNotFound) => 0,
-        Err(e) => return Err(e),
-    };
-    // Update the amount of outputs.
-    tables.num_outputs_mut().put(&amount, &(num_outputs + 1))?;
+    let mut err = None;
+    let num_outputs = pre_rct_numb_outputs_cache.entry(amount).or_insert_with(|| {
+        let last_out = db.pre_rct_outputs.prefix(amount.to_be_bytes()).next_back();
+
+        match last_out.map(fjall::Guard::key) {
+            None => 0,
+            Some(Ok(o)) => u64::from_be_bytes(o[8..].try_into().unwrap()) + 1,
+            Some(Err(e)) => {
+                err = Some(e);
+                0
+            }
+        }
+    });
+
+    if let Some(e) = err {
+        return Err(e.into());
+    }
 
     let pre_rct_output_id = PreRctOutputId {
         amount,
         // The new `amount_index` is the length of amount of outputs with same amount.
-        amount_index: num_outputs,
+        amount_index: *num_outputs,
     };
 
-    tables.outputs_mut().put(&pre_rct_output_id, output)?;
+    w.insert(
+        &db.pre_rct_outputs,
+        pre_rct_output_id.to_bytes(),
+        bytemuck::bytes_of(output),
+    );
+
+    num_outputs.add_assign(1);
+
     Ok(pre_rct_output_id)
 }
 
 /// Remove a Pre-RCT [`Output`] from the database.
-#[doc = doc_add_block_inner_invariant!()]
-#[doc = doc_error!()]
 #[inline]
 pub fn remove_output(
-    pre_rct_output_id: &PreRctOutputId,
-    tables: &mut impl TablesMut,
+    db: &BlockchainDatabase,
+    amount: Amount,
+    tx_rw: &mut fjall::OwnedWriteBatch,
 ) -> DbResult<()> {
-    // Decrement the amount index by 1, or delete the entry out-right.
-    // FIXME: this would be much better expressed with a
-    // `btree_map::Entry`-like API, fix `trait DatabaseRw`.
-    tables
-        .num_outputs_mut()
-        .update(&pre_rct_output_id.amount, |num_outputs| {
-            // INVARIANT: Should never be 0.
-            if num_outputs == 1 {
-                None
-            } else {
-                Some(num_outputs - 1)
-            }
-        })?;
+    let mut pre_rct_numb_outputs_cache = db.pre_rct_numb_outputs_cache.lock().unwrap();
 
-    // Delete the output data itself.
-    tables.outputs_mut().delete(pre_rct_output_id)
+    let mut err = None;
+    let num_outputs = pre_rct_numb_outputs_cache.entry(amount).or_insert_with(|| {
+        let last_out = db.pre_rct_outputs.prefix(amount.to_be_bytes()).next_back();
+
+        match last_out.map(fjall::Guard::key) {
+            None => 0,
+            Some(Ok(o)) => u64::from_be_bytes(o[8..].try_into().unwrap()) + 1,
+            Some(Err(e)) => {
+                err = Some(e);
+                0
+            }
+        }
+    });
+
+    if let Some(e) = err {
+        return Err(e.into());
+    }
+
+    let pre_rct_output_id = PreRctOutputId {
+        amount,
+        // Remove the last output with same amount.
+        amount_index: *num_outputs - 1,
+    };
+
+    tx_rw.remove(&db.pre_rct_outputs, pre_rct_output_id.to_bytes());
+
+    num_outputs.sub_assign(1);
+    Ok(())
 }
 
 /// Retrieve a Pre-RCT [`Output`] from the database.
-#[doc = doc_error!()]
 #[inline]
 pub fn get_output(
+    db: &BlockchainDatabase,
     pre_rct_output_id: &PreRctOutputId,
-    table_outputs: &impl DatabaseRo<Outputs>,
+    tx_ro: &fjall::Snapshot,
 ) -> DbResult<Output> {
-    table_outputs.get(pre_rct_output_id)
+    let output = tx_ro
+        .get(&db.pre_rct_outputs, pre_rct_output_id.to_bytes())?
+        .ok_or(BlockchainError::NotFound)?;
+
+    Ok(bytemuck::pod_read_unaligned(output.as_ref()))
 }
 
-/// How many pre-RCT [`Output`]s are there?
-///
-/// This returns the amount of pre-RCT outputs currently stored.
-#[doc = doc_error!()]
+/// Get the number of outputs with a given amount.
 #[inline]
-pub fn get_num_outputs(table_outputs: &impl DatabaseRo<Outputs>) -> DbResult<u64> {
-    table_outputs.len()
+pub fn get_num_outputs_with_amount(
+    db: &BlockchainDatabase,
+    tx_ro: &fjall::Snapshot,
+    amount: Amount,
+) -> DbResult<u64> {
+    let last_out = tx_ro
+        .prefix(&db.pre_rct_outputs, amount.to_be_bytes())
+        .next_back();
+
+    last_out.map_or(Ok(0), |o| {
+        Ok(u64::from_be_bytes(o.key()?[8..].try_into().unwrap()) + 1)
+    })
 }
 
-//---------------------------------------------------------------------------------------------------- RCT Outputs
-/// Add an [`RctOutput`] to the database.
-///
-/// Upon [`Ok`], this function returns the [`AmountIndex`] that
-/// can be used to lookup the `RctOutput` in [`get_rct_output()`].
-#[doc = doc_add_block_inner_invariant!()]
-#[doc = doc_error!()]
-#[inline]
-pub fn add_rct_output(
-    rct_output: &RctOutput,
-    table_rct_outputs: &mut impl DatabaseRw<RctOutputs>,
-) -> DbResult<AmountIndex> {
-    let amount_index = get_rct_num_outputs(table_rct_outputs)?;
-    table_rct_outputs.put(&amount_index, rct_output)?;
-    Ok(amount_index)
-}
-
-/// Remove an [`RctOutput`] from the database.
-#[doc = doc_add_block_inner_invariant!()]
-#[doc = doc_error!()]
-#[inline]
-pub fn remove_rct_output(
-    amount_index: &AmountIndex,
-    table_rct_outputs: &mut impl DatabaseRw<RctOutputs>,
-) -> DbResult<()> {
-    table_rct_outputs.delete(amount_index)
-}
-
-/// Retrieve an [`RctOutput`] from the database.
-#[doc = doc_error!()]
-#[inline]
-pub fn get_rct_output(
-    amount_index: &AmountIndex,
-    table_rct_outputs: &impl DatabaseRo<RctOutputs>,
-) -> DbResult<RctOutput> {
-    table_rct_outputs.get(amount_index)
-}
-
-/// How many [`RctOutput`]s are there?
-///
-/// This returns the amount of RCT outputs currently stored.
-#[doc = doc_error!()]
-#[inline]
-pub fn get_rct_num_outputs(table_rct_outputs: &impl DatabaseRo<RctOutputs>) -> DbResult<u64> {
-    table_rct_outputs.len()
-}
-
-//---------------------------------------------------------------------------------------------------- Mapping functions
 /// Map an [`Output`] to a [`cuprate_types::OutputOnChain`].
-#[doc = doc_error!()]
 pub fn output_to_output_on_chain(
     output: &Output,
     amount: Amount,
     get_txid: bool,
-    table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
-    table_block_txs_hashes: &impl DatabaseRo<BlockTxsHashes>,
-    table_block_infos: &impl DatabaseRo<BlockInfos>,
-    table_tx_blobs: &impl DatabaseRo<TxBlobs>,
+    tapes: &tapes::TapesReadTransaction,
+    db: &BlockchainDatabase,
 ) -> DbResult<OutputOnChain> {
     let commitment = compute_zero_commitment(amount);
-
-    let time_lock = if output
-        .output_flags
-        .contains(OutputFlags::NON_ZERO_UNLOCK_TIME)
-    {
-        u64_to_timelock(table_tx_unlock_time.get(&output.tx_idx)?)
-    } else {
-        Timelock::None
-    };
 
     let key = CompressedPoint(output.key);
 
     let txid = if get_txid {
-        let height = u32_to_usize(output.height);
-
-        let miner_tx_id = table_block_infos.get(&height)?.mining_tx_index;
-
-        let txid = if miner_tx_id == output.tx_idx {
-            get_tx_from_id(&miner_tx_id, table_tx_blobs)?.hash()
-        } else {
-            let idx = u64_to_usize(output.tx_idx - miner_tx_id - 1);
-            table_block_txs_hashes.get(&height)?[idx]
-        };
+        let txid = get_tx_from_id(&output.tx_idx, tapes, db)?.hash();
 
         Some(txid)
     } else {
@@ -196,56 +153,29 @@ pub fn output_to_output_on_chain(
     };
 
     Ok(OutputOnChain {
-        height: u32_to_usize(output.height),
-        time_lock,
+        height: output.height,
+        time_lock: u64_to_timelock(output.timelock),
         key,
         commitment,
         txid,
     })
 }
 
-/// Map an [`RctOutput`] to a [`cuprate_types::OutputOnChain`].
-///
-/// # Panics
-/// This function will panic if `rct_output`'s `commitment` fails to decompress
-/// into a valid Ed25519 point.
-///
-/// This should normally not happen as commitments that
-/// are stored in the database should always be valid.
-#[doc = doc_error!()]
+/// Map a [`RctOutput`] to a [`cuprate_types::OutputOnChain`].
+#[inline]
 pub fn rct_output_to_output_on_chain(
     rct_output: &RctOutput,
     get_txid: bool,
-    table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
-    table_block_txs_hashes: &impl DatabaseRo<BlockTxsHashes>,
-    table_block_infos: &impl DatabaseRo<BlockInfos>,
-    table_tx_blobs: &impl DatabaseRo<TxBlobs>,
+    tapes: &tapes::TapesReadTransaction,
+    db: &BlockchainDatabase,
 ) -> DbResult<OutputOnChain> {
     // INVARIANT: Commitments stored are valid when stored by the database.
     let commitment = CompressedPoint(rct_output.commitment);
 
-    let time_lock = if rct_output
-        .output_flags
-        .contains(OutputFlags::NON_ZERO_UNLOCK_TIME)
-    {
-        u64_to_timelock(table_tx_unlock_time.get(&rct_output.tx_idx)?)
-    } else {
-        Timelock::None
-    };
-
     let key = CompressedPoint(rct_output.key);
 
     let txid = if get_txid {
-        let height = u32_to_usize(rct_output.height);
-
-        let miner_tx_id = table_block_infos.get(&height)?.mining_tx_index;
-
-        let txid = if miner_tx_id == rct_output.tx_idx {
-            get_tx_from_id(&miner_tx_id, table_tx_blobs)?.hash()
-        } else {
-            let idx = u64_to_usize(rct_output.tx_idx - miner_tx_id - 1);
-            table_block_txs_hashes.get(&height)?[idx]
-        };
+        let txid = get_tx_from_id(&rct_output.tx_idx, tapes, db)?.hash();
 
         Some(txid)
     } else {
@@ -253,8 +183,8 @@ pub fn rct_output_to_output_on_chain(
     };
 
     Ok(OutputOnChain {
-        height: u32_to_usize(rct_output.height),
-        time_lock,
+        height: rct_output.height,
+        time_lock: u64_to_timelock(rct_output.timelock),
         key,
         commitment,
         txid,
@@ -264,168 +194,26 @@ pub fn rct_output_to_output_on_chain(
 /// Map an [`PreRctOutputId`] to an [`OutputOnChain`].
 ///
 /// Note that this still support RCT outputs, in that case, [`PreRctOutputId::amount`] should be `0`.
-#[doc = doc_error!()]
 pub fn id_to_output_on_chain(
+    db: &BlockchainDatabase,
     id: &PreRctOutputId,
     get_txid: bool,
-    tables: &impl Tables,
+    tx_ro: &fjall::Snapshot,
+    tapes: &tapes::TapesReadTransaction,
 ) -> DbResult<OutputOnChain> {
     // v2 transactions.
     if id.amount == 0 {
-        let rct_output = get_rct_output(&id.amount_index, tables.rct_outputs())?;
-        let output_on_chain = rct_output_to_output_on_chain(
-            &rct_output,
-            get_txid,
-            tables.tx_unlock_time(),
-            tables.block_txs_hashes(),
-            tables.block_infos(),
-            tables.tx_blobs(),
-        )?;
+        let rct_output = tapes
+            .read_entry(&db.rct_outputs, id.amount_index)?
+            .ok_or(BlockchainError::NotFound)?;
+        let output_on_chain = rct_output_to_output_on_chain(&rct_output, get_txid, tapes, db)?;
 
         Ok(output_on_chain)
     } else {
         // v1 transactions.
-        let output = get_output(id, tables.outputs())?;
-        let output_on_chain = output_to_output_on_chain(
-            &output,
-            id.amount,
-            get_txid,
-            tables.tx_unlock_time(),
-            tables.block_txs_hashes(),
-            tables.block_infos(),
-            tables.tx_blobs(),
-        )?;
+        let output = get_output(db, id, tx_ro)?;
+        let output_on_chain = output_to_output_on_chain(&output, id.amount, get_txid, tapes, db)?;
 
         Ok(output_on_chain)
-    }
-}
-
-//---------------------------------------------------------------------------------------------------- Tests
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    use pretty_assertions::assert_eq;
-
-    use cuprate_database::{Env, EnvInner};
-
-    use crate::{
-        tables::{OpenTables, Tables, TablesMut},
-        tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
-        types::OutputFlags,
-    };
-
-    /// Dummy `Output`.
-    const OUTPUT: Output = Output {
-        key: [44; 32],
-        height: 0,
-        output_flags: OutputFlags::NON_ZERO_UNLOCK_TIME,
-        tx_idx: 0,
-    };
-
-    /// Dummy `RctOutput`.
-    const RCT_OUTPUT: RctOutput = RctOutput {
-        key: [88; 32],
-        height: 1,
-        output_flags: OutputFlags::empty(),
-        tx_idx: 1,
-        commitment: [100; 32],
-    };
-
-    /// Dummy `Amount`
-    const AMOUNT: Amount = 22;
-
-    /// Tests all above output functions when only inputting `Output` data (no Block).
-    ///
-    /// Note that this doesn't test the correctness of values added, as the
-    /// functions have a pre-condition that the caller handles this.
-    ///
-    /// It simply tests if the proper tables are mutated, and if the data
-    /// stored and retrieved is the same.
-    #[test]
-    fn all_output_functions() {
-        let (env, _tmp) = tmp_concrete_env();
-        let env_inner = env.env_inner();
-        assert_all_tables_are_empty(&env);
-
-        let tx_rw = env_inner.tx_rw().unwrap();
-        let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
-
-        // Assert length is correct.
-        assert_eq!(get_num_outputs(tables.outputs()).unwrap(), 0);
-        assert_eq!(get_rct_num_outputs(tables.rct_outputs()).unwrap(), 0);
-
-        // Add outputs.
-        let pre_rct_output_id = add_output(AMOUNT, &OUTPUT, &mut tables).unwrap();
-        let amount_index = add_rct_output(&RCT_OUTPUT, tables.rct_outputs_mut()).unwrap();
-
-        assert_eq!(
-            pre_rct_output_id,
-            PreRctOutputId {
-                amount: AMOUNT,
-                amount_index: 0,
-            }
-        );
-
-        // Assert all reads of the outputs are OK.
-        {
-            // Assert proper tables were added to.
-            AssertTableLen {
-                block_infos: 0,
-                block_header_blobs: 0,
-                block_txs_hashes: 0,
-                block_heights: 0,
-                key_images: 0,
-                num_outputs: 1,
-                pruned_tx_blobs: 0,
-                prunable_hashes: 0,
-                outputs: 1,
-                prunable_tx_blobs: 0,
-                rct_outputs: 1,
-                tx_blobs: 0,
-                tx_ids: 0,
-                tx_heights: 0,
-                tx_unlock_time: 0,
-            }
-            .assert(&tables);
-
-            // Assert length is correct.
-            assert_eq!(get_num_outputs(tables.outputs()).unwrap(), 1);
-            assert_eq!(get_rct_num_outputs(tables.rct_outputs()).unwrap(), 1);
-            assert_eq!(1, tables.num_outputs().get(&AMOUNT).unwrap());
-
-            // Assert value is save after retrieval.
-            assert_eq!(
-                OUTPUT,
-                get_output(&pre_rct_output_id, tables.outputs()).unwrap(),
-            );
-
-            assert_eq!(
-                RCT_OUTPUT,
-                get_rct_output(&amount_index, tables.rct_outputs()).unwrap(),
-            );
-        }
-
-        // Remove the outputs.
-        {
-            remove_output(&pre_rct_output_id, &mut tables).unwrap();
-            remove_rct_output(&amount_index, tables.rct_outputs_mut()).unwrap();
-
-            // Assert value no longer exists.
-            assert!(matches!(
-                get_output(&pre_rct_output_id, tables.outputs()),
-                Err(RuntimeError::KeyNotFound)
-            ));
-            assert!(matches!(
-                get_rct_output(&amount_index, tables.rct_outputs()),
-                Err(RuntimeError::KeyNotFound)
-            ));
-
-            // Assert length is correct.
-            assert_eq!(get_num_outputs(tables.outputs()).unwrap(), 0);
-            assert_eq!(get_rct_num_outputs(tables.rct_outputs()).unwrap(), 0);
-        }
-
-        assert_all_tables_are_empty(&env);
     }
 }
