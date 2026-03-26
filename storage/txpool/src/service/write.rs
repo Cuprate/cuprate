@@ -108,7 +108,7 @@ fn add_transaction(
         match e {
             Entry::Occupied(o) => return Ok(TxpoolWriteResponse::AddTransaction(Some(*o.get()))),
             Entry::Vacant(v) => {
-                v.insert(*ki.as_bytes());
+                v.insert(tx.tx_hash);
             }
         }
 
