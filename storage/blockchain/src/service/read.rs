@@ -730,6 +730,7 @@ fn txs_in_block(
         .ok_or(BlockchainError::NotFound)?;
 
     let block = get_block(&block_height, None, &tapes, db)?;
+    let first_tx_index = block_info.mining_tx_index + 1;
 
     if block.transactions.len() < missing_txs.len() {
         return Ok(BlockchainResponse::TxsInBlock(None));
@@ -737,9 +738,7 @@ fn txs_in_block(
 
     let txs = missing_txs
         .into_iter()
-        .map(|index_offset| {
-            get_tx_blob_from_id(&(block_info.mining_tx_index + index_offset), &tapes, db)
-        })
+        .map(|index_offset| get_tx_blob_from_id(&(first_tx_index + index_offset), &tapes, db))
         .collect::<DbResult<_>>()?;
 
     Ok(BlockchainResponse::TxsInBlock(Some(TxsInBlock {

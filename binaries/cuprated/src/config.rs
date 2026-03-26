@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use cuprate_consensus::ContextConfig;
 use cuprate_helper::{
-    fs::{CUPRATE_CONFIG_DIR, DEFAULT_CONFIG_FILE_NAME},
+    fs::{path_with_network, CUPRATE_CONFIG_DIR, DEFAULT_CONFIG_FILE_NAME},
     network::Network,
 };
 use cuprate_p2p::block_downloader::BlockDownloaderConfig;
@@ -338,16 +338,15 @@ impl Config {
         let blockchain = &self.storage.blockchain;
 
         cuprate_blockchain::config::Config {
-            blob_dir: self.fs.fast_data_directory.clone(),
-            index_dir: self.fs.slow_data_directory.clone(),
+            blob_dir: path_with_network(&self.fs.fast_data_directory, self.network),
+            index_dir: path_with_network(&self.fs.slow_data_directory.clone(), self.network),
             cache_sizes: self.storage.blockchain.tapes_cache_sizes.clone(),
         }
     }
 
     /// The directory for fjall.
     pub fn fjall_directory(&self) -> PathBuf {
-        cuprate_helper::fs::path_with_network(&self.fs.fast_data_directory, self.network)
-            .join("fjall")
+        path_with_network(&self.fs.fast_data_directory, self.network).join("fjall")
     }
 
     /// Returns the size of the fjall cache.

@@ -306,6 +306,8 @@ impl super::BlockchainManager {
         let mut blocks = batch.blocks.into_iter();
 
         while let Some((block, txs)) = blocks.next() {
+            let hash = block.hash();
+
             // async blocks work as try blocks.
             let res = async {
                 let txs = txs
@@ -324,6 +326,11 @@ impl super::BlockchainManager {
 
             match res {
                 Err(e) => {
+                    warn!(
+                        "Failed to verify block: {}, error {}, banning peer.",
+                        hex::encode(hash),
+                        e
+                    );
                     batch.peer_handle.ban_peer(LONG_BAN);
                     self.stop_current_block_downloader.notify_waiters();
                     return;

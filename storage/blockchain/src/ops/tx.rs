@@ -178,38 +178,33 @@ pub fn remove_tx_from_dynamic_tables(
             .unwrap(),
     );
 
-    //------------------------------------------------------
-    // Refer to the inner transaction type from now on.
+    tx_rw.remove(&db.tx_ids, tx_hash);
+
     let tx = get_tx_from_id(&tx_id, tapes, db)?;
 
-    //------------------------------------------------------ Key Images
     for inputs in &tx.prefix().inputs {
         match inputs {
-            // Key images.
             Input::ToKey { key_image, .. } => {
                 tx_rw.remove(&db.key_images, key_image.as_bytes());
             }
-            // This is a miner transaction, set it for later use.
             Input::Gen(_) => (),
         }
-    } // for each input
+    }
 
     if tx.version() != 1 {
         return Ok((tx_id, tx));
     }
 
-    //------------------------------------------------------ Outputs
-    // Remove each output in the transaction.
-    if tx.version() == 1 {
-        for output in &tx.prefix().outputs {
-            // Outputs with clear amounts.
-            if let Some(amount) = output.amount {
-                remove_output(db, amount, tx_rw)?;
-            }
-        }
+    // Remove each v1 output in the transaction.
 
-        tx_rw.remove(&db.v1_tx_outputs, tx_id.to_le_bytes());
+    for output in &tx.prefix().outputs {
+        // Outputs with clear amounts.
+        if let Some(amount) = output.amount {
+            remove_output(db, amount, tx_rw)?;
+        }
     }
+
+    tx_rw.remove(&db.v1_tx_outputs, tx_id.to_le_bytes());
 
     Ok((tx_id, tx))
 }

@@ -80,7 +80,7 @@ async fn main() {
                 }
             }
         })
-        .collect::<futures::stream::FuturesUnordered<_>>();
+        .collect::<futures::stream::FuturesOrdered<_>>();
 
     let hashes_of_hashes = fut.try_collect::<Vec<_>>().await.unwrap();
 

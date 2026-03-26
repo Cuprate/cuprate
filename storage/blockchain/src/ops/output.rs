@@ -92,8 +92,8 @@ pub fn remove_output(
 
     let pre_rct_output_id = PreRctOutputId {
         amount,
-        // The new `amount_index` is the length of amount of outputs with same amount.
-        amount_index: *num_outputs,
+        // Remove the last output with same amount.
+        amount_index: *num_outputs - 1,
     };
 
     tx_rw.remove(&db.pre_rct_outputs, pre_rct_output_id.to_bytes());

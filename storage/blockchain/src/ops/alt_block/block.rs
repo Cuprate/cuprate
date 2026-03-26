@@ -8,8 +8,7 @@ use crate::{
     error::{BlockchainError, DbResult},
     ops::alt_block::{add_alt_transaction_blob, get_alt_transaction, update_alt_chain_info},
     types::{
-        AltBlockHeight, AltChainInfo, BlockHash, BlockHeight, BlockInfo, CompactAltBlockInfo,
-        RawChainId,
+        AltBlockHeight, AltChainInfo, BlockHash, BlockHeight, CompactAltBlockInfo, RawChainId,
     },
     BlockchainDatabase,
 };
@@ -185,7 +184,7 @@ pub fn get_alt_block_hash(
                 }),
             )?
             .map(|info| {
-                let info: BlockInfo = bytemuck::pod_read_unaligned(info.as_ref());
+                let info: CompactAltBlockInfo = bytemuck::pod_read_unaligned(info.as_ref());
                 info.block_hash
             })
             .ok_or(BlockchainError::NotFound),
@@ -216,7 +215,7 @@ pub fn get_alt_block_extended_header_from_height(
     Ok(ExtendedBlockHeader {
         version: HardFork::from_version(block_header.hardfork_version)
             .expect("Block in DB must have correct version"),
-        vote: block_header.hardfork_version,
+        vote: block_header.hardfork_signal,
         timestamp: block_header.timestamp,
         cumulative_difficulty: combine_low_high_bits_to_u128(
             block_info.cumulative_difficulty_low,
