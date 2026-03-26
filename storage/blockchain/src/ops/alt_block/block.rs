@@ -95,7 +95,6 @@ pub fn get_alt_block(
     db: &BlockchainDatabase,
     alt_block_height: &AltBlockHeight,
     tx_ro: &fjall::Snapshot,
-    tapes: &impl tapes::TapesRead,
 ) -> DbResult<AltBlockInformation> {
     let block_info = tx_ro
         .get(&db.alt_blocks_info, bytemuck::bytes_of(alt_block_height))?
@@ -112,7 +111,7 @@ pub fn get_alt_block(
     let txs = block
         .transactions
         .iter()
-        .map(|tx_hash| get_alt_transaction(db, tx_hash, tx_ro, tapes))
+        .map(|tx_hash| get_alt_transaction(db, tx_hash, tx_ro))
         .collect::<DbResult<Vec<_>>>()?;
 
     Ok(AltBlockInformation {

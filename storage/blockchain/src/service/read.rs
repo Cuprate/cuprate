@@ -750,7 +750,6 @@ fn txs_in_block(
 /// [`BlockchainReadRequest::AltBlocksInChain`]
 fn alt_blocks_in_chain(db: &BlockchainDatabase, chain_id: ChainId) -> ResponseResult {
     let tx_ro = db.fjall.snapshot();
-    let tapes = db.linear_tapes.reader();
 
     // Get the history of this alt-chain.
     let history = { get_alt_chain_history_ranges(db, 0..usize::MAX, chain_id, &tx_ro)? };
@@ -773,7 +772,6 @@ fn alt_blocks_in_chain(db: &BlockchainDatabase, chain_id: ChainId) -> ResponseRe
                         height,
                     },
                     &tx_ro,
-                    &tapes,
                 )
             })
         })

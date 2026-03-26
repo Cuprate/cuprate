@@ -5,7 +5,6 @@ use monero_oxide::transaction::Transaction;
 
 use crate::{
     error::{BlockchainError, DbResult},
-    ops::tx::get_tx,
     types::{AltTransactionInfo, TxHash},
     BlockchainDatabase,
 };
@@ -30,10 +29,6 @@ pub fn add_alt_transaction_blob(
         }),
     );
 
-    if db.tx_ids.contains_key(tx.tx_hash)? || db.alt_transaction_blobs.contains_key(tx.tx_hash)? {
-        return Ok(());
-    }
-
     tx_rw.insert(
         &db.alt_transaction_blobs,
         tx.tx_hash,
@@ -51,7 +46,6 @@ pub fn get_alt_transaction(
     db: &BlockchainDatabase,
     tx_hash: &TxHash,
     tx_ro: &fjall::Snapshot,
-    tapes: &impl tapes::TapesRead,
 ) -> DbResult<VerifiedTransactionInformation> {
     let tx_info = tx_ro
         .get(&db.alt_transaction_infos, tx_hash)?
@@ -61,7 +55,7 @@ pub fn get_alt_transaction(
 
     let tx = match tx_ro.get(&db.alt_transaction_blobs, tx_hash)? {
         Some(tx_blob) => Transaction::read(&mut tx_blob.as_ref()).unwrap(),
-        None => get_tx(db, tx_hash, tx_ro, tapes)?,
+        None => return Err(BlockchainError::NotFound),
     };
 
     let tx_weight = tx_info.tx_weight;
