@@ -158,6 +158,7 @@ impl BlockchainContext {
             let block_time = self.current_hf.block_time().as_secs();
             let adjusted_median = median + (BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW + 1) * block_time / 2;
 
+            #[expect(clippy::unnecessary_unwrap)]
             // This is safe as we just checked if the median was None and this will only be none for genesis and the first block.
             let adjusted_top_block = self.top_block_timestamp.unwrap() + block_time;
 

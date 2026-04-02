@@ -10,12 +10,15 @@ cuprate-types             = { workspace = true }
 cuprate-helper            = { workspace = true, features = ["map", "tx"] }
 cuprate-wire              = { workspace = true }
 cuprate-p2p-core          = { workspace = true, features = ["borsh"] }
+#cuprate-consensus         = { workspace = true }
+#cuprate-consensus-rules   = { workspace = true }
 
+#curve25519-dalek          = { workspace = true }
 hex                       = { workspace = true }
 hex-literal               = { workspace = true }
 monero-oxide              = { workspace = true, features = ["std"] }
 monero-simple-request-rpc = { workspace = true }
-monero-rpc                = { workspace = true, features = ["std"] }
+monero-daemon-rpc                = { workspace = true, features = ["std"] }
 async-trait               = { workspace = true }
 tokio                     = { workspace = true, features = ["full"] }
 serde                     = { workspace = true }

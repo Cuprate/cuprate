@@ -10,8 +10,7 @@ use curve25519_dalek::{
     traits::VartimePrecomputedMultiscalarMul,
     Scalar,
 };
-use monero_oxide::generators::H;
-use monero_oxide::io::CompressedPoint;
+use monero_oxide::ed25519::CompressedPoint;
 //---------------------------------------------------------------------------------------------------- Pre-computation
 
 /// This is the decomposed amount table containing the mandatory Pre-RCT amounts. It is used to pre-compute 
@@ -45,7 +44,7 @@ pub const ZERO_COMMITMENT_DECOMPOSED_AMOUNT: [u64; 172] = [
 
 /// Runtime initialized [`H`] generator.
 static H_PRECOMP: LazyLock<VartimeEdwardsPrecomputation> =
-    LazyLock::new(|| VartimeEdwardsPrecomputation::new([*H, ED25519_BASEPOINT_POINT]));
+    LazyLock::new(|| VartimeEdwardsPrecomputation::new([CompressedPoint::H.decompress().unwrap().into(), ED25519_BASEPOINT_POINT]));
 
 /// Runtime initialized zero commitment lookup table
 ///
@@ -56,8 +55,11 @@ pub static ZERO_COMMITMENT_LOOKUP_TABLE: LazyLock<[CompressedEdwardsY; 172]> =
     LazyLock::new(|| {
         let mut lookup_table: [CompressedEdwardsY; 172] = [ED25519_BASEPOINT_COMPRESSED; 172];
 
+        #[expect(non_snake_case)]
+        let H = CompressedPoint::H.decompress().unwrap().into();
+
         for (i, amount) in ZERO_COMMITMENT_DECOMPOSED_AMOUNT.into_iter().enumerate() {
-            lookup_table[i] = (ED25519_BASEPOINT_POINT + *H * Scalar::from(amount)).compress();
+            lookup_table[i] = (ED25519_BASEPOINT_POINT + H  * Scalar::from(amount)).compress();
         }
 
         lookup_table
@@ -82,7 +84,7 @@ pub fn compute_zero_commitment(amount: u64) -> CompressedPoint {
     // the amount without its most significant digit.
     let Some(log) = amount.checked_ilog10() else {
         // amount = 0 so H component is 0.
-        return CompressedPoint::from(ED25519_BASEPOINT_COMPRESSED);
+        return CompressedPoint::from(ED25519_BASEPOINT_COMPRESSED.0);
     };
     let div = 10_u64.pow(log);
 
@@ -96,7 +98,7 @@ pub fn compute_zero_commitment(amount: u64) -> CompressedPoint {
         return CompressedPoint::from(
             H_PRECOMP
                 .vartime_multiscalar_mul([Scalar::from(amount), Scalar::ONE])
-                .compress(),
+                .compress().0,
         );
     }
 
@@ -106,14 +108,14 @@ pub fn compute_zero_commitment(amount: u64) -> CompressedPoint {
     // The index of the cached amount
     let index = (most_significant_digit - 1 + row_start) as usize;
 
-    CompressedPoint::from(ZERO_COMMITMENT_LOOKUP_TABLE[index])
+    CompressedPoint::from(ZERO_COMMITMENT_LOOKUP_TABLE[index].0)
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
     use curve25519_dalek::{traits::VartimePrecomputedMultiscalarMul, Scalar};
-
+    use monero_oxide::ed25519::Point;
     use crate::crypto::{compute_zero_commitment, H_PRECOMP, ZERO_COMMITMENT_DECOMPOSED_AMOUNT};
 
     #[test]
@@ -125,7 +127,7 @@ mod test {
         for amount in ZERO_COMMITMENT_DECOMPOSED_AMOUNT {
             let commitment = H_PRECOMP.vartime_multiscalar_mul([Scalar::from(amount), Scalar::ONE]);
             assert_eq!(
-                commitment,
+                Point::from(commitment),
                 compute_zero_commitment(amount).decompress().unwrap()
             );
         }

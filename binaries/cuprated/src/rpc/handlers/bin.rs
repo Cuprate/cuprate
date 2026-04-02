@@ -114,7 +114,7 @@ async fn get_blocks(
         }
     } else {
         pool_info_extent = PoolInfoExtent::None;
-    };
+    }
 
     let resp = GetBlocksResponse {
         base: helper::access_response_base(false),

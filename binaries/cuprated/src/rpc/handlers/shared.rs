@@ -54,8 +54,8 @@ pub(super) async fn get_outs(
     for (_, index_vec) in outputs {
         for (_, out) in index_vec {
             let out_key = OutKeyBin {
-                key: out.key.0,
-                mask: out.commitment.0,
+                key: out.key.to_bytes(),
+                mask: out.commitment.to_bytes(),
                 unlocked: cuprate_consensus_rules::transactions::output_unlocked(
                     &out.time_lock,
                     blockchain_ctx.chain_height,

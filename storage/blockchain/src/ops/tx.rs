@@ -76,11 +76,11 @@ pub fn add_tx_info_to_tapes(
             append_tx.append_entries(
                 &db.rct_outputs,
                 &[RctOutput {
-                    key: output.key.0,
+                    key: output.key.to_bytes(),
                     height: *height,
                     timelock,
                     tx_idx: tx_id,
-                    commitment: commitment.0,
+                    commitment: commitment.to_bytes(),
                 }],
             )?;
 
@@ -119,7 +119,7 @@ pub fn add_tx_info_to_dynamic_tables(
         match inputs {
             // Key images.
             Input::ToKey { key_image, .. } => {
-                w.insert(&db.key_images, key_image.as_bytes(), []);
+                w.insert(&db.key_images, key_image.to_bytes(), []);
             }
             // This is a miner transaction.
             Input::Gen(_) => (),
@@ -137,7 +137,7 @@ pub fn add_tx_info_to_dynamic_tables(
                         db,
                         output.amount.unwrap_or(0),
                         &Output {
-                            key: output.key.0,
+                            key: output.key.to_bytes(),
                             height: *height,
                             timelock,
                             tx_idx: tx_id,
@@ -187,7 +187,7 @@ pub fn remove_tx_from_dynamic_tables(
         match inputs {
             // Key images.
             Input::ToKey { key_image, .. } => {
-                tx_rw.remove(&db.key_images, key_image.as_bytes());
+                tx_rw.remove(&db.key_images, key_image.to_bytes());
             }
             // This is a miner transaction, set it for later use.
             Input::Gen(_) => (),

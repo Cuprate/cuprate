@@ -6,7 +6,7 @@ use curve25519_dalek::{
 };
 use proptest::{collection::vec, prelude::*};
 
-use monero_oxide::{io::CompressedPoint, transaction::Output};
+use monero_oxide::{ed25519::CompressedPoint, transaction::Output};
 
 use cuprate_constants::block::MAX_BLOCK_HEIGHT;
 use cuprate_helper::cast::u64_to_usize;
@@ -29,7 +29,7 @@ fn test_check_output_amount_v1() {
 #[test]
 fn test_sum_outputs() {
     let mut output_10 = Output {
-        key: CompressedPoint([0; 32]),
+        key: CompressedPoint::from([0; 32]),
         amount: None,
         view_tag: None,
     };
@@ -91,7 +91,7 @@ fn test_decoy_info() {
 fn test_torsion_ki() {
     for &key_image in &EIGHT_TORSION[1..] {
         assert!(check_key_images(&Input::ToKey {
-            key_image: key_image.compress().into(),
+            key_image: key_image.compress().0.into(),
             amount: None,
             key_offsets: vec![],
         })
@@ -124,7 +124,7 @@ prop_compose! {
     ) -> Output {
         Output {
             amount: if rct { None } else { Some(amount) },
-            key: point.compress().into(),
+            key: point.compress().0.into(),
             view_tag: if view_tagged { Some(view_tag) } else { None },
         }
     }
@@ -141,7 +141,7 @@ prop_compose! {
     ) -> Output {
         Output {
             amount: if rct { None } else { Some(amount) },
-            key: point.compress().into(),
+            key: point.compress().0.into(),
             view_tag: if view_tagged { Some(view_tag) } else { None },
         }
     }
@@ -261,13 +261,13 @@ proptest! {
     #[test]
     fn test_check_input_has_decoys(key_offsets in vec(any::<u64>(), 1..10_000)) {
         assert!(check_input_has_decoys(&Input::ToKey {
-            key_image: CompressedPoint::from(ED25519_BASEPOINT_COMPRESSED),
+            key_image: CompressedPoint::from(ED25519_BASEPOINT_COMPRESSED.0),
             amount: None,
             key_offsets,
         }).is_ok());
 
         assert!(check_input_has_decoys(&Input::ToKey {
-            key_image: CompressedPoint::from(ED25519_BASEPOINT_COMPRESSED),
+            key_image: CompressedPoint::from(ED25519_BASEPOINT_COMPRESSED.0),
             amount: None,
             key_offsets: vec![],
         }).is_err());

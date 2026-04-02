@@ -206,11 +206,11 @@ impl HardForkState {
                     earliest_height: info.height() as u64,
                     enabled: current >= *hf,
                     state: 2,
-                    threshold: info.threshold() as u32,
+                    threshold: u32::try_from(info.threshold()).unwrap(),
                     version: hf.as_u8(),
-                    votes: self.votes.votes_for_hf(&hf) as u32,
+                    votes: u32::try_from(self.votes.votes_for_hf(hf)).unwrap(),
                     voting: HardFork::V16.as_u8(),
-                    window: self.votes.total_votes() as u32,
+                    window: u32::try_from(self.votes.total_votes()).unwrap(),
                 }
             })
             .collect()

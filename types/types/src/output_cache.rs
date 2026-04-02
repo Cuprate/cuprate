@@ -1,6 +1,6 @@
 use indexmap::{IndexMap, IndexSet};
 use monero_oxide::{
-    io::CompressedPoint,
+    ed25519::CompressedPoint,
     transaction::{Pruned, Transaction},
 };
 

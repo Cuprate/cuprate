@@ -100,13 +100,13 @@ impl TryFrom<transaction::Transaction> for MinerTransaction {
                     let target = match o.view_tag {
                         Some(view_tag) => {
                             let tagged_key = TaggedKey {
-                                key: Hex(o.key.0),
+                                key: Hex(o.key.to_bytes()),
                                 view_tag: Hex([view_tag]),
                             };
 
                             Target::TaggedKey { tagged_key }
                         }
-                        None => Target::Key { key: Hex(o.key.0) },
+                        None => Target::Key { key: Hex(o.key.to_bytes()) },
                     };
 
                     Output { amount, target }
