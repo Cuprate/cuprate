@@ -224,16 +224,15 @@ config_struct! {
         #[comment_out = true]
         /// The proxy to use for outgoing P2P connections
         ///
-        /// This setting can only take "Tor" at the moment.
-        /// This will anonymise clearnet connections through Tor.
+        /// Setting this to "Tor" will anonymise clearnet connections through Tor.
         ///
         /// Setting this to "" (an empty string) will disable the proxy.
         ///
         /// Enabling this setting will disable inbound connections.
         ///
         /// Type         | String
-        /// Valid values | "Tor"
-        /// Examples     | "Tor"
+        /// Valid values | "Tor", "socks5://[user:pass@]host:port"
+        /// Examples     | "Tor", "socks5://127.0.0.1:9050"
         pub proxy: ProxySettings,
     }
 
@@ -309,7 +308,7 @@ impl Default for ClearNetConfig {
             listen_on: Ipv4Addr::UNSPECIFIED,
             enable_inbound_v6: false,
             listen_on_v6: Ipv6Addr::UNSPECIFIED,
-            proxy: ProxySettings::Socks(String::new()),
+            proxy: ProxySettings::Disabled,
             outbound_connections: 32,
             extra_outbound_connections: 8,
             max_inbound_connections: 128,
