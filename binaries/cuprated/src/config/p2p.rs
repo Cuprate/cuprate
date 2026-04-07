@@ -231,7 +231,7 @@ config_struct! {
         /// Enabling this setting will disable inbound connections.
         ///
         /// Type         | String
-        /// Valid values | "Tor", "socks5://[user:pass@]host:port"
+        /// Valid values | "Tor", "socks5://host:port", "socks5://user:pass@host:port"
         /// Examples     | "Tor", "socks5://127.0.0.1:9050"
         pub proxy: ProxySettings,
     }
