@@ -48,33 +48,60 @@ pub use network_address::CrossNetworkInternalPeerId;
 
 /// A simple parsing enum for the `p2p.clear_net.proxy` field
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]
+#[serde(try_from = "String", into = "String")]
 pub enum ProxySettings {
+    Disabled,
     Tor,
-    #[serde(untagged)]
-    Socks(String),
+    Socks(SocksClientConfig),
 }
 
-/// Converts a `str` to a [`SocksClientConfig`].
-fn socks_proxy_str_to_config(url: &str) -> Result<SocksClientConfig, anyhow::Error> {
-    let Some((_, url)) = url.split_once("socks5://") else {
-        return Err(anyhow!("Invalid proxy url header."));
-    };
+impl TryFrom<String> for ProxySettings {
+    type Error = anyhow::Error;
 
-    let (authentication, addr) = url
-        .split_once('@')
-        .map(|(up, ad)| {
-            (
-                up.split_once(':')
-                    .map(|(a, b)| (a.to_string(), b.to_string())),
-                ad,
-            )
-        })
-        .unwrap_or((None, url));
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        match s.as_str() {
+            "" => Ok(Self::Disabled),
+            "Tor" => Ok(Self::Tor),
+            // TODO: use `if let` guard when on >=1.95
+            url if url.starts_with("socks5://") => {
+                let url = url.strip_prefix("socks5://").unwrap();
 
-    Ok(SocksClientConfig {
-        proxy: addr.parse()?,
-        authentication,
-    })
+                let (authentication, addr) = match url.rsplit_once('@') {
+                    Some((userpass, addr)) => {
+                        let (user, pass) = userpass.split_once(':').ok_or_else(|| {
+                            anyhow!("Invalid proxy authentication, expected user:pass format, got: {userpass}")
+                        })?;
+
+                        if user.is_empty() || pass.is_empty() {
+                            return Err(anyhow!("Proxy username and password must not be empty."));
+                        }
+
+                        (Some((user.to_string(), pass.to_string())), addr)
+                    }
+                    None => (None, url),
+                };
+
+                Ok(Self::Socks(SocksClientConfig {
+                    proxy: addr.parse()?,
+                    authentication,
+                }))
+            }
+            _ => Err(anyhow!("Unsupported proxy: '{s}'")),
+        }
+    }
+}
+
+impl From<ProxySettings> for String {
+    fn from(settings: ProxySettings) -> Self {
+        match settings {
+            ProxySettings::Disabled => Self::new(),
+            ProxySettings::Tor => "Tor".into(),
+            ProxySettings::Socks(config) => match config.authentication {
+                Some((u, p)) => format!("socks5://{u}:{p}@{}", config.proxy),
+                None => format!("socks5://{}", config.proxy),
+            },
+        }
+    }
 }
 
 /// This struct collect all supported and optional network zone interfaces.
@@ -105,7 +132,7 @@ pub async fn initialize_clearnet_p2p(
     tor_ctx: &TorContext,
     peer_sync_callback: PeerSyncCallback,
 ) -> (NetworkInterface<ClearNet>, Sender<IncomingTxHandler>) {
-    match config.p2p.clear_net.proxy {
+    match &config.p2p.clear_net.proxy {
         ProxySettings::Tor => match tor_ctx.mode {
             #[cfg(feature = "arti")]
             TorMode::Arti => {
@@ -133,34 +160,29 @@ pub async fn initialize_clearnet_p2p(
             .unwrap(),
             TorMode::Auto => unreachable!("Auto mode should be resolved before this point"),
         },
-        ProxySettings::Socks(ref s) => {
-            if s.is_empty() {
-                start_zone_p2p::<ClearNet, Tcp>(
-                    blockchain_read_handle,
-                    context_svc,
-                    txpool_read_handle,
-                    config.clearnet_p2p_config(),
-                    config.p2p.clear_net.tcp_transport_config(config.network),
-                    Some(peer_sync_callback.clone()),
-                )
-                .await
-                .unwrap()
-            } else {
-                start_zone_p2p::<ClearNet, Socks>(
-                    blockchain_read_handle,
-                    context_svc,
-                    txpool_read_handle,
-                    config.clearnet_p2p_config(),
-                    TransportConfig {
-                        client_config: socks_proxy_str_to_config(s).unwrap(),
-                        server_config: None,
-                    },
-                    Some(peer_sync_callback.clone()),
-                )
-                .await
-                .unwrap()
-            }
-        }
+        ProxySettings::Disabled => start_zone_p2p::<ClearNet, Tcp>(
+            blockchain_read_handle,
+            context_svc,
+            txpool_read_handle,
+            config.clearnet_p2p_config(),
+            config.p2p.clear_net.tcp_transport_config(config.network),
+            Some(peer_sync_callback.clone()),
+        )
+        .await
+        .unwrap(),
+        ProxySettings::Socks(socks_config) => start_zone_p2p::<ClearNet, Socks>(
+            blockchain_read_handle,
+            context_svc,
+            txpool_read_handle,
+            config.clearnet_p2p_config(),
+            TransportConfig {
+                client_config: socks_config.clone(),
+                server_config: None,
+            },
+            Some(peer_sync_callback.clone()),
+        )
+        .await
+        .unwrap(),
     }
 }
 
