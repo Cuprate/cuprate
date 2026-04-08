@@ -62,10 +62,9 @@ impl TryFrom<String> for ProxySettings {
         match s.as_str() {
             "" => Ok(Self::Disabled),
             "Tor" => Ok(Self::Tor),
-            url => {
-                let url = url
-                    .strip_prefix("socks5://")
-                    .ok_or_else(|| anyhow!("Invalid proxy url header, expected socks5://"))?;
+            // TODO: use `if let` guard when on >=1.95
+            url if url.starts_with("socks5://") => {
+                let url = url.strip_prefix("socks5://").unwrap();
 
                 let (authentication, addr) = match url.rsplit_once('@') {
                     Some((userpass, addr)) => {
@@ -87,6 +86,7 @@ impl TryFrom<String> for ProxySettings {
                     authentication,
                 }))
             }
+            _ => Err(anyhow!("Unsupported proxy: '{s}'")),
         }
     }
 }
