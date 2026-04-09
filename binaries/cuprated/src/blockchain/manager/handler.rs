@@ -149,14 +149,8 @@ impl super::BlockchainManager {
         .await?;
 
         let block_blob = Bytes::copy_from_slice(&verified_block.block_blob);
-        self.add_valid_block_to_main_chain(verified_block).await;
-
-        let chain_height = self
-            .blockchain_context_service
-            .blockchain_context()
-            .chain_height;
-
-        self.broadcast_block(block_blob, chain_height).await;
+        self.add_valid_block_to_main_chain(verified_block, Some(block_blob))
+            .await;
 
         info!(
             hash = hex::encode(
@@ -251,7 +245,8 @@ impl super::BlockchainManager {
                 return;
             };
 
-            self.add_valid_block_to_main_chain(verified_block).await;
+            self.add_valid_block_to_main_chain(verified_block, None)
+                .await;
         }
         info!(fast_sync = false, "Successfully added block batch");
     }
@@ -518,7 +513,8 @@ impl super::BlockchainManager {
                 block,
                 self.blockchain_context_service.blockchain_context(),
             );
-            self.add_valid_block_to_main_chain(verified_block).await;
+            self.add_valid_block_to_main_chain(verified_block, None)
+                .await;
         }
 
         self.blockchain_write_handle
@@ -602,7 +598,8 @@ impl super::BlockchainManager {
             )
             .await?;
 
-            self.add_valid_block_to_main_chain(verified_block).await;
+            self.add_valid_block_to_main_chain(verified_block, None)
+                .await;
         }
 
         Ok(())
@@ -612,6 +609,8 @@ impl super::BlockchainManager {
     ///
     /// This function will update the blockchain database and the context cache.
     ///
+    /// If `broadcast` is [`Some`], the block will be broadcast to the network.
+    ///
     /// # Panics
     ///
     /// This function will panic if any internal service returns an unexpected error that we cannot
@@ -619,6 +618,7 @@ impl super::BlockchainManager {
     pub async fn add_valid_block_to_main_chain(
         &mut self,
         verified_block: VerifiedBlockInformation,
+        broadcast: Option<Bytes>,
     ) {
         // FIXME: this is pretty inefficient, we should probably return the KI map created in the consensus crate.
         let spent_key_images = verified_block
@@ -642,6 +642,15 @@ impl super::BlockchainManager {
             .call(BlockchainWriteRequest::WriteBlock(verified_block))
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
+
+        if let Some(block_blob) = broadcast {
+            let chain_height = self
+                .blockchain_context_service
+                .blockchain_context()
+                .chain_height;
+
+            self.broadcast_block(block_blob, chain_height).await;
+        }
 
         self.txpool_manager_handle
             .new_block(spent_key_images)
