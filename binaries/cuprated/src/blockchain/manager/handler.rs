@@ -148,8 +148,7 @@ impl super::BlockchainManager {
         )
         .await?;
 
-        let block_blob = Bytes::copy_from_slice(&verified_block.block_blob);
-        self.add_valid_block_to_main_chain(verified_block, Some(block_blob))
+        self.add_valid_block_to_main_chain(verified_block, true)
             .await;
 
         info!(
@@ -245,7 +244,7 @@ impl super::BlockchainManager {
                 return;
             };
 
-            self.add_valid_block_to_main_chain(verified_block, None)
+            self.add_valid_block_to_main_chain(verified_block, false)
                 .await;
         }
         info!(fast_sync = false, "Successfully added block batch");
@@ -513,7 +512,7 @@ impl super::BlockchainManager {
                 block,
                 self.blockchain_context_service.blockchain_context(),
             );
-            self.add_valid_block_to_main_chain(verified_block, None)
+            self.add_valid_block_to_main_chain(verified_block, false)
                 .await;
         }
 
@@ -598,7 +597,7 @@ impl super::BlockchainManager {
             )
             .await?;
 
-            self.add_valid_block_to_main_chain(verified_block, None)
+            self.add_valid_block_to_main_chain(verified_block, false)
                 .await;
         }
 
@@ -609,7 +608,7 @@ impl super::BlockchainManager {
     ///
     /// This function will update the blockchain database and the context cache.
     ///
-    /// If `broadcast` is [`Some`], the block will be broadcast to the network.
+    /// If `broadcast` is `true`, the block will be broadcast to the network.
     ///
     /// # Panics
     ///
@@ -618,7 +617,7 @@ impl super::BlockchainManager {
     pub async fn add_valid_block_to_main_chain(
         &mut self,
         verified_block: VerifiedBlockInformation,
-        broadcast: Option<Bytes>,
+        broadcast: bool,
     ) {
         // FIXME: this is pretty inefficient, we should probably return the KI map created in the consensus crate.
         let spent_key_images = verified_block
@@ -632,6 +631,8 @@ impl super::BlockchainManager {
             })
             .collect::<Vec<[u8; 32]>>();
 
+        let block_blob = broadcast.then(|| Bytes::copy_from_slice(&verified_block.block_blob));
+
         self.add_valid_block_to_blockchain_cache(&verified_block)
             .await;
 
@@ -643,7 +644,7 @@ impl super::BlockchainManager {
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
 
-        if let Some(block_blob) = broadcast {
+        if let Some(block_blob) = block_blob {
             let chain_height = self
                 .blockchain_context_service
                 .blockchain_context()
