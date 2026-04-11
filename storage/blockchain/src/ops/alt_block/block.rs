@@ -127,6 +127,23 @@ pub fn get_alt_block(
     })
 }
 
+/// Retrieve an alt-block's raw bytes and the tx hashes of its non-miner transactions.
+///
+/// This is the alt-chain equivalent of [`get_block_blob_with_tx_indexes`](crate::ops::block::get_block_blob_with_tx_indexes).
+/// Alt-chain transactions are stored by hash, so this returns the hashes instead of indexes.
+///
+#[doc = doc_error!()]
+pub fn get_alt_block_blob_with_tx_hashes(
+    alt_block_height: &AltBlockHeight,
+    tables: &impl Tables,
+) -> DbResult<(Vec<u8>, Vec<[u8; 32]>)> {
+    let block_blob = tables.alt_block_blobs().get(alt_block_height)?.0;
+
+    let block = Block::read(&mut block_blob.as_slice())?;
+
+    Ok((block_blob, block.transactions))
+}
+
 /// Retrieves the hash of the block at the given `block_height` on the alt chain with
 /// the given [`ChainId`].
 ///
