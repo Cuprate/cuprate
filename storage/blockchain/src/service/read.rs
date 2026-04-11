@@ -37,7 +37,8 @@ use cuprate_types::{
 use crate::{
     ops::{
         alt_block::{
-            get_alt_block, get_alt_block_extended_header_from_height, get_alt_block_hash,
+            get_alt_block, get_alt_block_blob_with_tx_hashes,
+            get_alt_block_extended_header_from_height, get_alt_block_hash,
             get_alt_chain_history_ranges,
         },
         block::{
@@ -824,18 +825,60 @@ fn txs_in_block(env: &ConcreteEnv, block_hash: [u8; 32], missing_txs: Vec<u64>) 
     let tx_ro = env_inner.tx_ro()?;
     let tables = env_inner.open_tables(&tx_ro)?;
 
-    let block_height = tables.block_heights().get(&block_hash)?;
+    // Check the main chain first.
+    match tables.block_heights().get(&block_hash) {
+        Ok(block_height) => {
+            let (block, miner_tx_index, numb_txs) =
+                get_block_blob_with_tx_indexes(&block_height, &tables)?;
+            let first_tx_index = miner_tx_index + 1;
 
-    let (block, miner_tx_index, numb_txs) = get_block_blob_with_tx_indexes(&block_height, &tables)?;
-    let first_tx_index = miner_tx_index + 1;
+            if numb_txs < missing_txs.len() {
+                return Ok(BlockchainResponse::TxsInBlock(None));
+            }
 
-    if numb_txs < missing_txs.len() {
+            let txs = missing_txs
+                .into_iter()
+                .map(|index_offset| Ok(tables.tx_blobs().get(&(first_tx_index + index_offset))?.0))
+                .collect::<DbResult<_>>()?;
+
+            return Ok(BlockchainResponse::TxsInBlock(Some(TxsInBlock {
+                block,
+                txs,
+            })));
+        }
+        Err(RuntimeError::KeyNotFound) => (),
+        Err(e) => return Err(e),
+    }
+
+    // Fall back to alt blocks.
+    let alt_block_height = tables.alt_block_heights().get(&block_hash)?;
+    let (block, tx_hashes) = get_alt_block_blob_with_tx_hashes(&alt_block_height, &tables)?;
+
+    if tx_hashes.len() < missing_txs.len() {
         return Ok(BlockchainResponse::TxsInBlock(None));
     }
 
     let txs = missing_txs
         .into_iter()
-        .map(|index_offset| Ok(tables.tx_blobs().get(&(first_tx_index + index_offset))?.0))
+        .map(|index_offset| {
+            #[expect(
+                clippy::cast_possible_truncation,
+                reason = "INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`"
+            )]
+            let tx_hash = tx_hashes
+                .get(index_offset as usize)
+                .ok_or(RuntimeError::KeyNotFound)?;
+
+            match tables.alt_transaction_blobs().get(tx_hash) {
+                Ok(blob) => Ok(blob.0),
+                // The tx blob was not stored in the alt table, check the main-chain.
+                Err(RuntimeError::KeyNotFound) => {
+                    let tx_id = tables.tx_ids().get(tx_hash)?;
+                    Ok(tables.tx_blobs().get(&tx_id)?.0)
+                }
+                Err(e) => Err(e),
+            }
+        })
         .collect::<DbResult<_>>()?;
 
     Ok(BlockchainResponse::TxsInBlock(Some(TxsInBlock {
