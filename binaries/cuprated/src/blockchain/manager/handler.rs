@@ -149,7 +149,23 @@ impl super::BlockchainManager {
         .await?;
 
         let block_blob = Bytes::copy_from_slice(&verified_block.block_blob);
-        self.add_valid_block_to_main_chain(verified_block).await;
+
+        // FIXME: this is pretty inefficient, we should probably return the KI map created in the consensus crate.
+        let spent_key_images = verified_block
+            .txs
+            .iter()
+            .flat_map(|tx| {
+                tx.tx.prefix().inputs.iter().map(|input| match input {
+                    Input::ToKey { key_image, .. } => key_image.0,
+                    Input::Gen(_) => unreachable!(),
+                })
+            })
+            .collect::<Vec<[u8; 32]>>();
+
+        self.add_valid_block_to_blockchain_cache(&verified_block)
+            .await;
+        self.add_valid_block_to_blockchain_database(verified_block)
+            .await;
 
         let chain_height = self
             .blockchain_context_service
@@ -157,6 +173,11 @@ impl super::BlockchainManager {
             .chain_height;
 
         self.broadcast_block(block_blob, chain_height).await;
+
+        self.txpool_manager_handle
+            .new_block(spent_key_images)
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR);
 
         info!(
             hash = hex::encode(
@@ -635,13 +656,8 @@ impl super::BlockchainManager {
         self.add_valid_block_to_blockchain_cache(&verified_block)
             .await;
 
-        self.blockchain_write_handle
-            .ready()
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
-            .call(BlockchainWriteRequest::WriteBlock(verified_block))
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+        self.add_valid_block_to_blockchain_database(verified_block)
+            .await;
 
         self.txpool_manager_handle
             .new_block(spent_key_images)
@@ -673,6 +689,25 @@ impl super::BlockchainManager {
                 vote: HardFork::from_vote(verified_block.block.header.hardfork_signal),
                 cumulative_difficulty: verified_block.cumulative_difficulty,
             }))
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+    }
+
+    /// Writes a [`VerifiedBlockInformation`] to the blockchain database.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if any internal service returns an unexpected error that we cannot
+    /// recover from.
+    async fn add_valid_block_to_blockchain_database(
+        &mut self,
+        verified_block: VerifiedBlockInformation,
+    ) {
+        self.blockchain_write_handle
+            .ready()
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .call(BlockchainWriteRequest::WriteBlock(verified_block))
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
     }
