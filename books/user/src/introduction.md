@@ -55,11 +55,9 @@ Cuprate's node (`cuprated`) can currently:
 - Respond to certain [daemon RPC](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html) requests
 
 ## How fast does `cuprated` sync?
-The current full verification sync timings are around ~7.5x faster than `monerod`.
+The current full verification sync timings can be up to ~7.5x faster than `monerod`.
 
-In real terms, 16 hour full verification syncs and 4 hour fast-sync syncs have been reported on consumer grade hardware. On faster hardware (14 threads, 10Gbps networking), sub 2 hour fast-syncs have been reported.
-
-Various testing results can be found [here](https://github.com/Cuprate/cuprate/issues/195).
+In real terms, 15 hour full verification syncs and ~1 hour fast-sync syncs have been reported on consumer grade hardware.
 
 ## How to see status of `cuprated`?
 In the terminal running `cuprated`, type `status`.
@@ -76,13 +74,7 @@ It also logs its block height status when syncing, for example:
 ```
 
 ## How big is the database?
-As of May 1st 2025, `cuprated`'s database is ~270GB in size.
-
-`monerod`'s database is ~225GB in size.
-
-This is 1.2x larger.
-
-There is [on-going](https://github.com/Cuprate/cuprate/pull/564) [work](https://github.com/Cuprate/cuprate/pull/566) that will allow `cuprated` to use noticeably less disk space than `monerod`.
+As of April 14th 2026, `cuprated` uses noticeably less disk space than `monerod` (~202GB vs ~292GB).
 
 ## Is the database compatible with `monerod`?
 No.
@@ -112,4 +104,4 @@ See [this Reddit thread](https://www.reddit.com/r/Monero/comments/1ij2sw6/cuprat
 Things are always changing so feel free to join our [Matrix channel](https://matrix.to/#/#cuprate:monero.social) and ask questions.
 
 ## What is the current roadmap?
-See [this GitHub issue](https://github.com/Cuprate/cuprate/issues/376) for Cuprate's rough 2025 roadmap.
+See [this GitHub issue](https://github.com/Cuprate/cuprate/issues/376) for Cuprate's rough roadmap.
