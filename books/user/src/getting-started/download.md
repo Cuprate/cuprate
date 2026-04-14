@@ -8,4 +8,7 @@ Cuprate offers pre-built binaries for `cuprated` for the platforms listed in [`P
 | Linux x86_64 (glibc >= 2.36) | <https://github.com/Cuprate/cuprate/releases/download/cuprated-0.0.9/cuprated-0.0.9-x86_64-unknown-linux.tar.gz>
 | Linux ARM64 (glibc >= 2.36)  | <https://github.com/Cuprate/cuprate/releases/download/cuprated-0.0.9/cuprated-0.0.9-aarch64-unknown-linux.tar.gz>
 
+<!--
+TODO: start archiving again with reproducible builds, perhaps at `cuprate.org`:
 All release files are archived and also available at <https://archive.hinto.rs>.
+-->
