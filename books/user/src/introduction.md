@@ -74,7 +74,7 @@ It also logs its block height status when syncing, for example:
 ```
 
 ## How big is the database?
-As of April 14th 2026, `cuprated` uses noticably less disk space than `monerod` (~202GB vs ~292GB).
+As of April 14th 2026, `cuprated` uses noticeably less disk space than `monerod` (~202GB vs ~292GB).
 
 ## Is the database compatible with `monerod`?
 No.
