@@ -15,7 +15,7 @@ env:
 jobs:
   audit:
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
 
     steps:
     - name: Cache
