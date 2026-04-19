@@ -146,6 +146,7 @@ pub struct PreRctOutputId {
 impl PreRctOutputId {
     /// Serializes the [`PreRctOutputId`] into bytes.
     pub fn to_bytes(&self) -> [u8; 16] {
+        // We use big endian here so that the outputs are sorted by their numeric values.
         let mut buf = [0; 16];
         buf[..8].copy_from_slice(&self.amount.to_be_bytes());
         buf[8..].copy_from_slice(&self.amount_index.to_be_bytes());

@@ -247,7 +247,7 @@ fn block_hash(db: &BlockchainDatabase, block_height: BlockHeight, chain: Chain) 
     let block_hash = match chain {
         Chain::Main => {
             tapes
-                .read_entry(&db.block_infos, block_height as u64)?
+                .read_entry(&db.block_infos, usize_to_u64(block_height))?
                 .ok_or(BlockchainError::NotFound)?
                 .block_hash
         }
@@ -273,7 +273,7 @@ fn block_hash_in_range(
 
     let block_hash = match chain {
         Chain::Main => tapes
-            .iter_from(&db.block_infos, range.start as u64)?
+            .iter_from(&db.block_infos, usize_to_u64(range.start))?
             .map(|info| Ok(info?.block_hash))
             .take(range.len())
             .collect::<Result<_, BlockchainError>>()?,
@@ -406,7 +406,7 @@ fn generated_coins(db: &BlockchainDatabase, height: usize) -> ResponseResult {
 
     Ok(BlockchainResponse::GeneratedCoins(
         tapes
-            .read_entry(&db.block_infos, height as u64)?
+            .read_entry(&db.block_infos, usize_to_u64(height))?
             .map_or(0, |info| info.cumulative_generated_coins),
     ))
 }
@@ -495,13 +495,11 @@ fn number_outputs_with_amount(db: &BlockchainDatabase, amounts: Vec<Amount>) -> 
     let tapes = db.linear_tapes.reader();
 
     // Cache the amount of RCT outputs once.
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`"
-    )]
-    let num_rct_outputs = tapes
-        .fixed_sized_tape_len(&db.rct_outputs)
-        .expect("Required tape not found") as usize;
+    let num_rct_outputs = u64_to_usize(
+        tapes
+            .fixed_sized_tape_len(&db.rct_outputs)
+            .expect("Required tape not found"),
+    );
 
     // Collect results using `rayon`.
     let map = amounts
@@ -513,11 +511,7 @@ fn number_outputs_with_amount(db: &BlockchainDatabase, amounts: Vec<Amount>) -> 
             } else {
                 // v1 transactions.
                 match get_num_outputs_with_amount(db, &tx_ro, amount) {
-                    #[expect(
-                        clippy::cast_possible_truncation,
-                        reason = "INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`"
-                    )]
-                    Ok(count) => Ok((amount, count as usize)),
+                    Ok(count) => Ok((amount, u64_to_usize(count))),
                     Err(e) => Err(e),
                 }
             }
@@ -649,7 +643,7 @@ fn next_chain_entry(
     let (block_ids, block_weights) = (first_known_height..last_height_in_chain_entry)
         .map(|height| {
             let block_info = tapes
-                .read_entry(&db.block_infos, height as u64)?
+                .read_entry(&db.block_infos, usize_to_u64(height))?
                 .ok_or(BlockchainError::NotFound)?;
 
             Ok((block_info.block_hash, block_info.weight))
@@ -657,7 +651,7 @@ fn next_chain_entry(
         .collect::<DbResult<(Vec<_>, Vec<_>)>>()?;
 
     let top_block_info = tapes
-        .read_entry(&db.block_infos, chain_height as u64 - 1)?
+        .read_entry(&db.block_infos, usize_to_u64(chain_height) - 1)?
         .ok_or(BlockchainError::NotFound)?;
 
     let first_block_blob = if block_ids.len() >= 2 {
@@ -726,7 +720,7 @@ fn txs_in_block(
     );
 
     let block_info = tapes
-        .read_entry(&db.block_infos, block_height as u64)?
+        .read_entry(&db.block_infos, usize_to_u64(block_height))?
         .ok_or(BlockchainError::NotFound)?;
 
     let block = get_block(&block_height, None, &tapes, db)?;
@@ -880,7 +874,7 @@ fn tx_output_indexes(db: &BlockchainDatabase, tx_hash: &[u8; 32]) -> ResponseRes
         bytemuck::pod_collect_to_vec(bytes.as_ref())
     } else {
         (0..tx_info.numb_rct_outputs)
-            .map(|i| i as u64 + tx_info.rct_output_start_idx)
+            .map(|i| usize_to_u64(i) + tx_info.rct_output_start_idx)
             .collect()
     };
 

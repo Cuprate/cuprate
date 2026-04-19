@@ -77,17 +77,20 @@ pub fn remove_output(
         let last_out = db.pre_rct_outputs.prefix(amount.to_be_bytes()).next_back();
 
         match last_out.map(fjall::Guard::key) {
-            None => 0,
             Some(Ok(o)) => u64::from_be_bytes(o[8..].try_into().unwrap()) + 1,
             Some(Err(e)) => {
-                err = Some(e);
+                err = Some(e.into());
+                0
+            }
+            None => {
+                err = Some(BlockchainError::NotFound);
                 0
             }
         }
     });
 
     if let Some(e) = err {
-        return Err(e.into());
+        return Err(e);
     }
 
     let pre_rct_output_id = PreRctOutputId {

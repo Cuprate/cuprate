@@ -11,9 +11,6 @@ use crate::{
 
 /// Adds a [`VerifiedTransactionInformation`] from an alt-block if it is not already in the DB.
 ///
-/// If the transaction is in the main-chain this function will still fill in the tx info table, as that
-/// table holds data which we don't keep around for main-chain txs.
-///
 pub fn add_alt_transaction_blob(
     db: &BlockchainDatabase,
     tx: &VerifiedTransactionInformation,

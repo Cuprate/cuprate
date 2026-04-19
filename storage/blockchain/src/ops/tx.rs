@@ -1,7 +1,8 @@
 //! Transaction functions.
 use std::collections::HashMap;
 
-use cuprate_helper::crypto::compute_zero_commitment;
+use cuprate_helper::{cast::usize_to_u64, crypto::compute_zero_commitment};
+use cuprate_pruning::CRYPTONOTE_PRUNING_LOG_STRIPES;
 
 use fjall::Readable;
 use monero_oxide::transaction::{Input, Pruned, Timelock, Transaction};
@@ -50,7 +51,7 @@ pub fn add_tx_info_to_tapes(
 
     let timelock = match tx.prefix().additional_timelock {
         Timelock::None => 0,
-        Timelock::Block(height) => height as u64,
+        Timelock::Block(height) => usize_to_u64(height),
         Timelock::Time(time) => time,
     };
 
@@ -111,7 +112,7 @@ pub fn add_tx_info_to_dynamic_tables(
     // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1558504285>
     let timelock = match tx.prefix().additional_timelock {
         Timelock::None => 0,
-        Timelock::Block(height) => height as u64,
+        Timelock::Block(height) => usize_to_u64(height),
         Timelock::Time(time) => time,
     };
 
@@ -255,9 +256,13 @@ pub fn get_tx_blob_from_id(
     let prunable_tape = if tx_info.is_v1_tx() {
         &db.v1_prunable_blobs
     } else {
-        let stripe =
-            cuprate_pruning::get_block_pruning_stripe(tx_info.height, usize::MAX, 3).unwrap();
-        &db.prunable_blobs[stripe as usize - 1]
+        let stripe = cuprate_pruning::get_block_pruning_stripe(
+            tx_info.height,
+            usize::MAX,
+            CRYPTONOTE_PRUNING_LOG_STRIPES,
+        )
+        .unwrap();
+        &db.prunable_blobs[usize::try_from(stripe).expect("stripe will not exceed usize::MAX") - 1]
     };
 
     let mut blob = vec![0; tx_info.pruned_size + tx_info.prunable_size];
@@ -288,7 +293,7 @@ pub fn get_tx_blob_from_id(
 /// - etc
 #[inline]
 pub fn get_num_tx(db: &BlockchainDatabase, tx_ro: &fjall::Snapshot) -> DbResult<u64> {
-    Ok(tx_ro.len(&db.tx_ids)? as u64)
+    Ok(usize_to_u64(tx_ro.len(&db.tx_ids)?))
 }
 
 //----------------------------------------------------------------------------------------------------

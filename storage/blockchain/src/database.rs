@@ -4,7 +4,7 @@ use fjall::{KeyspaceCreateOptions, PersistMode};
 use monero_oxide::transaction::Transaction;
 use tapes::{Persistence, TapeOpenOptions, Tapes, TapesRead};
 
-use cuprate_helper::cast::u64_to_usize;
+use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 
 use crate::{
     config::Config,
@@ -14,26 +14,121 @@ use crate::{
 
 /// The blockchain database.
 pub struct BlockchainDatabase {
+    /// The tapes database.
     pub(crate) linear_tapes: Tapes,
+    /// The fjall database.
     pub(crate) fjall: fjall::Database,
 
+    /// Block heights:
+    ///
+    /// | key                  | value                               |
+    /// |----------------------|-------------------------------------|
+    /// | block hash: [u8; 32] | block height: usize (little endian) |
     pub(crate) block_heights: fjall::Keyspace,
+    /// Key images:
+    ///
+    /// | key                 | value |
+    /// |---------------------|-------|
+    /// | key image: [u8; 32] | []    |
     pub(crate) key_images: fjall::Keyspace,
+    /// Pre-RCT outputs:
+    ///
+    /// | key                                     | value                             |
+    /// |-----------------------------------------|-----------------------------------|
+    /// | The ID of the output [`PreRctOutputId`] | The output data: [`Output`] bytes |
     pub(crate) pre_rct_outputs: fjall::Keyspace,
+    /// Transaction IDs:
+    ///
+    /// | key               | value                      |
+    /// |-------------------|----------------------------|
+    /// | Tx hash: [u8; 32] | Tx ID: u64 (little endian) |
     pub(crate) tx_ids: fjall::Keyspace,
+    /// V1 transaction output amount indices:
+    ///
+    /// | key                        | value                                           |
+    /// |----------------------------|--------------------------------------------------|
+    /// | Tx ID: u64 (little endian) | amount indices as a [u64] (little endian) slice |
     pub(crate) v1_tx_outputs: fjall::Keyspace,
+    /// Alt chain info:
+    ///
+    /// | key                           | value                  |
+    /// |-------------------------------|------------------------|
+    /// | Chain ID: u64 (little endian) | [`AltChainInfo`] bytes |
     pub(crate) alt_chain_infos: fjall::Keyspace,
+    /// Alt block heights:
+    ///
+    /// | key                  | value                    |
+    /// |----------------------|--------------------------|
+    /// | block hash: [u8; 32] | [`AltBlockHeight`] bytes |
     pub(crate) alt_block_heights: fjall::Keyspace,
-    pub(crate) alt_blocks_info: fjall::Keyspace,
+    /// Alt block info:
+    ///
+    /// | key                        | value                          |
+    /// |----------------------------|--------------------------------|
+    /// | [`AltBlockHeight`] bytes   | [`CompactAltBlockInfo`] bytes  |
+    pub(crate) alt_block_infos: fjall::Keyspace,
+    /// Alt block blobs:
+    ///
+    /// | key                      | value            |
+    /// |--------------------------|------------------|
+    /// | [`AltBlockHeight`] bytes | block blob: [u8] |
     pub(crate) alt_block_blobs: fjall::Keyspace,
+    /// Alt transaction blobs:
+    ///
+    /// | key                        | value                       |
+    /// |----------------------------|-----------------------------|
+    /// | transaction hash: [u8; 32] | full transaction blob: [u8] |
     pub(crate) alt_transaction_blobs: fjall::Keyspace,
+    /// Alt transaction info:
+    ///
+    /// | key                        | value                        |
+    /// |----------------------------|------------------------------|
+    /// | transaction hash: [u8; 32] | [`AltTransactionInfo`] bytes |
     pub(crate) alt_transaction_infos: fjall::Keyspace,
 
+    /// RCT (v2+) outputs, indexed sequentially.
+    ///
+    /// | index                 | value         |
+    /// |-----------------------|---------------|
+    /// | RCT output index: u64 | [`RctOutput`] |
     pub(crate) rct_outputs: tapes::FixedSizedTape<RctOutput>,
+    /// Transaction info, indexed by [`TxId`].
+    ///
+    /// | index      | value      |
+    /// |------------|------------|
+    /// | Tx ID: u64 | [`TxInfo`] |
     pub(crate) tx_infos: tapes::FixedSizedTape<TxInfo>,
+    /// Block info, indexed by block height.
+    ///
+    /// | index             | value         |
+    /// |-------------------|---------------|
+    /// | Block height: u64 | [`BlockInfo`] |
     pub(crate) block_infos: tapes::FixedSizedTape<BlockInfo>,
+    /// Pruned blobs.
+    ///
+    /// The format for this blob-tape per each block is:
+    ///
+    /// | data                                       |
+    /// |--------------------------------------------|
+    /// | block blob (header, miner tx, tx hashes)   |
+    /// | tx 0 pruned blob                           |
+    /// | tx 0 prunable hash (32 bytes)              |
+    /// | tx 1 pruned blob                           |
+    /// | tx 1 prunable hash (32 bytes)              |
+    /// | ...                                        |
+    ///
+    /// The prunable hash is `[0; 32]` for v1 txs.
+    /// Each block is appended directly after the one before it.
     pub(crate) pruned_blobs: tapes::BlobTape,
+    /// V1 prunable transaction blobs, indexed by [`TxInfo::prunable_blob_idx`].
+    ///
+    /// This tape stores the prunable blob for all V1 txs, these can't be pruned.
     pub(crate) v1_prunable_blobs: tapes::BlobTape,
+    /// V2+ prunable transaction blobs, split across 8 stripes.
+    /// Indexed by [`TxInfo::prunable_blob_idx`].
+    ///
+    /// These tapes store the prunable part of each tx, the stripe a tx is stored in depends on the
+    /// height of the block.
     pub(crate) prunable_blobs: Vec<tapes::BlobTape>,
 
     /// A runtime cache of the number of outputs for each pre-rct output amount.
@@ -49,14 +144,14 @@ impl BlockchainDatabase {
     ) -> Result<Self, BlockchainError> {
         let block_heights = fjall.keyspace("block_heights", KeyspaceCreateOptions::default)?;
         let key_images = fjall.keyspace("key_images", KeyspaceCreateOptions::default)?;
-        let pre_rct_outputs = fjall.keyspace("pre_rct_output", KeyspaceCreateOptions::default)?;
+        let pre_rct_outputs = fjall.keyspace("pre_rct_outputs", KeyspaceCreateOptions::default)?;
         let tx_ids = fjall.keyspace("tx_ids", KeyspaceCreateOptions::default)?;
         let v1_tx_outputs = fjall.keyspace("tx_outputs", KeyspaceCreateOptions::default)?;
 
         let alt_chain_infos = fjall.keyspace("alt_chain_infos", KeyspaceCreateOptions::default)?;
         let alt_block_heights =
             fjall.keyspace("alt_block_heights", KeyspaceCreateOptions::default)?;
-        let alt_blocks_info = fjall.keyspace("alt_blocks_infos", KeyspaceCreateOptions::default)?;
+        let alt_block_infos = fjall.keyspace("alt_block_infos", KeyspaceCreateOptions::default)?;
         let alt_block_blobs = fjall.keyspace("alt_block_blobs", KeyspaceCreateOptions::default)?;
         let alt_transaction_blobs =
             fjall.keyspace("alt_transaction_blobs", KeyspaceCreateOptions::default)?;
@@ -143,7 +238,7 @@ impl BlockchainDatabase {
             v1_tx_outputs,
             alt_chain_infos,
             alt_block_heights,
-            alt_blocks_info,
+            alt_block_infos,
             alt_block_blobs,
             alt_transaction_blobs,
             alt_transaction_infos,
@@ -167,7 +262,7 @@ impl BlockchainDatabase {
         if tapes_reader
             .fixed_sized_tape_len(&self.block_infos)
             .expect("block_infos tape exists")
-            != self.block_heights.len()? as u64
+            != usize_to_u64(self.block_heights.len()?)
         {
             tracing::warn!("fjall and tapes are out of sync");
             self.rebuild_fjall_database()?;
@@ -185,7 +280,7 @@ impl BlockchainDatabase {
         self.v1_tx_outputs.clear()?;
         self.alt_chain_infos.clear()?;
         self.alt_block_heights.clear()?;
-        self.alt_blocks_info.clear()?;
+        self.alt_block_infos.clear()?;
         self.alt_block_blobs.clear()?;
         self.alt_transaction_blobs.clear()?;
         self.alt_transaction_infos.clear()?;

@@ -1,7 +1,10 @@
 use fjall::Readable;
 use monero_oxide::block::{Block, BlockHeader};
 
-use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};
+use cuprate_helper::{
+    cast::usize_to_u64,
+    map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
+};
 use cuprate_types::{AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, HardFork};
 
 use crate::{
@@ -21,7 +24,7 @@ use crate::{
 pub fn flush_alt_blocks(db: &BlockchainDatabase) -> DbResult<()> {
     db.alt_chain_infos.clear()?;
     db.alt_block_heights.clear()?;
-    db.alt_blocks_info.clear()?;
+    db.alt_block_infos.clear()?;
     db.alt_block_blobs.clear()?;
     db.alt_transaction_blobs.clear()?;
     db.alt_transaction_infos.clear()?;
@@ -69,7 +72,7 @@ pub fn add_alt_block(
     };
 
     tx_rw.insert(
-        &db.alt_blocks_info,
+        &db.alt_block_infos,
         bytemuck::bytes_of(&alt_block_height),
         bytemuck::bytes_of(&alt_block_info),
     );
@@ -97,7 +100,7 @@ pub fn get_alt_block(
     tx_ro: &fjall::Snapshot,
 ) -> DbResult<AltBlockInformation> {
     let block_info = tx_ro
-        .get(&db.alt_blocks_info, bytemuck::bytes_of(alt_block_height))?
+        .get(&db.alt_block_infos, bytemuck::bytes_of(alt_block_height))?
         .ok_or(BlockchainError::NotFound)?;
 
     let block_info: CompactAltBlockInfo = bytemuck::pod_read_unaligned(block_info.as_ref());
@@ -171,12 +174,12 @@ pub fn get_alt_block_hash(
     // Get the block hash.
     match original_chain {
         Chain::Main => tapes
-            .read_entry(&db.block_infos, *block_height as u64)?
+            .read_entry(&db.block_infos, usize_to_u64(*block_height))?
             .map(|info| info.block_hash)
             .ok_or(BlockchainError::NotFound),
         Chain::Alt(chain_id) => tx_ro
             .get(
-                &db.alt_blocks_info,
+                &db.alt_block_infos,
                 bytemuck::bytes_of(&AltBlockHeight {
                     chain_id: chain_id.into(),
                     height: *block_height,
@@ -200,7 +203,7 @@ pub fn get_alt_block_extended_header_from_height(
     tx_ro: &fjall::Snapshot,
 ) -> DbResult<ExtendedBlockHeader> {
     let block_info = tx_ro
-        .get(&db.alt_blocks_info, bytemuck::bytes_of(height))?
+        .get(&db.alt_block_infos, bytemuck::bytes_of(height))?
         .ok_or(BlockchainError::NotFound)?;
 
     let block_info: CompactAltBlockInfo = bytemuck::pod_read_unaligned(block_info.as_ref());

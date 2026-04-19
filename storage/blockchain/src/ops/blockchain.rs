@@ -3,6 +3,8 @@
 use fjall::Readable;
 use tapes::TapesRead;
 
+use cuprate_helper::cast::u64_to_usize;
+
 use crate::{
     error::{BlockchainError, DbResult},
     types::{BlockHash, BlockHeight},
@@ -25,10 +27,11 @@ pub fn chain_height(
     db: &BlockchainDatabase,
     tapes: &tapes::TapesReadTransaction,
 ) -> DbResult<BlockHeight> {
-    #[expect(clippy::cast_possible_truncation, reason = "we enforce 64-bit")]
-    Ok(tapes
-        .fixed_sized_tape_len(&db.block_infos)
-        .expect("Required tape must exists") as usize)
+    Ok(u64_to_usize(
+        tapes
+            .fixed_sized_tape_len(&db.block_infos)
+            .expect("Required tape must exist"),
+    ))
 }
 
 /// Retrieve the height of the top block.
@@ -36,12 +39,12 @@ pub fn chain_height(
 /// This returns the height of the top block, not the [`chain_height`].
 ///
 /// For example:
-/// - The blockchain has 0 blocks => this returns `Err(BlockchainError::KeyNotFound)`
+/// - The blockchain has 0 blocks => this returns `Err(BlockchainError::NotFound)`
 /// - The blockchain has 1 block (height 0) => this returns `Ok(0)`
 /// - The blockchain has 2 blocks (height 1) => this returns `Ok(1)`
 ///
 /// Note that in cases where no blocks have been written to the
-/// database yet, an error is returned: `Err(BlockchainError::KeyNotFound)`.
+/// database yet, an error is returned: `Err(BlockchainError::NotFound)`.
 ///
 #[inline]
 pub fn top_block_height(

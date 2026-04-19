@@ -14,6 +14,7 @@ use tapes::TapesRead;
 use tower::Service;
 use tracing::instrument;
 
+use cuprate_helper::cast::u64_to_usize;
 use cuprate_types::{
     blockchain::{BlockchainResponse, BlockchainWriteRequest},
     AltBlockInformation, ChainId, VerifiedBlockInformation,
@@ -189,6 +190,10 @@ fn pop_blocks(db: &BlockchainDatabase, numb_blocks: usize) -> ResponseResult {
 
     // generate a `ChainId` for the popped blocks.
     let old_main_chain_id = ChainId(rand::random());
+
+    assert!(tapes
+        .fixed_sized_tape_len(&db.block_infos)
+        .is_some_and(|height| u64_to_usize(height) > numb_blocks));
 
     // pop the blocks
     for _ in 0..numb_blocks {
