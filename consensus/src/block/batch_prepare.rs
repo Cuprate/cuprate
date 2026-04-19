@@ -16,11 +16,11 @@ use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_types::{output_cache::OutputCache, TransactionVerificationData};
 
 use crate::{
+    __private::Database,
     batch_verifier::MultiThreadedBatchVerifier,
     block::{free::order_transactions, PreparedBlock, PreparedBlockExPow},
     transactions::{check_kis_unique, contextual_data::get_output_cache, start_tx_verification},
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
-    __private::Database,
 };
 
 /// Cached state created when batch preparing a group of blocks.
