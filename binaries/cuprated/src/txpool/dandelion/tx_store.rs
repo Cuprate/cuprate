@@ -12,10 +12,12 @@ use cuprate_dandelion_tower::{
     traits::{TxStoreRequest, TxStoreResponse},
     State,
 };
-use cuprate_database::RuntimeError;
-use cuprate_txpool::service::{
-    interface::{TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest},
-    TxpoolReadHandle, TxpoolWriteHandle,
+use cuprate_txpool::{
+    service::{
+        interface::{TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest},
+        TxpoolReadHandle, TxpoolWriteHandle,
+    },
+    TxPoolError,
 };
 
 use super::{DandelionTx, TxId};
@@ -59,7 +61,7 @@ impl Service<TxStoreRequest<TxId>> for TxStoreService {
                             state,
                         ))))
                     }
-                    Err(RuntimeError::KeyNotFound) => Ok(TxStoreResponse::Transaction(None)),
+                    Err(TxPoolError::NotFound) => Ok(TxStoreResponse::Transaction(None)),
                     Err(e) => Err(e.into()),
                     Ok(_) => unreachable!(),
                 })

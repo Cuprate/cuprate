@@ -237,7 +237,8 @@ impl super::BlockchainManager {
         };
 
         for (block, txs) in prepped_blocks {
-            let Ok(verified_block) = verify_prepped_main_chain_block(
+            let hash = block.block_hash;
+            let verified_block = match verify_prepped_main_chain_block(
                 block,
                 txs,
                 &mut self.blockchain_context_service,
@@ -245,10 +246,18 @@ impl super::BlockchainManager {
                 Some(&mut output_cache),
             )
             .await
-            else {
-                batch.peer_handle.ban_peer(LONG_BAN);
-                self.stop_current_block_downloader.notify_waiters();
-                return;
+            {
+                Ok(block) => block,
+                Err(e) => {
+                    warn!(
+                        "Failed to verify block: {}, error {}, banning peer.",
+                        hex::encode(hash),
+                        e
+                    );
+                    batch.peer_handle.ban_peer(LONG_BAN);
+                    self.stop_current_block_downloader.notify_waiters();
+                    return;
+                }
             };
 
             self.add_valid_block_to_main_chain(verified_block).await;
@@ -297,6 +306,8 @@ impl super::BlockchainManager {
         let mut blocks = batch.blocks.into_iter();
 
         while let Some((block, txs)) = blocks.next() {
+            let hash = block.hash();
+
             // async blocks work as try blocks.
             let res = async {
                 let txs = txs
@@ -315,6 +326,11 @@ impl super::BlockchainManager {
 
             match res {
                 Err(e) => {
+                    warn!(
+                        "Failed to verify block: {}, error {}, banning peer.",
+                        hex::encode(hash),
+                        e
+                    );
                     batch.peer_handle.ban_peer(LONG_BAN);
                     self.stop_current_block_downloader.notify_waiters();
                     return;

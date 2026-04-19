@@ -9,8 +9,8 @@ use cuprate_types::{
 };
 
 use crate::{
-    ContextCacheError, __private::Database, difficulty::DifficultyCache, rx_vms::RandomXVm,
-    weight::BlockWeightsCache,
+    __private::Database, difficulty::DifficultyCache, rx_vms::RandomXVm, weight::BlockWeightsCache,
+    ContextCacheError,
 };
 
 pub(crate) mod sealed {

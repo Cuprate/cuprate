@@ -98,17 +98,23 @@ pub async fn validate_entries<N: NetworkZone>(
 
     let mut hashes_stop_diff_last_height = last_height - hashes_stop_height;
 
-    // get the hashes we are missing to create the first fast-sync hash.
-    let BlockchainResponse::BlockHashInRange(starting_hashes) = blockchain_read_handle
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::BlockHashInRange(
-            hashes_start_height..start_height,
-            Chain::Main,
-        ))
-        .await?
-    else {
-        unreachable!()
+    let starting_hashes = if hashes_start_height == start_height {
+        vec![]
+    } else {
+        // get the hashes we are missing to create the first fast-sync hash.
+        let BlockchainResponse::BlockHashInRange(starting_hashes) = blockchain_read_handle
+            .ready()
+            .await?
+            .call(BlockchainReadRequest::BlockHashInRange(
+                hashes_start_height..start_height,
+                Chain::Main,
+            ))
+            .await?
+        else {
+            unreachable!()
+        };
+
+        starting_hashes
     };
 
     // If we don't have enough hashes to make up a batch we can't validate any.
@@ -214,12 +220,14 @@ pub fn block_to_verified_block_information(
     for tx in &block.transactions {
         let data = txs.remove(tx).expect("fast sync block invalid");
 
+        let (tx, prunable) = data.tx.pruned_with_prunable();
         verified_txs.push(VerifiedTransactionInformation {
-            tx_blob: data.tx_blob,
+            tx_prunable_blob: prunable,
+            tx_pruned: tx.serialize(),
             tx_weight: data.tx_weight,
             fee: data.fee,
             tx_hash: data.tx_hash,
-            tx: data.tx,
+            tx,
         });
     }
 
@@ -253,10 +261,16 @@ pub fn block_to_verified_block_information(
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::VecDeque, slice, sync::LazyLock};
+    use std::{
+        collections::VecDeque,
+        path::PathBuf,
+        slice,
+        sync::{Arc, LazyLock},
+    };
 
     use proptest::proptest;
 
+    use cuprate_blockchain::{config::Config, service::BlockchainReadHandle};
     use cuprate_p2p::block_downloader::ChainEntry;
     use cuprate_p2p_core::{client::InternalPeerID, handles::HandleBuilder, ClearNet};
 
@@ -293,6 +307,23 @@ mod tests {
         hashes
     });
 
+    fn test_db(path: PathBuf) -> BlockchainReadHandle {
+        let config = Config {
+            blob_dir: path.clone(),
+            index_dir: path.clone(),
+            ..Default::default()
+        };
+
+        let fjall = fjall::Database::builder(path).open().unwrap();
+
+        let thread_pool = Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap());
+
+        let (blockchain_read_handle, _, _) =
+            cuprate_blockchain::service::init_with_pool(&config, fjall, thread_pool).unwrap();
+
+        blockchain_read_handle
+    }
+
     proptest! {
         #[test]
         fn valid_entry(len in 0_usize..1_500_000) {
@@ -310,13 +341,7 @@ mod tests {
             let data_dir = tempfile::tempdir().unwrap();
 
             tokio_test::block_on(async move {
-                let blockchain_config = cuprate_blockchain::config::ConfigBuilder::new()
-                    .data_directory(data_dir.path().to_path_buf())
-                    .build();
-
-                let (mut blockchain_read_handle, _, _) =
-                    cuprate_blockchain::service::init(blockchain_config).unwrap();
-
+                let mut blockchain_read_handle= test_db(data_dir.path().to_path_buf());
 
                 let ret = validate_entries::<ClearNet>(VecDeque::from([entry]), 0, &mut blockchain_read_handle).await.unwrap();
 
@@ -343,13 +368,7 @@ mod tests {
             let data_dir = tempfile::tempdir().unwrap();
 
             tokio_test::block_on(async move {
-                let blockchain_config = cuprate_blockchain::config::ConfigBuilder::new()
-                    .data_directory(data_dir.path().to_path_buf())
-                    .build();
-
-                let (mut blockchain_read_handle, _, _) =
-                    cuprate_blockchain::service::init(blockchain_config).unwrap();
-
+                let mut blockchain_read_handle= test_db(data_dir.path().to_path_buf());
 
                 let ret = validate_entries::<ClearNet>(entries, 0, &mut blockchain_read_handle).await.unwrap();
 
@@ -376,13 +395,7 @@ mod tests {
             let data_dir = tempfile::tempdir().unwrap();
 
             tokio_test::block_on(async move {
-                let blockchain_config = cuprate_blockchain::config::ConfigBuilder::new()
-                    .data_directory(data_dir.path().to_path_buf())
-                    .build();
-
-                let (mut blockchain_read_handle, _, _) =
-                    cuprate_blockchain::service::init(blockchain_config).unwrap();
-
+                let mut blockchain_read_handle= test_db(data_dir.path().to_path_buf());
 
                 let ret = validate_entries::<ClearNet>(VecDeque::from([entry]), 0, &mut blockchain_read_handle).await.unwrap();
 

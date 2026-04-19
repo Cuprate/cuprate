@@ -31,7 +31,7 @@ prop_compose! {
                    ) -> DummyDatabase {
         let mut builder = DummyDatabaseBuilder::default();
 
-        blocks.sort_by(|a, b| a.cumulative_difficulty.cmp(&b.cumulative_difficulty));
+        blocks.sort_by_key(|a| a.cumulative_difficulty);
 
         for block in blocks {
             builder.add_block(block);
