@@ -18,7 +18,7 @@ jobs:
   build:
     # FIXME: how to build and merge Windows + macOS docs
     # with Linux's? Similar to the OS toggle on docs.rs.
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout
