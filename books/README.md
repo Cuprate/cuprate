@@ -4,7 +4,7 @@ This directory contains the source files for Cuprate's various books.
 
 The source files are edited here, and published in other repositories, see:
 
-<!--- [Cuprate's architecture book](https://github.com/Cuprate/architecture-book) -->
+- [Cuprate's architecture book](https://github.com/Cuprate/architecture-book)
 - [Monero's protocol book](https://github.com/Cuprate/monero-book)
 - [Cuprate's user book](https://github.com/Cuprate/user-book)
 
