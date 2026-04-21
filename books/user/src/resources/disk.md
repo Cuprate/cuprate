@@ -42,14 +42,10 @@ The directory used for general data is:
 | macOS   | `/Users/User/Library/Application Support/Cuprate/` |
 | Linux   | `/home/user/.local/share/cuprate/`                 |
 
-The files in this directory are:
+The sub-directories are:
 
-<!-- TODO: document redb files -->
-
-| File                  | Purpose |
+| Sub-directory         | Purpose |
 |-----------------------|---------|
-| `blockchain/data.mdb` | Blockchain database file
-| `blockchain/lock.mdb` | Blockchain database lock
-| `txpool/data.mdb`     | Transaction pool database file
-| `txpool/lock.mdb`     | Transaction pool database lock
+| `fjall/`              | Blockchain and transaction pool data
+| `tapes/`              | Blockchain data
 | `logs/{YYYY-MM-DD}`   | Log files for each day
