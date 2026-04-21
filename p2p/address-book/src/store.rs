@@ -1,8 +1,3 @@
-#![expect(
-    single_use_lifetimes,
-    reason = "false positive on generated derive code on `SerPeerDataV1`"
-)]
-
 use std::fs;
 
 use borsh::{from_slice, to_vec, BorshDeserialize, BorshSerialize};

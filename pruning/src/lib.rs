@@ -429,7 +429,7 @@ impl DecompressedPruningSeed {
     }
 }
 
-const fn get_block_pruning_stripe(
+pub const fn get_block_pruning_stripe(
     block_height: usize,
     blockchain_height: usize,
     log_stripe: u32,

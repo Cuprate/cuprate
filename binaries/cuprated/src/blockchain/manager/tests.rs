@@ -8,6 +8,7 @@ use monero_oxide::{
 use tokio::sync::{oneshot, watch};
 use tower::BoxError;
 
+use cuprate_blockchain::config::Config;
 use cuprate_consensus_context::{BlockchainContext, ContextConfig};
 use cuprate_consensus_rules::{hard_forks::HFInfo, miner_tx::calculate_block_reward, HFsInfo};
 use cuprate_helper::network::Network;
@@ -24,17 +25,25 @@ use crate::{
 };
 
 async fn mock_manager(data_dir: PathBuf) -> BlockchainManager {
-    let blockchain_config = cuprate_blockchain::config::ConfigBuilder::new()
-        .data_directory(data_dir.clone())
-        .build();
-    let txpool_config = cuprate_txpool::config::ConfigBuilder::new()
-        .data_directory(data_dir)
-        .build();
+    let config = Config {
+        blob_dir: data_dir.clone(),
+        index_dir: data_dir.clone(),
+        ..Default::default()
+    };
+
+    let fjall = fjall::Database::builder(data_dir).open().unwrap();
+
+    let thread_pool = Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap());
 
     let (mut blockchain_read_handle, mut blockchain_write_handle, _) =
-        cuprate_blockchain::service::init(blockchain_config).unwrap();
-    let (txpool_read_handle, txpool_write_handle, _) =
-        cuprate_txpool::service::init(&txpool_config).unwrap();
+        cuprate_blockchain::service::init_with_pool(
+            &config,
+            fjall.clone(),
+            Arc::clone(&thread_pool),
+        )
+        .unwrap();
+    let (txpool_read_handle, txpool_write_handle) =
+        cuprate_txpool::service::init_with_pool(fjall, thread_pool).unwrap();
 
     check_add_genesis(
         &mut blockchain_read_handle,

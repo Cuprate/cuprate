@@ -101,7 +101,7 @@ pub fn init_logging(config: &Config) {
         tracing_appender::rolling::Builder::new()
             .rotation(Rotation::DAILY)
             .max_log_files(appender_config.max_log_files)
-            .build(logs_path(&config.fs.data_directory, config.network()))
+            .build(logs_path(&config.fs.fast_data_directory, config.network()))
             .unwrap(),
     );
 
