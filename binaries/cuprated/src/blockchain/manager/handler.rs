@@ -34,7 +34,6 @@ use cuprate_types::{
 use crate::{
     blockchain::manager::commands::{BlockchainManagerCommand, IncomingBlockOk},
     constants::PANIC_CRITICAL_SERVICE_ERROR,
-    signals::REORG_LOCK,
 };
 
 impl super::BlockchainManager {
@@ -59,7 +58,8 @@ impl super::BlockchainManager {
                 numb_blocks,
                 response_tx,
             } => {
-                let _guard = REORG_LOCK.write().await;
+                let reorg_lock = Arc::clone(&self.reorg_lock);
+                let _guard = reorg_lock.write().await;
                 self.pop_blocks(numb_blocks).await;
                 self.blockchain_write_handle
                     .ready()
@@ -219,7 +219,7 @@ impl super::BlockchainManager {
     /// This function will panic if any internal service returns an unexpected error that we cannot
     /// recover from or if the incoming batch contains no blocks.
     async fn handle_incoming_block_batch_main_chain(&mut self, batch: BlockBatch) {
-        if batch.blocks.last().unwrap().0.number() < fast_sync_stop_height() {
+        if batch.blocks.last().unwrap().0.number() < fast_sync_stop_height(self.fast_sync_hashes) {
             self.handle_incoming_block_batch_fast_sync(batch).await;
             return;
         }
@@ -422,9 +422,9 @@ impl super::BlockchainManager {
 
     /// Attempt a re-org with the given top block of the alt-chain.
     ///
-    /// This function will take a write lock on [`REORG_LOCK`] and then set up the blockchain database
+    /// This function will take a write lock on `reorg_lock` and then set up the blockchain database
     /// and context cache to verify the alt-chain. It will then attempt to verify and add each block
-    /// in the alt-chain to the main-chain. Releasing the lock on [`REORG_LOCK`] when finished.
+    /// in the alt-chain to the main-chain. Releasing the lock on `reorg_lock` when finished.
     ///
     /// # Errors
     ///
@@ -440,7 +440,8 @@ impl super::BlockchainManager {
         &mut self,
         top_alt_block: AltBlockInformation,
     ) -> Result<(), anyhow::Error> {
-        let _guard = REORG_LOCK.write().await;
+        let reorg_lock = Arc::clone(&self.reorg_lock);
+        let _guard = reorg_lock.write().await;
 
         let BlockchainResponse::AltBlocksInChain(mut alt_blocks) = self
             .blockchain_read_handle

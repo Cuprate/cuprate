@@ -73,6 +73,8 @@ async fn mock_manager(data_dir: PathBuf) -> BlockchainManager {
         blockchain_context_service,
         stop_current_block_downloader: Arc::new(Default::default()),
         broadcast_svc: BroadcastSvc::mock(),
+        reorg_lock: Arc::new(Default::default()),
+        fast_sync_hashes: &[],
     }
 }
 
@@ -222,8 +224,6 @@ async fn simple_reorg() {
 /// Same as [`simple_reorg`] but uses block batches instead.
 #[tokio::test]
 async fn simple_reorg_block_batch() {
-    cuprate_fast_sync::set_fast_sync_hashes(&[]);
-
     let handle = HandleBuilder::new().build();
 
     // create 2 managers

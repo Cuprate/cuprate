@@ -19,7 +19,7 @@ use cuprate_rpc_types::{
 use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::BlockTemplate;
 
-use crate::{rpc::handlers, txpool::IncomingTxHandler};
+use crate::{rpc::handlers, txpool::IncomingTxHandler, NodeContext};
 
 /// TODO: use real type when public.
 #[derive(Clone)]
@@ -147,8 +147,8 @@ pub enum BlockchainManagerResponse {
     CreateBlockTemplate(Box<BlockTemplate>),
 }
 
-/// TODO: use real type when public.
-pub type BlockchainManagerHandle =
+/// TODO: replace with [`BlockchainManagerHandle`] when RPC operations are implemented.
+pub type BlockchainManagerRpcHandle =
     tower::util::BoxService<BlockchainManagerRequest, BlockchainManagerResponse, Error>;
 
 /// cuprated's RPC handler service.
@@ -159,33 +159,23 @@ pub struct CupratedRpcHandler {
     /// This is not `pub` on purpose, as it should not be mutated after [`Self::new`].
     restricted: bool,
 
-    /// Read handle to the blockchain database.
-    pub blockchain_read: BlockchainReadHandle,
-
-    /// Handle to the blockchain context service.
-    pub blockchain_context: BlockchainContextService,
-
-    /// Read handle to the transaction pool database.
-    pub txpool_read: TxpoolReadHandle,
-
     pub tx_handler: IncomingTxHandler,
+
+    /// Shared internal node state.
+    pub node_ctx: NodeContext,
 }
 
 impl CupratedRpcHandler {
     /// Create a new [`Self`].
     pub const fn new(
         restricted: bool,
-        blockchain_read: BlockchainReadHandle,
-        blockchain_context: BlockchainContextService,
-        txpool_read: TxpoolReadHandle,
         tx_handler: IncomingTxHandler,
+        node_ctx: NodeContext,
     ) -> Self {
         Self {
             restricted,
-            blockchain_read,
-            blockchain_context,
-            txpool_read,
             tx_handler,
+            node_ctx,
         }
     }
 }
