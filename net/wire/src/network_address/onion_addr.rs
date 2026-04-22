@@ -197,36 +197,47 @@ mod tests {
 
     proptest! {
         #[test]
-        fn parse_valid_onion_address_w_port(ports in vec(any::<u16>(), 18)) {
-            for (addr,port) in VALID_ONION_ADDRESSES.iter().zip(ports) {
-
-                let mut s = (*addr).to_string();
-                s.push(':');
-                s.push_str(&port.to_string());
-
+        fn parse_random_valid_onion_address(addresses in vec("[[a-z][2-7]]{56}\\.onion", 250)) {
+            for addr in addresses {
                 assert!(
-                    s.parse::<OnionAddr>().is_ok(),
+                    OnionAddr::check_addr(&addr).is_ok(),
                     "Address {addr} has been reported as invalid."
                 );
             }
         }
 
         #[test]
-        fn invalid_onion_address(addresses in vec("[a-z][2-7]{56}.onion", 250)) {
-            for addr in addresses {
+        fn parse_random_valid_onion_address_w_port(
+            mut addresses in vec("[[a-z][2-7]]{56}\\.onion", 250),
+            ports in vec(any::<u16>(), 18)
+        ) {
+            for (addr,port) in addresses.iter_mut().zip(ports) {
+                addr.push(':');
+                addr.push_str(&port.to_string());
+
                 assert!(
-                    OnionAddr::check_addr(&addr).is_err(),
-                    "Address {addr} has been reported as valid."
+                    addr.parse::<OnionAddr>().is_ok(),
+                    "Address {addr} has been reported as invalid."
                 );
             }
         }
 
         #[test]
-        fn parse_invalid_onion_address_w_port(addresses in vec("[a-z][2-7]{56}.onion:[0-9]{1,5}", 250)) {
+        fn parse_random_invalid_onion_address(addresses in vec(".{0,62}", 250)) {
             for addr in addresses {
                 assert!(
                     addr.parse::<OnionAddr>().is_err(),
-                    "Address {addr} has been reported as valid."
+                    "Input {addr} has been parsed correctly."
+                );
+            }
+        }
+
+        #[test]
+        fn parse_random_invalid_onion_address_w_port(addresses in vec(".{0,62}:.{1,5}", 250)) {
+            for addr in addresses {
+                assert!(
+                    addr.parse::<OnionAddr>().is_err(),
+                    "Input {addr} has been parsed correctly."
                 );
             }
         }
