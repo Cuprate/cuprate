@@ -12,6 +12,7 @@ use crate::{
     ops::alt_block::{add_alt_transaction_blob, get_alt_transaction, update_alt_chain_info},
     types::{
         AltBlockHeight, AltChainInfo, BlockHash, BlockHeight, CompactAltBlockInfo, RawChainId,
+        TxHash,
     },
     BlockchainDatabase,
 };
@@ -132,6 +133,23 @@ pub fn get_alt_block(
         ),
         chain_id: alt_block_height.chain_id.into(),
     })
+}
+
+/// Retrieve an alt-block's raw bytes and the tx hashes of its non-miner transactions.
+///
+/// Alt-chain transactions are stored by hash, so this returns the hashes instead of indexes.
+pub fn get_alt_block_blob_with_tx_hashes(
+    db: &BlockchainDatabase,
+    alt_block_height: &AltBlockHeight,
+    tx_ro: &fjall::Snapshot,
+) -> DbResult<(Vec<u8>, Vec<TxHash>)> {
+    let block_blob = tx_ro
+        .get(&db.alt_block_blobs, bytemuck::bytes_of(alt_block_height))?
+        .ok_or(BlockchainError::NotFound)?;
+
+    let block = Block::read(&mut block_blob.as_ref()).unwrap();
+
+    Ok((block_blob.to_vec(), block.transactions))
 }
 
 /// Retrieves the hash of the block at the given `block_height` on the alt chain with
