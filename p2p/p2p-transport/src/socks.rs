@@ -47,7 +47,7 @@ pub async fn is_socks5_proxy(addr: SocketAddr) -> bool {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Socks;
 
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SocksClientConfig {
     /// Proxy address
     pub proxy: SocketAddr,
