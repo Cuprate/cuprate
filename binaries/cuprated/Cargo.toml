@@ -7,6 +7,12 @@ license = "AGPL-3.0-only"
 authors = ["Boog900", "hinto-janai", "SyntheticBird45"]
 repository = "https://github.com/Cuprate/cuprate/tree/main/binaries/cuprated"
 
+[lib]
+name = "cuprated"
+
+[[bin]]
+name = "cuprated"
+
 [features]
 default = ["arti"]
 arti = ["arti-client", "tor-hsservice", "tor-persist", "tor-rtcompat", "cuprate-p2p-transport/arti"]

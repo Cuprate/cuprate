@@ -46,13 +46,13 @@ pub(super) async fn get_outs(
     }
 
     let outputs = blockchain::outputs_vec(
-        &mut state.blockchain_read,
+        &mut state.node_ctx.blockchain_read,
         request.outputs,
         request.get_txid,
     )
     .await?;
     let mut outs = Vec::<OutKeyBin>::with_capacity(outputs.len());
-    let blockchain_ctx = state.blockchain_context.blockchain_context();
+    let blockchain_ctx = state.node_ctx.blockchain_context.blockchain_context();
 
     for (_, index_vec) in outputs {
         for (_, out) in index_vec {
@@ -90,7 +90,7 @@ pub(super) async fn get_transaction_pool_hashes(
     mut state: CupratedRpcHandler,
 ) -> Result<Vec<[u8; 32]>, Error> {
     let include_sensitive_txs = !state.is_restricted();
-    txpool::all_hashes(&mut state.txpool_read, include_sensitive_txs).await
+    txpool::all_hashes(&mut state.node_ctx.txpool_read, include_sensitive_txs).await
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3352-L3398>
@@ -119,7 +119,8 @@ pub(super) async fn get_output_distribution(
         to_height: NonZero::new(request.to_height),
     };
 
-    let distributions = blockchain::output_distribution(&mut state.blockchain_read, input).await?;
+    let distributions =
+        blockchain::output_distribution(&mut state.node_ctx.blockchain_read, input).await?;
 
     Ok(GetOutputDistributionResponse {
         base: helper::access_response_base(false),
