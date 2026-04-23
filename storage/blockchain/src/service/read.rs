@@ -44,7 +44,8 @@ use crate::{
     error::{BlockchainError, DbResult},
     ops::{
         alt_block::{
-            get_alt_block, get_alt_block_extended_header_from_height, get_alt_block_hash,
+            get_alt_block, get_alt_block_blob_with_tx_hashes,
+            get_alt_block_extended_header_from_height, get_alt_block_hash,
             get_alt_chain_history_ranges,
         },
         block::{
@@ -710,33 +711,62 @@ fn txs_in_block(
     let tx_ro = db.fjall.snapshot();
     let tapes = db.linear_tapes.reader();
 
-    let block_height = usize::from_le_bytes(
-        tx_ro
-            .get(&db.block_heights, block_hash)?
-            .ok_or(BlockchainError::NotFound)?
-            .as_ref()
-            .try_into()
-            .unwrap(),
-    );
+    // Check the main chain first.
+    if let Some(block_height) = block_height(db, &tx_ro, &block_hash)? {
+        let block_info = tapes
+            .read_entry(&db.block_infos, usize_to_u64(block_height))?
+            .ok_or(BlockchainError::NotFound)?;
 
-    let block_info = tapes
-        .read_entry(&db.block_infos, usize_to_u64(block_height))?
+        let block = get_block(&block_height, Some(&block_info), &tapes, db)?;
+        let first_tx_index = block_info.mining_tx_index + 1;
+
+        if block.transactions.len() < missing_txs.len() {
+            return Ok(BlockchainResponse::TxsInBlock(None));
+        }
+
+        let txs = missing_txs
+            .into_iter()
+            .map(|index_offset| get_tx_blob_from_id(&(first_tx_index + index_offset), &tapes, db))
+            .collect::<DbResult<_>>()?;
+
+        return Ok(BlockchainResponse::TxsInBlock(Some(TxsInBlock {
+            block: block.serialize(),
+            txs,
+        })));
+    }
+
+    // Fall back to alt blocks.
+    let alt_block_height = tx_ro
+        .get(&db.alt_block_heights, block_hash)?
         .ok_or(BlockchainError::NotFound)?;
+    let alt_block_height: AltBlockHeight = bytemuck::pod_read_unaligned(alt_block_height.as_ref());
 
-    let block = get_block(&block_height, None, &tapes, db)?;
-    let first_tx_index = block_info.mining_tx_index + 1;
+    let (block, tx_hashes) = get_alt_block_blob_with_tx_hashes(db, &alt_block_height, &tx_ro)?;
 
-    if block.transactions.len() < missing_txs.len() {
+    if tx_hashes.len() < missing_txs.len() {
         return Ok(BlockchainResponse::TxsInBlock(None));
     }
 
     let txs = missing_txs
         .into_iter()
-        .map(|index_offset| get_tx_blob_from_id(&(first_tx_index + index_offset), &tapes, db))
+        .map(|index_offset| {
+            #[expect(
+                clippy::cast_possible_truncation,
+                reason = "INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`"
+            )]
+            let tx_hash = tx_hashes
+                .get(index_offset as usize)
+                .ok_or(BlockchainError::NotFound)?;
+
+            tx_ro
+                .get(&db.alt_transaction_blobs, tx_hash)?
+                .map(|blob| blob.to_vec())
+                .ok_or(BlockchainError::NotFound)
+        })
         .collect::<DbResult<_>>()?;
 
     Ok(BlockchainResponse::TxsInBlock(Some(TxsInBlock {
-        block: block.serialize(),
+        block,
         txs,
     })))
 }
