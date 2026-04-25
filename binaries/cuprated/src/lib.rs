@@ -369,10 +369,14 @@ impl Node {
         Ok(node)
     }
 
-    // Shutdown the node.
-    pub async fn shutdown(&self) {
-        self.task_executor.trigger_shutdown();
+    /// Wait for shutdown to be triggered.
+    pub async fn wait_for_shutdown(self) -> anyhow::Result<()> {
+        self.task_executor.cancellation_token().cancelled().await;
         self.task_executor.close();
         self.task_executor.wait().await;
+        if self.task_executor.has_failed() {
+            anyhow::bail!("critical task failure");
+        }
+        Ok(())
     }
 }
