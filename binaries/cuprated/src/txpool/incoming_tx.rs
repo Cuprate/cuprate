@@ -7,7 +7,7 @@ use std::{
 use bytes::Bytes;
 use futures::{future::BoxFuture, FutureExt};
 use monero_oxide::transaction::Transaction;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{mpsc, oneshot, RwLock};
 use tower::{BoxError, Service, ServiceExt};
 use tracing::instrument;
 
@@ -38,9 +38,8 @@ use cuprate_types::TransactionVerificationData;
 use crate::{
     blockchain::ConsensusBlockchainReadHandle,
     config::TxpoolConfig,
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
+    monitor::TaskExecutor,
     p2p::CrossNetworkInternalPeerId,
-    signals::REORG_LOCK,
     txpool::{
         dandelion::{
             self, AnonTxService, ConcreteDandelionRouter, DiffuseService, MainDandelionRouter,
@@ -62,6 +61,9 @@ pub enum IncomingTxError {
     DuplicateTransaction,
     #[error("Relay rule was broken: {0}")]
     RelayRule(RelayRuleError),
+    /// An internal service error occurred.
+    #[error(transparent)]
+    Service(anyhow::Error),
 }
 
 /// Incoming transactions.
@@ -103,6 +105,8 @@ pub struct IncomingTxHandler {
     pub(super) txpool_read_handle: TxpoolReadHandle,
     /// The blockchain read handle.
     pub(super) blockchain_read_handle: ConsensusBlockchainReadHandle,
+    /// Reorg lock.
+    reorg_lock: Arc<RwLock<()>>,
 }
 
 impl IncomingTxHandler {
@@ -114,10 +118,8 @@ impl IncomingTxHandler {
         clear_net: NetworkInterface<ClearNet>,
         tor_net_rx: Option<oneshot::Receiver<NetworkInterface<Tor>>>,
         txpool_write_handle: TxpoolWriteHandle,
-        txpool_read_handle: TxpoolReadHandle,
-        blockchain_context_cache: BlockchainContextService,
-        blockchain_read_handle: BlockchainReadHandle,
-    ) -> Self {
+        node_ctx: crate::NodeContext,
+    ) -> anyhow::Result<Self> {
         let diffuse_service = DiffuseService {
             clear_net_broadcast_service: clear_net.broadcast_svc(),
         };
@@ -129,31 +131,33 @@ impl IncomingTxHandler {
 
         let dandelion_pool_manager = dandelion::start_dandelion_pool_manager(
             dandelion_router,
-            txpool_read_handle.clone(),
+            node_ctx.txpool_read.clone(),
             promote_tx,
         );
 
         let txpool_manager = start_txpool_manager(
             txpool_write_handle,
-            txpool_read_handle.clone(),
+            node_ctx.txpool_read.clone(),
             promote_rx,
             diffuse_service,
             dandelion_pool_manager.clone(),
             txpool_config,
+            node_ctx.task_executor.clone(),
         )
-        .await;
+        .await?;
 
-        Self {
+        Ok(Self {
             txs_being_handled: TxsBeingHandled::new(),
-            blockchain_context_cache,
+            blockchain_context_cache: node_ctx.blockchain_context,
             dandelion_pool_manager,
             txpool_manager,
-            txpool_read_handle,
+            txpool_read_handle: node_ctx.txpool_read,
             blockchain_read_handle: ConsensusBlockchainReadHandle::new(
-                blockchain_read_handle,
+                node_ctx.blockchain_read,
                 BoxError::from,
             ),
-        }
+            reorg_lock: node_ctx.reorg_lock,
+        })
     }
 }
 
@@ -175,12 +179,14 @@ impl Service<IncomingTxs> for IncomingTxHandler {
             self.txpool_read_handle.clone(),
             self.txpool_manager.clone(),
             self.dandelion_pool_manager.clone(),
+            Arc::clone(&self.reorg_lock),
         )
         .boxed()
     }
 }
 
 /// Handles the incoming txs.
+#[expect(clippy::too_many_arguments)]
 async fn handle_incoming_txs(
     IncomingTxs {
         txs,
@@ -194,8 +200,9 @@ async fn handle_incoming_txs(
     mut txpool_read_handle: TxpoolReadHandle,
     mut txpool_manager_handle: TxpoolManagerHandle,
     mut dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
+    reorg_lock: Arc<RwLock<()>>,
 ) -> Result<(), IncomingTxError> {
-    let _reorg_guard = REORG_LOCK.read().await;
+    let _reorg_guard = reorg_lock.read().await;
 
     let (txs, stem_pool_txs, txs_being_handled_guard) =
         prepare_incoming_txs(txs, txs_being_handled, &mut txpool_read_handle).await?;
@@ -256,7 +263,7 @@ async fn handle_incoming_txs(
             &mut txpool_read_handle,
             &mut dandelion_pool_manager,
         )
-        .await;
+        .await?;
     }
 
     Ok(())
@@ -314,10 +321,10 @@ async fn prepare_incoming_txs(
     } = txpool_read_handle
         .ready()
         .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .map_err(|e| IncomingTxError::Service(e.into()))?
         .call(TxpoolReadRequest::FilterKnownTxBlobHashes(tx_blob_hashes))
         .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .map_err(|e| IncomingTxError::Service(e.into()))?
     else {
         unreachable!()
     };
@@ -358,16 +365,16 @@ async fn rerelay_stem_tx(
         TxId,
         CrossNetworkInternalPeerId,
     >,
-) {
+) -> Result<(), IncomingTxError> {
     let Ok(TxpoolReadResponse::TxBlob { tx_blob, .. }) = txpool_read_handle
         .ready()
         .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .map_err(|e| IncomingTxError::Service(e.into()))?
         .call(TxpoolReadRequest::TxBlob(*tx_hash))
         .await
     else {
         // The tx could have been dropped from the pool.
-        return;
+        return Ok(());
     };
 
     let incoming_tx =
@@ -382,8 +389,10 @@ async fn rerelay_stem_tx(
     dandelion_pool_manager
         .ready()
         .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .map_err(|e| IncomingTxError::Service(e.into()))?
         .call(incoming_tx)
         .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR);
+        .map_err(|e| IncomingTxError::Service(e.into()))?;
+
+    Ok(())
 }
