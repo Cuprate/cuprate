@@ -64,6 +64,7 @@ pub async fn handle_incoming_txs(
                 TxRelayChecks::FEE_TOO_LOW
             }
             IncomingTxError::DuplicateTransaction => TxRelayChecks::DOUBLE_SPEND,
+            IncomingTxError::Service(e) => return Err(e),
         },
     })
 }
