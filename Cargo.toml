@@ -174,7 +174,8 @@ chrono                = { version = "0.4", default-features = false }
 crypto-bigint         = { version = "0.6", default-features = false }
 crossbeam             = { version = "0.8", default-features = false }
 const_format          = { version = "0.2", default-features = false }
-curve25519-dalek      = { version = "4", default-features = false }
+curve25519-dalek      = { version = "4", default-features = false, features = ["alloc", "zeroize"] }
+zeroize               = { version = "1", default-features = false }
 dashmap               = { version = "6", default-features = false }
 dirs                  = { version = "6", default-features = false }
 fjall                 = { version = "3.0.4", default-features = false }
@@ -182,8 +183,8 @@ futures               = { version = "0.3", default-features = false }
 hex                   = { version = "0.4", default-features = false }
 hex-literal           = { version = "1", default-features = false }
 indexmap              = { version = "2", default-features = false }
-monero-address        = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "7c288b058ae7f1e3d36600a2af11b3176102bcfc", default-features = false }
-monero-oxide          = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "7c288b058ae7f1e3d36600a2af11b3176102bcfc", default-features = false, features = ["std"] }
+monero-address        = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "a941dff", default-features = false }
+monero-oxide          = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "a941dff", default-features = false, features = ["std"] }
 nu-ansi-term          = { version = "0.46", default-features = false }
 paste                 = { version = "1", default-features = false }
 pin-project           = { version = "1", default-features = false }
@@ -219,8 +220,8 @@ tracing-subscriber    = { version = "0.3", default-features = false }
 tracing               = { version = "0.1", default-features = false }
 
 ## workspace.dev-dependencies
-monero-rpc                = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "7c288b058ae7f1e3d36600a2af11b3176102bcfc" }
-monero-simple-request-rpc = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "7c288b058ae7f1e3d36600a2af11b3176102bcfc" }
+monero-daemon-rpc         = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "a941dff" }
+monero-simple-request-rpc = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "a941dff" }
 tempfile                  = { version = "3" }
 pretty_assertions         = { version = "1" }
 proptest                  = { version = "1" }

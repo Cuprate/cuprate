@@ -1,8 +1,9 @@
+use std::sync::LazyLock;
+
 use curve25519_dalek::{EdwardsPoint, Scalar};
 use hex_literal::hex;
 use monero_oxide::{
-    generators::H,
-    io::CompressedPoint,
+    ed25519::{CompressedPoint, Point},
     ringct::{
         clsag::ClsagError,
         mlsag::{AggregateRingMatrixBuilder, MlsagError, RingMatrix},
@@ -22,6 +23,9 @@ const GRANDFATHERED_TRANSACTIONS: [[u8; 32]; 2] = [
     hex!("c5151944f0583097ba0c88cd0f43e7fabb3881278aa2f73b3b0a007c5d34e910"),
     hex!("6f2f117cde6fbcf8d4a6ef8974fcac744726574ac38cf25d3322c996b21edd4c"),
 ];
+
+static H: LazyLock<EdwardsPoint> =
+    LazyLock::new(|| CompressedPoint::H.decompress().unwrap().into());
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum RingCTError {
@@ -84,6 +88,7 @@ fn simple_type_balances(rct_sig: &RctProofs) -> Result<(), RingCTError> {
     let sum_inputs = pseudo_outs
         .iter()
         .map(CompressedPoint::decompress)
+        .map(|p| p.map(Point::into))
         .sum::<Option<EdwardsPoint>>()
         .ok_or(RingCTError::SimpleAmountDoNotBalance)?;
 
@@ -92,6 +97,7 @@ fn simple_type_balances(rct_sig: &RctProofs) -> Result<(), RingCTError> {
         .commitments
         .iter()
         .map(CompressedPoint::decompress)
+        .map(|p| p.map(Point::into))
         .sum::<Option<EdwardsPoint>>()
         .ok_or(RingCTError::SimpleAmountDoNotBalance)?
         + Scalar::from(rct_sig.base.fee) * *H;

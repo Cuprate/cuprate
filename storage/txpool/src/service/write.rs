@@ -103,7 +103,7 @@ fn add_transaction(
         Input::ToKey { key_image, .. } => key_image,
         Input::Gen(_) => unreachable!(),
     }) {
-        let e = in_progress_key_images.entry(*ki.as_bytes());
+        let e = in_progress_key_images.entry(ki.to_bytes());
 
         match e {
             Entry::Occupied(o) => return Ok(TxpoolWriteResponse::AddTransaction(Some(*o.get()))),
@@ -112,7 +112,7 @@ fn add_transaction(
             }
         }
 
-        guard.0.push(*ki.as_bytes());
+        guard.0.push(ki.to_bytes());
     }
     drop(in_progress_key_images);
 

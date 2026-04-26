@@ -1,9 +1,9 @@
 //! HTTP RPC client.
 
 //---------------------------------------------------------------------------------------------------- Use
+use monero_daemon_rpc::{prelude::ProvidesTransactions, MoneroDaemon};
 use monero_oxide::block::Block;
-use monero_rpc::Rpc;
-use monero_simple_request_rpc::SimpleRequestRpc;
+use monero_simple_request_rpc::SimpleRequestTransport;
 use serde::Deserialize;
 use serde_json::json;
 use tokio::task::spawn_blocking;
@@ -19,7 +19,7 @@ pub const LOCALHOST_RPC_URL: &str = "http://127.0.0.1:18081";
 /// An HTTP RPC client for Monero.
 pub struct HttpRpcClient {
     address: String,
-    rpc: SimpleRequestRpc,
+    rpc: MoneroDaemon<SimpleRequestTransport>,
 }
 
 impl HttpRpcClient {
@@ -39,7 +39,7 @@ impl HttpRpcClient {
         let address = address.unwrap_or_else(|| LOCALHOST_RPC_URL.to_string());
 
         Self {
-            rpc: SimpleRequestRpc::new(address.clone()).await.unwrap(),
+            rpc: SimpleRequestTransport::new(address.clone()).await.unwrap(),
             address,
         }
     }
@@ -52,7 +52,7 @@ impl HttpRpcClient {
 
     /// Access to the inner RPC client for other usage.
     #[expect(dead_code)]
-    const fn rpc(&self) -> &SimpleRequestRpc {
+    const fn rpc(&self) -> &MoneroDaemon<SimpleRequestTransport> {
         &self.rpc
     }
 
@@ -81,17 +81,23 @@ impl HttpRpcClient {
 
         let result = self
             .rpc
-            .json_rpc_call::<Result>(
+            .json_rpc_call(
                 "get_block",
-                Some(json!(
-                    {
-                        "height": height,
-                        "fill_pow_hash": true
-                    }
-                )),
+                Some(
+                    json!(
+                        {
+                            "height": height,
+                            "fill_pow_hash": true
+                        }
+                    )
+                    .to_string(),
+                ),
+                usize::MAX,
             )
             .await
             .unwrap();
+
+        let result: Result = serde_json::from_str(&result).unwrap();
 
         // Make sure this is a trusted, `pow_hash` only works there.
         assert!(
@@ -160,7 +166,7 @@ impl HttpRpcClient {
         tx_hashes: &'a [[u8; 32]],
     ) -> impl Iterator<Item = VerifiedTransactionInformation> + 'a {
         self.rpc
-            .get_transactions(tx_hashes)
+            .transactions(tx_hashes)
             .await
             .unwrap()
             .into_iter()
