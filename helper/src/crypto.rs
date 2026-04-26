@@ -119,8 +119,8 @@ pub fn compute_zero_commitment(amount: u64) -> CompressedPoint {
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
-    use monero_oxide::ed25519::Point;
     use curve25519_dalek::{traits::VartimePrecomputedMultiscalarMul, Scalar};
+    use monero_oxide::ed25519::Point;
 
     use crate::crypto::{compute_zero_commitment, H_PRECOMP, ZERO_COMMITMENT_DECOMPOSED_AMOUNT};
 

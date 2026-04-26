@@ -136,7 +136,9 @@ impl From<transaction::Transaction> for Transaction {
 
                             Target::TaggedKey { tagged_key }
                         }
-                        None => Target::Key { key: Hex(o.key.to_bytes()) },
+                        None => Target::Key {
+                            key: Hex(o.key.to_bytes()),
+                        },
                     };
 
                     Output { amount, target }
