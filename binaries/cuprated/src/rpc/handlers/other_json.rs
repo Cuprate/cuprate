@@ -95,6 +95,7 @@ pub async fn map_request(
         Req::PopBlocks(r) => Resp::PopBlocks(not_available()?),
         Req::GetTransactionPoolHashes(r) => Resp::GetTransactionPoolHashes(not_available()?),
         Req::GetPublicNodes(r) => Resp::GetPublicNodes(not_available()?),
+        Req::GetInfo(r) => Resp::GetInfo(not_available()?),
 
         // Unsupported requests.
         Req::SetBootstrapDaemon(_)

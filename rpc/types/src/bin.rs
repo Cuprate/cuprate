@@ -8,9 +8,6 @@ use cuprate_fixed_bytes::ByteArrayVec;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "epee")]
-use cuprate_epee_encoding::container_as_blob::ContainerAsBlob;
-
 use cuprate_types::{
     rpc::{BlockOutputIndices, PoolInfo},
     BlockCompleteEntry,
@@ -24,7 +21,7 @@ use crate::{
 };
 
 #[cfg(any(feature = "epee", feature = "serde"))]
-use crate::defaults::default;
+use crate::defaults::{default, default_true};
 
 //---------------------------------------------------------------------------------------------------- Definitions
 define_request_and_response! {
@@ -50,13 +47,12 @@ define_request_and_response! {
         start_height: u64,
     },
     AccessResponseBase {
-        m_blocks_ids: ByteArrayVec<32> = default::<ByteArrayVec<32>>(), "default",
+        m_block_ids: ByteArrayVec<32> = default::<ByteArrayVec<32>>(), "default",
         start_height: u64,
         current_height: u64,
     }
 }
 
-#[cfg(not(feature = "epee"))]
 define_request_and_response! {
     get_o_indexesbin,
     "cc73fe71162d564ffda8e549b79a350bca53c454" =>
@@ -71,21 +67,6 @@ define_request_and_response! {
     }
 }
 
-#[cfg(feature = "epee")]
-define_request_and_response! {
-    get_o_indexesbin,
-    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
-    core_rpc_server_commands_defs.h => 487..=510,
-    GetOutputIndexes,
-    #[derive(Copy)]
-    Request {
-        txid: [u8; 32],
-    },
-    AccessResponseBase {
-        o_indexes: Vec<u64> as ContainerAsBlob<u64>,
-    }
-}
-
 define_request_and_response! {
     get_outsbin,
     "cc73fe71162d564ffda8e549b79a350bca53c454" =>
@@ -93,7 +74,7 @@ define_request_and_response! {
     GetOuts,
     Request {
         outputs: Vec<GetOutputsOut> = default::<Vec<GetOutputsOut>>(), "default",
-        get_txid: bool,
+        get_txid: bool = default_true(), "default_true",
     },
     AccessResponseBase {
         outs: Vec<OutKeyBin> = default::<Vec<OutKeyBin>>(), "default",

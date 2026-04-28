@@ -197,12 +197,12 @@ async fn get_hashes(
 
     let hashes: Vec<[u8; 32]> = (&block_ids).into();
 
-    let (m_blocks_ids, _, current_height) =
+    let (m_block_ids, _, current_height) =
         blockchain::next_chain_entry(&mut state.blockchain_read, hashes, start_height).await?;
 
     Ok(GetHashesResponse {
         base: helper::access_response_base(false),
-        m_blocks_ids: m_blocks_ids.into(),
+        m_block_ids: m_block_ids.into(),
         current_height: usize_to_u64(current_height),
         start_height,
     })
