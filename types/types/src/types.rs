@@ -4,7 +4,7 @@ use std::num::NonZero;
 
 use monero_oxide::{
     block::Block,
-    io::CompressedPoint,
+    ed25519::CompressedPoint,
     transaction::{Pruned, Timelock, Transaction},
 };
 

@@ -1,5 +1,6 @@
-use curve25519_dalek::EdwardsPoint;
+use curve25519_dalek::traits::IsIdentity;
 use monero_oxide::{
+    ed25519::Point,
     ringct::RctType,
     transaction::{Input, Output, Timelock, Transaction},
 };
@@ -326,11 +327,11 @@ fn check_key_images(input: &Input) -> Result<(), TransactionError> {
     match input {
         Input::ToKey { key_image, .. } => {
             // this happens in monero-oxide but we may as well duplicate the check.
-            if !key_image
-                .decompress()
-                .as_ref()
-                .is_some_and(EdwardsPoint::is_torsion_free)
-            {
+            if !key_image.decompress().as_ref().is_some_and(|p| {
+                let p = Point::into(*p);
+
+                p.is_torsion_free() && !p.is_identity()
+            }) {
                 return Err(TransactionError::KeyImageIsNotInPrimeSubGroup);
             }
         }

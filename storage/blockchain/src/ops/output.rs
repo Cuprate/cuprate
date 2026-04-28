@@ -5,7 +5,7 @@ use std::{
 };
 
 use fjall::Readable;
-use monero_oxide::io::CompressedPoint;
+use monero_oxide::ed25519::CompressedPoint;
 use tapes::TapesRead;
 
 use cuprate_helper::{crypto::compute_zero_commitment, map::u64_to_timelock};
@@ -145,7 +145,7 @@ pub fn output_to_output_on_chain(
 ) -> DbResult<OutputOnChain> {
     let commitment = compute_zero_commitment(amount);
 
-    let key = CompressedPoint(output.key);
+    let key = CompressedPoint::from(output.key);
 
     let txid = if get_txid {
         let txid = get_tx_from_id(&output.tx_idx, tapes, db)?.hash();
@@ -173,9 +173,9 @@ pub fn rct_output_to_output_on_chain(
     db: &BlockchainDatabase,
 ) -> DbResult<OutputOnChain> {
     // INVARIANT: Commitments stored are valid when stored by the database.
-    let commitment = CompressedPoint(rct_output.commitment);
+    let commitment = CompressedPoint::from(rct_output.commitment);
 
-    let key = CompressedPoint(rct_output.key);
+    let key = CompressedPoint::from(rct_output.key);
 
     let txid = if get_txid {
         let txid = get_tx_from_id(&rct_output.tx_idx, tapes, db)?.hash();

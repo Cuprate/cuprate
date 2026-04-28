@@ -109,7 +109,7 @@ impl From<transaction::Transaction> for Transaction {
                         let key = Key {
                             amount: amount.unwrap_or(0),
                             key_offsets,
-                            k_image: Hex(key_image.0),
+                            k_image: Hex(key_image.to_bytes()),
                         };
 
                         Some(Input { key })
@@ -130,13 +130,15 @@ impl From<transaction::Transaction> for Transaction {
                     let target = match o.view_tag {
                         Some(view_tag) => {
                             let tagged_key = TaggedKey {
-                                key: Hex(o.key.0),
+                                key: Hex(o.key.to_bytes()),
                                 view_tag: Hex([view_tag]),
                             };
 
                             Target::TaggedKey { tagged_key }
                         }
-                        None => Target::Key { key: Hex(o.key.0) },
+                        None => Target::Key {
+                            key: Hex(o.key.to_bytes()),
+                        },
                     };
 
                     Output { amount, target }
@@ -205,7 +207,7 @@ impl From<transaction::Transaction> for Transaction {
                     .base
                     .commitments
                     .into_iter()
-                    .map(|point| Hex(point.0))
+                    .map(|point| Hex(point.to_bytes()))
                     .collect();
 
                 let rct_signatures = RctSignatures::NonCoinbase {

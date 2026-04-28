@@ -36,7 +36,7 @@ pub fn tx_fee(tx: &Transaction) -> u64 {
 #[cfg(test)]
 mod test {
     use monero_oxide::{
-        io::CompressedPoint,
+        ed25519::CompressedPoint,
         transaction::{NotPruned, Output, Timelock, TransactionPrefix},
     };
 
@@ -48,12 +48,12 @@ mod test {
         let input = Input::ToKey {
             amount: Some(u64::MAX),
             key_offsets: vec![],
-            key_image: CompressedPoint([0; 32]),
+            key_image: CompressedPoint::from([0; 32]),
         };
 
         let output = Output {
             amount: Some(u64::MAX),
-            key: CompressedPoint([0; 32]),
+            key: CompressedPoint::from([0; 32]),
             view_tag: None,
         };
 
