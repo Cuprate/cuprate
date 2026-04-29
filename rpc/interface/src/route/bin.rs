@@ -8,7 +8,7 @@ use cuprate_epee_encoding::from_bytes;
 use cuprate_rpc_types::{
     bin::{
         BinRequest, BinResponse, GetBlocksByHeightRequest, GetBlocksRequest, GetHashesRequest,
-        GetOutputIndexesRequest, GetOutsRequest, GetTransactionPoolHashesRequest,
+        GetOutputIndexesRequest, GetOutsRequest,
     },
     json::GetOutputDistributionRequest,
     RpcCall,
@@ -38,27 +38,6 @@ macro_rules! generate_endpoints_with_input {
                 );
 
                 generate_endpoints_inner!($variant, handler, request)
-            }
-        )*
-    }};
-}
-
-/// This macro generates route functions that expect _no_ input.
-///
-/// See below for usage.
-macro_rules! generate_endpoints_with_no_input {
-    ($(
-        // Syntax:
-        // Function name => Expected input type (that is empty)
-        $endpoint:ident => $variant:ident
-    ),*) => { paste::paste! {
-        $(
-            /// TODO
-            pub(crate) async fn $endpoint<H: RpcHandler>(
-                State(handler): State<H>,
-            ) -> Result<Bytes, StatusCode> {
-                const REQUEST: BinRequest = BinRequest::$variant([<$variant Request>] {});
-                generate_endpoints_inner!($variant, handler, REQUEST)
             }
         )*
     }};
@@ -109,10 +88,6 @@ generate_endpoints_with_input! {
     get_o_indexes => GetOutputIndexes,
     get_outs => GetOuts,
     get_output_distribution => GetOutputDistribution
-}
-
-generate_endpoints_with_no_input! {
-    get_transaction_pool_hashes => GetTransactionPoolHashes
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

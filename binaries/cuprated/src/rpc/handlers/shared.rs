@@ -18,10 +18,7 @@ use cuprate_helper::cast::usize_to_u64;
 use cuprate_hex::Hex;
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
-    bin::{
-        GetOutsRequest, GetOutsResponse, GetTransactionPoolHashesRequest,
-        GetTransactionPoolHashesResponse,
-    },
+    bin::{GetOutsRequest, GetOutsResponse},
     json::{GetOutputDistributionRequest, GetOutputDistributionResponse},
     misc::{Distribution, OutKeyBin},
 };
