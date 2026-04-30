@@ -140,8 +140,6 @@ impl EpeeObject for DistributionUncompressed {
     type Builder = __DistributionUncompressedEpeeBuilder;
 
     fn number_of_fields(&self) -> u64 {
-        // start_height, base, amount, binary = 4
-        // + distribution (skipped by write_field when empty)
         4 + u64::from(EpeeValue::should_write(&self.distribution))
     }
 
@@ -267,7 +265,7 @@ impl EpeeObjectBuilder<Distribution> for __DistributionEpeeBuilder {
         } else {
             let distribution = self.distribution.unwrap_or_default();
             Distribution::Uncompressed(DistributionUncompressed {
-                binary: self.binary.unwrap_or_default(),
+                binary: self.binary.unwrap_or(true),
                 distribution,
                 start_height,
                 base,

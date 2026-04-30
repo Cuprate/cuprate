@@ -61,7 +61,7 @@ however some fields contain binary values inside JSON strings, for example:
 `binary` here is (de)serialized as a normal [`String`]. In order to be clear on which fields contain binary data, the struct fields that have them will use [`crate::misc::BinaryString`] instead of [`String`].
 
 These mixed types are:
-- [`crate::json::GetTransactionPoolBacklogResponse`]
+- [`crate::json::GetTxpoolBacklogResponse`]
 - [`crate::json::GetOutputDistributionResponse`]
 
 TODO: we need to figure out a type that (de)serializes correctly, `String` errors with `serde_json`

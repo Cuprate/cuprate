@@ -988,9 +988,7 @@ impl<'de> Deserialize<'de> for JsonRpcRequest {
             "calc_pow" => Self::CalcPow(de!(CalcPowRequest)),
             "add_aux_pow" => Self::AddAuxPow(de!(AddAuxPowRequest)),
             "submit_block" | "submitblock" => Self::SubmitBlock(de!(SubmitBlockRequest)),
-            "generateblocks" => {
-                Self::GenerateBlocks(de!(GenerateBlocksRequest))
-            }
+            "generateblocks" => Self::GenerateBlocks(de!(GenerateBlocksRequest)),
             "get_last_block_header" | "getlastblockheader" => {
                 Self::GetLastBlockHeader(de!(GetLastBlockHeaderRequest))
             }
