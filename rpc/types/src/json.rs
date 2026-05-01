@@ -785,9 +785,8 @@ define_request_and_response! {
 }
 
 /// An entry in [`RpcAccessTrackingResponse`].
-#[derive(
-    serde::Serialize, serde::Deserialize, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash,
-)]
+#[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RpcAccessTrackingEntry {
     rpc: String,
     count: u64,
@@ -795,6 +794,7 @@ pub struct RpcAccessTrackingEntry {
     credits: u64,
 }
 
+#[cfg(feature = "epee")]
 cuprate_epee_encoding::epee_object!(
     RpcAccessTrackingEntry,
     rpc: String,
@@ -820,9 +820,8 @@ define_request_and_response! {
 }
 
 /// An entry in [`RpcAccessDataResponse`].
-#[derive(
-    serde::Serialize, serde::Deserialize, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash,
-)]
+#[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RpcAccessDataEntry {
     client: String,
     balance: u64,
@@ -835,6 +834,7 @@ pub struct RpcAccessDataEntry {
     nonces_dupe: u64,
 }
 
+#[cfg(feature = "epee")]
 cuprate_epee_encoding::epee_object!(
     RpcAccessDataEntry,
     client: String,
