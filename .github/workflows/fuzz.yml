@@ -12,7 +12,7 @@ jobs:
 
     env:
       # The version of `cargo-fuzz` to install and use.
-      CARGO_FUZZ_VERSION: 0.12.0
+      CARGO_FUZZ_VERSION: 0.13.1
 
       # The number of seconds to run the fuzz target.
       FUZZ_TIME: 60
