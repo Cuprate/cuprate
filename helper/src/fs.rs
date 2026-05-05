@@ -166,7 +166,7 @@ impl_path_lazylock! {
 pub fn path_with_network(path: &Path, network: Network) -> PathBuf {
     match network {
         Network::Mainnet => path.to_path_buf(),
-        Network::Testnet | Network::Stagenet => path.join(network.to_string()),
+        Network::Testnet | Network::Stagenet | Network::FakeChain => path.join(network.to_string()),
     }
 }
 

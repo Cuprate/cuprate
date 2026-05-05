@@ -50,6 +50,14 @@ impl HardForkConfig {
             window: DEFAULT_WINDOW_SIZE,
         }
     }
+
+    /// Config for fake-chain (regtest).
+    pub const fn fake_chain() -> Self {
+        Self {
+            info: HFsInfo::fake_chain(),
+            window: DEFAULT_WINDOW_SIZE,
+        }
+    }
 }
 
 /// A struct that keeps track of the current hard-fork and current votes.

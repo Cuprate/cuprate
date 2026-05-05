@@ -14,10 +14,23 @@ pub struct Args {
     /// The network to run on.
     #[arg(
         long,
-        value_parser = clap::builder::PossibleValuesParser::new(["mainnet", "testnet", "stagenet"])
+        value_parser = clap::builder::PossibleValuesParser::new(["mainnet", "testnet", "stagenet", "fakechain"])
             .map(|s| Some(s.parse::<Network>().unwrap())),
     )]
     pub network: Option<Network>,
+
+    /// Run in regtest mode.
+    ///
+    /// Equivalent to `--network=fakechain`. Uses mainnet's network ID, genesis block and
+    /// ports but activates the latest hard-fork at height 1, matching monerod's `--regtest`.
+    #[arg(long)]
+    pub regtest: bool,
+
+    /// Force the difficulty cache to always return this value.
+    ///
+    /// Only intended for regtest. Must be used with `--regtest` (or `--network=fakechain`).
+    #[arg(long)]
+    pub fixed_difficulty: Option<u128>,
 
     /// Disable fast sync, all past blocks will undergo full verification when syncing.
     ///
@@ -80,6 +93,12 @@ impl Args {
     pub const fn apply_args(&self, mut config: Config) -> Config {
         if let Some(network) = self.network {
             config.network = network;
+        }
+        if self.regtest {
+            config.network = Network::FakeChain;
+        }
+        if let Some(fixed_difficulty) = self.fixed_difficulty {
+            config.fixed_difficulty = fixed_difficulty;
         }
         config.fast_sync = config.fast_sync && !self.no_fast_sync;
 

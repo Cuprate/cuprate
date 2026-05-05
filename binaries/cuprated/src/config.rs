@@ -144,7 +144,7 @@ config_struct! {
     pub struct Config {
         /// The network cuprated should run on.
         ///
-        /// Valid values | "Mainnet", "Testnet", "Stagenet"
+        /// Valid values | "Mainnet", "Testnet", "Stagenet", "FakeChain"
         pub network: Network,
 
         /// Enable/disable fast sync.
@@ -157,6 +157,16 @@ config_struct! {
         /// Type         | boolean
         /// Valid values | true, false
         pub fast_sync: bool,
+
+        #[comment_out = true]
+        /// Fixes the PoW difficulty to this value.
+        ///
+        /// Only intended for regtest (`network = "FakeChain"`). A value of
+        /// `0` disables this override.
+        ///
+        /// Type         | Number
+        /// Valid values | >= 0
+        pub fixed_difficulty: u128,
 
         /// The target maximum amount of memory to use in bytes.
         ///
@@ -213,6 +223,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             network: Default::default(),
+            fixed_difficulty: 0,
             fast_sync: true,
             target_max_memory: DefaultOrCustom::Default,
             tracing: Default::default(),
@@ -326,11 +337,18 @@ impl Config {
 
     /// The [`ContextConfig`].
     pub const fn context_config(&self) -> ContextConfig {
-        match self.network {
+        let mut cfg = match self.network {
             Network::Mainnet => ContextConfig::main_net(),
             Network::Stagenet => ContextConfig::stage_net(),
             Network::Testnet => ContextConfig::test_net(),
+            Network::FakeChain => ContextConfig::fake_chain(),
+        };
+
+        if self.fixed_difficulty != 0 {
+            cfg.difficulty_cfg.fixed_difficulty = Some(self.fixed_difficulty);
         }
+
+        cfg
     }
 
     /// The [`cuprate_blockchain`] config.

@@ -54,7 +54,7 @@ async fn mock_manager(data_dir: PathBuf) -> BlockchainManager {
 
     let mut context_config = ContextConfig::main_net();
     context_config.difficulty_cfg.fixed_difficulty = Some(1);
-    context_config.hard_fork_cfg.info = HFsInfo::new([HFInfo::new(0, 0); 16]);
+    context_config.hard_fork_cfg.info = HFsInfo::new([HFInfo::new(0, 0, 0); 16]);
 
     let blockchain_read_handle =
         ConsensusBlockchainReadHandle::new(blockchain_read_handle, BoxError::from);

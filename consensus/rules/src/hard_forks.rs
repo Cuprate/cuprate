@@ -34,15 +34,61 @@ pub fn check_block_version_vote(
     Ok(())
 }
 
+/// The amount of time in seconds after the last fork's scheduled timestamp before we
+/// consider this node likely forked from the network.
+///
+/// ref: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_basic/hardfork.h#L49>
+const FORKED_TIME: u64 = 31_557_600; // one year in seconds
+
+/// The amount of time in seconds after the last fork's scheduled timestamp before we
+/// warn that an update is needed.
+///
+/// ref: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_basic/hardfork.h#L50>
+const UPDATE_TIME: u64 = FORKED_TIME / 2;
+
+/// The state of the daemon with respect to the latest scheduled hard-fork.
+///
+/// ref: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_basic/hardfork.h#L46>
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[repr(u32)]
+pub enum HardForkState {
+    LikelyForked = 0,
+    UpdateNeeded = 1,
+    Ready = 2,
+}
+
+impl From<HardForkState> for u32 {
+    fn from(state: HardForkState) -> Self {
+        state as Self
+    }
+}
+
 /// Information about a given hard-fork.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct HFInfo {
     height: usize,
     threshold: usize,
+    time: u64,
 }
 impl HFInfo {
-    pub const fn new(height: usize, threshold: usize) -> Self {
-        Self { height, threshold }
+    pub const fn height(&self) -> usize {
+        self.height
+    }
+
+    pub const fn threshold(&self) -> usize {
+        self.threshold
+    }
+
+    pub const fn time(&self) -> u64 {
+        self.time
+    }
+
+    pub const fn new(height: usize, threshold: usize, time: u64) -> Self {
+        Self {
+            height,
+            threshold,
+            time,
+        }
     }
 }
 
@@ -59,27 +105,46 @@ impl HFsInfo {
         Self(hfs)
     }
 
+    /// Returns the hard-fork state based on the current time.
+    ///
+    /// Mirrors `HardFork::get_state()` in monerod:
+    /// - [`HardForkState::LikelyForked`]: more than one year past the last scheduled fork time.
+    /// - [`HardForkState::UpdateNeeded`]: more than six months past the last scheduled fork time.
+    /// - [`HardForkState::Ready`]: within six months of the last scheduled fork time.
+    ///
+    /// ref: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_basic/hardfork.cpp#L326-L345>
+    pub const fn hard_fork_state(&self, current_time: u64) -> HardForkState {
+        let last_fork_time = self.0[NUMB_OF_HARD_FORKS - 1].time;
+        if current_time >= last_fork_time.saturating_add(FORKED_TIME) {
+            HardForkState::LikelyForked
+        } else if current_time >= last_fork_time.saturating_add(UPDATE_TIME) {
+            HardForkState::UpdateNeeded
+        } else {
+            HardForkState::Ready
+        }
+    }
+
     /// Returns the main-net hard-fork information.
     ///
     /// ref: <https://monero-book.cuprate.org/consensus_rules/hardforks.html#Mainnet-Hard-Forks>
     pub const fn main_net() -> Self {
         Self([
-            HFInfo::new(0, 0),
-            HFInfo::new(1009827, 0),
-            HFInfo::new(1141317, 0),
-            HFInfo::new(1220516, 0),
-            HFInfo::new(1288616, 0),
-            HFInfo::new(1400000, 0),
-            HFInfo::new(1546000, 0),
-            HFInfo::new(1685555, 0),
-            HFInfo::new(1686275, 0),
-            HFInfo::new(1788000, 0),
-            HFInfo::new(1788720, 0),
-            HFInfo::new(1978433, 0),
-            HFInfo::new(2210000, 0),
-            HFInfo::new(2210720, 0),
-            HFInfo::new(2688888, 0),
-            HFInfo::new(2689608, 0),
+            HFInfo::new(0, 0, 1341378000),
+            HFInfo::new(1009827, 0, 1442763710),
+            HFInfo::new(1141317, 0, 1458558528),
+            HFInfo::new(1220516, 0, 1483574400),
+            HFInfo::new(1288616, 0, 1489520158),
+            HFInfo::new(1400000, 0, 1503046577),
+            HFInfo::new(1546000, 0, 1521303150),
+            HFInfo::new(1685555, 0, 1535889547),
+            HFInfo::new(1686275, 0, 1535889548),
+            HFInfo::new(1788000, 0, 1549792439),
+            HFInfo::new(1788720, 0, 1550225678),
+            HFInfo::new(1978433, 0, 1571419280),
+            HFInfo::new(2210000, 0, 1598180817),
+            HFInfo::new(2210720, 0, 1598180818),
+            HFInfo::new(2688888, 0, 1656629117),
+            HFInfo::new(2689608, 0, 1656629118),
         ])
     }
 
@@ -88,46 +153,55 @@ impl HFsInfo {
     /// ref: <https://monero-book.cuprate.org/consensus_rules/hardforks.html#Testnet-Hard-Forks>
     pub const fn test_net() -> Self {
         Self([
-            HFInfo::new(0, 0),
-            HFInfo::new(624634, 0),
-            HFInfo::new(800500, 0),
-            HFInfo::new(801219, 0),
-            HFInfo::new(802660, 0),
-            HFInfo::new(971400, 0),
-            HFInfo::new(1057027, 0),
-            HFInfo::new(1057058, 0),
-            HFInfo::new(1057778, 0),
-            HFInfo::new(1154318, 0),
-            HFInfo::new(1155038, 0),
-            HFInfo::new(1308737, 0),
-            HFInfo::new(1543939, 0),
-            HFInfo::new(1544659, 0),
-            HFInfo::new(1982800, 0),
-            HFInfo::new(1983520, 0),
+            HFInfo::new(0, 0, 1341378000),
+            HFInfo::new(624634, 0, 1445355000),
+            HFInfo::new(800500, 0, 1472415034),
+            HFInfo::new(801219, 0, 1472415035),
+            HFInfo::new(802660, 0, 1472415036 + 86400 * 180),
+            HFInfo::new(971400, 0, 1501709789),
+            HFInfo::new(1057027, 0, 1512211236),
+            HFInfo::new(1057058, 0, 1533211200),
+            HFInfo::new(1057778, 0, 1533297600),
+            HFInfo::new(1154318, 0, 1550153694),
+            HFInfo::new(1155038, 0, 1550225678),
+            HFInfo::new(1308737, 0, 1569582000),
+            HFInfo::new(1543939, 0, 1599069376),
+            HFInfo::new(1544659, 0, 1599069377),
+            HFInfo::new(1982800, 0, 1652727000),
+            HFInfo::new(1983520, 0, 1652813400),
         ])
     }
 
-    /// Returns the test-net hard-fork information.
+    /// Returns the fake-chain (regtest) hard-fork information.
+    ///
+    /// ref: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_core/cryptonote_core.cpp#L670>
+    pub const fn fake_chain() -> Self {
+        let mut hfs = [HFInfo::new(1, 0, 0); NUMB_OF_HARD_FORKS];
+        hfs[0] = HFInfo::new(0, 0, 0);
+        Self(hfs)
+    }
+
+    /// Returns the stagenet hard-fork information.
     ///
     /// ref: <https://monero-book.cuprate.org/consensus_rules/hardforks.html#Stagenet-Hard-Forks>
     pub const fn stage_net() -> Self {
         Self([
-            HFInfo::new(0, 0),
-            HFInfo::new(32000, 0),
-            HFInfo::new(33000, 0),
-            HFInfo::new(34000, 0),
-            HFInfo::new(35000, 0),
-            HFInfo::new(36000, 0),
-            HFInfo::new(37000, 0),
-            HFInfo::new(176456, 0),
-            HFInfo::new(177176, 0),
-            HFInfo::new(269000, 0),
-            HFInfo::new(269720, 0),
-            HFInfo::new(454721, 0),
-            HFInfo::new(675405, 0),
-            HFInfo::new(676125, 0),
-            HFInfo::new(1151000, 0),
-            HFInfo::new(1151720, 0),
+            HFInfo::new(0, 0, 1341378000),
+            HFInfo::new(32000, 0, 1521000000),
+            HFInfo::new(33000, 0, 1521120000),
+            HFInfo::new(34000, 0, 1521240000),
+            HFInfo::new(35000, 0, 1521360000),
+            HFInfo::new(36000, 0, 1521480000),
+            HFInfo::new(37000, 0, 1521600000),
+            HFInfo::new(176456, 0, 1537821770),
+            HFInfo::new(177176, 0, 1537821771),
+            HFInfo::new(269000, 0, 1550153694),
+            HFInfo::new(269720, 0, 1550225678),
+            HFInfo::new(454721, 0, 1571419280),
+            HFInfo::new(675405, 0, 1598180817),
+            HFInfo::new(676125, 0, 1598180818),
+            HFInfo::new(1151000, 0, 1656629117),
+            HFInfo::new(1151720, 0, 1656629118),
         ])
     }
 }
