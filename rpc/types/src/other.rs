@@ -11,6 +11,7 @@ use cuprate_types::rpc::{Peer, PublicNode, TxpoolStats};
 
 use crate::{
     base::{AccessResponseBase, ResponseBase},
+    json::{GetInfoRequest, GetInfoResponse},
     macros::define_request_and_response,
     misc::{GetOutputsOut, OutKey, SpentKeyImageInfo, Status, TxEntry, TxInfo},
     RpcCallValue,
@@ -53,7 +54,9 @@ define_request_and_response! {
         txs_as_hex: Vec<HexVec>,
         /// `cuprate_rpc_types::json::tx::Transaction` should be used
         /// to create these JSON strings in a type-safe manner.
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Vec::is_empty"))]
         txs_as_json: Vec<String>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Vec::is_empty"))]
         missed_tx: Vec<Hex<32>>,
         txs: Vec<TxEntry>,
     }
@@ -493,6 +496,7 @@ define_request_and_response! {
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 pub enum OtherRequest {
+    GetInfo(GetInfoRequest),
     GetHeight(GetHeightRequest),
     GetTransactions(GetTransactionsRequest),
     GetAltBlocksHashes(GetAltBlocksHashesRequest),
@@ -525,6 +529,7 @@ pub enum OtherRequest {
 impl RpcCallValue for OtherRequest {
     fn is_restricted(&self) -> bool {
         match self {
+            Self::GetInfo(x) => x.is_restricted(),
             Self::GetHeight(x) => x.is_restricted(),
             Self::GetTransactions(x) => x.is_restricted(),
             Self::GetAltBlocksHashes(x) => x.is_restricted(),
@@ -557,6 +562,7 @@ impl RpcCallValue for OtherRequest {
 
     fn is_empty(&self) -> bool {
         match self {
+            Self::GetInfo(x) => x.is_empty(),
             Self::GetHeight(x) => x.is_empty(),
             Self::GetTransactions(x) => x.is_empty(),
             Self::GetAltBlocksHashes(x) => x.is_empty(),
@@ -610,7 +616,9 @@ impl RpcCallValue for OtherRequest {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
+#[expect(clippy::large_enum_variant)]
 pub enum OtherResponse {
+    GetInfo(GetInfoResponse),
     GetHeight(GetHeightResponse),
     GetTransactions(GetTransactionsResponse),
     GetAltBlocksHashes(GetAltBlocksHashesResponse),

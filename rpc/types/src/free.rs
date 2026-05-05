@@ -6,7 +6,6 @@
 /// Returns `true` if the input `u` is equal to `0`.
 #[inline]
 #[expect(clippy::trivially_copy_pass_by_ref, reason = "serde signature")]
-#[expect(dead_code, reason = "TODO: see if needed after handlers.")]
 pub(crate) const fn is_zero(u: &u64) -> bool {
     *u == 0
 }

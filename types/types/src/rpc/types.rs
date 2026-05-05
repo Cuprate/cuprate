@@ -544,6 +544,35 @@ define_struct_and_impl_epee! {
         added_pool_txs: Vec<PoolTxInfo>,
         remaining_added_pool_txids: ByteArrayVec<32>,
     }
+
+    #[doc = monero_definition_link!(
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
+        "rpc/core_rpc_server_commands_defs.h",
+        2606..=2644
+    )]
+    RpcAccessTrackingEntry {
+        rpc: String,
+        count: u64,
+        time: u64,
+        credits: u64,
+    }
+
+    #[doc = monero_definition_link!(
+        "cc73fe71162d564ffda8e549b79a350bca53c454",
+        "rpc/core_rpc_server_commands_defs.h",
+        2646..=2692
+    )]
+    RpcAccessDataEntry {
+        client: String,
+        balance: u64,
+        last_update_time: u64,
+        credits_total: u64,
+        credits_used: u64,
+        nonces_good: u64,
+        nonces_stale: u64,
+        nonces_bad: u64,
+        nonces_dupe: u64,
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
