@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use cuprate_hex::{Hex, HexVec};
 use cuprate_types::rpc::{
-    AuxPow, GetMinerDataTxBacklogEntry, HardForkEntry, HardForkInfo, TxBacklogEntry,
+    AuxPow, GetMinerDataTxBacklogEntry, HardForkEntry, HardForkInfo, RpcAccessDataEntry,
+    RpcAccessTrackingEntry, TxBacklogEntry,
 };
 
 use crate::{
@@ -784,25 +785,6 @@ define_request_and_response! {
     AccessResponseBase {}
 }
 
-/// An entry in [`RpcAccessTrackingResponse`].
-#[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct RpcAccessTrackingEntry {
-    rpc: String,
-    count: u64,
-    time: u64,
-    credits: u64,
-}
-
-#[cfg(feature = "epee")]
-cuprate_epee_encoding::epee_object!(
-    RpcAccessTrackingEntry,
-    rpc: String,
-    count: u64,
-    time: u64,
-    credits: u64,
-);
-
 define_request_and_response! {
     UNDOCUMENTED_METHOD,
     "cc73fe71162d564ffda8e549b79a350bca53c454" =>
@@ -818,35 +800,6 @@ define_request_and_response! {
         data: Vec<RpcAccessTrackingEntry>,
     }
 }
-
-/// An entry in [`RpcAccessDataResponse`].
-#[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct RpcAccessDataEntry {
-    client: String,
-    balance: u64,
-    last_update_time: u64,
-    credits_total: u64,
-    credits_used: u64,
-    nonces_good: u64,
-    nonces_stale: u64,
-    nonces_bad: u64,
-    nonces_dupe: u64,
-}
-
-#[cfg(feature = "epee")]
-cuprate_epee_encoding::epee_object!(
-    RpcAccessDataEntry,
-    client: String,
-    balance: u64,
-    last_update_time: u64,
-    credits_total: u64,
-    credits_used: u64,
-    nonces_good: u64,
-    nonces_stale: u64,
-    nonces_bad: u64,
-    nonces_dupe: u64,
-);
 
 define_request_and_response! {
     UNDOCUMENTED_METHOD,
