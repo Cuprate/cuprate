@@ -123,7 +123,7 @@ impl Default for RestrictedRpcConfig {
 pub const fn restricted_rpc_port(config: DefaultOrCustom<u16>, network: Network) -> u16 {
     match config {
         DefaultOrCustom::Default => match network {
-            Network::Mainnet => 18089,
+            Network::Mainnet | Network::FakeChain => 18089,
             Network::Stagenet => 38089,
             Network::Testnet => 28089,
         },
@@ -135,7 +135,7 @@ pub const fn restricted_rpc_port(config: DefaultOrCustom<u16>, network: Network)
 pub const fn unrestricted_rpc_port(config: DefaultOrCustom<u16>, network: Network) -> u16 {
     match config {
         DefaultOrCustom::Default => match network {
-            Network::Mainnet => 18081,
+            Network::Mainnet | Network::FakeChain => 18081,
             Network::Stagenet => 38081,
             Network::Testnet => 28081,
         },

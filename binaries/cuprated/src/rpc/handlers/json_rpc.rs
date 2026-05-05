@@ -154,7 +154,7 @@ async fn get_block_template(
 
     // TODO: This should be `cuprated`'s active network.
     let network = match Network::Mainnet {
-        Network::Mainnet => monero_address::Network::Mainnet,
+        Network::Mainnet | Network::FakeChain => monero_address::Network::Mainnet,
         Network::Stagenet => monero_address::Network::Stagenet,
         Network::Testnet => monero_address::Network::Testnet,
     };
@@ -522,6 +522,7 @@ async fn get_info(
         Network::Mainnet => (true, false, false),
         Network::Testnet => (false, true, false),
         Network::Stagenet => (false, false, true),
+        Network::FakeChain => (false, false, false),
     };
 
     let nettype = network.to_string();

@@ -90,6 +90,15 @@ impl ContextConfig {
             weights_config: BlockWeightsCacheConfig::main_net(),
         }
     }
+
+    /// Get the config for fake-chain (regtest).
+    pub const fn fake_chain() -> Self {
+        Self {
+            hard_fork_cfg: HardForkConfig::fake_chain(),
+            difficulty_cfg: DifficultyCacheConfig::main_net(),
+            weights_config: BlockWeightsCacheConfig::main_net(),
+        }
+    }
 }
 
 /// Initialize the blockchain context service.

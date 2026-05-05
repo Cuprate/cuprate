@@ -11,22 +11,22 @@ use crate::tests::{
 const TEST_WINDOW_SIZE: usize = 25;
 
 const TEST_HFS: [HFInfo; NUMB_OF_HARD_FORKS] = [
-    HFInfo::new(0, 0),
-    HFInfo::new(10, 0),
-    HFInfo::new(20, 0),
-    HFInfo::new(30, 0),
-    HFInfo::new(40, 0),
-    HFInfo::new(50, 0),
-    HFInfo::new(60, 0),
-    HFInfo::new(70, 0),
-    HFInfo::new(80, 0),
-    HFInfo::new(90, 0),
-    HFInfo::new(100, 0),
-    HFInfo::new(110, 0),
-    HFInfo::new(120, 0),
-    HFInfo::new(130, 0),
-    HFInfo::new(140, 0),
-    HFInfo::new(150, 0),
+    HFInfo::new(0, 0, 0),
+    HFInfo::new(10, 0, 0),
+    HFInfo::new(20, 0, 0),
+    HFInfo::new(30, 0, 0),
+    HFInfo::new(40, 0, 0),
+    HFInfo::new(50, 0, 0),
+    HFInfo::new(60, 0, 0),
+    HFInfo::new(70, 0, 0),
+    HFInfo::new(80, 0, 0),
+    HFInfo::new(90, 0, 0),
+    HFInfo::new(100, 0, 0),
+    HFInfo::new(110, 0, 0),
+    HFInfo::new(120, 0, 0),
+    HFInfo::new(130, 0, 0),
+    HFInfo::new(140, 0, 0),
+    HFInfo::new(150, 0, 0),
 ];
 
 pub(crate) const TEST_HARD_FORK_CONFIG: HardForkConfig = HardForkConfig {

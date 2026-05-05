@@ -273,7 +273,7 @@ config_struct! {
 pub const fn p2p_port(setting: DefaultOrCustom<u16>, network: Network) -> u16 {
     match setting {
         DefaultOrCustom::Default => match network {
-            Network::Mainnet => 18080,
+            Network::Mainnet | Network::FakeChain => 18080,
             Network::Stagenet => 38080,
             Network::Testnet => 28080,
         },
@@ -398,6 +398,7 @@ impl AddressBookConfig {
 /// Seed nodes for [`ClearNet`].
 pub fn clear_net_seed_nodes(network: Network) -> Vec<SocketAddr> {
     let seeds = match network {
+        Network::FakeChain => [].as_slice(),
         Network::Mainnet => [
             "176.9.0.187:18080",
             "88.198.163.90:18080",
@@ -445,7 +446,7 @@ pub fn tor_net_seed_nodes(network: Network) -> Vec<OnionAddr> {
             "aclc4e2jhhtr44guufbnwk5bzwhaecinax4yip4wr4tjn27sjsfg6zqd.onion:18083",
         ]
         .as_slice(),
-        Network::Stagenet | Network::Testnet => [].as_slice(),
+        Network::FakeChain | Network::Stagenet | Network::Testnet => [].as_slice(),
     };
 
     seeds

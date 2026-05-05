@@ -33,13 +33,15 @@ pub enum Network {
     Testnet,
     /// Stagenet
     Stagenet,
+    /// Regtest (fakechain).
+    FakeChain,
 }
 
 impl Network {
     /// Returns the network ID for the current network.
     pub const fn network_id(&self) -> [u8; 16] {
         match self {
-            Self::Mainnet => MAINNET_NETWORK_ID,
+            Self::Mainnet | Self::FakeChain => MAINNET_NETWORK_ID,
             Self::Testnet => TESTNET_NETWORK_ID,
             Self::Stagenet => STAGENET_NETWORK_ID,
         }
@@ -57,6 +59,7 @@ impl FromStr for Network {
             "mainnet" | "Mainnet" => Ok(Self::Mainnet),
             "testnet" | "Testnet" => Ok(Self::Testnet),
             "stagenet" | "Stagenet" => Ok(Self::Stagenet),
+            "fakechain" | "FakeChain" => Ok(Self::FakeChain),
             _ => Err(ParseNetworkError),
         }
     }
@@ -67,6 +70,7 @@ impl Display for Network {
             Self::Mainnet => "mainnet",
             Self::Testnet => "testnet",
             Self::Stagenet => "stagenet",
+            Self::FakeChain => "fakechain",
         })
     }
 }
