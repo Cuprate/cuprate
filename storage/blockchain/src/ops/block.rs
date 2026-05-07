@@ -779,7 +779,7 @@ pub fn block_exists(
 pub(crate) fn block_height(
     db: &BlockchainDatabase,
     tx_ro: &fjall::Snapshot,
-    hash: &[u8; 32],
+    hash: &BlockHash,
 ) -> DbResult<Option<usize>> {
     let Some(block_height) = tx_ro.get(&db.block_heights, hash)? else {
         return Ok(None);

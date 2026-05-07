@@ -697,7 +697,7 @@ fn find_first_unknown(db: &BlockchainDatabase, block_ids: &[BlockHash]) -> Respo
 /// [`BlockchainReadRequest::TxsInBlock`]
 fn txs_in_block(
     db: &BlockchainDatabase,
-    block_hash: [u8; 32],
+    block_hash: BlockHash,
     missing_txs: Vec<u64>,
 ) -> ResponseResult {
     let tx_ro = db.fjall.snapshot();
