@@ -44,8 +44,8 @@ use crate::{
     error::{BlockchainError, DbResult},
     ops::{
         alt_block::{
-            get_alt_block, get_alt_block_extended_header_from_height, get_alt_block_hash,
-            get_alt_block_information, get_alt_chain_history_ranges,
+            alt_block_height, get_alt_block, get_alt_block_extended_header_from_height,
+            get_alt_block_hash, get_alt_block_information, get_alt_chain_history_ranges,
         },
         block::{
             block_exists, block_height, get_block, get_block_by_hash, get_block_complete_entry,
@@ -290,22 +290,15 @@ fn block_hash_in_range(
 fn find_block(db: &BlockchainDatabase, block_hash: BlockHash) -> ResponseResult {
     let tx_ro = db.fjall.snapshot();
 
-    // Check the main chain first.
-    if let Some(height) = block_height(db, &tx_ro, &block_hash)? {
-        return Ok(BlockchainResponse::FindBlock(Some((Chain::Main, height))));
-    }
+    // Check the main chain first, then alt chains.
+    let location = if let Some(height) = block_height(db, &tx_ro, &block_hash)? {
+        Some((Chain::Main, height))
+    } else {
+        alt_block_height(db, &tx_ro, &block_hash)?
+            .map(|alt| (Chain::Alt(alt.chain_id.into()), alt.height))
+    };
 
-    match tx_ro.get(&db.alt_block_heights, block_hash)? {
-        Some(height) => {
-            let height: AltBlockHeight = bytemuck::pod_read_unaligned(height.as_ref());
-
-            Ok(BlockchainResponse::FindBlock(Some((
-                Chain::Alt(height.chain_id.into()),
-                height.height,
-            ))))
-        }
-        None => Ok(BlockchainResponse::FindBlock(None)),
-    }
+    Ok(BlockchainResponse::FindBlock(location))
 }
 
 /// [`BlockchainReadRequest::FilterUnknownHashes`].
@@ -710,8 +703,8 @@ fn txs_in_block(
     let tx_ro = db.fjall.snapshot();
     let tapes = db.linear_tapes.reader();
 
-    // Check the main chain first.
-    if let Some(block_height) = block_height(db, &tx_ro, &block_hash)? {
+    // Check the main chain first, fall back to alt blocks if not found.
+    let (block, txs) = if let Some(block_height) = block_height(db, &tx_ro, &block_hash)? {
         let block_info = tapes
             .read_entry(&db.block_infos, usize_to_u64(block_height))?
             .ok_or(BlockchainError::NotFound)?;
@@ -728,38 +721,34 @@ fn txs_in_block(
             .map(|index_offset| get_tx_blob_from_id(&(first_tx_index + index_offset), &tapes, db))
             .collect::<DbResult<_>>()?;
 
-        return Ok(BlockchainResponse::TxsInBlock(Some(TxsInBlock {
-            block: block.serialize(),
-            txs,
-        })));
-    }
+        (block, txs)
+    } else {
+        let alt_block_height =
+            alt_block_height(db, &tx_ro, &block_hash)?.ok_or(BlockchainError::NotFound)?;
 
-    // Fall back to alt blocks.
-    let alt_block_height = tx_ro
-        .get(&db.alt_block_heights, block_hash)?
-        .ok_or(BlockchainError::NotFound)?;
-    let alt_block_height: AltBlockHeight = bytemuck::pod_read_unaligned(alt_block_height.as_ref());
+        let block = get_alt_block(db, &alt_block_height, &tx_ro)?;
 
-    let block = get_alt_block(db, &alt_block_height, &tx_ro)?;
+        if block.transactions.len() < missing_txs.len() {
+            return Ok(BlockchainResponse::TxsInBlock(None));
+        }
 
-    if block.transactions.len() < missing_txs.len() {
-        return Ok(BlockchainResponse::TxsInBlock(None));
-    }
+        let txs = missing_txs
+            .into_iter()
+            .map(|index_offset| {
+                let tx_hash = block
+                    .transactions
+                    .get(u64_to_usize(index_offset))
+                    .ok_or(BlockchainError::NotFound)?;
 
-    let txs = missing_txs
-        .into_iter()
-        .map(|index_offset| {
-            let tx_hash = block
-                .transactions
-                .get(u64_to_usize(index_offset))
-                .ok_or(BlockchainError::NotFound)?;
+                tx_ro
+                    .get(&db.alt_transaction_blobs, tx_hash)?
+                    .map(|blob| blob.to_vec())
+                    .ok_or(BlockchainError::NotFound)
+            })
+            .collect::<DbResult<_>>()?;
 
-            tx_ro
-                .get(&db.alt_transaction_blobs, tx_hash)?
-                .map(|blob| blob.to_vec())
-                .ok_or(BlockchainError::NotFound)
-        })
-        .collect::<DbResult<_>>()?;
+        (block, txs)
+    };
 
     Ok(BlockchainResponse::TxsInBlock(Some(TxsInBlock {
         block: block.serialize(),

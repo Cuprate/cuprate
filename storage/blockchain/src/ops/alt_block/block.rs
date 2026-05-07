@@ -243,3 +243,16 @@ pub fn get_alt_block_extended_header_from_height(
         long_term_weight: block_info.long_term_weight,
     })
 }
+
+/// Returns the [`AltBlockHeight`] of a block from its hash, only if it is in an alt chain.
+pub(crate) fn alt_block_height(
+    db: &BlockchainDatabase,
+    tx_ro: &fjall::Snapshot,
+    hash: &BlockHash,
+) -> DbResult<Option<AltBlockHeight>> {
+    let Some(bytes) = tx_ro.get(&db.alt_block_heights, hash)? else {
+        return Ok(None);
+    };
+
+    Ok(Some(bytemuck::pod_read_unaligned(bytes.as_ref())))
+}
