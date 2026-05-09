@@ -140,6 +140,8 @@ generate_router_builder! {
     json_rpc => "/json_rpc" => json_rpc::json_rpc => (get, post),
 
     // Other JSON routes.
+    other_get_info                    => "/get_info"                    => other_json::get_info                    => (get, post),
+    other_getinfo                     => "/getinfo"                     => other_json::get_info                    => (get, post),
     other_get_height                  => "/get_height"                  => other_json::get_height                  => (get, post),
     other_getheight                   => "/getheight"                   => other_json::get_height                  => (get, post),
     other_get_transactions            => "/get_transactions"            => other_json::get_transactions            => (get, post),

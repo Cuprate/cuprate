@@ -7,9 +7,10 @@ use tower::ServiceExt;
 use cuprate_rpc_types::{
     other::{
         GetAltBlocksHashesRequest, GetAltBlocksHashesResponse, GetHeightRequest, GetHeightResponse,
-        GetLimitRequest, GetLimitResponse, GetNetStatsRequest, GetNetStatsResponse, GetOutsRequest,
-        GetOutsResponse, GetPeerListRequest, GetPeerListResponse, GetPublicNodesRequest,
-        GetPublicNodesResponse, GetTransactionPoolHashesRequest, GetTransactionPoolHashesResponse,
+        GetInfoRequest, GetInfoResponse, GetLimitRequest, GetLimitResponse, GetNetStatsRequest,
+        GetNetStatsResponse, GetOutsRequest, GetOutsResponse, GetPeerListRequest,
+        GetPeerListResponse, GetPublicNodesRequest, GetPublicNodesResponse,
+        GetTransactionPoolHashesRequest, GetTransactionPoolHashesResponse,
         GetTransactionPoolRequest, GetTransactionPoolResponse, GetTransactionPoolStatsRequest,
         GetTransactionPoolStatsResponse, GetTransactionsRequest, GetTransactionsResponse,
         InPeersRequest, InPeersResponse, IsKeyImageSpentRequest, IsKeyImageSpentResponse,
@@ -122,6 +123,7 @@ generate_endpoints_with_input! {
 }
 
 generate_endpoints_with_no_input! {
+    get_info => GetInfo,
     get_height => GetHeight,
     get_alt_blocks_hashes => GetAltBlocksHashes,
     stop_mining => StopMining,
@@ -133,10 +135,4 @@ generate_endpoints_with_no_input! {
     get_limit => GetLimit,
     get_net_stats => GetNetStats,
     get_transaction_pool_hashes => GetTransactionPoolHashes
-}
-
-//---------------------------------------------------------------------------------------------------- Tests
-#[cfg(test)]
-mod test {
-    // use super::*;
 }

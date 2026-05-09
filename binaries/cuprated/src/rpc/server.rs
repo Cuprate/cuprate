@@ -79,6 +79,7 @@ pub fn init_rpc_servers(
 
         let rpc_handler = CupratedRpcHandler::new(
             restricted,
+            network,
             blockchain_read.clone(),
             blockchain_context.clone(),
             txpool_read.clone(),
@@ -116,14 +117,7 @@ async fn run_rpc_server(
     // TODO:
     // - add functions that are `all()` but for restricted RPC
     // - enable aliases automatically `other_get_height` + `other_getheight`?
-    let router = RouterBuilder::new()
-        .json_rpc()
-        .other_get_height()
-        .other_send_raw_transaction()
-        .other_sendrawtransaction()
-        .fallback()
-        .build()
-        .with_state(rpc_handler);
+    let router = RouterBuilder::new().all().build().with_state(rpc_handler);
 
     // Add restrictive layers if restricted RPC.
     //
@@ -133,6 +127,8 @@ async fn run_rpc_server(
     } else {
         router
     };
+
+    let router = router.layer(tower_http::trace::TraceLayer::new_for_http());
 
     // Start the server.
     //
