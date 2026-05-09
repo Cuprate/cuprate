@@ -5,12 +5,12 @@ use axum::{extract::State, http::StatusCode, Json};
 use tower::ServiceExt;
 
 use cuprate_rpc_types::{
+    json::{GetInfoRequest, GetInfoResponse},
     other::{
         GetAltBlocksHashesRequest, GetAltBlocksHashesResponse, GetHeightRequest, GetHeightResponse,
-        GetInfoRequest, GetInfoResponse, GetLimitRequest, GetLimitResponse, GetNetStatsRequest,
-        GetNetStatsResponse, GetOutsRequest, GetOutsResponse, GetPeerListRequest,
-        GetPeerListResponse, GetPublicNodesRequest, GetPublicNodesResponse,
-        GetTransactionPoolHashesRequest, GetTransactionPoolHashesResponse,
+        GetLimitRequest, GetLimitResponse, GetNetStatsRequest, GetNetStatsResponse, GetOutsRequest,
+        GetOutsResponse, GetPeerListRequest, GetPeerListResponse, GetPublicNodesRequest,
+        GetPublicNodesResponse, GetTransactionPoolHashesRequest, GetTransactionPoolHashesResponse,
         GetTransactionPoolRequest, GetTransactionPoolResponse, GetTransactionPoolStatsRequest,
         GetTransactionPoolStatsResponse, GetTransactionsRequest, GetTransactionsResponse,
         InPeersRequest, InPeersResponse, IsKeyImageSpentRequest, IsKeyImageSpentResponse,
