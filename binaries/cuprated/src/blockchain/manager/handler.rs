@@ -1,12 +1,9 @@
 //! The blockchain manager handler functions.
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use bytes::Bytes;
 use futures::{TryFutureExt, TryStreamExt};
-use monero_oxide::{
-    block::Block,
-    transaction::{Input, Transaction},
-};
+use monero_oxide::block::Block;
 use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::{info, instrument, warn, Span};
@@ -14,13 +11,14 @@ use tracing::{info, instrument, warn, Span};
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{
     block::{
-        batch_prepare_main_chain_blocks, sanity_check_alt_block, verify_main_chain_block,
-        verify_prepped_main_chain_block, PreparedBlock,
+        alt_block_to_verified_block, batch_prepare_main_chain_blocks, sanity_check_alt_block,
+        verify_main_chain_block, verify_prepped_main_chain_block, PreparedBlock, PreparedBlockTxs,
+        VerifiedBlock,
     },
     transactions::new_tx_verification_data,
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
 };
-use cuprate_consensus_context::{BlockchainContext, NewBlockData};
+use cuprate_consensus_context::NewBlockData;
 use cuprate_fast_sync::{block_to_verified_block_information, fast_sync_stop_height};
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p::{block_downloader::BlockBatch, constants::LONG_BAN, BroadcastRequest};
@@ -229,11 +227,11 @@ impl super::BlockchainManager {
             return;
         };
 
-        for (block, txs) in prepped_blocks {
+        for (block, txs_with_kis) in prepped_blocks {
             let hash = block.block_hash;
             let verified_block = match verify_prepped_main_chain_block(
                 block,
-                txs,
+                PreparedBlockTxs::Checked(txs_with_kis),
                 &mut self.blockchain_context_service,
                 self.blockchain_read_handle.clone(),
                 Some(&mut output_cache),
@@ -524,7 +522,7 @@ impl super::BlockchainManager {
         }
 
         for block in blocks {
-            let verified_block = alt_block_to_verified_block_information(
+            let verified_block = alt_block_to_verified_block(
                 block,
                 self.blockchain_context_service.blockchain_context(),
             );
@@ -606,7 +604,7 @@ impl super::BlockchainManager {
 
             let verified_block = verify_prepped_main_chain_block(
                 prepped_block,
-                prepped_txs,
+                PreparedBlockTxs::Unchecked(prepped_txs),
                 &mut self.blockchain_context_service,
                 self.blockchain_read_handle.clone(),
                 None,
@@ -620,7 +618,7 @@ impl super::BlockchainManager {
         Ok(())
     }
 
-    /// Adds a [`VerifiedBlockInformation`] to the main-chain.
+    /// Adds a [`VerifiedBlock`] to the main-chain.
     ///
     /// This function will update the blockchain database and the context cache,
     /// and announce the block to peers if `source` is [`BlockSource::Incoming`].
@@ -631,29 +629,17 @@ impl super::BlockchainManager {
     /// recover from.
     async fn add_valid_block_to_main_chain(
         &mut self,
-        verified_block: VerifiedBlockInformation,
+        verified_block: VerifiedBlock,
         source: BlockSource,
     ) {
-        // FIXME: this is pretty inefficient, we should probably return the KI map created in the consensus crate.
-        let spent_key_images = verified_block
-            .txs
-            .iter()
-            .flat_map(|tx| {
-                tx.tx.prefix().inputs.iter().map(|input| match input {
-                    Input::ToKey { key_image, .. } => key_image.to_bytes(),
-                    Input::Gen(_) => unreachable!(),
-                })
-            })
-            .collect::<Vec<[u8; 32]>>();
+        let (info, spent_key_images) = verified_block.into_parts();
 
         let block_blob = matches!(source, BlockSource::Incoming)
-            .then(|| Bytes::copy_from_slice(&verified_block.block_blob));
+            .then(|| Bytes::copy_from_slice(&info.block_blob));
 
-        self.add_valid_block_to_blockchain_cache(&verified_block)
-            .await;
+        self.add_valid_block_to_blockchain_cache(&info).await;
 
-        self.add_valid_block_to_blockchain_database(verified_block)
-            .await;
+        self.add_valid_block_to_blockchain_database(info).await;
 
         if let Some(block_blob) = block_blob {
             let chain_height = self
@@ -757,45 +743,4 @@ enum BlockSource {
     BatchSync,
     /// A block re-applied during a reorg.
     Reorg,
-}
-
-/// Creates a [`VerifiedBlockInformation`] from an alt-block known to be valid.
-///
-/// # Panics
-///
-/// This may panic if used on an invalid block.
-pub fn alt_block_to_verified_block_information(
-    block: AltBlockInformation,
-    blockchain_ctx: &BlockchainContext,
-) -> VerifiedBlockInformation {
-    assert_eq!(
-        block.height, blockchain_ctx.chain_height,
-        "alt-block invalid"
-    );
-
-    let total_fees = block.txs.iter().map(|tx| tx.fee).sum::<u64>();
-    let total_outputs = block
-        .block
-        .miner_transaction()
-        .prefix()
-        .outputs
-        .iter()
-        .map(|output| output.amount.unwrap_or(0))
-        .sum::<u64>();
-
-    let generated_coins = total_outputs - total_fees;
-
-    VerifiedBlockInformation {
-        block_blob: block.block_blob,
-        txs: block.txs,
-        block_hash: block.block_hash,
-        pow_hash: [u8::MAX; 32],
-        height: block.height,
-        generated_coins,
-        weight: block.weight,
-        long_term_weight: blockchain_ctx.next_block_long_term_weight(block.weight),
-        cumulative_difficulty: blockchain_ctx.cumulative_difficulty
-            + blockchain_ctx.next_difficulty,
-        block: block.block,
-    }
 }

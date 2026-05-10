@@ -2,6 +2,14 @@
 
 use monero_oxide::transaction::{Input, Transaction};
 
+/// Iterates the spent key images of the [`Transaction`].
+pub fn tx_key_images(tx: &Transaction) -> impl Iterator<Item = [u8; 32]> + '_ {
+    tx.prefix().inputs.iter().filter_map(|input| match input {
+        Input::ToKey { key_image, .. } => Some(key_image.to_bytes()),
+        Input::Gen(_) => None,
+    })
+}
+
 /// Calculates the fee of the [`Transaction`].
 ///
 /// # Panics
