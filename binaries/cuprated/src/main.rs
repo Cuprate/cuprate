@@ -1,6 +1,6 @@
 //! `cuprated` CLI binary.
 //!
-//! Wrapper around [`cuprated::start`] that handles argument parsing,
+//! Wrapper around [`cuprated::Node::launch`] that handles argument parsing,
 //! logging setup, and the interactive command listener.
 
 #![allow(
@@ -19,20 +19,23 @@
     reason = "TODO: remove after v1.0.0"
 )]
 
-use std::{thread::sleep, time::Duration};
+use std::{
+    io::{self, IsTerminal},
+    thread::sleep,
+    time::Duration,
+};
 
 use clap::Parser;
-use tokio::sync::mpsc;
 use tracing::info;
 
 use cuprated::{
+    commands::CommandHandle,
     config::{find_config, resolve_max_memory, Config},
     constants::{DEFAULT_CONFIG_STARTUP_DELAY, DEFAULT_CONFIG_WARNING},
     logging::eprintln_red,
 };
 
 mod args;
-mod commands;
 
 use crate::args::Args;
 
@@ -63,21 +66,49 @@ fn main() {
 
     rt.block_on(async move {
         // Start the node.
-        let cuprated::Node { blockchain, .. } = cuprated::Node::launch(config).await;
+        let cuprated::Node { command, .. } = cuprated::Node::launch(config).await;
 
-        // Start the command listener.
-        if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
-            let (command_tx, command_rx) = mpsc::channel(1);
-            std::thread::spawn(|| commands::command_listener(command_tx));
-
-            // Wait on the io_loop, spawned on a separate task as this improves performance.
-            tokio::spawn(commands::io_loop(command_rx, blockchain))
-                .await
-                .unwrap();
+        // If STDIN is a terminal, spawn a blocking thread for user input.
+        if io::stdin().is_terminal() {
+            spawn_stdin_reader(command);
         } else {
             // If no STDIN, await OS exit signal.
             info!("Terminal/TTY not detected, disabling STDIN commands");
-            tokio::signal::ctrl_c().await.unwrap();
+        }
+
+        tokio::signal::ctrl_c().await.unwrap();
+    });
+}
+
+/// Spawn a STDIN reader that forwards commands to the [`CommandHandle`].
+fn spawn_stdin_reader(command: CommandHandle) {
+    let rt = tokio::runtime::Handle::current();
+
+    std::thread::spawn(move || {
+        let mut line = String::new();
+        loop {
+            line.clear();
+            match io::stdin().read_line(&mut line) {
+                Ok(0) => return,
+                Err(e) => {
+                    eprintln!("Failed to read from stdin: {e}");
+                    sleep(Duration::from_secs(1));
+                    continue;
+                }
+                Ok(_) => {}
+            }
+
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            match rt.block_on(command.send_command(trimmed.to_string())) {
+                Ok(output) => println!("{output}"),
+                Err(e) => {
+                    eprintln!("Failed to send command: {e}");
+                    return;
+                }
+            }
         }
     });
 }

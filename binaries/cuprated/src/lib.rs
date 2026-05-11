@@ -34,6 +34,7 @@
 )]
 
 pub mod blockchain;
+pub mod commands;
 pub mod config;
 pub mod constants;
 pub mod logging;
@@ -59,6 +60,7 @@ use cuprate_types::blockchain::BlockchainWriteRequest;
 
 use crate::{
     blockchain::{BlockchainInterface, SyncNotify},
+    commands::CommandHandle,
     config::Config,
     constants::{DATABASE_CORRUPT_MSG, PANIC_CRITICAL_SERVICE_ERROR},
     tor::initialize_tor_if_enabled,
@@ -83,6 +85,9 @@ pub struct Node {
 
     /// Sync state.
     pub sync: SyncNotify,
+
+    /// Command channel.
+    pub command: CommandHandle,
 }
 
 impl Node {
@@ -203,6 +208,9 @@ impl Node {
         let blockchain_interface =
             BlockchainInterface::new(blockchain_read_handle.clone(), context_svc.clone());
 
+        // Command handle.
+        let command_handle = CommandHandle::init(blockchain_interface.clone());
+
         // Create the node struct with cloned service handles for the caller.
         let node = Self {
             blockchain: blockchain_interface,
@@ -210,6 +218,7 @@ impl Node {
             clearnet: clearnet_interface.clone(),
             tor: if tor_enabled { Some(tor_rx) } else { None },
             sync: sync_state.clone(),
+            command: command_handle,
         };
 
         // Initialize the blockchain manager.
