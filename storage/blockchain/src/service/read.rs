@@ -640,15 +640,18 @@ fn next_chain_entry(
     let chain_height = crate::ops::blockchain::chain_height(db, &tapes)?;
     let last_height_in_chain_entry = min(first_known_height + next_entry_size, chain_height);
 
-    let (block_ids, block_weights) = (first_known_height..last_height_in_chain_entry)
-        .map(|height| {
-            let block_info = tapes
-                .read_entry(&db.block_infos, usize_to_u64(height))?
-                .ok_or(BlockchainError::NotFound)?;
+    let entry_count = last_height_in_chain_entry - first_known_height;
+    let mut block_infos = vec![crate::types::BlockInfo::default(); entry_count];
+    tapes.read_entries(
+        &db.block_infos,
+        usize_to_u64(first_known_height),
+        &mut block_infos,
+    )?;
 
-            Ok((block_info.block_hash, block_info.weight))
-        })
-        .collect::<DbResult<(Vec<_>, Vec<_>)>>()?;
+    let (block_ids, block_weights) = block_infos
+        .iter()
+        .map(|info| (info.block_hash, info.weight))
+        .unzip::<_, _, Vec<_>, Vec<_>>();
 
     let top_block_info = tapes
         .read_entry(&db.block_infos, usize_to_u64(chain_height) - 1)?

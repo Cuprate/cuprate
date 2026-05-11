@@ -126,7 +126,6 @@ pub async fn find_block(
 pub async fn next_chain_entry(
     blockchain_read: &mut BlockchainReadHandle,
     block_hashes: Vec<[u8; 32]>,
-    start_height: u64,
 ) -> Result<(Vec<[u8; 32]>, Option<usize>, usize), Error> {
     let BlockchainResponse::NextChainEntry {
         block_ids,
@@ -136,10 +135,7 @@ pub async fn next_chain_entry(
     } = blockchain_read
         .ready()
         .await?
-        .call(BlockchainReadRequest::NextChainEntry(
-            block_hashes,
-            u64_to_usize(start_height),
-        ))
+        .call(BlockchainReadRequest::NextChainEntry(block_hashes, 10_000))
         .await?
     else {
         unreachable!();
