@@ -6,10 +6,12 @@
 //! # Example
 //!
 //! ```ignore
-//! let config = cuprated::config::read_config_and_args();
+//! use cuprated::{config::Config, Node};
+//!
+//! let config = Config::read_from_path("cuprated.toml")?;
 //! cuprated::logging::init_logging(&config);
 //!
-//! let mut node = cuprated::Node::launch(config).await;
+//! let mut node = Node::launch(config).await;
 //! let height = node.blockchain.context().chain_height;
 //! ```
 
@@ -92,10 +94,12 @@ impl Node {
     /// The caller should set up the following before calling this:
     /// - Tracing/logging (the node emits tracing events during initialization)
     /// - Global rayon thread pool (optional, uses rayon defaults if not set)
+    /// - Memory resolution (call [`resolve_max_memory`](crate::config::resolve_max_memory))
     ///
     /// # Panics
     ///
-    /// Panics if the database is corrupt or critical services fail to start.
+    /// Panics if the database is corrupt, critical services fail to start,
+    /// or `target_max_memory` is unresolved.
     pub async fn launch(config: Config) -> Self {
         statics::init_lazylock_statics();
         blockchain::set_fast_sync_hashes(config.fast_sync, config.network());
