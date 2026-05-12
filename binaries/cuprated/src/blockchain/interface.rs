@@ -4,7 +4,7 @@
 //! blockchain manager.
 use std::{
     collections::{HashMap, HashSet},
-    sync::{LazyLock, Mutex, OnceLock},
+    sync::{Arc, Mutex},
 };
 
 use monero_oxide::{block::Block, transaction::Transaction};
@@ -24,29 +24,25 @@ use crate::{
     constants::PANIC_CRITICAL_SERVICE_ERROR,
 };
 
-/// The channel used to send [`BlockchainManagerCommand`]s to the blockchain manager.
+/// Handle for the blockchain manager.
 ///
-/// This channel is initialized in [`init_blockchain_manager`](super::manager::init_blockchain_manager), the functions
-/// in this file document what happens if this is not initialized when they are called.
-pub(super) static COMMAND_TX: OnceLock<mpsc::Sender<BlockchainManagerCommand>> = OnceLock::new();
-
-/// A [`HashSet`] of block hashes that the blockchain manager is currently handling.
-///
-/// This lock prevents sending the same block to the blockchain manager from multiple connections
-/// before one of them actually gets added to the chain, allowing peers to do other things.
-///
-/// This is used over something like a dashmap as we expect a lot of collisions in a short amount of
-/// time for new blocks, so we would lose the benefit of sharded locks. A dashmap is made up of `RwLocks`
-/// which are also more expensive than `Mutex`s.
-static BLOCKS_BEING_HANDLED: LazyLock<Mutex<HashSet<[u8; 32]>>> =
-    LazyLock::new(|| Mutex::new(HashSet::new()));
-
-/// Returns `true` if the given block hash is currently being handled.
-pub fn is_block_being_handled(hash: &[u8; 32]) -> bool {
-    BLOCKS_BEING_HANDLED.lock().unwrap().contains(hash)
+/// Created by [`init_blockchain_manager`](super::manager::init_blockchain_manager).
+#[derive(Clone)]
+pub struct BlockchainManagerHandle {
+    /// The channel used to send [`BlockchainManagerCommand`]s to the blockchain manager.
+    command_tx: mpsc::Sender<BlockchainManagerCommand>,
+    /// A [`HashSet`] of block hashes that the blockchain manager is currently handling.
+    ///
+    /// This prevents sending the same block to the blockchain manager from multiple connections
+    /// before one of them actually gets added to the chain, allowing peers to do other things.
+    ///
+    /// This is used over something like a dashmap as we expect a lot of collisions in a short amount of
+    /// time for new blocks, so we would lose the benefit of sharded locks. A dashmap is made up of `RwLocks`
+    /// which are also more expensive than `Mutex`s.
+    blocks_being_handled: Arc<Mutex<HashSet<[u8; 32]>>>,
 }
 
-/// An error that can be returned from [`handle_incoming_block`].
+/// An error that can be returned from [`BlockchainManagerHandle::handle_incoming_block`].
 #[derive(Debug, thiserror::Error)]
 pub enum IncomingBlockError {
     /// Some transactions in the block were unknown.
@@ -60,142 +56,155 @@ pub enum IncomingBlockError {
     /// The block was invalid.
     #[error(transparent)]
     InvalidBlock(anyhow::Error),
+    /// The blockchain manager command channel is closed.
+    #[error("The blockchain manager command channel is closed.")]
+    ChannelClosed,
 }
 
-/// Try to add a new block to the blockchain.
-///
-/// On success returns `IncomingBlockOk`.
-///
-/// # Errors
-///
-/// This function will return an error if:
-///  - the block was invalid
-///  - we are missing transactions
-///  - the block's parent is unknown
-pub async fn handle_incoming_block(
-    block: Block,
-    mut given_txs: HashMap<[u8; 32], Transaction>,
-    blockchain_read_handle: &mut BlockchainReadHandle,
-    txpool_read_handle: &mut TxpoolReadHandle,
-) -> Result<IncomingBlockOk, IncomingBlockError> {
-    if given_txs.len() > block.transactions.len() {
-        return Err(IncomingBlockError::InvalidBlock(anyhow::anyhow!(
-            "Too many transactions given for block"
-        )));
+impl BlockchainManagerHandle {
+    /// Create a new handle and command receiver pair.
+    pub fn new() -> (Self, mpsc::Receiver<BlockchainManagerCommand>) {
+        let (command_tx, command_rx) = mpsc::channel(3);
+        (
+            Self {
+                command_tx,
+                blocks_being_handled: Arc::new(Mutex::new(HashSet::new())),
+            },
+            command_rx,
+        )
     }
 
-    if !block_exists(block.header.previous, blockchain_read_handle)
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
-    {
-        return Err(IncomingBlockError::Orphan);
+    /// Returns `true` if the given block hash is currently being handled.
+    pub fn is_block_being_handled(&self, hash: &[u8; 32]) -> bool {
+        self.blocks_being_handled.lock().unwrap().contains(hash)
     }
 
-    let block_hash = block.hash();
-
-    if block_exists(block_hash, blockchain_read_handle)
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
-    {
-        return Ok(IncomingBlockOk::AlreadyHave);
-    }
-
-    let TxpoolReadResponse::TxsForBlock { mut txs, missing } = txpool_read_handle
-        .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
-        .call(TxpoolReadRequest::TxsForBlock(block.transactions.clone()))
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
-    else {
-        unreachable!()
-    };
-
-    if !missing.is_empty() {
-        let needed_hashes = missing.iter().map(|index| block.transactions[*index]);
-
-        for needed_hash in needed_hashes {
-            let Some(tx) = given_txs.remove(&needed_hash) else {
-                // We return back the indexes of all txs missing from our pool, not taking into account the txs
-                // that were given with the block, as these txs will be dropped. It is not worth it to try to add
-                // these txs to the pool as this will only happen with a misbehaving peer or if the txpool reaches
-                // the size limit.
-                return Err(IncomingBlockError::UnknownTransactions(block_hash, missing));
-            };
-
-            txs.insert(
-                needed_hash,
-                new_tx_verification_data(tx)
-                    .map_err(|e| IncomingBlockError::InvalidBlock(e.into()))?,
-            );
+    /// Try to add a new block to the blockchain.
+    ///
+    /// On success returns `IncomingBlockOk`.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    ///  - the block was invalid
+    ///  - we are missing transactions
+    ///  - the block's parent is unknown
+    ///  - the blockchain manager command channel is closed
+    pub async fn handle_incoming_block(
+        &self,
+        block: Block,
+        mut given_txs: HashMap<[u8; 32], Transaction>,
+        blockchain_read_handle: &mut BlockchainReadHandle,
+        txpool_read_handle: &mut TxpoolReadHandle,
+    ) -> Result<IncomingBlockOk, IncomingBlockError> {
+        if given_txs.len() > block.transactions.len() {
+            return Err(IncomingBlockError::InvalidBlock(anyhow::anyhow!(
+                "Too many transactions given for block"
+            )));
         }
-    }
 
-    let Some(incoming_block_tx) = COMMAND_TX.get() else {
-        // We could still be starting up the blockchain manager.
-        return Ok(IncomingBlockOk::NotReady);
-    };
-
-    // Add the blocks hash to the blocks being handled.
-    if !BLOCKS_BEING_HANDLED.lock().unwrap().insert(block_hash) {
-        // If another place is already adding this block then we can stop.
-        return Ok(IncomingBlockOk::AlreadyHave);
-    }
-
-    // We must remove the block hash from `BLOCKS_BEING_HANDLED`.
-    let _guard = {
-        struct RemoveFromBlocksBeingHandled {
-            block_hash: [u8; 32],
+        if !block_exists(block.header.previous, blockchain_read_handle)
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        {
+            return Err(IncomingBlockError::Orphan);
         }
-        impl Drop for RemoveFromBlocksBeingHandled {
-            fn drop(&mut self) {
-                BLOCKS_BEING_HANDLED
-                    .lock()
-                    .unwrap()
-                    .remove(&self.block_hash);
+
+        let block_hash = block.hash();
+
+        if block_exists(block_hash, blockchain_read_handle)
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        {
+            return Ok(IncomingBlockOk::AlreadyHave);
+        }
+
+        let TxpoolReadResponse::TxsForBlock { mut txs, missing } = txpool_read_handle
+            .ready()
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .call(TxpoolReadRequest::TxsForBlock(block.transactions.clone()))
+            .await
+            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        else {
+            unreachable!()
+        };
+
+        if !missing.is_empty() {
+            let needed_hashes = missing.iter().map(|index| block.transactions[*index]);
+
+            for needed_hash in needed_hashes {
+                let Some(tx) = given_txs.remove(&needed_hash) else {
+                    // We return back the indexes of all txs missing from our pool, not taking into account the txs
+                    // that were given with the block, as these txs will be dropped. It is not worth it to try to add
+                    // these txs to the pool as this will only happen with a misbehaving peer or if the txpool reaches
+                    // the size limit.
+                    return Err(IncomingBlockError::UnknownTransactions(block_hash, missing));
+                };
+
+                txs.insert(
+                    needed_hash,
+                    new_tx_verification_data(tx)
+                        .map_err(|e| IncomingBlockError::InvalidBlock(e.into()))?,
+                );
             }
         }
-        RemoveFromBlocksBeingHandled { block_hash }
-    };
 
-    let (response_tx, response_rx) = oneshot::channel();
+        // Add the blocks hash to the blocks being handled.
+        if !self.blocks_being_handled.lock().unwrap().insert(block_hash) {
+            // If another place is already adding this block then we can stop.
+            return Ok(IncomingBlockOk::AlreadyHave);
+        }
 
-    incoming_block_tx
-        .send(BlockchainManagerCommand::AddBlock {
-            block,
-            prepped_txs: txs,
-            response_tx,
-        })
-        .await
-        .expect("TODO: don't actually panic here, an err means we are shutting down");
+        // We must remove the block hash from `blocks_being_handled`.
+        let blocks = Arc::clone(&self.blocks_being_handled);
+        let _guard = {
+            struct RemoveFromBlocksBeingHandled {
+                block_hash: [u8; 32],
+                blocks: Arc<Mutex<HashSet<[u8; 32]>>>,
+            }
+            impl Drop for RemoveFromBlocksBeingHandled {
+                fn drop(&mut self) {
+                    self.blocks.lock().unwrap().remove(&self.block_hash);
+                }
+            }
+            RemoveFromBlocksBeingHandled { block_hash, blocks }
+        };
 
-    response_rx
-        .await
-        .expect("The blockchain manager will always respond")
-        .map_err(IncomingBlockError::InvalidBlock)
-}
+        let (response_tx, response_rx) = oneshot::channel();
 
-/// Pop blocks from the top of the blockchain.
-///
-/// # Errors
-///
-/// Will error if the blockchain manager is not set up yet.
-pub async fn pop_blocks(numb_blocks: usize) -> Result<(), anyhow::Error> {
-    let Some(incoming_block_tx) = COMMAND_TX.get() else {
-        // We could still be starting up the blockchain manager.
-        return anyhow::bail!("The blockchain manager is not running yet");
-    };
+        self.command_tx
+            .send(BlockchainManagerCommand::AddBlock {
+                block,
+                prepped_txs: txs,
+                response_tx,
+            })
+            .await
+            .map_err(|_| IncomingBlockError::ChannelClosed)?;
 
-    let (response_tx, response_rx) = oneshot::channel();
+        response_rx
+            .await
+            .map_err(|_| IncomingBlockError::ChannelClosed)?
+            .map_err(IncomingBlockError::InvalidBlock)
+    }
 
-    incoming_block_tx
-        .send(BlockchainManagerCommand::PopBlocks {
-            numb_blocks,
-            response_tx,
-        })
-        .await?;
+    /// Pop blocks from the top of the blockchain.
+    ///
+    /// # Errors
+    ///
+    /// Will error if the blockchain manager channel is closed.
+    pub async fn pop_blocks(&self, numb_blocks: usize) -> Result<(), anyhow::Error> {
+        let (response_tx, response_rx) = oneshot::channel();
 
-    Ok(response_rx.await?)
+        self.command_tx
+            .send(BlockchainManagerCommand::PopBlocks {
+                numb_blocks,
+                response_tx,
+            })
+            .await?;
+
+        Ok(response_rx.await?)
+    }
 }
 
 /// Check if we have a block with the given hash.

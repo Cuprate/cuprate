@@ -59,7 +59,7 @@ use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::blockchain::BlockchainWriteRequest;
 
 use crate::{
-    blockchain::{BlockchainInterface, SyncNotify},
+    blockchain::{BlockchainInterface, BlockchainManagerHandle, SyncNotify},
     commands::CommandHandle,
     config::Config,
     constants::{DATABASE_CORRUPT_MSG, PANIC_CRITICAL_SERVICE_ERROR},
@@ -167,14 +167,18 @@ impl Node {
         // Create the sync notifier and handle.
         let (sync_state, syncer_handle) = SyncNotify::new();
 
+        // Create the blockchain manager handle and command receiver.
+        let (blockchain_manager_handle, command_rx) = BlockchainManagerHandle::new();
+
         // Start clearnet P2P zone
         let (clearnet_interface, clearnet_tx_handler_subscriber) = p2p::initialize_clearnet_p2p(
             &config,
             context_svc.clone(),
             blockchain_read_handle.clone(),
             txpool_read_handle.clone(),
+            blockchain_manager_handle.clone(),
             &tor_context,
-            sync_state.callback(context_svc.clone()),
+            sync_state.callback(context_svc.clone(), blockchain_manager_handle.clone()),
         )
         .await;
 
@@ -205,8 +209,11 @@ impl Node {
         let (tor_tx, tor_rx) = oneshot::channel();
 
         // Create the blockchain interface.
-        let blockchain_interface =
-            BlockchainInterface::new(blockchain_read_handle.clone(), context_svc.clone());
+        let blockchain_interface = BlockchainInterface::new(
+            blockchain_read_handle.clone(),
+            context_svc.clone(),
+            blockchain_manager_handle.clone(),
+        );
 
         // Command handle.
         let command_handle = CommandHandle::init(blockchain_interface.clone());
@@ -230,6 +237,7 @@ impl Node {
             context_svc.clone(),
             config.block_downloader_config(),
             syncer_handle,
+            command_rx,
         )
         .await;
 
@@ -240,6 +248,7 @@ impl Node {
             blockchain_read_handle.clone(),
             context_svc.clone(),
             txpool_read_handle.clone(),
+            blockchain_manager_handle.clone(),
             tx_handler.clone(),
         );
 
@@ -262,6 +271,7 @@ impl Node {
                     context_svc,
                     blockchain_read_handle,
                     txpool_read_handle,
+                    blockchain_manager_handle,
                     tor_context,
                 )
                 .await;

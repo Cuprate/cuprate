@@ -23,10 +23,7 @@ use cuprate_types::{
 };
 
 use crate::{
-    blockchain::{
-        chain_service::ChainService, interface::COMMAND_TX, syncer,
-        types::ConsensusBlockchainReadHandle,
-    },
+    blockchain::{chain_service::ChainService, syncer, types::ConsensusBlockchainReadHandle},
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     txpool::TxpoolManagerHandle,
 };
@@ -44,6 +41,7 @@ use syncer::SyncerHandle;
 ///
 /// This function sets up the `BlockchainManager` and the `syncer` so that the functions in [`interface`](super::interface)
 /// can be called.
+#[expect(clippy::too_many_arguments)]
 pub async fn init_blockchain_manager(
     clearnet_interface: NetworkInterface<ClearNet>,
     blockchain_write_handle: BlockchainWriteHandle,
@@ -52,13 +50,11 @@ pub async fn init_blockchain_manager(
     mut blockchain_context_service: BlockchainContextService,
     block_downloader_config: BlockDownloaderConfig,
     syncer_handle: SyncerHandle,
+    command_rx: mpsc::Receiver<BlockchainManagerCommand>,
 ) {
     // TODO: find good values for these size limits
     let (batch_tx, batch_rx) = mpsc::channel(1);
     let stop_current_block_downloader = Arc::new(Notify::new());
-    let (command_tx, command_rx) = mpsc::channel(3);
-
-    COMMAND_TX.set(command_tx).unwrap();
 
     tokio::spawn(syncer::syncer(
         blockchain_context_service.clone(),

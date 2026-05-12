@@ -18,8 +18,9 @@ use cuprate_rpc_interface::{RouterBuilder, RpcHandler};
 use cuprate_txpool::service::TxpoolReadHandle;
 
 use crate::{
+    blockchain::BlockchainManagerHandle,
     config::{restricted_rpc_port, unrestricted_rpc_port, RpcConfig},
-    rpc::{rpc_handler::BlockchainManagerHandle, CupratedRpcHandler},
+    rpc::CupratedRpcHandler,
     txpool::IncomingTxHandler,
 };
 
@@ -36,6 +37,7 @@ pub fn init_rpc_servers(
     blockchain_read: BlockchainReadHandle,
     blockchain_context: BlockchainContextService,
     txpool_read: TxpoolReadHandle,
+    blockchain_manager: BlockchainManagerHandle,
     tx_handler: IncomingTxHandler,
 ) {
     for ((enable, addr, port, request_byte_limit), restricted) in [
@@ -83,6 +85,7 @@ pub fn init_rpc_servers(
             blockchain_read.clone(),
             blockchain_context.clone(),
             txpool_read.clone(),
+            blockchain_manager.clone(),
             tx_handler.clone(),
         );
 

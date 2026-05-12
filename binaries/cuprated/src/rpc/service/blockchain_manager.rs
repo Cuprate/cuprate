@@ -11,7 +11,8 @@ use cuprate_rpc_types::misc::Span;
 use cuprate_types::BlockTemplate;
 
 use crate::rpc::rpc_handler::{
-    BlockchainManagerHandle, BlockchainManagerRequest, BlockchainManagerResponse,
+    BlockchainManagerRequest, BlockchainManagerResponse,
+    BlockchainManagerRpcHandle as BlockchainManagerHandle,
 };
 
 /// [`BlockchainManagerRequest::PopBlocks`]

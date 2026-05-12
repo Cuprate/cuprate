@@ -21,7 +21,7 @@ use cuprate_types::BlockTemplate;
 
 use cuprate_helper::network::Network;
 
-use crate::{rpc::handlers, txpool::IncomingTxHandler};
+use crate::{blockchain::BlockchainManagerHandle, rpc::handlers, txpool::IncomingTxHandler};
 
 /// TODO: use real type when public.
 #[derive(Clone)]
@@ -149,8 +149,8 @@ pub enum BlockchainManagerResponse {
     CreateBlockTemplate(Box<BlockTemplate>),
 }
 
-/// TODO: use real type when public.
-pub type BlockchainManagerHandle =
+/// TODO: replace with [`BlockchainManagerHandle`] when RPC operations are implemented.
+pub type BlockchainManagerRpcHandle =
     tower::util::BoxService<BlockchainManagerRequest, BlockchainManagerResponse, Error>;
 
 /// cuprated's RPC handler service.
@@ -174,6 +174,9 @@ pub struct CupratedRpcHandler {
     pub txpool_read: TxpoolReadHandle,
 
     pub tx_handler: IncomingTxHandler,
+
+    /// Command channel to the blockchain manager.
+    pub blockchain_manager: BlockchainManagerHandle,
 }
 
 impl CupratedRpcHandler {
@@ -184,6 +187,7 @@ impl CupratedRpcHandler {
         blockchain_read: BlockchainReadHandle,
         blockchain_context: BlockchainContextService,
         txpool_read: TxpoolReadHandle,
+        blockchain_manager: BlockchainManagerHandle,
         tx_handler: IncomingTxHandler,
     ) -> Self {
         Self {
@@ -193,6 +197,7 @@ impl CupratedRpcHandler {
             blockchain_context,
             txpool_read,
             tx_handler,
+            blockchain_manager,
         }
     }
 }

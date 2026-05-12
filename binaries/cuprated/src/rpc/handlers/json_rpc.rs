@@ -247,13 +247,15 @@ async fn submit_block(
     let block_id = Hex(block.hash());
 
     // Attempt to relay the block.
-    blockchain_interface::handle_incoming_block(
-        block,
-        HashMap::new(), // this function reads the txpool
-        &mut state.blockchain_read,
-        &mut state.txpool_read,
-    )
-    .await?;
+    state
+        .blockchain_manager
+        .handle_incoming_block(
+            block,
+            HashMap::new(), // this function reads the txpool
+            &mut state.blockchain_read,
+            &mut state.txpool_read,
+        )
+        .await?;
 
     Ok(SubmitBlockResponse {
         base: helper::response_base(false),

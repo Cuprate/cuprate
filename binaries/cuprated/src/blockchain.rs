@@ -29,6 +29,7 @@ mod syncer;
 mod types;
 
 pub use fast_sync::set_fast_sync_hashes;
+pub use interface::BlockchainManagerHandle;
 pub use manager::init_blockchain_manager;
 pub use syncer::SyncNotify;
 pub use types::ConsensusBlockchainReadHandle;
@@ -40,14 +41,21 @@ pub struct BlockchainInterface {
     read: BlockchainReadHandle,
     /// The blockchain context service.
     context_svc: BlockchainContextService,
+    /// A handle to the blockchain manager.
+    manager: BlockchainManagerHandle,
 }
 
 impl BlockchainInterface {
     pub(crate) const fn new(
         read: BlockchainReadHandle,
         context_svc: BlockchainContextService,
+        manager: BlockchainManagerHandle,
     ) -> Self {
-        Self { read, context_svc }
+        Self {
+            read,
+            context_svc,
+            manager,
+        }
     }
 
     /// Returns a read handle to the blockchain database.
@@ -63,6 +71,11 @@ impl BlockchainInterface {
     /// Returns the blockchain context service.
     pub(crate) fn context_svc(&self) -> BlockchainContextService {
         self.context_svc.clone()
+    }
+
+    /// Returns a handle to the blockchain manager.
+    pub(crate) fn manager(&self) -> BlockchainManagerHandle {
+        self.manager.clone()
     }
 }
 
