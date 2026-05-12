@@ -1,6 +1,13 @@
 //! Task spawning and shutdown coordination.
 
-use std::{future::Future, panic::AssertUnwindSafe};
+use std::{
+    future::Future,
+    panic::AssertUnwindSafe,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
 use futures::FutureExt;
 use tokio::task::JoinHandle;
@@ -14,6 +21,7 @@ use crate::constants::CRITICAL_SERVICE_ERROR;
 pub struct TaskExecutor {
     token: CancellationToken,
     tracker: TaskTracker,
+    failed: Arc<AtomicBool>,
 }
 
 impl TaskExecutor {
@@ -42,7 +50,10 @@ impl TaskExecutor {
         self.tracker.spawn(async move {
             match AssertUnwindSafe(future).catch_unwind().await {
                 Ok(Ok(())) => {}
-                Ok(Err(e)) => error!(subsystem = name, "{:#}", e.into()),
+                Ok(Err(e)) => {
+                    error!(subsystem = name, "{:#}", e.into());
+                    executor.failed.store(true, Ordering::Relaxed);
+                }
                 Err(payload) => {
                     let msg = payload
                         .downcast_ref::<String>()
@@ -50,6 +61,7 @@ impl TaskExecutor {
                         .or_else(|| payload.downcast_ref::<&'static str>().copied())
                         .unwrap_or("<no panic message>");
                     error!(subsystem = name, err = msg, "{CRITICAL_SERVICE_ERROR}");
+                    executor.failed.store(true, Ordering::Relaxed);
                 }
             }
             executor.trigger_shutdown();
@@ -59,6 +71,11 @@ impl TaskExecutor {
     /// Get a clone of the cancellation token.
     pub fn cancellation_token(&self) -> CancellationToken {
         self.token.clone()
+    }
+
+    /// Returns `true` if any critical task has failed (returned `Err` or panicked).
+    pub fn has_failed(&self) -> bool {
+        self.failed.load(Ordering::Relaxed)
     }
 
     /// Trigger a graceful shutdown.

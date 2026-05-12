@@ -369,9 +369,17 @@ impl Node {
     }
 
     /// Wait for shutdown to be triggered and await all tracked tasks.
-    pub async fn wait_for_shutdown(&self) {
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Err`] if any critical task failed (returned `Err` or panicked).
+    pub async fn wait_for_shutdown(&self) -> anyhow::Result<()> {
         self.task_executor.cancellation_token().cancelled().await;
         self.task_executor.close();
         self.task_executor.wait().await;
+        if self.task_executor.has_failed() {
+            anyhow::bail!("critical task failure");
+        }
+        Ok(())
     }
 }

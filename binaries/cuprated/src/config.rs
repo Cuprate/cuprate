@@ -22,10 +22,7 @@ use cuprate_p2p::block_downloader::BlockDownloaderConfig;
 use cuprate_p2p_core::{ClearNet, Tor};
 use cuprate_wire::OnionAddr;
 
-use crate::{
-    logging::eprintln_red,
-    tor::{TorContext, TorMode},
-};
+use crate::tor::{TorContext, TorMode};
 
 #[cfg(feature = "arti")]
 use {arti_client::KeystoreSelector, safelog::DisplayRedacted};
@@ -80,7 +77,11 @@ const HEADER: &str = r"##     ____                      _
 ";
 
 /// Resolves `target_max_memory` from system RAM if unset.
-pub fn resolve_max_memory(config: &mut Config) {
+///
+/// # Errors
+///
+/// Returns an error if the system memory probe returns zero.
+pub fn resolve_max_memory(config: &mut Config) -> Result<(), anyhow::Error> {
     if matches!(config.target_max_memory, DefaultOrCustom::Default) {
         tracing::info!("Attempting to read total memory from system");
 
@@ -89,12 +90,12 @@ pub fn resolve_max_memory(config: &mut Config) {
         let memory = info.total_memory();
 
         if memory == 0 {
-            eprintln_red("Unable to read total memory, please manually set the `target_max_memory` value in the config file.");
-            std::process::exit(1);
+            bail!("Unable to read total memory, please manually set the `target_max_memory` value in the config file.");
         }
 
         config.target_max_memory = DefaultOrCustom::Custom(memory);
     }
+    Ok(())
 }
 
 /// Finds and reads a config file from the default locations.
