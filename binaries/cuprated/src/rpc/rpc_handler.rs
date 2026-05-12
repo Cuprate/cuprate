@@ -21,7 +21,9 @@ use cuprate_types::BlockTemplate;
 
 use cuprate_helper::network::Network;
 
-use crate::{blockchain::BlockchainManagerHandle, rpc::handlers, txpool::IncomingTxHandler};
+use crate::{
+    blockchain::BlockchainManagerHandle, rpc::handlers, txpool::IncomingTxHandler, NodeContext,
+};
 
 /// TODO: use real type when public.
 #[derive(Clone)]
@@ -177,27 +179,31 @@ pub struct CupratedRpcHandler {
 
     /// Command channel to the blockchain manager.
     pub blockchain_manager: BlockchainManagerHandle,
+
+    /// The time this node was launched as a UNIX timestamp.
+    pub start_instant_unix: u64,
 }
 
 impl CupratedRpcHandler {
     /// Create a new [`Self`].
-    pub const fn new(
-        restricted: bool,
-        network: Network,
-        blockchain_read: BlockchainReadHandle,
-        blockchain_context: BlockchainContextService,
-        txpool_read: TxpoolReadHandle,
-        blockchain_manager: BlockchainManagerHandle,
-        tx_handler: IncomingTxHandler,
-    ) -> Self {
+    pub fn new(restricted: bool, tx_handler: IncomingTxHandler, node_ctx: NodeContext) -> Self {
+        let NodeContext {
+            network,
+            blockchain,
+            txpool_read,
+            start_instant_unix,
+            ..
+        } = node_ctx;
+
         Self {
             restricted,
             network,
-            blockchain_read,
-            blockchain_context,
-            txpool_read,
             tx_handler,
-            blockchain_manager,
+            blockchain_read: blockchain.read(),
+            blockchain_context: blockchain.context_svc(),
+            txpool_read,
+            blockchain_manager: blockchain.manager(),
+            start_instant_unix,
         }
     }
 }

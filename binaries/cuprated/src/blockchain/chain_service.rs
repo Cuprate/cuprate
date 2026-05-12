@@ -14,7 +14,7 @@ use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
 ///
 /// This has a more minimal interface than [`BlockchainReadRequest`] to make using the p2p crates easier.
 #[derive(Clone)]
-pub struct ChainService(pub BlockchainReadHandle);
+pub struct ChainService(pub BlockchainReadHandle, pub &'static [[u8; 32]]);
 
 impl<N: NetworkZone> Service<ChainSvcRequest<N>> for ChainService {
     type Response = ChainSvcResponse<N>;
@@ -75,11 +75,16 @@ impl<N: NetworkZone> Service<ChainSvcRequest<N>> for ChainService {
                 .boxed(),
             ChainSvcRequest::ValidateEntries(entries, start_height) => {
                 let mut blockchain_read_handle = self.0.clone();
+                let fast_sync_hashes = self.1;
 
                 async move {
-                    let (valid, unknown) =
-                        validate_entries(entries, start_height, &mut blockchain_read_handle)
-                            .await?;
+                    let (valid, unknown) = validate_entries(
+                        entries,
+                        start_height,
+                        &mut blockchain_read_handle,
+                        fast_sync_hashes,
+                    )
+                    .await?;
 
                     Ok(ChainSvcResponse::ValidateEntries { valid, unknown })
                 }

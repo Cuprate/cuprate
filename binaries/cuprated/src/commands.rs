@@ -9,9 +9,8 @@ use tracing::level_filters::LevelFilter;
 use cuprate_helper::time::secs_to_hms;
 
 use crate::{
-    blockchain::BlockchainInterface,
     logging::{self, CupratedTracingFilter},
-    statics,
+    NodeContext,
 };
 
 /// A command request with a response channel.
@@ -28,12 +27,12 @@ pub struct CommandHandle {
 
 impl CommandHandle {
     /// Initialize the command handler and return a handle.
-    pub fn init(mut blockchain: BlockchainInterface) -> Self {
+    pub fn init(mut node_ctx: NodeContext) -> Self {
         let (tx, mut rx) = mpsc::channel::<CommandRequest>(1);
 
         tokio::spawn(async move {
             while let Some(req) = rx.recv().await {
-                let result = handle_command(&req.input, &mut blockchain).await;
+                let result = handle_command(&req.input, &mut node_ctx).await;
                 drop(req.resp.send(result));
             }
             tracing::info!("Command handler shut down.");
@@ -107,7 +106,7 @@ pub enum OutputTarget {
 }
 
 /// Parse and execute a raw command string. Returns the output.
-async fn handle_command(input: &str, blockchain: &mut BlockchainInterface) -> String {
+async fn handle_command(input: &str, node_ctx: &mut NodeContext) -> String {
     let command = match Command::try_parse_from(input.split_whitespace()) {
         Ok(cmd) => cmd,
         Err(err) => return format!("{err}"),
@@ -134,9 +133,8 @@ async fn handle_command(input: &str, blockchain: &mut BlockchainInterface) -> St
             msg
         }
         Command::Status => {
-            let context = blockchain.context();
-
-            let uptime = statics::START_INSTANT.elapsed().unwrap_or_default();
+            let uptime = node_ctx.start_instant.elapsed().unwrap_or_default();
+            let context = node_ctx.blockchain.context();
 
             let (h, m, s) = secs_to_hms(uptime.as_secs());
             let height = context.chain_height;
@@ -146,13 +144,13 @@ async fn handle_command(input: &str, blockchain: &mut BlockchainInterface) -> St
             )
         }
         Command::FastSyncStopHeight => {
-            let stop_height = cuprate_fast_sync::fast_sync_stop_height();
+            let stop_height = cuprate_fast_sync::fast_sync_stop_height(node_ctx.fast_sync_hashes);
 
             format!("{stop_height}")
         }
         Command::PopBlocks { numb_blocks } => {
             tracing::info!("Popping {numb_blocks} blocks.");
-            let res = blockchain.manager().pop_blocks(numb_blocks).await;
+            let res = node_ctx.blockchain.manager().pop_blocks(numb_blocks).await;
 
             match res {
                 Ok(()) => format!("Popped {numb_blocks} blocks."),

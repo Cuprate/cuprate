@@ -11,17 +11,13 @@ use tower::limit::rate::RateLimitLayer;
 use tower_http::limit::RequestBodyLimitLayer;
 use tracing::{info, warn};
 
-use cuprate_blockchain::service::BlockchainReadHandle;
-use cuprate_consensus::BlockchainContextService;
-use cuprate_helper::network::Network;
 use cuprate_rpc_interface::{RouterBuilder, RpcHandler};
-use cuprate_txpool::service::TxpoolReadHandle;
 
 use crate::{
-    blockchain::BlockchainManagerHandle,
     config::{restricted_rpc_port, unrestricted_rpc_port, RpcConfig},
     rpc::CupratedRpcHandler,
     txpool::IncomingTxHandler,
+    NodeContext,
 };
 
 /// Initialize the RPC server(s).
@@ -31,21 +27,13 @@ use crate::{
 /// - the server(s) could not be started
 /// - unrestricted RPC is started on non-local
 ///   address without override option
-pub fn init_rpc_servers(
-    config: RpcConfig,
-    network: Network,
-    blockchain_read: BlockchainReadHandle,
-    blockchain_context: BlockchainContextService,
-    txpool_read: TxpoolReadHandle,
-    blockchain_manager: BlockchainManagerHandle,
-    tx_handler: IncomingTxHandler,
-) {
+pub fn init_rpc_servers(config: RpcConfig, tx_handler: IncomingTxHandler, node_ctx: NodeContext) {
     for ((enable, addr, port, request_byte_limit), restricted) in [
         (
             (
                 config.unrestricted.enable,
                 config.unrestricted.address,
-                unrestricted_rpc_port(config.unrestricted.port, network),
+                unrestricted_rpc_port(config.unrestricted.port, node_ctx.network),
                 config.unrestricted.request_byte_limit,
             ),
             false,
@@ -54,7 +42,7 @@ pub fn init_rpc_servers(
             (
                 config.restricted.enable,
                 config.restricted.address,
-                restricted_rpc_port(config.restricted.port, network),
+                restricted_rpc_port(config.restricted.port, node_ctx.network),
                 config.restricted.request_byte_limit,
             ),
             true,
@@ -79,15 +67,7 @@ pub fn init_rpc_servers(
             }
         }
 
-        let rpc_handler = CupratedRpcHandler::new(
-            restricted,
-            network,
-            blockchain_read.clone(),
-            blockchain_context.clone(),
-            txpool_read.clone(),
-            blockchain_manager.clone(),
-            tx_handler.clone(),
-        );
+        let rpc_handler = CupratedRpcHandler::new(restricted, tx_handler.clone(), node_ctx.clone());
 
         tokio::task::spawn(async move {
             run_rpc_server(

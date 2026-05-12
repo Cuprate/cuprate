@@ -38,18 +38,16 @@ pub mod commands;
 pub mod config;
 pub mod constants;
 pub mod logging;
-pub mod statics;
 pub mod version;
 
 mod p2p;
 mod rpc;
-mod signals;
 mod tor;
 mod txpool;
 
 use std::sync::Arc;
 
-use tokio::sync::oneshot;
+use tokio::sync::{oneshot, RwLock};
 use tower::{Service, ServiceExt};
 use tracing::{error, info};
 
@@ -57,6 +55,8 @@ use cuprate_p2p::NetworkInterface;
 use cuprate_p2p_core::{ClearNet, Tor};
 use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::blockchain::BlockchainWriteRequest;
+
+use cuprate_helper::network::Network;
 
 use crate::{
     blockchain::{BlockchainInterface, BlockchainManagerHandle, SyncNotify},
@@ -67,9 +67,54 @@ use crate::{
     txpool::IncomingTxHandler,
 };
 
+/// Shared internal node state.
+///
+/// A field belongs here if it is `Clone + Send + Sync`, used by
+/// multiple subsystems, and available before subsystem init begins.
+/// Write handles, single-consumer channels, `!Sync` types,
+/// and late-constructed services do _not_ belong here.
+#[derive(Clone)]
+pub struct NodeContext {
+    /// Which Monero network this node is running on.
+    pub network: Network,
+
+    /// Per-network fast sync validation hashes.
+    pub fast_sync_hashes: &'static [[u8; 32]],
+
+    /// Reorg lock.
+    ///
+    /// A [`RwLock`] where a write lock is taken during a reorg and a read lock can be taken
+    /// for any operation which must complete without a reorg happening.
+    ///
+    /// Currently, the only operation that needs to take a read lock is adding txs to the tx-pool,
+    /// this can potentially be removed in the future, see: <https://github.com/Cuprate/cuprate/issues/305>
+    pub reorg_lock: Arc<RwLock<()>>,
+
+    /// Interface to the blockchain (database reads, cached state, mutations).
+    pub blockchain: BlockchainInterface,
+
+    /// Read handle to the transaction pool.
+    pub txpool_read: TxpoolReadHandle,
+
+    /// Sync state notifications.
+    pub sync: SyncNotify,
+
+    /// The time this node was launched.
+    pub start_instant: std::time::SystemTime,
+
+    /// The time this node was launched as a UNIX timestamp.
+    pub start_instant_unix: u64,
+}
+
 /// An active `cuprated` node.
 ///
-/// Returned by [`Node::launch`].
+/// Returned by [`Node::launch`]. This is the embedder's handle to
+/// the running node.
+///
+/// Fields here are the public API for callers. A field belongs here
+/// if it is useful for an embedder to query or interact with after
+/// launch. Internal wiring belongs in [`NodeContext`] instead.
+#[must_use]
 pub struct Node {
     /// Interface to the blockchain.
     pub blockchain: BlockchainInterface,
@@ -106,8 +151,9 @@ impl Node {
     /// Panics if the database is corrupt, critical services fail to start,
     /// or `target_max_memory` is unresolved.
     pub async fn launch(config: Config) -> Self {
-        statics::init_lazylock_statics();
-        blockchain::set_fast_sync_hashes(config.fast_sync, config.network());
+        let start_instant = std::time::SystemTime::now();
+
+        let fast_sync_hashes = blockchain::get_fast_sync_hashes(config.fast_sync, config.network());
 
         // Initialize the database thread pool.
         let db_thread_pool = Arc::new(
@@ -170,15 +216,34 @@ impl Node {
         // Create the blockchain manager handle and command receiver.
         let (blockchain_manager_handle, command_rx) = BlockchainManagerHandle::new();
 
+        // Create the blockchain interface.
+        let blockchain_interface = BlockchainInterface::new(
+            blockchain_read_handle.clone(),
+            context_svc.clone(),
+            blockchain_manager_handle.clone(),
+        );
+
+        // Create the node context.
+        let node_ctx = NodeContext {
+            network: config.network(),
+            fast_sync_hashes,
+            reorg_lock: Arc::new(RwLock::new(())),
+            blockchain: blockchain_interface,
+            txpool_read: txpool_read_handle.clone(),
+            sync: sync_state,
+            start_instant_unix: start_instant
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+            start_instant,
+        };
+
         // Start clearnet P2P zone
         let (clearnet_interface, clearnet_tx_handler_subscriber) = p2p::initialize_clearnet_p2p(
             &config,
-            context_svc.clone(),
-            blockchain_read_handle.clone(),
-            txpool_read_handle.clone(),
-            blockchain_manager_handle.clone(),
+            &node_ctx,
             &tor_context,
-            sync_state.callback(context_svc.clone(), blockchain_manager_handle.clone()),
+            node_ctx.sync.callback(&node_ctx.blockchain),
         )
         .await;
 
@@ -191,9 +256,7 @@ impl Node {
             clearnet_interface.clone(),
             tor_router_rx,
             txpool_write_handle.clone(),
-            txpool_read_handle.clone(),
-            context_svc.clone(),
-            blockchain_read_handle.clone(),
+            node_ctx.clone(),
         )
         .await;
 
@@ -208,73 +271,48 @@ impl Node {
         // Tor interface channel - populated when Tor starts after sync.
         let (tor_tx, tor_rx) = oneshot::channel();
 
-        // Create the blockchain interface.
-        let blockchain_interface = BlockchainInterface::new(
-            blockchain_read_handle.clone(),
-            context_svc.clone(),
-            blockchain_manager_handle.clone(),
-        );
-
         // Command handle.
-        let command_handle = CommandHandle::init(blockchain_interface.clone());
+        let command_handle = CommandHandle::init(node_ctx.clone());
 
         // Create the node struct with cloned service handles for the caller.
         let node = Self {
-            blockchain: blockchain_interface,
-            txpool: txpool_read_handle.clone(),
+            blockchain: node_ctx.blockchain.clone(),
+            txpool: node_ctx.txpool_read.clone(),
             clearnet: clearnet_interface.clone(),
             tor: if tor_enabled { Some(tor_rx) } else { None },
-            sync: sync_state.clone(),
+            sync: node_ctx.sync.clone(),
             command: command_handle,
         };
 
         // Initialize the blockchain manager.
         blockchain::init_blockchain_manager(
-            clearnet_interface,
+            clearnet_interface.clone(),
             blockchain_write_handle,
-            blockchain_read_handle.clone(),
             tx_handler.txpool_manager.clone(),
-            context_svc.clone(),
             config.block_downloader_config(),
             syncer_handle,
             command_rx,
+            node_ctx.clone(),
         )
         .await;
 
         // Initialize the RPC server(s).
-        rpc::init_rpc_servers(
-            config.rpc.clone(),
-            config.network,
-            blockchain_read_handle.clone(),
-            context_svc.clone(),
-            txpool_read_handle.clone(),
-            blockchain_manager_handle.clone(),
-            tx_handler.clone(),
-        );
+        rpc::init_rpc_servers(config.rpc.clone(), tx_handler.clone(), node_ctx.clone());
 
         // Start Tor P2P zone after sync completes.
-        let sync_state_clone = sync_state.clone();
         if tor_enabled {
             info!("Tor P2P zone will start after sync.");
-            let context_svc = context_svc.clone();
 
             tokio::spawn(async move {
                 // Wait for the node to synchronize with the network
-                if sync_state_clone.wait_for_synced().await.is_err() {
+                if node_ctx.sync.wait_for_synced().await.is_err() {
                     tracing::info!("Not starting Tor P2P zone, syncer stopped");
                     return;
                 }
                 tracing::info!("Starting Tor P2P zone.");
 
-                let (tor_interface, tor_tx_handler_tx) = p2p::start_tor_p2p(
-                    &config,
-                    context_svc,
-                    blockchain_read_handle,
-                    txpool_read_handle,
-                    blockchain_manager_handle,
-                    tor_context,
-                )
-                .await;
+                let (tor_interface, tor_tx_handler_tx) =
+                    p2p::start_tor_p2p(&config, tor_context, &node_ctx).await;
 
                 // Publish the Tor interface for consumers
                 drop(tor_tx.send(tor_interface.clone()));
