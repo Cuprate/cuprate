@@ -70,6 +70,7 @@ pub(super) fn apply(roots: &[&Path]) {
         }
     };
 
+    #[expect(clippy::cast_possible_truncation, reason = "struct size fits in u32")]
     let sa = SECURITY_ATTRIBUTES {
         nLength: size_of::<SECURITY_ATTRIBUTES>() as u32,
         lpSecurityDescriptor: sd.psd.0,
