@@ -38,30 +38,17 @@ use cuprate_types::TransactionVerificationData;
 use crate::{
     blockchain::ConsensusBlockchainReadHandle,
     config::TxpoolConfig,
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
     p2p::CrossNetworkInternalPeerId,
     txpool::{
         dandelion::{
             self, AnonTxService, ConcreteDandelionRouter, DiffuseService, MainDandelionRouter,
         },
+        error::IncomingTxError,
         manager::{start_txpool_manager, TxpoolManagerHandle},
-        relay_rules::{check_tx_relay_rules, RelayRuleError},
+        relay_rules::check_tx_relay_rules,
         txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
     },
 };
-
-/// An error that can happen handling an incoming tx.
-#[derive(Debug, thiserror::Error)]
-pub enum IncomingTxError {
-    #[error("Error parsing tx: {0}")]
-    Parse(std::io::Error),
-    #[error(transparent)]
-    Consensus(ExtendedConsensusError),
-    #[error("Duplicate tx in message")]
-    DuplicateTransaction,
-    #[error("Relay rule was broken: {0}")]
-    RelayRule(RelayRuleError),
-}
 
 /// Incoming transactions.
 pub struct IncomingTxs {
@@ -116,7 +103,7 @@ impl IncomingTxHandler {
         tor_net_rx: Option<oneshot::Receiver<NetworkInterface<Tor>>>,
         txpool_write_handle: TxpoolWriteHandle,
         node_ctx: crate::NodeContext,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
         let diffuse_service = DiffuseService {
             clear_net_broadcast_service: clear_net.broadcast_svc(),
         };
@@ -141,9 +128,9 @@ impl IncomingTxHandler {
             txpool_config,
             node_ctx.task_executor.clone(),
         )
-        .await;
+        .await?;
 
-        Self {
+        Ok(Self {
             txs_being_handled: TxsBeingHandled::new(),
             blockchain_context_cache: node_ctx.blockchain.context_svc(),
             dandelion_pool_manager,
@@ -154,7 +141,7 @@ impl IncomingTxHandler {
                 BoxError::from,
             ),
             reorg_lock: node_ctx.reorg_lock,
-        }
+        })
     }
 }
 
@@ -209,7 +196,7 @@ async fn handle_incoming_txs(
     let txs = start_tx_verification()
         .append_prepped_txs(txs)
         .prepare()
-        .map_err(|e| IncomingTxError::Consensus(e.into()))?
+        .map_err(ExtendedConsensusError::from)?
         .full(
             context.chain_height,
             context.top_hash,
@@ -219,8 +206,7 @@ async fn handle_incoming_txs(
             None,
         )
         .verify()
-        .await
-        .map_err(IncomingTxError::Consensus)?;
+        .await?;
 
     for tx in txs {
         // TODO: this could be a DoS, if someone spams us with txs that violate these rules?
@@ -317,11 +303,9 @@ async fn prepare_incoming_txs(
         stem_pool_hashes,
     } = txpool_read_handle
         .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .await?
         .call(TxpoolReadRequest::FilterKnownTxBlobHashes(tx_blob_hashes))
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .await?
     else {
         unreachable!()
     };
@@ -338,10 +322,9 @@ async fn prepare_incoming_txs(
                 }
             })
             .map(|bytes| {
-                let tx = Transaction::read(&mut bytes.as_ref()).map_err(IncomingTxError::Parse)?;
+                let tx = Transaction::read(&mut bytes.as_ref())?;
 
-                let tx = new_tx_verification_data(tx)
-                    .map_err(|e| IncomingTxError::Consensus(e.into()))?;
+                let tx = new_tx_verification_data(tx).map_err(ExtendedConsensusError::from)?;
 
                 Ok(tx)
             })
@@ -363,14 +346,13 @@ async fn rerelay_stem_tx(
         CrossNetworkInternalPeerId,
     >,
 ) {
-    let Ok(TxpoolReadResponse::TxBlob { tx_blob, .. }) = txpool_read_handle
-        .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
-        .call(TxpoolReadRequest::TxBlob(*tx_hash))
-        .await
+    let Ok(svc) = txpool_read_handle.ready().await else {
+        return;
+    };
+    let Ok(TxpoolReadResponse::TxBlob { tx_blob, .. }) =
+        svc.call(TxpoolReadRequest::TxBlob(*tx_hash)).await
     else {
-        // The tx could have been dropped from the pool.
+        // The tx could have been dropped from the pool or the service errored.
         return;
     };
 
@@ -383,11 +365,7 @@ async fn rerelay_stem_tx(
         .build()
         .unwrap();
 
-    dandelion_pool_manager
-        .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
-        .call(incoming_tx)
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR);
+    if let Ok(svc) = dandelion_pool_manager.ready().await {
+        let _ = svc.call(incoming_tx).await;
+    }
 }

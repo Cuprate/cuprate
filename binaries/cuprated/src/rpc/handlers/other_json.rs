@@ -178,7 +178,7 @@ async fn get_transactions(
             let as_json = if request.decode_as_json {
                 let tx = Transaction::read(&mut as_hex.as_slice())?;
                 let json_type = cuprate_types::json::tx::Transaction::from(tx);
-                let json = serde_json::to_string(&json_type).unwrap();
+                let json = serde_json::to_string(&json_type)?;
                 txs_as_json.push(json.clone());
                 json
             } else {
@@ -229,7 +229,7 @@ async fn get_transactions(
 
             let as_json = if request.decode_as_json {
                 let json_type = cuprate_types::json::tx::Transaction::from(tx);
-                let json = serde_json::to_string(&json_type).unwrap();
+                let json = serde_json::to_string(&json_type)?;
                 txs_as_json.push(json.clone());
                 json
             } else {

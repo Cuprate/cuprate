@@ -19,18 +19,18 @@ use cuprate_types::{
     VerifiedBlockInformation,
 };
 
-use crate::constants::PANIC_CRITICAL_SERVICE_ERROR;
-
 mod chain_service;
+mod error;
 mod fast_sync;
 pub mod interface;
 mod manager;
 mod syncer;
 mod types;
 
+pub use error::IncomingBlockError;
 pub use fast_sync::get_fast_sync_hashes;
 pub use interface::BlockchainManagerHandle;
-pub use manager::init_blockchain_manager;
+pub use manager::{init_blockchain_manager, IncomingBlockOk};
 pub use syncer::{Syncer, SyncerHandle};
 pub use types::ConsensusBlockchainReadHandle;
 
@@ -84,17 +84,16 @@ pub async fn check_add_genesis(
     blockchain_read_handle: &mut BlockchainReadHandle,
     blockchain_write_handle: &mut BlockchainWriteHandle,
     network: Network,
-) {
+) -> anyhow::Result<()> {
     // Try to get the chain height, will fail if the genesis block is not in the DB.
     if blockchain_read_handle
         .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .await?
         .call(BlockchainReadRequest::ChainHeight)
         .await
         .is_ok()
     {
-        return;
+        return Ok(());
     }
 
     let genesis = generate_genesis_block(network);
@@ -104,8 +103,7 @@ pub async fn check_add_genesis(
 
     blockchain_write_handle
         .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .await?
         .call(BlockchainWriteRequest::WriteBlock(
             VerifiedBlockInformation {
                 block_blob: genesis.serialize(),
@@ -122,8 +120,9 @@ pub async fn check_add_genesis(
                 block: genesis,
             },
         ))
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR);
+        .await?;
+
+    Ok(())
 }
 
 /// Initializes the consensus services.

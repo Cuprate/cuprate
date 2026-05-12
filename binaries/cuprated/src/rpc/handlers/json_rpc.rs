@@ -831,8 +831,9 @@ async fn get_version(
         {
             let entry = HardForkEntry {
                 height: hf.earliest_height,
-                hf_version: HardFork::from_version(hf.version)
-                    .expect("blockchain context should not be responding with invalid hardforks"),
+                hf_version: HardFork::from_version(hf.version).map_err(|_| {
+                    anyhow!("blockchain context should not be responding with invalid hardforks")
+                })?,
             };
 
             hard_forks.push(entry);

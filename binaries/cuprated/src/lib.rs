@@ -210,7 +210,7 @@ impl Node {
             &mut blockchain_write_handle,
             config.network(),
         )
-        .await;
+        .await?;
 
         // Start the context service and the block/tx verifier.
         let context_svc =
@@ -261,7 +261,7 @@ impl Node {
             &tor_context,
             node_ctx.syncer.callback(&node_ctx.blockchain),
         )
-        .await;
+        .await?;
 
         // Create Tor router delivery channel.
         let (tor_router_tx, tor_router_rx) = tor_enabled.then(oneshot::channel).unzip();
@@ -274,7 +274,7 @@ impl Node {
             txpool_write_handle.clone(),
             node_ctx.clone(),
         )
-        .await;
+        .await?;
 
         // Send tx handler sender to clearnet zone
         clearnet_tx_handler_subscriber
@@ -311,7 +311,7 @@ impl Node {
         .await;
 
         // Initialize the RPC server(s).
-        rpc::init_rpc_servers(config.rpc.clone(), tx_handler.clone(), node_ctx.clone());
+        rpc::init_rpc_servers(config.rpc.clone(), tx_handler.clone(), node_ctx.clone())?;
 
         // Start Tor P2P zone after sync completes.
         if tor_enabled {
@@ -334,8 +334,13 @@ impl Node {
                 }
                 tracing::info!("Starting Tor P2P zone.");
 
-                let (tor_interface, tor_tx_handler_tx) =
-                    p2p::start_tor_p2p(&config, tor_context, &node_ctx).await;
+                let Ok((tor_interface, tor_tx_handler_tx)) =
+                    p2p::start_tor_p2p(&config, tor_context, &node_ctx)
+                        .await
+                        .inspect_err(|e| tracing::error!("Failed to start Tor P2P zone: {e:#}"))
+                else {
+                    return;
+                };
 
                 // Publish the Tor interface for consumers
                 drop(tor_tx.send(tor_interface.clone()));

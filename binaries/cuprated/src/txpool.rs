@@ -7,11 +7,13 @@ use cuprate_p2p_core::ClearNet;
 use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
 
 mod dandelion;
+mod error;
 mod incoming_tx;
 mod manager;
 mod relay_rules;
 mod txs_being_handled;
 
-pub use incoming_tx::{IncomingTxError, IncomingTxHandler, IncomingTxs};
-pub use manager::TxpoolManagerHandle;
+pub use error::IncomingTxError;
+pub use incoming_tx::{IncomingTxHandler, IncomingTxs};
+pub use manager::{TxPoolManagerClosed, TxpoolManagerHandle};
 pub use relay_rules::RelayRuleError;

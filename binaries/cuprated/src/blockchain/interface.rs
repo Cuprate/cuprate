@@ -19,9 +19,9 @@ use cuprate_txpool::service::{
 };
 use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
 
-use crate::{
-    blockchain::manager::{BlockchainManagerCommand, IncomingBlockOk},
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
+use crate::blockchain::{
+    error::IncomingBlockError,
+    manager::{BlockchainManagerCommand, IncomingBlockOk},
 };
 
 /// Handle for the blockchain manager.
@@ -40,25 +40,6 @@ pub struct BlockchainManagerHandle {
     /// time for new blocks, so we would lose the benefit of sharded locks. A dashmap is made up of `RwLocks`
     /// which are also more expensive than `Mutex`s.
     blocks_being_handled: Arc<Mutex<HashSet<[u8; 32]>>>,
-}
-
-/// An error that can be returned from [`BlockchainManagerHandle::handle_incoming_block`].
-#[derive(Debug, thiserror::Error)]
-pub enum IncomingBlockError {
-    /// Some transactions in the block were unknown.
-    ///
-    /// The inner values are the block hash and the indexes of the missing txs in the block.
-    #[error("Unknown transactions in block.")]
-    UnknownTransactions([u8; 32], Vec<usize>),
-    /// We are missing the block's parent.
-    #[error("The block has an unknown parent.")]
-    Orphan,
-    /// The block was invalid.
-    #[error(transparent)]
-    InvalidBlock(anyhow::Error),
-    /// The blockchain manager command channel is closed.
-    #[error("The blockchain manager command channel is closed.")]
-    ChannelClosed,
 }
 
 impl BlockchainManagerHandle {
@@ -98,34 +79,24 @@ impl BlockchainManagerHandle {
         txpool_read_handle: &mut TxpoolReadHandle,
     ) -> Result<IncomingBlockOk, IncomingBlockError> {
         if given_txs.len() > block.transactions.len() {
-            return Err(IncomingBlockError::InvalidBlock(anyhow::anyhow!(
-                "Too many transactions given for block"
-            )));
+            return Err(IncomingBlockError::TooManyTxs);
         }
 
-        if !block_exists(block.header.previous, blockchain_read_handle)
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
-        {
+        if !block_exists(block.header.previous, blockchain_read_handle).await? {
             return Err(IncomingBlockError::Orphan);
         }
 
         let block_hash = block.hash();
 
-        if block_exists(block_hash, blockchain_read_handle)
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
-        {
+        if block_exists(block_hash, blockchain_read_handle).await? {
             return Ok(IncomingBlockOk::AlreadyHave);
         }
 
         let TxpoolReadResponse::TxsForBlock { mut txs, missing } = txpool_read_handle
             .ready()
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .await?
             .call(TxpoolReadRequest::TxsForBlock(block.transactions.clone()))
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .await?
         else {
             unreachable!()
         };
@@ -142,11 +113,7 @@ impl BlockchainManagerHandle {
                     return Err(IncomingBlockError::UnknownTransactions(block_hash, missing));
                 };
 
-                txs.insert(
-                    needed_hash,
-                    new_tx_verification_data(tx)
-                        .map_err(|e| IncomingBlockError::InvalidBlock(e.into()))?,
-                );
+                txs.insert(needed_hash, new_tx_verification_data(tx)?);
             }
         }
 
@@ -185,7 +152,6 @@ impl BlockchainManagerHandle {
         response_rx
             .await
             .map_err(|_| IncomingBlockError::ChannelClosed)?
-            .map_err(IncomingBlockError::InvalidBlock)
     }
 
     /// Pop blocks from the top of the blockchain.
@@ -211,7 +177,7 @@ impl BlockchainManagerHandle {
 async fn block_exists(
     block_hash: [u8; 32],
     blockchain_read_handle: &mut BlockchainReadHandle,
-) -> Result<bool, anyhow::Error> {
+) -> Result<bool, tower::BoxError> {
     let BlockchainResponse::FindBlock(chain) = blockchain_read_handle
         .ready()
         .await?

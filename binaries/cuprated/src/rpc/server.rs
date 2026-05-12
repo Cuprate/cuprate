@@ -23,12 +23,17 @@ use crate::{
 
 /// Initialize the RPC server(s).
 ///
-/// # Panics
-/// This function will panic if:
+/// # Errors
+///
+/// This function will return an [`Err`] if:
 /// - the server(s) could not be started
 /// - unrestricted RPC is started on non-local
 ///   address without override option
-pub fn init_rpc_servers(config: RpcConfig, tx_handler: IncomingTxHandler, node_ctx: NodeContext) {
+pub fn init_rpc_servers(
+    config: RpcConfig,
+    tx_handler: IncomingTxHandler,
+    node_ctx: NodeContext,
+) -> Result<(), Error> {
     for ((enable, addr, port, request_byte_limit), restricted) in [
         (
             (
@@ -64,26 +69,28 @@ pub fn init_rpc_servers(config: RpcConfig, tx_handler: IncomingTxHandler, node_c
                     "Starting unrestricted RPC on non-local address, this is dangerous!"
                 );
             } else {
-                panic!("Refusing to start unrestricted RPC on a non-local address ({addr})");
+                return Err(anyhow::anyhow!(
+                    "Refusing to start unrestricted RPC on a non-local address ({addr})"
+                ));
             }
         }
 
         let rpc_handler = CupratedRpcHandler::new(restricted, tx_handler.clone(), node_ctx.clone());
 
         let shutdown_token = node_ctx.task_executor.cancellation_token();
-        node_ctx.task_executor.spawn(async move {
+        node_ctx.task_executor.spawn_critical(
+            "rpc_server",
             run_rpc_server(
                 rpc_handler,
                 restricted,
                 SocketAddr::new(addr, port),
                 request_byte_limit,
                 shutdown_token,
-            )
-            .await
-            .unwrap();
-            info!(restricted, "RPC server shut down.");
-        });
+            ),
+        );
     }
+
+    Ok(())
 }
 
 /// This initializes and runs an RPC server.
@@ -126,5 +133,6 @@ async fn run_rpc_server(
         .with_graceful_shutdown(shutdown_token.cancelled_owned())
         .await?;
 
+    info!(restricted, "RPC server shut down.");
     Ok(())
 }

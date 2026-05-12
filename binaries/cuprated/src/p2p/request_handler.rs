@@ -46,8 +46,7 @@ use cuprate_wire::protocol::{
 };
 
 use crate::{
-    blockchain::interface::{BlockchainManagerHandle, IncomingBlockError},
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
+    blockchain::{interface::BlockchainManagerHandle, IncomingBlockError},
     p2p::CrossNetworkInternalPeerId,
     txpool::{IncomingTxError, IncomingTxHandler, IncomingTxs},
 };
@@ -431,8 +430,7 @@ where
 
     let res = incoming_tx_handler
         .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .await?
         .call(IncomingTxs {
             txs,
             state,

@@ -168,47 +168,58 @@ fn initialize_arti_onion_service(client_config: &TorClientConfig, config: &Confi
 //---------------------------------------------------------------------------------------------------- Transport configuration
 
 #[cfg(feature = "arti")]
-pub fn transport_arti_config(config: &Config, ctx: TorContext) -> TransportConfig<Tor, Arti> {
+pub fn transport_arti_config(
+    config: &Config,
+    ctx: TorContext,
+) -> Result<TransportConfig<Tor, Arti>, anyhow::Error> {
     // Extracting
     let (Some(bootstrapped_client), Some(client_config)) =
         (ctx.bootstrapped_client, ctx.arti_client_config)
     else {
-        panic!("Arti client should be initialized");
+        return Err(anyhow::anyhow!("Arti client should be initialized"));
     };
 
-    let server_config = config.p2p.tor_net.inbound_onion.then(|| {
+    let server_config = if config.p2p.tor_net.inbound_onion {
         let Some(onion_svc) = ctx.arti_onion_service else {
-            panic!("inbound onion enabled, but no onion service initialized!");
+            return Err(anyhow::anyhow!(
+                "inbound onion enabled, but no onion service initialized!"
+            ));
         };
 
-        ArtiServerConfig::new(
+        Some(ArtiServerConfig::new(
             onion_svc,
             p2p_port(config.p2p.tor_net.p2p_port, config.network),
             &bootstrapped_client,
             &client_config,
-        )
-    });
+        ))
+    } else {
+        None
+    };
 
-    TransportConfig::<Tor, Arti> {
+    Ok(TransportConfig::<Tor, Arti> {
         client_config: ArtiClientConfig {
             client: bootstrapped_client,
         },
         server_config,
-    }
+    })
 }
 
 #[cfg(feature = "arti")]
-pub fn transport_clearnet_arti_config(ctx: &TorContext) -> TransportConfig<ClearNet, Arti> {
+pub fn transport_clearnet_arti_config(
+    ctx: &TorContext,
+) -> Result<TransportConfig<ClearNet, Arti>, anyhow::Error> {
     let Some(bootstrapped_client) = &ctx.bootstrapped_client else {
-        panic!("Arti enabled but no TorClient initialized!");
+        return Err(anyhow::anyhow!(
+            "Arti enabled but no TorClient initialized!"
+        ));
     };
 
-    TransportConfig::<ClearNet, Arti> {
+    Ok(TransportConfig::<ClearNet, Arti> {
         client_config: ArtiClientConfig {
             client: bootstrapped_client.clone(),
         },
         server_config: None,
-    }
+    })
 }
 
 pub fn transport_daemon_config(config: &Config) -> TransportConfig<Tor, Daemon> {
