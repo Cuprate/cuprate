@@ -19,6 +19,8 @@ use cuprate_rpc_types::{
 use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::BlockTemplate;
 
+use cuprate_helper::network::Network;
+
 use crate::{rpc::handlers, txpool::IncomingTxHandler};
 
 /// TODO: use real type when public.
@@ -159,6 +161,9 @@ pub struct CupratedRpcHandler {
     /// This is not `pub` on purpose, as it should not be mutated after [`Self::new`].
     restricted: bool,
 
+    /// The active network.
+    pub network: Network,
+
     /// Read handle to the blockchain database.
     pub blockchain_read: BlockchainReadHandle,
 
@@ -175,6 +180,7 @@ impl CupratedRpcHandler {
     /// Create a new [`Self`].
     pub const fn new(
         restricted: bool,
+        network: Network,
         blockchain_read: BlockchainReadHandle,
         blockchain_context: BlockchainContextService,
         txpool_read: TxpoolReadHandle,
@@ -182,6 +188,7 @@ impl CupratedRpcHandler {
     ) -> Self {
         Self {
             restricted,
+            network,
             blockchain_read,
             blockchain_context,
             txpool_read,

@@ -53,9 +53,3 @@ pub(crate) async fn json_rpc<H: RpcHandler>(
 
     Ok(Json(Response::ok(id, response)))
 }
-
-//---------------------------------------------------------------------------------------------------- Tests
-#[cfg(test)]
-mod test {
-    // use super::*;
-}

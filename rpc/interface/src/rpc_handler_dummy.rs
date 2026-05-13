@@ -5,7 +5,6 @@ use std::task::Poll;
 
 use anyhow::Error;
 use futures::channel::oneshot::channel;
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use tower::Service;
 
@@ -28,8 +27,7 @@ use crate::rpc_handler::RpcHandler;
 ///
 /// This is mostly used for testing purposes and can
 /// be disabled by disable the `dummy` feature flag.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub struct RpcHandlerDummy {
     /// Should this RPC server be [restricted](RpcHandler::is_restricted)?
     ///
