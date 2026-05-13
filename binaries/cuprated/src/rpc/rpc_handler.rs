@@ -22,7 +22,8 @@ use cuprate_types::BlockTemplate;
 use cuprate_helper::network::Network;
 
 use crate::{
-    blockchain::BlockchainManagerHandle, rpc::handlers, txpool::IncomingTxHandler, NodeContext,
+    blockchain::BlockchainManagerHandle, monitor::TaskExecutor, rpc::handlers,
+    txpool::IncomingTxHandler, NodeContext,
 };
 
 /// TODO: use real type when public.
@@ -182,6 +183,9 @@ pub struct CupratedRpcHandler {
 
     /// The time this node was launched as a UNIX timestamp.
     pub start_instant_unix: u64,
+
+    /// Task spawning and shutdown coordination.
+    pub task_executor: TaskExecutor,
 }
 
 impl CupratedRpcHandler {
@@ -192,6 +196,7 @@ impl CupratedRpcHandler {
             blockchain,
             txpool_read,
             start_instant_unix,
+            task_executor,
             ..
         } = node_ctx;
 
@@ -204,6 +209,7 @@ impl CupratedRpcHandler {
             txpool_read,
             blockchain_manager: blockchain.manager(),
             start_instant_unix,
+            task_executor,
         }
     }
 }

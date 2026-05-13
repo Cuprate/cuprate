@@ -38,6 +38,7 @@ pub mod commands;
 pub mod config;
 pub mod constants;
 pub mod logging;
+pub mod monitor;
 pub mod version;
 
 mod p2p;
@@ -47,6 +48,7 @@ mod txpool;
 
 use std::sync::Arc;
 
+use anyhow::Context;
 use tokio::sync::{oneshot, RwLock};
 use tower::{Service, ServiceExt};
 use tracing::{error, info};
@@ -62,7 +64,8 @@ use crate::{
     blockchain::{BlockchainInterface, BlockchainManagerHandle, Syncer, SyncerHandle},
     commands::CommandHandle,
     config::Config,
-    constants::{DATABASE_CORRUPT_MSG, PANIC_CRITICAL_SERVICE_ERROR},
+    constants::DATABASE_CORRUPT_MSG,
+    monitor::TaskExecutor,
     tor::initialize_tor_if_enabled,
     txpool::IncomingTxHandler,
 };
@@ -104,6 +107,9 @@ pub struct NodeContext {
 
     /// The time this node was launched as a UNIX timestamp.
     pub start_instant_unix: u64,
+
+    /// Task spawning and shutdown coordination.
+    pub task_executor: TaskExecutor,
 }
 
 /// An active `cuprated` node.
@@ -133,6 +139,16 @@ pub struct Node {
 
     /// Command channel.
     pub command: CommandHandle,
+
+    /// Task spawning and shutdown executor.
+    pub task_executor: TaskExecutor,
+}
+
+impl Drop for Node {
+    fn drop(&mut self) {
+        self.task_executor.trigger_shutdown();
+        self.task_executor.close();
+    }
 }
 
 impl Node {
@@ -146,11 +162,11 @@ impl Node {
     /// - Global rayon thread pool (optional, uses rayon defaults if not set)
     /// - Memory resolution (call [`resolve_max_memory`](crate::config::resolve_max_memory))
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the database is corrupt, critical services fail to start,
-    /// or `target_max_memory` is unresolved.
-    pub async fn launch(config: Config) -> Self {
+    /// Returns an error if `target_max_memory` is unresolved, the database
+    /// is corrupt, or critical services fail to start.
+    pub async fn launch(config: Config) -> Result<Self, anyhow::Error> {
         let start_instant = std::time::SystemTime::now();
 
         let fast_sync_hashes = blockchain::get_fast_sync_hashes(config.fast_sync, config.network());
@@ -160,14 +176,14 @@ impl Node {
             rayon::ThreadPoolBuilder::new()
                 .num_threads(config.storage.reader_threads)
                 .build()
-                .unwrap(),
+                .context("failed to build rayon database thread pool")?,
         );
 
         // Start the blockchain & tx-pool databases.
         let fjall_db = fjall::Database::builder(config.fjall_directory())
-            .cache_size(config.fjall_cache_size())
+            .cache_size(config.fjall_cache_size()?)
             .open()
-            .unwrap();
+            .context(DATABASE_CORRUPT_MSG)?;
 
         let (mut blockchain_read_handle, mut blockchain_write_handle, _) =
             cuprate_blockchain::service::init_with_pool(
@@ -175,22 +191,18 @@ impl Node {
                 fjall_db.clone(),
                 Arc::clone(&db_thread_pool),
             )
-            .inspect_err(|e| error!("Blockchain database error: {e}"))
-            .expect(DATABASE_CORRUPT_MSG);
+            .context(DATABASE_CORRUPT_MSG)?;
 
         let (txpool_read_handle, txpool_write_handle) =
             cuprate_txpool::service::init_with_pool(fjall_db, db_thread_pool)
-                .inspect_err(|e| error!("Txpool database error: {e}"))
-                .expect(DATABASE_CORRUPT_MSG);
+                .context(DATABASE_CORRUPT_MSG)?;
 
         // TODO: Add an argument/option for keeping alt blocks between restart.
         blockchain_write_handle
             .ready()
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .await?
             .call(BlockchainWriteRequest::FlushAltBlocks)
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+            .await?;
 
         // Check add the genesis block to the blockchain.
         blockchain::check_add_genesis(
@@ -204,7 +216,7 @@ impl Node {
         let context_svc =
             blockchain::init_consensus(blockchain_read_handle.clone(), config.context_config())
                 .await
-                .unwrap();
+                .map_err(anyhow::Error::from_boxed)?;
 
         // Bootstrap or configure Tor if enabled.
         let tor_context = initialize_tor_if_enabled(&config).await;
@@ -223,6 +235,9 @@ impl Node {
             blockchain_manager_handle.clone(),
         );
 
+        // Create the task executor for spawning and shutdown.
+        let task_executor = TaskExecutor::new();
+
         // Create the node context.
         let node_ctx = NodeContext {
             network: config.network(),
@@ -236,6 +251,7 @@ impl Node {
                 .unwrap_or_default()
                 .as_secs(),
             start_instant,
+            task_executor,
         };
 
         // Start clearnet P2P zone
@@ -261,12 +277,9 @@ impl Node {
         .await;
 
         // Send tx handler sender to clearnet zone
-        if clearnet_tx_handler_subscriber
+        clearnet_tx_handler_subscriber
             .send(tx_handler.clone())
-            .is_err()
-        {
-            unreachable!()
-        }
+            .map_err(|_| anyhow::anyhow!("clearnet tx_handler subscriber dropped before init"))?;
 
         // Tor interface channel - populated when Tor starts after sync.
         let (tor_tx, tor_rx) = oneshot::channel();
@@ -282,6 +295,7 @@ impl Node {
             tor: if tor_enabled { Some(tor_rx) } else { None },
             syncer: node_ctx.syncer.clone(),
             command: command_handle,
+            task_executor: node_ctx.task_executor.clone(),
         };
 
         // Initialize the blockchain manager.
@@ -289,7 +303,7 @@ impl Node {
             clearnet_interface.clone(),
             blockchain_write_handle,
             tx_handler.txpool_manager.clone(),
-            config.block_downloader_config(),
+            config.block_downloader_config()?,
             syncer,
             command_rx,
             node_ctx.clone(),
@@ -302,12 +316,21 @@ impl Node {
         // Start Tor P2P zone after sync completes.
         if tor_enabled {
             info!("Tor P2P zone will start after sync.");
+            let task_executor = node_ctx.task_executor.clone();
+            let shutdown_token = task_executor.cancellation_token();
 
-            tokio::spawn(async move {
-                // Wait for the node to synchronize with the network
-                if node_ctx.syncer.wait_for_synced().await.is_err() {
-                    tracing::info!("Not starting Tor P2P zone, syncer stopped");
-                    return;
+            task_executor.spawn(async move {
+                // Wait for the node to synchronize with the network, or shutdown.
+                tokio::select! {
+                    result = node_ctx.syncer.wait_for_synced() => {
+                        if result.is_err() {
+                            tracing::info!("Not starting Tor P2P zone, syncer stopped");
+                            return;
+                        }
+                    }
+                    () = shutdown_token.cancelled() => {
+                        return;
+                    }
                 }
                 tracing::info!("Starting Tor P2P zone.");
 
@@ -332,6 +355,18 @@ impl Node {
             });
         }
 
-        node
+        Ok(node)
+    }
+
+    /// Trigger shutdown.
+    pub fn shutdown(&self) {
+        self.task_executor.trigger_shutdown();
+    }
+
+    /// Wait for shutdown to be triggered and await all tracked tasks.
+    pub async fn wait_for_shutdown(&self) {
+        self.task_executor.cancellation_token().cancelled().await;
+        self.task_executor.close();
+        self.task_executor.wait().await;
     }
 }

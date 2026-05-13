@@ -355,28 +355,41 @@ impl Config {
     }
 
     /// Returns the size of the fjall cache.
-    pub fn fjall_cache_size(&self) -> u64 {
-        *self
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `target_max_memory` is unresolved.
+    pub fn fjall_cache_size(&self) -> anyhow::Result<u64> {
+        Ok(*self
             .storage
             .fjall_cache_size
-            .value(&(self.target_max_memory() / 4))
+            .value(&(self.target_max_memory()? / 4)))
     }
 
     /// Returns the target maximum memory usage.
-    pub fn target_max_memory(&self) -> u64 {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `target_max_memory` is unresolved.
+    pub fn target_max_memory(&self) -> anyhow::Result<u64> {
         match self.target_max_memory {
-            DefaultOrCustom::Default => {
-                panic!("`target_max_memory` is unresolved; call `resolve_max_memory` first")
-            }
-            DefaultOrCustom::Custom(size) => size,
+            DefaultOrCustom::Default => anyhow::bail!(
+                "`target_max_memory` is unresolved; call `resolve_max_memory` first"
+            ),
+            DefaultOrCustom::Custom(size) => Ok(size),
         }
     }
 
     /// The [`BlockDownloaderConfig`].
-    pub fn block_downloader_config(&self) -> BlockDownloaderConfig {
-        self.p2p
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `target_max_memory` is unresolved.
+    pub fn block_downloader_config(&self) -> anyhow::Result<BlockDownloaderConfig> {
+        Ok(self
+            .p2p
             .block_downloader
-            .construct_inner(self.target_max_memory())
+            .construct_inner(self.target_max_memory()?))
     }
 
     /// Checks if a port can be bound to.

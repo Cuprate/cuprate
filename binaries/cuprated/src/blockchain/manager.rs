@@ -3,6 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use futures::StreamExt;
 use monero_oxide::block::Block;
 use tokio::sync::{mpsc, oneshot, Notify, OwnedSemaphorePermit, RwLock};
+use tokio_util::sync::CancellationToken;
 use tower::{BoxError, Service, ServiceExt};
 use tracing::error;
 
@@ -50,17 +51,20 @@ pub async fn init_blockchain_manager(
     command_rx: mpsc::Receiver<BlockchainManagerCommand>,
     node_ctx: crate::NodeContext,
 ) {
+    let shutdown_token = node_ctx.task_executor.cancellation_token();
+
     // TODO: find good values for these size limits
     let (batch_tx, batch_rx) = mpsc::channel(1);
     let stop_current_block_downloader = Arc::new(Notify::new());
 
-    tokio::spawn(syncer.run(
+    node_ctx.task_executor.spawn(syncer.run(
         node_ctx.blockchain.context_svc(),
         ChainService(node_ctx.blockchain.read(), node_ctx.fast_sync_hashes),
         clearnet_interface.clone(),
         batch_tx,
         Arc::clone(&stop_current_block_downloader),
         block_downloader_config,
+        shutdown_token.clone(),
     ));
 
     let manager = BlockchainManager {
@@ -77,7 +81,9 @@ pub async fn init_blockchain_manager(
         fast_sync_hashes: node_ctx.fast_sync_hashes,
     };
 
-    tokio::spawn(manager.run(batch_rx, command_rx));
+    node_ctx
+        .task_executor
+        .spawn(manager.run(batch_rx, command_rx, shutdown_token));
 }
 
 /// The blockchain manager.
@@ -114,9 +120,14 @@ impl BlockchainManager {
         mut self,
         mut block_batch_rx: mpsc::Receiver<(BlockBatch, Arc<OwnedSemaphorePermit>)>,
         mut command_rx: mpsc::Receiver<BlockchainManagerCommand>,
+        shutdown_token: CancellationToken,
     ) {
         loop {
             tokio::select! {
+                biased;
+                () = shutdown_token.cancelled() => {
+                    break;
+                }
                 Some((batch, permit)) = block_batch_rx.recv() => {
                     self.handle_incoming_block_batch(
                         batch,
@@ -128,9 +139,11 @@ impl BlockchainManager {
                     self.handle_command(incoming_command).await;
                 }
                 else => {
-                    todo!("TODO: exit the BC manager")
+                    break;
                 }
             }
         }
+
+        tracing::info!("Blockchain manager shut down.");
     }
 }
