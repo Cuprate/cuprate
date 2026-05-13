@@ -27,7 +27,7 @@
 //! ```
 use std::collections::HashSet;
 
-use monero_oxide::transaction::{Input, Timelock, Transaction};
+use monero_oxide::transaction::{Timelock, Transaction};
 use rayon::prelude::*;
 use tower::ServiceExt;
 
@@ -38,7 +38,7 @@ use cuprate_consensus_rules::{
     },
     ConsensusError, HardFork,
 };
-use cuprate_helper::asynch::rayon_spawn_async;
+use cuprate_helper::{asynch::rayon_spawn_async, tx::tx_key_images};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     output_cache::OutputCache,
@@ -228,13 +228,43 @@ impl<D: Database + Clone> FullVerification<'_, D> {
     pub async fn verify(
         mut self,
     ) -> Result<Vec<TransactionVerificationData>, ExtendedConsensusError> {
-        if self
-            .batch_prep_cache
-            .is_none_or(|c| !c.key_images_spent_checked)
-        {
-            check_kis_unique(self.prepped_txs.iter(), &mut self.database).await?;
-        }
+        check_kis(
+            self.prepped_txs.iter().flat_map(|tx| tx_key_images(&tx.tx)),
+            self.prepped_txs
+                .iter()
+                .map(|tx| tx.tx.prefix().inputs.len())
+                .sum(),
+            &mut self.database,
+        )
+        .await?;
 
+        self.verify_inner().await
+    }
+
+    /// Fully verify each transaction, returning the spent key images.
+    ///
+    /// If `precomputed_kis` is [`Some`], those key images are returned as-is and the key
+    /// image checks are skipped.
+    pub(crate) async fn verify_with_kis(
+        mut self,
+        precomputed_kis: Option<Vec<[u8; 32]>>,
+    ) -> Result<(Vec<TransactionVerificationData>, Vec<[u8; 32]>), ExtendedConsensusError> {
+        let spent_kis = match precomputed_kis {
+            Some(kis) => kis,
+            None => extract_and_check_kis(&self.prepped_txs, &mut self.database).await?,
+        };
+
+        let verified_txs = self.verify_inner().await?;
+
+        Ok((verified_txs, spent_kis))
+    }
+
+    /// Run the verification of the transactions.
+    ///
+    /// The caller must have already checked the key images.
+    async fn verify_inner(
+        mut self,
+    ) -> Result<Vec<TransactionVerificationData>, ExtendedConsensusError> {
         let hashes_in_main_chain =
             hashes_referenced_in_main_chain(&self.prepped_txs, &mut self.database).await?;
 
@@ -279,25 +309,55 @@ impl<D: Database + Clone> FullVerification<'_, D> {
     }
 }
 
-/// Check that each key image used in each transaction is unique in the whole chain.
-pub(crate) async fn check_kis_unique<D: Database>(
-    mut txs: impl Iterator<Item = &TransactionVerificationData>,
+/// Check that each key image provided is unique in the whole chain.
+pub(crate) async fn check_kis<D: Database>(
+    key_images: impl IntoIterator<Item = [u8; 32]>,
+    capacity: usize,
     database: &mut D,
 ) -> Result<(), ExtendedConsensusError> {
-    let mut spent_kis = HashSet::with_capacity(txs.size_hint().1.unwrap_or(0) * 2);
+    let mut spent_kis = HashSet::with_capacity(capacity);
 
-    txs.try_for_each(|tx| {
-        tx.tx.prefix().inputs.iter().try_for_each(|input| {
-            if let Input::ToKey { key_image, .. } = input {
-                if !spent_kis.insert(key_image.to_bytes()) {
-                    tracing::debug!("Duplicate key image found in batch.");
-                    return Err(ConsensusError::Transaction(TransactionError::KeyImageSpent));
-                }
+    for ki in key_images {
+        if !spent_kis.insert(ki) {
+            tracing::debug!("Duplicate key image found in batch.");
+            return Err(ConsensusError::Transaction(TransactionError::KeyImageSpent).into());
+        }
+    }
+
+    check_kis_unspent(spent_kis, database).await
+}
+
+/// Extract the spent key images from `txs`, and check that they are unique in the whole chain.
+pub(crate) async fn extract_and_check_kis<D: Database>(
+    txs: &[TransactionVerificationData],
+    database: &mut D,
+) -> Result<Vec<[u8; 32]>, ExtendedConsensusError> {
+    let capacity = txs.iter().map(|tx| tx.tx.prefix().inputs.len()).sum();
+    let mut spent_kis = HashSet::with_capacity(capacity);
+    let mut captured = Vec::with_capacity(capacity);
+
+    for tx in txs {
+        for ki in tx_key_images(&tx.tx) {
+            if !spent_kis.insert(ki) {
+                tracing::debug!("Duplicate key image found in batch.");
+                return Err(ConsensusError::Transaction(TransactionError::KeyImageSpent).into());
             }
+            captured.push(ki);
+        }
+    }
 
-            Ok(())
-        })
-    })?;
+    check_kis_unspent(spent_kis, database).await?;
+    Ok(captured)
+}
+
+/// Check that none of `spent_kis` have been spent in the chain.
+async fn check_kis_unspent<D: Database>(
+    spent_kis: HashSet<[u8; 32]>,
+    database: &mut D,
+) -> Result<(), ExtendedConsensusError> {
+    if spent_kis.is_empty() {
+        return Ok(());
+    }
 
     let BlockchainResponse::KeyImagesSpent(kis_spent) = database
         .ready()
