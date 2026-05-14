@@ -84,8 +84,8 @@ pub(super) async fn block_header(
         .prefix()
         .outputs
         .iter()
-        .map(|o| o.amount.expect("coinbase is transparent"))
-        .sum::<u64>();
+        .map(|o| o.amount.ok_or_else(|| anyhow!("coinbase is transparent")))
+        .sum::<Result<u64, Error>>()?;
 
     Ok(cuprate_types::rpc::BlockHeader {
         block_weight,
@@ -165,7 +165,9 @@ pub(super) fn hex_to_hash(hex: String) -> Result<[u8; 32], Error> {
 /// [`cuprate_types::blockchain::BlockchainResponse::ChainHeight`] minus 1.
 pub(super) async fn top_height(state: &mut CupratedRpcHandler) -> Result<(u64, [u8; 32]), Error> {
     let (chain_height, hash) = blockchain::chain_height(&mut state.blockchain_read).await?;
-    let height = chain_height.checked_sub(1).unwrap();
+    let height = chain_height
+        .checked_sub(1)
+        .ok_or_else(|| anyhow!("blockchain has no blocks"))?;
     Ok((height, hash))
 }
 
