@@ -59,7 +59,6 @@ use crate::{
         },
         CupratedRpcHandler,
     },
-    statics::START_INSTANT_UNIX,
     txpool::IncomingTxs,
 };
 
@@ -85,7 +84,7 @@ pub async fn map_request(
         Req::SetLogCategories(r) => Resp::SetLogCategories(not_available()?),
         Req::GetTransactionPool(r) => Resp::GetTransactionPool(not_available()?),
         Req::GetTransactionPoolStats(r) => Resp::GetTransactionPoolStats(not_available()?),
-        Req::StopDaemon(r) => Resp::StopDaemon(not_available()?),
+        Req::StopDaemon(r) => Resp::StopDaemon(stop_daemon(state, r).await?),
         Req::GetLimit(r) => Resp::GetLimit(not_available()?),
         Req::SetLimit(r) => Resp::SetLimit(not_available()?),
         Req::OutPeers(r) => Resp::OutPeers(not_available()?),
@@ -569,10 +568,10 @@ async fn get_transaction_pool_stats(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1780-L1788>
 async fn stop_daemon(
-    mut state: CupratedRpcHandler,
+    state: CupratedRpcHandler,
     _: StopDaemonRequest,
 ) -> Result<StopDaemonResponse, Error> {
-    blockchain_manager::stop(todo!()).await?;
+    state.task_executor.trigger_shutdown();
     Ok(StopDaemonResponse { status: Status::Ok })
 }
 
@@ -639,7 +638,7 @@ async fn get_net_stats(
 
     Ok(GetNetStatsResponse {
         base: helper::response_base(false),
-        start_time: *START_INSTANT_UNIX,
+        start_time: state.start_instant_unix,
         total_packets_in: todo!(),
         total_bytes_in: todo!(),
         total_packets_out: todo!(),

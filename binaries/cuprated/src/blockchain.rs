@@ -8,7 +8,9 @@ use tokio::sync::{mpsc, Notify};
 use tower::{BoxError, Service, ServiceExt};
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
-use cuprate_consensus::{generate_genesis_block, BlockchainContextService, ContextConfig};
+use cuprate_consensus::{
+    generate_genesis_block, BlockchainContext, BlockchainContextService, ContextConfig,
+};
 use cuprate_cryptonight::cryptonight_hash_v0;
 use cuprate_p2p::{block_downloader::BlockDownloaderConfig, NetworkInterface};
 use cuprate_p2p_core::{ClearNet, Network};
@@ -26,10 +28,56 @@ mod manager;
 mod syncer;
 mod types;
 
-pub use fast_sync::set_fast_sync_hashes;
+pub use fast_sync::get_fast_sync_hashes;
+pub use interface::BlockchainManagerHandle;
 pub use manager::init_blockchain_manager;
-pub use syncer::SyncNotify;
+pub use syncer::{Syncer, SyncerHandle};
 pub use types::ConsensusBlockchainReadHandle;
+
+/// The interface to the blockchain.
+#[derive(Clone)]
+pub struct BlockchainInterface {
+    /// A read handle to the blockchain database.
+    read: BlockchainReadHandle,
+    /// The blockchain context service.
+    context_svc: BlockchainContextService,
+    /// A handle to the blockchain manager.
+    manager: BlockchainManagerHandle,
+}
+
+impl BlockchainInterface {
+    pub(crate) const fn new(
+        read: BlockchainReadHandle,
+        context_svc: BlockchainContextService,
+        manager: BlockchainManagerHandle,
+    ) -> Self {
+        Self {
+            read,
+            context_svc,
+            manager,
+        }
+    }
+
+    /// Returns a read handle to the blockchain database.
+    pub fn read(&self) -> BlockchainReadHandle {
+        self.read.clone()
+    }
+
+    /// Returns the current [`BlockchainContext`].
+    pub fn context(&mut self) -> &BlockchainContext {
+        self.context_svc.blockchain_context()
+    }
+
+    /// Returns the blockchain context service.
+    pub(crate) fn context_svc(&self) -> BlockchainContextService {
+        self.context_svc.clone()
+    }
+
+    /// Returns a handle to the blockchain manager.
+    pub(crate) fn manager(&self) -> BlockchainManagerHandle {
+        self.manager.clone()
+    }
+}
 
 /// Checks if the genesis block is in the blockchain and adds it if not.
 pub async fn check_add_genesis(
