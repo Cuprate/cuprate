@@ -6,12 +6,10 @@ use std::{
     net::{IpAddr, TcpListener},
     path::{Path, PathBuf},
     str::FromStr,
-    sync::LazyLock,
     time::Duration,
 };
 
-use anyhow::bail;
-use clap::Parser;
+use anyhow::{bail, Context};
 use cuprate_blockchain::config::CacheSizes;
 use serde::{Deserialize, Serialize};
 
@@ -24,16 +22,11 @@ use cuprate_p2p::block_downloader::BlockDownloaderConfig;
 use cuprate_p2p_core::{ClearNet, Tor};
 use cuprate_wire::OnionAddr;
 
-use crate::{
-    constants::{DEFAULT_CONFIG_STARTUP_DELAY, DEFAULT_CONFIG_WARNING},
-    logging::eprintln_red,
-    tor::{TorContext, TorMode},
-};
+use crate::tor::{TorContext, TorMode};
 
 #[cfg(feature = "arti")]
 use {arti_client::KeystoreSelector, safelog::DisplayRedacted};
 
-mod args;
 mod default;
 mod fs;
 mod p2p;
@@ -57,6 +50,14 @@ use tokio::TokioConfig;
 use tor::TorConfig;
 use tracing_config::TracingConfig;
 
+/// Result of a single check from [`Config::dry_run_check`].
+pub struct DryRunResult {
+    /// Description of the check.
+    pub description: String,
+    /// The result of the check.
+    pub result: Result<(), anyhow::Error>,
+}
+
 /// Header to put at the start of the generated config file.
 const HEADER: &str = r"##     ____                      _
 ##    / ___|   _ _ __  _ __ __ _| |_ ___
@@ -75,66 +76,53 @@ const HEADER: &str = r"##     ____                      _
 
 ";
 
-/// A lazy-lock that reads and stores total system memory.
-static MEMORY: LazyLock<u64> = LazyLock::new(|| {
-    tracing::info!("Attempting to read total memory from system");
+/// Resolves `target_max_memory` from system RAM if unset.
+///
+/// # Errors
+///
+/// Returns an error if the system memory probe returns zero.
+pub fn resolve_max_memory(config: &mut Config) -> Result<(), anyhow::Error> {
+    if matches!(config.target_max_memory, DefaultOrCustom::Default) {
+        tracing::info!("Attempting to read total memory from system");
 
-    let mut info = sysinfo::System::new();
-    info.refresh_memory();
+        let mut info = sysinfo::System::new();
+        info.refresh_memory();
+        let memory = info.total_memory();
 
-    let memory = info.total_memory();
-
-    if memory == 0 {
-        eprintln_red("Unable to read total memory, please manually set the `target_max_memory` value in the config file.");
-        std::process::exit(1);
-    }
-
-    memory
-});
-
-/// Reads the args & config file, returning a [`Config`].
-pub fn read_config_and_args() -> Config {
-    let args = args::Args::parse();
-    args.do_quick_requests();
-
-    let config: Config = if let Some(config_file) = &args.config_file {
-        // If a config file was set in the args try to read it and exit if we can't.
-        match Config::read_from_path(config_file) {
-            Ok(config) => config,
-            Err(e) => {
-                eprintln_red(&format!("Failed to read config from file: {e}"));
-                std::process::exit(1);
-            }
+        if memory == 0 {
+            bail!("Unable to read total memory, please manually set the `target_max_memory` value in the config file.");
         }
-    } else {
-        // First attempt to read the config file from the current directory.
+
+        config.target_max_memory = DefaultOrCustom::Custom(memory);
+    }
+    Ok(())
+}
+
+/// Finds and reads a config file from the default locations.
+///
+/// Tries the current directory first, then the config directory.
+/// Returns `None` if no config file is found in either location.
+///
+/// # Errors
+///
+/// Returns an error if a config file is found but cannot be parsed.
+pub fn find_config() -> Result<Option<Config>, anyhow::Error> {
+    let paths = [
         std::env::current_dir()
-            .map(|path| path.join(DEFAULT_CONFIG_FILE_NAME))
-            .map_err(Into::into)
-            .and_then(Config::read_from_path)
-            .inspect_err(|e| tracing::debug!("Failed to read config from current dir: {e}"))
-            // otherwise try the main config directory.
-            .or_else(|_| {
-                let file = CUPRATE_CONFIG_DIR.join(DEFAULT_CONFIG_FILE_NAME);
-                Config::read_from_path(file)
-            })
-            .inspect_err(|e| {
-                tracing::debug!("Failed to read config from config dir: {e}");
-                if !args.skip_config_warning {
-                    eprintln_red(DEFAULT_CONFIG_WARNING);
-                    std::thread::sleep(DEFAULT_CONFIG_STARTUP_DELAY);
-                }
-            })
-            .unwrap_or_default()
-    };
+            .ok()
+            .map(|p| p.join(DEFAULT_CONFIG_FILE_NAME)),
+        Some(CUPRATE_CONFIG_DIR.join(DEFAULT_CONFIG_FILE_NAME)),
+    ];
 
-    let config = args.apply_args(config);
+    for path in paths.into_iter().flatten() {
+        if !path.exists() {
+            continue;
+        }
 
-    if args.dry_run {
-        config.dry_run_check();
+        return Config::read_from_path(&path).map(Some);
     }
 
-    config
+    Ok(None)
 }
 
 config_struct! {
@@ -252,19 +240,19 @@ impl Config {
     /// # Errors
     ///
     /// Will return an [`Err`] if the file cannot be read or if the file is not a valid [`toml`] config.
-    fn read_from_path(file: impl AsRef<Path>) -> Result<Self, anyhow::Error> {
+    pub fn read_from_path(file: impl AsRef<Path>) -> Result<Self, anyhow::Error> {
         let file_text = read_to_string(file.as_ref())?;
 
-        Ok(toml::from_str(&file_text)
-            .inspect(|_| println!("Using config at: {}", file.as_ref().to_string_lossy()))
-            .inspect_err(|e| {
-                eprintln_red(&format!(
-                    "Failed to parse config file at: {}",
-                    file.as_ref().to_string_lossy()
-                ));
-                eprintln_red(&format!("{e}"));
-                std::process::exit(1);
-            })?)
+        let config: Self = toml::from_str(&file_text).with_context(|| {
+            format!(
+                "Failed to parse config file at: {}",
+                file.as_ref().to_string_lossy()
+            )
+        })?;
+
+        println!("Using config at: {}", file.as_ref().to_string_lossy());
+
+        Ok(config)
     }
 
     /// Returns the current [`Network`] we are running on.
@@ -368,26 +356,41 @@ impl Config {
     }
 
     /// Returns the size of the fjall cache.
-    pub fn fjall_cache_size(&self) -> u64 {
-        *self
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `target_max_memory` is unresolved.
+    pub fn fjall_cache_size(&self) -> anyhow::Result<u64> {
+        Ok(*self
             .storage
             .fjall_cache_size
-            .value(&(self.target_max_memory() / 4))
+            .value(&(self.target_max_memory()? / 4)))
     }
 
     /// Returns the target maximum memory usage.
-    pub fn target_max_memory(&self) -> u64 {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `target_max_memory` is unresolved.
+    pub fn target_max_memory(&self) -> anyhow::Result<u64> {
         match self.target_max_memory {
-            DefaultOrCustom::Default => *MEMORY,
-            DefaultOrCustom::Custom(size) => size,
+            DefaultOrCustom::Default => anyhow::bail!(
+                "`target_max_memory` is unresolved; call `resolve_max_memory` first"
+            ),
+            DefaultOrCustom::Custom(size) => Ok(size),
         }
     }
 
     /// The [`BlockDownloaderConfig`].
-    pub fn block_downloader_config(&self) -> BlockDownloaderConfig {
-        self.p2p
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `target_max_memory` is unresolved.
+    pub fn block_downloader_config(&self) -> anyhow::Result<BlockDownloaderConfig> {
+        Ok(self
+            .p2p
             .block_downloader
-            .construct_inner(self.target_max_memory())
+            .construct_inner(self.target_max_memory()?))
     }
 
     /// Checks if a port can be bound to.
@@ -435,130 +438,95 @@ impl Config {
         Ok(())
     }
 
-    pub fn dry_run_check(self) -> ! {
-        let mut error = false;
+    pub fn dry_run_check(&self) -> Vec<DryRunResult> {
+        let mut results = Vec::new();
 
         if self.p2p.clear_net.enable_inbound {
             let port = p2p_port(self.p2p.clear_net.p2p_port, self.network);
             let ip = self.p2p.clear_net.listen_on;
 
-            match Self::check_port(IpAddr::V4(ip), port) {
-                Ok(()) => println!("P2P clearnet {ip}:{port} available."),
-                Err(e) => {
-                    eprintln_red(&format!("Error: {e}"));
-                    error = true;
-                }
-            }
+            results.push(DryRunResult {
+                description: format!("P2P clearnet {ip}:{port} available."),
+                result: Self::check_port(IpAddr::V4(ip), port),
+            });
         }
 
         if self.p2p.clear_net.enable_inbound_v6 {
             let port = p2p_port(self.p2p.clear_net.p2p_port, self.network);
             let ip = self.p2p.clear_net.listen_on_v6;
 
-            match Self::check_port(IpAddr::V6(ip), port) {
-                Ok(()) => println!("P2P clearnet {ip}:{port} available."),
-                Err(e) => {
-                    eprintln_red(&format!("Error: {e}"));
-                    error = true;
-                }
-            }
+            results.push(DryRunResult {
+                description: format!("P2P clearnet {ip}:{port} available."),
+                result: Self::check_port(IpAddr::V6(ip), port),
+            });
         }
 
         if self.rpc.restricted.enable {
             let port = restricted_rpc_port(self.rpc.restricted.port, self.network);
             let ip = self.rpc.restricted.address;
 
-            match Self::check_port(ip, port) {
-                Ok(()) => println!("RPC restricted {ip}:{port} available."),
-                Err(e) => {
-                    eprintln_red(&format!("Error: {e}"));
-                    error = true;
-                }
-            }
+            results.push(DryRunResult {
+                description: format!("RPC restricted {ip}:{port} available."),
+                result: Self::check_port(ip, port),
+            });
         }
 
         if self.rpc.unrestricted.enable {
             let port = unrestricted_rpc_port(self.rpc.unrestricted.port, self.network);
             let ip = self.rpc.unrestricted.address;
 
-            match Self::check_port(ip, port) {
-                Ok(()) => println!("RPC unrestricted {ip}:{port} available."),
-                Err(e) => {
-                    eprintln_red(&format!("Error: {e}"));
-                    error = true;
-                }
-            }
+            results.push(DryRunResult {
+                description: format!("RPC unrestricted {ip}:{port} available."),
+                result: Self::check_port(ip, port),
+            });
         }
 
         if self.tor.mode == TorMode::Daemon {
             let port = self.tor.daemon.listening_addr.port();
             let ip = self.tor.daemon.listening_addr.ip();
 
-            match Self::check_port(ip, port) {
-                Ok(()) => println!("Tor daemon {ip}:{port} available."),
-                Err(e) => {
-                    eprintln_red(&format!("Error: {e}"));
-                    error = true;
-                }
-            }
+            results.push(DryRunResult {
+                description: format!("Tor daemon {ip}:{port} available."),
+                result: Self::check_port(ip, port),
+            });
         }
 
-        match Self::check_dir_permissions(&self.fs.fast_data_directory) {
-            Ok(()) => println!(
+        results.push(DryRunResult {
+            description: format!(
                 "Permissions are ok at {}",
                 self.fs.fast_data_directory.display()
             ),
-            Err(e) => {
-                eprintln_red(&format!("Error: {e}"));
-                error = true;
-            }
-        }
+            result: Self::check_dir_permissions(&self.fs.fast_data_directory),
+        });
 
-        match Self::check_dir_permissions(&self.fs.slow_data_directory) {
-            Ok(()) => println!(
+        results.push(DryRunResult {
+            description: format!(
                 "Permissions are ok at {}",
                 self.fs.slow_data_directory.display()
             ),
-            Err(e) => {
-                eprintln_red(&format!("Error: {e}"));
-                error = true;
-            }
-        }
+            result: Self::check_dir_permissions(&self.fs.slow_data_directory),
+        });
 
-        match Self::check_dir_permissions(&self.fs.cache_directory) {
-            Ok(()) => println!(
+        results.push(DryRunResult {
+            description: format!(
                 "Permissions are ok at {}",
                 self.fs.cache_directory.display()
             ),
-            Err(e) => {
-                eprintln_red(&format!("Error {e}"));
-                error = true;
-            }
-        }
+            result: Self::check_dir_permissions(&self.fs.cache_directory),
+        });
 
         #[cfg(feature = "arti")]
         if matches!(self.tor.mode, TorMode::Arti | TorMode::Auto) {
-            match Self::check_dir_permissions(&self.tor.arti.directory_path) {
-                Ok(()) => println!(
+            results.push(DryRunResult {
+                description: format!(
                     "Permissions are ok at {}",
                     self.tor.arti.directory_path.display()
                 ),
-                Err(e) => {
-                    eprintln_red(&format!("Error: {e}"));
-                    error = true;
-                }
-            }
+                result: Self::check_dir_permissions(&self.tor.arti.directory_path),
+            });
         }
 
-        let code = if error {
-            eprintln_red("Checks failed.");
-            1
-        } else {
-            println!("All checks passed successfully!");
-            0
-        };
-
-        std::process::exit(code)
+        results
     }
 }
 

@@ -56,6 +56,12 @@ impl CupratedVersionInfo {
     }
 }
 
+impl Default for CupratedVersionInfo {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::CupratedVersionInfo;

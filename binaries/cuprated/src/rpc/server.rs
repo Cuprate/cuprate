@@ -7,43 +7,39 @@ use std::{
 
 use anyhow::Error;
 use tokio::net::TcpListener;
+use tokio_util::sync::CancellationToken;
 use tower::limit::rate::RateLimitLayer;
 use tower_http::limit::RequestBodyLimitLayer;
 use tracing::{info, warn};
 
-use cuprate_blockchain::service::BlockchainReadHandle;
-use cuprate_consensus::BlockchainContextService;
-use cuprate_helper::network::Network;
 use cuprate_rpc_interface::{RouterBuilder, RpcHandler};
-use cuprate_txpool::service::TxpoolReadHandle;
 
 use crate::{
     config::{restricted_rpc_port, unrestricted_rpc_port, RpcConfig},
-    rpc::{rpc_handler::BlockchainManagerHandle, CupratedRpcHandler},
+    rpc::CupratedRpcHandler,
     txpool::IncomingTxHandler,
+    NodeContext,
 };
 
 /// Initialize the RPC server(s).
 ///
-/// # Panics
-/// This function will panic if:
+/// # Errors
+///
+/// This function will return an [`Err`] if:
 /// - the server(s) could not be started
 /// - unrestricted RPC is started on non-local
 ///   address without override option
 pub fn init_rpc_servers(
     config: RpcConfig,
-    network: Network,
-    blockchain_read: BlockchainReadHandle,
-    blockchain_context: BlockchainContextService,
-    txpool_read: TxpoolReadHandle,
     tx_handler: IncomingTxHandler,
-) {
+    node_ctx: NodeContext,
+) -> Result<(), Error> {
     for ((enable, addr, port, request_byte_limit), restricted) in [
         (
             (
                 config.unrestricted.enable,
                 config.unrestricted.address,
-                unrestricted_rpc_port(config.unrestricted.port, network),
+                unrestricted_rpc_port(config.unrestricted.port, node_ctx.network),
                 config.unrestricted.request_byte_limit,
             ),
             false,
@@ -52,7 +48,7 @@ pub fn init_rpc_servers(
             (
                 config.restricted.enable,
                 config.restricted.address,
-                restricted_rpc_port(config.restricted.port, network),
+                restricted_rpc_port(config.restricted.port, node_ctx.network),
                 config.restricted.request_byte_limit,
             ),
             true,
@@ -73,30 +69,28 @@ pub fn init_rpc_servers(
                     "Starting unrestricted RPC on non-local address, this is dangerous!"
                 );
             } else {
-                panic!("Refusing to start unrestricted RPC on a non-local address ({addr})");
+                return Err(anyhow::anyhow!(
+                    "Refusing to start unrestricted RPC on a non-local address ({addr})"
+                ));
             }
         }
 
-        let rpc_handler = CupratedRpcHandler::new(
-            restricted,
-            network,
-            blockchain_read.clone(),
-            blockchain_context.clone(),
-            txpool_read.clone(),
-            tx_handler.clone(),
-        );
+        let rpc_handler = CupratedRpcHandler::new(restricted, tx_handler.clone(), node_ctx.clone());
 
-        tokio::task::spawn(async move {
+        let shutdown_token = node_ctx.task_executor.cancellation_token();
+        node_ctx.task_executor.spawn_critical(
+            "rpc_server",
             run_rpc_server(
                 rpc_handler,
                 restricted,
                 SocketAddr::new(addr, port),
                 request_byte_limit,
-            )
-            .await
-            .unwrap();
-        });
+                shutdown_token,
+            ),
+        );
     }
+
+    Ok(())
 }
 
 /// This initializes and runs an RPC server.
@@ -107,6 +101,7 @@ async fn run_rpc_server(
     restricted: bool,
     address: SocketAddr,
     request_byte_limit: usize,
+    shutdown_token: CancellationToken,
 ) -> Result<(), Error> {
     info!(
         restricted,
@@ -134,7 +129,10 @@ async fn run_rpc_server(
     //
     // TODO: impl custom server code, don't use axum.
     let listener = TcpListener::bind(address).await?;
-    axum::serve(listener, router).await?;
+    axum::serve(listener, router)
+        .with_graceful_shutdown(shutdown_token.cancelled_owned())
+        .await?;
 
+    info!(restricted, "RPC server shut down.");
     Ok(())
 }

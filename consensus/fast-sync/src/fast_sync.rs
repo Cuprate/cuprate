@@ -1,7 +1,6 @@
 use std::{
     cmp::min,
     collections::{HashMap, VecDeque},
-    sync::OnceLock,
 };
 
 use blake3::Hasher;
@@ -21,34 +20,19 @@ use cuprate_types::{
     Chain, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 
-/// A [`OnceLock`] representing the fast sync hashes.
-static FAST_SYNC_HASHES: OnceLock<&[[u8; 32]]> = OnceLock::new();
-
 /// The size of a batch of block hashes to hash to create a fast sync hash.
 pub const FAST_SYNC_BATCH_LEN: usize = 512;
 
-/// Returns the height of the first block not included in the embedded hashes.
-///
-/// # Panics
-///
-/// This function will panic if [`set_fast_sync_hashes`] has not been called.
-pub fn fast_sync_stop_height() -> usize {
-    FAST_SYNC_HASHES.get().unwrap().len() * FAST_SYNC_BATCH_LEN
-}
-
-/// Sets the hashes to use for fast-sync.
-///
-/// # Panics
-///
-/// This will panic if this is called more than once.
-pub fn set_fast_sync_hashes(hashes: &'static [[u8; 32]]) {
-    FAST_SYNC_HASHES.set(hashes).unwrap();
+/// Returns the height of the first block not included in the given hashes.
+pub const fn fast_sync_stop_height(hashes: &[[u8; 32]]) -> usize {
+    hashes.len() * FAST_SYNC_BATCH_LEN
 }
 
 /// Validates that the given [`ChainEntry`]s are in the fast-sync hashes.
 ///
 /// `entries` should be a list of sequential entries.
 /// `start_height` should be the height of the first block in the first entry.
+/// `fast_sync_hashes` should be the hashes to validate against (empty to skip validation).
 ///
 /// Returns a tuple, the first element being the entries that are valid* the second
 /// the entries we do not know are valid and should be passed in again when we have more entries.
@@ -57,17 +41,16 @@ pub fn set_fast_sync_hashes(hashes: &'static [[u8; 32]]) {
 /// we can not check their validity here.
 ///
 /// There may be more entries returned than passed in as entries could be split.
-///
-/// # Panics
-///
-/// This will panic if [`set_fast_sync_hashes`] has not been called.
 pub async fn validate_entries<N: NetworkZone>(
     mut entries: VecDeque<ChainEntry<N>>,
     start_height: usize,
     blockchain_read_handle: &mut BlockchainReadHandle,
+    fast_sync_hashes: &[[u8; 32]],
 ) -> Result<(VecDeque<ChainEntry<N>>, VecDeque<ChainEntry<N>>), tower::BoxError> {
+    let stop_height = fast_sync_stop_height(fast_sync_hashes);
+
     // if we are past the top fast sync block return all entries as valid.
-    if start_height >= fast_sync_stop_height() {
+    if start_height >= stop_height {
         return Ok((entries, VecDeque::new()));
     }
 
@@ -83,7 +66,7 @@ pub async fn validate_entries<N: NetworkZone>(
        for, we will split a batch if it can only be partially validated.
 
        With the remaining hashes from the blockchain and the hashes in the batches we can validate we
-       work on calculating the fast sync hashes and comparing them to the ones in [`FAST_SYNC_HASHES`].
+       work on calculating the fast sync hashes and comparing them to the ones provided.
     */
 
     // First calculate the start and stop for this range of hashes.
@@ -93,7 +76,7 @@ pub async fn validate_entries<N: NetworkZone>(
 
     let hashes_stop_height = min(
         (last_height / FAST_SYNC_BATCH_LEN) * FAST_SYNC_BATCH_LEN,
-        fast_sync_stop_height(),
+        stop_height,
     );
 
     let mut hashes_stop_diff_last_height = last_height - hashes_stop_height;
@@ -162,10 +145,7 @@ pub async fn validate_entries<N: NetworkZone>(
         if (i + 1) % FAST_SYNC_BATCH_LEN == 0 {
             let got_hash = hasher.finalize();
 
-            if got_hash
-                != FAST_SYNC_HASHES.get().unwrap()
-                    [get_hash_index_for_height(hashes_start_height + i)]
-            {
+            if got_hash != fast_sync_hashes[get_hash_index_for_height(hashes_start_height + i)] {
                 return Err("Hashes do not match".into());
             }
             hasher.reset();
@@ -274,22 +254,21 @@ mod tests {
     use cuprate_p2p::block_downloader::ChainEntry;
     use cuprate_p2p_core::{client::InternalPeerID, handles::HandleBuilder, ClearNet};
 
-    use crate::{
-        fast_sync_stop_height, set_fast_sync_hashes, validate_entries, FAST_SYNC_BATCH_LEN,
-    };
+    use crate::{fast_sync_stop_height, validate_entries, FAST_SYNC_BATCH_LEN};
 
     static HASHES: LazyLock<&[[u8; 32]]> = LazyLock::new(|| {
-        let hashes = (0..FAST_SYNC_BATCH_LEN * 2000)
+        (0..FAST_SYNC_BATCH_LEN * 2000)
             .map(|i| {
                 let mut ret = [0; 32];
                 ret[..8].copy_from_slice(&i.to_le_bytes());
                 ret
             })
-            .collect::<Vec<_>>();
+            .collect::<Vec<_>>()
+            .leak()
+    });
 
-        let hashes = hashes.leak();
-
-        let fast_sync_hashes = hashes
+    static FAST_SYNC_HASHES: LazyLock<&[[u8; 32]]> = LazyLock::new(|| {
+        HASHES
             .chunks(FAST_SYNC_BATCH_LEN)
             .map(|chunk| {
                 let len = chunk.len() * 32;
@@ -300,11 +279,8 @@ mod tests {
                 // within the [[u8; 32]]'s lifetime.
                 unsafe { blake3::hash(slice::from_raw_parts(bytes, len)).into() }
             })
-            .collect::<Vec<_>>();
-
-        set_fast_sync_hashes(fast_sync_hashes.leak());
-
-        hashes
+            .collect::<Vec<_>>()
+            .leak()
     });
 
     fn test_db(path: PathBuf) -> BlockchainReadHandle {
@@ -343,14 +319,14 @@ mod tests {
             tokio_test::block_on(async move {
                 let mut blockchain_read_handle= test_db(data_dir.path().to_path_buf());
 
-                let ret = validate_entries::<ClearNet>(VecDeque::from([entry]), 0, &mut blockchain_read_handle).await.unwrap();
+                let ret = validate_entries::<ClearNet>(VecDeque::from([entry]), 0, &mut blockchain_read_handle, *FAST_SYNC_HASHES).await.unwrap();
 
                 let len_left = ret.0.iter().map(|e| e.ids.len()).sum::<usize>();
                 let len_right = ret.1.iter().map(|e| e.ids.len()).sum::<usize>();
 
                 assert_eq!(len_left + len_right, len);
-                assert!(len_left <= fast_sync_stop_height());
-                assert!(len_right < FAST_SYNC_BATCH_LEN || len > fast_sync_stop_height());
+                assert!(len_left <= fast_sync_stop_height(*FAST_SYNC_HASHES));
+                assert!(len_right < FAST_SYNC_BATCH_LEN || len > fast_sync_stop_height(*FAST_SYNC_HASHES));
             });
         }
 
@@ -370,14 +346,14 @@ mod tests {
             tokio_test::block_on(async move {
                 let mut blockchain_read_handle= test_db(data_dir.path().to_path_buf());
 
-                let ret = validate_entries::<ClearNet>(entries, 0, &mut blockchain_read_handle).await.unwrap();
+                let ret = validate_entries::<ClearNet>(entries, 0, &mut blockchain_read_handle, *FAST_SYNC_HASHES).await.unwrap();
 
                 let len_left = ret.0.iter().map(|e| e.ids.len()).sum::<usize>();
                 let len_right = ret.1.iter().map(|e| e.ids.len()).sum::<usize>();
 
                 assert_eq!(len_left + len_right, len);
-                assert!(len_left <= fast_sync_stop_height());
-                assert!(len_right < FAST_SYNC_BATCH_LEN || len > fast_sync_stop_height());
+                assert!(len_left <= fast_sync_stop_height(*FAST_SYNC_HASHES));
+                assert!(len_right < FAST_SYNC_BATCH_LEN || len > fast_sync_stop_height(*FAST_SYNC_HASHES));
             });
         }
 
@@ -397,7 +373,7 @@ mod tests {
             tokio_test::block_on(async move {
                 let mut blockchain_read_handle= test_db(data_dir.path().to_path_buf());
 
-                let ret = validate_entries::<ClearNet>(VecDeque::from([entry]), 0, &mut blockchain_read_handle).await.unwrap();
+                let ret = validate_entries::<ClearNet>(VecDeque::from([entry]), 0, &mut blockchain_read_handle, *FAST_SYNC_HASHES).await.unwrap();
 
                 let len_left = ret.0.iter().map(|e| e.ids.len()).sum::<usize>();
                 let len_right = ret.1.iter().map(|e| e.ids.len()).sum::<usize>();
