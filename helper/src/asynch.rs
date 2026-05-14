@@ -10,6 +10,7 @@ use core::{
 };
 
 use futures::{channel::oneshot, FutureExt};
+use tokio as _;
 
 //---------------------------------------------------------------------------------------------------- InfallibleOneshotReceiver
 /// A oneshot receiver channel that doesn't return an Error.
