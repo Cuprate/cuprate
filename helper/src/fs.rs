@@ -236,26 +236,27 @@ pub fn address_book_path(cache_dir: &Path, network: Network) -> PathBuf {
 // `rwxr-x---`
 //
 // # Windows
-// TODO: does nothing.
-#[cfg_attr(
-    target_os = "windows",
-    expect(
-        clippy::missing_const_for_fn,
-        reason = "remove when Windows is implemented"
-    )
-)]
+// Not available. Permissions are set on a per-directory basis in `set_private_directory_permissions`.
+#[cfg(target_family = "unix")]
 pub fn set_private_global_file_permissions() {
-    #[cfg(target_family = "unix")]
     // SAFETY: calling C.
     unsafe {
         target_os_lib::umask(0o027);
     }
+}
 
-    #[cfg(target_os = "windows")]
-    // TODO: impl for Windows.
-    {
-        use target_os_lib as _;
-    }
+// Apply private permissions to `roots`.
+//
+// # Windows
+// Restricts each newly-created directory to the current user, SYSTEM, and Administrators.
+//
+// # Unix
+// Not available. Permissions are set globally by `set_private_global_file_permissions`.
+#[cfg(target_os = "windows")]
+mod windows_perms;
+#[cfg(target_os = "windows")]
+pub fn set_private_directory_permissions(roots: &[&Path]) {
+    windows_perms::apply(roots);
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

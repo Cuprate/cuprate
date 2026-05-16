@@ -130,6 +130,9 @@ pub fn read_config_and_args() -> Config {
 
     let config = args.apply_args(config);
 
+    #[cfg(target_os = "windows")]
+    cuprate_helper::fs::set_private_directory_permissions(&config.writable_directories());
+
     if args.dry_run {
         config.dry_run_check();
     }
@@ -245,6 +248,20 @@ impl Config {
         let mut doc = toml_edit::DocumentMut::from_str(&str).unwrap();
         Self::write_docs(doc.as_table_mut());
         format!("{HEADER}{doc}")
+    }
+
+    /// Returns the directories cuprate writes to.
+    pub fn writable_directories(&self) -> Vec<&Path> {
+        let mut paths = vec![
+            self.fs.fast_data_directory.as_path(),
+            self.fs.slow_data_directory.as_path(),
+            self.fs.cache_directory.as_path(),
+        ];
+        #[cfg(feature = "arti")]
+        if matches!(self.tor.mode, TorMode::Arti | TorMode::Auto) {
+            paths.push(self.tor.arti.directory_path.as_path());
+        }
+        paths
     }
 
     /// Attempts to read a config file in [`toml`] format from the given [`Path`].
@@ -503,46 +520,9 @@ impl Config {
             }
         }
 
-        match Self::check_dir_permissions(&self.fs.fast_data_directory) {
-            Ok(()) => println!(
-                "Permissions are ok at {}",
-                self.fs.fast_data_directory.display()
-            ),
-            Err(e) => {
-                eprintln_red(&format!("Error: {e}"));
-                error = true;
-            }
-        }
-
-        match Self::check_dir_permissions(&self.fs.slow_data_directory) {
-            Ok(()) => println!(
-                "Permissions are ok at {}",
-                self.fs.slow_data_directory.display()
-            ),
-            Err(e) => {
-                eprintln_red(&format!("Error: {e}"));
-                error = true;
-            }
-        }
-
-        match Self::check_dir_permissions(&self.fs.cache_directory) {
-            Ok(()) => println!(
-                "Permissions are ok at {}",
-                self.fs.cache_directory.display()
-            ),
-            Err(e) => {
-                eprintln_red(&format!("Error {e}"));
-                error = true;
-            }
-        }
-
-        #[cfg(feature = "arti")]
-        if matches!(self.tor.mode, TorMode::Arti | TorMode::Auto) {
-            match Self::check_dir_permissions(&self.tor.arti.directory_path) {
-                Ok(()) => println!(
-                    "Permissions are ok at {}",
-                    self.tor.arti.directory_path.display()
-                ),
+        for path in self.writable_directories() {
+            match Self::check_dir_permissions(path) {
+                Ok(()) => println!("Permissions are ok at {}", path.display()),
                 Err(e) => {
                     eprintln_red(&format!("Error: {e}"));
                     error = true;

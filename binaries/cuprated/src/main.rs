@@ -54,6 +54,7 @@ mod version;
 
 fn main() {
     // Set global private permissions for created files.
+    #[cfg(target_family = "unix")]
     cuprate_helper::fs::set_private_global_file_permissions();
 
     // Initialize global static `LazyLock` data.
