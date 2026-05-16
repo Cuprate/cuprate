@@ -46,7 +46,7 @@ pub async fn map_request(
     Ok(match request {
         Req::GetBlocks(r) => Resp::GetBlocks(not_available()?),
         Req::GetBlocksByHeight(r) => Resp::GetBlocksByHeight(not_available()?),
-        Req::GetHashes(r) => Resp::GetHashes(not_available()?),
+        Req::GetHashes(r) => Resp::GetHashes(get_hashes(state, r).await?),
         Req::GetOutputIndexes(r) => Resp::GetOutputIndexes(not_available()?),
         Req::GetOuts(r) => Resp::GetOuts(not_available()?),
         Req::GetTransactionPoolHashes(r) => Resp::GetTransactionPoolHashes(not_available()?),
@@ -134,8 +134,7 @@ async fn get_blocks(
     }
 
     let (block_hashes, start_height, _) =
-        blockchain::next_chain_entry(&mut state.blockchain_read, block_hashes, start_height)
-            .await?;
+        blockchain::next_chain_entry(&mut state.blockchain_read, block_hashes).await?;
 
     if start_height.is_none() {
         return Err(anyhow!("Block IDs were not sorted properly"));
@@ -180,31 +179,28 @@ async fn get_hashes(
     request: GetHashesRequest,
 ) -> Result<GetHashesResponse, Error> {
     let GetHashesRequest {
-        start_height,
+        start_height: _,
         block_ids,
     } = request;
 
-    // FIXME: impl `last()`
-    let last = {
-        let len = block_ids.len();
-
-        if len == 0 {
-            return Err(anyhow!("block_ids empty"));
-        }
-
-        block_ids[len - 1]
-    };
-
+    // monerod ignores `req.start_height` it's overwritten by the split point derived from `block_ids`.
+    // https://github.com/monero-project/monero/blob/495c7f18dd92c53753339a9aff65e5ae097958b4/src/rpc/core_rpc_server.cpp#L894
+    // https://github.com/monero-project/monero/blob/495c7f18dd92c53753339a9aff65e5ae097958b4/src/cryptonote_core/blockchain.cpp#L2736
+    // https://github.com/monero-project/monero/blob/495c7f18dd92c53753339a9aff65e5ae097958b4/src/cryptonote_core/blockchain.cpp#L2487
     let hashes: Vec<[u8; 32]> = (&block_ids).into();
 
-    let (m_block_ids, _, current_height) =
-        blockchain::next_chain_entry(&mut state.blockchain_read, hashes, start_height).await?;
+    let (m_block_ids, start, current_height) =
+        blockchain::next_chain_entry(&mut state.blockchain_read, hashes).await?;
+
+    let Some(start) = start else {
+        return Err(anyhow!("Could not find split point."));
+    };
 
     Ok(GetHashesResponse {
         base: helper::access_response_base(false),
         m_block_ids: m_block_ids.into(),
         current_height: usize_to_u64(current_height),
-        start_height,
+        start_height: usize_to_u64(start),
     })
 }
 
