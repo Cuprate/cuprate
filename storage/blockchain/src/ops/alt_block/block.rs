@@ -94,7 +94,7 @@ pub fn add_alt_block(
 ///
 /// This function will look at only the blocks with the given [`AltBlockHeight::chain_id`], no others
 /// even if they are technically part of this chain.
-pub fn get_alt_block(
+pub fn get_alt_block_information(
     db: &BlockchainDatabase,
     alt_block_height: &AltBlockHeight,
     tx_ro: &fjall::Snapshot,
@@ -132,6 +132,22 @@ pub fn get_alt_block(
         ),
         chain_id: alt_block_height.chain_id.into(),
     })
+}
+
+/// Retrieve an alt [`Block`] via its [`AltBlockHeight`].
+///
+/// This function will look at only the blocks with the given [`AltBlockHeight::chain_id`], no others
+/// even if they are technically part of this chain.
+pub fn get_alt_block(
+    db: &BlockchainDatabase,
+    alt_block_height: &AltBlockHeight,
+    tx_ro: &fjall::Snapshot,
+) -> DbResult<Block> {
+    let block_blob = tx_ro
+        .get(&db.alt_block_blobs, bytemuck::bytes_of(alt_block_height))?
+        .ok_or(BlockchainError::NotFound)?;
+
+    Ok(Block::read(&mut block_blob.as_ref()).unwrap())
 }
 
 /// Retrieves the hash of the block at the given `block_height` on the alt chain with
@@ -226,4 +242,17 @@ pub fn get_alt_block_extended_header_from_height(
         block_weight: block_info.weight,
         long_term_weight: block_info.long_term_weight,
     })
+}
+
+/// Returns the [`AltBlockHeight`] of a block from its hash, only if it is in an alt chain.
+pub(crate) fn alt_block_height(
+    db: &BlockchainDatabase,
+    tx_ro: &fjall::Snapshot,
+    hash: &BlockHash,
+) -> DbResult<Option<AltBlockHeight>> {
+    let Some(bytes) = tx_ro.get(&db.alt_block_heights, hash)? else {
+        return Ok(None);
+    };
+
+    Ok(Some(bytemuck::pod_read_unaligned(bytes.as_ref())))
 }
