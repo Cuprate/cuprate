@@ -34,7 +34,6 @@
 )]
 
 pub mod blockchain;
-pub mod commands;
 pub mod config;
 pub mod constants;
 pub mod logging;
@@ -60,7 +59,6 @@ use cuprate_helper::network::Network;
 
 use crate::{
     blockchain::{BlockchainInterface, BlockchainManagerHandle, Syncer, SyncerHandle},
-    commands::CommandHandle,
     config::Config,
     constants::{DATABASE_CORRUPT_MSG, PANIC_CRITICAL_SERVICE_ERROR},
     tor::initialize_tor_if_enabled,
@@ -99,9 +97,6 @@ pub struct NodeContext {
     /// Syncer handle.
     pub syncer: SyncerHandle,
 
-    /// The time this node was launched.
-    pub start_instant: std::time::SystemTime,
-
     /// The time this node was launched as a UNIX timestamp.
     pub start_instant_unix: u64,
 }
@@ -131,8 +126,8 @@ pub struct Node {
     /// Syncer handle.
     pub syncer: SyncerHandle,
 
-    /// Command channel.
-    pub command: CommandHandle,
+    /// The configuration this node was launched with.
+    pub config: Arc<Config>,
 }
 
 impl Node {
@@ -150,10 +145,12 @@ impl Node {
     ///
     /// Panics if the database is corrupt, critical services fail to start,
     /// or `target_max_memory` is unresolved.
-    pub async fn launch(config: Config) -> Self {
-        let start_instant = std::time::SystemTime::now();
-
-        let fast_sync_hashes = blockchain::get_fast_sync_hashes(config.fast_sync, config.network());
+    pub async fn launch(config: impl Into<Arc<Config>>) -> Self {
+        let config: Arc<Config> = config.into();
+        let start_instant_unix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
 
         // Initialize the database thread pool.
         let db_thread_pool = Arc::new(
@@ -226,16 +223,12 @@ impl Node {
         // Create the node context.
         let node_ctx = NodeContext {
             network: config.network(),
-            fast_sync_hashes,
+            fast_sync_hashes: config.fast_sync_hashes(),
             reorg_lock: Arc::new(RwLock::new(())),
             blockchain: blockchain_interface,
             txpool_read: txpool_read_handle.clone(),
             syncer: syncer_handle,
-            start_instant_unix: start_instant
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs(),
-            start_instant,
+            start_instant_unix,
         };
 
         // Start clearnet P2P zone
@@ -271,19 +264,6 @@ impl Node {
         // Tor interface channel - populated when Tor starts after sync.
         let (tor_tx, tor_rx) = oneshot::channel();
 
-        // Command handle.
-        let command_handle = CommandHandle::init(node_ctx.clone());
-
-        // Create the node struct with cloned service handles for the caller.
-        let node = Self {
-            blockchain: node_ctx.blockchain.clone(),
-            txpool: node_ctx.txpool_read.clone(),
-            clearnet: clearnet_interface.clone(),
-            tor: if tor_enabled { Some(tor_rx) } else { None },
-            syncer: node_ctx.syncer.clone(),
-            command: command_handle,
-        };
-
         // Initialize the blockchain manager.
         blockchain::init_blockchain_manager(
             clearnet_interface.clone(),
@@ -303,6 +283,8 @@ impl Node {
         if tor_enabled {
             info!("Tor P2P zone will start after sync.");
 
+            let config = Arc::clone(&config);
+            let node_ctx = node_ctx.clone();
             tokio::spawn(async move {
                 // Wait for the node to synchronize with the network
                 if node_ctx.syncer.wait_for_synced().await.is_err() {
@@ -332,6 +314,13 @@ impl Node {
             });
         }
 
-        node
+        Self {
+            blockchain: node_ctx.blockchain.clone(),
+            txpool: node_ctx.txpool_read.clone(),
+            clearnet: clearnet_interface.clone(),
+            tor: if tor_enabled { Some(tor_rx) } else { None },
+            syncer: node_ctx.syncer.clone(),
+            config,
+        }
     }
 }

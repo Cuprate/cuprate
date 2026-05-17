@@ -259,6 +259,12 @@ impl Config {
         self.network
     }
 
+    /// Returns the fast-sync validation hashes for this config's network,
+    /// or `&[]` if fast sync is disabled.
+    pub fn fast_sync_hashes(&self) -> &'static [[u8; 32]] {
+        crate::blockchain::get_fast_sync_hashes(self.fast_sync, self.network)
+    }
+
     /// The [`ClearNet`], [`cuprate_p2p::P2PConfig`].
     pub fn clearnet_p2p_config(&self) -> cuprate_p2p::P2PConfig<ClearNet> {
         cuprate_p2p::P2PConfig {

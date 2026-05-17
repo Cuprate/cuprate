@@ -29,15 +29,18 @@ use clap::Parser;
 use tracing::info;
 
 use cuprated::{
-    commands::CommandHandle,
     config::{find_config, resolve_max_memory, Config},
     constants::{DEFAULT_CONFIG_STARTUP_DELAY, DEFAULT_CONFIG_WARNING},
     logging::eprintln_red,
 };
 
 mod args;
+mod commands;
 
-use crate::args::Args;
+use crate::{
+    args::Args,
+    commands::{Command, CommandHandle},
+};
 
 fn main() {
     // Set global private permissions for created files.
@@ -66,10 +69,14 @@ fn main() {
 
     rt.block_on(async move {
         // Start the node.
-        let cuprated::Node { command, .. } = cuprated::Node::launch(config).await;
+        let cuprated::Node {
+            blockchain, config, ..
+        } = cuprated::Node::launch(config).await;
 
         // If STDIN is a terminal, spawn a blocking thread for user input.
         if io::stdin().is_terminal() {
+            let start_instant = std::time::SystemTime::now();
+            let command = CommandHandle::init(blockchain, start_instant, config);
             spawn_stdin_reader(command);
         } else {
             // If no STDIN, await OS exit signal.
@@ -82,8 +89,6 @@ fn main() {
 
 /// Spawn a STDIN reader that forwards commands to the [`CommandHandle`].
 fn spawn_stdin_reader(command: CommandHandle) {
-    let rt = tokio::runtime::Handle::current();
-
     std::thread::spawn(move || {
         let mut line = String::new();
         loop {
@@ -102,12 +107,16 @@ fn spawn_stdin_reader(command: CommandHandle) {
             if trimmed.is_empty() {
                 continue;
             }
-            match rt.block_on(command.send_command(trimmed.to_string())) {
-                Ok(output) => println!("{output}"),
-                Err(e) => {
-                    eprintln!("Failed to send command: {e}");
-                    return;
+            let cmd = match Command::try_parse_from(trimmed.split_whitespace()) {
+                Ok(cmd) => cmd,
+                Err(err) => {
+                    err.print().unwrap();
+                    continue;
                 }
+            };
+            if let Err(e) = command.send_command(cmd) {
+                eprintln!("Failed to send command: {e}");
+                return;
             }
         }
     });

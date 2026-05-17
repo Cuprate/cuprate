@@ -2,38 +2,50 @@
 //!
 //! `cuprated` [`Command`] definition and handling.
 
+use std::{sync::Arc, time::SystemTime};
+
 use clap::{builder::TypedValueParser, Parser, ValueEnum};
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::mpsc;
 use tracing::level_filters::LevelFilter;
 
 use cuprate_helper::time::secs_to_hms;
-
-use crate::{
+use cuprated::{
+    blockchain::BlockchainInterface,
+    config::Config,
     logging::{self, CupratedTracingFilter},
-    NodeContext,
 };
 
-/// A command request with a response channel.
-struct CommandRequest {
-    input: String,
-    resp: oneshot::Sender<String>,
+/// The context needed for command execution.
+struct CommandContext {
+    blockchain: BlockchainInterface,
+    start_instant: SystemTime,
+    config: Arc<Config>,
 }
 
 /// The command handler.
 #[derive(Clone)]
 pub struct CommandHandle {
-    tx: mpsc::Sender<CommandRequest>,
+    tx: mpsc::Sender<Command>,
 }
 
 impl CommandHandle {
     /// Initialize the command handler and return a handle.
-    pub fn init(mut node_ctx: NodeContext) -> Self {
-        let (tx, mut rx) = mpsc::channel::<CommandRequest>(1);
+    pub fn init(
+        blockchain: BlockchainInterface,
+        start_instant: SystemTime,
+        config: Arc<Config>,
+    ) -> Self {
+        let (tx, mut rx) = mpsc::channel::<Command>(1);
+
+        let mut ctx = CommandContext {
+            blockchain,
+            start_instant,
+            config,
+        };
 
         tokio::spawn(async move {
-            while let Some(req) = rx.recv().await {
-                let result = handle_command(&req.input, &mut node_ctx).await;
-                drop(req.resp.send(result));
+            while let Some(command) = rx.recv().await {
+                handle_command(command, &mut ctx).await;
             }
             tracing::info!("Command handler shut down.");
         });
@@ -41,14 +53,11 @@ impl CommandHandle {
         Self { tx }
     }
 
-    /// Send a command string and await the response.
-    pub async fn send_command(&self, input: String) -> Result<String, CommandError> {
-        let (resp, rx) = oneshot::channel();
+    /// Send a [`Command`] to be executed.
+    pub fn send_command(&self, command: Command) -> Result<(), CommandError> {
         self.tx
-            .send(CommandRequest { input, resp })
-            .await
-            .map_err(|_| CommandError::Shutdown)?;
-        rx.await.map_err(|_| CommandError::Shutdown)
+            .blocking_send(command)
+            .map_err(|_| CommandError::Shutdown)
     }
 }
 
@@ -105,56 +114,49 @@ pub enum OutputTarget {
     File,
 }
 
-/// Parse and execute a raw command string. Returns the output.
-async fn handle_command(input: &str, node_ctx: &mut NodeContext) -> String {
-    let command = match Command::try_parse_from(input.split_whitespace()) {
-        Ok(cmd) => cmd,
-        Err(err) => return format!("{err}"),
-    };
-
+/// Execute a [`Command`]. Prints the output.
+async fn handle_command(command: Command, ctx: &mut CommandContext) {
     match command {
         Command::SetLog {
             level,
             output_target,
         } => {
-            let mut msg = String::new();
             let modify_output = |filter: &mut CupratedTracingFilter| {
                 if let Some(level) = level {
                     filter.level = level;
                 }
-                msg = format!("NEW LOG FILTER: {filter}");
+                println!("NEW LOG FILTER: {filter}");
             };
 
             match output_target {
                 OutputTarget::File => logging::modify_file_output(modify_output),
                 OutputTarget::Stdout => logging::modify_stdout_output(modify_output),
             }
-
-            msg
         }
         Command::Status => {
-            let uptime = node_ctx.start_instant.elapsed().unwrap_or_default();
-            let context = node_ctx.blockchain.context();
+            let uptime = ctx.start_instant.elapsed().unwrap_or_default();
+            let context = ctx.blockchain.context();
 
             let (h, m, s) = secs_to_hms(uptime.as_secs());
             let height = context.chain_height;
             let top_hash = hex::encode(context.top_hash);
-            format!(
+            println!(
                 "STATUS:\n  uptime: {h}h {m}m {s}s,\n  height: {height},\n  top_hash: {top_hash}"
-            )
+            );
         }
         Command::FastSyncStopHeight => {
-            let stop_height = cuprate_fast_sync::fast_sync_stop_height(node_ctx.fast_sync_hashes);
+            let stop_height =
+                cuprate_fast_sync::fast_sync_stop_height(ctx.config.fast_sync_hashes());
 
-            format!("{stop_height}")
+            println!("{stop_height}");
         }
         Command::PopBlocks { numb_blocks } => {
             tracing::info!("Popping {numb_blocks} blocks.");
-            let res = node_ctx.blockchain.manager().pop_blocks(numb_blocks).await;
+            let res = ctx.blockchain.manager().pop_blocks(numb_blocks).await;
 
             match res {
-                Ok(()) => format!("Popped {numb_blocks} blocks."),
-                Err(e) => format!("Failed to pop blocks: {e}"),
+                Ok(()) => println!("Popped {numb_blocks} blocks."),
+                Err(e) => println!("Failed to pop blocks: {e}"),
             }
         }
     }

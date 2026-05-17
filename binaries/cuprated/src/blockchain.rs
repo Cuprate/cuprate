@@ -68,14 +68,14 @@ impl BlockchainInterface {
         self.context_svc.blockchain_context()
     }
 
+    /// Returns a handle to the blockchain manager.
+    pub fn manager(&self) -> BlockchainManagerHandle {
+        self.manager.clone()
+    }
+
     /// Returns the blockchain context service.
     pub(crate) fn context_svc(&self) -> BlockchainContextService {
         self.context_svc.clone()
-    }
-
-    /// Returns a handle to the blockchain manager.
-    pub(crate) fn manager(&self) -> BlockchainManagerHandle {
-        self.manager.clone()
     }
 }
 
