@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Aggregate the two release tarballs (distsrc + artifact) into a single
+# SHA256SUMS file. We deliberately do NOT glob *.tar.gz: a stale tarball
+# left over from a previous build/version/target could end up in the
+# aggregate and be subsequently signed by guix-attest. Instead, read the
+# canonical filenames from build-metadata.json, sha each, and require
+# both to exist.
+
+out_dir="${1:-contrib/guix/out}"
+if [[ ! -d "$out_dir" ]]; then
+  echo "output directory not found: $out_dir" >&2
+  exit 1
+fi
+if [[ ! -f "$out_dir/build-metadata.json" ]]; then
+  echo "ERROR: $out_dir/build-metadata.json not found - run a build first" >&2
+  exit 1
+fi
+
+# One-field-per-line + `mapfile -t` so a metadata value containing
+# whitespace (none today, but cheap insurance) can't corrupt later fields.
+mapfile -t meta_fields < <(
+  python3 - "$out_dir/build-metadata.json" <<'PY'
+import json, sys
+m = json.load(open(sys.argv[1]))
+for k in ("version", "rust_target", "distsrc"):
+    print(m[k])
+PY
+)
+if [[ "${#meta_fields[@]}" -ne 3 ]]; then
+  echo "ERROR: could not extract version/rust_target/distsrc from build-metadata.json" >&2
+  exit 1
+fi
+meta_version="${meta_fields[0]}"
+meta_rust_target="${meta_fields[1]}"
+meta_distsrc_name="${meta_fields[2]}"
+if [[ -z "$meta_version" || -z "$meta_rust_target" || -z "$meta_distsrc_name" ]]; then
+  echo "ERROR: build-metadata.json has empty version/rust_target/distsrc" >&2
+  exit 1
+fi
+
+artifact_name="cuprated-${meta_version}-${meta_rust_target}.tar.gz"
+distsrc_name="$meta_distsrc_name"
+
+[[ -f "$out_dir/$artifact_name" ]] || { echo "ERROR: missing $out_dir/$artifact_name" >&2; exit 1; }
+[[ -f "$out_dir/$distsrc_name"  ]] || { echo "ERROR: missing $out_dir/$distsrc_name"  >&2; exit 1; }
+
+(
+  cd "$out_dir"
+  # Sort the two filenames into a stable order before hashing. Use a
+  # `while read` loop rather than `xargs -d` so this stays portable
+  # across BSD/macOS hosts that don't ship GNU xargs.
+  printf '%s\n%s\n' "$distsrc_name" "$artifact_name" \
+    | LC_ALL=C sort \
+    | while IFS= read -r f; do
+        sha256sum "$f"
+      done > SHA256SUMS
+)
+
+echo "Wrote $out_dir/SHA256SUMS"

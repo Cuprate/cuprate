@@ -1,0 +1,171 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Write a signed release attestation.
+#
+# The attestation is a stable, sorted-key JSON document (Python json.dumps
+# with sort_keys=True, indent=2) containing every fact a downstream
+# verifier needs to bind a binary to its inputs:
+#
+#   - package, version
+#   - rust_target, guix_system
+#   - source_date_epoch, git_commit
+#   - distsrc filename + sha256
+#   - artifact filename + sha256 + length
+#   - guix channel commit (from guix-describe.json)
+#   - rustc / cargo versions (from rustc-version.txt / cargo-version.txt)
+#   - builder identity (passed in)
+#   - attestation timestamp
+#
+# We then GPG-sign that JSON. Signing concatenated text was the previous
+# shape and has weak filename/section boundaries; a single signed JSON
+# closes that gap. The JSON itself is intentionally NOT byte-stable across
+# runs (attested_at and the detached GPG sig are both fresh per run); the
+# binding is via the sha256 fields, not via byte-identity of the payload.
+#
+# Fails closed: if gpg is not on PATH, or the signing key is unavailable,
+# the script exits non-zero rather than writing an unsigned attestation -
+# an unsigned attestation that "looks signed" is a footgun.
+
+repo_root="$(git rev-parse --show-toplevel)"
+out_dir="${1:-$repo_root/contrib/guix/out}"
+if [[ ! -d "$out_dir" ]]; then
+  echo "output directory not found: $out_dir" >&2
+  exit 1
+fi
+
+identity_raw="${2:-}"
+version="${3:-}"
+if [[ -z "$identity_raw" || -z "$version" ]]; then
+  echo "usage: $0 <out-dir> <builder-id> <version>" >&2
+  exit 1
+fi
+identity="$(printf '%s' "$identity_raw" | tr -c 'A-Za-z0-9_.@+-' '_')"
+
+if ! command -v gpg >/dev/null 2>&1; then
+  echo "ERROR: gpg not found; refusing to write unsigned attestation" >&2
+  exit 1
+fi
+
+# Collect required inputs.
+for f in SHA256SUMS build-metadata.json guix-describe.json rustc-version.txt cargo-version.txt; do
+  if [[ ! -f "$out_dir/$f" ]]; then
+    echo "ERROR: missing $out_dir/$f - run guix-checksums before guix-attest" >&2
+    exit 1
+  fi
+done
+
+# Derive the artifact and distsrc filenames from build-metadata.json rather
+# than globbing the directory. A `find | sort | head` approach can attest
+# the lexicographically first stale tarball from a previous build/version/
+# target if out_dir is not pristine; binding to the metadata file the build
+# just wrote eliminates that class of mistake.
+#
+# Use one-field-per-line + `mapfile -t` so a value containing whitespace
+# (none today, but cheap insurance) can't corrupt later fields.
+mapfile -t meta_fields < <(
+  python3 - "$out_dir/build-metadata.json" <<'PY'
+import json, sys
+m = json.load(open(sys.argv[1]))
+for k in ("version", "rust_target", "distsrc", "distsrc_sha256"):
+    print(m[k])
+PY
+)
+if [[ "${#meta_fields[@]}" -ne 4 ]]; then
+  echo "ERROR: could not extract version/rust_target/distsrc/distsrc_sha256 from build-metadata.json" >&2
+  exit 1
+fi
+meta_version="${meta_fields[0]}"
+meta_rust_target="${meta_fields[1]}"
+meta_distsrc_name="${meta_fields[2]}"
+meta_distsrc_sha="${meta_fields[3]}"
+if [[ -z "$meta_version" || -z "$meta_rust_target" || -z "$meta_distsrc_name" || -z "$meta_distsrc_sha" ]]; then
+  echo "ERROR: build-metadata.json has empty version/rust_target/distsrc/distsrc_sha256" >&2
+  exit 1
+fi
+if [[ "$meta_version" != "$version" ]]; then
+  echo "ERROR: build-metadata version ($meta_version) != passed version ($version)" >&2
+  exit 1
+fi
+# Reject path-traversal or shell-meaningful characters in the metadata
+# version before using it in the sigs/ path layout below. The CLI version
+# arg already had to match meta_version above, so this also gates the CLI
+# input transitively.
+if [[ ! "$meta_version" =~ ^[A-Za-z0-9._+-]+$ ]]; then
+  echo "ERROR: build-metadata version contains unsafe characters: $meta_version" >&2
+  exit 1
+fi
+
+# Now that the metadata version is validated, it's safe to compose the
+# signatures directory. The CLI `version` arg is no longer used past this
+# point; meta_version is the authoritative value.
+sig_dir="$repo_root/contrib/guix/sigs/${meta_version}/${identity}"
+mkdir -p "$sig_dir"
+
+artifact="$out_dir/cuprated-${meta_version}-${meta_rust_target}.tar.gz"
+distsrc="$out_dir/${meta_distsrc_name}"
+[[ -f "$artifact" ]] || { echo "ERROR: expected artifact missing: $artifact" >&2; exit 1; }
+[[ -f "$distsrc" ]]  || { echo "ERROR: expected distsrc missing: $distsrc"  >&2; exit 1; }
+
+# Reject a stale distsrc with the same filename: build-metadata.json
+# records the sha256 the build saw; if the file on disk now hashes
+# differently, somebody swapped it under us.
+actual_distsrc_sha="$(sha256sum "$distsrc" | awk '{print $1}')"
+if [[ "$actual_distsrc_sha" != "$meta_distsrc_sha" ]]; then
+  echo "ERROR: distsrc sha mismatch for $distsrc" >&2
+  echo "  build-metadata.json: $meta_distsrc_sha" >&2
+  echo "  on disk now:         $actual_distsrc_sha" >&2
+  exit 1
+fi
+
+artifact_sha="$(sha256sum "$artifact" | awk '{print $1}')"
+distsrc_sha="$actual_distsrc_sha"
+artifact_size="$(wc -c <"$artifact" | tr -d ' ')"
+attest_iso="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# Emit stable, sorted-key JSON (Python json.dumps with sort_keys=True).
+python3 - "$out_dir" "$artifact" "$distsrc" "$artifact_sha" "$distsrc_sha" "$artifact_size" "$identity_raw" "$attest_iso" > "$sig_dir/attestation.json" <<'PY'
+import json, sys, pathlib
+out_dir, artifact, distsrc, asha, dsha, asize, identity, when = sys.argv[1:9]
+meta = json.loads(pathlib.Path(out_dir, "build-metadata.json").read_text())
+describe = json.loads(pathlib.Path(out_dir, "guix-describe.json").read_text())
+rustc = pathlib.Path(out_dir, "rustc-version.txt").read_text().strip()
+cargo = pathlib.Path(out_dir, "cargo-version.txt").read_text().strip()
+# Extract the official-guix channel commit, if present.
+guix_commit = None
+if isinstance(describe, list):
+    for ch in describe:
+        if ch.get("name") == "guix":
+            guix_commit = ch.get("commit")
+            break
+elif isinstance(describe, dict):
+    guix_commit = describe.get("commit")
+doc = {
+    "schema": "cuprate-guix-attestation/v1",
+    "package": meta["package"],
+    "version": meta["version"],
+    "rust_target": meta["rust_target"],
+    "guix_system": meta["guix_system"],
+    "source_date_epoch": meta["source_date_epoch"],
+    "git_commit": meta["git_commit"],
+    "distsrc": {
+        "filename": pathlib.Path(distsrc).name,
+        "sha256": dsha,
+    },
+    "artifact": {
+        "filename": pathlib.Path(artifact).name,
+        "sha256": asha,
+        "size": int(asize),
+    },
+    "guix_channel_commit": guix_commit,
+    "rustc_version": rustc.splitlines()[0] if rustc else None,
+    "cargo_version": cargo.splitlines()[0] if cargo else None,
+    "builder_id": identity,
+    "attested_at": when,
+}
+print(json.dumps(doc, sort_keys=True, indent=2))
+PY
+
+# Detached ASCII-armored signature over the JSON payload.
+(cd "$sig_dir" && gpg --detach-sign --armor --output attestation.json.asc attestation.json)
+echo "Wrote $sig_dir/attestation.json + attestation.json.asc"
