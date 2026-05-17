@@ -26,7 +26,7 @@ use crate::{
 
 /// Handle for the blockchain manager.
 ///
-/// Created by [`init_blockchain_manager`](super::manager::init_blockchain_manager).
+/// Created by `init_blockchain_manager`.
 #[derive(Clone)]
 pub struct BlockchainManagerHandle {
     /// The channel used to send [`BlockchainManagerCommand`]s to the blockchain manager.
