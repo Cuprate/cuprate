@@ -2,7 +2,7 @@
 //!
 //! `cuprated` [`Command`] definition and handling.
 
-use std::{sync::Arc, time::SystemTime};
+use std::{sync::Arc, time::Instant};
 
 use clap::{builder::TypedValueParser, Parser, ValueEnum};
 use tokio::sync::mpsc;
@@ -18,7 +18,7 @@ use cuprated::{
 /// The context needed for command execution.
 struct CommandContext {
     blockchain: BlockchainInterface,
-    start_instant: SystemTime,
+    start_instant: Instant,
     config: Arc<Config>,
 }
 
@@ -30,16 +30,12 @@ pub struct CommandHandle {
 
 impl CommandHandle {
     /// Initialize the command handler and return a handle.
-    pub fn init(
-        blockchain: BlockchainInterface,
-        start_instant: SystemTime,
-        config: Arc<Config>,
-    ) -> Self {
+    pub fn init(blockchain: BlockchainInterface, config: Arc<Config>) -> Self {
         let (tx, mut rx) = mpsc::channel::<Command>(1);
 
         let mut ctx = CommandContext {
             blockchain,
-            start_instant,
+            start_instant: Instant::now(),
             config,
         };
 
@@ -134,7 +130,7 @@ async fn handle_command(command: Command, ctx: &mut CommandContext) {
             }
         }
         Command::Status => {
-            let uptime = ctx.start_instant.elapsed().unwrap_or_default();
+            let uptime = ctx.start_instant.elapsed();
             let context = ctx.blockchain.context();
 
             let (h, m, s) = secs_to_hms(uptime.as_secs());

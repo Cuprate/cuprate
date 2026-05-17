@@ -91,9 +91,6 @@ pub(crate) struct LaunchContext {
 
     /// Syncer handle.
     pub syncer: SyncerHandle,
-
-    /// The time this node was launched as a UNIX timestamp.
-    pub start_instant_unix: u64,
 }
 
 /// An active `cuprated` node.
@@ -137,10 +134,6 @@ impl Node {
     /// or `target_max_memory` is unresolved.
     pub async fn launch(config: impl Into<Arc<Config>>) -> Self {
         let config: Arc<Config> = config.into();
-        let start_instant_unix = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
 
         // Initialize the database thread pool.
         let db_thread_pool = Arc::new(
@@ -213,7 +206,6 @@ impl Node {
             blockchain: blockchain_interface,
             txpool_read: txpool_read_handle.clone(),
             syncer: syncer_handle,
-            start_instant_unix,
         };
 
         // Bootstrap or configure Tor if enabled.

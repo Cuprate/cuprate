@@ -191,6 +191,11 @@ impl CupratedRpcHandler {
         tx_handler: IncomingTxHandler,
         launch_ctx: &LaunchContext,
     ) -> Self {
+        let start_instant_unix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
         Self {
             restricted,
             network: launch_ctx.config.network,
@@ -199,7 +204,7 @@ impl CupratedRpcHandler {
             blockchain_context: launch_ctx.blockchain.context_svc(),
             txpool_read: launch_ctx.txpool_read.clone(),
             blockchain_manager: launch_ctx.blockchain.manager(),
-            start_instant_unix: launch_ctx.start_instant_unix,
+            start_instant_unix,
         }
     }
 }

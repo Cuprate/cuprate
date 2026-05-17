@@ -75,8 +75,7 @@ fn main() {
 
         // If STDIN is a terminal, spawn a blocking thread for user input.
         if io::stdin().is_terminal() {
-            let start_instant = std::time::SystemTime::now();
-            let command = CommandHandle::init(blockchain, start_instant, config);
+            let command = CommandHandle::init(blockchain, config);
             spawn_stdin_reader(command);
         } else {
             // If no STDIN, await OS exit signal.
