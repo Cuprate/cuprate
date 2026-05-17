@@ -159,11 +159,13 @@ jobs:
           key_count=0
           for key in /var/guix/profiles/per-user/root/current-guix/share/guix/*.pub; do
             [[ -f "$key" ]] || continue
-            # `cat | sudo` rather than `sudo ... < "$key"`: the input
-            # redirect is opened by the unprivileged shell, not by sudo,
-            # so this is the shellcheck-clean way to feed the key to the
-            # privileged process (also robust if the .pub ever stops
-            # being world-readable to non-root).
+            # `cat | sudo` rather than `sudo ... < "$key"`: the
+            # redirect form is SC2024 (the redirect is opened by the
+            # unprivileged shell, not by sudo). The `cat` here is also
+            # unprivileged - this is purely about shellcheck-clean
+            # piping, not about reading a root-only key. Today the .pub
+            # files in the extracted tarball are world-readable, so a
+            # plain unprivileged read works.
             cat "$key" | sudo "$GUIX_BIN/guix" archive --authorize
             key_count=$((key_count + 1))
           done
@@ -233,3 +235,19 @@ jobs:
       - name: Surface daemon log on failure
         if: failure()
         run: tail -200 /tmp/guix-daemon.log || true
+
+      # On failure, upload every log smoke-reproducible.sh's EXIT trap
+      # exported (cargo-verbose + guix-build wrapper output + mk-distsrc
+      # stderr, per run a/b). Without this the runner is torn down and
+      # the only artifact left is the timestamped grep at the end of the
+      # job log, which is rarely enough to root-cause a silent failure
+      # like "guix-build returned 0 but no cuprated tarball appeared".
+      # Pinned by full SHA (v5.0.0 -> 330a01c490aca151604b8cf639adc76d48f6c5d4).
+      - name: Upload smoke logs on failure
+        if: failure()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
+        with:
+          name: smoke-logs
+          path: contrib/guix/smoke-logs/
+          if-no-files-found: warn
+          retention-days: 7

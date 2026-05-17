@@ -40,6 +40,26 @@ if [[ -z "$meta_version" || -z "$meta_rust_target" || -z "$meta_distsrc_name" ]]
   exit 1
 fi
 
+# Each metadata value below ends up as a filename component fed to
+# sha256sum. The non-empty check above is necessary but not sufficient:
+# the regex permits `.` and `..` (which are valid path-traversal
+# segments), and the field could in principle contain slashes from a
+# corrupted/malicious build-metadata.json. Reject everything we don't
+# want to see in an output filename.
+safe_path_component() {
+  local s="$1"
+  [[ -n "$s" ]] || return 1
+  [[ "$s" != "." && "$s" != ".." ]] || return 1
+  [[ "$s" =~ ^[A-Za-z0-9._+-]+$ ]] || return 1
+  return 0
+}
+for v in "$meta_version" "$meta_rust_target" "$meta_distsrc_name"; do
+  if ! safe_path_component "$v"; then
+    echo "ERROR: build-metadata.json contains unsafe path component: '$v'" >&2
+    exit 1
+  fi
+done
+
 artifact_name="cuprated-${meta_version}-${meta_rust_target}.tar.gz"
 distsrc_name="$meta_distsrc_name"
 
@@ -50,11 +70,13 @@ distsrc_name="$meta_distsrc_name"
   cd "$out_dir"
   # Sort the two filenames into a stable order before hashing. Use a
   # `while read` loop rather than `xargs -d` so this stays portable
-  # across BSD/macOS hosts that don't ship GNU xargs.
+  # across BSD/macOS hosts that don't ship GNU xargs. `sha256sum --` is
+  # belt-and-braces against any filename starting with `-` (already
+  # excluded by safe_path_component above).
   printf '%s\n%s\n' "$distsrc_name" "$artifact_name" \
     | LC_ALL=C sort \
     | while IFS= read -r f; do
-        sha256sum "$f"
+        sha256sum -- "$f"
       done > SHA256SUMS
 )
 

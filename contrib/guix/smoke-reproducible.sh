@@ -35,18 +35,51 @@ LOG_EXPORT_DIR="${LOG_EXPORT_DIR:-$repo_root/contrib/guix/smoke-logs}"
 # intermediate artifacts. On success, clean up. Always export the build
 # logs first so the assert step (in this script and at the workflow level)
 # has something to scan even on success.
+#
+# Export failures (mkdir/cp/chmod) emit warnings rather than fail the
+# trap, because:
+#   - the trap is firing on exit; its job is to preserve forensic state,
+#     not to surface a NEW failure that obscures the original one;
+#   - the native-flag scan in this script runs on `$tmp/$sub/...` BEFORE
+#     cleanup, so the primary guard does not depend on the workspace
+#     copy; the export is purely for the workflow-level duplicate scan;
+#   - we still want a visible signal if the workflow-level scan is about
+#     to silently degrade to "no logs found".
 on_exit() {
   local code=$?
   if [[ -d "$tmp" ]]; then
-    mkdir -p "$LOG_EXPORT_DIR"
-    local sub
-    for sub in a b; do
-      local src_log="$tmp/$sub/contrib/guix/out/build-x86_64-unknown-linux-gnu.log"
-      if [[ -f "$src_log" ]]; then
-        cp "$src_log" "$LOG_EXPORT_DIR/build-$sub.log" 2>/dev/null || true
+    if ! mkdir -p "$LOG_EXPORT_DIR"; then
+      echo "warning: could not create smoke log export dir: $LOG_EXPORT_DIR" >&2
+    else
+      local sub
+      for sub in a b; do
+        # cargo's --verbose build log (this is what the workflow scans
+        # for native-arch flags).
+        local cargo_log="$tmp/$sub/contrib/guix/out/build-x86_64-unknown-linux-gnu.log"
+        if [[ -f "$cargo_log" ]]; then
+          if ! cp "$cargo_log" "$LOG_EXPORT_DIR/build-$sub.log"; then
+            echo "warning: could not export smoke log $cargo_log -> $LOG_EXPORT_DIR/build-$sub.log" >&2
+          fi
+        fi
+        # The smoke script also captures guix-build's wrapper output and
+        # mk-distsrc's stderr - these contain the actual failure
+        # explanation when the build dies before producing the cargo
+        # log (e.g. distsrc-equivalence diff, OOM-killed rustc,
+        # substitute fetch failure). Export them too so a workflow
+        # `upload-artifact` step can collect the full forensic set.
+        for inner in build.log mk-distsrc.log; do
+          local src_log="$tmp/$sub/$inner"
+          if [[ -f "$src_log" ]]; then
+            if ! cp "$src_log" "$LOG_EXPORT_DIR/$sub-$inner"; then
+              echo "warning: could not export smoke log $src_log -> $LOG_EXPORT_DIR/$sub-$inner" >&2
+            fi
+          fi
+        done
+      done
+      if ! chmod -R a+rX "$LOG_EXPORT_DIR" 2>/dev/null; then
+        echo "warning: could not chmod a+rX $LOG_EXPORT_DIR (workflow log scan may be unable to read it)" >&2
       fi
-    done
-    chmod -R a+rX "$LOG_EXPORT_DIR" 2>/dev/null || true
+    fi
   fi
   if [[ $code -ne 0 ]]; then
     echo "smoke FAILED; preserving working dir for inspection: $tmp" >&2
@@ -75,6 +108,22 @@ run_once() {
       --distsrc "$distsrc" >"$src/build.log" 2>&1
 
     artifact="$({ find contrib/guix/out -maxdepth 1 -type f -name 'cuprated-*-x86_64-unknown-linux-gnu.tar.gz' | LC_ALL=C sort | tail -n1; })"
+    if [[ -z "$artifact" || ! -f "$artifact" ]]; then
+      # guix-build returned 0 (we're past `set -e`) but didn't write an
+      # artifact - print enough state to diagnose without leaving the
+      # caller to guess. This is the classic "build silently succeeded
+      # without producing output" failure mode; the immediate diagnostic
+      # is the tail of build.log, which the on_exit trap also exports to
+      # LOG_EXPORT_DIR for the workflow to archive.
+      echo "FAIL: guix-build exited 0 but no cuprated artifact found in $src/contrib/guix/out" >&2
+      echo "--- contents of $src/contrib/guix/out ---" >&2
+      ls -la "$src/contrib/guix/out" >&2 || true
+      echo "--- last 100 lines of $src/build.log ---" >&2
+      tail -100 "$src/build.log" >&2 || true
+      echo "--- last 50 lines of $src/mk-distsrc.log ---" >&2
+      tail -50 "$src/mk-distsrc.log" >&2 || true
+      return 1
+    fi
     sha256sum "$artifact" | awk '{print $1}'
   )
 }
