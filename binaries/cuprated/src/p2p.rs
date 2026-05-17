@@ -25,11 +25,10 @@ use cuprate_types::blockchain::BlockchainWriteRequest;
 
 use crate::{
     blockchain::BlockchainInterface,
-    config::Config,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     tor::{transport_clearnet_daemon_config, transport_daemon_config, TorContext, TorMode},
     txpool::{self, IncomingTxHandler},
-    NodeContext,
+    LaunchContext,
 };
 
 #[cfg(feature = "arti")]
@@ -125,55 +124,56 @@ impl NetworkInterfaces {
 /// Initialize the clearnet P2P network zone. Returns [`NetworkInterface<ClearNet>`] and
 /// [`Sender<IncomingTxHandler>`] for propagating the tx handler.
 pub async fn initialize_clearnet_p2p(
-    config: &Config,
-    node_ctx: &NodeContext,
+    launch_ctx: &LaunchContext,
     tor_ctx: &TorContext,
-    peer_sync_callback: PeerSyncCallback,
 ) -> (NetworkInterface<ClearNet>, Sender<IncomingTxHandler>) {
+    let config = launch_ctx.config.as_ref();
+    let peer_sync_callback = launch_ctx.syncer.callback(&launch_ctx.blockchain);
+
     match &config.p2p.clear_net.proxy {
         ProxySettings::Tor => match tor_ctx.mode {
             #[cfg(feature = "arti")]
             TorMode::Arti => {
                 tracing::info!("Anonymizing clearnet connections through Arti.");
                 start_zone_p2p::<ClearNet, Arti>(
-                    &node_ctx.blockchain,
-                    node_ctx.txpool_read.clone(),
+                    &launch_ctx.blockchain,
+                    launch_ctx.txpool_read.clone(),
                     config.clearnet_p2p_config(),
                     transport_clearnet_arti_config(tor_ctx),
-                    Some(peer_sync_callback.clone()),
+                    Some(peer_sync_callback),
                 )
                 .await
                 .unwrap()
             }
             TorMode::Daemon => start_zone_p2p::<ClearNet, Socks>(
-                &node_ctx.blockchain,
-                node_ctx.txpool_read.clone(),
+                &launch_ctx.blockchain,
+                launch_ctx.txpool_read.clone(),
                 config.clearnet_p2p_config(),
                 transport_clearnet_daemon_config(config),
-                Some(peer_sync_callback.clone()),
+                Some(peer_sync_callback),
             )
             .await
             .unwrap(),
             TorMode::Auto => unreachable!("Auto mode should be resolved before this point"),
         },
         ProxySettings::Disabled => start_zone_p2p::<ClearNet, Tcp>(
-            &node_ctx.blockchain,
-            node_ctx.txpool_read.clone(),
+            &launch_ctx.blockchain,
+            launch_ctx.txpool_read.clone(),
             config.clearnet_p2p_config(),
             config.p2p.clear_net.tcp_transport_config(config.network),
-            Some(peer_sync_callback.clone()),
+            Some(peer_sync_callback),
         )
         .await
         .unwrap(),
         ProxySettings::Socks(socks_config) => start_zone_p2p::<ClearNet, Socks>(
-            &node_ctx.blockchain,
-            node_ctx.txpool_read.clone(),
+            &launch_ctx.blockchain,
+            launch_ctx.txpool_read.clone(),
             config.clearnet_p2p_config(),
             TransportConfig {
                 client_config: socks_config.clone(),
                 server_config: None,
             },
-            Some(peer_sync_callback.clone()),
+            Some(peer_sync_callback),
         )
         .await
         .unwrap(),
@@ -183,14 +183,15 @@ pub async fn initialize_clearnet_p2p(
 /// Start the Tor P2P network zone. Returns [`NetworkInterface<Tor>`] and
 /// a [`Sender<IncomingTxHandler>`] for propagating the tx handler.
 pub async fn start_tor_p2p(
-    config: &Config,
+    launch_ctx: &LaunchContext,
     tor_ctx: TorContext,
-    node_ctx: &NodeContext,
 ) -> (NetworkInterface<Tor>, Sender<IncomingTxHandler>) {
+    let config = launch_ctx.config.as_ref();
+
     match tor_ctx.mode {
         TorMode::Daemon => start_zone_p2p::<Tor, Daemon>(
-            &node_ctx.blockchain,
-            node_ctx.txpool_read.clone(),
+            &launch_ctx.blockchain,
+            launch_ctx.txpool_read.clone(),
             config.tor_p2p_config(&tor_ctx),
             transport_daemon_config(config),
             None,
@@ -199,8 +200,8 @@ pub async fn start_tor_p2p(
         .unwrap(),
         #[cfg(feature = "arti")]
         TorMode::Arti => start_zone_p2p::<Tor, Arti>(
-            &node_ctx.blockchain,
-            node_ctx.txpool_read.clone(),
+            &launch_ctx.blockchain,
+            launch_ctx.txpool_read.clone(),
             config.tor_p2p_config(&tor_ctx),
             transport_arti_config(config, tor_ctx),
             None,

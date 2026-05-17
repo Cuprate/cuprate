@@ -14,10 +14,10 @@ use tracing::{info, warn};
 use cuprate_rpc_interface::{RouterBuilder, RpcHandler};
 
 use crate::{
-    config::{restricted_rpc_port, unrestricted_rpc_port, RpcConfig},
+    config::{restricted_rpc_port, unrestricted_rpc_port},
     rpc::CupratedRpcHandler,
     txpool::IncomingTxHandler,
-    NodeContext,
+    LaunchContext,
 };
 
 /// Initialize the RPC server(s).
@@ -27,13 +27,14 @@ use crate::{
 /// - the server(s) could not be started
 /// - unrestricted RPC is started on non-local
 ///   address without override option
-pub fn init_rpc_servers(config: RpcConfig, tx_handler: IncomingTxHandler, node_ctx: NodeContext) {
+pub fn init_rpc_servers(launch_ctx: &LaunchContext, tx_handler: IncomingTxHandler) {
+    let config = &launch_ctx.config.rpc;
     for ((enable, addr, port, request_byte_limit), restricted) in [
         (
             (
                 config.unrestricted.enable,
                 config.unrestricted.address,
-                unrestricted_rpc_port(config.unrestricted.port, node_ctx.network),
+                unrestricted_rpc_port(config.unrestricted.port, launch_ctx.config.network),
                 config.unrestricted.request_byte_limit,
             ),
             false,
@@ -42,7 +43,7 @@ pub fn init_rpc_servers(config: RpcConfig, tx_handler: IncomingTxHandler, node_c
             (
                 config.restricted.enable,
                 config.restricted.address,
-                restricted_rpc_port(config.restricted.port, node_ctx.network),
+                restricted_rpc_port(config.restricted.port, launch_ctx.config.network),
                 config.restricted.request_byte_limit,
             ),
             true,
@@ -67,7 +68,7 @@ pub fn init_rpc_servers(config: RpcConfig, tx_handler: IncomingTxHandler, node_c
             }
         }
 
-        let rpc_handler = CupratedRpcHandler::new(restricted, tx_handler.clone(), node_ctx.clone());
+        let rpc_handler = CupratedRpcHandler::new(restricted, tx_handler.clone(), launch_ctx);
 
         tokio::task::spawn(async move {
             run_rpc_server(

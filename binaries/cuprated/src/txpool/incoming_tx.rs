@@ -37,7 +37,6 @@ use cuprate_types::TransactionVerificationData;
 
 use crate::{
     blockchain::ConsensusBlockchainReadHandle,
-    config::TxpoolConfig,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     p2p::CrossNetworkInternalPeerId,
     txpool::{
@@ -48,6 +47,7 @@ use crate::{
         relay_rules::{check_tx_relay_rules, RelayRuleError},
         txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
     },
+    LaunchContext,
 };
 
 /// An error that can happen handling an incoming tx.
@@ -111,12 +111,13 @@ impl IncomingTxHandler {
     #[expect(clippy::significant_drop_tightening)]
     #[instrument(level = "info", skip_all, name = "start_txpool")]
     pub async fn init(
-        txpool_config: TxpoolConfig,
+        launch_ctx: &LaunchContext,
         clear_net: NetworkInterface<ClearNet>,
         tor_net_rx: Option<oneshot::Receiver<NetworkInterface<Tor>>>,
         txpool_write_handle: TxpoolWriteHandle,
-        node_ctx: crate::NodeContext,
     ) -> Self {
+        let txpool_config = launch_ctx.config.storage.txpool.clone();
+
         let diffuse_service = DiffuseService {
             clear_net_broadcast_service: clear_net.broadcast_svc(),
         };
@@ -128,13 +129,13 @@ impl IncomingTxHandler {
 
         let dandelion_pool_manager = dandelion::start_dandelion_pool_manager(
             dandelion_router,
-            node_ctx.txpool_read.clone(),
+            launch_ctx.txpool_read.clone(),
             promote_tx,
         );
 
         let txpool_manager = start_txpool_manager(
             txpool_write_handle,
-            node_ctx.txpool_read.clone(),
+            launch_ctx.txpool_read.clone(),
             promote_rx,
             diffuse_service,
             dandelion_pool_manager.clone(),
@@ -144,15 +145,15 @@ impl IncomingTxHandler {
 
         Self {
             txs_being_handled: TxsBeingHandled::new(),
-            blockchain_context_cache: node_ctx.blockchain.context_svc(),
+            blockchain_context_cache: launch_ctx.blockchain.context_svc(),
             dandelion_pool_manager,
             txpool_manager,
-            txpool_read_handle: node_ctx.txpool_read,
+            txpool_read_handle: launch_ctx.txpool_read.clone(),
             blockchain_read_handle: ConsensusBlockchainReadHandle::new(
-                node_ctx.blockchain.read(),
+                launch_ctx.blockchain.read(),
                 BoxError::from,
             ),
-            reorg_lock: node_ctx.reorg_lock,
+            reorg_lock: Arc::clone(&launch_ctx.reorg_lock),
         }
     }
 }

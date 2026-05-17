@@ -12,7 +12,7 @@ use cuprate_consensus::{
     ExtendedConsensusError,
 };
 use cuprate_p2p::{
-    block_downloader::{BlockBatch, BlockDownloaderConfig},
+    block_downloader::{self, BlockBatch},
     BroadcastSvc, NetworkInterface,
 };
 use cuprate_p2p_core::ClearNet;
@@ -26,6 +26,7 @@ use crate::{
     blockchain::{chain_service::ChainService, syncer, types::ConsensusBlockchainReadHandle},
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     txpool::TxpoolManagerHandle,
+    LaunchContext,
 };
 
 mod commands;
@@ -41,22 +42,23 @@ use syncer::Syncer;
 ///
 /// This function sets up the `BlockchainManager` and the [`Syncer`] so that the functions in [`interface`](super::interface)
 /// can be called.
-pub async fn init_blockchain_manager(
+pub(crate) async fn init_blockchain_manager(
+    launch_ctx: &LaunchContext,
     clearnet_interface: NetworkInterface<ClearNet>,
     blockchain_write_handle: BlockchainWriteHandle,
     txpool_manager_handle: TxpoolManagerHandle,
-    block_downloader_config: BlockDownloaderConfig,
     syncer: Syncer,
     command_rx: mpsc::Receiver<BlockchainManagerCommand>,
-    node_ctx: crate::NodeContext,
 ) {
+    let block_downloader_config = launch_ctx.config.block_downloader_config();
     // TODO: find good values for these size limits
     let (batch_tx, batch_rx) = mpsc::channel(1);
     let stop_current_block_downloader = Arc::new(Notify::new());
+    let fast_sync_hashes = launch_ctx.config.fast_sync_hashes();
 
     tokio::spawn(syncer.run(
-        node_ctx.blockchain.context_svc(),
-        ChainService(node_ctx.blockchain.read(), node_ctx.fast_sync_hashes),
+        launch_ctx.blockchain.context_svc(),
+        ChainService(launch_ctx.blockchain.read(), fast_sync_hashes),
         clearnet_interface.clone(),
         batch_tx,
         Arc::clone(&stop_current_block_downloader),
@@ -66,15 +68,15 @@ pub async fn init_blockchain_manager(
     let manager = BlockchainManager {
         blockchain_write_handle,
         blockchain_read_handle: ConsensusBlockchainReadHandle::new(
-            node_ctx.blockchain.read(),
+            launch_ctx.blockchain.read(),
             BoxError::from,
         ),
         txpool_manager_handle,
-        blockchain_context_service: node_ctx.blockchain.context_svc(),
+        blockchain_context_service: launch_ctx.blockchain.context_svc(),
         stop_current_block_downloader,
         broadcast_svc: clearnet_interface.broadcast_svc(),
-        reorg_lock: node_ctx.reorg_lock,
-        fast_sync_hashes: node_ctx.fast_sync_hashes,
+        reorg_lock: Arc::clone(&launch_ctx.reorg_lock),
+        fast_sync_hashes,
     };
 
     tokio::spawn(manager.run(batch_rx, command_rx));
