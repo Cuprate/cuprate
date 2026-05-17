@@ -180,36 +180,65 @@ pub async fn initialize_clearnet_p2p(
     }
 }
 
-/// Start the Tor P2P network zone. Returns [`NetworkInterface<Tor>`] and
-/// a [`Sender<IncomingTxHandler>`] for propagating the tx handler.
-pub async fn start_tor_p2p(
-    launch_ctx: &LaunchContext,
-    tor_ctx: TorContext,
-) -> (NetworkInterface<Tor>, Sender<IncomingTxHandler>) {
-    let config = launch_ctx.config.as_ref();
+/// Initialize the Tor P2P network zone after the node has synced with the network.
+/// Publishes [`NetworkInterface<Tor>`] and forwards the [`IncomingTxHandler`] to the Tor zone.
+pub fn initialize_tor_p2p(
+    launch_ctx: LaunchContext,
+    tor_context: TorContext,
+    tx_handler: IncomingTxHandler,
+    interface_publisher: Sender<NetworkInterface<Tor>>,
+    dandelion_router: Option<Sender<NetworkInterface<Tor>>>,
+) {
+    tracing::info!("Tor P2P zone will start after sync.");
 
-    match tor_ctx.mode {
-        TorMode::Daemon => start_zone_p2p::<Tor, Daemon>(
-            &launch_ctx.blockchain,
-            launch_ctx.txpool_read.clone(),
-            config.tor_p2p_config(&tor_ctx),
-            transport_daemon_config(config),
-            None,
-        )
-        .await
-        .unwrap(),
-        #[cfg(feature = "arti")]
-        TorMode::Arti => start_zone_p2p::<Tor, Arti>(
-            &launch_ctx.blockchain,
-            launch_ctx.txpool_read.clone(),
-            config.tor_p2p_config(&tor_ctx),
-            transport_arti_config(config, tor_ctx),
-            None,
-        )
-        .await
-        .unwrap(),
-        TorMode::Auto => unreachable!("Auto mode should be resolved before this point"),
-    }
+    tokio::spawn(async move {
+        // Wait for the node to synchronize with the network
+        if launch_ctx.syncer.wait_for_synced().await.is_err() {
+            tracing::info!("Not starting Tor P2P zone, syncer stopped");
+            return;
+        }
+        tracing::info!("Starting Tor P2P zone.");
+
+        let config = launch_ctx.config.as_ref();
+        let (tor_interface, tor_tx_handler_tx) = match tor_context.mode {
+            TorMode::Daemon => start_zone_p2p::<Tor, Daemon>(
+                &launch_ctx.blockchain,
+                launch_ctx.txpool_read.clone(),
+                config.tor_p2p_config(&tor_context),
+                transport_daemon_config(config),
+                None,
+            )
+            .await
+            .unwrap(),
+            #[cfg(feature = "arti")]
+            TorMode::Arti => start_zone_p2p::<Tor, Arti>(
+                &launch_ctx.blockchain,
+                launch_ctx.txpool_read.clone(),
+                config.tor_p2p_config(&tor_context),
+                transport_arti_config(config, tor_context),
+                None,
+            )
+            .await
+            .unwrap(),
+            TorMode::Auto => unreachable!("Auto mode should be resolved before this point"),
+        };
+
+        // Publish the Tor interface for consumers
+        drop(interface_publisher.send(tor_interface.clone()));
+
+        // Send the tx handler to the Tor zone
+        if tor_tx_handler_tx.send(tx_handler).is_err() {
+            tracing::warn!("Failed to send tx handler to Tor zone.");
+            return;
+        }
+
+        // Deliver the Tor network interface to the dandelion router.
+        if let Some(tx) = dandelion_router {
+            if tx.send(tor_interface).is_err() {
+                tracing::warn!("Failed to deliver Tor router to dandelion pool.");
+            }
+        }
+    });
 }
 
 /// Starts the P2P network zone, returning a [`NetworkInterface`] to interact with it.

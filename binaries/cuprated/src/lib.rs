@@ -48,7 +48,7 @@ use std::sync::Arc;
 
 use tokio::sync::{oneshot, RwLock};
 use tower::{Service, ServiceExt};
-use tracing::{error, info};
+use tracing::error;
 
 use cuprate_p2p::NetworkInterface;
 use cuprate_p2p_core::{ClearNet, Tor};
@@ -255,36 +255,13 @@ impl Node {
 
         // Start Tor P2P zone after sync completes.
         if tor_enabled {
-            info!("Tor P2P zone will start after sync.");
-
-            let launch_ctx = launch_ctx.clone();
-            tokio::spawn(async move {
-                // Wait for the node to synchronize with the network
-                if launch_ctx.syncer.wait_for_synced().await.is_err() {
-                    tracing::info!("Not starting Tor P2P zone, syncer stopped");
-                    return;
-                }
-                tracing::info!("Starting Tor P2P zone.");
-
-                let (tor_interface, tor_tx_handler_tx) =
-                    p2p::start_tor_p2p(&launch_ctx, tor_context).await;
-
-                // Publish the Tor interface for consumers
-                drop(tor_tx.send(tor_interface.clone()));
-
-                // Send the tx handler to the Tor zone
-                if tor_tx_handler_tx.send(tx_handler).is_err() {
-                    tracing::warn!("Failed to send tx handler to Tor zone.");
-                    return;
-                }
-
-                // Deliver the Tor network interface to the dandelion router.
-                if let Some(tx) = tor_router_tx {
-                    if tx.send(tor_interface).is_err() {
-                        tracing::warn!("Failed to deliver Tor router to dandelion pool.");
-                    }
-                }
-            });
+            p2p::initialize_tor_p2p(
+                launch_ctx.clone(),
+                tor_context,
+                tx_handler,
+                tor_tx,
+                tor_router_tx,
+            );
         }
 
         let LaunchContext {
