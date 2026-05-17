@@ -22,10 +22,32 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/cuprate-smoke.XXXXXX")"
 
+# Where to drop the per-run build logs so a later CI step (or a curious
+# operator) can scan them. The smoke script is typically invoked under
+# `sudo` in CI, which makes $tmp root-owned mode 0700 - so the later
+# non-sudo workflow step that greps for native-arch flags can't read
+# anything in /tmp/cuprate-smoke.*. Exporting the logs to a workspace-
+# relative path and chmod a+rX fixes that for both success and failure
+# without changing the failure-preserves-tmp behaviour.
+LOG_EXPORT_DIR="${LOG_EXPORT_DIR:-$repo_root/contrib/guix/smoke-logs}"
+
 # Preserve the working tree on failure so the user can dig through logs and
-# intermediate artifacts. On success, clean up.
+# intermediate artifacts. On success, clean up. Always export the build
+# logs first so the assert step (in this script and at the workflow level)
+# has something to scan even on success.
 on_exit() {
   local code=$?
+  if [[ -d "$tmp" ]]; then
+    mkdir -p "$LOG_EXPORT_DIR"
+    local sub
+    for sub in a b; do
+      local src_log="$tmp/$sub/contrib/guix/out/build-x86_64-unknown-linux-gnu.log"
+      if [[ -f "$src_log" ]]; then
+        cp "$src_log" "$LOG_EXPORT_DIR/build-$sub.log" 2>/dev/null || true
+      fi
+    done
+    chmod -R a+rX "$LOG_EXPORT_DIR" 2>/dev/null || true
+  fi
   if [[ $code -ne 0 ]]; then
     echo "smoke FAILED; preserving working dir for inspection: $tmp" >&2
   else
@@ -61,15 +83,44 @@ run_once() {
 # build log. Catches both the obvious (-march=native, -mcpu=native) and the
 # rustc form (target-cpu=native) that any future cc-rs crate or rustc config
 # could re-introduce.
+#
+# NOTE: the `--` before "$pat" is load-bearing. The regex begins with `-m`,
+# which grep otherwise parses as the `-m` (max-count) option, resulting in
+# `grep: invalid max count` and a non-zero exit that the `if` block
+# silently treats as "not found" - i.e. the guard becomes fail-open.
+NATIVE_FLAG_REGEX='-march=native|-mcpu=native|target-cpu=native'
 assert_no_native_flags() {
   local src="$1"
-  local pat='-march=native|-mcpu=native|target-cpu=native'
-  if grep -E "$pat" "$src/contrib/guix/out/build-x86_64-unknown-linux-gnu.log" >/dev/null 2>&1; then
+  local log="$src/contrib/guix/out/build-x86_64-unknown-linux-gnu.log"
+  if [[ ! -s "$log" ]]; then
+    echo "FAIL: build log is missing or empty: $log" >&2
+    return 1
+  fi
+  if grep -E -- "$NATIVE_FLAG_REGEX" "$log" >/dev/null 2>&1; then
     echo "FAIL: host-CPU-native build flag detected in $src build log:" >&2
-    grep -nE "$pat" "$src/contrib/guix/out/build-x86_64-unknown-linux-gnu.log" >&2 | head -5
+    # `head -5 >&2`: redirect head's output to stderr, not grep's
+    # (otherwise head reads from an empty pipe and prints nothing).
+    grep -nE -- "$NATIVE_FLAG_REGEX" "$log" | head -5 >&2
     return 1
   fi
 }
+
+# Positive self-test for the regex/guard: a known-bad line MUST trip the
+# grep. If this ever stops firing, the regression guard is broken (the
+# leading `-m` parses as an option without `--`/`-e`).
+native_flag_selftest() {
+  local tmpfile
+  tmpfile="$(mktemp "${TMPDIR:-/tmp}/native-flag-selftest.XXXXXX")"
+  printf '%s\n' 'cc -march=native foo.c' > "$tmpfile"
+  if ! grep -E -- "$NATIVE_FLAG_REGEX" "$tmpfile" >/dev/null 2>&1; then
+    echo "FAIL: native-flag guard self-test failed; regex is broken" >&2
+    rm -f "$tmpfile"
+    return 1
+  fi
+  rm -f "$tmpfile"
+}
+
+native_flag_selftest
 
 h1="$(run_once "$tmp/a")"
 h2="$(run_once "$tmp/b")"
