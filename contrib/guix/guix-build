@@ -65,6 +65,12 @@ else
   exit 1
 fi
 
+# See guix-mk-distsrc for the rationale: redirect TMPDIR inside the
+# container to a bind-mounted host directory so the cargo target tree
+# isn't constrained by the container's private tmpfs (~50% of RAM ~=
+# 8 GB on a 16 GB GHA runner, smaller than a release build of cuprated).
+work_root="$repo_root/contrib/guix/.work"
+mkdir -p "$work_root"
 guix time-machine -C "$script_dir/channels.scm" \
   -- shell --system="$guix_system" -m "$script_dir/manifest.scm" --container --pure -- \
   env \
@@ -74,4 +80,5 @@ guix time-machine -C "$script_dir/channels.scm" \
     GUIX_OUT_DIR="$out_dir" \
     GUIX_ALLOW_COMMIT_MISMATCH="${GUIX_ALLOW_COMMIT_MISMATCH:-0}" \
     GUIX_SKIP_FENV_WORKAROUND="${GUIX_SKIP_FENV_WORKAROUND:-0}" \
+    TMPDIR="$work_root" \
     bash "$script_dir/libexec/build.sh"

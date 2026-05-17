@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# Without inherit_errexit, set -e is silently disabled inside `$(...)`
+# command substitutions - so a failing `distsrc="$(./guix-mk-distsrc ...)"`
+# would set $distsrc to "" and the script would soldier on with an empty
+# `--distsrc` arg, producing the confusing "guix-build returned 0 but no
+# artifact" tail-of-the-iceberg failure mode. With inherit_errexit, the
+# substitution exits non-zero and set -e fires at the assignment, so the
+# real error (e.g. disk-full in cargo vendor) surfaces immediately.
+shopt -s inherit_errexit
 
 # End-to-end reproducibility self-check.
 #

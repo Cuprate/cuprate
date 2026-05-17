@@ -30,6 +30,19 @@ case "$out_dir" in
   *) echo "ERROR: --out-dir must resolve inside the repository ($repo_root); got $out_dir" >&2; exit 1 ;;
 esac
 
+# `guix shell --container` mounts a private tmpfs over /tmp inside the
+# container, sized at the kernel's tmpfs default (~50% of RAM). On a
+# 16 GB GHA runner that's ~8 GB - smaller than the full cuprate cargo-
+# vendor tree (windows-0.62.2 alone unpacks to ~2 GB, and the whole
+# tree easily exceeds 10 GB). Redirect TMPDIR inside the container to
+# a bind-mounted work directory on the host filesystem so mktemp and
+# cargo vendor target the host volume (typically 100+ GB free) rather
+# than the constrained tmpfs.
+work_root="$repo_root/contrib/guix/.work"
+mkdir -p "$work_root"
 guix time-machine -C "$script_dir/channels.scm" \
   -- shell --system="$guix_system" -m "$script_dir/manifest.scm" --container --pure --network -- \
-  env GUIX_OUT_DIR="$out_dir" bash "$script_dir/mk-distsrc"
+  env \
+    GUIX_OUT_DIR="$out_dir" \
+    TMPDIR="$work_root" \
+    bash "$script_dir/mk-distsrc"
