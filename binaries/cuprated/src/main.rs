@@ -26,6 +26,7 @@ use std::{
 };
 
 use clap::Parser;
+use tokio::sync::mpsc;
 use tracing::info;
 
 use cuprated::{
@@ -39,7 +40,7 @@ mod commands;
 
 use crate::{
     args::Args,
-    commands::{Command, CommandHandle},
+    commands::{Command, command_listener},
 };
 
 fn main() {
@@ -67,57 +68,26 @@ fn main() {
 
     let rt = init_tokio_rt(&config);
 
+    #[expect(clippy::significant_drop_tightening)]
     rt.block_on(async move {
         // Start the node.
-        let cuprated::Node {
-            blockchain, config, ..
-        } = cuprated::Node::launch(config).await;
+        let node = cuprated::Node::launch(config).await;
 
         // If STDIN is a terminal, spawn a blocking thread for user input.
         if io::stdin().is_terminal() {
-            let command = CommandHandle::init(blockchain, config);
-            spawn_stdin_reader(command);
+            let (command_tx, command_rx) = mpsc::channel(1);
+            std::thread::spawn(|| commands::command_listener(command_tx));
+
+            // Wait on the io_loop, spawned on a separate task as this improves performance.
+            tokio::spawn(commands::io_loop(command_rx, node))
+                .await
+                .unwrap();
         } else {
             // If no STDIN, await OS exit signal.
             info!("Terminal/TTY not detected, disabling STDIN commands");
         }
 
         tokio::signal::ctrl_c().await.unwrap();
-    });
-}
-
-/// Spawn a STDIN reader that forwards commands to the [`CommandHandle`].
-fn spawn_stdin_reader(command: CommandHandle) {
-    std::thread::spawn(move || {
-        let mut line = String::new();
-        loop {
-            line.clear();
-            match io::stdin().read_line(&mut line) {
-                Ok(0) => return,
-                Err(e) => {
-                    eprintln!("Failed to read from stdin: {e}");
-                    sleep(Duration::from_secs(1));
-                    continue;
-                }
-                Ok(_) => {}
-            }
-
-            let trimmed = line.trim();
-            if trimmed.is_empty() {
-                continue;
-            }
-            let cmd = match Command::try_parse_from(trimmed.split_whitespace()) {
-                Ok(cmd) => cmd,
-                Err(err) => {
-                    err.print().unwrap();
-                    continue;
-                }
-            };
-            if let Err(e) = command.send_command(cmd) {
-                eprintln!("Failed to send command: {e}");
-                return;
-            }
-        }
     });
 }
 
