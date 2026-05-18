@@ -191,11 +191,21 @@ pub fn initialize_tor_p2p(
 ) {
     tracing::info!("Tor P2P zone will start after sync.");
 
-    tokio::spawn(async move {
-        // Wait for the node to synchronize with the network
-        if launch_ctx.syncer.wait_for_synced().await.is_err() {
-            tracing::info!("Not starting Tor P2P zone, syncer stopped");
-            return;
+    let task_executor = launch_ctx.task_executor.clone();
+    let shutdown_token = task_executor.cancellation_token();
+
+    task_executor.spawn(async move {
+        // Wait for the node to synchronize with the network, or shutdown.
+        tokio::select! {
+            result = launch_ctx.syncer.wait_for_synced() => {
+                if result.is_err() {
+                    tracing::info!("Not starting Tor P2P zone, syncer stopped");
+                    return;
+                }
+            }
+            () = shutdown_token.cancelled() => {
+                return;
+            }
         }
         tracing::info!("Starting Tor P2P zone.");
 

@@ -20,6 +20,8 @@ use cuprate_p2p::{
 };
 use cuprate_p2p_core::{client::PeerSyncCallback, ClearNet, CoreSyncData, NetworkZone};
 
+use tokio_util::sync::CancellationToken;
+
 use super::BlockchainInterface;
 
 /// An error returned from the [`Syncer`].
@@ -72,6 +74,7 @@ impl Syncer {
     /// Run the syncer.
     #[instrument(level = "debug", skip_all)]
     #[expect(clippy::significant_drop_tightening)]
+    #[expect(clippy::too_many_arguments)]
     pub async fn run<CN>(
         mut self,
         mut context_svc: BlockchainContextService,
@@ -80,6 +83,7 @@ impl Syncer {
         incoming_block_batch_tx: mpsc::Sender<(BlockBatch, Arc<OwnedSemaphorePermit>)>,
         stop_current_block_downloader: Arc<Notify>,
         block_downloader_config: BlockDownloaderConfig,
+        shutdown_token: CancellationToken,
     ) -> Result<(), SyncerError>
     where
         CN: Service<
@@ -98,7 +102,13 @@ impl Syncer {
         let mut sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await?);
 
         loop {
-            self.notify_syncer.notified().await;
+            tokio::select! {
+                () = shutdown_token.cancelled() => {
+                    tracing::info!("Blockchain syncer shut down.");
+                    return Ok(());
+                }
+                () = self.notify_syncer.notified() => {}
+            }
 
             tracing::trace!("Checking connected peers to see if we are behind",);
 
@@ -126,6 +136,11 @@ impl Syncer {
 
             loop {
                 tokio::select! {
+                    biased;
+                    () = shutdown_token.cancelled() => {
+                        tracing::info!("Blockchain syncer shut down.");
+                        return Ok(());
+                    }
                     () = stop_current_block_downloader.notified() => {
                         tracing::info!("Received stop signal, stopping block downloader");
 
@@ -154,6 +169,9 @@ impl Syncer {
 
                         tracing::debug!("Got batch, len: {}", batch.blocks.len());
                         if incoming_block_batch_tx.send((batch, Arc::clone(&sync_permit))).await.is_err() {
+                            if shutdown_token.is_cancelled() {
+                                return Ok(());
+                            }
                             return Err(SyncerError::IncomingBlockChannelClosed);
                         }
                     }

@@ -346,7 +346,7 @@ impl BlockchainDatabase {
 
 impl Drop for BlockchainDatabase {
     fn drop(&mut self) {
-        tracing::info!("Syncing blockchain database to storage.");
+        tracing::info!(parent: &tracing::Span::none(), "Syncing blockchain database to storage.");
 
         let _ = self.fjall.persist(PersistMode::SyncAll);
 
