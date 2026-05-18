@@ -21,7 +21,9 @@ use cuprate_types::BlockTemplate;
 
 use cuprate_helper::network::Network;
 
-use crate::{rpc::handlers, txpool::IncomingTxHandler};
+use crate::{
+    blockchain::BlockchainManagerHandle, rpc::handlers, txpool::IncomingTxHandler, LaunchContext,
+};
 
 /// TODO: use real type when public.
 #[derive(Clone)]
@@ -149,8 +151,8 @@ pub enum BlockchainManagerResponse {
     CreateBlockTemplate(Box<BlockTemplate>),
 }
 
-/// TODO: use real type when public.
-pub type BlockchainManagerHandle =
+/// TODO: replace with [`BlockchainManagerHandle`] when RPC operations are implemented.
+pub type BlockchainManagerRpcHandle =
     tower::util::BoxService<BlockchainManagerRequest, BlockchainManagerResponse, Error>;
 
 /// cuprated's RPC handler service.
@@ -174,25 +176,35 @@ pub struct CupratedRpcHandler {
     pub txpool_read: TxpoolReadHandle,
 
     pub tx_handler: IncomingTxHandler,
+
+    /// Command channel to the blockchain manager.
+    pub blockchain_manager: BlockchainManagerHandle,
+
+    /// The time this node was launched as a UNIX timestamp.
+    pub start_instant_unix: u64,
 }
 
 impl CupratedRpcHandler {
     /// Create a new [`Self`].
-    pub const fn new(
+    pub fn new(
         restricted: bool,
-        network: Network,
-        blockchain_read: BlockchainReadHandle,
-        blockchain_context: BlockchainContextService,
-        txpool_read: TxpoolReadHandle,
         tx_handler: IncomingTxHandler,
+        launch_ctx: &LaunchContext,
     ) -> Self {
+        let start_instant_unix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
         Self {
             restricted,
-            network,
-            blockchain_read,
-            blockchain_context,
-            txpool_read,
+            network: launch_ctx.config.network,
             tx_handler,
+            blockchain_read: launch_ctx.blockchain.read(),
+            blockchain_context: launch_ctx.blockchain.context_svc(),
+            txpool_read: launch_ctx.txpool_read.clone(),
+            blockchain_manager: launch_ctx.blockchain.manager(),
+            start_instant_unix,
         }
     }
 }

@@ -1,7 +1,11 @@
 //! Commands
 //!
 //! `cuprated` [`Command`] definition and handling.
-use std::{io, thread::sleep, time::Duration};
+use std::{
+    io,
+    thread::sleep,
+    time::{Duration, Instant},
+};
 
 use clap::{builder::TypedValueParser, Parser, ValueEnum};
 use tokio::sync::mpsc;
@@ -13,11 +17,7 @@ use cuprate_consensus_context::{
 };
 use cuprate_helper::time::secs_to_hms;
 
-use crate::{
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
-    logging::{self, CupratedTracingFilter},
-    statics,
-};
+use cuprated::logging::{self, CupratedTracingFilter};
 
 /// A command received from [`io::stdin`].
 #[derive(Debug, Parser)]
@@ -91,10 +91,9 @@ pub fn command_listener(incoming_commands: mpsc::Sender<Command>) -> ! {
 }
 
 /// The [`Command`] handler loop.
-pub async fn io_loop(
-    mut incoming_commands: mpsc::Receiver<Command>,
-    mut context_service: BlockchainContextService,
-) {
+pub async fn io_loop(mut incoming_commands: mpsc::Receiver<Command>, mut node: cuprated::Node) {
+    let start_instant = Instant::now();
+
     loop {
         let Some(command) = incoming_commands.recv().await else {
             tracing::warn!("Shutting down io_loop command channel closed.");
@@ -119,9 +118,9 @@ pub async fn io_loop(
                 }
             }
             Command::Status => {
-                let context = context_service.blockchain_context();
+                let context = node.blockchain.context();
 
-                let uptime = statics::START_INSTANT.elapsed().unwrap_or_default();
+                let uptime = start_instant.elapsed();
 
                 let (h, m, s) = secs_to_hms(uptime.as_secs());
                 let height = context.chain_height;
@@ -130,13 +129,14 @@ pub async fn io_loop(
                 println!("STATUS:\n  uptime: {h}h {m}m {s}s,\n  height: {height},\n  top_hash: {top_hash}");
             }
             Command::FastSyncStopHeight => {
-                let stop_height = cuprate_fast_sync::fast_sync_stop_height();
+                let stop_height =
+                    cuprate_fast_sync::fast_sync_stop_height(node.config.fast_sync_hashes());
 
                 println!("{stop_height}");
             }
             Command::PopBlocks { numb_blocks } => {
                 tracing::info!("Popping {numb_blocks} blocks.");
-                let res = crate::blockchain::interface::pop_blocks(numb_blocks).await;
+                let res = node.blockchain.manager().pop_blocks(numb_blocks).await;
 
                 match res {
                     Ok(()) => println!("Popped {numb_blocks} blocks."),

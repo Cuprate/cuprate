@@ -30,8 +30,6 @@ pub enum BlockchainManagerCommand {
 pub enum IncomingBlockOk {
     /// The block was added to the main-chain.
     AddedToMainChain,
-    /// The blockchain manager is not ready yet.
-    NotReady,
     /// The block was added to an alt-chain.
     AddedToAltChain,
     /// We already have the block.

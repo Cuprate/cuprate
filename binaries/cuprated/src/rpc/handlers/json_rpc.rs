@@ -60,7 +60,6 @@ use cuprate_types::{
 };
 
 use crate::{
-    blockchain::interface as blockchain_interface,
     constants::VERSION_BUILD,
     rpc::{
         constants::{FIELD_NOT_SUPPORTED, UNSUPPORTED_RPC_CALL},
@@ -68,7 +67,6 @@ use crate::{
         service::{address_book, blockchain, blockchain_context, blockchain_manager, txpool},
         CupratedRpcHandler,
     },
-    statics::START_INSTANT_UNIX,
 };
 
 /// Map a [`JsonRpcRequest`] to the function that will lead to a [`JsonRpcResponse`].
@@ -247,13 +245,15 @@ async fn submit_block(
     let block_id = Hex(block.hash());
 
     // Attempt to relay the block.
-    blockchain_interface::handle_incoming_block(
-        block,
-        HashMap::new(), // this function reads the txpool
-        &mut state.blockchain_read,
-        &mut state.txpool_read,
-    )
-    .await?;
+    state
+        .blockchain_manager
+        .handle_incoming_block(
+            block,
+            HashMap::new(), // this function reads the txpool
+            &mut state.blockchain_read,
+            &mut state.txpool_read,
+        )
+        .await?;
 
     Ok(SubmitBlockResponse {
         base: helper::response_base(false),
@@ -535,7 +535,11 @@ async fn get_info(
     )]
     let rpc_connections_count = if restricted { 0 } else { 0 };
 
-    let start_time = if restricted { 0 } else { *START_INSTANT_UNIX };
+    let start_time = if restricted {
+        0
+    } else {
+        state.start_instant_unix
+    };
     let synchronized = blockchain_manager::synced(todo!()).await?;
 
     let target_height = blockchain_manager::target_height(todo!()).await?;

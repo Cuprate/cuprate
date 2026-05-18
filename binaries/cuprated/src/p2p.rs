@@ -13,8 +13,6 @@ use tokio::sync::{
 };
 use tower::{Service, ServiceExt};
 
-use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
-use cuprate_consensus::BlockchainContextService;
 use cuprate_p2p::{config::TransportConfig, NetworkInterface, P2PConfig};
 use cuprate_p2p_core::{
     client::{InternalPeerID, PeerSyncCallback},
@@ -26,10 +24,11 @@ use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
 use cuprate_types::blockchain::BlockchainWriteRequest;
 
 use crate::{
-    config::Config,
+    blockchain::BlockchainInterface,
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     tor::{transport_clearnet_daemon_config, transport_daemon_config, TorContext, TorMode},
     txpool::{self, IncomingTxHandler},
+    LaunchContext,
 };
 
 #[cfg(feature = "arti")]
@@ -125,100 +124,121 @@ impl NetworkInterfaces {
 /// Initialize the clearnet P2P network zone. Returns [`NetworkInterface<ClearNet>`] and
 /// [`Sender<IncomingTxHandler>`] for propagating the tx handler.
 pub async fn initialize_clearnet_p2p(
-    config: &Config,
-    context_svc: BlockchainContextService,
-    blockchain_read_handle: BlockchainReadHandle,
-    txpool_read_handle: TxpoolReadHandle,
+    launch_ctx: &LaunchContext,
     tor_ctx: &TorContext,
-    peer_sync_callback: PeerSyncCallback,
 ) -> (NetworkInterface<ClearNet>, Sender<IncomingTxHandler>) {
+    let config = launch_ctx.config.as_ref();
+    let peer_sync_callback = launch_ctx.syncer.callback(&launch_ctx.blockchain);
+
     match &config.p2p.clear_net.proxy {
         ProxySettings::Tor => match tor_ctx.mode {
             #[cfg(feature = "arti")]
             TorMode::Arti => {
                 tracing::info!("Anonymizing clearnet connections through Arti.");
                 start_zone_p2p::<ClearNet, Arti>(
-                    blockchain_read_handle,
-                    context_svc,
-                    txpool_read_handle,
+                    &launch_ctx.blockchain,
+                    launch_ctx.txpool_read.clone(),
                     config.clearnet_p2p_config(),
                     transport_clearnet_arti_config(tor_ctx),
-                    Some(peer_sync_callback.clone()),
+                    Some(peer_sync_callback),
                 )
                 .await
                 .unwrap()
             }
             TorMode::Daemon => start_zone_p2p::<ClearNet, Socks>(
-                blockchain_read_handle,
-                context_svc,
-                txpool_read_handle,
+                &launch_ctx.blockchain,
+                launch_ctx.txpool_read.clone(),
                 config.clearnet_p2p_config(),
                 transport_clearnet_daemon_config(config),
-                Some(peer_sync_callback.clone()),
+                Some(peer_sync_callback),
             )
             .await
             .unwrap(),
             TorMode::Auto => unreachable!("Auto mode should be resolved before this point"),
         },
         ProxySettings::Disabled => start_zone_p2p::<ClearNet, Tcp>(
-            blockchain_read_handle,
-            context_svc,
-            txpool_read_handle,
+            &launch_ctx.blockchain,
+            launch_ctx.txpool_read.clone(),
             config.clearnet_p2p_config(),
             config.p2p.clear_net.tcp_transport_config(config.network),
-            Some(peer_sync_callback.clone()),
+            Some(peer_sync_callback),
         )
         .await
         .unwrap(),
         ProxySettings::Socks(socks_config) => start_zone_p2p::<ClearNet, Socks>(
-            blockchain_read_handle,
-            context_svc,
-            txpool_read_handle,
+            &launch_ctx.blockchain,
+            launch_ctx.txpool_read.clone(),
             config.clearnet_p2p_config(),
             TransportConfig {
                 client_config: socks_config.clone(),
                 server_config: None,
             },
-            Some(peer_sync_callback.clone()),
+            Some(peer_sync_callback),
         )
         .await
         .unwrap(),
     }
 }
 
-/// Start the Tor P2P network zone. Returns [`NetworkInterface<Tor>`] and
-/// a [`Sender<IncomingTxHandler>`] for propagating the tx handler.
-pub async fn start_tor_p2p(
-    config: &Config,
-    context_svc: BlockchainContextService,
-    blockchain_read_handle: BlockchainReadHandle,
-    txpool_read_handle: TxpoolReadHandle,
-    tor_ctx: TorContext,
-) -> (NetworkInterface<Tor>, Sender<IncomingTxHandler>) {
-    match tor_ctx.mode {
-        TorMode::Daemon => start_zone_p2p::<Tor, Daemon>(
-            blockchain_read_handle,
-            context_svc,
-            txpool_read_handle,
-            config.tor_p2p_config(&tor_ctx),
-            transport_daemon_config(config),
-            None,
-        )
-        .await
-        .unwrap(),
-        #[cfg(feature = "arti")]
-        TorMode::Arti => start_zone_p2p::<Tor, Arti>(
-            blockchain_read_handle,
-            context_svc,
-            txpool_read_handle,
-            config.tor_p2p_config(&tor_ctx),
-            transport_arti_config(config, tor_ctx),
-            None,
-        )
-        .await
-        .unwrap(),
-        TorMode::Auto => unreachable!("Auto mode should be resolved before this point"),
-    }
+/// Initialize the Tor P2P network zone after the node has synced with the network.
+/// Publishes [`NetworkInterface<Tor>`] and forwards the [`IncomingTxHandler`] to the Tor zone.
+pub fn initialize_tor_p2p(
+    launch_ctx: LaunchContext,
+    tor_context: TorContext,
+    tx_handler: IncomingTxHandler,
+    interface_publisher: Sender<NetworkInterface<Tor>>,
+    dandelion_router: Option<Sender<NetworkInterface<Tor>>>,
+) {
+    tracing::info!("Tor P2P zone will start after sync.");
+
+    tokio::spawn(async move {
+        // Wait for the node to synchronize with the network
+        if launch_ctx.syncer.wait_for_synced().await.is_err() {
+            tracing::info!("Not starting Tor P2P zone, syncer stopped");
+            return;
+        }
+        tracing::info!("Starting Tor P2P zone.");
+
+        let config = launch_ctx.config.as_ref();
+        let (tor_interface, tor_tx_handler_tx) = match tor_context.mode {
+            TorMode::Daemon => start_zone_p2p::<Tor, Daemon>(
+                &launch_ctx.blockchain,
+                launch_ctx.txpool_read.clone(),
+                config.tor_p2p_config(&tor_context),
+                transport_daemon_config(config),
+                None,
+            )
+            .await
+            .unwrap(),
+            #[cfg(feature = "arti")]
+            TorMode::Arti => start_zone_p2p::<Tor, Arti>(
+                &launch_ctx.blockchain,
+                launch_ctx.txpool_read.clone(),
+                config.tor_p2p_config(&tor_context),
+                transport_arti_config(config, tor_context),
+                None,
+            )
+            .await
+            .unwrap(),
+            TorMode::Auto => unreachable!("Auto mode should be resolved before this point"),
+        };
+
+        // Publish the Tor interface for consumers
+        drop(interface_publisher.send(tor_interface.clone()));
+
+        // Send the tx handler to the Tor zone
+        if tor_tx_handler_tx.send(tx_handler).is_err() {
+            tracing::warn!("Failed to send tx handler to Tor zone.");
+            return;
+        }
+
+        // Deliver the Tor network interface to the dandelion router.
+        if let Some(tx) = dandelion_router {
+            if tx.send(tor_interface).is_err() {
+                tracing::warn!("Failed to deliver Tor router to dandelion pool.");
+            }
+        }
+    });
 }
 
 /// Starts the P2P network zone, returning a [`NetworkInterface`] to interact with it.
@@ -226,8 +246,7 @@ pub async fn start_tor_p2p(
 /// A [`oneshot::Sender`] is also returned to provide the [`IncomingTxHandler`], until this is provided network
 /// handshakes can not be completed.
 pub async fn start_zone_p2p<N, T>(
-    blockchain_read_handle: BlockchainReadHandle,
-    blockchain_context_service: BlockchainContextService,
+    blockchain: &BlockchainInterface,
     txpool_read_handle: TxpoolReadHandle,
     config: P2PConfig<N>,
     transport_config: TransportConfig<N, T>,
@@ -239,20 +258,22 @@ where
     N::Addr: borsh::BorshDeserialize + borsh::BorshSerialize,
     CrossNetworkInternalPeerId: From<InternalPeerID<<N as NetworkZone>::Addr>>,
 {
+    let context_svc = blockchain.context_svc();
     let (incoming_tx_handler_tx, incoming_tx_handler_rx) = oneshot::channel();
 
     let request_handler_maker = request_handler::P2pProtocolRequestHandlerMaker {
-        blockchain_read_handle,
-        blockchain_context_service: blockchain_context_service.clone(),
+        blockchain_read_handle: blockchain.read(),
+        blockchain_context_service: context_svc.clone(),
         txpool_read_handle,
         incoming_tx_handler: None,
         incoming_tx_handler_fut: incoming_tx_handler_rx.shared(),
+        blockchain_manager: blockchain.manager(),
     };
 
     Ok((
         cuprate_p2p::initialize_network::<N, T, _, _>(
             request_handler_maker.map_response(|s| s.map_err(Into::into)),
-            core_sync_service::CoreSyncService(blockchain_context_service),
+            core_sync_service::CoreSyncService(context_svc),
             config,
             transport_config,
             peer_sync_callback,

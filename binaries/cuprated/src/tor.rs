@@ -19,6 +19,7 @@ use cuprate_wire::OnionAddr;
 use crate::{
     config::{p2p_port, Config},
     p2p::ProxySettings,
+    LaunchContext,
 };
 
 #[cfg(feature = "arti")]
@@ -71,7 +72,8 @@ pub struct TorContext {
 ///
 /// This function will bootstrap Arti if needed by Tor network zone or
 /// clearnet as a proxy.
-pub async fn initialize_tor_if_enabled(config: &Config) -> TorContext {
+pub async fn initialize_tor_if_enabled(launch_ctx: &LaunchContext) -> TorContext {
+    let config = launch_ctx.config.as_ref();
     let anonymize_clearnet = matches!(config.p2p.clear_net.proxy, ProxySettings::Tor);
     let tor_enabled = config.p2p.tor_net.enabled || anonymize_clearnet;
 
