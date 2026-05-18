@@ -40,7 +40,7 @@ mod commands;
 
 use crate::{
     args::Args,
-    commands::{Command, command_listener},
+    commands::{command_listener, Command},
 };
 
 fn main() {
@@ -85,9 +85,8 @@ fn main() {
         } else {
             // If no STDIN, await OS exit signal.
             info!("Terminal/TTY not detected, disabling STDIN commands");
+            tokio::signal::ctrl_c().await.unwrap();
         }
-
-        tokio::signal::ctrl_c().await.unwrap();
     });
 }
 

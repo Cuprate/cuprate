@@ -81,6 +81,7 @@ const HEADER: &str = r"##     ____                      _
 
 /// Resolves `target_max_memory` from system RAM if unset.
 pub fn resolve_max_memory(config: &mut Config) {
+    // TODO: don't use `DefaultOrCustom` for target_max_memory.
     if matches!(config.target_max_memory, DefaultOrCustom::Default) {
         tracing::info!("Attempting to read total memory from system");
 
@@ -485,7 +486,7 @@ impl Config {
 
         results.push(DryRunResult {
             description: format!(
-                "Permissions are ok at {}",
+                "File permissions are valid at {}",
                 self.fs.fast_data_directory.display()
             ),
             result: Self::check_dir_permissions(&self.fs.fast_data_directory),
@@ -493,7 +494,7 @@ impl Config {
 
         results.push(DryRunResult {
             description: format!(
-                "Permissions are ok at {}",
+                "File permissions are valid at {}",
                 self.fs.slow_data_directory.display()
             ),
             result: Self::check_dir_permissions(&self.fs.slow_data_directory),
@@ -501,7 +502,7 @@ impl Config {
 
         results.push(DryRunResult {
             description: format!(
-                "Permissions are ok at {}",
+                "File permissions are valid at {}",
                 self.fs.cache_directory.display()
             ),
             result: Self::check_dir_permissions(&self.fs.cache_directory),
@@ -511,7 +512,7 @@ impl Config {
         if matches!(self.tor.mode, TorMode::Arti | TorMode::Auto) {
             results.push(DryRunResult {
                 description: format!(
-                    "Permissions are ok at {}",
+                    "File permissions are valid at {}",
                     self.tor.arti.directory_path.display()
                 ),
                 result: Self::check_dir_permissions(&self.tor.arti.directory_path),
