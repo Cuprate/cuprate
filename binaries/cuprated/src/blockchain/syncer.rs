@@ -8,6 +8,7 @@ use std::{
 
 use futures::{FutureExt, StreamExt};
 use tokio::sync::{mpsc, Notify, OwnedSemaphorePermit, Semaphore};
+use tokio_util::sync::CancellationToken;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
@@ -19,8 +20,6 @@ use cuprate_p2p::{
     NetworkInterface, PeerSetRequest, PeerSetResponse,
 };
 use cuprate_p2p_core::{client::PeerSyncCallback, ClearNet, CoreSyncData, NetworkZone};
-
-use tokio_util::sync::CancellationToken;
 
 use super::BlockchainInterface;
 
@@ -103,6 +102,7 @@ impl Syncer {
 
         loop {
             tokio::select! {
+                biased;
                 () = shutdown_token.cancelled() => {
                     tracing::info!("Blockchain syncer shut down.");
                     return Ok(());

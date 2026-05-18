@@ -100,6 +100,7 @@ pub async fn io_loop(mut incoming_commands: mpsc::Receiver<Command>, mut node: c
 
     loop {
         let command = tokio::select! {
+            biased;
             () = shutdown_token.cancelled() => break,
             cmd = incoming_commands.recv() => {
                 let Some(cmd) = cmd else {

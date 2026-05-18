@@ -160,7 +160,7 @@ impl Node {
 
         // Start the blockchain & tx-pool databases.
         let fjall_db = fjall::Database::builder(config.fjall_directory())
-            .cache_size(config.fjall_cache_size()?)
+            .cache_size(config.fjall_cache_size())
             .open()
             .context(DATABASE_CORRUPT_MSG)?;
 

@@ -51,7 +51,7 @@ pub(crate) async fn init_blockchain_manager(
     syncer: Syncer,
     command_rx: mpsc::Receiver<BlockchainManagerCommand>,
 ) -> Result<(), anyhow::Error> {
-    let block_downloader_config = launch_ctx.config.block_downloader_config()?;
+    let block_downloader_config = launch_ctx.config.block_downloader_config();
     let shutdown_token = launch_ctx.task_executor.cancellation_token();
 
     // TODO: find good values for these size limits
