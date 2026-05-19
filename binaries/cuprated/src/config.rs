@@ -362,6 +362,10 @@ impl Config {
     }
 
     /// Returns the size of the fjall cache.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `target_max_memory` is unresolved.
     pub fn fjall_cache_size(&self) -> u64 {
         *self
             .storage
@@ -370,6 +374,10 @@ impl Config {
     }
 
     /// Returns the target maximum memory usage.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `target_max_memory` is unresolved.
     pub fn target_max_memory(&self) -> u64 {
         match self.target_max_memory {
             DefaultOrCustom::Default => {
@@ -380,6 +388,10 @@ impl Config {
     }
 
     /// The [`BlockDownloaderConfig`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if `target_max_memory` is unresolved.
     pub fn block_downloader_config(&self) -> BlockDownloaderConfig {
         self.p2p
             .block_downloader

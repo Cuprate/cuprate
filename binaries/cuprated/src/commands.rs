@@ -53,6 +53,9 @@ pub enum Command {
 
     /// Pop blocks from the top of the blockchain.
     PopBlocks { numb_blocks: usize },
+
+    /// Gracefully shut down the daemon.
+    Exit,
 }
 
 /// The log output target.
@@ -93,11 +96,19 @@ pub fn command_listener(incoming_commands: mpsc::Sender<Command>) -> ! {
 /// The [`Command`] handler loop.
 pub async fn io_loop(mut incoming_commands: mpsc::Receiver<Command>, mut node: cuprated::Node) {
     let start_instant = Instant::now();
+    let shutdown_token = node.task_executor.cancellation_token();
 
     loop {
-        let Some(command) = incoming_commands.recv().await else {
-            tracing::warn!("Shutting down io_loop command channel closed.");
-            return;
+        let command = tokio::select! {
+            biased;
+            () = shutdown_token.cancelled() => break,
+            cmd = incoming_commands.recv() => {
+                let Some(cmd) = cmd else {
+                    tracing::warn!("Shutting down io_loop, command channel closed.");
+                    return;
+                };
+                cmd
+            }
         };
 
         match command {
@@ -142,6 +153,9 @@ pub async fn io_loop(mut incoming_commands: mpsc::Receiver<Command>, mut node: c
                     Ok(()) => println!("Popped {numb_blocks} blocks."),
                     Err(e) => println!("Failed to pop blocks: {e}"),
                 }
+            }
+            Command::Exit => {
+                node.shutdown();
             }
         }
     }

@@ -37,6 +37,7 @@ pub mod blockchain;
 pub mod config;
 pub mod constants;
 pub mod logging;
+pub mod monitor;
 pub mod version;
 
 mod p2p;
@@ -46,6 +47,7 @@ mod txpool;
 
 use std::sync::Arc;
 
+use anyhow::Context;
 use tokio::sync::{oneshot, RwLock};
 use tower::{Service, ServiceExt};
 use tracing::error;
@@ -58,7 +60,8 @@ use cuprate_types::blockchain::BlockchainWriteRequest;
 use crate::{
     blockchain::{BlockchainInterface, BlockchainManagerHandle, Syncer, SyncerHandle},
     config::Config,
-    constants::{DATABASE_CORRUPT_MSG, PANIC_CRITICAL_SERVICE_ERROR},
+    constants::DATABASE_CORRUPT_MSG,
+    monitor::TaskExecutor,
     tor::initialize_tor_if_enabled,
     txpool::IncomingTxHandler,
 };
@@ -91,6 +94,9 @@ pub(crate) struct LaunchContext {
 
     /// Syncer handle.
     pub syncer: SyncerHandle,
+
+    /// Task spawning and shutdown coordination.
+    pub task_executor: TaskExecutor,
 }
 
 /// An active `cuprated` node.
@@ -115,6 +121,15 @@ pub struct Node {
 
     /// The configuration this node was launched with.
     pub config: Arc<Config>,
+
+    /// Task spawning and shutdown executor.
+    pub task_executor: TaskExecutor,
+}
+
+impl Drop for Node {
+    fn drop(&mut self) {
+        self.task_executor.trigger_shutdown();
+    }
 }
 
 impl Node {
@@ -128,11 +143,11 @@ impl Node {
     /// - Global rayon thread pool (optional, uses rayon defaults if not set)
     /// - Memory resolution (call [`resolve_max_memory`](crate::config::resolve_max_memory))
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the database is corrupt, critical services fail to start,
+    /// Returns an error if the database is corrupt, critical services fail to start,
     /// or `target_max_memory` is unresolved.
-    pub async fn launch(config: impl Into<Arc<Config>>) -> Self {
+    pub async fn launch(config: impl Into<Arc<Config>>) -> Result<Self, anyhow::Error> {
         let config: Arc<Config> = config.into();
 
         // Initialize the database thread pool.
@@ -140,14 +155,14 @@ impl Node {
             rayon::ThreadPoolBuilder::new()
                 .num_threads(config.storage.reader_threads)
                 .build()
-                .unwrap(),
+                .context("failed to build rayon database thread pool")?,
         );
 
         // Start the blockchain & tx-pool databases.
         let fjall_db = fjall::Database::builder(config.fjall_directory())
             .cache_size(config.fjall_cache_size())
             .open()
-            .unwrap();
+            .context(DATABASE_CORRUPT_MSG)?;
 
         let (mut blockchain_read_handle, mut blockchain_write_handle, _) =
             cuprate_blockchain::service::init_with_pool(
@@ -155,22 +170,18 @@ impl Node {
                 fjall_db.clone(),
                 Arc::clone(&db_thread_pool),
             )
-            .inspect_err(|e| error!("Blockchain database error: {e}"))
-            .expect(DATABASE_CORRUPT_MSG);
+            .context(DATABASE_CORRUPT_MSG)?;
 
         let (txpool_read_handle, txpool_write_handle) =
             cuprate_txpool::service::init_with_pool(fjall_db, db_thread_pool)
-                .inspect_err(|e| error!("Txpool database error: {e}"))
-                .expect(DATABASE_CORRUPT_MSG);
+                .context(DATABASE_CORRUPT_MSG)?;
 
         // TODO: Add an argument/option for keeping alt blocks between restart.
         blockchain_write_handle
             .ready()
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .await?
             .call(BlockchainWriteRequest::FlushAltBlocks)
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+            .await?;
 
         // Check add the genesis block to the blockchain.
         blockchain::check_add_genesis(
@@ -184,7 +195,7 @@ impl Node {
         let context_svc =
             blockchain::init_consensus(blockchain_read_handle.clone(), config.context_config())
                 .await
-                .unwrap();
+                .map_err(anyhow::Error::from_boxed)?;
 
         // Create the syncer and handle.
         let (syncer, syncer_handle) = Syncer::new();
@@ -206,6 +217,7 @@ impl Node {
             blockchain: blockchain_interface,
             txpool_read: txpool_read_handle.clone(),
             syncer: syncer_handle,
+            task_executor: TaskExecutor::new(),
         };
 
         // Bootstrap or configure Tor if enabled.
@@ -248,7 +260,7 @@ impl Node {
             syncer,
             command_rx,
         )
-        .await;
+        .await?;
 
         // Initialize the RPC server(s).
         rpc::init_rpc_servers(&launch_ctx, tx_handler.clone());
@@ -269,16 +281,28 @@ impl Node {
             txpool_read,
             syncer,
             config,
+            task_executor,
             ..
         } = launch_ctx;
 
-        Self {
+        Ok(Self {
             blockchain,
             txpool: txpool_read,
             clearnet: clearnet_interface,
             tor: if tor_enabled { Some(tor_rx) } else { None },
             syncer,
             config,
-        }
+            task_executor,
+        })
+    }
+
+    /// Trigger a graceful shutdown.
+    pub fn shutdown(&self) {
+        self.task_executor.trigger_shutdown();
+    }
+
+    /// Wait for shutdown to be triggered, then await all tracked tasks.
+    pub async fn wait_for_shutdown(&self) {
+        self.task_executor.wait_for_shutdown().await;
     }
 }
