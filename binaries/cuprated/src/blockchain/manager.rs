@@ -25,7 +25,6 @@ use cuprate_types::{
 
 use crate::{
     blockchain::{chain_service::ChainService, syncer, types::ConsensusBlockchainReadHandle},
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
     txpool::TxpoolManagerHandle,
     LaunchContext,
 };
@@ -59,15 +58,18 @@ pub(crate) async fn init_blockchain_manager(
     let stop_current_block_downloader = Arc::new(Notify::new());
     let fast_sync_hashes = launch_ctx.config.fast_sync_hashes();
 
-    launch_ctx.task_executor.spawn(syncer.run(
-        launch_ctx.blockchain.context_svc(),
-        ChainService(launch_ctx.blockchain.read(), fast_sync_hashes),
-        clearnet_interface.clone(),
-        batch_tx,
-        Arc::clone(&stop_current_block_downloader),
-        block_downloader_config,
-        shutdown_token.clone(),
-    ));
+    launch_ctx.task_executor.spawn_critical(
+        "blockchain syncer",
+        syncer.run(
+            launch_ctx.blockchain.context_svc(),
+            ChainService(launch_ctx.blockchain.read(), fast_sync_hashes),
+            clearnet_interface.clone(),
+            batch_tx,
+            Arc::clone(&stop_current_block_downloader),
+            block_downloader_config,
+            shutdown_token.clone(),
+        ),
+    );
 
     let manager = BlockchainManager {
         blockchain_write_handle,
@@ -83,9 +85,10 @@ pub(crate) async fn init_blockchain_manager(
         fast_sync_hashes,
     };
 
-    launch_ctx
-        .task_executor
-        .spawn(manager.run(batch_rx, command_rx, shutdown_token));
+    launch_ctx.task_executor.spawn_critical(
+        "blockchain manager",
+        manager.run(batch_rx, command_rx, shutdown_token),
+    );
 
     Ok(())
 }
@@ -125,7 +128,7 @@ impl BlockchainManager {
         mut block_batch_rx: mpsc::Receiver<(BlockBatch, Arc<OwnedSemaphorePermit>)>,
         mut command_rx: mpsc::Receiver<BlockchainManagerCommand>,
         shutdown_token: CancellationToken,
-    ) {
+    ) -> anyhow::Result<()> {
         loop {
             tokio::select! {
                 biased;
@@ -133,21 +136,21 @@ impl BlockchainManager {
                     break;
                 }
                 Some((batch, permit)) = block_batch_rx.recv() => {
-                    self.handle_incoming_block_batch(
-                        batch,
-                    ).await;
+                    self.handle_incoming_block_batch(batch)
+                        .await
+                        .map_err(anyhow::Error::from_boxed)?;
 
                     drop(permit);
                 }
                 Some(incoming_command) = command_rx.recv() => {
-                    self.handle_command(incoming_command).await;
-                }
-                else => {
-                    break;
+                    self.handle_command(incoming_command)
+                        .await
+                        .map_err(anyhow::Error::from_boxed)?;
                 }
             }
         }
 
         tracing::info!("Blockchain manager shut down.");
+        Ok(())
     }
 }

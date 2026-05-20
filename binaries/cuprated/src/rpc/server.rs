@@ -10,7 +10,7 @@ use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 use tower::limit::rate::RateLimitLayer;
 use tower_http::limit::RequestBodyLimitLayer;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 use cuprate_rpc_interface::{RouterBuilder, RpcHandler};
 
@@ -23,12 +23,14 @@ use crate::{
 
 /// Initialize the RPC server(s).
 ///
-/// # Panics
-/// This function will panic if:
-/// - the server(s) could not be started
-/// - unrestricted RPC is started on non-local
-///   address without override option
-pub fn init_rpc_servers(launch_ctx: &LaunchContext, tx_handler: IncomingTxHandler) {
+/// # Errors
+///
+/// This function will return an [`Err`] if unrestricted RPC is started on a
+/// non-local address without the override option.
+pub fn init_rpc_servers(
+    launch_ctx: &LaunchContext,
+    tx_handler: IncomingTxHandler,
+) -> Result<(), Error> {
     let config = &launch_ctx.config.rpc;
     for ((enable, addr, port, request_byte_limit), restricted) in [
         (
@@ -65,7 +67,7 @@ pub fn init_rpc_servers(launch_ctx: &LaunchContext, tx_handler: IncomingTxHandle
                     "Starting unrestricted RPC on non-local address, this is dangerous!"
                 );
             } else {
-                panic!("Refusing to start unrestricted RPC on a non-local address ({addr})");
+                anyhow::bail!("Refusing to start unrestricted RPC on a non-local address ({addr})");
             }
         }
 
@@ -73,7 +75,7 @@ pub fn init_rpc_servers(launch_ctx: &LaunchContext, tx_handler: IncomingTxHandle
 
         let shutdown_token = launch_ctx.task_executor.cancellation_token();
         launch_ctx.task_executor.spawn(async move {
-            run_rpc_server(
+            if let Err(e) = run_rpc_server(
                 rpc_handler,
                 restricted,
                 SocketAddr::new(addr, port),
@@ -81,10 +83,13 @@ pub fn init_rpc_servers(launch_ctx: &LaunchContext, tx_handler: IncomingTxHandle
                 shutdown_token,
             )
             .await
-            .unwrap();
-            info!(restricted, "RPC server shut down.");
+            {
+                error!(restricted, "Failed to start RPC server: {e:#}");
+            }
         });
     }
+
+    Ok(())
 }
 
 /// This initializes and runs an RPC server.
@@ -127,5 +132,6 @@ async fn run_rpc_server(
         .with_graceful_shutdown(shutdown_token.cancelled_owned())
         .await?;
 
+    info!(restricted, "RPC server shut down.");
     Ok(())
 }
