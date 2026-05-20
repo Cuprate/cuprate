@@ -45,12 +45,14 @@ const RPC_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Initialize the RPC server(s).
 ///
-/// # Panics
-/// This function will panic if:
-/// - the server(s) could not be started
-/// - unrestricted RPC is started on non-local
-///   address without override option
-pub fn init_rpc_servers(launch_ctx: &LaunchContext, tx_handler: IncomingTxHandler) {
+/// # Errors
+///
+/// This function will return an [`Err`] if unrestricted RPC is started on a
+/// non-local address without the override option.
+pub fn init_rpc_servers(
+    launch_ctx: &LaunchContext,
+    tx_handler: IncomingTxHandler,
+) -> Result<(), Error> {
     let config = &launch_ctx.config.rpc;
     for ((enable, addr, port, request_byte_limit), restricted) in [
         (
@@ -87,7 +89,7 @@ pub fn init_rpc_servers(launch_ctx: &LaunchContext, tx_handler: IncomingTxHandle
                     "Starting unrestricted RPC on non-local address, this is dangerous!"
                 );
             } else {
-                panic!("Refusing to start unrestricted RPC on a non-local address ({addr})");
+                anyhow::bail!("Refusing to start unrestricted RPC on a non-local address ({addr})");
             }
         }
 
@@ -135,6 +137,8 @@ pub fn init_rpc_servers(launch_ctx: &LaunchContext, tx_handler: IncomingTxHandle
             info!(restricted, "RPC server shut down.");
         });
     }
+
+    Ok(())
 }
 
 /// Initialize the Axum router of the RPC server.
