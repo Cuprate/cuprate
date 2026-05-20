@@ -51,9 +51,10 @@ mod block;
 mod chain;
 mod tx;
 
+pub(crate) use block::alt_block_height;
 pub use block::{
     add_alt_block, flush_alt_blocks, get_alt_block, get_alt_block_extended_header_from_height,
-    get_alt_block_hash,
+    get_alt_block_hash, get_alt_block_information,
 };
 pub use chain::{get_alt_chain_history_ranges, update_alt_chain_info};
 pub use tx::{add_alt_transaction_blob, get_alt_transaction};
