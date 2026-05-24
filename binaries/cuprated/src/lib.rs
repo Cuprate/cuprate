@@ -9,7 +9,8 @@
 //! use cuprated::{config::Config, Node};
 //!
 //! let config = Config::read_from_path("cuprated.toml")?;
-//! cuprated::logging::init_logging(&config);
+//! // Hold the guard for the lifetime of the program; dropping it flushes the log file on shutdown.
+//! let _log_flush_guard = cuprated::logging::init_logging(&config);
 //!
 //! let mut node = Node::launch(config).await;
 //! let height = node.blockchain.context().chain_height;

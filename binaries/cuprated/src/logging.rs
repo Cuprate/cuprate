@@ -4,13 +4,15 @@
 use std::ops::BitAnd;
 use std::{
     fmt::{Display, Formatter},
-    mem::forget,
     sync::OnceLock,
 };
 use tracing::{
     instrument::WithSubscriber, level_filters::LevelFilter, subscriber::Interest, Metadata,
 };
-use tracing_appender::{non_blocking::NonBlocking, rolling::Rotation};
+use tracing_appender::{
+    non_blocking::{NonBlocking, WorkerGuard},
+    rolling::Rotation,
+};
 use tracing_subscriber::{
     filter::Filtered,
     fmt::{
@@ -82,8 +84,30 @@ impl<S> Filter<S> for CupratedTracingFilter {
     }
 }
 
+/// Create the non-blocking file appender and its flush [`WorkerGuard`].
+///
+/// The returned [`WorkerGuard`] must be held for as long as logs should be written to the file;
+/// dropping it flushes any buffered lines to disk. Losing the guard (for example via
+/// [`mem::forget`](std::mem::forget)) silently drops the final buffered lines on shutdown — exactly
+/// the lines that matter for crash/shutdown post-mortems.
+fn create_file_appender(config: &Config) -> (NonBlocking, WorkerGuard) {
+    let appender_config = &config.tracing.file;
+    tracing_appender::non_blocking(
+        tracing_appender::rolling::Builder::new()
+            .rotation(Rotation::DAILY)
+            .max_log_files(appender_config.max_log_files)
+            .build(logs_path(&config.fs.fast_data_directory, config.network()))
+            .unwrap(),
+    )
+}
+
 /// Initialize [`tracing`] for logging to stdout and to a file.
-pub fn init_logging(config: &Config) {
+///
+/// Returns the file appender's [`WorkerGuard`]. The caller **must** hold it for the lifetime of the
+/// program and only drop it during shutdown, so the non-blocking appender flushes its buffered log
+/// lines to the file before the process exits.
+#[must_use = "dropping the WorkerGuard stops the file appender from flushing on shutdown"]
+pub fn init_logging(config: &Config) -> WorkerGuard {
     // initialize the stdout filter, set `STDOUT_FILTER_HANDLE` and create the layer.
     let (stdout_filter, stdout_handle) = ReloadLayer::new(CupratedTracingFilter {
         level: config.tracing.stdout.level,
@@ -97,16 +121,7 @@ pub fn init_logging(config: &Config) {
 
     // create the tracing appender.
     let appender_config = &config.tracing.file;
-    let (appender, guard) = tracing_appender::non_blocking(
-        tracing_appender::rolling::Builder::new()
-            .rotation(Rotation::DAILY)
-            .max_log_files(appender_config.max_log_files)
-            .build(logs_path(&config.fs.fast_data_directory, config.network()))
-            .unwrap(),
-    );
-
-    // TODO: drop this when we shutdown.
-    forget(guard);
+    let (appender, guard) = create_file_appender(config);
 
     // initialize the appender filter, set `FILE_WRITER_FILTER_HANDLE` and create the layer.
     let (appender_filter, appender_handle) = ReloadLayer::new(CupratedTracingFilter {
@@ -125,6 +140,9 @@ pub fn init_logging(config: &Config) {
         .with(appender_layer)
         .with(stdout_layer)
         .init();
+
+    // Hand the flush guard back to the caller, which must hold it until shutdown.
+    guard
 }
 
 /// Modify the stdout [`CupratedTracingFilter`].
@@ -144,4 +162,52 @@ pub fn modify_file_output(f: impl FnOnce(&mut CupratedTracingFilter)) {
 /// Prints some text using [`eprintln`], with [`nu_ansi_term::Color::Red`] applied.
 pub fn eprintln_red(s: &str) {
     eprintln!("{}", nu_ansi_term::Color::Red.bold().paint(s));
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Write;
+
+    use tempfile::tempdir;
+
+    use cuprate_helper::fs::logs_path;
+
+    use super::create_file_appender;
+    use crate::config::Config;
+
+    /// Concatenate every file in `dir` into one string.
+    fn read_all_logs(dir: &std::path::Path) -> String {
+        let mut out = String::new();
+        for entry in std::fs::read_dir(dir).expect("log directory should exist after a write") {
+            let path = entry.expect("readable dir entry").path();
+            if path.is_file() {
+                out.push_str(&std::fs::read_to_string(&path).unwrap_or_default());
+            }
+        }
+        out
+    }
+
+    /// Dropping the [`WorkerGuard`](tracing_appender::non_blocking::WorkerGuard) returned by
+    /// [`create_file_appender`] must flush buffered lines to disk. This is the exact property the
+    /// shutdown path relies on, and the one the old `mem::forget(guard)` destroyed.
+    #[test]
+    fn file_appender_flushes_on_guard_drop() {
+        let tmp = tempdir().expect("create temp dir");
+        let mut config = Config::default();
+        config.fs.fast_data_directory = tmp.path().to_path_buf();
+
+        let canary = "shutdown-flush-canary-line";
+        let (mut appender, guard) = create_file_appender(&config);
+        writeln!(appender, "{canary}").expect("write to non-blocking appender");
+
+        // Drop signals the worker thread to flush remaining lines before returning.
+        drop(guard);
+
+        let logs_dir = logs_path(&config.fs.fast_data_directory, config.network());
+        let contents = read_all_logs(&logs_dir);
+        assert!(
+            contents.contains(canary),
+            "buffered log line must be flushed to disk once the guard is dropped; got: {contents:?}"
+        );
+    }
 }

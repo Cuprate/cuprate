@@ -54,8 +54,10 @@ fn main() {
 
     let mut config = load_config(&args);
 
-    // Initialize logging.
-    cuprated::logging::init_logging(&config);
+    // Initialize logging. Hold the flush guard for the rest of `main`: it is declared before the
+    // tokio runtime and dropped last on scope exit — after `drop(rt)` and the final
+    // "Shutdown complete." line — so the non-blocking file appender flushes on shutdown.
+    let _log_flush_guard = cuprated::logging::init_logging(&config);
 
     // Resolve available memory.
     resolve_max_memory(&mut config);
