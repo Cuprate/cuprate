@@ -60,9 +60,13 @@ impl From<ConsensusError> for BlockManagerError {
 /// An error returned from [`BlockchainManagerHandle::handle_incoming_block`](super::interface::BlockchainManagerHandle::handle_incoming_block).
 #[derive(Debug, thiserror::Error)]
 pub enum IncomingBlockError {
-    /// Surfaced from the blockchain manager.
+    /// The peer sent us an invalid block; ban them.
     #[error(transparent)]
-    Manager(#[from] BlockManagerError),
+    Validation(BlockValidationError),
+
+    /// A node-side failure.
+    #[error(transparent)]
+    Internal(tower::BoxError),
 
     /// We are missing the block's parent.
     #[error("The block has an unknown parent.")]
@@ -83,9 +87,18 @@ pub enum IncomingBlockError {
     ChannelClosed,
 }
 
+impl From<BlockManagerError> for IncomingBlockError {
+    fn from(e: BlockManagerError) -> Self {
+        match e {
+            BlockManagerError::Validation(v) => Self::Validation(v),
+            BlockManagerError::Internal(i) => Self::Internal(i),
+        }
+    }
+}
+
 impl From<ConsensusError> for IncomingBlockError {
     fn from(e: ConsensusError) -> Self {
-        Self::Manager(e.into())
+        BlockManagerError::from(e).into()
     }
 }
 
