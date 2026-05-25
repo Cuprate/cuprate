@@ -29,7 +29,7 @@ use cuprate_helper::{
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
 };
 use cuprate_p2p::constants::{
-    MAX_BLOCKS_IDS_IN_CHAIN_ENTRY, MAX_BLOCK_BATCH_LEN, MAX_TRANSACTION_BLOB_SIZE, MEDIUM_BAN,
+    LONG_BAN, MAX_BLOCKS_IDS_IN_CHAIN_ENTRY, MAX_BLOCK_BATCH_LEN, MAX_TRANSACTION_BLOB_SIZE,
 };
 use cuprate_p2p_core::{
     client::{InternalPeerID, PeerInformation},
@@ -354,6 +354,7 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         return Ok(ProtocolResponse::NA);
     }
 
+    let block_hash = block.hash();
     let res = blockchain_manager
         .handle_incoming_block(
             block,
@@ -380,7 +381,21 @@ async fn new_fluffy_block<A: NetZoneAddress>(
             // Manager has exited (likely shutdown); drop silently.
             Ok(ProtocolResponse::NA)
         }
-        Err(e) => Err(e.into()),
+        Err(IncomingBlockError::Internal(e)) => {
+            tracing::error!("Failed to handle incoming block: {e}");
+            Ok(ProtocolResponse::NA)
+        }
+        Err(e) => {
+            if matches!(e, IncomingBlockError::Validation(_)) {
+                tracing::warn!(
+                    "Failed to verify block: {}, error {}, banning peer.",
+                    hex::encode(block_hash),
+                    e
+                );
+                peer_information.handle.ban_peer(LONG_BAN);
+            }
+            Err(e.into())
+        }
     }
 }
 
@@ -441,6 +456,10 @@ where
 
     match res {
         Ok(()) => Ok(ProtocolResponse::NA),
+        Err(IncomingTxError::Internal(e)) => {
+            tracing::error!("Failed to handle incoming txs: {e}");
+            Ok(ProtocolResponse::NA)
+        }
         Err(e) => Err(e.into()),
     }
 }
