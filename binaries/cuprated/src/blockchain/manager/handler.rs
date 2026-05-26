@@ -375,7 +375,11 @@ impl super::BlockchainManager {
                     return self.handle_incoming_block_batch_main_chain(batch).await;
                 }
                 // continue adding alt blocks.
-                Ok(AddAltBlock::NewlyCached(_) | AddAltBlock::AlreadyCached) => (),
+                Ok(
+                    AddAltBlock::NewlyCached(_)
+                    | AddAltBlock::AlreadyCached
+                    | AddAltBlock::AlreadyInMainChain,
+                ) => (),
             }
         }
 
@@ -413,7 +417,7 @@ impl super::BlockchainManager {
 
         match chain {
             Some((Chain::Alt(_), _)) => return Ok(AddAltBlock::AlreadyCached),
-            Some((Chain::Main, _)) => return Err(BlockValidationError::AlreadyInMainChain.into()),
+            Some((Chain::Main, _)) => return Ok(AddAltBlock::AlreadyInMainChain),
             None => (),
         }
 
@@ -753,6 +757,8 @@ impl super::BlockchainManager {
 enum AddAltBlock {
     /// We already had this alt-block cached.
     AlreadyCached,
+    /// The block already exists on the main chain.
+    AlreadyInMainChain,
     /// The alt-block was newly cached. Contains the block blob.
     NewlyCached(Bytes),
     /// The chain was reorged.
