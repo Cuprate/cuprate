@@ -20,11 +20,6 @@ macro_rules! impl_internal_from {
 /// A validation failure - the peer should be banned.
 #[derive(Debug, thiserror::Error)]
 pub enum BlockValidationError {
-    /// The block was received as an alt block but already exists on the
-    /// main chain.
-    #[error("Alt block already in main chain.")]
-    AlreadyInMainChain,
-
     /// The block failed consensus validation.
     #[error(transparent)]
     Consensus(ExtendedConsensusError),
