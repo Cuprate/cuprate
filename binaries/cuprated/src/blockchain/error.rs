@@ -2,7 +2,7 @@
 
 use cuprate_blockchain::BlockchainError;
 use cuprate_consensus::ExtendedConsensusError;
-use cuprate_consensus_rules::ConsensusError;
+use cuprate_consensus_rules::{blocks::BlockError, hard_forks::HardForkError, ConsensusError};
 use cuprate_txpool::TxPoolError;
 use cuprate_types::TxConversionError;
 
@@ -20,9 +20,13 @@ macro_rules! impl_internal_from {
 /// A validation failure - the peer should be banned.
 #[derive(Debug, thiserror::Error)]
 pub enum BlockValidationError {
-    /// The block failed consensus validation.
+    /// Invalid hard-fork rules.
     #[error(transparent)]
-    Consensus(ExtendedConsensusError),
+    HardFork(HardForkError),
+
+    /// Any other consensus rule violation.
+    #[error(transparent)]
+    Other(ExtendedConsensusError),
 }
 
 /// An error from the blockchain manager's internal handlers.
@@ -30,7 +34,7 @@ pub enum BlockValidationError {
 pub enum BlockManagerError {
     /// The peer sent us an invalid block; ban them.
     #[error(transparent)]
-    Validation(#[from] BlockValidationError),
+    Validation(BlockValidationError),
 
     /// A node-side failure.
     #[error(transparent)]
@@ -39,16 +43,25 @@ pub enum BlockManagerError {
 
 impl From<ExtendedConsensusError> for BlockManagerError {
     fn from(e: ExtendedConsensusError) -> Self {
-        if let ExtendedConsensusError::DBErr(e) = e {
-            return Self::Internal(e);
+        match e {
+            ExtendedConsensusError::DBErr(e) => Self::Internal(e),
+            ExtendedConsensusError::ConErr(ConsensusError::Block(BlockError::HardForkError(e))) => {
+                Self::Validation(BlockValidationError::HardFork(e))
+            }
+
+            ExtendedConsensusError::ConErr(_)
+            | ExtendedConsensusError::TxsIncludedWithBlockIncorrect
+            | ExtendedConsensusError::OneOrMoreBatchVerificationStatementsInvalid
+            | ExtendedConsensusError::NoBlocksToVerify => {
+                Self::Validation(BlockValidationError::Other(e))
+            }
         }
-        BlockValidationError::Consensus(e).into()
     }
 }
 
 impl From<ConsensusError> for BlockManagerError {
     fn from(e: ConsensusError) -> Self {
-        BlockValidationError::Consensus(e.into()).into()
+        ExtendedConsensusError::ConErr(e).into()
     }
 }
 
