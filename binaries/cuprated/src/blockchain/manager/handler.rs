@@ -23,7 +23,11 @@ use cuprate_consensus::{
 use cuprate_consensus_context::{BlockchainContext, NewBlockData};
 use cuprate_fast_sync::{block_to_verified_block_information, fast_sync_stop_height};
 use cuprate_helper::cast::usize_to_u64;
-use cuprate_p2p::{block_downloader::BlockBatch, constants::LONG_BAN, BroadcastRequest};
+use cuprate_p2p::{
+    block_downloader::BlockBatch,
+    constants::{LONG_BAN, MEDIUM_BAN},
+    BroadcastRequest,
+};
 use cuprate_txpool::service::interface::TxpoolWriteRequest;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
@@ -246,8 +250,12 @@ impl super::BlockchainManager {
         {
             Ok(v) => v,
             Err(BlockManagerError::Internal(e)) => return Err(e),
-            Err(BlockManagerError::Validation(_)) => {
-                batch.peer_handle.ban_peer(LONG_BAN);
+            Err(BlockManagerError::Validation(e)) => {
+                let duration = match e {
+                    BlockValidationError::HardFork(_) => MEDIUM_BAN,
+                    BlockValidationError::Other(_) => LONG_BAN,
+                };
+                batch.peer_handle.ban_peer(duration);
                 self.stop_current_block_downloader.notify_waiters();
                 return Ok(());
             }
@@ -255,6 +263,7 @@ impl super::BlockchainManager {
 
         for (block, txs) in prepped_blocks {
             let hash = block.block_hash;
+            let block_version = block.hf_version.as_u8();
             let verified_block = match verify_prepped_main_chain_block(
                 block,
                 txs,
@@ -268,12 +277,27 @@ impl super::BlockchainManager {
                 Ok(block) => block,
                 Err(BlockManagerError::Internal(e)) => return Err(e),
                 Err(BlockManagerError::Validation(e)) => {
-                    warn!(
-                        "Failed to verify block: {}, error {}, banning peer.",
-                        hex::encode(hash),
-                        e
-                    );
-                    batch.peer_handle.ban_peer(LONG_BAN);
+                    let duration = match e {
+                        BlockValidationError::HardFork(e) => {
+                            warn!(
+                                "Failed to verify block: {}, error {} (block v{}, current v{}), banning peer.",
+                                hex::encode(hash),
+                                e,
+                                block_version,
+                                self.blockchain_context_service.blockchain_context().current_hf.as_u8()
+                            );
+                            MEDIUM_BAN
+                        }
+                        BlockValidationError::Other(e) => {
+                            warn!(
+                                "Failed to verify block: {}, error {}, banning peer.",
+                                hex::encode(hash),
+                                e
+                            );
+                            LONG_BAN
+                        }
+                    };
+                    batch.peer_handle.ban_peer(duration);
                     self.stop_current_block_downloader.notify_waiters();
                     return Ok(());
                 }
@@ -335,6 +359,7 @@ impl super::BlockchainManager {
 
         while let Some((block, txs)) = blocks.next() {
             let hash = block.hash();
+            let block_version = block.header.hardfork_version;
 
             // async blocks work as try blocks.
             let res = async {
@@ -355,12 +380,27 @@ impl super::BlockchainManager {
             match res {
                 Err(BlockManagerError::Internal(e)) => return Err(e),
                 Err(BlockManagerError::Validation(e)) => {
-                    warn!(
-                        "Failed to verify block: {}, error {}, banning peer.",
-                        hex::encode(hash),
-                        e
-                    );
-                    batch.peer_handle.ban_peer(LONG_BAN);
+                    let duration = match e {
+                        BlockValidationError::HardFork(e) => {
+                            warn!(
+                                "Failed to verify block: {}, error {} (block v{}, current v{}), banning peer.",
+                                hex::encode(hash),
+                                e,
+                                block_version,
+                                self.blockchain_context_service.blockchain_context().current_hf.as_u8()
+                            );
+                            MEDIUM_BAN
+                        }
+                        BlockValidationError::Other(e) => {
+                            warn!(
+                                "Failed to verify block: {}, error {}, banning peer.",
+                                hex::encode(hash),
+                                e
+                            );
+                            LONG_BAN
+                        }
+                    };
+                    batch.peer_handle.ban_peer(duration);
                     self.stop_current_block_downloader.notify_waiters();
                     return Ok(());
                 }

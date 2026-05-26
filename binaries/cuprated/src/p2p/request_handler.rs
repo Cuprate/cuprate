@@ -30,6 +30,7 @@ use cuprate_helper::{
 };
 use cuprate_p2p::constants::{
     LONG_BAN, MAX_BLOCKS_IDS_IN_CHAIN_ENTRY, MAX_BLOCK_BATCH_LEN, MAX_TRANSACTION_BLOB_SIZE,
+    MEDIUM_BAN,
 };
 use cuprate_p2p_core::{
     client::{InternalPeerID, PeerInformation},
@@ -46,7 +47,7 @@ use cuprate_wire::protocol::{
 };
 
 use crate::{
-    blockchain::{interface::BlockchainManagerHandle, IncomingBlockError},
+    blockchain::{interface::BlockchainManagerHandle, BlockValidationError, IncomingBlockError},
     p2p::CrossNetworkInternalPeerId,
     txpool::{IncomingTxError, IncomingTxHandler, IncomingTxs},
 };
@@ -355,6 +356,7 @@ async fn new_fluffy_block<A: NetZoneAddress>(
     }
 
     let block_hash = block.hash();
+    let block_version = block.header.hardfork_version;
     let res = blockchain_manager
         .handle_incoming_block(
             block,
@@ -381,21 +383,33 @@ async fn new_fluffy_block<A: NetZoneAddress>(
             // Manager has exited (likely shutdown); drop silently.
             Ok(ProtocolResponse::NA)
         }
-        Err(IncomingBlockError::Internal(e)) => {
-            tracing::error!("Failed to handle incoming block: {e}");
-            Ok(ProtocolResponse::NA)
-        }
-        Err(e) => {
-            if matches!(e, IncomingBlockError::Validation(_)) {
+        Err(IncomingBlockError::Validation(e)) => match e {
+            BlockValidationError::HardFork(e) => {
+                tracing::warn!(
+                    "Failed to verify block: {}, error {} (block v{}, current v{}), banning peer.",
+                    hex::encode(block_hash),
+                    e,
+                    block_version,
+                    context.current_hf.as_u8()
+                );
+                peer_information.handle.ban_peer(MEDIUM_BAN);
+                Err(e.into())
+            }
+            BlockValidationError::Other(e) => {
                 tracing::warn!(
                     "Failed to verify block: {}, error {}, banning peer.",
                     hex::encode(block_hash),
                     e
                 );
                 peer_information.handle.ban_peer(LONG_BAN);
+                Err(e.into())
             }
-            Err(e.into())
+        },
+        Err(IncomingBlockError::Internal(e)) => {
+            tracing::error!("Failed to handle incoming block: {e}");
+            Ok(ProtocolResponse::NA)
         }
+        Err(e) => Err(e.into()),
     }
 }
 
