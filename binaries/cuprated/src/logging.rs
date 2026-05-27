@@ -4,6 +4,7 @@
 use std::ops::BitAnd;
 use std::{
     fmt::{Display, Formatter},
+    io::IsTerminal,
     mem::forget,
     sync::OnceLock,
 };
@@ -93,6 +94,7 @@ pub fn init_logging(config: &Config) {
 
     let stdout_layer = FmtLayer::default()
         .with_target(false)
+        .with_ansi(ansi_enabled(&std::io::stdout()))
         .with_filter(stdout_filter);
 
     // create the tracing appender.
@@ -143,5 +145,17 @@ pub fn modify_file_output(f: impl FnOnce(&mut CupratedTracingFilter)) {
 
 /// Prints some text using [`eprintln`], with [`nu_ansi_term::Color::Red`] applied.
 pub fn eprintln_red(s: &str) {
-    eprintln!("{}", nu_ansi_term::Color::Red.bold().paint(s));
+    if ansi_enabled(&std::io::stderr()) {
+        eprintln!("{}", nu_ansi_term::Color::Red.bold().paint(s));
+    } else {
+        eprintln!("{s}");
+    }
+}
+
+/// Whether to emit ANSI escape codes on `stream`.
+fn ansi_enabled(stream: &impl IsTerminal) -> bool {
+    if std::env::var_os("NO_COLOR").is_some_and(|v| !v.is_empty()) {
+        return false;
+    }
+    stream.is_terminal()
 }
