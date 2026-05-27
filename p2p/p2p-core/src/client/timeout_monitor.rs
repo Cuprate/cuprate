@@ -111,6 +111,7 @@ where
             timed_sync.local_peerlist_new.len()
         );
 
+        // TODO: ban peer on repeated invalid peer lists in timed sync responses
         if timed_sync.local_peerlist_new.len() > MAX_PEERS_IN_PEER_LIST_MESSAGE {
             return Err("Peer sent too many peers in peer list".into());
         }
