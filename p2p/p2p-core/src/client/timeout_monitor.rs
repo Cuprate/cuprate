@@ -129,6 +129,7 @@ where
             ))
             .await?;
 
+        // TODO: ban peer if their `current_height` keeps regressing
         *peer_information.core_sync_data.lock().unwrap() = timed_sync.payload_data.clone();
 
         if let Some(on_peer_sync) = &on_peer_sync {

@@ -330,6 +330,7 @@ async fn new_fluffy_block<A: NetZoneAddress>(
 ) -> anyhow::Result<ProtocolResponse> {
     let current_blockchain_height = request.current_blockchain_height;
 
+    // TODO: ban peer if their `current_height` keeps regressing
     peer_information
         .core_sync_data
         .lock()
