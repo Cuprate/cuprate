@@ -46,6 +46,7 @@ use crate::{
 
 fn main() {
     // Set global private permissions for created files.
+    #[cfg(target_family = "unix")]
     cuprate_helper::fs::set_private_global_file_permissions();
 
     // Parse CLI args and read config.
@@ -175,6 +176,9 @@ fn load_config(args: &Args) -> Config {
     };
 
     let config = args.apply_args(config);
+
+    #[cfg(target_os = "windows")]
+    cuprate_helper::fs::set_private_directory_permissions(&config.writable_directories());
 
     if args.dry_run {
         let results = config.dry_run_check();

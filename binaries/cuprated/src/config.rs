@@ -235,6 +235,20 @@ impl Config {
         format!("{HEADER}{doc}")
     }
 
+    /// Returns the directories cuprate writes to.
+    pub fn writable_directories(&self) -> Vec<&Path> {
+        let mut paths = vec![
+            self.fs.fast_data_directory.as_path(),
+            self.fs.slow_data_directory.as_path(),
+            self.fs.cache_directory.as_path(),
+        ];
+        #[cfg(feature = "arti")]
+        if matches!(self.tor.mode, TorMode::Arti | TorMode::Auto) {
+            paths.push(self.tor.arti.directory_path.as_path());
+        }
+        paths
+    }
+
     /// Attempts to read a config file in [`toml`] format from the given [`Path`].
     ///
     /// # Errors
@@ -496,38 +510,10 @@ impl Config {
             });
         }
 
-        results.push(DryRunResult {
-            description: format!(
-                "File permissions are valid at {}",
-                self.fs.fast_data_directory.display()
-            ),
-            result: Self::check_dir_permissions(&self.fs.fast_data_directory),
-        });
-
-        results.push(DryRunResult {
-            description: format!(
-                "File permissions are valid at {}",
-                self.fs.slow_data_directory.display()
-            ),
-            result: Self::check_dir_permissions(&self.fs.slow_data_directory),
-        });
-
-        results.push(DryRunResult {
-            description: format!(
-                "File permissions are valid at {}",
-                self.fs.cache_directory.display()
-            ),
-            result: Self::check_dir_permissions(&self.fs.cache_directory),
-        });
-
-        #[cfg(feature = "arti")]
-        if matches!(self.tor.mode, TorMode::Arti | TorMode::Auto) {
+        for path in self.writable_directories() {
             results.push(DryRunResult {
-                description: format!(
-                    "File permissions are valid at {}",
-                    self.tor.arti.directory_path.display()
-                ),
-                result: Self::check_dir_permissions(&self.tor.arti.directory_path),
+                description: format!("File permissions are valid at {}", path.display()),
+                result: Self::check_dir_permissions(path),
             });
         }
 
