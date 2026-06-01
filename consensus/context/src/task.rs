@@ -311,10 +311,17 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                 self.alt_chain_cache_map.add_alt_cache(cache);
                 BlockChainContextResponse::Ok
             }
-            BlockChainContextRequest::HardForkInfo(_)
-            | BlockChainContextRequest::FeeEstimate { .. }
-            | BlockChainContextRequest::AltChains
-            | BlockChainContextRequest::CalculatePow { .. } => {
+            BlockChainContextRequest::HardForkInfos => {
+                BlockChainContextResponse::HardForkInfos(self.hardfork_state.hardfork_infos())
+            }
+            BlockChainContextRequest::FeeEstimate { grace_blocks } => {
+                BlockChainContextResponse::FeeEstimate(self.weight_cache.fee_estimate_2021(
+                    grace_blocks,
+                    self.hardfork_state.current_hardfork(),
+                    self.already_generated_coins,
+                ))
+            }
+            BlockChainContextRequest::AltChains | BlockChainContextRequest::CalculatePow { .. } => {
                 todo!("finish https://github.com/Cuprate/cuprate/pull/297")
             }
         })

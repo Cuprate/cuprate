@@ -15,16 +15,15 @@ use cuprate_types::{
 
 // FIXME: use `anyhow::Error` over `tower::BoxError` in blockchain context.
 
-/// [`BlockChainContextRequest::HardForkInfo`].
-pub(crate) async fn hard_fork_info(
+/// [`BlockChainContextRequest::HardForkInfos`].
+pub(crate) async fn hard_fork_infos(
     blockchain_context: &mut BlockchainContextService,
-    hard_fork: HardFork,
-) -> Result<HardForkInfo, Error> {
-    let BlockChainContextResponse::HardForkInfo(hf_info) = blockchain_context
+) -> Result<Vec<HardForkInfo>, Error> {
+    let BlockChainContextResponse::HardForkInfos(hf_info) = blockchain_context
         .ready()
         .await
         .map_err(|e| anyhow!(e))?
-        .call(BlockChainContextRequest::HardForkInfo(hard_fork))
+        .call(BlockChainContextRequest::HardForkInfos)
         .await
         .map_err(|e| anyhow!(e))?
     else {

@@ -14,6 +14,9 @@ use crate::{
 
 /// The blockchain database.
 pub struct BlockchainDatabase {
+    /// The database configuration.
+    pub(crate) config: Config,
+
     /// The tapes database.
     pub(crate) linear_tapes: Tapes,
     /// The fjall database.
@@ -231,6 +234,7 @@ impl BlockchainDatabase {
         Ok(Self {
             fjall,
             linear_tapes,
+            config: config.clone(),
             block_heights,
             key_images,
             pre_rct_outputs,
