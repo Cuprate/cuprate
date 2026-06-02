@@ -1,9 +1,10 @@
-use crate::num::{get_mid, median};
-use std::cmp::min;
 use std::{
+    cmp::min,
     collections::VecDeque,
     ops::{Add, Div, Mul, Sub},
 };
+
+use crate::num::{get_mid, median};
 
 /// A rolling median type.
 ///

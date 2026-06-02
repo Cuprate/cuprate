@@ -831,6 +831,24 @@ fn dir_size(path: &std::path::Path) -> u64 {
         .sum()
 }
 
+/// Walk a directory recursively and sum the sizes of all files.
+fn dir_size(path: &std::path::Path) -> u64 {
+    let Ok(entries) = std::fs::read_dir(path) else {
+        return 0;
+    };
+    entries
+        .filter_map(Result::ok)
+        .map(|e| {
+            let p = e.path();
+            if p.is_dir() {
+                dir_size(&p)
+            } else {
+                e.metadata().map_or(0, |m| m.len())
+            }
+        })
+        .sum()
+}
+
 /// [`BlockchainReadRequest::DatabaseSize`]
 fn database_size(db: &BlockchainDatabase) -> ResponseResult {
     // Sum file sizes in both data directories (blob and index).
