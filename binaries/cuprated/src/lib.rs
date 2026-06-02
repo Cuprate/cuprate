@@ -92,9 +92,6 @@ pub(crate) struct LaunchContext {
     /// Read handle to the transaction pool.
     pub txpool_read: TxpoolReadHandle,
 
-    /// Syncer handle.
-    pub syncer: SyncerHandle,
-
     /// Task spawning and shutdown coordination.
     pub task_executor: TaskExecutor,
 }
@@ -115,9 +112,6 @@ pub struct Node {
 
     /// Tor P2P interface (available after sync).
     pub tor: Option<oneshot::Receiver<NetworkInterface<Tor>>>,
-
-    /// Syncer handle.
-    pub syncer: SyncerHandle,
 
     /// The configuration this node was launched with.
     pub config: Arc<Config>,
@@ -208,6 +202,7 @@ impl Node {
             blockchain_read_handle.clone(),
             context_svc.clone(),
             blockchain_manager_handle.clone(),
+            syncer_handle.clone(),
         );
 
         // Create the launch context.
@@ -216,7 +211,6 @@ impl Node {
             reorg_lock: Arc::new(RwLock::new(())),
             blockchain: blockchain_interface,
             txpool_read: txpool_read_handle.clone(),
-            syncer: syncer_handle,
             task_executor: TaskExecutor::new(),
         };
 
@@ -279,7 +273,6 @@ impl Node {
         let LaunchContext {
             blockchain,
             txpool_read,
-            syncer,
             config,
             task_executor,
             ..
@@ -290,7 +283,6 @@ impl Node {
             txpool: txpool_read,
             clearnet: clearnet_interface,
             tor: if tor_enabled { Some(tor_rx) } else { None },
-            syncer,
             config,
             task_executor,
         })

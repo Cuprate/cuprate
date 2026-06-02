@@ -44,6 +44,8 @@ pub struct BlockchainInterface {
     context_svc: BlockchainContextService,
     /// A handle to the blockchain manager.
     manager: BlockchainManagerHandle,
+    /// A handle to the blockchain syncer.
+    syncer: SyncerHandle,
 }
 
 impl BlockchainInterface {
@@ -51,11 +53,13 @@ impl BlockchainInterface {
         read: BlockchainReadHandle,
         context_svc: BlockchainContextService,
         manager: BlockchainManagerHandle,
+        syncer: SyncerHandle,
     ) -> Self {
         Self {
             read,
             context_svc,
             manager,
+            syncer,
         }
     }
 
@@ -72,6 +76,11 @@ impl BlockchainInterface {
     /// Returns a handle to the blockchain manager.
     pub fn manager(&self) -> BlockchainManagerHandle {
         self.manager.clone()
+    }
+
+    /// Returns a handle to the blockchain syncer.
+    pub fn syncer(&self) -> SyncerHandle {
+        self.syncer.clone()
     }
 
     /// Returns the blockchain context service.
