@@ -263,7 +263,19 @@ fn size(
     db: &TxpoolDatabase,
     include_sensitive_txs: bool,
 ) -> Result<TxpoolReadResponse, TxPoolError> {
-    Ok(TxpoolReadResponse::Size(todo!()))
+    let count = if include_sensitive_txs {
+        db.tx_infos.len()?
+    } else {
+        let mut n = 0_usize;
+        for guard in db.tx_infos.iter() {
+            let info: TransactionInfo = bytemuck::pod_read_unaligned(guard.value()?.as_ref());
+            if !info.flags.private() {
+                n += 1;
+            }
+        }
+        n
+    };
+    Ok(TxpoolReadResponse::Size(count))
 }
 
 /// [`TxpoolReadRequest::PoolInfo`].

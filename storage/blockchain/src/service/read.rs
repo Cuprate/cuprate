@@ -804,7 +804,13 @@ fn block_by_hash(db: &BlockchainDatabase, block_hash: BlockHash) -> ResponseResu
 
 /// [`BlockchainReadRequest::TotalTxCount`]
 fn total_tx_count(db: &BlockchainDatabase) -> ResponseResult {
-    Ok(BlockchainResponse::TotalTxCount(todo!()))
+    let tapes = db.linear_tapes.reader();
+    let count = u64_to_usize(
+        tapes
+            .fixed_sized_tape_len(&db.tx_infos)
+            .expect("tx_infos tape exists"),
+    );
+    Ok(BlockchainResponse::TotalTxCount(count))
 }
 
 /// Walk a directory recursively and sum the sizes of all files.
@@ -814,13 +820,10 @@ fn dir_size(path: &std::path::Path) -> u64 {
     };
     entries
         .filter_map(Result::ok)
-        .map(|e| {
-            let p = e.path();
-            if p.is_dir() {
-                dir_size(&p)
-            } else {
-                e.metadata().map_or(0, |m| m.len())
-            }
+        .map(|e| match e.file_type() {
+            Ok(ft) if ft.is_dir() => dir_size(&e.path()),
+            Ok(ft) if ft.is_file() => e.metadata().map_or(0, |m| m.len()),
+            _ => 0,
         })
         .sum()
 }
@@ -862,7 +865,8 @@ fn alt_chains(db: &BlockchainDatabase) -> ResponseResult {
 
 /// [`BlockchainReadRequest::AltChainCount`]
 fn alt_chain_count(db: &BlockchainDatabase) -> ResponseResult {
-    Ok(BlockchainResponse::AltChainCount(todo!()))
+    let count = db.alt_chain_infos.len()?;
+    Ok(BlockchainResponse::AltChainCount(count))
 }
 
 /// [`BlockchainReadRequest::Transactions`]
