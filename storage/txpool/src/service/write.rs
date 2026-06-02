@@ -161,7 +161,7 @@ fn promote(
     let tx_info = db.tx_infos.get(tx_hash)?.ok_or(TxPoolError::NotFound)?;
     let mut tx_info: TransactionInfo = bytemuck::pod_read_unaligned(tx_info.as_ref());
 
-    if !tx_info.flags.contains(TxStateFlags::STATE_STEM) {
+    if !tx_info.flags.private() {
         return Ok(TxpoolWriteResponse::Ok);
     }
 
