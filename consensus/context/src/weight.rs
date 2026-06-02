@@ -255,7 +255,7 @@ impl BlockWeightsCache {
         grace_blocks: u64,
         hf: HardFork,
         already_generated_coins: u64,
-    ) -> FeeEstimate {
+    ) -> Result<FeeEstimate, tower::BoxError> {
         /// Round an amount up to `significant_digits` significant decimal digits.
         const fn round_money_up(amount: u64, significant_digits: u32) -> u64 {
             if amount == 0 {
@@ -270,6 +270,10 @@ impl BlockWeightsCache {
         }
 
         let grace = usize::try_from(grace_blocks).unwrap_or(usize::MAX);
+
+        if grace > SHORT_TERM_WINDOW {
+            return Err("Amount of grace blocks exceeds SHORT_TERM_WINDOW".into());
+        }
 
         let mlw = max(
             self.long_term_weights.median_with_grace(grace),
@@ -296,11 +300,11 @@ impl BlockWeightsCache {
 
         let fees = [fl, fn_, fm, fh].map(|f| round_money_up(f, FEE_ROUNDING_PLACES));
 
-        FeeEstimate {
+        Ok(FeeEstimate {
             fee: fees[0],
             fees: fees.to_vec(),
             quantization_mask: FEE_QUANTIZATION_MASK,
-        }
+        })
     }
 }
 

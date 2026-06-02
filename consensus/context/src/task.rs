@@ -319,7 +319,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                     grace_blocks,
                     self.hardfork_state.current_hardfork(),
                     self.already_generated_coins,
-                ))
+                )?)
             }
             BlockChainContextRequest::AltChains | BlockChainContextRequest::CalculatePow { .. } => {
                 todo!("finish https://github.com/Cuprate/cuprate/pull/297")
