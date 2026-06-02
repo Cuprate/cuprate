@@ -128,7 +128,8 @@ pub async fn initialize_clearnet_p2p(
     tor_ctx: &TorContext,
 ) -> (NetworkInterface<ClearNet>, Sender<IncomingTxHandler>) {
     let config = launch_ctx.config.as_ref();
-    let peer_sync_callback = launch_ctx.blockchain.syncer().callback(&launch_ctx.blockchain);
+    let blockchain = &launch_ctx.blockchain;
+    let peer_sync_callback = blockchain.syncer().callback(blockchain);
 
     match &config.p2p.clear_net.proxy {
         ProxySettings::Tor => match tor_ctx.mode {
@@ -136,7 +137,7 @@ pub async fn initialize_clearnet_p2p(
             TorMode::Arti => {
                 tracing::info!("Anonymizing clearnet connections through Arti.");
                 start_zone_p2p::<ClearNet, Arti>(
-                    &launch_ctx.blockchain,
+                    blockchain,
                     launch_ctx.txpool_read.clone(),
                     config.clearnet_p2p_config(),
                     transport_clearnet_arti_config(tor_ctx),
@@ -157,7 +158,7 @@ pub async fn initialize_clearnet_p2p(
             TorMode::Auto => unreachable!("Auto mode should be resolved before this point"),
         },
         ProxySettings::Disabled => start_zone_p2p::<ClearNet, Tcp>(
-            &launch_ctx.blockchain,
+            blockchain,
             launch_ctx.txpool_read.clone(),
             config.clearnet_p2p_config(),
             config.p2p.clear_net.tcp_transport_config(config.network),
@@ -166,7 +167,7 @@ pub async fn initialize_clearnet_p2p(
         .await
         .unwrap(),
         ProxySettings::Socks(socks_config) => start_zone_p2p::<ClearNet, Socks>(
-            &launch_ctx.blockchain,
+            blockchain,
             launch_ctx.txpool_read.clone(),
             config.clearnet_p2p_config(),
             TransportConfig {
