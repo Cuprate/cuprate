@@ -213,6 +213,12 @@ impl HardForkState {
         let state = u32::from(self.config.info.hard_fork_state(current_unix_timestamp()));
         let window = u32::try_from(self.votes.total_votes()).unwrap();
 
+        let threshold = u32::try_from(
+            (self.votes.total_votes() * self.config.info.info_for_hf(&current).threshold())
+                .div_ceil(100),
+        )
+        .unwrap();
+
         HardFork::VARIANTS
             .iter()
             .map(|hf| {
@@ -221,7 +227,7 @@ impl HardForkState {
                     earliest_height: info.height() as u64,
                     enabled: current >= *hf,
                     state,
-                    threshold: u32::try_from(info.threshold()).unwrap(),
+                    threshold,
                     version: hf.as_u8(),
                     votes: u32::try_from(self.votes.votes_for_hf(hf)).unwrap(),
                     voting,
