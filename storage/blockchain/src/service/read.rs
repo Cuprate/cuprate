@@ -922,7 +922,13 @@ fn txs_in_block(
 
         let txs = missing_txs
             .into_iter()
-            .map(|index_offset| get_tx_blob_from_id(&(first_tx_index + index_offset), &tapes, db))
+            .map(|index_offset| {
+                if u64_to_usize(index_offset) >= block.transactions.len() {
+                    return Err(BlockchainError::NotFound);
+                }
+
+                get_tx_blob_from_id(&(first_tx_index + index_offset), &tapes, db)
+            })
             .collect::<DbResult<_>>()?;
 
         (block, txs)
