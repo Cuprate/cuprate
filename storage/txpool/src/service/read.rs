@@ -24,7 +24,7 @@ use crate::{
     ops::{get_transaction_verification_data, in_stem_pool},
     service::interface::{TxpoolReadRequest, TxpoolReadResponse},
     txpool::TxpoolDatabase,
-    types::{TransactionBlobHash, TransactionHash, TransactionInfo},
+    types::{TransactionBlobHash, TransactionHash, TransactionInfo, TxStateFlags},
     TxEntry,
 };
 
@@ -263,7 +263,19 @@ fn size(
     db: &TxpoolDatabase,
     include_sensitive_txs: bool,
 ) -> Result<TxpoolReadResponse, TxPoolError> {
-    Ok(TxpoolReadResponse::Size(todo!()))
+    let count = if include_sensitive_txs {
+        db.tx_infos.len()?
+    } else {
+        let mut n = 0_usize;
+        for guard in db.tx_infos.iter() {
+            let info: TransactionInfo = bytemuck::pod_read_unaligned(guard.value()?.as_ref());
+            if !info.flags.contains(TxStateFlags::STATE_STEM) {
+                n += 1;
+            }
+        }
+        n
+    };
+    Ok(TxpoolReadResponse::Size(count))
 }
 
 /// [`TxpoolReadRequest::PoolInfo`].
