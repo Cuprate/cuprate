@@ -128,7 +128,7 @@ pub async fn initialize_clearnet_p2p(
     tor_ctx: &TorContext,
 ) -> (NetworkInterface<ClearNet>, Sender<IncomingTxHandler>) {
     let config = launch_ctx.config.as_ref();
-    let peer_sync_callback = launch_ctx.syncer.callback(&launch_ctx.blockchain);
+    let peer_sync_callback = launch_ctx.blockchain.syncer().callback(&launch_ctx.blockchain);
 
     match &config.p2p.clear_net.proxy {
         ProxySettings::Tor => match tor_ctx.mode {
@@ -197,7 +197,7 @@ pub fn initialize_tor_p2p(
     task_executor.spawn(async move {
         // Wait for the node to synchronize with the network, or shutdown.
         tokio::select! {
-            result = launch_ctx.syncer.wait_for_synced() => {
+            result = launch_ctx.blockchain.syncer().wait_for_synced() => {
                 if result.is_err() {
                     tracing::info!("Not starting Tor P2P zone, syncer stopped");
                     return;
