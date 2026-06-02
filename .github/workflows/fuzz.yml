@@ -43,7 +43,7 @@ jobs:
           path: ${{ runner.tool_cache }}/cargo-fuzz
           key: cargo-fuzz-bin-${{ env.CARGO_FUZZ_VERSION }}
       - run: echo "${{ runner.tool_cache }}/cargo-fuzz/bin" >> $GITHUB_PATH
-      - run: cargo install --root "${{ runner.tool_cache }}/cargo-fuzz" --version ${{ env.CARGO_FUZZ_VERSION }} cargo-fuzz --locked
+      - run: cargo install --root "${{ runner.tool_cache }}/cargo-fuzz" --version ${{ env.CARGO_FUZZ_VERSION }} cargo-fuzz
 
       # Build and then run the fuzz target.
       - run: cargo fuzz build ${{ matrix.fuzz_target }} -O

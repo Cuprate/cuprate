@@ -23,6 +23,7 @@ use cuprate_p2p_core::{client::handshaker::builder::DummyAddressBook, ClearNet};
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
     base::{AccessResponseBase, ResponseBase},
+    json::{GetInfoRequest, GetInfoResponse},
     misc::{Status, TxEntry, TxEntryType},
     other::{
         GetAltBlocksHashesRequest, GetAltBlocksHashesResponse, GetHeightRequest, GetHeightResponse,
@@ -94,7 +95,7 @@ pub async fn map_request(
         Req::PopBlocks(r) => Resp::PopBlocks(not_available()?),
         Req::GetTransactionPoolHashes(r) => Resp::GetTransactionPoolHashes(not_available()?),
         Req::GetPublicNodes(r) => Resp::GetPublicNodes(not_available()?),
-        Req::GetInfo(r) => Resp::GetInfo(not_available()?),
+        Req::GetInfo(r) => Resp::GetInfo(super::json_rpc::get_info(state, r).await?),
 
         // Unsupported requests.
         Req::SetBootstrapDaemon(_)

@@ -807,11 +807,41 @@ fn total_tx_count(db: &BlockchainDatabase) -> ResponseResult {
     Ok(BlockchainResponse::TotalTxCount(todo!()))
 }
 
+/// Walk a directory recursively and sum the sizes of all files.
+fn dir_size(path: &std::path::Path) -> u64 {
+    let Ok(entries) = std::fs::read_dir(path) else {
+        return 0;
+    };
+    entries
+        .filter_map(Result::ok)
+        .map(|e| {
+            let p = e.path();
+            if p.is_dir() {
+                dir_size(&p)
+            } else {
+                e.metadata().map_or(0, |m| m.len())
+            }
+        })
+        .sum()
+}
+
 /// [`BlockchainReadRequest::DatabaseSize`]
 fn database_size(db: &BlockchainDatabase) -> ResponseResult {
+    // Sum file sizes in both data directories (blob and index).
+    let blob_size = dir_size(&db.config.blob_dir);
+    let index_size = if db.config.index_dir == db.config.blob_dir {
+        0
+    } else {
+        dir_size(&db.config.index_dir)
+    };
+    let database_size = blob_size + index_size;
+
+    // TODO:
+    let free_space = u64::MAX;
+
     Ok(BlockchainResponse::DatabaseSize {
-        database_size: todo!(),
-        free_space: todo!(),
+        database_size,
+        free_space,
     })
 }
 

@@ -1,11 +1,14 @@
 use std::ops::Range;
 
+use strum::VariantArray;
 use tower::ServiceExt;
 use tracing::instrument;
 
 use cuprate_consensus_rules::{HFVotes, HFsInfo, HardFork};
+use cuprate_helper::time::current_unix_timestamp;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
+    rpc::HardForkInfo,
     Chain,
 };
 
@@ -199,6 +202,39 @@ impl HardForkState {
             self.config.window,
             &self.config.info,
         );
+    }
+
+    /// Returns info on all hard-forks.
+    pub fn hardfork_infos(&self) -> Vec<HardForkInfo> {
+        let current = self.current_hardfork;
+        // `voting` is the highest version blocks can vote for.
+        // ref: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_basic/hardfork.cpp#L421>
+        let voting = HardFork::LATEST.as_u8();
+        let state = u32::from(self.config.info.hard_fork_state(current_unix_timestamp()));
+        let window = u32::try_from(self.votes.total_votes()).unwrap();
+
+        let threshold = u32::try_from(
+            (self.votes.total_votes() * self.config.info.info_for_hf(&current).threshold())
+                .div_ceil(100),
+        )
+        .unwrap();
+
+        HardFork::VARIANTS
+            .iter()
+            .map(|hf| {
+                let info = self.config.info.info_for_hf(hf);
+                HardForkInfo {
+                    earliest_height: info.height() as u64,
+                    enabled: current >= *hf,
+                    state,
+                    threshold,
+                    version: hf.as_u8(),
+                    votes: u32::try_from(self.votes.votes_for_hf(hf)).unwrap(),
+                    voting,
+                    window,
+                }
+            })
+            .collect()
     }
 
     /// Returns the current hard-fork.

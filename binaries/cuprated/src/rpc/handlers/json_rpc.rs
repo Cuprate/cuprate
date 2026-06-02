@@ -5,6 +5,7 @@
 //! <https://github.com/Cuprate/cuprate/pull/355>
 
 use std::{
+    borrow::Cow,
     collections::HashMap,
     net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4},
     num::NonZero,
@@ -48,8 +49,9 @@ use cuprate_rpc_types::{
         GetTxpoolBacklogResponse, GetVersionRequest, GetVersionResponse, HardForkInfoRequest,
         HardForkInfoResponse, JsonRpcRequest, JsonRpcResponse, OnGetBlockHashRequest,
         OnGetBlockHashResponse, PruneBlockchainRequest, PruneBlockchainResponse, RelayTxRequest,
-        RelayTxResponse, SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse,
-        SyncInfoRequest, SyncInfoResponse,
+        RelayTxResponse, RpcAccessInfoResponse, RpcAccessPayResponse, RpcAccessSubmitNonceResponse,
+        SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse, SyncInfoRequest,
+        SyncInfoResponse,
     },
     misc::{BlockHeader, ChainInfo, Distribution, GetBan, HistogramEntry, Status, SyncInfoPeer},
     CORE_RPC_VERSION,
@@ -97,8 +99,8 @@ pub async fn map_request(
         }
         Req::GetBlock(r) => Resp::GetBlock(get_block(state, r).await?),
         Req::GetConnections(r) => Resp::GetConnections(not_available()?),
-        Req::GetInfo(r) => Resp::GetInfo(not_available()?),
-        Req::HardForkInfo(r) => Resp::HardForkInfo(not_available()?),
+        Req::GetInfo(r) => Resp::GetInfo(get_info(state, r).await?),
+        Req::HardForkInfo(r) => Resp::HardForkInfo(hard_fork_info(state, r).await?),
         Req::SetBans(r) => Resp::SetBans(not_available()?),
         Req::GetBans(r) => Resp::GetBans(not_available()?),
         Req::Banned(r) => Resp::Banned(not_available()?),
@@ -119,17 +121,52 @@ pub async fn map_request(
             Resp::GetOutputDistribution(get_output_distribution(state, r).await?)
         }
 
+        Req::RpcAccessInfo(_) => Resp::RpcAccessInfo(RPC_ACCESS_INFO_RESPONSE),
+        Req::RpcAccessSubmitNonce(_) => Resp::RpcAccessSubmitNonce(RPC_ACCESS_SUBMIT_NONCE),
+        Req::RpcAccessPay(_) => Resp::RpcAccessPay(RPC_ACCESS_PAY),
+
         // Unsupported RPC calls.
         Req::GetTxIdsLoose(_)
         | Req::FlushCache(_)
-        | Req::RpcAccessInfo(_)
-        | Req::RpcAccessSubmitNonce(_)
-        | Req::RpcAccessPay(_)
         | Req::RpcAccessTracking(_)
         | Req::RpcAccessData(_)
         | Req::RpcAccessAccount(_) => return Err(anyhow!(UNSUPPORTED_RPC_CALL)),
     })
 }
+
+/// The response to [`JsonRpcRequest::RpcAccessInfo`].
+const RPC_ACCESS_INFO_RESPONSE: RpcAccessInfoResponse = RpcAccessInfoResponse {
+    base: helper::access_response_base(false),
+    hashing_blob: String::new(),
+    seed_height: 0,
+    seed_hash: String::new(),
+    next_seed_hash: String::new(),
+    cookie: 0,
+    diff: 0,
+    credits_per_hash_found: 0,
+    height: 0,
+};
+
+/// Used in the response to [`JsonRpcRequest::RpcAccessSubmitNonce`] and
+/// [`JsonRpcRequest::RpcAccessPay`] to signal that payment is not necessary.
+const RPC_ACCESS_PAYMENT_NOT_NEEDED_BASE: AccessResponseBase = AccessResponseBase {
+    response_base: ResponseBase {
+        status: Status::Other(Cow::Borrowed("Payment not necessary")),
+        untrusted: false,
+    },
+    credits: 0,
+    top_hash: String::new(),
+};
+
+/// The response to [`JsonRpcRequest::RpcAccessSubmitNonce`].
+const RPC_ACCESS_SUBMIT_NONCE: RpcAccessSubmitNonceResponse = RpcAccessSubmitNonceResponse {
+    base: RPC_ACCESS_PAYMENT_NOT_NEEDED_BASE,
+};
+
+/// The response to [`JsonRpcRequest::RpcAccessPay`].
+const RPC_ACCESS_PAY: RpcAccessPayResponse = RpcAccessPayResponse {
+    base: RPC_ACCESS_PAYMENT_NOT_NEEDED_BASE,
+};
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1911-L2005>
 async fn get_block_template(
@@ -459,7 +496,7 @@ async fn get_connections(
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L501-L582>
-async fn get_info(
+pub(super) async fn get_info(
     mut state: CupratedRpcHandler,
     _: GetInfoRequest,
 ) -> Result<GetInfoResponse, Error> {
@@ -490,7 +527,7 @@ async fn get_info(
         (String::new(), false)
     };
 
-    let busy_syncing = blockchain_manager::syncing(todo!()).await?;
+    let busy_syncing = state.syncer_handle.target_height() > 0;
 
     let (cumulative_difficulty, cumulative_difficulty_top64) =
         split_u128_into_low_high_bits(cumulative_difficulty);
@@ -509,14 +546,18 @@ async fn get_info(
     let height = usize_to_u64(c.chain_height);
     let height_without_bootstrap = if restricted { 0 } else { height };
 
+    #[expect(
+        clippy::branches_sharing_code,
+        reason = "TODO: wire up address_book connection count"
+    )]
     let (incoming_connections_count, outgoing_connections_count) = if restricted {
         (0, 0)
     } else {
-        address_book::connection_count::<ClearNet>(&mut DummyAddressBook).await?
+        // TODO: address_book::connection_count::<ClearNet>(&mut DummyAddressBook).await?
+        (0, 0)
     };
 
-    // TODO: This should be `cuprated`'s active network.
-    let network = Network::Mainnet;
+    let network = state.network;
 
     let (mainnet, testnet, stagenet) = match network {
         Network::Mainnet => (true, false, false),
@@ -540,13 +581,14 @@ async fn get_info(
     } else {
         state.start_instant_unix
     };
-    let synchronized = blockchain_manager::synced(todo!()).await?;
-
-    let target_height = blockchain_manager::target_height(todo!()).await?;
-    let target = blockchain_manager::target(todo!()).await?.as_secs();
+    let target_height = state.syncer_handle.target_height();
+    let synchronized = target_height == 0;
+    let target = c.current_hf.block_time().as_secs();
     let top_block_hash = Hex(c.top_hash);
 
-    let tx_count = blockchain::total_tx_count(&mut state.blockchain_read).await?;
+    let total_tx_count = blockchain::total_tx_count(&mut state.blockchain_read).await?;
+    // tx_count excludes coinbase (miner) transactions, one per block.
+    let tx_count = total_tx_count.saturating_sub(usize_to_u64(c.chain_height));
     let tx_pool_size = txpool::size(&mut state.txpool_read, !restricted).await?;
 
     #[expect(
@@ -562,10 +604,15 @@ async fn get_info(
         VERSION_BUILD.to_string()
     };
 
+    #[expect(
+        clippy::branches_sharing_code,
+        reason = "TODO: wire up address_book peerlist size"
+    )]
     let (white_peerlist_size, grey_peerlist_size) = if restricted {
         (0, 0)
     } else {
-        address_book::peerlist_size::<ClearNet>(&mut DummyAddressBook).await?
+        // TODO: address_book::peerlist_size::<ClearNet>(&mut DummyAddressBook).await?
+        (0, 0)
     };
 
     let wide_cumulative_difficulty = cumulative_difficulty.hex_prefix();
@@ -620,14 +667,24 @@ async fn hard_fork_info(
     mut state: CupratedRpcHandler,
     request: HardForkInfoRequest,
 ) -> Result<HardForkInfoResponse, Error> {
-    let hard_fork = if request.version > 0 {
-        HardFork::from_version(request.version)?
+    let hard_fork_infos =
+        blockchain_context::hard_fork_infos(&mut state.blockchain_context).await?;
+
+    let current_hf = state.blockchain_context.blockchain_context().current_hf;
+
+    let queried_hf = if request.version > 0 {
+        HardFork::from_version(request.version).map_err(|_| anyhow!("Hardfork not found"))?
     } else {
-        state.blockchain_context.blockchain_context().current_hf
+        current_hf.next_fork().unwrap_or(HardFork::LATEST)
     };
 
-    let hard_fork_info =
-        blockchain_context::hard_fork_info(&mut state.blockchain_context, hard_fork).await?;
+    let mut hard_fork_info = hard_fork_infos
+        .get(queried_hf as usize - 1)
+        .ok_or(anyhow!("Hardfork not found"))?
+        .clone();
+
+    // monerod always returns the currently active HF version in the `version` field
+    hard_fork_info.version = current_hf.as_u8();
 
     Ok(HardForkInfoResponse {
         base: helper::access_response_base(false),
@@ -823,21 +880,16 @@ async fn get_version(
     let current_height = helper::top_height(&mut state).await?.0;
     let target_height = blockchain_manager::target_height(todo!()).await?;
 
-    let mut hard_forks = Vec::with_capacity(HardFork::COUNT);
-
-    // FIXME: use an async iterator `collect()` version.
-    for hf in HardFork::VARIANTS {
-        if let Ok(hf) = blockchain_context::hard_fork_info(&mut state.blockchain_context, *hf).await
-        {
-            let entry = HardForkEntry {
+    let hard_forks: Vec<HardForkEntry> =
+        blockchain_context::hard_fork_infos(&mut state.blockchain_context)
+            .await?
+            .into_iter()
+            .map(|hf| HardForkEntry {
                 height: hf.earliest_height,
                 hf_version: HardFork::from_version(hf.version)
                     .expect("blockchain context should not be responding with invalid hardforks"),
-            };
-
-            hard_forks.push(entry);
-        }
-    }
+            })
+            .collect();
 
     Ok(GetVersionResponse {
         base: helper::response_base(false),

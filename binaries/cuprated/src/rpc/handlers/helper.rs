@@ -41,16 +41,17 @@ pub(super) async fn block_header(
     // we must get the alt block and this variable will be `true`.
     let orphan_status = false;
 
-    // TODO: impl cheaper way to get this.
-    // <https://github.com/Cuprate/cuprate/pull/355#discussion_r1904508934>
-    let difficulty = blockchain_context::batch_get_difficulties(
-        &mut state.blockchain_context,
-        vec![(height, hardfork)],
-    )
-    .await?
-    .first()
-    .copied()
-    .ok_or_else(|| anyhow!("Failed to get block difficulty"))?;
+    // Difficulty at height `h` = cumulative_difficulty[h] - cumulative_difficulty[h-1].
+    // For the genesis block there is no predecessor, so difficulty is 1.
+    let difficulty: u128 = if height == 0 {
+        1
+    } else {
+        let prev_header =
+            blockchain::block_extended_header(&mut state.blockchain_read, height - 1).await?;
+        header
+            .cumulative_difficulty
+            .saturating_sub(prev_header.cumulative_difficulty)
+    };
 
     let pow_hash = if fill_pow_hash {
         let seed_height =
@@ -75,9 +76,9 @@ pub(super) async fn block_header(
     let block_weight = usize_to_u64(header.block_weight);
     let depth = top_height.saturating_sub(height);
 
-    let (cumulative_difficulty_top64, cumulative_difficulty) =
+    let (cumulative_difficulty, cumulative_difficulty_top64) =
         split_u128_into_low_high_bits(header.cumulative_difficulty);
-    let (difficulty_top64, difficulty) = split_u128_into_low_high_bits(difficulty);
+    let (difficulty, difficulty_top64) = split_u128_into_low_high_bits(difficulty);
 
     let reward = block
         .miner_transaction()

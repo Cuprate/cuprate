@@ -25,7 +25,7 @@ mod chain_service;
 mod fast_sync;
 pub mod interface;
 mod manager;
-mod syncer;
+pub(crate) mod syncer;
 mod types;
 
 pub use fast_sync::get_fast_sync_hashes;

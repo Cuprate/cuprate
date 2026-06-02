@@ -9,8 +9,10 @@ use tower::Service;
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::BlockchainContextService;
+use cuprate_helper::network::Network;
 use cuprate_pruning::PruningSeed;
 use cuprate_rpc_interface::RpcHandler;
+
 use cuprate_rpc_types::{
     bin::{BinRequest, BinResponse},
     json::{JsonRpcRequest, JsonRpcResponse},
@@ -19,11 +21,12 @@ use cuprate_rpc_types::{
 use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::BlockTemplate;
 
-use cuprate_helper::network::Network;
-
 use crate::{
-    blockchain::BlockchainManagerHandle, monitor::TaskExecutor, rpc::handlers,
-    txpool::IncomingTxHandler, LaunchContext,
+    blockchain::{BlockchainManagerHandle, SyncerHandle},
+    monitor::TaskExecutor,
+    rpc::handlers,
+    txpool::IncomingTxHandler,
+    LaunchContext,
 };
 
 /// TODO: use real type when public.
@@ -178,6 +181,9 @@ pub struct CupratedRpcHandler {
 
     pub tx_handler: IncomingTxHandler,
 
+    /// Handle to the syncer — used to query target sync height.
+    pub syncer_handle: SyncerHandle,
+
     /// Command channel to the blockchain manager.
     pub blockchain_manager: BlockchainManagerHandle,
 
@@ -207,6 +213,7 @@ impl CupratedRpcHandler {
             blockchain_read: launch_ctx.blockchain.read(),
             blockchain_context: launch_ctx.blockchain.context_svc(),
             txpool_read: launch_ctx.txpool_read.clone(),
+            syncer_handle: launch_ctx.syncer.clone(),
             blockchain_manager: launch_ctx.blockchain.manager(),
             start_instant_unix,
             task_executor: launch_ctx.task_executor.clone(),
