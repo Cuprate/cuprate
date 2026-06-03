@@ -402,14 +402,16 @@ async fn send_raw_transaction(
                         key_offsets,
                         key_image,
                     } => {
-                        let Some(amount) = amount else {
+                        if amount.is_some() {
                             continue;
-                        };
+                        }
+
+                        if key_offsets.is_empty() {
+                            return Err("Input has an empty ring".to_string());
+                        }
 
                         /// <https://github.com/monero-project/monero/blob/893916ad091a92e765ce3241b94e706ad012b62a/src/cryptonote_basic/cryptonote_format_utils.cpp#L1526>
                         fn relative_output_offsets_to_absolute(mut offsets: Vec<u64>) -> Vec<u64> {
-                            assert!(!offsets.is_empty());
-
                             for i in 1..offsets.len() {
                                 offsets[i] += offsets[i - 1];
                             }
@@ -431,6 +433,9 @@ async fn send_raw_transaction(
             if rct_outs_available < 10_000 {
                 return Ok(());
             }
+
+            rct_indices.sort_unstable();
+            rct_indices.dedup();
 
             let rct_indices_len = rct_indices.len();
             if rct_indices_len < n_indices * 8 / 10 {
