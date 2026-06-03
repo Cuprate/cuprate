@@ -160,7 +160,7 @@ fn check_total_output_amt(
     fees: u64,
     hf: HardFork,
 ) -> Result<u64, MinerTxError> {
-    if hf == HardFork::V1 || hf >= HardFork::V12 {
+    if hf == HardFork::V1 || hf >= HardFork::V13 {
         if total_output != reward + fees {
             return Err(MinerTxError::OutputAmountIncorrect);
         }
