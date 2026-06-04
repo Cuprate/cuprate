@@ -78,6 +78,7 @@ impl From<Flags> for u32 {
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct BucketHead<C> {
     /// The network signature, should be `LEVIN_SIGNATURE` for Monero
+    #[cfg_attr(feature = "arbitrary", arbitrary(value = crate::MONERO_LEVIN_SIGNATURE))]
     pub signature: u64,
     /// The size of the body
     pub size: u64,
