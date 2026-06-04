@@ -148,7 +148,11 @@ impl EpeeValue for bool {
             return Err(Error::Format("Marker does not match expected Marker"));
         }
 
-        Ok(checked_read_primitive(r, Buf::get_u8)? != 0)
+        match checked_read_primitive(r, Buf::get_u8)? {
+            0 => Ok(false),
+            1 => Ok(true),
+            _ => Err(Error::Format("Invalid bool value")),
+        }
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
