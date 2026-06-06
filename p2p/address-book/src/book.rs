@@ -346,6 +346,7 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
         if let Some(addr) = peer.addr {
             // The peer is reachable, update our white list and add it to the anchor connections.
             self.update_white_list_peer_entry(&peer)?;
+            self.gray_list.remove_peer(&addr);
             self.anchor_list.insert(addr);
             self.white_list
                 .reduce_list(&self.anchor_list, self.cfg.max_white_list_length);
