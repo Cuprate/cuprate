@@ -312,7 +312,7 @@ impl Default for ClearNetConfig {
             outbound_connections: 32,
             extra_outbound_connections: 8,
             max_inbound_connections: 128,
-            gray_peers_percent: 0.7,
+            gray_peers_percent: 0.3,
             address_book_config: AddressBookConfig::default(),
         }
     }
@@ -327,7 +327,7 @@ impl Default for TorNetConfig {
             outbound_connections: 12,
             extra_outbound_connections: 2,
             max_inbound_connections: 128,
-            gray_peers_percent: 0.7,
+            gray_peers_percent: 0.3,
             address_book_config: AddressBookConfig::default(),
         }
     }
