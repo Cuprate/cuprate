@@ -377,7 +377,11 @@ async fn send_raw_transaction(
         tx_extra_too_big: false,
     };
 
-    let tx = Transaction::read(&mut request.tx_as_hex.as_slice())?;
+    // Default to failed, if all checks pass we set this to Ok.
+    resp.base.response_base.status = Status::Failed;
+    let Ok(tx) = Transaction::read(&mut request.tx_as_hex.as_slice()) else {
+        return Ok(resp);
+    };
 
     if request.do_sanity_checks {
         /// FIXME: these checks could be defined elsewhere.
@@ -450,7 +454,6 @@ async fn send_raw_transaction(
         let rct_outs_available = blockchain::total_rct_outputs(&mut state.blockchain_read).await?;
 
         if let Err(e) = tx_sanity_check(&tx, rct_outs_available) {
-            resp.base.response_base.status = Status::Failed;
             resp.reason.push_str(&format!("Sanity check failed: {e}"));
             resp.sanity_check_failed = true;
             return Ok(resp);
@@ -478,6 +481,7 @@ async fn send_raw_transaction(
     let tx_relay_checks = tx_handler::handle_incoming_txs(&mut state.tx_handler, txs).await?;
 
     if tx_relay_checks.is_empty() {
+        resp.base.response_base.status = Status::Ok;
         return Ok(resp);
     }
 
