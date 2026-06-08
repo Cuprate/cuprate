@@ -879,8 +879,8 @@ async fn get_coinbase_tx_sum(
         .await?;
 
     // Formats `u128` as hexadecimal strings.
-    let wide_emission_amount = emission_amount.hex_prefix();
-    let wide_fee_amount = fee_amount.hex_prefix();
+    let wide_emission_amount = (emission_amount, emission_amount_top64).hex_prefix();
+    let wide_fee_amount = (fee_amount, fee_amount_top64).hex_prefix();
 
     Ok(GetCoinbaseTxSumResponse {
         base: helper::access_response_base(false),
@@ -898,7 +898,7 @@ async fn get_version(
     mut state: CupratedRpcHandler,
     _: GetVersionRequest,
 ) -> Result<GetVersionResponse, Error> {
-    let current_height = helper::top_height(&mut state).await?.0 + 1;
+    let current_height = blockchain::chain_height(&mut state.blockchain_read).await?.0;
     let target_height = state.syncer_handle.target_height();
 
     let mut hard_forks: Vec<HardForkEntry> =
