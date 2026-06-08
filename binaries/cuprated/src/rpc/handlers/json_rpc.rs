@@ -898,7 +898,9 @@ async fn get_version(
     mut state: CupratedRpcHandler,
     _: GetVersionRequest,
 ) -> Result<GetVersionResponse, Error> {
-    let current_height = blockchain::chain_height(&mut state.blockchain_read).await?.0;
+    let current_height = blockchain::chain_height(&mut state.blockchain_read)
+        .await?
+        .0;
     let target_height = state.syncer_handle.target_height();
 
     let mut hard_forks: Vec<HardForkEntry> =
