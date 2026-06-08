@@ -224,8 +224,6 @@ pub fn id_to_output_on_chain(
 }
 
 /// Compute `(unlocked_instances, recent_instances)` for an output amount.
-///
-/// Used in [`crate::service::read::output_histogram`].
 pub fn unlocked_and_recent_instances(
     db: &BlockchainDatabase,
     tx_ro: &fjall::Snapshot,
