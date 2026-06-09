@@ -16,9 +16,9 @@ use anyhow::{anyhow, Error};
 use monero_oxide::block::Block;
 use strum::{EnumCount, VariantArray};
 
-use cuprate_constants::{
-    build::RELEASE,
-    rpc::{RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE},
+use cuprate_constants::rpc::{
+    OUTPUT_HISTOGRAM_RECENT_CUTOFF_RESTRICTION, RESTRICTED_BLOCK_COUNT,
+    RESTRICTED_BLOCK_HEADER_RANGE,
 };
 use cuprate_helper::{
     cast::{u32_to_usize, u64_to_usize, usize_to_u64},
@@ -105,15 +105,21 @@ pub async fn map_request(
         Req::GetBans(r) => Resp::GetBans(not_available()?),
         Req::Banned(r) => Resp::Banned(not_available()?),
         Req::FlushTxpool(r) => Resp::FlushTxpool(not_available()?),
-        Req::GetOutputHistogram(r) => Resp::GetOutputHistogram(not_available()?),
-        Req::GetCoinbaseTxSum(r) => Resp::GetCoinbaseTxSum(not_available()?),
-        Req::GetVersion(r) => Resp::GetVersion(not_available()?),
-        Req::GetFeeEstimate(r) => Resp::GetFeeEstimate(not_available()?),
-        Req::GetAlternateChains(r) => Resp::GetAlternateChains(not_available()?),
+        Req::GetOutputHistogram(r) => {
+            Resp::GetOutputHistogram(get_output_histogram(state, r).await?)
+        }
+        Req::GetCoinbaseTxSum(r) => Resp::GetCoinbaseTxSum(get_coinbase_tx_sum(state, r).await?),
+        Req::GetVersion(r) => Resp::GetVersion(get_version(state, r).await?),
+        Req::GetFeeEstimate(r) => Resp::GetFeeEstimate(get_fee_estimate(state, r).await?),
+        Req::GetAlternateChains(r) => {
+            Resp::GetAlternateChains(get_alternate_chains(state, r).await?)
+        }
         Req::RelayTx(r) => Resp::RelayTx(not_available()?),
         Req::SyncInfo(r) => Resp::SyncInfo(not_available()?),
-        Req::GetTxpoolBacklog(r) => Resp::GetTxpoolBacklog(not_available()?),
-        Req::GetMinerData(r) => Resp::GetMinerData(not_available()?),
+        Req::GetTxpoolBacklog(r) => {
+            Resp::GetTxpoolBacklog(get_transaction_pool_backlog(state, r).await?)
+        }
+        Req::GetMinerData(r) => Resp::GetMinerData(get_miner_data(state, r).await?),
         Req::PruneBlockchain(r) => Resp::PruneBlockchain(not_available()?),
         Req::CalcPow(r) => Resp::CalcPow(not_available()?),
         Req::AddAuxPow(r) => Resp::AddAuxPow(not_available()?),
@@ -820,6 +826,21 @@ async fn get_output_histogram(
     mut state: CupratedRpcHandler,
     request: GetOutputHistogramRequest,
 ) -> Result<GetOutputHistogramResponse, Error> {
+    if state.is_restricted() && request.amounts.is_empty() {
+        return Err(anyhow!(
+            "Restricted RPC will not serve histograms on the whole blockchain. Use your own node."
+        ));
+    }
+
+    if state.is_restricted()
+        && request.recent_cutoff > 0
+        && request.recent_cutoff
+            < current_unix_timestamp()
+                .saturating_sub(OUTPUT_HISTOGRAM_RECENT_CUTOFF_RESTRICTION.as_secs())
+    {
+        return Err(anyhow!("Recent cutoff is too old"));
+    }
+
     let input = cuprate_types::rpc::OutputHistogramInput {
         amounts: request.amounts,
         min_count: request.min_count,
@@ -850,6 +871,13 @@ async fn get_coinbase_tx_sum(
     mut state: CupratedRpcHandler,
     request: GetCoinbaseTxSumRequest,
 ) -> Result<GetCoinbaseTxSumResponse, Error> {
+    let chain_height = blockchain::chain_height(&mut state.blockchain_read)
+        .await?
+        .0;
+    if request.height >= chain_height || request.count > chain_height - request.height {
+        return Err(anyhow!("requested range exceeds blockchain height"));
+    }
+
     let CoinbaseTxSum {
         emission_amount_top64,
         emission_amount,
@@ -859,8 +887,8 @@ async fn get_coinbase_tx_sum(
         .await?;
 
     // Formats `u128` as hexadecimal strings.
-    let wide_emission_amount = fee_amount.hex_prefix();
-    let wide_fee_amount = emission_amount.hex_prefix();
+    let wide_emission_amount = (emission_amount, emission_amount_top64).hex_prefix();
+    let wide_fee_amount = (fee_amount, fee_amount_top64).hex_prefix();
 
     Ok(GetCoinbaseTxSumResponse {
         base: helper::access_response_base(false),
@@ -878,10 +906,12 @@ async fn get_version(
     mut state: CupratedRpcHandler,
     _: GetVersionRequest,
 ) -> Result<GetVersionResponse, Error> {
-    let current_height = helper::top_height(&mut state).await?.0;
-    let target_height = blockchain_manager::target_height(todo!()).await?;
+    let current_height = blockchain::chain_height(&mut state.blockchain_read)
+        .await?
+        .0;
+    let target_height = state.syncer_handle.target_height();
 
-    let hard_forks: Vec<HardForkEntry> =
+    let mut hard_forks: Vec<HardForkEntry> =
         blockchain_context::hard_fork_infos(&mut state.blockchain_context)
             .await?
             .into_iter()
@@ -892,10 +922,22 @@ async fn get_version(
             })
             .collect();
 
+    // On regtest, monerod only has two entries in its hard-fork table:
+    // `(V1, 0)` and `(LATEST, 1)`
+    //
+    // ref: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_core/cryptonote_core.cpp#L670>
+    if state.network == Network::FakeChain && hard_forks.len() > 2 {
+        let last = hard_forks.pop().unwrap();
+        hard_forks.truncate(1);
+        hard_forks.push(last);
+    }
+
     Ok(GetVersionResponse {
         base: helper::response_base(false),
         version: CORE_RPC_VERSION,
-        release: RELEASE,
+        // This is not for if release optimisations is used and is instead for if this build is a release
+        // build. i.e. not just a random build but one with a version number.
+        release: true,
         current_height,
         target_height,
         hard_forks,

@@ -11,7 +11,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     cmp::min,
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     ops::Range,
     sync::Arc,
     task::{Context, Poll},
@@ -31,12 +31,12 @@ use tower::Service;
 use cuprate_helper::{
     asynch::InfallibleOneshotReceiver,
     cast::{u64_to_usize, usize_to_u64},
-    map::combine_low_high_bits_to_u128,
+    map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
 };
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     output_cache::OutputCache,
-    rpc::OutputHistogramInput,
+    rpc::{ChainInfo, CoinbaseTxSum, OutputHistogramEntry, OutputHistogramInput},
     Chain, ChainId, ExtendedBlockHeader, OutputDistributionInput, TxsInBlock,
 };
 
@@ -52,7 +52,9 @@ use crate::{
             get_block_complete_entry_from_height, get_block_extended_header_from_height,
         },
         blockchain::find_split_point,
-        output::{get_num_outputs_with_amount, id_to_output_on_chain},
+        output::{
+            get_num_outputs_with_amount, id_to_output_on_chain, unlocked_and_recent_instances,
+        },
         tx::get_tx_blob_from_id,
     },
     service::{
@@ -60,7 +62,8 @@ use crate::{
         ResponseResult,
     },
     types::{
-        AltBlockHeight, Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId,
+        AltBlockHeight, AltChainInfo, Amount, AmountIndex, BlockHash, BlockHeight,
+        CompactAltBlockInfo, KeyImage, PreRctOutputId, RawChainId,
     },
     BlockchainDatabase,
 };
@@ -850,17 +853,225 @@ fn database_size(db: &BlockchainDatabase) -> ResponseResult {
 
 /// [`BlockchainReadRequest::OutputHistogram`]
 fn output_histogram(db: &BlockchainDatabase, input: OutputHistogramInput) -> ResponseResult {
-    Ok(BlockchainResponse::OutputHistogram(todo!()))
+    let tapes = db.linear_tapes.reader();
+    let tx_ro = db.fjall.snapshot();
+
+    let num_rct_outputs = tapes
+        .fixed_sized_tape_len(&db.rct_outputs)
+        .expect("rct_outputs tape exists");
+
+    let amounts_and_counts: BTreeMap<Amount, u64> = if input.amounts.is_empty() {
+        let mut result = BTreeMap::new();
+
+        // RCT outputs are represented as amount = 0 and live in a separate tape.
+        if num_rct_outputs > 0 {
+            result.insert(0_u64, num_rct_outputs);
+        }
+
+        // We need to get the amount of outputs for each amount. We do this by first finding the next
+        // `amount` value in the sorted table, then calling `get_num_outputs_with_amount`, then using
+        // fjalls `range` to find the next amount value.
+        let mut next = tx_ro.first_key_value(&db.pre_rct_outputs);
+        while let Some(guard) = next {
+            let amount = Amount::from_be_bytes(guard.key()?[..8].try_into().unwrap());
+
+            result.insert(amount, get_num_outputs_with_amount(db, &tx_ro, amount)?);
+
+            // Seek the first key of the next amount group, stopping on overflow/end.
+            next = match amount.checked_add(1) {
+                Some(next_amount) => tx_ro
+                    .range(&db.pre_rct_outputs, next_amount.to_be_bytes()..)
+                    .next(),
+                None => None,
+            };
+        }
+
+        result
+    } else {
+        // Use the caller-specified amounts.
+        input
+            .amounts
+            .iter()
+            .map(|&amount| {
+                let count = if amount == 0 {
+                    num_rct_outputs
+                } else {
+                    get_num_outputs_with_amount(db, &tx_ro, amount)?
+                };
+                Ok((amount, count))
+            })
+            .collect::<DbResult<_>>()?
+    };
+
+    let current_height = tapes
+        .fixed_sized_tape_len(&db.block_infos)
+        .expect("block_infos tape exists");
+
+    let histogram = amounts_and_counts
+        .into_iter()
+        .filter(|&(_, total_instances)| {
+            // filter the amounts that have to many or too little outputs
+            (input.min_count == 0 || total_instances >= input.min_count)
+                && (input.max_count == 0 || total_instances <= input.max_count)
+        })
+        .map(|(amount, total_instances)| {
+            let (unlocked_instances, recent_instances) =
+                if input.unlocked || input.recent_cutoff > 0 {
+                    unlocked_and_recent_instances(
+                        db,
+                        &tx_ro,
+                        &tapes,
+                        amount,
+                        total_instances,
+                        current_height,
+                        input.recent_cutoff,
+                    )?
+                } else {
+                    (0, 0)
+                };
+
+            Ok(OutputHistogramEntry {
+                amount,
+                total_instances,
+                unlocked_instances,
+                recent_instances,
+            })
+        })
+        .collect::<DbResult<_>>()?;
+
+    Ok(BlockchainResponse::OutputHistogram(histogram))
 }
 
 /// [`BlockchainReadRequest::CoinbaseTxSum`]
 fn coinbase_tx_sum(db: &BlockchainDatabase, height: usize, count: u64) -> ResponseResult {
-    Ok(BlockchainResponse::CoinbaseTxSum(todo!()))
+    let tapes = db.linear_tapes.reader();
+
+    let start_cumulative = if height == 0 {
+        0_u64
+    } else {
+        tapes
+            .read_entry(&db.block_infos, usize_to_u64(height - 1))?
+            .ok_or(BlockchainError::NotFound)?
+            .cumulative_generated_coins
+    };
+
+    let (emission_amount, fee_amount, _) = (height..)
+        .zip(tapes.iter_from(&db.block_infos, usize_to_u64(height))?)
+        .take(u64_to_usize(count))
+        .try_fold(
+            (0_u128, 0_u128, start_cumulative),
+            |(emission_amount, fee_amount, prev_cumulative), (h, block_info)| {
+                let block_info = block_info?;
+
+                // base_reward = newly minted coins for this block (does not include fees).
+                let base_reward = block_info
+                    .cumulative_generated_coins
+                    .saturating_sub(prev_cumulative);
+
+                // coinbase_output = sum of miner_tx output amounts = base_reward + block_fees.
+                let block = get_block(&h, Some(&block_info), &tapes, db)?;
+                let coinbase_output: u64 = block
+                    .miner_transaction()
+                    .prefix()
+                    .outputs
+                    .iter()
+                    .map(|o| o.amount.unwrap_or(0))
+                    .sum();
+
+                DbResult::Ok((
+                    emission_amount + u128::from(base_reward),
+                    fee_amount + u128::from(coinbase_output.saturating_sub(base_reward)),
+                    block_info.cumulative_generated_coins,
+                ))
+            },
+        )?;
+
+    let (emission_amount, emission_amount_top64) = split_u128_into_low_high_bits(emission_amount);
+    let (fee_amount, fee_amount_top64) = split_u128_into_low_high_bits(fee_amount);
+
+    Ok(BlockchainResponse::CoinbaseTxSum(CoinbaseTxSum {
+        emission_amount,
+        emission_amount_top64,
+        fee_amount,
+        fee_amount_top64,
+    }))
 }
 
 /// [`BlockchainReadRequest::AltChains`]
 fn alt_chains(db: &BlockchainDatabase) -> ResponseResult {
-    Ok(BlockchainResponse::AltChains(todo!()))
+    let tx_ro = db.fjall.snapshot();
+    let tapes = db.linear_tapes.reader();
+
+    let mut chains = Vec::new();
+
+    for guard in db.alt_chain_infos.iter() {
+        let (chain_id_bytes, chain_info_bytes) = guard.into_inner()?;
+
+        let chain_id = RawChainId(u64::from_le_bytes(
+            chain_id_bytes.as_ref().try_into().unwrap(),
+        ));
+        let chain_info: AltChainInfo = bytemuck::pod_read_unaligned(chain_info_bytes.as_ref());
+
+        let tip = chain_info.chain_height - 1;
+        let history =
+            get_alt_chain_history_ranges(db, 0..chain_info.chain_height, chain_id.into(), &tx_ro)?;
+
+        let tip_height = AltBlockHeight {
+            chain_id,
+            height: tip,
+        };
+        let tip_info_bytes = tx_ro
+            .get(&db.alt_block_infos, bytemuck::bytes_of(&tip_height))?
+            .ok_or(BlockchainError::NotFound)?;
+        let tip_info: CompactAltBlockInfo = bytemuck::pod_read_unaligned(tip_info_bytes.as_ref());
+
+        // The last segment is the main-chain portion. Its range starts at 0 and ends at the
+        // fork height, so the last main chain block = range.end - 1.
+        let main_fork_height = history
+            .last()
+            .map(|(_, r)| r.end.saturating_sub(1))
+            .ok_or(BlockchainError::NotFound)?;
+
+        // Build the hashes of the alt chain all the way to the main chain split point.
+        let mut block_hashes = Vec::new();
+        for (segment_chain, height_range) in &history {
+            let Chain::Alt(segment_chain_id) = segment_chain else {
+                break;
+            };
+            let raw_id = RawChainId::from(*segment_chain_id);
+            for height in height_range.clone().rev() {
+                let alt_h = AltBlockHeight {
+                    chain_id: raw_id,
+                    height,
+                };
+                let info_bytes = tx_ro
+                    .get(&db.alt_block_infos, bytemuck::bytes_of(&alt_h))?
+                    .ok_or(BlockchainError::NotFound)?;
+                let info: CompactAltBlockInfo = bytemuck::pod_read_unaligned(info_bytes.as_ref());
+                block_hashes.push(info.block_hash);
+            }
+        }
+
+        // Get the main chain block hash at the fork point.
+        let main_chain_parent_block = tapes
+            .read_entry(&db.block_infos, usize_to_u64(main_fork_height))?
+            .map(|info| info.block_hash)
+            .ok_or(BlockchainError::NotFound)?;
+
+        let length = usize_to_u64(block_hashes.len());
+
+        chains.push(ChainInfo {
+            block_hash: tip_info.block_hash,
+            block_hashes,
+            difficulty: tip_info.cumulative_difficulty_low,
+            difficulty_top64: tip_info.cumulative_difficulty_high,
+            height: usize_to_u64(tip),
+            length,
+            main_chain_parent_block,
+        });
+    }
+
+    Ok(BlockchainResponse::AltChains(chains))
 }
 
 /// [`BlockchainReadRequest::AltChainCount`]

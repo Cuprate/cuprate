@@ -6,14 +6,16 @@ use std::{
 
 use fjall::Readable;
 use monero_oxide::ed25519::CompressedPoint;
+use monero_oxide::DEFAULT_LOCK_WINDOW;
 use tapes::TapesRead;
 
+use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_helper::{crypto::compute_zero_commitment, map::u64_to_timelock};
 use cuprate_types::OutputOnChain;
 
 use crate::{
     error::{BlockchainError, DbResult},
-    ops::tx::get_tx_from_id,
+    ops::{block::get_block_extended_header_from_height, tx::get_tx_from_id},
     types::{Amount, Output, PreRctOutputId, RctOutput},
     BlockchainDatabase,
 };
@@ -219,4 +221,89 @@ pub fn id_to_output_on_chain(
 
         Ok(output_on_chain)
     }
+}
+
+/// Compute `(unlocked_instances, recent_instances)` for an output amount.
+pub fn unlocked_and_recent_instances(
+    db: &BlockchainDatabase,
+    tx_ro: &fjall::Snapshot,
+    tapes: &tapes::TapesReadTransaction,
+    amount: Amount,
+    total_instances: u64,
+    current_height: u64,
+    recent_cutoff: u64,
+) -> DbResult<(u64, u64)> {
+    let (unlocked, recent) = if amount == 0 {
+        // For RCT outputs we can use the `cumulative_rct_outs` in the block_infos to calculate the
+        // number of locked and recent outputs.
+
+        let Some(tip) = current_height.checked_sub(DEFAULT_LOCK_WINDOW as u64) else {
+            return Ok((0, 0));
+        };
+        let unlocked = tapes
+            .read_entry(&db.block_infos, tip)?
+            .map_or(0, |info| info.cumulative_rct_outs);
+
+        let mut recent = 0;
+        if recent_cutoff > 0 {
+            let mut cumulative = unlocked;
+            for height in (0..=tip).rev() {
+                let timestamp =
+                    get_block_extended_header_from_height(u64_to_usize(height), tapes, db)?
+                        .timestamp;
+                if timestamp < recent_cutoff {
+                    break;
+                }
+                let prev = height.checked_sub(1).map_or(DbResult::Ok(0), |h| {
+                    Ok(tapes
+                        .read_entry(&db.block_infos, h)?
+                        .map_or(0, |info| info.cumulative_rct_outs))
+                })?;
+                recent += cumulative - prev;
+                cumulative = prev;
+            }
+        }
+
+        (unlocked, recent)
+    } else {
+        // For pre-RCT we need to work back from each output with this amount.
+
+        // Closure that returns the block height of the given output index. (output amount is the one
+        // given to this function).
+        let height_of = |index: u64| -> DbResult<usize> {
+            Ok(get_output(
+                db,
+                &PreRctOutputId {
+                    amount,
+                    amount_index: index,
+                },
+                tx_ro,
+            )?
+            .height)
+        };
+
+        let mut unlocked = 0;
+        for index in (0..total_instances).rev() {
+            if usize_to_u64(height_of(index)?) + DEFAULT_LOCK_WINDOW as u64 <= current_height {
+                unlocked = index + 1;
+                break;
+            }
+        }
+
+        let mut recent = 0;
+        if recent_cutoff > 0 {
+            for index in (0..unlocked).rev() {
+                let timestamp =
+                    get_block_extended_header_from_height(height_of(index)?, tapes, db)?.timestamp;
+                if timestamp < recent_cutoff {
+                    break;
+                }
+                recent += 1;
+            }
+        }
+
+        (unlocked, recent)
+    };
+
+    Ok((unlocked, recent))
 }
