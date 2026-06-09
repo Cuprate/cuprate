@@ -870,11 +870,13 @@ async fn get_coinbase_tx_sum(
     mut state: CupratedRpcHandler,
     request: GetCoinbaseTxSumRequest,
 ) -> Result<GetCoinbaseTxSumResponse, Error> {
-    let chain_height = blockchain::chain_height(&mut state.blockchain_read).await?.0;
+    let chain_height = blockchain::chain_height(&mut state.blockchain_read)
+        .await?
+        .0;
     if request.height >= chain_height || request.count > chain_height - request.height {
         return Err(anyhow!("requested range exceeds blockchain height"));
     }
-    
+
     let CoinbaseTxSum {
         emission_amount_top64,
         emission_amount,
