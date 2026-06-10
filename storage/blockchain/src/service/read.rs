@@ -491,7 +491,22 @@ fn outputs_vec(
     outputs: Vec<(Amount, AmountIndex)>,
     get_txid: bool,
 ) -> ResponseResult {
-    Ok(BlockchainResponse::OutputsVec(todo!()))
+    let tx_ro = db.fjall.snapshot();
+    let tapes = db.linear_tapes.reader();
+
+    let result = outputs
+        .into_iter()
+        .map(|(amount, amount_index)| {
+            let id = PreRctOutputId {
+                amount,
+                amount_index,
+            };
+            let output = id_to_output_on_chain(db, &id, get_txid, &tx_ro, &tapes)?;
+            Ok((amount, vec![(amount_index, output)]))
+        })
+        .collect::<DbResult<Vec<_>>>()?;
+
+    Ok(BlockchainResponse::OutputsVec(result))
 }
 
 /// [`BlockchainReadRequest::NumberOutputsWithAmount`].
