@@ -50,7 +50,9 @@ pub async fn map_request(
         Req::GetOutputIndexes(r) => Resp::GetOutputIndexes(not_available()?),
         Req::GetOuts(r) => Resp::GetOuts(not_available()?),
         Req::GetTransactionPoolHashes(r) => Resp::GetTransactionPoolHashes(not_available()?),
-        Req::GetOutputDistribution(r) => Resp::GetOutputDistribution(not_available()?),
+        Req::GetOutputDistribution(r) => {
+            Resp::GetOutputDistribution(get_output_distribution(state, r).await?)
+        }
     })
 }
 
@@ -241,5 +243,11 @@ async fn get_output_distribution(
     state: CupratedRpcHandler,
     request: GetOutputDistributionRequest,
 ) -> Result<GetOutputDistributionResponse, Error> {
+    // monerod rejects non-binary requests on the binary endpoint:
+    // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3422>
+    if !request.binary {
+        return Err(anyhow!("Binary only call"));
+    }
+
     shared::get_output_distribution(state, request).await
 }

@@ -10,7 +10,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Error};
-use cuprate_types::OutputDistributionInput;
+use cuprate_types::{HardFork, OutputDistributionInput};
 use monero_oxide::transaction::Timelock;
 
 use cuprate_constants::rpc::MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT;
@@ -23,7 +23,7 @@ use cuprate_rpc_types::{
         GetTransactionPoolHashesResponse,
     },
     json::{GetOutputDistributionRequest, GetOutputDistributionResponse},
-    misc::{Distribution, OutKeyBin},
+    misc::{Distribution, DistributionCompressedBinary, DistributionUncompressed, OutKeyBin},
 };
 
 use crate::rpc::{
@@ -110,6 +110,12 @@ pub(super) async fn get_output_distribution(
         ));
     }
 
+    // monerod clamps RCT `start_height` to the HF v4 activation height.
+    let rct_start_height = blockchain_context::hard_fork_infos(&mut state.blockchain_context)
+        .await?
+        .get(HardFork::V4 as usize - 1)
+        .map_or(0, |info| info.earliest_height);
+
     let input = OutputDistributionInput {
         amounts: request.amounts,
         cumulative: request.cumulative,
@@ -117,15 +123,40 @@ pub(super) async fn get_output_distribution(
 
         // 0 / `None` is placeholder for the whole chain
         to_height: NonZero::new(request.to_height),
+        rct_start_height,
     };
 
     let distributions = blockchain::output_distribution(&mut state.blockchain_read, input).await?;
 
+    // TODO: <https://github.com/monero-project/monero/issues/9422>.
+    let binary = request.binary;
+    let compress = request.compress;
+
+    let distributions = distributions
+        .into_iter()
+        .map(|data| {
+            if binary && compress {
+                Distribution::CompressedBinary(DistributionCompressedBinary {
+                    start_height: data.start_height,
+                    base: data.base,
+                    distribution: data.distribution,
+                    amount: data.amount,
+                })
+            } else {
+                Distribution::Uncompressed(DistributionUncompressed {
+                    start_height: data.start_height,
+                    base: data.base,
+                    distribution: data.distribution,
+                    amount: data.amount,
+                    binary,
+                })
+            }
+        })
+        .collect();
+
     Ok(GetOutputDistributionResponse {
         base: helper::access_response_base(false),
-        distributions: todo!(
-            "This type contains binary strings: <https://github.com/monero-project/monero/issues/9422>"
-        ),
+        distributions,
     })
 }
 
