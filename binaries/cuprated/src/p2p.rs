@@ -129,7 +129,7 @@ pub async fn initialize_clearnet_p2p(
 ) -> (NetworkInterface<ClearNet>, Sender<IncomingTxHandler>) {
     let config = launch_ctx.config.as_ref();
     let blockchain = &launch_ctx.blockchain;
-    let peer_sync_callback = blockchain.syncer().callback(blockchain);
+    let peer_sync_callback = blockchain.peer_sync_callback();
 
     match &config.p2p.clear_net.proxy {
         ProxySettings::Tor => match tor_ctx.mode {
