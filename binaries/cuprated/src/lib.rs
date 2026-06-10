@@ -199,9 +199,9 @@ impl Node {
 
         // Create the blockchain interface.
         let blockchain_interface = BlockchainInterface::new(
-            blockchain_read_handle.clone(),
-            context_svc.clone(),
-            blockchain_manager_handle.clone(),
+            blockchain_read_handle,
+            context_svc,
+            blockchain_manager_handle,
             syncer_handle,
         );
 
@@ -210,7 +210,7 @@ impl Node {
             config,
             reorg_lock: Arc::new(RwLock::new(())),
             blockchain: blockchain_interface,
-            txpool_read: txpool_read_handle.clone(),
+            txpool_read: txpool_read_handle,
             task_executor: TaskExecutor::new(),
         };
 
@@ -230,7 +230,7 @@ impl Node {
             &launch_ctx,
             clearnet_interface.clone(),
             tor_router_rx,
-            txpool_write_handle.clone(),
+            txpool_write_handle,
         )
         .await;
 
