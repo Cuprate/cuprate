@@ -58,7 +58,7 @@ use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::blockchain::BlockchainWriteRequest;
 
 use crate::{
-    blockchain::{BlockchainInterface, BlockchainManagerHandle, Syncer, SyncerHandle},
+    blockchain::{BlockchainInterface, BlockchainManagerHandle, Syncer},
     config::Config,
     constants::DATABASE_CORRUPT_MSG,
     monitor::TaskExecutor,
@@ -202,7 +202,7 @@ impl Node {
             blockchain_read_handle.clone(),
             context_svc.clone(),
             blockchain_manager_handle.clone(),
-            syncer_handle.clone(),
+            syncer_handle,
         );
 
         // Create the launch context.

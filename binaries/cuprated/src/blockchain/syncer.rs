@@ -21,7 +21,7 @@ use cuprate_p2p::{
 };
 use cuprate_p2p_core::{client::PeerSyncCallback, ClearNet, CoreSyncData, NetworkZone};
 
-use super::BlockchainInterface;
+use super::BlockchainManagerHandle;
 
 /// An error returned from the [`Syncer`].
 #[derive(Debug, thiserror::Error)]
@@ -241,9 +241,11 @@ impl SyncerHandle {
     }
 
     /// Creates a [`PeerSyncCallback`] that filters and wakes the syncer.
-    pub fn callback(&self, blockchain: &BlockchainInterface) -> PeerSyncCallback {
-        let context_svc = blockchain.context_svc();
-        let blockchain_manager = blockchain.manager();
+    pub(crate) fn callback(
+        &self,
+        context_svc: BlockchainContextService,
+        blockchain_manager: BlockchainManagerHandle,
+    ) -> PeerSyncCallback {
         let handle = self.clone();
         PeerSyncCallback::new(move |peer_csd: &CoreSyncData| {
             let ctx = context_svc.blockchain_context_snapshot();
