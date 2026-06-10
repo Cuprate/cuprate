@@ -82,7 +82,7 @@ hard-fork[^version-vote].
 The block's timestamp must not be more than the current UNIX time + 2 hours[^timestamp-upper-limit] and the timestamp
 must not be less than
 the median timestamp over the last 60 blocks[^timestamp-lower-limit], if there are less than 60 blocks in the chain then
-the timestamp is always valid.
+this lower limit is ignored.
 
 ---
 
