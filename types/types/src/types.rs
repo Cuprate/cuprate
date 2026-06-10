@@ -218,6 +218,9 @@ pub struct OutputDistributionInput {
 
     /// [`None`] means the entire blockchain.
     pub to_height: Option<NonZero<u64>>,
+
+    /// The earliest block height at which RCT outputs can appear (HF v4).
+    pub rct_start_height: u64,
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
