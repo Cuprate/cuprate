@@ -297,13 +297,44 @@ fn txs_by_hash(
     Ok(TxpoolReadResponse::TxsByHash(todo!()))
 }
 
+/// Returns whether a key image is spent by a transaction in the pool.
+fn key_image_spent_in_pool(
+    db: &TxpoolDatabase,
+    snapshot: &fjall::Snapshot,
+    key_image: &[u8; 32],
+    include_sensitive_txs: bool,
+) -> Result<bool, TxPoolError> {
+    let Some(tx_hash) = snapshot.get(&db.spent_key_images, key_image)? else {
+        return Ok(false);
+    };
+
+    if include_sensitive_txs {
+        return Ok(true);
+    }
+
+    let tx_hash: TransactionHash = tx_hash.as_ref().try_into().unwrap();
+    Ok(!in_stem_pool(&tx_hash, snapshot, db)?)
+}
+
 /// [`TxpoolReadRequest::KeyImagesSpent`].
 fn key_images_spent(
     db: &TxpoolDatabase,
     key_images: HashSet<[u8; 32]>,
     include_sensitive_txs: bool,
 ) -> Result<TxpoolReadResponse, TxPoolError> {
-    Ok(TxpoolReadResponse::KeyImagesSpent(todo!()))
+    let snapshot = db.fjall_database.snapshot();
+
+    #[expect(
+        clippy::iter_over_hash_type,
+        reason = "ordering does not matter, this returns whether any key image is spent"
+    )]
+    for key_image in &key_images {
+        if key_image_spent_in_pool(db, &snapshot, key_image, include_sensitive_txs)? {
+            return Ok(TxpoolReadResponse::KeyImagesSpent(true));
+        }
+    }
+
+    Ok(TxpoolReadResponse::KeyImagesSpent(false))
 }
 
 /// [`TxpoolReadRequest::KeyImagesSpentVec`].
@@ -312,7 +343,14 @@ fn key_images_spent_vec(
     key_images: Vec<[u8; 32]>,
     include_sensitive_txs: bool,
 ) -> Result<TxpoolReadResponse, TxPoolError> {
-    Ok(TxpoolReadResponse::KeyImagesSpent(todo!()))
+    let snapshot = db.fjall_database.snapshot();
+
+    Ok(TxpoolReadResponse::KeyImagesSpentVec(
+        key_images
+            .iter()
+            .map(|ki| key_image_spent_in_pool(db, &snapshot, ki, include_sensitive_txs))
+            .collect::<Result<_, _>>()?,
+    ))
 }
 
 /// [`TxpoolReadRequest::Pool`].
@@ -339,5 +377,20 @@ fn all_hashes(
     db: &TxpoolDatabase,
     include_sensitive_txs: bool,
 ) -> Result<TxpoolReadResponse, TxPoolError> {
-    Ok(TxpoolReadResponse::AllHashes(todo!()))
+    let mut hashes = Vec::new();
+
+    for guard in db.tx_infos.iter() {
+        let (tx_hash, info) = guard.into_inner()?;
+
+        if !include_sensitive_txs {
+            let info: TransactionInfo = bytemuck::pod_read_unaligned(info.as_ref());
+            if info.flags.private() {
+                continue;
+            }
+        }
+
+        hashes.push(tx_hash.as_ref().try_into().unwrap());
+    }
+
+    Ok(TxpoolReadResponse::AllHashes(hashes))
 }

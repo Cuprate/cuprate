@@ -75,7 +75,7 @@ pub async fn map_request(
         Req::GetHeight(r) => Resp::GetHeight(get_height(state, r).await?),
         Req::GetTransactions(r) => Resp::GetTransactions(not_available()?),
         Req::GetAltBlocksHashes(r) => Resp::GetAltBlocksHashes(not_available()?),
-        Req::IsKeyImageSpent(r) => Resp::IsKeyImageSpent(not_available()?),
+        Req::IsKeyImageSpent(r) => Resp::IsKeyImageSpent(is_key_image_spent(state, r).await?),
         Req::SendRawTransaction(r) => {
             Resp::SendRawTransaction(send_raw_transaction(state, r).await?)
         }
@@ -93,7 +93,9 @@ pub async fn map_request(
         Req::GetNetStats(r) => Resp::GetNetStats(not_available()?),
         Req::GetOuts(r) => Resp::GetOuts(not_available()?),
         Req::PopBlocks(r) => Resp::PopBlocks(not_available()?),
-        Req::GetTransactionPoolHashes(r) => Resp::GetTransactionPoolHashes(not_available()?),
+        Req::GetTransactionPoolHashes(r) => {
+            Resp::GetTransactionPoolHashes(get_transaction_pool_hashes(state, r).await?)
+        }
         Req::GetPublicNodes(r) => Resp::GetPublicNodes(not_available()?),
         Req::GetInfo(r) => Resp::GetInfo(super::json_rpc::get_info(state, r).await?),
 
@@ -112,7 +114,7 @@ async fn get_height(
     mut state: CupratedRpcHandler,
     _: GetHeightRequest,
 ) -> Result<GetHeightResponse, Error> {
-    let (height, hash) = helper::top_height(&mut state).await?;
+    let (height, hash) = blockchain::chain_height(&mut state.blockchain_read).await?;
     let hash = Hex(hash);
 
     Ok(GetHeightResponse {
@@ -303,45 +305,45 @@ async fn is_key_image_spent(
         .map(|k| k.0)
         .collect::<Vec<[u8; 32]>>();
 
-    let mut spent_status = Vec::with_capacity(key_images.len());
-
     // Check the blockchain for key image spend status.
-    blockchain::key_images_spent_vec(&mut state.blockchain_read, key_images.clone())
-        .await?
-        .into_iter()
-        .for_each(|ki| {
-            if ki {
-                spent_status.push(KeyImageSpentStatus::SpentInBlockchain);
-            } else {
-                spent_status.push(KeyImageSpentStatus::Unspent);
-            }
-        });
-
-    assert_eq!(spent_status.len(), key_images.len(), "key_images_spent() should be returning a Vec with an equal length to the input, the below zip() relies on this.");
-
-    // Filter the remaining unspent key images out from the vector.
-    let key_images = key_images
-        .into_iter()
-        .zip(&spent_status)
-        .filter_map(|(ki, status)| match status {
-            KeyImageSpentStatus::Unspent => Some(ki),
-            KeyImageSpentStatus::SpentInBlockchain => None,
-            KeyImageSpentStatus::SpentInPool => unreachable!(),
-        })
-        .collect::<Vec<[u8; 32]>>();
-
-    // Check if the remaining unspent key images exist in the transaction pool.
-    if !key_images.is_empty() {
-        txpool::key_images_spent_vec(&mut state.txpool_read, key_images, !restricted)
+    let mut spent_status: Vec<KeyImageSpentStatus> =
+        blockchain::key_images_spent_vec(&mut state.blockchain_read, key_images.clone())
             .await?
             .into_iter()
-            .for_each(|ki| {
-                if ki {
-                    spent_status.push(KeyImageSpentStatus::SpentInPool);
+            .map(|spent| {
+                if spent {
+                    KeyImageSpentStatus::SpentInBlockchain
                 } else {
-                    spent_status.push(KeyImageSpentStatus::Unspent);
+                    KeyImageSpentStatus::Unspent
                 }
-            });
+            })
+            .collect();
+
+    assert_eq!(
+        spent_status.len(),
+        key_images.len(),
+        "key_images_spent_vec() must return a Vec with the input's length"
+    );
+
+    // Get the indices of the key images not spent in the blockchain.
+    let (unspent_indices, unspent_images): (Vec<usize>, Vec<[u8; 32]>) = key_images
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| spent_status[*i] == KeyImageSpentStatus::Unspent)
+        .map(|(i, ki)| (i, *ki))
+        .unzip();
+
+    // Check if the unspent key images exist in the transaction pool.
+    if !unspent_images.is_empty() {
+        let pool_results =
+            txpool::key_images_spent_vec(&mut state.txpool_read, unspent_images, !restricted)
+                .await?;
+
+        for (idx, in_pool) in unspent_indices.into_iter().zip(pool_results) {
+            if in_pool {
+                spent_status[idx] = KeyImageSpentStatus::SpentInPool;
+            }
+        }
     }
 
     let spent_status = spent_status

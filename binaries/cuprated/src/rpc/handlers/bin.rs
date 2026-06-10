@@ -49,7 +49,9 @@ pub async fn map_request(
         Req::GetHashes(r) => Resp::GetHashes(get_hashes(state, r).await?),
         Req::GetOutputIndexes(r) => Resp::GetOutputIndexes(not_available()?),
         Req::GetOuts(r) => Resp::GetOuts(not_available()?),
-        Req::GetTransactionPoolHashes(r) => Resp::GetTransactionPoolHashes(not_available()?),
+        Req::GetTransactionPoolHashes(r) => {
+            Resp::GetTransactionPoolHashes(get_transaction_pool_hashes(state, r).await?)
+        }
         Req::GetOutputDistribution(r) => {
             Resp::GetOutputDistribution(get_output_distribution(state, r).await?)
         }
