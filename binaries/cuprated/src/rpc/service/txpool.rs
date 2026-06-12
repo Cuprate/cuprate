@@ -7,7 +7,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Error};
-use monero_oxide::transaction::Transaction;
+use monero_oxide::transaction::{Pruned, Transaction};
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::cast::usize_to_u64;
@@ -61,6 +61,68 @@ pub async fn size(
     };
 
     Ok(usize_to_u64(size))
+}
+
+/// [`TxpoolReadRequest::TxsByHash`]/
+pub async fn tx_blobs_by_hash(
+    txpool_read: &mut TxpoolReadHandle,
+    tx_hashes: &[[u8; 32]],
+    prune: bool,
+) -> Result<Vec<PoolTxInfo>, Error> {
+    let TxpoolReadResponse::TxsByHash(txs) = txpool_read
+        .ready()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .call(TxpoolReadRequest::TxsByHash {
+            tx_hashes: tx_hashes.to_vec(),
+            // TODO: allow sending private txs on restricted.
+            include_sensitive_txs: false,
+        })
+        .await
+        .map_err(|e| anyhow!(e))?
+    else {
+        unreachable!()
+    };
+
+    txs.into_iter()
+        .map(|t| {
+            let mut tx_blob = t.tx_blob;
+
+            if prune {
+                // Instead of reading then writing the pruned part to get the pruned blob
+                // we can read and then just use the number of bytes read.
+                let mut slice = tx_blob.as_slice();
+                Transaction::<Pruned>::read(&mut slice)
+                    .map_err(|e| anyhow!("failed to parse pool tx blob: {e}"))?;
+                let pruned_len = tx_blob.len() - slice.len();
+                tx_blob.truncate(pruned_len);
+            }
+
+            Ok(PoolTxInfo {
+                tx_hash: t.tx_hash,
+                tx_blob,
+                double_spend_seen: t.double_spend_seen,
+            })
+        })
+        .collect()
+}
+
+/// Query the txpool manager for public-pool transactions added/removed since `since`.
+pub async fn pool_info_since(
+    txpool_manager: &crate::txpool::TxpoolManagerHandle,
+    since: u64,
+) -> Result<crate::txpool::PoolInfoSinceResponse, Error> {
+    let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+
+    txpool_manager
+        .command_tx
+        .send(crate::txpool::TxpoolManagerCommand::PoolInfoSince { since, response_tx })
+        .await
+        .map_err(|_| anyhow!("txpool manager stopped"))?;
+
+    response_rx
+        .await
+        .map_err(|_| anyhow!("txpool manager stopped"))
 }
 
 /// [`TxpoolReadRequest::PoolInfo`]

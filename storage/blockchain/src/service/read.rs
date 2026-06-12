@@ -17,6 +17,7 @@ use std::{
     task::{Context, Poll},
 };
 
+use bytes::Bytes;
 use fjall::Readable;
 use futures::channel::oneshot;
 use indexmap::{IndexMap, IndexSet};
@@ -40,7 +41,7 @@ use cuprate_types::{
         ChainInfo, CoinbaseTxSum, OutputDistributionData, OutputHistogramEntry,
         OutputHistogramInput,
     },
-    Chain, ChainId, ExtendedBlockHeader, OutputDistributionInput, TxsInBlock,
+    Chain, ChainId, ExtendedBlockHeader, OutputDistributionInput, TransactionBlobs, TxsInBlock,
 };
 
 use crate::{
@@ -128,6 +129,20 @@ fn map_request(
     match request {
         R::BlockCompleteEntries(block_hashes) => block_complete_entries(env, block_hashes),
         R::BlockCompleteEntriesByHeight(heights) => block_complete_entries_by_height(env, heights),
+        R::BlockCompleteEntriesAboveSplitPoint {
+            chain,
+            start_height,
+            no_miner_tx,
+            len,
+            pruned,
+        } => block_complete_entries_above_split_point(
+            env,
+            chain,
+            start_height,
+            no_miner_tx,
+            len,
+            pruned,
+        ),
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
         R::BlockHash(block, chain) => block_hash(env, block, chain),
         R::BlockHashInRange(blocks, chain) => block_hash_in_range(env, blocks, chain),
@@ -215,6 +230,157 @@ fn block_complete_entries(db: &BlockchainDatabase, block_hashes: Vec<BlockHash>)
         blocks,
         missing_hashes,
         blockchain_height,
+    })
+}
+
+/// [`BlockchainReadRequest::BlockCompleteEntriesAboveSplitPoint`].
+fn block_complete_entries_above_split_point(
+    db: &BlockchainDatabase,
+    chain: Vec<[u8; 32]>,
+    start_height: Option<usize>,
+    no_miner_tx: bool,
+    len: usize,
+    pruned: bool,
+) -> ResponseResult {
+    /// Total size of all block/tx blobs to return before stopping early.
+    ///
+    /// This is lower than monerod, as monerod packs too close to the epee size limit.
+    const MAX_TOTAL_SIZE: usize = 50 * 1024 * 1024;
+    /// Total tx count to return before stopping early.
+    ///
+    /// This is lower than monerod, as monerod packs too close to the epee size limit.
+    const MAX_TOTAL_TXS: usize = 10_000;
+
+    let tx_ro = db.fjall.snapshot();
+    let tapes = db.linear_tapes.reader();
+
+    let blockchain_height = crate::ops::blockchain::chain_height(db, &tapes)?;
+    let top_hash = tapes
+        .read_entry(&db.block_infos, usize_to_u64(blockchain_height - 1))?
+        .ok_or(BlockchainError::NotFound)?
+        .block_hash;
+
+    // If a specific start height was requested, use it directly. Otherwise, scan to find the split point.
+    let height = if let Some(h) = start_height {
+        if h >= blockchain_height {
+            return Ok(BlockchainResponse::BlockCompleteEntriesAboveSplitPoint {
+                blocks: vec![],
+                output_indices: vec![],
+                blockchain_height,
+                start_height: h,
+                top_hash,
+            });
+        }
+        h
+    } else {
+        let split = find_split_point(db, &chain, false, false, &tx_ro)?;
+
+        if split == chain.len() {
+            return Err(BlockchainError::NotFound);
+        }
+
+        block_height(db, &tx_ro, &chain[split])?.ok_or(BlockchainError::NotFound)?
+    };
+
+    if height == blockchain_height {
+        return Ok(BlockchainResponse::BlockCompleteEntriesAboveSplitPoint {
+            blocks: vec![],
+            output_indices: vec![],
+            blockchain_height,
+            start_height: height,
+            top_hash,
+        });
+    }
+
+    let mut tx_count = 0;
+    let mut total_size = 0;
+
+    let blocks: Vec<_> = (height..min(height + len, blockchain_height))
+        .map_while(|height| {
+            if total_size >= MAX_TOTAL_SIZE || tx_count >= MAX_TOTAL_TXS {
+                return None;
+            }
+
+            let block = match get_block_complete_entry_from_height(height, pruned, &tapes, db) {
+                Ok(v) => v,
+                Err(e) => return Some(Err(e)),
+            };
+
+            tx_count += block.txs.len() + 1;
+
+            let tx_blobs_size = match &block.txs {
+                TransactionBlobs::None => 0,
+                TransactionBlobs::Normal(b) => b.iter().map(Bytes::len).sum(),
+                TransactionBlobs::Pruned(p) => p.iter().map(|p| p.blob.len() + 32).sum(),
+            };
+
+            total_size += block.block.len() + tx_blobs_size;
+
+            Some(Ok(block))
+        })
+        .collect::<DbResult<_>>()?;
+
+    let first_tx_idx = tapes
+        .read_entry(&db.block_infos, usize_to_u64(height))?
+        .ok_or(BlockchainError::NotFound)?
+        .mining_tx_index;
+
+    let mut output_indices = Vec::with_capacity(blocks.len());
+    output_indices.push(Vec::with_capacity(8));
+
+    let mut last_height = height;
+    let mut miner_tx = true;
+
+    for (i, tx_info) in tapes.iter_from(&db.tx_infos, first_tx_idx)?.enumerate() {
+        let tx_info = tx_info?;
+
+        if tx_info.height != last_height {
+            if tx_info.height == height + blocks.len() {
+                // We have gone past all txs in the blocks we need
+                break;
+            }
+            last_height = tx_info.height;
+            miner_tx = true;
+            output_indices.push(Vec::with_capacity(8));
+        }
+
+        // monerod replaces the miner tx's indices with an empty
+        // placeholder when `no_miner_tx` is set.
+        if no_miner_tx && miner_tx {
+            miner_tx = false;
+            output_indices.last_mut().unwrap().push(vec![]);
+            continue;
+        }
+        miner_tx = false;
+
+        let o_indexes = if tx_info.is_v1_tx() {
+            // For v1 txs we need to look up indexes.
+            let res = tx_ro
+                .get(
+                    &db.v1_tx_outputs,
+                    (first_tx_idx + usize_to_u64(i)).to_le_bytes(),
+                )?
+                .ok_or(BlockchainError::NotFound)?;
+
+            res.chunks(8)
+                .map(|chunk| u64::from_le_bytes(chunk.try_into().unwrap()))
+                .collect::<Vec<_>>()
+        } else {
+            // For v2 we can use the data in the tx_info.
+            (0..tx_info.numb_rct_outputs)
+                .map(|i| usize_to_u64(i) + tx_info.rct_output_start_idx)
+                .collect()
+        };
+
+        output_indices.last_mut().unwrap().push(o_indexes);
+    }
+
+    Ok(BlockchainResponse::BlockCompleteEntriesAboveSplitPoint {
+        blocks,
+        output_indices,
+        blockchain_height,
+        start_height: height,
+        top_hash,
     })
 }
 
