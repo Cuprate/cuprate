@@ -17,11 +17,9 @@ use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     output_cache::OutputCache,
     rpc::{
-        ChainInfo, CoinbaseTxSum, KeyImageSpentStatus, OutputDistributionData,
-        OutputHistogramEntry, OutputHistogramInput,
+        ChainInfo, CoinbaseTxSum, KeyImageSpentStatus, OutputHistogramEntry, OutputHistogramInput,
     },
-    BlockCompleteEntry, Chain, ExtendedBlockHeader, OutputDistributionInput, OutputOnChain,
-    TxInBlockchain,
+    BlockCompleteEntry, Chain, ExtendedBlockHeader, OutputOnChain, TxInBlockchain,
 };
 
 /// [`BlockchainReadRequest::Block`].
@@ -377,23 +375,6 @@ pub async fn database_size(
     };
 
     Ok((database_size, free_space))
-}
-
-/// [`BlockchainReadRequest::OutputDistribution`]
-pub async fn output_distribution(
-    blockchain_read: &mut BlockchainReadHandle,
-    input: OutputDistributionInput,
-) -> Result<Vec<OutputDistributionData>, Error> {
-    let BlockchainResponse::OutputDistribution(data) = blockchain_read
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::OutputDistribution(input))
-        .await?
-    else {
-        unreachable!();
-    };
-
-    Ok(data)
 }
 
 /// [`BlockchainReadRequest::OutputHistogram`]

@@ -20,7 +20,7 @@ use cuprate_consensus::{
     transactions::new_tx_verification_data,
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
 };
-use cuprate_consensus_context::{BlockchainContext, NewBlockData};
+use cuprate_consensus_context::{distribution::rct_output_count, BlockchainContext, NewBlockData};
 use cuprate_fast_sync::{block_to_verified_block_information, fast_sync_stop_height};
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p::{block_downloader::BlockBatch, constants::LONG_BAN, BroadcastRequest};
@@ -694,6 +694,7 @@ impl super::BlockchainManager {
                 generated_coins: verified_block.generated_coins,
                 vote: HardFork::from_vote(verified_block.block.header.hardfork_signal),
                 cumulative_difficulty: verified_block.cumulative_difficulty,
+                numb_rct_outputs: rct_output_count(verified_block),
             }))
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
