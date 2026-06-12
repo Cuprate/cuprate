@@ -59,7 +59,7 @@ pub struct TorContext {
     // -------- Only in Arti mode
     /// Arti bootstrapped [`TorClient`].
     #[cfg(feature = "arti")]
-    pub bootstrapped_client: Option<TorClient<PreferredRuntime>>,
+    pub bootstrapped_client: Option<Arc<TorClient<PreferredRuntime>>>,
     /// Arti bootstrapped client config
     #[cfg(feature = "arti")]
     pub arti_client_config: Option<TorClientConfig>,
@@ -123,7 +123,9 @@ pub async fn initialize_tor_if_enabled(launch_ctx: &LaunchContext) -> TorContext
 
 /// Initialize Arti Tor client.
 #[cfg(feature = "arti")]
-async fn initialize_arti_client(config: &Config) -> (TorClient<PreferredRuntime>, TorClientConfig) {
+async fn initialize_arti_client(
+    config: &Config,
+) -> (Arc<TorClient<PreferredRuntime>>, TorClientConfig) {
     // Configuration
     let mut tor_config = TorClientConfig::builder();
 
@@ -149,7 +151,7 @@ async fn initialize_arti_client(config: &Config) -> (TorClient<PreferredRuntime>
     if config.tor.arti.isolated_circuit {
         let mut stream_prefs = StreamPrefs::new();
         stream_prefs.isolate_every_stream();
-        tor_client.set_stream_prefs(stream_prefs);
+        tor_client = tor_client.with_prefs(stream_prefs);
     }
 
     (tor_client, tor_config)
@@ -207,7 +209,7 @@ pub fn transport_clearnet_arti_config(ctx: &TorContext) -> TransportConfig<Clear
 
     TransportConfig::<ClearNet, Arti> {
         client_config: ArtiClientConfig {
-            client: bootstrapped_client.clone(),
+            client: Arc::clone(bootstrapped_client),
         },
         server_config: None,
     }

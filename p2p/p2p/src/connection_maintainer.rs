@@ -102,7 +102,6 @@ where
 
     /// Connects to random seeds to get peers and immediately disconnects
     #[instrument(level = "info", skip(self))]
-    #[expect(clippy::significant_drop_tightening)]
     async fn connect_to_random_seeds(&mut self) -> Result<(), OutboundConnectorError> {
         let seeds = self
             .config
@@ -118,23 +117,36 @@ where
         for seed in seeds {
             tracing::info!("Getting peers from seed node: {}", seed);
 
+            let addr = *seed;
             let fut = timeout(
                 HANDSHAKE_TIMEOUT,
                 self.connector_svc
                     .ready()
                     .await
                     .expect("Connector had an error in `poll_ready`")
-                    .call(ConnectRequest {
-                        addr: *seed,
-                        permit: None,
-                    }),
+                    .call(ConnectRequest { addr, permit: None }),
             );
             // Spawn the handshake on a separate task with a timeout, so we don't get stuck connecting to a peer.
-            handshake_futs.spawn(fut);
+            handshake_futs.spawn(
+                async move {
+                    match fut.await {
+                        Err(_) => {
+                            tracing::warn!("Timed out connecting to seed node: {addr}");
+                            false
+                        }
+                        Ok(Err(e)) => {
+                            tracing::warn!("Failed to connect to seed node {addr}: {e}");
+                            false
+                        }
+                        Ok(Ok(_)) => true,
+                    }
+                }
+                .instrument(Span::current()),
+            );
         }
 
         while let Some(res) = handshake_futs.join_next().await {
-            if matches!(res, Err(_) | Ok(Err(_) | Ok(Err(_)))) {
+            if !res.unwrap_or(false) {
                 allowed_errors -= 1;
             }
         }
