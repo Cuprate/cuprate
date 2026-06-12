@@ -38,6 +38,8 @@ impl CumulativeRctOutsCache {
         hard_fork_cfg: HardForkConfig,
         database: D,
     ) -> Result<Self, ContextCacheError> {
+        tracing::info!("Initializing output distribution cache, this may take a while.");
+
         // The first height an RCT output can appear at is the HF v4 activation height.
         let rct_start_height = hard_fork_cfg.info.info_for_hf(&HardFork::V4).height();
 
