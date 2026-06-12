@@ -132,10 +132,7 @@ pub(super) async fn block_header_by_hash(
 /// # Errors
 /// This returns the [`top_height`] on [`Ok`] and
 /// returns [`Error`] if `height` is greater than [`top_height`].
-pub(super) fn check_height(
-    state: &mut CupratedRpcHandler,
-    height: u64,
-) -> Result<u64, Error> {
+pub(super) fn check_height(state: &mut CupratedRpcHandler, height: u64) -> Result<u64, Error> {
     let (top_height, _) = top_height(state);
 
     if height > top_height {
