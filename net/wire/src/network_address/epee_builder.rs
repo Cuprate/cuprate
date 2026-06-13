@@ -65,8 +65,14 @@ impl EpeeObjectBuilder<NetworkAddress> for TaggedNetworkAddress {
     }
 
     fn finish(self) -> cuprate_epee_encoding::Result<NetworkAddress> {
-        self.try_into()
-            .map_err(|_| cuprate_epee_encoding::Error::Value("Invalid network address".to_string()))
+        let ty = self.ty;
+        let host = self.addr.as_ref().and_then(|a| a.host.clone());
+
+        self.try_into().map_err(|_| {
+            cuprate_epee_encoding::Error::Value(format!(
+                "Invalid network address (type: {ty:?}, host: {host:?})"
+            ))
+        })
     }
 }
 

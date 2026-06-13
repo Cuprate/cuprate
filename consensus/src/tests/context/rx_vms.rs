@@ -37,7 +37,6 @@ fn rx_heights_consistent() {
 }
 
 #[tokio::test]
-#[expect(unused_qualifications, reason = "false positive in tokio macro")]
 async fn rx_vm_created_on_hf_12() {
     let db = DummyDatabaseBuilder::default().finish(Some(10));
 
@@ -53,7 +52,6 @@ async fn rx_vm_created_on_hf_12() {
 }
 
 #[tokio::test]
-#[expect(unused_qualifications, reason = "false positive in tokio macro")]
 async fn rx_vm_pop_blocks() {
     let db = DummyDatabaseBuilder::default().finish(Some(2_000_000));
 

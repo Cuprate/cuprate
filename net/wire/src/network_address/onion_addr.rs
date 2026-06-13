@@ -68,19 +68,23 @@ impl OnionAddr {
             return Err(OnionAddrParsingError::InvalidTld(String::from(tld)));
         }
 
-        // The domain part must only contain base32 characters.
+        // The domain part must only contain base32 characters. monerod also
+        // accepts uppercase characters.
         if !domain
             .as_bytes()
             .iter()
             .copied()
-            .all(|c| c.is_ascii_lowercase() || (b'2'..=b'7').contains(&c))
+            .all(|c| c.is_ascii_alphabetic() || (b'2'..=b'7').contains(&c))
         {
             return Err(OnionAddrParsingError::NonBase32Char);
         }
 
-        Ok(addr.as_bytes()[..56]
+        let mut domain: [u8; 56] = addr.as_bytes()[..56]
             .try_into()
-            .unwrap_or_else(|e| panic!("We just validated address: {addr} : {e}")))
+            .unwrap_or_else(|e| panic!("We just validated address: {addr} : {e}"));
+        domain.make_ascii_lowercase();
+
+        Ok(domain)
     }
 
     /// Generate an onion address string.
