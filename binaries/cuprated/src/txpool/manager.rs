@@ -7,6 +7,7 @@ use bytes::Bytes;
 use futures::StreamExt;
 use indexmap::IndexMap;
 use rand::Rng;
+use safelog::Sensitive;
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::{sync::CancellationToken, time::delay_queue, time::DelayQueue};
 use tower::{Service, ServiceExt};
@@ -224,7 +225,7 @@ impl TxpoolManager {
     /// # Panics
     ///
     /// This function will panic if the tx is not in the tx-pool manager.
-    #[instrument(level = "debug", skip_all, fields(tx_id = hex::encode(tx)))]
+    #[instrument(level = "debug", skip_all, fields(tx_id = %Sensitive::new(hex::encode(tx))))]
     async fn remove_tx_from_pool(&mut self, tx: [u8; 32], remove_from_db: bool) {
         tracing::debug!("removing tx from pool");
 
@@ -250,7 +251,7 @@ impl TxpoolManager {
     /// # Panics
     ///
     /// This function will panic if the tx is not in the tx-pool.
-    #[instrument(level = "debug", skip_all, fields(tx_id = hex::encode(tx)))]
+    #[instrument(level = "debug", skip_all, fields(tx_id = %Sensitive::new(hex::encode(tx))))]
     async fn rerelay_tx(&mut self, tx: [u8; 32]) {
         tracing::debug!("re-relaying tx to network");
 
@@ -277,7 +278,7 @@ impl TxpoolManager {
 
     /// Handles a transaction timeout, be either rebroadcasting or dropping the tx from the pool.
     /// If a rebroadcast happens, this function will handle adding another timeout to the queue.
-    #[instrument(level = "debug", skip_all, fields(tx_id = hex::encode(tx)))]
+    #[instrument(level = "debug", skip_all, fields(tx_id = %Sensitive::new(hex::encode(tx))))]
     async fn handle_tx_timeout(&mut self, tx: [u8; 32]) {
         let Some(tx_info) = self.current_txs.get(&tx) else {
             tracing::warn!("tx timed out, but tx not in pool");
@@ -312,7 +313,7 @@ impl TxpoolManager {
     }
 
     /// Adds a tx to the tx-pool manager.
-    #[instrument(level = "trace", skip_all, fields(tx_id = hex::encode(tx)))]
+    #[instrument(level = "trace", skip_all, fields(tx_id = %Sensitive::new(hex::encode(tx))))]
     fn track_tx(&mut self, tx: [u8; 32], weight: usize, fee: u64, private: bool) {
         let now = current_unix_timestamp();
 
@@ -340,7 +341,7 @@ impl TxpoolManager {
     }
 
     /// Handles an incoming tx, adding it to the pool and routing it.
-    #[instrument(level = "debug", skip_all, fields(tx_id = hex::encode(tx.tx_hash), state))]
+    #[instrument(level = "debug", skip_all, fields(tx_id = %Sensitive::new(hex::encode(tx.tx_hash)), state))]
     async fn handle_incoming_tx(
         &mut self,
         tx: TransactionVerificationData,
@@ -370,7 +371,7 @@ impl TxpoolManager {
 
         if let Some(tx_hash) = double_spend {
             tracing::debug!(
-                double_spent = hex::encode(tx_hash),
+                double_spent = %Sensitive::new(hex::encode(tx_hash)),
                 "transaction is a double spend, ignoring"
             );
             return;
@@ -394,7 +395,7 @@ impl TxpoolManager {
     }
 
     /// Promote a tx to the public pool.
-    #[instrument(level = "debug", skip_all, fields(tx_id = hex::encode(tx)))]
+    #[instrument(level = "debug", skip_all, fields(tx_id = %Sensitive::new(hex::encode(tx))))]
     async fn promote_tx(&mut self, tx: [u8; 32]) {
         let Some(tx_info) = self.current_txs.get_mut(&tx) else {
             tracing::debug!("not promoting tx, tx not in pool");

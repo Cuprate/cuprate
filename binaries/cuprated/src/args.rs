@@ -39,6 +39,13 @@ pub struct Args {
     #[arg(long)]
     no_fast_sync: bool,
 
+    /// Show sensitive data in logs instead of redacting it.
+    ///
+    /// By default cuprated redacts sensitive data (such as transaction hashes) from logs. This
+    /// shows the raw values, which is useful for debugging but makes the log file more sensitive.
+    #[arg(long)]
+    no_redact: bool,
+
     /// The amount of outbound clear-net connections to maintain.
     #[arg(long)]
     pub outbound_connections: Option<usize>,
@@ -101,6 +108,7 @@ impl Args {
             config.fixed_difficulty = fixed_difficulty;
         }
         config.fast_sync = config.fast_sync && !self.no_fast_sync;
+        config.tracing.redact = config.tracing.redact && !self.no_redact;
 
         if let Some(outbound_connections) = self.outbound_connections {
             config.p2p.clear_net.outbound_connections = outbound_connections;

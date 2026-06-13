@@ -29,6 +29,12 @@ use cuprate_helper::fs::logs_path;
 
 use crate::config::Config;
 
+/// A [`OnceLock`] which holds the [`safelog::Guard`] that disables log redaction.
+///
+/// Only set when the user opts out of redaction; while it is held, sensitive
+/// values are shown in cleartext. Initialized in [`init_logging`].
+static SAFE_LOGGING_GUARD: OnceLock<safelog::Guard> = OnceLock::new();
+
 /// A [`OnceLock`] which holds the [`Handle`] to update the file logging output.
 ///
 /// Initialized in [`init_logging`].
@@ -85,6 +91,16 @@ impl<S> Filter<S> for CupratedTracingFilter {
 
 /// Initialize [`tracing`] for logging to stdout and to a file.
 pub fn init_logging(config: &Config) {
+    // `safelog` redacts sensitive values (e.g. transaction hashes) from logs by
+    // default. If the user has opted out, disable redaction for the lifetime of
+    // the process.
+    if !config.tracing.redact {
+        let guard = safelog::disable_safe_logging().expect("nothing else enforces safe logging");
+        SAFE_LOGGING_GUARD
+            .set(guard)
+            .expect("init_logging must only be called once");
+    }
+
     // initialize the stdout filter, set `STDOUT_FILTER_HANDLE` and create the layer.
     let (stdout_filter, stdout_handle) = ReloadLayer::new(CupratedTracingFilter {
         level: config.tracing.stdout.level,

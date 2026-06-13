@@ -5,9 +5,21 @@ use super::macros::config_struct;
 
 config_struct! {
     /// [`tracing`] config.
-    #[derive(Debug, Default, Deserialize, Serialize, Eq, PartialEq)]
+    #[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
     #[serde(deny_unknown_fields, default)]
     pub struct TracingConfig {
+        /// Redact sensitive data from logs.
+        ///
+        /// When enabled, sensitive values such as transaction hashes are
+        /// replaced with `[scrubbed]` in logs, so a shared log file does not
+        /// leak data that could deanonymise you or your peers.
+        ///
+        /// Disable this only if you need the raw values, e.g. for debugging.
+        ///
+        /// Type         | boolean
+        /// Valid values | true, false
+        pub redact: bool,
+
         #[child = true]
         /// Configuration for cuprated's stdout logging system.
         pub stdout: StdoutTracingConfig,
@@ -15,6 +27,16 @@ config_struct! {
         #[child = true]
         /// Configuration for cuprated's file logging system.
         pub file: FileTracingConfig,
+    }
+}
+
+impl Default for TracingConfig {
+    fn default() -> Self {
+        Self {
+            redact: true,
+            stdout: StdoutTracingConfig::default(),
+            file: FileTracingConfig::default(),
+        }
     }
 }
 
@@ -75,6 +97,22 @@ impl Default for FileTracingConfig {
             level: LevelFilter::DEBUG,
             max_log_files: 7,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn redact_defaults_to_true() {
+        assert!(TracingConfig::default().redact);
+    }
+
+    #[test]
+    fn redact_can_be_disabled() {
+        let config: TracingConfig = toml::from_str("redact = false").unwrap();
+        assert!(!config.redact);
     }
 }
 
