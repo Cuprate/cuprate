@@ -21,7 +21,7 @@ pub use block_complete_entry::{BlockCompleteEntry, PrunedTxBlobEntry, Transactio
 pub use connection_state::ConnectionState;
 pub use hard_fork::{HardFork, HardForkError};
 pub use transaction_verification_data::{
-    CachedVerificationState, TransactionVerificationData, TxVersion,
+    CachedVerificationState, TransactionVerificationData, TxConversionError, TxVersion,
 };
 pub use types::{
     AltBlockInformation, BlockTemplate, Chain, ChainId, ExtendedBlockHeader,
