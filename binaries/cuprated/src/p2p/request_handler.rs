@@ -30,6 +30,7 @@ use cuprate_helper::{
 };
 use cuprate_p2p::constants::{
     MAX_BLOCKS_IDS_IN_CHAIN_ENTRY, MAX_BLOCK_BATCH_LEN, MAX_TRANSACTION_BLOB_SIZE, MEDIUM_BAN,
+    SHORT_BAN,
 };
 use cuprate_p2p_core::{
     client::{InternalPeerID, PeerInformation},
@@ -144,9 +145,12 @@ where
             ProtocolRequest::GetChain(r) => {
                 get_chain(r, self.blockchain_read_handle.clone()).boxed()
             }
-            ProtocolRequest::FluffyMissingTxs(r) => {
-                fluffy_missing_txs(r, self.blockchain_read_handle.clone()).boxed()
-            }
+            ProtocolRequest::FluffyMissingTxs(r) => fluffy_missing_txs(
+                self.peer_information.clone(),
+                r,
+                self.blockchain_read_handle.clone(),
+            )
+            .boxed(),
             ProtocolRequest::NewBlock(_) => ready(Err(anyhow::anyhow!(
                 "Peer sent a full block when we support fluffy blocks"
             )))
@@ -261,7 +265,8 @@ async fn get_chain(
 }
 
 /// [`ProtocolRequest::FluffyMissingTxs`]
-async fn fluffy_missing_txs(
+async fn fluffy_missing_txs<A: NetZoneAddress>(
+    peer_information: PeerInformation<A>,
     mut request: FluffyMissingTransactionsRequest,
     mut blockchain_read_handle: BlockchainReadHandle,
 ) -> anyhow::Result<ProtocolResponse> {
@@ -271,6 +276,20 @@ async fn fluffy_missing_txs(
 
     // deallocate the backing `Bytes`.
     drop(request);
+
+    let mut seen = HashSet::with_capacity(tx_indexes.len());
+    tx_indexes.iter().try_for_each(|idx| {
+        if !seen.insert(idx) {
+            tracing::warn!(
+                "Peer requested duplicate tx index {} for block {}, banning peer.",
+                idx,
+                hex::encode(block_hash)
+            );
+            peer_information.handle.ban_peer(SHORT_BAN);
+            anyhow::bail!("Peer requested duplicate tx indices.");
+        }
+        Ok(())
+    })?;
 
     let BlockchainResponse::TxsInBlock(res) = blockchain_read_handle
         .ready()
@@ -311,6 +330,7 @@ async fn new_fluffy_block<A: NetZoneAddress>(
 ) -> anyhow::Result<ProtocolResponse> {
     let current_blockchain_height = request.current_blockchain_height;
 
+    // TODO: ban peer if their `current_height` keeps regressing
     peer_information
         .core_sync_data
         .lock()
