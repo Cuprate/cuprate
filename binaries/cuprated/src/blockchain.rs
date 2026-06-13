@@ -13,7 +13,7 @@ use cuprate_consensus::{
 };
 use cuprate_cryptonight::cryptonight_hash_v0;
 use cuprate_p2p::{block_downloader::BlockDownloaderConfig, NetworkInterface};
-use cuprate_p2p_core::{ClearNet, Network};
+use cuprate_p2p_core::{client::PeerSyncCallback, ClearNet, Network};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainWriteRequest},
     VerifiedBlockInformation,
@@ -44,6 +44,8 @@ pub struct BlockchainInterface {
     context_svc: BlockchainContextService,
     /// A handle to the blockchain manager.
     manager: BlockchainManagerHandle,
+    /// A handle to the blockchain syncer.
+    syncer: SyncerHandle,
 }
 
 impl BlockchainInterface {
@@ -51,11 +53,13 @@ impl BlockchainInterface {
         read: BlockchainReadHandle,
         context_svc: BlockchainContextService,
         manager: BlockchainManagerHandle,
+        syncer: SyncerHandle,
     ) -> Self {
         Self {
             read,
             context_svc,
             manager,
+            syncer,
         }
     }
 
@@ -74,9 +78,20 @@ impl BlockchainInterface {
         self.manager.clone()
     }
 
+    /// Returns a handle to the blockchain syncer.
+    pub fn syncer(&self) -> SyncerHandle {
+        self.syncer.clone()
+    }
+
     /// Returns the blockchain context service.
     pub(crate) fn context_svc(&self) -> BlockchainContextService {
         self.context_svc.clone()
+    }
+
+    /// Creates a [`PeerSyncCallback`] that filters and wakes the syncer.
+    pub(crate) fn peer_sync_callback(&self) -> PeerSyncCallback {
+        self.syncer
+            .callback(self.context_svc.clone(), self.manager.clone())
     }
 }
 

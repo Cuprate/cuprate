@@ -213,7 +213,7 @@ impl CupratedRpcHandler {
             blockchain_read: launch_ctx.blockchain.read(),
             blockchain_context: launch_ctx.blockchain.context_svc(),
             txpool_read: launch_ctx.txpool_read.clone(),
-            syncer_handle: launch_ctx.syncer.clone(),
+            syncer_handle: launch_ctx.blockchain.syncer(),
             blockchain_manager: launch_ctx.blockchain.manager(),
             start_instant_unix,
             task_executor: launch_ctx.task_executor.clone(),
