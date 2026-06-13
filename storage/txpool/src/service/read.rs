@@ -18,13 +18,14 @@ use rayon::ThreadPool;
 use tower::Service;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
+use cuprate_types::TxInPool;
 
 use crate::{
     error::TxPoolError,
     ops::{get_transaction_verification_data, in_stem_pool},
     service::interface::{TxpoolReadRequest, TxpoolReadResponse},
     txpool::TxpoolDatabase,
-    types::{TransactionBlobHash, TransactionHash, TransactionInfo},
+    types::{TransactionBlobHash, TransactionHash, TransactionInfo, TxStateFlags},
     TxEntry,
 };
 
@@ -294,7 +295,33 @@ fn txs_by_hash(
     tx_hashes: Vec<[u8; 32]>,
     include_sensitive_txs: bool,
 ) -> Result<TxpoolReadResponse, TxPoolError> {
-    Ok(TxpoolReadResponse::TxsByHash(todo!()))
+    let snapshot = db.fjall_database.snapshot();
+    let mut txs = Vec::with_capacity(tx_hashes.len());
+
+    for tx_hash in tx_hashes {
+        let Some(info_bytes) = snapshot.get(&db.tx_infos, tx_hash)? else {
+            continue;
+        };
+        let tx_info: TransactionInfo = bytemuck::pod_read_unaligned(info_bytes.as_ref());
+
+        if !include_sensitive_txs && tx_info.flags.private() {
+            continue;
+        }
+
+        let Some(blob) = snapshot.get(&db.tx_blobs, tx_hash)? else {
+            continue;
+        };
+
+        txs.push(TxInPool {
+            tx_hash,
+            tx_blob: blob.to_vec(),
+            double_spend_seen: tx_info.flags.contains(TxStateFlags::DOUBLE_SPENT),
+            received_timestamp: tx_info.received_at,
+            relayed: !tx_info.flags.private(),
+        });
+    }
+
+    Ok(TxpoolReadResponse::TxsByHash(txs))
 }
 
 /// Returns whether a key image is spent by a transaction in the pool.

@@ -114,8 +114,9 @@ async fn get_height(
     mut state: CupratedRpcHandler,
     _: GetHeightRequest,
 ) -> Result<GetHeightResponse, Error> {
-    let (height, hash) = blockchain::chain_height(&mut state.blockchain_read).await?;
-    let hash = Hex(hash);
+    let context = state.blockchain_context.blockchain_context();
+    let height = usize_to_u64(context.chain_height);
+    let hash = Hex(context.top_hash);
 
     Ok(GetHeightResponse {
         base: helper::response_base(false),

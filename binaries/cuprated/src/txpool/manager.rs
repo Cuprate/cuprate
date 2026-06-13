@@ -1,5 +1,6 @@
 use std::{
     cmp::min,
+    collections::BTreeSet,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
@@ -38,6 +39,11 @@ use crate::{
 
 const INCOMING_TX_QUEUE_SIZE: usize = 100;
 
+/// The maximum number of recently-removed public transactions to remember.
+///
+/// When this limit is reached, the oldest entry (by removal timestamp) is dropped.
+const MAX_RECENTLY_REMOVED_TXS: usize = 5000;
+
 /// Starts the transaction pool manager service.
 ///
 /// # Panics
@@ -68,7 +74,7 @@ pub async fn start_txpool_manager(
     let mut stem_txs = Vec::new();
 
     let mut tx_timeouts = DelayQueue::with_capacity(backlog.len());
-    let current_txs = backlog
+    let current_txs: IndexMap<[u8; 32], TxInfo> = backlog
         .into_iter()
         .map(|tx| {
             let timeout_key = if tx.private {
@@ -92,9 +98,18 @@ pub async fn start_txpool_manager(
         })
         .collect();
 
+    let public_pool_timestamps: BTreeSet<(u64, [u8; 32])> = current_txs
+        .iter()
+        .filter(|(_, info)| !info.private)
+        .map(|(id, info)| (info.received_at, *id))
+        .collect();
+
     let mut manager = TxpoolManager {
         current_txs,
         tx_timeouts,
+        public_pool_timestamps,
+        recently_removed_txs: BTreeSet::new(),
+        removed_txs_start_time: current_unix_timestamp(),
         txpool_write_handle,
         txpool_read_handle,
         dandelion_pool_manager,
@@ -109,26 +124,55 @@ pub async fn start_txpool_manager(
         manager.promote_tx(tx).await;
     }
 
-    let (tx_tx, tx_rx) = mpsc::channel(INCOMING_TX_QUEUE_SIZE);
+    let (command_tx, command_rx) = mpsc::channel(INCOMING_TX_QUEUE_SIZE);
     let (spent_kis_tx, spent_kis_rx) = mpsc::channel(1);
 
     let shutdown_token = task_executor.cancellation_token();
-    task_executor.spawn(manager.run(tx_rx, spent_kis_rx, shutdown_token));
+    task_executor.spawn(manager.run(command_rx, spent_kis_rx, shutdown_token));
 
     TxpoolManagerHandle {
-        tx_tx,
+        command_tx,
         spent_kis_tx,
     }
+}
+
+/// Commands sent to the [`TxpoolManager`] via [`TxpoolManagerHandle`].
+#[expect(
+    clippy::large_enum_variant,
+    reason = "`IncomingTx` is the most common command"
+)]
+pub enum TxpoolManagerCommand {
+    /// An incoming transaction to add to the pool.
+    IncomingTx(
+        TransactionVerificationData,
+        TxState<CrossNetworkInternalPeerId>,
+    ),
+
+    /// Request hashes of public-pool transactions added/removed at or after a UNIX timestamp.
+    PoolInfoSince {
+        since: u64,
+        response_tx: oneshot::Sender<PoolInfoSinceResponse>,
+    },
+}
+
+/// Response to [`TxpoolManagerCommand::PoolInfoSince`].
+pub struct PoolInfoSinceResponse {
+    /// `true` if the manager's incremental tracking does not reach back to the
+    /// requested timestamp, so the caller must send a full pool snapshot
+    ///
+    /// When set, `added` contains the entire public pool and `removed` is empty.
+    pub full_required: bool,
+    /// Hashes of public-pool txs that entered the pool at or after `since`.
+    pub added: Vec<[u8; 32]>,
+    /// Hashes of public-pool txs that were removed from the pool at or after `since`.
+    pub removed: Vec<[u8; 32]>,
 }
 
 /// A handle to the tx-pool manager.
 #[derive(Clone)]
 pub struct TxpoolManagerHandle {
-    /// The incoming tx channel.
-    pub tx_tx: mpsc::Sender<(
-        TransactionVerificationData,
-        TxState<CrossNetworkInternalPeerId>,
-    )>,
+    /// Channel for sending commands to the manager.
+    pub command_tx: mpsc::Sender<TxpoolManagerCommand>,
 
     /// The spent key images in a new block tx.
     spent_kis_tx: mpsc::Sender<(Vec<[u8; 32]>, oneshot::Sender<()>)>,
@@ -141,7 +185,7 @@ impl TxpoolManagerHandle {
     #[expect(clippy::let_underscore_must_use)]
     pub fn mock() -> Self {
         let (spent_kis_tx, mut spent_kis_rx) = mpsc::channel(1);
-        let (tx_tx, mut tx_rx) = mpsc::channel(100);
+        let (command_tx, mut command_rx) = mpsc::channel(100);
 
         tokio::spawn(async move {
             loop {
@@ -155,14 +199,14 @@ impl TxpoolManagerHandle {
 
         tokio::spawn(async move {
             loop {
-                if tx_rx.recv().await.is_none() {
+                if command_rx.recv().await.is_none() {
                     return;
                 }
             }
         });
 
         Self {
-            tx_tx,
+            command_tx,
             spent_kis_tx,
         }
     }
@@ -203,6 +247,21 @@ struct TxpoolManager {
     /// Timeouts can be for re-relaying or removal from the pool.
     tx_timeouts: DelayQueue<[u8; 32]>,
 
+    /// Sorted `(public_timestamp, tx_hash)` for every tx currently in the public pool.
+    ///
+    /// Stem txs are never present here.
+    public_pool_timestamps: BTreeSet<(u64, [u8; 32])>,
+
+    /// Sorted `(removal_timestamp, tx_hash)` for recently removed public-pool transactions.
+    ///
+    /// Bounded by [`MAX_RECENTLY_REMOVED_TXS`], when the limit is exceeded the entry with the
+    /// lowest removal timestamp is dropped. Only public (non-stem) txs are tracked here.
+    recently_removed_txs: BTreeSet<(u64, [u8; 32])>,
+
+    /// The earliest timestamp incremental removed-tx tracking covers. Advanced when old entries are
+    /// evicted from `recently_removed_txs`.
+    removed_txs_start_time: u64,
+
     txpool_write_handle: TxpoolWriteHandle,
     txpool_read_handle: TxpoolReadHandle,
 
@@ -233,6 +292,20 @@ impl TxpoolManager {
         tx_info
             .timeout_key
             .and_then(|key| self.tx_timeouts.try_remove(&key));
+
+        if !tx_info.private {
+            self.public_pool_timestamps
+                .remove(&(tx_info.received_at, tx));
+
+            let removal_timestamp = current_unix_timestamp();
+            self.recently_removed_txs.insert((removal_timestamp, tx));
+            if self.recently_removed_txs.len() > MAX_RECENTLY_REMOVED_TXS {
+                if let Some((evicted_timestamp, _)) = self.recently_removed_txs.pop_first() {
+                    self.removed_txs_start_time =
+                        self.removed_txs_start_time.max(evicted_timestamp);
+                }
+            }
+        }
 
         if remove_from_db {
             self.txpool_write_handle
@@ -320,6 +393,8 @@ impl TxpoolManager {
             // The dandelion pool handles stem tx embargo.
             None
         } else {
+            self.public_pool_timestamps.insert((now, tx));
+
             let timeout = calculate_next_timeout(now, self.config.maximum_age_secs);
 
             tracing::trace!(in_secs = timeout, "setting next tx timeout");
@@ -411,6 +486,8 @@ impl TxpoolManager {
 
         // It's now in the public pool, pretend we just saw it.
         tx_info.received_at = current_unix_timestamp();
+        self.public_pool_timestamps
+            .insert((tx_info.received_at, tx));
 
         let next_timeout =
             calculate_next_timeout(tx_info.received_at, self.config.maximum_age_secs);
@@ -427,6 +504,24 @@ impl TxpoolManager {
             .call(TxpoolWriteRequest::Promote(tx))
             .await
             .expect(PANIC_CRITICAL_SERVICE_ERROR);
+    }
+
+    /// Returns the hashes of all public-pool transactions that entered the public pool at or
+    /// after `timestamp`.
+    fn public_txs_from(&self, timestamp: u64) -> Vec<[u8; 32]> {
+        self.public_pool_timestamps
+            .range((timestamp, [0_u8; 32])..)
+            .map(|(_, hash)| *hash)
+            .collect()
+    }
+
+    /// Returns the hashes of recently removed public-pool transactions that were removed at or
+    /// after `timestamp` (inclusive, UNIX seconds).
+    fn removed_txs_from(&self, timestamp: u64) -> Vec<[u8; 32]> {
+        self.recently_removed_txs
+            .range((timestamp, [0_u8; 32])..)
+            .map(|(_, hash)| *hash)
+            .collect()
     }
 
     /// Handles removing all transactions that have been included/double spent in an incoming block.
@@ -454,10 +549,7 @@ impl TxpoolManager {
     #[expect(clippy::let_underscore_must_use)]
     async fn run(
         mut self,
-        mut tx_rx: mpsc::Receiver<(
-            TransactionVerificationData,
-            TxState<CrossNetworkInternalPeerId>,
-        )>,
+        mut command_rx: mpsc::Receiver<TxpoolManagerCommand>,
         mut block_rx: mpsc::Receiver<(Vec<[u8; 32]>, oneshot::Sender<()>)>,
         shutdown_token: CancellationToken,
     ) {
@@ -474,8 +566,33 @@ impl TxpoolManager {
                 Some(tx) = self.tx_timeouts.next() => {
                     self.handle_tx_timeout(tx.into_inner()).await;
                 }
-                Some((tx, state)) = tx_rx.recv() => {
-                    self.handle_incoming_tx(tx, state).await;
+                Some(command) = command_rx.recv() => {
+                    match command {
+                        TxpoolManagerCommand::IncomingTx(tx, state) => {
+                            self.handle_incoming_tx(tx, state).await;
+                        }
+                        TxpoolManagerCommand::PoolInfoSince { since, response_tx } => {
+                            // If `since` is 0 the requester wants the full pool. If `since` is older than `removed_txs_start_time`,
+                            // then we need to send a full pool as the requester might have missed some removals.
+                            let full_required =
+                                since == 0 || since <= self.removed_txs_start_time;
+
+                            let response = if full_required {
+                                PoolInfoSinceResponse {
+                                    full_required: true,
+                                    added: self.public_txs_from(0),
+                                    removed: vec![],
+                                }
+                            } else {
+                                PoolInfoSinceResponse {
+                                    full_required: false,
+                                    added: self.public_txs_from(since),
+                                    removed: self.removed_txs_from(since),
+                                }
+                            };
+                            let _ = response_tx.send(response);
+                        }
+                    }
                 }
                 Some(tx) = self.promote_tx_channel.recv() => {
                     self.promote_tx(tx).await;
