@@ -21,6 +21,7 @@ use cuprate_types::{
 use crate::{
     alt_chains::{get_alt_chain_difficulty_cache, get_alt_chain_weight_cache, AltChainMap},
     difficulty::DifficultyCache,
+    distribution::CumulativeRctOutsCache,
     hardforks::HardForkState,
     rx_vms,
     weight::BlockWeightsCache,
@@ -50,6 +51,8 @@ pub(crate) struct ContextTask<D: Database> {
     rx_vm_cache: rx_vms::RandomXVmCache,
     /// The hard-fork state cache.
     hardfork_state: HardForkState,
+    /// The RCT output count cache.
+    rct_outs_cache: CumulativeRctOutsCache,
 
     alt_chain_cache_map: AltChainMap,
 
@@ -113,6 +116,11 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                 .await
         });
 
+        let db = database.clone();
+        let rct_outs_cache_handle = tokio::spawn(async move {
+            CumulativeRctOutsCache::init_from_chain_height(chain_height, hard_fork_cfg, db).await
+        });
+
         // Wait for the hardfork state to finish first as we need it to start the randomX VM cache.
         let hardfork_state = hardfork_state_handle.await.unwrap()?;
         let current_hf = hardfork_state.current_hardfork();
@@ -142,6 +150,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
             weight_cache,
             rx_vm_cache: rx_seed_handle.await.unwrap()?,
             hardfork_state,
+            rct_outs_cache: rct_outs_cache_handle.await.unwrap()?,
             alt_chain_cache_map: AltChainMap::new(),
             chain_height,
             already_generated_coins,
@@ -207,6 +216,9 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
 
                 self.rx_vm_cache.new_block(new.height, &new.block_hash);
 
+                self.rct_outs_cache
+                    .new_block(new.height, new.numb_rct_outputs);
+
                 self.chain_height = new.height + 1;
                 self.top_block_hash = new.block_hash;
                 self.already_generated_coins = self
@@ -235,6 +247,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                 self.hardfork_state
                     .pop_blocks_main_chain(numb_blocks, self.database.clone())
                     .await?;
+                self.rct_outs_cache.pop_blocks_main_chain(numb_blocks);
 
                 self.alt_chain_cache_map.clear();
 
@@ -320,6 +333,13 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                     self.hardfork_state.current_hardfork(),
                     self.already_generated_coins,
                 )?)
+            }
+            BlockChainContextRequest::OutputDistribution(input) => {
+                BlockChainContextResponse::OutputDistribution(
+                    self.rct_outs_cache
+                        .distribution(input, self.chain_height, self.database.clone())
+                        .await?,
+                )
             }
             BlockChainContextRequest::AltChains | BlockChainContextRequest::CalculatePow { .. } => {
                 todo!("finish https://github.com/Cuprate/cuprate/pull/297")

@@ -10,7 +10,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Error};
-use cuprate_types::{HardFork, OutputDistributionInput};
+use cuprate_types::{OutputAmount, OutputDistributionInput};
 use monero_oxide::transaction::Timelock;
 
 use cuprate_constants::rpc::MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT;
@@ -110,23 +110,21 @@ pub(super) async fn get_output_distribution(
         ));
     }
 
-    // monerod clamps RCT `start_height` to the HF v4 activation height.
-    let rct_start_height = blockchain_context::hard_fork_infos(&mut state.blockchain_context)
-        .await?
-        .get(HardFork::V4 as usize - 1)
-        .map_or(0, |info| info.earliest_height);
-
     let input = OutputDistributionInput {
-        amounts: request.amounts,
+        amounts: request
+            .amounts
+            .into_iter()
+            .map(OutputAmount::from_amount)
+            .collect(),
         cumulative: request.cumulative,
         from_height: request.from_height,
 
         // 0 / `None` is placeholder for the whole chain
         to_height: NonZero::new(request.to_height),
-        rct_start_height,
     };
 
-    let distributions = blockchain::output_distribution(&mut state.blockchain_read, input).await?;
+    let distributions =
+        blockchain_context::output_distribution(&mut state.blockchain_context, input).await?;
 
     // TODO: <https://github.com/monero-project/monero/issues/9422>.
     let binary = request.binary;

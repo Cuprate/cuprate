@@ -209,18 +209,34 @@ bitflags::bitflags! {
     }
 }
 
+/// A requested output amount in RPC's `get_output_distribution`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OutputAmount {
+    /// RCT outputs (amount 0).
+    Rct,
+    /// A pre-RCT output amount.
+    PreRct(NonZero<u64>),
+}
+
+impl OutputAmount {
+    /// Convert a `get_output_distribution` amount to a [`Self`].
+    pub const fn from_amount(amount: u64) -> Self {
+        match NonZero::new(amount) {
+            None => Self::Rct,
+            Some(amount) => Self::PreRct(amount),
+        }
+    }
+}
+
 /// Used in RPC's `get_output_distribution`.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct OutputDistributionInput {
-    pub amounts: Vec<u64>,
+pub struct OutputDistributionInput<A = OutputAmount> {
+    pub amounts: Vec<A>,
     pub cumulative: bool,
     pub from_height: u64,
 
     /// [`None`] means the entire blockchain.
     pub to_height: Option<NonZero<u64>>,
-
-    /// The earliest block height at which RCT outputs can appear (HF v4).
-    pub rct_start_height: u64,
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

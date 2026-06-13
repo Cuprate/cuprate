@@ -207,6 +207,9 @@ impl Service<BlockchainReadRequest> for DummyDatabase {
                     BlockchainResponse::ChainHeight(height, top_hash)
                 }
                 BlockchainReadRequest::GeneratedCoins(_) => BlockchainResponse::GeneratedCoins(0),
+                BlockchainReadRequest::CumulativeRctOutsInRange(range) => {
+                    BlockchainResponse::CumulativeRctOutsInRange(vec![0; range.len()])
+                }
                 _ => unimplemented!("the context svc should not need these requests!"),
             })
         }

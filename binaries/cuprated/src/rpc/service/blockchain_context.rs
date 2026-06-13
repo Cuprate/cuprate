@@ -9,8 +9,8 @@ use cuprate_consensus_context::{
     BlockchainContextService,
 };
 use cuprate_types::{
-    rpc::{FeeEstimate, HardForkInfo},
-    HardFork,
+    rpc::{FeeEstimate, HardForkInfo, OutputDistributionData},
+    HardFork, OutputDistributionInput,
 };
 
 // FIXME: use `anyhow::Error` over `tower::BoxError` in blockchain context.
@@ -50,6 +50,25 @@ pub(crate) async fn fee_estimate(
     };
 
     Ok(fee)
+}
+
+/// [`BlockChainContextRequest::OutputDistribution`]
+pub(crate) async fn output_distribution(
+    blockchain_context: &mut BlockchainContextService,
+    input: OutputDistributionInput,
+) -> Result<Vec<OutputDistributionData>, Error> {
+    let BlockChainContextResponse::OutputDistribution(distributions) = blockchain_context
+        .ready()
+        .await
+        .map_err(|e| anyhow!(e))?
+        .call(BlockChainContextRequest::OutputDistribution(input))
+        .await
+        .map_err(|e| anyhow!(e))?
+    else {
+        unreachable!();
+    };
+
+    Ok(distributions)
 }
 
 /// [`BlockChainContextRequest::CalculatePow`]

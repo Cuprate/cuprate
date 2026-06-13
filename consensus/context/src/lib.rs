@@ -29,6 +29,7 @@ use cuprate_consensus_rules::{
 };
 
 pub mod difficulty;
+pub mod distribution;
 pub mod hardforks;
 pub mod rx_vms;
 pub mod weight;
@@ -37,8 +38,8 @@ mod alt_chains;
 mod task;
 
 use cuprate_types::{
-    rpc::{ChainInfo, FeeEstimate, HardForkInfo},
-    Chain,
+    rpc::{ChainInfo, FeeEstimate, HardForkInfo, OutputDistributionData},
+    Chain, OutputDistributionInput,
 };
 use difficulty::DifficultyCache;
 use rx_vms::RandomXVm;
@@ -199,6 +200,8 @@ pub struct NewBlockData {
     pub vote: HardFork,
     /// The cumulative difficulty of the chain.
     pub cumulative_difficulty: u128,
+    /// The number of RCT outputs in this block.
+    pub numb_rct_outputs: usize,
 }
 
 /// A request to the blockchain context cache.
@@ -243,6 +246,9 @@ pub enum BlockChainContextRequest {
         /// TODO
         grace_blocks: u64,
     },
+
+    /// Get the output distribution.
+    OutputDistribution(OutputDistributionInput),
 
     /// Calculate proof-of-work for this block.
     CalculatePow {
@@ -350,6 +356,9 @@ pub enum BlockChainContextResponse {
 
     /// Response to [`BlockChainContextRequest::FeeEstimate`]
     FeeEstimate(FeeEstimate),
+
+    /// Response to [`BlockChainContextRequest::OutputDistribution`]
+    OutputDistribution(Vec<OutputDistributionData>),
 
     /// Response to [`BlockChainContextRequest::CalculatePow`]
     CalculatePow([u8; 32]),
