@@ -55,7 +55,7 @@ fn main() {
     let mut config = load_config(&args);
 
     // Initialize logging.
-    cuprated::logging::init_logging(&config);
+    let _log_guard = cuprated::logging::init_logging(&config);
 
     // Resolve available memory.
     resolve_max_memory(&mut config);

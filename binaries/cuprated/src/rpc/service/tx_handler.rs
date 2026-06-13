@@ -5,7 +5,9 @@ use tower::{Service, ServiceExt};
 
 use cuprate_types::TxRelayChecks;
 
-use crate::txpool::{IncomingTxError, IncomingTxHandler, IncomingTxs, RelayRuleError};
+use crate::txpool::{
+    IncomingTxError, IncomingTxHandler, IncomingTxs, RelayRuleError, TxValidationError,
+};
 
 pub async fn handle_incoming_txs(
     tx_handler: &mut IncomingTxHandler,
@@ -20,10 +22,11 @@ pub async fn handle_incoming_txs(
 
     Ok(match resp {
         Ok(()) => TxRelayChecks::empty(),
-        Err(e) => match e {
-            IncomingTxError::Consensus(ExtendedConsensusError::ConErr(
-                ConsensusError::Transaction(e),
-            )) => match e {
+        Err(IncomingTxError::Internal(e)) => return Err(anyhow!(e)),
+        Err(IncomingTxError::Validation(e)) => match e {
+            TxValidationError::Consensus(ExtendedConsensusError::ConErr(
+                ConsensusError::Transaction(ref tx_err),
+            )) => match tx_err {
                 TransactionError::TooBig => TxRelayChecks::TOO_BIG,
                 TransactionError::KeyImageSpent => TxRelayChecks::DOUBLE_SPEND,
 
@@ -49,21 +52,21 @@ pub async fn handle_incoming_txs(
                 | TransactionError::RingMemberNotFoundOrInvalid
                 | TransactionError::RingSignatureIncorrect
                 | TransactionError::TransactionVersionInvalid
-                | TransactionError::RingCTError(_) => return Err(anyhow!("unreachable")),
+                | TransactionError::RingCTError(_) => return Err(anyhow!(e)),
             },
-            IncomingTxError::Parse(_) | IncomingTxError::Consensus(_) => {
-                return Err(anyhow!("unreachable"))
+            TxValidationError::Parse(_) | TxValidationError::Consensus(_) => {
+                return Err(anyhow!(e))
             }
-            IncomingTxError::RelayRule(RelayRuleError::NonZeroTimelock) => {
+            TxValidationError::RelayRule(RelayRuleError::NonZeroTimelock) => {
                 TxRelayChecks::NONZERO_UNLOCK_TIME
             }
-            IncomingTxError::RelayRule(RelayRuleError::ExtraFieldTooLarge) => {
+            TxValidationError::RelayRule(RelayRuleError::ExtraFieldTooLarge) => {
                 TxRelayChecks::TX_EXTRA_TOO_BIG
             }
-            IncomingTxError::RelayRule(RelayRuleError::FeeBelowMinimum) => {
+            TxValidationError::RelayRule(RelayRuleError::FeeBelowMinimum) => {
                 TxRelayChecks::FEE_TOO_LOW
             }
-            IncomingTxError::DuplicateTransaction => TxRelayChecks::DOUBLE_SPEND,
+            TxValidationError::DuplicateTransaction => TxRelayChecks::DOUBLE_SPEND,
         },
     })
 }

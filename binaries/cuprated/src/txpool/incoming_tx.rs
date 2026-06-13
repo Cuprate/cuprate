@@ -15,7 +15,6 @@ use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::{
     transactions::{new_tx_verification_data, start_tx_verification, PrepTransactions},
     BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
-    ExtendedConsensusError,
 };
 use cuprate_dandelion_tower::{
     pool::{DandelionPoolService, IncomingTxBuilder},
@@ -31,37 +30,24 @@ use cuprate_txpool::{
         },
         TxpoolReadHandle, TxpoolWriteHandle,
     },
-    transaction_blob_hash,
+    transaction_blob_hash, TxPoolError,
 };
 use cuprate_types::TransactionVerificationData;
 
 use crate::{
     blockchain::ConsensusBlockchainReadHandle,
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
     p2p::CrossNetworkInternalPeerId,
     txpool::{
         dandelion::{
             self, AnonTxService, ConcreteDandelionRouter, DiffuseService, MainDandelionRouter,
         },
         manager::{start_txpool_manager, TxpoolManagerHandle},
-        relay_rules::{check_tx_relay_rules, RelayRuleError},
+        relay_rules::check_tx_relay_rules,
         txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
+        IncomingTxError, TxValidationError,
     },
     LaunchContext,
 };
-
-/// An error that can happen handling an incoming tx.
-#[derive(Debug, thiserror::Error)]
-pub enum IncomingTxError {
-    #[error("Error parsing tx: {0}")]
-    Parse(std::io::Error),
-    #[error(transparent)]
-    Consensus(ExtendedConsensusError),
-    #[error("Duplicate tx in message")]
-    DuplicateTransaction,
-    #[error("Relay rule was broken: {0}")]
-    RelayRule(RelayRuleError),
-}
 
 /// Incoming transactions.
 pub struct IncomingTxs {
@@ -115,7 +101,7 @@ impl IncomingTxHandler {
         clear_net: NetworkInterface<ClearNet>,
         tor_net_rx: Option<oneshot::Receiver<NetworkInterface<Tor>>>,
         txpool_write_handle: TxpoolWriteHandle,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
         let txpool_config = launch_ctx.config.storage.txpool.clone();
 
         let diffuse_service = DiffuseService {
@@ -142,9 +128,9 @@ impl IncomingTxHandler {
             txpool_config,
             launch_ctx.task_executor.clone(),
         )
-        .await;
+        .await?;
 
-        Self {
+        Ok(Self {
             txs_being_handled: TxsBeingHandled::new(),
             blockchain_context_cache: launch_ctx.blockchain.context_svc(),
             dandelion_pool_manager,
@@ -155,7 +141,7 @@ impl IncomingTxHandler {
                 BoxError::from,
             ),
             reorg_lock: Arc::clone(&launch_ctx.reorg_lock),
-        }
+        })
     }
 }
 
@@ -209,8 +195,7 @@ async fn handle_incoming_txs(
 
     let txs = start_tx_verification()
         .append_prepped_txs(txs)
-        .prepare()
-        .map_err(|e| IncomingTxError::Consensus(e.into()))?
+        .prepare()?
         .full(
             context.chain_height,
             context.top_hash,
@@ -220,8 +205,7 @@ async fn handle_incoming_txs(
             None,
         )
         .verify()
-        .await
-        .map_err(IncomingTxError::Consensus)?;
+        .await?;
 
     for tx in txs {
         // TODO: this could be a DoS, if someone spams us with txs that violate these rules?
@@ -232,7 +216,7 @@ async fn handle_incoming_txs(
                 continue;
             }
 
-            return Err(IncomingTxError::RelayRule(e));
+            return Err(TxValidationError::RelayRule(e).into());
         }
 
         tracing::debug!(
@@ -299,7 +283,9 @@ async fn prepare_incoming_txs(
             // If a duplicate is in here the incoming tx batch contained the same tx twice.
             if !tx_blob_hashes.insert(tx_blob_hash) {
                 tracing::debug!("peer sent duplicate tx in batch, ignoring batch.");
-                return Some(Err(IncomingTxError::DuplicateTransaction));
+                return Some(Err(IncomingTxError::Validation(
+                    TxValidationError::DuplicateTransaction,
+                )));
             }
 
             // If a duplicate is here it is being handled in another batch.
@@ -318,11 +304,9 @@ async fn prepare_incoming_txs(
         stem_pool_hashes,
     } = txpool_read_handle
         .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .await?
         .call(TxpoolReadRequest::FilterKnownTxBlobHashes(tx_blob_hashes))
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .await?
     else {
         unreachable!()
     };
@@ -339,10 +323,9 @@ async fn prepare_incoming_txs(
                 }
             })
             .map(|bytes| {
-                let tx = Transaction::read(&mut bytes.as_ref()).map_err(IncomingTxError::Parse)?;
+                let tx = Transaction::read(&mut bytes.as_ref())?;
 
-                let tx = new_tx_verification_data(tx)
-                    .map_err(|e| IncomingTxError::Consensus(e.into()))?;
+                let tx = new_tx_verification_data(tx)?;
 
                 Ok(tx)
             })
@@ -364,15 +347,25 @@ async fn rerelay_stem_tx(
         CrossNetworkInternalPeerId,
     >,
 ) {
-    let Ok(TxpoolReadResponse::TxBlob { tx_blob, .. }) = txpool_read_handle
-        .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
-        .call(TxpoolReadRequest::TxBlob(*tx_hash))
-        .await
-    else {
-        // The tx could have been dropped from the pool.
-        return;
+    let svc = match txpool_read_handle.ready().await {
+        Ok(svc) => svc,
+        Err(e) => {
+            tracing::warn!("Failed to acquire txpool read service for stem re-relay: {e}");
+            return;
+        }
+    };
+    let tx_blob = match svc.call(TxpoolReadRequest::TxBlob(*tx_hash)).await {
+        Ok(TxpoolReadResponse::TxBlob { tx_blob, .. }) => tx_blob,
+        Ok(_) => unreachable!(),
+        Err(TxPoolError::NotFound) => {
+            // The tx was dropped from the pool
+            return;
+        }
+        Err(e) => {
+            // The service returned an error
+            tracing::warn!("Failed to fetch stem tx for re-relay: {e}");
+            return;
+        }
     };
 
     let incoming_tx =
@@ -384,11 +377,15 @@ async fn rerelay_stem_tx(
         .build()
         .unwrap();
 
-    dandelion_pool_manager
-        .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
-        .call(incoming_tx)
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR);
+    if let Err(e) = async {
+        dandelion_pool_manager
+            .ready()
+            .await?
+            .call(incoming_tx)
+            .await
+    }
+    .await
+    {
+        tracing::warn!("Dandelion pool manager failed for stem re-relay: {e}");
+    }
 }
