@@ -4,8 +4,9 @@
 
 //---------------------------------------------------------------------------------------------------- Imports
 
-use std::{default, sync::Arc};
+use std::{default, str::FromStr, sync::Arc};
 
+use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
@@ -48,6 +49,27 @@ pub enum TorMode {
     Arti,
     /// Use of external tor daemon
     Daemon,
+}
+
+impl FromStr for TorMode {
+    type Err = anyhow::Error;
+
+    /// Parses a [`TorMode`] from a string, ignoring ASCII case.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            s if s.eq_ignore_ascii_case("auto") => Ok(Self::Auto),
+            s if s.eq_ignore_ascii_case("daemon") => Ok(Self::Daemon),
+            #[cfg(feature = "arti")]
+            s if s.eq_ignore_ascii_case("arti") => Ok(Self::Arti),
+            #[cfg(not(feature = "arti"))]
+            s if s.eq_ignore_ascii_case("arti") => Err(anyhow!(
+                "\"Arti\" mode requires cuprated to be built with the `arti` feature"
+            )),
+            _ => Err(anyhow!(
+                "invalid Tor mode: '{s}', expected one of \"Auto\", \"Arti\", \"Daemon\" (case-insensitive)"
+            )),
+        }
+    }
 }
 
 /// Contains the necessary Tor configuration or structures

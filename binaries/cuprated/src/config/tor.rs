@@ -96,9 +96,12 @@ config_struct! {
         /// When "Daemon" is set, the Tor daemon address to use can be
         /// specified in `tor.daemon.address`.
         ///
+        /// This value is matched case-insensitively.
+        ///
         /// Type         | String
         /// Valid values | "Auto", "Arti", "Daemon"
         /// Examples     | "Arti"
+        ##[serde(deserialize_with = "crate::config::deserialize_from_str")]
         pub mode: TorMode,
 
         #[child = true]

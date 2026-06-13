@@ -51,15 +51,26 @@ impl Network {
 #[derive(Debug, PartialEq, Eq)]
 pub struct ParseNetworkError;
 
+impl core::error::Error for ParseNetworkError {}
+
+impl Display for ParseNetworkError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.write_str(
+            r#"invalid network, expected one of "Mainnet", "Testnet", "Stagenet", "FakeChain" (case-insensitive)"#,
+        )
+    }
+}
+
 impl FromStr for Network {
     type Err = ParseNetworkError;
 
+    /// Parses a [`Network`] from a string, ignoring ASCII case.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "mainnet" | "Mainnet" => Ok(Self::Mainnet),
-            "testnet" | "Testnet" => Ok(Self::Testnet),
-            "stagenet" | "Stagenet" => Ok(Self::Stagenet),
-            "fakechain" | "FakeChain" => Ok(Self::FakeChain),
+            s if s.eq_ignore_ascii_case("mainnet") => Ok(Self::Mainnet),
+            s if s.eq_ignore_ascii_case("testnet") => Ok(Self::Testnet),
+            s if s.eq_ignore_ascii_case("stagenet") => Ok(Self::Stagenet),
+            s if s.eq_ignore_ascii_case("fakechain") => Ok(Self::FakeChain),
             _ => Err(ParseNetworkError),
         }
     }
@@ -72,5 +83,37 @@ impl Display for Network {
             Self::Stagenet => "stagenet",
             Self::FakeChain => "fakechain",
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn from_str_ignores_ascii_case() {
+        for (input, expected) in [
+            ("mainnet", Network::Mainnet),
+            ("Mainnet", Network::Mainnet),
+            ("MAINNET", Network::Mainnet),
+            ("testnet", Network::Testnet),
+            ("Testnet", Network::Testnet),
+            ("TESTNET", Network::Testnet),
+            ("stagenet", Network::Stagenet),
+            ("Stagenet", Network::Stagenet),
+            ("STAGENET", Network::Stagenet),
+            ("fakechain", Network::FakeChain),
+            ("FakeChain", Network::FakeChain),
+            ("FAKECHAIN", Network::FakeChain),
+        ] {
+            assert_eq!(input.parse(), Ok(expected));
+        }
+    }
+
+    #[test]
+    fn from_str_rejects_invalid_networks() {
+        for input in ["", "mainnet2", " mainnet", "main net"] {
+            assert_eq!(input.parse::<Network>(), Err(ParseNetworkError));
+        }
     }
 }

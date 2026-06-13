@@ -230,6 +230,9 @@ config_struct! {
         ///
         /// Enabling this setting will disable inbound connections.
         ///
+        /// The "Tor" value and the "socks5://" scheme are
+        /// matched case-insensitively.
+        ///
         /// Type         | String
         /// Valid values | "Tor", "socks5://ip:port", "socks5://user:pass@ip:port"
         /// Examples     | "Tor", "socks5://127.0.0.1:9050"

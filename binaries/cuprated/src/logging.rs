@@ -145,8 +145,18 @@ pub fn modify_file_output(f: impl FnOnce(&mut CupratedTracingFilter)) {
 
 /// Prints some text using [`eprintln`], with [`nu_ansi_term::Color::Red`] applied.
 pub fn eprintln_red(s: &str) {
+    eprintln_color(nu_ansi_term::Color::Red, s);
+}
+
+/// Prints some text using [`eprintln`], with [`nu_ansi_term::Color::Yellow`] applied.
+pub fn eprintln_yellow(s: &str) {
+    eprintln_color(nu_ansi_term::Color::Yellow, s);
+}
+
+/// Prints some text using [`eprintln`], with the given [`nu_ansi_term::Color`] applied.
+fn eprintln_color(color: nu_ansi_term::Color, s: &str) {
     if ansi_enabled(&std::io::stderr()) {
-        eprintln!("{}", nu_ansi_term::Color::Red.bold().paint(s));
+        eprintln!("{}", color.bold().paint(s));
     } else {
         eprintln!("{s}");
     }

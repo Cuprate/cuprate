@@ -23,7 +23,7 @@ use cuprate_p2p_core::{ClearNet, Tor};
 use cuprate_wire::OnionAddr;
 
 use crate::{
-    logging::eprintln_red,
+    logging::{eprintln_red, eprintln_yellow},
     tor::{TorContext, TorMode},
 };
 
@@ -125,6 +125,107 @@ pub fn find_config() -> Result<Option<Config>, anyhow::Error> {
     Ok(None)
 }
 
+/// Deserializes a string into `T` via its [`FromStr`] implementation.
+///
+/// Used with `#[serde(deserialize_with = "...")]` on config fields whose [`FromStr`]
+/// implementations match strings case-insensitively, see:
+/// <https://github.com/Cuprate/cuprate/issues/598>.
+pub(crate) fn deserialize_from_str<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: FromStr,
+    T::Err: fmt::Display,
+{
+    let s = String::deserialize(deserializer)?;
+    T::from_str(&s).map_err(serde::de::Error::custom)
+}
+
+/// Trims leading/trailing whitespace from every string value in the given config text,
+/// printing a warning for each trimmed value.
+///
+/// Returns the text unchanged if it is not parseable TOML, the regular
+/// parsing path will then report the error.
+fn trim_config_text(text: String) -> String {
+    trim_string_values(&text).map_or(text, |(trimmed_text, trimmed_paths)| {
+        for path in trimmed_paths {
+            eprintln_yellow(&format!(
+                "Warning: ignoring leading/trailing whitespace in config value `{path}`"
+            ));
+        }
+
+        trimmed_text
+    })
+}
+
+/// Trims leading/trailing whitespace from every string value in the given TOML text.
+///
+/// Values that would become empty when trimmed are left untouched.
+///
+/// Returns the cleaned TOML text and the dotted key paths of the values that were
+/// trimmed, or [`None`] if the text is not parseable TOML.
+fn trim_string_values(text: &str) -> Option<(String, Vec<String>)> {
+    let mut doc = toml_edit::DocumentMut::from_str(text).ok()?;
+
+    let mut trimmed = Vec::new();
+    trim_table(doc.as_table_mut(), "", &mut trimmed);
+
+    Some((doc.to_string(), trimmed))
+}
+
+/// [`trim_string_values`] on every item in a table.
+fn trim_table(table: &mut dyn toml_edit::TableLike, path: &str, trimmed: &mut Vec<String>) {
+    for (key, item) in table.iter_mut() {
+        let item_path = if path.is_empty() {
+            key.get().to_string()
+        } else {
+            format!("{path}.{}", key.get())
+        };
+
+        trim_item(item, &item_path, trimmed);
+    }
+}
+
+/// [`trim_string_values`] on a single item.
+fn trim_item(item: &mut toml_edit::Item, path: &str, trimmed: &mut Vec<String>) {
+    match item {
+        toml_edit::Item::None => (),
+        toml_edit::Item::Value(value) => trim_value(value, path, trimmed),
+        toml_edit::Item::Table(table) => trim_table(table, path, trimmed),
+        toml_edit::Item::ArrayOfTables(tables) => {
+            for (i, table) in tables.iter_mut().enumerate() {
+                trim_table(table, &format!("{path}[{i}]"), trimmed);
+            }
+        }
+    }
+}
+
+/// [`trim_string_values`] on a single value.
+fn trim_value(value: &mut toml_edit::Value, path: &str, trimmed: &mut Vec<String>) {
+    match value {
+        toml_edit::Value::String(s) => {
+            let trimmed_string = s.value().trim().to_string();
+
+            // Never trim a value down to the empty string, e.g. an all-whitespace
+            // `proxy` must not silently become "" (proxy disabled), it is left
+            // untouched for the field's own parser to reject loudly.
+            if !trimmed_string.is_empty() && trimmed_string != *s.value() {
+                *value = toml_edit::Value::String(toml_edit::Formatted::new(trimmed_string));
+                trimmed.push(path.to_string());
+            }
+        }
+        toml_edit::Value::Array(array) => {
+            for (i, element) in array.iter_mut().enumerate() {
+                trim_value(element, &format!("{path}[{i}]"), trimmed);
+            }
+        }
+        toml_edit::Value::InlineTable(table) => trim_table(table, path, trimmed),
+        toml_edit::Value::Integer(_)
+        | toml_edit::Value::Float(_)
+        | toml_edit::Value::Boolean(_)
+        | toml_edit::Value::Datetime(_) => (),
+    }
+}
+
 config_struct! {
     /// The config for all of Cuprate.
     #[derive(Debug, Deserialize, Serialize, PartialEq)]
@@ -132,7 +233,10 @@ config_struct! {
     pub struct Config {
         /// The network cuprated should run on.
         ///
+        /// This value is matched case-insensitively.
+        ///
         /// Valid values | "Mainnet", "Testnet", "Stagenet", "FakeChain"
+        ##[serde(deserialize_with = "deserialize_from_str")]
         pub network: Network,
 
         /// Enable/disable fast sync.
@@ -241,7 +345,7 @@ impl Config {
     ///
     /// Will return an [`Err`] if the file cannot be read or if the file is not a valid [`toml`] config.
     pub fn read_from_path(file: impl AsRef<Path>) -> Result<Self, anyhow::Error> {
-        let file_text = read_to_string(file.as_ref())?;
+        let file_text = trim_config_text(read_to_string(file.as_ref())?);
 
         let config: Self = toml::from_str(&file_text).with_context(|| {
             format!(
@@ -552,6 +656,7 @@ mod test {
     use toml::{from_str, to_string};
 
     use super::*;
+    use crate::p2p::ProxySettings;
 
     #[test]
     fn documented_config() {
@@ -559,6 +664,152 @@ mod test {
         let conf: Config = from_str(&str).unwrap();
 
         assert_eq!(conf, Config::default());
+    }
+
+    #[test]
+    fn trim_string_values_walks_nested_structure() {
+        let toml = r#"
+network = "  Mainnet"
+
+[tor]
+mode = "Daemon "
+
+[p2p.clear_net]
+proxy = " socks5://user:pass@127.0.0.1:9050"
+"#;
+
+        let (cleaned, trimmed) = trim_string_values(toml).unwrap();
+        assert_eq!(trimmed, ["network", "tor.mode", "p2p.clear_net.proxy"]);
+
+        let config: Config = from_str(&cleaned).unwrap();
+        assert_eq!(config.network, Network::Mainnet);
+        assert_eq!(config.tor.mode, TorMode::Daemon);
+        assert!(matches!(
+            config.p2p.clear_net.proxy,
+            ProxySettings::Socks(_)
+        ));
+    }
+
+    #[test]
+    fn trim_string_values_arrays_and_inline_tables() {
+        #[derive(Deserialize)]
+        struct T {
+            a: Vec<String>,
+            b: B,
+            d: Vec<D>,
+        }
+        #[derive(Deserialize)]
+        struct B {
+            c: String,
+        }
+        #[derive(Deserialize)]
+        struct D {
+            e: String,
+        }
+
+        let toml = r#"
+a = ["  x", "y  ", "z"]
+b = { c = " v " }
+
+[[d]]
+e = " w"
+"#;
+
+        let (cleaned, trimmed) = trim_string_values(toml).unwrap();
+        assert_eq!(trimmed, ["a[0]", "a[1]", "b.c", "d[0].e"]);
+
+        let t: T = from_str(&cleaned).unwrap();
+        assert_eq!(t.a, ["x", "y", "z"]);
+        assert_eq!(t.b.c, "v");
+        assert_eq!(t.d[0].e, "w");
+    }
+
+    #[test]
+    fn trim_string_values_no_changes() {
+        let toml = "a = \"x\"\nb = 1\n";
+
+        let (cleaned, trimmed) = trim_string_values(toml).unwrap();
+        assert!(trimmed.is_empty());
+        assert_eq!(cleaned, toml);
+    }
+
+    #[test]
+    fn trim_string_values_keeps_whitespace_only_values() {
+        // An all-whitespace proxy must NOT be trimmed to "" (proxy disabled),
+        // the field's own parser must reject it like it did before trimming existed.
+        let toml = "[p2p.clear_net]\nproxy = \" \"\n";
+
+        let (cleaned, trimmed) = trim_string_values(toml).unwrap();
+        assert!(trimmed.is_empty());
+        assert_eq!(cleaned, toml);
+        assert!(from_str::<Config>(&cleaned).is_err());
+    }
+
+    #[test]
+    fn trim_string_values_invalid_toml() {
+        assert!(trim_string_values("a = = 1").is_none());
+    }
+
+    #[test]
+    fn config_values_ignore_ascii_case() {
+        let config: Config = from_str(r#"network = "MAINNET""#).unwrap();
+        assert_eq!(config.network, Network::Mainnet);
+
+        let config: Config = from_str(r#"network = "fakechain""#).unwrap();
+        assert_eq!(config.network, Network::FakeChain);
+
+        let config: Config = from_str("[tor]\nmode = \"daemon\"").unwrap();
+        assert_eq!(config.tor.mode, TorMode::Daemon);
+
+        let config: Config = from_str(r#"target_max_memory = "default""#).unwrap();
+        assert_eq!(config.target_max_memory, DefaultOrCustom::Default);
+
+        let config: Config = from_str("[p2p.clear_net]\nproxy = \"tor\"").unwrap();
+        assert_eq!(config.p2p.clear_net.proxy, ProxySettings::Tor);
+
+        let config: Config = from_str("[p2p.clear_net]\nproxy = \"TOR\"").unwrap();
+        assert_eq!(config.p2p.clear_net.proxy, ProxySettings::Tor);
+
+        let config: Config =
+            from_str("[p2p.clear_net]\nproxy = \"SOCKS5://127.0.0.1:9050\"").unwrap();
+        assert!(matches!(
+            config.p2p.clear_net.proxy,
+            ProxySettings::Socks(_)
+        ));
+    }
+
+    #[test]
+    fn config_values_still_reject_invalid_strings() {
+        assert!(from_str::<Config>(r#"network = "mainnet2""#).is_err());
+        assert!(from_str::<Config>("network = 5").is_err());
+        assert!(from_str::<Config>("[tor]\nmode = \"daemonn\"").is_err());
+        assert!(from_str::<Config>(r#"target_max_memory = "defaults""#).is_err());
+        assert!(from_str::<Config>("target_max_memory = -5").is_err());
+    }
+
+    #[test]
+    fn default_or_custom_custom_values_parse() {
+        let config: Config = from_str("target_max_memory = 1000").unwrap();
+        assert_eq!(config.target_max_memory, DefaultOrCustom::Custom(1000));
+    }
+
+    #[test]
+    fn read_from_path_trims_string_values() {
+        let tmp_dir = tempdir().unwrap();
+        let config_path = tmp_dir.path().join("config.toml");
+        fs::write(&config_path, "network = \" Mainnet \"\n").unwrap();
+
+        let config = Config::read_from_path(config_path).unwrap();
+        assert_eq!(config.network(), Network::Mainnet);
+    }
+
+    #[test]
+    fn read_from_path_invalid_toml_still_errors() {
+        let tmp_dir = tempdir().unwrap();
+        let config_path = tmp_dir.path().join("config.toml");
+        fs::write(&config_path, "network = = 1\n").unwrap();
+
+        assert!(Config::read_from_path(config_path).is_err());
     }
 
     #[test]

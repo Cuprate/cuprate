@@ -60,10 +60,12 @@ impl TryFrom<String> for ProxySettings {
     fn try_from(s: String) -> Result<Self, Self::Error> {
         match s.as_str() {
             "" => Ok(Self::Disabled),
-            "Tor" => Ok(Self::Tor),
-            // TODO: use `if let` guard when on >=1.95
-            url if url.starts_with("socks5://") => {
-                let url = url.strip_prefix("socks5://").unwrap();
+            s if s.eq_ignore_ascii_case("tor") => Ok(Self::Tor),
+            url if url
+                .get(..9)
+                .is_some_and(|scheme| scheme.eq_ignore_ascii_case("socks5://")) =>
+            {
+                let url = url.get(9..).unwrap_or_default();
 
                 let (authentication, addr) = match url.rsplit_once('@') {
                     Some((userpass, addr)) => {

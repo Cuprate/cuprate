@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{de::Error, Deserialize, Deserializer, Serialize};
 
 /// An enum that can be either a default value or a custom value.
 ///
@@ -7,11 +7,38 @@ use serde::{Deserialize, Serialize};
 ///
 /// The [`DefaultOrCustom::Default`] variant will be serialised as a string: "Default",
 /// [`DefaultOrCustom::Custom`] will just use the serialisation of the inner value.
-#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+///
+/// Deserialisation of the [`DefaultOrCustom::Default`] variant ignores ASCII case,
+/// so "default" and "DEFAULT" are also accepted. This means `T` must not be a
+/// string-like type, otherwise the string "default" would never reach it.
+#[derive(Copy, Clone, Debug, Serialize, PartialEq, Eq)]
 pub enum DefaultOrCustom<T> {
     Default,
     #[serde(untagged)]
     Custom(T),
+}
+
+impl<'de, T: Deserialize<'de>> Deserialize<'de> for DefaultOrCustom<T> {
+    /// This is implemented manually (instead of derived with `#[serde(untagged)]`)
+    /// so that the "Default" keyword is matched case-insensitively, see:
+    /// <https://github.com/Cuprate/cuprate/issues/598>.
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = toml::Value::deserialize(deserializer)?;
+
+        let is_default =
+            matches!(&value, toml::Value::String(s) if s.eq_ignore_ascii_case("default"));
+
+        if is_default {
+            Ok(Self::Default)
+        } else {
+            T::deserialize(value)
+                .map(Self::Custom)
+                .map_err(D::Error::custom)
+        }
+    }
 }
 
 impl<T> DefaultOrCustom<T> {
