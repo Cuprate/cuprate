@@ -42,6 +42,19 @@ pub enum BlockchainReadRequest {
     /// The input is the block heights.
     BlockCompleteEntriesByHeight(Vec<usize>),
 
+    /// Request [`BlockCompleteEntry`]s (and output indices) for the
+    /// blocks above the split point between our chain and the given chain.
+    BlockCompleteEntriesAboveSplitPoint {
+        chain: Vec<[u8; 32]>,
+        /// If `Some`, skip the chain scan and start serving from this height directly.
+        start_height: Option<usize>,
+        /// If `true`, each block's miner-tx entry in the output indices is an
+        /// empty placeholder.
+        no_miner_tx: bool,
+        len: usize,
+        pruned: bool,
+    },
+
     /// Request a block's extended header.
     ///
     /// The input is the block's height.
@@ -264,6 +277,22 @@ pub enum BlockchainResponse {
 
     /// Response to [`BlockchainReadRequest::BlockCompleteEntriesByHeight`].
     BlockCompleteEntriesByHeight(Vec<BlockCompleteEntry>),
+
+    /// Response to [`BlockchainReadRequest::BlockCompleteEntriesAboveSplitPoint`].
+    BlockCompleteEntriesAboveSplitPoint {
+        /// The [`BlockCompleteEntry`]s that we had.
+        blocks: Vec<BlockCompleteEntry>,
+        /// The output indices of all transaction outputs across all blocks.
+        ///
+        /// `output_indices[block][tx][output]`, including the miner tx (miner tx will be empty if not requested).
+        output_indices: Vec<Vec<Vec<u64>>>,
+        /// Our blockchain height.
+        blockchain_height: usize,
+        /// The height the returned blocks start from.
+        start_height: usize,
+        /// Hash of the current top block.
+        top_hash: [u8; 32],
+    },
 
     /// Response to [`BlockchainReadRequest::BlockExtendedHeader`].
     ///

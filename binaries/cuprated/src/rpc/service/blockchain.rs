@@ -181,22 +181,6 @@ pub async fn block_extended_header_in_range(
     Ok(output)
 }
 
-/// [`BlockchainReadRequest::ChainHeight`].
-pub async fn chain_height(
-    blockchain_read: &mut BlockchainReadHandle,
-) -> Result<(u64, [u8; 32]), Error> {
-    let BlockchainResponse::ChainHeight(height, hash) = blockchain_read
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::ChainHeight)
-        .await?
-    else {
-        unreachable!();
-    };
-
-    Ok((usize_to_u64(height), hash))
-}
-
 /// [`BlockchainReadRequest::GeneratedCoins`].
 pub async fn generated_coins(
     blockchain_read: &mut BlockchainReadHandle,
@@ -514,6 +498,56 @@ pub async fn block_complete_entries(
     };
 
     Ok((blocks, missing_hashes, blockchain_height))
+}
+
+/// [`BlockchainReadRequest::BlockCompleteEntriesAboveSplitPoint`].
+///
+/// Returns `(blocks, blockchain_height, start_height, output_indices, top_hash)`.
+pub async fn block_complete_entries_above_split_point(
+    blockchain_read: &mut BlockchainReadHandle,
+    chain: Vec<[u8; 32]>,
+    start_height: Option<usize>,
+    no_miner_tx: bool,
+    len: usize,
+    pruned: bool,
+) -> Result<
+    (
+        Vec<BlockCompleteEntry>,
+        usize,
+        usize,
+        Vec<Vec<Vec<u64>>>,
+        [u8; 32],
+    ),
+    Error,
+> {
+    let BlockchainResponse::BlockCompleteEntriesAboveSplitPoint {
+        blocks,
+        output_indices,
+        blockchain_height,
+        start_height,
+        top_hash,
+    } = blockchain_read
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::BlockCompleteEntriesAboveSplitPoint {
+            chain,
+            start_height,
+            no_miner_tx,
+            len,
+            pruned,
+        })
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok((
+        blocks,
+        blockchain_height,
+        start_height,
+        output_indices,
+        top_hash,
+    ))
 }
 
 /// [`BlockchainReadRequest::BlockCompleteEntriesByHeight`].

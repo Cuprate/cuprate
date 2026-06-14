@@ -258,9 +258,7 @@ async fn get_block_count(
     Ok(GetBlockCountResponse {
         base: helper::response_base(false),
         // Block count starts at 1
-        count: blockchain::chain_height(&mut state.blockchain_read)
-            .await?
-            .0,
+        count: usize_to_u64(state.blockchain_context.blockchain_context().chain_height),
     })
 }
 
@@ -345,7 +343,7 @@ async fn get_last_block_header(
     mut state: CupratedRpcHandler,
     request: GetLastBlockHeaderRequest,
 ) -> Result<GetLastBlockHeaderResponse, Error> {
-    let (height, _) = helper::top_height(&mut state).await?;
+    let (height, _) = helper::top_height(&mut state);
     let block_header = helper::block_header(&mut state, height, request.fill_pow_hash).await?;
 
     Ok(GetLastBlockHeaderResponse {
@@ -387,7 +385,8 @@ async fn get_block_header_by_height(
     mut state: CupratedRpcHandler,
     request: GetBlockHeaderByHeightRequest,
 ) -> Result<GetBlockHeaderByHeightResponse, Error> {
-    helper::check_height(&mut state, request.height).await?;
+    helper::check_height(&mut state, request.height)?;
+
     let block_header =
         helper::block_header(&mut state, request.height, request.fill_pow_hash).await?;
 
@@ -402,7 +401,7 @@ async fn get_block_headers_range(
     mut state: CupratedRpcHandler,
     request: GetBlockHeadersRangeRequest,
 ) -> Result<GetBlockHeadersRangeResponse, Error> {
-    let (top_height, _) = helper::top_height(&mut state).await?;
+    let (top_height, _) = helper::top_height(&mut state);
 
     if request.start_height >= top_height
         || request.end_height >= top_height
@@ -457,7 +456,8 @@ async fn get_block(
     request: GetBlockRequest,
 ) -> Result<GetBlockResponse, Error> {
     let (block, block_header) = if request.hash.is_empty() {
-        helper::check_height(&mut state, request.height).await?;
+        helper::check_height(&mut state, request.height)?;
+
         let block = blockchain::block(&mut state.blockchain_read, request.height).await?;
         let block_header =
             helper::block_header(&mut state, request.height, request.fill_pow_hash).await?;
@@ -871,9 +871,8 @@ async fn get_coinbase_tx_sum(
     mut state: CupratedRpcHandler,
     request: GetCoinbaseTxSumRequest,
 ) -> Result<GetCoinbaseTxSumResponse, Error> {
-    let chain_height = blockchain::chain_height(&mut state.blockchain_read)
-        .await?
-        .0;
+    let chain_height = usize_to_u64(state.blockchain_context.blockchain_context().chain_height);
+
     if request.height >= chain_height || request.count > chain_height - request.height {
         return Err(anyhow!("requested range exceeds blockchain height"));
     }
@@ -906,9 +905,7 @@ async fn get_version(
     mut state: CupratedRpcHandler,
     _: GetVersionRequest,
 ) -> Result<GetVersionResponse, Error> {
-    let current_height = blockchain::chain_height(&mut state.blockchain_read)
-        .await?
-        .0;
+    let current_height = usize_to_u64(state.blockchain_context.blockchain_context().chain_height);
     let target_height = state.syncer_handle.target_height();
 
     let mut hard_forks: Vec<HardForkEntry> =
