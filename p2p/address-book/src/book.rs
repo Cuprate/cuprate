@@ -189,7 +189,7 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
 
         if let Some(connected_peers_with_ban_id) = self.connected_peers_ban_id.get(&addr.ban_id()) {
             for peer in connected_peers_with_ban_id.iter().map(|addr| {
-                tracing::debug!("Banning peer: {}, for: {:?}", addr.as_log(), time);
+                tracing::debug!("Banning peer: {}, for: {:?}", addr.to_addr_string(), time);
 
                 self.connected_peers
                     .get(&InternalPeerID::KnownAddr(*addr))
