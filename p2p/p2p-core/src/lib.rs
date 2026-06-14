@@ -107,7 +107,6 @@ pub enum ConnectionDirection {
 pub trait NetZoneAddress:
     TryFrom<NetworkAddress, Error = NetworkAddressIncorrectZone>
     + Into<NetworkAddress>
-    + std::fmt::Display
     + Hash
     + Eq
     + Copy
@@ -135,6 +134,12 @@ pub trait NetZoneAddress:
     fn ban_id(&self) -> Self::BanID;
 
     fn should_add_to_peer_list(&self) -> bool;
+
+    /// Returns a redacted view of this address for logging.
+    fn as_log(&self) -> impl std::fmt::Display + '_;
+
+    /// Returns the unredacted address as a string.
+    fn to_addr_string(&self) -> String;
 }
 
 /// An abstraction over a network zone (tor/i2p/clear)

@@ -63,8 +63,15 @@ fn main() {
     //Printing configuration
     info!("{config}");
 
-    // Initialize the thread-pools
+    // Warn if log redaction is disabled.
+    if !config.tracing.redact {
+        tracing::warn!(
+            "log redaction is disabled: transaction hashes and peer addresses will be \
+             written to logs in plaintext."
+        );
+    }
 
+    // Initialize the thread-pools
     init_global_rayon_pool(&config);
 
     let rt = init_tokio_rt(&config);

@@ -5,7 +5,7 @@ use monero_oxide::block::Block;
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
-use cuprate_p2p_core::{types::ConnectionId, NetworkZone};
+use cuprate_p2p_core::{types::ConnectionId, NetZoneAddress, NetworkZone};
 use cuprate_pruning::PruningSeed;
 use cuprate_rpc_types::misc::Span;
 use cuprate_types::BlockTemplate;
@@ -185,7 +185,7 @@ pub async fn spans<Z: NetworkZone>(
             connection_id: String::from(ConnectionId::DEFAULT_STR),
             nblocks: span.nblocks,
             rate: span.rate,
-            remote_address: span.remote_address.to_string(),
+            remote_address: span.remote_address.to_addr_string(),
             size: span.size,
             speed: span.speed,
             start_block_height: span.start_block_height,

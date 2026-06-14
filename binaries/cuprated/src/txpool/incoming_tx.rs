@@ -228,7 +228,7 @@ async fn handle_incoming_txs(
         // Maybe we should remember these invalid txs for some time to prevent them getting repeatedly sent.
         if let Err(e) = check_tx_relay_rules(&tx, context) {
             if drop_relay_rule_errors {
-                tracing::debug!(err = %e, tx = hex::encode(tx.tx_hash), "Tx failed relay check, skipping.");
+                tracing::debug!(err = %e, tx = %safelog::sensitive(hex::encode(tx.tx_hash)), "Tx failed relay check, skipping.");
                 continue;
             }
 
@@ -236,7 +236,7 @@ async fn handle_incoming_txs(
         }
 
         tracing::debug!(
-            tx = hex::encode(tx.tx_hash),
+            tx = %safelog::sensitive(hex::encode(tx.tx_hash)),
             "passing tx to tx-pool manager"
         );
 
