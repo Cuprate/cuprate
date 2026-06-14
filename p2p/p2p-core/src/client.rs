@@ -19,7 +19,8 @@ use cuprate_wire::{BasicNodeData, CoreSyncData};
 
 use crate::{
     handles::{ConnectionGuard, ConnectionHandle},
-    ConnectionDirection, NetworkZone, PeerError, PeerRequest, PeerResponse, SharedError,
+    ConnectionDirection, NetZoneAddress, NetworkZone, PeerError, PeerRequest, PeerResponse,
+    SharedError,
 };
 
 mod connection;
@@ -37,7 +38,7 @@ pub use weak::{WeakBroadcastClient, WeakClient};
 
 /// An internal identifier for a given peer, will be their address if known
 /// or a random u128 if not.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub enum InternalPeerID<A> {
     /// A known address.
     KnownAddr(A),
@@ -45,11 +46,23 @@ pub enum InternalPeerID<A> {
     Unknown([u8; 16]),
 }
 
-impl<A: Display> Display for InternalPeerID<A> {
+impl<A: NetZoneAddress> Display for InternalPeerID<A> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::KnownAddr(addr) => addr.fmt(f),
-            Self::Unknown(id) => f.write_str(&format!("Unknown, ID: {}", hex::encode(id))),
+            Self::KnownAddr(addr) => write!(f, "{}", addr.as_log()),
+            Self::Unknown(id) => write!(f, "Unknown, ID: {}", hex::encode(id)),
+        }
+    }
+}
+
+impl<A: Debug> Debug for InternalPeerID<A> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::KnownAddr(addr) => f
+                .debug_tuple("KnownAddr")
+                .field(&safelog::sensitive(addr))
+                .finish(),
+            Self::Unknown(id) => f.debug_tuple("Unknown").field(&hex::encode(id)).finish(),
         }
     }
 }

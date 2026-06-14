@@ -39,6 +39,13 @@ pub struct Args {
     #[arg(long)]
     no_fast_sync: bool,
 
+    /// Show sensitive data in logs instead of redacting it.
+    ///
+    /// Off by default. Do not disable this on a public or shared node, as the log
+    /// file becomes a deanonymization target.
+    #[arg(long)]
+    no_log_redact: bool,
+
     /// The amount of outbound clear-net connections to maintain.
     #[arg(long)]
     pub outbound_connections: Option<usize>,
@@ -101,6 +108,7 @@ impl Args {
             config.fixed_difficulty = fixed_difficulty;
         }
         config.fast_sync = config.fast_sync && !self.no_fast_sync;
+        config.tracing.redact = config.tracing.redact && !self.no_log_redact;
 
         if let Some(outbound_connections) = self.outbound_connections {
             config.p2p.clear_net.outbound_connections = outbound_connections;
