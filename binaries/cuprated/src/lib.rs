@@ -61,7 +61,7 @@ use crate::{
     blockchain::{BlockchainInterface, BlockchainManagerHandle, BlockchainSyncerHandle},
     config::Config,
     constants::DATABASE_CORRUPT_MSG,
-    monitor::TaskExecutor,
+    monitor::{CriticalTaskError, TaskExecutor},
     tor::initialize_tor_if_enabled,
     txpool::IncomingTxHandler,
 };
@@ -304,7 +304,11 @@ impl Node {
     }
 
     /// Wait for shutdown to be triggered, then await all tracked tasks.
-    pub async fn wait_for_shutdown(&self) {
-        self.task_executor.wait_for_shutdown().await;
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CriticalTaskError`] if any critical task returned `Err` or panicked.
+    pub async fn wait_for_shutdown(self) -> Result<(), CriticalTaskError> {
+        self.task_executor.wait_for_shutdown().await
     }
 }

@@ -1,6 +1,10 @@
 //! Task spawning and shutdown coordination.
 
-use std::{future::Future, panic::AssertUnwindSafe};
+use std::{
+    future::Future,
+    panic::AssertUnwindSafe,
+    sync::{Arc, OnceLock},
+};
 
 use futures::FutureExt;
 use tokio::task::JoinHandle;
@@ -9,11 +13,20 @@ use tracing::{debug, error, info};
 
 use crate::constants::CRITICAL_SERVICE_ERROR;
 
+/// The first critical task to return `Err`, panic, or exit before shutdown
+/// was requested.
+#[derive(Debug, thiserror::Error)]
+#[error("critical task `{task}` failed")]
+pub struct CriticalTaskError {
+    task: &'static str,
+}
+
 /// A handle for task spawning and shutdown coordination.
 #[derive(Clone, Default)]
 pub struct TaskExecutor {
     token: CancellationToken,
     tracker: TaskTracker,
+    failed: Arc<OnceLock<&'static str>>,
 }
 
 impl TaskExecutor {
@@ -64,6 +77,7 @@ impl TaskExecutor {
                         "{CRITICAL_SERVICE_ERROR}",
                     ),
                 }
+                let _ = executor.failed.set(name);
                 executor.trigger_shutdown();
             }))
     }
@@ -82,10 +96,18 @@ impl TaskExecutor {
     }
 
     /// Wait for shutdown to be triggered, then await all tracked tasks.
-    pub async fn wait_for_shutdown(&self) {
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CriticalTaskError`] if any critical task returned `Err` or panicked.
+    pub async fn wait_for_shutdown(&self) -> Result<(), CriticalTaskError> {
         self.token.cancelled().await;
         self.tracker.close();
         self.tracker.wait().await;
+        if let Some(&task) = self.failed.get() {
+            return Err(CriticalTaskError { task });
+        }
+        Ok(())
     }
 }
 
