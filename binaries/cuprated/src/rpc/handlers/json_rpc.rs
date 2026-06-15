@@ -401,10 +401,10 @@ async fn get_block_headers_range(
     mut state: CupratedRpcHandler,
     request: GetBlockHeadersRangeRequest,
 ) -> Result<GetBlockHeadersRangeResponse, Error> {
-    let (top_height, _) = helper::top_height(&mut state);
+    let chain_height = usize_to_u64(state.blockchain_context.blockchain_context().chain_height);
 
-    if request.start_height >= top_height
-        || request.end_height >= top_height
+    if request.start_height >= chain_height
+        || request.end_height >= chain_height
         || request.start_height > request.end_height
     {
         return Err(anyhow!("Invalid start/end heights"));
