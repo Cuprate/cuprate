@@ -260,7 +260,7 @@ impl Node {
             .await?;
 
             // Initialize the RPC server(s).
-            rpc::init_rpc_servers(&launch_ctx, tx_handler.clone())?;
+            rpc::init_rpc_servers(&launch_ctx, tx_handler.clone()).await?;
 
             // Start Tor P2P zone after sync completes.
             if tor_enabled {

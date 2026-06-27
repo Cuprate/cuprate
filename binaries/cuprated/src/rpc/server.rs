@@ -26,8 +26,9 @@ use crate::{
 /// # Errors
 ///
 /// This function will return an [`Err`] if unrestricted RPC is started on a
-/// non-local address without the override option.
-pub fn init_rpc_servers(
+/// non-local address without the override option, or if an RPC listener cannot
+/// be bound.
+pub async fn init_rpc_servers(
     launch_ctx: &LaunchContext,
     tx_handler: IncomingTxHandler,
 ) -> Result<(), Error> {
@@ -72,13 +73,16 @@ pub fn init_rpc_servers(
         }
 
         let rpc_handler = CupratedRpcHandler::new(restricted, tx_handler.clone(), launch_ctx);
+        let address = SocketAddr::new(addr, port);
+        let listener = TcpListener::bind(address).await?;
 
         let shutdown_token = launch_ctx.task_executor.cancellation_token();
         launch_ctx.task_executor.spawn(async move {
             if let Err(e) = run_rpc_server(
                 rpc_handler,
                 restricted,
-                SocketAddr::new(addr, port),
+                address,
+                listener,
                 request_byte_limit,
                 shutdown_token,
             )
@@ -99,6 +103,7 @@ async fn run_rpc_server(
     rpc_handler: CupratedRpcHandler,
     restricted: bool,
     address: SocketAddr,
+    listener: TcpListener,
     request_byte_limit: usize,
     shutdown_token: CancellationToken,
 ) -> Result<(), Error> {
@@ -127,7 +132,6 @@ async fn run_rpc_server(
     // Start the server.
     //
     // TODO: impl custom server code, don't use axum.
-    let listener = TcpListener::bind(address).await?;
     axum::serve(listener, router)
         .with_graceful_shutdown(shutdown_token.cancelled_owned())
         .await?;
