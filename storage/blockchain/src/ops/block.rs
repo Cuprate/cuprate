@@ -12,7 +12,7 @@ use cuprate_types::{
     PrunedTxBlobEntry, TransactionBlobs, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 
-use bytes::Bytes;
+use bytes::{Buf, Bytes};
 use fjall::Readable;
 use monero_oxide::{
     block::{Block, BlockHeader},
@@ -472,12 +472,21 @@ pub fn get_block_complete_entry_from_height(
     tapes: &tapes::TapesReadTransaction,
     db: &BlockchainDatabase,
 ) -> DbResult<BlockCompleteEntry> {
-    let pruning_stripe = cuprate_pruning::get_block_pruning_stripe(
-        block_height,
-        usize::MAX,
-        CRYPTONOTE_PRUNING_LOG_STRIPES,
-    )
-    .unwrap();
+    /// A helper function to read a span of bytes from a tape into an owned buffer.
+    fn read_blob(
+        tapes: &tapes::TapesReadTransaction,
+        tape: &tapes::BlobTape,
+        start: u64,
+        len: usize,
+    ) -> DbResult<Bytes> {
+        if len == 0 {
+            return Ok(Bytes::new());
+        }
+
+        let mut buf = vec![0; len];
+        tapes.read_bytes(tape, start, &mut buf)?;
+        Ok(Bytes::from(buf))
+    }
 
     let block_info = tapes
         .read_entry(&db.block_infos, usize_to_u64(block_height))?
@@ -503,60 +512,72 @@ pub fn get_block_complete_entry_from_height(
 
     let txs = if txs.is_empty() {
         TransactionBlobs::None
-    } else if pruned {
-        // If pruned, we do just one big read of the pruned tape to get all txs blobs as they are contiguous.
+    } else {
+        // We do just one big read of the pruned tape to get all txs blobs as they are contiguous.
         let first_blob_idx = txs.first().unwrap().pruned_blob_idx;
-        let mut blob = vec![
-            0;
+        let mut bytes = read_blob(
+            tapes,
+            &db.pruned_blobs,
+            first_blob_idx,
             u64_to_usize(txs.last().unwrap().pruned_blob_idx - first_blob_idx)
                 + txs.last().unwrap().pruned_size
-                + 32
-        ];
-        tapes.read_bytes(&db.pruned_blobs, first_blob_idx, &mut blob)?;
+                + 32,
+        )?;
 
-        let mut bytes = Bytes::from(blob);
+        if pruned {
+            TransactionBlobs::Pruned(
+                txs.iter()
+                    .map(|tx_info| PrunedTxBlobEntry {
+                        blob: bytes.split_to(tx_info.pruned_size),
+                        prunable_hash: bytes.split_to(32).try_into().unwrap(),
+                    })
+                    .collect(),
+            )
+        } else {
+            let (mut v1_len, mut v2_len) = (0, 0);
+            for t in &txs {
+                if t.is_v1_tx() {
+                    v1_len += t.prunable_size;
+                } else {
+                    v2_len += t.prunable_size;
+                }
+            }
+            let mut v1 = read_blob(
+                tapes,
+                &db.v1_prunable_blobs,
+                block_info.v1_prunable_blob_idx,
+                v1_len,
+            )?;
+            let pruning_stripe = cuprate_pruning::get_block_pruning_stripe(
+                block_height,
+                usize::MAX,
+                CRYPTONOTE_PRUNING_LOG_STRIPES,
+            )
+            .unwrap();
+            let mut v2 = read_blob(
+                tapes,
+                &db.prunable_blobs[usize::try_from(pruning_stripe)
+                    .expect("stripe will not exceed usize::MAX")
+                    - 1],
+                block_info.prunable_blob_idx,
+                v2_len,
+            )?;
 
-        TransactionBlobs::Pruned(
-            txs.into_iter()
-                .map(|tx_info| PrunedTxBlobEntry {
-                    blob: bytes.split_to(tx_info.pruned_size),
-                    prunable_hash: bytes.split_to(32).try_into().unwrap(),
-                })
-                .collect(),
-        )
-    } else {
-        TransactionBlobs::Normal(
-            txs.into_iter()
-                .map(|tx_info| {
-                    let mut blob = vec![0; tx_info.pruned_size + tx_info.prunable_size];
-                    // read the pruned blob.
-                    tapes.read_bytes(
-                        &db.pruned_blobs,
-                        tx_info.pruned_blob_idx,
-                        &mut blob[..tx_info.pruned_size],
-                    )?;
-
-                    // read the prunable blob.
-                    if tx_info.is_v1_tx() {
-                        tapes.read_bytes(
-                            &db.v1_prunable_blobs,
-                            tx_info.prunable_blob_idx,
-                            &mut blob[tx_info.pruned_size..],
-                        )?;
-                    } else {
-                        tapes.read_bytes(
-                            &db.prunable_blobs[usize::try_from(pruning_stripe)
-                                .expect("stripe will not exceed usize::MAX")
-                                - 1],
-                            tx_info.prunable_blob_idx,
-                            &mut blob[(tx_info.pruned_size)..],
-                        )?;
-                    }
-
-                    Ok(Bytes::from(blob))
-                })
-                .collect::<Result<_, BlockchainError>>()?,
-        )
+            TransactionBlobs::Normal(
+                txs.iter()
+                    .map(|tx_info| {
+                        let pruned = bytes.split_to(tx_info.pruned_size);
+                        bytes.advance(32); // skip the interleaved prunable hash
+                        let prunable = if tx_info.is_v1_tx() {
+                            v1.split_to(tx_info.prunable_size)
+                        } else {
+                            v2.split_to(tx_info.prunable_size)
+                        };
+                        Bytes::from([pruned.as_ref(), prunable.as_ref()].concat())
+                    })
+                    .collect(),
+            )
+        }
     };
 
     let block_blob = {
@@ -578,11 +599,12 @@ pub fn get_block_complete_entry_from_height(
             Ok,
         )?;
 
-        let mut blob = vec![0; u64_to_usize(block_blob_end_idx - block_blob_start_idx)];
-
-        tapes.read_bytes(&db.pruned_blobs, block_blob_start_idx, &mut blob)?;
-
-        Bytes::from(blob)
+        read_blob(
+            tapes,
+            &db.pruned_blobs,
+            block_blob_start_idx,
+            u64_to_usize(block_blob_end_idx - block_blob_start_idx),
+        )?
     };
 
     Ok(BlockCompleteEntry {
