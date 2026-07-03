@@ -10,7 +10,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Error};
-use cuprate_types::{HardFork, OutputDistributionInput};
+use cuprate_types::PreRctOutputDistributionInput;
 use monero_oxide::transaction::Timelock;
 
 use cuprate_constants::rpc::MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT;
@@ -110,23 +110,54 @@ pub(super) async fn get_output_distribution(
         ));
     }
 
-    // monerod clamps RCT `start_height` to the HF v4 activation height.
-    let rct_start_height = blockchain_context::hard_fork_infos(&mut state.blockchain_context)
-        .await?
-        .get(HardFork::V4 as usize - 1)
-        .map_or(0, |info| info.earliest_height);
+    // Pre-RCT amounts are served by the database, the RCT
+    // distribution by the context service's cache.
+    let pre_rct_amounts: Vec<NonZero<u64>> = request
+        .amounts
+        .iter()
+        .copied()
+        .filter_map(NonZero::new)
+        .collect();
 
-    let input = OutputDistributionInput {
-        amounts: request.amounts,
-        cumulative: request.cumulative,
-        from_height: request.from_height,
-
-        // 0 / `None` is placeholder for the whole chain
-        to_height: NonZero::new(request.to_height),
-        rct_start_height,
+    // 0 / `None` is placeholder for the whole chain.
+    let to_height = match NonZero::new(request.to_height) {
+        Some(h) => Some(h),
+        None if pre_rct_amounts.is_empty() => None,
+        None => NonZero::new(blockchain::chain_height(&mut state.blockchain_read).await? - 1),
     };
 
-    let distributions = blockchain::output_distribution(&mut state.blockchain_read, input).await?;
+    let mut pre_rct = if pre_rct_amounts.is_empty() {
+        Vec::new()
+    } else {
+        blockchain::pre_rct_output_distribution(
+            &mut state.blockchain_read,
+            PreRctOutputDistributionInput {
+                amounts: pre_rct_amounts,
+                cumulative: request.cumulative,
+                from_height: request.from_height,
+                to_height,
+            },
+        )
+        .await?
+    }
+    .into_iter();
+
+    let mut distributions = Vec::with_capacity(request.amounts.len());
+    for &amount in &request.amounts {
+        let data = if amount == 0 {
+            blockchain_context::rct_output_distribution(
+                &mut state.blockchain_context,
+                request.from_height,
+                to_height,
+                request.cumulative,
+            )
+            .await?
+        } else {
+            pre_rct.next().expect("one distribution per pre-RCT amount")
+        };
+
+        distributions.push(data);
+    }
 
     // TODO: <https://github.com/monero-project/monero/issues/9422>.
     let binary = request.binary;

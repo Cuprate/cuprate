@@ -20,7 +20,7 @@ use cuprate_types::{
         ChainInfo, CoinbaseTxSum, KeyImageSpentStatus, OutputDistributionData,
         OutputHistogramEntry, OutputHistogramInput,
     },
-    BlockCompleteEntry, Chain, ExtendedBlockHeader, OutputDistributionInput, OutputOnChain,
+    BlockCompleteEntry, Chain, ExtendedBlockHeader, OutputOnChain, PreRctOutputDistributionInput,
     TxInBlockchain,
 };
 
@@ -98,6 +98,20 @@ pub async fn block_hash(
     };
 
     Ok(hash)
+}
+
+/// [`BlockchainReadRequest::ChainHeight`].
+pub async fn chain_height(blockchain_read: &mut BlockchainReadHandle) -> Result<u64, Error> {
+    let BlockchainResponse::ChainHeight(height, _) = blockchain_read
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::ChainHeight)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(usize_to_u64(height))
 }
 
 /// [`BlockchainReadRequest::FindBlock`].
@@ -363,15 +377,15 @@ pub async fn database_size(
     Ok((database_size, free_space))
 }
 
-/// [`BlockchainReadRequest::OutputDistribution`]
-pub async fn output_distribution(
+/// [`BlockchainReadRequest::PreRctOutputDistribution`]
+pub async fn pre_rct_output_distribution(
     blockchain_read: &mut BlockchainReadHandle,
-    input: OutputDistributionInput,
+    input: PreRctOutputDistributionInput,
 ) -> Result<Vec<OutputDistributionData>, Error> {
-    let BlockchainResponse::OutputDistribution(data) = blockchain_read
+    let BlockchainResponse::PreRctOutputDistribution(data) = blockchain_read
         .ready()
         .await?
-        .call(BlockchainReadRequest::OutputDistribution(input))
+        .call(BlockchainReadRequest::PreRctOutputDistribution(input))
         .await?
     else {
         unreachable!();

@@ -41,7 +41,8 @@ use cuprate_types::{
         ChainInfo, CoinbaseTxSum, OutputDistributionData, OutputHistogramEntry,
         OutputHistogramInput,
     },
-    Chain, ChainId, ExtendedBlockHeader, OutputDistributionInput, TransactionBlobs, TxsInBlock,
+    Chain, ChainId, ExtendedBlockHeader, PreRctOutputDistributionInput, TransactionBlobs,
+    TxsInBlock,
 };
 
 use crate::{
@@ -153,6 +154,7 @@ fn map_request(
         }
         R::ChainHeight => chain_height(env),
         R::GeneratedCoins(height) => generated_coins(env, height),
+        R::CumulativeRctOutsInRange(range) => cumulative_rct_outs_in_range(env, range),
         R::Outputs {
             outputs: map,
             get_txid,
@@ -180,7 +182,7 @@ fn map_request(
         R::Transactions { tx_hashes } => transactions(env, tx_hashes),
         R::TotalRctOutputs => total_rct_outputs(env),
         R::TxOutputIndexes { tx_hash } => tx_output_indexes(env, &tx_hash),
-        R::OutputDistribution(input) => output_distribution(env, input),
+        R::PreRctOutputDistribution(input) => pre_rct_output_distribution(env, input),
     }
 
     /* SOMEDAY: post-request handling, run some code for each request? */
@@ -580,6 +582,26 @@ fn generated_coins(db: &BlockchainDatabase, height: usize) -> ResponseResult {
         tapes
             .read_entry(&db.block_infos, usize_to_u64(height))?
             .map_or(0, |info| info.cumulative_generated_coins),
+    ))
+}
+
+/// [`BlockchainReadRequest::CumulativeRctOutsInRange`].
+#[inline]
+fn cumulative_rct_outs_in_range(db: &BlockchainDatabase, range: Range<usize>) -> ResponseResult {
+    let tapes = db.linear_tapes.reader();
+
+    let cumulative_rct_outs = tapes
+        .iter_from(&db.block_infos, usize_to_u64(range.start))?
+        .take(range.len())
+        .map(|info| Ok(info?.cumulative_rct_outs))
+        .collect::<DbResult<Vec<u64>>>()?;
+
+    if cumulative_rct_outs.len() < range.len() {
+        return Err(BlockchainError::NotFound);
+    }
+
+    Ok(BlockchainResponse::CumulativeRctOutsInRange(
+        cumulative_rct_outs,
     ))
 }
 
@@ -1313,8 +1335,11 @@ fn tx_output_indexes(db: &BlockchainDatabase, tx_hash: &[u8; 32]) -> ResponseRes
     Ok(BlockchainResponse::TxOutputIndexes(o_indexes))
 }
 
-/// [`BlockchainReadRequest::OutputDistribution`]
-fn output_distribution(db: &BlockchainDatabase, input: OutputDistributionInput) -> ResponseResult {
+/// [`BlockchainReadRequest::PreRctOutputDistribution`]
+fn pre_rct_output_distribution(
+    db: &BlockchainDatabase,
+    input: PreRctOutputDistributionInput,
+) -> ResponseResult {
     let tapes = db.linear_tapes.reader();
     let chain_height = u64_to_usize(
         tapes
@@ -1338,100 +1363,54 @@ fn output_distribution(db: &BlockchainDatabase, input: OutputDistributionInput) 
     let mut result = Vec::with_capacity(input.amounts.len());
 
     for &amount in &input.amounts {
-        if amount == 0 {
-            // clamp the start to the start of RCT, like monerod.
-            let start_height = u64_to_usize(input.from_height.max(input.rct_start_height));
+        let amount = amount.get();
 
-            if start_height > to_height {
-                result.push(OutputDistributionData {
-                    amount: 0,
-                    distribution: vec![],
-                    start_height: usize_to_u64(start_height),
-                    base: 0,
-                });
-                continue;
-            }
+        let start_height = u64_to_usize(input.from_height);
 
-            // Read one block below the range to get the `base` value to calculate real values from
-            // cumulative ones.
-            let real_start = start_height.saturating_sub(1);
-            let count = to_height - real_start + 1;
-
-            let mut iter = tapes
-                .iter_from(&db.block_infos, usize_to_u64(real_start))?
-                .take(count)
-                .map(|info| -> DbResult<u64> { Ok(info?.cumulative_rct_outs) });
-
-            let base = if start_height > 0 {
-                // Take the first value (the base for the cumulative calculation)
-                iter.next().ok_or(BlockchainError::NotFound)??
-            } else {
-                0
-            };
-
-            let distribution: Vec<u64> = if input.cumulative {
-                iter.collect::<DbResult<_>>()?
-            } else {
-                let mut prev = base;
-                iter.map(|cumulative| {
-                    let cumulative = cumulative?;
-                    let delta = cumulative - prev;
-                    prev = cumulative;
-                    Ok(delta)
-                })
-                .collect::<DbResult<_>>()?
-            };
-
-            result.push(OutputDistributionData {
-                amount: 0,
-                distribution,
-                start_height: usize_to_u64(start_height),
-                base,
-            });
-        } else {
-            let start_height = u64_to_usize(input.from_height);
-
-            if start_height > to_height {
-                return Err(BlockchainError::NotFound);
-            }
-
-            let mut per_block: Vec<u64> = vec![0; to_height - start_height + 1];
-            let mut below_start: u64 = 0;
-
-            // loop over all outputs with this amount.
-            for guard in db.pre_rct_outputs.prefix(amount.to_be_bytes()) {
-                let output: Output = bytemuck::pod_read_unaligned(guard.value()?.as_ref());
-                let h = output.height;
-                // Add the output to the block it says it is in.
-                if h < start_height {
-                    below_start += 1;
-                } else if h <= to_height {
-                    per_block[h - start_height] += 1;
-                }
-            }
-
-            // monerod folds the below `start_height` count into the first bucket and
-            // reports `base = 0` for pre-RCT amounts.
-            per_block[0] += below_start;
-
-            let distribution = if input.cumulative {
-                let mut cumulative = per_block;
-                for i in 1..cumulative.len() {
-                    cumulative[i] += cumulative[i - 1];
-                }
-                cumulative
-            } else {
-                per_block
-            };
-
-            result.push(OutputDistributionData {
-                amount,
-                distribution,
-                start_height: usize_to_u64(start_height),
-                base: 0,
-            });
+        if start_height > to_height {
+            return Err(BlockchainError::NotFound);
         }
+
+        let mut per_block: Vec<u64> = vec![0; to_height - start_height + 1];
+        let mut below_start: u64 = 0;
+
+        // loop over all outputs with this amount.
+        for guard in db.pre_rct_outputs.prefix(amount.to_be_bytes()) {
+            let output: Output = bytemuck::pod_read_unaligned(guard.value()?.as_ref());
+            let h = output.height;
+            // Add the output to the block it says it is in.
+            if h < start_height {
+                below_start += 1;
+            } else if h <= to_height {
+                per_block[h - start_height] += 1;
+            } else {
+                // The outputs are sorted by (amount, height), so we can stop
+                // once we see a height above the range.
+                break;
+            }
+        }
+
+        // monerod folds the below `start_height` count into the first bucket and
+        // reports `base = 0` for pre-RCT amounts.
+        per_block[0] += below_start;
+
+        let distribution = if input.cumulative {
+            let mut cumulative = per_block;
+            for i in 1..cumulative.len() {
+                cumulative[i] += cumulative[i - 1];
+            }
+            cumulative
+        } else {
+            per_block
+        };
+
+        result.push(OutputDistributionData {
+            amount,
+            distribution,
+            start_height: usize_to_u64(start_height),
+            base: 0,
+        });
     }
 
-    Ok(BlockchainResponse::OutputDistribution(result))
+    Ok(BlockchainResponse::PreRctOutputDistribution(result))
 }
