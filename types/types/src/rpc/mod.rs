@@ -18,7 +18,6 @@ pub use types::{
     FeeEstimate, GetBan, GetMinerDataTxBacklogEntry, GetOutputsOut, HardForkEntry, HardForkInfo,
     HistogramEntry, MinerData, MinerDataTxBacklogEntry, OutputDistributionData,
     OutputHistogramEntry, OutputHistogramInput, Peer, PoolInfoFull, PoolInfoIncremental,
-    PoolTxInfo, PublicNode, RpcAccessDataEntry, RpcAccessTrackingEntry, SetBan, Span,
-    SpentKeyImageInfo, SyncInfoPeer, TxBacklogEntry, TxInfo, TxOutputIndices, TxpoolHisto,
-    TxpoolStats,
+    PoolTxInfo, PublicNode, SetBan, Span, SpentKeyImageInfo, SyncInfoPeer, TxBacklogEntry, TxInfo,
+    TxOutputIndices, TxpoolHisto, TxpoolStats,
 };

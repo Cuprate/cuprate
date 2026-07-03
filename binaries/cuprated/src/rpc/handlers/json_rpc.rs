@@ -5,7 +5,6 @@
 //! <https://github.com/Cuprate/cuprate/pull/355>
 
 use std::{
-    borrow::Cow,
     collections::HashMap,
     net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4},
     num::NonZero,
@@ -30,7 +29,6 @@ use cuprate_hex::{Hex, HexVec};
 use cuprate_p2p_core::{client::handshaker::builder::DummyAddressBook, ClearNet, Network};
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
-    base::{AccessResponseBase, ResponseBase},
     json::{
         AddAuxPowRequest, AddAuxPowResponse, BannedRequest, BannedResponse, CalcPowRequest,
         CalcPowResponse, FlushCacheRequest, FlushCacheResponse, FlushTxpoolRequest,
@@ -49,9 +47,8 @@ use cuprate_rpc_types::{
         GetTxpoolBacklogResponse, GetVersionRequest, GetVersionResponse, HardForkInfoRequest,
         HardForkInfoResponse, JsonRpcRequest, JsonRpcResponse, OnGetBlockHashRequest,
         OnGetBlockHashResponse, PruneBlockchainRequest, PruneBlockchainResponse, RelayTxRequest,
-        RelayTxResponse, RpcAccessInfoResponse, RpcAccessPayResponse, RpcAccessSubmitNonceResponse,
-        SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse, SyncInfoRequest,
-        SyncInfoResponse,
+        RelayTxResponse, SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse,
+        SyncInfoRequest, SyncInfoResponse,
     },
     misc::{BlockHeader, ChainInfo, Distribution, GetBan, HistogramEntry, Status, SyncInfoPeer},
     CORE_RPC_VERSION,
@@ -127,52 +124,10 @@ pub async fn map_request(
             Resp::GetOutputDistribution(get_output_distribution(state, r).await?)
         }
 
-        Req::RpcAccessInfo(_) => Resp::RpcAccessInfo(RPC_ACCESS_INFO_RESPONSE),
-        Req::RpcAccessSubmitNonce(_) => Resp::RpcAccessSubmitNonce(RPC_ACCESS_SUBMIT_NONCE),
-        Req::RpcAccessPay(_) => Resp::RpcAccessPay(RPC_ACCESS_PAY),
-
         // Unsupported RPC calls.
-        Req::GetTxIdsLoose(_)
-        | Req::FlushCache(_)
-        | Req::RpcAccessTracking(_)
-        | Req::RpcAccessData(_)
-        | Req::RpcAccessAccount(_) => return Err(anyhow!(UNSUPPORTED_RPC_CALL)),
+        Req::GetTxIdsLoose(_) | Req::FlushCache(_) => return Err(anyhow!(UNSUPPORTED_RPC_CALL)),
     })
 }
-
-/// The response to [`JsonRpcRequest::RpcAccessInfo`].
-const RPC_ACCESS_INFO_RESPONSE: RpcAccessInfoResponse = RpcAccessInfoResponse {
-    base: helper::access_response_base(false),
-    hashing_blob: String::new(),
-    seed_height: 0,
-    seed_hash: String::new(),
-    next_seed_hash: String::new(),
-    cookie: 0,
-    diff: 0,
-    credits_per_hash_found: 0,
-    height: 0,
-};
-
-/// Used in the response to [`JsonRpcRequest::RpcAccessSubmitNonce`] and
-/// [`JsonRpcRequest::RpcAccessPay`] to signal that payment is not necessary.
-const RPC_ACCESS_PAYMENT_NOT_NEEDED_BASE: AccessResponseBase = AccessResponseBase {
-    response_base: ResponseBase {
-        status: Status::Other(Cow::Borrowed("Payment not necessary")),
-        untrusted: false,
-    },
-    credits: 0,
-    top_hash: String::new(),
-};
-
-/// The response to [`JsonRpcRequest::RpcAccessSubmitNonce`].
-const RPC_ACCESS_SUBMIT_NONCE: RpcAccessSubmitNonceResponse = RpcAccessSubmitNonceResponse {
-    base: RPC_ACCESS_PAYMENT_NOT_NEEDED_BASE,
-};
-
-/// The response to [`JsonRpcRequest::RpcAccessPay`].
-const RPC_ACCESS_PAY: RpcAccessPayResponse = RpcAccessPayResponse {
-    base: RPC_ACCESS_PAYMENT_NOT_NEEDED_BASE,
-};
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1911-L2005>
 async fn get_block_template(
