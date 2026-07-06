@@ -451,7 +451,7 @@ pub async fn alt_chain_count(blockchain_read: &mut BlockchainReadHandle) -> Resu
 /// [`BlockchainReadRequest::Transactions`].
 pub async fn transactions(
     blockchain_read: &mut BlockchainReadHandle,
-    tx_hashes: HashSet<[u8; 32]>,
+    tx_hashes: Vec<[u8; 32]>,
 ) -> Result<(Vec<TxInBlockchain>, Vec<[u8; 32]>), Error> {
     let BlockchainResponse::Transactions { txs, missed_txs } = blockchain_read
         .ready()
