@@ -11,6 +11,7 @@ use cuprate_helper::{
     cast::{u64_to_usize, usize_to_u64},
     map::split_u128_into_low_high_bits,
 };
+use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
     base::{AccessResponseBase, ResponseBase},
     misc::BlockHeader,
@@ -53,7 +54,7 @@ pub(super) async fn block_header(
             .saturating_sub(prev_header.cumulative_difficulty)
     };
 
-    let pow_hash = if fill_pow_hash {
+    let pow_hash = if fill_pow_hash && !state.is_restricted() {
         let seed_height =
             cuprate_consensus_rules::blocks::randomx_seed_height(u64_to_usize(height));
         let seed_hash =
