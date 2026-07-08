@@ -68,7 +68,7 @@ define_request_and_response! {
     get_alt_blocks_hashes,
     "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 288..=308,
-    GetAltBlocksHashes (empty),
+    GetAltBlocksHashes (restricted, empty),
     Request {},
 
     AccessResponseBase {
@@ -461,7 +461,7 @@ define_request_and_response! {
     "cc73fe71162d564ffda8e549b79a350bca53c454" =>
     core_rpc_server_commands_defs.h => 1419..=1448,
 
-    GetPublicNodes (restricted),
+    GetPublicNodes,
 
     Request {
         gray: bool = default::<bool>(), "default",
