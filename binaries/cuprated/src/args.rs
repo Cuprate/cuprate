@@ -15,7 +15,7 @@ pub struct Args {
     #[arg(
         long,
         value_parser = clap::builder::PossibleValuesParser::new(["mainnet", "testnet", "stagenet", "fakechain"])
-            .map(|s| Some(s.parse::<Network>().unwrap())),
+            .map(|s| s.parse::<Network>().unwrap()),
     )]
     pub network: Option<Network>,
 
