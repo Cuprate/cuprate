@@ -1,13 +1,5 @@
 //! Database reader thread-pool definitions and logic.
 
-#![expect(
-    unreachable_code,
-    unused_variables,
-    clippy::unnecessary_wraps,
-    clippy::needless_pass_by_value,
-    reason = "TODO: finish implementing the signatures from <https://github.com/Cuprate/cuprate/pull/297>"
-)]
-
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     cmp::min,
@@ -41,7 +33,8 @@ use cuprate_types::{
         ChainInfo, CoinbaseTxSum, OutputDistributionData, OutputHistogramEntry,
         OutputHistogramInput,
     },
-    Chain, ChainId, ExtendedBlockHeader, OutputDistributionInput, TransactionBlobs, TxsInBlock,
+    Chain, ChainId, ExtendedBlockHeader, OutputDistributionInput, TransactionBlobs, TxInBlockchain,
+    TxsInBlock,
 };
 
 use crate::{
@@ -59,7 +52,7 @@ use crate::{
         output::{
             get_num_outputs_with_amount, id_to_output_on_chain, unlocked_and_recent_instances,
         },
-        tx::get_tx_blob_from_id,
+        tx::{get_split_tx_blobs, get_tx_blob_from_id},
     },
     service::{
         free::{compact_history_genesis_not_included, compact_history_index_to_height_offset},
@@ -89,7 +82,7 @@ impl Service<BlockchainReadRequest> for BlockchainReadHandle {
     type Error = BlockchainError;
     type Future = InfallibleOneshotReceiver<Result<Self::Response, Self::Error>>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
     }
 
@@ -137,7 +130,7 @@ fn map_request(
             pruned,
         } => block_complete_entries_above_split_point(
             env,
-            chain,
+            &chain,
             start_height,
             no_miner_tx,
             len,
@@ -171,16 +164,16 @@ fn map_request(
         R::AltBlocksInChain(chain_id) => alt_blocks_in_chain(env, chain_id),
         R::Block { height } => block(env, height),
         R::BlockByHash(hash) => block_by_hash(env, hash),
-        R::TotalTxCount => total_tx_count(env),
-        R::DatabaseSize => database_size(env),
-        R::OutputHistogram(input) => output_histogram(env, input),
+        R::TotalTxCount => Ok(total_tx_count(env)),
+        R::DatabaseSize => Ok(database_size(env)),
+        R::OutputHistogram(input) => output_histogram(env, &input),
         R::CoinbaseTxSum { height, count } => coinbase_tx_sum(env, height, count),
         R::AltChains => alt_chains(env),
         R::AltChainCount => alt_chain_count(env),
         R::Transactions { tx_hashes } => transactions(env, tx_hashes),
-        R::TotalRctOutputs => total_rct_outputs(env),
+        R::TotalRctOutputs => Ok(total_rct_outputs(env)),
         R::TxOutputIndexes { tx_hash } => tx_output_indexes(env, &tx_hash),
-        R::OutputDistribution(input) => output_distribution(env, input),
+        R::OutputDistribution(input) => output_distribution(env, &input),
     }
 
     /* SOMEDAY: post-request handling, run some code for each request? */
@@ -236,7 +229,7 @@ fn block_complete_entries(db: &BlockchainDatabase, block_hashes: Vec<BlockHash>)
 /// [`BlockchainReadRequest::BlockCompleteEntriesAboveSplitPoint`].
 fn block_complete_entries_above_split_point(
     db: &BlockchainDatabase,
-    chain: Vec<[u8; 32]>,
+    chain: &[[u8; 32]],
     start_height: Option<usize>,
     no_miner_tx: bool,
     len: usize,
@@ -273,7 +266,7 @@ fn block_complete_entries_above_split_point(
         }
         h
     } else {
-        let split = find_split_point(db, &chain, false, false, &tx_ro)?;
+        let split = find_split_point(db, chain, false, false, &tx_ro)?;
 
         if split == chain.len() {
             return Err(BlockchainError::NotFound);
@@ -990,14 +983,15 @@ fn block_by_hash(db: &BlockchainDatabase, block_hash: BlockHash) -> ResponseResu
 }
 
 /// [`BlockchainReadRequest::TotalTxCount`]
-fn total_tx_count(db: &BlockchainDatabase) -> ResponseResult {
+fn total_tx_count(db: &BlockchainDatabase) -> BlockchainResponse {
     let tapes = db.linear_tapes.reader();
     let count = u64_to_usize(
         tapes
             .fixed_sized_tape_len(&db.tx_infos)
             .expect("tx_infos tape exists"),
     );
-    Ok(BlockchainResponse::TotalTxCount(count))
+
+    BlockchainResponse::TotalTxCount(count)
 }
 
 /// Walk a directory recursively and sum the sizes of all files.
@@ -1016,7 +1010,7 @@ fn dir_size(path: &std::path::Path) -> u64 {
 }
 
 /// [`BlockchainReadRequest::DatabaseSize`]
-fn database_size(db: &BlockchainDatabase) -> ResponseResult {
+fn database_size(db: &BlockchainDatabase) -> BlockchainResponse {
     // Sum file sizes in both data directories (blob and index).
     let blob_size = dir_size(&db.config.blob_dir);
     let index_size = if db.config.index_dir == db.config.blob_dir {
@@ -1029,14 +1023,14 @@ fn database_size(db: &BlockchainDatabase) -> ResponseResult {
     // TODO:
     let free_space = u64::MAX;
 
-    Ok(BlockchainResponse::DatabaseSize {
+    BlockchainResponse::DatabaseSize {
         database_size,
         free_space,
-    })
+    }
 }
 
 /// [`BlockchainReadRequest::OutputHistogram`]
-fn output_histogram(db: &BlockchainDatabase, input: OutputHistogramInput) -> ResponseResult {
+fn output_histogram(db: &BlockchainDatabase, input: &OutputHistogramInput) -> ResponseResult {
     let tapes = db.linear_tapes.reader();
     let tx_ro = db.fjall.snapshot();
 
@@ -1265,22 +1259,81 @@ fn alt_chain_count(db: &BlockchainDatabase) -> ResponseResult {
 }
 
 /// [`BlockchainReadRequest::Transactions`]
-fn transactions(db: &BlockchainDatabase, tx_hashes: HashSet<[u8; 32]>) -> ResponseResult {
-    Ok(BlockchainResponse::Transactions {
-        txs: todo!(),
-        missed_txs: todo!(),
-    })
+fn transactions(db: &BlockchainDatabase, tx_hashes: Vec<[u8; 32]>) -> ResponseResult {
+    let tx_ro = db.fjall.snapshot();
+    let tapes = db.linear_tapes.reader();
+    let chain_height = crate::ops::blockchain::chain_height(db, &tapes)?;
+
+    let mut txs = Vec::with_capacity(tx_hashes.len());
+    let mut missed_txs = Vec::new();
+    let mut block_timestamps = HashMap::new();
+
+    for tx_hash in tx_hashes {
+        let Some(tx_id) = tx_ro.get(&db.tx_ids, tx_hash)? else {
+            missed_txs.push(tx_hash);
+            continue;
+        };
+
+        let tx_id = u64::from_le_bytes(tx_id.as_ref().try_into().unwrap());
+        let tx_info = tapes
+            .read_entry(&db.tx_infos, tx_id)?
+            .ok_or(BlockchainError::NotFound)?;
+        let block_info = tapes
+            .read_entry(&db.block_infos, usize_to_u64(tx_info.height))?
+            .ok_or(BlockchainError::NotFound)?;
+        let is_miner_tx = tx_id == block_info.mining_tx_index;
+
+        let (pruned_blob, prunable_blob, prunable_hash) =
+            get_split_tx_blobs(&tx_info, is_miner_tx, &tapes, db)?;
+
+        let block_timestamp = if let Some(timestamp) = block_timestamps.get(&tx_info.height) {
+            *timestamp
+        } else {
+            let timestamp =
+                get_block_extended_header_from_height(tx_info.height, &tapes, db)?.timestamp;
+            block_timestamps.insert(tx_info.height, timestamp);
+            timestamp
+        };
+
+        let output_indices = if tx_info.is_v1_tx() {
+            let output_indices = tx_ro
+                .get(&db.v1_tx_outputs, tx_id.to_le_bytes())?
+                .ok_or(BlockchainError::NotFound)?;
+
+            output_indices
+                .chunks(8)
+                .map(|chunk| u64::from_le_bytes(chunk.try_into().unwrap()))
+                .collect()
+        } else {
+            (0..tx_info.numb_rct_outputs)
+                .map(|i| usize_to_u64(i) + tx_info.rct_output_start_idx)
+                .collect()
+        };
+
+        txs.push(TxInBlockchain {
+            block_height: usize_to_u64(tx_info.height),
+            block_timestamp,
+            confirmations: usize_to_u64(chain_height - tx_info.height),
+            output_indices,
+            tx_hash,
+            pruned_blob,
+            prunable_blob,
+            prunable_hash,
+        });
+    }
+
+    Ok(BlockchainResponse::Transactions { txs, missed_txs })
 }
 
 /// [`BlockchainReadRequest::TotalRctOutputs`]
-fn total_rct_outputs(db: &BlockchainDatabase) -> ResponseResult {
+fn total_rct_outputs(db: &BlockchainDatabase) -> BlockchainResponse {
     let tapes = db.linear_tapes.reader();
 
     let len = tapes
         .fixed_sized_tape_len(&db.rct_outputs)
         .expect("Required tape not found");
 
-    Ok(BlockchainResponse::TotalRctOutputs(len))
+    BlockchainResponse::TotalRctOutputs(len)
 }
 
 /// [`BlockchainReadRequest::TxOutputIndexes`]
@@ -1314,7 +1367,7 @@ fn tx_output_indexes(db: &BlockchainDatabase, tx_hash: &[u8; 32]) -> ResponseRes
 }
 
 /// [`BlockchainReadRequest::OutputDistribution`]
-fn output_distribution(db: &BlockchainDatabase, input: OutputDistributionInput) -> ResponseResult {
+fn output_distribution(db: &BlockchainDatabase, input: &OutputDistributionInput) -> ResponseResult {
     let tapes = db.linear_tapes.reader();
     let chain_height = u64_to_usize(
         tapes

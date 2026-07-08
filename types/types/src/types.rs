@@ -178,7 +178,6 @@ pub struct TxInBlockchain {
     pub confirmations: u64,
     pub output_indices: Vec<u64>,
     pub tx_hash: [u8; 32],
-    pub tx_blob: Vec<u8>,
     pub pruned_blob: Vec<u8>,
     pub prunable_blob: Vec<u8>,
     pub prunable_hash: [u8; 32],
