@@ -265,7 +265,7 @@ where
     ) {
         tracing::debug!("Checking if we can give any work to pending peers.");
 
-        for (_, peers) in pending_peers.iter_mut() {
+        for peers in pending_peers.values_mut() {
             while let Some(peer) = peers.pop() {
                 if peer.info.handle.is_closed() {
                     // Peer has disconnected, drop it.
