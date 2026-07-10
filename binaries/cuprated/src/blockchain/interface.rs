@@ -63,7 +63,7 @@ pub enum IncomingBlockError {
 
 impl BlockchainManagerHandle {
     /// Create a new handle and command receiver pair.
-    pub fn new() -> (Self, mpsc::Receiver<BlockchainManagerCommand>) {
+    pub(crate) fn new() -> (Self, mpsc::Receiver<BlockchainManagerCommand>) {
         let (command_tx, command_rx) = mpsc::channel(3);
         (
             Self {

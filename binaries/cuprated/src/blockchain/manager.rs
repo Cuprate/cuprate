@@ -24,7 +24,9 @@ use cuprate_types::{
 };
 
 use crate::{
-    blockchain::{chain_service::ChainService, syncer, types::ConsensusBlockchainReadHandle},
+    blockchain::{
+        chain_service::ChainService, syncer::BlockchainSyncer, types::ConsensusBlockchainReadHandle,
+    },
     constants::PANIC_CRITICAL_SERVICE_ERROR,
     txpool::TxpoolManagerHandle,
     LaunchContext,
@@ -37,18 +39,17 @@ mod handler;
 mod tests;
 
 pub use commands::{BlockchainManagerCommand, IncomingBlockOk};
-use syncer::Syncer;
 
 /// Initialize the blockchain manager.
 ///
-/// This function sets up the `BlockchainManager` and the [`Syncer`] so that the functions in [`interface`](super::interface)
+/// This function sets up the `BlockchainManager` and the [`BlockchainSyncer`] so that the functions in [`interface`](super::interface)
 /// can be called.
 pub(crate) async fn init_blockchain_manager(
     launch_ctx: &LaunchContext,
     clearnet_interface: NetworkInterface<ClearNet>,
     blockchain_write_handle: BlockchainWriteHandle,
     txpool_manager_handle: TxpoolManagerHandle,
-    syncer: Syncer,
+    synced_tx: futures::channel::oneshot::Sender<()>,
     command_rx: mpsc::Receiver<BlockchainManagerCommand>,
 ) -> Result<(), anyhow::Error> {
     let block_downloader_config = launch_ctx.config.block_downloader_config();
@@ -58,6 +59,8 @@ pub(crate) async fn init_blockchain_manager(
     let (batch_tx, batch_rx) = mpsc::channel(1);
     let stop_current_block_downloader = Arc::new(Notify::new());
     let fast_sync_hashes = launch_ctx.config.fast_sync_hashes();
+
+    let syncer = BlockchainSyncer::new(&launch_ctx.blockchain.syncer(), synced_tx);
 
     launch_ctx.task_executor.spawn(syncer.run(
         launch_ctx.blockchain.context_svc(),
@@ -107,7 +110,7 @@ pub struct BlockchainManager {
     /// The blockchain context cache, this caches the current state of the blockchain to quickly calculate/retrieve
     /// values without needing to go to a [`BlockchainReadHandle`].
     blockchain_context_service: BlockchainContextService,
-    /// A [`Notify`] to tell the [`Syncer`] that we want to cancel this current download
+    /// A [`Notify`] to tell the [`BlockchainSyncer`] that we want to cancel this current download
     /// attempt.
     stop_current_block_downloader: Arc<Notify>,
     /// The broadcast service, to broadcast new blocks.

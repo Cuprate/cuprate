@@ -58,7 +58,7 @@ use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::blockchain::BlockchainWriteRequest;
 
 use crate::{
-    blockchain::{BlockchainInterface, BlockchainManagerHandle, Syncer},
+    blockchain::{BlockchainInterface, BlockchainManagerHandle, BlockchainSyncerHandle},
     config::Config,
     constants::DATABASE_CORRUPT_MSG,
     monitor::TaskExecutor,
@@ -191,8 +191,8 @@ impl Node {
                 .await
                 .map_err(anyhow::Error::from_boxed)?;
 
-        // Create the syncer and handle.
-        let (syncer, syncer_handle) = Syncer::new();
+        // Create the blockchain syncer handle and synced signal sender.
+        let (blockchain_syncer_handle, synced_tx) = BlockchainSyncerHandle::new();
 
         // Create the blockchain manager handle and command receiver.
         let (blockchain_manager_handle, command_rx) = BlockchainManagerHandle::new();
@@ -202,7 +202,7 @@ impl Node {
             blockchain_read_handle,
             context_svc,
             blockchain_manager_handle,
-            syncer_handle,
+            blockchain_syncer_handle,
         );
 
         // Create the launch context.
@@ -251,7 +251,7 @@ impl Node {
             clearnet_interface.clone(),
             blockchain_write_handle,
             tx_handler.txpool_manager.clone(),
-            syncer,
+            synced_tx,
             command_rx,
         )
         .await?;

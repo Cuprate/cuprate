@@ -25,12 +25,12 @@ mod chain_service;
 mod fast_sync;
 pub mod interface;
 mod manager;
-pub(crate) mod syncer;
+mod syncer;
 mod types;
 
 pub use fast_sync::get_fast_sync_hashes;
 pub use interface::BlockchainManagerHandle;
-pub use syncer::{Syncer, SyncerHandle};
+pub use syncer::BlockchainSyncerHandle;
 pub use types::ConsensusBlockchainReadHandle;
 
 pub(crate) use manager::init_blockchain_manager;
@@ -45,7 +45,7 @@ pub struct BlockchainInterface {
     /// A handle to the blockchain manager.
     manager: BlockchainManagerHandle,
     /// A handle to the blockchain syncer.
-    syncer: SyncerHandle,
+    syncer: BlockchainSyncerHandle,
 }
 
 impl BlockchainInterface {
@@ -53,7 +53,7 @@ impl BlockchainInterface {
         read: BlockchainReadHandle,
         context_svc: BlockchainContextService,
         manager: BlockchainManagerHandle,
-        syncer: SyncerHandle,
+        syncer: BlockchainSyncerHandle,
     ) -> Self {
         Self {
             read,
@@ -79,7 +79,7 @@ impl BlockchainInterface {
     }
 
     /// Returns a handle to the blockchain syncer.
-    pub fn syncer(&self) -> SyncerHandle {
+    pub fn syncer(&self) -> BlockchainSyncerHandle {
         self.syncer.clone()
     }
 

@@ -542,7 +542,7 @@ pub(super) async fn get_info(
         state.start_instant_unix
     };
 
-    let target_height = state.syncer_handle.target_height();
+    let target_height = state.blockchain_syncer.target_height();
     let busy_syncing = target_height > 0;
     let synchronized = !busy_syncing;
     let target = c.current_hf.block_time().as_secs();
@@ -861,7 +861,7 @@ async fn get_version(
     _: GetVersionRequest,
 ) -> Result<GetVersionResponse, Error> {
     let current_height = usize_to_u64(state.blockchain_context.blockchain_context().chain_height);
-    let target_height = state.syncer_handle.target_height();
+    let target_height = state.blockchain_syncer.target_height();
 
     let mut hard_forks: Vec<HardForkEntry> =
         blockchain_context::hard_fork_infos(&mut state.blockchain_context)

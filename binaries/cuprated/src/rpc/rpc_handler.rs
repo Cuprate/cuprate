@@ -22,7 +22,7 @@ use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::BlockTemplate;
 
 use crate::{
-    blockchain::{BlockchainManagerHandle, SyncerHandle},
+    blockchain::{BlockchainManagerHandle, BlockchainSyncerHandle},
     monitor::TaskExecutor,
     rpc::handlers,
     txpool::IncomingTxHandler,
@@ -181,8 +181,8 @@ pub struct CupratedRpcHandler {
 
     pub tx_handler: IncomingTxHandler,
 
-    /// Handle to the syncer — used to query target sync height.
-    pub syncer_handle: SyncerHandle,
+    /// Handle to the blockchain syncer.
+    pub blockchain_syncer: BlockchainSyncerHandle,
 
     /// Command channel to the blockchain manager.
     pub blockchain_manager: BlockchainManagerHandle,
@@ -213,7 +213,7 @@ impl CupratedRpcHandler {
             blockchain_read: launch_ctx.blockchain.read(),
             blockchain_context: launch_ctx.blockchain.context_svc(),
             txpool_read: launch_ctx.txpool_read.clone(),
-            syncer_handle: launch_ctx.blockchain.syncer(),
+            blockchain_syncer: launch_ctx.blockchain.syncer(),
             blockchain_manager: launch_ctx.blockchain.manager(),
             start_instant_unix,
             task_executor: launch_ctx.task_executor.clone(),
