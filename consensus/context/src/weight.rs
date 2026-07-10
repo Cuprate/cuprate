@@ -335,7 +335,7 @@ fn calculate_effective_median_block_weight(
     effective_median.max(penalty_free_zone(hf))
 }
 
-/// Calculates a blocks long term weight.
+/// Calculates a block's long term weight.
 pub fn calculate_block_long_term_weight(
     hf: HardFork,
     block_weight: usize,
