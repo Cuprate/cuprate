@@ -18,7 +18,8 @@ use crate::{
         OutputHistogramInput,
     },
     types::{Chain, ExtendedBlockHeader, OutputOnChain, TxsInBlock, VerifiedBlockInformation},
-    AltBlockInformation, BlockCompleteEntry, ChainId, OutputDistributionInput, TxInBlockchain,
+    AltBlockInformation, BlockCompleteEntry, ChainId, PreRctOutputDistributionInput,
+    TxInBlockchain,
 };
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
@@ -92,6 +93,9 @@ pub enum BlockchainReadRequest {
 
     /// Request the total amount of generated coins (atomic units) at this height.
     GeneratedCoins(usize),
+
+    /// Request the cumulative RCT output count for the main-chain blocks in this height range.
+    CumulativeRctOutsInRange(Range<usize>),
 
     /// Request data for multiple outputs.
     ///
@@ -195,11 +199,11 @@ pub enum BlockchainReadRequest {
     /// TODO: document fields after impl.
     OutputHistogram(OutputHistogramInput),
 
-    /// Get the distribution for an output amount.
+    /// Get the distribution for a pre-RCT output amount.
     ///
     /// - TODO: document fields after impl.
     /// - TODO: <https://github.com/monero-project/monero/blob/893916ad091a92e765ce3241b94e706ad012b62a/src/rpc/rpc_handler.cpp#L29>
-    OutputDistribution(OutputDistributionInput),
+    PreRctOutputDistribution(PreRctOutputDistributionInput),
 
     /// Get the coinbase amount and the fees amount for
     /// `N` last blocks starting at particular height.
@@ -336,6 +340,11 @@ pub enum BlockchainResponse {
     /// Inner value is the total amount of generated coins up to and including the chosen height, in atomic units.
     GeneratedCoins(u64),
 
+    /// Response to [`BlockchainReadRequest::CumulativeRctOutsInRange`].
+    ///
+    /// Inner value is `cumulative_rct_outs` for each block in the requested range.
+    CumulativeRctOutsInRange(Vec<u64>),
+
     /// Response to [`BlockchainReadRequest::Outputs`].
     ///
     /// Inner value is an [`OutputCache`], missing outputs won't trigger an error, they just will not be
@@ -430,8 +439,8 @@ pub enum BlockchainResponse {
         free_space: u64,
     },
 
-    /// Response to [`BlockchainReadRequest::OutputDistribution`].
-    OutputDistribution(Vec<OutputDistributionData>),
+    /// Response to [`BlockchainReadRequest::PreRctOutputDistribution`].
+    PreRctOutputDistribution(Vec<OutputDistributionData>),
 
     /// Response to [`BlockchainReadRequest::OutputHistogram`].
     OutputHistogram(Vec<OutputHistogramEntry>),

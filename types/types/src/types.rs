@@ -210,16 +210,13 @@ bitflags::bitflags! {
 
 /// Used in RPC's `get_output_distribution`.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct OutputDistributionInput {
-    pub amounts: Vec<u64>,
+pub struct PreRctOutputDistributionInput {
+    pub amounts: Vec<NonZero<u64>>,
     pub cumulative: bool,
     pub from_height: u64,
 
     /// [`None`] means the entire blockchain.
     pub to_height: Option<NonZero<u64>>,
-
-    /// The earliest block height at which RCT outputs can appear (HF v4).
-    pub rct_start_height: u64,
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

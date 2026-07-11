@@ -12,6 +12,7 @@ use std::{
     cmp::min,
     collections::HashMap,
     future::Future,
+    num::NonZero,
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
@@ -29,6 +30,7 @@ use cuprate_consensus_rules::{
 };
 
 pub mod difficulty;
+pub mod distribution;
 pub mod hardforks;
 pub mod rx_vms;
 pub mod weight;
@@ -37,7 +39,7 @@ mod alt_chains;
 mod task;
 
 use cuprate_types::{
-    rpc::{ChainInfo, FeeEstimate, HardForkInfo},
+    rpc::{ChainInfo, FeeEstimate, HardForkInfo, OutputDistributionData},
     Chain,
 };
 use difficulty::DifficultyCache;
@@ -199,6 +201,8 @@ pub struct NewBlockData {
     pub vote: HardFork,
     /// The cumulative difficulty of the chain.
     pub cumulative_difficulty: u128,
+    /// The number of RCT outputs in this block.
+    pub numb_rct_outputs: usize,
 }
 
 /// A request to the blockchain context cache.
@@ -242,6 +246,16 @@ pub enum BlockChainContextRequest {
     FeeEstimate {
         /// TODO
         grace_blocks: u64,
+    },
+
+    /// Get the RCT output distribution.
+    RctOutputDistribution {
+        /// The height to start the distribution from.
+        from_height: u64,
+        /// The height to end the distribution at, [`None`] means the top block.
+        to_height: Option<NonZero<u64>>,
+        /// Whether the distribution should be cumulative.
+        cumulative: bool,
     },
 
     /// Calculate proof-of-work for this block.
@@ -350,6 +364,9 @@ pub enum BlockChainContextResponse {
 
     /// Response to [`BlockChainContextRequest::FeeEstimate`]
     FeeEstimate(FeeEstimate),
+
+    /// Response to [`BlockChainContextRequest::RctOutputDistribution`]
+    RctOutputDistribution(OutputDistributionData),
 
     /// Response to [`BlockChainContextRequest::CalculatePow`]
     CalculatePow([u8; 32]),
