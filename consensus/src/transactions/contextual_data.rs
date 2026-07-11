@@ -65,7 +65,7 @@ fn get_ring_members_for_inputs(
 
 /// Construct a [`TxRingMembersInfo`] struct.
 ///
-/// The used outs must be all the ring members used in the transactions inputs.
+/// The used outs must be all the ring members used in the transaction's inputs.
 pub fn new_ring_member_info(
     used_outs: Vec<Vec<OutputOnChain>>,
     decoy_info: Option<DecoyInfo>,
@@ -214,10 +214,10 @@ pub async fn batch_get_ring_member_info<D: Database>(
         .collect::<Result<_, _>>()?)
 }
 
-/// Refreshes the transactions [`TxRingMembersInfo`], if needed.
+/// Refreshes the transactions' [`TxRingMembersInfo`], if needed.
 ///
 /// # Panics
-/// This functions panics if `hf == HardFork::V1` as decoy info
+/// This function panics if `hf == HardFork::V1` as decoy info
 /// should not be needed for V1.
 #[instrument(level = "debug", skip_all)]
 pub async fn batch_get_decoy_info<'a, 'b, D: Database>(

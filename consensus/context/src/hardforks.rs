@@ -171,13 +171,13 @@ impl HardForkState {
 
     /// Add a new block to the cache.
     pub fn new_block(&mut self, vote: HardFork, height: usize) {
-        // We don't _need_ to take in `height` but it's for safety, so we don't silently loose track
+        // We don't _need_ to take in `height` but it's for safety, so we don't silently lose track
         // of blocks.
         assert_eq!(self.last_height + 1, height);
         self.last_height += 1;
 
         tracing::debug!(
-            "Accounting for new blocks vote, height: {}, vote: {:?}",
+            "Accounting for new block's vote, height: {}, vote: {:?}",
             self.last_height,
             vote
         );
