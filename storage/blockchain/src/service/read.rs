@@ -33,8 +33,8 @@ use cuprate_types::{
         ChainInfo, CoinbaseTxSum, OutputDistributionData, OutputHistogramEntry,
         OutputHistogramInput,
     },
-    Chain, ChainId, ExtendedBlockHeader, PreRctOutputDistributionInput, TransactionBlobs, TxInBlockchain,
-    TxsInBlock,
+    Chain, ChainId, ExtendedBlockHeader, PreRctOutputDistributionInput, TransactionBlobs,
+    TxInBlockchain, TxsInBlock,
 };
 
 use crate::{
@@ -174,7 +174,7 @@ fn map_request(
         R::Transactions { tx_hashes } => transactions(env, tx_hashes),
         R::TotalRctOutputs => Ok(total_rct_outputs(env)),
         R::TxOutputIndexes { tx_hash } => tx_output_indexes(env, &tx_hash),
-        R::PreRctOutputDistribution(input) => pre_rct_output_distribution(env, input),
+        R::PreRctOutputDistribution(input) => pre_rct_output_distribution(env, &input),
     }
 
     /* SOMEDAY: post-request handling, run some code for each request? */
@@ -1390,7 +1390,7 @@ fn tx_output_indexes(db: &BlockchainDatabase, tx_hash: &[u8; 32]) -> ResponseRes
 /// [`BlockchainReadRequest::PreRctOutputDistribution`]
 fn pre_rct_output_distribution(
     db: &BlockchainDatabase,
-    input: PreRctOutputDistributionInput,
+    input: &PreRctOutputDistributionInput,
 ) -> ResponseResult {
     let tapes = db.linear_tapes.reader();
     let chain_height = u64_to_usize(
