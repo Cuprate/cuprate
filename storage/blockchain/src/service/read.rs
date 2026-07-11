@@ -33,7 +33,7 @@ use cuprate_types::{
         ChainInfo, CoinbaseTxSum, OutputDistributionData, OutputHistogramEntry,
         OutputHistogramInput,
     },
-    Chain, ChainId, ExtendedBlockHeader, OutputDistributionInput, TransactionBlobs, TxInBlockchain,
+    Chain, ChainId, ExtendedBlockHeader, PreRctOutputDistributionInput, TransactionBlobs, TxInBlockchain,
     TxsInBlock,
 };
 
