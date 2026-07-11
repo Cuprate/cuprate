@@ -278,13 +278,12 @@ pub fn add_blocks_to_tapes(
 ///
 /// # Panics
 /// This function will panic if the block is invalid.
-#[expect(single_use_lifetimes)]
 // no inline, too big.
-pub fn add_block_to_dynamic_tables<'a>(
+pub fn add_block_to_dynamic_tables<'a, I: Iterator<Item = Cow<'a, Transaction<Pruned>>>>(
     db: &BlockchainDatabase,
     block: &Block,
     block_hash: &BlockHash,
-    txs: impl Iterator<Item = Cow<'a, Transaction<Pruned>>>,
+    txs: I,
     numb_transactions: &mut u64,
     w: &mut fjall::OwnedWriteBatch,
     pre_rct_numb_outputs_cache: &mut HashMap<Amount, u64>,

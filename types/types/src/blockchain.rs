@@ -218,7 +218,9 @@ pub enum BlockchainReadRequest {
     AltChainCount,
 
     /// Get transaction blobs by their hashes.
-    Transactions { tx_hashes: HashSet<[u8; 32]> },
+    ///
+    /// Returned transactions must preserve request order, omitting missing hashes.
+    Transactions { tx_hashes: Vec<[u8; 32]> },
 
     /// Get the total amount of RCT outputs in the blockchain.
     TotalRctOutputs,
