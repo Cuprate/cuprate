@@ -31,6 +31,14 @@ impl NetZoneAddress for TestNetZoneAddr {
     fn should_add_to_peer_list(&self) -> bool {
         true
     }
+
+    fn as_log(&self) -> impl std::fmt::Display + '_ {
+        *self
+    }
+
+    fn to_addr_string(&self) -> String {
+        self.to_string()
+    }
 }
 
 impl std::fmt::Display for TestNetZoneAddr {

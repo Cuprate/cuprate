@@ -16,7 +16,7 @@ use tower::{Service, ServiceExt};
 
 use crate::{
     client::{handshaker::HandShaker, Client, DoHandshakeRequest, HandshakeError, InternalPeerID},
-    AddressBook, BroadcastMessage, ConnectionDirection, CoreSyncSvc, NetworkZone,
+    AddressBook, BroadcastMessage, ConnectionDirection, CoreSyncSvc, NetZoneAddress, NetworkZone,
     ProtocolRequestHandlerMaker, Transport,
 };
 
@@ -68,7 +68,7 @@ where
     }
 
     fn call(&mut self, req: ConnectRequest<Z>) -> Self::Future {
-        tracing::debug!("Connecting to peer: {}", req.addr);
+        tracing::debug!("Connecting to peer: {}", req.addr.as_log());
         let mut handshaker = self.handshaker.clone();
 
         async move {

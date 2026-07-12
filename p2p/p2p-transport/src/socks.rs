@@ -47,13 +47,22 @@ pub async fn is_socks5_proxy(addr: SocketAddr) -> bool {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Socks;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct SocksClientConfig {
     /// Proxy address
     pub proxy: SocketAddr,
 
     /// According to RFC 1929, if authentication is enabled, both username and password fields MUST NOT be empty.
     pub authentication: Option<(String, String)>,
+}
+
+impl std::fmt::Debug for SocksClientConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // skip authentication info
+        f.debug_struct("SocksClientConfig")
+            .field("proxy", &self.proxy)
+            .finish_non_exhaustive()
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Transport

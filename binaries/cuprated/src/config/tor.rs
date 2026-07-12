@@ -49,7 +49,7 @@ config_struct! {
     }
 
     /// Tor config
-    #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+    #[derive(Clone, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
     #[allow(rustdoc::broken_intra_doc_links)]
     pub struct TorDaemonConfig {
@@ -112,6 +112,19 @@ config_struct! {
         ///
         /// Only relevant if `tor.mode` is set to "Daemon"
         pub daemon: TorDaemonConfig,
+    }
+}
+
+impl std::fmt::Debug for TorDaemonConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TorDaemonConfig")
+            .field("address", &self.address)
+            .field(
+                "anonymous_inbound",
+                &safelog::sensitive(&self.anonymous_inbound),
+            )
+            .field("listening_addr", &self.listening_addr)
+            .finish()
     }
 }
 
