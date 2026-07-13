@@ -9,7 +9,7 @@ use cuprate_fixed_bytes::ByteArrayVec;
 use serde::{Deserialize, Serialize};
 
 use cuprate_types::{
-    rpc::{BlockOutputIndices, PoolInfo},
+    rpc::{BlockOutputIndices, PoolInfoExtent, PoolTxInfo},
     BlockCompleteEntry,
 };
 
@@ -102,21 +102,24 @@ define_request_and_response! {
     Request {
         requested_info: u8 = default::<u8>(), "default",
         block_ids: ByteArrayVec<32> = default::<ByteArrayVec<32>>(), "default",
-        start_height: u64,
-        prune: bool,
-        no_miner_tx: bool,
+        start_height: u64 = default::<u64>(), "default",
+        prune: bool = default::<bool>(), "default",
+        no_miner_tx: bool = default::<bool>(), "default",
         pool_info_since: u64 = default::<u64>(), "default",
+        max_block_count: u64 = default::<u64>(), "default",
     },
 
-    // TODO: add `top_block_hash` field
-    // <https://github.com/monero-project/monero/blame/893916ad091a92e765ce3241b94e706ad012b62a/src/rpc/core_rpc_server_commands_defs.h#L263>
     AccessResponseBase {
         blocks: Vec<BlockCompleteEntry> = default::<Vec<BlockCompleteEntry>>(), "default",
         start_height: u64,
         current_height: u64,
+        top_block_hash: [u8; 32] = default::<[u8; 32]>(), "default",
         output_indices: Vec<BlockOutputIndices> = default::<Vec<BlockOutputIndices>>(), "default",
         daemon_time: u64 = default::<u64>(), "default",
-        pool_info: PoolInfo = default::<PoolInfo>(), "default",
+        pool_info_extent: PoolInfoExtent = default::<PoolInfoExtent>(), "default",
+        added_pool_txs: Vec<PoolTxInfo>,
+        remaining_added_pool_txids: ByteArrayVec<32>,
+        removed_pool_txids: ByteArrayVec<32>,
     }
 }
 

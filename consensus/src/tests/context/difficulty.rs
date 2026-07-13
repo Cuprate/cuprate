@@ -172,7 +172,7 @@ proptest! {
             // we dont need cumulative_difficulties
             cumulative_difficulties: VecDeque::new(),
         };
-        // add the genesis blocks timestamp (always 0)
+        // add the genesis block's timestamp (always 0)
         timestamps.push_front(0);
         timestamps.make_contiguous().sort_unstable();
         prop_assert_eq!(median(timestamps.make_contiguous()), diff_cache.median_timestamp(TEST_WINDOW).unwrap());

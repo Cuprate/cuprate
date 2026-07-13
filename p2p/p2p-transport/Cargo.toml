@@ -18,7 +18,7 @@ futures = { workspace = true }
 tokio = { workspace = true, features = ["net"] }
 tokio-socks   = { workspace = true, features = ["tokio"] }
 tokio-util = { workspace = true, features = ["codec"] }
-arti-client = { workspace = true, features = ["tokio", "native-tls", "onion-service-client", "onion-service-service", "experimental-api", "static-sqlite"], optional = true }
+arti-client = { workspace = true, features = ["tokio", "rustls", "onion-service-client", "onion-service-service", "experimental-api", "static-sqlite"], optional = true }
 tor-config-path = { workspace = true, optional = true }
 tor-cell        = { workspace = true, optional = true }
 tor-hsservice   = { workspace = true, optional = true }

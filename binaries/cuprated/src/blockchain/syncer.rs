@@ -71,7 +71,7 @@ impl Syncer {
     }
 
     /// Run the syncer.
-    #[instrument(level = "debug", skip_all)]
+    #[instrument(name = "syncer", level = "debug", skip_all)]
     #[expect(clippy::significant_drop_tightening)]
     #[expect(clippy::too_many_arguments)]
     pub async fn run<CN>(

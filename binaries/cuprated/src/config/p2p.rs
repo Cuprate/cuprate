@@ -312,7 +312,7 @@ impl Default for ClearNetConfig {
             outbound_connections: 32,
             extra_outbound_connections: 8,
             max_inbound_connections: 128,
-            gray_peers_percent: 0.7,
+            gray_peers_percent: 0.3,
             address_book_config: AddressBookConfig::default(),
         }
     }
@@ -327,7 +327,7 @@ impl Default for TorNetConfig {
             outbound_connections: 12,
             extra_outbound_connections: 2,
             max_inbound_connections: 128,
-            gray_peers_percent: 0.7,
+            gray_peers_percent: 0.3,
             address_book_config: AddressBookConfig::default(),
         }
     }
@@ -438,7 +438,7 @@ pub fn tor_net_seed_nodes(network: Network) -> Vec<OnionAddr> {
     let seeds = match network {
         Network::Mainnet => [
             "zbjkbsxc5munw3qusl7j2hpcmikhqocdf4pqhnhtpzw5nt5jrmofptid.onion:18083",
-            "qz43zul2x56jexzoqgkx2trzwcfnr6l3hbtfcfx54g4r3eahy3bssjyd.onion:18083",
+            "lykcas4tus7mkm4bhsgqe4drtd4awi7gja24goscc47xfgzj54yofyqd.onion:18083",
             "plowsof3t5hogddwabaeiyrno25efmzfxyro2vligremt7sxpsclfaid.onion:18083",
             "plowsoffjexmxalw73tkjmf422gq6575fc7vicuu4javzn2ynnte6tyd.onion:18083",
             "plowsofe6cleftfmk2raiw5h2x66atrik3nja4bfd3zrfa2hdlgworad.onion:18083",

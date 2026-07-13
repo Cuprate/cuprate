@@ -26,7 +26,7 @@ pub(crate) fn check_input_signatures(
     match rings {
         Rings::Legacy(rings) => {
             // <https://monero-book.cuprate.org/consensus_rules/transactions/ring_signatures.html#amount-of-ring-signatures>
-            // rings.len() != inputs.len() can't happen but check any way.
+            // rings.len() != inputs.len() can't happen but check anyway.
             if signatures.len() != inputs.len() || rings.len() != inputs.len() {
                 return Err(TransactionError::RingSignatureIncorrect);
             }

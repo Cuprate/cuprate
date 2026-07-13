@@ -19,7 +19,7 @@ use tokio_util::codec::{FramedRead, FramedWrite};
 use tor_cell::relaycell::msg::Connected;
 use tor_config_path::CfgPathResolver;
 use tor_hsservice::{handle_rend_requests, OnionService, RunningOnionService};
-use tor_proto::stream::IncomingStreamRequest;
+use tor_proto::client::stream::IncomingStreamRequest;
 use tor_rtcompat::PreferredRuntime;
 
 use cuprate_p2p_core::{ClearNet, NetworkZone, Tor, Transport};
@@ -32,7 +32,7 @@ use crate::DisabledListener;
 #[derive(Clone)]
 pub struct ArtiClientConfig {
     /// Arti bootstrapped client
-    pub client: TorClient<PreferredRuntime>,
+    pub client: Arc<TorClient<PreferredRuntime>>,
 }
 
 pub struct ArtiServerConfig {
@@ -42,7 +42,7 @@ pub struct ArtiServerConfig {
     pub port: u16,
 
     // Mandatory resources for launching the onion service
-    client: TorClient<PreferredRuntime>,
+    client: Arc<TorClient<PreferredRuntime>>,
     path_resolver: Arc<CfgPathResolver>,
 }
 
@@ -50,7 +50,7 @@ impl ArtiServerConfig {
     pub fn new(
         onion_svc: OnionService,
         port: u16,
-        client: &TorClient<PreferredRuntime>,
+        client: &Arc<TorClient<PreferredRuntime>>,
         config: &TorClientConfig,
     ) -> Self {
         let path_resolver: &CfgPathResolver = config.as_ref();
@@ -58,7 +58,7 @@ impl ArtiServerConfig {
         Self {
             onion_svc,
             port,
-            client: client.clone(),
+            client: Arc::clone(client),
             path_resolver: Arc::new(path_resolver.clone()),
         }
     }
@@ -135,17 +135,20 @@ impl Transport<Tor> for Arti {
     async fn incoming_connection_listener(
         config: Self::ServerConfig,
     ) -> Result<Self::Listener, io::Error> {
+        let not_running =
+            |e: arti_client::Error| io::Error::new(ErrorKind::NotConnected, e.to_string());
+
         // Launch onion service
-        #[expect(clippy::clone_on_ref_ptr)]
         let (svc, rdv_stream) = config
             .onion_svc
             .launch(
                 config.client.runtime().clone(),
-                config.client.dirmgr().clone(),
-                config.client.hs_circ_pool().clone(),
+                config.client.dirmgr().map_err(not_running)?,
+                config.client.hs_circ_pool().map_err(not_running)?,
                 config.path_resolver,
             )
-            .unwrap();
+            .unwrap()
+            .expect("the onion service is never disabled in its config");
 
         // Accept all rendez-vous and await correct stream request
         #[expect(clippy::wildcard_enum_match_arm)]

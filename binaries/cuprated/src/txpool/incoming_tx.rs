@@ -43,7 +43,7 @@ use crate::{
         dandelion::{
             self, AnonTxService, ConcreteDandelionRouter, DiffuseService, MainDandelionRouter,
         },
-        manager::{start_txpool_manager, TxpoolManagerHandle},
+        manager::{start_txpool_manager, TxpoolManagerCommand, TxpoolManagerHandle},
         relay_rules::{check_tx_relay_rules, RelayRuleError},
         txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
     },
@@ -243,8 +243,8 @@ async fn handle_incoming_txs(
         // TODO: take into account `do_not_relay` in the tx-pool manager.
 
         if txpool_manager_handle
-            .tx_tx
-            .send((tx, state.clone()))
+            .command_tx
+            .send(TxpoolManagerCommand::IncomingTx(tx, state.clone()))
             .await
             .is_err()
         {

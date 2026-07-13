@@ -5,7 +5,6 @@
 //! <https://github.com/Cuprate/cuprate/pull/355>
 
 use std::{
-    borrow::Cow,
     collections::HashMap,
     net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4},
     num::NonZero,
@@ -16,9 +15,9 @@ use anyhow::{anyhow, Error};
 use monero_oxide::block::Block;
 use strum::{EnumCount, VariantArray};
 
-use cuprate_constants::{
-    build::RELEASE,
-    rpc::{RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE},
+use cuprate_constants::rpc::{
+    OUTPUT_HISTOGRAM_RECENT_CUTOFF_RESTRICTION, RESTRICTED_BLOCK_COUNT,
+    RESTRICTED_BLOCK_HEADER_RANGE,
 };
 use cuprate_helper::{
     cast::{u32_to_usize, u64_to_usize, usize_to_u64},
@@ -30,7 +29,6 @@ use cuprate_hex::{Hex, HexVec};
 use cuprate_p2p_core::{client::handshaker::builder::DummyAddressBook, ClearNet, Network};
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
-    base::{AccessResponseBase, ResponseBase},
     json::{
         AddAuxPowRequest, AddAuxPowResponse, BannedRequest, BannedResponse, CalcPowRequest,
         CalcPowResponse, FlushCacheRequest, FlushCacheResponse, FlushTxpoolRequest,
@@ -49,9 +47,8 @@ use cuprate_rpc_types::{
         GetTxpoolBacklogResponse, GetVersionRequest, GetVersionResponse, HardForkInfoRequest,
         HardForkInfoResponse, JsonRpcRequest, JsonRpcResponse, OnGetBlockHashRequest,
         OnGetBlockHashResponse, PruneBlockchainRequest, PruneBlockchainResponse, RelayTxRequest,
-        RelayTxResponse, RpcAccessInfoResponse, RpcAccessPayResponse, RpcAccessSubmitNonceResponse,
-        SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse, SyncInfoRequest,
-        SyncInfoResponse,
+        RelayTxResponse, SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse,
+        SyncInfoRequest, SyncInfoResponse,
     },
     misc::{BlockHeader, ChainInfo, Distribution, GetBan, HistogramEntry, Status, SyncInfoPeer},
     CORE_RPC_VERSION,
@@ -105,15 +102,21 @@ pub async fn map_request(
         Req::GetBans(r) => Resp::GetBans(not_available()?),
         Req::Banned(r) => Resp::Banned(not_available()?),
         Req::FlushTxpool(r) => Resp::FlushTxpool(not_available()?),
-        Req::GetOutputHistogram(r) => Resp::GetOutputHistogram(not_available()?),
-        Req::GetCoinbaseTxSum(r) => Resp::GetCoinbaseTxSum(not_available()?),
-        Req::GetVersion(r) => Resp::GetVersion(not_available()?),
-        Req::GetFeeEstimate(r) => Resp::GetFeeEstimate(not_available()?),
-        Req::GetAlternateChains(r) => Resp::GetAlternateChains(not_available()?),
+        Req::GetOutputHistogram(r) => {
+            Resp::GetOutputHistogram(get_output_histogram(state, r).await?)
+        }
+        Req::GetCoinbaseTxSum(r) => Resp::GetCoinbaseTxSum(get_coinbase_tx_sum(state, r).await?),
+        Req::GetVersion(r) => Resp::GetVersion(get_version(state, r).await?),
+        Req::GetFeeEstimate(r) => Resp::GetFeeEstimate(get_fee_estimate(state, r).await?),
+        Req::GetAlternateChains(r) => {
+            Resp::GetAlternateChains(get_alternate_chains(state, r).await?)
+        }
         Req::RelayTx(r) => Resp::RelayTx(not_available()?),
         Req::SyncInfo(r) => Resp::SyncInfo(not_available()?),
-        Req::GetTxpoolBacklog(r) => Resp::GetTxpoolBacklog(not_available()?),
-        Req::GetMinerData(r) => Resp::GetMinerData(not_available()?),
+        Req::GetTxpoolBacklog(r) => {
+            Resp::GetTxpoolBacklog(get_transaction_pool_backlog(state, r).await?)
+        }
+        Req::GetMinerData(r) => Resp::GetMinerData(get_miner_data(state, r).await?),
         Req::PruneBlockchain(r) => Resp::PruneBlockchain(not_available()?),
         Req::CalcPow(r) => Resp::CalcPow(not_available()?),
         Req::AddAuxPow(r) => Resp::AddAuxPow(not_available()?),
@@ -121,52 +124,10 @@ pub async fn map_request(
             Resp::GetOutputDistribution(get_output_distribution(state, r).await?)
         }
 
-        Req::RpcAccessInfo(_) => Resp::RpcAccessInfo(RPC_ACCESS_INFO_RESPONSE),
-        Req::RpcAccessSubmitNonce(_) => Resp::RpcAccessSubmitNonce(RPC_ACCESS_SUBMIT_NONCE),
-        Req::RpcAccessPay(_) => Resp::RpcAccessPay(RPC_ACCESS_PAY),
-
         // Unsupported RPC calls.
-        Req::GetTxIdsLoose(_)
-        | Req::FlushCache(_)
-        | Req::RpcAccessTracking(_)
-        | Req::RpcAccessData(_)
-        | Req::RpcAccessAccount(_) => return Err(anyhow!(UNSUPPORTED_RPC_CALL)),
+        Req::GetTxIdsLoose(_) | Req::FlushCache(_) => return Err(anyhow!(UNSUPPORTED_RPC_CALL)),
     })
 }
-
-/// The response to [`JsonRpcRequest::RpcAccessInfo`].
-const RPC_ACCESS_INFO_RESPONSE: RpcAccessInfoResponse = RpcAccessInfoResponse {
-    base: helper::access_response_base(false),
-    hashing_blob: String::new(),
-    seed_height: 0,
-    seed_hash: String::new(),
-    next_seed_hash: String::new(),
-    cookie: 0,
-    diff: 0,
-    credits_per_hash_found: 0,
-    height: 0,
-};
-
-/// Used in the response to [`JsonRpcRequest::RpcAccessSubmitNonce`] and
-/// [`JsonRpcRequest::RpcAccessPay`] to signal that payment is not necessary.
-const RPC_ACCESS_PAYMENT_NOT_NEEDED_BASE: AccessResponseBase = AccessResponseBase {
-    response_base: ResponseBase {
-        status: Status::Other(Cow::Borrowed("Payment not necessary")),
-        untrusted: false,
-    },
-    credits: 0,
-    top_hash: String::new(),
-};
-
-/// The response to [`JsonRpcRequest::RpcAccessSubmitNonce`].
-const RPC_ACCESS_SUBMIT_NONCE: RpcAccessSubmitNonceResponse = RpcAccessSubmitNonceResponse {
-    base: RPC_ACCESS_PAYMENT_NOT_NEEDED_BASE,
-};
-
-/// The response to [`JsonRpcRequest::RpcAccessPay`].
-const RPC_ACCESS_PAY: RpcAccessPayResponse = RpcAccessPayResponse {
-    base: RPC_ACCESS_PAYMENT_NOT_NEEDED_BASE,
-};
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1911-L2005>
 async fn get_block_template(
@@ -252,9 +213,7 @@ async fn get_block_count(
     Ok(GetBlockCountResponse {
         base: helper::response_base(false),
         // Block count starts at 1
-        count: blockchain::chain_height(&mut state.blockchain_read)
-            .await?
-            .0,
+        count: usize_to_u64(state.blockchain_context.blockchain_context().chain_height),
     })
 }
 
@@ -339,7 +298,7 @@ async fn get_last_block_header(
     mut state: CupratedRpcHandler,
     request: GetLastBlockHeaderRequest,
 ) -> Result<GetLastBlockHeaderResponse, Error> {
-    let (height, _) = helper::top_height(&mut state).await?;
+    let (height, _) = helper::top_height(&mut state);
     let block_header = helper::block_header(&mut state, height, request.fill_pow_hash).await?;
 
     Ok(GetLastBlockHeaderResponse {
@@ -381,7 +340,8 @@ async fn get_block_header_by_height(
     mut state: CupratedRpcHandler,
     request: GetBlockHeaderByHeightRequest,
 ) -> Result<GetBlockHeaderByHeightResponse, Error> {
-    helper::check_height(&mut state, request.height).await?;
+    helper::check_height(&mut state, request.height)?;
+
     let block_header =
         helper::block_header(&mut state, request.height, request.fill_pow_hash).await?;
 
@@ -396,10 +356,10 @@ async fn get_block_headers_range(
     mut state: CupratedRpcHandler,
     request: GetBlockHeadersRangeRequest,
 ) -> Result<GetBlockHeadersRangeResponse, Error> {
-    let (top_height, _) = helper::top_height(&mut state).await?;
+    let chain_height = usize_to_u64(state.blockchain_context.blockchain_context().chain_height);
 
-    if request.start_height >= top_height
-        || request.end_height >= top_height
+    if request.start_height >= chain_height
+        || request.end_height >= chain_height
         || request.start_height > request.end_height
     {
         return Err(anyhow!("Invalid start/end heights"));
@@ -451,7 +411,8 @@ async fn get_block(
     request: GetBlockRequest,
 ) -> Result<GetBlockResponse, Error> {
     let (block, block_header) = if request.hash.is_empty() {
-        helper::check_height(&mut state, request.height).await?;
+        helper::check_height(&mut state, request.height)?;
+
         let block = blockchain::block(&mut state.blockchain_read, request.height).await?;
         let block_header =
             helper::block_header(&mut state, request.height, request.fill_pow_hash).await?;
@@ -535,7 +496,8 @@ pub(super) async fn get_info(
     let (database_size, free_space) = blockchain::database_size(&mut state.blockchain_read).await?;
     let (database_size, free_space) = if restricted {
         // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L131-L134>
-        let database_size = database_size.div_ceil(5 * 1024 * 1024 * 1024);
+        let quantum = 5 * 1024 * 1024 * 1024;
+        let database_size = database_size.div_ceil(quantum) * quantum;
         (database_size, u64::MAX)
     } else {
         (database_size, free_space)
@@ -819,6 +781,21 @@ async fn get_output_histogram(
     mut state: CupratedRpcHandler,
     request: GetOutputHistogramRequest,
 ) -> Result<GetOutputHistogramResponse, Error> {
+    if state.is_restricted() && request.amounts.is_empty() {
+        return Err(anyhow!(
+            "Restricted RPC will not serve histograms on the whole blockchain. Use your own node."
+        ));
+    }
+
+    if state.is_restricted()
+        && request.recent_cutoff > 0
+        && request.recent_cutoff
+            < current_unix_timestamp()
+                .saturating_sub(OUTPUT_HISTOGRAM_RECENT_CUTOFF_RESTRICTION.as_secs())
+    {
+        return Err(anyhow!("Recent cutoff is too old"));
+    }
+
     let input = cuprate_types::rpc::OutputHistogramInput {
         amounts: request.amounts,
         min_count: request.min_count,
@@ -849,6 +826,12 @@ async fn get_coinbase_tx_sum(
     mut state: CupratedRpcHandler,
     request: GetCoinbaseTxSumRequest,
 ) -> Result<GetCoinbaseTxSumResponse, Error> {
+    let chain_height = usize_to_u64(state.blockchain_context.blockchain_context().chain_height);
+
+    if request.height >= chain_height || request.count > chain_height - request.height {
+        return Err(anyhow!("requested range exceeds blockchain height"));
+    }
+
     let CoinbaseTxSum {
         emission_amount_top64,
         emission_amount,
@@ -858,8 +841,8 @@ async fn get_coinbase_tx_sum(
         .await?;
 
     // Formats `u128` as hexadecimal strings.
-    let wide_emission_amount = fee_amount.hex_prefix();
-    let wide_fee_amount = emission_amount.hex_prefix();
+    let wide_emission_amount = (emission_amount, emission_amount_top64).hex_prefix();
+    let wide_fee_amount = (fee_amount, fee_amount_top64).hex_prefix();
 
     Ok(GetCoinbaseTxSumResponse {
         base: helper::access_response_base(false),
@@ -877,10 +860,10 @@ async fn get_version(
     mut state: CupratedRpcHandler,
     _: GetVersionRequest,
 ) -> Result<GetVersionResponse, Error> {
-    let current_height = helper::top_height(&mut state).await?.0;
-    let target_height = blockchain_manager::target_height(todo!()).await?;
+    let current_height = usize_to_u64(state.blockchain_context.blockchain_context().chain_height);
+    let target_height = state.syncer_handle.target_height();
 
-    let hard_forks: Vec<HardForkEntry> =
+    let mut hard_forks: Vec<HardForkEntry> =
         blockchain_context::hard_fork_infos(&mut state.blockchain_context)
             .await?
             .into_iter()
@@ -891,10 +874,22 @@ async fn get_version(
             })
             .collect();
 
+    // On regtest, monerod only has two entries in its hard-fork table:
+    // `(V1, 0)` and `(LATEST, 1)`
+    //
+    // ref: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_core/cryptonote_core.cpp#L670>
+    if state.network == Network::FakeChain && hard_forks.len() > 2 {
+        let last = hard_forks.pop().unwrap();
+        hard_forks.truncate(1);
+        hard_forks.push(last);
+    }
+
     Ok(GetVersionResponse {
         base: helper::response_base(false),
         version: CORE_RPC_VERSION,
-        release: RELEASE,
+        // This is not for if release optimisations is used and is instead for if this build is a release
+        // build. i.e. not just a random build but one with a version number.
+        release: true,
         current_height,
         target_height,
         hard_forks,

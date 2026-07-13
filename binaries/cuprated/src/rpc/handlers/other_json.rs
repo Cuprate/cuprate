@@ -10,7 +10,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Error};
-use monero_oxide::transaction::{Input, Timelock, Transaction};
+use monero_oxide::transaction::{Input, Pruned, Timelock, Transaction};
 
 use cuprate_constants::rpc::{
     MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT, RESTRICTED_SPENT_KEY_IMAGES_COUNT,
@@ -45,7 +45,7 @@ use cuprate_rpc_types::{
 };
 use cuprate_types::{
     rpc::{KeyImageSpentStatus, PoolInfo, PoolTxInfo, PublicNode},
-    TxInPool, TxRelayChecks,
+    TxInBlockchain, TxInPool, TxRelayChecks,
 };
 
 use crate::{
@@ -73,9 +73,9 @@ pub async fn map_request(
 
     Ok(match request {
         Req::GetHeight(r) => Resp::GetHeight(get_height(state, r).await?),
-        Req::GetTransactions(r) => Resp::GetTransactions(not_available()?),
+        Req::GetTransactions(r) => Resp::GetTransactions(get_transactions(state, r).await?),
         Req::GetAltBlocksHashes(r) => Resp::GetAltBlocksHashes(not_available()?),
-        Req::IsKeyImageSpent(r) => Resp::IsKeyImageSpent(not_available()?),
+        Req::IsKeyImageSpent(r) => Resp::IsKeyImageSpent(is_key_image_spent(state, r).await?),
         Req::SendRawTransaction(r) => {
             Resp::SendRawTransaction(send_raw_transaction(state, r).await?)
         }
@@ -93,7 +93,9 @@ pub async fn map_request(
         Req::GetNetStats(r) => Resp::GetNetStats(not_available()?),
         Req::GetOuts(r) => Resp::GetOuts(not_available()?),
         Req::PopBlocks(r) => Resp::PopBlocks(not_available()?),
-        Req::GetTransactionPoolHashes(r) => Resp::GetTransactionPoolHashes(not_available()?),
+        Req::GetTransactionPoolHashes(r) => {
+            Resp::GetTransactionPoolHashes(get_transaction_pool_hashes(state, r).await?)
+        }
         Req::GetPublicNodes(r) => Resp::GetPublicNodes(not_available()?),
         Req::GetInfo(r) => Resp::GetInfo(super::json_rpc::get_info(state, r).await?),
 
@@ -112,8 +114,9 @@ async fn get_height(
     mut state: CupratedRpcHandler,
     _: GetHeightRequest,
 ) -> Result<GetHeightResponse, Error> {
-    let (height, hash) = helper::top_height(&mut state).await?;
-    let hash = Hex(hash);
+    let context = state.blockchain_context.blockchain_context();
+    let height = usize_to_u64(context.chain_height);
+    let hash = Hex(context.top_hash);
 
     Ok(GetHeightResponse {
         base: helper::response_base(false),
@@ -127,18 +130,126 @@ async fn get_transactions(
     mut state: CupratedRpcHandler,
     request: GetTransactionsRequest,
 ) -> Result<GetTransactionsResponse, Error> {
+    fn blockchain_tx_entry(
+        tx: TxInBlockchain,
+        request: &GetTransactionsRequest,
+    ) -> Result<TxEntry, Error> {
+        let TxInBlockchain {
+            block_height,
+            block_timestamp,
+            confirmations,
+            output_indices,
+            tx_hash,
+            pruned_blob,
+            prunable_blob,
+            prunable_hash,
+        } = tx;
+
+        let is_pruned = prunable_blob.is_empty() && {
+            let mut pruned_blob_reader = pruned_blob.as_slice();
+            let tx = Transaction::<Pruned>::read(&mut pruned_blob_reader)?;
+            !matches!(tx.prefix().inputs.first(), Some(Input::Gen(_)))
+        };
+
+        let (as_hex, pruned_as_hex, prunable_as_hex) =
+            if request.prune || request.split || is_pruned {
+                (
+                    HexVec::new(),
+                    HexVec(pruned_blob),
+                    if request.prune {
+                        HexVec::new()
+                    } else {
+                        HexVec(prunable_blob)
+                    },
+                )
+            } else {
+                (
+                    HexVec([pruned_blob.as_slice(), prunable_blob.as_slice()].concat()),
+                    HexVec::new(),
+                    HexVec::new(),
+                )
+            };
+
+        Ok(TxEntry {
+            as_hex,
+            as_json: String::new(),
+            double_spend_seen: false,
+            tx_hash: Hex(tx_hash),
+            prunable_as_hex,
+            prunable_hash: Hex(prunable_hash),
+            pruned_as_hex,
+            tx_entry_type: TxEntryType::Blockchain {
+                block_height,
+                block_timestamp,
+                confirmations,
+                output_indices,
+                in_pool: false,
+            },
+        })
+    }
+
+    fn pool_tx_entry(tx: TxInPool, request: &GetTransactionsRequest) -> Result<TxEntry, Error> {
+        let TxInPool {
+            tx_blob,
+            tx_hash,
+            double_spend_seen,
+            received_timestamp,
+            relayed,
+        } = tx;
+
+        let mut tx_blob_reader = tx_blob.as_slice();
+        let tx = Transaction::read(&mut tx_blob_reader)?;
+        let (pruned_tx, prunable_blob) = tx.pruned_with_prunable();
+        let prunable_hash = if prunable_blob.is_empty() || pruned_tx.version() == 1 {
+            [0; 32]
+        } else {
+            monero_oxide::primitives::keccak256(&prunable_blob)
+        };
+
+        let (as_hex, pruned_as_hex, prunable_as_hex) = if request.prune || request.split {
+            (
+                HexVec::new(),
+                HexVec(pruned_tx.serialize()),
+                if request.prune {
+                    HexVec::new()
+                } else {
+                    HexVec(prunable_blob)
+                },
+            )
+        } else {
+            (HexVec(tx_blob), HexVec::new(), HexVec::new())
+        };
+
+        Ok(TxEntry {
+            as_hex,
+            as_json: String::new(),
+            double_spend_seen,
+            tx_hash: Hex(tx_hash),
+            prunable_as_hex,
+            prunable_hash: Hex(prunable_hash),
+            pruned_as_hex,
+            tx_entry_type: TxEntryType::Pool {
+                relayed,
+                received_timestamp,
+                in_pool: true,
+            },
+        })
+    }
+
     if state.is_restricted() && request.txs_hashes.len() > RESTRICTED_TRANSACTIONS_COUNT {
         return Err(anyhow!(
             "Too many transactions requested in restricted mode"
         ));
     }
 
-    let (txs_in_blockchain, missed_txs) = {
-        let requested_txs = request.txs_hashes.into_iter().map(|tx| tx.0).collect();
-        blockchain::transactions(&mut state.blockchain_read, requested_txs).await?
-    };
+    if request.decode_as_json {
+        return Err(anyhow!("decode_as_json is not supported"));
+    }
 
-    let missed_tx = missed_txs.clone().into_iter().map(Hex).collect();
+    let requested_txs: Vec<[u8; 32]> = request.txs_hashes.iter().map(|tx| tx.0).collect();
+
+    let (txs_in_blockchain, missed_txs) =
+        blockchain::transactions(&mut state.blockchain_read, requested_txs.clone()).await?;
 
     // Check the txpool for missed transactions.
     let txs_in_pool = if missed_txs.is_empty() {
@@ -148,122 +259,33 @@ async fn get_transactions(
         txpool::txs_by_hash(&mut state.txpool_read, missed_txs, include_sensitive_txs).await?
     };
 
-    let (txs, txs_as_hex, txs_as_json) = {
-        // Prepare the final JSON output.
-        let len = txs_in_blockchain.len() + txs_in_pool.len();
-        let mut txs = Vec::with_capacity(len);
-        let mut txs_as_hex = Vec::with_capacity(len);
-        let mut txs_as_json = Vec::with_capacity(if request.decode_as_json { len } else { 0 });
+    let mut txs_in_blockchain = txs_in_blockchain.into_iter().peekable();
+    let mut txs_in_pool = txs_in_pool.into_iter().peekable();
 
-        // Map all blockchain transactions.
-        for tx in txs_in_blockchain {
-            let tx_hash = Hex(tx.tx_hash);
-            let prunable_hash = Hex(tx.prunable_hash);
+    let mut txs = Vec::with_capacity(requested_txs.len());
+    let mut txs_as_hex = Vec::with_capacity(requested_txs.len());
+    let mut missed_tx = Vec::new();
 
-            let (pruned_as_hex, prunable_as_hex) = if tx.pruned_blob.is_empty() {
-                (HexVec::new(), HexVec::new())
-            } else {
-                (HexVec(tx.pruned_blob), HexVec(tx.prunable_blob))
-            };
+    for requested_tx in requested_txs {
+        // The blockchain and tx-pool will both return txs in the order requested, this allows us to just
+        // look entry by entry for hits, checking one side first, then the other.
+        let entry = if let Some(tx) = txs_in_blockchain.next_if(|tx| tx.tx_hash == requested_tx) {
+            blockchain_tx_entry(tx, &request)?
+        } else if let Some(tx) = txs_in_pool.next_if(|tx| tx.tx_hash == requested_tx) {
+            pool_tx_entry(tx, &request)?
+        } else {
+            missed_tx.push(Hex(requested_tx));
+            continue;
+        };
 
-            let as_hex = if pruned_as_hex.is_empty() {
-                // `monerod` will insert a `""` into the `txs_as_hex` array for pruned transactions.
-                // curl http://127.0.0.1:18081/get_transactions -d '{"txs_hashes":["4c8b98753d1577d225a497a50f453827cff3aa023a4add60ec4ce4f923f75de8"]}' -H 'Content-Type: application/json'
-                HexVec::new()
-            } else {
-                HexVec(tx.tx_blob)
-            };
-
-            txs_as_hex.push(as_hex.clone());
-
-            let as_json = if request.decode_as_json {
-                let tx = Transaction::read(&mut as_hex.as_slice())?;
-                let json_type = cuprate_types::json::tx::Transaction::from(tx);
-                let json = serde_json::to_string(&json_type).unwrap();
-                txs_as_json.push(json.clone());
-                json
-            } else {
-                String::new()
-            };
-
-            let tx_entry_type = TxEntryType::Blockchain {
-                block_height: tx.block_height,
-                block_timestamp: tx.block_timestamp,
-                confirmations: tx.confirmations,
-                output_indices: tx.output_indices,
-                in_pool: false,
-            };
-
-            let tx = TxEntry {
-                as_hex,
-                as_json,
-                double_spend_seen: false,
-                tx_hash,
-                prunable_as_hex,
-                prunable_hash,
-                pruned_as_hex,
-                tx_entry_type,
-            };
-
-            txs.push(tx);
-        }
-
-        // Map all txpool transactions.
-        for tx_in_pool in txs_in_pool {
-            let TxInPool {
-                tx_blob,
-                tx_hash,
-                double_spend_seen,
-                received_timestamp,
-                relayed,
-            } = tx_in_pool;
-
-            let tx_hash = Hex(tx_hash);
-            let tx = Transaction::read(&mut tx_blob.as_slice())?;
-
-            let pruned_as_hex = HexVec::new();
-            let prunable_as_hex = HexVec::new();
-            let prunable_hash = Hex([0; 32]);
-
-            let as_hex = HexVec(tx_blob);
-            txs_as_hex.push(as_hex.clone());
-
-            let as_json = if request.decode_as_json {
-                let json_type = cuprate_types::json::tx::Transaction::from(tx);
-                let json = serde_json::to_string(&json_type).unwrap();
-                txs_as_json.push(json.clone());
-                json
-            } else {
-                String::new()
-            };
-
-            let tx_entry_type = TxEntryType::Pool {
-                relayed,
-                received_timestamp,
-                in_pool: true,
-            };
-
-            let tx = TxEntry {
-                as_hex,
-                as_json,
-                double_spend_seen,
-                tx_hash,
-                prunable_as_hex,
-                prunable_hash,
-                pruned_as_hex,
-                tx_entry_type,
-            };
-
-            txs.push(tx);
-        }
-
-        (txs, txs_as_hex, txs_as_json)
-    };
+        txs_as_hex.push(entry.as_hex.clone());
+        txs.push(entry);
+    }
 
     Ok(GetTransactionsResponse {
         base: helper::access_response_base(false),
         txs_as_hex,
-        txs_as_json,
+        txs_as_json: Vec::new(),
         missed_tx,
         txs,
     })
@@ -303,45 +325,45 @@ async fn is_key_image_spent(
         .map(|k| k.0)
         .collect::<Vec<[u8; 32]>>();
 
-    let mut spent_status = Vec::with_capacity(key_images.len());
-
     // Check the blockchain for key image spend status.
-    blockchain::key_images_spent_vec(&mut state.blockchain_read, key_images.clone())
-        .await?
-        .into_iter()
-        .for_each(|ki| {
-            if ki {
-                spent_status.push(KeyImageSpentStatus::SpentInBlockchain);
-            } else {
-                spent_status.push(KeyImageSpentStatus::Unspent);
-            }
-        });
-
-    assert_eq!(spent_status.len(), key_images.len(), "key_images_spent() should be returning a Vec with an equal length to the input, the below zip() relies on this.");
-
-    // Filter the remaining unspent key images out from the vector.
-    let key_images = key_images
-        .into_iter()
-        .zip(&spent_status)
-        .filter_map(|(ki, status)| match status {
-            KeyImageSpentStatus::Unspent => Some(ki),
-            KeyImageSpentStatus::SpentInBlockchain => None,
-            KeyImageSpentStatus::SpentInPool => unreachable!(),
-        })
-        .collect::<Vec<[u8; 32]>>();
-
-    // Check if the remaining unspent key images exist in the transaction pool.
-    if !key_images.is_empty() {
-        txpool::key_images_spent_vec(&mut state.txpool_read, key_images, !restricted)
+    let mut spent_status: Vec<KeyImageSpentStatus> =
+        blockchain::key_images_spent_vec(&mut state.blockchain_read, key_images.clone())
             .await?
             .into_iter()
-            .for_each(|ki| {
-                if ki {
-                    spent_status.push(KeyImageSpentStatus::SpentInPool);
+            .map(|spent| {
+                if spent {
+                    KeyImageSpentStatus::SpentInBlockchain
                 } else {
-                    spent_status.push(KeyImageSpentStatus::Unspent);
+                    KeyImageSpentStatus::Unspent
                 }
-            });
+            })
+            .collect();
+
+    assert_eq!(
+        spent_status.len(),
+        key_images.len(),
+        "key_images_spent_vec() must return a Vec with the input's length"
+    );
+
+    // Get the indices of the key images not spent in the blockchain.
+    let (unspent_indices, unspent_images): (Vec<usize>, Vec<[u8; 32]>) = key_images
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| spent_status[*i] == KeyImageSpentStatus::Unspent)
+        .map(|(i, ki)| (i, *ki))
+        .unzip();
+
+    // Check if the unspent key images exist in the transaction pool.
+    if !unspent_images.is_empty() {
+        let pool_results =
+            txpool::key_images_spent_vec(&mut state.txpool_read, unspent_images, !restricted)
+                .await?;
+
+        for (idx, in_pool) in unspent_indices.into_iter().zip(pool_results) {
+            if in_pool {
+                spent_status[idx] = KeyImageSpentStatus::SpentInPool;
+            }
+        }
     }
 
     let spent_status = spent_status
@@ -377,7 +399,11 @@ async fn send_raw_transaction(
         tx_extra_too_big: false,
     };
 
-    let tx = Transaction::read(&mut request.tx_as_hex.as_slice())?;
+    // Default to failed, if all checks pass we set this to Ok.
+    resp.base.response_base.status = Status::Failed;
+    let Ok(tx) = Transaction::read(&mut request.tx_as_hex.as_slice()) else {
+        return Ok(resp);
+    };
 
     if request.do_sanity_checks {
         /// FIXME: these checks could be defined elsewhere.
@@ -399,14 +425,16 @@ async fn send_raw_transaction(
                         key_offsets,
                         key_image,
                     } => {
-                        let Some(amount) = amount else {
+                        if amount.is_some() {
                             continue;
-                        };
+                        }
+
+                        if key_offsets.is_empty() {
+                            return Err("Input has an empty ring".to_string());
+                        }
 
                         /// <https://github.com/monero-project/monero/blob/893916ad091a92e765ce3241b94e706ad012b62a/src/cryptonote_basic/cryptonote_format_utils.cpp#L1526>
                         fn relative_output_offsets_to_absolute(mut offsets: Vec<u64>) -> Vec<u64> {
-                            assert!(!offsets.is_empty());
-
                             for i in 1..offsets.len() {
                                 offsets[i] += offsets[i - 1];
                             }
@@ -429,6 +457,9 @@ async fn send_raw_transaction(
                 return Ok(());
             }
 
+            rct_indices.sort_unstable();
+            rct_indices.dedup();
+
             let rct_indices_len = rct_indices.len();
             if rct_indices_len < n_indices * 8 / 10 {
                 return Err(format!("amount of unique indices is too low (amount of rct indices is {rct_indices_len} out of total {n_indices} indices."));
@@ -445,7 +476,6 @@ async fn send_raw_transaction(
         let rct_outs_available = blockchain::total_rct_outputs(&mut state.blockchain_read).await?;
 
         if let Err(e) = tx_sanity_check(&tx, rct_outs_available) {
-            resp.base.response_base.status = Status::Failed;
             resp.reason.push_str(&format!("Sanity check failed: {e}"));
             resp.sanity_check_failed = true;
             return Ok(resp);
@@ -473,6 +503,7 @@ async fn send_raw_transaction(
     let tx_relay_checks = tx_handler::handle_incoming_txs(&mut state.tx_handler, txs).await?;
 
     if tx_relay_checks.is_empty() {
+        resp.base.response_base.status = Status::Ok;
         return Ok(resp);
     }
 

@@ -89,12 +89,6 @@ impl Service<JsonRpcRequest> for RpcHandlerDummy {
             Req::AddAuxPow(_) => Resp::AddAuxPow(Default::default()),
             Req::GetTxIdsLoose(_) => Resp::GetTxIdsLoose(Default::default()),
             Req::GetOutputDistribution(_) => Resp::GetOutputDistribution(Default::default()),
-            Req::RpcAccessInfo(_) => Resp::RpcAccessInfo(Default::default()),
-            Req::RpcAccessSubmitNonce(_) => Resp::RpcAccessSubmitNonce(Default::default()),
-            Req::RpcAccessPay(_) => Resp::RpcAccessPay(Default::default()),
-            Req::RpcAccessTracking(_) => Resp::RpcAccessTracking(Default::default()),
-            Req::RpcAccessData(_) => Resp::RpcAccessData(Default::default()),
-            Req::RpcAccessAccount(_) => Resp::RpcAccessAccount(Default::default()),
         };
 
         let (tx, rx) = channel();

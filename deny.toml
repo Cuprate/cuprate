@@ -101,6 +101,7 @@ ignore = [
 # [possible values: any SPDX 3.11 short identifier (+ optional exception)].
 allow = [
     # Nothing required - free to use without permission.
+    "0BSD",    # https://spdx.org/licenses/0BSD.html
     "CC0-1.0", # https://creativecommons.org/publicdomain/zero/1.0/
     "Unlicense",
 

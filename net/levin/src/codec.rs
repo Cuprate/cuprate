@@ -78,6 +78,13 @@ impl<C: LevinCommand + Debug> Decoder for LevinBucketCodec<C> {
 
                     let head = BucketHead::<C>::from_bytes(src);
 
+                    if head.signature != self.protocol.signature {
+                        #[cfg(feature = "tracing")]
+                        tracing::debug!("Peer sent a levin header with an invalid signature.");
+
+                        return Err(BucketError::InvalidHeaderSignature);
+                    }
+
                     #[cfg(feature = "tracing")]
                     tracing::trace!(
                         "Received new bucket header, command: {:?}, waiting for body, body len: {}",

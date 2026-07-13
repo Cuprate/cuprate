@@ -178,7 +178,6 @@ pub struct TxInBlockchain {
     pub confirmations: u64,
     pub output_indices: Vec<u64>,
     pub tx_hash: [u8; 32],
-    pub tx_blob: Vec<u8>,
     pub pruned_blob: Vec<u8>,
     pub prunable_blob: Vec<u8>,
     pub prunable_hash: [u8; 32],
@@ -211,8 +210,8 @@ bitflags::bitflags! {
 
 /// Used in RPC's `get_output_distribution`.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct OutputDistributionInput {
-    pub amounts: Vec<u64>,
+pub struct PreRctOutputDistributionInput {
+    pub amounts: Vec<NonZero<u64>>,
     pub cumulative: bool,
     pub from_height: u64,
 

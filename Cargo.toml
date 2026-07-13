@@ -161,7 +161,7 @@ axum                  = { version = "0.8", default-features = false }
 anyhow                = { version = "1", default-features = false }
 arc-swap              = { version = "1", default-features = false }
 arrayvec              = { version = "0.7", default-features = false }
-arti-client           = { version = "0.33", default-features = false }
+arti-client           = { version = "0.43", default-features = false }
 async-trait           = { version = "0.1", default-features = false }
 bitflags              = { version = "2", default-features = false }
 blake3                = { version = "1", default-features = false }
@@ -192,7 +192,7 @@ randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev
 rand                  = { version = "0.8", default-features = false }
 rand_distr            = { version = "0.4", default-features = false }
 rayon                 = { version = "1", default-features = false }
-safelog               = { version = "0.4", default-features = false }
+safelog               = { version = "0.8", default-features = false }
 serde_bytes           = { version = "0.11", default-features = false }
 serde_json            = { version = "1", default-features = false }
 serde                 = { version = "1", default-features = false }
@@ -209,12 +209,12 @@ tower                 = { version = "0.5", default-features = false }
 tower-http            = { version = "0.6", default-features = false }
 toml                  = { version = "0.9", default-features = false }
 toml_edit             = { version = "0.23", default-features = false }
-tor-cell              = { version = "0.33", default-features = false }
-tor-config-path       = { version = "0.33", default-features = false }
-tor-hsservice         = { version = "0.33", default-features = false }
-tor-persist           = { version = "0.33", default-features = false }
-tor-proto             = { version = "0.33", default-features = false }
-tor-rtcompat          = { version = "0.33", default-features = false }
+tor-cell              = { version = "0.43", default-features = false }
+tor-config-path       = { version = "0.43", default-features = false }
+tor-hsservice         = { version = "0.43", default-features = false }
+tor-persist           = { version = "0.43", default-features = false }
+tor-proto             = { version = "0.43", default-features = false }
+tor-rtcompat          = { version = "0.43", default-features = false }
 tracing-appender      = { version = "0.2", default-features = false }
 tracing-subscriber    = { version = "0.3", default-features = false }
 tracing               = { version = "0.1", default-features = false }
@@ -364,6 +364,21 @@ literal_string_with_formatting_args = "deny"
 manual_midpoint = "deny"
 ip_constant = "deny"
 doc_broken_link = "deny"
+decimal_bitwise_operands = "deny"
+manual_ilog2 = "deny"
+needless_type_cast = "deny"
+ptr_offset_by_literal = "deny"
+same_length_and_capacity = "deny"
+manual_checked_ops = "deny"
+manual_option_zip = "deny"
+manual_pop_if = "deny"
+manual_take = "deny"
+unnecessary_trailing_comma = "deny"
+manual_noop_waker = "deny"
+manual_assert_eq = "deny"
+manual_clear = "deny"
+some_filter = "deny"
+useless_borrows_in_formatting = "deny"
 
 # Warm
 cast_possible_truncation = "deny"

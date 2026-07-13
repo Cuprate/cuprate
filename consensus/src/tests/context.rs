@@ -49,6 +49,7 @@ async fn context_invalidated_on_new_block() -> Result<(), tower::BoxError> {
             generated_coins: 0,
             vote: HardFork::V1,
             cumulative_difficulty: 0,
+            numb_rct_outputs: 0,
         }))
         .await?;
 

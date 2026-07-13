@@ -66,7 +66,7 @@ const MONERO_PROTOCOL_VERSION: u32 = 1;
 /// protocol.
 const MONERO_LEVIN_SIGNATURE: u64 = 0x0101010101012101;
 /// Maximum size a bucket can be before a handshake.
-const MONERO_MAX_PACKET_SIZE_BEFORE_HANDSHAKE: u64 = 256 * 1000; // 256 KiB
+const MONERO_MAX_PACKET_SIZE_BEFORE_HANDSHAKE: u64 = 256 * 1024; // 256 KiB
 /// Maximum size a bucket can be after a handshake.
 const MONERO_MAX_PACKET_SIZE: u64 = 100_000_000; // 100MB
 

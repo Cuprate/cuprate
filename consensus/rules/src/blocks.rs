@@ -26,15 +26,15 @@ pub const RX_SEEDHASH_EPOCH_LAG: usize = 64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum BlockError {
-    #[error("The blocks POW is invalid.")]
+    #[error("The block's POW is invalid.")]
     POWInvalid,
     #[error("The block is too big.")]
     TooLarge,
     #[error("The block has too many transactions.")]
     TooManyTxs,
-    #[error("The blocks previous ID is incorrect.")]
+    #[error("The block's previous ID is incorrect.")]
     PreviousIDIncorrect,
-    #[error("The blocks timestamp is invalid.")]
+    #[error("The block's timestamp is invalid.")]
     TimeStampInvalid,
     #[error("The block contains a duplicate transaction.")]
     DuplicateTransaction,
@@ -99,7 +99,7 @@ pub fn calculate_pow_hash<R: RandomX>(
     })
 }
 
-/// Returns if the blocks POW hash is valid for the current difficulty.
+/// Returns if the block's POW hash is valid for the current difficulty.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#checking-pow-hash>
 pub fn check_block_pow(hash: &[u8; 32], difficulty: u128) -> Result<(), BlockError> {
@@ -171,7 +171,7 @@ const fn check_amount_txs(number_none_miner_txs: usize) -> Result<(), BlockError
     }
 }
 
-/// Verifies the previous id is the last blocks hash
+/// Verifies the previous id is the last block's hash
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#previous-id>
 fn check_prev_id(block: &Block, top_hash: &[u8; 32]) -> Result<(), BlockError> {
@@ -182,12 +182,12 @@ fn check_prev_id(block: &Block, top_hash: &[u8; 32]) -> Result<(), BlockError> {
     }
 }
 
-/// Checks the blocks timestamp is in the valid range.
+/// Checks the block's timestamp is in the valid range.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#timestamp>
-pub fn check_timestamp(block: &Block, median_timestamp: u64) -> Result<(), BlockError> {
-    if block.header.timestamp < median_timestamp
-        || block.header.timestamp > current_unix_timestamp() + BLOCK_FUTURE_TIME_LIMIT
+pub fn check_timestamp(block: &Block, median_timestamp: Option<u64>) -> Result<(), BlockError> {
+    if block.header.timestamp > current_unix_timestamp() + BLOCK_FUTURE_TIME_LIMIT
+        || median_timestamp.is_some_and(|median| block.header.timestamp < median)
     {
         Err(BlockError::TimeStampInvalid)
     } else {
@@ -230,7 +230,7 @@ pub struct ContextToVerifyBlock {
     pub already_generated_coins: u64,
 }
 
-/// Checks the block is valid returning the blocks hard-fork `VOTE` and the amount of coins generated in this block.
+/// Checks the block is valid returning the block's hard-fork `VOTE` and the amount of coins generated in this block.
 ///
 /// This does not check the POW nor does it calculate the POW hash, this is because checking POW is very expensive and
 /// to allow the computation of the POW hashes to be done separately. This also does not check the transactions in the
@@ -254,9 +254,7 @@ pub fn check_block(
 
     check_block_version_vote(&block_chain_ctx.current_hf, &version, &vote)?;
 
-    if let Some(median_timestamp) = block_chain_ctx.median_block_timestamp {
-        check_timestamp(block, median_timestamp)?;
-    }
+    check_timestamp(block, block_chain_ctx.median_block_timestamp)?;
 
     check_prev_id(block, &block_chain_ctx.top_hash)?;
 

@@ -102,11 +102,11 @@ where
     .await?;
 
     // Check the alt block timestamp is in the correct range.
-    if let Some(median_timestamp) =
-        difficulty_cache.median_timestamp(u64_to_usize(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW))
-    {
-        check_timestamp(&prepped_block.block, median_timestamp).map_err(ConsensusError::Block)?;
-    }
+    //
+    // Unlike monerod we also check the future time limit.
+    let median_timestamp =
+        difficulty_cache.median_timestamp(u64_to_usize(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW));
+    check_timestamp(&prepped_block.block, median_timestamp).map_err(ConsensusError::Block)?;
 
     let next_difficulty = difficulty_cache.next_difficulty(prepped_block.hf_version);
     // make sure the block's PoW is valid for this difficulty.

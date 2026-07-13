@@ -8,8 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use cuprate_hex::{Hex, HexVec};
 use cuprate_types::rpc::{
-    AuxPow, GetMinerDataTxBacklogEntry, HardForkEntry, HardForkInfo, RpcAccessDataEntry,
-    RpcAccessTrackingEntry, TxBacklogEntry,
+    AuxPow, GetMinerDataTxBacklogEntry, HardForkEntry, HardForkInfo, TxBacklogEntry,
 };
 
 use crate::{
@@ -730,109 +729,6 @@ define_request_and_response! {
     }
 }
 
-define_request_and_response! {
-    UNDOCUMENTED_METHOD,
-    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
-    core_rpc_server_commands_defs.h => 2522..=2556,
-
-    RpcAccessInfo,
-
-    Request {
-        client: String,
-    },
-
-    AccessResponseBase {
-        hashing_blob: String,
-        seed_height: u64,
-        seed_hash: String,
-        next_seed_hash: String,
-        cookie: u32,
-        diff: u64,
-        credits_per_hash_found: u64,
-        height: u64,
-    }
-}
-
-define_request_and_response! {
-    UNDOCUMENTED_METHOD,
-    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
-    core_rpc_server_commands_defs.h => 2558..=2580,
-
-    RpcAccessSubmitNonce,
-
-    Request {
-        client: String,
-        nonce: u32,
-        cookie: u32,
-    },
-
-    AccessResponseBase {}
-}
-
-define_request_and_response! {
-    UNDOCUMENTED_METHOD,
-    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
-    core_rpc_server_commands_defs.h => 2582..=2604,
-
-    RpcAccessPay,
-
-    Request {
-        client: String,
-        paying_for: String,
-        payment: u64,
-    },
-
-    AccessResponseBase {}
-}
-
-define_request_and_response! {
-    UNDOCUMENTED_METHOD,
-    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
-    core_rpc_server_commands_defs.h => 2606..=2644,
-
-    RpcAccessTracking (restricted),
-
-    Request {
-        clear: bool,
-    },
-
-    ResponseBase {
-        data: Vec<RpcAccessTrackingEntry>,
-    }
-}
-
-define_request_and_response! {
-    UNDOCUMENTED_METHOD,
-    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
-    core_rpc_server_commands_defs.h => 2646..=2692,
-
-    RpcAccessData (restricted),
-
-    Request { },
-
-    ResponseBase {
-        entries: Vec<RpcAccessDataEntry>,
-        hashrate: u32,
-    }
-}
-
-define_request_and_response! {
-    UNDOCUMENTED_METHOD,
-    "cc73fe71162d564ffda8e549b79a350bca53c454" =>
-    core_rpc_server_commands_defs.h => 2695..=2720,
-
-    RpcAccessAccount (restricted),
-
-    Request {
-        client: String,
-        delta_balance: i64 = default::<i64>(), "default",
-    },
-
-    ResponseBase {
-        credits: u64,
-    }
-}
-
 //---------------------------------------------------------------------------------------------------- Request
 /// JSON-RPC requests.
 ///
@@ -890,12 +786,6 @@ pub enum JsonRpcRequest {
     PruneBlockchain(PruneBlockchainRequest),
     FlushCache(FlushCacheRequest),
     GetTxIdsLoose(GetTxIdsLooseRequest),
-    RpcAccessInfo(RpcAccessInfoRequest),
-    RpcAccessSubmitNonce(RpcAccessSubmitNonceRequest),
-    RpcAccessPay(RpcAccessPayRequest),
-    RpcAccessTracking(RpcAccessTrackingRequest),
-    RpcAccessData(RpcAccessDataRequest),
-    RpcAccessAccount(RpcAccessAccountRequest),
 }
 
 #[cfg(feature = "serde")]
@@ -976,14 +866,6 @@ impl<'de> Deserialize<'de> for JsonRpcRequest {
             "prune_blockchain" => Self::PruneBlockchain(de!(PruneBlockchainRequest)),
             "flush_cache" => Self::FlushCache(de!(FlushCacheRequest)),
             "get_tx_ids_loose" => Self::GetTxIdsLoose(de!(GetTxIdsLooseRequest)),
-            "rpc_access_info" => Self::RpcAccessInfo(de!(RpcAccessInfoRequest)),
-            "rpc_access_submit_nonce" => {
-                Self::RpcAccessSubmitNonce(de!(RpcAccessSubmitNonceRequest))
-            }
-            "rpc_access_pay" => Self::RpcAccessPay(de!(RpcAccessPayRequest)),
-            "rpc_access_tracking" => Self::RpcAccessTracking(de!(RpcAccessTrackingRequest)),
-            "rpc_access_data" => Self::RpcAccessData(de!(RpcAccessDataRequest)),
-            "rpc_access_account" => Self::RpcAccessAccount(de!(RpcAccessAccountRequest)),
             other => return Err(D::Error::unknown_variant(other, &[])),
         })
     }
@@ -1024,12 +906,6 @@ impl RpcCallValue for JsonRpcRequest {
             Self::CalcPow(x) => x.is_restricted(),
             Self::FlushCache(x) => x.is_restricted(),
             Self::GetOutputDistribution(x) => x.is_restricted(),
-            Self::RpcAccessInfo(x) => x.is_restricted(),
-            Self::RpcAccessSubmitNonce(x) => x.is_restricted(),
-            Self::RpcAccessPay(x) => x.is_restricted(),
-            Self::RpcAccessTracking(x) => x.is_restricted(),
-            Self::RpcAccessData(x) => x.is_restricted(),
-            Self::RpcAccessAccount(x) => x.is_restricted(),
         }
     }
 
@@ -1067,12 +943,6 @@ impl RpcCallValue for JsonRpcRequest {
             Self::CalcPow(x) => x.is_empty(),
             Self::FlushCache(x) => x.is_empty(),
             Self::GetOutputDistribution(x) => x.is_empty(),
-            Self::RpcAccessInfo(x) => x.is_empty(),
-            Self::RpcAccessSubmitNonce(x) => x.is_empty(),
-            Self::RpcAccessPay(x) => x.is_empty(),
-            Self::RpcAccessTracking(x) => x.is_empty(),
-            Self::RpcAccessData(x) => x.is_empty(),
-            Self::RpcAccessAccount(x) => x.is_empty(),
         }
     }
 }
@@ -1137,12 +1007,6 @@ pub enum JsonRpcResponse {
     FlushCache(FlushCacheResponse),
     AddAuxPow(AddAuxPowResponse),
     GetTxIdsLoose(GetTxIdsLooseResponse),
-    RpcAccessInfo(RpcAccessInfoResponse),
-    RpcAccessSubmitNonce(RpcAccessSubmitNonceResponse),
-    RpcAccessPay(RpcAccessPayResponse),
-    RpcAccessTracking(RpcAccessTrackingResponse),
-    RpcAccessData(RpcAccessDataResponse),
-    RpcAccessAccount(RpcAccessAccountResponse),
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

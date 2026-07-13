@@ -97,20 +97,20 @@ impl PreparedBlockExPow {
 pub struct PreparedBlock {
     /// The block
     pub block: Block,
-    /// The serialised blocks bytes
+    /// The serialised block's bytes
     pub block_blob: Vec<u8>,
 
-    /// The blocks hf vote
+    /// The block's hf vote
     pub hf_vote: HardFork,
-    /// The blocks hf version
+    /// The block's hf version
     pub hf_version: HardFork,
 
-    /// The blocks hash
+    /// The block's hash
     pub block_hash: [u8; 32],
-    /// The blocks POW hash.
+    /// The block's POW hash.
     pub pow_hash: [u8; 32],
 
-    /// The weight of the blocks miner transaction.
+    /// The weight of the block's miner transaction.
     pub miner_tx_weight: usize,
 }
 

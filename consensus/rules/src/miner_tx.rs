@@ -7,11 +7,11 @@ use crate::{is_decomposed_amount, transactions::check_output_types, HardFork};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum MinerTxError {
-    #[error("The miners transaction version is invalid.")]
+    #[error("The miner transaction's version is invalid.")]
     VersionInvalid,
     #[error("The miner transaction does not have exactly one input.")]
     IncorrectNumbOfInputs,
-    #[error("The miner transactions input has the wrong block height.")]
+    #[error("The miner transaction's input has the wrong block height.")]
     InputsHeightIncorrect,
     #[error("The input is not of type `gen`.")]
     InputNotOfTypeGen,
@@ -23,9 +23,9 @@ pub enum MinerTxError {
     OutputsOverflow,
     #[error("The miner transaction outputs the wrong amount.")]
     OutputAmountIncorrect,
-    #[error("The miner transactions RCT type is not NULL.")]
+    #[error("The miner transaction's RCT type is not NULL.")]
     RCTTypeNotNULL,
-    #[error("The miner transactions has an invalid output type.")]
+    #[error("The miner transaction has an invalid output type.")]
     InvalidOutputType,
 }
 
@@ -73,7 +73,7 @@ pub fn calculate_block_reward(
         .unwrap()
 }
 
-/// Checks the miner transactions version.
+/// Checks the miner transaction's version.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#version>
 fn check_miner_tx_version(tx_version: TxVersion, hf: HardFork) -> Result<(), MinerTxError> {
@@ -85,7 +85,7 @@ fn check_miner_tx_version(tx_version: TxVersion, hf: HardFork) -> Result<(), Min
     }
 }
 
-/// Checks the miner transactions inputs.
+/// Checks the miner transaction's inputs.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#input>
 fn check_inputs(inputs: &[Input], chain_height: usize) -> Result<(), MinerTxError> {
@@ -160,7 +160,7 @@ fn check_total_output_amt(
     fees: u64,
     hf: HardFork,
 ) -> Result<u64, MinerTxError> {
-    if hf == HardFork::V1 || hf >= HardFork::V12 {
+    if hf == HardFork::V1 || hf >= HardFork::V13 {
         if total_output != reward + fees {
             return Err(MinerTxError::OutputAmountIncorrect);
         }

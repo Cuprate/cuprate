@@ -20,7 +20,7 @@ use cuprate_types::{
         ChainInfo, CoinbaseTxSum, KeyImageSpentStatus, OutputDistributionData,
         OutputHistogramEntry, OutputHistogramInput,
     },
-    BlockCompleteEntry, Chain, ExtendedBlockHeader, OutputDistributionInput, OutputOnChain,
+    BlockCompleteEntry, Chain, ExtendedBlockHeader, OutputOnChain, PreRctOutputDistributionInput,
     TxInBlockchain,
 };
 
@@ -98,6 +98,20 @@ pub async fn block_hash(
     };
 
     Ok(hash)
+}
+
+/// [`BlockchainReadRequest::ChainHeight`].
+pub async fn chain_height(blockchain_read: &mut BlockchainReadHandle) -> Result<u64, Error> {
+    let BlockchainResponse::ChainHeight(height, _) = blockchain_read
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::ChainHeight)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(usize_to_u64(height))
 }
 
 /// [`BlockchainReadRequest::FindBlock`].
@@ -179,22 +193,6 @@ pub async fn block_extended_header_in_range(
     };
 
     Ok(output)
-}
-
-/// [`BlockchainReadRequest::ChainHeight`].
-pub async fn chain_height(
-    blockchain_read: &mut BlockchainReadHandle,
-) -> Result<(u64, [u8; 32]), Error> {
-    let BlockchainResponse::ChainHeight(height, hash) = blockchain_read
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::ChainHeight)
-        .await?
-    else {
-        unreachable!();
-    };
-
-    Ok((usize_to_u64(height), hash))
 }
 
 /// [`BlockchainReadRequest::GeneratedCoins`].
@@ -379,15 +377,15 @@ pub async fn database_size(
     Ok((database_size, free_space))
 }
 
-/// [`BlockchainReadRequest::OutputDistribution`]
-pub async fn output_distribution(
+/// [`BlockchainReadRequest::PreRctOutputDistribution`]
+pub async fn pre_rct_output_distribution(
     blockchain_read: &mut BlockchainReadHandle,
-    input: OutputDistributionInput,
+    input: PreRctOutputDistributionInput,
 ) -> Result<Vec<OutputDistributionData>, Error> {
-    let BlockchainResponse::OutputDistribution(data) = blockchain_read
+    let BlockchainResponse::PreRctOutputDistribution(data) = blockchain_read
         .ready()
         .await?
-        .call(BlockchainReadRequest::OutputDistribution(input))
+        .call(BlockchainReadRequest::PreRctOutputDistribution(input))
         .await?
     else {
         unreachable!();
@@ -467,7 +465,7 @@ pub async fn alt_chain_count(blockchain_read: &mut BlockchainReadHandle) -> Resu
 /// [`BlockchainReadRequest::Transactions`].
 pub async fn transactions(
     blockchain_read: &mut BlockchainReadHandle,
-    tx_hashes: HashSet<[u8; 32]>,
+    tx_hashes: Vec<[u8; 32]>,
 ) -> Result<(Vec<TxInBlockchain>, Vec<[u8; 32]>), Error> {
     let BlockchainResponse::Transactions { txs, missed_txs } = blockchain_read
         .ready()
@@ -514,6 +512,56 @@ pub async fn block_complete_entries(
     };
 
     Ok((blocks, missing_hashes, blockchain_height))
+}
+
+/// [`BlockchainReadRequest::BlockCompleteEntriesAboveSplitPoint`].
+///
+/// Returns `(blocks, blockchain_height, start_height, output_indices, top_hash)`.
+pub async fn block_complete_entries_above_split_point(
+    blockchain_read: &mut BlockchainReadHandle,
+    chain: Vec<[u8; 32]>,
+    start_height: Option<usize>,
+    no_miner_tx: bool,
+    len: usize,
+    pruned: bool,
+) -> Result<
+    (
+        Vec<BlockCompleteEntry>,
+        usize,
+        usize,
+        Vec<Vec<Vec<u64>>>,
+        [u8; 32],
+    ),
+    Error,
+> {
+    let BlockchainResponse::BlockCompleteEntriesAboveSplitPoint {
+        blocks,
+        output_indices,
+        blockchain_height,
+        start_height,
+        top_hash,
+    } = blockchain_read
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::BlockCompleteEntriesAboveSplitPoint {
+            chain,
+            start_height,
+            no_miner_tx,
+            len,
+            pruned,
+        })
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok((
+        blocks,
+        blockchain_height,
+        start_height,
+        output_indices,
+        top_hash,
+    ))
 }
 
 /// [`BlockchainReadRequest::BlockCompleteEntriesByHeight`].

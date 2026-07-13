@@ -149,15 +149,11 @@ impl EpeeObject for DistributionUncompressed {
 }
 
 /// Data within [`Distribution::CompressedBinary`].
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize))]
 #[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DistributionCompressedBinary {
     pub start_height: u64,
     pub base: u64,
-    #[cfg_attr(
-        feature = "serde",
-        serde(serialize_with = "serialize_distribution_as_compressed_data")
-    )]
     #[cfg_attr(
         feature = "serde",
         serde(deserialize_with = "deserialize_compressed_data_as_distribution")
@@ -167,6 +163,29 @@ pub struct DistributionCompressedBinary {
     pub amount: u64,
 }
 
+// monerod includes `binary: true` and `compress: true`. `derive(Serialize)` would only
+// emit the struct fields.
+#[cfg(feature = "serde")]
+impl Serialize for DistributionCompressedBinary {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut s = serializer.serialize_struct("DistributionCompressedBinary", 6)?;
+        s.serialize_field("start_height", &self.start_height)?;
+        s.serialize_field("base", &self.base)?;
+        s.serialize_field(
+            "compressed_data",
+            &compress_integer_array(&self.distribution),
+        )?;
+        s.serialize_field("amount", &self.amount)?;
+        s.serialize_field("binary", &true)?;
+        s.serialize_field("compress", &true)?;
+        s.end()
+    }
+}
+
 #[cfg(feature = "epee")]
 epee_object! {
     DistributionCompressedBinary,
@@ -174,19 +193,6 @@ epee_object! {
     base: u64,
     distribution: Vec<u64>,
     amount: u64,
-}
-
-/// Serializer function for [`DistributionCompressedBinary::distribution`].
-///
-/// 1. Compresses the distribution array
-/// 2. Serializes the compressed data
-#[cfg(feature = "serde")]
-#[expect(clippy::ptr_arg)]
-fn serialize_distribution_as_compressed_data<S>(v: &Vec<u64>, s: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    compress_integer_array(v).serialize(s)
 }
 
 /// Deserializer function for [`DistributionCompressedBinary::distribution`].

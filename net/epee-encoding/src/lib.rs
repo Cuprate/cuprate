@@ -156,6 +156,10 @@ fn read_head_object<T: EpeeObject, B: Buf>(r: &mut B) -> Result<T> {
 fn read_field_name_bytes<B: Buf>(r: &mut B) -> Result<Bytes> {
     let len: usize = checked_read_primitive(r, Buf::get_u8)?.into();
 
+    if len == 0 {
+        return Err(Error::Format("Field name has a length of 0"));
+    }
+
     checked_read(r, |b: &mut B| b.copy_to_bytes(len), len)
 }
 
