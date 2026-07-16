@@ -916,19 +916,17 @@ fn txs_in_block(
         let block = get_block(&block_height, Some(&block_info), &tapes, db)?;
         let first_tx_index = block_info.mining_tx_index + 1;
 
-        if block.transactions.len() < missing_txs.len() {
+        if block.transactions.len() < missing_txs.len()
+            || missing_txs
+                .iter()
+                .any(|&i| i >= usize_to_u64(block.transactions.len()))
+        {
             return Ok(BlockchainResponse::TxsInBlock(None));
         }
 
         let txs = missing_txs
             .into_iter()
-            .map(|index_offset| {
-                if u64_to_usize(index_offset) >= block.transactions.len() {
-                    return Err(BlockchainError::NotFound);
-                }
-
-                get_tx_blob_from_id(&(first_tx_index + index_offset), &tapes, db)
-            })
+            .map(|index_offset| get_tx_blob_from_id(&(first_tx_index + index_offset), &tapes, db))
             .collect::<DbResult<_>>()?;
 
         (block, txs)
@@ -938,17 +936,18 @@ fn txs_in_block(
 
         let block = get_alt_block(db, &alt_block_height, &tx_ro)?;
 
-        if block.transactions.len() < missing_txs.len() {
+        if block.transactions.len() < missing_txs.len()
+            || missing_txs
+                .iter()
+                .any(|&i| i >= usize_to_u64(block.transactions.len()))
+        {
             return Ok(BlockchainResponse::TxsInBlock(None));
         }
 
         let txs = missing_txs
             .into_iter()
             .map(|index_offset| {
-                let tx_hash = block
-                    .transactions
-                    .get(u64_to_usize(index_offset))
-                    .ok_or(BlockchainError::NotFound)?;
+                let tx_hash = &block.transactions[u64_to_usize(index_offset)];
 
                 tx_ro
                     .get(&db.alt_transaction_blobs, tx_hash)?
