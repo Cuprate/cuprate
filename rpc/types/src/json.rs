@@ -588,8 +588,9 @@ define_request_and_response! {
     GetTxpoolBacklog (empty),
     Request {},
 
-    ResponseBase {
-        // TODO: this is a [`BinaryString`].
+    AccessResponseBase {
+        // Monero serializes this as a POD blob rather than a JSON array. We handle that with custom
+        // seralisation code for this type.
         backlog: Vec<TxBacklogEntry>,
     }
 }

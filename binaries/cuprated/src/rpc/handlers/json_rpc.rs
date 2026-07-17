@@ -991,6 +991,7 @@ async fn get_transaction_pool_backlog(
     let backlog = txpool::backlog(&mut state.txpool_read)
         .await?
         .into_iter()
+        .filter(|entry| !entry.private)
         .map(|entry| TxBacklogEntry {
             weight: usize_to_u64(entry.weight),
             fee: entry.fee,
@@ -999,7 +1000,7 @@ async fn get_transaction_pool_backlog(
         .collect();
 
     Ok(GetTxpoolBacklogResponse {
-        base: helper::response_base(false),
+        base: helper::access_response_base(false),
         backlog,
     })
 }
