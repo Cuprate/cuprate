@@ -88,9 +88,13 @@ fn serialize_txpool_backlog_response(
     let mut json = [
         br#"{
             "jsonrpc":"2.0",
-            "id":"#, serde_json::to_string(&id)?.as_bytes(), br#",
-            "result":"#, serde_json::to_string(&response.base)?.as_bytes()
-    ].concat();
+            "id":"#,
+        serde_json::to_string(&id)?.as_bytes(),
+        br#",
+            "result":"#,
+        serde_json::to_string(&response.base)?.as_bytes(),
+    ]
+    .concat();
 
     if !response.backlog.is_empty() {
         // Reopen `result` to append the field that serde cannot represent.
