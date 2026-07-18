@@ -19,7 +19,7 @@ use tokio_util::codec::{FramedRead, FramedWrite};
 use tor_cell::relaycell::msg::Connected;
 use tor_config_path::CfgPathResolver;
 use tor_hsservice::{handle_rend_requests, OnionService, RunningOnionService};
-use tor_proto::client::stream::IncomingStreamRequest;
+use tor_proto::stream::IncomingStreamRequest;
 use tor_rtcompat::PreferredRuntime;
 
 use cuprate_p2p_core::{ClearNet, NetworkZone, Tor, Transport};

@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crypto_bigint::{CheckedMul, U256};
+use crypto_bigint::U256;
 use monero_oxide::block::Block;
 
 use cuprate_cryptonight::*;
@@ -107,7 +107,7 @@ pub fn check_block_pow(hash: &[u8; 32], difficulty: u128) -> Result<(), BlockErr
 
     let difficulty = U256::from(difficulty);
 
-    if int_hash.checked_mul(&difficulty).is_none().unwrap_u8() == 1 {
+    if bool::from(int_hash.checked_mul(&difficulty).is_none()) {
         tracing::debug!(
             "Invalid POW: {}, difficulty: {}",
             hex::encode(hash),
