@@ -147,6 +147,7 @@ impl Syncer {
                         drop(sync_permit);
                         sync_permit = Arc::new(Arc::clone(&semaphore).acquire_owned().await?);
 
+                        self.notify_syncer.notify_one();
                         break;
                     }
                     batch = block_batch_stream.next() => {
@@ -244,15 +245,17 @@ impl SyncerHandle {
     pub fn callback(&self, blockchain: &BlockchainInterface) -> PeerSyncCallback {
         let context_svc = blockchain.context_svc();
         let blockchain_manager = blockchain.manager();
-        let handle = self.clone();
-        PeerSyncCallback::new(move |peer_csd: &CoreSyncData| {
+        let sync_handle = self.clone();
+        let disconnect_handle = self.clone();
+
+        let on_sync = move |peer_csd: &CoreSyncData| {
             let ctx = context_svc.blockchain_context_snapshot();
 
             // If we are synced and the syncer hasn't yet set the node to synced, wake the syncer.
             if peer_csd.cumulative_difficulty() == ctx.cumulative_difficulty
-                && handle.synced.peek().is_none()
+                && sync_handle.synced.peek().is_none()
             {
-                handle.notify_syncer.notify_one();
+                sync_handle.notify_syncer.notify_one();
             }
 
             // If we are behind the peer, and we aren't just one block behind with the blockchain manager handling the block, wake the syncer.
@@ -260,8 +263,12 @@ impl SyncerHandle {
                 && !(peer_csd.current_height.saturating_sub(1) == ctx.chain_height as u64
                     && blockchain_manager.is_block_being_handled(&peer_csd.top_id))
             {
-                handle.notify_syncer.notify_one();
+                sync_handle.notify_syncer.notify_one();
             }
-        })
+        };
+
+        let on_disconnect = move || disconnect_handle.notify_syncer.notify_one();
+
+        PeerSyncCallback::new(on_sync, on_disconnect)
     }
 }

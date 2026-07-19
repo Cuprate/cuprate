@@ -516,6 +516,11 @@ where
         on_peer_sync: on_peer_sync.clone(),
     };
 
+    let connection_guard = match on_peer_sync.clone() {
+        Some(callback) => connection_guard.with_on_close(move || callback.disconnected()),
+        None => connection_guard,
+    };
+
     let connection = Connection::<Z, T, _, _, _, _>::new(
         peer_sink,
         client_rx,
