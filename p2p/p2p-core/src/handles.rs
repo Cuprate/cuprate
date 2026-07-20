@@ -38,6 +38,7 @@ impl HandleBuilder {
         (
             ConnectionGuard {
                 token: token.clone(),
+                on_close: None,
                 _permit: self.permit,
             },
             ConnectionHandle {
@@ -55,6 +56,7 @@ pub struct BanPeer(pub Duration);
 /// A struct given to the connection task.
 pub struct ConnectionGuard {
     token: CancellationToken,
+    on_close: Option<Box<dyn FnOnce() + Send>>,
     _permit: Option<OwnedSemaphorePermit>,
 }
 
@@ -69,11 +71,21 @@ impl ConnectionGuard {
     pub fn connection_closed(&self) {
         self.token.cancel();
     }
+    /// Sets a callback to run when the connection closes.
+    #[must_use]
+    pub(crate) fn with_on_close(mut self, callback: impl FnOnce() + Send + 'static) -> Self {
+        self.on_close = Some(Box::new(callback));
+        self
+    }
 }
 
 impl Drop for ConnectionGuard {
     fn drop(&mut self) {
         self.token.cancel();
+
+        if let Some(callback) = self.on_close.take() {
+            callback();
+        }
     }
 }
 

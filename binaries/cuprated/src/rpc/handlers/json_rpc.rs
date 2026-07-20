@@ -488,8 +488,6 @@ pub(super) async fn get_info(
         (String::new(), false)
     };
 
-    let busy_syncing = state.syncer_handle.target_height() > 0;
-
     let (cumulative_difficulty, cumulative_difficulty_top64) =
         split_u128_into_low_high_bits(cumulative_difficulty);
 
@@ -543,8 +541,10 @@ pub(super) async fn get_info(
     } else {
         state.start_instant_unix
     };
+
     let target_height = state.syncer_handle.target_height();
-    let synchronized = target_height == 0;
+    let busy_syncing = target_height > 0;
+    let synchronized = !busy_syncing;
     let target = c.current_hf.block_time().as_secs();
     let top_block_hash = Hex(c.top_hash);
 
