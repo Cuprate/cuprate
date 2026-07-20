@@ -44,22 +44,21 @@ pub(crate) async fn request_chain_entry_from_peer<N: NetworkZone>(
         panic!("Connection task returned wrong response!");
     };
 
-    let block_ids: Vec<[u8; 32]> = (&chain_res.m_block_ids).into();
-
-    if block_ids.is_empty() || block_ids.len() > MAX_BLOCKS_IDS_IN_CHAIN_ENTRY {
+    if chain_res.m_block_ids.is_empty()
+        || chain_res.m_block_ids.len() > MAX_BLOCKS_IDS_IN_CHAIN_ENTRY
+    {
         client.info.handle.ban_peer(MEDIUM_BAN);
         return Err(BlockDownloadError::PeersResponseWasInvalid);
     }
 
+    let block_ids: Vec<[u8; 32]> = (&chain_res.m_block_ids).into();
+
     // We must not receive duplicate block IDs.
     let mut seen = HashSet::with_capacity(block_ids.len());
-    block_ids.iter().try_for_each(|id| {
-        if !seen.insert(id) {
-            client.info.handle.ban_peer(MEDIUM_BAN);
-            return Err(BlockDownloadError::PeersResponseWasInvalid);
-        }
-        Ok(())
-    })?;
+    if !block_ids.iter().all(|id| seen.insert(id)) {
+        client.info.handle.ban_peer(MEDIUM_BAN);
+        return Err(BlockDownloadError::PeersResponseWasInvalid);
+    }
 
     // We must have at least one overlapping block.
     if !(block_ids[0] == short_history[0] || block_ids[0] == short_history[1]) {
