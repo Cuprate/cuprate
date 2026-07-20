@@ -277,8 +277,8 @@ async fn fluffy_missing_txs<A: NetZoneAddress>(
     // deallocate the backing `Bytes`.
     drop(request);
 
-    let mut seen = HashSet::with_capacity(tx_indexes.len());
-    tx_indexes.iter().try_for_each(|idx| {
+    let mut seen = HashSet::new();
+    for idx in &tx_indexes {
         if !seen.insert(idx) {
             tracing::warn!(
                 "Peer requested duplicate tx index {} for block {}, banning peer.",
@@ -288,8 +288,7 @@ async fn fluffy_missing_txs<A: NetZoneAddress>(
             peer_information.handle.ban_peer(SHORT_BAN);
             anyhow::bail!("Peer requested duplicate tx indices.");
         }
-        Ok(())
-    })?;
+    }
 
     let BlockchainResponse::TxsInBlock(res) = blockchain_read_handle
         .ready()
