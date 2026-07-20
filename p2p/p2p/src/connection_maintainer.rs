@@ -175,6 +175,7 @@ where
 
         tokio::spawn(
             async move {
+                // TODO: ban peer on repeated `HandshakeError::PeerSentInvalidMessage`
                 if let Ok(Ok(peer)) = timeout(HANDSHAKE_TIMEOUT, connection_fut).await {
                     let csd = peer.info.core_sync_data.lock().unwrap().clone();
                     if new_peers_tx.send(peer).await.is_ok() {
