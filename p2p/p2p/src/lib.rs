@@ -101,9 +101,10 @@ where
         .unwrap()
         .max(1);
 
-    let address_book =
-        cuprate_address_book::init_address_book(config.address_book_config.clone()).await?;
-    let address_book = Buffer::new(address_book, max_connections);
+    let address_book = Buffer::new(
+        cuprate_address_book::init_address_book(config.address_book_config.clone()).await?,
+        max_connections,
+    );
 
     // Use the default config. Changing the defaults affects tx fluff times, which could affect D++ so for now don't allow changing
     // this.
