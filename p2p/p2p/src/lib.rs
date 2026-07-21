@@ -74,6 +74,8 @@ async fn inbound_connection_monitor(
 ///
 /// This function starts all the tasks to maintain/accept/make connections.
 ///
+/// If [`P2PConfig::offline`] no connections will be made or accepted.
+///
 /// # Usage
 /// You must provide:
 /// - A protocol request handler, which is given to each connection
@@ -93,20 +95,37 @@ where
     PR: ProtocolRequestHandlerMaker<Z> + Clone,
     CS: CoreSyncSvc + Clone,
 {
+    let max_connections = config
+        .max_inbound_connections
+        .checked_add(config.outbound_connections)
+        .unwrap()
+        .max(1);
+
     let address_book =
         cuprate_address_book::init_address_book(config.address_book_config.clone()).await?;
-    let address_book = Buffer::new(
-        address_book,
-        config
-            .max_inbound_connections
-            .checked_add(config.outbound_connections)
-            .unwrap(),
-    );
+    let address_book = Buffer::new(address_book, max_connections);
 
     // Use the default config. Changing the defaults affects tx fluff times, which could affect D++ so for now don't allow changing
     // this.
     let (broadcast_svc, outbound_mkr, inbound_mkr) =
         broadcast::init_broadcast_channels(broadcast::BroadcastConfig::default());
+
+    let (new_connection_tx, new_connection_rx) = mpsc::channel(max_connections);
+    let (make_connection_tx, make_connection_rx) = mpsc::channel(3);
+
+    let peer_set = PeerSet::new(new_connection_rx);
+
+    if config.offline {
+        tracing::warn!("Offline mode enabled, not connecting to or listening for peers.");
+
+        return Ok(NetworkInterface {
+            peer_set: Buffer::new(peer_set, 10).boxed_clone(),
+            broadcast_svc,
+            make_connection_tx,
+            address_book: address_book.boxed_clone(),
+            _background_tasks: Arc::new(JoinSet::new()),
+        });
+    }
 
     let mut basic_node_data = config.basic_node_data();
 
@@ -137,14 +156,6 @@ where
 
     let outbound_handshaker = outbound_handshaker_builder.build();
 
-    let (new_connection_tx, new_connection_rx) = mpsc::channel(
-        config
-            .outbound_connections
-            .checked_add(config.max_inbound_connections)
-            .unwrap(),
-    );
-    let (make_connection_tx, make_connection_rx) = mpsc::channel(3);
-
     let outbound_connector = Connector::new(outbound_handshaker);
     let outbound_connection_maintainer = connection_maintainer::OutboundConnectionKeeper::new(
         config.clone(),
@@ -154,8 +165,6 @@ where
         outbound_connector,
         peer_sync_callback.clone(),
     );
-
-    let peer_set = PeerSet::new(new_connection_rx);
 
     // Create semaphore for limiting inbound connections and monitoring
     let inbound_semaphore = Arc::new(tokio::sync::Semaphore::new(config.max_inbound_connections));
@@ -169,14 +178,16 @@ where
     );
 
     // Spawn inbound connection monitor task
-    background_tasks.spawn(
-        inbound_connection_monitor(
-            Arc::clone(&inbound_semaphore),
-            config.max_inbound_connections,
-            config.p2p_port,
-        )
-        .instrument(tracing::info_span!("inbound_connection_monitor")),
-    );
+    if transport_config.server_config.is_some() {
+        background_tasks.spawn(
+            inbound_connection_monitor(
+                Arc::clone(&inbound_semaphore),
+                config.max_inbound_connections,
+                config.p2p_port,
+            )
+            .instrument(tracing::info_span!("inbound_connection_monitor")),
+        );
+    }
 
     background_tasks.spawn(
         inbound_server::inbound_server(

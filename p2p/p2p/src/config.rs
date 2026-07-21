@@ -11,6 +11,8 @@ pub struct P2PConfig<Z: NetworkZone> {
     pub network: Network,
     /// Seed nodes to connect to find peers if our address book is empty.
     pub seeds: Vec<Z::Addr>,
+    /// Whether to run in offline mode.
+    pub offline: bool,
 
     /// The number of outbound connections to make and try keep.
     pub outbound_connections: usize,

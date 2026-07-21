@@ -135,6 +135,15 @@ config_struct! {
         /// Valid values | "Mainnet", "Testnet", "Stagenet", "FakeChain"
         pub network: Network,
 
+        /// Run the node offline.
+        ///
+        /// No connections will be made to or accepted from peers,
+        /// on any network zone.
+        ///
+        /// Type         | boolean
+        /// Valid values | true, false
+        pub offline: bool,
+
         /// Enable/disable fast sync.
         ///
         /// Fast sync skips verification of old blocks by
@@ -211,6 +220,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             network: Default::default(),
+            offline: false,
             fixed_difficulty: 0,
             fast_sync: true,
             target_max_memory: DefaultOrCustom::Default,
@@ -271,6 +281,7 @@ impl Config {
         cuprate_p2p::P2PConfig {
             network: self.network,
             seeds: p2p::clear_net_seed_nodes(self.network),
+            offline: self.offline,
             outbound_connections: self.p2p.clear_net.outbound_connections,
             extra_outbound_connections: self.p2p.clear_net.extra_outbound_connections,
             max_inbound_connections: self.p2p.clear_net.max_inbound_connections,
@@ -315,6 +326,7 @@ impl Config {
         cuprate_p2p::P2PConfig {
             network: self.network,
             seeds: p2p::tor_net_seed_nodes(self.network),
+            offline: self.offline,
             outbound_connections: self.p2p.tor_net.outbound_connections,
             extra_outbound_connections: self.p2p.tor_net.extra_outbound_connections,
             max_inbound_connections: self.p2p.tor_net.max_inbound_connections,
@@ -446,7 +458,7 @@ impl Config {
     pub fn dry_run_check(&self) -> Vec<DryRunResult> {
         let mut results = Vec::new();
 
-        if self.p2p.clear_net.enable_inbound {
+        if !self.offline && self.p2p.clear_net.enable_inbound {
             let port = p2p_port(self.p2p.clear_net.p2p_port, self.network);
             let ip = self.p2p.clear_net.listen_on;
 
@@ -456,7 +468,7 @@ impl Config {
             });
         }
 
-        if self.p2p.clear_net.enable_inbound_v6 {
+        if !self.offline && self.p2p.clear_net.enable_inbound_v6 {
             let port = p2p_port(self.p2p.clear_net.p2p_port, self.network);
             let ip = self.p2p.clear_net.listen_on_v6;
 
@@ -486,7 +498,7 @@ impl Config {
             });
         }
 
-        if self.tor.mode == TorMode::Daemon {
+        if !self.offline && self.tor.mode == TorMode::Daemon {
             let port = self.tor.daemon.listening_addr.port();
             let ip = self.tor.daemon.listening_addr.ip();
 
