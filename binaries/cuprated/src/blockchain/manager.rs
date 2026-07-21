@@ -60,7 +60,11 @@ pub(crate) async fn init_blockchain_manager(
     let stop_current_block_downloader = Arc::new(Notify::new());
     let fast_sync_hashes = launch_ctx.config.fast_sync_hashes();
 
-    let syncer = BlockchainSyncer::new(&launch_ctx.blockchain.syncer(), synced_tx);
+    let syncer = BlockchainSyncer::new(
+        &launch_ctx.blockchain.syncer(),
+        synced_tx,
+        launch_ctx.config.offline,
+    );
 
     launch_ctx.task_executor.spawn(syncer.run(
         launch_ctx.blockchain.context_svc(),

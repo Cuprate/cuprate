@@ -39,6 +39,10 @@ pub struct Args {
     #[arg(long)]
     no_fast_sync: bool,
 
+    /// Do not connect to or listen for peers.
+    #[arg(long)]
+    pub offline: bool,
+
     /// The amount of outbound clear-net connections to maintain.
     #[arg(long)]
     pub outbound_connections: Option<usize>,
@@ -96,6 +100,9 @@ impl Args {
         }
         if self.regtest {
             config.network = Network::FakeChain;
+        }
+        if self.offline {
+            config.offline = true;
         }
         if let Some(fixed_difficulty) = self.fixed_difficulty {
             config.fixed_difficulty = fixed_difficulty;
