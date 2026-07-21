@@ -50,10 +50,20 @@ pub struct Syncer {
 
 impl Syncer {
     /// Create a new [`Syncer`] and its [`SyncerHandle`].
-    pub fn new() -> (Self, SyncerHandle) {
+    ///
+    /// If `offline` the node is considered synced from the start.
+    pub fn new(offline: bool) -> (Self, SyncerHandle) {
         let notify_syncer = Arc::new(Notify::new());
         let (synced_tx, synced_rx) = futures::channel::oneshot::channel();
         let target_height = Arc::new(AtomicU64::new(0));
+
+        let synced_tx = if offline {
+            #[expect(clippy::let_underscore_must_use)]
+            let _ = synced_tx.send(());
+            None
+        } else {
+            Some(synced_tx)
+        };
 
         let syncer_handle = SyncerHandle {
             notify_syncer: Arc::clone(&notify_syncer),
@@ -63,7 +73,7 @@ impl Syncer {
 
         let syncer = Self {
             notify_syncer,
-            synced_tx: Some(synced_tx),
+            synced_tx,
             target_height,
         };
 

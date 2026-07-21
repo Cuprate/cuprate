@@ -75,7 +75,7 @@ pub struct TorContext {
 pub async fn initialize_tor_if_enabled(launch_ctx: &LaunchContext) -> TorContext {
     let config = launch_ctx.config.as_ref();
     let anonymize_clearnet = matches!(config.p2p.clear_net.proxy, ProxySettings::Tor);
-    let tor_enabled = config.p2p.tor_net.enabled || anonymize_clearnet;
+    let tor_enabled = !config.offline && (config.p2p.tor_net.enabled || anonymize_clearnet);
 
     let mode = if config.tor.mode == TorMode::Auto && tor_enabled {
         #[cfg(not(feature = "arti"))]
