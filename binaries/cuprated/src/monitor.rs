@@ -5,7 +5,7 @@ use std::{future::Future, panic::AssertUnwindSafe};
 use futures::FutureExt;
 use tokio::task::JoinHandle;
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use crate::constants::CRITICAL_SERVICE_ERROR;
 
@@ -42,17 +42,22 @@ impl TaskExecutor {
         self.tracker
             .spawn(AssertUnwindSafe(future).catch_unwind().map(move |result| {
                 match result {
-                    Ok(Ok(())) => {
+                    Ok(res) => {
                         if executor.token.is_cancelled() {
-                            // Node is shutting down, so an early exit is expected
+                            // Node is shutting down, so an early exit or error is expected
+                            if let Err(e) = res {
+                                debug!(subsystem = name, "{:#}", e.into());
+                            }
                             return;
                         }
-                        error!(
-                            subsystem = name,
-                            "critical task exited before shutdown was requested"
-                        );
+                        match res {
+                            Ok(()) => error!(
+                                subsystem = name,
+                                "critical task exited before shutdown was requested"
+                            ),
+                            Err(e) => error!(subsystem = name, "{:#}", e.into()),
+                        }
                     }
-                    Ok(Err(e)) => error!(subsystem = name, "{:#}", e.into()),
                     Err(payload) => error!(
                         subsystem = name,
                         err = panic_message(&payload),

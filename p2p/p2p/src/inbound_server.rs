@@ -39,7 +39,7 @@ pub(super) async fn inbound_server<Z, T, HS, A>(
     mut handshaker: HS,
     mut address_book: A,
     config: P2PConfig<Z>,
-    transport_config: Option<T::ServerConfig>,
+    listener: Option<T::Listener>,
     inbound_semaphore: Arc<Semaphore>,
     peer_sync_callback: Option<PeerSyncCallback>,
 ) -> Result<(), tower::BoxError>
@@ -55,18 +55,11 @@ where
     // Copying the peer_id before borrowing for ping responses (Make us avoid a `clone()`).
     let our_peer_id = config.basic_node_data().peer_id;
 
-    // Mandatory. Extract server config from P2PConfig
-    let Some(server_config) = transport_config else {
-        tracing::warn!("No inbound server config provided, not listening for inbound connections.");
+    let Some(listener) = listener else {
         return Ok(());
     };
 
     tracing::info!("Starting inbound connection server");
-
-    let listener = T::incoming_connection_listener(server_config)
-        .await
-        .inspect_err(|e| tracing::warn!("Failed to start inbound server: {e}"))?;
-
     let mut listener = pin!(listener);
 
     // Use the provided semaphore for limiting to maximum inbound connections.

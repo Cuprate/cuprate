@@ -157,6 +157,13 @@ where
 
     let peer_set = PeerSet::new(new_connection_rx);
 
+    let inbound_listener = if let Some(config) = transport_config.server_config {
+        Some(T::incoming_connection_listener(config).await?)
+    } else {
+        tracing::warn!("No inbound server config provided, not listening for inbound connections.");
+        None
+    };
+
     // Create semaphore for limiting inbound connections and monitoring
     let inbound_semaphore = Arc::new(tokio::sync::Semaphore::new(config.max_inbound_connections));
 
@@ -184,7 +191,7 @@ where
             inbound_handshaker,
             address_book.clone(),
             config,
-            transport_config.server_config,
+            inbound_listener,
             inbound_semaphore,
             peer_sync_callback,
         )

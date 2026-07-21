@@ -3,7 +3,6 @@
 use cuprate_blockchain::BlockchainError;
 use cuprate_consensus::ExtendedConsensusError;
 use cuprate_consensus_rules::{blocks::BlockError, hard_forks::HardForkError, ConsensusError};
-use cuprate_txpool::TxPoolError;
 use cuprate_types::TxConversionError;
 
 macro_rules! impl_internal_from {
@@ -110,4 +109,4 @@ impl From<ConsensusError> for IncomingBlockError {
     }
 }
 
-impl_internal_from!(BlockchainError, TxPoolError, TxConversionError);
+impl_internal_from!(BlockchainError, TxConversionError);

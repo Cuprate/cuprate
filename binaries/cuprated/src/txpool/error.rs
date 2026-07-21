@@ -2,7 +2,6 @@
 
 use cuprate_consensus::ExtendedConsensusError;
 use cuprate_consensus_rules::ConsensusError;
-use cuprate_txpool::TxPoolError;
 
 use crate::txpool::relay_rules::RelayRuleError;
 
@@ -40,10 +39,14 @@ pub enum IncomingTxError {
 
 impl From<ExtendedConsensusError> for IncomingTxError {
     fn from(e: ExtendedConsensusError) -> Self {
-        if let ExtendedConsensusError::DBErr(e) = e {
-            return Self::Internal(e);
+        match e {
+            ExtendedConsensusError::DBErr(e) => Self::Internal(e),
+
+            ExtendedConsensusError::ConErr(_)
+            | ExtendedConsensusError::TxsIncludedWithBlockIncorrect
+            | ExtendedConsensusError::OneOrMoreBatchVerificationStatementsInvalid
+            | ExtendedConsensusError::NoBlocksToVerify => TxValidationError::Consensus(e).into(),
         }
-        TxValidationError::Consensus(e).into()
     }
 }
 
@@ -62,11 +65,5 @@ impl From<std::io::Error> for IncomingTxError {
 impl From<RelayRuleError> for IncomingTxError {
     fn from(e: RelayRuleError) -> Self {
         TxValidationError::from(e).into()
-    }
-}
-
-impl From<TxPoolError> for IncomingTxError {
-    fn from(e: TxPoolError) -> Self {
-        Self::Internal(e.into())
     }
 }
