@@ -30,7 +30,7 @@ use futures::{future::BoxFuture, FutureExt};
 use rand_distr::Exp;
 use tokio::{
     sync::{mpsc, oneshot},
-    task::JoinSet,
+    task::{JoinHandle, JoinSet},
 };
 use tokio_util::{sync::PollSender, time::DelayQueue};
 use tower::Service;
@@ -49,8 +49,8 @@ pub use manager::DandelionPoolManager;
 
 /// Start the [`DandelionPoolManager`].
 ///
-/// This function spawns the [`DandelionPoolManager`] and returns [`DandelionPoolService`] which can be used to send
-/// requests to the pool.
+/// This function spawns the [`DandelionPoolManager`] and returns a
+/// [`DandelionPoolService`] and the manager's task handle.
 ///
 /// ### Args
 ///
@@ -64,7 +64,7 @@ pub fn start_dandelion_pool_manager<P, R, Tx, TxId, PeerId>(
     dandelion_router: R,
     backing_pool: P,
     config: DandelionConfig,
-) -> DandelionPoolService<Tx, TxId, PeerId>
+) -> (DandelionPoolService<Tx, TxId, PeerId>, JoinHandle<()>)
 where
     Tx: Clone + Send + 'static,
     TxId: Hash + Eq + Clone + Send + 'static,
@@ -92,11 +92,14 @@ where
         _tx: PhantomData,
     };
 
-    tokio::spawn(pool.run(rx));
+    let task = tokio::spawn(pool.run(rx));
 
-    DandelionPoolService {
-        tx: PollSender::new(tx),
-    }
+    (
+        DandelionPoolService {
+            tx: PollSender::new(tx),
+        },
+        task,
+    )
 }
 
 /// The dandelion pool manager service.
@@ -138,7 +141,7 @@ where
 
         async move {
             res?;
-            rx.await.expect("Oneshot dropped before response!");
+            rx.await.map_err(|_| DandelionPoolShutDown)?;
 
             Ok(())
         }
