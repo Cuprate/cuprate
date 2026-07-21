@@ -113,11 +113,26 @@ impl IncomingTxHandler {
 
         let (promote_tx, promote_rx) = mpsc::unbounded_channel();
 
-        let dandelion_pool_manager = dandelion::start_dandelion_pool_manager(
-            dandelion_router,
-            launch_ctx.txpool_read.clone(),
-            promote_tx,
-        );
+        let (dandelion_pool_manager, mut dandelion_pool_task) =
+            dandelion::start_dandelion_pool_manager(
+                dandelion_router,
+                launch_ctx.txpool_read.clone(),
+                promote_tx,
+            );
+
+        let shutdown = launch_ctx.task_executor.cancellation_token();
+        launch_ctx
+            .task_executor
+            .spawn_critical("dandelion pool manager", async move {
+                tokio::select! {
+                    result = &mut dandelion_pool_task => result.map_err(anyhow::Error::from),
+                    () = shutdown.cancelled() => {
+                        dandelion_pool_task.abort();
+                        drop(dandelion_pool_task.await);
+                        Ok(())
+                    }
+                }
+            });
 
         let txpool_manager = start_txpool_manager(
             txpool_write_handle,
@@ -245,7 +260,7 @@ async fn handle_incoming_txs(
             &mut txpool_read_handle,
             &mut dandelion_pool_manager,
         )
-        .await;
+        .await?;
     }
 
     Ok(())
@@ -304,9 +319,11 @@ async fn prepare_incoming_txs(
         stem_pool_hashes,
     } = txpool_read_handle
         .ready()
-        .await?
+        .await
+        .expect("Txpool read service is always ready.")
         .call(TxpoolReadRequest::FilterKnownTxBlobHashes(tx_blob_hashes))
-        .await?
+        .await
+        .map_err(|e| IncomingTxError::Internal(e.into()))?
     else {
         unreachable!()
     };
@@ -346,26 +363,21 @@ async fn rerelay_stem_tx(
         TxId,
         CrossNetworkInternalPeerId,
     >,
-) {
-    let svc = match txpool_read_handle.ready().await {
-        Ok(svc) => svc,
-        Err(e) => {
-            tracing::warn!("Failed to acquire txpool read service for stem re-relay: {e}");
-            return;
-        }
-    };
-    let tx_blob = match svc.call(TxpoolReadRequest::TxBlob(*tx_hash)).await {
+) -> Result<(), IncomingTxError> {
+    let tx_blob = match txpool_read_handle
+        .ready()
+        .await
+        .expect("Txpool read service is always ready.")
+        .call(TxpoolReadRequest::TxBlob(*tx_hash))
+        .await
+    {
         Ok(TxpoolReadResponse::TxBlob { tx_blob, .. }) => tx_blob,
         Ok(_) => unreachable!(),
         Err(TxPoolError::NotFound) => {
             // The tx was dropped from the pool
-            return;
+            return Ok(());
         }
-        Err(e) => {
-            // The service returned an error
-            tracing::warn!("Failed to fetch stem tx for re-relay: {e}");
-            return;
-        }
+        Err(TxPoolError::Fjall(e)) => return Err(IncomingTxError::Internal(e.into())),
     };
 
     let incoming_tx =
@@ -377,7 +389,7 @@ async fn rerelay_stem_tx(
         .build()
         .unwrap();
 
-    if let Err(e) = async {
+    async {
         dandelion_pool_manager
             .ready()
             .await?
@@ -385,7 +397,5 @@ async fn rerelay_stem_tx(
             .await
     }
     .await
-    {
-        tracing::warn!("Dandelion pool manager failed for stem re-relay: {e}");
-    }
+    .map_err(|e| IncomingTxError::Internal(e.into()))
 }

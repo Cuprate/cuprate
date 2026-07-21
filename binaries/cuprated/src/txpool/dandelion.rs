@@ -125,12 +125,15 @@ impl Service<DandelionRouteReq<DandelionTx, CrossNetworkInternalPeerId>> for Mai
     }
 }
 
-/// Starts the dandelion pool manager task and returns a handle to send txs to broadcast.
+/// Starts the dandelion pool manager and returns its service and task handles.
 pub fn start_dandelion_pool_manager(
     router: MainDandelionRouter,
     txpool_read_handle: TxpoolReadHandle,
     promote_tx: mpsc::UnboundedSender<[u8; 32]>,
-) -> DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId> {
+) -> (
+    DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
+    tokio::task::JoinHandle<()>,
+) {
     cuprate_dandelion_tower::pool::start_dandelion_pool_manager(
         // TODO: make this constant configurable?
         32,

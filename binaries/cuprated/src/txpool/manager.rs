@@ -430,7 +430,7 @@ impl TxpoolManager {
         &mut self,
         tx: TransactionVerificationData,
         state: TxState<CrossNetworkInternalPeerId>,
-    ) -> Result<(), TxPoolError> {
+    ) -> anyhow::Result<()> {
         tracing::debug!("handling new tx");
 
         let incoming_tx =
@@ -467,17 +467,11 @@ impl TxpoolManager {
             .build()
             .unwrap();
 
-        if let Err(e) = async {
-            self.dandelion_pool_manager
-                .ready()
-                .await?
-                .call(incoming_tx)
-                .await
-        }
-        .await
-        {
-            tracing::warn!("Dandelion pool manager failed for incoming tx: {e}");
-        }
+        self.dandelion_pool_manager
+            .ready()
+            .await?
+            .call(incoming_tx)
+            .await?;
 
         Ok(())
     }
@@ -564,7 +558,7 @@ impl TxpoolManager {
         mut command_rx: mpsc::Receiver<TxpoolManagerCommand>,
         mut block_rx: mpsc::Receiver<(Vec<[u8; 32]>, oneshot::Sender<()>)>,
         shutdown_token: CancellationToken,
-    ) -> Result<(), TxPoolError> {
+    ) -> anyhow::Result<()> {
         loop {
             tokio::select! {
                 biased;
