@@ -1,6 +1,6 @@
 use bytes::{Buf, BufMut};
 
-use crate::error::*;
+use crate::error::{Error, Result};
 
 #[inline]
 pub(crate) fn checked_read_primitive<B: Buf, R: Sized>(
