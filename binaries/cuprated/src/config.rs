@@ -280,7 +280,11 @@ impl Config {
     pub fn clearnet_p2p_config(&self) -> cuprate_p2p::P2PConfig<ClearNet> {
         cuprate_p2p::P2PConfig {
             network: self.network,
-            seeds: p2p::clear_net_seed_nodes(self.network),
+            seeds: {
+                let mut seeds = p2p::clear_net_seed_nodes(self.network);
+                seeds.extend_from_slice(&self.p2p.clear_net.seed_nodes);
+                seeds
+            },
             offline: self.offline,
             outbound_connections: self.p2p.clear_net.outbound_connections,
             extra_outbound_connections: self.p2p.clear_net.extra_outbound_connections,
