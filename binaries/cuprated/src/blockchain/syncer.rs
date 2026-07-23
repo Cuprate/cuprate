@@ -21,9 +21,9 @@ use cuprate_p2p::{
 };
 use cuprate_p2p_core::{client::PeerSyncCallback, ClearNet, CoreSyncData, NetworkZone};
 
-use super::BlockchainInterface;
+use super::BlockchainManagerHandle;
 
-/// An error returned from the [`Syncer`].
+/// An error returned from the [`BlockchainSyncer`].
 #[derive(Debug, thiserror::Error)]
 pub enum SyncerError {
     #[error("Incoming block channel closed.")]
@@ -42,32 +42,23 @@ enum SyncStatus {
 }
 
 /// The syncer that makes sure we are fully synchronised with our connected peers.
-pub struct Syncer {
+pub struct BlockchainSyncer {
     notify_syncer: Arc<Notify>,
     synced_tx: Option<futures::channel::oneshot::Sender<()>>,
     target_height: Arc<AtomicU64>,
 }
 
-impl Syncer {
-    /// Create a new [`Syncer`] and its [`SyncerHandle`].
-    pub fn new() -> (Self, SyncerHandle) {
-        let notify_syncer = Arc::new(Notify::new());
-        let (synced_tx, synced_rx) = futures::channel::oneshot::channel();
-        let target_height = Arc::new(AtomicU64::new(0));
-
-        let syncer_handle = SyncerHandle {
-            notify_syncer: Arc::clone(&notify_syncer),
-            synced: synced_rx.shared(),
-            target_height: Arc::clone(&target_height),
-        };
-
-        let syncer = Self {
-            notify_syncer,
+impl BlockchainSyncer {
+    /// Create a new [`BlockchainSyncer`] from its handle and the sender used to signal the node has synced.
+    pub fn new(
+        handle: &BlockchainSyncerHandle,
+        synced_tx: futures::channel::oneshot::Sender<()>,
+    ) -> Self {
+        Self {
+            notify_syncer: Arc::clone(&handle.notify_syncer),
             synced_tx: Some(synced_tx),
-            target_height,
-        };
-
-        (syncer, syncer_handle)
+            target_height: Arc::clone(&handle.target_height),
+        }
     }
 
     /// Run the syncer.
@@ -217,9 +208,9 @@ impl Syncer {
     }
 }
 
-/// Handle for the [`Syncer`].
+/// Handle for the `BlockchainSyncer`.
 #[derive(Clone)]
-pub struct SyncerHandle {
+pub struct BlockchainSyncerHandle {
     /// The syncer notify channel, used to wake the syncer.
     notify_syncer: Arc<Notify>,
     /// The synced notify channel, used to wake the tasks waiting on cuprate to be synced.
@@ -228,7 +219,21 @@ pub struct SyncerHandle {
     target_height: Arc<AtomicU64>,
 }
 
-impl SyncerHandle {
+impl BlockchainSyncerHandle {
+    /// Create a new handle and the sender used to signal the node has synced.
+    pub(crate) fn new() -> (Self, futures::channel::oneshot::Sender<()>) {
+        let (synced_tx, synced_rx) = futures::channel::oneshot::channel();
+
+        (
+            Self {
+                notify_syncer: Arc::new(Notify::new()),
+                synced: synced_rx.shared(),
+                target_height: Arc::new(AtomicU64::new(0)),
+            },
+            synced_tx,
+        )
+    }
+
     /// Returns the target sync height. 0 if not syncing.
     pub fn target_height(&self) -> u64 {
         self.target_height.load(Ordering::Relaxed)
@@ -242,9 +247,11 @@ impl SyncerHandle {
     }
 
     /// Creates a [`PeerSyncCallback`] that filters and wakes the syncer.
-    pub fn callback(&self, blockchain: &BlockchainInterface) -> PeerSyncCallback {
-        let context_svc = blockchain.context_svc();
-        let blockchain_manager = blockchain.manager();
+    pub(crate) fn callback(
+        &self,
+        context_svc: BlockchainContextService,
+        blockchain_manager: BlockchainManagerHandle,
+    ) -> PeerSyncCallback {
         let sync_handle = self.clone();
         let disconnect_handle = self.clone();
 
