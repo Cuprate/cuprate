@@ -61,7 +61,7 @@ use crate::{
     blockchain::{BlockchainInterface, BlockchainManagerHandle, BlockchainSyncerHandle},
     config::Config,
     constants::DATABASE_CORRUPT_MSG,
-    monitor::TaskExecutor,
+    monitor::{CriticalTaskError, TaskExecutor},
     tor::initialize_tor_if_enabled,
     txpool::IncomingTxHandler,
 };
@@ -122,7 +122,7 @@ pub struct Node {
 
 impl Drop for Node {
     fn drop(&mut self) {
-        self.task_executor.trigger_shutdown();
+        self.shutdown();
     }
 }
 
@@ -143,149 +143,159 @@ impl Node {
     /// or `target_max_memory` is unresolved.
     pub async fn launch(config: impl Into<Arc<Config>>) -> Result<Self, anyhow::Error> {
         let config: Arc<Config> = config.into();
+        let task_executor = TaskExecutor::new();
+        let shutdown_token = task_executor.cancellation_token();
 
-        // Initialize the database thread pool.
-        let db_thread_pool = Arc::new(
-            rayon::ThreadPoolBuilder::new()
-                .num_threads(config.storage.reader_threads)
-                .build()
-                .context("failed to build rayon database thread pool")?,
-        );
+        let node: Result<Self, anyhow::Error> = async move {
+            // Initialize the database thread pool.
+            let db_thread_pool = Arc::new(
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(config.storage.reader_threads)
+                    .build()
+                    .context("failed to build rayon database thread pool")?,
+            );
 
-        // Start the blockchain & tx-pool databases.
-        let fjall_db = fjall::Database::builder(config.fjall_directory())
-            .cache_size(config.fjall_cache_size())
-            .open()
-            .context(DATABASE_CORRUPT_MSG)?;
-
-        let (mut blockchain_read_handle, mut blockchain_write_handle, _) =
-            cuprate_blockchain::service::init_with_pool(
-                &config.blockchain_config(),
-                fjall_db.clone(),
-                Arc::clone(&db_thread_pool),
-            )
-            .context(DATABASE_CORRUPT_MSG)?;
-
-        let (txpool_read_handle, txpool_write_handle) =
-            cuprate_txpool::service::init_with_pool(fjall_db, db_thread_pool)
+            // Start the blockchain & tx-pool databases.
+            let fjall_db = fjall::Database::builder(config.fjall_directory())
+                .cache_size(config.fjall_cache_size())
+                .open()
                 .context(DATABASE_CORRUPT_MSG)?;
 
-        // TODO: Add an argument/option for keeping alt blocks between restart.
-        blockchain_write_handle
-            .ready()
-            .await?
-            .call(BlockchainWriteRequest::FlushAltBlocks)
+            let (mut blockchain_read_handle, mut blockchain_write_handle, _) =
+                cuprate_blockchain::service::init_with_pool(
+                    &config.blockchain_config(),
+                    fjall_db.clone(),
+                    Arc::clone(&db_thread_pool),
+                )
+                .context(DATABASE_CORRUPT_MSG)?;
+
+            let (txpool_read_handle, txpool_write_handle) =
+                cuprate_txpool::service::init_with_pool(fjall_db, db_thread_pool)
+                    .context(DATABASE_CORRUPT_MSG)?;
+
+            // TODO: Add an argument/option for keeping alt blocks between restart.
+            blockchain_write_handle
+                .ready()
+                .await?
+                .call(BlockchainWriteRequest::FlushAltBlocks)
+                .await?;
+
+            // Check add the genesis block to the blockchain.
+            blockchain::check_add_genesis(
+                &mut blockchain_read_handle,
+                &mut blockchain_write_handle,
+                config.network(),
+            )
             .await?;
 
-        // Check add the genesis block to the blockchain.
-        blockchain::check_add_genesis(
-            &mut blockchain_read_handle,
-            &mut blockchain_write_handle,
-            config.network(),
-        )
-        .await;
+            // Start the context service and the block/tx verifier.
+            let context_svc =
+                blockchain::init_consensus(blockchain_read_handle.clone(), config.context_config())
+                    .await
+                    .map_err(anyhow::Error::from_boxed)?;
 
-        // Start the context service and the block/tx verifier.
-        let context_svc =
-            blockchain::init_consensus(blockchain_read_handle.clone(), config.context_config())
-                .await
-                .map_err(anyhow::Error::from_boxed)?;
+            // Create the blockchain syncer handle and synced signal sender.
+            let (blockchain_syncer_handle, synced_tx) = BlockchainSyncerHandle::new();
 
-        // Create the blockchain syncer handle and synced signal sender.
-        let (blockchain_syncer_handle, synced_tx) = BlockchainSyncerHandle::new();
+            // Create the blockchain manager handle and command receiver.
+            let (blockchain_manager_handle, command_rx) = BlockchainManagerHandle::new();
 
-        // Create the blockchain manager handle and command receiver.
-        let (blockchain_manager_handle, command_rx) = BlockchainManagerHandle::new();
-
-        // Create the blockchain interface.
-        let blockchain_interface = BlockchainInterface::new(
-            blockchain_read_handle,
-            context_svc,
-            blockchain_manager_handle,
-            blockchain_syncer_handle,
-        );
-
-        // Create the launch context.
-        let launch_ctx = LaunchContext {
-            config,
-            reorg_lock: Arc::new(RwLock::new(())),
-            blockchain: blockchain_interface,
-            txpool_read: txpool_read_handle,
-            task_executor: TaskExecutor::new(),
-        };
-
-        // Bootstrap or configure Tor if enabled.
-        let tor_enabled = launch_ctx.config.p2p.tor_net.enabled;
-        let tor_context = initialize_tor_if_enabled(&launch_ctx).await;
-
-        // Start clearnet P2P zone
-        let (clearnet_interface, clearnet_tx_handler_subscriber) =
-            p2p::initialize_clearnet_p2p(&launch_ctx, &tor_context).await;
-
-        // Create Tor router delivery channel.
-        let (tor_router_tx, tor_router_rx) = tor_enabled.then(oneshot::channel).unzip();
-
-        // Create the incoming tx handler service.
-        let tx_handler = IncomingTxHandler::init(
-            &launch_ctx,
-            clearnet_interface.clone(),
-            tor_router_rx,
-            txpool_write_handle,
-        )
-        .await;
-
-        // Send tx handler sender to clearnet zone
-        if clearnet_tx_handler_subscriber
-            .send(tx_handler.clone())
-            .is_err()
-        {
-            unreachable!()
-        }
-
-        // Tor interface channel - populated when Tor starts after sync.
-        let (tor_tx, tor_rx) = oneshot::channel();
-
-        // Initialize the blockchain manager.
-        blockchain::init_blockchain_manager(
-            &launch_ctx,
-            clearnet_interface.clone(),
-            blockchain_write_handle,
-            tx_handler.txpool_manager.clone(),
-            synced_tx,
-            command_rx,
-        )
-        .await?;
-
-        // Initialize the RPC server(s).
-        rpc::init_rpc_servers(&launch_ctx, tx_handler.clone());
-
-        // Start Tor P2P zone after sync completes.
-        if tor_enabled {
-            p2p::initialize_tor_p2p(
-                launch_ctx.clone(),
-                tor_context,
-                tx_handler,
-                tor_tx,
-                tor_router_tx,
+            // Create the blockchain interface.
+            let blockchain_interface = BlockchainInterface::new(
+                blockchain_read_handle,
+                context_svc,
+                blockchain_manager_handle,
+                blockchain_syncer_handle,
             );
+
+            // Create the launch context.
+            let launch_ctx = LaunchContext {
+                config,
+                reorg_lock: Arc::new(RwLock::new(())),
+                blockchain: blockchain_interface,
+                txpool_read: txpool_read_handle,
+                task_executor,
+            };
+
+            // Bootstrap or configure Tor if enabled.
+            let tor_enabled = launch_ctx.config.p2p.tor_net.enabled;
+            let tor_context = initialize_tor_if_enabled(&launch_ctx).await;
+
+            // Start clearnet P2P zone
+            let (clearnet_interface, clearnet_tx_handler_subscriber) =
+                p2p::initialize_clearnet_p2p(&launch_ctx, &tor_context).await?;
+
+            // Create Tor router delivery channel.
+            let (tor_router_tx, tor_router_rx) = tor_enabled.then(oneshot::channel).unzip();
+
+            // Create the incoming tx handler service.
+            let tx_handler = IncomingTxHandler::init(
+                &launch_ctx,
+                clearnet_interface.clone(),
+                tor_router_rx,
+                txpool_write_handle.clone(),
+            )
+            .await?;
+
+            // Send tx handler sender to clearnet zone
+            if clearnet_tx_handler_subscriber
+                .send(tx_handler.clone())
+                .is_err()
+            {
+                unreachable!()
+            }
+
+            // Tor interface channel - populated when Tor starts after sync.
+            let (tor_tx, tor_rx) = oneshot::channel();
+
+            // Initialize the blockchain manager.
+            blockchain::init_blockchain_manager(
+                &launch_ctx,
+                clearnet_interface.clone(),
+                blockchain_write_handle,
+                tx_handler.txpool_manager.clone(),
+                synced_tx,
+                command_rx,
+            )
+            .await?;
+
+            // Initialize the RPC server(s).
+            rpc::init_rpc_servers(&launch_ctx, tx_handler.clone()).await?;
+
+            // Start Tor P2P zone after sync completes.
+            if tor_enabled {
+                p2p::initialize_tor_p2p(
+                    launch_ctx.clone(),
+                    tor_context,
+                    tx_handler,
+                    tor_tx,
+                    tor_router_tx,
+                );
+            }
+
+            let LaunchContext {
+                blockchain,
+                txpool_read,
+                config,
+                task_executor,
+                ..
+            } = launch_ctx;
+
+            Ok(Self {
+                blockchain,
+                txpool: txpool_read,
+                clearnet: clearnet_interface,
+                tor: if tor_enabled { Some(tor_rx) } else { None },
+                config,
+                task_executor,
+            })
         }
+        .await;
 
-        let LaunchContext {
-            blockchain,
-            txpool_read,
-            config,
-            task_executor,
-            ..
-        } = launch_ctx;
-
-        Ok(Self {
-            blockchain,
-            txpool: txpool_read,
-            clearnet: clearnet_interface,
-            tor: if tor_enabled { Some(tor_rx) } else { None },
-            config,
-            task_executor,
-        })
+        if node.is_err() {
+            shutdown_token.cancel();
+        }
+        node
     }
 
     /// Trigger a graceful shutdown.
@@ -294,7 +304,11 @@ impl Node {
     }
 
     /// Wait for shutdown to be triggered, then await all tracked tasks.
-    pub async fn wait_for_shutdown(&self) {
-        self.task_executor.wait_for_shutdown().await;
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CriticalTaskError`] if any critical task returned `Err` or panicked.
+    pub async fn wait_for_shutdown(self) -> Result<(), CriticalTaskError> {
+        self.task_executor.wait_for_shutdown().await
     }
 }
