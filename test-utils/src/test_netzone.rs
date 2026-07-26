@@ -32,12 +32,12 @@ impl NetZoneAddress for TestNetZoneAddr {
         true
     }
 
-    fn as_log(&self) -> impl std::fmt::Display + '_ {
-        *self
+    fn display_redacted(&self) -> impl std::fmt::Display + '_ {
+        self
     }
 
-    fn to_addr_string(&self) -> String {
-        self.to_string()
+    fn display_unredacted(&self) -> impl std::fmt::Display + '_ {
+        self
     }
 }
 

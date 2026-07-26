@@ -49,7 +49,7 @@ pub enum InternalPeerID<A> {
 impl<A: NetZoneAddress> Display for InternalPeerID<A> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::KnownAddr(addr) => write!(f, "{}", addr.as_log()),
+            Self::KnownAddr(addr) => write!(f, "{}", addr.display_redacted()),
             Self::Unknown(id) => write!(f, "Unknown, ID: {}", hex::encode(id)),
         }
     }

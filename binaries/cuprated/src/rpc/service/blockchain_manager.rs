@@ -185,7 +185,7 @@ pub async fn spans<Z: NetworkZone>(
             connection_id: String::from(ConnectionId::DEFAULT_STR),
             nblocks: span.nblocks,
             rate: span.rate,
-            remote_address: span.remote_address.to_addr_string(),
+            remote_address: span.remote_address.display_unredacted().to_string(),
             size: span.size,
             speed: span.speed,
             start_block_height: span.start_block_height,

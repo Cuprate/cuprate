@@ -23,12 +23,12 @@ impl NetZoneAddress for SocketAddr {
         true
     }
 
-    fn as_log(&self) -> impl std::fmt::Display + '_ {
+    fn display_redacted(&self) -> impl std::fmt::Display + '_ {
         safelog::Redactable::redacted(self)
     }
 
-    fn to_addr_string(&self) -> String {
-        self.to_string()
+    fn display_unredacted(&self) -> impl std::fmt::Display + '_ {
+        self
     }
 }
 

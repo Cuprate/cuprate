@@ -55,7 +55,7 @@ impl<A: NetZoneAddress> From<ConnectionInfo<A>> for crate::misc::ConnectionInfo 
         };
 
         Self {
-            address: x.address.to_addr_string(),
+            address: x.address.display_unredacted().to_string(),
             address_type: x.address_type,
             avg_download: x.avg_download,
             avg_upload: x.avg_upload,

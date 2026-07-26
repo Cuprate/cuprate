@@ -59,7 +59,7 @@ pub async fn connection_info<Z: NetworkZone>(
             };
 
             ConnectionInfo {
-                address: info.address.to_addr_string(),
+                address: info.address.display_unredacted().to_string(),
                 address_type: info.address_type,
                 avg_download: info.avg_download,
                 avg_upload: info.avg_upload,
@@ -193,7 +193,7 @@ pub async fn peerlist<Z: NetworkZone>(
                     rpc_credits_per_hash,
                 } = peer;
 
-                let host = adr.to_addr_string();
+                let host = adr.display_unredacted().to_string();
 
                 let (ip, port) = if let Ok(socket_addr) = host.parse::<SocketAddrV4>() {
                     (u32_from_ipv4(*socket_addr.ip()), socket_addr.port())

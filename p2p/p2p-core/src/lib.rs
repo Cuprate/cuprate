@@ -135,11 +135,11 @@ pub trait NetZoneAddress:
 
     fn should_add_to_peer_list(&self) -> bool;
 
-    /// Returns a redacted view of this address for logging.
-    fn as_log(&self) -> impl std::fmt::Display + '_;
+    /// Returns a redacted view of this address, for logging.
+    fn display_redacted(&self) -> impl std::fmt::Display + '_;
 
-    /// Returns the unredacted address as a string.
-    fn to_addr_string(&self) -> String;
+    /// Returns the full, unredacted address.
+    fn display_unredacted(&self) -> impl std::fmt::Display + '_;
 }
 
 /// An abstraction over a network zone (tor/i2p/clear)

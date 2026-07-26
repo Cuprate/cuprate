@@ -68,7 +68,7 @@ where
     }
 
     fn call(&mut self, req: ConnectRequest<Z>) -> Self::Future {
-        tracing::debug!("Connecting to peer: {}", req.addr.as_log());
+        tracing::debug!("Connecting to peer: {}", req.addr.display_redacted());
         let mut handshaker = self.handshaker.clone();
 
         async move {

@@ -189,7 +189,11 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
 
         if let Some(connected_peers_with_ban_id) = self.connected_peers_ban_id.get(&addr.ban_id()) {
             for peer in connected_peers_with_ban_id.iter().map(|addr| {
-                tracing::debug!("Banning peer: {}, for: {:?}", addr.to_addr_string(), time);
+                tracing::debug!(
+                    "Banning peer: {}, for: {:?}",
+                    addr.display_unredacted(),
+                    time
+                );
 
                 self.connected_peers
                     .get(&InternalPeerID::KnownAddr(*addr))
@@ -216,12 +220,12 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
         if self.white_list.contains_peer(&peer.adr) {
             tracing::trace!(
                 "Peer {} is already in white list skipping.",
-                peer.adr.as_log()
+                peer.adr.display_redacted()
             );
             return;
         }
         if !self.gray_list.contains_peer(&peer.adr) {
-            tracing::trace!("Adding peer {} to gray list.", peer.adr.as_log());
+            tracing::trace!("Adding peer {} to gray list.", peer.adr.display_redacted());
             peer.last_seen = 0;
             self.gray_list.add_new_peer(peer);
         }

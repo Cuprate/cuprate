@@ -58,7 +58,7 @@ pub struct SocksClientConfig {
 
 impl std::fmt::Debug for SocksClientConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // skip authentication info
+        // skip authentication info in debug output
         f.debug_struct("SocksClientConfig")
             .field("proxy", &self.proxy)
             .finish_non_exhaustive()
