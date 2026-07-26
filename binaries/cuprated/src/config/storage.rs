@@ -77,15 +77,31 @@ config_struct! {
 
 config_struct! {
     /// The blockchain config.
-    #[derive(Default, Debug, Deserialize, Serialize, PartialEq, Eq)]
+    #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
     pub struct BlockchainConfig {
+        #[comment_out = true]
+        /// Whether to prune the blockchain. This reduces the size of the blockchain by not keeping all the transactions.
+        /// Note that once a node is pruned it cannot be un-pruned.
+        ///
+        /// Defaults to `true`.
+        pub prune: bool,
+
         #[inline = true]
         #[comment_out = true]
         /// The size of each tape cache.
         ///
         /// You probably do not need to edit these values.
         pub tapes_cache_sizes: CacheSizes,
+    }
+}
+
+impl Default for BlockchainConfig {
+    fn default() -> Self {
+        Self {
+            prune: true,
+            tapes_cache_sizes: Default::default(),
+        }
     }
 }
 

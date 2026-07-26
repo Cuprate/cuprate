@@ -67,6 +67,12 @@ pub struct Args {
     /// - Required network ports can be bound to
     #[arg(long)]
     pub dry_run: bool,
+
+    /// Prune the blockchain.
+    ///
+    /// Note that once a node is pruned it cannot be un-pruned.
+    #[arg(long)]
+    pub prune: bool,
 }
 
 impl Args {
