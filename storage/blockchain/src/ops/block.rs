@@ -107,7 +107,7 @@ pub fn add_blocks_to_tapes(
 
     // Split the blocks at the point the pruning stripe changes.
     let start_height = blocks[0].height;
-    let first_block_pruning_seed = cuprate_pruning::DecompressedPruningSeed::new(
+    let first_block_pruning_seed = cuprate_pruning::PruningSeed::new_pruned(
         cuprate_pruning::get_block_pruning_stripe(
             start_height,
             usize::MAX,
@@ -155,12 +155,12 @@ pub fn add_blocks_to_tapes(
             CRYPTONOTE_PRUNING_LOG_STRIPES,
         )
         .unwrap();
-        let mut v2_prunable_index = write_v2_prunable_data(
-            append_tx,
-            &db.prunable_blobs
-                [usize::try_from(stripe).expect("stripe will not exceed usize::MAX") - 1],
-            blocks,
-        )?;
+        let mut v2_prunable_index = db.prunable_blobs
+            [usize::try_from(stripe).expect("stripe will not exceed usize::MAX") - 1]
+            .as_ref()
+            .map(|tape| write_v2_prunable_data(append_tx, tape, blocks))
+            .transpose()?
+            .unwrap_or(0); // if tape is within the pruned ones, this value will never be used
 
         // Write the v1 prunable tape for any v1 txs.
         let mut v1_prunable_index = write_v1_prunable_data(append_tx, db, blocks)?;
@@ -427,10 +427,9 @@ pub fn pop_block(
         CRYPTONOTE_PRUNING_LOG_STRIPES,
     )
     .unwrap();
-    tapes.truncate_blob_tape(
-        &db.prunable_blobs[usize::try_from(stripe).expect("stripe will not exceed usize::MAX") - 1],
-        block_info.prunable_blob_idx,
-    );
+    db.prunable_blobs[usize::try_from(stripe).expect("stripe will not exceed usize::MAX") - 1]
+        .as_ref()
+        .map(|tape| tapes.truncate_blob_tape(tape, block_info.prunable_blob_idx)); // ignore pruned ones
 
     tapes.truncate_fixed_sized_tape(&db.tx_infos, block_info.mining_tx_index);
 
@@ -556,9 +555,11 @@ pub fn get_block_complete_entry_from_height(
             .unwrap();
             let mut v2 = read_blob(
                 tapes,
-                &db.prunable_blobs[usize::try_from(pruning_stripe)
+                db.prunable_blobs[usize::try_from(pruning_stripe)
                     .expect("stripe will not exceed usize::MAX")
-                    - 1],
+                    - 1]
+                .as_ref()
+                .ok_or(BlockchainError::NotFound)?,
                 block_info.prunable_blob_idx,
                 v2_len,
             )?;

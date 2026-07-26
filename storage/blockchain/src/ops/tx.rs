@@ -291,8 +291,10 @@ pub(crate) fn get_split_tx_blobs(
             )
             .unwrap();
 
-            &db.prunable_blobs
+            db.prunable_blobs
                 [usize::try_from(stripe).expect("stripe will not exceed usize::MAX") - 1]
+                .as_ref()
+                .ok_or(BlockchainError::NotFound)?
         };
 
         tapes.read_bytes(prunable_tape, tx_info.prunable_blob_idx, &mut prunable_blob)?;
@@ -328,7 +330,9 @@ pub fn get_tx_blob_from_id(
             CRYPTONOTE_PRUNING_LOG_STRIPES,
         )
         .unwrap();
-        &db.prunable_blobs[usize::try_from(stripe).expect("stripe will not exceed usize::MAX") - 1]
+        db.prunable_blobs[usize::try_from(stripe).expect("stripe will not exceed usize::MAX") - 1]
+            .as_ref()
+            .ok_or(BlockchainError::NotFound)?
     };
 
     tapes.read_bytes(

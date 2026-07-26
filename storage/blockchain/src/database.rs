@@ -242,32 +242,38 @@ impl BlockchainDatabase {
             })
             .collect::<Result<_, _>>()?;
 
+        tape_append_tx.commit(Persistence::SyncAll)?;
+
+        drop(tape_append_tx);
+
         let prunable_blobs = if metadata.is_pruned() {
             let stripe_idx = metadata.get_stripe_idx().expect("we are pruning");
-            let mut tape_truncate = linear_tapes.truncate();
+            let mut tape_truncate_tx = linear_tapes.truncate();
             let mut new_prunable_blobs = Vec::with_capacity(prunable_blobs.len());
 
             // remove prunable blobs that are not in the current stripe and set those to `None
-            for (i, blob) in prunable_blobs.into_iter().enumerate() {
+            for (i, blob_tape) in prunable_blobs.into_iter().enumerate() {
                 if i == stripe_idx as usize {
-                    new_prunable_blobs.push(Some(blob));
+                    new_prunable_blobs.push(Some(blob_tape));
                     continue;
                 }
 
                 new_prunable_blobs.push(None);
-                tape_truncate.truncate_blob_tape(&blob, 0);
+                // truncate the tape if it exists already
+                if tape_truncate_tx.blob_tape_len(&blob_tape).is_some() {
+                    tape_truncate_tx.truncate_blob_tape(&blob_tape, 0);
+                }
             }
 
-            tape_truncate.commit(Persistence::SyncAll);
+            tape_truncate_tx.commit(Persistence::SyncAll)?;
+
+            // TODO: is there a way to not even create the tapes if they don't exist already? (currently there's no way to check if a tape exists)
+            // also maybe have a function that actually deletes the tape instead of truncating it
 
             new_prunable_blobs
         } else {
             prunable_blobs.into_iter().map(Some).collect()
         };
-
-        tape_append_tx.commit(Persistence::SyncAll)?;
-
-        drop(tape_append_tx);
 
         tracing::debug!("opened db");
         Ok(Self {
