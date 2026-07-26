@@ -122,16 +122,36 @@ impl NetworkInterfaces {
 }
 
 /// Initialize the clearnet P2P network zone. Returns [`NetworkInterface<ClearNet>`] and
-/// [`Sender<IncomingTxHandler>`] for propagating the tx handler.
+/// [`Sender<IncomingTxHandler>`] for propagating the tx handler, [`None`] if offline.
 pub async fn initialize_clearnet_p2p(
     launch_ctx: &LaunchContext,
     tor_ctx: &TorContext,
-) -> (NetworkInterface<ClearNet>, Sender<IncomingTxHandler>) {
+) -> (
+    NetworkInterface<ClearNet>,
+    Option<Sender<IncomingTxHandler>>,
+) {
     let config = launch_ctx.config.as_ref();
     let blockchain = &launch_ctx.blockchain;
     let peer_sync_callback = blockchain.peer_sync_callback();
 
-    match &config.p2p.clear_net.proxy {
+    if config.offline {
+        let (interface, _) = start_zone_p2p::<ClearNet, Tcp>(
+            &launch_ctx.blockchain,
+            launch_ctx.txpool_read.clone(),
+            config.clearnet_p2p_config(),
+            TransportConfig {
+                client_config: (),
+                server_config: None,
+            },
+            Some(peer_sync_callback),
+        )
+        .await
+        .unwrap();
+
+        return (interface, None);
+    }
+
+    let (interface, tx_handler_tx) = match &config.p2p.clear_net.proxy {
         ProxySettings::Tor => match tor_ctx.mode {
             #[cfg(feature = "arti")]
             TorMode::Arti => {
@@ -178,7 +198,9 @@ pub async fn initialize_clearnet_p2p(
         )
         .await
         .unwrap(),
-    }
+    };
+
+    (interface, Some(tx_handler_tx))
 }
 
 /// Initialize the Tor P2P network zone after the node has synced with the network.
