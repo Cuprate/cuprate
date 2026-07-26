@@ -168,8 +168,8 @@ impl BlockchainDatabase {
 
         if config.prune && !metadata.is_pruned() {
             // generate a random stripe index to prune
-            let stripe_idx = rand::thread_rng().gen_range(0..PRUNABLE_BLOBS.len());
-            metadata.set_stripe_idx(stripe_idx as u32)?;
+            let stripe_idx = rand::thread_rng().gen_range(0..PRUNABLE_BLOBS.len()) as u32;
+            metadata.set_stripe_idx(stripe_idx, &config.index_dir)?;
         }
 
         let block_heights = fjall.keyspace("block_heights", KeyspaceCreateOptions::default)?;
@@ -242,7 +242,7 @@ impl BlockchainDatabase {
             })
             .collect::<Result<_, _>>()?;
 
-        let prunable_blobs = if config.prune {
+        let prunable_blobs = if metadata.is_pruned() {
             let stripe_idx = metadata.get_stripe_idx().expect("we are pruning");
             let mut tape_truncate = linear_tapes.truncate();
             let mut new_prunable_blobs = Vec::with_capacity(prunable_blobs.len());

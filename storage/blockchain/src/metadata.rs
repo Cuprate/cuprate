@@ -2,8 +2,8 @@ use cuprate_pruning::{PruningSeed, CRYPTONOTE_PRUNING_LOG_STRIPES};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
-    io::{BufReader, BufWriter, Write},
-    path::{Path, PathBuf},
+    io::{Read, Write},
+    path::Path,
 };
 
 use crate::{BlockchainError, DATABASE_VERSION};
@@ -17,10 +17,6 @@ pub struct Metadata {
     /// It is compressed to a `u32` value for storage.
     #[serde(with = "serde_pruning_seed")]
     pruning_seed: PruningSeed,
-
-    #[serde(skip)]
-    /// The path to where the metadata file is stored.
-    path: PathBuf,
 }
 
 mod serde_pruning_seed {
@@ -52,14 +48,14 @@ impl Metadata {
         let exists = metadata_path.exists();
 
         if exists {
-            let file = File::open(&metadata_path)?;
-            let reader = BufReader::new(file);
-            let metadata: Metadata = serde_json::from_reader(reader)?;
+            let mut file = File::open(&metadata_path)?;
+            let mut buf = String::new();
+            file.read_to_string(&mut buf)?;
+            let metadata: Metadata = serde_json::from_str(&buf)?;
             Ok(metadata)
         } else {
-            let file = File::create(&metadata_path)?;
-            let metadata = Metadata::new(metadata_path);
-            metadata.write_to_file(&file)?;
+            let metadata = Metadata::new();
+            metadata.write_to_file(&metadata_path)?;
             Ok(metadata)
         }
     }
@@ -67,10 +63,14 @@ impl Metadata {
     /// Gets the stripe index from the pruning seed.
     ///
     /// This will persist the metadata file to disk.
-    pub fn set_stripe_idx(&mut self, stripe_idx: u32) -> Result<(), BlockchainError> {
+    pub fn set_stripe_idx(
+        &mut self,
+        stripe_idx: u32,
+        path: impl AsRef<Path>,
+    ) -> Result<(), BlockchainError> {
         self.pruning_seed = PruningSeed::new_pruned(stripe_idx, CRYPTONOTE_PRUNING_LOG_STRIPES)?;
 
-        self.persist()
+        self.persist(path)
     }
 
     /// Gets the stripe index from the pruning seed.
@@ -102,29 +102,28 @@ impl Metadata {
     }
 
     /// Saves the metadata to the file.
-    ///
-    /// If the file does not exist, it will error.
-    fn persist(&self) -> Result<(), BlockchainError> {
-        let file = File::open(&self.path)?;
-        self.write_to_file(&file)
+    #[inline]
+    fn persist(&self, path: impl AsRef<Path>) -> Result<(), BlockchainError> {
+        let metadata_path = Path::new(path.as_ref()).join(Self::FILE_NAME);
+        self.write_to_file(metadata_path)?;
+        Ok(())
     }
 
-    /// Creates a new [`Metadata`] with the given path. Default pruning_seed is `0`.
+    /// Creates a new [`Metadata`] with the given path. Default pruning_seed is [`PruningSeed::NotPruned`].
     #[inline]
-    fn new(path: PathBuf) -> Self {
+    fn new() -> Self {
         Self {
             db_version: DATABASE_VERSION,
             pruning_seed: PruningSeed::NotPruned,
-            path,
         }
     }
 
     /// Writes the metadata to the given file.
     #[inline]
-    fn write_to_file(&self, file: &File) -> Result<(), BlockchainError> {
-        let mut writer = BufWriter::new(file);
-        serde_json::to_writer(&mut writer, self)?;
-        writer.flush()?;
+    fn write_to_file(&self, path: impl AsRef<Path>) -> Result<(), BlockchainError> {
+        let mut file = File::create(path)?;
+        let json = serde_json::to_string(self)?;
+        file.write_all(json.as_bytes())?;
         Ok(())
     }
 }

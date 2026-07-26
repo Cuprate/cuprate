@@ -84,7 +84,7 @@ config_struct! {
         /// Whether to prune the blockchain. This reduces the size of the blockchain by not keeping all the transactions.
         /// Note that once a node is pruned it cannot be un-pruned.
         ///
-        /// Defaults to `true`.
+        /// Defaults to `false`.
         pub prune: bool,
 
         #[inline = true]
@@ -99,7 +99,7 @@ config_struct! {
 impl Default for BlockchainConfig {
     fn default() -> Self {
         Self {
-            prune: true,
+            prune: false,
             tapes_cache_sizes: Default::default(),
         }
     }
