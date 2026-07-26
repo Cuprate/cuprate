@@ -2,7 +2,7 @@ use futures::TryFutureExt;
 use rand::{thread_rng, Rng};
 use tower::ServiceExt;
 
-use cuprate_pruning::PruningSeed;
+use cuprate_pruning::{PruningSeed, CRYPTONOTE_PRUNING_LOG_STRIPES};
 use cuprate_wire::{
     admin::{
         PingResponse, SupportFlagsResponse, TimedSyncRequest, TimedSyncResponse,
@@ -152,6 +152,13 @@ where
             panic!("Address book sent incorrect response!");
         };
 
+        let pruning_seed = if core_sync_data.pruning_seed == 0 {
+            PruningSeed::NotPruned
+        } else {
+            PruningSeed::new_pruned(core_sync_data.pruning_seed, CRYPTONOTE_PRUNING_LOG_STRIPES)
+                .expect("Our pruning seed is valid")
+        };
+
         if let Some(own_addr) = own_addr {
             // Append our address to the final peer list
             peers.insert(
@@ -160,7 +167,7 @@ where
                     adr: own_addr,
                     id: self.our_basic_node_data.peer_id,
                     last_seen: 0,
-                    pruning_seed: PruningSeed::NotPruned,
+                    pruning_seed,
                     rpc_port: self.our_basic_node_data.rpc_port,
                     rpc_credits_per_hash: self.our_basic_node_data.rpc_credits_per_hash,
                 },

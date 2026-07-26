@@ -11,14 +11,36 @@ use crate::{BlockchainError, DATABASE_VERSION};
 /// Represents the metadata of the blockchain database.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Metadata {
-    /// The version of the database, defaults to `crate::constants::DATABASE_VERSION`.
+    /// The version of the database, defaults to [`crate::constants::DATABASE_VERSION`].
     db_version: u64,
-    /// The seed used for pruning, defaults to `0`.
-    pruning_seed: u32,
+    /// The seed used for pruning, defaults to [`PruningSeed::NotPruned`].
+    /// It is compressed to a `u32` value for storage.
+    #[serde(with = "serde_pruning_seed")]
+    pruning_seed: PruningSeed,
 
     #[serde(skip)]
     /// The path to where the metadata file is stored.
     path: PathBuf,
+}
+
+mod serde_pruning_seed {
+    //! Serialization and deserialization of [`PruningSeed`] values.
+    use cuprate_pruning::PruningSeed;
+
+    pub(super) fn serialize<S>(seed: &PruningSeed, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_u32(seed.compress())
+    }
+
+    pub(super) fn deserialize<'de, D>(deserializer: D) -> Result<PruningSeed, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let seed_value: u32 = serde::Deserialize::deserialize(deserializer)?;
+        PruningSeed::decompress(seed_value).map_err(|e| serde::de::Error::custom(e))
+    }
 }
 
 impl Metadata {
@@ -46,8 +68,7 @@ impl Metadata {
     ///
     /// This will persist the metadata file to disk.
     pub fn set_stripe_idx(&mut self, stripe_idx: u32) -> Result<(), BlockchainError> {
-        self.pruning_seed =
-            PruningSeed::new_pruned(stripe_idx, CRYPTONOTE_PRUNING_LOG_STRIPES)?.compress();
+        self.pruning_seed = PruningSeed::new_pruned(stripe_idx, CRYPTONOTE_PRUNING_LOG_STRIPES)?;
 
         self.persist()
     }
@@ -58,8 +79,16 @@ impl Metadata {
     ///
     /// Returns `None` if the seed is not pruned (e.g. the seed is `0`).
     #[inline]
-    pub fn get_stripe_idx(&self) -> Result<Option<u32>, BlockchainError> {
-        Ok(PruningSeed::decompress(self.pruning_seed)?.get_stripe())
+    pub fn get_stripe_idx(&self) -> Option<u32> {
+        self.pruning_seed.get_stripe()
+    }
+
+    /// Gets the pruning seed.
+    ///
+    /// Note that this doesn't re-read the file.
+    #[inline]
+    pub fn get_pruning_seed(&self) -> PruningSeed {
+        self.pruning_seed
     }
 
     #[inline]
@@ -69,7 +98,7 @@ impl Metadata {
 
     #[inline]
     pub fn is_pruned(&self) -> bool {
-        self.pruning_seed != 0
+        self.pruning_seed != PruningSeed::NotPruned
     }
 
     /// Saves the metadata to the file.
@@ -85,7 +114,7 @@ impl Metadata {
     fn new(path: PathBuf) -> Self {
         Self {
             db_version: DATABASE_VERSION,
-            pruning_seed: 0,
+            pruning_seed: PruningSeed::NotPruned,
             path,
         }
     }

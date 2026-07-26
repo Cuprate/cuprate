@@ -22,6 +22,8 @@ cuprate-epee-encoding = { workspace = true, optional = true, features = ["std"] 
 cuprate-helper        = { workspace = true, optional = true, features = ["cast"] }
 cuprate-fixed-bytes   = { workspace = true, features = ["std", "serde"] }
 cuprate-hex           = { workspace = true, optional = true }
+cuprate-pruning       = { workspace = true }
+
 
 bitflags         = { workspace = true }
 bytes            = { workspace = true }

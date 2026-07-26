@@ -1,6 +1,7 @@
 //! Block functions.
 use std::{borrow::Cow, cmp::min, collections::HashMap, io};
 
+use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
 use cuprate_helper::{
     cast::{u64_to_usize, usize_to_u64},
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
@@ -117,7 +118,7 @@ pub fn add_blocks_to_tapes(
     )
     .unwrap();
     let next_stripe_height = first_block_pruning_seed
-        .get_next_pruned_block(start_height, 500_000_000)
+        .get_next_pruned_block(start_height, MAX_BLOCK_HEIGHT_USIZE)
         .unwrap()
         .unwrap();
 

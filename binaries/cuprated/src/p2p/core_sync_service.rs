@@ -36,7 +36,7 @@ impl Service<CoreSyncDataRequest> for CoreSyncService {
             cumulative_difficulty,
             cumulative_difficulty_top64,
             current_height: usize_to_u64(context.chain_height),
-            pruning_seed: 0,
+            pruning_seed: context.pruning_seed,
             top_id: context.top_hash,
             top_version: context.current_hf.as_u8(),
         })))

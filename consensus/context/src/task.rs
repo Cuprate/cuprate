@@ -62,6 +62,8 @@ pub(crate) struct ContextTask<D: Database> {
     top_block_hash: [u8; 32],
     /// The total amount of coins generated.
     already_generated_coins: u64,
+    /// The pruning seed.
+    pruning_seed: u32,
 
     database: D,
 }
@@ -94,6 +96,15 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
             .ready()
             .await?
             .call(BlockchainReadRequest::GeneratedCoins(chain_height - 1))
+            .await?
+        else {
+            panic!("Database sent incorrect response!");
+        };
+
+        let BlockchainResponse::PruningSeed(pruning_seed) = database
+            .ready()
+            .await?
+            .call(BlockchainReadRequest::PruningSeed)
             .await?
         else {
             panic!("Database sent incorrect response!");
@@ -140,6 +151,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
             top_block_hash,
             chain_height,
             already_generated_coins,
+            pruning_seed.compress(),
         );
 
         let context_cache = Arc::new(ArcSwap::from_pointee(blockchain_context));
@@ -156,6 +168,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
             already_generated_coins,
             top_block_hash,
             database,
+            pruning_seed: pruning_seed.compress(),
         };
 
         Ok((context_svc, context_cache))
@@ -169,6 +182,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
             self.top_block_hash,
             self.chain_height,
             self.already_generated_coins,
+            self.pruning_seed,
         );
 
         self.context_cache.store(Arc::new(context));
@@ -372,6 +386,7 @@ fn blockchain_context(
     top_hash: [u8; 32],
     chain_height: usize,
     already_generated_coins: u64,
+    pruning_seed: u32,
 ) -> BlockchainContext {
     BlockchainContext {
         context_to_verify_block: ContextToVerifyBlock {
@@ -385,6 +400,7 @@ fn blockchain_context(
             next_difficulty: difficulty_cache.next_difficulty(current_hf),
             already_generated_coins,
         },
+        pruning_seed,
         cumulative_difficulty: difficulty_cache.cumulative_difficulty(),
         median_long_term_weight: weight_cache.median_long_term_weight(),
         top_block_timestamp: difficulty_cache.top_block_timestamp(),

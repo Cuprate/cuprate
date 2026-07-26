@@ -14,6 +14,7 @@ keywords    = ["cuprate", "blockchain", "database"]
 cuprate-helper           = { workspace = true, features = ["fs", "map", "crypto", "tx", "thread", "asynch"] }
 cuprate-types            = { workspace = true, features = ["blockchain"] }
 cuprate-pruning          = { workspace = true }
+cuprate-constants        = { workspace = true }
 
 crossbeam        = { workspace = true, features = ["std", "crossbeam-channel"] }
 tapes            = { workspace = true }

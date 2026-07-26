@@ -136,6 +136,8 @@ pub struct BlockchainContext {
     pub cumulative_difficulty: u128,
     /// Context to verify a block, as needed by [`cuprate_consensus_rules`]
     pub context_to_verify_block: ContextToVerifyBlock,
+    /// The pruning seed for the blockchain.
+    pub pruning_seed: u32,
     /// The median long term block weight.
     median_long_term_weight: usize,
     /// The top blocks timestamp (will be [`None`] if the top block is the genesis).

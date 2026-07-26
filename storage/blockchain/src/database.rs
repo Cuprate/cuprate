@@ -1,5 +1,6 @@
 use std::{borrow::Cow, collections::HashMap, sync::Mutex};
 
+use cuprate_pruning::PruningSeed;
 use fjall::{KeyspaceCreateOptions, PersistMode};
 use monero_oxide::transaction::Transaction;
 use rand::Rng;
@@ -141,6 +142,9 @@ pub struct BlockchainDatabase {
     /// A runtime cache of the number of outputs for each pre-rct output amount.
     /// This is filled in lazily.
     pub(crate) pre_rct_numb_outputs_cache: Mutex<HashMap<Amount, u64>>,
+
+    /// The pruning seed of the blockchain.
+    pub(crate) pruning_seed: PruningSeed,
 }
 
 const PRUNABLE_BLOBS: [&str; 8] = [
@@ -239,7 +243,7 @@ impl BlockchainDatabase {
             .collect::<Result<_, _>>()?;
 
         let prunable_blobs = if config.prune {
-            let stripe_idx = metadata.get_stripe_idx()?.expect("we are pruning");
+            let stripe_idx = metadata.get_stripe_idx().expect("we are pruning");
             let mut tape_truncate = linear_tapes.truncate();
             let mut new_prunable_blobs = Vec::with_capacity(prunable_blobs.len());
 
@@ -288,6 +292,7 @@ impl BlockchainDatabase {
             v1_prunable_blobs,
             prunable_blobs,
             pre_rct_numb_outputs_cache: Mutex::new(HashMap::new()),
+            pruning_seed: metadata.get_pruning_seed(),
         })
     }
 
@@ -312,7 +317,7 @@ impl BlockchainDatabase {
 
     /// Rebuilds the fjall database.
     pub fn rebuild_fjall_database(&self) -> Result<(), BlockchainError> {
-        // TODO: clear metadata
+        // TODO: handle pruning
         self.block_heights.clear()?;
         self.key_images.clear()?;
         self.pre_rct_outputs.clear()?;
