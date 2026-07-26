@@ -53,10 +53,19 @@ impl BlockchainSyncer {
     pub fn new(
         handle: &BlockchainSyncerHandle,
         synced_tx: futures::channel::oneshot::Sender<()>,
+        offline: bool,
     ) -> Self {
+        let synced_tx = if offline {
+            #[expect(clippy::let_underscore_must_use)]
+            let _ = synced_tx.send(());
+            None
+        } else {
+            Some(synced_tx)
+        };
+
         Self {
             notify_syncer: Arc::clone(&handle.notify_syncer),
-            synced_tx: Some(synced_tx),
+            synced_tx,
             target_height: Arc::clone(&handle.target_height),
         }
     }

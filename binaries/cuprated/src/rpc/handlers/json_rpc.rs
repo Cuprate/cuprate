@@ -527,8 +527,7 @@ pub(super) async fn get_info(
     };
 
     let nettype = network.to_string();
-    // TODO: access to CLI/config's `--offline`
-    let offline = false;
+    let offline = state.offline;
 
     #[expect(
         clippy::if_same_then_else,

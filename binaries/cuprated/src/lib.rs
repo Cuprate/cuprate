@@ -215,7 +215,7 @@ impl Node {
         };
 
         // Bootstrap or configure Tor if enabled.
-        let tor_enabled = launch_ctx.config.p2p.tor_net.enabled;
+        let tor_enabled = !launch_ctx.config.offline && launch_ctx.config.p2p.tor_net.enabled;
         let tor_context = initialize_tor_if_enabled(&launch_ctx).await;
 
         // Start clearnet P2P zone
@@ -234,12 +234,11 @@ impl Node {
         )
         .await;
 
-        // Send tx handler sender to clearnet zone
-        if clearnet_tx_handler_subscriber
-            .send(tx_handler.clone())
-            .is_err()
-        {
-            unreachable!()
+        // Send tx handler sender to clearnet zone, offline zones have no subscriber.
+        if let Some(subscriber) = clearnet_tx_handler_subscriber {
+            if subscriber.send(tx_handler.clone()).is_err() {
+                unreachable!()
+            }
         }
 
         // Tor interface channel - populated when Tor starts after sync.

@@ -170,6 +170,9 @@ pub struct CupratedRpcHandler {
     /// The active network.
     pub network: Network,
 
+    /// Is the node running offline?
+    pub offline: bool,
+
     /// Read handle to the blockchain database.
     pub blockchain_read: BlockchainReadHandle,
 
@@ -209,6 +212,7 @@ impl CupratedRpcHandler {
         Self {
             restricted,
             network: launch_ctx.config.network,
+            offline: launch_ctx.config.offline,
             tx_handler,
             blockchain_read: launch_ctx.blockchain.read(),
             blockchain_context: launch_ctx.blockchain.context_svc(),
