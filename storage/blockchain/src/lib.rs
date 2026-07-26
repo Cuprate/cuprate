@@ -27,6 +27,7 @@ pub use constants::DATABASE_VERSION;
 pub use database::BlockchainDatabase;
 
 pub mod config;
+pub mod metadata;
 pub mod ops;
 pub mod service;
 pub mod types;

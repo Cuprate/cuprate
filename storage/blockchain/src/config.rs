@@ -43,6 +43,8 @@ pub struct Config {
     pub index_dir: PathBuf,
     /// The tapes cache sizes.
     pub cache_sizes: CacheSizes,
+    /// Whether to prune the blockchain database.
+    pub prune: bool,
 }
 
 impl Default for Config {
@@ -51,6 +53,7 @@ impl Default for Config {
             blob_dir: CUPRATE_DATA_DIR.to_path_buf(),
             index_dir: CUPRATE_DATA_DIR.to_path_buf(),
             cache_sizes: CacheSizes::default(),
+            prune: true,
         }
     }
 }

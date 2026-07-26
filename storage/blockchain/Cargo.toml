@@ -21,6 +21,7 @@ tracing          = { workspace = true, features = ["std", "attributes"] }
 bytemuck         = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 monero-oxide     = { workspace = true, features = ["std"] }
 serde            = { workspace = true, optional = true }
+serde_json       = { workspace = true, features = ["std"] }
 fjall            = { workspace = true }
 
 futures      = { workspace = true, features = ["std"]}

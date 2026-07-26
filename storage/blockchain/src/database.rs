@@ -2,12 +2,14 @@ use std::{borrow::Cow, collections::HashMap, sync::Mutex};
 
 use fjall::{KeyspaceCreateOptions, PersistMode};
 use monero_oxide::transaction::Transaction;
-use tapes::{Persistence, TapeOpenOptions, Tapes, TapesRead};
+use rand::Rng;
+use tapes::{Persistence, TapeOpenOptions, Tapes, TapesRead, TapesTruncate};
 
 use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 
 use crate::{
     config::Config,
+    metadata::Metadata,
     types::{Amount, BlockInfo, RctOutput, TxInfo},
     BlockchainError,
 };
@@ -132,12 +134,25 @@ pub struct BlockchainDatabase {
     ///
     /// These tapes store the prunable part of each tx, the stripe a tx is stored in depends on the
     /// height of the block.
-    pub(crate) prunable_blobs: Vec<tapes::BlobTape>,
+    ///
+    /// Each blob tape is stored in an [`Option`] to allow for pruning.
+    pub(crate) prunable_blobs: Vec<Option<tapes::BlobTape>>,
 
     /// A runtime cache of the number of outputs for each pre-rct output amount.
     /// This is filled in lazily.
     pub(crate) pre_rct_numb_outputs_cache: Mutex<HashMap<Amount, u64>>,
 }
+
+const PRUNABLE_BLOBS: [&str; 8] = [
+    "prunable1",
+    "prunable2",
+    "prunable3",
+    "prunable4",
+    "prunable5",
+    "prunable6",
+    "prunable7",
+    "prunable8",
+];
 
 impl BlockchainDatabase {
     /// Open a [`BlockchainDatabase`] with an [`fjall::Database`] for storing data that can't be stored in tapes.
@@ -145,6 +160,14 @@ impl BlockchainDatabase {
         config: &Config,
         fjall: fjall::Database,
     ) -> Result<Self, BlockchainError> {
+        let mut metadata = Metadata::get_or_create(&config.index_dir)?;
+
+        if config.prune && !metadata.is_pruned() {
+            // generate a random stripe index to prune
+            let stripe_idx = rand::thread_rng().gen_range(0..PRUNABLE_BLOBS.len());
+            metadata.set_stripe_idx(stripe_idx as u32)?;
+        }
+
         let block_heights = fjall.keyspace("block_heights", KeyspaceCreateOptions::default)?;
         let key_images = fjall.keyspace("key_images", KeyspaceCreateOptions::default)?;
         let pre_rct_outputs = fjall.keyspace("pre_rct_outputs", KeyspaceCreateOptions::default)?;
@@ -203,18 +226,7 @@ impl BlockchainDatabase {
             },
         )?;
 
-        const PRUNABLE_BLOBS: [&str; 8] = [
-            "prunable1",
-            "prunable2",
-            "prunable3",
-            "prunable4",
-            "prunable5",
-            "prunable6",
-            "prunable7",
-            "prunable8",
-        ];
-
-        let prunable_blobs = (0..8)
+        let prunable_blobs: Vec<tapes::BlobTape> = (0..8)
             .map(|i| {
                 tape_append_tx.open_blob_tape(
                     PRUNABLE_BLOBS[i],
@@ -225,6 +237,29 @@ impl BlockchainDatabase {
                 )
             })
             .collect::<Result<_, _>>()?;
+
+        let prunable_blobs = if config.prune {
+            let stripe_idx = metadata.get_stripe_idx()?.expect("we are pruning");
+            let mut tape_truncate = linear_tapes.truncate();
+            let mut new_prunable_blobs = Vec::with_capacity(prunable_blobs.len());
+
+            // remove prunable blobs that are not in the current stripe and set those to `None
+            for (i, blob) in prunable_blobs.into_iter().enumerate() {
+                if i == stripe_idx as usize {
+                    new_prunable_blobs.push(Some(blob));
+                    continue;
+                }
+
+                new_prunable_blobs.push(None);
+                tape_truncate.truncate_blob_tape(&blob, 0);
+            }
+
+            tape_truncate.commit(Persistence::SyncAll);
+
+            new_prunable_blobs
+        } else {
+            prunable_blobs.into_iter().map(Some).collect()
+        };
 
         tape_append_tx.commit(Persistence::SyncAll)?;
 
@@ -277,6 +312,7 @@ impl BlockchainDatabase {
 
     /// Rebuilds the fjall database.
     pub fn rebuild_fjall_database(&self) -> Result<(), BlockchainError> {
+        // TODO: clear metadata
         self.block_heights.clear()?;
         self.key_images.clear()?;
         self.pre_rct_outputs.clear()?;
