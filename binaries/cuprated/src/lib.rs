@@ -144,7 +144,7 @@ impl Node {
     pub async fn launch(config: impl Into<Arc<Config>>) -> Result<Self, anyhow::Error> {
         let config: Arc<Config> = config.into();
         let task_executor = TaskExecutor::new();
-        let shutdown_token = task_executor.cancellation_token();
+        let launch_executor = task_executor.clone();
 
         let node: Result<Self, anyhow::Error> = async move {
             // Initialize the database thread pool.
@@ -292,7 +292,8 @@ impl Node {
         .await;
 
         if node.is_err() {
-            shutdown_token.cancel();
+            launch_executor.cancellation_token().cancel();
+            launch_executor.wait_for_shutdown().await;
         }
         node
     }
