@@ -1,4 +1,5 @@
 use std::{
+    fmt::Debug,
     net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4},
     path::PathBuf,
 };
@@ -115,7 +116,7 @@ config_struct! {
     }
 }
 
-impl std::fmt::Debug for TorDaemonConfig {
+impl Debug for TorDaemonConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TorDaemonConfig")
             .field("address", &self.address)
