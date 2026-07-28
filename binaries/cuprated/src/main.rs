@@ -81,15 +81,10 @@ fn main() {
 
     let rt = init_tokio_rt(&config);
 
-    #[expect(clippy::significant_drop_tightening)]
     rt.block_on(async move {
         // Start the node.
-        let node = match cuprated::Node::launch(config).await {
-            Ok(node) => node,
-            Err(e) => {
-                tracing::error!("Failed to launch node: {e:#}");
-                std::process::exit(1);
-            }
+        let Ok(node) = cuprated::Node::launch(config).await else {
+            std::process::exit(1)
         };
 
         let task_executor = node.task_executor.clone();
