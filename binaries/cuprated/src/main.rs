@@ -44,7 +44,7 @@ mod commands;
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[cfg(all(
-    any(feature = "jemalloc", target_env = "musl"),
+    feature = "jemalloc",
     not(feature = "mimalloc"),
     not(target_env = "msvc")
 ))]
