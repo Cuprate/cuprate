@@ -17,6 +17,7 @@ name = "cuprated"
 default = ["arti"]
 arti = ["arti-client", "tor-hsservice", "tor-persist", "tor-rtcompat", "cuprate-p2p-transport/arti"]
 mimalloc = ["dep:mimalloc"]
+mimalloc-secure = ["mimalloc", "mimalloc/secure"]
 jemalloc = ["dep:tikv-jemallocator"]
 
 [dependencies]
