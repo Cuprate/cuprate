@@ -16,6 +16,8 @@ name = "cuprated"
 [features]
 default = ["arti"]
 arti = ["arti-client", "tor-hsservice", "tor-persist", "tor-rtcompat", "cuprate-p2p-transport/arti"]
+mimalloc = ["dep:mimalloc"]
+jemalloc = ["dep:tikv-jemallocator"]
 
 [dependencies]
 # TODO: after v1.0.0, remove unneeded dependencies.
@@ -69,6 +71,7 @@ futures               = { workspace = true }
 hex                   = { workspace = true }
 hex-literal           = { workspace = true }
 indexmap              = { workspace = true }
+mimalloc              = { workspace = true, optional = true }
 monero-address        = { workspace = true }
 monero-oxide          = { workspace = true, features = ["std", "compile-time-generators"] }
 nu-ansi-term          = { workspace = true }
@@ -99,6 +102,10 @@ tower-http            = { workspace = true, features = ["limit", "trace"] }
 tracing-appender      = { workspace = true }
 tracing-subscriber    = { workspace = true, features = ["std", "fmt", "default"] }
 tracing               = { workspace = true, features = ["default"] }
+
+# `jemalloc` does not support MSVC.
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+tikv-jemallocator = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile          = { workspace = true }
