@@ -4208,10 +4208,11 @@ dependencies = [
 
 [[package]]
 name = "randomx-rs"
-version = "1.4.0"
-source = "git+https://github.com/Cuprate/randomx-rs.git?rev=567bdca#567bdcade871f2391dc67eb90d38efaa78c24003"
+version = "1.4.1"
+source = "git+https://github.com/Cuprate/randomx-rs.git?rev=a876ab6#a876ab61f9116139077a711d91ef053e6bb3de9f"
 dependencies = [
  "bitflags 1.3.2",
+ "cc",
  "cmake",
  "libc",
  "thiserror 1.0.69",
@@ -5199,7 +5200,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
