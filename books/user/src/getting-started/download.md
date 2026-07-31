@@ -3,10 +3,10 @@ Cuprate offers pre-built binaries for `cuprated` for the platforms listed in [`P
 
 | Platform                     | Download |
 |------------------------------|----------|
-| Windows x86_64               | <https://github.com/Cuprate/cuprate/releases/download/cuprated-0.0.9/cuprated-0.0.9-x86_64-pc-windows-msvc.zip>
-| macOS ARM64                  | <https://github.com/Cuprate/cuprate/releases/download/cuprated-0.0.9/cuprated-0.0.9-aarch64-apple-darwin.tar.gz>
-| Linux x86_64 (glibc >= 2.36) | <https://github.com/Cuprate/cuprate/releases/download/cuprated-0.0.9/cuprated-0.0.9-x86_64-unknown-linux.tar.gz>
-| Linux ARM64 (glibc >= 2.36)  | <https://github.com/Cuprate/cuprate/releases/download/cuprated-0.0.9/cuprated-0.0.9-aarch64-unknown-linux.tar.gz>
+| Windows x86_64               | <https://github.com/Cuprate/cuprate/releases/download/cuprated-0.1.0-preview/cuprated-0.1.0-preview-x86_64-pc-windows-msvc.zip>
+| macOS ARM64                  | <https://github.com/Cuprate/cuprate/releases/download/cuprated-0.1.0-preview/cuprated-0.1.0-preview-aarch64-apple-darwin.tar.gz>
+| Linux x86_64 (glibc >= 2.36) | <https://github.com/Cuprate/cuprate/releases/download/cuprated-0.1.0-preview/cuprated-0.1.0-preview-x86_64-unknown-linux.tar.gz>
+| Linux ARM64 (glibc >= 2.36)  | <https://github.com/Cuprate/cuprate/releases/download/cuprated-0.1.0-preview/cuprated-0.1.0-preview-aarch64-unknown-linux.tar.gz>
 
 <!--
 TODO: start archiving again with reproducible builds, perhaps at `cuprate.org`:
