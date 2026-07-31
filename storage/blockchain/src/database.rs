@@ -228,8 +228,6 @@ impl BlockchainDatabase {
 
         tape_append_tx.commit(Persistence::SyncAll)?;
 
-        drop(tape_append_tx);
-
         tracing::debug!("opened db");
         Ok(Self {
             fjall,
