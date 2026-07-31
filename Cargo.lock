@@ -4209,7 +4209,7 @@ dependencies = [
 [[package]]
 name = "randomx-rs"
 version = "1.4.1"
-source = "git+https://github.com/Cuprate/randomx-rs.git?rev=a876ab6#a876ab61f9116139077a711d91ef053e6bb3de9f"
+source = "git+https://github.com/Cuprate/randomx-rs.git?rev=76c2385#76c2385771ca5aca941e0991ebd822e6edb8d94d"
 dependencies = [
  "bitflags 1.3.2",
  "cc",
