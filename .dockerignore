@@ -1,0 +1,4 @@
+target/
+books/
+Dockerfile
+.dockerignore
