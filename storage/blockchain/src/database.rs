@@ -244,8 +244,6 @@ impl BlockchainDatabase {
 
         tape_append_tx.commit(Persistence::SyncAll)?;
 
-        drop(tape_append_tx);
-
         let prunable_blobs = if metadata.is_pruned() {
             let stripe_idx = metadata.get_stripe_idx().expect("we are pruning");
             let mut tape_truncate_tx = linear_tapes.truncate();
