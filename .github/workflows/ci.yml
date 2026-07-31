@@ -148,8 +148,7 @@ jobs:
     strategy:
       matrix:
         os:
-        # TODO: support musl <https://github.com/Cuprate/cuprate/issues/336>
-        # - { image: alpine:latest, commands: "apk update && apk add alpine-sdk cmake curl bash" }
+        - { image: alpine:latest, commands: "apk update && apk add alpine-sdk cmake curl bash monero && ln -sf /usr/bin/monerod monerod" } # Alpine is a special case due to its musl libc
         - { image: archlinux:latest, commands: "pacman -Syyu --noconfirm base-devel git cmake openssl" }
         - { image: debian:stable, commands: "apt update && apt -y install build-essential curl cmake git pkg-config libssl-dev" }
         - { image: fedora:latest, commands: "dnf install --assumeyes @development-tools gcc gcc-c++ cmake git openssl-devel perl-core" }
@@ -176,6 +175,7 @@ jobs:
           components: clippy
 
       - name: Download monerod
+        if: matrix.os.image != 'alpine:latest'
         uses: ./.github/actions/monerod-download
 
       - name: Documentation
