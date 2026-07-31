@@ -36,7 +36,7 @@ This section contains the development status of endpoints/methods in `cuprated`.
 | `flush_cache`                  | ⚫     | `cuprated` does not require this method
 | `flush_txpool`                 | ⚪     |
 | `generateblocks`               | ⚪     |
-| `get_alternate_chains`         | ⚪     |
+| `get_alternate_chains`         | 🟠     |
 | `get_bans`                     | ⚪     |
 | `get_block`                    | 🟠     |
 | `get_block_count`              | 🟠     |
@@ -44,63 +44,68 @@ This section contains the development status of endpoints/methods in `cuprated`.
 | `get_block_header_by_height`   | 🟠     |
 | `get_block_headers_range`      | 🟠     |
 | `get_block_template`           | ⚪     |
-| `get_coinbase_tx_sum`          | ⚪     |
+| `get_coinbase_tx_sum`          | 🟠     |
 | `get_connections`              | ⚪     |
-| `get_fee_estimate`             | ⚪     |
-| `get_info`                     | ⚪     |
-| `get_last_block_header`        | ⚪     |
-| `get_miner_data`               | ⚪     |
-| `get_output_distribution`      | ⚪     |
-| `get_output_histogram`         | ⚪     |
-| `get_tx_ids_loose`             | ⚪     | Not implemented in `monerod` release branch yet
-| `get_txpool_backlog`           | ⚪     |
-| `get_version`                  | ⚪     |
-| `hard_fork_info`               | ⚪     |
+| `get_fee_estimate`             | 🟠     |
+| `get_info`                     | 🟣     | Some peer and bootstrap fields are placeholders |
+| `get_last_block_header`        | 🟠     |
+| `get_miner_data`               | 🟣     |
+| `get_output_distribution`      | 🟠     |
+| `get_output_histogram`         | 🟠     |
+| `get_tx_ids_loose`             |  ⚫    | 
+| `get_txpool_backlog`           | 🟠     |
+| `get_version`                  | 🟠     |
+| `hard_fork_info`               | 🟠     |
 | `on_get_block_hash`            | 🟠     |
-| `prune_blockchain`             | ⚫     |
+| `prune_blockchain`             | ⚪     |
 | `relay_tx`                     | ⚪     |
 | `set_bans`                     | ⚪     |
 | `submit_block`                 | 🟠     |
 | `sync_info`                    | ⚪     |
 
 ## JSON endpoints
-| Endpoint                       | Status | Notes   |
-|--------------------------------|--------|---------|
+Aliases are listed with their canonical endpoint.
+
+| Endpoint                       | Status | Notes |
+|--------------------------------|--------|-------|
 | `/get_alt_blocks_hashes`       | ⚪     |
-| `/get_height`                  | 🟠     |
+| `/get_height`, `/getheight`    | 🟠     |
+| `/get_info`, `/getinfo`        | 🟣     | Some peer and bootstrap fields are placeholders |
 | `/get_limit`                   | ⚪     |
 | `/get_net_stats`               | ⚪     |
 | `/get_outs`                    | ⚪     |
 | `/get_peer_list`               | ⚪     |
 | `/get_public_nodes`            | ⚪     |
 | `/get_transaction_pool`        | ⚪     |
-| `/get_transaction_pool_hashes` | ⚪     |
+| `/get_transaction_pool_hashes` | 🟠     |
 | `/get_transaction_pool_stats`  | ⚪     |
-| `/get_transactions`            | ⚪     |
+| `/get_transactions`, `/gettransactions` | 🟣     | `decode_as_json` is unsupported |
 | `/in_peers`                    | ⚪     |
-| `/is_key_image_spent`          | ⚪     |
-| `/mining_status`               | ⚫     | `cuprated` does not mine
+| `/is_key_image_spent`          | 🟠     |
+| `/mining_status`               | ⚫     | `cuprated` does not mine |
 | `/out_peers`                   | ⚪     |
 | `/pop_blocks`                  | ⚪     |
 | `/save_bc`                     | ⚪     |
-| `/send_raw_transaction`        | 🟠     |
-| `/set_bootstrap_daemon`        | ⚪     | Requires bootstrap implementation
+| `/send_raw_transaction`, `/sendrawtransaction` | 🟣     | `do_not_relay` is incomplete |
+| `/set_bootstrap_daemon`        | ⚪     |
 | `/set_limit`                   | ⚪     |
-| `/set_log_categories`          | ⚪     | Could be re-purposed to use `tracing` filters
-| `/set_log_hash_rate`           | ⚫     | `cuprated` does not mine
-| `/set_log_level`               | ⚪     | Will use `tracing` levels
-| `/start_mining`                | ⚫     | `cuprated` does not mine
-| `/stop_daemon`                 | ⚪     |
-| `/stop_mining`                 | ⚫     | `cuprated` does not mine
+| `/set_log_categories`          | ⚪     |
+| `/set_log_hash_rate`           | ⚫     | `cuprated` does not mine |
+| `/set_log_level`               | ⚪     |
+| `/start_mining`                | ⚫     | `cuprated` does not mine |
+| `/stop_daemon`                 | 🟠     | Unrestricted RPC only |
+| `/stop_mining`                 | ⚫     | `cuprated` does not mine |
 | `/update`                      | ⚫     |
 
 ## Binary endpoints
-| Endpoint                           | Status | Notes   |
-|------------------------------------|--------|---------|
-| `/get_blocks.bin`                  | ⚪     |
-| `/get_blocks_by_height.bin`        | ⚪     |
-| `/get_hashes.bin`                  | ⚪     |
-| `/get_output_distribution.bin`     | ⚪     |
-| `/get_output_indexes.bin`          | ⚪     |
-| `/get_outs.bin`                    | ⚪     |
-| `/get_transaction_pool_hashes.bin` | ⚪     |
+Aliases are listed with their canonical endpoint.
+
+| Endpoint                                      | Status | Notes |
+|-----------------------------------------------|--------|-------|
+| `/get_blocks.bin`, `/getblocks.bin`           | 🟠     |
+| `/get_blocks_by_height.bin`, `/getblocks_by_height.bin` | 🟠     |
+| `/get_hashes.bin`, `/gethashes.bin`           | 🟠     |
+| `/get_output_distribution.bin`                | 🟠     |
+| `/get_o_indexes.bin`                          | 🟠     |
+| `/get_outs.bin`                               | 🟠     |
+| `/get_transaction_pool_hashes.bin`            | 🟠     |
