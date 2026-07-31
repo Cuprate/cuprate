@@ -41,7 +41,7 @@ jobs:
         key: doc
 
     - name: Documentation
-      run: cargo +nightly doc --workspace --all-features
+      run: cargo +nightly doc --workspace --all-features --no-deps
 
     - name: Upload documentation
       uses: actions/upload-pages-artifact@v3
