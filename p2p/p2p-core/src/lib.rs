@@ -188,7 +188,7 @@ pub trait Transport<Z: NetworkZone>: Clone + Send + 'static {
     ///
     /// <div class="warning">
     ///
-    /// This does not complete a handshake with the peer, to do that see the [crate](crate) docs.
+    /// This does not complete a handshake with the peer, to do that see the [crate] docs.
     ///
     /// </div>
     ///
