@@ -52,12 +52,12 @@ This section contains the development status of endpoints/methods in `cuprated`.
 | `get_miner_data`               | 🟣     |
 | `get_output_distribution`      | 🟠     |
 | `get_output_histogram`         | 🟠     |
-| `get_tx_ids_loose`             |  ⚫    | 
+| `get_tx_ids_loose`             | ⚫     |
 | `get_txpool_backlog`           | 🟠     |
 | `get_version`                  | 🟠     |
 | `hard_fork_info`               | 🟠     |
 | `on_get_block_hash`            | 🟠     |
-| `prune_blockchain`             | ⚪     |
+| `prune_blockchain`             | ⚫     |
 | `relay_tx`                     | ⚪     |
 | `set_bans`                     | ⚪     |
 | `submit_block`                 | 🟠     |
@@ -93,7 +93,7 @@ Aliases are listed with their canonical endpoint.
 | `/set_log_hash_rate`           | ⚫     | `cuprated` does not mine |
 | `/set_log_level`               | ⚪     |
 | `/start_mining`                | ⚫     | `cuprated` does not mine |
-| `/stop_daemon`                 | 🟠     | Unrestricted RPC only |
+| `/stop_daemon`                 | 🟠     |
 | `/stop_mining`                 | ⚫     | `cuprated` does not mine |
 | `/update`                      | ⚫     |
 
