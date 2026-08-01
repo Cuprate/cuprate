@@ -59,15 +59,15 @@ mod test {
     fn version() {
         let semantic_version = format!("{MAJOR_VERSION}.{MINOR_VERSION}.{PATCH_VERSION}");
         assert_eq!(VERSION, VERSION);
-        assert_eq!(VERSION, "0.0.9");
+        assert_eq!(VERSION, "0.1.0-preview");
     }
 
     #[test]
     fn version_build() {
         if cfg!(debug_assertions) {
-            assert_eq!(VERSION_BUILD, "0.0.9-debug");
+            assert_eq!(VERSION_BUILD, "0.1.0-preview-debug");
         } else {
-            assert_eq!(VERSION_BUILD, "0.0.9-release");
+            assert_eq!(VERSION_BUILD, "0.1.0-preview-release");
         }
     }
 }
