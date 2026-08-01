@@ -234,6 +234,17 @@ config_struct! {
         /// Valid values | "Tor", "socks5://ip:port", "socks5://user:pass@ip:port"
         /// Examples     | "Tor", "socks5://127.0.0.1:9050"
         pub proxy: ProxySettings,
+
+        #[comment_out = true]
+        /// Extra seed nodes to connect to on startup, in addition to the
+        /// network's built-in seeds. Given as "ip:port" socket addresses.
+        ///
+        /// FakeChain/regtest ships no built-in seeds, so a private or isolated
+        /// network relies entirely on this list to bootstrap.
+        ///
+        /// Type     | Array of socket addresses
+        /// Examples | "1.2.3.4:18080", "5.6.7.8:18080"
+        pub seed_nodes: Vec<SocketAddr>,
     }
 
     /// The config values for P2P tor.
@@ -309,6 +320,7 @@ impl Default for ClearNetConfig {
             enable_inbound_v6: false,
             listen_on_v6: Ipv6Addr::UNSPECIFIED,
             proxy: ProxySettings::Disabled,
+            seed_nodes: Vec::new(),
             outbound_connections: 32,
             extra_outbound_connections: 8,
             max_inbound_connections: 128,
