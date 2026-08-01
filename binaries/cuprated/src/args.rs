@@ -1,4 +1,4 @@
-use std::{io::Write, path::PathBuf, process::exit};
+use std::{io::Write, net::SocketAddr, path::PathBuf, process::exit};
 
 use clap::builder::TypedValueParser;
 use serde_json::Value;
@@ -47,6 +47,14 @@ pub struct Args {
     #[arg(long)]
     pub outbound_connections: Option<usize>,
 
+    /// An extra seed node to connect to on startup, in addition to the
+    /// network's built-in seeds.
+    ///
+    /// Can be passed multiple times. `FakeChain` has no built-in seeds, so
+    /// this is how a regtest or otherwise isolated network is bootstrapped.
+    #[arg(long, value_name = "IP:PORT")]
+    pub seed_node: Vec<SocketAddr>,
+
     /// The PATH of the `cuprated` config file.
     #[arg(long)]
     pub config_file: Option<PathBuf>,
@@ -94,7 +102,7 @@ impl Args {
     /// Apply the [`Args`] to the given [`Config`].
     ///
     /// This may exit the program if a config value was set that requires an early exit.
-    pub const fn apply_args(&self, mut config: Config) -> Config {
+    pub fn apply_args(&self, mut config: Config) -> Config {
         if let Some(network) = self.network {
             config.network = network;
         }
@@ -112,6 +120,12 @@ impl Args {
         if let Some(outbound_connections) = self.outbound_connections {
             config.p2p.clear_net.outbound_connections = outbound_connections;
         }
+
+        config
+            .p2p
+            .clear_net
+            .seed_nodes
+            .extend_from_slice(&self.seed_node);
 
         config
     }
