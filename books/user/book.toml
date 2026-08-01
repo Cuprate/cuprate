@@ -3,7 +3,7 @@ authors = ["hinto-janai"]
 language = "en"
 multilingual = false
 src = "src"
-title = "Cuprate User Book - v0.0.9"
+title = "Cuprate User Book - v0.1.0-preview"
 git-repository-url = "https://github.com/Cuprate/cuprate/books/user"
 
 [output.html]

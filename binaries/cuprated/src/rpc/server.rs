@@ -12,7 +12,7 @@ use tower::limit::rate::RateLimitLayer;
 use tower_http::limit::RequestBodyLimitLayer;
 use tracing::{info, warn};
 
-use cuprate_rpc_interface::{RouterBuilder, RpcHandler};
+use cuprate_rpc_interface::RouterBuilder;
 
 use crate::{
     config::{restricted_rpc_port, unrestricted_rpc_port},
@@ -103,10 +103,35 @@ async fn run_rpc_server(
         "Starting RPC server"
     );
 
-    // TODO:
-    // - add functions that are `all()` but for restricted RPC
-    // - enable aliases automatically `other_get_height` + `other_getheight`?
-    let router = RouterBuilder::new().all().build().with_state(rpc_handler);
+    let router = RouterBuilder::new()
+        .json_rpc()
+        //
+        .other_get_info()
+        .other_getinfo()
+        .other_get_height()
+        .other_getheight()
+        .other_get_transactions()
+        .other_gettransactions()
+        .other_is_key_image_spent()
+        .other_send_raw_transaction()
+        .other_sendrawtransaction()
+        .other_get_transaction_pool_hashes()
+        .other_stop_daemon()
+        //
+        .bin_get_blocks()
+        .bin_getblocks()
+        .bin_get_blocks_by_height()
+        .bin_getblocks_by_height()
+        .bin_get_hashes()
+        .bin_gethashes()
+        .bin_get_o_indexes()
+        .bin_get_outs()
+        .bin_get_transaction_pool_hashes()
+        .bin_get_output_distribution()
+        //
+        .fallback()
+        .build()
+        .with_state(rpc_handler);
 
     // Add restrictive layers if restricted RPC.
     //

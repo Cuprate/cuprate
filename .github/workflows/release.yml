@@ -56,7 +56,7 @@ jobs:
           rm -rf ${{ env.ARCHIVE }}
           mkdir -p ${{ env.ARCHIVE }}
           readonly ARCHIVE=$(realpath ${{ env.ARCHIVE }})
-          readonly VERSION=$(grep version binaries/cuprated/Cargo.toml | grep -oE [0-9]+.[0-9]+.[0-9]+)
+          readonly VERSION=$(grep '^version = ' binaries/cuprated/Cargo.toml | cut -d'"' -f2)
 
           # All archives have these files.
           cp LICENSE-AGPL target/release/LICENSE

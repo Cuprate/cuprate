@@ -82,9 +82,8 @@ No.
 The database `cuprated` generates and uses cannot directly be used by `monerod` and vice-versa. Supporting this is possible but there are no current plans to do so.
 
 ## Can I connect a wallet to `cuprated`?
-Soon.
 
-Wallets require the [daemon RPC API](https://docs.getmonero.org/rpc-library/monerod-rpc). This is actively being worked on to be backwards compatible with `monerod`, see the [RPC section](rpc.md) for more information.
+Yes, although some niche wallet functions may not work. Remember Cuprate is not yet ready for critical real world use cases.
 
 ## Can `cuprated` be used with an anonymity network like Tor?
 Yes.
@@ -92,16 +91,8 @@ Yes.
 Tor and [`arti`](https://arti.torproject.org) support have been integrated into `cuprated`. See [config](./config.md) for configuration options.
 
 ## What is the versioning scheme?
-`cuprated` is currently in alpha (`0.0.x`).
+`cuprated` is currently moving to beta (`0.x.y`).
 
-After sufficient testing and development, `cuprated` will enter beta (`0.x.y`) then stable (`x.y.z`) releases.
+After sufficient testing and development, `cuprated` will enter stable (`x.y.z`) releases.
 
 See [this GitHub issue](https://github.com/Cuprate/cuprate/issues/374) for more details.
-
-## What is the current progress?
-See [this Reddit thread](https://www.reddit.com/r/Monero/comments/1ij2sw6/cuprate_2024_progress_report) for a brief report on Cuprate's progress throughout 2024.
-
-Things are always changing so feel free to join our [Matrix channel](https://matrix.to/#/#cuprate:monero.social) and ask questions.
-
-## What is the current roadmap?
-See [this GitHub issue](https://github.com/Cuprate/cuprate/issues/376) for Cuprate's rough roadmap.
