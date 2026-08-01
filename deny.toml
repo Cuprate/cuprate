@@ -141,7 +141,7 @@ confidence-threshold = 0.8
 # aren't accepted for every possible crate as with the normal allow list
 exceptions = [
     # Cuprate (AGPL-3.0-only)
-    { allow = ["AGPL-3.0-only"], name = "cuprated", version = "*" }
+    { allow = ["AGPL-3.0-only"], name = "cuprated" }
 
     # Each entry is the crate and version constraint, and its specific allow
     # list
