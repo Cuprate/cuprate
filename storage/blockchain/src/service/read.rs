@@ -52,7 +52,7 @@ use crate::{
         output::{
             get_num_outputs_with_amount, id_to_output_on_chain, unlocked_and_recent_instances,
         },
-        tx::{get_split_tx_blobs, get_tx_blob_from_id},
+        tx::{get_split_tx_blobs, get_tx_blob_from_id, get_tx_id_from_hash},
     },
     service::{
         free::{compact_history_genesis_not_included, compact_history_index_to_height_offset},
@@ -1383,11 +1383,7 @@ fn tx_output_indexes(db: &BlockchainDatabase, tx_hash: &[u8; 32]) -> ResponseRes
     let tx_ro = db.fjall.snapshot();
     let tapes = db.linear_tapes.reader();
 
-    let tx_id = tx_ro
-        .get(&db.tx_ids, tx_hash)?
-        .ok_or(BlockchainError::NotFound)?;
-
-    let tx_id = u64::from_le_bytes(tx_id.as_ref().try_into().unwrap());
+    let tx_id = get_tx_id_from_hash(&db, tx_hash)?;
 
     let tx_info = tapes
         .read_entry(&db.tx_infos, tx_id)?

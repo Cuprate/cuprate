@@ -139,6 +139,13 @@ pub struct BlockchainDatabase {
     /// Each blob tape is stored in an [`Option`] to allow for pruning.
     pub(crate) prunable_blobs: Vec<Option<tapes::BlobTape>>,
 
+    /// Includes the top 5500 blocks, since pruned nodes have to always keep this.
+    ///
+    /// | key             | value                  |
+    /// |-----------------|------------------------|
+    /// | Tx ID: u64      | prunable blob: [u8]    |
+    pub(crate) prunable_tip: fjall::Keyspace,
+
     /// A runtime cache of the number of outputs for each pre-rct output amount.
     /// This is filled in lazily.
     pub(crate) pre_rct_numb_outputs_cache: Mutex<HashMap<Amount, u64>>,
@@ -187,6 +194,7 @@ impl BlockchainDatabase {
             fjall.keyspace("alt_transaction_blobs", KeyspaceCreateOptions::default)?;
         let alt_transaction_infos =
             fjall.keyspace("alt_transaction_infos", KeyspaceCreateOptions::default)?;
+        let prunable_tip = fjall.keyspace("prunable_tip", KeyspaceCreateOptions::default)?;
 
         let tapes_index_dir = config.index_dir.join("tapes");
         let tapes_blob_dir = config.blob_dir.join("tapes");
@@ -295,6 +303,7 @@ impl BlockchainDatabase {
             pruned_blobs,
             v1_prunable_blobs,
             prunable_blobs,
+            prunable_tip,
             pre_rct_numb_outputs_cache: Mutex::new(HashMap::new()),
             pruning_seed: metadata.get_pruning_seed(),
         })

@@ -22,7 +22,7 @@ use cuprate_types::{
 
 use crate::{
     error::{BlockchainError, DbResult},
-    ops::block::add_blocks_to_tapes,
+    ops::block::{add_blocks_to_prunable_tip, add_blocks_to_tapes},
     service::ResponseResult,
     BlockchainDatabase,
 };
@@ -163,6 +163,11 @@ fn write_blocks(db: &BlockchainDatabase, blocks: &[VerifiedBlockInformation]) ->
         )?;
     }
 
+    tx_rw.commit()?; // TODO: maybe make in one go
+
+    let mut tx_rw = db.fjall.batch().durability(Some(PersistMode::Buffer));
+    let tapes = db.linear_tapes.reader();
+    add_blocks_to_prunable_tip(db, blocks, &tapes, &mut tx_rw)?;
     tx_rw.commit()?;
 
     Ok(BlockchainResponse::Ok)

@@ -359,6 +359,19 @@ pub fn get_num_tx(db: &BlockchainDatabase, tx_ro: &fjall::Snapshot) -> DbResult<
     Ok(usize_to_u64(tx_ro.len(&db.tx_ids)?))
 }
 
+/// Retrieves the transaction id based on a transactions hash
+#[inline]
+pub fn get_tx_id_from_hash(db: &BlockchainDatabase, tx_hash: &TxHash) -> DbResult<TxId> {
+    Ok(u64::from_le_bytes(
+        db.tx_ids
+            .get(tx_hash)?
+            .ok_or(BlockchainError::NotFound)?
+            .as_ref()
+            .try_into()
+            .unwrap(),
+    ))
+}
+
 //----------------------------------------------------------------------------------------------------
 /// Check if a transaction exists in the database.
 ///

@@ -7,7 +7,9 @@ use cuprate_helper::{
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
     tx::tx_fee,
 };
-use cuprate_pruning::{CRYPTONOTE_PRUNING_LOG_STRIPES, CRYPTONOTE_PRUNING_STRIPE_SIZE};
+use cuprate_pruning::{
+    CRYPTONOTE_PRUNING_LOG_STRIPES, CRYPTONOTE_PRUNING_STRIPE_SIZE, CRYPTONOTE_PRUNING_TIP_BLOCKS,
+};
 use cuprate_types::{
     AltBlockInformation, BlockCompleteEntry, ChainId, ExtendedBlockHeader, HardFork,
     PrunedTxBlobEntry, TransactionBlobs, VerifiedBlockInformation, VerifiedTransactionInformation,
@@ -26,7 +28,10 @@ use crate::{
     error::{BlockchainError, DbResult},
     ops::{
         alt_block,
-        tx::{add_tx_info_to_dynamic_tables, add_tx_info_to_tapes, remove_tx_from_dynamic_tables},
+        tx::{
+            add_tx_info_to_dynamic_tables, add_tx_info_to_tapes, get_tx_id_from_hash,
+            remove_tx_from_dynamic_tables,
+        },
     },
     types::{Amount, BlockHash, BlockHeight, BlockInfo},
     BlockchainDatabase,
@@ -335,6 +340,57 @@ pub fn add_block_to_dynamic_tables<'a, I: Iterator<Item = Cow<'a, Transaction<Pr
     }
 
     w.insert(&db.block_heights, block_hash, block.number().to_le_bytes());
+
+    Ok(())
+}
+
+pub fn add_blocks_to_prunable_tip(
+    db: &BlockchainDatabase,
+    blocks: &[VerifiedBlockInformation],
+    tapes: &tapes::TapesReadTransaction,
+    w: &mut fjall::OwnedWriteBatch,
+) -> DbResult<()> {
+    // TODO: don't do this if v1 / if we're not even pruning?
+    if blocks.is_empty() {
+        return Ok(());
+    }
+    // remove old blocks
+    let new_tip_height = blocks.last().unwrap().height;
+
+    if new_tip_height >= CRYPTONOTE_PRUNING_TIP_BLOCKS {
+        let keep_from_height = new_tip_height - CRYPTONOTE_PRUNING_TIP_BLOCKS + 1; // first, to not delete
+
+        let first_added_height = blocks.first().unwrap().height;
+        let remove_from_height = first_added_height.saturating_sub(CRYPTONOTE_PRUNING_TIP_BLOCKS);
+
+        if remove_from_height < keep_from_height {
+            let tx_to_remove_to = get_block(&keep_from_height, None, tapes, db)?
+                .miner_transaction()
+                .hash();
+            let tx_to_remove_from = get_block(&remove_from_height, None, tapes, db)?
+                .miner_transaction()
+                .hash();
+
+            let tx_id_to_remove_to = get_tx_id_from_hash(db, &tx_to_remove_to)?;
+            let tx_id_to_remove_from = get_tx_id_from_hash(db, &tx_to_remove_from)?;
+
+            for tx_id in tx_id_to_remove_from..tx_id_to_remove_to {
+                w.remove(&db.prunable_tip, tx_id.to_le_bytes().as_slice());
+            }
+        }
+    }
+
+    // add newest blocks
+    let blocks_to_keep = blocks.len().min(CRYPTONOTE_PRUNING_TIP_BLOCKS);
+    for block in &blocks[blocks.len() - blocks_to_keep..] {
+        for tx in block.txs.iter() {
+            let tx_id = db
+                .tx_ids
+                .get(tx.tx_hash)?
+                .ok_or(BlockchainError::NotFound)?;
+            w.insert(&db.prunable_tip, tx_id, tx.tx_prunable_blob.as_slice());
+        }
+    }
 
     Ok(())
 }
