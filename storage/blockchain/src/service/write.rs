@@ -7,6 +7,7 @@ use std::{
 };
 
 use crossbeam::channel::Receiver;
+use cuprate_pruning::PruningSeed;
 use fjall::PersistMode;
 use futures::channel::oneshot;
 use tapes::Persistence;
@@ -163,12 +164,14 @@ fn write_blocks(db: &BlockchainDatabase, blocks: &[VerifiedBlockInformation]) ->
         )?;
     }
 
-    tx_rw.commit()?; // TODO: maybe make in one go
+    tx_rw.commit()?; // TODO: This can be done with one go: by calculating the tx_ids required for the `add_blocks_to_prunable_tip` with the blocks we already have. (both for removal and addition of tip blocks)
 
-    let mut tx_rw = db.fjall.batch().durability(Some(PersistMode::Buffer));
-    let tapes = db.linear_tapes.reader();
-    add_blocks_to_prunable_tip(db, blocks, &tapes, &mut tx_rw)?;
-    tx_rw.commit()?;
+    if db.pruning_seed != PruningSeed::NotPruned {
+        let mut tx_rw = db.fjall.batch().durability(Some(PersistMode::Buffer));
+        let tapes = db.linear_tapes.reader();
+        add_blocks_to_prunable_tip(db, blocks, &tapes, &mut tx_rw)?;
+        tx_rw.commit()?;
+    }
 
     Ok(BlockchainResponse::Ok)
 }

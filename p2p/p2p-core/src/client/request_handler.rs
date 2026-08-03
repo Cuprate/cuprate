@@ -2,7 +2,7 @@ use futures::TryFutureExt;
 use rand::{thread_rng, Rng};
 use tower::ServiceExt;
 
-use cuprate_pruning::{PruningSeed, CRYPTONOTE_PRUNING_LOG_STRIPES};
+use cuprate_pruning::PruningSeed;
 use cuprate_wire::{
     admin::{
         PingResponse, SupportFlagsResponse, TimedSyncRequest, TimedSyncResponse,
@@ -155,8 +155,7 @@ where
         let pruning_seed = if core_sync_data.pruning_seed == 0 {
             PruningSeed::NotPruned
         } else {
-            PruningSeed::new_pruned(core_sync_data.pruning_seed, CRYPTONOTE_PRUNING_LOG_STRIPES)
-                .expect("Our pruning seed is valid")
+            PruningSeed::decompress(core_sync_data.pruning_seed).expect("Our pruning seed is valid")
         };
 
         if let Some(own_addr) = own_addr {
