@@ -23,6 +23,12 @@ inputs:
     description: "Version to download"
     required: false
     default: v0.18.3.3
+  os:
+    description: "Operating system of the binary"
+    required: true
+  arch:
+    description: "Architecture of the binary"
+    required: true
 
 runs:
   using: "composite"
@@ -34,27 +40,28 @@ runs:
         path: |
           monerod
           monerod.exe
-        key: monerod-${{ runner.os }}-${{ runner.arch }}-${{ inputs.version }}
+        key: monerod-${{ inputs.os }}-${{ inputs.arch }}-${{ inputs.version }}
 
     - name: Download the Monero Daemon
       if: steps.cache-monerod.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        OS=${{ runner.os }}
-        ARCH=${{ runner.arch }}
+        OS=${{ inputs.os }}
+        ARCH=${{ inputs.arch }}
 
         case "$OS $ARCH" in
-          "Windows X64") FILE=monero-win-x64-${{ inputs.version }}.zip ;;
-          "Windows X86") FILE=monero-win-x86-${{ inputs.version }}.zip ;;
-          "Linux X64") FILE=monero-linux-x64-${{ inputs.version }}.tar.bz2 ;;
-          "Linux X86") FILE=monero-linux-x86-${{ inputs.version }}.tar.bz2 ;;
-          "Linux ARM64") FILE=monero-linux-armv8-${{ inputs.version }}.tar.bz2 ;;
-          "macOS X64") FILE=monero-mac-x64-${{ inputs.version }}.tar.bz2 ;;
-          "macOS ARM64") FILE=monero-mac-armv8-${{ inputs.version }}.tar.bz2 ;;
+          "windows x86_64") FILE=monero-win-x64-${{ inputs.version }}.zip ;;
+          "windows x86") FILE=monero-win-x86-${{ inputs.version }}.zip ;;
+          "linux x86_64") FILE=monero-linux-x64-${{ inputs.version }}.tar.bz2 ;;
+          "linux x86") FILE=monero-linux-x86-${{ inputs.version }}.tar.bz2 ;;
+          "linux aarch64") FILE=monero-linux-armv8-${{ inputs.version }}.tar.bz2 ;;
+          "macos x86_64") FILE=monero-mac-x64-${{ inputs.version }}.tar.bz2 ;;
+          "macos aarch64") FILE=monero-mac-armv8-${{ inputs.version }}.tar.bz2 ;;
+          "freebsd x86_64") FILE=monero-freebsd-x64-${{ inputs.version }}.tar.bz2 ;;
           *) exit 1 ;;
         esac
         curl -O -L https://downloads.getmonero.org/cli/$FILE
-        if [[ ${{ runner.os }} == Windows ]]; then
+        if [[ "$FILE" == *.zip ]]; then
           unzip $FILE
           mv */monerod.exe monerod.exe
         else

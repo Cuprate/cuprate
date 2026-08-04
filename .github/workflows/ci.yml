@@ -88,15 +88,15 @@ jobs:
 
   # CI, runs on GitHub provided OSs.
   ci:
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os.runner }}
 
     strategy:
       matrix:
         os: [
-            windows-2022, # EOL = 2026-10-13 | <https://endoflife.date/windows-server>
-            macos-15,     # EOL = 2027-09-16 | <https://endoflife.date/macos>
-            ubuntu-24.04, # EOL = 2029-05-31 | <https://endoflife.date/ubuntu>
-            ubuntu-24.04-arm,
+            { runner: windows-2022, name: windows, architecture: x86_64 }, # EOL = 2026-10-13 | <https://endoflife.date/windows-server>
+            { runner: macos-15, name: macos, architecture: aarch64 },      # EOL = 2027-09-16 | <https://endoflife.date/macos>
+            { runner: ubuntu-24.04, name: linux, architecture: x86_64 },   # EOL = 2029-05-31 | <https://endoflife.date/ubuntu>
+            { runner: ubuntu-24.04-arm, name: linux, architecture: aarch64 },
         ]
 
     steps:
@@ -115,13 +115,16 @@ jobs:
         uses: actions/cache@v4
         with:
           path: target
-          key: ${{ matrix.os }}
+          key: ${{ matrix.os.runner }}
 
       - name: Download monerod
         uses: ./.github/actions/monerod-download
+        with:
+          os: ${{ matrix.os.name }}
+          arch: ${{ matrix.os.architecture }}
 
       - name: Install dependencies (Windows)
-        if: matrix.os == 'windows-2022'
+        if: matrix.os.runner == 'windows-2022'
         uses: lukka/get-cmake@v3.31.6 # Needed for `randomx-rs`
 
       - name: Documentation
@@ -177,6 +180,9 @@ jobs:
       - name: Download monerod
         if: matrix.os.image != 'alpine:latest'
         uses: ./.github/actions/monerod-download
+        with:
+          os: linux
+          arch: x86_64
 
       - name: Documentation
         run: ${{ env.CMD_DOC }}
@@ -192,3 +198,4 @@ jobs:
 
       - name: Hack Check
         run: ${{ env.CMD_HACK }}
+
