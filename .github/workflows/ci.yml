@@ -300,3 +300,53 @@ jobs:
               ;;
           esac
 
+  # CI, runs cross-compiled targets under emulation.
+  ci-cross:
+    runs-on: ubuntu-latest
+
+    env:
+      PROPTEST_TIMEOUT: 0
+
+    strategy:
+      matrix:
+        target: [
+            riscv64gc-unknown-linux-gnu,
+        ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy
+
+      - name: Install cross toolchain
+        uses: taiki-e/setup-cross-toolchain-action@v1
+        with:
+          target: ${{ matrix.target }}
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ matrix.target }}
+
+      - name: Documentation
+        run: ${{ env.CMD_DOC }}
+
+      - name: Clippy (fail on warnings)
+        run: ${{ env.CMD_CLIPPY }}
+
+      # There is no prebuilt monerod for RISC-V, so the tests that require it are skipped.
+      - name: Test
+        run: |
+          cargo test --all-features --workspace --exclude cuprate-p2p-core
+          cargo test --all-features --package cuprate-p2p-core --lib --tests -- --skip monerod
+
+      - name: Build
+        run: ${{ env.CMD_BUILD }}
