@@ -1,5 +1,4 @@
 use cuprate_pruning::{PruningSeed, CRYPTONOTE_PRUNING_LOG_STRIPES};
-use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
     io::{Read, Write},
@@ -9,38 +8,17 @@ use std::{
 use crate::{BlockchainError, DATABASE_VERSION};
 
 /// Represents the metadata of the blockchain database.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct Metadata {
     /// The version of the database, defaults to [`crate::constants::DATABASE_VERSION`].
     db_version: u64,
     /// The seed used for pruning, defaults to [`PruningSeed::NotPruned`].
     /// It is compressed to a `u32` value for storage.
-    #[serde(with = "serde_pruning_seed")]
     pruning_seed: PruningSeed,
 }
 
-mod serde_pruning_seed {
-    //! Serialization and deserialization of [`PruningSeed`] values.
-    use cuprate_pruning::PruningSeed;
-
-    pub(super) fn serialize<S>(seed: &PruningSeed, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_u32(seed.compress())
-    }
-
-    pub(super) fn deserialize<'de, D>(deserializer: D) -> Result<PruningSeed, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let seed_value: u32 = serde::Deserialize::deserialize(deserializer)?;
-        PruningSeed::decompress(seed_value).map_err(|e| serde::de::Error::custom(e))
-    }
-}
-
 impl Metadata {
-    const FILE_NAME: &'static str = "metadata.json";
+    const FILE_NAME: &'static str = "metadata.bin";
 
     /// Opens the metadata file, or creates a new one if it doesn't exist yet.
     pub fn get_or_create(db_dir_path: impl AsRef<Path>) -> Result<Self, BlockchainError> {
@@ -49,9 +27,14 @@ impl Metadata {
 
         if exists {
             let mut file = File::open(&metadata_path)?;
-            let mut buf = String::new();
-            file.read_to_string(&mut buf)?;
-            let metadata: Metadata = serde_json::from_str(&buf)?;
+            let mut buf = Vec::new();
+            file.read_to_end(&mut buf)?;
+            let metadata: Metadata = Metadata::deserialize(buf.as_slice())?;
+            tracing::info!(
+                "Opened existing metadata file with DB version = {} and pruning_stripe = {:?}.",
+                metadata.db_version,
+                metadata.get_stripe_idx()
+            );
             Ok(metadata)
         } else {
             let metadata = Metadata::new();
@@ -101,6 +84,23 @@ impl Metadata {
         self.pruning_seed != PruningSeed::NotPruned
     }
 
+    /// deserializes a [`bytes::Buf`] into a [`Metadata`]
+    fn deserialize(mut bytes: impl bytes::Buf) -> Result<Metadata, BlockchainError> {
+        let db_version = bytes.try_get_u64_le()?;
+        let pruning_seed = PruningSeed::decompress(bytes.try_get_u32_le()?)?;
+
+        Ok(Metadata {
+            db_version,
+            pruning_seed,
+        })
+    }
+
+    /// serializes [`self`] into a buffer like a [`Vec`] or [`bytes::BytesMut`]
+    fn serialize(&self, mut buf: impl bytes::BufMut) {
+        buf.put_u64_le(self.db_version);
+        buf.put_u32_le(self.pruning_seed.compress());
+    }
+
     /// Saves the metadata to the file.
     #[inline]
     fn persist(&self, path: impl AsRef<Path>) -> Result<(), BlockchainError> {
@@ -122,8 +122,9 @@ impl Metadata {
     #[inline]
     fn write_to_file(&self, path: impl AsRef<Path>) -> Result<(), BlockchainError> {
         let mut file = File::create(path)?;
-        let json = serde_json::to_string(self)?;
-        file.write_all(json.as_bytes())?;
+        let mut buf = bytes::BytesMut::new();
+        self.serialize(&mut buf);
+        file.write_all(&buf)?;
         Ok(())
     }
 }

@@ -12,7 +12,7 @@ pub enum BlockchainError {
     #[error("not found")]
     NotFound,
     #[error("invalid metadata")]
-    InvalidMetadata(#[from] serde_json::Error),
+    InvalidMetadata(#[from] bytes::TryGetError),
     #[error("invalid pruning seed")]
     InvalidPruningSeed(#[from] PruningError),
 }

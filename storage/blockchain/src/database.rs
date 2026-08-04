@@ -177,6 +177,12 @@ impl BlockchainDatabase {
             // generate a random stripe index to prune
             let stripe_idx = rand::thread_rng().gen_range(0..PRUNABLE_BLOBS.len()) as u32;
             metadata.set_stripe_idx(stripe_idx, &config.index_dir)?;
+
+            tracing::info!(
+                "Created new metadata with DB version = {} and pruning_stripe = {:?}.",
+                metadata.get_db_version(),
+                metadata.get_stripe_idx()
+            );
         }
 
         let block_heights = fjall.keyspace("block_heights", KeyspaceCreateOptions::default)?;
