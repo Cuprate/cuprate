@@ -19,19 +19,26 @@ jobs:
     strategy:
       matrix:
         os: [
-            windows-2022, # EOL = 2026-10-13 | <https://endoflife.date/windows-server>
-            macos-15,     # EOL = 2027-09-16 | <https://endoflife.date/macos>
-            ubuntu-24.04, # EOL = 2029-05-31 | <https://endoflife.date/ubuntu>
-            ubuntu-24.04-arm,
+            { name: windows-x86_64, runner: windows-2022 },      # EOL = 2026-10-13 | <https://endoflife.date/windows-server>
+            { name: macos-aarch64, runner: macos-15 },          # EOL = 2027-09-16 | <https://endoflife.date/macos>
+            { name: linux-x86_64-gnu, runner: ubuntu-24.04 },   # EOL = 2029-05-31 | <https://endoflife.date/ubuntu>
+            { name: linux-aarch64-gnu, runner: ubuntu-24.04-arm },
+            { name: linux-x86_64-musl, runner: ubuntu-24.04, container: alpine:latest, features: jemalloc },
         ]
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os.runner }}
+    container: ${{ matrix.os.container }}
 
     defaults:
       run:
         shell: bash
 
     steps:
+      - name: Install Alpine dependencies
+        if: matrix.os.container == 'alpine:latest'
+        shell: sh
+        run: apk add --no-cache alpine-sdk bash cmake curl
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -44,7 +51,7 @@ jobs:
           toolchain: stable
 
       - name: Build
-        run: cargo build --release --package cuprated
+        run: cargo build --release --package cuprated --features "${{ matrix.os.features }}"
 
       - name: Generate Archives
         run: |
@@ -74,8 +81,7 @@ jobs:
           fi
 
           # Generate the asset name.
-          TARGET=($(rustup show | grep "Default"))
-          readonly TARGET=${TARGET[2]}
+          readonly TARGET=$(rustc -vV | sed -n 's/^host: //p')
           readonly ASSET="cuprated-$VERSION-$TARGET.$EXTENSION"
 
           # Generate archives for Linux.
@@ -101,6 +107,7 @@ jobs:
       - name: Archive
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.os }}
+          name: ${{ matrix.os.name }}
           compression-level: 0
           path: ${{ env.ARCHIVE }}/**
+
