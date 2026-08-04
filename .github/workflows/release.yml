@@ -111,3 +111,78 @@ jobs:
           compression-level: 0
           path: ${{ env.ARCHIVE }}/**
 
+  build-vm:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        os: [
+            { name: freebsd, architecture: x86_64, version: "15.1" },
+        ]
+
+    defaults:
+      run:
+        shell: cpa.sh {0} --sync-files none
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          ref: ${{ inputs.commit }}
+
+      - name: Start VM
+        uses: cross-platform-actions/action@v1.3.0
+        with:
+          operating_system: ${{ matrix.os.name }}
+          architecture: ${{ matrix.os.architecture }}
+          version: ${{ matrix.os.version }}
+          memory: 6G
+          cpu_count: 4
+          sync_files: runner-to-vm
+          environment_variables: CARGO_TERM_COLOR
+
+      - name: Install dependencies
+        run: sudo pkg install -y cmake curl git gmake
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+          sudo ln -s "$HOME"/.cargo/bin/* /usr/local/bin/
+
+      - name: Build
+        run: cargo build --release --package cuprated
+
+      - name: Generate Archive
+        shell: cpa.sh {0} --sync-files vm-to-runner
+        run: |
+          set -e            # Exit on failures
+          umask 0077        # 700 permissions
+          export TZ=UTC     # UTC timezone
+
+          # Reset archive directory in-case.
+          rm -rf ${{ env.ARCHIVE }}
+          mkdir -p ${{ env.ARCHIVE }}
+
+          readonly ARCHIVE=$(realpath ${{ env.ARCHIVE }})
+          readonly VERSION=$(grep '^version = ' binaries/cuprated/Cargo.toml | cut -d'"' -f2)
+
+          # Generate the asset name.
+          readonly TARGET=$(rustc -vV | sed -n 's/^host: //p')
+          readonly ASSET="cuprated-$VERSION-$TARGET.tar.gz"
+
+          # Generate archive for BSD.
+          cp LICENSE-AGPL target/release/LICENSE
+          target/release/cuprated --generate-config > target/release/Cuprated.toml
+          tar -czpf "$ARCHIVE/$ASSET" -C target/release cuprated LICENSE Cuprated.toml
+
+          # Only sync the finished archive back to the runner.
+          rm -rf target
+
+      - name: Archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os.name }}-${{ matrix.os.architecture }}
+          compression-level: 0
+          path: ${{ env.ARCHIVE }}/**
+

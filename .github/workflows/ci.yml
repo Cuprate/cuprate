@@ -199,3 +199,75 @@ jobs:
       - name: Hack Check
         run: ${{ env.CMD_HACK }}
 
+  # CI, runs in virtual machines.
+  ci-vm:
+    runs-on: ubuntu-latest
+
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG: "0"
+
+    strategy:
+      matrix:
+        os: [
+          { name: freebsd, architecture: x86_64, version: "15.1", dependencies: "cmake curl git gmake" },
+        ]
+
+    defaults:
+      run:
+        shell: cpa.sh {0} --sync-files none
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download monerod
+        uses: ./.github/actions/monerod-download
+        with:
+          os: ${{ matrix.os.name }}
+          arch: ${{ matrix.os.architecture }}
+
+      - name: Start VM
+        uses: cross-platform-actions/action@v1.3.0
+        with:
+          operating_system: ${{ matrix.os.name }}
+          architecture: ${{ matrix.os.architecture }}
+          version: ${{ matrix.os.version }}
+          memory: 6G
+          cpu_count: 4
+          sync_files: runner-to-vm
+          environment_variables: CARGO_TERM_COLOR RUST_BACKTRACE RUST_MIN_STACK RUSTDOCFLAGS CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG CARGO_INCREMENTAL CARGO_PROFILE_DEV_DEBUG CARGO_PROFILE_TEST_DEBUG
+
+      - name: Install dependencies
+        run: |
+          sudo pkg install -y ${{ matrix.os.dependencies }}
+          sudo pkg clean -y
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --component clippy
+          sudo ln -s "$HOME"/.cargo/bin/* /usr/local/bin/
+
+      - name: Documentation
+        run: |
+          ${{ env.CMD_DOC }}
+          cargo clean --doc
+          rm -rf "$HOME/.cargo/registry/cache"
+          rm -rf "$HOME/.cargo/git/db"
+
+      - name: Clippy (fail on warnings)
+        run: ${{ env.CMD_CLIPPY }}
+
+      - name: Test
+        run: ${{ env.CMD_TEST }}
+
+      - name: Build
+        run: ${{ env.CMD_BUILD }}
+
+      - name: Hack Check
+        run: ${{ env.CMD_HACK }}
+
