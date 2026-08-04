@@ -31,6 +31,7 @@ Tier 2 targets can be thought of as "guaranteed to build".
 | `x86_64-pc-windows-msvc`    | x64 Windows (MSVC, Windows Server 2022+)
 | `x86_64-unknown-linux-musl`  | x64 Linux (musl 1.2.3)
 | `x86_64-unknown-freebsd` 	   | x64 FreeBSD
+| `x86_64-unknown-openbsd`     | x64 OpenBSD (7.9+)
 
 ## Tier 3
 

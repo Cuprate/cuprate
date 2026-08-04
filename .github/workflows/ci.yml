@@ -213,6 +213,7 @@ jobs:
       matrix:
         os: [
           { name: freebsd, architecture: x86_64, version: "15.1", dependencies: "cmake curl git gmake" },
+          { name: openbsd, architecture: x86_64, version: "7.9", dependencies: "cmake git gmake rust rust-clippy" },
         ]
 
     defaults:
@@ -226,6 +227,7 @@ jobs:
           submodules: recursive
 
       - name: Download monerod
+        if: matrix.os.name != 'openbsd' # There is no prebuilt monerod for OpenBSD
         uses: ./.github/actions/monerod-download
         with:
           os: ${{ matrix.os.name }}
@@ -244,10 +246,18 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo pkg install -y ${{ matrix.os.dependencies }}
-          sudo pkg clean -y
+          case "${{ matrix.os.name }}" in
+            openbsd)
+              sudo pkg_add ${{ matrix.os.dependencies }}
+              ;;
+            freebsd)
+              sudo pkg install -y ${{ matrix.os.dependencies }}
+              sudo pkg clean -y
+              ;;
+          esac
 
       - name: Install Rust
+        if: matrix.os.name == 'freebsd'
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --component clippy
           sudo ln -s "$HOME"/.cargo/bin/* /usr/local/bin/
@@ -263,11 +273,30 @@ jobs:
         run: ${{ env.CMD_CLIPPY }}
 
       - name: Test
-        run: ${{ env.CMD_TEST }}
+        run: |
+          case "${{ matrix.os.name }}" in
+            openbsd)
+              ulimit -Sd 4194304
+              cargo test --all-features --workspace --exclude cuprate-p2p-core
+              cargo test --all-features --package cuprate-p2p-core --lib --tests -- --skip monerod
+              ;;
+            *)
+              ${{ env.CMD_TEST }}
+              ;;
+          esac
 
       - name: Build
         run: ${{ env.CMD_BUILD }}
 
       - name: Hack Check
-        run: ${{ env.CMD_HACK }}
+        run: |
+          case "${{ matrix.os.name }}" in
+            openbsd)
+              cargo install cargo-hack --locked
+              cargo hack check --feature-powerset --no-dev-deps --workspace --exclude cuprate-fuzz
+              ;;
+            *)
+              ${{ env.CMD_HACK }}
+              ;;
+          esac
 
