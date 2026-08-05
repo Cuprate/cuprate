@@ -1,6 +1,10 @@
 //! Task spawning and shutdown coordination.
 
-use std::{future::Future, panic::AssertUnwindSafe};
+use std::{
+    future::Future,
+    panic::AssertUnwindSafe,
+    sync::{Arc, OnceLock},
+};
 
 use futures::FutureExt;
 use tokio::task::JoinHandle;
@@ -9,11 +13,22 @@ use tracing::{debug, error, info};
 
 use crate::constants::CRITICAL_SERVICE_ERROR;
 
+/// Why the node stopped.
+#[must_use]
+pub enum ShutdownReason {
+    /// Shutdown was requested.
+    Requested,
+
+    /// A critical task failed.
+    TaskFailed(&'static str),
+}
+
 /// A handle for task spawning and shutdown coordination.
 #[derive(Clone, Default)]
 pub struct TaskExecutor {
     token: CancellationToken,
     tracker: TaskTracker,
+    failed: Arc<OnceLock<&'static str>>,
 }
 
 impl TaskExecutor {
@@ -64,6 +79,7 @@ impl TaskExecutor {
                         "{CRITICAL_SERVICE_ERROR}",
                     ),
                 }
+                let _ = executor.failed.set(name);
                 executor.trigger_shutdown();
             }))
     }
@@ -82,10 +98,14 @@ impl TaskExecutor {
     }
 
     /// Wait for shutdown to be triggered, then await all tracked tasks.
-    pub async fn wait_for_shutdown(&self) {
+    pub async fn wait_for_shutdown(&self) -> ShutdownReason {
         self.token.cancelled().await;
         self.tracker.close();
         self.tracker.wait().await;
+        match self.failed.get() {
+            Some(&task) => ShutdownReason::TaskFailed(task),
+            None => ShutdownReason::Requested,
+        }
     }
 }
 

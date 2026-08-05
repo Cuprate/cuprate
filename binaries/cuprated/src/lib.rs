@@ -293,7 +293,7 @@ impl Node {
 
         if node.is_err() {
             launch_executor.cancellation_token().cancel();
-            launch_executor.wait_for_shutdown().await;
+            drop(launch_executor.wait_for_shutdown().await);
         }
         node
     }
@@ -301,10 +301,5 @@ impl Node {
     /// Trigger a graceful shutdown.
     pub fn shutdown(&self) {
         self.task_executor.trigger_shutdown();
-    }
-
-    /// Wait for shutdown to be triggered, then await all tracked tasks.
-    pub async fn wait_for_shutdown(&self) {
-        self.task_executor.wait_for_shutdown().await;
     }
 }
