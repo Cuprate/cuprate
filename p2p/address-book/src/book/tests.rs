@@ -1,13 +1,17 @@
-use std::{path::PathBuf, time::Duration};
+use std::{net::SocketAddr, path::PathBuf, time::Duration};
 
 use futures::StreamExt;
-use tokio::time::interval;
 
-use cuprate_p2p_core::{handles::HandleBuilder, NetworkZone};
+use cuprate_p2p_core::{
+    handles::{ConnectionGuard, ConnectionHandle, HandleBuilder},
+    ClearNet, NetworkZone,
+};
 use cuprate_pruning::PruningSeed;
 
 use super::{AddressBook, ConnectionPeerEntry, InternalPeerID};
-use crate::{peer_list::tests::make_fake_peer_list, AddressBookConfig, AddressBookError};
+use crate::{
+    peer_list::tests::make_fake_peer_list, AddressBookConfig, AddressBookError, BorshNetworkZone,
+};
 
 use cuprate_test_utils::test_netzone::{TestNetZone, TestNetZoneAddr};
 
@@ -21,22 +25,46 @@ fn test_cfg<Z: NetworkZone>() -> AddressBookConfig<Z> {
     }
 }
 
-fn make_fake_address_book(numb_white: u32, numb_gray: u32) -> AddressBook<TestNetZone<true>> {
-    let white_list = make_fake_peer_list(0, numb_white);
-    let gray_list = make_fake_peer_list(numb_white, numb_gray);
+fn empty_address_book<Z: BorshNetworkZone>() -> AddressBook<Z> {
+    AddressBook::new(test_cfg(), vec![], vec![], vec![])
+}
 
+fn make_fake_address_book(numb_white: u32, numb_gray: u32) -> AddressBook<TestNetZone<true>> {
     AddressBook {
-        white_list,
-        gray_list,
-        anchor_list: Default::default(),
-        connected_peers: Default::default(),
-        connected_peers_ban_id: Default::default(),
-        banned_peers: Default::default(),
-        banned_peers_queue: Default::default(),
-        peer_save_task_handle: None,
-        peer_save_interval: interval(Duration::from_secs(60)),
-        cfg: test_cfg(),
+        white_list: make_fake_peer_list(0, numb_white),
+        gray_list: make_fake_peer_list(numb_white, numb_gray),
+        ..empty_address_book()
     }
+}
+
+fn peer_entry<Z: NetworkZone>(
+    addr: Option<Z::Addr>,
+    handle: ConnectionHandle,
+    pruning_seed: PruningSeed,
+) -> ConnectionPeerEntry<Z> {
+    ConnectionPeerEntry {
+        addr,
+        id: 0,
+        handle,
+        pruning_seed,
+        rpc_port: 0,
+        rpc_credits_per_hash: 0,
+    }
+}
+
+/// Adds a connection to `book`. Dropping the returned guard closes the connection.
+fn connect<Z: BorshNetworkZone>(
+    book: &mut AddressBook<Z>,
+    internal_addr: Z::Addr,
+    reachable_addr: Option<Z::Addr>,
+) -> (ConnectionGuard, ConnectionHandle) {
+    let (guard, handle) = HandleBuilder::default().build();
+    book.handle_new_connection(
+        InternalPeerID::KnownAddr(internal_addr),
+        peer_entry(reachable_addr, handle.clone(), PruningSeed::NotPruned),
+    )
+    .unwrap();
+    (guard, handle)
 }
 
 #[tokio::test]
@@ -142,4 +170,103 @@ async fn banned_peer_removed_from_peer_lists() {
             .into_inner(),
         TestNetZoneAddr(1)
     );
+}
+
+#[tokio::test]
+async fn ban_peer_after_failed_connection() {
+    let mut book = empty_address_book::<ClearNet>();
+
+    let dialled: SocketAddr = "1.2.3.4:18080".parse().unwrap();
+    let other: SocketAddr = "1.2.3.4:45678".parse().unwrap();
+
+    let (_guard, handle) = connect(&mut book, dialled, Some(dialled));
+    handle.send_close_signal();
+    book.poll_connected_peers();
+
+    // `dialled` is in the white list with a different pruning seed, so this connection fails.
+    let (_guard, handle) = HandleBuilder::default().build();
+    assert_eq!(
+        book.handle_new_connection(
+            InternalPeerID::KnownAddr(dialled),
+            peer_entry(Some(dialled), handle, PruningSeed::decompress(385).unwrap()),
+        ),
+        Err(AddressBookError::PeersDataChanged("Pruning seed"))
+    );
+
+    let (_guard, handle) = connect(&mut book, other, None);
+
+    book.ban_peer(other, Duration::from_secs(1));
+    assert!(handle.is_closed());
+    assert!(book.is_peer_banned(&other));
+}
+
+#[tokio::test]
+async fn ban_peer_closes_all_with_ban_id() {
+    let mut book = empty_address_book::<ClearNet>();
+
+    let first: SocketAddr = "1.2.3.4:18080".parse().unwrap();
+    let second: SocketAddr = "1.2.3.4:45678".parse().unwrap();
+    let unrelated: SocketAddr = "5.6.7.8:18080".parse().unwrap();
+
+    let mut handles = Vec::new();
+    for addr in [first, second, unrelated] {
+        let (guard, handle) = connect(&mut book, addr, Some(addr));
+        handles.push((addr, guard, handle));
+    }
+
+    assert_eq!(book.anchor_list.len(), 3);
+
+    // Peers get banned through their handle, which the address book picks up when polled.
+    handles[0].2.ban_peer(Duration::from_secs(1));
+    book.poll_connected_peers();
+    assert!(book.is_peer_banned(&first));
+
+    for (addr, _guard, handle) in &handles {
+        if addr.ip() == first.ip() {
+            assert!(handle.is_closed(), "{addr} shares the ban ID, should close");
+            assert!(!book.anchor_list.contains(addr));
+        } else {
+            assert!(!handle.is_closed(), "{addr} should be untouched");
+            assert!(book.anchor_list.contains(addr));
+        }
+    }
+}
+
+#[tokio::test]
+async fn anchor_removed_for_inbound_peer() {
+    let mut book = empty_address_book::<ClearNet>();
+
+    let source: SocketAddr = "1.2.3.4:45678".parse().unwrap();
+    let reachable: SocketAddr = "1.2.3.4:18080".parse().unwrap();
+
+    let (_guard, _) = connect(&mut book, source, Some(reachable));
+    assert!(book.anchor_list.contains(&reachable));
+
+    book.ban_peer(source, Duration::from_secs(1));
+    assert!(book.anchor_list.is_empty());
+
+    book.poll_connected_peers();
+    assert!(book.connected_peers.is_empty());
+}
+
+#[tokio::test]
+async fn anchor_kept_while_another_connection_remains() {
+    let mut book = empty_address_book::<ClearNet>();
+
+    let reachable: SocketAddr = "1.2.3.4:18080".parse().unwrap();
+    let inbound_source: SocketAddr = "1.2.3.4:45678".parse().unwrap();
+
+    let (_outbound_guard, outbound) = connect(&mut book, reachable, Some(reachable));
+    let (_inbound_guard, inbound) = connect(&mut book, inbound_source, Some(reachable));
+    assert!(book.anchor_list.contains(&reachable));
+
+    outbound.send_close_signal();
+    book.poll_connected_peers();
+    assert_eq!(book.connected_peers.len(), 1);
+    assert!(book.anchor_list.contains(&reachable));
+
+    inbound.send_close_signal();
+    book.poll_connected_peers();
+    assert!(book.connected_peers.is_empty());
+    assert!(book.anchor_list.is_empty());
 }
