@@ -2,7 +2,7 @@
 This is a list of behavior that `monerod`'s JSON-RPC implementation allows, that Cuprate's JSON-RPC implementation does not.
 
 In general, `monerod`'s JSON-RPC is quite lenient, going against the specification in many cases.
-Cuprate's JSON-RPC implementation is slightly more strict.
+Cuprate's JSON-RPC implementation is slightly stricter.
 
 Cuprate also makes some decisions that are _different_ than `monerod`, but are not necessarily more or less strict.
 

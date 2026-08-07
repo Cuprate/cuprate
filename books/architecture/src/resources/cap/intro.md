@@ -1,7 +1,7 @@
 # Concurrency and parallelism
 It is incumbent upon software like Cuprate to take advantage of today's highly parallel hardware as much as practically possible.
 
-With that said, programs must setup guardrails when operating in a concurrent and parallel manner, [for correctness and safety](https://en.wikipedia.org/wiki/Concurrency_(computer_science)).
+With that said, programs must set up guardrails when operating in a concurrent and parallel manner, [for correctness and safety](https://en.wikipedia.org/wiki/Concurrency_(computer_science)).
 
 There are "synchronization primitives" that help with this, common ones being:
 - [Locks](https://en.wikipedia.org/wiki/Lock_(computer_science))
