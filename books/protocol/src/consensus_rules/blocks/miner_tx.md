@@ -14,7 +14,7 @@ The version can be 1 or 2 up to hard-fork 12 then it must be 2[^weird-version-ru
 
 ### Input
 
-The transaction must only have one input and it must be of type `txin_gen`[^input-type].
+The transaction must only have one input, and it must be of type `txin_gen`[^input-type].
 
 The height specified in the input must be the actual block height[^input-height].
 

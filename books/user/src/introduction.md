@@ -3,7 +3,7 @@
 
 [Cuprate](https://github.com/Cuprate/cuprate) is an alternative and independent [Monero](https://getmonero.org) node implementation that is focused on being fast, user-friendly, and backwards compatible with [`monerod`](https://github.com/monero-project/monero).
 
-This project is currently a work-in-progress; the `cuprated` node can be ran by users although it is not yet ready for production. This book contains brief sections documenting `cuprated` usage, however, be aware that it is **incomplete** and missing sections.
+This project is currently a work-in-progress; the `cuprated` node can be ran by users, although it is not yet ready for production. This book contains brief sections documenting `cuprated` usage, however, be aware that it is **incomplete** and missing sections.
 
 To get started, see: [`Getting started`](./getting-started/intro.md).
 
