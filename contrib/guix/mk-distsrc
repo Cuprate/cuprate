@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+export LC_ALL=C
+export TZ=UTC
+
+# Refresh the stat cache first: guix shell --container can serve files with
+# stat metadata that differs from what was indexed on the host, which makes
+# `git diff-index --quiet` report dirty without an actual content diff.
+git update-index -q --refresh >/dev/null 2>&1 || true
+if ! git diff-index --quiet HEAD --; then
+  echo "working tree is dirty; commit changes before creating distsrc" >&2
+  echo "--- git status --porcelain ---" >&2
+  git status --porcelain >&2
+  echo "--- git diff-index --name-only HEAD ---" >&2
+  git diff-index --name-only HEAD -- >&2
+  exit 1
+fi
+
+out_dir="${GUIX_OUT_DIR:-$repo_root/contrib/guix/out}"
+mkdir -p "$out_dir"
+
+# Per-run work dir so two concurrent invocations don't trample each other's
+# extracted source / cargo vendor output.
+work_dir="$(mktemp -d "${TMPDIR:-/tmp}/guix-distsrc.XXXXXX")"
+cleanup_work_dir() {
+  local code=$?
+  if [[ $code -ne 0 ]]; then
+    echo "mk-distsrc failed; preserving work dir for inspection: $work_dir" >&2
+  else
+    rm -rf "$work_dir"
+  fi
+}
+trap cleanup_work_dir EXIT
+
+mkdir -p "$work_dir/src"
+export CARGO_HOME="$work_dir/cargo-home"
+mkdir -p "$CARGO_HOME"
+
+version="$({ cargo metadata --locked --format-version=1 --no-deps | python3 -c 'import json,sys; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"]=="cuprated"))'; })"
+commit="$(git rev-parse HEAD)"
+short_commit="$(git rev-parse --short=12 HEAD)"
+source_date_epoch="$(git log -1 --pretty=%ct)"
+archive="cuprate-${version}-${short_commit}-src.tar.gz"
+
+if [[ -n "${GUIX_ENVIRONMENT:-}" ]]; then
+  cert_file="$GUIX_ENVIRONMENT/etc/ssl/certs/ca-certificates.crt"
+  cert_dir="$GUIX_ENVIRONMENT/etc/ssl/certs"
+  [[ -f "$cert_file" ]] && export SSL_CERT_FILE="$cert_file" GIT_SSL_CAINFO="$cert_file" CURL_CA_BUNDLE="$cert_file"
+  [[ -d "$cert_dir" ]] && export SSL_CERT_DIR="$cert_dir"
+fi
+
+# --no-same-owner: inside guix shell --container we run as a mapped user
+# without privilege to chown to uid 0/gid 0; without this flag, tar fails
+# with "Cannot change ownership ... Invalid argument" on every entry.
+# --no-same-permissions: similarly avoid setting setuid/setgid bits.
+git archive --format=tar HEAD | tar -xf - --no-same-owner --no-same-permissions -C "$work_dir/src"
+(
+  cd "$work_dir/src"
+  mkdir -p .cargo
+  cargo vendor --locked --versioned-dirs vendor > .cargo/config.toml
+  # No post-vendor patching needed. The bundled randomx-rs has a years-old
+  # build.rs typo (`.define("DARCH", ...)` instead of `ARCH`) that means
+  # RandomX's CMake never sees the override and falls through to
+  # ARCH=default, which is exactly the portable, compiler-deterministic
+  # build we want. The libstdc++ <cfenv>/fesetround workaround is handled
+  # in libexec/build.sh via CXXFLAGS, not by mutating vendored sources.
+  cat > .cuprate-distsrc.json <<META
+{"package":"cuprated","version":"$version","git_commit":"$commit","source_date_epoch":$source_date_epoch}
+META
+)
+(
+  cd "$work_dir/src"
+  tar --sort=name --mtime="@${source_date_epoch}" --owner=0 --group=0 --numeric-owner --mode='a=rX,u+w' \
+    --pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime -cf - . | gzip -n > "$out_dir/$archive"
+)
+(cd "$out_dir" && sha256sum "$archive" > "$archive.SHA256SUM")
+printf '%s\n' "$out_dir/$archive"
