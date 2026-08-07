@@ -1,6 +1,6 @@
 use bytes::{Buf, BufMut};
 
-use crate::error::*;
+use crate::error::{Error, Result};
 
 const SIZE_OF_SIZE_MARKER: u32 = 2;
 const FITS_IN_ONE_BYTE: u64 = 2_u64.pow(8 - SIZE_OF_SIZE_MARKER) - 1;
