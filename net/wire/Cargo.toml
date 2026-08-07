@@ -9,6 +9,7 @@ repository = "https://github.com/SyntheticBird45/cuprate/tree/main/net/monero-wi
 [features]
 default = []
 tracing = ["cuprate-levin/tracing"]
+serde = ["dep:serde"]
 
 [dependencies]
 cuprate-levin           = { workspace = true }
@@ -23,6 +24,7 @@ bytes                   = { workspace = true, features = ["std"] }
 thiserror               = { workspace = true }
 
 arbitrary = { workspace = true, features = ["derive"], optional = true }
+serde     = { workspace = true, features = ["alloc"], optional = true }
 
 [dev-dependencies]
 hex                     = { workspace = true, features = ["std"]}

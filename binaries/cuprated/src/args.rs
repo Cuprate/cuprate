@@ -1,11 +1,35 @@
-use std::{io::Write, net::SocketAddr, path::PathBuf, process::exit};
+use std::{io::Write, net::SocketAddr, path::PathBuf, process::exit, str::FromStr};
 
 use clap::builder::TypedValueParser;
 use serde_json::Value;
 
 use cuprate_helper::network::Network;
+use cuprate_wire::OnionAddr;
 
 use cuprated::{config::Config, version::CupratedVersionInfo};
+
+#[derive(Debug, Clone)]
+pub(crate) enum SeedNodeArg {
+    Clear(SocketAddr),
+    Tor(OnionAddr),
+}
+
+impl FromStr for SeedNodeArg {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(addr) = s.parse::<SocketAddr>() {
+            Ok(Self::Clear(addr))
+        } else if let Ok(addr) = s.parse::<OnionAddr>() {
+            Ok(Self::Tor(addr))
+        } else {
+            Err(format!(
+                "'{s}' is not a valid seed node address; expected either \
+                     an \"ip:port\" or \"<56-character onion domain>.onion:port\" address"
+            ))
+        }
+    }
+}
 
 /// Cuprate Args.
 #[derive(clap::Parser, Debug)]
@@ -50,10 +74,14 @@ pub struct Args {
     /// An extra seed node to connect to on startup, in addition to the
     /// network's built-in seeds.
     ///
+    /// Accepts either a clearnet "ip:port" address, or a Tor
+    /// "<56-character onion domain>.onion:port" address; the former is added
+    /// to the clearnet seed list, the latter to the Tor seed list.
+    ///
     /// Can be passed multiple times. `FakeChain` has no built-in seeds, so
     /// this is how a regtest or otherwise isolated network is bootstrapped.
-    #[arg(long, value_name = "IP:PORT")]
-    pub seed_node: Vec<SocketAddr>,
+    #[arg(long, value_name = "IP:PORT|ONION:PORT")]
+    pub seed_node: Vec<SeedNodeArg>,
 
     /// The PATH of the `cuprated` config file.
     #[arg(long)]
@@ -121,11 +149,12 @@ impl Args {
             config.p2p.clear_net.outbound_connections = outbound_connections;
         }
 
-        config
-            .p2p
-            .clear_net
-            .seed_nodes
-            .extend_from_slice(&self.seed_node);
+        for seed_node in &self.seed_node {
+            match seed_node {
+                SeedNodeArg::Clear(addr) => config.p2p.clear_net.seed_nodes.push(*addr),
+                SeedNodeArg::Tor(addr) => config.p2p.tor_net.seed_nodes.push(*addr),
+            }
+        }
 
         config
     }
