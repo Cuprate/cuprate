@@ -165,7 +165,10 @@
 ---
 
 - [🟢 Monero oddities](oddities/intro.md)
+    - [🟡 Epee empty containers](oddities/epee-empty-containers.md)
+    - [🟡 Invalid blocks](oddities/invalid-blocks.md)
     - [🟡 Little-endian IPv4 addresses](oddities/le-ipv4.md)
+    - [🟡 2 variable integer formats](oddities/varint.md)
 
 ---
 
