@@ -338,7 +338,7 @@ if (block_height + CRYPTONOTE_PRUNING_TIP_BLOCKS >= blockchain_height)
 
 This is calculating the [stripe](#getting-a-seeds-pruning-stripe) of the inputted pruning seed, remember if the seed/stripe is `0` that means no pruning so we can return the blockchain height as the next un-pruned height and similarly if the block's height is within [Tip Blocks](#tip-blocks) of the blockchain's height that also means the block won't be pruned.
 
-Returning the blockchain's height means the next pruned block doesn't currently exist, its bigger than or equal to blockchain_height - CRYPTONOTE_PRUNING_TIP_BLOCKS, or it means it
+Returning the blockchain's height means the next pruned block doesn't currently exist, it's bigger than or equal to blockchain_height - CRYPTONOTE_PRUNING_TIP_BLOCKS, or it means it
 will never exist in the case of a zero pruning seed.
 
 ```c++
