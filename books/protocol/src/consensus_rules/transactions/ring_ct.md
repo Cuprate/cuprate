@@ -8,10 +8,10 @@ types of RingCT transactions that were activated and deprecated at different har
 ## Definitions
 
 OutPK:
-A pedersen commitment to the output amount.
+A Pedersen commitment to the output amount.
 
 Pseudo-outs:
-A pedersen commitment to the true spends amount with a different mask, such that the sum of the pseudo-outs is the same as the sum of the outPKs + fee * H.
+A Pedersen commitment to the true spends amount with a different mask, such that the sum of the pseudo-outs is the same as the sum of the outPKs + fee * H.
 
 ## Index
 

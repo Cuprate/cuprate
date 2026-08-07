@@ -9,7 +9,7 @@ instead of in any single contributor's mind.
 These are usually behaviors stemming from implementation rather than protocol/cryptography.
 
 ## Formatting
-This is the markdown formatting for each entry in this section.
+This is the Markdown formatting for each entry in this section.
 
 If applicable, consider using this formatting when adding to this section.
 
