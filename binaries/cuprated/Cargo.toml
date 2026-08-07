@@ -71,6 +71,8 @@ fjall                 = { workspace = true }
 futures               = { workspace = true }
 hex                   = { workspace = true }
 hex-literal           = { workspace = true }
+hyper                 = { workspace = true }
+hyper-util            = { workspace = true, features = ["server-auto"] }
 indexmap              = { workspace = true }
 mimalloc              = { workspace = true, optional = true }
 monero-address        = { workspace = true }
@@ -118,4 +120,3 @@ serde_json  = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true
-

@@ -2,7 +2,7 @@
 //!
 //! Will handle initiating the P2P and contains a protocol request handler.
 
-use std::{convert::From, str::FromStr};
+use std::{convert::From, str::FromStr, time::Duration};
 
 use anyhow::anyhow;
 use futures::{FutureExt, TryFutureExt};
