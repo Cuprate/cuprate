@@ -5,7 +5,7 @@ In general, `monerod`'s parser is quite lenient, allowing invalid JSON in many c
 Cuprate's (really, `serde_json`) JSON parser is quite strict, essentially sticking to
 the [JSON specification](https://datatracker.ietf.org/doc/html/rfc8259).
 
-Cuprate also makes some decisions that are _different_ than `monerod`, but are not necessarily more or less strict.
+Cuprate also makes some decisions that are _different_ from `monerod`, but are not necessarily more or less strict.
 
 ## Missing closing bracket
 `monerod` will accept JSON missing a final closing `}`.
