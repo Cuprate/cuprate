@@ -17,7 +17,7 @@ pub fn add_alt_transaction_blob(
     tx_rw: &mut fjall::OwnedWriteBatch,
 ) -> DbResult<()> {
     tx_rw.insert(
-        &db.alt_transaction_infos,
+        &db.alt_transaction_infos.load(),
         tx.tx_hash,
         bytemuck::bytes_of(&AltTransactionInfo {
             tx_weight: tx.tx_weight,
@@ -27,7 +27,7 @@ pub fn add_alt_transaction_blob(
     );
 
     tx_rw.insert(
-        &db.alt_transaction_blobs,
+        &db.alt_transaction_blobs.load(),
         tx.tx_hash,
         [tx.tx_pruned.as_slice(), tx.tx_prunable_blob.as_slice()]
             .concat()
@@ -45,12 +45,12 @@ pub fn get_alt_transaction(
     tx_ro: &fjall::Snapshot,
 ) -> DbResult<VerifiedTransactionInformation> {
     let tx_info = tx_ro
-        .get(&db.alt_transaction_infos, tx_hash)?
+        .get(&**db.alt_transaction_infos.load(), tx_hash)?
         .ok_or(BlockchainError::NotFound)?;
 
     let tx_info: AltTransactionInfo = bytemuck::pod_read_unaligned(tx_info.as_ref());
 
-    let tx = match tx_ro.get(&db.alt_transaction_blobs, tx_hash)? {
+    let tx = match tx_ro.get(&**db.alt_transaction_blobs.load(), tx_hash)? {
         Some(tx_blob) => Transaction::read(&mut tx_blob.as_ref()).unwrap(),
         None => return Err(BlockchainError::NotFound),
     };

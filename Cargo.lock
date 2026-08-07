@@ -1010,6 +1010,7 @@ dependencies = [
 name = "cuprate-blockchain"
 version = "0.0.0"
 dependencies = [
+ "arc-swap",
  "bytemuck",
  "bytes",
  "crossbeam",
