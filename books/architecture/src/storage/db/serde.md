@@ -14,9 +14,9 @@ The main deserialization `trait` for database storage is [`Storable`](https://do
 - Before storage, the type is [simply cast into bytes](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/storable.rs#L125)
 - When fetching, the bytes are [simply cast into the type](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/storable.rs#L130)
 
-When a type is casted into bytes, [the reference is casted](https://docs.rs/bytemuck/latest/bytemuck/fn.bytes_of.html), i.e. this is zero-cost serialization.
+When a type is cast into bytes, [the reference is cast](https://docs.rs/bytemuck/latest/bytemuck/fn.bytes_of.html), i.e. this is zero-cost serialization.
 
-However, it is worth noting that when bytes are casted into the type, [it is copied](https://docs.rs/bytemuck/latest/bytemuck/fn.pod_read_unaligned.html). This is due to byte alignment guarantee issues with both backends, see:
+However, it is worth noting that when bytes are cast into the type, [it is copied](https://docs.rs/bytemuck/latest/bytemuck/fn.pod_read_unaligned.html). This is due to byte alignment guarantee issues with both backends, see:
 - <https://github.com/AltSysrq/lmdb-zero/issues/8>
 - <https://github.com/cberner/redb/issues/360>
 
