@@ -40,7 +40,7 @@ Where CommitmentsAtIndex are the ring members commitments in that column.
 
 Which means that for the true spends column the entry in the last row will be commitment to 0.
 
-By structuring the matrix like this the true spend has to be a the same index in each inputs ring,
+By structuring the matrix like this the true spend has to be the same index in each inputs ring,
 which is not good for privacy.
 
 ### Number Of Ring Members

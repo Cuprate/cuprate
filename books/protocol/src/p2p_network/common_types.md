@@ -32,7 +32,7 @@ Support flags specify any protocol extensions the peer supports, currently only 
 
 ### Network Address [^network-addr] { #network-address }
 
-Network addresses are serialized differently than other types, the fields needed depend on the `type` field:
+Network addresses are serialized differently than other types, the fields needed to depend on the `type` field:
 
 | Fields | Type                                    | Description      |
 | ------ | --------------------------------------- | ---------------- |
