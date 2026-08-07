@@ -63,9 +63,9 @@ Cuprate's database location/filenames depend on:
 
 ---
 
-`cuprate_blockchain` files are in the above mentioned `blockchain` folder.
+`cuprate_blockchain` files are in the above-mentioned `blockchain` folder.
 
-`cuprate_txpool` files are in the above mentioned `txpool` folder.
+`cuprate_txpool` files are in the above-mentioned `txpool` folder.
 
 ---
 

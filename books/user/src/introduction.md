@@ -79,7 +79,7 @@ As of April 14th 2026, `cuprated` uses noticeably less disk space than `monerod`
 ## Is the database compatible with `monerod`?
 No.
 
-The database `cuprated` generates and uses cannot directly be used by `monerod` and vice-versa. Supporting this is possible but there are no current plans to do so.
+The database `cuprated` generates and uses cannot directly be used by `monerod` and vice versa. Supporting this is possible but there are no current plans to do so.
 
 ## Can I connect a wallet to `cuprated`?
 
