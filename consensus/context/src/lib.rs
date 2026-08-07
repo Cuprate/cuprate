@@ -26,7 +26,8 @@ use tokio_util::sync::PollSender;
 use tower::Service;
 
 use cuprate_consensus_rules::{
-    blocks::ContextToVerifyBlock, current_unix_timestamp, ConsensusError, HardFork,
+    blocks::{ContextToVerifyBlock, PENALTY_FREE_ZONE_5},
+    current_unix_timestamp, ConsensusError, HardFork,
 };
 
 pub mod difficulty;
@@ -150,6 +151,11 @@ impl std::ops::Deref for BlockchainContext {
 }
 
 impl BlockchainContext {
+    /// Returns the long-term effective median block weight used for relay-fee calculations.
+    pub fn long_term_effective_median_weight(&self) -> usize {
+        self.median_long_term_weight.max(PENALTY_FREE_ZONE_5)
+    }
+
     /// Returns the timestamp the should be used when checking locked outputs.
     ///
     /// ref: <https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#getting-the-current-time>
