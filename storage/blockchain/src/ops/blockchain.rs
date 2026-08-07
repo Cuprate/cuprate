@@ -79,7 +79,8 @@ pub fn find_split_point(
 
     let block_exists = |block_id| {
         Ok(tx_ro.contains_key(&db.block_heights, block_id)?
-            || (include_alt_blocks && tx_ro.contains_key(&db.alt_block_heights, block_id)?))
+            || (include_alt_blocks
+                && tx_ro.contains_key(&**db.alt_block_heights.load(), block_id)?))
     };
 
     // Do a binary search to find the first unknown/known block in the batch.

@@ -1,5 +1,10 @@
-use std::{borrow::Cow, collections::HashMap, sync::Mutex};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
+use arc_swap::ArcSwap;
 use fjall::{KeyspaceCreateOptions, PersistMode};
 use monero_oxide::transaction::Transaction;
 use tapes::{Persistence, TapeOpenOptions, Tapes, TapesRead};
@@ -12,15 +17,24 @@ use crate::{
     BlockchainError,
 };
 
-/// Clears an [`fjall::Keyspace`]
-///
-/// Fjall has an issue with their clear impl: <https://github.com/fjall-rs/fjall/issues/288> so this is a workaround.
-// TODO: remove this.
-pub(crate) fn clear_fjall_keyspace(keyspace: &fjall::Keyspace) -> Result<(), BlockchainError> {
-    keyspace.clear()?;
-    // Log a remove then rotate the memtable manually.
-    keyspace.remove("Dummy")?;
-    keyspace.rotate_memtable()?;
+/// Deletes a [`fjall::Keyspace`] and recreates it with the same name.
+fn recreate_fjall_keyspace(
+    database: &fjall::Database,
+    keyspace: &fjall::Keyspace,
+) -> Result<fjall::Keyspace, BlockchainError> {
+    let name = keyspace.name().to_string();
+
+    database.delete_keyspace(keyspace.clone())?;
+    Ok(database.keyspace(&name, KeyspaceCreateOptions::default)?)
+}
+
+/// Deletes a [`fjall::Keyspace`] and recreates it with the same name.
+pub(crate) fn reset_fjall_keyspace(
+    database: &fjall::Database,
+    keyspace: &ArcSwap<fjall::Keyspace>,
+) -> Result<(), BlockchainError> {
+    let new_keyspace = recreate_fjall_keyspace(database, &keyspace.load())?;
+    keyspace.store(Arc::new(new_keyspace));
 
     Ok(())
 }
@@ -70,37 +84,37 @@ pub struct BlockchainDatabase {
     /// | key                           | value                  |
     /// |-------------------------------|------------------------|
     /// | Chain ID: u64 (little endian) | [`AltChainInfo`] bytes |
-    pub(crate) alt_chain_infos: fjall::Keyspace,
+    pub(crate) alt_chain_infos: ArcSwap<fjall::Keyspace>,
     /// Alt block heights:
     ///
     /// | key                  | value                    |
     /// |----------------------|--------------------------|
     /// | block hash: [u8; 32] | [`AltBlockHeight`] bytes |
-    pub(crate) alt_block_heights: fjall::Keyspace,
+    pub(crate) alt_block_heights: ArcSwap<fjall::Keyspace>,
     /// Alt block info:
     ///
     /// | key                        | value                          |
     /// |----------------------------|--------------------------------|
     /// | [`AltBlockHeight`] bytes   | [`CompactAltBlockInfo`] bytes  |
-    pub(crate) alt_block_infos: fjall::Keyspace,
+    pub(crate) alt_block_infos: ArcSwap<fjall::Keyspace>,
     /// Alt block blobs:
     ///
     /// | key                      | value            |
     /// |--------------------------|------------------|
     /// | [`AltBlockHeight`] bytes | block blob: [u8] |
-    pub(crate) alt_block_blobs: fjall::Keyspace,
+    pub(crate) alt_block_blobs: ArcSwap<fjall::Keyspace>,
     /// Alt transaction blobs:
     ///
     /// | key                        | value                       |
     /// |----------------------------|-----------------------------|
     /// | transaction hash: [u8; 32] | full transaction blob: [u8] |
-    pub(crate) alt_transaction_blobs: fjall::Keyspace,
+    pub(crate) alt_transaction_blobs: ArcSwap<fjall::Keyspace>,
     /// Alt transaction info:
     ///
     /// | key                        | value                        |
     /// |----------------------------|------------------------------|
     /// | transaction hash: [u8; 32] | [`AltTransactionInfo`] bytes |
-    pub(crate) alt_transaction_infos: fjall::Keyspace,
+    pub(crate) alt_transaction_infos: ArcSwap<fjall::Keyspace>,
 
     /// RCT (v2+) outputs, indexed sequentially.
     ///
@@ -251,12 +265,12 @@ impl BlockchainDatabase {
             pre_rct_outputs,
             tx_ids,
             v1_tx_outputs,
-            alt_chain_infos,
-            alt_block_heights,
-            alt_block_infos,
-            alt_block_blobs,
-            alt_transaction_blobs,
-            alt_transaction_infos,
+            alt_chain_infos: ArcSwap::from_pointee(alt_chain_infos),
+            alt_block_heights: ArcSwap::from_pointee(alt_block_heights),
+            alt_block_infos: ArcSwap::from_pointee(alt_block_infos),
+            alt_block_blobs: ArcSwap::from_pointee(alt_block_blobs),
+            alt_transaction_blobs: ArcSwap::from_pointee(alt_transaction_blobs),
+            alt_transaction_infos: ArcSwap::from_pointee(alt_transaction_infos),
             rct_outputs,
             tx_infos,
             block_infos,
@@ -269,16 +283,16 @@ impl BlockchainDatabase {
 
     /// Checks if the fjall and tapes database are in sync and rebuilds the fjall database if it
     /// is not.
-    pub fn make_consistent(&self) -> Result<(), BlockchainError> {
+    pub fn make_consistent(&mut self) -> Result<(), BlockchainError> {
         tracing::info!("Checking blockchain database consistency.");
 
-        let tapes_reader = self.linear_tapes.reader();
-
-        if tapes_reader
+        let tapes_height = self
+            .linear_tapes
+            .reader()
             .fixed_sized_tape_len(&self.block_infos)
-            .expect("block_infos tape exists")
-            != usize_to_u64(self.block_heights.len()?)
-        {
+            .expect("block_infos tape exists");
+
+        if tapes_height != usize_to_u64(self.block_heights.len()?) {
             tracing::warn!("fjall and tapes are out of sync");
             self.rebuild_fjall_database()?;
         }
@@ -287,18 +301,18 @@ impl BlockchainDatabase {
     }
 
     /// Rebuilds the fjall database.
-    pub fn rebuild_fjall_database(&self) -> Result<(), BlockchainError> {
-        clear_fjall_keyspace(&self.block_heights)?;
-        clear_fjall_keyspace(&self.key_images)?;
-        clear_fjall_keyspace(&self.pre_rct_outputs)?;
-        clear_fjall_keyspace(&self.tx_ids)?;
-        clear_fjall_keyspace(&self.v1_tx_outputs)?;
-        clear_fjall_keyspace(&self.alt_chain_infos)?;
-        clear_fjall_keyspace(&self.alt_block_heights)?;
-        clear_fjall_keyspace(&self.alt_block_infos)?;
-        clear_fjall_keyspace(&self.alt_block_blobs)?;
-        clear_fjall_keyspace(&self.alt_transaction_blobs)?;
-        clear_fjall_keyspace(&self.alt_transaction_infos)?;
+    pub fn rebuild_fjall_database(&mut self) -> Result<(), BlockchainError> {
+        self.block_heights = recreate_fjall_keyspace(&self.fjall, &self.block_heights)?;
+        self.key_images = recreate_fjall_keyspace(&self.fjall, &self.key_images)?;
+        self.pre_rct_outputs = recreate_fjall_keyspace(&self.fjall, &self.pre_rct_outputs)?;
+        self.tx_ids = recreate_fjall_keyspace(&self.fjall, &self.tx_ids)?;
+        self.v1_tx_outputs = recreate_fjall_keyspace(&self.fjall, &self.v1_tx_outputs)?;
+        reset_fjall_keyspace(&self.fjall, &self.alt_chain_infos)?;
+        reset_fjall_keyspace(&self.fjall, &self.alt_block_heights)?;
+        reset_fjall_keyspace(&self.fjall, &self.alt_block_infos)?;
+        reset_fjall_keyspace(&self.fjall, &self.alt_block_blobs)?;
+        reset_fjall_keyspace(&self.fjall, &self.alt_transaction_blobs)?;
+        reset_fjall_keyspace(&self.fjall, &self.alt_transaction_infos)?;
 
         let rebuild_span = tracing::info_span!("rebuild_fjall_database");
         let _guard = rebuild_span.enter();

@@ -23,7 +23,7 @@ pub fn update_alt_chain_info(
     alt_block_height: &AltBlockHeight,
     prev_hash: &BlockHash,
 ) -> DbResult<()> {
-    let parent_chain = match db.alt_block_heights.get(prev_hash) {
+    let parent_chain = match db.alt_block_heights.load().get(prev_hash) {
         Ok(Some(alt_parent_height)) => {
             let alt_parent_height: AltBlockHeight =
                 bytemuck::pod_read_unaligned(alt_parent_height.as_ref());
@@ -35,9 +35,10 @@ pub fn update_alt_chain_info(
 
     let Some(info) = db
         .alt_chain_infos
+        .load()
         .get(alt_block_height.chain_id.0.to_le_bytes())?
     else {
-        db.alt_chain_infos.insert(
+        db.alt_chain_infos.load().insert(
             alt_block_height.chain_id.0.to_le_bytes(),
             bytemuck::bytes_of(&AltChainInfo {
                 parent_chain: parent_chain.into(),
@@ -61,7 +62,7 @@ pub fn update_alt_chain_info(
         info.parent_chain = parent_chain.into();
     }
 
-    db.alt_chain_infos.insert(
+    db.alt_chain_infos.load().insert(
         alt_block_height.chain_id.0.to_le_bytes(),
         bytemuck::bytes_of(&info),
     )?;
@@ -87,7 +88,10 @@ pub fn get_alt_chain_history_ranges(
     let mut current_chain_id: RawChainId = alt_chain.into();
     while i > range.start {
         let chain_info = tx_ro
-            .get(&db.alt_chain_infos, current_chain_id.0.to_le_bytes())?
+            .get(
+                &**db.alt_chain_infos.load(),
+                current_chain_id.0.to_le_bytes(),
+            )?
             .ok_or(BlockchainError::NotFound)?;
 
         let chain_info: AltChainInfo = bytemuck::pod_read_unaligned(chain_info.as_ref());
