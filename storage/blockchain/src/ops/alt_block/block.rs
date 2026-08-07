@@ -8,6 +8,7 @@ use cuprate_helper::{
 use cuprate_types::{AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, HardFork};
 
 use crate::{
+    database::clear_fjall_keyspace,
     error::{BlockchainError, DbResult},
     ops::alt_block::{add_alt_transaction_blob, get_alt_transaction, update_alt_chain_info},
     types::{
@@ -22,12 +23,12 @@ use crate::{
 ///
 /// **THIS IS NOT ATOMIC**
 pub fn flush_alt_blocks(db: &BlockchainDatabase) -> DbResult<()> {
-    db.alt_chain_infos.clear()?;
-    db.alt_block_heights.clear()?;
-    db.alt_block_infos.clear()?;
-    db.alt_block_blobs.clear()?;
-    db.alt_transaction_blobs.clear()?;
-    db.alt_transaction_infos.clear()?;
+    clear_fjall_keyspace(&db.alt_chain_infos)?;
+    clear_fjall_keyspace(&db.alt_block_heights)?;
+    clear_fjall_keyspace(&db.alt_block_infos)?;
+    clear_fjall_keyspace(&db.alt_block_blobs)?;
+    clear_fjall_keyspace(&db.alt_transaction_blobs)?;
+    clear_fjall_keyspace(&db.alt_transaction_infos)?;
 
     Ok(())
 }

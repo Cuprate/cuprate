@@ -12,6 +12,19 @@ use crate::{
     BlockchainError,
 };
 
+/// Clears an [`fjall::Keyspace`]
+///
+/// Fjall has an issue with their clear impl: <https://github.com/fjall-rs/fjall/issues/288> so this is a workaround.
+// TODO: remove this.
+pub(crate) fn clear_fjall_keyspace(keyspace: &fjall::Keyspace) -> Result<(), BlockchainError> {
+    keyspace.clear()?;
+    // Log a remove then rotate the memtable manually.
+    keyspace.remove("Dummy")?;
+    keyspace.rotate_memtable()?;
+
+    Ok(())
+}
+
 /// The blockchain database.
 pub struct BlockchainDatabase {
     /// The database configuration.
@@ -275,17 +288,17 @@ impl BlockchainDatabase {
 
     /// Rebuilds the fjall database.
     pub fn rebuild_fjall_database(&self) -> Result<(), BlockchainError> {
-        self.block_heights.clear()?;
-        self.key_images.clear()?;
-        self.pre_rct_outputs.clear()?;
-        self.tx_ids.clear()?;
-        self.v1_tx_outputs.clear()?;
-        self.alt_chain_infos.clear()?;
-        self.alt_block_heights.clear()?;
-        self.alt_block_infos.clear()?;
-        self.alt_block_blobs.clear()?;
-        self.alt_transaction_blobs.clear()?;
-        self.alt_transaction_infos.clear()?;
+        clear_fjall_keyspace(&self.block_heights)?;
+        clear_fjall_keyspace(&self.key_images)?;
+        clear_fjall_keyspace(&self.pre_rct_outputs)?;
+        clear_fjall_keyspace(&self.tx_ids)?;
+        clear_fjall_keyspace(&self.v1_tx_outputs)?;
+        clear_fjall_keyspace(&self.alt_chain_infos)?;
+        clear_fjall_keyspace(&self.alt_block_heights)?;
+        clear_fjall_keyspace(&self.alt_block_infos)?;
+        clear_fjall_keyspace(&self.alt_block_blobs)?;
+        clear_fjall_keyspace(&self.alt_transaction_blobs)?;
+        clear_fjall_keyspace(&self.alt_transaction_infos)?;
 
         let rebuild_span = tracing::info_span!("rebuild_fjall_database");
         let _guard = rebuild_span.enter();
