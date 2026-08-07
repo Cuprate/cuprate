@@ -19,19 +19,26 @@ jobs:
     strategy:
       matrix:
         os: [
-            windows-2022, # EOL = 2026-10-13 | <https://endoflife.date/windows-server>
-            macos-15,     # EOL = 2027-09-16 | <https://endoflife.date/macos>
-            ubuntu-24.04, # EOL = 2029-05-31 | <https://endoflife.date/ubuntu>
-            ubuntu-24.04-arm,
+            { name: windows-x86_64, runner: windows-2022 },      # EOL = 2026-10-13 | <https://endoflife.date/windows-server>
+            { name: macos-aarch64, runner: macos-15 },          # EOL = 2027-09-16 | <https://endoflife.date/macos>
+            { name: linux-x86_64-gnu, runner: ubuntu-24.04 },   # EOL = 2029-05-31 | <https://endoflife.date/ubuntu>
+            { name: linux-aarch64-gnu, runner: ubuntu-24.04-arm },
+            { name: linux-x86_64-musl, runner: ubuntu-24.04, container: alpine:latest, features: jemalloc },
         ]
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os.runner }}
+    container: ${{ matrix.os.container }}
 
     defaults:
       run:
         shell: bash
 
     steps:
+      - name: Install Alpine dependencies
+        if: matrix.os.container == 'alpine:latest'
+        shell: sh
+        run: apk add --no-cache alpine-sdk bash cmake curl
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -44,7 +51,7 @@ jobs:
           toolchain: stable
 
       - name: Build
-        run: cargo build --release --package cuprated
+        run: cargo build --release --package cuprated --features "${{ matrix.os.features }}"
 
       - name: Generate Archives
         run: |
@@ -74,8 +81,7 @@ jobs:
           fi
 
           # Generate the asset name.
-          TARGET=($(rustup show | grep "Default"))
-          readonly TARGET=${TARGET[2]}
+          readonly TARGET=$(rustc -vV | sed -n 's/^host: //p')
           readonly ASSET="cuprated-$VERSION-$TARGET.$EXTENSION"
 
           # Generate archives for Linux.
@@ -101,6 +107,165 @@ jobs:
       - name: Archive
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.os }}
+          name: ${{ matrix.os.name }}
+          compression-level: 0
+          path: ${{ env.ARCHIVE }}/**
+
+  build-vm:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        os: [
+            { name: freebsd, architecture: x86_64, version: "15.1" },
+            { name: openbsd, architecture: x86_64, version: "7.9" },
+        ]
+
+    defaults:
+      run:
+        shell: cpa.sh {0} --sync-files none
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          ref: ${{ inputs.commit }}
+
+      - name: Start VM
+        uses: cross-platform-actions/action@v1.3.0
+        with:
+          operating_system: ${{ matrix.os.name }}
+          architecture: ${{ matrix.os.architecture }}
+          version: ${{ matrix.os.version }}
+          memory: 6G
+          cpu_count: 4
+          sync_files: runner-to-vm
+          environment_variables: CARGO_TERM_COLOR
+
+      - name: Install dependencies
+        run: |
+          case "${{ matrix.os.name }}" in
+            openbsd)
+              sudo pkg_add cmake git gmake rust
+              ;;
+            freebsd)
+              sudo pkg install -y cmake curl git gmake
+              ;;
+          esac
+
+      - name: Install Rust
+        if: matrix.os.name == 'freebsd'
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+          sudo ln -s "$HOME"/.cargo/bin/* /usr/local/bin/
+
+      - name: Build
+        run: |
+          [ "${{ matrix.os.name }}" != openbsd ] || ulimit -Sd 4194304
+          cargo build --release --package cuprated
+
+      - name: Generate Archive
+        shell: cpa.sh {0} --sync-files vm-to-runner
+        run: |
+          set -e            # Exit on failures
+          umask 0077        # 700 permissions
+          export TZ=UTC     # UTC timezone
+
+          # Reset archive directory in-case.
+          rm -rf ${{ env.ARCHIVE }}
+          mkdir -p ${{ env.ARCHIVE }}
+
+          readonly ARCHIVE=$(realpath ${{ env.ARCHIVE }})
+          readonly VERSION=$(grep '^version = ' binaries/cuprated/Cargo.toml | cut -d'"' -f2)
+
+          # Generate the asset name.
+          readonly TARGET=$(rustc -vV | sed -n 's/^host: //p')
+          case "${{ matrix.os.name }}" in
+            # OpenBSD does not keep binary compatibility between releases.
+            openbsd)
+              readonly ASSET="cuprated-$VERSION-${TARGET}$(uname -r).tar.gz"
+              ;;
+            *)
+              readonly ASSET="cuprated-$VERSION-$TARGET.tar.gz"
+              ;;
+          esac
+
+          # Generate archive for BSD.
+          cp LICENSE-AGPL target/release/LICENSE
+          target/release/cuprated --generate-config > target/release/Cuprated.toml
+          tar -czpf "$ARCHIVE/$ASSET" -C target/release cuprated LICENSE Cuprated.toml
+
+          # Only sync the finished archive back to the runner.
+          rm -rf target
+
+      - name: Archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os.name }}-${{ matrix.os.architecture }}
+          compression-level: 0
+          path: ${{ env.ARCHIVE }}/**
+
+  build-cross:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        os: [
+            { name: linux-riscv64-gnu, target: riscv64gc-unknown-linux-gnu },
+        ]
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          ref: ${{ inputs.commit }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+
+      - name: Install cross toolchain
+        uses: taiki-e/setup-cross-toolchain-action@v1
+        with:
+          target: ${{ matrix.os.target }}
+
+      - name: Build
+        run: cargo build --release --package cuprated
+
+      - name: Generate config
+        run: cargo run --release --package cuprated -- --generate-config > Cuprated.toml
+
+      - name: Generate Archive
+        run: |
+          set -e -o pipefail # Exit on failures
+          umask 0077         # 700 permissions
+          export TZ=UTC      # UTC timezone
+
+          # Reset archive directory in-case.
+          rm -rf ${{ env.ARCHIVE }}
+          mkdir -p ${{ env.ARCHIVE }}
+
+          readonly ARCHIVE=$(realpath ${{ env.ARCHIVE }})
+          readonly VERSION=$(grep '^version = ' binaries/cuprated/Cargo.toml | cut -d'"' -f2)
+          readonly OUT="target/$CARGO_BUILD_TARGET/release"
+          readonly ASSET="cuprated-$VERSION-$CARGO_BUILD_TARGET.tar.gz"
+
+          # Generate archives for Linux.
+          cp LICENSE-AGPL "$OUT/LICENSE"
+          cp binaries/cuprated/cuprated.service "$OUT"
+          mv Cuprated.toml "$OUT"
+          tar -czpf "$ARCHIVE/$ASSET" -C "$OUT" cuprated LICENSE Cuprated.toml cuprated.service
+
+      - name: Archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os.name }}
           compression-level: 0
           path: ${{ env.ARCHIVE }}/**
