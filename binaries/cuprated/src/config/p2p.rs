@@ -276,6 +276,14 @@ config_struct! {
         /// Valid values | false, true
         /// Examples     | false
         pub inbound_onion: bool,
+
+        #[comment_out = true]
+        /// Extra Tor seed nodes to connect to on startup, in addition to the
+        /// built-in seeds. Given as onion addresses.
+        ///
+        /// Type     | Array of onion addresses
+        /// Examples | "zbjkbsxc5munw3qusl7j2hpcmikhqocdf4pqhnhtpzw5nt5jrmofptid.onion:18083"
+        pub seed_nodes: Vec<OnionAddr>,
     }
 }
 
@@ -335,6 +343,7 @@ impl Default for TorNetConfig {
         Self {
             enabled: false,
             inbound_onion: false,
+            seed_nodes: Vec::new(),
             p2p_port: DefaultOrCustom::Default,
             outbound_connections: 12,
             extra_outbound_connections: 2,

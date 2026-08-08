@@ -47,7 +47,7 @@ cuprate-rpc-types         = { workspace = true, features = ["from"] }
 cuprate-test-utils        = { workspace = true }
 cuprate-txpool            = { workspace = true }
 cuprate-types             = { workspace = true, features = ["json"] }
-cuprate-wire              = { workspace = true }
+cuprate-wire              = { workspace = true, features = ["serde"] }
 
 # TODO: after v1.0.0, remove unneeded dependencies.
 axum                  = { workspace = true, features = ["tokio", "http1", "http2"] }
