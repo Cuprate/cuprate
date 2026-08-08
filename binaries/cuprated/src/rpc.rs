@@ -7,6 +7,7 @@ mod handlers;
 mod rpc_handler;
 mod server;
 mod service;
+mod timeout;
 
 pub use rpc_handler::CupratedRpcHandler;
 pub use server::init_rpc_servers;
