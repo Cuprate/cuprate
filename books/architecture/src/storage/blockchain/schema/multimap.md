@@ -2,7 +2,7 @@
 ## Outputs
 When referencing outputs, Monero will [use the amount and the amount index](https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/blockchain_db/lmdb/db_lmdb.cpp#L3447-L3449). This means 2 keys are needed to reach an output.
 
-With LMDB you can set the `DUP_SORT` flag on a table and then set the key/value to:
+With LMDB, you can set the `DUP_SORT` flag on a table and then set the key/value to:
 ```rust
 Key = KEY_PART_1
 ```

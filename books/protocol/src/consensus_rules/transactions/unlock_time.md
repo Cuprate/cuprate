@@ -4,7 +4,7 @@ To spend an output the output's unlock time must have passed.
 
 ## Interpreting An Unlock Time
 
-The unlock time is just a 64 bit unsigned number. It is interpreted as a block height if less than 500,000,000 otherwise it's a Unix timestamp[^interpreting-unlock-time].
+The unlock time is just a 64-bit unsigned number. It is interpreted as a block height if less than 500,000,000 otherwise it's a Unix timestamp[^interpreting-unlock-time].
 
 ## Checking The Output Is Unlocked
 

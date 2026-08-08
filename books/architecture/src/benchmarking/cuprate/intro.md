@@ -4,7 +4,7 @@ Cuprate has 2 custom crates for general benchmarking:
 - `cuprate-benchmark-lib`; the library that other crates hook into
 
 The abstract purpose of `cuprate-benchmark` is very simple:
-1. Set-up the benchmark
+1. Set up the benchmark
 1. Start timer
 1. Run benchmark
 1. Output data

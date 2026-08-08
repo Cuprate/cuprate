@@ -76,7 +76,7 @@ Cuprate will format the above like such:
 ```
 
 ## Array of maps containing named objects
-An method that contains outputs like this is the `peers` field in the `sync_info` method:
+A method that contains outputs like this is the `peers` field in the `sync_info` method:
 ```bash
 curl \
     http://127.0.0.1:18081/json_rpc \

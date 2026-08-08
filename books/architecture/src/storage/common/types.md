@@ -6,7 +6,7 @@ provide mappings between outside types and the types actually stored in the data
 A common case is mapping infallible types to and from [`bitflags`](https://docs.rs/bitflag) and/or their raw integer representation.
 For example, the [`OutputFlag`](https://doc.cuprate.org/cuprate_blockchain/types/struct.OutputFlags.html) type or `bool` types.
 
-As types like `enum`s, `bool`s and `char`s cannot be casted from an integer infallibly,
+As types like `enum`s, `bool`s and `char`s cannot be cast from an integer infallibly,
 `bytemuck::Pod` cannot be implemented on it safely. Thus, we store some infallible version
 of it inside the database with a custom type and map them when fetching the data.
 

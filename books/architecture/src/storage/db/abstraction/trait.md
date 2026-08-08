@@ -3,7 +3,7 @@
 
 This allows the function signatures and behavior to stay the same but allows for swapping out databases in an easier fashion.
 
-All common behavior of the backend's are encapsulated here and used instead of using the backend directly.
+All common behavior of the backend are encapsulated here and used instead of using the backend directly.
 
 Examples:
 - [`trait Env`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/env.rs)

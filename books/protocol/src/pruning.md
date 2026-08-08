@@ -233,7 +233,7 @@ for normal Monero pruning this is the same as:
 const uint64_t cycle_start = cycles + ((stripe > block_pruning_stripe) ? 0 : 1);
 ```
 
-This checks if we are a past our seeds stripe in a cycle and if we are past it we add
+This checks if we are a past our seeds stripe in a cycle and, if we are past it, we add
 one to the number of cycles to get `cycles_start` which is the start of the cycle our
 stripe will next be storing blocks in.
 
@@ -338,7 +338,7 @@ if (block_height + CRYPTONOTE_PRUNING_TIP_BLOCKS >= blockchain_height)
 
 This is calculating the [stripe](#getting-a-seeds-pruning-stripe) of the inputted pruning seed, remember if the seed/stripe is `0` that means no pruning so we can return the blockchain height as the next un-pruned height and similarly if the block's height is within [Tip Blocks](#tip-blocks) of the blockchain's height that also means the block won't be pruned.
 
-Returning the blockchain's height means the next pruned block doesn't currently exist, its bigger than or equal to blockchain_height - CRYPTONOTE_PRUNING_TIP_BLOCKS or it means it
+Returning the blockchain's height means the next pruned block doesn't currently exist, it's bigger than or equal to blockchain_height - CRYPTONOTE_PRUNING_TIP_BLOCKS, or it means it
 will never exist in the case of a zero pruning seed.
 
 ```c++
