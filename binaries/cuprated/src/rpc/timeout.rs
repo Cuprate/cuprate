@@ -324,7 +324,7 @@ mod test {
         time::{sleep, timeout},
     };
 
-    use crate::timeout::{ReadTimeout, StreamTimeout, WriteTimeout};
+    use crate::rpc::timeout::{ReadTimeout, StreamTimeout, WriteTimeout};
 
     #[cfg(target_os = "macos")]
     const TEST_TIMEOUT: Duration = Duration::from_secs(2);

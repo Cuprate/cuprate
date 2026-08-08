@@ -26,15 +26,12 @@ use tower::{limit::rate::RateLimitLayer, Service};
 use tower_http::limit::RequestBodyLimitLayer;
 use tracing::{error, info, warn};
 
-use cuprate_helper::{
-    net::ip_is_local,
-    timeout::{StreamTimeout, WriteTimeout},
-};
+use cuprate_helper::net::ip_is_local;
 use cuprate_rpc_interface::RouterBuilder;
 
 use crate::{
     config::{restricted_rpc_port, unrestricted_rpc_port, RpcConfig},
-    rpc::CupratedRpcHandler,
+    rpc::{timeout::WriteTimeout, CupratedRpcHandler},
     txpool::IncomingTxHandler,
     LaunchContext,
 };

@@ -14,9 +14,6 @@ pub mod cast;
 #[cfg(feature = "fs")]
 pub mod fs;
 
-#[cfg(feature = "timeout")]
-pub mod timeout;
-
 pub mod network;
 
 #[cfg(feature = "num")]

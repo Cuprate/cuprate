@@ -80,6 +80,7 @@ monero-oxide          = { workspace = true, features = ["std", "compile-time-gen
 nu-ansi-term          = { workspace = true }
 paste                 = { workspace = true }
 pin-project           = { workspace = true }
+pin-project-lite      = { workspace = true }
 randomx-rs            = { workspace = true }
 rand                  = { workspace = true }
 rand_distr            = { workspace = true }
