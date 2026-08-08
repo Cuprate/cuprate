@@ -5,8 +5,8 @@ use std::{
 };
 
 use futures::{stream::FuturesUnordered, StreamExt};
-use indexmap::{IndexMap, IndexSet};
-use rand::{seq::index::sample, thread_rng};
+use indexmap::IndexMap;
+use rand::{seq::IteratorRandom, thread_rng};
 use tokio::sync::mpsc::Receiver;
 use tokio_util::sync::WaitForCancellationFutureOwned;
 use tower::Service;
@@ -80,8 +80,6 @@ pub(crate) struct PeerSet<N: NetworkZone> {
     peers: IndexMap<InternalPeerID<N::Addr>, StoredClient<N>>,
     /// A [`FuturesUnordered`] that resolves when a peer disconnects.
     closed_connections: FuturesUnordered<ClosedConnectionFuture<N>>,
-    /// The [`InternalPeerID`]s of all outbound peers.
-    outbound_peers: IndexSet<InternalPeerID<N::Addr>>,
     /// A channel of new peers from the inbound server or outbound connector.
     new_peers: Receiver<Client<N>>,
 }
@@ -91,7 +89,6 @@ impl<N: NetworkZone> PeerSet<N> {
         Self {
             peers: IndexMap::new(),
             closed_connections: FuturesUnordered::new(),
-            outbound_peers: IndexSet::new(),
             new_peers,
         }
     }
@@ -99,10 +96,6 @@ impl<N: NetworkZone> PeerSet<N> {
     /// Polls the new peers channel for newly connected peers.
     fn poll_new_peers(&mut self, cx: &mut Context<'_>) {
         while let Poll::Ready(Some(new_peer)) = self.new_peers.poll_recv(cx) {
-            if new_peer.info.direction == ConnectionDirection::Outbound {
-                self.outbound_peers.insert(new_peer.info.id);
-            }
-
             self.closed_connections.push(ClosedConnectionFuture {
                 fut: new_peer.info.handle.closed(),
                 id: Some(new_peer.info.id),
@@ -116,12 +109,14 @@ impl<N: NetworkZone> PeerSet<N> {
     /// Remove disconnected peers from the peer set.
     fn remove_dead_peers(&mut self, cx: &mut Context<'_>) {
         while let Poll::Ready(Some(dead_peer)) = self.closed_connections.poll_next_unpin(cx) {
-            let Some(peer) = self.peers.swap_remove(&dead_peer) else {
+            let Some(peer) = self.peers.get(&dead_peer) else {
                 continue;
             };
 
-            if peer.client.info.direction == ConnectionDirection::Outbound {
-                self.outbound_peers.swap_remove(&peer.client.info.id);
+            // The id may have been reused by a new connection since this future was
+            // created, so only remove the entry if it is the connection that closed.
+            if !peer.client.info.handle.is_closed() {
+                continue;
             }
 
             self.peers.swap_remove(&dead_peer);
@@ -176,17 +171,14 @@ impl<N: NetworkZone> PeerSet<N> {
     /// [`PeerSetRequest::StemPeer`]
     fn random_peer_for_stem(&self) -> PeerSetResponse<N> {
         PeerSetResponse::StemPeer(
-            sample(
-                &mut thread_rng(),
-                self.outbound_peers.len(),
-                self.outbound_peers.len(),
-            )
-            .into_iter()
-            .find_map(|i| {
-                let peer = self.outbound_peers.get_index(i).unwrap();
-                let client = self.peers.get(peer).unwrap();
-                (!client.is_a_stem_peer()).then(|| client.stem_peer_guard())
-            }),
+            self.peers
+                .values()
+                .filter(|client| {
+                    client.client.info.direction == ConnectionDirection::Outbound
+                        && !client.is_a_stem_peer()
+                })
+                .choose(&mut thread_rng())
+                .map(StoredClient::stem_peer_guard),
         )
     }
 }
@@ -213,5 +205,123 @@ impl<N: NetworkZone> Service<PeerSetRequest> for PeerSet<N> {
             }
             PeerSetRequest::StemPeer => Ok(self.random_peer_for_stem()),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        net::SocketAddr,
+        sync::{Arc, Mutex},
+    };
+
+    use futures::FutureExt;
+    use tokio::sync::mpsc;
+    use tower::{Service, ServiceExt};
+
+    use cuprate_p2p_core::{
+        client::{mock_client, Client, InternalPeerID, PeerInformation},
+        handles::{ConnectionHandle, HandleBuilder},
+        ClearNet, ConnectionDirection, PeerRequest, PeerResponse, ProtocolResponse,
+    };
+    use cuprate_pruning::PruningSeed;
+    use cuprate_wire::{common::PeerSupportFlags, BasicNodeData, CoreSyncData};
+
+    use super::{PeerSet, PeerSetRequest, PeerSetResponse};
+
+    fn mock_peer(
+        id: InternalPeerID<SocketAddr>,
+        direction: ConnectionDirection,
+    ) -> (Client<ClearNet>, ConnectionHandle) {
+        let (guard, handle) = HandleBuilder::new().build();
+
+        let info = PeerInformation {
+            id,
+            basic_node_data: BasicNodeData {
+                my_port: 0,
+                network_id: [0; 16],
+                peer_id: 0,
+                support_flags: PeerSupportFlags::FLUFFY_BLOCKS,
+                rpc_port: 0,
+                rpc_credits_per_hash: 0,
+            },
+            handle: handle.clone(),
+            direction,
+            pruning_seed: PruningSeed::NotPruned,
+            core_sync_data: Arc::new(Mutex::new(CoreSyncData {
+                cumulative_difficulty: 1,
+                cumulative_difficulty_top64: 0,
+                current_height: 1,
+                pruning_seed: 0,
+                top_id: [0; 32],
+                top_version: 0,
+            })),
+        };
+
+        let svc = tower::service_fn(|_: PeerRequest| {
+            async { Ok::<_, tower::BoxError>(PeerResponse::Protocol(ProtocolResponse::NA)) }.boxed()
+        });
+
+        (mock_client::<ClearNet, _>(info, guard, svc), handle)
+    }
+
+    #[tokio::test]
+    async fn peer_id_reused_by_opposite_direction() {
+        let id = InternalPeerID::KnownAddr("10.0.0.1:18080".parse::<SocketAddr>().unwrap());
+
+        let (tx, rx) = mpsc::channel(4);
+        let mut peer_set = PeerSet::<ClearNet>::new(rx);
+
+        let (outbound, outbound_handle) = mock_peer(id, ConnectionDirection::Outbound);
+        tx.send(outbound).await.unwrap();
+        peer_set.ready().await.unwrap();
+        assert_eq!(peer_set.peers.len(), 1);
+
+        // Close it without polling the peer set, so the close future stays pending.
+        outbound_handle.send_close_signal();
+        while !outbound_handle.is_closed() {
+            tokio::task::yield_now().await;
+        }
+
+        let (inbound, inbound_handle) = mock_peer(id, ConnectionDirection::Inbound);
+        tx.send(inbound).await.unwrap();
+        peer_set.ready().await.unwrap();
+
+        // The stale close future must not evict the new connection.
+        assert!(!inbound_handle.is_closed());
+        assert_eq!(peer_set.peers.len(), 1);
+
+        let PeerSetResponse::StemPeer(stem) =
+            peer_set.call(PeerSetRequest::StemPeer).await.unwrap()
+        else {
+            panic!("peer set returned the wrong response");
+        };
+        assert!(stem.is_none());
+
+        inbound_handle.send_close_signal();
+        while !inbound_handle.is_closed() {
+            tokio::task::yield_now().await;
+        }
+        peer_set.ready().await.unwrap();
+        assert!(peer_set.peers.is_empty());
+    }
+
+    #[tokio::test]
+    async fn outbound_peer_is_used_for_stem() {
+        let id = InternalPeerID::KnownAddr("10.0.0.2:18080".parse::<SocketAddr>().unwrap());
+
+        let (tx, rx) = mpsc::channel(4);
+        let mut peer_set = PeerSet::<ClearNet>::new(rx);
+
+        let (outbound, _handle) = mock_peer(id, ConnectionDirection::Outbound);
+        tx.send(outbound).await.unwrap();
+        peer_set.ready().await.unwrap();
+
+        let PeerSetResponse::StemPeer(stem) =
+            peer_set.call(PeerSetRequest::StemPeer).await.unwrap()
+        else {
+            panic!("peer set returned the wrong response");
+        };
+        assert!(stem.is_some());
     }
 }
