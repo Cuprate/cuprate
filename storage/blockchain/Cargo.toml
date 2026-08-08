@@ -16,6 +16,7 @@ cuprate-types            = { workspace = true, features = ["blockchain"] }
 cuprate-pruning          = { workspace = true }
 cuprate-constants        = { workspace = true }
 
+arc-swap         = { workspace = true }
 crossbeam        = { workspace = true, features = ["std", "crossbeam-channel"] }
 tapes            = { workspace = true }
 tracing          = { workspace = true, features = ["std", "attributes"] }

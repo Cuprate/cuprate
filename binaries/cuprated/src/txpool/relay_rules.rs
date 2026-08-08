@@ -1,4 +1,4 @@
-use std::cmp::max;
+use std::cmp::{max, min};
 
 use monero_oxide::transaction::Timelock;
 use thiserror::Error;
@@ -60,7 +60,13 @@ fn check_fee(
         context.current_hf,
     );
 
-    let fee_per_byte = dynamic_base_fee(base_reward, context.effective_median_weight);
+    let fee_per_byte = dynamic_base_fee(
+        base_reward,
+        min(
+            context.effective_median_weight,
+            context.long_term_effective_median_weight(),
+        ),
+    );
     let needed_fee = usize_to_u64(tx_weight) * fee_per_byte;
 
     let needed_fee = needed_fee.div_ceil(FEE_MASK) * FEE_MASK;

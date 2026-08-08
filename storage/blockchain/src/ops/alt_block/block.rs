@@ -8,6 +8,7 @@ use cuprate_helper::{
 use cuprate_types::{AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, HardFork};
 
 use crate::{
+    database::reset_fjall_keyspace,
     error::{BlockchainError, DbResult},
     ops::alt_block::{add_alt_transaction_blob, get_alt_transaction, update_alt_chain_info},
     types::{
@@ -22,12 +23,12 @@ use crate::{
 ///
 /// **THIS IS NOT ATOMIC**
 pub fn flush_alt_blocks(db: &BlockchainDatabase) -> DbResult<()> {
-    db.alt_chain_infos.clear()?;
-    db.alt_block_heights.clear()?;
-    db.alt_block_infos.clear()?;
-    db.alt_block_blobs.clear()?;
-    db.alt_transaction_blobs.clear()?;
-    db.alt_transaction_infos.clear()?;
+    reset_fjall_keyspace(&db.fjall, &db.alt_chain_infos)?;
+    reset_fjall_keyspace(&db.fjall, &db.alt_block_heights)?;
+    reset_fjall_keyspace(&db.fjall, &db.alt_block_infos)?;
+    reset_fjall_keyspace(&db.fjall, &db.alt_block_blobs)?;
+    reset_fjall_keyspace(&db.fjall, &db.alt_transaction_blobs)?;
+    reset_fjall_keyspace(&db.fjall, &db.alt_transaction_infos)?;
 
     Ok(())
 }
@@ -52,7 +53,7 @@ pub fn add_alt_block(
     };
 
     tx_rw.insert(
-        &db.alt_block_heights,
+        &db.alt_block_heights.load(),
         alt_block.block_hash,
         bytemuck::bytes_of(&alt_block_height),
     );
@@ -72,12 +73,12 @@ pub fn add_alt_block(
     };
 
     tx_rw.insert(
-        &db.alt_block_infos,
+        &db.alt_block_infos.load(),
         bytemuck::bytes_of(&alt_block_height),
         bytemuck::bytes_of(&alt_block_info),
     );
     tx_rw.insert(
-        &db.alt_block_blobs,
+        &db.alt_block_blobs.load(),
         bytemuck::bytes_of(&alt_block_height),
         &alt_block.block_blob,
     );
@@ -100,13 +101,19 @@ pub fn get_alt_block_information(
     tx_ro: &fjall::Snapshot,
 ) -> DbResult<AltBlockInformation> {
     let block_info = tx_ro
-        .get(&db.alt_block_infos, bytemuck::bytes_of(alt_block_height))?
+        .get(
+            &**db.alt_block_infos.load(),
+            bytemuck::bytes_of(alt_block_height),
+        )?
         .ok_or(BlockchainError::NotFound)?;
 
     let block_info: CompactAltBlockInfo = bytemuck::pod_read_unaligned(block_info.as_ref());
 
     let block_blob = tx_ro
-        .get(&db.alt_block_blobs, bytemuck::bytes_of(alt_block_height))?
+        .get(
+            &**db.alt_block_blobs.load(),
+            bytemuck::bytes_of(alt_block_height),
+        )?
         .ok_or(BlockchainError::NotFound)?;
 
     let block = Block::read(&mut block_blob.as_ref()).unwrap();
@@ -144,7 +151,10 @@ pub fn get_alt_block(
     tx_ro: &fjall::Snapshot,
 ) -> DbResult<Block> {
     let block_blob = tx_ro
-        .get(&db.alt_block_blobs, bytemuck::bytes_of(alt_block_height))?
+        .get(
+            &**db.alt_block_blobs.load(),
+            bytemuck::bytes_of(alt_block_height),
+        )?
         .ok_or(BlockchainError::NotFound)?;
 
     Ok(Block::read(&mut block_blob.as_ref()).unwrap())
@@ -168,7 +178,7 @@ pub fn get_alt_block_hash(
         let mut chain: RawChainId = alt_chain.into();
         loop {
             let chain_info = tx_ro
-                .get(&db.alt_chain_infos, chain.0.to_le_bytes())?
+                .get(&**db.alt_chain_infos.load(), chain.0.to_le_bytes())?
                 .ok_or(BlockchainError::NotFound)?;
 
             let chain_info: AltChainInfo = bytemuck::pod_read_unaligned(chain_info.as_ref());
@@ -195,7 +205,7 @@ pub fn get_alt_block_hash(
             .ok_or(BlockchainError::NotFound),
         Chain::Alt(chain_id) => tx_ro
             .get(
-                &db.alt_block_infos,
+                &**db.alt_block_infos.load(),
                 bytemuck::bytes_of(&AltBlockHeight {
                     chain_id: chain_id.into(),
                     height: *block_height,
@@ -219,13 +229,13 @@ pub fn get_alt_block_extended_header_from_height(
     tx_ro: &fjall::Snapshot,
 ) -> DbResult<ExtendedBlockHeader> {
     let block_info = tx_ro
-        .get(&db.alt_block_infos, bytemuck::bytes_of(height))?
+        .get(&**db.alt_block_infos.load(), bytemuck::bytes_of(height))?
         .ok_or(BlockchainError::NotFound)?;
 
     let block_info: CompactAltBlockInfo = bytemuck::pod_read_unaligned(block_info.as_ref());
 
     let block_blob = tx_ro
-        .get(&db.alt_block_blobs, bytemuck::bytes_of(height))?
+        .get(&**db.alt_block_blobs.load(), bytemuck::bytes_of(height))?
         .ok_or(BlockchainError::NotFound)?;
 
     let block_header = BlockHeader::read(&mut block_blob.as_ref())?;
@@ -250,7 +260,7 @@ pub(crate) fn alt_block_height(
     tx_ro: &fjall::Snapshot,
     hash: &BlockHash,
 ) -> DbResult<Option<AltBlockHeight>> {
-    let Some(bytes) = tx_ro.get(&db.alt_block_heights, hash)? else {
+    let Some(bytes) = tx_ro.get(&**db.alt_block_heights.load(), hash)? else {
         return Ok(None);
     };
 

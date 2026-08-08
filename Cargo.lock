@@ -1010,6 +1010,7 @@ dependencies = [
 name = "cuprate-blockchain"
 version = "0.0.0"
 dependencies = [
+ "arc-swap",
  "bytemuck",
  "bytes",
  "crossbeam",
@@ -1560,7 +1561,7 @@ dependencies = [
  "serde_bytes",
  "serde_json",
  "strum",
- "sysinfo 0.39.6",
+ "sysinfo",
  "tempfile",
  "thiserror 2.0.18",
  "thread_local",
@@ -5163,20 +5164,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sysinfo"
-version = "0.39.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2071df9448915b71c4fe6d25deaf1c22f12bd234f01540b77312bb8e41361e6"
-dependencies = [
- "libc",
- "memchr",
- "ntapi",
- "objc2-core-foundation",
- "objc2-io-kit",
- "windows",
-]
-
-[[package]]
 name = "tap"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6302,7 +6289,7 @@ dependencies = [
  "serde",
  "slotmap-careful",
  "static_assertions",
- "sysinfo 0.38.4",
+ "sysinfo",
  "thiserror 2.0.18",
  "tor-async-utils",
  "tor-basic-utils",

@@ -88,15 +88,15 @@ jobs:
 
   # CI, runs on GitHub provided OSs.
   ci:
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os.runner }}
 
     strategy:
       matrix:
         os: [
-            windows-2022, # EOL = 2026-10-13 | <https://endoflife.date/windows-server>
-            macos-15,     # EOL = 2027-09-16 | <https://endoflife.date/macos>
-            ubuntu-24.04, # EOL = 2029-05-31 | <https://endoflife.date/ubuntu>
-            ubuntu-24.04-arm,
+            { runner: windows-2022, name: windows, architecture: x86_64 }, # EOL = 2026-10-13 | <https://endoflife.date/windows-server>
+            { runner: macos-15, name: macos, architecture: aarch64 },      # EOL = 2027-09-16 | <https://endoflife.date/macos>
+            { runner: ubuntu-24.04, name: linux, architecture: x86_64 },   # EOL = 2029-05-31 | <https://endoflife.date/ubuntu>
+            { runner: ubuntu-24.04-arm, name: linux, architecture: aarch64 },
         ]
 
     steps:
@@ -115,13 +115,16 @@ jobs:
         uses: actions/cache@v4
         with:
           path: target
-          key: ${{ matrix.os }}
+          key: ${{ matrix.os.runner }}
 
       - name: Download monerod
         uses: ./.github/actions/monerod-download
+        with:
+          os: ${{ matrix.os.name }}
+          arch: ${{ matrix.os.architecture }}
 
       - name: Install dependencies (Windows)
-        if: matrix.os == 'windows-2022'
+        if: matrix.os.runner == 'windows-2022'
         uses: lukka/get-cmake@v3.31.6 # Needed for `randomx-rs`
 
       - name: Documentation
@@ -177,6 +180,9 @@ jobs:
       - name: Download monerod
         if: matrix.os.image != 'alpine:latest'
         uses: ./.github/actions/monerod-download
+        with:
+          os: linux
+          arch: x86_64
 
       - name: Documentation
         run: ${{ env.CMD_DOC }}
@@ -192,3 +198,155 @@ jobs:
 
       - name: Hack Check
         run: ${{ env.CMD_HACK }}
+
+  # CI, runs in virtual machines.
+  ci-vm:
+    runs-on: ubuntu-latest
+
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG: "0"
+
+    strategy:
+      matrix:
+        os: [
+          { name: freebsd, architecture: x86_64, version: "15.1", dependencies: "cmake curl git gmake" },
+          { name: openbsd, architecture: x86_64, version: "7.9", dependencies: "cmake git gmake rust rust-clippy" },
+        ]
+
+    defaults:
+      run:
+        shell: cpa.sh {0} --sync-files none
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download monerod
+        if: matrix.os.name != 'openbsd' # There is no prebuilt monerod for OpenBSD
+        uses: ./.github/actions/monerod-download
+        with:
+          os: ${{ matrix.os.name }}
+          arch: ${{ matrix.os.architecture }}
+
+      - name: Start VM
+        uses: cross-platform-actions/action@v1.3.0
+        with:
+          operating_system: ${{ matrix.os.name }}
+          architecture: ${{ matrix.os.architecture }}
+          version: ${{ matrix.os.version }}
+          memory: 6G
+          cpu_count: 4
+          sync_files: runner-to-vm
+          environment_variables: CARGO_TERM_COLOR RUST_BACKTRACE RUST_MIN_STACK RUSTDOCFLAGS CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG CARGO_INCREMENTAL CARGO_PROFILE_DEV_DEBUG CARGO_PROFILE_TEST_DEBUG
+
+      - name: Install dependencies
+        run: |
+          case "${{ matrix.os.name }}" in
+            openbsd)
+              sudo pkg_add ${{ matrix.os.dependencies }}
+              ;;
+            freebsd)
+              sudo pkg install -y ${{ matrix.os.dependencies }}
+              sudo pkg clean -y
+              ;;
+          esac
+
+      - name: Install Rust
+        if: matrix.os.name == 'freebsd'
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --component clippy
+          sudo ln -s "$HOME"/.cargo/bin/* /usr/local/bin/
+
+      - name: Documentation
+        run: |
+          ${{ env.CMD_DOC }}
+          cargo clean --doc
+          rm -rf "$HOME/.cargo/registry/cache"
+          rm -rf "$HOME/.cargo/git/db"
+
+      - name: Clippy (fail on warnings)
+        run: ${{ env.CMD_CLIPPY }}
+
+      - name: Test
+        run: |
+          case "${{ matrix.os.name }}" in
+            openbsd)
+              ulimit -Sd 4194304
+              cargo test --all-features --workspace --exclude cuprate-p2p-core
+              cargo test --all-features --package cuprate-p2p-core --lib --tests -- --skip monerod
+              ;;
+            *)
+              ${{ env.CMD_TEST }}
+              ;;
+          esac
+
+      - name: Build
+        run: ${{ env.CMD_BUILD }}
+
+      - name: Hack Check
+        run: |
+          case "${{ matrix.os.name }}" in
+            openbsd)
+              cargo install cargo-hack --locked
+              cargo hack check --feature-powerset --no-dev-deps --workspace --exclude cuprate-fuzz
+              ;;
+            *)
+              ${{ env.CMD_HACK }}
+              ;;
+          esac
+
+  # CI, runs cross-compiled targets under emulation.
+  ci-cross:
+    runs-on: ubuntu-latest
+
+    env:
+      PROPTEST_TIMEOUT: 0
+
+    strategy:
+      matrix:
+        target: [
+            riscv64gc-unknown-linux-gnu,
+        ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy
+
+      - name: Install cross toolchain
+        uses: taiki-e/setup-cross-toolchain-action@v1
+        with:
+          target: ${{ matrix.target }}
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ matrix.target }}
+
+      - name: Documentation
+        run: ${{ env.CMD_DOC }}
+
+      - name: Clippy (fail on warnings)
+        run: ${{ env.CMD_CLIPPY }}
+
+      # There is no prebuilt monerod for RISC-V, so the tests that require it are skipped.
+      - name: Test
+        run: |
+          cargo test --all-features --workspace --exclude cuprate-p2p-core
+          cargo test --all-features --package cuprate-p2p-core --lib --tests -- --skip monerod
+
+      - name: Build
+        run: ${{ env.CMD_BUILD }}

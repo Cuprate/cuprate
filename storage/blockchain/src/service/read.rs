@@ -945,13 +945,14 @@ fn txs_in_block(
             return Ok(BlockchainResponse::TxsInBlock(None));
         }
 
+        let alt_transaction_blobs = db.alt_transaction_blobs.load();
         let txs = missing_txs
             .into_iter()
             .map(|index_offset| {
                 let tx_hash = &block.transactions[u64_to_usize(index_offset)];
 
                 tx_ro
-                    .get(&db.alt_transaction_blobs, tx_hash)?
+                    .get(&**alt_transaction_blobs, tx_hash)?
                     .map(|blob| blob.to_vec())
                     .ok_or(BlockchainError::NotFound)
             })
@@ -1221,10 +1222,12 @@ fn coinbase_tx_sum(db: &BlockchainDatabase, height: usize, count: u64) -> Respon
 fn alt_chains(db: &BlockchainDatabase) -> ResponseResult {
     let tx_ro = db.fjall.snapshot();
     let tapes = db.linear_tapes.reader();
+    let alt_chain_infos = db.alt_chain_infos.load();
+    let alt_block_infos = db.alt_block_infos.load();
 
     let mut chains = Vec::new();
 
-    for guard in db.alt_chain_infos.iter() {
+    for guard in alt_chain_infos.iter() {
         let (chain_id_bytes, chain_info_bytes) = guard.into_inner()?;
 
         let chain_id = RawChainId(u64::from_le_bytes(
@@ -1241,7 +1244,7 @@ fn alt_chains(db: &BlockchainDatabase) -> ResponseResult {
             height: tip,
         };
         let tip_info_bytes = tx_ro
-            .get(&db.alt_block_infos, bytemuck::bytes_of(&tip_height))?
+            .get(&**alt_block_infos, bytemuck::bytes_of(&tip_height))?
             .ok_or(BlockchainError::NotFound)?;
         let tip_info: CompactAltBlockInfo = bytemuck::pod_read_unaligned(tip_info_bytes.as_ref());
 
@@ -1265,7 +1268,7 @@ fn alt_chains(db: &BlockchainDatabase) -> ResponseResult {
                     height,
                 };
                 let info_bytes = tx_ro
-                    .get(&db.alt_block_infos, bytemuck::bytes_of(&alt_h))?
+                    .get(&**alt_block_infos, bytemuck::bytes_of(&alt_h))?
                     .ok_or(BlockchainError::NotFound)?;
                 let info: CompactAltBlockInfo = bytemuck::pod_read_unaligned(info_bytes.as_ref());
                 block_hashes.push(info.block_hash);
@@ -1296,7 +1299,7 @@ fn alt_chains(db: &BlockchainDatabase) -> ResponseResult {
 
 /// [`BlockchainReadRequest::AltChainCount`]
 fn alt_chain_count(db: &BlockchainDatabase) -> ResponseResult {
-    let count = db.alt_chain_infos.len()?;
+    let count = db.alt_chain_infos.load().len()?;
     Ok(BlockchainResponse::AltChainCount(count))
 }
 

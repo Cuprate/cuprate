@@ -138,5 +138,11 @@ impl Args {
             .extend_from_slice(&self.seed_node);
 
         config
+            .p2p
+            .clear_net
+            .seed_nodes
+            .extend_from_slice(&self.seed_node);
+
+        config
     }
 }
