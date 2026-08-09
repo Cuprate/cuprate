@@ -20,8 +20,8 @@ use cuprate_types::{
 };
 
 use crate::{
-    error::{BlockchainError, DbResult},
     config::Persistence,
+    error::{BlockchainError, DbResult},
     ops::block::add_blocks_to_tapes,
     service::ResponseResult,
     BlockchainDatabase,
@@ -135,14 +135,18 @@ fn write_block(db: &BlockchainDatabase, block: &VerifiedBlockInformation) -> Res
 #[inline]
 #[instrument(skip(db, blocks), level = "debug")]
 fn write_blocks(db: &BlockchainDatabase, blocks: &[VerifiedBlockInformation]) -> ResponseResult {
-    let (tapes_persist_mode, fjall_persit_mode) = match db.config.persistence {
+    let (tapes_persist_mode, fjall_persist_mode) = match db.config.persistence {
         Persistence::Buffer => (tapes::Persistence::Buffer, PersistMode::Buffer),
-        // We use the amount of blocks to write as a huristic for if we are synced. When Cuprate starts downloading
-        // blocks it will do 1 at a time so for that thoes will be fully synced but that does not last long. 
-        Persistence::BufferThenSync if blocks.len() > 1 => (tapes::Persistence::Buffer, PersistMode::Buffer),
-        Persistence::Sync | Persistence::BufferThenSync => (tapes::Persistence::SyncAll, PersistMode::SyncAll),
+        // We use the amount of blocks to write as a heuristic for if we are synced. When Cuprate starts downloading
+        // blocks it will do 1 at a time so for that those will be fully synced but that does not last long.
+        Persistence::BufferThenSync if blocks.len() > 1 => {
+            (tapes::Persistence::Buffer, PersistMode::Buffer)
+        }
+        Persistence::Sync | Persistence::BufferThenSync => {
+            (tapes::Persistence::SyncAll, PersistMode::SyncAll)
+        }
     };
-    
+
     tracing::debug!("Writing {} block(s) to database.", blocks.len());
 
     let mut tapes = db.linear_tapes.append();
@@ -157,7 +161,7 @@ fn write_blocks(db: &BlockchainDatabase, blocks: &[VerifiedBlockInformation]) ->
 
     let mut pre_rct_numb_outputs_cache = db.pre_rct_numb_outputs_cache.lock().unwrap();
 
-    let mut tx_rw = db.fjall.batch().durability(Some(fjall_persit_mode));
+    let mut tx_rw = db.fjall.batch().durability(Some(fjall_persist_mode));
 
     for block in blocks {
         crate::ops::block::add_block_to_dynamic_tables(
