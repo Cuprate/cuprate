@@ -37,16 +37,17 @@ pub use paste::paste;
 ///         b: u8,
 ///         c: u8,
 ///         d: u8,
-///         e_f: Example2
+///         e: Vec<String>,
+///         f_f: Example2
 ///     }
 ///
 ///     struct Example2 {
-///         e: u8
+///         f: u8
 ///     }
 ///
 ///     epee_object!(
 ///         Example2,
-///         e: u8,
+///         f: u8,
 ///     );
 ///
 ///     epee_object!(
@@ -61,10 +62,14 @@ pub use paste::paste;
 ///         // `=> read_fn, write_fn, should_write_fn,` allows you to specify alt field encoding functions.
 ///         //  for the required args see the default functions, which are used here:
 ///         d: u8 => cuprate_epee_encoding::read_epee_value, cuprate_epee_encoding::write_field, <u8 as cuprate_epee_encoding::EpeeValue>::should_write,
+///         // `[]` allows you to set limits on fields.
+///         // `[min_element: NUMBER]` is used to set a minimum number of bytes that each element must consume.
+///         // `[max_len: NUMBER]` is used to set a maximum number of elements in a sequence.
+///         e: Vec<String> [min_element: 16, max_len: 128],
 ///         // `!flatten` can be used on fields which are epee objects, and it flattens the fields of that object into this object.
-///         // So for this example `e_f` will not appear in the data but e will.
+///         // So for this example `f_f` will not appear in the data but f will.
 ///         // You can't use the other options with this.
-///         !flatten: e_f: Example2,
+///         !flatten: f_f: Example2,
 ///     );
 /// }
 /// ```
@@ -119,10 +124,50 @@ macro_rules! epee_object {
         $ty
     };
 
+    // ------------------------------------------------------------------------ internal_sequence_limits
+    (
+        @internal_sequence_limits
+    ) => {
+        cuprate_epee_encoding::EpeeValueLimits {
+            min_element_size: 0,
+            max_sequence_len: usize::MAX,
+        }
+    };
+
+    (
+        @internal_sequence_limits
+        min_element: $min_element_size:expr_2021
+    ) => {
+        cuprate_epee_encoding::EpeeValueLimits {
+            min_element_size: $min_element_size,
+            max_sequence_len: usize::MAX,
+        }
+    };
+
+    (
+        @internal_sequence_limits
+        max_len: $max_sequence_len:expr_2021
+    ) => {
+        cuprate_epee_encoding::EpeeValueLimits {
+            min_element_size: 0,
+            max_sequence_len: $max_sequence_len,
+        }
+    };
+
+    (
+        @internal_sequence_limits
+        min_element: $min_element_size:expr_2021, max_len: $max_sequence_len:expr_2021
+    ) => {
+        cuprate_epee_encoding::EpeeValueLimits {
+            min_element_size: $min_element_size,
+            max_sequence_len: $max_sequence_len,
+        }
+    };
+
     // ------------------------------------------------------------------------ Entry Point
     (
         $obj:ident,
-        $($field: ident $(($alt_name: literal))?: $ty:ty $(as $ty_as:ty )? $(= $default:expr_2021)?  $(=> $read_fn:expr_2021, $write_fn:expr_2021, $should_write_fn:expr_2021)?, )*
+        $($field: ident $(($alt_name: literal))?: $ty:ty $(as $ty_as:ty )? $([$($sequence_constraints:tt)+])? $(= $default:expr_2021)?  $(=> $read_fn:expr_2021, $write_fn:expr_2021, $should_write_fn:expr_2021)?, )*
         $(!flatten: $flat_field: ident: $flat_ty:ty ,)*
 
     ) => {
@@ -142,8 +187,11 @@ macro_rules! epee_object {
                     fn add_field<B: cuprate_epee_encoding::macros::bytes::Buf>(&mut self, name: &str, b: &mut B) -> cuprate_epee_encoding::error::Result<bool> {
                         match name {
                             $(cuprate_epee_encoding::epee_object!(@internal_field_name $field, $($alt_name)?) => {
+                                let limits = cuprate_epee_encoding::epee_object!(
+                                    @internal_sequence_limits $($($sequence_constraints)+)?
+                                );
                                 if self.$field.replace(
-                                    cuprate_epee_encoding::epee_object!(@internal_try_right_then_left cuprate_epee_encoding::read_epee_value(b)?, $($read_fn(b)?)?)
+                                    cuprate_epee_encoding::epee_object!(@internal_try_right_then_left cuprate_epee_encoding::read_epee_value(b, limits)?, $($read_fn(b, limits)?)?)
                                 ).is_some() {
                                     Err(cuprate_epee_encoding::error::Error::Value(format!("Duplicate field in data: {}", cuprate_epee_encoding::epee_object!(@internal_field_name$field, $($alt_name)?))))?;
                                 }

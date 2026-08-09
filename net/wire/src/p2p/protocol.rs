@@ -25,6 +25,9 @@ use cuprate_fixed_bytes::{ByteArray, ByteArrayVec};
 
 use crate::p2p::common::BlockCompleteEntry;
 
+/// This is a protocol level limit on the [`GetObjectsResponse`] message.
+const MAX_BLOCKS_IN_RESPONSE: usize = 100;
+
 /// A block that SHOULD have transactions
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewBlock {
@@ -53,7 +56,9 @@ pub struct NewTransactions {
 
 epee_object!(
     NewTransactions,
-    txs: Vec<Bytes>,
+    // 32 is the size of `Bytes` on the stack, no tx can be this small. We could set a limit
+    // higher than 32 but 32 gives us enough protection.
+    txs: Vec<Bytes> [min_element: 32],
     dandelionpp_fluff: bool = true,
     padding("_"): Bytes,
 );
@@ -86,7 +91,7 @@ pub struct GetObjectsResponse {
 
 epee_object!(
     GetObjectsResponse,
-    blocks: Vec<BlockCompleteEntry>,
+    blocks: Vec<BlockCompleteEntry> [max_len: MAX_BLOCKS_IN_RESPONSE],
     missed_ids: ByteArrayVec<32>,
     current_blockchain_height: u64,
 );
