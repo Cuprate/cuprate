@@ -229,21 +229,23 @@ pub struct __DistributionEpeeBuilder {
 impl EpeeObjectBuilder<Distribution> for __DistributionEpeeBuilder {
     fn add_field<B: Buf>(&mut self, name: &str, r: &mut B) -> error::Result<bool> {
         match name {
-            "start_height" => self.start_height = Some(read_epee_value(r)?),
-            "base" => self.base = Some(read_epee_value(r)?),
-            "amount" => self.amount = Some(read_epee_value(r)?),
-            "binary" => self.binary = Some(read_epee_value(r)?),
-            "compress" => self.compress = Some(read_epee_value(r)?),
-            "compressed_data" => self.compressed_data = Some(read_epee_value(r)?),
+            "start_height" => self.start_height = Some(read_epee_value(r, Default::default())?),
+            "base" => self.base = Some(read_epee_value(r, Default::default())?),
+            "amount" => self.amount = Some(read_epee_value(r, Default::default())?),
+            "binary" => self.binary = Some(read_epee_value(r, Default::default())?),
+            "compress" => self.compress = Some(read_epee_value(r, Default::default())?),
+            "compressed_data" => {
+                self.compressed_data = Some(read_epee_value(r, Default::default())?);
+            }
             // `distribution` arrives as a raw LE-u64 blob when `binary=true`
             // (monerod uses `KV_SERIALIZE_CONTAINER_POD_AS_BLOB_N`) or as a
             // typed EPEE u64 array when `binary=false`. Detect via marker.
             "distribution" => {
                 let marker = read_marker(r)?;
                 self.distribution = Some(if marker == ContainerAsBlob::<u64>::MARKER {
-                    ContainerAsBlob::<u64>::read(r, &marker)?.into()
+                    ContainerAsBlob::<u64>::read(r, &marker, Default::default())?.into()
                 } else {
-                    Vec::<u64>::read(r, &marker)?
+                    Vec::<u64>::read(r, &marker, Default::default())?
                 });
             }
             _ => return Ok(false),

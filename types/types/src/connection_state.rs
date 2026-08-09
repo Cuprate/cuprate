@@ -135,8 +135,12 @@ impl TryFrom<u8> for ConnectionState {
 impl EpeeValue for ConnectionState {
     const MARKER: Marker = u8::MARKER;
 
-    fn read<B: Buf>(r: &mut B, marker: &Marker) -> error::Result<Self> {
-        let u = u8::read(r, marker)?;
+    fn read<B: Buf>(
+        r: &mut B,
+        marker: &Marker,
+        limits: cuprate_epee_encoding::EpeeValueLimits,
+    ) -> error::Result<Self> {
+        let u = u8::read(r, marker, limits)?;
         Self::from_u8(u).ok_or(error::Error::Format("u8 was greater than 4"))
     }
 

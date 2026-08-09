@@ -17,6 +17,11 @@ use cuprate_epee_encoding::{
 
 //---------------------------------------------------------------------------------------------------- BlockCompleteEntry
 /// A block that can contain transactions.
+///
+/// # Warning
+///
+/// This struct has a large in-memory size compared to its smallest valid encoding.
+/// You will need to add safety limits if this is stored in a Vec.
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BlockCompleteEntry {
@@ -91,11 +96,22 @@ impl TransactionBlobs {
 
     /// Epee read function.
     #[cfg(feature = "epee")]
-    fn tx_blob_read<B: Buf>(b: &mut B) -> cuprate_epee_encoding::Result<Self> {
+    fn tx_blob_read<B: Buf>(
+        b: &mut B,
+        _: cuprate_epee_encoding::EpeeValueLimits,
+    ) -> cuprate_epee_encoding::Result<Self> {
+        let limits = cuprate_epee_encoding::EpeeValueLimits {
+            // This is the size of `Bytes` on the stack, no tx can be this small. We could set a limit
+            // higher than 32 but 32 gives us enough protection.
+            min_element_size: 32,
+            // TODO: set to max txs in a block, but for now this is safe.
+            max_sequence_len: usize::MAX,
+        };
+
         let marker = cuprate_epee_encoding::read_marker(b)?;
         match marker.inner_marker {
-            InnerMarker::Object => Ok(Self::Pruned(Vec::read(b, &marker)?)),
-            InnerMarker::String => Ok(Self::Normal(Vec::read(b, &marker)?)),
+            InnerMarker::Object => Ok(Self::Pruned(Vec::read(b, &marker, limits)?)),
+            InnerMarker::String => Ok(Self::Normal(Vec::read(b, &marker, limits)?)),
             InnerMarker::I64
             | InnerMarker::I32
             | InnerMarker::I16

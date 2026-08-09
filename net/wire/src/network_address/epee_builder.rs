@@ -41,7 +41,10 @@ impl EpeeObjectBuilder<NetworkAddress> for TaggedNetworkAddress {
             "type" => {
                 if self
                     .ty
-                    .replace(cuprate_epee_encoding::read_epee_value(b)?)
+                    .replace(cuprate_epee_encoding::read_epee_value(
+                        b,
+                        Default::default(),
+                    )?)
                     .is_some()
                 {
                     return Err(cuprate_epee_encoding::Error::Format(
@@ -51,8 +54,11 @@ impl EpeeObjectBuilder<NetworkAddress> for TaggedNetworkAddress {
                 Ok(true)
             }
             "addr" => {
-                if std::mem::replace(&mut self.addr, cuprate_epee_encoding::read_epee_value(b)?)
-                    .is_some()
+                if std::mem::replace(
+                    &mut self.addr,
+                    cuprate_epee_encoding::read_epee_value(b, Default::default())?,
+                )
+                .is_some()
                 {
                     return Err(cuprate_epee_encoding::Error::Format(
                         "Duplicate field in data.",
