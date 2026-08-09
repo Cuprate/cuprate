@@ -183,7 +183,7 @@ fn write_blocks(db: &BlockchainDatabase, blocks: &[VerifiedBlockInformation]) ->
 /// [`BlockchainWriteRequest::WriteAltBlock`].
 #[inline]
 fn write_alt_block(db: &BlockchainDatabase, block: &AltBlockInformation) -> ResponseResult {
-    let mut tx_rw = db.fjall.batch();
+    let mut tx_rw = db.fjall.batch().durability(Some(PersistMode::SyncAll));
 
     crate::ops::alt_block::add_alt_block(db, block, &mut tx_rw)?;
 
@@ -195,7 +195,7 @@ fn write_alt_block(db: &BlockchainDatabase, block: &AltBlockInformation) -> Resp
 /// [`BlockchainWriteRequest::PopBlocks`].
 fn pop_blocks(db: &BlockchainDatabase, numb_blocks: usize) -> ResponseResult {
     let mut tapes = db.linear_tapes.truncate();
-    let mut tx_rw = db.fjall.batch();
+    let mut tx_rw = db.fjall.batch().durability(Some(PersistMode::SyncAll));
 
     // flush all the current alt blocks as they may reference blocks to be popped.
     crate::ops::alt_block::flush_alt_blocks(db)?;

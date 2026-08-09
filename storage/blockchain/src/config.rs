@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use cuprate_helper::fs::CUPRATE_DATA_DIR;
 
+/// The persistence mode to use on the database.
 #[derive(Default, Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Persistence {
