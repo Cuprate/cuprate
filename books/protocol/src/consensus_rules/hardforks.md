@@ -1,6 +1,6 @@
 # Hard Forks
 
-Monero makes use of hard-forks to update its protocol. Although it has never been used, Monero has a system in it's codebase to
+Monero makes use of hard-forks to update its protocol. Although it has never been used, Monero has a system in its codebase to
 allow voting for activation of a hard-fork[^hardfork-class]. It works by using the blocks `minor version` field as a voting field,
 when enough blocks vote for a hard fork the fork is activated.
 

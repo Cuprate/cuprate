@@ -3,7 +3,7 @@
 This chapter contains all of Monero's consensus rules, from genesis to now. Some rules
 are complex so have been split into their own chapter.
 
-Rules that are not bound to consensus (relay rules) are not included here. Also we have not documented "rules" which are enforced by
+Rules that are not bound to consensus (relay rules) are not included here. Also, we have not documented "rules" which are enforced by
 (de)serialization, for example it's impossible to have a ringCT signature in a version 1 transaction, rules that are unclear if they
 can be omitted or not should _always_ be included.
 

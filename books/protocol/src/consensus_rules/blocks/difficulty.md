@@ -15,7 +15,7 @@ does not overflow the hash is valid[^check-pow]:
 To calculate difficulty, Monero keeps a window of the last 735[^diff-blocks-count] timestamps and cumulative difficulties,
 if there are not enough blocks, then you just use as many as possible.
 
-> The genesis block is skipped for these calculations[^skip-genesis] so should not be included in the timestamp / CD list but it is
+> The genesis block is skipped for these calculations[^skip-genesis] so should not be included in the timestamp / CD list, but it is
 > included in the cumulative difficulty of the chain.
 
 If the amount of blocks is less than or equal to 1 then 1 is returned as the difficulty[^amt-blocks-1].

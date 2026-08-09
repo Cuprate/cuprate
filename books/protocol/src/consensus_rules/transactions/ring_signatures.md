@@ -16,7 +16,7 @@ For a ring signature at a certain index, the input at that same index must have 
 
 ### Signatures Must Be Canonical
 
-Every signatures c and r value must be `canonical scalars`[^canonical-sig].
+Every signature's c and r value must be `canonical scalars`[^canonical-sig].
 
 ### Ring Members Must Be Valid Points
 

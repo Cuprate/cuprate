@@ -28,7 +28,7 @@ Now we need to get the [median weight for block rewards](weights.md#median-weigh
 
 If the current block weight is not more than the median weight then the block reward is the base reward.
 
-Otherwise the block reward is:[^block-reward]
+Otherwise, the block reward is:[^block-reward]
 
 \\(blockReward = baseReward * (1 - (\frac{blockWeight}{effectiveMedianWeight} -1)^2) \\)
 

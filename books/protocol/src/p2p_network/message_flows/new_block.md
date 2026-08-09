@@ -5,7 +5,7 @@ This is used whenever a new block is to be sent to peers. Only the fluffy block 
 ## Flow
 
 First the peer with the new block will send a [new fluffy block](../levin/protocol.md#notify-new-fluffy-block) notification, if the receiving
-peer has all the txs in the block then the flow is complete. Otherwise the peer sends a [fluffy missing transactions request](../levin/protocol.md#notify-request-fluffy-missing-tx) 
+peer has all the txs in the block then the flow is complete. Otherwise, the peer sends a [fluffy missing transactions request](../levin/protocol.md#notify-request-fluffy-missing-tx) 
 to the first peer, the first peer will then respond with again a [new fluffy block](../levin/protocol.md#notify-new-fluffy-block) notification but
 with the transactions requested.  
 

@@ -1,5 +1,5 @@
 # Index of PATHs
-This is an index of all of the filesystem PATHs Cuprate actively uses.
+This is an index of all the filesystem PATHs Cuprate actively uses.
 
 The [`cuprate_helper::fs`](https://doc.cuprate.org/cuprate_helper/fs/index.html)
 module defines the general locations used throughout Cuprate.
@@ -63,9 +63,9 @@ Cuprate's database location/filenames depend on:
 
 ---
 
-`cuprate_blockchain` files are in the above mentioned `blockchain` folder.
+`cuprate_blockchain` files are in the above-mentioned `blockchain` folder.
 
-`cuprate_txpool` files are in the above mentioned `txpool` folder.
+`cuprate_txpool` files are in the above-mentioned `txpool` folder.
 
 ---
 

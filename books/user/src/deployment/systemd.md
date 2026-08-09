@@ -1,5 +1,5 @@
 # systemd
-`cuprated` can be ran as a `systemd` service, the below are commands to setup a relatively hardened deployment.
+`cuprated` can be ran as a `systemd` service, the below are commands to set up a relatively hardened deployment.
 
 ```bash
 # Create the `cuprate` user

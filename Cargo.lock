@@ -1479,6 +1479,7 @@ dependencies = [
  "cuprate-types",
  "hex",
  "proptest",
+ "serde",
  "thiserror 2.0.18",
 ]
 

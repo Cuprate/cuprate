@@ -1,7 +1,7 @@
 # `ops`
 Both [`cuprate_blockchain`](https://doc.cuprate.org/cuprate_blockchain)
 and [`cuprate_txpool`](https://doc.cuprate.org/cuprate_txpool) expose an
-`ops` module containing abstracted abstracted Monero-related database operations.
+`ops` module containing abstracted Monero-related database operations.
 
 For example, [`cuprate_blockchain::ops::block::add_block`](https://doc.cuprate.org/cuprate_blockchain/ops/block/fn.add_block.html).
 

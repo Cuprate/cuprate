@@ -42,9 +42,9 @@ The directory used for general data is:
 | macOS   | `/Users/User/Library/Application Support/Cuprate/` |
 | Linux   | `/home/user/.local/share/cuprate/`                 |
 
-The sub-directories are:
+The subdirectories are:
 
-| Sub-directory         | Purpose |
+| Subdirectory          | Purpose |
 |-----------------------|---------|
 | `fjall/`              | Blockchain and transaction pool data
 | `tapes/`              | Blockchain data

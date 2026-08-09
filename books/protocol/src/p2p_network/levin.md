@@ -4,7 +4,7 @@ This chapter describes the levin protocol.
 
 ## Buckets
 
-A Bucket is a single piece of data that the levin protocol parser can decode, it will contain a p2p message or it will be part of a chain
+A Bucket is a single piece of data that the levin protocol parser can decode, it will contain a p2p message, or it will be part of a chain
 of buckets that will be combined into a single message.
 
 ### Bucket Format
