@@ -2,7 +2,7 @@
 use std::collections::HashMap;
 
 use cuprate_helper::{cast::usize_to_u64, crypto::compute_zero_commitment};
-use cuprate_pruning::CRYPTONOTE_PRUNING_LOG_STRIPES;
+use cuprate_pruning::{CRYPTONOTE_PRUNING_LOG_STRIPES, CRYPTONOTE_PRUNING_TIP_BLOCKS};
 
 use fjall::Readable;
 use monero_oxide::transaction::{Input, Pruned, Timelock, Transaction};
@@ -10,7 +10,10 @@ use tapes::{TapesAppend, TapesRead};
 
 use crate::{
     error::{BlockchainError, DbResult},
-    ops::output::{add_output, remove_output},
+    ops::{
+        blockchain::chain_height,
+        output::{add_output, remove_output},
+    },
     types::{Amount, BlockHeight, Output, RctOutput, TxHash, TxId, TxInfo},
     BlockchainDatabase,
 };
@@ -259,6 +262,7 @@ const fn miner_tx_prunable_hash(tx_info: &TxInfo) -> [u8; 32] {
 
 /// Returns a transaction's split blobs and prunable hash from its [`TxInfo`].
 pub(crate) fn get_split_tx_blobs(
+    tx_id: &TxId,
     tx_info: &TxInfo,
     is_miner_tx: bool,
     tapes: &impl TapesRead,
@@ -282,7 +286,7 @@ pub(crate) fn get_split_tx_blobs(
     let mut prunable_blob = vec![0; tx_info.prunable_size];
     if !prunable_blob.is_empty() {
         let prunable_tape = if tx_info.is_v1_tx() {
-            &db.v1_prunable_blobs
+            Some(&db.v1_prunable_blobs)
         } else {
             let stripe = cuprate_pruning::get_block_pruning_stripe(
                 tx_info.height,
@@ -294,10 +298,17 @@ pub(crate) fn get_split_tx_blobs(
             db.prunable_blobs
                 [usize::try_from(stripe).expect("stripe will not exceed usize::MAX") - 1]
                 .as_ref()
-                .ok_or(BlockchainError::NotFound)?
         };
 
-        tapes.read_bytes(prunable_tape, tx_info.prunable_blob_idx, &mut prunable_blob)?;
+        read_prunable_tape(
+            &tx_id,
+            &tx_info.height,
+            tx_info.prunable_blob_idx,
+            prunable_tape,
+            &mut prunable_blob,
+            db,
+            tapes,
+        )?;
     }
 
     Ok((pruned_blob, prunable_blob, prunable_hash))
@@ -322,7 +333,7 @@ pub fn get_tx_blob_from_id(
     )?;
 
     let prunable_tape = if tx_info.is_v1_tx() {
-        &db.v1_prunable_blobs
+        Some(&db.v1_prunable_blobs)
     } else {
         let stripe = cuprate_pruning::get_block_pruning_stripe(
             tx_info.height,
@@ -332,13 +343,16 @@ pub fn get_tx_blob_from_id(
         .unwrap();
         db.prunable_blobs[usize::try_from(stripe).expect("stripe will not exceed usize::MAX") - 1]
             .as_ref()
-            .ok_or(BlockchainError::NotFound)?
     };
 
-    tapes.read_bytes(
-        prunable_tape,
+    read_prunable_tape(
+        &tx_id,
+        &tx_info.height,
         tx_info.prunable_blob_idx,
+        prunable_tape,
         &mut blob[tx_info.pruned_size..],
+        db,
+        tapes,
     )?;
 
     Ok(blob)
@@ -383,6 +397,38 @@ pub fn tx_exists(
     tx_ro: &fjall::Snapshot,
 ) -> DbResult<bool> {
     Ok(tx_ro.contains_key(&db.tx_ids, tx_hash)?)
+}
+
+/// Gets a transaction by reading the `prunable_tape` if it is Some or
+/// otherwise, checking the tip block if the tx is there
+///
+/// If it's neither where, it errors.
+#[inline]
+pub fn read_prunable_tape(
+    tx_id: &TxId,
+    block_height: &BlockHeight,
+    prunable_blob_idx: u64,
+    prunable_tape: Option<&tapes::BlobTape>,
+    buf: &mut [u8],
+    db: &BlockchainDatabase,
+    tapes: &impl TapesRead,
+) -> Result<(), BlockchainError> {
+    let chain_height = chain_height(db, tapes)?;
+    if let Some(prunable_tape) = prunable_tape {
+        tapes.read_bytes(prunable_tape, prunable_blob_idx, buf)?;
+    } else {
+        if block_height + CRYPTONOTE_PRUNING_TIP_BLOCKS >= chain_height {
+            let prunable_blob = db
+                .prunable_tip
+                .get(tx_id.to_le_bytes())?
+                .ok_or(BlockchainError::NotFound)?;
+            buf[..prunable_blob.len()].copy_from_slice(&prunable_blob);
+        } else {
+            return Err(BlockchainError::NotFound);
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

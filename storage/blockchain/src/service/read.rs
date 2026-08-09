@@ -1329,7 +1329,7 @@ fn transactions(db: &BlockchainDatabase, tx_hashes: Vec<[u8; 32]>) -> ResponseRe
         let is_miner_tx = tx_id == block_info.mining_tx_index;
 
         let (pruned_blob, prunable_blob, prunable_hash) =
-            get_split_tx_blobs(&tx_info, is_miner_tx, &tapes, db)?;
+            get_split_tx_blobs(&tx_id, &tx_info, is_miner_tx, &tapes, db)?;
 
         let block_timestamp = if let Some(timestamp) = block_timestamps.get(&tx_info.height) {
             *timestamp
