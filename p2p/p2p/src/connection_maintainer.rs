@@ -17,7 +17,7 @@ use tracing::{instrument, Instrument, Span};
 use cuprate_p2p_core::{
     client::{Client, ConnectRequest, HandshakeError, PeerSyncCallback},
     services::{AddressBookRequest, AddressBookResponse},
-    AddressBook, NetworkZone,
+    AddressBook, NetZoneAddress, NetworkZone,
 };
 
 use crate::{
@@ -115,7 +115,7 @@ where
         let mut handshake_futs = JoinSet::new();
 
         for seed in seeds {
-            tracing::info!("Getting peers from seed node: {}", seed);
+            tracing::info!("Getting peers from seed node: {}", seed.display_redacted());
 
             let addr = *seed;
             let fut = timeout(
@@ -131,11 +131,17 @@ where
                 async move {
                     match fut.await {
                         Err(_) => {
-                            tracing::warn!("Timed out connecting to seed node: {addr}");
+                            tracing::warn!(
+                                "Timed out connecting to seed node: {}",
+                                addr.display_redacted()
+                            );
                             false
                         }
                         Ok(Err(e)) => {
-                            tracing::warn!("Failed to connect to seed node {addr}: {e}");
+                            tracing::warn!(
+                                "Failed to connect to seed node {}: {e}",
+                                addr.display_redacted()
+                            );
                             false
                         }
                         Ok(Ok(_)) => true,

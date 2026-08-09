@@ -28,6 +28,8 @@ use crate::{
 /// - the server(s) could not be started
 /// - unrestricted RPC is started on non-local
 ///   address without override option
+/// - log redaction is disabled while RPC is bound to a
+///   non-local address without override option
 pub fn init_rpc_servers(launch_ctx: &LaunchContext, tx_handler: IncomingTxHandler) {
     let config = &launch_ctx.config.rpc;
     for ((enable, addr, port, request_byte_limit), restricted) in [
@@ -66,6 +68,23 @@ pub fn init_rpc_servers(launch_ctx: &LaunchContext, tx_handler: IncomingTxHandle
                 );
             } else {
                 panic!("Refusing to start unrestricted RPC on a non-local address ({addr})");
+            }
+        }
+
+        if !cuprate_helper::net::ip_is_local(addr) && !launch_ctx.config.tracing.redact {
+            if launch_ctx
+                .config
+                .tracing
+                .i_know_what_im_doing_allow_unredacted_public_logs
+            {
+                warn!(
+                    address = %addr,
+                    "Starting RPC on non-local address with log redaction disabled, this is dangerous!"
+                );
+            } else {
+                panic!(
+                    "Refusing to start RPC on a non-local address ({addr}) with log redaction disabled"
+                );
             }
         }
 

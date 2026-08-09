@@ -85,6 +85,14 @@ impl<S> Filter<S> for CupratedTracingFilter {
 
 /// Initialize [`tracing`] for logging to stdout and to a file.
 pub fn init_logging(config: &Config) {
+    // disable log redaction if configured to do so.
+    if !config.tracing.redact {
+        match safelog::disable_safe_logging() {
+            Ok(guard) => forget(guard),
+            Err(e) => eprintln_red(&format!("failed to disable log redaction: {e}")),
+        }
+    }
+
     // initialize the stdout filter, set `STDOUT_FILTER_HANDLE` and create the layer.
     let (stdout_filter, stdout_handle) = ReloadLayer::new(CupratedTracingFilter {
         level: config.tracing.stdout.level,

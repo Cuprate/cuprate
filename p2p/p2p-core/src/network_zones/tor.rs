@@ -36,6 +36,14 @@ impl NetZoneAddress for OnionAddr {
         // Validation of the onion address has been done at the type construction...
         true
     }
+
+    fn display_redacted(&self) -> impl std::fmt::Display + '_ {
+        safelog::sensitive(*self)
+    }
+
+    fn display_unredacted(&self) -> impl std::fmt::Display + '_ {
+        self
+    }
 }
 
 #[derive(Clone, Copy)]
