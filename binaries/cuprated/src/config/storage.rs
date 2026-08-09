@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use cuprate_blockchain::config::CacheSizes;
+use cuprate_blockchain::config::{CacheSizes, Persistence};
 use cuprate_helper::fs::CUPRATE_DATA_DIR;
 
 use super::{default::DefaultOrCustom, macros::config_struct};
@@ -80,6 +80,26 @@ config_struct! {
     #[derive(Default, Debug, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
     pub struct BlockchainConfig {
+        #[comment_out = true]
+        /// The persistence mode of the database.
+        ///
+        /// ## Buffer
+        /// Buffer the changes but don't wait for them to be synced to disk.
+        /// This can lead to corruption if there is a crash.
+        ///
+        /// ## Sync
+        /// Sync all changes to disk.
+        /// This prevents corruption but can be a bit slower.
+        ///
+        /// ## BufferThenSync
+        /// Buffer changes while syncing but then switch to syncing all changes to disk once synced.
+        /// This is a compromise between Buffer and Sync.
+        ///
+        /// Type         | String
+        /// Valid values | "Buffer", "Sync", "BufferThenSync"
+        /// Examples     | "BufferThenSync"
+        pub persistence: Persistence,
+
         #[inline = true]
         #[comment_out = true]
         /// The size of each tape cache.
