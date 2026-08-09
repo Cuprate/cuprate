@@ -9,7 +9,6 @@ use std::{
 use crossbeam::channel::Receiver;
 use fjall::PersistMode;
 use futures::channel::oneshot;
-use tapes::Persistence;
 use tapes::TapesRead;
 use tower::Service;
 use tracing::instrument;
@@ -22,6 +21,7 @@ use cuprate_types::{
 
 use crate::{
     error::{BlockchainError, DbResult},
+    config::Persistence,
     ops::block::add_blocks_to_tapes,
     service::ResponseResult,
     BlockchainDatabase,
@@ -135,6 +135,14 @@ fn write_block(db: &BlockchainDatabase, block: &VerifiedBlockInformation) -> Res
 #[inline]
 #[instrument(skip(db, blocks), level = "debug")]
 fn write_blocks(db: &BlockchainDatabase, blocks: &[VerifiedBlockInformation]) -> ResponseResult {
+    let (tapes_persist_mode, fjall_persit_mode) = match db.config.persistence {
+        Persistence::Buffer => (tapes::Persistence::Buffer, PersistMode::Buffer),
+        // We use the amount of blocks to write as a huristic for if we are synced. When Cuprate starts downloading
+        // blocks it will do 1 at a time so for that thoes will be fully synced but that does not last long. 
+        Persistence::BufferThenSync if blocks.len() > 1 => (tapes::Persistence::Buffer, PersistMode::Buffer),
+        Persistence::Sync | Persistence::BufferThenSync => (tapes::Persistence::SyncAll, PersistMode::SyncAll),
+    };
+    
     tracing::debug!("Writing {} block(s) to database.", blocks.len());
 
     let mut tapes = db.linear_tapes.append();
@@ -145,11 +153,11 @@ fn write_blocks(db: &BlockchainDatabase, blocks: &[VerifiedBlockInformation]) ->
 
     add_blocks_to_tapes(blocks, db, &mut tapes)?;
 
-    tapes.commit(Persistence::Buffer)?;
+    tapes.commit(tapes_persist_mode)?;
 
     let mut pre_rct_numb_outputs_cache = db.pre_rct_numb_outputs_cache.lock().unwrap();
 
-    let mut tx_rw = db.fjall.batch().durability(Some(PersistMode::Buffer));
+    let mut tx_rw = db.fjall.batch().durability(Some(fjall_persit_mode));
 
     for block in blocks {
         crate::ops::block::add_block_to_dynamic_tables(
@@ -201,7 +209,7 @@ fn pop_blocks(db: &BlockchainDatabase, numb_blocks: usize) -> ResponseResult {
     }
 
     tx_rw.commit()?;
-    tapes.commit(Persistence::SyncAll)?;
+    tapes.commit(tapes::Persistence::SyncAll)?;
     Ok(BlockchainResponse::PopBlocks(old_main_chain_id))
 }
 
