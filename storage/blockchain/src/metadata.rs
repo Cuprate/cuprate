@@ -29,7 +29,7 @@ impl Metadata {
             let mut file = File::open(&metadata_path)?;
             let mut buf = Vec::new();
             file.read_to_end(&mut buf)?;
-            let metadata: Metadata = Metadata::deserialize(buf.as_slice())?;
+            let metadata = Self::deserialize(buf.as_slice())?;
             tracing::info!(
                 "Opened existing metadata file with DB version = {} and pruning_stripe = {:?}.",
                 metadata.db_version,
@@ -37,7 +37,7 @@ impl Metadata {
             );
             Ok(metadata)
         } else {
-            let metadata = Metadata::new();
+            let metadata = Self::new();
             metadata.write_to_file(&metadata_path)?;
             Ok(metadata)
         }
@@ -62,7 +62,7 @@ impl Metadata {
     ///
     /// Returns `None` if the seed is not pruned (e.g. the seed is `0`).
     #[inline]
-    pub fn get_stripe_idx(&self) -> Option<u32> {
+    pub const fn get_stripe_idx(&self) -> Option<u32> {
         self.pruning_seed.get_stripe()
     }
 
@@ -70,12 +70,12 @@ impl Metadata {
     ///
     /// Note that this doesn't re-read the file.
     #[inline]
-    pub fn get_pruning_seed(&self) -> PruningSeed {
+    pub const fn get_pruning_seed(&self) -> PruningSeed {
         self.pruning_seed
     }
 
     #[inline]
-    pub fn get_db_version(&self) -> u64 {
+    pub const fn get_db_version(&self) -> u64 {
         self.db_version
     }
 
@@ -85,11 +85,11 @@ impl Metadata {
     }
 
     /// deserializes a [`bytes::Buf`] into a [`Metadata`]
-    fn deserialize(mut bytes: impl bytes::Buf) -> Result<Metadata, BlockchainError> {
+    fn deserialize(mut bytes: impl bytes::Buf) -> Result<Self, BlockchainError> {
         let db_version = bytes.try_get_u64_le()?;
         let pruning_seed = PruningSeed::decompress(bytes.try_get_u32_le()?)?;
 
-        Ok(Metadata {
+        Ok(Self {
             db_version,
             pruning_seed,
         })
@@ -109,9 +109,9 @@ impl Metadata {
         Ok(())
     }
 
-    /// Creates a new [`Metadata`] with the given path. Default pruning_seed is [`PruningSeed::NotPruned`].
+    /// Creates a new [`Metadata`] with the given path. Default `pruning_seed` is [`PruningSeed::NotPruned`].
     #[inline]
-    fn new() -> Self {
+    const fn new() -> Self {
         Self {
             db_version: DATABASE_VERSION,
             pruning_seed: PruningSeed::NotPruned,

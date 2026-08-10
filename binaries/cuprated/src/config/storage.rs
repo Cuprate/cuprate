@@ -77,7 +77,7 @@ config_struct! {
 
 config_struct! {
     /// The blockchain config.
-    #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+    #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
     pub struct BlockchainConfig {
         #[comment_out = true]
@@ -93,15 +93,6 @@ config_struct! {
         ///
         /// You probably do not need to edit these values.
         pub tapes_cache_sizes: CacheSizes,
-    }
-}
-
-impl Default for BlockchainConfig {
-    fn default() -> Self {
-        Self {
-            prune: false,
-            tapes_cache_sizes: Default::default(),
-        }
     }
 }
 

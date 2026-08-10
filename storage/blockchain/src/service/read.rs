@@ -1329,7 +1329,7 @@ fn transactions(db: &BlockchainDatabase, tx_hashes: Vec<[u8; 32]>) -> ResponseRe
         let is_miner_tx = tx_id == block_info.mining_tx_index;
 
         let (pruned_blob, prunable_blob, prunable_hash) =
-            get_split_tx_blobs(&tx_id, &tx_info, is_miner_tx, &tapes, db)?;
+            get_split_tx_blobs(tx_id, &tx_info, is_miner_tx, &tapes, db)?;
 
         let block_timestamp = if let Some(timestamp) = block_timestamps.get(&tx_info.height) {
             *timestamp
@@ -1386,7 +1386,7 @@ fn tx_output_indexes(db: &BlockchainDatabase, tx_hash: &[u8; 32]) -> ResponseRes
     let tx_ro = db.fjall.snapshot();
     let tapes = db.linear_tapes.reader();
 
-    let tx_id = get_tx_id_from_hash(&db, tx_hash)?;
+    let tx_id = get_tx_id_from_hash(db, tx_hash)?;
 
     let tx_info = tapes
         .read_entry(&db.tx_infos, tx_id)?
@@ -1487,6 +1487,6 @@ fn pre_rct_output_distribution(
     Ok(BlockchainResponse::PreRctOutputDistribution(result))
 }
 
-fn pruning_seed(env: &BlockchainDatabase) -> BlockchainResponse {
+const fn pruning_seed(env: &BlockchainDatabase) -> BlockchainResponse {
     BlockchainResponse::PruningSeed(env.pruning_seed)
 }

@@ -202,7 +202,8 @@ impl BlockchainDatabase {
 
         if config.prune && !metadata.is_pruned() {
             // generate a random stripe index to prune
-            let stripe_idx = rand::thread_rng().gen_range(0..PRUNABLE_BLOBS.len()) as u32;
+            let stripe_idx =
+                u32::try_from(rand::thread_rng().gen_range(0..PRUNABLE_BLOBS.len())).unwrap();
             metadata.set_stripe_idx(stripe_idx, &config.index_dir)?;
 
             tracing::info!(
@@ -368,6 +369,7 @@ impl BlockchainDatabase {
         self.pre_rct_outputs = recreate_fjall_keyspace(&self.fjall, &self.pre_rct_outputs)?;
         self.tx_ids = recreate_fjall_keyspace(&self.fjall, &self.tx_ids)?;
         self.v1_tx_outputs = recreate_fjall_keyspace(&self.fjall, &self.v1_tx_outputs)?;
+        self.prunable_tip = recreate_fjall_keyspace(&self.fjall, &self.prunable_tip)?;
         reset_fjall_keyspace(&self.fjall, &self.alt_chain_infos)?;
         reset_fjall_keyspace(&self.fjall, &self.alt_block_heights)?;
         reset_fjall_keyspace(&self.fjall, &self.alt_block_infos)?;

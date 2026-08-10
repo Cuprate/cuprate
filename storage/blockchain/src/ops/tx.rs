@@ -262,7 +262,7 @@ const fn miner_tx_prunable_hash(tx_info: &TxInfo) -> [u8; 32] {
 
 /// Returns a transaction's split blobs and prunable hash from its [`TxInfo`].
 pub(crate) fn get_split_tx_blobs(
-    tx_id: &TxId,
+    tx_id: TxId,
     tx_info: &TxInfo,
     is_miner_tx: bool,
     tapes: &impl TapesRead,
@@ -346,7 +346,7 @@ pub fn get_tx_blob_from_id(
     };
 
     read_prunable_tape(
-        &tx_id,
+        tx_id,
         &tx_info.height,
         tx_info.prunable_blob_idx,
         prunable_tape,

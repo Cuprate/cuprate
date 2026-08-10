@@ -394,7 +394,7 @@ pub fn add_blocks_to_prunable_tip(
     // add newest blocks
     let blocks_to_keep = blocks.len().min(CRYPTONOTE_PRUNING_TIP_BLOCKS);
     for block in &blocks[blocks.len() - blocks_to_keep..] {
-        for tx in block.txs.iter() {
+        for tx in &block.txs {
             let tx_id = db
                 .tx_ids
                 .get(tx.tx_hash)?
@@ -494,9 +494,13 @@ pub fn pop_block(
         CRYPTONOTE_PRUNING_LOG_STRIPES,
     )
     .unwrap();
-    db.prunable_blobs[usize::try_from(stripe).expect("stripe will not exceed usize::MAX") - 1]
+
+    if let Some(tape) = db.prunable_blobs
+        [usize::try_from(stripe).expect("stripe will not exceed usize::MAX") - 1]
         .as_ref()
-        .map(|tape| tapes.truncate_blob_tape(tape, block_info.prunable_blob_idx)); // ignore pruned ones
+    {
+        tapes.truncate_blob_tape(tape, block_info.prunable_blob_idx);
+    } // ignore pruned ones
 
     tapes.truncate_fixed_sized_tape(&db.tx_infos, block_info.mining_tx_index);
 
