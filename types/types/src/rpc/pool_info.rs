@@ -54,7 +54,7 @@ impl EpeeObjectBuilder<PoolInfo> for __PoolInfoEpeeBuilder {
             ($($field:ident),*) => {
                 match name {
                     $(
-                        stringify!($field) => { self.$field = Some(read_epee_value(r)?); },
+                        stringify!($field) => { self.$field = Some(read_epee_value(r, Default::default())?); },
                     )*
                     _ => return Ok(false),
                 }

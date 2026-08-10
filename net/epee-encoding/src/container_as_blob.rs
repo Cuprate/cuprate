@@ -3,7 +3,7 @@ use alloc::{string::ToString, vec, vec::Vec};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use ref_cast::RefCast;
 
-use crate::{error::*, EpeeValue, InnerMarker, Marker};
+use crate::{error::*, EpeeValue, EpeeValueLimits, InnerMarker, Marker};
 
 #[derive(RefCast)]
 #[repr(transparent)]
@@ -30,8 +30,8 @@ impl<'a, T: Containerable + EpeeValue> From<&'a Vec<T>> for &'a ContainerAsBlob<
 impl<T: Containerable + EpeeValue> EpeeValue for ContainerAsBlob<T> {
     const MARKER: Marker = Marker::new(InnerMarker::String);
 
-    fn read<B: Buf>(r: &mut B, marker: &Marker) -> Result<Self> {
-        let bytes = Bytes::read(r, marker)?;
+    fn read<B: Buf>(r: &mut B, marker: &Marker, _: EpeeValueLimits) -> Result<Self> {
+        let bytes = Bytes::read(r, marker, Default::default())?;
         if bytes.len() % T::SIZE != 0 {
             return Err(Error::Value(
                 "Can't convert blob container to Vec type.".to_string(),

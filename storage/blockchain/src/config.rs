@@ -6,6 +6,25 @@ use serde::{Deserialize, Serialize};
 
 use cuprate_helper::fs::CUPRATE_DATA_DIR;
 
+/// The persistence mode to use on the database.
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum Persistence {
+    /// Buffer the changes but don't wait for them to be synced to disk.
+    ///
+    /// This can lead to corruption if there is a crash.
+    Buffer,
+    /// Sync all changes to disk.
+    ///
+    /// This prevents corruption but can be a bit slower.
+    Sync,
+    #[default]
+    /// Buffer changes while syncing but then switch to syncing all changes to disk once synced.
+    ///
+    /// This is a compromise between [`Self::Buffer`] and [`Self::Sync`].
+    BufferThenSync,
+}
+
 /// The tapes cache sizes.
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -45,6 +64,8 @@ pub struct Config {
     pub cache_sizes: CacheSizes,
     /// Whether to prune the blockchain database.
     pub prune: bool,
+    /// The [`Persistence`] mode to use.
+    pub persistence: Persistence,
 }
 
 impl Default for Config {
@@ -54,6 +75,7 @@ impl Default for Config {
             index_dir: CUPRATE_DATA_DIR.to_path_buf(),
             cache_sizes: CacheSizes::default(),
             prune: true,
+            persistence: Persistence::default(),
         }
     }
 }

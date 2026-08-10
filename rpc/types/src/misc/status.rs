@@ -154,8 +154,12 @@ impl Display for Status {
 impl EpeeValue for Status {
     const MARKER: Marker = <String as EpeeValue>::MARKER;
 
-    fn read<B: Buf>(r: &mut B, marker: &Marker) -> cuprate_epee_encoding::Result<Self> {
-        let string = <String as EpeeValue>::read(r, marker)?;
+    fn read<B: Buf>(
+        r: &mut B,
+        marker: &Marker,
+        limits: cuprate_epee_encoding::EpeeValueLimits,
+    ) -> cuprate_epee_encoding::Result<Self> {
+        let string = <String as EpeeValue>::read(r, marker, limits)?;
         Ok(Self::from(string))
     }
 
@@ -192,9 +196,12 @@ mod test {
             let mut buf = vec![];
 
             <Status as EpeeValue>::write(status.clone(), &mut buf).unwrap();
-            let status2 =
-                <Status as EpeeValue>::read(&mut buf.as_slice(), &<Status as EpeeValue>::MARKER)
-                    .unwrap();
+            let status2 = <Status as EpeeValue>::read(
+                &mut buf.as_slice(),
+                &<Status as EpeeValue>::MARKER,
+                Default::default(),
+            )
+            .unwrap();
 
             assert_eq!(status, status2);
         }
