@@ -387,8 +387,7 @@ where
         }
     }
 
-    /// Shutdowns the connection, flushing pending requests and setting the error slot, if it hasn't been
-    /// set already.
+    /// Shutdowns the connection, flushing pending requests.
     #[expect(clippy::significant_drop_tightening)]
     fn shutdown(mut self, err: &PeerError) {
         tracing::debug!("Connection task shutting down: {}", err);

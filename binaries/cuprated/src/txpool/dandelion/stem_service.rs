@@ -87,9 +87,9 @@ enum OutboundPeerStreamState<Z: NetworkZone> {
 pub struct StemPeerService<N: NetworkZone>(ClientDropGuard<N>);
 
 impl<N: NetworkZone> Service<StemRequest<DandelionTx>> for StemPeerService<N> {
-    type Response = <Client<N> as Service<PeerRequest>>::Response;
+    type Response = <Client<N> as Service<BroadcastMessage>>::Response;
     type Error = tower::BoxError;
-    type Future = <Client<N> as Service<PeerRequest>>::Future;
+    type Future = <Client<N> as Service<BroadcastMessage>>::Future;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Service::<BroadcastMessage>::poll_ready(&mut *self.0, cx)
