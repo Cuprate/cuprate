@@ -363,27 +363,16 @@ pub fn add_blocks_to_prunable_tip(
     let new_tip_height = blocks.last().unwrap().height;
 
     if new_tip_height >= CRYPTONOTE_PRUNING_TIP_BLOCKS {
-        let keep_from_height = new_tip_height - CRYPTONOTE_PRUNING_TIP_BLOCKS + 1; // first, to not delete
+        if let Some(first_tx) = db.prunable_tip.first_key_value() {
+            let tx_id_to_remove_from =
+                u64::from_le_bytes(first_tx.key()?.as_ref().try_into().unwrap());
 
-        let first_added_height = blocks.first().unwrap().height;
-        let remove_from_height = first_added_height.saturating_sub(CRYPTONOTE_PRUNING_TIP_BLOCKS);
+            let keep_from_height = new_tip_height - CRYPTONOTE_PRUNING_TIP_BLOCKS + 1; // first, to not delete
 
-        tracing::debug!(
-            "remove from: {} to: {}.",
-            remove_from_height,
-            keep_from_height
-        );
-
-        if remove_from_height < keep_from_height {
             let tx_to_remove_to = get_block(&keep_from_height, None, tapes, db)?
                 .miner_transaction()
                 .hash();
-            let tx_to_remove_from = get_block(&remove_from_height, None, tapes, db)?
-                .miner_transaction()
-                .hash();
-
             let tx_id_to_remove_to = get_tx_id_from_hash(db, &tx_to_remove_to)?;
-            let tx_id_to_remove_from = get_tx_id_from_hash(db, &tx_to_remove_from)?;
 
             for tx_id in tx_id_to_remove_from..tx_id_to_remove_to {
                 w.remove(&db.prunable_tip, tx_id.to_le_bytes().as_slice());
@@ -394,7 +383,11 @@ pub fn add_blocks_to_prunable_tip(
     // add newest blocks
     let blocks_to_keep = blocks.len().min(CRYPTONOTE_PRUNING_TIP_BLOCKS);
     for block in &blocks[blocks.len() - blocks_to_keep..] {
-        for tx in &block.txs {
+        for tx in block
+            .txs
+            .iter()
+            .filter(|tx| !tx.tx_prunable_blob.is_empty())
+        {
             let tx_id = db
                 .tx_ids
                 .get(tx.tx_hash)?
