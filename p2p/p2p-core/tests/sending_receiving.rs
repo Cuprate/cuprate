@@ -42,7 +42,7 @@ async fn get_single_block_from_monerod() {
         .unwrap();
 
     let PeerResponse::Protocol(ProtocolResponse::GetObjects(obj)) = connected_peer
-        .ready()
+        .ready_peer_request()
         .await
         .unwrap()
         .call(PeerRequest::Protocol(ProtocolRequest::GetObjects(

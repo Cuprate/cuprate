@@ -11,6 +11,7 @@ use futures::{
 };
 use tokio::{
     sync::{mpsc, OwnedSemaphorePermit},
+    task::JoinHandle,
     time::{sleep, timeout, Sleep},
 };
 use tokio_stream::wrappers::ReceiverStream;
@@ -22,7 +23,7 @@ use crate::{
     constants::{REQUEST_HANDLER_TIMEOUT, REQUEST_TIMEOUT, SENDING_TIMEOUT},
     handles::ConnectionGuard,
     AddressBook, BroadcastMessage, CoreSyncSvc, MessageID, NetworkZone, PeerError, PeerRequest,
-    PeerResponse, ProtocolRequestHandler, ProtocolResponse, SharedError, Transport,
+    PeerResponse, ProtocolRequestHandler, ProtocolResponse, Transport,
 };
 
 /// A request to the connection task from a [`Client`](crate::client::Client).
@@ -90,8 +91,9 @@ pub(crate) struct Connection<Z: NetworkZone, T: Transport<Z>, A, CS, PR, BrdcstS
 
     /// The connection guard which will send signals to other parts of Cuprate when this connection is dropped.
     connection_guard: ConnectionGuard,
-    /// An error slot which is shared with the client.
-    error: SharedError<PeerError>,
+
+    /// The [`JoinHandle`] of the spawned timeout monitor task.
+    timeout_handle: JoinHandle<Result<(), tower::BoxError>>,
 }
 
 impl<Z, T: Transport<Z>, A, CS, PR, BrdcstStrm> Connection<Z, T, A, CS, PR, BrdcstStrm>
@@ -109,7 +111,7 @@ where
         broadcast_stream: BrdcstStrm,
         peer_request_handler: PeerRequestHandler<Z, A, CS, PR>,
         connection_guard: ConnectionGuard,
-        error: SharedError<PeerError>,
+        timeout_handle: JoinHandle<Result<(), tower::BoxError>>,
     ) -> Self {
         Self {
             peer_sink,
@@ -119,7 +121,7 @@ where
             broadcast_stream: Box::pin(broadcast_stream),
             peer_request_handler,
             connection_guard,
-            error,
+            timeout_handle,
         }
     }
 
@@ -268,6 +270,11 @@ where
                 tracing::debug!("connection guard has shutdown, shutting down connection.");
                 Err(PeerError::ConnectionClosed)
             }
+            res = &mut self.timeout_handle => {
+                tracing::debug!("timeout task has shutdown, shutting down connection.");
+                res.unwrap()?;
+                Err(PeerError::ConnectionClosed)
+            }
             broadcast_req = self.broadcast_stream.next() => {
                 if let Some(broadcast_req) = broadcast_req {
                     self.handle_client_broadcast(broadcast_req).await
@@ -303,6 +310,11 @@ where
             biased;
             () = self.connection_guard.should_shutdown() => {
                 tracing::debug!("connection guard has shutdown, shutting down connection.");
+                Err(PeerError::ConnectionClosed)
+            }
+            res = &mut self.timeout_handle => {
+                tracing::debug!("timeout task has shutdown, shutting down connection.");
+                res.unwrap()?;
                 Err(PeerError::ConnectionClosed)
             }
             () = self.request_timeout.as_mut().expect("Request timeout was not set!") => {
@@ -357,7 +369,7 @@ where
             };
 
             if let Err(err) = res {
-                return self.shutdown(err);
+                return self.shutdown(&err);
             }
         }
 
@@ -370,7 +382,7 @@ where
             };
 
             if let Err(err) = res {
-                return self.shutdown(err);
+                return self.shutdown(&err);
             }
         }
     }
@@ -378,16 +390,13 @@ where
     /// Shutdowns the connection, flushing pending requests and setting the error slot, if it hasn't been
     /// set already.
     #[expect(clippy::significant_drop_tightening)]
-    fn shutdown(mut self, err: PeerError) {
+    fn shutdown(mut self, err: &PeerError) {
         tracing::debug!("Connection task shutting down: {}", err);
 
         let mut client_rx = self.client_rx.into_inner().into_inner();
         client_rx.close();
 
         let err_str = err.to_string();
-        if let Err(err) = self.error.try_insert_err(err) {
-            tracing::debug!("Shared error already contains an error: {}", err);
-        }
 
         if let State::WaitingForResponse { tx, .. } =
             std::mem::replace(&mut self.state, State::WaitingForRequest)

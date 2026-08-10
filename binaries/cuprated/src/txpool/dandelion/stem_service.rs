@@ -1,11 +1,11 @@
+use bytes::Bytes;
+use futures::{future::BoxFuture, FutureExt, Stream};
+use std::ops::DerefMut;
 use std::{
     future::Future,
     pin::Pin,
     task::{ready, Context, Poll},
 };
-
-use bytes::Bytes;
-use futures::{future::BoxFuture, FutureExt, Stream};
 use tower::Service;
 
 use cuprate_dandelion_tower::{traits::StemRequest, OutboundPeer};
@@ -91,12 +91,11 @@ impl<N: NetworkZone> Service<StemRequest<DandelionTx>> for StemPeerService<N> {
     type Future = <Client<N> as Service<PeerRequest>>::Future;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.0.broadcast_client().poll_ready(cx)
+        Service::<BroadcastMessage>::poll_ready(&mut *self.0, cx)
     }
 
     fn call(&mut self, req: StemRequest<DandelionTx>) -> Self::Future {
         self.0
-            .broadcast_client()
             .call(BroadcastMessage::NewTransactions(NewTransactions {
                 txs: vec![req.0 .0],
                 dandelionpp_fluff: false,

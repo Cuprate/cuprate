@@ -5,10 +5,7 @@ use std::{
 };
 
 use futures::channel::oneshot;
-use tokio::{
-    sync::{mpsc, OwnedSemaphorePermit, Semaphore},
-    task::JoinHandle,
-};
+use tokio::sync::{mpsc, OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::{PollSemaphore, PollSender};
 use tower::{Service, ServiceExt};
 use tracing::Instrument;
@@ -19,7 +16,7 @@ use cuprate_wire::{BasicNodeData, CoreSyncData};
 
 use crate::{
     handles::{ConnectionGuard, ConnectionHandle},
-    ConnectionDirection, NetworkZone, PeerError, PeerRequest, PeerResponse, SharedError,
+    BroadcastMessage, ConnectionDirection, NetworkZone, PeerError, PeerRequest, PeerResponse,
 };
 
 mod connection;
@@ -28,12 +25,10 @@ pub mod handshaker;
 mod request_handler;
 mod sync_callback;
 mod timeout_monitor;
-mod weak;
 
 pub use connector::{ConnectRequest, Connector};
 pub use handshaker::{DoHandshakeRequest, HandshakeError, HandshakerBuilder};
 pub use sync_callback::PeerSyncCallback;
-pub use weak::{WeakBroadcastClient, WeakClient};
 
 /// An internal identifier for a given peer, will be their address if known
 /// or a random u128 if not.
@@ -90,23 +85,20 @@ pub struct Client<Z: NetworkZone> {
 
     /// The channel to the [`Connection`](connection::Connection) task.
     connection_tx: PollSender<connection::ConnectionTaskRequest>,
-    /// The [`JoinHandle`] of the spawned connection task.
-    connection_handle: JoinHandle<()>,
-    /// The [`JoinHandle`] of the spawned timeout monitor task.
-    timeout_handle: JoinHandle<Result<(), tower::BoxError>>,
-
     /// The semaphore that limits the requests sent to the peer.
     semaphore: PollSemaphore,
     /// A permit for the semaphore, will be [`Some`] after `poll_ready` returns ready.
     permit: Option<OwnedSemaphorePermit>,
-
-    /// The error slot shared between the [`Client`] and [`Connection`](connection::Connection).
-    error: SharedError<PeerError>,
 }
 
-impl<Z: NetworkZone> Drop for Client<Z> {
-    fn drop(&mut self) {
-        self.info.handle.send_close_signal();
+impl<N: NetworkZone> Clone for Client<N> {
+    fn clone(&self) -> Self {
+        Self {
+            info: self.info.clone(),
+            connection_tx: self.connection_tx.clone(),
+            semaphore: self.semaphore.clone(),
+            permit: None,
+        }
     }
 }
 
@@ -115,41 +107,24 @@ impl<Z: NetworkZone> Client<Z> {
     pub(crate) fn new(
         info: PeerInformation<Z::Addr>,
         connection_tx: mpsc::Sender<connection::ConnectionTaskRequest>,
-        connection_handle: JoinHandle<()>,
-        timeout_handle: JoinHandle<Result<(), tower::BoxError>>,
         semaphore: Arc<Semaphore>,
-        error: SharedError<PeerError>,
     ) -> Self {
         Self {
             info,
             connection_tx: PollSender::new(connection_tx),
-            timeout_handle,
             semaphore: PollSemaphore::new(semaphore),
             permit: None,
-            connection_handle,
-            error,
         }
     }
 
-    /// Internal function to set an error on the [`SharedError`].
-    fn set_err(&self, err: PeerError) -> tower::BoxError {
-        let err_str = err.to_string();
-        match self.error.try_insert_err(err) {
-            Ok(()) => err_str,
-            Err(e) => e.to_string(),
-        }
-        .into()
+    /// Waits for the client to be ready for a [`PeerRequest`], then returns a service to handle one.
+    pub fn ready_peer_request(&mut self) -> tower::util::Ready<'_, Self, PeerRequest> {
+        ServiceExt::ready(self)
     }
 
-    /// Create a [`WeakClient`] for this [`Client`].
-    pub fn downgrade(&self) -> WeakClient<Z> {
-        WeakClient {
-            info: self.info.clone(),
-            connection_tx: self.connection_tx.clone(),
-            semaphore: self.semaphore.clone(),
-            permit: None,
-            error: self.error.clone(),
-        }
+    /// Waits for the client to be ready for a [`BroadcastMessage`], then returns a service to handle one.
+    pub fn ready_broadcast(&mut self) -> tower::util::Ready<'_, Self, BroadcastMessage> {
+        ServiceExt::ready(self)
     }
 }
 
@@ -159,15 +134,6 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
     type Future = InfallibleOneshotReceiver<Result<Self::Response, Self::Error>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        if let Some(err) = self.error.try_get_err() {
-            return Poll::Ready(Err(err.to_string().into()));
-        }
-
-        if self.connection_handle.is_finished() || self.timeout_handle.is_finished() {
-            let err = self.set_err(PeerError::ClientChannelClosed);
-            return Poll::Ready(Err(err));
-        }
-
         if self.permit.is_none() {
             let permit = ready!(self.semaphore.poll_acquire(cx))
                 .expect("Client semaphore should not be closed!");
@@ -176,8 +142,7 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
         }
 
         if ready!(self.connection_tx.poll_reserve(cx)).is_err() {
-            let err = self.set_err(PeerError::ClientChannelClosed);
-            return Poll::Ready(Err(err));
+            return Poll::Ready(Err(PeerError::ClientChannelClosed.into()));
         }
 
         Poll::Ready(Ok(()))
@@ -199,8 +164,41 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
         if let Err(req) = self.connection_tx.send_item(req) {
             // The connection task could have closed between a call to `poll_ready` and the call to
             // `call`, which means if we don't handle the error here the receiver would panic.
-            self.set_err(PeerError::ClientChannelClosed);
+            let resp = Err(PeerError::ClientChannelClosed.into());
+            drop(req.into_inner().unwrap().response_channel.send(resp));
+        }
 
+        rx.into()
+    }
+}
+
+impl<N: NetworkZone> Service<BroadcastMessage> for Client<N> {
+    type Response = PeerResponse;
+    type Error = tower::BoxError;
+    type Future = InfallibleOneshotReceiver<Result<Self::Response, Self::Error>>;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.permit.take();
+
+        if ready!(self.connection_tx.poll_reserve(cx)).is_err() {
+            return Poll::Ready(Err(PeerError::ClientChannelClosed.into()));
+        }
+
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, request: BroadcastMessage) -> Self::Future {
+        let (tx, rx) = oneshot::channel();
+        let req = connection::ConnectionTaskRequest {
+            response_channel: tx,
+            request: request.into(),
+            // We don't need a permit as we only accept `BroadcastMessage`, which does not require a response.
+            permit: None,
+        };
+
+        if let Err(req) = self.connection_tx.send_item(req) {
+            // The connection task could have closed between a call to `poll_ready` and the call to
+            // `call`, which means if we don't handle the error here the receiver would panic.
             let resp = Err(PeerError::ClientChannelClosed.into());
             drop(req.into_inner().unwrap().response_channel.send(resp));
         }
@@ -225,7 +223,7 @@ where
 
     let task_span = tracing::error_span!("mock_connection", addr = %info.id);
 
-    let task_handle = tokio::spawn(
+    tokio::spawn(
         async move {
             let _guard = connection_guard;
             loop {
@@ -251,9 +249,7 @@ where
         .instrument(task_span),
     );
 
-    let timeout_task = tokio::spawn(futures::future::pending());
     let semaphore = Arc::new(Semaphore::new(1));
-    let error_slot = SharedError::new();
 
-    Client::new(info, tx, task_handle, timeout_task, semaphore, error_slot)
+    Client::new(info, tx, semaphore)
 }
