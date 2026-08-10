@@ -1,11 +1,12 @@
-use bytes::Bytes;
-use futures::{future::BoxFuture, FutureExt, Stream};
-use std::ops::DerefMut;
 use std::{
     future::Future,
+    ops::DerefMut,
     pin::Pin,
     task::{ready, Context, Poll},
 };
+
+use bytes::Bytes;
+use futures::{future::BoxFuture, FutureExt, Stream};
 use tower::Service;
 
 use cuprate_dandelion_tower::{traits::StemRequest, OutboundPeer};
