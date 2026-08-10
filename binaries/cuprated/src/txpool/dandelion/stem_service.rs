@@ -1,5 +1,6 @@
 use std::{
     future::Future,
+    ops::DerefMut,
     pin::Pin,
     task::{ready, Context, Poll},
 };
@@ -86,17 +87,16 @@ enum OutboundPeerStreamState<Z: NetworkZone> {
 pub struct StemPeerService<N: NetworkZone>(ClientDropGuard<N>);
 
 impl<N: NetworkZone> Service<StemRequest<DandelionTx>> for StemPeerService<N> {
-    type Response = <Client<N> as Service<PeerRequest>>::Response;
+    type Response = <Client<N> as Service<BroadcastMessage>>::Response;
     type Error = tower::BoxError;
-    type Future = <Client<N> as Service<PeerRequest>>::Future;
+    type Future = <Client<N> as Service<BroadcastMessage>>::Future;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.0.broadcast_client().poll_ready(cx)
+        Service::<BroadcastMessage>::poll_ready(&mut *self.0, cx)
     }
 
     fn call(&mut self, req: StemRequest<DandelionTx>) -> Self::Future {
         self.0
-            .broadcast_client()
             .call(BroadcastMessage::NewTransactions(NewTransactions {
                 txs: vec![req.0 .0],
                 dandelionpp_fluff: false,

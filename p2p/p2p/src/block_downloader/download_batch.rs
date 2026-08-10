@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use monero_oxide::{block::Block, transaction::Transaction};
 use rayon::prelude::*;
-use tower::{Service, ServiceExt};
+use tower::Service;
 use tracing::instrument;
 
 use cuprate_fixed_bytes::ByteArrayVec;
@@ -61,7 +61,7 @@ async fn request_batch_from_peer<N: NetworkZone>(
     // Request the blocks and add a timeout to the request
     let blocks_response = {
         let PeerResponse::Protocol(ProtocolResponse::GetObjects(blocks_response)) =
-            client.ready().await?.call(request).await?
+            client.ready_peer_request().await?.call(request).await?
         else {
             panic!("Connection task returned wrong response.");
         };
