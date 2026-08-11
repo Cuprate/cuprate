@@ -301,6 +301,7 @@ impl BlockchainDatabase {
                 .map(|i| {
                     (i == stripe_idx)
                         .then(|| {
+                            // don't eagerly evaluate
                             tape_append_tx.open_blob_tape(
                                 PRUNABLE_BLOBS[stripe_idx],
                                 &prunable_tape_open_options,
@@ -320,6 +321,8 @@ impl BlockchainDatabase {
                 })
                 .collect()
         }?;
+
+        tape_append_tx.commit(Persistence::SyncAll)?;
 
         tracing::debug!("opened db");
         Ok(Self {
