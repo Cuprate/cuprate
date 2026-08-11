@@ -22,6 +22,7 @@ use tapes::{TapesAppend, TapesRead, TapesTruncate};
 use tracing::instrument;
 
 use crate::{
+    database::CHAIN_TIP_KEY,
     error::{BlockchainError, DbResult},
     ops::{
         alt_block,
@@ -334,6 +335,7 @@ pub fn add_block_to_dynamic_tables<'a, I: Iterator<Item = Cow<'a, Transaction<Pr
     }
 
     w.insert(&db.block_heights, block_hash, block.number().to_le_bytes());
+    w.insert(&db.chain_tip, CHAIN_TIP_KEY, block_hash);
 
     Ok(())
 }
@@ -360,6 +362,11 @@ pub fn pop_block(
     let block_height = usize::try_from(block_height).unwrap();
 
     tx_rw.remove(&db.block_heights, block_info.block_hash);
+
+    let new_top = tapes
+        .read_entry(&db.block_infos, usize_to_u64(block_height - 1))?
+        .ok_or(BlockchainError::NotFound)?;
+    tx_rw.insert(&db.chain_tip, CHAIN_TIP_KEY, new_top.block_hash);
 
     // Get the block from the database, so we know what txs to remove.
     let block = get_block(&block_height, Some(&block_info), tapes, db)?;

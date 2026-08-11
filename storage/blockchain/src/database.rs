@@ -9,13 +9,16 @@ use fjall::{KeyspaceCreateOptions, PersistMode};
 use monero_oxide::transaction::Transaction;
 use tapes::{Persistence, TapeOpenOptions, Tapes, TapesRead};
 
-use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
+use cuprate_helper::cast::u64_to_usize;
 
 use crate::{
     config::Config,
     types::{Amount, BlockInfo, RctOutput, TxInfo},
     BlockchainError,
 };
+
+/// The key used to store the main-chain tip in [`BlockchainDatabase::chain_tip`].
+pub(crate) const CHAIN_TIP_KEY: &[u8] = b"tip";
 
 /// Deletes a [`fjall::Keyspace`] and recreates it with the same name.
 fn recreate_fjall_keyspace(
@@ -55,6 +58,12 @@ pub struct BlockchainDatabase {
     /// |----------------------|-------------------------------------|
     /// | block hash: [u8; 32] | block height: usize (little endian) |
     pub(crate) block_heights: fjall::Keyspace,
+    /// Main-chain tip:
+    ///
+    /// | key               | value                |
+    /// |-------------------|----------------------|
+    /// | [`CHAIN_TIP_KEY`] | block hash: [u8; 32] |
+    pub(crate) chain_tip: fjall::Keyspace,
     /// Key images:
     ///
     /// | key                 | value |
@@ -173,6 +182,7 @@ impl BlockchainDatabase {
         fjall: fjall::Database,
     ) -> Result<Self, BlockchainError> {
         let block_heights = fjall.keyspace("block_heights", KeyspaceCreateOptions::default)?;
+        let chain_tip = fjall.keyspace("chain_tip", KeyspaceCreateOptions::default)?;
         let key_images = fjall.keyspace("key_images", KeyspaceCreateOptions::default)?;
         let pre_rct_outputs = fjall.keyspace("pre_rct_outputs", KeyspaceCreateOptions::default)?;
         let tx_ids = fjall.keyspace("tx_ids", KeyspaceCreateOptions::default)?;
@@ -261,6 +271,7 @@ impl BlockchainDatabase {
             linear_tapes,
             config: config.clone(),
             block_heights,
+            chain_tip,
             key_images,
             pre_rct_outputs,
             tx_ids,
@@ -286,13 +297,30 @@ impl BlockchainDatabase {
     pub fn make_consistent(&mut self) -> Result<(), BlockchainError> {
         tracing::info!("Checking blockchain database consistency.");
 
-        let tapes_height = self
-            .linear_tapes
-            .reader()
-            .fixed_sized_tape_len(&self.block_infos)
-            .expect("block_infos tape exists");
+        let tapes_tip = {
+            let tapes = self.linear_tapes.reader();
+            let height = tapes
+                .fixed_sized_tape_len(&self.block_infos)
+                .expect("block_infos tape exists");
+            match height.checked_sub(1) {
+                Some(top_height) => Some(
+                    tapes
+                        .read_entry(&self.block_infos, top_height)?
+                        .ok_or(BlockchainError::NotFound)?
+                        .block_hash,
+                ),
+                None => None,
+            }
+        };
 
-        if tapes_height != usize_to_u64(self.block_heights.len()?) {
+        let fjall_tip = self.chain_tip.get(CHAIN_TIP_KEY)?;
+        let tips_match = match (tapes_tip, fjall_tip.as_deref()) {
+            (None, None) => true,
+            (Some(tapes_tip), Some(fjall_tip)) => tapes_tip.as_slice() == fjall_tip,
+            _ => false,
+        };
+
+        if !tips_match {
             tracing::warn!("fjall and tapes are out of sync");
             self.rebuild_fjall_database()?;
         }
@@ -303,6 +331,7 @@ impl BlockchainDatabase {
     /// Rebuilds the fjall database.
     pub fn rebuild_fjall_database(&mut self) -> Result<(), BlockchainError> {
         self.block_heights = recreate_fjall_keyspace(&self.fjall, &self.block_heights)?;
+        self.chain_tip = recreate_fjall_keyspace(&self.fjall, &self.chain_tip)?;
         self.key_images = recreate_fjall_keyspace(&self.fjall, &self.key_images)?;
         self.pre_rct_outputs = recreate_fjall_keyspace(&self.fjall, &self.pre_rct_outputs)?;
         self.tx_ids = recreate_fjall_keyspace(&self.fjall, &self.tx_ids)?;
