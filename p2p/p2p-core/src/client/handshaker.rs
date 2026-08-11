@@ -43,7 +43,7 @@ use crate::{
     handles::HandleBuilder,
     AddressBook, AddressBookRequest, AddressBookResponse, BroadcastMessage, ConnectionDirection,
     CoreSyncDataRequest, CoreSyncDataResponse, CoreSyncSvc, NetZoneAddress, NetworkZone,
-    ProtocolRequestHandlerMaker, SharedError, Transport,
+    ProtocolRequestHandlerMaker, Transport,
 };
 
 pub mod builder;
@@ -489,7 +489,6 @@ where
         .await?;
 
     // Set up the connection data.
-    let error_slot = SharedError::new();
     let (connection_tx, client_rx) = mpsc::channel(CLIENT_QUEUE_SIZE);
 
     let info = PeerInformation {
@@ -521,23 +520,6 @@ where
         None => connection_guard,
     };
 
-    let connection = Connection::<Z, T, _, _, _, _>::new(
-        peer_sink,
-        client_rx,
-        broadcast_stream_maker(addr),
-        request_handler,
-        connection_guard,
-        error_slot.clone(),
-    );
-
-    let connection_span =
-        tracing::error_span!(parent: &connection_parent_span, "connection", %addr);
-    let connection_handle = tokio::spawn(
-        connection
-            .run(peer_stream.fuse(), eager_protocol_messages)
-            .instrument(connection_span),
-    );
-
     let semaphore = Arc::new(Semaphore::new(1));
 
     let timeout_handle = tokio::spawn(connection_timeout_monitor_task(
@@ -549,14 +531,27 @@ where
         on_peer_sync,
     ));
 
-    let client = Client::<Z>::new(
-        info,
-        connection_tx,
-        connection_handle,
+    let connection = Connection::<Z, T, _, _, _, _>::new(
+        peer_sink,
+        client_rx,
+        broadcast_stream_maker(addr),
+        request_handler,
+        connection_guard,
         timeout_handle,
-        semaphore,
-        error_slot,
     );
+
+    let connection_span =
+        tracing::error_span!(parent: &connection_parent_span, "connection", %addr);
+
+    // TODO: we should track this task in a JoinSet.
+    tokio::spawn(
+        connection
+            .run(peer_stream.fuse(), eager_protocol_messages)
+            .instrument(connection_span)
+            .boxed(),
+    );
+
+    let client = Client::<Z>::new(info, connection_tx, semaphore);
 
     Ok(client)
 }

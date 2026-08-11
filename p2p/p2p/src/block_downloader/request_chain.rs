@@ -31,7 +31,7 @@ pub(crate) async fn request_chain_entry_from_peer<N: NetworkZone>(
     short_history: [[u8; 32]; 2],
 ) -> Result<(ClientDropGuard<N>, ChainEntry<N>), BlockDownloadError> {
     let PeerResponse::Protocol(ProtocolResponse::GetChain(chain_res)) = client
-        .ready()
+        .ready_peer_request()
         .await?
         .call(PeerRequest::Protocol(ProtocolRequest::GetChain(
             ChainRequest {
@@ -131,8 +131,11 @@ where
         futs.spawn(timeout(
             INITIAL_CHAIN_SEARCH_TIMEOUT,
             async move {
-                let PeerResponse::Protocol(ProtocolResponse::GetChain(chain_res)) =
-                    next_peer.ready().await?.call(cloned_req).await?
+                let PeerResponse::Protocol(ProtocolResponse::GetChain(chain_res)) = next_peer
+                    .ready_peer_request()
+                    .await?
+                    .call(cloned_req)
+                    .await?
                 else {
                     panic!("connection task returned wrong response!");
                 };

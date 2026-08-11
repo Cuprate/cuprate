@@ -6,10 +6,7 @@ use std::{
     },
 };
 
-use cuprate_p2p_core::{
-    client::{Client, WeakClient},
-    NetworkZone,
-};
+use cuprate_p2p_core::{client::Client, NetworkZone};
 
 /// A client stored in the peer-set.
 pub(super) struct StoredClient<N: NetworkZone> {
@@ -44,7 +41,7 @@ impl<N: NetworkZone> StoredClient<N> {
         self.downloading_blocks.store(true, Ordering::Relaxed);
 
         ClientDropGuard {
-            client: self.client.downgrade(),
+            client: self.client.clone(),
             bool: Arc::clone(&self.downloading_blocks),
         }
     }
@@ -54,7 +51,7 @@ impl<N: NetworkZone> StoredClient<N> {
         self.stem_peer.store(true, Ordering::Relaxed);
 
         ClientDropGuard {
-            client: self.client.downgrade(),
+            client: self.client.clone(),
             bool: Arc::clone(&self.stem_peer),
         }
     }
@@ -62,12 +59,12 @@ impl<N: NetworkZone> StoredClient<N> {
 
 /// A [`Drop`] guard for a client returned from the peer-set.
 pub struct ClientDropGuard<N: NetworkZone> {
-    client: WeakClient<N>,
+    client: Client<N>,
     bool: Arc<AtomicBool>,
 }
 
 impl<N: NetworkZone> Deref for ClientDropGuard<N> {
-    type Target = WeakClient<N>;
+    type Target = Client<N>;
     fn deref(&self) -> &Self::Target {
         &self.client
     }

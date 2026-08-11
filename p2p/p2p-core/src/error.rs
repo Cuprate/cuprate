@@ -1,33 +1,3 @@
-use std::sync::{Arc, OnceLock};
-
-pub struct SharedError<T>(Arc<OnceLock<T>>);
-
-impl<T> Clone for SharedError<T> {
-    fn clone(&self) -> Self {
-        Self(Arc::clone(&self.0))
-    }
-}
-
-impl<T> Default for SharedError<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T> SharedError<T> {
-    pub fn new() -> Self {
-        Self(Arc::new(OnceLock::new()))
-    }
-
-    pub fn try_get_err(&self) -> Option<&T> {
-        self.0.get()
-    }
-
-    pub fn try_insert_err(&self, err: T) -> Result<(), &T> {
-        self.0.set(err).map_err(|_| self.0.get().unwrap())
-    }
-}
-
 #[derive(Debug, thiserror::Error)]
 pub enum PeerError {
     #[error("The connection timed out.")]
