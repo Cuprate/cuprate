@@ -18,7 +18,7 @@ pub struct Metadata {
 }
 
 impl Metadata {
-    const FILE_NAME: &'static str = "metadata.bin";
+    const FILE_NAME: &'static str = "metadata";
 
     /// Opens the metadata file, or creates a new one if it doesn't exist yet.
     pub fn get_or_create(db_dir_path: impl AsRef<Path>) -> Result<Self, BlockchainError> {

@@ -364,8 +364,7 @@ pub fn add_blocks_to_prunable_tip(
 
     if new_tip_height >= CRYPTONOTE_PRUNING_TIP_BLOCKS {
         if let Some(first_tx) = db.prunable_tip.first_key_value() {
-            let tx_id_to_remove_from =
-                u64::from_le_bytes(first_tx.key()?.as_ref().try_into().unwrap());
+            let tx_id_to_remove_from = first_tx.key()?.as_ref().get_u64();
 
             let keep_from_height = new_tip_height - CRYPTONOTE_PRUNING_TIP_BLOCKS + 1; // first, to not delete
 
@@ -375,7 +374,7 @@ pub fn add_blocks_to_prunable_tip(
             let tx_id_to_remove_to = get_tx_id_from_hash(db, &tx_to_remove_to)?;
 
             for tx_id in tx_id_to_remove_from..tx_id_to_remove_to {
-                w.remove(&db.prunable_tip, tx_id.to_le_bytes().as_slice());
+                w.remove(&db.prunable_tip, tx_id.to_be_bytes().as_slice());
             }
         }
     }
@@ -388,11 +387,18 @@ pub fn add_blocks_to_prunable_tip(
             .iter()
             .filter(|tx| !tx.tx_prunable_blob.is_empty())
         {
+            // convert tx_id from little endian to big endian
             let tx_id = db
                 .tx_ids
                 .get(tx.tx_hash)?
-                .ok_or(BlockchainError::NotFound)?;
-            w.insert(&db.prunable_tip, tx_id, tx.tx_prunable_blob.as_slice());
+                .ok_or(BlockchainError::NotFound)?
+                .as_ref()
+                .get_u64_le();
+            w.insert(
+                &db.prunable_tip,
+                tx_id.to_be_bytes(),
+                tx.tx_prunable_blob.as_slice(),
+            );
         }
     }
 

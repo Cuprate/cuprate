@@ -77,7 +77,7 @@ config_struct! {
 
 config_struct! {
     /// The blockchain config.
-    #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+    #[derive(Default, Debug, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
     pub struct BlockchainConfig {
         #[comment_out = true]

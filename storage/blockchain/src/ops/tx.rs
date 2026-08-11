@@ -420,8 +420,8 @@ pub fn read_prunable_tape(
         if block_height + CRYPTONOTE_PRUNING_TIP_BLOCKS >= chain_height {
             let prunable_blob = db
                 .prunable_tip
-                .get(tx_id.to_le_bytes())?
-                .ok_or(BlockchainError::NotFound)?;
+                .get(tx_id.to_be_bytes())?
+                .unwrap_or([].into()); // if the block should be in the prunable tip but isn't, it means the tx wasn't added because it's empty
             buf[..prunable_blob.len()].copy_from_slice(&prunable_blob);
         } else {
             return Err(BlockchainError::NotFound);

@@ -168,9 +168,13 @@ pub struct BlockchainDatabase {
 
     /// Includes the top 5500 blocks, since pruned nodes have to always keep this.
     ///
+    /// **The Tx ID is big endian, not little endian as the rest.**
+    ///
+    /// The reason for this is to be able to easily fetch the smallest tx via `fjall::Keyspace::get_first_key_value()`.
+    ///
     /// | key             | value                  |
     /// |-----------------|------------------------|
-    /// | Tx ID: u64      | prunable blob: [u8]    |
+    /// | Tx ID: u64 (big endian) | prunable blob: [u8]    |
     pub(crate) prunable_tip: fjall::Keyspace,
 
     /// A runtime cache of the number of outputs for each pre-rct output amount.
@@ -369,7 +373,6 @@ impl BlockchainDatabase {
         self.pre_rct_outputs = recreate_fjall_keyspace(&self.fjall, &self.pre_rct_outputs)?;
         self.tx_ids = recreate_fjall_keyspace(&self.fjall, &self.tx_ids)?;
         self.v1_tx_outputs = recreate_fjall_keyspace(&self.fjall, &self.v1_tx_outputs)?;
-        self.prunable_tip = recreate_fjall_keyspace(&self.fjall, &self.prunable_tip)?;
         reset_fjall_keyspace(&self.fjall, &self.alt_chain_infos)?;
         reset_fjall_keyspace(&self.fjall, &self.alt_block_heights)?;
         reset_fjall_keyspace(&self.fjall, &self.alt_block_infos)?;
