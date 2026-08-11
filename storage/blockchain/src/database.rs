@@ -205,13 +205,11 @@ impl BlockchainDatabase {
         let mut metadata = Metadata::get_or_create(&config.index_dir)?;
         let should_prune = if config.prune && !metadata.is_pruned() {
             // generate a random stripe index to prune
-            let stripe_idx =
-                u32::try_from(rand::thread_rng().gen_range(0..PRUNABLE_BLOBS.len())).unwrap();
+            let stripe_idx = rand::thread_rng().gen_range(0..(PRUNABLE_BLOBS.len() as u32));
             metadata.set_stripe_idx(stripe_idx, &config.index_dir)?;
 
             tracing::info!(
-                "Created new metadata with DB version = {} and pruning_stripe = {:?}.",
-                metadata.get_db_version(),
+                "initiating pruning on stripe = {:?}.",
                 metadata.get_stripe_idx()
             );
             true
@@ -283,19 +281,23 @@ impl BlockchainDatabase {
             dir: tapes_blob_dir,
         };
 
+        tape_append_tx.commit(Persistence::SyncAll)?;
+
+        if should_prune {
+            let stripe_idx = metadata.get_stripe_idx().expect("we are pruning") as usize;
+            // TODO: populate pruning tip
+
+            // delete tapes
+            for tape_name in (0..PRUNABLE_BLOBS.len())
+                .filter_map(|i| (i != stripe_idx).then_some(PRUNABLE_BLOBS[i]))
+            {
+                linear_tapes.delete_tape(tape_name, &prunable_tape_open_options)?;
+            }
+        }
+
+        let mut tape_append_tx = linear_tapes.append();
         let prunable_blobs = if metadata.is_pruned() {
             let stripe_idx = metadata.get_stripe_idx().expect("we are pruning") as usize;
-
-            if should_prune {
-                // TODO: populate pruning tip
-
-                // delete tapes
-                for tape_name in (0..PRUNABLE_BLOBS.len())
-                    .filter_map(|i| (i != stripe_idx).then_some(PRUNABLE_BLOBS[i]))
-                {
-                    linear_tapes.delete_tape(tape_name, &prunable_tape_open_options)?;
-                }
-            }
 
             (0..PRUNABLE_BLOBS.len())
                 .map(|i| {
@@ -321,7 +323,6 @@ impl BlockchainDatabase {
                 })
                 .collect()
         }?;
-
         tape_append_tx.commit(Persistence::SyncAll)?;
 
         tracing::debug!("opened db");
