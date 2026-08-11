@@ -9,7 +9,7 @@ use cuprate_pruning::PruningSeed;
 use fjall::{KeyspaceCreateOptions, PersistMode};
 use monero_oxide::transaction::Transaction;
 use rand::Rng;
-use tapes::{Persistence, TapeOpenOptions, Tapes, TapesRead, TapesTruncate};
+use tapes::{Persistence, TapeOpenOptions, Tapes, TapesRead};
 
 use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 
@@ -203,8 +203,7 @@ impl BlockchainDatabase {
         fjall: fjall::Database,
     ) -> Result<Self, BlockchainError> {
         let mut metadata = Metadata::get_or_create(&config.index_dir)?;
-
-        if config.prune && !metadata.is_pruned() {
+        let should_prune = if config.prune && !metadata.is_pruned() {
             // generate a random stripe index to prune
             let stripe_idx =
                 u32::try_from(rand::thread_rng().gen_range(0..PRUNABLE_BLOBS.len())).unwrap();
@@ -215,7 +214,10 @@ impl BlockchainDatabase {
                 metadata.get_db_version(),
                 metadata.get_stripe_idx()
             );
-        }
+            true
+        } else {
+            false
+        };
 
         let block_heights = fjall.keyspace("block_heights", KeyspaceCreateOptions::default)?;
         let key_images = fjall.keyspace("key_images", KeyspaceCreateOptions::default)?;
@@ -237,7 +239,7 @@ impl BlockchainDatabase {
         let tapes_index_dir = config.index_dir.join("tapes");
         let tapes_blob_dir = config.blob_dir.join("tapes");
 
-        let linear_tapes = Tapes::open(&tapes_index_dir)?;
+        let mut linear_tapes = Tapes::open(&tapes_index_dir)?;
         let mut tape_append_tx = linear_tapes.append();
 
         let rct_outputs = tape_append_tx.open_fixed_sized_tape(
@@ -276,48 +278,48 @@ impl BlockchainDatabase {
             },
         )?;
 
-        let prunable_blobs: Vec<tapes::BlobTape> = (0..8)
-            .map(|i| {
-                tape_append_tx.open_blob_tape(
-                    PRUNABLE_BLOBS[i],
-                    &TapeOpenOptions {
-                        top_cache_size: config.cache_sizes.prunable_blobs,
-                        dir: tapes_blob_dir.clone(),
-                    },
-                )
-            })
-            .collect::<Result<_, _>>()?;
-
-        tape_append_tx.commit(Persistence::SyncAll)?;
+        let prunable_tape_open_options = TapeOpenOptions {
+            top_cache_size: config.cache_sizes.prunable_blobs,
+            dir: tapes_blob_dir,
+        };
 
         let prunable_blobs = if metadata.is_pruned() {
-            let stripe_idx = metadata.get_stripe_idx().expect("we are pruning");
-            let mut tape_truncate_tx = linear_tapes.truncate();
-            let mut new_prunable_blobs = Vec::with_capacity(prunable_blobs.len());
+            let stripe_idx = metadata.get_stripe_idx().expect("we are pruning") as usize;
 
-            // remove prunable blobs that are not in the current stripe and set those to `None
-            for (i, blob_tape) in prunable_blobs.into_iter().enumerate() {
-                if i == stripe_idx as usize {
-                    new_prunable_blobs.push(Some(blob_tape));
-                    continue;
-                }
+            if should_prune {
+                // TODO: populate pruning tip
 
-                new_prunable_blobs.push(None);
-                // truncate the tape if it exists already
-                if tape_truncate_tx.blob_tape_len(&blob_tape).is_some() {
-                    tape_truncate_tx.truncate_blob_tape(&blob_tape, 0);
+                // delete tapes
+                for tape_name in (0..PRUNABLE_BLOBS.len())
+                    .filter_map(|i| (i != stripe_idx).then_some(PRUNABLE_BLOBS[i]))
+                {
+                    linear_tapes.delete_tape(tape_name, &prunable_tape_open_options)?;
                 }
             }
 
-            tape_truncate_tx.commit(Persistence::SyncAll)?;
-
-            // TODO: is there a way to not even create the tapes if they don't exist already? (currently there's no way to check if a tape exists)
-            // also maybe have a function that actually deletes the tape instead of truncating it
-
-            new_prunable_blobs
+            (0..PRUNABLE_BLOBS.len())
+                .map(|i| {
+                    (i == stripe_idx)
+                        .then(|| {
+                            tape_append_tx.open_blob_tape(
+                                PRUNABLE_BLOBS[stripe_idx],
+                                &prunable_tape_open_options,
+                            )
+                        })
+                        .transpose()
+                })
+                .collect::<Result<Vec<Option<_>>, _>>()
         } else {
-            prunable_blobs.into_iter().map(Some).collect()
-        };
+            (0..PRUNABLE_BLOBS.len())
+                .map(|i| {
+                    Some(
+                        tape_append_tx
+                            .open_blob_tape(PRUNABLE_BLOBS[i], &prunable_tape_open_options),
+                    )
+                    .transpose()
+                })
+                .collect()
+        }?;
 
         tracing::debug!("opened db");
         Ok(Self {
