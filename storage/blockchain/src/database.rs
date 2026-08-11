@@ -5,9 +5,9 @@ use std::{
 };
 
 use arc_swap::ArcSwap;
-use fjall::{KeyspaceCreateOptions, PersistMode};
+use fjall::{KeyspaceCreateOptions, PersistMode, Readable};
 use monero_oxide::transaction::Transaction;
-use tapes::{Persistence, TapeOpenOptions, Tapes, TapesRead};
+use tapes::{Persistence, TapeOpenOptions, Tapes, TapesRead, TapesReadTransaction};
 
 use cuprate_helper::cast::u64_to_usize;
 
@@ -292,32 +292,58 @@ impl BlockchainDatabase {
         })
     }
 
+    /// Returns whether Fjall and Tapes are at the same main-chain tip.
+    fn tips_match(
+        &self,
+        fjall: &impl Readable,
+        tapes: &impl TapesRead,
+    ) -> Result<bool, BlockchainError> {
+        let tapes_height = tapes
+            .fixed_sized_tape_len(&self.block_infos)
+            .expect("block_infos tape exists");
+        let tapes_tip = match tapes_height.checked_sub(1) {
+            Some(top_height) => Some(
+                tapes
+                    .read_entry(&self.block_infos, top_height)?
+                    .ok_or(BlockchainError::NotFound)?
+                    .block_hash,
+            ),
+            None => None,
+        };
+        let fjall_tip = fjall.get(&self.chain_tip, CHAIN_TIP_KEY)?;
+
+        Ok(match (tapes_tip, fjall_tip.as_deref()) {
+            (None, None) => true,
+            (Some(tapes_tip), Some(fjall_tip)) => tapes_tip.as_slice() == fjall_tip,
+            _ => false,
+        })
+    }
+
+    /// Returns Fjall and Tapes read transactions at the same main-chain tip.
+    pub fn read_transactions(
+        &self,
+    ) -> Result<(fjall::Snapshot, TapesReadTransaction<'_>), BlockchainError> {
+        loop {
+            let fjall = self.fjall.snapshot();
+            let tapes = self.linear_tapes.reader();
+
+            if self.tips_match(&fjall, &tapes)? {
+                return Ok((fjall, tapes));
+            }
+
+            // TODO: bound this and panic if we can't get the txs to agree.
+        }
+    }
+
     /// Checks if the fjall and tapes database are in sync and rebuilds the fjall database if it
     /// is not.
     pub fn make_consistent(&mut self) -> Result<(), BlockchainError> {
         tracing::info!("Checking blockchain database consistency.");
 
-        let tapes_tip = {
+        let tips_match = {
+            let fjall = self.fjall.snapshot();
             let tapes = self.linear_tapes.reader();
-            let height = tapes
-                .fixed_sized_tape_len(&self.block_infos)
-                .expect("block_infos tape exists");
-            match height.checked_sub(1) {
-                Some(top_height) => Some(
-                    tapes
-                        .read_entry(&self.block_infos, top_height)?
-                        .ok_or(BlockchainError::NotFound)?
-                        .block_hash,
-                ),
-                None => None,
-            }
-        };
-
-        let fjall_tip = self.chain_tip.get(CHAIN_TIP_KEY)?;
-        let tips_match = match (tapes_tip, fjall_tip.as_deref()) {
-            (None, None) => true,
-            (Some(tapes_tip), Some(fjall_tip)) => tapes_tip.as_slice() == fjall_tip,
-            _ => false,
+            self.tips_match(&fjall, &tapes)?
         };
 
         if !tips_match {
