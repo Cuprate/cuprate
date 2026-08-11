@@ -317,6 +317,7 @@ pub fn add_block_to_dynamic_tables<'a, I: Iterator<Item = Cow<'a, Transaction<Pr
     *numb_transactions += 1;
 
     for (tx_hash, tx) in block.transactions.iter().zip(txs) {
+        // TODO: handle this
         // #[cfg(debug_assertions)]
         // {
         //     // Make sure the given tx is correct.
