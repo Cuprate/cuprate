@@ -16,6 +16,7 @@ use cuprate_helper::cast::u64_to_usize;
 use crate::{
     config::Config,
     metadata::Metadata,
+    ops::tx::get_remove_to_tx_id,
     types::{Amount, BlockInfo, RctOutput, TxInfo},
     BlockchainError,
 };
@@ -483,12 +484,15 @@ impl BlockchainDatabase {
 
             let _miner_tx = tx_iter.next();
 
+            let remove_to_tx_id = get_remove_to_tx_id(self, u64_to_usize(height), &tapes_reader)?;
+
             crate::ops::block::add_block_to_dynamic_tables(
                 self,
                 &block,
                 &block.hash(),
                 &mut tx_iter,
                 &mut numb_txs,
+                remove_to_tx_id,
                 &mut batch,
                 &mut self.pre_rct_numb_outputs_cache.lock().unwrap(),
             )?;

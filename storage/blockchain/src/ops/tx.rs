@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use bytes::Buf;
 use cuprate_helper::{cast::usize_to_u64, crypto::compute_zero_commitment};
-use cuprate_pruning::{CRYPTONOTE_PRUNING_LOG_STRIPES, CRYPTONOTE_PRUNING_TIP_BLOCKS};
+use cuprate_pruning::{PruningSeed, CRYPTONOTE_PRUNING_LOG_STRIPES, CRYPTONOTE_PRUNING_TIP_BLOCKS};
 
 use fjall::Readable;
 use monero_oxide::transaction::{Input, Pruned, Timelock, Transaction};
@@ -102,6 +102,7 @@ pub fn add_tx_info_to_tapes(
 }
 
 /// Adds the tx info and related data to the dynamic tables.
+/// Additionally adds the tx to the `prunable_tip` if we prune
 pub fn add_tx_info_to_dynamic_tables(
     db: &BlockchainDatabase,
     tx: &Transaction<Pruned>,
@@ -165,10 +166,49 @@ pub fn add_tx_info_to_dynamic_tables(
                 bytemuck::cast_slice::<_, u8>(&amount_indices),
             );
         }
-        Transaction::V2 { .. } => return Ok(()),
+        Transaction::V2 { .. } => {
+            if db.pruning_seed != PruningSeed::NotPruned {
+                add_tx_to_prunable_tip(db, tx_id, tx, w);
+            }
+        }
     }
 
     Ok(())
+}
+
+#[inline]
+fn add_tx_to_prunable_tip(
+    db: &BlockchainDatabase,
+    tx_id: TxId,
+    tx: &Transaction<Pruned>,
+    w: &mut fjall::OwnedWriteBatch,
+) {
+    w.insert(
+        &db.prunable_tip,
+        tx_id.to_be_bytes(),
+        tx.serialize().as_slice(), // TODO: really serialize into a newly allocated Vec?
+    );
+}
+
+/// Calculates height - [`CRYPTONOTE_PRUNING_TIP_BLOCKS`] + 1, to get the height we want to keep.
+///
+/// Returns None if a. an overflow occurred or b. we don't prune
+#[inline]
+pub fn get_remove_to_tx_id(
+    db: &BlockchainDatabase,
+    height: BlockHeight,
+    tapes: &impl TapesRead,
+) -> DbResult<Option<TxId>> {
+    (db.pruning_seed != PruningSeed::NotPruned)
+        .then_some(height + 1) // first, to not delete
+        .and_then(|h| h.checked_sub(CRYPTONOTE_PRUNING_TIP_BLOCKS))
+        .map(|remove_to_height| {
+            tapes
+                .read_entry(&db.block_infos, usize_to_u64(remove_to_height))
+                .map(|entry| entry.map_or(0, |prev| prev.mining_tx_index))
+        })
+        .transpose()
+        .map_err(Into::into)
 }
 
 /// Removes a transaction from the dynamic tables.

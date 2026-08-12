@@ -7,7 +7,7 @@ use std::{
 };
 
 use crossbeam::channel::Receiver;
-use cuprate_pruning::PruningSeed;
+use cuprate_pruning::CRYPTONOTE_PRUNING_TIP_BLOCKS;
 use fjall::PersistMode;
 use futures::channel::oneshot;
 use tapes::TapesRead;
@@ -23,7 +23,7 @@ use cuprate_types::{
 use crate::{
     config::Persistence,
     error::{BlockchainError, DbResult},
-    ops::block::{add_blocks_to_prunable_tip, add_blocks_to_tapes},
+    ops::{block::add_blocks_to_tapes, tx::get_remove_to_tx_id},
     service::ResponseResult,
     BlockchainDatabase,
 };
@@ -136,6 +136,7 @@ fn write_block(db: &BlockchainDatabase, block: &VerifiedBlockInformation) -> Res
 #[inline]
 #[instrument(skip(db, blocks), level = "debug")]
 fn write_blocks(db: &BlockchainDatabase, blocks: &[VerifiedBlockInformation]) -> ResponseResult {
+    debug_assert!(blocks.len() <= CRYPTONOTE_PRUNING_TIP_BLOCKS);
     let (tapes_persist_mode, fjall_persist_mode) = match db.config.persistence {
         Persistence::Buffer => (tapes::Persistence::Buffer, PersistMode::Buffer),
         // We use the amount of blocks to write as a heuristic for if we are synced. When Cuprate starts downloading
@@ -163,27 +164,24 @@ fn write_blocks(db: &BlockchainDatabase, blocks: &[VerifiedBlockInformation]) ->
     let mut pre_rct_numb_outputs_cache = db.pre_rct_numb_outputs_cache.lock().unwrap();
 
     let mut tx_rw = db.fjall.batch().durability(Some(fjall_persist_mode));
+    let tapes = db.linear_tapes.reader();
 
     for block in blocks {
+        let remove_to_tx_id = get_remove_to_tx_id(db, block.height, &tapes)?;
+
         crate::ops::block::add_block_to_dynamic_tables(
             db,
             &block.block,
             &block.block_hash,
             block.txs.iter().map(|tx| Cow::Borrowed(&tx.tx)),
             &mut numb_transactions,
+            remove_to_tx_id,
             &mut tx_rw,
             &mut pre_rct_numb_outputs_cache,
         )?;
     }
 
-    tx_rw.commit()?; // TODO: This can be done with one go: by calculating the tx_ids required for the `add_blocks_to_prunable_tip` with the blocks we already have. (both for removal and addition of tip blocks)
-
-    if db.pruning_seed != PruningSeed::NotPruned {
-        let mut tx_rw = db.fjall.batch().durability(Some(PersistMode::Buffer));
-        let tapes = db.linear_tapes.reader();
-        add_blocks_to_prunable_tip(db, blocks, &tapes, &mut tx_rw)?;
-        tx_rw.commit()?;
-    }
+    tx_rw.commit()?;
 
     Ok(BlockchainResponse::Ok)
 }

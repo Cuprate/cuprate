@@ -8,7 +8,7 @@ use cuprate_helper::{
     tx::tx_fee,
 };
 use cuprate_pruning::{
-    CRYPTONOTE_PRUNING_LOG_STRIPES, CRYPTONOTE_PRUNING_STRIPE_SIZE, CRYPTONOTE_PRUNING_TIP_BLOCKS,
+    PruningSeed, CRYPTONOTE_PRUNING_LOG_STRIPES, CRYPTONOTE_PRUNING_STRIPE_SIZE,
 };
 use cuprate_types::{
     AltBlockInformation, BlockCompleteEntry, ChainId, ExtendedBlockHeader, HardFork,
@@ -31,11 +31,11 @@ use crate::{
         alt_block,
         blockchain::chain_height,
         tx::{
-            add_tx_info_to_dynamic_tables, add_tx_info_to_tapes, get_tx_id_from_hash,
-            read_prunable_tape, remove_tx_from_dynamic_tables,
+            add_tx_info_to_dynamic_tables, add_tx_info_to_tapes, read_prunable_tape,
+            remove_tx_from_dynamic_tables,
         },
     },
-    types::{Amount, BlockHash, BlockHeight, BlockInfo},
+    types::{Amount, BlockHash, BlockHeight, BlockInfo, TxId},
     BlockchainDatabase,
 };
 
@@ -114,7 +114,7 @@ pub fn add_blocks_to_tapes(
 
     // Split the blocks at the point the pruning stripe changes.
     let start_height = blocks[0].height;
-    let first_block_pruning_seed = cuprate_pruning::PruningSeed::new_pruned(
+    let first_block_pruning_seed = PruningSeed::new_pruned(
         cuprate_pruning::get_block_pruning_stripe(
             start_height,
             usize::MAX,
@@ -287,12 +287,14 @@ pub fn add_blocks_to_tapes(
 /// # Panics
 /// This function will panic if the block is invalid.
 // no inline, too big.
+#[expect(clippy::too_many_arguments)]
 pub fn add_block_to_dynamic_tables<'a, I: Iterator<Item = Cow<'a, Transaction<Pruned>>>>(
     db: &BlockchainDatabase,
     block: &Block,
     block_hash: &BlockHash,
     txs: I,
     numb_transactions: &mut u64,
+    remove_to_tx_id: Option<TxId>,
     w: &mut fjall::OwnedWriteBatch,
     pre_rct_numb_outputs_cache: &mut HashMap<Amount, u64>,
 ) -> DbResult<()> {
@@ -342,69 +344,29 @@ pub fn add_block_to_dynamic_tables<'a, I: Iterator<Item = Cow<'a, Transaction<Pr
         *numb_transactions += 1;
     }
 
+    if let Some(remove_to_tx_id) = remove_to_tx_id {
+        remove_block_from_prunable_tip(db, remove_to_tx_id, w)?;
+    }
+
     w.insert(&db.block_heights, block_hash, block.number().to_le_bytes());
     w.insert(&db.chain_tip, CHAIN_TIP_KEY, block_hash);
 
     Ok(())
 }
 
-pub fn add_blocks_to_prunable_tip(
+/// Removes the bottom blocks from the `prunable_tip` so it always contains [`cuprate_pruning::CRYPTONOTE_PRUNING_TIP_BLOCKS`] blocks
+pub fn remove_block_from_prunable_tip(
     db: &BlockchainDatabase,
-    blocks: &[VerifiedBlockInformation],
-    tapes: &impl TapesRead,
+    tx_id_to_remove_to: TxId,
     w: &mut fjall::OwnedWriteBatch,
 ) -> DbResult<()> {
-    if blocks.is_empty()
-        || blocks
-            .iter()
-            .all(|block| block.txs.iter().all(|tx| tx.tx.version() == 1))
-    {
-        return Ok(());
-    }
+    if let Some(first_tx) = db.prunable_tip.first_key_value() {
+        let tx_id_to_remove_from = first_tx.key()?.as_ref().get_u64();
 
-    // remove old blocks
-    let new_tip_height = blocks.last().unwrap().height;
-
-    if new_tip_height >= CRYPTONOTE_PRUNING_TIP_BLOCKS {
-        if let Some(first_tx) = db.prunable_tip.first_key_value() {
-            let tx_id_to_remove_from = first_tx.key()?.as_ref().get_u64();
-
-            let keep_from_height = new_tip_height - CRYPTONOTE_PRUNING_TIP_BLOCKS + 1; // first, to not delete
-
-            let tx_to_remove_to = get_block(&keep_from_height, None, tapes, db)?
-                .miner_transaction()
-                .hash();
-            let tx_id_to_remove_to = get_tx_id_from_hash(db, &tx_to_remove_to)?;
-
-            for tx_id in tx_id_to_remove_from..tx_id_to_remove_to {
-                w.remove(&db.prunable_tip, tx_id.to_be_bytes().as_slice());
-            }
+        for tx_id in tx_id_to_remove_from..tx_id_to_remove_to {
+            w.remove(&db.prunable_tip, tx_id.to_be_bytes().as_slice());
         }
     }
-
-    // add newest blocks
-    let blocks_to_keep = blocks.len().min(CRYPTONOTE_PRUNING_TIP_BLOCKS);
-    for block in &blocks[blocks.len() - blocks_to_keep..] {
-        for tx in block
-            .txs
-            .iter()
-            .filter(|tx| !tx.tx_prunable_blob.is_empty())
-        {
-            // convert tx_id from little endian to big endian
-            let tx_id = db
-                .tx_ids
-                .get(tx.tx_hash)?
-                .ok_or(BlockchainError::NotFound)?
-                .as_ref()
-                .get_u64_le();
-            w.insert(
-                &db.prunable_tip,
-                tx_id.to_be_bytes(),
-                tx.tx_prunable_blob.as_slice(),
-            );
-        }
-    }
-
     Ok(())
 }
 
