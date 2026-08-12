@@ -4,6 +4,7 @@
 //! This is used during contextual validation, this does not have all the data for contextual validation
 //! (outputs) for that you will need a [`Database`].
 
+use cuprate_pruning::PruningSeed;
 // Used in documentation references for [`BlockChainContextRequest`]
 // FIXME: should we pull in a dependency just to link docs?
 use monero_oxide as _;
@@ -138,7 +139,7 @@ pub struct BlockchainContext {
     /// Context to verify a block, as needed by [`cuprate_consensus_rules`]
     pub context_to_verify_block: ContextToVerifyBlock,
     /// The pruning seed for the blockchain.
-    pub pruning_seed: u32,
+    pub pruning_seed: PruningSeed,
     /// The median long term block weight.
     median_long_term_weight: usize,
     /// The top blocks timestamp (will be [`None`] if the top block is the genesis).

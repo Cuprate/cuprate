@@ -6,6 +6,7 @@
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
+use cuprate_pruning::PruningSeed;
 use futures::channel::oneshot;
 use tokio::sync::mpsc;
 use tower::ServiceExt;
@@ -63,7 +64,7 @@ pub(crate) struct ContextTask<D: Database> {
     /// The total amount of coins generated.
     already_generated_coins: u64,
     /// The pruning seed.
-    pruning_seed: u32,
+    pruning_seed: PruningSeed,
 
     database: D,
 }
@@ -151,7 +152,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
             top_block_hash,
             chain_height,
             already_generated_coins,
-            pruning_seed.compress(),
+            pruning_seed,
         );
 
         let context_cache = Arc::new(ArcSwap::from_pointee(blockchain_context));
@@ -168,7 +169,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
             already_generated_coins,
             top_block_hash,
             database,
-            pruning_seed: pruning_seed.compress(),
+            pruning_seed,
         };
 
         Ok((context_svc, context_cache))
@@ -386,7 +387,7 @@ fn blockchain_context(
     top_hash: [u8; 32],
     chain_height: usize,
     already_generated_coins: u64,
-    pruning_seed: u32,
+    pruning_seed: PruningSeed,
 ) -> BlockchainContext {
     BlockchainContext {
         context_to_verify_block: ContextToVerifyBlock {

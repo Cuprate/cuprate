@@ -152,11 +152,8 @@ where
             panic!("Address book sent incorrect response!");
         };
 
-        let pruning_seed = if core_sync_data.pruning_seed == 0 {
-            PruningSeed::NotPruned
-        } else {
-            PruningSeed::decompress(core_sync_data.pruning_seed).expect("Our pruning seed is valid")
-        };
+        let pruning_seed = PruningSeed::decompress(core_sync_data.pruning_seed)
+            .expect("Our pruning seed is valid");
 
         if let Some(own_addr) = own_addr {
             // Append our address to the final peer list

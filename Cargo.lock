@@ -1067,6 +1067,7 @@ dependencies = [
  "arc-swap",
  "cuprate-consensus-rules",
  "cuprate-helper",
+ "cuprate-pruning",
  "cuprate-types",
  "futures",
  "hex",
