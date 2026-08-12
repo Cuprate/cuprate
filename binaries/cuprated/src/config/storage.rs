@@ -81,7 +81,7 @@ config_struct! {
     #[serde(deny_unknown_fields, default)]
     pub struct BlockchainConfig {
         #[comment_out = true]
-        /// Whether to prune the blockchain. This reduces the size of the blockchain by not keeping all the transactions.
+        /// Whether to prune the blockchain. This reduces the size of the blockchain by removing most transaction proof data.
         /// Note that once a node is pruned it cannot be un-pruned.
         ///
         /// Defaults to `false`.
