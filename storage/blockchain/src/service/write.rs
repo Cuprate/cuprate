@@ -220,8 +220,8 @@ fn pop_blocks(db: &BlockchainDatabase, numb_blocks: usize) -> ResponseResult {
         crate::ops::block::pop_block(db, Some(old_main_chain_id), &mut tx_rw, &mut tapes)?;
     }
 
-    tx_rw.commit()?;
     tapes.commit(tapes::Persistence::SyncAll)?;
+    tx_rw.commit()?;
     Ok(BlockchainResponse::PopBlocks(old_main_chain_id))
 }
 

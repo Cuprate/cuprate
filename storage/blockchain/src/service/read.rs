@@ -198,16 +198,12 @@ fn map_request(
 // All functions below assume that this is the case, such that
 // `par_*()` functions will not block the _global_ rayon thread-pool.
 
-// FIXME: implement multi-transaction read atomicity.
-// <https://github.com/Cuprate/cuprate/pull/113#discussion_r1576874589>.
-
 // TODO: The overhead of parallelism may be too much for every request, perfomace test to find optimal
 // amount of parallelism.
 
 /// [`BlockchainReadRequest::BlockCompleteEntries`].
 fn block_complete_entries(db: &BlockchainDatabase, block_hashes: Vec<BlockHash>) -> ResponseResult {
-    let tx_ro = db.fjall.snapshot();
-    let tapes = db.linear_tapes.reader();
+    let (tx_ro, tapes) = db.read_transactions()?;
 
     let (missing_hashes, blocks) = block_hashes
         .into_par_iter()
@@ -246,8 +242,7 @@ fn block_complete_entries_above_split_point(
     /// This is lower than monerod, as monerod packs too close to the epee size limit.
     const MAX_TOTAL_TXS: usize = 10_000;
 
-    let tx_ro = db.fjall.snapshot();
-    let tapes = db.linear_tapes.reader();
+    let (tx_ro, tapes) = db.read_transactions()?;
 
     let blockchain_height = crate::ops::blockchain::chain_height(db, &tapes)?;
     let top_hash = tapes
@@ -407,9 +402,7 @@ fn block_extended_header(db: &BlockchainDatabase, block_height: BlockHeight) -> 
 /// [`BlockchainReadRequest::BlockHash`].
 #[inline]
 fn block_hash(db: &BlockchainDatabase, block_height: BlockHeight, chain: Chain) -> ResponseResult {
-    let tx_ro = db.fjall.snapshot();
-
-    let tapes = db.linear_tapes.reader();
+    let (tx_ro, tapes) = db.read_transactions()?;
 
     let block_hash = match chain {
         Chain::Main => {
@@ -431,8 +424,7 @@ fn block_hash_in_range(
     range: Range<usize>,
     chain: Chain,
 ) -> ResponseResult {
-    let tx_ro = db.fjall.snapshot();
-    let tapes = db.linear_tapes.reader();
+    let (tx_ro, tapes) = db.read_transactions()?;
 
     if range.is_empty() {
         return Ok(BlockchainResponse::BlockHashInRange(vec![]));
@@ -500,8 +492,7 @@ fn block_extended_header_in_range(
     range: Range<BlockHeight>,
     chain: Chain,
 ) -> ResponseResult {
-    let tx_ro = db.fjall.snapshot();
-    let tapes = db.linear_tapes.reader();
+    let (tx_ro, tapes) = db.read_transactions()?;
 
     // Collect results using `rayon`.
     let vec = match chain {
@@ -600,9 +591,7 @@ fn outputs(
 ) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
 
-    // TODO: we need to ensure the tables & tapes are in sync here.
-    let tx_ro = db.fjall.snapshot();
-    let tapes = db.linear_tapes.reader();
+    let (tx_ro, tapes) = db.read_transactions()?;
 
     let amount_of_outs = outputs
         .par_iter()
@@ -665,8 +654,7 @@ fn outputs_vec(
     outputs: Vec<(Amount, AmountIndex)>,
     get_txid: bool,
 ) -> ResponseResult {
-    let tx_ro = db.fjall.snapshot();
-    let tapes = db.linear_tapes.reader();
+    let (tx_ro, tapes) = db.read_transactions()?;
 
     let result = outputs
         .into_iter()
@@ -686,8 +674,7 @@ fn outputs_vec(
 /// [`BlockchainReadRequest::NumberOutputsWithAmount`].
 #[inline]
 fn number_outputs_with_amount(db: &BlockchainDatabase, amounts: Vec<Amount>) -> ResponseResult {
-    let tx_ro = db.fjall.snapshot();
-    let tapes = db.linear_tapes.reader();
+    let (tx_ro, tapes) = db.read_transactions()?;
 
     // Cache the amount of RCT outputs once.
     let num_rct_outputs = u64_to_usize(
@@ -809,9 +796,7 @@ fn next_chain_entry(
     block_ids: &[BlockHash],
     next_entry_size: usize,
 ) -> ResponseResult {
-    let tx_ro = db.fjall.snapshot();
-
-    let tapes = db.linear_tapes.reader();
+    let (tx_ro, tapes) = db.read_transactions()?;
 
     let idx = find_split_point(db, block_ids, false, false, &tx_ro)?;
 
@@ -905,8 +890,7 @@ fn txs_in_block(
     block_hash: BlockHash,
     missing_txs: Vec<u64>,
 ) -> ResponseResult {
-    let tx_ro = db.fjall.snapshot();
-    let tapes = db.linear_tapes.reader();
+    let (tx_ro, tapes) = db.read_transactions()?;
 
     // Check the main chain first, fall back to alt blocks if not found.
     let (block, txs) = if let Some(block_height) = block_height(db, &tx_ro, &block_hash)? {
@@ -1014,8 +998,7 @@ fn block(db: &BlockchainDatabase, block_height: BlockHeight) -> ResponseResult {
 
 /// [`BlockchainReadRequest::BlockByHash`]
 fn block_by_hash(db: &BlockchainDatabase, block_hash: BlockHash) -> ResponseResult {
-    let tx_ro = db.fjall.snapshot();
-    let tapes = db.linear_tapes.reader();
+    let (tx_ro, tapes) = db.read_transactions()?;
 
     Ok(BlockchainResponse::Block(get_block_by_hash(
         db,
@@ -1074,8 +1057,7 @@ fn database_size(db: &BlockchainDatabase) -> BlockchainResponse {
 
 /// [`BlockchainReadRequest::OutputHistogram`]
 fn output_histogram(db: &BlockchainDatabase, input: &OutputHistogramInput) -> ResponseResult {
-    let tapes = db.linear_tapes.reader();
-    let tx_ro = db.fjall.snapshot();
+    let (tx_ro, tapes) = db.read_transactions()?;
 
     let num_rct_outputs = tapes
         .fixed_sized_tape_len(&db.rct_outputs)
@@ -1220,8 +1202,7 @@ fn coinbase_tx_sum(db: &BlockchainDatabase, height: usize, count: u64) -> Respon
 
 /// [`BlockchainReadRequest::AltChains`]
 fn alt_chains(db: &BlockchainDatabase) -> ResponseResult {
-    let tx_ro = db.fjall.snapshot();
-    let tapes = db.linear_tapes.reader();
+    let (tx_ro, tapes) = db.read_transactions()?;
     let alt_chain_infos = db.alt_chain_infos.load();
     let alt_block_infos = db.alt_block_infos.load();
 
@@ -1305,8 +1286,7 @@ fn alt_chain_count(db: &BlockchainDatabase) -> ResponseResult {
 
 /// [`BlockchainReadRequest::Transactions`]
 fn transactions(db: &BlockchainDatabase, tx_hashes: Vec<[u8; 32]>) -> ResponseResult {
-    let tx_ro = db.fjall.snapshot();
-    let tapes = db.linear_tapes.reader();
+    let (tx_ro, tapes) = db.read_transactions()?;
     let chain_height = crate::ops::blockchain::chain_height(db, &tapes)?;
 
     let mut txs = Vec::with_capacity(tx_hashes.len());
@@ -1383,8 +1363,7 @@ fn total_rct_outputs(db: &BlockchainDatabase) -> BlockchainResponse {
 
 /// [`BlockchainReadRequest::TxOutputIndexes`]
 fn tx_output_indexes(db: &BlockchainDatabase, tx_hash: &[u8; 32]) -> ResponseResult {
-    let tx_ro = db.fjall.snapshot();
-    let tapes = db.linear_tapes.reader();
+    let (tx_ro, tapes) = db.read_transactions()?;
 
     let tx_id = get_tx_id_from_hash(db, tx_hash)?;
 
@@ -1412,7 +1391,7 @@ fn pre_rct_output_distribution(
     db: &BlockchainDatabase,
     input: &PreRctOutputDistributionInput,
 ) -> ResponseResult {
-    let tapes = db.linear_tapes.reader();
+    let (tx_ro, tapes) = db.read_transactions()?;
     let chain_height = u64_to_usize(
         tapes
             .fixed_sized_tape_len(&db.block_infos)
@@ -1447,7 +1426,7 @@ fn pre_rct_output_distribution(
         let mut below_start: u64 = 0;
 
         // loop over all outputs with this amount.
-        for guard in db.pre_rct_outputs.prefix(amount.to_be_bytes()) {
+        for guard in tx_ro.prefix(&db.pre_rct_outputs, amount.to_be_bytes()) {
             let output: Output = bytemuck::pod_read_unaligned(guard.value()?.as_ref());
             let h = output.height;
             // Add the output to the block it says it is in.

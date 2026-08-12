@@ -208,6 +208,7 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
       CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG: "0"
+      RUSTFLAGS: "-C strip=symbols"
 
     strategy:
       matrix:
@@ -234,7 +235,7 @@ jobs:
           arch: ${{ matrix.os.architecture }}
 
       - name: Start VM
-        uses: cross-platform-actions/action@v1.3.0
+        uses: cross-platform-actions/action@v1.4.0
         with:
           operating_system: ${{ matrix.os.name }}
           architecture: ${{ matrix.os.architecture }}
@@ -242,7 +243,7 @@ jobs:
           memory: 6G
           cpu_count: 4
           sync_files: runner-to-vm
-          environment_variables: CARGO_TERM_COLOR RUST_BACKTRACE RUST_MIN_STACK RUSTDOCFLAGS CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG CARGO_INCREMENTAL CARGO_PROFILE_DEV_DEBUG CARGO_PROFILE_TEST_DEBUG
+          environment_variables: CARGO_TERM_COLOR RUST_BACKTRACE RUST_MIN_STACK RUSTFLAGS RUSTDOCFLAGS CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG CARGO_INCREMENTAL CARGO_PROFILE_DEV_DEBUG CARGO_PROFILE_TEST_DEBUG
 
       - name: Install dependencies
         run: |
@@ -274,9 +275,11 @@ jobs:
 
       - name: Test
         run: |
+          cargo clean
           case "${{ matrix.os.name }}" in
             openbsd)
               ulimit -Sd 4194304
+              ulimit -n 1024
               cargo test --all-features --workspace --exclude cuprate-p2p-core
               cargo test --all-features --package cuprate-p2p-core --lib --tests -- --skip monerod
               ;;
