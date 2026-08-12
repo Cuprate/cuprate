@@ -1,22 +1,40 @@
 //! RPC server initialization and main loop.
 
 use std::{
+    cell::{Cell, UnsafeCell},
+    collections::HashMap,
     net::{IpAddr, SocketAddr},
+    num::NonZeroUsize,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
     time::Duration,
 };
 
 use anyhow::Error;
-use tokio::net::TcpListener;
-use tokio_util::sync::CancellationToken;
-use tower::limit::rate::RateLimitLayer;
+use axum::Router;
+use hyper::{body::Incoming, Request};
+use hyper_util::{
+    rt::{TokioExecutor, TokioIo},
+    server::conn::{self, auto::Builder as ConnAutoBuilder},
+    service::TowerToHyperService,
+};
+use tokio::{
+    net::{TcpListener, TcpStream},
+    task::JoinSet,
+};
+use tokio_util::{sync::CancellationToken, time::FutureExt};
+use tower::{limit::rate::RateLimitLayer, Service};
 use tower_http::limit::RequestBodyLimitLayer;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
+use cuprate_helper::net::ip_is_local;
 use cuprate_rpc_interface::RouterBuilder;
 
 use crate::{
-    config::{restricted_rpc_port, unrestricted_rpc_port},
-    rpc::CupratedRpcHandler,
+    config::{restricted_rpc_port, unrestricted_rpc_port, RpcConfig},
+    rpc::{timeout::StreamTimeout, CupratedRpcHandler},
     txpool::IncomingTxHandler,
     LaunchContext,
 };
@@ -55,7 +73,7 @@ pub fn init_rpc_servers(launch_ctx: &LaunchContext, tx_handler: IncomingTxHandle
             continue;
         }
 
-        if !restricted && !cuprate_helper::net::ip_is_local(addr) {
+        if !restricted && !ip_is_local(addr) {
             if config
                 .unrestricted
                 .i_know_what_im_doing_allow_public_unrestricted_rpc
@@ -69,41 +87,53 @@ pub fn init_rpc_servers(launch_ctx: &LaunchContext, tx_handler: IncomingTxHandle
             }
         }
 
+        let (rpc_send_timeout, rpc_read_timeout) = if restricted {
+            (
+                config.restricted.send_timeout,
+                config.restricted.read_timeout,
+            )
+        } else {
+            (
+                config.unrestricted.send_timeout,
+                config.unrestricted.read_timeout,
+            )
+        };
+
+        // Initialize RPC handler service.
         let rpc_handler = CupratedRpcHandler::new(restricted, tx_handler.clone(), launch_ctx);
 
+        // Initialize Axum RPC router.
+        let rpc_router = init_rpc_router(rpc_handler, request_byte_limit);
+
+        // Build the RPC server.
+        let rpc_server = RpcServer::new(
+            SocketAddr::new(addr, port),
+            rpc_send_timeout,
+            rpc_read_timeout,
+            rpc_router,
+        );
+
+        info!(
+            restricted,
+            address = %addr,
+            "Starting RPC server"
+        );
+
+        // Launch RPC server.
         let shutdown_token = launch_ctx.task_executor.cancellation_token();
         launch_ctx.task_executor.spawn(async move {
-            run_rpc_server(
-                rpc_handler,
-                restricted,
-                SocketAddr::new(addr, port),
-                request_byte_limit,
-                shutdown_token,
-            )
-            .await
-            .unwrap();
+            if let Err(e) = rpc_server.run(shutdown_token).await {
+                error!(restricted, "RPC server error: {e:#}");
+            }
+
             info!(restricted, "RPC server shut down.");
         });
     }
 }
 
-/// This initializes and runs an RPC server.
-///
-/// The function will only return when the server itself returns or an error occurs.
-async fn run_rpc_server(
-    rpc_handler: CupratedRpcHandler,
-    restricted: bool,
-    address: SocketAddr,
-    request_byte_limit: usize,
-    shutdown_token: CancellationToken,
-) -> Result<(), Error> {
-    info!(
-        restricted,
-        address = %address,
-        "Starting RPC server"
-    );
-
-    let router = RouterBuilder::new()
+/// Initialize the Axum router of the RPC server.
+fn init_rpc_router(rpc_handler: CupratedRpcHandler, request_byte_limit: usize) -> Router {
+    let mut router = RouterBuilder::new()
         .json_rpc()
         //
         .other_get_info()
@@ -136,21 +166,89 @@ async fn run_rpc_server(
     // Add restrictive layers if restricted RPC.
     //
     // TODO: <https://github.com/Cuprate/cuprate/issues/445>
-    let router = if request_byte_limit != 0 {
-        router.layer(RequestBodyLimitLayer::new(request_byte_limit))
-    } else {
-        router
-    };
+    if request_byte_limit != 0 {
+        router = router.layer(RequestBodyLimitLayer::new(request_byte_limit));
+    }
 
-    let router = router.layer(tower_http::trace::TraceLayer::new_for_http());
+    router.layer(tower_http::trace::TraceLayer::new_for_http())
+}
 
-    // Start the server.
-    //
-    // TODO: impl custom server code, don't use axum.
-    let listener = TcpListener::bind(address).await?;
-    axum::serve(listener, router)
-        .with_graceful_shutdown(shutdown_token.cancelled_owned())
-        .await?;
+/// An RPC server capable of listening to new connections and serving RPC requests.
+struct RpcServer {
+    /// The RPC Axum router.
+    rpc: Router,
+    listening_address: SocketAddr,
+    // Socket timeouts
+    send_timeout: Duration,
+    read_timeout: Duration,
+    rpc_tasks: JoinSet<SocketAddr>,
+}
 
-    Ok(())
+impl RpcServer {
+    /// Build a new RPC server.
+    fn new(
+        listening_address: SocketAddr,
+        send_timeout: Duration,
+        read_timeout: Duration,
+        rpc: Router,
+    ) -> Self {
+        Self {
+            rpc,
+            listening_address,
+            send_timeout,
+            read_timeout,
+            rpc_tasks: JoinSet::new(),
+        }
+    }
+
+    /// Consume this server and start serving to incoming connections.
+    /// This method only returns errors is unable to listen on its address:port.
+    async fn run(mut self, shutdown_token: CancellationToken) -> Result<(), Error> {
+        // Start the listener.
+        let listener = TcpListener::bind(self.listening_address).await?;
+
+        loop {
+            tokio::select! {
+                res = listener.accept() => {
+                    let (socket, remote_addr) = match res {
+                        Ok(res) => res,
+                        Err(e) => {
+                            // A failed accept can be caused by reaching resource limits.
+                            // We should not attempt to accept a new connection immediately.
+                            warn!("Failed to accept RPC connection: {e}");
+                            tokio::time::sleep(Duration::from_millis(40)).await;
+                            continue
+                        }
+                    };
+
+                    self.serve(socket, remote_addr);
+                },
+                Some(res) = self.rpc_tasks.join_next() => {
+                    let res = res?;
+                }
+                () = shutdown_token.cancelled() => {
+                    self.rpc_tasks.abort_all();
+
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    fn serve(&mut self, socket: TcpStream, remote_addr: SocketAddr) {
+        let rpc = self.rpc.clone();
+        let socket = StreamTimeout::new(socket, self.send_timeout, self.read_timeout);
+
+        self.rpc_tasks.spawn(async move {
+            // Serve RPC router to this connection
+            if let Err(err) = ConnAutoBuilder::new(TokioExecutor::new())
+                .serve_connection_with_upgrades(TokioIo::new(socket), TowerToHyperService::new(rpc))
+                .await
+            {
+                error!("Failed to serve RPC connection: {err:#}");
+            }
+
+            remote_addr
+        });
+    }
 }

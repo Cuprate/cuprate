@@ -58,6 +58,22 @@ config_struct! {
         /// Examples     | 0 (no limit), 5242880 (5MB), 10485760 (10MB)
         pub request_byte_limit: usize,
 
+        /// The time period during which the node can try sending data.
+        /// If a send operation do not complete within this Duration,
+        /// the connection is dropped.
+        ///
+        /// Type     | Duration
+        /// Examples | { secs = 10, nanos = 0 }, { secs = 29, nano = 123 }
+        pub send_timeout: Duration,
+
+        /// The time period during which the node wait receiving data.
+        /// If a receive operation do not complete within this Duration,
+        /// the connection is dropped.
+        ///
+        /// Type     | Duration
+        /// Examples | { secs = 10, nanos = 0 }, { secs = 29, nano = 123 }
+        pub read_timeout: Duration,
+
         // TODO: <https://github.com/Cuprate/cuprate/issues/445>
     }
 
@@ -101,6 +117,8 @@ impl Default for UnrestrictedRpcConfig {
             port: DefaultOrCustom::Default,
             enable: true,
             request_byte_limit: 0,
+            send_timeout: Duration::from_secs(5),
+            read_timeout: Duration::from_secs(30),
         }
     }
 }
@@ -115,6 +133,8 @@ impl Default for RestrictedRpcConfig {
             // 1 megabyte.
             // <https://github.com/monero-project/monero/blob/3b01c490953fe92f3c6628fa31d280a4f0490d28/src/cryptonote_config.h#L134>
             request_byte_limit: 1024 * 1024,
+            send_timeout: Duration::from_secs(5),
+            read_timeout: Duration::from_secs(30),
         }
     }
 }
