@@ -203,14 +203,18 @@ impl BlockchainDatabase {
         fjall: fjall::Database,
     ) -> Result<Self, BlockchainError> {
         let mut metadata = Metadata::get_or_create(&config.index_dir)?;
-        let should_prune = if config.prune && !metadata.is_pruned() {
+        let should_prune = if config.prune && metadata.get_pruning_seed() == PruningSeed::NotPruned
+        {
             // generate a random stripe index to prune
-            let stripe_idx = rand::thread_rng().gen_range(0..(PRUNABLE_BLOBS.len() as u32));
+            let stripe_idx = rand::thread_rng().gen_range(
+                0..u32::try_from(PRUNABLE_BLOBS.len())
+                    .expect("there shouldn't be that many prunable blobs"),
+            );
             metadata.set_stripe_idx(stripe_idx, &config.index_dir)?;
 
             tracing::info!(
                 "initiating pruning on stripe = {:?}.",
-                metadata.get_stripe_idx()
+                metadata.get_pruning_seed().get_stripe()
             );
             true
         } else {
@@ -284,7 +288,10 @@ impl BlockchainDatabase {
         tape_append_tx.commit(Persistence::SyncAll)?;
 
         if should_prune {
-            let stripe_idx = metadata.get_stripe_idx().expect("we are pruning") as usize;
+            let stripe_idx = metadata
+                .get_pruning_seed()
+                .get_stripe()
+                .expect("we are pruning") as usize;
             // TODO: populate pruning tip
 
             // delete tapes
@@ -296,8 +303,21 @@ impl BlockchainDatabase {
         }
 
         let mut tape_append_tx = linear_tapes.append();
-        let prunable_blobs = if metadata.is_pruned() {
-            let stripe_idx = metadata.get_stripe_idx().expect("we are pruning") as usize;
+        let prunable_blobs = if metadata.get_pruning_seed() == PruningSeed::NotPruned {
+            (0..PRUNABLE_BLOBS.len())
+                .map(|i| {
+                    Some(
+                        tape_append_tx
+                            .open_blob_tape(PRUNABLE_BLOBS[i], &prunable_tape_open_options),
+                    )
+                    .transpose()
+                })
+                .collect::<Result<Vec<Option<_>>, _>>()
+        } else {
+            let stripe_idx = metadata
+                .get_pruning_seed()
+                .get_stripe()
+                .expect("we are pruning") as usize;
 
             (0..PRUNABLE_BLOBS.len())
                 .map(|i| {
@@ -310,16 +330,6 @@ impl BlockchainDatabase {
                             )
                         })
                         .transpose()
-                })
-                .collect::<Result<Vec<Option<_>>, _>>()
-        } else {
-            (0..PRUNABLE_BLOBS.len())
-                .map(|i| {
-                    Some(
-                        tape_append_tx
-                            .open_blob_tape(PRUNABLE_BLOBS[i], &prunable_tape_open_options),
-                    )
-                    .transpose()
                 })
                 .collect()
         }?;

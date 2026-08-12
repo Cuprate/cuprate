@@ -33,7 +33,7 @@ impl Metadata {
             tracing::info!(
                 "Opened existing metadata file with DB version = {} and pruning_stripe = {:?}.",
                 metadata.db_version,
-                metadata.get_stripe_idx()
+                metadata.get_pruning_seed().get_stripe()
             );
             Ok(metadata)
         } else {
@@ -56,16 +56,6 @@ impl Metadata {
         self.persist(path)
     }
 
-    /// Gets the stripe index from the pruning seed.
-    ///
-    /// Note that this doesn't re-read the file.
-    ///
-    /// Returns `None` if the seed is not pruned (e.g. the seed is `0`).
-    #[inline]
-    pub const fn get_stripe_idx(&self) -> Option<u32> {
-        self.pruning_seed.get_stripe()
-    }
-
     /// Gets the pruning seed.
     ///
     /// Note that this doesn't re-read the file.
@@ -77,11 +67,6 @@ impl Metadata {
     #[inline]
     pub const fn get_db_version(&self) -> u64 {
         self.db_version
-    }
-
-    #[inline]
-    pub fn is_pruned(&self) -> bool {
-        self.pruning_seed != PruningSeed::NotPruned
     }
 
     /// deserializes a [`bytes::Buf`] into a [`Metadata`]
