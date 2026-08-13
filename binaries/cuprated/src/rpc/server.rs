@@ -30,10 +30,18 @@ use cuprate_rpc_interface::RouterBuilder;
 
 use crate::{
     config::{restricted_rpc_port, unrestricted_rpc_port, RpcConfig},
-    rpc::{timeout::StreamTimeout, CupratedRpcHandler},
+    rpc::{
+        ratelimit::{RateLimitBudget, RateLimitLayer, RpcRateLimitCache},
+        timeout::StreamTimeout,
+        CupratedRpcHandler,
+    },
     txpool::IncomingTxHandler,
     LaunchContext,
 };
+
+/// The grace period after which the rate limit state of a disconnected IP
+/// address is erased, unless the IP reconnected in the meantime.
+const EVICTION_GRACE_PERIOD: Duration = Duration::from_secs(2);
 
 /// Initialize the RPC server(s).
 ///
@@ -98,8 +106,32 @@ pub fn init_rpc_servers(launch_ctx: &LaunchContext, tx_handler: IncomingTxHandle
         // Initialize RPC handler service.
         let rpc_handler = CupratedRpcHandler::new(restricted, tx_handler.clone(), launch_ctx);
 
+        // Initialize the per IP rate limit budgets.
+        let rate_limit_budget = if restricted {
+            RateLimitBudget::new(
+                config.restricted.max_budget_size,
+                config.restricted.income_size,
+                config.restricted.max_budget_time,
+                config.restricted.income_time,
+            )
+        } else {
+            RateLimitBudget::new(
+                config.unrestricted.max_budget_size,
+                config.unrestricted.income_size,
+                config.unrestricted.max_budget_time,
+                config.unrestricted.income_time,
+            )
+        };
+
+        // Initialize the per IP rate limit cache
+        let rate_limit_cache = Arc::new(RpcRateLimitCache::new(rate_limit_budget));
+
         // Initialize Axum RPC router.
-        let rpc_router = init_rpc_router(rpc_handler, request_byte_limit);
+        let rpc_router = init_rpc_router(
+            rpc_handler,
+            request_byte_limit,
+            Arc::clone(&rate_limit_cache),
+        );
 
         // Initialize per IP connection limit cache.
         let rpc_limit_cache = RpcLimitCache::from_config(config, restricted);
@@ -110,6 +142,7 @@ pub fn init_rpc_servers(launch_ctx: &LaunchContext, tx_handler: IncomingTxHandle
             rpc_send_timeout,
             rpc_read_timeout,
             rpc_limit_cache,
+            rate_limit_cache,
             rpc_router,
         );
 
@@ -132,7 +165,11 @@ pub fn init_rpc_servers(launch_ctx: &LaunchContext, tx_handler: IncomingTxHandle
 }
 
 /// Initialize the Axum router of the RPC server.
-fn init_rpc_router(rpc_handler: CupratedRpcHandler, request_byte_limit: usize) -> Router {
+fn init_rpc_router(
+    rpc_handler: CupratedRpcHandler,
+    request_byte_limit: usize,
+    rate_limit_cache: Arc<RpcRateLimitCache>,
+) -> Router {
     let mut router = RouterBuilder::new()
         .json_rpc()
         //
@@ -166,6 +203,8 @@ fn init_rpc_router(rpc_handler: CupratedRpcHandler, request_byte_limit: usize) -
     // Add restrictive layers if restricted RPC.
     //
     // TODO: <https://github.com/Cuprate/cuprate/issues/445>
+    router = router.layer(RateLimitLayer::new(rate_limit_cache));
+
     if request_byte_limit != 0 {
         router = router.layer(RequestBodyLimitLayer::new(request_byte_limit));
     }
@@ -179,6 +218,10 @@ struct RpcServer {
     rpc: Router,
     /// The connection limit cache of this server.
     ip_limit_cache: RpcLimitCache,
+    /// The rate limit cache of this server, shared with the rate limit layer.
+    rate_limit_cache: Arc<RpcRateLimitCache>,
+    /// Pending erasures of disconnected IP addresses' rate limit state.
+    pending_evictions: HashMap<IpAddr, AbortHandle>,
     listening_address: SocketAddr,
     // Socket timeouts
     send_timeout: Duration,
@@ -193,11 +236,14 @@ impl RpcServer {
         send_timeout: Duration,
         read_timeout: Duration,
         ip_limit_cache: RpcLimitCache,
+        rate_limit_cache: Arc<RpcRateLimitCache>,
         rpc: Router,
     ) -> Self {
         Self {
             rpc,
             ip_limit_cache,
+            rate_limit_cache,
+            pending_evictions: HashMap::new(),
             listening_address,
             send_timeout,
             read_timeout,
@@ -235,6 +281,11 @@ impl RpcServer {
                         continue;
                     }
 
+                    // The IP (re)connected. Cancel the pending erasure of its rate limit state.
+                    if let Some(eviction) = self.pending_evictions.remove(&remote_addr.ip()) {
+                        eviction.abort();
+                    }
+
                     self.serve(socket, remote_addr);
                 },
                 Some(res) = self.rpc_tasks.join_next() => {
@@ -242,16 +293,31 @@ impl RpcServer {
                     let ip = addr.ip();
 
                     // Untrack connection from IP
-                    self.ip_limit_cache.remove_connection(&ip);
+                    let is_last_connection = self.ip_limit_cache.remove_connection(&ip);
 
                     // If hyper serve failed, increase the serve failure and ban the IP
                     // for 3 seconds if it reaches 15 failures.
                     if serve_failed && self.ip_limit_cache.increment_serve_failure(&ip) >= 15 {
                         self.ip_limit_cache.ban_serve_ip(&ip);
                     }
+
+                    // The IP address' last connection ended. Erase its rate limit state
+                    // after a grace period.
+                    if is_last_connection {
+                        let rate_limit_cache = Arc::clone(&self.rate_limit_cache);
+                        let task = tokio::spawn(async move {
+                            tokio::time::sleep(EVICTION_GRACE_PERIOD).await;
+                            rate_limit_cache.remove_ip(&ip);
+                        });
+                        self.pending_evictions.insert(ip, task.abort_handle());
+                    }
                 }
                 () = shutdown_token.cancelled() => {
                     self.rpc_tasks.abort_all();
+
+                    for eviction in std::mem::take(&mut self.pending_evictions).into_values() {
+                        eviction.abort();
+                    }
 
                     return Ok(());
                 }
@@ -383,14 +449,15 @@ impl RpcLimitCache {
         true
     }
 
-    /// Remove a connection of the remote IP address.
-    fn remove_connection(&mut self, remote_addr: &IpAddr) {
+    /// Remove a connection of the remote IP address, returning `true` if this
+    /// was the IP address' last connection to the server.
+    fn remove_connection(&mut self, remote_addr: &IpAddr) -> bool {
         if self.excluded_ips.contains(remote_addr) {
-            return;
+            return false;
         }
 
         let Some(value) = self.per_ip_conn_count.get_mut(remote_addr) else {
-            return;
+            return false;
         };
 
         *value = value.saturating_sub(1);
@@ -398,6 +465,9 @@ impl RpcLimitCache {
 
         if *value == 0 {
             self.per_ip_conn_count.remove(remote_addr);
+            true
+        } else {
+            false
         }
     }
 

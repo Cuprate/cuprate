@@ -109,6 +109,54 @@ config_struct! {
         /// Examples | "", "127.0.0.1", "192.168.1.50"
         pub excluded_ips_connection_limit: Vec<IpAddr>,
 
+        #[comment_out = true]
+        /// The maximum size budget of a single IP address, in bytes.
+        ///
+        /// Every IP address has a size budget, the size of each
+        /// response it receives is subtracted from it, and it is
+        /// refilled by `income_size` every second. Requests received
+        /// while this budget is exhausted are rejected with
+        /// `429 Too Many Requests`.
+        ///
+        /// Type         | Number (bytes)
+        /// Valid values | >= 0 (0 rejects all requests)
+        /// Examples     | 536870912 (512MiB), 1073741824 (1GiB)
+        pub max_budget_size: u64,
+
+        #[comment_out = true]
+        /// The amount of bytes per second refilled to the size
+        /// budget of every IP address, capped at `max_budget_size`.
+        ///
+        /// Type         | Number (bytes per second)
+        /// Valid values | >= 0 (0 means no restriction)
+        /// Examples     | 33554432 (32MiB/s), 67108864 (64MiB/s)
+        pub income_size: u64,
+
+        #[comment_out = true]
+        /// The maximum processing time budget of a single IP address,
+        /// in milliseconds.
+        ///
+        /// Every IP address has a processing time budget: the processing
+        /// time of each of its requests is subtracted from it, and it is
+        /// refilled by `income_time` every second. Requests received
+        /// while this budget is exhausted are rejected with
+        /// `429 Too Many Requests`.
+        ///
+        /// Type         | Number (milliseconds)
+        /// Valid values | >= 0 (0 means no restrictions)
+        /// Examples     | 30000 (30s), 60000 (1m)
+        pub max_budget_time: u64,
+
+        #[comment_out = true]
+        /// The amount of milliseconds of processing time refilled per sec
+        /// to the processing time budget of every IP address, capped
+        /// at `max_budget_time`.
+        ///
+        /// Type         | Number (milliseconds per second)
+        /// Valid values | >= 0
+        /// Examples     | 250, 500
+        pub income_time: u64,
+
         /// The time period during which the node can try sending data.
         /// If a send operation do not complete within this Duration,
         /// the connection is dropped.
@@ -173,6 +221,10 @@ impl Default for UnrestrictedRpcConfig {
             loopback_connection_limit: 0,
             total_connection_limit: 0,
             excluded_ips_connection_limit: Vec::new(),
+            max_budget_size: i64::MAX as u64,
+            income_size: i64::MAX as u64,
+            max_budget_time: i64::MAX as u64,
+            income_time: i64::MAX as u64,
             send_timeout: Duration::from_secs(5),
             read_timeout: Duration::from_secs(30),
         }
@@ -194,6 +246,10 @@ impl Default for RestrictedRpcConfig {
             loopback_connection_limit: 50,
             total_connection_limit: 100,
             excluded_ips_connection_limit: Vec::new(),
+            max_budget_size: 512 * 1024 * 1024,
+            income_size: 32 * 1024 * 1024,
+            max_budget_time: 30_000,
+            income_time: 250,
             send_timeout: Duration::from_secs(5),
             read_timeout: Duration::from_secs(30),
         }
