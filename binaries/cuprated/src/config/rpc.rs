@@ -157,6 +157,32 @@ config_struct! {
         /// Examples     | 250, 500
         pub income_time: u64,
 
+        #[comment_out = true]
+        /// Maximum amount of blocks endpoint requests handled simultaneously.
+        ///
+        /// The blocks endpoints are `/get_blocks.bin`, `/get_blocks_by_height.bin`
+        /// (and their aliases), and `/json_rpc`'s `get_block` method.
+        ///
+        /// Additional requests are put on hold for up to
+        /// `blocks_semaphore_queue_wait` milliseconds before being rejected
+        /// with `503 Service Unavailable` and a `Retry-After` header.
+        ///
+        /// Setting this to `0` will disable the limit.
+        ///
+        /// Type         | Number
+        /// Valid values | >= 0
+        /// Examples     | 0 (no limit), 4, 16
+        pub blocks_semaphore_limit: u64,
+
+        #[comment_out = true]
+        /// The maximum amount of time, in milliseconds, a blocks endpoint
+        /// request is put on hold waiting for a concurrency slot before
+        /// being rejected with `503 Service Unavailable`.
+        ///
+        /// Type     | Duration
+        /// Examples | { secs = 10, nanos = 0 }, { secs = 29, nano = 123 }
+        pub blocks_semaphore_queue_wait: Duration,
+
         /// The time period during which the node can try sending data.
         /// If a send operation do not complete within this Duration,
         /// the connection is dropped.
@@ -225,6 +251,8 @@ impl Default for UnrestrictedRpcConfig {
             income_size: i64::MAX as u64,
             max_budget_time: i64::MAX as u64,
             income_time: i64::MAX as u64,
+            blocks_semaphore_limit: 0,
+            blocks_semaphore_queue_wait: Duration::from_secs(0),
             send_timeout: Duration::from_secs(5),
             read_timeout: Duration::from_secs(30),
         }
@@ -250,6 +278,8 @@ impl Default for RestrictedRpcConfig {
             income_size: 32 * 1024 * 1024,
             max_budget_time: 30_000,
             income_time: 250,
+            blocks_semaphore_limit: 30, // 6GB
+            blocks_semaphore_queue_wait: Duration::from_secs(1),
             send_timeout: Duration::from_secs(5),
             read_timeout: Duration::from_secs(30),
         }

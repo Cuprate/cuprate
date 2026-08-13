@@ -6,6 +6,7 @@ mod constants;
 mod handlers;
 mod ratelimit;
 mod rpc_handler;
+mod semaphore;
 mod server;
 mod service;
 mod timeout;

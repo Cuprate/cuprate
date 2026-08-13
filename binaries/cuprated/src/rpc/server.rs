@@ -32,6 +32,7 @@ use crate::{
     config::{restricted_rpc_port, unrestricted_rpc_port, RpcConfig},
     rpc::{
         ratelimit::{RateLimitBudget, RateLimitLayer, RpcRateLimitCache},
+        semaphore::BlockSemaphoreLimitLayer,
         timeout::StreamTimeout,
         CupratedRpcHandler,
     },
@@ -103,6 +104,17 @@ pub fn init_rpc_servers(launch_ctx: &LaunchContext, tx_handler: IncomingTxHandle
             )
         };
 
+        let (blocks_semaphore_limit, blocks_semaphore_queue_wait) = if restricted {
+            (
+                config.restricted.blocks_semaphore_limit,
+                config.restricted.blocks_semaphore_queue_wait,
+            )
+        } else {
+            (
+                config.unrestricted.blocks_semaphore_limit,
+                config.unrestricted.blocks_semaphore_queue_wait,
+            )
+        };
         // Initialize RPC handler service.
         let rpc_handler = CupratedRpcHandler::new(restricted, tx_handler.clone(), launch_ctx);
 
@@ -131,6 +143,8 @@ pub fn init_rpc_servers(launch_ctx: &LaunchContext, tx_handler: IncomingTxHandle
             rpc_handler,
             request_byte_limit,
             Arc::clone(&rate_limit_cache),
+            blocks_semaphore_limit,
+            blocks_semaphore_queue_wait,
         );
 
         // Initialize per IP connection limit cache.
@@ -169,6 +183,8 @@ fn init_rpc_router(
     rpc_handler: CupratedRpcHandler,
     request_byte_limit: usize,
     rate_limit_cache: Arc<RpcRateLimitCache>,
+    blocks_concurrency_limit: u64,
+    blocks_concurrency_wait: Duration,
 ) -> Router {
     let mut router = RouterBuilder::new()
         .json_rpc()
@@ -201,9 +217,16 @@ fn init_rpc_router(
         .with_state(rpc_handler);
 
     // Add restrictive layers if restricted RPC.
-    //
-    // TODO: <https://github.com/Cuprate/cuprate/issues/445>
     router = router.layer(RateLimitLayer::new(rate_limit_cache));
+
+    // The concurrency limit runs outside the rate limit as queue wait is
+    // unaccounted processing time.
+    if blocks_concurrency_limit != 0 {
+        router = router.layer(BlockSemaphoreLimitLayer::new(
+            blocks_concurrency_limit,
+            blocks_concurrency_wait,
+        ));
+    }
 
     if request_byte_limit != 0 {
         router = router.layer(RequestBodyLimitLayer::new(request_byte_limit));
