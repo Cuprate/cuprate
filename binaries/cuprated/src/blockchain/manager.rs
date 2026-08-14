@@ -7,11 +7,15 @@ use tokio_util::sync::CancellationToken;
 use tower::{BoxError, Service, ServiceExt};
 use tracing::error;
 
-use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
+use cuprate_blockchain::{
+    service::{BlockchainReadHandle, BlockchainWriteHandle},
+    BlockchainError,
+};
 use cuprate_consensus::{
     BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
     ExtendedConsensusError,
 };
+use cuprate_consensus_rules::ConsensusError;
 use cuprate_p2p::{
     block_downloader::{self, BlockBatch},
     BroadcastSvc, NetworkInterface,
@@ -20,16 +24,72 @@ use cuprate_p2p_core::ClearNet;
 use cuprate_txpool::service::TxpoolWriteHandle;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, TransactionVerificationData,
+    Chain, TransactionVerificationData, TxConversionError,
 };
 
 use crate::{
     blockchain::{
-        chain_service::ChainService, syncer::BlockchainSyncer, types::ConsensusBlockchainReadHandle,
+        chain_service::ChainService, syncer::BlockchainSyncer,
+        types::ConsensusBlockchainReadHandle, BlockValidationError, IncomingBlockError,
     },
+    monitor::FatalError,
     txpool::TxpoolManagerHandle,
     LaunchContext,
 };
+
+/// An error from the blockchain manager's internal handlers.
+#[derive(Debug, thiserror::Error)]
+pub enum BlockManagerError {
+    /// The peer sent us an invalid block; ban them.
+    #[error(transparent)]
+    Validation(BlockValidationError),
+
+    /// We cannot recover; shut the node down.
+    #[error(transparent)]
+    Fatal(#[from] FatalError),
+}
+
+impl From<ExtendedConsensusError> for BlockManagerError {
+    fn from(e: ExtendedConsensusError) -> Self {
+        match e {
+            ExtendedConsensusError::DBErr(e) => Self::Fatal(e),
+            ExtendedConsensusError::ConErr(e) => Self::Validation(e.into()),
+
+            ExtendedConsensusError::TxsIncludedWithBlockIncorrect
+            | ExtendedConsensusError::OneOrMoreBatchVerificationStatementsInvalid
+            | ExtendedConsensusError::NoBlocksToVerify => {
+                Self::Validation(BlockValidationError::Consensus(e))
+            }
+        }
+    }
+}
+
+impl From<ConsensusError> for BlockManagerError {
+    fn from(e: ConsensusError) -> Self {
+        Self::Validation(e.into())
+    }
+}
+
+impl From<BlockManagerError> for IncomingBlockError {
+    fn from(e: BlockManagerError) -> Self {
+        match e {
+            BlockManagerError::Validation(e) => Self::Validation(e),
+            BlockManagerError::Fatal(e) => Self::Fatal(e),
+        }
+    }
+}
+
+impl From<BlockchainError> for BlockManagerError {
+    fn from(e: BlockchainError) -> Self {
+        Self::Fatal(e.into())
+    }
+}
+
+impl From<TxConversionError> for BlockManagerError {
+    fn from(e: TxConversionError) -> Self {
+        Self::Fatal(e.into())
+    }
+}
 
 mod commands;
 mod handler;
@@ -135,7 +195,7 @@ impl BlockchainManager {
         mut block_batch_rx: mpsc::Receiver<(BlockBatch, Arc<OwnedSemaphorePermit>)>,
         mut command_rx: mpsc::Receiver<BlockchainManagerCommand>,
         shutdown_token: CancellationToken,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), FatalError> {
         loop {
             tokio::select! {
                 biased;
@@ -143,16 +203,12 @@ impl BlockchainManager {
                     break;
                 }
                 Some((batch, permit)) = block_batch_rx.recv() => {
-                    self.handle_incoming_block_batch(batch)
-                        .await
-                        .map_err(anyhow::Error::from_boxed)?;
+                    self.handle_incoming_block_batch(batch).await?;
 
                     drop(permit);
                 }
                 Some(incoming_command) = command_rx.recv() => {
-                    self.handle_command(incoming_command)
-                        .await
-                        .map_err(anyhow::Error::from_boxed)?;
+                    self.handle_command(incoming_command).await?;
                 }
             }
         }

@@ -35,9 +35,15 @@ use cuprate_types::{
     VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 
-use crate::blockchain::{
-    manager::commands::{BlockchainManagerCommand, IncomingBlockOk},
-    BlockManagerError, BlockValidationError,
+use crate::{
+    blockchain::{
+        manager::{
+            commands::{BlockchainManagerCommand, IncomingBlockOk},
+            BlockManagerError,
+        },
+        BlockValidationError,
+    },
+    monitor::FatalError,
 };
 
 impl super::BlockchainManager {
@@ -49,14 +55,14 @@ impl super::BlockchainManager {
     pub async fn handle_command(
         &mut self,
         command: BlockchainManagerCommand,
-    ) -> Result<(), tower::BoxError> {
+    ) -> Result<(), FatalError> {
         match command {
             BlockchainManagerCommand::AddBlock {
                 block,
                 prepped_txs,
                 response_tx,
             } => match self.handle_incoming_block(block, prepped_txs).await {
-                Err(BlockManagerError::Internal(e)) => return Err(e),
+                Err(BlockManagerError::Fatal(e)) => return Err(e),
                 res => {
                     let _ = response_tx.send(res.map_err(Into::into));
                 }
@@ -193,7 +199,7 @@ impl super::BlockchainManager {
     pub async fn handle_incoming_block_batch(
         &mut self,
         batch: BlockBatch,
-    ) -> Result<(), tower::BoxError> {
+    ) -> Result<(), FatalError> {
         let (first_block, _) = batch
             .blocks
             .first()
@@ -230,7 +236,7 @@ impl super::BlockchainManager {
     async fn handle_incoming_block_batch_main_chain(
         &mut self,
         batch: BlockBatch,
-    ) -> Result<(), tower::BoxError> {
+    ) -> Result<(), FatalError> {
         let (last_block, _) = batch
             .blocks
             .last()
@@ -249,11 +255,11 @@ impl super::BlockchainManager {
         .map_err(BlockManagerError::from)
         {
             Ok(v) => v,
-            Err(BlockManagerError::Internal(e)) => return Err(e),
+            Err(BlockManagerError::Fatal(e)) => return Err(e),
             Err(BlockManagerError::Validation(e)) => {
                 let duration = match e {
                     BlockValidationError::HardFork(_) => MEDIUM_BAN,
-                    BlockValidationError::Other(_) => LONG_BAN,
+                    BlockValidationError::Consensus(_) => LONG_BAN,
                 };
                 batch.peer_handle.ban_peer(duration);
                 self.stop_current_block_downloader.notify_waiters();
@@ -275,7 +281,7 @@ impl super::BlockchainManager {
             .map_err(BlockManagerError::from)
             {
                 Ok(block) => block,
-                Err(BlockManagerError::Internal(e)) => return Err(e),
+                Err(BlockManagerError::Fatal(e)) => return Err(e),
                 Err(BlockManagerError::Validation(e)) => {
                     let duration = match e {
                         BlockValidationError::HardFork(e) => {
@@ -288,7 +294,7 @@ impl super::BlockchainManager {
                             );
                             MEDIUM_BAN
                         }
-                        BlockValidationError::Other(e) => {
+                        BlockValidationError::Consensus(e) => {
                             warn!(
                                 "Failed to verify block: {}, error {}, banning peer.",
                                 hex::encode(hash),
@@ -319,7 +325,7 @@ impl super::BlockchainManager {
     async fn handle_incoming_block_batch_fast_sync(
         &mut self,
         batch: BlockBatch,
-    ) -> Result<(), tower::BoxError> {
+    ) -> Result<(), FatalError> {
         let mut valid_blocks = Vec::with_capacity(batch.blocks.len());
         for (block, txs) in batch.blocks {
             let block = block_to_verified_block_information(
@@ -354,7 +360,7 @@ impl super::BlockchainManager {
     async fn handle_incoming_block_batch_alt_chain(
         &mut self,
         mut batch: BlockBatch,
-    ) -> Result<(), tower::BoxError> {
+    ) -> Result<(), FatalError> {
         let mut blocks = batch.blocks.into_iter();
 
         while let Some((block, txs)) = blocks.next() {
@@ -378,7 +384,7 @@ impl super::BlockchainManager {
             .await;
 
             match res {
-                Err(BlockManagerError::Internal(e)) => return Err(e),
+                Err(BlockManagerError::Fatal(e)) => return Err(e),
                 Err(BlockManagerError::Validation(e)) => {
                     let duration = match e {
                         BlockValidationError::HardFork(e) => {
@@ -391,7 +397,7 @@ impl super::BlockchainManager {
                             );
                             MEDIUM_BAN
                         }
-                        BlockValidationError::Other(e) => {
+                        BlockValidationError::Consensus(e) => {
                             warn!(
                                 "Failed to verify block: {}, error {}, banning peer.",
                                 hex::encode(hash),
@@ -562,7 +568,7 @@ impl super::BlockchainManager {
     /// This function will return an [`Err`] if any internal service returns an unexpected error that we cannot
     /// recover from.
     #[instrument(name = "reverse_reorg", skip_all, level = "info")]
-    async fn reverse_reorg(&mut self, old_main_chain_id: ChainId) -> Result<(), tower::BoxError> {
+    async fn reverse_reorg(&mut self, old_main_chain_id: ChainId) -> Result<(), FatalError> {
         warn!("Reorg failed, reverting to old chain.");
 
         let BlockchainResponse::AltBlocksInChain(mut blocks) = self
@@ -616,7 +622,7 @@ impl super::BlockchainManager {
     /// This function will return an [`Err`] if any internal service returns an unexpected error that we cannot
     /// recover from.
     #[instrument(name = "pop_blocks", skip(self), level = "info")]
-    async fn pop_blocks(&mut self, numb_blocks: usize) -> Result<ChainId, tower::BoxError> {
+    async fn pop_blocks(&mut self, numb_blocks: usize) -> Result<ChainId, FatalError> {
         let BlockchainResponse::PopBlocks(old_main_chain_id) = self
             .blockchain_write_handle
             .ready()
@@ -689,7 +695,7 @@ impl super::BlockchainManager {
         &mut self,
         verified_block: VerifiedBlockInformation,
         source: BlockSource,
-    ) -> Result<(), tower::BoxError> {
+    ) -> Result<(), FatalError> {
         // FIXME: this is pretty inefficient, we should probably return the KI map created in the consensus crate.
         let spent_key_images = verified_block
             .txs
@@ -736,7 +742,7 @@ impl super::BlockchainManager {
     async fn add_valid_block_to_blockchain_cache(
         &mut self,
         verified_block: &VerifiedBlockInformation,
-    ) -> Result<(), tower::BoxError> {
+    ) -> Result<(), FatalError> {
         self.blockchain_context_service
             .ready()
             .await?
@@ -764,7 +770,7 @@ impl super::BlockchainManager {
     async fn add_valid_block_to_blockchain_database(
         &mut self,
         verified_block: VerifiedBlockInformation,
-    ) -> Result<(), tower::BoxError> {
+    ) -> Result<(), FatalError> {
         self.blockchain_write_handle
             .ready()
             .await?
@@ -784,7 +790,7 @@ impl super::BlockchainManager {
     async fn batch_add_valid_block_to_blockchain_database(
         &mut self,
         blocks: Vec<VerifiedBlockInformation>,
-    ) -> Result<(), tower::BoxError> {
+    ) -> Result<(), FatalError> {
         self.blockchain_write_handle
             .ready()
             .await?

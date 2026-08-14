@@ -33,7 +33,7 @@ use cuprate_types::TransactionVerificationData;
 
 use crate::{
     config::TxpoolConfig,
-    monitor::TaskExecutor,
+    monitor::{FatalError, TaskExecutor},
     p2p::{CrossNetworkInternalPeerId, NetworkInterfaces},
     txpool::{
         dandelion::DiffuseService,
@@ -217,10 +217,7 @@ impl TxpoolManagerHandle {
     }
 
     /// Tell the tx-pool about spent key images in an incoming block.
-    pub async fn new_block(
-        &mut self,
-        spent_key_images: Vec<[u8; 32]>,
-    ) -> Result<(), tower::BoxError> {
+    pub async fn new_block(&mut self, spent_key_images: Vec<[u8; 32]>) -> Result<(), FatalError> {
         let (tx, rx) = oneshot::channel();
 
         drop(self.spent_kis_tx.send((spent_key_images, tx)).await);
@@ -558,7 +555,7 @@ impl TxpoolManager {
         mut command_rx: mpsc::Receiver<TxpoolManagerCommand>,
         mut block_rx: mpsc::Receiver<(Vec<[u8; 32]>, oneshot::Sender<()>)>,
         shutdown_token: CancellationToken,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), FatalError> {
         loop {
             tokio::select! {
                 biased;

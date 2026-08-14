@@ -125,7 +125,7 @@ impl IncomingTxHandler {
             .task_executor
             .spawn_critical("dandelion pool manager", async move {
                 tokio::select! {
-                    result = &mut dandelion_pool_task => result.map_err(anyhow::Error::from),
+                    result = &mut dandelion_pool_task => result.map_err(Into::into),
                     () = shutdown.cancelled() => {
                         dandelion_pool_task.abort();
                         drop(dandelion_pool_task.await);
@@ -247,8 +247,7 @@ async fn handle_incoming_txs(
             .await
             .is_err()
         {
-            tracing::warn!("The txpool manager has been stopped, dropping incoming txs");
-            return Ok(());
+            return Err(IncomingTxError::ChannelClosed);
         }
     }
 
@@ -323,7 +322,7 @@ async fn prepare_incoming_txs(
         .expect("Txpool read service is always ready.")
         .call(TxpoolReadRequest::FilterKnownTxBlobHashes(tx_blob_hashes))
         .await
-        .map_err(|e| IncomingTxError::Internal(e.into()))?
+        .map_err(|e| IncomingTxError::Fatal(e.into()))?
     else {
         unreachable!()
     };
@@ -377,7 +376,7 @@ async fn rerelay_stem_tx(
             // The tx was dropped from the pool
             return Ok(());
         }
-        Err(TxPoolError::Fjall(e)) => return Err(IncomingTxError::Internal(e.into())),
+        Err(TxPoolError::Fjall(e)) => return Err(IncomingTxError::Fatal(e.into())),
     };
 
     let incoming_tx =
@@ -397,5 +396,5 @@ async fn rerelay_stem_tx(
             .await
     }
     .await
-    .map_err(|e| IncomingTxError::Internal(e.into()))
+    .map_err(|e| IncomingTxError::Fatal(e.into()))
 }

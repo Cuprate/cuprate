@@ -233,7 +233,7 @@ impl Node {
                 &launch_ctx,
                 clearnet_interface.clone(),
                 tor_router_rx,
-                txpool_write_handle.clone(),
+                txpool_write_handle,
             )
             .await?;
 

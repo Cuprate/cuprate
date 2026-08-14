@@ -9,6 +9,9 @@ use tracing::{debug, error, info};
 
 use crate::constants::CRITICAL_SERVICE_ERROR;
 
+/// An unexpected node-side failure that should trigger a shutdown.
+pub type FatalError = tower::BoxError;
+
 /// A handle for task spawning and shutdown coordination.
 #[derive(Clone, Default)]
 pub struct TaskExecutor {
@@ -33,10 +36,9 @@ impl TaskExecutor {
 
     /// Spawn a tracked task that triggers shutdown if the future returns
     /// early or panics.
-    pub fn spawn_critical<F, E>(&self, name: &'static str, future: F) -> JoinHandle<()>
+    pub fn spawn_critical<F>(&self, name: &'static str, future: F) -> JoinHandle<()>
     where
-        F: Future<Output = Result<(), E>> + Send + 'static,
-        E: Into<anyhow::Error> + Send + 'static,
+        F: Future<Output = Result<(), FatalError>> + Send + 'static,
     {
         let executor = self.clone();
         self.tracker
@@ -46,7 +48,7 @@ impl TaskExecutor {
                         if executor.token.is_cancelled() {
                             // Node is shutting down, so an early exit or error is expected
                             if let Err(e) = res {
-                                debug!(subsystem = name, "{:#}", e.into());
+                                debug!(subsystem = name, "{:#}", anyhow::Error::from_boxed(e));
                             }
                             return;
                         }
@@ -55,7 +57,9 @@ impl TaskExecutor {
                                 subsystem = name,
                                 "critical task exited before shutdown was requested"
                             ),
-                            Err(e) => error!(subsystem = name, "{:#}", e.into()),
+                            Err(e) => {
+                                error!(subsystem = name, "{:#}", anyhow::Error::from_boxed(e));
+                            }
                         }
                     }
                     Err(payload) => error!(

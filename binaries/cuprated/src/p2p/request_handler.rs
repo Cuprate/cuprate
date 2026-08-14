@@ -395,7 +395,7 @@ async fn new_fluffy_block<A: NetZoneAddress>(
                 peer_information.handle.ban_peer(MEDIUM_BAN);
                 Err(e.into())
             }
-            BlockValidationError::Other(e) => {
+            BlockValidationError::Consensus(e) => {
                 tracing::warn!(
                     "Failed to verify block: {}, error {}, banning peer.",
                     hex::encode(block_hash),
@@ -405,7 +405,7 @@ async fn new_fluffy_block<A: NetZoneAddress>(
                 Err(e.into())
             }
         },
-        Err(IncomingBlockError::Internal(e)) => {
+        Err(IncomingBlockError::Fatal(e)) => {
             tracing::error!("Failed to handle incoming block: {e}");
             Err(anyhow::Error::from_boxed(e))
         }
@@ -470,9 +470,13 @@ where
 
     match res {
         Ok(()) => Ok(ProtocolResponse::NA),
-        Err(IncomingTxError::Internal(e)) => {
+        Err(IncomingTxError::Fatal(e)) => {
             tracing::error!("Failed to handle incoming txs: {e}");
             Err(anyhow::Error::from_boxed(e))
+        }
+        Err(IncomingTxError::ChannelClosed) => {
+            // Manager has exited (likely shutdown); drop silently.
+            Ok(ProtocolResponse::NA)
         }
         Err(e) => Err(e.into()),
     }

@@ -3,7 +3,7 @@
 use cuprate_consensus::ExtendedConsensusError;
 use cuprate_consensus_rules::ConsensusError;
 
-use crate::txpool::relay_rules::RelayRuleError;
+use crate::{monitor::FatalError, txpool::relay_rules::RelayRuleError};
 
 /// A validation failure - the tx should be dropped.
 #[derive(Debug, thiserror::Error)]
@@ -32,15 +32,19 @@ pub enum IncomingTxError {
     #[error(transparent)]
     Validation(#[from] TxValidationError),
 
-    /// An inner tower service returned an error.
+    /// We cannot recover; shut the node down.
     #[error(transparent)]
-    Internal(#[from] tower::BoxError),
+    Fatal(#[from] FatalError),
+
+    /// The tx-pool manager command channel is closed.
+    #[error("The tx-pool manager command channel is closed.")]
+    ChannelClosed,
 }
 
 impl From<ExtendedConsensusError> for IncomingTxError {
     fn from(e: ExtendedConsensusError) -> Self {
         match e {
-            ExtendedConsensusError::DBErr(e) => Self::Internal(e),
+            ExtendedConsensusError::DBErr(e) => Self::Fatal(e),
 
             ExtendedConsensusError::ConErr(_)
             | ExtendedConsensusError::TxsIncludedWithBlockIncorrect

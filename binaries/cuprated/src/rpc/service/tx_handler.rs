@@ -13,16 +13,10 @@ pub async fn handle_incoming_txs(
     tx_handler: &mut IncomingTxHandler,
     incoming_txs: IncomingTxs,
 ) -> Result<TxRelayChecks, Error> {
-    let resp = tx_handler
-        .ready()
-        .await
-        .map_err(|e| anyhow!(e))?
-        .call(incoming_txs)
-        .await;
+    let resp = tx_handler.ready().await?.call(incoming_txs).await;
 
     Ok(match resp {
         Ok(()) => TxRelayChecks::empty(),
-        Err(IncomingTxError::Internal(e)) => return Err(anyhow!(e)),
         Err(IncomingTxError::Validation(e)) => match e {
             TxValidationError::Consensus(ExtendedConsensusError::ConErr(
                 ConsensusError::Transaction(ref tx_err),
@@ -68,5 +62,6 @@ pub async fn handle_incoming_txs(
             }
             TxValidationError::DuplicateTransaction => TxRelayChecks::DOUBLE_SPEND,
         },
+        Err(e) => return Err(anyhow!(e)),
     })
 }

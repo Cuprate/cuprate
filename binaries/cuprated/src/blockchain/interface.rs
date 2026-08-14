@@ -98,7 +98,7 @@ impl BlockchainManagerHandle {
             .expect("Txpool read service is always ready.")
             .call(TxpoolReadRequest::TxsForBlock(block.transactions.clone()))
             .await
-            .map_err(|e| IncomingBlockError::Internal(e.into()))?
+            .map_err(|e| IncomingBlockError::Fatal(e.into()))?
         else {
             unreachable!()
         };
