@@ -167,7 +167,7 @@ pub fn add_tx_info_to_dynamic_tables(
             );
         }
         Transaction::V2 { .. } => {
-            if db.pruning_seed != PruningSeed::NotPruned {
+            if db.metadata.get_pruning_seed() != PruningSeed::NotPruned {
                 add_tx_to_prunable_tip(db, tx_id, tx, w);
             }
         }
@@ -199,7 +199,7 @@ pub fn get_remove_to_tx_id(
     height: BlockHeight,
     tapes: &impl TapesRead,
 ) -> DbResult<Option<TxId>> {
-    (db.pruning_seed != PruningSeed::NotPruned)
+    (db.metadata.get_pruning_seed() != PruningSeed::NotPruned)
         .then_some(height + 1) // first, to not delete
         .and_then(|h| h.checked_sub(CRYPTONOTE_PRUNING_TIP_BLOCKS))
         .map(|remove_to_height| {

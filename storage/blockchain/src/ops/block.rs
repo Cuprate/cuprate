@@ -320,7 +320,7 @@ pub fn add_block_to_dynamic_tables<'a, I: Iterator<Item = Cow<'a, Transaction<Pr
     *numb_transactions += 1;
 
     for (tx_hash, tx) in block.transactions.iter().zip(txs) {
-        // TODO: handle this
+        // TODO: handle this?
         // #[cfg(debug_assertions)]
         // {
         //     // Make sure the given tx is correct.
@@ -533,7 +533,12 @@ pub fn get_block_complete_entry_from_height(
 
     // return early if we don't have this block (we pruned it)
     let chain_height = chain_height(db, tapes)?;
-    if !pruned && !db.pruning_seed.has_full_block(block_height, chain_height) {
+    if !pruned
+        && !db
+            .metadata
+            .get_pruning_seed()
+            .has_full_block(block_height, chain_height)
+    {
         return Err(BlockchainError::NotFound);
     }
 

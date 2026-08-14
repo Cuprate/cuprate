@@ -1467,5 +1467,5 @@ fn pre_rct_output_distribution(
 }
 
 const fn pruning_seed(env: &BlockchainDatabase) -> BlockchainResponse {
-    BlockchainResponse::PruningSeed(env.pruning_seed)
+    BlockchainResponse::PruningSeed(env.metadata.get_pruning_seed())
 }

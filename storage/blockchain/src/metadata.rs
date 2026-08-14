@@ -2,7 +2,7 @@ use cuprate_pruning::{PruningSeed, CRYPTONOTE_PRUNING_LOG_STRIPES};
 use std::{
     fs::File,
     io::{Read, Write},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use crate::{BlockchainError, DATABASE_VERSION};
@@ -10,6 +10,12 @@ use crate::{BlockchainError, DATABASE_VERSION};
 /// Represents the metadata of the blockchain database.
 #[derive(Clone, Debug)]
 pub struct Metadata {
+    inner: MetadataInner,
+    path: PathBuf,
+}
+
+#[derive(Clone, Debug)]
+struct MetadataInner {
     /// The version of the database, defaults to [`crate::constants::DATABASE_VERSION`].
     db_version: u64,
     /// The seed used for pruning, defaults to [`PruningSeed::NotPruned`].
@@ -29,16 +35,16 @@ impl Metadata {
             let mut file = File::open(&metadata_path)?;
             let mut buf = Vec::new();
             file.read_to_end(&mut buf)?;
-            let metadata = Self::deserialize(buf.as_slice())?;
+            let inner = MetadataInner::deserialize(buf.as_slice())?;
             tracing::info!(
                 "Opened existing metadata file with DB version = {} and pruning_stripe = {:?}.",
-                metadata.db_version,
-                metadata.get_pruning_seed().get_stripe()
+                inner.db_version,
+                inner.pruning_seed.get_stripe()
             );
-            Ok(metadata)
+            Ok(Self::from_inner(inner, metadata_path))
         } else {
-            let metadata = Self::new();
-            metadata.write_to_file(&metadata_path)?;
+            let metadata = Self::from_inner(MetadataInner::default(), metadata_path);
+            metadata.persist()?;
             Ok(metadata)
         }
     }
@@ -46,14 +52,11 @@ impl Metadata {
     /// Gets the stripe index from the pruning seed.
     ///
     /// This will persist the metadata file to disk.
-    pub fn set_stripe_idx(
-        &mut self,
-        stripe_idx: u32,
-        path: impl AsRef<Path>,
-    ) -> Result<(), BlockchainError> {
-        self.pruning_seed = PruningSeed::new_pruned(stripe_idx, CRYPTONOTE_PRUNING_LOG_STRIPES)?;
+    pub fn set_stripe_idx(&mut self, stripe_idx: u32) -> Result<(), BlockchainError> {
+        self.inner.pruning_seed =
+            PruningSeed::new_pruned(stripe_idx, CRYPTONOTE_PRUNING_LOG_STRIPES)?;
 
-        self.persist(path)
+        self.persist()
     }
 
     /// Gets the pruning seed.
@@ -61,15 +64,38 @@ impl Metadata {
     /// Note that this doesn't re-read the file.
     #[inline]
     pub const fn get_pruning_seed(&self) -> PruningSeed {
-        self.pruning_seed
+        self.inner.pruning_seed
     }
 
     #[inline]
     pub const fn get_db_version(&self) -> u64 {
-        self.db_version
+        self.inner.db_version
     }
 
-    /// deserializes a [`bytes::Buf`] into a [`Metadata`]
+    #[inline]
+    const fn from_inner(inner: MetadataInner, path: PathBuf) -> Self {
+        Self { inner, path }
+    }
+
+    /// Saves the metadata to the file.
+    #[inline]
+    fn persist(&self) -> Result<(), BlockchainError> {
+        let mut file = File::create(&self.path)?;
+        let mut buf = bytes::BytesMut::new();
+        self.inner.serialize(&mut buf);
+        file.write_all(&buf)?;
+        Ok(())
+    }
+}
+
+impl MetadataInner {
+    /// serializes [`MetadataInner`] into a buffer like a [`Vec`] or [`bytes::BytesMut`]
+    fn serialize(&self, mut buf: impl bytes::BufMut) {
+        buf.put_u64_le(self.db_version);
+        buf.put_u32_le(self.pruning_seed.compress());
+    }
+
+    /// deserializes a [`bytes::Buf`] into a [`MetadataInner`]
     fn deserialize(mut bytes: impl bytes::Buf) -> Result<Self, BlockchainError> {
         let db_version = bytes.try_get_u64_le()?;
         let pruning_seed = PruningSeed::decompress(bytes.try_get_u32_le()?)?;
@@ -79,37 +105,15 @@ impl Metadata {
             pruning_seed,
         })
     }
+}
 
-    /// serializes [`self`] into a buffer like a [`Vec`] or [`bytes::BytesMut`]
-    fn serialize(&self, mut buf: impl bytes::BufMut) {
-        buf.put_u64_le(self.db_version);
-        buf.put_u32_le(self.pruning_seed.compress());
-    }
-
-    /// Saves the metadata to the file.
+impl Default for MetadataInner {
+    /// Creates a new [`MetadataInner`] with the given path. Default `pruning_seed` is [`PruningSeed::NotPruned`].
     #[inline]
-    fn persist(&self, path: impl AsRef<Path>) -> Result<(), BlockchainError> {
-        let metadata_path = Path::new(path.as_ref()).join(Self::FILE_NAME);
-        self.write_to_file(metadata_path)?;
-        Ok(())
-    }
-
-    /// Creates a new [`Metadata`] with the given path. Default `pruning_seed` is [`PruningSeed::NotPruned`].
-    #[inline]
-    const fn new() -> Self {
+    fn default() -> Self {
         Self {
             db_version: DATABASE_VERSION,
             pruning_seed: PruningSeed::NotPruned,
         }
-    }
-
-    /// Writes the metadata to the given file.
-    #[inline]
-    fn write_to_file(&self, path: impl AsRef<Path>) -> Result<(), BlockchainError> {
-        let mut file = File::create(path)?;
-        let mut buf = bytes::BytesMut::new();
-        self.serialize(&mut buf);
-        file.write_all(&buf)?;
-        Ok(())
     }
 }
