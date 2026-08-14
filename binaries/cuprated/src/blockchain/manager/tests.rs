@@ -1,5 +1,6 @@
 use std::{collections::HashMap, env::temp_dir, path::PathBuf, sync::Arc};
 
+use cuprate_pruning::PruningSeed;
 use monero_oxide::{
     block::{Block, BlockHeader},
     ed25519::CompressedPoint,
@@ -61,6 +62,7 @@ async fn mock_manager(data_dir: PathBuf) -> BlockchainManager {
 
     let blockchain_context_service = cuprate_consensus_context::initialize_blockchain_context(
         context_config,
+        PruningSeed::NotPruned,
         blockchain_read_handle.clone(),
     )
     .await

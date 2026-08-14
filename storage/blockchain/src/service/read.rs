@@ -175,7 +175,6 @@ fn map_request(
         R::TotalRctOutputs => Ok(total_rct_outputs(env)),
         R::TxOutputIndexes { tx_hash } => tx_output_indexes(env, &tx_hash),
         R::PreRctOutputDistribution(input) => pre_rct_output_distribution(env, &input),
-        R::PruningSeed => Ok(pruning_seed(env)),
     }
 
     /* SOMEDAY: post-request handling, run some code for each request? */
@@ -1464,8 +1463,4 @@ fn pre_rct_output_distribution(
     }
 
     Ok(BlockchainResponse::PreRctOutputDistribution(result))
-}
-
-const fn pruning_seed(env: &BlockchainDatabase) -> BlockchainResponse {
-    BlockchainResponse::PruningSeed(env.metadata.get_pruning_seed())
 }

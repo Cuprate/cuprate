@@ -74,6 +74,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
     /// while to complete.
     pub(crate) async fn init_context(
         cfg: ContextConfig,
+        pruning_seed: PruningSeed,
         mut database: D,
     ) -> Result<(Self, Arc<ArcSwap<BlockchainContext>>), ContextCacheError> {
         let ContextConfig {
@@ -97,15 +98,6 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
             .ready()
             .await?
             .call(BlockchainReadRequest::GeneratedCoins(chain_height - 1))
-            .await?
-        else {
-            panic!("Database sent incorrect response!");
-        };
-
-        let BlockchainResponse::PruningSeed(pruning_seed) = database
-            .ready()
-            .await?
-            .call(BlockchainReadRequest::PruningSeed)
             .await?
         else {
             panic!("Database sent incorrect response!");

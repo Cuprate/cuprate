@@ -484,6 +484,11 @@ impl BlockchainDatabase {
         Ok(())
     }
 
+    #[inline]
+    pub const fn get_pruning_seed(&self) -> PruningSeed {
+        self.metadata.get_pruning_seed()
+    }
+
     /// - generate new [`PruningSeed`]
     /// - populate [`BlockchainDatabase::prunable_tip`] with latest blocks
     /// - delete unnecessary [`BlockchainDatabase::prunable_blobs`]

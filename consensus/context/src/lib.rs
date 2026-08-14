@@ -110,13 +110,15 @@ impl ContextConfig {
 /// This function will request a lot of data from the database so it may take a while.
 pub async fn initialize_blockchain_context<D>(
     cfg: ContextConfig,
+    pruning_seed: PruningSeed,
     database: D,
 ) -> Result<BlockchainContextService, ContextCacheError>
 where
     D: Database + Clone + Send + Sync + 'static,
     D::Future: Send + 'static,
 {
-    let (context_task, context_cache) = task::ContextTask::init_context(cfg, database).await?;
+    let (context_task, context_cache) =
+        task::ContextTask::init_context(cfg, pruning_seed, database).await?;
 
     // TODO: make buffer size configurable.
     let (tx, rx) = mpsc::channel(15);

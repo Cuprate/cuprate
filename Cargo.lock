@@ -1040,6 +1040,7 @@ dependencies = [
  "cuprate-consensus-context",
  "cuprate-consensus-rules",
  "cuprate-helper",
+ "cuprate-pruning",
  "cuprate-test-utils",
  "cuprate-types",
  "curve25519-dalek",

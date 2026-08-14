@@ -228,9 +228,6 @@ pub enum BlockchainReadRequest {
 
     /// Get the output indexes of a transaction.
     TxOutputIndexes { tx_hash: [u8; 32] },
-
-    /// Get the pruning seed of the blockchain.
-    PruningSeed,
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
@@ -485,9 +482,6 @@ pub enum BlockchainResponse {
     ///
     /// The inner value is the alt-chain ID for the old main chain blocks.
     PopBlocks(ChainId),
-
-    /// Response to [`BlockchainReadRequest::PruningSeed`].
-    PruningSeed(PruningSeed),
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
