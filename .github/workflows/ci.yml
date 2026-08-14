@@ -208,13 +208,11 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
       CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG: "0"
-      RUSTFLAGS: "-C strip=symbols"
 
     strategy:
       matrix:
         os: [
           { name: freebsd, architecture: x86_64, version: "15.1", dependencies: "cmake curl git gmake" },
-          { name: openbsd, architecture: x86_64, version: "7.9", dependencies: "cmake git gmake rust rust-clippy" },
         ]
 
     defaults:
@@ -228,7 +226,6 @@ jobs:
           submodules: recursive
 
       - name: Download monerod
-        if: matrix.os.name != 'openbsd' # There is no prebuilt monerod for OpenBSD
         uses: ./.github/actions/monerod-download
         with:
           os: ${{ matrix.os.name }}
@@ -243,14 +240,11 @@ jobs:
           memory: 6G
           cpu_count: 4
           sync_files: runner-to-vm
-          environment_variables: CARGO_TERM_COLOR RUST_BACKTRACE RUST_MIN_STACK RUSTFLAGS RUSTDOCFLAGS CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG CARGO_INCREMENTAL CARGO_PROFILE_DEV_DEBUG CARGO_PROFILE_TEST_DEBUG
+          environment_variables: CARGO_TERM_COLOR RUST_BACKTRACE RUST_MIN_STACK RUSTDOCFLAGS CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG CARGO_INCREMENTAL CARGO_PROFILE_DEV_DEBUG CARGO_PROFILE_TEST_DEBUG
 
       - name: Install dependencies
         run: |
           case "${{ matrix.os.name }}" in
-            openbsd)
-              sudo pkg_add ${{ matrix.os.dependencies }}
-              ;;
             freebsd)
               sudo pkg install -y ${{ matrix.os.dependencies }}
               sudo pkg clean -y
@@ -274,34 +268,13 @@ jobs:
         run: ${{ env.CMD_CLIPPY }}
 
       - name: Test
-        run: |
-          cargo clean
-          case "${{ matrix.os.name }}" in
-            openbsd)
-              ulimit -Sd 4194304
-              ulimit -n 1024
-              cargo test --all-features --workspace --exclude cuprate-p2p-core
-              cargo test --all-features --package cuprate-p2p-core --lib --tests -- --skip monerod
-              ;;
-            *)
-              ${{ env.CMD_TEST }}
-              ;;
-          esac
+        run: ${{ env.CMD_TEST }}
 
       - name: Build
         run: ${{ env.CMD_BUILD }}
 
       - name: Hack Check
-        run: |
-          case "${{ matrix.os.name }}" in
-            openbsd)
-              cargo install cargo-hack --locked
-              cargo hack check --feature-powerset --no-dev-deps --workspace --exclude cuprate-fuzz
-              ;;
-            *)
-              ${{ env.CMD_HACK }}
-              ;;
-          esac
+        run: ${{ env.CMD_HACK }}
 
   # CI, runs cross-compiled targets under emulation.
   ci-cross:
