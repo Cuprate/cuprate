@@ -182,6 +182,8 @@ fjall                 = { version = "3.1.7", default-features = false }
 futures               = { version = "0.3", default-features = false }
 hex                   = { version = "0.4", default-features = false }
 hex-literal           = { version = "1", default-features = false }
+hyper                 = { version = "1.11.0", default-features = false }
+hyper-util            = { version = "0.1.20", default-features = false }
 indexmap              = { version = "2", default-features = false }
 mimalloc              = { version = "0.1", default-features = false }
 monero-address        = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "946ec5f", default-features = false }
@@ -189,6 +191,7 @@ monero-oxide          = { git = "https://github.com/monero-oxide/monero-oxide.gi
 nu-ansi-term          = { version = "0.50", default-features = false }
 paste                 = { version = "1", default-features = false }
 pin-project           = { version = "1", default-features = false }
+pin-project-lite      = { version = "0.2.17", default-features = false }
 randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev = "76c2385", default-features = false }
 rand                  = { version = "0.8", default-features = false }
 rand_distr            = { version = "0.4", default-features = false }
