@@ -185,30 +185,9 @@ fn add_tx_to_prunable_tip(
 ) {
     w.insert(
         &db.prunable_tip,
-        tx_id.to_be_bytes(),
+        tx_id.to_le_bytes(),
         tx.serialize().as_slice(), // TODO: really serialize into a newly allocated Vec?
     );
-}
-
-/// Calculates height - [`CRYPTONOTE_PRUNING_TIP_BLOCKS`] + 1, to get the height we want to keep.
-///
-/// Returns None if a. an overflow occurred or b. we don't prune
-#[inline]
-pub fn get_remove_to_tx_id(
-    db: &BlockchainDatabase,
-    height: BlockHeight,
-    tapes: &impl TapesRead,
-) -> DbResult<Option<TxId>> {
-    (db.metadata.get_pruning_seed() != PruningSeed::NotPruned)
-        .then_some(height + 1) // first, to not delete
-        .and_then(|h| h.checked_sub(CRYPTONOTE_PRUNING_TIP_BLOCKS))
-        .map(|remove_to_height| {
-            tapes
-                .read_entry(&db.block_infos, usize_to_u64(remove_to_height))
-                .map(|entry| entry.map_or(0, |prev| prev.mining_tx_index))
-        })
-        .transpose()
-        .map_err(Into::into)
 }
 
 /// Removes a transaction from the dynamic tables.
@@ -459,7 +438,7 @@ pub fn read_prunable_tape(
         if block_height + CRYPTONOTE_PRUNING_TIP_BLOCKS >= chain_height {
             let prunable_blob = db
                 .prunable_tip
-                .get(tx_id.to_be_bytes())?
+                .get(tx_id.to_le_bytes())?
                 .unwrap_or([].into()); // if the block should be in the prunable tip but isn't, it means the tx wasn't added because it's empty
             buf[..prunable_blob.len()].copy_from_slice(&prunable_blob);
         } else {

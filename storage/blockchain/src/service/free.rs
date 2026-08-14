@@ -34,7 +34,7 @@ pub fn init_with_pool(
 > {
     // Initialise the database itself.
     let mut db = BlockchainDatabase::open_with_fjall_database(config, fjall)?;
-    db.make_consistent(config)?;
+    db.make_consistent()?;
     let db = Arc::new(db);
 
     // Spawn the Reader thread pool and Writer.

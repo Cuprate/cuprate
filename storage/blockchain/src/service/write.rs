@@ -1,7 +1,6 @@
 //! Database writer thread definitions and logic.
 
 use std::{
-    borrow::Cow,
     sync::Arc,
     task::{Context, Poll},
 };
@@ -23,7 +22,7 @@ use cuprate_types::{
 use crate::{
     config::Persistence,
     error::{BlockchainError, DbResult},
-    ops::{block::add_blocks_to_tapes, tx::get_remove_to_tx_id},
+    ops::block::add_blocks_to_tapes,
     service::ResponseResult,
     BlockchainDatabase,
 };
@@ -153,7 +152,7 @@ fn write_blocks(db: &BlockchainDatabase, blocks: &[VerifiedBlockInformation]) ->
 
     let mut tapes = db.linear_tapes.append();
 
-    let mut numb_transactions = tapes
+    let numb_transactions = tapes
         .fixed_sized_tape_len(&db.tx_infos)
         .expect("required tape not open");
 
@@ -162,24 +161,17 @@ fn write_blocks(db: &BlockchainDatabase, blocks: &[VerifiedBlockInformation]) ->
     tapes.commit(tapes_persist_mode)?;
 
     let mut pre_rct_numb_outputs_cache = db.pre_rct_numb_outputs_cache.lock().unwrap();
-
     let mut tx_rw = db.fjall.batch().durability(Some(fjall_persist_mode));
     let tapes = db.linear_tapes.reader();
 
-    for block in blocks {
-        let remove_to_tx_id = get_remove_to_tx_id(db, block.height, &tapes)?;
-
-        crate::ops::block::add_block_to_dynamic_tables(
-            db,
-            &block.block,
-            &block.block_hash,
-            block.txs.iter().map(|tx| Cow::Borrowed(&tx.tx)),
-            &mut numb_transactions,
-            remove_to_tx_id,
-            &mut tx_rw,
-            &mut pre_rct_numb_outputs_cache,
-        )?;
-    }
+    crate::ops::block::add_blocks_to_dynamic_tables(
+        db,
+        blocks,
+        numb_transactions,
+        &mut tx_rw,
+        &mut pre_rct_numb_outputs_cache,
+        &tapes,
+    )?;
 
     tx_rw.commit()?;
 

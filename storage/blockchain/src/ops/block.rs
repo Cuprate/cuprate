@@ -9,6 +9,7 @@ use cuprate_helper::{
 };
 use cuprate_pruning::{
     PruningSeed, CRYPTONOTE_PRUNING_LOG_STRIPES, CRYPTONOTE_PRUNING_STRIPE_SIZE,
+    CRYPTONOTE_PRUNING_TIP_BLOCKS,
 };
 use cuprate_types::{
     AltBlockInformation, BlockCompleteEntry, ChainId, ExtendedBlockHeader, HardFork,
@@ -284,17 +285,83 @@ pub fn add_blocks_to_tapes(
 /// This extracts all the data from the input block and
 /// maps/adds them to the appropriate database tables.
 ///
+/// Additionally, it removes the [`BlockchainDatabase::prunable_tip`] entries to they're always of length [`CRYPTONOTE_PRUNING_TIP_BLOCKS`].
+pub(crate) fn add_blocks_to_dynamic_tables(
+    db: &BlockchainDatabase,
+    blocks: &[VerifiedBlockInformation],
+    mut numb_transactions: u64,
+    tx_rw: &mut fjall::OwnedWriteBatch,
+    pre_rct_numb_outputs_cache: &mut HashMap<Amount, u64>,
+    tapes: &impl TapesRead,
+) -> DbResult<()> {
+    /// Calculates height - [`CRYPTONOTE_PRUNING_TIP_BLOCKS`] + 1, to get the height we want to keep, and returns the [`TxId`] of the mining tx.
+    ///
+    /// Returns None if a. an overflow occurred or b. we don't prune
+    #[inline]
+    fn get_tx_id_from_height(
+        db: &BlockchainDatabase,
+        height: BlockHeight,
+        tapes: &impl TapesRead,
+    ) -> DbResult<Option<TxId>> {
+        (db.metadata.get_pruning_seed() != PruningSeed::NotPruned)
+            .then_some(height + 1) // first, to not delete
+            .and_then(|h| h.checked_sub(CRYPTONOTE_PRUNING_TIP_BLOCKS))
+            .map(|remove_to_height| {
+                tapes
+                    .read_entry(&db.block_infos, usize_to_u64(remove_to_height))
+                    .map(|entry| entry.map_or(0, |prev| prev.mining_tx_index))
+            })
+            .transpose()
+            .map_err(Into::into)
+    }
+
+    // first, remove all the blocks in the tip
+    let remove_from_tx_id = blocks
+        .first()
+        .and_then(|block| get_tx_id_from_height(db, block.height, tapes).transpose())
+        .transpose()?;
+    let remove_to_tx_id = blocks
+        .last()
+        .and_then(|block| get_tx_id_from_height(db, block.height, tapes).transpose())
+        .transpose()?;
+    if let Some(remove_to_tx_id) = remove_to_tx_id {
+        if let Some(remove_from_tx_id) = remove_from_tx_id {
+            // fjall won't error if tx_id is not in the `prunable_tip`
+            for tx_id in remove_from_tx_id..remove_to_tx_id {
+                tx_rw.remove(&db.prunable_tip, tx_id.to_le_bytes().as_slice());
+            }
+        }
+    }
+
+    for block in blocks {
+        add_block_to_dynamic_tables(
+            db,
+            &block.block,
+            &block.block_hash,
+            block.txs.iter().map(|tx| Cow::Borrowed(&tx.tx)),
+            &mut numb_transactions,
+            tx_rw,
+            pre_rct_numb_outputs_cache,
+        )?;
+    }
+
+    Ok(())
+}
+
+/// Add a [`VerifiedBlockInformation`] to the dynamic database (fjall).
+///
+/// This extracts all the data from the input block and
+/// maps/adds them to the appropriate database tables.
+///
 /// # Panics
 /// This function will panic if the block is invalid.
 // no inline, too big.
-#[expect(clippy::too_many_arguments)]
 pub fn add_block_to_dynamic_tables<'a, I: Iterator<Item = Cow<'a, Transaction<Pruned>>>>(
     db: &BlockchainDatabase,
     block: &Block,
     block_hash: &BlockHash,
     txs: I,
     numb_transactions: &mut u64,
-    remove_to_tx_id: Option<TxId>,
     w: &mut fjall::OwnedWriteBatch,
     pre_rct_numb_outputs_cache: &mut HashMap<Amount, u64>,
 ) -> DbResult<()> {
@@ -344,29 +411,9 @@ pub fn add_block_to_dynamic_tables<'a, I: Iterator<Item = Cow<'a, Transaction<Pr
         *numb_transactions += 1;
     }
 
-    if let Some(remove_to_tx_id) = remove_to_tx_id {
-        remove_block_from_prunable_tip(db, remove_to_tx_id, w)?;
-    }
-
     w.insert(&db.block_heights, block_hash, block.number().to_le_bytes());
     w.insert(&db.chain_tip, CHAIN_TIP_KEY, block_hash);
 
-    Ok(())
-}
-
-/// Removes the bottom blocks from the `prunable_tip` so it always contains [`cuprate_pruning::CRYPTONOTE_PRUNING_TIP_BLOCKS`] blocks
-pub fn remove_block_from_prunable_tip(
-    db: &BlockchainDatabase,
-    tx_id_to_remove_to: TxId,
-    w: &mut fjall::OwnedWriteBatch,
-) -> DbResult<()> {
-    if let Some(first_tx) = db.prunable_tip.first_key_value() {
-        let tx_id_to_remove_from = first_tx.key()?.as_ref().get_u64();
-
-        for tx_id in tx_id_to_remove_from..tx_id_to_remove_to {
-            w.remove(&db.prunable_tip, tx_id.to_be_bytes().as_slice());
-        }
-    }
     Ok(())
 }
 

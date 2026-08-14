@@ -8,7 +8,6 @@ use std::{
     ops::Range,
 };
 
-use cuprate_pruning::PruningSeed;
 use indexmap::{IndexMap, IndexSet};
 use monero_oxide::block::Block;
 
