@@ -118,7 +118,6 @@ jobs:
       matrix:
         os: [
             { name: freebsd, architecture: x86_64, version: "15.1" },
-            { name: openbsd, architecture: x86_64, version: "7.9" },
         ]
 
     defaults:
@@ -146,9 +145,6 @@ jobs:
       - name: Install dependencies
         run: |
           case "${{ matrix.os.name }}" in
-            openbsd)
-              sudo pkg_add cmake git gmake rust
-              ;;
             freebsd)
               sudo pkg install -y cmake curl git gmake
               ;;
@@ -161,9 +157,7 @@ jobs:
           sudo ln -s "$HOME"/.cargo/bin/* /usr/local/bin/
 
       - name: Build
-        run: |
-          [ "${{ matrix.os.name }}" != openbsd ] || ulimit -Sd 4194304
-          cargo build --release --package cuprated
+        run: cargo build --release --package cuprated
 
       - name: Generate Archive
         shell: cpa.sh {0} --sync-files vm-to-runner
@@ -181,15 +175,7 @@ jobs:
 
           # Generate the asset name.
           readonly TARGET=$(rustc -vV | sed -n 's/^host: //p')
-          case "${{ matrix.os.name }}" in
-            # OpenBSD does not keep binary compatibility between releases.
-            openbsd)
-              readonly ASSET="cuprated-$VERSION-${TARGET}$(uname -r).tar.gz"
-              ;;
-            *)
-              readonly ASSET="cuprated-$VERSION-$TARGET.tar.gz"
-              ;;
-          esac
+          readonly ASSET="cuprated-$VERSION-$TARGET.tar.gz"
 
           # Generate archive for BSD.
           cp LICENSE-AGPL target/release/LICENSE

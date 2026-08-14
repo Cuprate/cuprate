@@ -31,7 +31,6 @@ Tier 2 targets can be thought of as "guaranteed to build".
 |------------------------------|--------|
 | `x86_64-unknown-linux-musl`  | x64 Linux (musl 1.2.3)
 | `x86_64-unknown-freebsd` 	   | x64 FreeBSD
-| `x86_64-unknown-openbsd`     | x64 OpenBSD (7.9+)
 | `riscv64gc-unknown-linux-gnu`  | RISC-V 64 Linux (glibc 2.36+)
 
 ## Tier 3
@@ -46,3 +45,4 @@ Official builds are not available, but may eventually be planned.
 | `aarch64-pc-windows-msvc`      | ARM64 Windows (MSVC, Windows 11+)
 | `aarch64-unknown-linux-musl`   | ARM64 Linux (musl 1.2.3)
 | `riscv64gc-unknown-linux-musl` | RISC-V 64 Linux (musl 1.2.3)
+| `x86_64-unknown-openbsd`       | x64 OpenBSD (7.9+)
