@@ -2,7 +2,7 @@
 
 use std::{
     cell::{Cell, UnsafeCell},
-    collections::HashMap,
+    collections::{hash_map::Entry, HashMap},
     net::{IpAddr, SocketAddr},
     num::NonZeroUsize,
     sync::{
@@ -14,6 +14,7 @@ use std::{
 
 use anyhow::Error;
 use axum::Router;
+use dashmap::DashMap;
 use hyper::{body::Incoming, server::conn::http1, Request};
 use hyper_util::{
     rt::{TokioExecutor, TokioIo, TokioTimer},
@@ -24,7 +25,11 @@ use tokio::{
     task::JoinSet,
     time::timeout,
 };
-use tokio_util::{sync::CancellationToken, time::FutureExt};
+use tokio_stream::StreamExt;
+use tokio_util::{
+    sync::CancellationToken,
+    time::{delay_queue::Key, DelayQueue, FutureExt},
+};
 use tower::{limit::rate::RateLimitLayer, Service};
 use tower_http::{limit::RequestBodyLimitLayer, timeout::RequestBodyDeadlineLayer};
 use tracing::{debug, error, info, warn};
@@ -42,6 +47,17 @@ use crate::{
 /// The maximum amount of time we wait for connections to gracefully close
 /// after shutdown signal.
 const RPC_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// The amount of failures to serve in a short period of time we consider
+/// worth banning the IP address for.
+const RPC_FAILURE_BAN_THRESHOLD: usize = 15;
+
+/// The amount of time we keep IP addresses failure in cache. If no failure
+/// has been produced during this period of time, the IP's failures are removed.
+const RPC_FAILURE_KEEP_ALIVE: Duration = Duration::from_secs(5);
+
+/// The amount of time banned IP addresses are unable to be served.
+const RPC_BAN_PERIOD: Duration = Duration::from_secs(3);
 
 /// Initialize the RPC server(s).
 ///
@@ -111,11 +127,15 @@ pub fn init_rpc_servers(launch_ctx: &LaunchContext, tx_handler: IncomingTxHandle
         // Initialize Axum RPC router.
         let rpc_router = init_rpc_router(rpc_handler, request_byte_limit, rpc_body_read_timeout);
 
+        // Initialize per IP connection limit cache.
+        let rpc_limit_cache = RpcLimitCache::from_config(config, restricted);
+
         // Build the RPC server.
         let rpc_server = RpcServer::new(
             SocketAddr::new(addr, port),
             rpc_send_timeout,
             rpc_header_read_timeout,
+            rpc_limit_cache,
             rpc_router,
         );
 
@@ -189,11 +209,13 @@ fn init_rpc_router(
 struct RpcServer {
     /// The RPC Axum router.
     rpc: Router,
+    /// The connection limit cache of this server.
+    ip_limit_cache: RpcLimitCache,
     listening_address: SocketAddr,
     // Socket timeouts
     send_timeout: Duration,
     header_read_timeout: Duration,
-    rpc_tasks: JoinSet<SocketAddr>,
+    rpc_tasks: JoinSet<(SocketAddr, bool)>,
 }
 
 impl RpcServer {
@@ -202,10 +224,12 @@ impl RpcServer {
         listening_address: SocketAddr,
         send_timeout: Duration,
         header_read_timeout: Duration,
+        ip_limit_cache: RpcLimitCache,
         rpc: Router,
     ) -> Self {
         Self {
             rpc,
+            ip_limit_cache,
             listening_address,
             send_timeout,
             header_read_timeout,
@@ -214,7 +238,7 @@ impl RpcServer {
     }
 
     /// Consume this server and start serving to incoming connections.
-    /// This method only returns errors is unable to listen on its address:port.
+    /// This method only returns errors if it is unable to listen on its address:port.
     async fn run(mut self, shutdown_token: CancellationToken) -> Result<(), Error> {
         // Start the listener.
         let listener = TcpListener::bind(self.listening_address).await?;
@@ -233,10 +257,50 @@ impl RpcServer {
                         }
                     };
 
+                    let ip = remote_addr.ip();
+
+                    // Excluded IPs bypass ban and connection limits
+                    if !self.ip_limit_cache.is_excluded(ip) {
+                        // Check if IP is banned and connection limits.
+                        if self.ip_limit_cache.is_ip_banned(remote_addr.ip())
+                        || !self.ip_limit_cache.check_and_track_connection(remote_addr.ip())
+                        {
+                            continue;
+                        }
+                    }
+
                     self.serve(socket, remote_addr, shutdown_token.clone());
                 },
-                Some(Err(err)) = self.rpc_tasks.join_next() => {
-                    debug!("RPC serving task failed: {err:#}");
+                Some(res) = self.rpc_tasks.join_next() => {
+                    let (addr, serve_failed) = res?;
+                    let ip = addr.ip();
+
+                    if self.ip_limit_cache.is_excluded(ip) {
+                        continue;
+                    }
+
+                    // Untrack connection from IP
+                    self.ip_limit_cache.remove_connection(&ip);
+
+                    // If hyper serve failed, increase the serve failure and ban the IP
+                    // for `RPC_BAN_PERIOD` seconds if it reaches `RPC_FAILURE_BAN_THRESHOLD` failures.
+                    if serve_failed {
+                        self.ip_limit_cache.increment_serve_failure(&ip);
+                    }
+                }
+                Some(expiry) = self.ip_limit_cache.per_ip_failures_expiry.next() => {
+                    let ip = expiry.into_inner();
+                    if let Some((failures, _)) = self.ip_limit_cache.per_ip_failures.remove(&ip) {
+                        if failures >= RPC_FAILURE_BAN_THRESHOLD {
+                            // An IP address has been banned for the entire ban period,
+                            // lifting its ban.
+                            debug!("RPC lifted ban for IP address {}", ip);
+                        } else {
+                            // An IP address stopped producing failures after a certain period.
+                            // Removing its entry from the cache.
+                            debug!("RPC evicted {}'s serving failures", ip);
+                        }
+                    }
                 }
                 () = shutdown_token.cancelled() => {
                     break;
@@ -255,7 +319,7 @@ impl RpcServer {
         .await
         .is_err()
         {
-            warn!("RPC tasks survived shutdown signal for more than {} seconds... Dropping connections anyway.", RPC_SHUTDOWN_TIMEOUT.as_secs());
+            warn!("RPC tasks survived shutdown signal for more than {RPC_SHUTDOWN_TIMEOUT:?}... Dropping connections anyway.");
         }
 
         Ok(())
@@ -287,6 +351,7 @@ impl RpcServer {
                 result = &mut connection => {
                     if let Err(err) = result {
                         debug!("Failed to serve RPC connection: {err:#}");
+                        return (remote_addr, true);
                     }
                 }
                 () = shutdown_token.cancelled() => {
@@ -294,11 +359,184 @@ impl RpcServer {
 
                     if let Err(err) = connection.await {
                         debug!("Failed to shut down RPC connection: {err:#}");
+                        return (remote_addr, true);
                     }
                 }
             }
 
-            remote_addr
+            (remote_addr, false)
         });
+    }
+}
+
+/// A cache storing the number of connections of all the
+/// IP addresses, as well as their respective failure rate and
+/// banned state.
+struct RpcLimitCache {
+    /// Maximum amount of connections per public IP address.
+    max_conn_count_public_ip: Option<NonZeroUsize>,
+    /// Maximum amount of connections per private IP address.
+    max_conn_count_private_ip: Option<NonZeroUsize>,
+    /// Maximum amount of connections per loopback IP address.
+    max_conn_count_loopback: Option<NonZeroUsize>,
+    /// Total maximum amount of connections by limited IP addresses.
+    max_conn_count: Option<NonZeroUsize>,
+    /// IP addresses that are excluded from any limitations.
+    excluded_ips: Vec<IpAddr>,
+    /// Amount of current connections per limited IP address.
+    per_ip_conn_count: HashMap<IpAddr, usize>,
+    /// Total amount of current connections by limited IP addresses.
+    total_conn_count: usize,
+    /// Amount of serving failures per limited IP address and its expiry key.
+    per_ip_failures: HashMap<IpAddr, (usize, Key)>,
+    /// The expiry for every entry in `per_ip_failures`.
+    per_ip_failures_expiry: DelayQueue<IpAddr>,
+}
+
+impl RpcLimitCache {
+    /// Initialize an RPC cache from an RPC configuration reference.
+    fn from_config(config: &RpcConfig, restricted: bool) -> Self {
+        if restricted {
+            Self {
+                max_conn_count_public_ip: NonZeroUsize::new(
+                    config.restricted.public_ip_connection_limit,
+                ),
+                max_conn_count_private_ip: NonZeroUsize::new(
+                    config.restricted.private_ip_connection_limit,
+                ),
+                max_conn_count_loopback: NonZeroUsize::new(
+                    config.restricted.loopback_connection_limit,
+                ),
+                max_conn_count: NonZeroUsize::new(config.restricted.total_connection_limit),
+                excluded_ips: config.restricted.excluded_ips_connection_limit.clone(),
+                total_conn_count: 0,
+                per_ip_conn_count: HashMap::new(),
+                per_ip_failures: HashMap::new(),
+                per_ip_failures_expiry: DelayQueue::new(),
+            }
+        } else {
+            Self {
+                max_conn_count_public_ip: NonZeroUsize::new(
+                    config.unrestricted.public_ip_connection_limit,
+                ),
+                max_conn_count_private_ip: NonZeroUsize::new(
+                    config.unrestricted.private_ip_connection_limit,
+                ),
+                max_conn_count_loopback: NonZeroUsize::new(
+                    config.unrestricted.loopback_connection_limit,
+                ),
+                max_conn_count: NonZeroUsize::new(config.unrestricted.total_connection_limit),
+                excluded_ips: config.unrestricted.excluded_ips_connection_limit.clone(),
+                total_conn_count: 0,
+                per_ip_conn_count: HashMap::new(),
+                per_ip_failures: HashMap::new(),
+                per_ip_failures_expiry: DelayQueue::new(),
+            }
+        }
+    }
+
+    /// Check the connection limit of the remote IP address, increase it and
+    /// return `true` if allowed, return `false` if disallowed.
+    ///
+    /// Excluded IP addresses must be filtered out by the caller.
+    fn check_and_track_connection(&mut self, remote_addr: IpAddr) -> bool {
+        if let Some(max_conn_count) = self.max_conn_count {
+            if self.total_conn_count >= max_conn_count.get() {
+                return false;
+            }
+        }
+
+        match self.per_ip_conn_count.entry(remote_addr) {
+            Entry::Occupied(mut entry) => {
+                let limit = if remote_addr.is_loopback() {
+                    self.max_conn_count_loopback
+                } else if ip_is_local(remote_addr) {
+                    self.max_conn_count_private_ip
+                } else {
+                    self.max_conn_count_public_ip
+                };
+
+                if let Some(limit) = limit {
+                    if *entry.get() >= limit.get() {
+                        return false;
+                    }
+                }
+
+                *entry.get_mut() += 1;
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(1);
+            }
+        }
+
+        self.total_conn_count += 1;
+        true
+    }
+
+    /// Remove a connection of the remote IP address.
+    ///
+    /// Excluded IP addresses must be filtered out by the caller.
+    fn remove_connection(&mut self, remote_addr: &IpAddr) {
+        let Entry::Occupied(mut entry) = self.per_ip_conn_count.entry(*remote_addr) else {
+            return;
+        };
+
+        let value = entry.get_mut();
+        *value = value.saturating_sub(1);
+        self.total_conn_count -= 1;
+
+        if *value == 0 {
+            entry.remove();
+        }
+    }
+
+    /// Whether this IP is known to have cause failure
+    /// and if so, did it caused `RPC_FAILURE_BAN_THRESHOLD` failures.
+    fn is_ip_banned(&self, remote: IpAddr) -> bool {
+        if let Some(counter) = self.per_ip_failures.get(&remote) {
+            counter.0 >= RPC_FAILURE_BAN_THRESHOLD
+        } else {
+            false
+        }
+    }
+
+    /// Whether this IP address is excluded from all limits.
+    fn is_excluded(&self, remote_addr: IpAddr) -> bool {
+        self.excluded_ips.contains(&remote_addr)
+    }
+
+    /// Increment the failure counter for an IP address and ban it
+    /// if it reaches `RPC_FAILURE_BAN_THRESHOLD`.
+    ///
+    /// This creates a new entry if the IP address has never
+    /// experienced any failure and isn't present in cache.
+    fn increment_serve_failure(&mut self, remote: &IpAddr) {
+        match self.per_ip_failures.entry(*remote) {
+            Entry::Vacant(entry) => {
+                let expiry_key = self
+                    .per_ip_failures_expiry
+                    .insert(*remote, RPC_FAILURE_KEEP_ALIVE);
+                entry.insert((1, expiry_key));
+            }
+            Entry::Occupied(mut entry) => {
+                let (counter, expiry_key) = entry.get_mut();
+
+                // Failures while banned neither increase the counter nor
+                // extend the ban period.
+                if *counter >= RPC_FAILURE_BAN_THRESHOLD {
+                    return;
+                }
+
+                *counter += 1;
+                let expiry = if *counter >= RPC_FAILURE_BAN_THRESHOLD {
+                    debug!("RPC banned IP address {remote} for {RPC_BAN_PERIOD:?}");
+                    RPC_BAN_PERIOD
+                } else {
+                    RPC_FAILURE_KEEP_ALIVE
+                };
+
+                self.per_ip_failures_expiry.reset(expiry_key, expiry);
+            }
+        }
     }
 }
