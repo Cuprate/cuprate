@@ -14,6 +14,7 @@ _(work-in-progress)_
 - [About](#about)
 - [Books](#books)
 - [Build](#build)
+- [Docker](#docker)
 - [Crates](#crates)
 - [Contributing](#contributing)
 - [Security](#security)
@@ -43,6 +44,23 @@ Cuprate maintains various documentation books:
 ## Build
 
 To build Cuprate from source code, see <https://user.cuprate.org/getting-started/source.html>.
+
+## Docker
+
+Official `cuprated` images (`linux/amd64` and `linux/arm64`) are published at [`ghcr.io/cuprate/cuprated`](https://github.com/Cuprate/cuprate/pkgs/container/cuprated).
+
+| Tag | Source |
+|-----|--------|
+| `nightly` | Latest `main` |
+| `<version>` | Git tag `cuprated-<version>` |
+| `latest` | Same as the latest `<version>` |
+
+A `main` build never writes `latest`. The image is built from the [`Dockerfile`](Dockerfile) in this repository.
+
+```bash
+docker pull ghcr.io/cuprate/cuprated:0.1.0-preview
+docker run --rm ghcr.io/cuprate/cuprated:0.1.0-preview --version
+```
 
 ## Crates
 For a detailed list of all crates, see: <https://architecture.cuprate.org/appendix/crates.html>.
