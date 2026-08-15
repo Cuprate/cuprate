@@ -9,7 +9,6 @@ authors = ["SyntheticBird","Boog900"]
 cuprate-consensus-rules =  { workspace = true, features = ["proptest"]}
 cuprate-helper = { workspace = true, default-features = false, features = ["std", "cast", "num", "asynch", "time"] }
 cuprate-types = { workspace = true, default-features = false, features = ["blockchain"] }
-cuprate-pruning = { workspace = true }
 
 arc-swap = { workspace = true }
 futures = { workspace = true, features = ["std", "async-await"] }

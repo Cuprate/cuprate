@@ -30,7 +30,6 @@ rand = { workspace = true }
 [dev-dependencies]
 cuprate-test-utils = { workspace = true }
 cuprate-consensus-rules =  { workspace = true, features = ["proptest"]}
-cuprate-pruning = { workspace = true }
 
 hex-literal = { workspace = true }
 curve25519-dalek = { workspace = true }

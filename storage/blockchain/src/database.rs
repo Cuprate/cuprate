@@ -479,7 +479,7 @@ impl BlockchainDatabase {
     }
 
     #[inline]
-    pub const fn get_pruning_seed(&self) -> PruningSeed {
+    pub const fn pruning_seed(&self) -> PruningSeed {
         self.metadata.get_pruning_seed()
     }
 

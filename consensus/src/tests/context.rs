@@ -1,4 +1,3 @@
-use cuprate_pruning::PruningSeed;
 use proptest::strategy::ValueTree;
 use proptest::{strategy::Strategy, test_runner::TestRunner};
 use tower::ServiceExt;
@@ -35,8 +34,7 @@ async fn context_invalidated_on_new_block() -> Result<(), tower::BoxError> {
         .unwrap()
         .current();
 
-    let mut ctx_svc =
-        initialize_blockchain_context(TEST_CONTEXT_CONFIG, PruningSeed::NotPruned, db).await?;
+    let mut ctx_svc = initialize_blockchain_context(TEST_CONTEXT_CONFIG, db).await?;
 
     let context = ctx_svc.blockchain_context().clone();
 
@@ -70,8 +68,7 @@ async fn context_height_correct() -> Result<(), tower::BoxError> {
         .unwrap()
         .current();
 
-    let mut ctx_svc =
-        initialize_blockchain_context(TEST_CONTEXT_CONFIG, PruningSeed::NotPruned, db).await?;
+    let mut ctx_svc = initialize_blockchain_context(TEST_CONTEXT_CONFIG, db).await?;
 
     let context = ctx_svc.blockchain_context();
 

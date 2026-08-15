@@ -306,7 +306,10 @@ where
     Ok((
         cuprate_p2p::initialize_network::<N, T, _, _>(
             request_handler_maker.map_response(|s| s.map_err(Into::into)),
-            core_sync_service::CoreSyncService(context_svc),
+            core_sync_service::CoreSyncService {
+                context_svc,
+                pruning_seed: blockchain.pruning_seed(),
+            },
             config,
             transport_config,
             peer_sync_callback,

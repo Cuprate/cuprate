@@ -4,7 +4,6 @@
 //! This is used during contextual validation, this does not have all the data for contextual validation
 //! (outputs) for that you will need a [`Database`].
 
-use cuprate_pruning::PruningSeed;
 // Used in documentation references for [`BlockChainContextRequest`]
 // FIXME: should we pull in a dependency just to link docs?
 use monero_oxide as _;
@@ -110,15 +109,13 @@ impl ContextConfig {
 /// This function will request a lot of data from the database so it may take a while.
 pub async fn initialize_blockchain_context<D>(
     cfg: ContextConfig,
-    pruning_seed: PruningSeed,
     database: D,
 ) -> Result<BlockchainContextService, ContextCacheError>
 where
     D: Database + Clone + Send + Sync + 'static,
     D::Future: Send + 'static,
 {
-    let (context_task, context_cache) =
-        task::ContextTask::init_context(cfg, pruning_seed, database).await?;
+    let (context_task, context_cache) = task::ContextTask::init_context(cfg, database).await?;
 
     // TODO: make buffer size configurable.
     let (tx, rx) = mpsc::channel(15);
@@ -140,8 +137,6 @@ pub struct BlockchainContext {
     pub cumulative_difficulty: u128,
     /// Context to verify a block, as needed by [`cuprate_consensus_rules`]
     pub context_to_verify_block: ContextToVerifyBlock,
-    /// The pruning seed for the blockchain.
-    pub pruning_seed: PruningSeed,
     /// The median long term block weight.
     median_long_term_weight: usize,
     /// The top blocks timestamp (will be [`None`] if the top block is the genesis).

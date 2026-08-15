@@ -84,6 +84,10 @@ impl BlockchainInterface {
         self.syncer.clone()
     }
 
+    pub fn pruning_seed(&self) -> PruningSeed {
+        self.read.blockchain.pruning_seed()
+    }
+
     /// Returns the blockchain context service.
     pub(crate) fn context_svc(&self) -> BlockchainContextService {
         self.context_svc.clone()
@@ -147,16 +151,12 @@ pub async fn check_add_genesis(
 pub async fn init_consensus(
     blockchain_read_handle: BlockchainReadHandle,
     context_config: ContextConfig,
-    pruning_seed: PruningSeed,
 ) -> Result<BlockchainContextService, BoxError> {
     let read_handle = ConsensusBlockchainReadHandle::new(blockchain_read_handle, BoxError::from);
 
-    let ctx_service = cuprate_consensus::initialize_blockchain_context(
-        context_config,
-        pruning_seed,
-        read_handle.clone(),
-    )
-    .await?;
+    let ctx_service =
+        cuprate_consensus::initialize_blockchain_context(context_config, read_handle.clone())
+            .await?;
 
     Ok(ctx_service)
 }

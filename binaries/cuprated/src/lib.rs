@@ -158,7 +158,7 @@ impl Node {
             .open()
             .context(DATABASE_CORRUPT_MSG)?;
 
-        let (mut blockchain_read_handle, mut blockchain_write_handle, db) =
+        let (mut blockchain_read_handle, mut blockchain_write_handle, _) =
             cuprate_blockchain::service::init_with_pool(
                 &config.blockchain_config(),
                 fjall_db.clone(),
@@ -186,13 +186,10 @@ impl Node {
         .await;
 
         // Start the context service and the block/tx verifier.
-        let context_svc = blockchain::init_consensus(
-            blockchain_read_handle.clone(),
-            config.context_config(),
-            db.get_pruning_seed(),
-        )
-        .await
-        .map_err(anyhow::Error::from_boxed)?;
+        let context_svc =
+            blockchain::init_consensus(blockchain_read_handle.clone(), config.context_config())
+                .await
+                .map_err(anyhow::Error::from_boxed)?;
 
         // Create the blockchain syncer handle and synced signal sender.
         let (blockchain_syncer_handle, synced_tx) = BlockchainSyncerHandle::new();

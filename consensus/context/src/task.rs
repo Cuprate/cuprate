@@ -6,7 +6,6 @@
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
-use cuprate_pruning::PruningSeed;
 use futures::channel::oneshot;
 use tokio::sync::mpsc;
 use tower::ServiceExt;
@@ -63,8 +62,6 @@ pub(crate) struct ContextTask<D: Database> {
     top_block_hash: [u8; 32],
     /// The total amount of coins generated.
     already_generated_coins: u64,
-    /// The pruning seed.
-    pruning_seed: PruningSeed,
 
     database: D,
 }
@@ -74,7 +71,6 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
     /// while to complete.
     pub(crate) async fn init_context(
         cfg: ContextConfig,
-        pruning_seed: PruningSeed,
         mut database: D,
     ) -> Result<(Self, Arc<ArcSwap<BlockchainContext>>), ContextCacheError> {
         let ContextConfig {
@@ -144,7 +140,6 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
             top_block_hash,
             chain_height,
             already_generated_coins,
-            pruning_seed,
         );
 
         let context_cache = Arc::new(ArcSwap::from_pointee(blockchain_context));
@@ -161,7 +156,6 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
             already_generated_coins,
             top_block_hash,
             database,
-            pruning_seed,
         };
 
         Ok((context_svc, context_cache))
@@ -175,7 +169,6 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
             self.top_block_hash,
             self.chain_height,
             self.already_generated_coins,
-            self.pruning_seed,
         );
 
         self.context_cache.store(Arc::new(context));
@@ -379,7 +372,6 @@ fn blockchain_context(
     top_hash: [u8; 32],
     chain_height: usize,
     already_generated_coins: u64,
-    pruning_seed: PruningSeed,
 ) -> BlockchainContext {
     BlockchainContext {
         context_to_verify_block: ContextToVerifyBlock {
@@ -393,7 +385,6 @@ fn blockchain_context(
             next_difficulty: difficulty_cache.next_difficulty(current_hf),
             already_generated_coins,
         },
-        pruning_seed,
         cumulative_difficulty: difficulty_cache.cumulative_difficulty(),
         median_long_term_weight: weight_cache.median_long_term_weight(),
         top_block_timestamp: difficulty_cache.top_block_timestamp(),
