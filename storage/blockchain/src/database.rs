@@ -579,15 +579,17 @@ impl BlockchainDatabase {
             // get rid of v1 txs and miner txs
             tx_info_buf.retain(|info| !(info.is_v1_tx() || info.prunable_size == 0));
 
-            let bytes_to_read = tx_info_buf.iter().map(|info| info.prunable_size).sum();
-            prunable_blob_buf.resize(bytes_to_read, 0);
-            tapes.read_bytes(
-                db.prunable_blobs[u32_to_usize(stripe_idx - 1)]
-                    .as_ref()
-                    .expect("Required tape not found"),
-                tx_info_buf[0].prunable_blob_idx,
-                prunable_blob_buf,
-            )?;
+            if let Some(start_tx_info) = tx_info_buf.first() {
+                let bytes_to_read = tx_info_buf.iter().map(|info| info.prunable_size).sum();
+                prunable_blob_buf.resize(bytes_to_read, 0);
+                tapes.read_bytes(
+                    db.prunable_blobs[u32_to_usize(stripe_idx - 1)]
+                        .as_ref()
+                        .expect("Required tape not found"),
+                    start_tx_info.prunable_blob_idx,
+                    prunable_blob_buf,
+                )?;
+            }
 
             Ok(())
         }
