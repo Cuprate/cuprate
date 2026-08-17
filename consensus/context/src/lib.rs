@@ -27,7 +27,7 @@ use tower::Service;
 
 use cuprate_consensus_rules::{
     blocks::{ContextToVerifyBlock, PENALTY_FREE_ZONE_5},
-    current_unix_timestamp, ConsensusError, HardFork,
+    current_unix_timestamp, HardFork,
 };
 
 pub mod difficulty;
@@ -383,16 +383,22 @@ pub enum BlockChainContextResponse {
     AltChains(Vec<ChainInfo>),
 
     /// An alt chain context cache.
-    AltChainContextCache(Box<AltChainContextCache>),
+    ///
+    /// [`None`] if the requested `prev_id` is unknown.
+    AltChainContextCache(Option<Box<AltChainContextCache>>),
 
     /// A difficulty cache for an alt chain.
-    AltChainDifficultyCache(DifficultyCache),
+    ///
+    /// [`None`] if the requested `prev_id` is unknown.
+    AltChainDifficultyCache(Option<DifficultyCache>),
 
     /// A randomX VM for an alt chain.
     AltChainRxVM(Arc<RandomXVm>),
 
-    /// A weight cache for an alt chain
-    AltChainWeightCache(BlockWeightsCache),
+    /// A weight cache for an alt chain.
+    ///
+    /// [`None`] if the requested `prev_id` is unknown.
+    AltChainWeightCache(Option<BlockWeightsCache>),
 }
 
 /// The blockchain context service.
@@ -446,15 +452,7 @@ impl Service<BlockChainContextRequest> for BlockchainContextService {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum ContextCacheError {
-    /// A consensus error.
-    #[error("{0}")]
-    ConErr(#[from] ConsensusError),
-    /// A database error.
-    #[error("Database error: {0}")]
-    DBErr(#[from] tower::BoxError),
-}
+pub type ContextCacheError = tower::BoxError;
 
 use __private::Database;
 

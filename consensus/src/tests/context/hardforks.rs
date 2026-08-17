@@ -107,7 +107,8 @@ proptest! {
                 TEST_HARD_FORK_CONFIG,
                 db.clone(),
             )
-            .await?;
+            .await
+            .unwrap();
 
             let state_clone = state.clone();
 
@@ -115,7 +116,7 @@ proptest! {
                 state.new_block(hf, state.last_height + i + 1);
             }
 
-            state.pop_blocks_main_chain(numb_pop_blocks, db).await?;
+            state.pop_blocks_main_chain(numb_pop_blocks, db).await.unwrap();
 
             prop_assert_eq!(state_clone, state);
 

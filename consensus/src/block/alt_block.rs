@@ -51,7 +51,7 @@ where
     C::Future: Send + 'static,
 {
     // Fetch the alt-chains context cache.
-    let BlockChainContextResponse::AltChainContextCache(mut alt_context_cache) = context_svc
+    let BlockChainContextResponse::AltChainContextCache(alt_context_cache) = context_svc
         .ready()
         .await?
         .call(BlockChainContextRequest::AltChainContextCache {
@@ -61,6 +61,10 @@ where
         .await?
     else {
         panic!("Context service returned wrong response!");
+    };
+
+    let Some(mut alt_context_cache) = alt_context_cache else {
+        return Err(ConsensusError::Block(BlockError::PreviousIDIncorrect).into());
     };
 
     // Check if the block's miner input is formed correctly.
@@ -274,6 +278,10 @@ where
                 panic!("Context service returned wrong response!");
             };
 
+            let Some(cache) = cache else {
+                return Err(ConsensusError::Block(BlockError::PreviousIDIncorrect).into());
+            };
+
             Ok(difficulty_cache.insert(cache))
         }
     }
@@ -306,6 +314,10 @@ where
                 .await?
             else {
                 panic!("Context service returned wrong response!");
+            };
+
+            let Some(cache) = cache else {
+                return Err(ConsensusError::Block(BlockError::PreviousIDIncorrect).into());
             };
 
             Ok(weight_cache.insert(cache))
