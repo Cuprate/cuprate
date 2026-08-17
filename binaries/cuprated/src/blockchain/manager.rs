@@ -54,12 +54,6 @@ impl From<ExtendedConsensusError> for BlockManagerError {
         match e {
             ExtendedConsensusError::DBErr(e) => Self::Fatal(e),
             ExtendedConsensusError::ConErr(e) => Self::Validation(e.into()),
-
-            ExtendedConsensusError::TxsIncludedWithBlockIncorrect
-            | ExtendedConsensusError::OneOrMoreBatchVerificationStatementsInvalid
-            | ExtendedConsensusError::NoBlocksToVerify => {
-                Self::Validation(BlockValidationError::Consensus(e))
-            }
         }
     }
 }

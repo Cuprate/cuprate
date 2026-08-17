@@ -44,7 +44,7 @@ use crate::{
         manager::{start_txpool_manager, TxpoolManagerCommand, TxpoolManagerHandle},
         relay_rules::check_tx_relay_rules,
         txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
-        IncomingTxError, TxValidationError,
+        IncomingTxError,
     },
     LaunchContext,
 };
@@ -231,7 +231,7 @@ async fn handle_incoming_txs(
                 continue;
             }
 
-            return Err(TxValidationError::RelayRule(e).into());
+            return Err(IncomingTxError::RelayRule(e));
         }
 
         tracing::debug!(
@@ -297,9 +297,7 @@ async fn prepare_incoming_txs(
             // If a duplicate is in here the incoming tx batch contained the same tx twice.
             if !tx_blob_hashes.insert(tx_blob_hash) {
                 tracing::debug!("peer sent duplicate tx in batch, ignoring batch.");
-                return Some(Err(IncomingTxError::Validation(
-                    TxValidationError::DuplicateTransaction,
-                )));
+                return Some(Err(IncomingTxError::DuplicateTransaction));
             }
 
             // If a duplicate is here it is being handled in another batch.

@@ -265,13 +265,15 @@ where
         .map_err(ConsensusError::Block)?;
 
     if prepped_block.block.transactions.len() != txs.len() {
-        return Err(ExtendedConsensusError::TxsIncludedWithBlockIncorrect);
+        return Err(ConsensusError::Block(BlockError::TxsIncludedWithBlockIncorrect).into());
     }
 
     if !prepped_block.block.transactions.is_empty() {
         for (expected_tx_hash, tx) in prepped_block.block.transactions.iter().zip(txs.iter()) {
             if expected_tx_hash != &tx.tx_hash {
-                return Err(ExtendedConsensusError::TxsIncludedWithBlockIncorrect);
+                return Err(
+                    ConsensusError::Block(BlockError::TxsIncludedWithBlockIncorrect).into(),
+                );
             }
         }
 

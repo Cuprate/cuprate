@@ -18,7 +18,7 @@ use cuprate_consensus::{
         verify_prepped_main_chain_block, PreparedBlock,
     },
     transactions::new_tx_verification_data,
-    BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
+    BlockChainContextRequest, BlockChainContextResponse,
 };
 use cuprate_consensus_context::{distribution::rct_output_count, BlockchainContext, NewBlockData};
 use cuprate_fast_sync::{block_to_verified_block_information, fast_sync_stop_height};

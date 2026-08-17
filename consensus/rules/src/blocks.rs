@@ -38,6 +38,12 @@ pub enum BlockError {
     TimeStampInvalid,
     #[error("The block contains a duplicate transaction.")]
     DuplicateTransaction,
+    #[error("The transactions passed in with the block are incorrect.")]
+    TxsIncludedWithBlockIncorrect,
+    #[error("Block batch verification failed.")]
+    BatchVerificationFailed,
+    #[error("No blocks to verify.")]
+    NoBlocksToVerify,
     #[error("Hard-fork error: {0}")]
     HardForkError(#[from] HardForkError),
     #[error("Miner transaction error: {0}")]

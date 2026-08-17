@@ -13,7 +13,7 @@ mod manager;
 mod relay_rules;
 mod txs_being_handled;
 
-pub use error::{IncomingTxError, TxValidationError};
+pub use error::IncomingTxError;
 pub use incoming_tx::{IncomingTxHandler, IncomingTxs};
 pub use manager::{PoolInfoSinceResponse, TxpoolManagerCommand, TxpoolManagerHandle};
 pub use relay_rules::RelayRuleError;

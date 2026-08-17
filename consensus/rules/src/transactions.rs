@@ -76,6 +76,8 @@ pub enum TransactionError {
     //-------------------------------------------------------- RingCT
     #[error("RingCT Error: {0}.")]
     RingCTError(#[from] RingCTError),
+    #[error("Transaction batch verification failed.")]
+    BatchVerificationFailed,
 }
 
 //----------------------------------------------------------------------------------------------------------- OUTPUTS

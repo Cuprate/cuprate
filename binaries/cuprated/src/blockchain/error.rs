@@ -1,7 +1,6 @@
 //! Error types for the blockchain manager interface.
 
 use cuprate_blockchain::BlockchainError;
-use cuprate_consensus::ExtendedConsensusError;
 use cuprate_consensus_rules::{blocks::BlockError, hard_forks::HardForkError, ConsensusError};
 
 use crate::monitor::FatalError;
@@ -15,16 +14,15 @@ pub enum BlockValidationError {
 
     /// Any other consensus rule violation.
     #[error(transparent)]
-    Consensus(ExtendedConsensusError),
+    Consensus(ConsensusError),
 }
 
 impl From<ConsensusError> for BlockValidationError {
     fn from(e: ConsensusError) -> Self {
         match e {
             ConsensusError::Block(BlockError::HardForkError(hf)) => Self::HardFork(hf),
-            ConsensusError::Block(_) | ConsensusError::Transaction(_) => {
-                Self::Consensus(ExtendedConsensusError::ConErr(e))
-            }
+            ConsensusError::Block(e) => Self::Consensus(ConsensusError::Block(e)),
+            ConsensusError::Transaction(e) => Self::Consensus(ConsensusError::Transaction(e)),
         }
     }
 }
