@@ -143,7 +143,8 @@ impl IncomingTxHandler {
             txpool_config,
             launch_ctx.task_executor.clone(),
         )
-        .await?;
+        .await
+        .map_err(anyhow::Error::from_boxed)?;
 
         Ok(Self {
             txs_being_handled: TxsBeingHandled::new(),

@@ -20,14 +20,9 @@ use cuprate_dandelion_tower::{
 };
 use cuprate_helper::time::current_unix_timestamp;
 use cuprate_p2p_core::ClearNet;
-use cuprate_txpool::{
-    service::{
-        interface::{
-            TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest, TxpoolWriteResponse,
-        },
-        TxpoolReadHandle, TxpoolWriteHandle,
-    },
-    TxPoolError,
+use cuprate_txpool::service::{
+    interface::{TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest, TxpoolWriteResponse},
+    TxpoolReadHandle, TxpoolWriteHandle,
 };
 use cuprate_types::TransactionVerificationData;
 
@@ -61,7 +56,7 @@ pub async fn start_txpool_manager(
     dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
     config: TxpoolConfig,
     task_executor: TaskExecutor,
-) -> anyhow::Result<TxpoolManagerHandle> {
+) -> Result<TxpoolManagerHandle, FatalError> {
     let TxpoolReadResponse::Backlog(backlog) = txpool_read_handle
         .ready()
         .await?
@@ -292,7 +287,7 @@ impl TxpoolManager {
         &mut self,
         tx: [u8; 32],
         remove_from_db: bool,
-    ) -> Result<(), TxPoolError> {
+    ) -> Result<(), FatalError> {
         tracing::debug!("removing tx from pool");
 
         if remove_from_db {
@@ -332,7 +327,7 @@ impl TxpoolManager {
     ///
     /// This function will panic if the tx is not in the tx-pool.
     #[instrument(level = "debug", skip_all, fields(tx_id = hex::encode(tx)))]
-    async fn rerelay_tx(&mut self, tx: [u8; 32]) -> Result<(), TxPoolError> {
+    async fn rerelay_tx(&mut self, tx: [u8; 32]) -> Result<(), FatalError> {
         tracing::debug!("re-relaying tx to network");
 
         let TxpoolReadResponse::TxBlob { tx_blob, .. } = self
@@ -347,8 +342,7 @@ impl TxpoolManager {
 
         self.diffuse_service
             .call(DiffuseRequest(DandelionTx(Bytes::from(tx_blob))))
-            .await
-            .expect("Diffuse service should not return an error");
+            .await?;
 
         Ok(())
     }
@@ -356,7 +350,7 @@ impl TxpoolManager {
     /// Handles a transaction timeout, be either rebroadcasting or dropping the tx from the pool.
     /// If a rebroadcast happens, this function will handle adding another timeout to the queue.
     #[instrument(level = "debug", skip_all, fields(tx_id = hex::encode(tx)))]
-    async fn handle_tx_timeout(&mut self, tx: [u8; 32]) -> Result<(), TxPoolError> {
+    async fn handle_tx_timeout(&mut self, tx: [u8; 32]) -> Result<(), FatalError> {
         let Some(tx_info) = self.current_txs.get(&tx) else {
             tracing::warn!("tx timed out, but tx not in pool");
             return Ok(());
@@ -427,7 +421,7 @@ impl TxpoolManager {
         &mut self,
         tx: TransactionVerificationData,
         state: TxState<CrossNetworkInternalPeerId>,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), FatalError> {
         tracing::debug!("handling new tx");
 
         let incoming_tx =
@@ -475,7 +469,7 @@ impl TxpoolManager {
 
     /// Promote a tx to the public pool.
     #[instrument(level = "debug", skip_all, fields(tx_id = hex::encode(tx)))]
-    async fn promote_tx(&mut self, tx: [u8; 32]) -> Result<(), TxPoolError> {
+    async fn promote_tx(&mut self, tx: [u8; 32]) -> Result<(), FatalError> {
         let Some(tx_info) = self.current_txs.get_mut(&tx) else {
             tracing::debug!("not promoting tx, tx not in pool");
             return Ok(());
@@ -531,7 +525,7 @@ impl TxpoolManager {
 
     /// Handles removing all transactions that have been included/double spent in an incoming block.
     #[instrument(level = "debug", skip_all)]
-    async fn new_block(&mut self, spent_key_images: Vec<[u8; 32]>) -> Result<(), TxPoolError> {
+    async fn new_block(&mut self, spent_key_images: Vec<[u8; 32]>) -> Result<(), FatalError> {
         tracing::debug!("handling new block");
 
         let TxpoolWriteResponse::NewBlock(removed_txs) = self
