@@ -32,11 +32,11 @@ use crate::{
         alt_block,
         blockchain::chain_height,
         tx::{
-            add_tx_info_to_dynamic_tables, add_tx_info_to_tapes, read_prunable_tape,
-            remove_tx_from_dynamic_tables,
+            add_tx_info_to_dynamic_tables, add_tx_info_to_tapes, get_tx_from_id,
+            read_prunable_tape, remove_tx_from_dynamic_tables,
         },
     },
-    types::{Amount, BlockHash, BlockHeight, BlockInfo, TxId},
+    types::{Amount, BlockHash, BlockHeight, BlockInfo},
     BlockchainDatabase,
 };
 
@@ -294,42 +294,29 @@ pub(crate) fn add_blocks_to_dynamic_tables(
     pre_rct_numb_outputs_cache: &mut HashMap<Amount, u64>,
     tapes: &impl TapesRead,
 ) -> DbResult<()> {
-    /// Calculates height - [`CRYPTONOTE_PRUNING_TIP_BLOCKS`] + 1, to get the height we want to keep, and returns the [`TxId`] of the mining tx.
-    ///
-    /// Returns None if a. an overflow occurred or b. we don't prune
-    #[inline]
-    fn get_tx_id_from_height(
-        db: &BlockchainDatabase,
-        height: BlockHeight,
-        tapes: &impl TapesRead,
-    ) -> DbResult<Option<TxId>> {
-        (db.metadata.get_pruning_seed() != PruningSeed::NotPruned)
-            .then_some(height + 1) // first, to not delete
-            .and_then(|h| h.checked_sub(CRYPTONOTE_PRUNING_TIP_BLOCKS))
-            .map(|remove_to_height| {
-                tapes
-                    .read_entry(&db.block_infos, usize_to_u64(remove_to_height))
-                    .map(|entry| entry.map_or(0, |prev| prev.mining_tx_index))
-            })
-            .transpose()
-            .map_err(Into::into)
-    }
+    if let Some(prunable_tip) = &db.prunable_tip {
+        let start_removal_height = blocks
+            .first()
+            .unwrap()
+            .height
+            .saturating_sub(CRYPTONOTE_PRUNING_TIP_BLOCKS);
+        let end_removal_height = blocks
+            .last()
+            .unwrap()
+            .height
+            .saturating_sub(CRYPTONOTE_PRUNING_TIP_BLOCKS - 1);
 
-    // first, remove all the blocks in the tip
-    let remove_from_tx_id = blocks
-        .first()
-        .and_then(|block| get_tx_id_from_height(db, block.height, tapes).transpose())
-        .transpose()?;
-    let remove_to_tx_id = blocks
-        .last()
-        .and_then(|block| get_tx_id_from_height(db, block.height, tapes).transpose())
-        .transpose()?;
-    if let Some(remove_to_tx_id) = remove_to_tx_id {
-        if let Some(remove_from_tx_id) = remove_from_tx_id {
-            // fjall won't error if tx_id is not in the `prunable_tip`
-            for tx_id in remove_from_tx_id..remove_to_tx_id {
-                tx_rw.remove(&db.prunable_tip, tx_id.to_le_bytes().as_slice());
-            }
+        let start_tx_idx = tapes
+            .read_entry(&db.block_infos, usize_to_u64(start_removal_height))?
+            .unwrap()
+            .mining_tx_index;
+        let end_tx_idx = tapes
+            .read_entry(&db.block_infos, usize_to_u64(end_removal_height))?
+            .unwrap()
+            .mining_tx_index;
+
+        for tx_id in start_tx_idx..end_tx_idx {
+            tx_rw.remove(prunable_tip, tx_id.to_le_bytes().as_slice());
         }
     }
 
@@ -338,7 +325,11 @@ pub(crate) fn add_blocks_to_dynamic_tables(
             db,
             &block.block,
             &block.block_hash,
-            block.txs.iter().map(|tx| Cow::Borrowed(&tx.tx)),
+            block.txs.iter().map(|tx| {
+                (Cow::Borrowed(&tx.tx), || {
+                    Cow::Borrowed(&tx.tx_prunable_blob)
+                })
+            }),
             &mut numb_transactions,
             tx_rw,
             pre_rct_numb_outputs_cache,
@@ -356,7 +347,15 @@ pub(crate) fn add_blocks_to_dynamic_tables(
 /// # Panics
 /// This function will panic if the block is invalid.
 // no inline, too big.
-pub fn add_block_to_dynamic_tables<'a, I: Iterator<Item = Cow<'a, Transaction<Pruned>>>>(
+pub fn add_block_to_dynamic_tables<
+    'a,
+    I: Iterator<
+        Item = (
+            Cow<'a, Transaction<Pruned>>,
+            impl FnOnce() -> Cow<'a, Vec<u8>>,
+        ),
+    >,
+>(
     db: &BlockchainDatabase,
     block: &Block,
     block_hash: &BlockHash,
@@ -378,6 +377,7 @@ pub fn add_block_to_dynamic_tables<'a, I: Iterator<Item = Cow<'a, Transaction<Pr
     add_tx_info_to_dynamic_tables(
         db,
         &tx.clone().into(),
+        || Cow::Owned(vec![]),
         *numb_transactions,
         &tx.hash(),
         &block.number(),
@@ -386,22 +386,28 @@ pub fn add_block_to_dynamic_tables<'a, I: Iterator<Item = Cow<'a, Transaction<Pr
     )?;
     *numb_transactions += 1;
 
-    for (tx_hash, tx) in block.transactions.iter().zip(txs) {
-        // TODO: handle this?
-        // #[cfg(debug_assertions)]
-        // {
-        //     // Make sure the given tx is correct.
-        //     let tx_full =
-        //         crate::ops::tx::get_tx_from_id(numb_transactions, &db.linear_tapes.reader(), db)?;
+    for (tx_hash, (tx, prunable_blob_fn)) in block.transactions.iter().zip(txs) {
+        #[cfg(debug_assertions)]
+        {
+            if db.pruning_seed() == PruningSeed::NotPruned {
+                // Make sure the given tx is correct.
+                let tx_full = get_tx_from_id(
+                    numb_transactions,
+                    &db.linear_tapes.reader(),
+                    &db.fjall.snapshot(),
+                    db,
+                )?;
 
-        //     let (pruned, _) = tx_full.pruned_with_prunable();
+                let (pruned, _) = tx_full.pruned_with_prunable();
 
-        //     assert_eq!(tx.as_ref(), &pruned);
-        // }
+                assert_eq!(tx.as_ref(), &pruned);
+            }
+        }
 
         add_tx_info_to_dynamic_tables(
             db,
             &tx,
+            prunable_blob_fn,
             *numb_transactions,
             tx_hash,
             &block.number(),
@@ -420,7 +426,7 @@ pub fn add_block_to_dynamic_tables<'a, I: Iterator<Item = Cow<'a, Transaction<Pr
 //---------------------------------------------------------------------------------------------------- `pop_block`
 /// Remove the top/latest block from the database.
 ///
-/// The removed block's data is returned.
+/// The removed block's data is returned along with whether it was added to the alt block tables.
 ///
 /// If a [`ChainId`] is specified the popped block will be added to the alt block tables under
 /// that [`ChainId`]. Otherwise, the block will be completely removed from the DB.
@@ -429,8 +435,9 @@ pub fn pop_block(
     db: &BlockchainDatabase,
     move_to_alt_chain: Option<ChainId>,
     tx_rw: &mut fjall::OwnedWriteBatch,
+    tx_ro: &fjall::Snapshot,
     tapes: &mut tapes::TapesTruncateTransaction,
-) -> DbResult<(BlockHeight, BlockHash, Block)> {
+) -> DbResult<(BlockHeight, BlockHash, Block, bool)> {
     // Pop the last block info.
     let (block_height, block_info) = tapes
         .pop_fixed_sized_tape(&db.block_infos)?
@@ -450,31 +457,39 @@ pub fn pop_block(
     //------------------------------------------------------ Transaction / Outputs / Key Images
     remove_tx_from_dynamic_tables(db, &block.miner_transaction().hash(), tx_rw, tapes)?;
 
-    let remove_tx_iter = block.transactions.iter().map(|tx_hash| {
-        let (_, tx) = remove_tx_from_dynamic_tables(db, tx_hash, tx_rw, tapes)?;
-        Ok::<_, BlockchainError>(tx)
-    });
+    let mut add_to_alt_chain = move_to_alt_chain.is_some();
+    let mut txs = Vec::with_capacity(block.transactions.len());
 
-    if let Some(chain_id) = move_to_alt_chain {
-        let txs = remove_tx_iter
-            .map(|result| {
-                let tx = result?;
-                let tx_weight = tx.weight();
-                let tx_hash = tx.hash();
-                let fee = tx_fee(&tx);
-                let (tx_pruned, prunable) = tx.pruned_with_prunable();
+    for tx_hash in &block.transactions {
+        let (tx_id, _) = remove_tx_from_dynamic_tables(db, tx_hash, tx_rw, tapes)?;
 
-                Ok(VerifiedTransactionInformation {
-                    tx_weight,
-                    tx_pruned: tx_pruned.serialize(),
-                    tx_prunable_blob: prunable,
-                    tx_hash,
-                    fee,
-                    tx: tx_pruned,
-                })
-            })
-            .collect::<DbResult<Vec<VerifiedTransactionInformation>>>()?;
+        if add_to_alt_chain {
+            match get_tx_from_id(&tx_id, tapes, tx_ro, db) {
+                Ok(tx) => {
+                    let tx_weight = tx.weight();
+                    let tx_hash = tx.hash();
+                    let fee = tx_fee(&tx);
+                    let (tx_pruned, prunable) = tx.pruned_with_prunable();
 
+                    txs.push(VerifiedTransactionInformation {
+                        tx_weight,
+                        tx_pruned: tx_pruned.serialize(),
+                        tx_prunable_blob: prunable,
+                        tx_hash,
+                        fee,
+                        tx: tx_pruned,
+                    });
+                }
+                Err(BlockchainError::NotFound) => {
+                    add_to_alt_chain = false;
+                    txs.clear();
+                }
+                Err(e) => return Err(e),
+            }
+        }
+    }
+
+    if let Some(chain_id) = move_to_alt_chain.filter(|_| add_to_alt_chain) {
         alt_block::add_alt_block(
             db,
             &AltBlockInformation {
@@ -495,10 +510,6 @@ pub fn pop_block(
             },
             tx_rw,
         )?;
-    } else {
-        for result in remove_tx_iter {
-            drop(result?);
-        }
     }
 
     // Truncate the tapes.
@@ -511,12 +522,17 @@ pub fn pop_block(
     )
     .unwrap();
 
-    if let Some(tape) = db.prunable_blobs
-        [usize::try_from(stripe).expect("stripe will not exceed usize::MAX") - 1]
-        .as_ref()
+    if db
+        .pruning_seed()
+        .get_stripe()
+        .is_none_or(|pruning_stripe| pruning_stripe == stripe)
     {
+        let tape = db.prunable_blobs
+            [usize::try_from(stripe).expect("stripe will not exceed usize::MAX") - 1]
+            .as_ref()
+            .expect("the retained pruning stripe must be open");
         tapes.truncate_blob_tape(tape, block_info.prunable_blob_idx);
-    } // ignore pruned ones
+    }
 
     tapes.truncate_fixed_sized_tape(&db.tx_infos, block_info.mining_tx_index);
 
@@ -526,7 +542,7 @@ pub fn pop_block(
 
     tapes.truncate_fixed_sized_tape(&db.rct_outputs, cumulative_rct_outs);
 
-    Ok((block_height, block_info.block_hash, block))
+    Ok((block_height, block_info.block_hash, block, add_to_alt_chain))
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_complete_entry_*`
@@ -546,6 +562,7 @@ pub fn get_block_complete_entry(
         usize::from_le_bytes(block_height.as_ref().try_into().unwrap()),
         pruned,
         tapes,
+        tx_ro,
         db,
     )
 }
@@ -556,6 +573,7 @@ pub fn get_block_complete_entry_from_height(
     block_height: BlockHeight,
     pruned: bool,
     tapes: &tapes::TapesReadTransaction,
+    tx_ro: &fjall::Snapshot,
     db: &BlockchainDatabase,
 ) -> DbResult<BlockCompleteEntry> {
     /// A helper function to read a span of bytes from a tape into an owned buffer.
@@ -580,12 +598,7 @@ pub fn get_block_complete_entry_from_height(
 
     // return early if we don't have this block (we pruned it)
     let chain_height = chain_height(db, tapes)?;
-    if !pruned
-        && !db
-            .metadata
-            .get_pruning_seed()
-            .has_full_block(block_height, chain_height)
-    {
+    if !pruned && !db.pruning_seed().has_full_block(block_height, chain_height) {
         return Err(BlockchainError::NotFound);
     }
 
@@ -663,14 +676,18 @@ pub fn get_block_complete_entry_from_height(
                 let mut ptr = 0;
                 // read each transaction from keyspace
                 for (i, tx) in txs.iter().enumerate() {
+                    if tx.is_v1_tx() {
+                        continue;
+                    }
+
                     read_prunable_tape(
                         &(block_info.mining_tx_index + usize_to_u64(i) + 1),
-                        &block_height,
-                        block_info.prunable_blob_idx,
+                        tx,
                         prunable_tape,
                         &mut buf[ptr..ptr + tx.prunable_size],
                         db,
                         tapes,
+                        tx_ro,
                     )?;
                     ptr += tx.prunable_size;
                 }

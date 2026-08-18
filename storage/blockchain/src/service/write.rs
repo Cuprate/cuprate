@@ -110,7 +110,9 @@ fn handle_blockchain_request(
         BlockchainWriteRequest::WriteBlock(block) => write_block(env, block),
         BlockchainWriteRequest::BatchWriteBlocks(blocks) => write_blocks(env, blocks),
         BlockchainWriteRequest::WriteAltBlock(alt_block) => write_alt_block(env, alt_block),
-        BlockchainWriteRequest::PopBlocks(numb_blocks) => pop_blocks(env, *numb_blocks),
+        BlockchainWriteRequest::PopBlocks(numb_blocks, keep) => {
+            pop_blocks(env, *numb_blocks, *keep)
+        }
         BlockchainWriteRequest::FlushAltBlocks => flush_alt_blocks(env),
     }
 }
@@ -191,27 +193,45 @@ fn write_alt_block(db: &BlockchainDatabase, block: &AltBlockInformation) -> Resp
 }
 
 /// [`BlockchainWriteRequest::PopBlocks`].
-fn pop_blocks(db: &BlockchainDatabase, numb_blocks: usize) -> ResponseResult {
+pub(crate) fn pop_blocks(
+    db: &BlockchainDatabase,
+    numb_blocks: usize,
+    keep_blocks: bool,
+) -> ResponseResult {
     let mut tapes = db.linear_tapes.truncate();
     let mut tx_rw = db.fjall.batch().durability(Some(PersistMode::SyncAll));
+    let tx_ro = db.fjall.snapshot();
 
     // flush all the current alt blocks as they may reference blocks to be popped.
     crate::ops::alt_block::flush_alt_blocks(db)?;
 
     // generate a `ChainId` for the popped blocks.
-    let old_main_chain_id = ChainId(rand::random());
+    let mut old_main_chain_id = keep_blocks.then_some(ChainId(rand::random()));
 
     assert!(tapes
         .fixed_sized_tape_len(&db.block_infos)
         .is_some_and(|height| u64_to_usize(height) > numb_blocks));
 
+    let mut dropped_alt_chain = false;
+
     // pop the blocks
     for _ in 0..numb_blocks {
-        crate::ops::block::pop_block(db, Some(old_main_chain_id), &mut tx_rw, &mut tapes)?;
+        let (_, _, _, added_to_alt_chain) =
+            crate::ops::block::pop_block(db, old_main_chain_id, &mut tx_rw, &tx_ro, &mut tapes)?;
+
+        if old_main_chain_id.is_some() && !added_to_alt_chain {
+            old_main_chain_id = None;
+            dropped_alt_chain = true;
+        }
     }
 
     tapes.commit(tapes::Persistence::SyncAll)?;
     tx_rw.commit()?;
+
+    if dropped_alt_chain {
+        crate::ops::alt_block::flush_alt_blocks(db)?;
+    }
+
     Ok(BlockchainResponse::PopBlocks(old_main_chain_id))
 }
 

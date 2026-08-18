@@ -74,7 +74,7 @@ impl Default for Config {
             blob_dir: CUPRATE_DATA_DIR.to_path_buf(),
             index_dir: CUPRATE_DATA_DIR.to_path_buf(),
             cache_sizes: CacheSizes::default(),
-            prune: true,
+            prune: false,
             persistence: Persistence::default(),
         }
     }
