@@ -1,6 +1,4 @@
 //! Transaction functions.
-
-use std::borrow::Cow;
 use std::collections::HashMap;
 
 use bytes::Buf;
@@ -104,10 +102,11 @@ pub fn add_tx_info_to_tapes(
 }
 
 /// Adds the tx info and related data to the dynamic tables.
-pub fn add_tx_info_to_dynamic_tables<'a>(
+#[expect(clippy::too_many_arguments)]
+pub fn add_tx_info_to_dynamic_tables(
     db: &BlockchainDatabase,
     tx: &Transaction<Pruned>,
-    prunable_blob_fn: impl FnOnce() -> Cow<'a, Vec<u8>>,
+    prunable_blob: &[u8],
     tx_id: TxId,
     tx_hash: &TxHash,
     height: &BlockHeight,
@@ -170,11 +169,7 @@ pub fn add_tx_info_to_dynamic_tables<'a>(
         }
         Transaction::V2 { .. } => {
             if let Some(prunable_tip) = &db.prunable_tip {
-                w.insert(
-                    prunable_tip,
-                    tx_id.to_le_bytes(),
-                    prunable_blob_fn().as_slice(),
-                );
+                w.insert(prunable_tip, tx_id.to_le_bytes(), prunable_blob);
             }
         }
     }
@@ -329,6 +324,7 @@ const fn miner_tx_prunable_hash(tx_info: &TxInfo) -> [u8; 32] {
 }
 
 /// Returns a transaction's split blobs and prunable hash from its [`TxInfo`].
+#[expect(clippy::type_complexity)]
 pub(crate) fn get_split_tx_blobs(
     tx_id: TxId,
     tx_info: &TxInfo,
@@ -372,7 +368,7 @@ pub(crate) fn get_split_tx_blobs(
 
         match read_prunable_tape(
             &tx_id,
-            &tx_info,
+            tx_info,
             prunable_tape,
             &mut prunable_blob,
             db,

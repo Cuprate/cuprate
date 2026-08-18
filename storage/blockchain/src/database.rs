@@ -461,7 +461,7 @@ impl BlockchainDatabase {
 
             let tx = Transaction::read(&mut tx_blob.as_slice()).unwrap();
 
-            (Cow::Owned(tx), || Cow::Owned(vec![]))
+            (Cow::Owned(tx), Cow::Owned(vec![]))
         });
 
         let mut batch = self.fjall.batch().durability(Some(PersistMode::Buffer));

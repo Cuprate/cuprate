@@ -325,11 +325,10 @@ pub(crate) fn add_blocks_to_dynamic_tables(
             db,
             &block.block,
             &block.block_hash,
-            block.txs.iter().map(|tx| {
-                (Cow::Borrowed(&tx.tx), || {
-                    Cow::Borrowed(&tx.tx_prunable_blob)
-                })
-            }),
+            block
+                .txs
+                .iter()
+                .map(|tx| (Cow::Borrowed(&tx.tx), Cow::Borrowed(&tx.tx_prunable_blob))),
             &mut numb_transactions,
             tx_rw,
             pre_rct_numb_outputs_cache,
@@ -349,12 +348,7 @@ pub(crate) fn add_blocks_to_dynamic_tables(
 // no inline, too big.
 pub fn add_block_to_dynamic_tables<
     'a,
-    I: Iterator<
-        Item = (
-            Cow<'a, Transaction<Pruned>>,
-            impl FnOnce() -> Cow<'a, Vec<u8>>,
-        ),
-    >,
+    I: Iterator<Item = (Cow<'a, Transaction<Pruned>>, Cow<'a, Vec<u8>>)>,
 >(
     db: &BlockchainDatabase,
     block: &Block,
@@ -377,7 +371,7 @@ pub fn add_block_to_dynamic_tables<
     add_tx_info_to_dynamic_tables(
         db,
         &tx.clone().into(),
-        || Cow::Owned(vec![]),
+        &[],
         *numb_transactions,
         &tx.hash(),
         &block.number(),
@@ -386,7 +380,7 @@ pub fn add_block_to_dynamic_tables<
     )?;
     *numb_transactions += 1;
 
-    for (tx_hash, (tx, prunable_blob_fn)) in block.transactions.iter().zip(txs) {
+    for (tx_hash, (tx, prunable_blob)) in block.transactions.iter().zip(txs) {
         #[cfg(debug_assertions)]
         {
             if db.pruning_seed() == PruningSeed::NotPruned {
@@ -407,7 +401,7 @@ pub fn add_block_to_dynamic_tables<
         add_tx_info_to_dynamic_tables(
             db,
             &tx,
-            prunable_blob_fn,
+            prunable_blob.as_slice(),
             *numb_transactions,
             tx_hash,
             &block.number(),
