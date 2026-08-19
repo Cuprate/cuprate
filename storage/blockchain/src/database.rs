@@ -5,11 +5,13 @@ use std::{
 };
 
 use arc_swap::ArcSwap;
-use fjall::{KeyspaceCreateOptions, PersistMode, Readable};
+use fjall::{KeyspaceCreateOptions, KvSeparationOptions, PersistMode, Readable};
 use monero_oxide::transaction::Transaction;
-use tapes::{Persistence, TapeOpenOptions, Tapes, TapesRead, TapesReadTransaction};
+use rand::Rng;
+use tapes::{Persistence, TapeOpenOptions, Tapes, TapesAppend, TapesRead, TapesReadTransaction};
 
-use cuprate_helper::cast::u64_to_usize;
+use cuprate_helper::cast::{u32_to_usize, u64_to_usize, usize_to_u64};
+use cuprate_pruning::{PruningSeed, CRYPTONOTE_PRUNING_LOG_STRIPES, CRYPTONOTE_PRUNING_TIP_BLOCKS};
 
 use crate::{
     config::Config,
@@ -168,12 +170,36 @@ pub struct BlockchainDatabase {
     ///
     /// These tapes store the prunable part of each tx, the stripe a tx is stored in depends on the
     /// height of the block.
-    pub(crate) prunable_blobs: Vec<tapes::BlobTape>,
+    ///
+    /// Each blob tape is stored in an [`Option`] to allow for pruning.
+    pub(crate) prunable_blobs: Vec<Option<tapes::BlobTape>>,
+
+    pub(crate) tapes_metadata: tapes::BlobTape,
+
+    /// Includes the top 5500 blocks, since pruned nodes have to always keep this.
+    ///
+    /// | key                        | value                  |
+    /// |----------------------------|------------------------|
+    /// | Tx ID: u64 (little endian) | prunable blob: [u8]    |
+    pub(crate) prunable_tip: Option<fjall::Keyspace>,
 
     /// A runtime cache of the number of outputs for each pre-rct output amount.
     /// This is filled in lazily.
     pub(crate) pre_rct_numb_outputs_cache: Mutex<HashMap<Amount, u64>>,
+
+    pruning_seed: PruningSeed,
 }
+
+const PRUNABLE_BLOBS: [&str; 8] = [
+    "prunable1",
+    "prunable2",
+    "prunable3",
+    "prunable4",
+    "prunable5",
+    "prunable6",
+    "prunable7",
+    "prunable8",
+];
 
 impl BlockchainDatabase {
     /// Open a [`BlockchainDatabase`] with an [`fjall::Database`] for storing data that can't be stored in tapes.
@@ -198,10 +224,25 @@ impl BlockchainDatabase {
         let alt_transaction_infos =
             fjall.keyspace("alt_transaction_infos", KeyspaceCreateOptions::default)?;
 
+        // If we already have a `prunable_tip` keyspace then open it here, otherwise we will make a
+        // new one and fill it in later if pruning.
+        let prunable_tip = fjall
+            .keyspace_exists("prunable_tip")
+            .then(|| {
+                fjall.keyspace("prunable_tip", || {
+                    KeyspaceCreateOptions::default().with_kv_separation(Some(
+                        KvSeparationOptions::default()
+                            .separation_threshold(3_000)
+                            .compression(fjall::CompressionType::None),
+                    ))
+                })
+            })
+            .transpose()?;
+
         let tapes_index_dir = config.index_dir.join("tapes");
         let tapes_blob_dir = config.blob_dir.join("tapes");
 
-        let linear_tapes = Tapes::open(&tapes_index_dir)?;
+        let mut linear_tapes = Tapes::open(&tapes_index_dir)?;
         let mut tape_append_tx = linear_tapes.append();
 
         let rct_outputs = tape_append_tx.open_fixed_sized_tape(
@@ -222,6 +263,13 @@ impl BlockchainDatabase {
             "block_infos",
             &TapeOpenOptions {
                 top_cache_size: config.cache_sizes.block_infos,
+                dir: tapes_index_dir.clone(),
+            },
+        )?;
+        let tapes_metadata = tape_append_tx.open_blob_tape(
+            "tapes_metadata",
+            &TapeOpenOptions {
+                top_cache_size: 8,
                 dir: tapes_index_dir,
             },
         )?;
@@ -240,30 +288,43 @@ impl BlockchainDatabase {
             },
         )?;
 
-        const PRUNABLE_BLOBS: [&str; 8] = [
-            "prunable1",
-            "prunable2",
-            "prunable3",
-            "prunable4",
-            "prunable5",
-            "prunable6",
-            "prunable7",
-            "prunable8",
-        ];
+        let prunable_tape_open_options = TapeOpenOptions {
+            top_cache_size: config.cache_sizes.prunable_blobs,
+            dir: tapes_blob_dir,
+        };
+
+        let pruning_seed = if tape_append_tx.blob_tape_len(&tapes_metadata).unwrap_or(0) == 0 {
+            PruningSeed::NotPruned
+        } else {
+            let mut seed_bytes = [0; 4];
+            tape_append_tx.read_bytes(&tapes_metadata, 0, &mut seed_bytes)?;
+
+            PruningSeed::decompress(u32::from_le_bytes(seed_bytes)).unwrap()
+        };
 
         let prunable_blobs = (0..8)
             .map(|i| {
-                tape_append_tx.open_blob_tape(
-                    PRUNABLE_BLOBS[i],
-                    &TapeOpenOptions {
-                        top_cache_size: config.cache_sizes.prunable_blobs,
-                        dir: tapes_blob_dir.clone(),
-                    },
-                )
+                if pruning_seed
+                    .get_stripe()
+                    .is_none_or(|stripe| u32_to_usize(stripe) - 1 == i)
+                    || prunable_tip.is_none()
+                {
+                    tape_append_tx
+                        .open_blob_tape(PRUNABLE_BLOBS[i], &prunable_tape_open_options)
+                        .map(Some)
+                } else {
+                    Ok(None)
+                }
             })
-            .collect::<Result<_, _>>()?;
+            .collect::<Result<Vec<_>, _>>()?;
 
         tape_append_tx.commit(Persistence::SyncAll)?;
+
+        for (i, prunable_blob) in prunable_blobs.iter().enumerate() {
+            if prunable_blob.is_none() {
+                linear_tapes.delete_tape(PRUNABLE_BLOBS[i], &prunable_tape_open_options)?;
+            }
+        }
 
         tracing::debug!("opened db");
         Ok(Self {
@@ -276,6 +337,7 @@ impl BlockchainDatabase {
             pre_rct_outputs,
             tx_ids,
             v1_tx_outputs,
+            tapes_metadata,
             alt_chain_infos: ArcSwap::from_pointee(alt_chain_infos),
             alt_block_heights: ArcSwap::from_pointee(alt_block_heights),
             alt_block_infos: ArcSwap::from_pointee(alt_block_infos),
@@ -288,7 +350,9 @@ impl BlockchainDatabase {
             pruned_blobs,
             v1_prunable_blobs,
             prunable_blobs,
+            prunable_tip,
             pre_rct_numb_outputs_cache: Mutex::new(HashMap::new()),
+            pruning_seed,
         })
     }
 
@@ -322,7 +386,7 @@ impl BlockchainDatabase {
     /// Returns Fjall and Tapes read transactions at the same main-chain tip.
     pub fn read_transactions(
         &self,
-    ) -> Result<(fjall::Snapshot, TapesReadTransaction<'_>), BlockchainError> {
+    ) -> Result<(fjall::Snapshot, TapesReadTransaction), BlockchainError> {
         loop {
             let fjall = self.fjall.snapshot();
             let tapes = self.linear_tapes.reader();
@@ -339,7 +403,6 @@ impl BlockchainDatabase {
     /// is not.
     pub fn make_consistent(&mut self) -> Result<(), BlockchainError> {
         tracing::info!("Checking blockchain database consistency.");
-
         let tips_match = {
             let fjall = self.fjall.snapshot();
             let tapes = self.linear_tapes.reader();
@@ -349,6 +412,13 @@ impl BlockchainDatabase {
         if !tips_match {
             tracing::warn!("fjall and tapes are out of sync");
             self.rebuild_fjall_database()?;
+        }
+
+        // If we are pruning and don't have the `prunable_tip` table then enable pruning.
+        if (self.config.prune || self.pruning_seed != PruningSeed::NotPruned)
+            && self.prunable_tip.is_none()
+        {
+            self.enable_pruning()?;
         }
 
         Ok(())
@@ -369,6 +439,10 @@ impl BlockchainDatabase {
         reset_fjall_keyspace(&self.fjall, &self.alt_transaction_blobs)?;
         reset_fjall_keyspace(&self.fjall, &self.alt_transaction_infos)?;
 
+        if let Some(prunable_tip) = self.prunable_tip.take() {
+            self.fjall.delete_keyspace(prunable_tip)?;
+        }
+
         let rebuild_span = tracing::info_span!("rebuild_fjall_database");
         let _guard = rebuild_span.enter();
 
@@ -387,7 +461,7 @@ impl BlockchainDatabase {
 
             let tx = Transaction::read(&mut tx_blob.as_slice()).unwrap();
 
-            Cow::Owned(tx)
+            (Cow::Owned(tx), Cow::Owned(vec![]))
         });
 
         let mut batch = self.fjall.batch().durability(Some(PersistMode::Buffer));
@@ -423,6 +497,111 @@ impl BlockchainDatabase {
         }
 
         batch.commit()?;
+
+        Ok(())
+    }
+
+    #[inline]
+    pub const fn pruning_seed(&self) -> PruningSeed {
+        self.pruning_seed
+    }
+
+    /// - generate new [`PruningSeed`]
+    /// - populate [`BlockchainDatabase::prunable_tip`] with latest blocks
+    /// - delete unnecessary [`BlockchainDatabase::prunable_blobs`]
+    fn enable_pruning(&mut self) -> Result<(), BlockchainError> {
+        if self.pruning_seed == PruningSeed::NotPruned {
+            let mut tapes_tx = self.linear_tapes.append();
+
+            // generate a random stripe index to prune
+            let stripe_idx = rand::thread_rng().gen_range(
+                1..=u32::try_from(PRUNABLE_BLOBS.len())
+                    .expect("there shouldn't be that many prunable blobs"),
+            );
+            let seed = PruningSeed::new_pruned(stripe_idx, CRYPTONOTE_PRUNING_LOG_STRIPES).unwrap();
+            self.pruning_seed = seed;
+            tapes_tx.append_bytes(&self.tapes_metadata, &seed.compress().to_le_bytes())?;
+            tapes_tx.commit(Persistence::SyncAll)?;
+        }
+
+        tracing::info!(
+            "Pruning chain on stripe = {:?}.",
+            self.pruning_seed.get_stripe().unwrap()
+        );
+
+        let tapes_reader = self.linear_tapes.reader();
+        let mut w = self.fjall.batch();
+
+        let prunable_tip = self.fjall.keyspace("prunable_tip", || {
+            KeyspaceCreateOptions::default().with_kv_separation(Some(
+                KvSeparationOptions::default()
+                    .separation_threshold(3_000)
+                    .compression(fjall::CompressionType::None),
+            ))
+        })?;
+
+        let start_tip_height = tapes_reader
+            .fixed_sized_tape_len(&self.block_infos)
+            .unwrap_or(0)
+            .saturating_sub(usize_to_u64(CRYPTONOTE_PRUNING_TIP_BLOCKS));
+        let start_tx_idx = tapes_reader
+            .read_entry(&self.block_infos, start_tip_height)?
+            .map_or(0, |info| info.mining_tx_index);
+        let end_tx_idx = tapes_reader
+            .fixed_sized_tape_len(&self.tx_infos)
+            .unwrap_or(0);
+
+        for (i, tx_id) in (start_tx_idx..end_tx_idx).rev().enumerate() {
+            let tx_info = tapes_reader.read_entry(&self.tx_infos, tx_id)?.unwrap();
+
+            if tx_info.is_v1_tx() {
+                continue;
+            }
+            let stripe = cuprate_pruning::get_block_pruning_stripe(
+                tx_info.height,
+                usize::MAX,
+                CRYPTONOTE_PRUNING_LOG_STRIPES,
+            )
+            .unwrap();
+
+            let Some(prunable_blob) = self.prunable_blobs
+                [usize::try_from(stripe).expect("stripe will not exceed usize::MAX") - 1]
+                .as_ref()
+            else {
+                self.prunable_tip = Some(prunable_tip);
+                w.commit()?;
+
+                return Ok(());
+            };
+
+            let mut blob = vec![0; tx_info.prunable_size];
+            tapes_reader.read_bytes(prunable_blob, tx_info.prunable_blob_idx, &mut blob)?;
+
+            w.insert(&prunable_tip, tx_id.to_le_bytes(), blob.as_slice());
+
+            if (i + 1) % 1000 == 0 {
+                w.commit()?;
+                w = self.fjall.batch();
+            }
+        }
+        self.prunable_tip = Some(prunable_tip);
+        w.commit()?;
+
+        let tapes_blob_dir = self.config.blob_dir.join("tapes");
+        let prunable_tape_open_options = TapeOpenOptions {
+            top_cache_size: self.config.cache_sizes.prunable_blobs,
+            dir: tapes_blob_dir,
+        };
+
+        drop(tapes_reader);
+        let stripe = self.pruning_seed.get_stripe().unwrap();
+        for (i, prunable_blob) in self.prunable_blobs.iter_mut().enumerate() {
+            if u32_to_usize(stripe) - 1 != i {
+                self.linear_tapes
+                    .delete_tape(PRUNABLE_BLOBS[i], &prunable_tape_open_options)?;
+                *prunable_blob = None;
+            }
+        }
 
         Ok(())
     }

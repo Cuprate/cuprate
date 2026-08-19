@@ -3,6 +3,7 @@
 //! Contains the blockchain manager, syncer and an interface to mutate the blockchain.
 use std::sync::Arc;
 
+use cuprate_pruning::PruningSeed;
 use futures::FutureExt;
 use tokio::sync::{mpsc, Notify};
 use tower::{BoxError, Service, ServiceExt};
@@ -81,6 +82,10 @@ impl BlockchainInterface {
     /// Returns a handle to the blockchain syncer.
     pub fn syncer(&self) -> BlockchainSyncerHandle {
         self.syncer.clone()
+    }
+
+    pub fn pruning_seed(&self) -> PruningSeed {
+        self.read.blockchain.pruning_seed()
     }
 
     /// Returns the blockchain context service.

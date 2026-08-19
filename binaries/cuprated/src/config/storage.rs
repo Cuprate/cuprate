@@ -80,6 +80,11 @@ config_struct! {
     #[derive(Default, Debug, Deserialize, Serialize, PartialEq, Eq)]
     #[serde(deny_unknown_fields, default)]
     pub struct BlockchainConfig {
+        /// Whether to prune the blockchain. This reduces the size of the blockchain by removing most transaction proof data.
+        /// Note that once a node is pruned it cannot be un-pruned.
+        ///
+        /// Defaults to `false`.
+        pub prune: bool,
         #[comment_out = true]
         /// The persistence mode of the database.
         ///

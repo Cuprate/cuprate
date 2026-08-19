@@ -245,7 +245,7 @@ impl DecompressedPruningSeed {
     /// ### What is a `stripe`
     ///
     /// A stripe is the part of the blockchain this peer will keep.
-    ///  
+    ///
     /// Monero, when pruning, will split the blockchain into multiple
     /// "stripes", that amount is currently 8 and each pruned peer
     /// will keep one of those 8 stripes.

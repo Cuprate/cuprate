@@ -83,7 +83,7 @@ pub type TxHash = [u8; 32];
 pub type UnlockTime = u64;
 
 /// Information on a transaction in the blockchain.
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable, Default)]
 #[repr(C)]
 pub struct TxInfo {
     /// The height of this transaction.

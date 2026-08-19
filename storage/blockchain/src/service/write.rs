@@ -1,12 +1,12 @@
 //! Database writer thread definitions and logic.
 
 use std::{
-    borrow::Cow,
     sync::Arc,
     task::{Context, Poll},
 };
 
 use crossbeam::channel::Receiver;
+use cuprate_pruning::CRYPTONOTE_PRUNING_TIP_BLOCKS;
 use fjall::PersistMode;
 use futures::channel::oneshot;
 use tapes::TapesRead;
@@ -110,7 +110,9 @@ fn handle_blockchain_request(
         BlockchainWriteRequest::WriteBlock(block) => write_block(env, block),
         BlockchainWriteRequest::BatchWriteBlocks(blocks) => write_blocks(env, blocks),
         BlockchainWriteRequest::WriteAltBlock(alt_block) => write_alt_block(env, alt_block),
-        BlockchainWriteRequest::PopBlocks(numb_blocks) => pop_blocks(env, *numb_blocks),
+        BlockchainWriteRequest::PopBlocks(numb_blocks, keep) => {
+            pop_blocks(env, *numb_blocks, *keep)
+        }
         BlockchainWriteRequest::FlushAltBlocks => flush_alt_blocks(env),
     }
 }
@@ -135,6 +137,7 @@ fn write_block(db: &BlockchainDatabase, block: &VerifiedBlockInformation) -> Res
 #[inline]
 #[instrument(skip(db, blocks), level = "debug")]
 fn write_blocks(db: &BlockchainDatabase, blocks: &[VerifiedBlockInformation]) -> ResponseResult {
+    debug_assert!(blocks.len() <= CRYPTONOTE_PRUNING_TIP_BLOCKS);
     let (tapes_persist_mode, fjall_persist_mode) = match db.config.persistence {
         Persistence::Buffer => (tapes::Persistence::Buffer, PersistMode::Buffer),
         // We use the amount of blocks to write as a heuristic for if we are synced. When Cuprate starts downloading
@@ -151,7 +154,7 @@ fn write_blocks(db: &BlockchainDatabase, blocks: &[VerifiedBlockInformation]) ->
 
     let mut tapes = db.linear_tapes.append();
 
-    let mut numb_transactions = tapes
+    let numb_transactions = tapes
         .fixed_sized_tape_len(&db.tx_infos)
         .expect("required tape not open");
 
@@ -160,20 +163,17 @@ fn write_blocks(db: &BlockchainDatabase, blocks: &[VerifiedBlockInformation]) ->
     tapes.commit(tapes_persist_mode)?;
 
     let mut pre_rct_numb_outputs_cache = db.pre_rct_numb_outputs_cache.lock().unwrap();
-
     let mut tx_rw = db.fjall.batch().durability(Some(fjall_persist_mode));
+    let tapes = db.linear_tapes.reader();
 
-    for block in blocks {
-        crate::ops::block::add_block_to_dynamic_tables(
-            db,
-            &block.block,
-            &block.block_hash,
-            block.txs.iter().map(|tx| Cow::Borrowed(&tx.tx)),
-            &mut numb_transactions,
-            &mut tx_rw,
-            &mut pre_rct_numb_outputs_cache,
-        )?;
-    }
+    crate::ops::block::add_blocks_to_dynamic_tables(
+        db,
+        blocks,
+        numb_transactions,
+        &mut tx_rw,
+        &mut pre_rct_numb_outputs_cache,
+        &tapes,
+    )?;
 
     tx_rw.commit()?;
 
@@ -193,27 +193,45 @@ fn write_alt_block(db: &BlockchainDatabase, block: &AltBlockInformation) -> Resp
 }
 
 /// [`BlockchainWriteRequest::PopBlocks`].
-fn pop_blocks(db: &BlockchainDatabase, numb_blocks: usize) -> ResponseResult {
+pub(crate) fn pop_blocks(
+    db: &BlockchainDatabase,
+    numb_blocks: usize,
+    keep_blocks: bool,
+) -> ResponseResult {
     let mut tapes = db.linear_tapes.truncate();
     let mut tx_rw = db.fjall.batch().durability(Some(PersistMode::SyncAll));
+    let tx_ro = db.fjall.snapshot();
 
     // flush all the current alt blocks as they may reference blocks to be popped.
     crate::ops::alt_block::flush_alt_blocks(db)?;
 
     // generate a `ChainId` for the popped blocks.
-    let old_main_chain_id = ChainId(rand::random());
+    let mut old_main_chain_id = keep_blocks.then_some(ChainId(rand::random()));
 
     assert!(tapes
         .fixed_sized_tape_len(&db.block_infos)
         .is_some_and(|height| u64_to_usize(height) > numb_blocks));
 
+    let mut dropped_alt_chain = false;
+
     // pop the blocks
     for _ in 0..numb_blocks {
-        crate::ops::block::pop_block(db, Some(old_main_chain_id), &mut tx_rw, &mut tapes)?;
+        let (_, _, _, added_to_alt_chain) =
+            crate::ops::block::pop_block(db, old_main_chain_id, &mut tx_rw, &tx_ro, &mut tapes)?;
+
+        if old_main_chain_id.is_some() && !added_to_alt_chain {
+            old_main_chain_id = None;
+            dropped_alt_chain = true;
+        }
     }
 
     tapes.commit(tapes::Persistence::SyncAll)?;
     tx_rw.commit()?;
+
+    if dropped_alt_chain {
+        crate::ops::alt_block::flush_alt_blocks(db)?;
+    }
+
     Ok(BlockchainResponse::PopBlocks(old_main_chain_id))
 }
 
