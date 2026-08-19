@@ -317,11 +317,9 @@ async fn prepare_incoming_txs(
         stem_pool_hashes,
     } = txpool_read_handle
         .ready()
-        .await
-        .expect("Txpool read service is always ready.")
+        .await?
         .call(TxpoolReadRequest::FilterKnownTxBlobHashes(tx_blob_hashes))
-        .await
-        .map_err(|e| IncomingTxError::Fatal(e.into()))?
+        .await?
     else {
         unreachable!()
     };
@@ -364,8 +362,7 @@ async fn rerelay_stem_tx(
 ) -> Result<(), IncomingTxError> {
     let tx_blob = match txpool_read_handle
         .ready()
-        .await
-        .expect("Txpool read service is always ready.")
+        .await?
         .call(TxpoolReadRequest::TxBlob(*tx_hash))
         .await
     {
@@ -375,7 +372,7 @@ async fn rerelay_stem_tx(
             // The tx was dropped from the pool
             return Ok(());
         }
-        Err(TxPoolError::Fjall(e)) => return Err(IncomingTxError::Fatal(e.into())),
+        Err(e) => return Err(e.into()),
     };
 
     let incoming_tx =
@@ -387,13 +384,11 @@ async fn rerelay_stem_tx(
         .build()
         .unwrap();
 
-    async {
-        dandelion_pool_manager
-            .ready()
-            .await?
-            .call(incoming_tx)
-            .await
-    }
-    .await
-    .map_err(|e| IncomingTxError::Fatal(e.into()))
+    dandelion_pool_manager
+        .ready()
+        .await?
+        .call(incoming_tx)
+        .await?;
+
+    Ok(())
 }

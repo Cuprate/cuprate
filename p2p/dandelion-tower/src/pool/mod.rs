@@ -36,7 +36,6 @@ use tokio_util::{sync::PollSender, time::DelayQueue};
 use tower::Service;
 
 use crate::{
-    pool::manager::DandelionPoolShutDown,
     traits::{TxStoreRequest, TxStoreResponse},
     DandelionConfig, DandelionRouteReq, DandelionRouterError, State,
 };
@@ -45,7 +44,7 @@ mod incoming_tx;
 mod manager;
 
 pub use incoming_tx::{IncomingTx, IncomingTxBuilder};
-pub use manager::DandelionPoolManager;
+pub use manager::{DandelionPoolManager, DandelionPoolShutDown};
 
 /// Start the [`DandelionPoolManager`].
 ///

@@ -2,6 +2,7 @@
 
 use cuprate_blockchain::BlockchainError;
 use cuprate_consensus_rules::{blocks::BlockError, hard_forks::HardForkError, ConsensusError};
+use cuprate_txpool::TxPoolError;
 
 use crate::monitor::FatalError;
 
@@ -65,6 +66,12 @@ impl From<ConsensusError> for IncomingBlockError {
 
 impl From<BlockchainError> for IncomingBlockError {
     fn from(e: BlockchainError) -> Self {
+        Self::Fatal(e.into())
+    }
+}
+
+impl From<TxPoolError> for IncomingBlockError {
+    fn from(e: TxPoolError) -> Self {
         Self::Fatal(e.into())
     }
 }

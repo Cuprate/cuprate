@@ -2,6 +2,8 @@
 
 use cuprate_consensus::ExtendedConsensusError;
 use cuprate_consensus_rules::ConsensusError;
+use cuprate_dandelion_tower::pool::DandelionPoolShutDown;
+use cuprate_txpool::TxPoolError;
 
 use crate::{monitor::FatalError, txpool::relay_rules::RelayRuleError};
 
@@ -45,5 +47,17 @@ impl From<ExtendedConsensusError> for IncomingTxError {
 impl From<ConsensusError> for IncomingTxError {
     fn from(e: ConsensusError) -> Self {
         Self::Consensus(e)
+    }
+}
+
+impl From<TxPoolError> for IncomingTxError {
+    fn from(e: TxPoolError) -> Self {
+        Self::Fatal(e.into())
+    }
+}
+
+impl From<DandelionPoolShutDown> for IncomingTxError {
+    fn from(e: DandelionPoolShutDown) -> Self {
+        Self::Fatal(e.into())
     }
 }
