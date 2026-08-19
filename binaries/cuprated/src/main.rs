@@ -217,7 +217,7 @@ fn load_config(args: &Args) -> Config {
 /// Initialize the [`tokio`] runtime.
 fn init_tokio_rt(config: &Config) -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(config.tokio.threads)
+        .worker_threads(config.tokio.threads.get())
         .thread_name("cuprated-tokio")
         .enable_all()
         .build()
