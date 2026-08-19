@@ -1,3 +1,5 @@
+use std::num::NonZeroUsize;
+
 use serde::{Deserialize, Serialize};
 
 use super::macros::config_struct;
@@ -13,14 +15,14 @@ config_struct! {
         /// Type         | Number
         /// Valid values | >= 1
         /// Examples     | 1, 8, 14
-        pub threads: usize,
+        pub threads: NonZeroUsize,
     }
 }
 
 impl Default for TokioConfig {
     fn default() -> Self {
         Self {
-            threads: cuprate_helper::thread::threads_75().get(),
+            threads: cuprate_helper::thread::threads_75(),
         }
     }
 }
