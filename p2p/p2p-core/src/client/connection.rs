@@ -403,9 +403,11 @@ where
             drop(tx.send(Err(err_str.clone().into())));
         }
 
-        while let Ok(req) = client_rx.try_recv() {
-            drop(req.response_channel.send(Err(err_str.clone().into())));
-        }
+        tokio::spawn(async move {
+            while let Some(req) = client_rx.recv().await {
+                drop(req.response_channel.send(Err(err_str.clone().into())));
+            }
+        });
 
         self.connection_guard.connection_closed();
     }
