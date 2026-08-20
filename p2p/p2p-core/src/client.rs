@@ -134,6 +134,10 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
     type Future = InfallibleOneshotReceiver<Result<Self::Response, Self::Error>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        if self.info.handle.is_closed() {
+            return Poll::Ready(Err(PeerError::ClientChannelClosed.into()));
+        }
+
         if self.permit.is_none() {
             let permit = ready!(self.semaphore.poll_acquire(cx))
                 .expect("Client semaphore should not be closed!");
@@ -178,6 +182,10 @@ impl<N: NetworkZone> Service<BroadcastMessage> for Client<N> {
     type Future = InfallibleOneshotReceiver<Result<Self::Response, Self::Error>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        if self.info.handle.is_closed() {
+            return Poll::Ready(Err(PeerError::ClientChannelClosed.into()));
+        }
+
         self.permit.take();
 
         if ready!(self.connection_tx.poll_reserve(cx)).is_err() {
