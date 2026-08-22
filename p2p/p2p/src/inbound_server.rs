@@ -131,6 +131,7 @@ where
                             }
                         }
                         Err(_) => tracing::debug!("Timed out"),
+                        // TODO: ban peer on repeated `HandshakeError::IncorrectNetwork`
                         Ok(Err(e)) => tracing::debug!("error: {e:?}"),
                     }
                 }
