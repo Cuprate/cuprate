@@ -2,9 +2,13 @@
 
 use std::future::Future;
 
+use futures::FutureExt;
 use tokio::task::JoinHandle;
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
-use tracing::info;
+use tracing::{debug, error, info};
+
+/// An unexpected node-side failure that should trigger a shutdown.
+pub type FatalError = tower::BoxError;
 
 /// A handle for task spawning and shutdown coordination.
 #[derive(Clone, Default)]
@@ -26,6 +30,34 @@ impl TaskExecutor {
         F::Output: Send + 'static,
     {
         self.tracker.spawn(future)
+    }
+
+    /// Spawn a tracked task that triggers shutdown if the future returns early.
+    pub fn spawn_critical<F>(&self, name: &'static str, future: F) -> JoinHandle<()>
+    where
+        F: Future<Output = Result<(), FatalError>> + Send + 'static,
+    {
+        let executor = self.clone();
+        self.tracker.spawn(future.map(move |result| {
+            if executor.token.is_cancelled() {
+                // Node is shutting down, so an early exit or error is expected
+                if let Err(e) = result {
+                    debug!(subsystem = name, "{:#}", anyhow::Error::from_boxed(e));
+                }
+                return;
+            }
+            match result {
+                Ok(()) => error!(
+                    subsystem = name,
+                    "critical task exited before shutdown was requested"
+                ),
+                Err(e) => {
+                    error!(subsystem = name, "{:#}", anyhow::Error::from_boxed(e));
+                }
+            }
+
+            executor.trigger_shutdown();
+        }))
     }
 
     /// Get a clone of the cancellation token.

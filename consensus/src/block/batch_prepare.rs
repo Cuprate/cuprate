@@ -60,7 +60,7 @@ pub async fn batch_prepare_main_chain_blocks<D: Database>(
     .await?;
 
     let Some(last_block) = blocks.last() else {
-        return Err(ExtendedConsensusError::NoBlocksToVerify);
+        return Err(ConsensusError::Block(BlockError::NoBlocksToVerify).into());
     };
 
     // hard-forks cannot be reversed, so the last block will contain the highest hard fork (provided the
@@ -199,10 +199,10 @@ pub async fn batch_prepare_main_chain_blocks<D: Database>(
 
                 Ok((block, txs))
             })
-            .collect::<Result<Vec<_>, ExtendedConsensusError>>()?;
+            .collect::<Result<Vec<_>, ConsensusError>>()?;
 
         if !batch_verifier.verify() {
-            return Err(ExtendedConsensusError::OneOrMoreBatchVerificationStatementsInvalid);
+            return Err(ConsensusError::Block(BlockError::BatchVerificationFailed));
         }
 
         Ok(res)

@@ -46,8 +46,7 @@ use cuprate_wire::protocol::{
 };
 
 use crate::{
-    blockchain::interface::{BlockchainManagerHandle, IncomingBlockError},
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
+    blockchain::{interface::BlockchainManagerHandle, IncomingBlockError},
     p2p::CrossNetworkInternalPeerId,
     txpool::{IncomingTxError, IncomingTxHandler, IncomingTxs},
 };
@@ -355,6 +354,7 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         return Ok(ProtocolResponse::NA);
     }
 
+    let block_hash = block.hash();
     let res = blockchain_manager
         .handle_incoming_block(
             block,
@@ -376,6 +376,28 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         Err(IncomingBlockError::Orphan) => {
             // Block's parent was unknown, could be syncing?
             Ok(ProtocolResponse::NA)
+        }
+        Err(IncomingBlockError::Validation { pow_valid, inner }) => {
+            if pow_valid {
+                tracing::warn!(
+                    "Peer sent invalid block but PoW was valid: {}, error {}",
+                    hex::encode(block_hash),
+                    inner
+                );
+                Ok(ProtocolResponse::NA)
+            } else {
+                tracing::warn!(
+                    "Failed to verify block: {}, error {}, banning peer.",
+                    hex::encode(block_hash),
+                    inner
+                );
+                peer_information.handle.ban_peer(MEDIUM_BAN);
+                Err(inner.into())
+            }
+        }
+        Err(IncomingBlockError::Fatal(e)) => {
+            tracing::error!("Failed to handle incoming block: {e}");
+            Err(anyhow::Error::from_boxed(e))
         }
         Err(IncomingBlockError::ChannelClosed) => {
             // Manager has exited (likely shutdown); drop silently.
@@ -431,8 +453,7 @@ where
 
     let res = incoming_tx_handler
         .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .await?
         .call(IncomingTxs {
             txs,
             state,
@@ -443,6 +464,14 @@ where
 
     match res {
         Ok(()) => Ok(ProtocolResponse::NA),
+        Err(IncomingTxError::Fatal(e)) => {
+            tracing::error!("Failed to handle incoming txs: {e}");
+            Err(anyhow::Error::from_boxed(e))
+        }
+        Err(IncomingTxError::ChannelClosed) => {
+            // Manager has exited (likely shutdown); drop silently.
+            Ok(ProtocolResponse::NA)
+        }
         Err(e) => Err(e.into()),
     }
 }

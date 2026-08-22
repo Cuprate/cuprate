@@ -22,17 +22,7 @@ use cuprate_p2p::{
 use cuprate_p2p_core::{client::PeerSyncCallback, ClearNet, CoreSyncData, NetworkZone};
 
 use super::BlockchainManagerHandle;
-
-/// An error returned from the [`BlockchainSyncer`].
-#[derive(Debug, thiserror::Error)]
-pub enum SyncerError {
-    #[error("Incoming block channel closed.")]
-    IncomingBlockChannelClosed,
-    #[error("One of our services returned an error: {0}.")]
-    ServiceError(#[from] tower::BoxError),
-    #[error("Sync permit semaphore closed unexpectedly: {0}.")]
-    SemaphoreClosed(#[from] tokio::sync::AcquireError),
-}
+use crate::monitor::FatalError;
 
 #[derive(Debug, PartialEq)]
 enum SyncStatus {
@@ -83,7 +73,7 @@ impl BlockchainSyncer {
         stop_current_block_downloader: Arc<Notify>,
         block_downloader_config: BlockDownloaderConfig,
         shutdown_token: CancellationToken,
-    ) -> Result<(), SyncerError>
+    ) -> Result<(), FatalError>
     where
         CN: Service<
                 ChainSvcRequest<ClearNet>,
@@ -173,7 +163,7 @@ impl BlockchainSyncer {
                             if shutdown_token.is_cancelled() {
                                 return Ok(());
                             }
-                            return Err(SyncerError::IncomingBlockChannelClosed);
+                            return Err("Incoming block channel closed.".into());
                         }
                     }
                 }

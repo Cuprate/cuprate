@@ -22,7 +22,7 @@ async fn basic_functionality() {
 
     let (pool_svc, _pool) = mock_in_memory_backing_pool();
 
-    let mut pool_svc = start_dandelion_pool_manager(15, router, pool_svc, config);
+    let (mut pool_svc, pool_task) = start_dandelion_pool_manager(15, router, pool_svc, config);
 
     pool_svc
         .ready()
@@ -40,4 +40,7 @@ async fn basic_functionality() {
     // all functionality.
     //assert!(pool.lock().unwrap().contains_key(&1));
     assert!(broadcast_rx.try_recv().is_ok());
+
+    drop(pool_svc);
+    pool_task.await.unwrap();
 }
