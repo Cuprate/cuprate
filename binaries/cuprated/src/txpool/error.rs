@@ -38,8 +38,8 @@ pub enum IncomingTxError {
 impl From<ExtendedConsensusError> for IncomingTxError {
     fn from(e: ExtendedConsensusError) -> Self {
         match e {
-            ExtendedConsensusError::DBErr(e) => Self::Fatal(e),
-            ExtendedConsensusError::ConErr(e) => Self::Consensus(e),
+            ExtendedConsensusError::FatalError(e) => Self::Fatal(e),
+            ExtendedConsensusError::ConsensusError(e) => Self::Consensus(e),
         }
     }
 }

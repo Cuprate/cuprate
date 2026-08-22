@@ -34,42 +34,32 @@ impl TaskExecutor {
         self.tracker.spawn(future)
     }
 
-    /// Spawn a tracked task that triggers shutdown if the future returns
-    /// early or panics.
+    /// Spawn a tracked task that triggers shutdown if the future returns early.
     pub fn spawn_critical<F>(&self, name: &'static str, future: F) -> JoinHandle<()>
     where
         F: Future<Output = Result<(), FatalError>> + Send + 'static,
     {
         let executor = self.clone();
-        self.tracker
-            .spawn(AssertUnwindSafe(future).catch_unwind().map(move |result| {
-                match result {
-                    Ok(res) => {
-                        if executor.token.is_cancelled() {
-                            // Node is shutting down, so an early exit or error is expected
-                            if let Err(e) = res {
-                                debug!(subsystem = name, "{:#}", anyhow::Error::from_boxed(e));
-                            }
-                            return;
-                        }
-                        match res {
-                            Ok(()) => error!(
-                                subsystem = name,
-                                "critical task exited before shutdown was requested"
-                            ),
-                            Err(e) => {
-                                error!(subsystem = name, "{:#}", anyhow::Error::from_boxed(e));
-                            }
-                        }
-                    }
-                    Err(payload) => error!(
-                        subsystem = name,
-                        err = panic_message(&payload),
-                        "{CRITICAL_SERVICE_ERROR}",
-                    ),
+        self.tracker.spawn(future.map(move |result| {
+            if executor.token.is_cancelled() {
+                // Node is shutting down, so an early exit or error is expected
+                if let Err(e) = result {
+                    debug!(subsystem = name, "{:#}", anyhow::Error::from_boxed(e));
                 }
-                executor.trigger_shutdown();
-            }))
+                return;
+            }
+            match result {
+                Ok(()) => error!(
+                    subsystem = name,
+                    "critical task exited before shutdown was requested"
+                ),
+                Err(e) => {
+                    error!(subsystem = name, "{:#}", anyhow::Error::from_boxed(e));
+                }
+            }
+
+            executor.trigger_shutdown();
+        }))
     }
 
     /// Get a clone of the cancellation token.
@@ -91,13 +81,4 @@ impl TaskExecutor {
         self.tracker.close();
         self.tracker.wait().await;
     }
-}
-
-/// Extracts a printable message from a `catch_unwind` panic payload.
-fn panic_message(payload: &(dyn std::any::Any + Send)) -> &str {
-    payload
-        .downcast_ref::<String>()
-        .map(String::as_str)
-        .or_else(|| payload.downcast_ref::<&'static str>().copied())
-        .unwrap_or("<no panic message>")
 }

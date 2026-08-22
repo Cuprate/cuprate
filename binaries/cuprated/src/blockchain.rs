@@ -27,7 +27,7 @@ mod manager;
 mod syncer;
 mod types;
 
-pub use error::{BlockValidationError, IncomingBlockError};
+pub use error::IncomingBlockError;
 pub use fast_sync::get_fast_sync_hashes;
 pub use interface::BlockchainManagerHandle;
 pub use manager::IncomingBlockOk;

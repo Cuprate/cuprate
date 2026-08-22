@@ -1,43 +1,25 @@
 //! Error types for the blockchain manager interface.
 
 use cuprate_blockchain::BlockchainError;
-use cuprate_consensus_rules::{blocks::BlockError, hard_forks::HardForkError, ConsensusError};
+use cuprate_consensus::{block::BlockVerificationError, ExtendedConsensusError};
+use cuprate_consensus_rules::ConsensusError;
 use cuprate_txpool::TxPoolError;
 
 use crate::monitor::FatalError;
 
-/// A validation failure - the peer should be banned.
-#[derive(Debug, thiserror::Error)]
-pub enum BlockValidationError {
-    /// Invalid hard-fork rules.
-    #[error(transparent)]
-    HardFork(HardForkError),
-
-    /// Any other consensus rule violation.
-    #[error(transparent)]
-    Consensus(ConsensusError),
-}
-
-impl From<ConsensusError> for BlockValidationError {
-    fn from(e: ConsensusError) -> Self {
-        match e {
-            ConsensusError::Block(BlockError::HardForkError(hf)) => Self::HardFork(hf),
-            ConsensusError::Block(e) => Self::Consensus(ConsensusError::Block(e)),
-            ConsensusError::Transaction(e) => Self::Consensus(ConsensusError::Transaction(e)),
-        }
-    }
-}
-
 /// An error returned from [`BlockchainManagerHandle::handle_incoming_block`](super::interface::BlockchainManagerHandle::handle_incoming_block).
 #[derive(Debug, thiserror::Error)]
 pub enum IncomingBlockError {
-    /// The peer sent us an invalid block; ban them.
-    #[error(transparent)]
-    Validation(BlockValidationError),
+    /// The peer sent us an invalid block.
+    #[error("Block verification failed: {}", .inner)]
+    Validation {
+        pow_valid: bool,
+        inner: ConsensusError,
+    },
 
     /// We cannot recover; shut the node down.
     #[error(transparent)]
-    Fatal(FatalError),
+    Fatal(#[from] FatalError),
 
     /// We are missing the block's parent.
     #[error("The block has an unknown parent.")]
@@ -52,15 +34,16 @@ pub enum IncomingBlockError {
     /// The block claimed more transactions than it contained.
     #[error("Too many transactions given for block.")]
     TooManyTxs,
-
-    /// The blockchain manager command channel is closed.
-    #[error("The blockchain manager command channel is closed.")]
-    ChannelClosed,
 }
 
-impl From<ConsensusError> for IncomingBlockError {
-    fn from(e: ConsensusError) -> Self {
-        Self::Validation(e.into())
+impl From<BlockVerificationError> for IncomingBlockError {
+    fn from(error: BlockVerificationError) -> Self {
+        let BlockVerificationError { pow_valid, inner } = error;
+
+        match inner {
+            ExtendedConsensusError::FatalError(error) => Self::Fatal(error),
+            ExtendedConsensusError::ConsensusError(inner) => Self::Validation { pow_valid, inner },
+        }
     }
 }
 
@@ -71,7 +54,7 @@ impl From<BlockchainError> for IncomingBlockError {
 }
 
 impl From<TxPoolError> for IncomingBlockError {
-    fn from(e: TxPoolError) -> Self {
-        Self::Fatal(e.into())
+    fn from(v: TxPoolError) -> Self {
+        Self::Fatal(v.into())
     }
 }

@@ -12,7 +12,7 @@ use tokio::sync::{mpsc, oneshot};
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::{service::BlockchainReadHandle, BlockchainError};
-use cuprate_consensus::transactions::new_tx_verification_data;
+use cuprate_consensus::{block::BlockVerificationError, transactions::new_tx_verification_data};
 use cuprate_txpool::service::{
     interface::{TxpoolReadRequest, TxpoolReadResponse},
     TxpoolReadHandle,
@@ -113,7 +113,10 @@ impl BlockchainManagerHandle {
                     return Err(IncomingBlockError::UnknownTransactions(block_hash, missing));
                 };
 
-                txs.insert(needed_hash, new_tx_verification_data(tx)?);
+                txs.insert(
+                    needed_hash,
+                    new_tx_verification_data(tx).map_err(BlockVerificationError::invalid_pow)?,
+                );
             }
         }
 
@@ -147,11 +150,11 @@ impl BlockchainManagerHandle {
                 response_tx,
             })
             .await
-            .map_err(|_| IncomingBlockError::ChannelClosed)?;
+            .map_err(|_| IncomingBlockError::Fatal("Blockchain manager channel closed".into()))?;
 
         response_rx
             .await
-            .map_err(|_| IncomingBlockError::ChannelClosed)?
+            .map_err(|_| IncomingBlockError::Fatal("Blockchain manager channel closed".into()))?
     }
 
     /// Pop blocks from the top of the blockchain.

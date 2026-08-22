@@ -84,7 +84,7 @@ fn main() {
     rt.block_on(async move {
         // Start the node.
         let Ok(node) = cuprated::Node::launch(config).await else {
-            std::process::exit(1)
+            return;
         };
 
         let task_executor = node.task_executor.clone();

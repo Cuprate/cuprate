@@ -11,14 +11,17 @@ use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::{info, instrument, warn, Span};
 
-use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
+use cuprate_blockchain::{
+    service::{BlockchainReadHandle, BlockchainWriteHandle},
+    BlockchainError,
+};
 use cuprate_consensus::{
     block::{
         batch_prepare_main_chain_blocks, sanity_check_alt_block, verify_main_chain_block,
-        verify_prepped_main_chain_block, PreparedBlock,
+        verify_prepped_main_chain_block, BlockVerificationError, PreparedBlock,
     },
     transactions::new_tx_verification_data,
-    BlockChainContextRequest, BlockChainContextResponse,
+    BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
 };
 use cuprate_consensus_context::{distribution::rct_output_count, BlockchainContext, NewBlockData};
 use cuprate_fast_sync::{block_to_verified_block_information, fast_sync_stop_height};
@@ -37,11 +40,8 @@ use cuprate_types::{
 
 use crate::{
     blockchain::{
-        manager::{
-            commands::{BlockchainManagerCommand, IncomingBlockOk},
-            BlockManagerError,
-        },
-        BlockValidationError,
+        manager::commands::{BlockchainManagerCommand, IncomingBlockOk},
+        IncomingBlockError,
     },
     monitor::FatalError,
 };
@@ -62,9 +62,9 @@ impl super::BlockchainManager {
                 prepped_txs,
                 response_tx,
             } => match self.handle_incoming_block(block, prepped_txs).await {
-                Err(BlockManagerError::Fatal(e)) => return Err(e),
+                Err(IncomingBlockError::Fatal(e)) => return Err(e),
                 res => {
-                    let _ = response_tx.send(res.map_err(Into::into));
+                    let _ = response_tx.send(res);
                 }
             },
             BlockchainManagerCommand::PopBlocks {
@@ -123,7 +123,7 @@ impl super::BlockchainManager {
         &mut self,
         block: Block,
         prepared_txs: HashMap<[u8; 32], TransactionVerificationData>,
-    ) -> Result<IncomingBlockOk, BlockManagerError> {
+    ) -> Result<IncomingBlockOk, IncomingBlockError> {
         if block.header.previous
             != self
                 .blockchain_context_service
@@ -252,16 +252,13 @@ impl super::BlockchainManager {
             self.blockchain_read_handle.clone(),
         )
         .await
-        .map_err(BlockManagerError::from)
         {
             Ok(v) => v,
-            Err(BlockManagerError::Fatal(e)) => return Err(e),
-            Err(BlockManagerError::Validation(e)) => {
-                let duration = match e {
-                    BlockValidationError::HardFork(_) => MEDIUM_BAN,
-                    BlockValidationError::Consensus(_) => LONG_BAN,
-                };
-                batch.peer_handle.ban_peer(duration);
+            Err(ExtendedConsensusError::FatalError(e)) => return Err(e),
+            Err(ExtendedConsensusError::ConsensusError(e)) => {
+                warn!("Failed to batch prepare blocks for verification: {e}, banning peer.");
+                // This is not a gossiped block, we don't need to check if PoW was verified.
+                batch.peer_handle.ban_peer(MEDIUM_BAN);
                 self.stop_current_block_downloader.notify_waiters();
                 return Ok(());
             }
@@ -278,35 +275,22 @@ impl super::BlockchainManager {
                 Some(&mut output_cache),
             )
             .await
-            .map_err(BlockManagerError::from)
             {
                 Ok(block) => block,
-                Err(BlockManagerError::Fatal(e)) => return Err(e),
-                Err(BlockManagerError::Validation(e)) => {
-                    let duration = match e {
-                        BlockValidationError::HardFork(e) => {
-                            warn!(
-                                "Failed to verify block: {}, error {} (block v{}, current v{}), banning peer.",
-                                hex::encode(hash),
-                                e,
-                                block_version,
-                                self.blockchain_context_service.blockchain_context().current_hf.as_u8()
-                            );
-                            MEDIUM_BAN
-                        }
-                        BlockValidationError::Consensus(e) => {
-                            warn!(
-                                "Failed to verify block: {}, error {}, banning peer.",
-                                hex::encode(hash),
-                                e
-                            );
-                            LONG_BAN
-                        }
-                    };
-                    batch.peer_handle.ban_peer(duration);
-                    self.stop_current_block_downloader.notify_waiters();
-                    return Ok(());
-                }
+                Err(e) => match e.into() {
+                    ExtendedConsensusError::FatalError(e) => return Err(e),
+                    ExtendedConsensusError::ConsensusError(e) => {
+                        warn!(
+                            "Failed to verify block: {}, error {}, banning peer.",
+                            hex::encode(hash),
+                            e
+                        );
+
+                        batch.peer_handle.ban_peer(MEDIUM_BAN);
+                        self.stop_current_block_downloader.notify_waiters();
+                        return Ok(());
+                    }
+                },
             };
 
             self.add_valid_block_to_main_chain(verified_block, BlockSource::BatchSync)
@@ -375,38 +359,20 @@ impl super::BlockchainManager {
                         let tx = new_tx_verification_data(tx)?;
                         Ok((tx.tx_hash, tx))
                     })
-                    .collect::<Result<_, BlockManagerError>>()?;
+                    .collect::<Result<_, ExtendedConsensusError>>()?;
 
                 let reorged = self.handle_incoming_alt_block(block, txs).await?;
 
-                Ok::<_, BlockManagerError>(reorged)
+                Ok::<_, ExtendedConsensusError>(reorged)
             }
             .await;
 
             match res {
-                Err(BlockManagerError::Fatal(e)) => return Err(e),
-                Err(BlockManagerError::Validation(e)) => {
-                    let duration = match e {
-                        BlockValidationError::HardFork(e) => {
-                            warn!(
-                                "Failed to verify block: {}, error {} (block v{}, current v{}), banning peer.",
-                                hex::encode(hash),
-                                e,
-                                block_version,
-                                self.blockchain_context_service.blockchain_context().current_hf.as_u8()
-                            );
-                            MEDIUM_BAN
-                        }
-                        BlockValidationError::Consensus(e) => {
-                            warn!(
-                                "Failed to verify block: {}, error {}, banning peer.",
-                                hex::encode(hash),
-                                e
-                            );
-                            LONG_BAN
-                        }
-                    };
-                    batch.peer_handle.ban_peer(duration);
+                Err(ExtendedConsensusError::FatalError(e)) => return Err(e),
+                Err(ExtendedConsensusError::ConsensusError(e)) => {
+                    warn!("Failed to verify alt block: {e}, banning peer.");
+
+                    batch.peer_handle.ban_peer(MEDIUM_BAN);
                     self.stop_current_block_downloader.notify_waiters();
                     return Ok(());
                 }
@@ -449,14 +415,16 @@ impl super::BlockchainManager {
         &mut self,
         block: Block,
         prepared_txs: HashMap<[u8; 32], TransactionVerificationData>,
-    ) -> Result<AddAltBlock, BlockManagerError> {
+    ) -> Result<AddAltBlock, BlockVerificationError> {
         // Check if a block already exists.
         let BlockchainResponse::FindBlock(chain) = self
             .blockchain_read_handle
             .ready()
-            .await?
+            .await
+            .map_err(BlockVerificationError::invalid_pow)?
             .call(BlockchainReadRequest::FindBlock(block.hash()))
-            .await?
+            .await
+            .map_err(BlockVerificationError::invalid_pow)?
         else {
             unreachable!();
         };
@@ -478,16 +446,20 @@ impl super::BlockchainManager {
                 .blockchain_context()
                 .cumulative_difficulty
         {
-            self.try_do_reorg(alt_block_info).await?;
+            self.try_do_reorg(alt_block_info)
+                .await
+                .map_err(BlockVerificationError::valid_pow)?;
             return Ok(AddAltBlock::Reorged);
         }
 
         let block_blob = Bytes::copy_from_slice(&alt_block_info.block_blob);
         self.blockchain_write_handle
             .ready()
-            .await?
+            .await
+            .map_err(fatal_block_verification_error)?
             .call(BlockchainWriteRequest::WriteAltBlock(alt_block_info))
-            .await?;
+            .await
+            .map_err(fatal_block_verification_error)?;
 
         Ok(AddAltBlock::NewlyCached(block_blob))
     }
@@ -507,7 +479,7 @@ impl super::BlockchainManager {
     async fn try_do_reorg(
         &mut self,
         top_alt_block: AltBlockInformation,
-    ) -> Result<(), BlockManagerError> {
+    ) -> Result<(), ExtendedConsensusError> {
         let reorg_lock = Arc::clone(&self.reorg_lock);
         let _guard = reorg_lock.write().await;
 
@@ -656,13 +628,14 @@ impl super::BlockchainManager {
     async fn verify_add_alt_blocks_to_main_chain(
         &mut self,
         alt_blocks: Vec<AltBlockInformation>,
-    ) -> Result<(), BlockManagerError> {
+    ) -> Result<(), ExtendedConsensusError> {
         for mut alt_block in alt_blocks {
             let prepped_txs = alt_block
                 .txs
                 .drain(..)
                 .map(TryInto::try_into)
-                .collect::<Result<_, TxConversionError>>()?;
+                .collect::<Result<_, TxConversionError>>()
+                .map_err(fatal_extended_consensus_error)?;
 
             let prepped_block = PreparedBlock::new_alt_block(alt_block)?;
 
@@ -861,4 +834,12 @@ pub fn alt_block_to_verified_block_information(
             + blockchain_ctx.next_difficulty,
         block: block.block,
     }
+}
+
+fn fatal_block_verification_error(e: impl Into<FatalError>) -> BlockVerificationError {
+    BlockVerificationError::valid_pow(e.into())
+}
+
+fn fatal_extended_consensus_error(e: impl Into<FatalError>) -> ExtendedConsensusError {
+    ExtendedConsensusError::FatalError(e.into())
 }

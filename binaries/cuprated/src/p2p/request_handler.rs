@@ -47,7 +47,7 @@ use cuprate_wire::protocol::{
 };
 
 use crate::{
-    blockchain::{interface::BlockchainManagerHandle, BlockValidationError, IncomingBlockError},
+    blockchain::{interface::BlockchainManagerHandle, IncomingBlockError},
     p2p::CrossNetworkInternalPeerId,
     txpool::{IncomingTxError, IncomingTxHandler, IncomingTxs},
 };
@@ -379,32 +379,20 @@ async fn new_fluffy_block<A: NetZoneAddress>(
             // Block's parent was unknown, could be syncing?
             Ok(ProtocolResponse::NA)
         }
-        Err(IncomingBlockError::ChannelClosed) => {
-            // Manager has exited (likely shutdown); drop silently.
-            Ok(ProtocolResponse::NA)
-        }
-        Err(IncomingBlockError::Validation(e)) => match e {
-            BlockValidationError::HardFork(e) => {
-                tracing::warn!(
-                    "Failed to verify block: {}, error {} (block v{}, current v{}), banning peer.",
-                    hex::encode(block_hash),
-                    e,
-                    block_version,
-                    context.current_hf.as_u8()
-                );
-                peer_information.handle.ban_peer(MEDIUM_BAN);
-                Err(e.into())
-            }
-            BlockValidationError::Consensus(e) => {
+        Err(IncomingBlockError::Validation { pow_valid, inner }) => {
+            if pow_valid {
+                tracing::warn!("Peer sent invalid block but PoW was valid. Error: {inner}");
+                Ok(ProtocolResponse::NA)
+            } else {
                 tracing::warn!(
                     "Failed to verify block: {}, error {}, banning peer.",
                     hex::encode(block_hash),
-                    e
+                    inner
                 );
-                peer_information.handle.ban_peer(LONG_BAN);
-                Err(e.into())
+                peer_information.handle.ban_peer(MEDIUM_BAN);
+                Err(inner.into())
             }
-        },
+        }
         Err(IncomingBlockError::Fatal(e)) => {
             tracing::error!("Failed to handle incoming block: {e}");
             Err(anyhow::Error::from_boxed(e))

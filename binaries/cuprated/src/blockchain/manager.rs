@@ -29,61 +29,12 @@ use cuprate_types::{
 
 use crate::{
     blockchain::{
-        chain_service::ChainService, syncer::BlockchainSyncer,
-        types::ConsensusBlockchainReadHandle, BlockValidationError, IncomingBlockError,
+        chain_service::ChainService, syncer::BlockchainSyncer, types::ConsensusBlockchainReadHandle,
     },
     monitor::FatalError,
     txpool::TxpoolManagerHandle,
     LaunchContext,
 };
-
-/// An error from the blockchain manager's internal handlers.
-#[derive(Debug, thiserror::Error)]
-pub enum BlockManagerError {
-    /// The peer sent us an invalid block; ban them.
-    #[error(transparent)]
-    Validation(BlockValidationError),
-
-    /// We cannot recover; shut the node down.
-    #[error(transparent)]
-    Fatal(#[from] FatalError),
-}
-
-impl From<ExtendedConsensusError> for BlockManagerError {
-    fn from(e: ExtendedConsensusError) -> Self {
-        match e {
-            ExtendedConsensusError::DBErr(e) => Self::Fatal(e),
-            ExtendedConsensusError::ConErr(e) => Self::Validation(e.into()),
-        }
-    }
-}
-
-impl From<ConsensusError> for BlockManagerError {
-    fn from(e: ConsensusError) -> Self {
-        Self::Validation(e.into())
-    }
-}
-
-impl From<BlockManagerError> for IncomingBlockError {
-    fn from(e: BlockManagerError) -> Self {
-        match e {
-            BlockManagerError::Validation(e) => Self::Validation(e),
-            BlockManagerError::Fatal(e) => Self::Fatal(e),
-        }
-    }
-}
-
-impl From<BlockchainError> for BlockManagerError {
-    fn from(e: BlockchainError) -> Self {
-        Self::Fatal(e.into())
-    }
-}
-
-impl From<TxConversionError> for BlockManagerError {
-    fn from(e: TxConversionError) -> Self {
-        Self::Fatal(e.into())
-    }
-}
 
 mod commands;
 mod handler;

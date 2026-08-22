@@ -42,10 +42,12 @@ pub use cuprate_types::{
 pub enum ExtendedConsensusError {
     /// A consensus error.
     #[error("{0}")]
-    ConErr(#[from] ConsensusError),
-    /// A database error.
-    #[error("Database error: {0}")]
-    DBErr(#[from] tower::BoxError),
+    ConsensusError(#[from] ConsensusError),
+    /// A service error that we cannot recover from.
+    ///
+    /// If this happens, no more consensus verifiction should be done with the given inner services.
+    #[error("Fatal error: {0}")]
+    FatalError(#[from] tower::BoxError),
 }
 
 use __private::Database;

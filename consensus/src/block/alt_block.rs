@@ -27,7 +27,7 @@ use cuprate_types::{
 };
 
 use crate::{
-    block::{free::pull_ordered_transactions, PreparedBlock},
+    block::{free::pull_ordered_transactions, BlockVerificationError, PreparedBlock},
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
 };
 
@@ -40,7 +40,7 @@ pub async fn sanity_check_alt_block<C>(
     block: Block,
     txs: HashMap<[u8; 32], TransactionVerificationData>,
     mut context_svc: C,
-) -> Result<AltBlockInformation, ExtendedConsensusError>
+) -> Result<AltBlockInformation, BlockVerificationError>
 where
     C: Service<
             BlockChainContextRequest,
@@ -53,33 +53,35 @@ where
     // Fetch the alt-chains context cache.
     let BlockChainContextResponse::AltChainContextCache(alt_context_cache) = context_svc
         .ready()
-        .await?
+        .await
+        .map_err(BlockVerificationError::invalid_pow)?
         .call(BlockChainContextRequest::AltChainContextCache {
             prev_id: block.header.previous,
             _token: AltChainRequestToken,
         })
-        .await?
+        .await
+        .map_err(BlockVerificationError::invalid_pow)?
     else {
         panic!("Context service returned wrong response!");
     };
 
     let Some(mut alt_context_cache) = alt_context_cache else {
-        return Err(ConsensusError::Block(BlockError::PreviousIDIncorrect).into());
+        return Err(BlockVerificationError::invalid_pow(ConsensusError::Block(
+            BlockError::PreviousIDIncorrect,
+        )));
     };
 
     // Check if the block's miner input is formed correctly.
     let [Input::Gen(height)] = &block.miner_transaction().prefix().inputs[..] else {
-        return Err(ConsensusError::Block(BlockError::MinerTxError(
-            MinerTxError::InputNotOfTypeGen,
-        ))
-        .into());
+        return Err(BlockVerificationError::invalid_pow(ConsensusError::Block(
+            BlockError::MinerTxError(MinerTxError::InputNotOfTypeGen),
+        )));
     };
 
     if *height != alt_context_cache.chain_height {
-        return Err(ConsensusError::Block(BlockError::MinerTxError(
-            MinerTxError::InputsHeightIncorrect,
-        ))
-        .into());
+        return Err(BlockVerificationError::invalid_pow(ConsensusError::Block(
+            BlockError::MinerTxError(MinerTxError::InputsHeightIncorrect),
+        )));
     }
 
     // prep the alt block.
@@ -91,9 +93,12 @@ where
             &mut alt_context_cache,
             &mut context_svc,
         )
-        .await?;
+        .await
+        .map_err(BlockVerificationError::invalid_pow)?;
 
-        rayon_spawn_async(move || PreparedBlock::new(block, rx_vm.as_deref())).await?
+        rayon_spawn_async(move || PreparedBlock::new(block, rx_vm.as_deref()))
+            .await
+            .map_err(BlockVerificationError::invalid_pow)?
     };
 
     // get the difficulty cache for this alt chain.
@@ -102,22 +107,30 @@ where
         &mut alt_context_cache,
         &mut context_svc,
     )
-    .await?;
+    .await
+    .map_err(BlockVerificationError::invalid_pow)?;
 
     // Check the alt block timestamp is in the correct range.
     //
     // Unlike monerod we also check the future time limit.
     let median_timestamp =
         difficulty_cache.median_timestamp(u64_to_usize(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW));
-    check_timestamp(&prepped_block.block, median_timestamp).map_err(ConsensusError::Block)?;
+    check_timestamp(&prepped_block.block, median_timestamp)
+        .map_err(ConsensusError::Block)
+        .map_err(BlockVerificationError::invalid_pow)?;
 
     let next_difficulty = difficulty_cache.next_difficulty(prepped_block.hf_version);
     // make sure the block's PoW is valid for this difficulty.
-    check_block_pow(&prepped_block.pow_hash, next_difficulty).map_err(ConsensusError::Block)?;
+    check_block_pow(&prepped_block.pow_hash, next_difficulty)
+        .map_err(ConsensusError::Block)
+        .map_err(BlockVerificationError::invalid_pow)?;
+
+    // TODO: weight check before PoW check?
 
     let cumulative_difficulty = difficulty_cache.cumulative_difficulty() + next_difficulty;
 
-    let ordered_txs = pull_ordered_transactions(&prepped_block.block, txs)?;
+    let ordered_txs = pull_ordered_transactions(&prepped_block.block, txs)
+        .map_err(BlockVerificationError::valid_pow)?;
 
     let block_weight =
         prepped_block.miner_tx_weight + ordered_txs.iter().map(|tx| tx.tx_weight).sum::<usize>();
@@ -127,14 +140,16 @@ where
         &mut alt_context_cache,
         &mut context_svc,
     )
-    .await?;
+    .await
+    .map_err(BlockVerificationError::valid_pow)?;
 
     // Check the block weight is below the limit.
     check_block_weight(
         block_weight,
         alt_weight_cache.median_for_block_reward(prepped_block.hf_version),
     )
-    .map_err(ConsensusError::Block)?;
+    .map_err(ConsensusError::Block)
+    .map_err(BlockVerificationError::valid_pow)?;
 
     let long_term_weight = weight::calculate_block_long_term_weight(
         prepped_block.hf_version,
@@ -193,7 +208,8 @@ where
             cache: alt_context_cache,
             _token: AltChainRequestToken,
         })
-        .await?;
+        .await
+        .map_err(BlockVerificationError::valid_pow)?;
 
     Ok(block_info)
 }
