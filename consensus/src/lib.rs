@@ -45,7 +45,7 @@ pub enum ExtendedConsensusError {
     ConsensusError(#[from] ConsensusError),
     /// A service error that we cannot recover from.
     ///
-    /// If this happens, no more consensus verifiction should be done with the given inner services.
+    /// If this happens, no more consensus verification should be done with the given inner services.
     #[error("Fatal error: {0}")]
     FatalError(#[from] tower::BoxError),
 }

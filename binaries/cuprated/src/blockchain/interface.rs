@@ -150,11 +150,11 @@ impl BlockchainManagerHandle {
                 response_tx,
             })
             .await
-            .map_err(|_| IncomingBlockError::Fatal("Blockchain manager channel closed".into()))?;
+            .map_err(|_| IncomingBlockError::ChannelClosed)?;
 
         response_rx
             .await
-            .map_err(|_| IncomingBlockError::Fatal("Blockchain manager channel closed".into()))?
+            .map_err(|_| IncomingBlockError::ChannelClosed)?
     }
 
     /// Pop blocks from the top of the blockchain.

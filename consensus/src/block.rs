@@ -69,6 +69,14 @@ impl BlockVerificationError {
             inner: inner.into(),
         }
     }
+
+    /// Create a fatal error from a service failure.
+    pub fn fatal(inner: tower::BoxError) -> Self {
+        Self {
+            pow_valid: false,
+            inner: ExtendedConsensusError::FatalError(inner),
+        }
+    }
 }
 
 impl From<BlockVerificationError> for ExtendedConsensusError {
@@ -257,10 +265,10 @@ where
         let BlockChainContextResponse::RxVms(rx_vms) = context_svc
             .ready()
             .await
-            .map_err(BlockVerificationError::invalid_pow)?
+            .map_err(BlockVerificationError::fatal)?
             .call(BlockChainContextRequest::CurrentRxVms)
             .await
-            .map_err(BlockVerificationError::invalid_pow)?
+            .map_err(BlockVerificationError::fatal)?
         else {
             panic!("Blockchain context service returned wrong response!");
         };

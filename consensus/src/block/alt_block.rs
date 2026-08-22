@@ -54,13 +54,13 @@ where
     let BlockChainContextResponse::AltChainContextCache(alt_context_cache) = context_svc
         .ready()
         .await
-        .map_err(BlockVerificationError::invalid_pow)?
+        .map_err(BlockVerificationError::fatal)?
         .call(BlockChainContextRequest::AltChainContextCache {
             prev_id: block.header.previous,
             _token: AltChainRequestToken,
         })
         .await
-        .map_err(BlockVerificationError::invalid_pow)?
+        .map_err(BlockVerificationError::fatal)?
     else {
         panic!("Context service returned wrong response!");
     };
@@ -209,7 +209,7 @@ where
             _token: AltChainRequestToken,
         })
         .await
-        .map_err(BlockVerificationError::valid_pow)?;
+        .map_err(BlockVerificationError::fatal)?;
 
     Ok(block_info)
 }

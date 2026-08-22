@@ -7,15 +7,10 @@ use tokio_util::sync::CancellationToken;
 use tower::{BoxError, Service, ServiceExt};
 use tracing::error;
 
-use cuprate_blockchain::{
-    service::{BlockchainReadHandle, BlockchainWriteHandle},
-    BlockchainError,
-};
+use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{
     BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
-    ExtendedConsensusError,
 };
-use cuprate_consensus_rules::ConsensusError;
 use cuprate_p2p::{
     block_downloader::{self, BlockBatch},
     BroadcastSvc, NetworkInterface,
@@ -24,7 +19,7 @@ use cuprate_p2p_core::ClearNet;
 use cuprate_txpool::service::TxpoolWriteHandle;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, TransactionVerificationData, TxConversionError,
+    Chain, TransactionVerificationData,
 };
 
 use crate::{

@@ -11,10 +11,7 @@ use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::{info, instrument, warn, Span};
 
-use cuprate_blockchain::{
-    service::{BlockchainReadHandle, BlockchainWriteHandle},
-    BlockchainError,
-};
+use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{
     block::{
         batch_prepare_main_chain_blocks, sanity_check_alt_block, verify_main_chain_block,
@@ -26,11 +23,7 @@ use cuprate_consensus::{
 use cuprate_consensus_context::{distribution::rct_output_count, BlockchainContext, NewBlockData};
 use cuprate_fast_sync::{block_to_verified_block_information, fast_sync_stop_height};
 use cuprate_helper::cast::usize_to_u64;
-use cuprate_p2p::{
-    block_downloader::BlockBatch,
-    constants::{LONG_BAN, MEDIUM_BAN},
-    BroadcastRequest,
-};
+use cuprate_p2p::{block_downloader::BlockBatch, constants::MEDIUM_BAN, BroadcastRequest};
 use cuprate_txpool::service::interface::TxpoolWriteRequest;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
@@ -266,7 +259,6 @@ impl super::BlockchainManager {
 
         for (block, txs) in prepped_blocks {
             let hash = block.block_hash;
-            let block_version = block.hf_version.as_u8();
             let verified_block = match verify_prepped_main_chain_block(
                 block,
                 txs,
@@ -349,7 +341,6 @@ impl super::BlockchainManager {
 
         while let Some((block, txs)) = blocks.next() {
             let hash = block.hash();
-            let block_version = block.header.hardfork_version;
 
             // async blocks work as try blocks.
             let res = async {
@@ -370,7 +361,11 @@ impl super::BlockchainManager {
             match res {
                 Err(ExtendedConsensusError::FatalError(e)) => return Err(e),
                 Err(ExtendedConsensusError::ConsensusError(e)) => {
-                    warn!("Failed to verify alt block: {e}, banning peer.");
+                    warn!(
+                        "Failed to verify alt block: {}, error {}, banning peer.",
+                        hex::encode(hash),
+                        e
+                    );
 
                     batch.peer_handle.ban_peer(MEDIUM_BAN);
                     self.stop_current_block_downloader.notify_waiters();
@@ -421,10 +416,10 @@ impl super::BlockchainManager {
             .blockchain_read_handle
             .ready()
             .await
-            .map_err(BlockVerificationError::invalid_pow)?
+            .map_err(BlockVerificationError::fatal)?
             .call(BlockchainReadRequest::FindBlock(block.hash()))
             .await
-            .map_err(BlockVerificationError::invalid_pow)?
+            .map_err(BlockVerificationError::fatal)?
         else {
             unreachable!();
         };
@@ -456,10 +451,10 @@ impl super::BlockchainManager {
         self.blockchain_write_handle
             .ready()
             .await
-            .map_err(fatal_block_verification_error)?
+            .map_err(|e| BlockVerificationError::fatal(e.into()))?
             .call(BlockchainWriteRequest::WriteAltBlock(alt_block_info))
             .await
-            .map_err(fatal_block_verification_error)?;
+            .map_err(|e| BlockVerificationError::fatal(e.into()))?;
 
         Ok(AddAltBlock::NewlyCached(block_blob))
     }
@@ -635,7 +630,7 @@ impl super::BlockchainManager {
                 .drain(..)
                 .map(TryInto::try_into)
                 .collect::<Result<_, TxConversionError>>()
-                .map_err(fatal_extended_consensus_error)?;
+                .map_err(|e| ExtendedConsensusError::FatalError(e.into()))?;
 
             let prepped_block = PreparedBlock::new_alt_block(alt_block)?;
 
@@ -834,12 +829,4 @@ pub fn alt_block_to_verified_block_information(
             + blockchain_ctx.next_difficulty,
         block: block.block,
     }
-}
-
-fn fatal_block_verification_error(e: impl Into<FatalError>) -> BlockVerificationError {
-    BlockVerificationError::valid_pow(e.into())
-}
-
-fn fatal_extended_consensus_error(e: impl Into<FatalError>) -> ExtendedConsensusError {
-    ExtendedConsensusError::FatalError(e.into())
 }

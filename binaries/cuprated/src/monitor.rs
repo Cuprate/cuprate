@@ -1,13 +1,11 @@
 //! Task spawning and shutdown coordination.
 
-use std::{future::Future, panic::AssertUnwindSafe};
+use std::future::Future;
 
 use futures::FutureExt;
 use tokio::task::JoinHandle;
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tracing::{debug, error, info};
-
-use crate::constants::CRITICAL_SERVICE_ERROR;
 
 /// An unexpected node-side failure that should trigger a shutdown.
 pub type FatalError = tower::BoxError;

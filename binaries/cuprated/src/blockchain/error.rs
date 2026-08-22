@@ -11,9 +11,11 @@ use crate::monitor::FatalError;
 #[derive(Debug, thiserror::Error)]
 pub enum IncomingBlockError {
     /// The peer sent us an invalid block.
-    #[error("Block verification failed: {}", .inner)]
+    #[error("Block verification failed: {inner}")]
     Validation {
+        /// Whether the block's proof-of-work was verified before the failure.
         pow_valid: bool,
+        /// The consensus rule that was broken.
         inner: ConsensusError,
     },
 
@@ -34,6 +36,10 @@ pub enum IncomingBlockError {
     /// The block claimed more transactions than it contained.
     #[error("Too many transactions given for block.")]
     TooManyTxs,
+
+    /// The blockchain manager command channel is closed.
+    #[error("The blockchain manager command channel is closed.")]
+    ChannelClosed,
 }
 
 impl From<BlockVerificationError> for IncomingBlockError {

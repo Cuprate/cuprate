@@ -29,8 +29,7 @@ use cuprate_helper::{
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
 };
 use cuprate_p2p::constants::{
-    LONG_BAN, MAX_BLOCKS_IDS_IN_CHAIN_ENTRY, MAX_BLOCK_BATCH_LEN, MAX_TRANSACTION_BLOB_SIZE,
-    MEDIUM_BAN,
+    MAX_BLOCKS_IDS_IN_CHAIN_ENTRY, MAX_BLOCK_BATCH_LEN, MAX_TRANSACTION_BLOB_SIZE, MEDIUM_BAN,
 };
 use cuprate_p2p_core::{
     client::{InternalPeerID, PeerInformation},
@@ -356,7 +355,6 @@ async fn new_fluffy_block<A: NetZoneAddress>(
     }
 
     let block_hash = block.hash();
-    let block_version = block.header.hardfork_version;
     let res = blockchain_manager
         .handle_incoming_block(
             block,
@@ -381,7 +379,11 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         }
         Err(IncomingBlockError::Validation { pow_valid, inner }) => {
             if pow_valid {
-                tracing::warn!("Peer sent invalid block but PoW was valid. Error: {inner}");
+                tracing::warn!(
+                    "Peer sent invalid block but PoW was valid: {}, error {}",
+                    hex::encode(block_hash),
+                    inner
+                );
                 Ok(ProtocolResponse::NA)
             } else {
                 tracing::warn!(
@@ -396,6 +398,10 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         Err(IncomingBlockError::Fatal(e)) => {
             tracing::error!("Failed to handle incoming block: {e}");
             Err(anyhow::Error::from_boxed(e))
+        }
+        Err(IncomingBlockError::ChannelClosed) => {
+            // Manager has exited (likely shutdown); drop silently.
+            Ok(ProtocolResponse::NA)
         }
         Err(e) => Err(e.into()),
     }
