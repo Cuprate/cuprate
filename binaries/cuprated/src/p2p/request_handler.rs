@@ -354,7 +354,6 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         return Ok(ProtocolResponse::NA);
     }
 
-    let block_hash = block.hash();
     let res = blockchain_manager
         .handle_incoming_block(
             block,
@@ -379,18 +378,10 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         }
         Err(IncomingBlockError::Validation { pow_valid, inner }) => {
             if pow_valid {
-                tracing::warn!(
-                    "Peer sent invalid block but PoW was valid: {}, error {}",
-                    hex::encode(block_hash),
-                    inner
-                );
+                tracing::warn!("Peer sent invalid block but PoW was valid: {inner}");
                 Ok(ProtocolResponse::NA)
             } else {
-                tracing::warn!(
-                    "Failed to verify block: {}, error {}, banning peer.",
-                    hex::encode(block_hash),
-                    inner
-                );
+                tracing::warn!("Failed to verify block: {inner}, banning peer.");
                 peer_information.handle.ban_peer(MEDIUM_BAN);
                 Err(inner.into())
             }

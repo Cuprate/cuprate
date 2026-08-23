@@ -133,8 +133,7 @@ pub async fn initialize_clearnet_p2p(
     anyhow::Error,
 > {
     let config = launch_ctx.config.as_ref();
-    let blockchain = &launch_ctx.blockchain;
-    let peer_sync_callback = blockchain.peer_sync_callback();
+    let peer_sync_callback = launch_ctx.blockchain.peer_sync_callback();
 
     if config.offline {
         let (interface, _) = start_zone_p2p::<ClearNet, Tcp>(
@@ -159,7 +158,7 @@ pub async fn initialize_clearnet_p2p(
             TorMode::Arti => {
                 tracing::info!("Anonymizing clearnet connections through Arti.");
                 start_zone_p2p::<ClearNet, Arti>(
-                    blockchain,
+                    &launch_ctx.blockchain,
                     launch_ctx.txpool_read.clone(),
                     config.clearnet_p2p_config(),
                     transport_clearnet_arti_config(tor_ctx)?,

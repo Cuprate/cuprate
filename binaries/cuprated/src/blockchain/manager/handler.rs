@@ -98,11 +98,6 @@ impl super::BlockchainManager {
     /// the top of the main chain.
     ///
     /// Otherwise, this function will validate and add the block to the main chain.
-    ///
-    /// # Errors
-    ///
-    /// This function will return an [`Err`] if any internal service returns an unexpected error that we cannot
-    /// recover from.
     #[instrument(
         name = "incoming_block",
         skip_all,
