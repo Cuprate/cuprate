@@ -46,7 +46,7 @@ pub enum VerificationContext<D> {
     ///
     /// This cache is only valid for the set of blocks it was created with, it should not be used for other blocks.
     /// You must pass blocks in sequentially.
-    BatchPrepareCache(BatchPrepareCache),
+    BatchPrepareCache(block::BatchPrepareCache),
 }
 
 /// An Error returned from one of the consensus services.
@@ -62,7 +62,6 @@ pub enum ExtendedConsensusError {
     FatalError(#[from] tower::BoxError),
 }
 
-use crate::block::BatchPrepareCache;
 use __private::Database;
 
 pub mod __private {
