@@ -19,6 +19,7 @@ use cuprate_consensus::{
     },
     transactions::new_tx_verification_data,
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
+    VerificationContext,
 };
 use cuprate_consensus_context::{distribution::rct_output_count, BlockchainContext, NewBlockData};
 use cuprate_fast_sync::{block_to_verified_block_information, fast_sync_stop_height};
@@ -34,7 +35,7 @@ use cuprate_types::{
 use crate::{
     blockchain::{
         manager::commands::{BlockchainManagerCommand, IncomingBlockOk},
-        IncomingBlockError,
+        ConsensusBlockchainReadHandle, IncomingBlockError,
     },
     monitor::FatalError,
 };
@@ -252,14 +253,17 @@ impl super::BlockchainManager {
             }
         };
 
+        let mut verification_context =
+            VerificationContext::<ConsensusBlockchainReadHandle>::BatchPrepareCache(output_cache);
+        let mut valid_blocks = Vec::with_capacity(prepped_blocks.len());
+
         for (block, txs) in prepped_blocks {
             let hash = block.block_hash;
             let verified_block = match verify_prepped_main_chain_block(
                 block,
                 txs,
                 &mut self.blockchain_context_service,
-                self.blockchain_read_handle.clone(),
-                Some(&mut output_cache),
+                &mut verification_context,
             )
             .await
             {
@@ -280,9 +284,14 @@ impl super::BlockchainManager {
                 },
             };
 
-            self.add_valid_block_to_main_chain(verified_block, BlockSource::BatchSync)
+            self.add_valid_block_to_blockchain_cache(&verified_block)
                 .await?;
+
+            valid_blocks.push(verified_block);
         }
+        self.batch_add_valid_block_to_blockchain_database(valid_blocks)
+            .await?;
+
         info!(fast_sync = false, "Successfully added block batch");
         Ok(())
     }
@@ -633,8 +642,7 @@ impl super::BlockchainManager {
                 prepped_block,
                 prepped_txs,
                 &mut self.blockchain_context_service,
-                self.blockchain_read_handle.clone(),
-                None,
+                &mut VerificationContext::Database(self.blockchain_read_handle.clone()),
             )
             .await?;
 
@@ -779,8 +787,6 @@ enum AddAltBlock {
 enum BlockSource {
     /// A single incoming block. Will be announced to peers.
     Incoming,
-    /// A block from the block downloader's batch sync.
-    BatchSync,
     /// A block re-applied during a reorg.
     Reorg,
 }

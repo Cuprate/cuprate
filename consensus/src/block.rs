@@ -29,7 +29,9 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork,
 };
 
-use crate::{transactions::start_tx_verification, Database, ExtendedConsensusError};
+use crate::{
+    transactions::start_tx_verification, Database, ExtendedConsensusError, VerificationContext,
+};
 
 mod alt_block;
 mod batch_prepare;
@@ -294,7 +296,13 @@ where
     let ordered_txs = pull_ordered_transactions(&prepped_block.block, txs)
         .map_err(BlockVerificationError::valid_pow)?;
 
-    verify_prepped_main_chain_block(prepped_block, ordered_txs, context_svc, database, None).await
+    verify_prepped_main_chain_block(
+        prepped_block,
+        ordered_txs,
+        context_svc,
+        &mut VerificationContext::Database(database),
+    )
+    .await
 }
 
 /// Fully verify a block that has already been prepared using [`batch_prepare_main_chain_blocks`].
@@ -302,8 +310,7 @@ pub async fn verify_prepped_main_chain_block<D>(
     prepped_block: PreparedBlock,
     mut txs: Vec<TransactionVerificationData>,
     context_svc: &mut BlockchainContextService,
-    database: D,
-    batch_prep_cache: Option<&mut BatchPrepareCache>,
+    verification_context: &mut VerificationContext<D>,
 ) -> Result<VerifiedBlockInformation, BlockVerificationError>
 where
     D: Database + Clone + Send + 'static,
@@ -340,8 +347,7 @@ where
                 context.top_hash,
                 context.current_adjusted_timestamp_for_time_lock(),
                 context.current_hf,
-                database,
-                batch_prep_cache.as_deref(),
+                verification_context,
             )
             .verify()
             .await
@@ -394,7 +400,7 @@ where
         cumulative_difficulty: context.cumulative_difficulty + context.next_difficulty,
     };
 
-    if let Some(batch_prep_cache) = batch_prep_cache {
+    if let VerificationContext::BatchPrepareCache(batch_prep_cache) = verification_context {
         batch_prep_cache.output_cache.add_block_to_cache(&block);
     }
 
