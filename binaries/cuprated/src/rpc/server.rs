@@ -12,7 +12,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::Error;
+use anyhow::{Context, Error};
 use axum::Router;
 use hyper::{body::Incoming, server::conn::http1, Request};
 use hyper_util::{
@@ -27,7 +27,7 @@ use tokio::{
 use tokio_util::{sync::CancellationToken, time::FutureExt};
 use tower::{limit::rate::RateLimitLayer, Service};
 use tower_http::{limit::RequestBodyLimitLayer, timeout::RequestBodyDeadlineLayer};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 use cuprate_helper::net::ip_is_local;
 use cuprate_rpc_interface::RouterBuilder;
@@ -45,12 +45,15 @@ const RPC_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Initialize the RPC server(s).
 ///
-/// # Panics
-/// This function will panic if:
-/// - the server(s) could not be started
-/// - unrestricted RPC is started on non-local
-///   address without override option
-pub fn init_rpc_servers(launch_ctx: &LaunchContext, tx_handler: IncomingTxHandler) {
+/// # Errors
+///
+/// This function will return an [`Err`] if unrestricted RPC is started on a
+/// non-local address without the override option, or if an RPC listener cannot
+/// be bound.
+pub async fn init_rpc_servers(
+    launch_ctx: &LaunchContext,
+    tx_handler: IncomingTxHandler,
+) -> Result<(), Error> {
     let config = &launch_ctx.config.rpc;
     for ((enable, addr, port, request_byte_limit), restricted) in [
         (
@@ -87,7 +90,7 @@ pub fn init_rpc_servers(launch_ctx: &LaunchContext, tx_handler: IncomingTxHandle
                     "Starting unrestricted RPC on non-local address, this is dangerous!"
                 );
             } else {
-                panic!("Refusing to start unrestricted RPC on a non-local address ({addr})");
+                anyhow::bail!("Refusing to start unrestricted RPC on a non-local address ({addr})");
             }
         }
 
@@ -107,34 +110,33 @@ pub fn init_rpc_servers(launch_ctx: &LaunchContext, tx_handler: IncomingTxHandle
 
         // Initialize RPC handler service.
         let rpc_handler = CupratedRpcHandler::new(restricted, tx_handler.clone(), launch_ctx);
+        let address = SocketAddr::new(addr, port);
+        let listener = TcpListener::bind(address)
+            .await
+            .with_context(|| format!("failed to bind RPC listener on {address}"))?;
 
         // Initialize Axum RPC router.
         let rpc_router = init_rpc_router(rpc_handler, request_byte_limit, rpc_body_read_timeout);
 
         // Build the RPC server.
-        let rpc_server = RpcServer::new(
-            SocketAddr::new(addr, port),
-            rpc_send_timeout,
-            rpc_header_read_timeout,
-            rpc_router,
-        );
+        let rpc_server = RpcServer::new(rpc_send_timeout, rpc_header_read_timeout, rpc_router);
 
         info!(
             restricted,
-            address = %addr,
+            address = %address,
             "Starting RPC server"
         );
 
         // Launch RPC server.
         let shutdown_token = launch_ctx.task_executor.cancellation_token();
         launch_ctx.task_executor.spawn(async move {
-            if let Err(e) = rpc_server.run(shutdown_token).await {
-                error!(restricted, "RPC server error: {e:#}");
-            }
+            rpc_server.run(listener, shutdown_token).await;
 
             info!(restricted, "RPC server shut down.");
         });
     }
+
+    Ok(())
 }
 
 /// Initialize the Axum router of the RPC server.
@@ -189,7 +191,6 @@ fn init_rpc_router(
 struct RpcServer {
     /// The RPC Axum router.
     rpc: Router,
-    listening_address: SocketAddr,
     // Socket timeouts
     send_timeout: Duration,
     header_read_timeout: Duration,
@@ -198,27 +199,17 @@ struct RpcServer {
 
 impl RpcServer {
     /// Build a new RPC server.
-    fn new(
-        listening_address: SocketAddr,
-        send_timeout: Duration,
-        header_read_timeout: Duration,
-        rpc: Router,
-    ) -> Self {
+    fn new(send_timeout: Duration, header_read_timeout: Duration, rpc: Router) -> Self {
         Self {
             rpc,
-            listening_address,
             send_timeout,
             header_read_timeout,
             rpc_tasks: JoinSet::new(),
         }
     }
 
-    /// Consume this server and start serving to incoming connections.
-    /// This method only returns errors is unable to listen on its address:port.
-    async fn run(mut self, shutdown_token: CancellationToken) -> Result<(), Error> {
-        // Start the listener.
-        let listener = TcpListener::bind(self.listening_address).await?;
-
+    /// Consume this server and start serving connections incoming on `listener`.
+    async fn run(mut self, listener: TcpListener, shutdown_token: CancellationToken) {
         loop {
             tokio::select! {
                 res = listener.accept() => {
@@ -257,8 +248,6 @@ impl RpcServer {
         {
             warn!("RPC tasks survived shutdown signal for more than {} seconds... Dropping connections anyway.", RPC_SHUTDOWN_TIMEOUT.as_secs());
         }
-
-        Ok(())
     }
 
     fn serve(

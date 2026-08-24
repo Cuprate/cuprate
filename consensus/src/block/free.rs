@@ -3,17 +3,18 @@ use std::collections::HashMap;
 
 use monero_oxide::block::Block;
 
+use cuprate_consensus_rules::{blocks::BlockError, ConsensusError};
 use cuprate_types::TransactionVerificationData;
-
-use crate::ExtendedConsensusError;
 
 /// Orders the [`TransactionVerificationData`] list the same as it appears in [`Block::transactions`]
 pub(crate) fn order_transactions(
     block: &Block,
     txs: &mut [TransactionVerificationData],
-) -> Result<(), ExtendedConsensusError> {
+) -> Result<(), ConsensusError> {
     if block.transactions.len() != txs.len() {
-        return Err(ExtendedConsensusError::TxsIncludedWithBlockIncorrect);
+        return Err(ConsensusError::Block(
+            BlockError::TxsIncludedWithBlockIncorrect,
+        ));
     }
 
     for (i, tx_hash) in block.transactions.iter().enumerate() {
@@ -21,7 +22,9 @@ pub(crate) fn order_transactions(
             let at_index = txs[i..]
                 .iter()
                 .position(|tx| &tx.tx_hash == tx_hash)
-                .ok_or(ExtendedConsensusError::TxsIncludedWithBlockIncorrect)?;
+                .ok_or(ConsensusError::Block(
+                    BlockError::TxsIncludedWithBlockIncorrect,
+                ))?;
 
             // The above `position` will give an index from inside its view of the slice so we need to add the difference.
             txs.swap(i, i + at_index);
@@ -43,18 +46,20 @@ pub(crate) fn order_transactions(
 pub(crate) fn pull_ordered_transactions(
     block: &Block,
     mut txs: HashMap<[u8; 32], TransactionVerificationData>,
-) -> Result<Vec<TransactionVerificationData>, ExtendedConsensusError> {
+) -> Result<Vec<TransactionVerificationData>, ConsensusError> {
     if block.transactions.len() != txs.len() {
-        return Err(ExtendedConsensusError::TxsIncludedWithBlockIncorrect);
+        return Err(ConsensusError::Block(
+            BlockError::TxsIncludedWithBlockIncorrect,
+        ));
     }
 
     let mut ordered_txs = Vec::with_capacity(txs.len());
 
     if !block.transactions.is_empty() {
         for tx_hash in &block.transactions {
-            let tx = txs
-                .remove(tx_hash)
-                .ok_or(ExtendedConsensusError::TxsIncludedWithBlockIncorrect)?;
+            let tx = txs.remove(tx_hash).ok_or(ConsensusError::Block(
+                BlockError::TxsIncludedWithBlockIncorrect,
+            ))?;
             ordered_txs.push(tx);
         }
         drop(txs);

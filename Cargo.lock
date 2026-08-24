@@ -1074,7 +1074,6 @@ dependencies = [
  "randomx-rs",
  "rayon",
  "strum",
- "thiserror 2.0.18",
  "thread_local",
  "tokio",
  "tokio-util",

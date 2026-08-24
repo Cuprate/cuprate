@@ -533,7 +533,9 @@ where
             })?;
 
         if !batch_verifier.verify() {
-            return Err(ExtendedConsensusError::OneOrMoreBatchVerificationStatementsInvalid);
+            return Err(
+                ConsensusError::Transaction(TransactionError::BatchVerificationFailed).into(),
+            );
         }
 
         txs.iter_mut()

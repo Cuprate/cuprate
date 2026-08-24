@@ -2,7 +2,6 @@ use std::{collections::HashMap, sync::Arc};
 
 use tower::ServiceExt;
 
-use cuprate_consensus_rules::{blocks::BlockError, ConsensusError};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain, ChainId,
@@ -88,15 +87,17 @@ impl AltChainMap {
         self.alt_cache_map.insert(alt_cache.top_hash, alt_cache);
     }
 
-    /// Attempts to take an [`AltChainContextCache`] from the map, returning [`None`] if no cache is
-    /// present.
+    /// Attempts to take an [`AltChainContextCache`] from the map, building it from the database if no
+    /// cache is present.
+    ///
+    /// Returns [`None`] if `prev_id` is not a block we know about.
     pub(crate) async fn get_alt_chain_context<D: Database>(
         &mut self,
         prev_id: [u8; 32],
         database: D,
-    ) -> Result<Box<AltChainContextCache>, ContextCacheError> {
+    ) -> Result<Option<Box<AltChainContextCache>>, ContextCacheError> {
         if let Some(cache) = self.alt_cache_map.remove(&prev_id) {
-            return Ok(cache);
+            return Ok(Some(cache));
         }
 
         // find the block with hash == prev_id.
@@ -109,10 +110,10 @@ impl AltChainMap {
 
         let Some((parent_chain, top_height)) = res else {
             // Couldn't find prev_id
-            return Err(ConsensusError::Block(BlockError::PreviousIDIncorrect).into());
+            return Ok(None);
         };
 
-        Ok(Box::new(AltChainContextCache {
+        Ok(Some(Box::new(AltChainContextCache {
             weight_cache: None,
             difficulty_cache: None,
             cached_rx_vm: None,
@@ -120,7 +121,7 @@ impl AltChainMap {
             top_hash: prev_id,
             chain_id: None,
             parent_chain,
-        }))
+        })))
     }
 }
 
@@ -129,7 +130,7 @@ pub(crate) async fn get_alt_chain_difficulty_cache<D: Database + Clone>(
     prev_id: [u8; 32],
     main_chain_difficulty_cache: &DifficultyCache,
     mut database: D,
-) -> Result<DifficultyCache, ContextCacheError> {
+) -> Result<Option<DifficultyCache>, ContextCacheError> {
     // find the block with hash == prev_id.
     let BlockchainResponse::FindBlock(res) = database
         .ready()
@@ -142,10 +143,10 @@ pub(crate) async fn get_alt_chain_difficulty_cache<D: Database + Clone>(
 
     let Some((chain, top_height)) = res else {
         // Can't find prev_id
-        return Err(ConsensusError::Block(BlockError::PreviousIDIncorrect).into());
+        return Ok(None);
     };
 
-    Ok(match chain {
+    Ok(Some(match chain {
         Chain::Main => {
             // prev_id is in main chain, we can use the fast path and clone the main chain cache.
             let mut difficulty_cache = main_chain_difficulty_cache.clone();
@@ -168,7 +169,7 @@ pub(crate) async fn get_alt_chain_difficulty_cache<D: Database + Clone>(
             )
             .await?
         }
-    })
+    }))
 }
 
 /// Builds a [`BlockWeightsCache`] for an alt chain.
@@ -176,7 +177,7 @@ pub(crate) async fn get_alt_chain_weight_cache<D: Database + Clone>(
     prev_id: [u8; 32],
     main_chain_weight_cache: &BlockWeightsCache,
     mut database: D,
-) -> Result<BlockWeightsCache, ContextCacheError> {
+) -> Result<Option<BlockWeightsCache>, ContextCacheError> {
     // find the block with hash == prev_id.
     let BlockchainResponse::FindBlock(res) = database
         .ready()
@@ -189,10 +190,10 @@ pub(crate) async fn get_alt_chain_weight_cache<D: Database + Clone>(
 
     let Some((chain, top_height)) = res else {
         // Can't find prev_id
-        return Err(ConsensusError::Block(BlockError::PreviousIDIncorrect).into());
+        return Ok(None);
     };
 
-    Ok(match chain {
+    Ok(Some(match chain {
         Chain::Main => {
             // prev_id is in main chain, we can use the fast path and clone the main chain cache.
             let mut weight_cache = main_chain_weight_cache.clone();
@@ -212,5 +213,5 @@ pub(crate) async fn get_alt_chain_weight_cache<D: Database + Clone>(
             )
             .await?
         }
-    })
+    }))
 }

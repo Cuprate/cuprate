@@ -67,7 +67,7 @@ fn main() {
     let mut config = load_config(&args);
 
     // Initialize logging.
-    cuprated::logging::init_logging(&config);
+    let _log_guard = cuprated::logging::init_logging(&config);
 
     // Resolve available memory.
     resolve_max_memory(&mut config);
@@ -81,15 +81,10 @@ fn main() {
 
     let rt = init_tokio_rt(&config);
 
-    #[expect(clippy::significant_drop_tightening)]
     rt.block_on(async move {
         // Start the node.
-        let node = match cuprated::Node::launch(config).await {
-            Ok(node) => node,
-            Err(e) => {
-                tracing::error!("Failed to launch node: {e:#}");
-                std::process::exit(1);
-            }
+        let Ok(node) = cuprated::Node::launch(config).await else {
+            return;
         };
 
         let task_executor = node.task_executor.clone();

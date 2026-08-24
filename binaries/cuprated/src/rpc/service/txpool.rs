@@ -30,11 +30,9 @@ use cuprate_types::{
 pub async fn backlog(txpool_read: &mut TxpoolReadHandle) -> Result<Vec<TxEntry>, Error> {
     let TxpoolReadResponse::Backlog(tx_entries) = txpool_read
         .ready()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .call(TxpoolReadRequest::Backlog)
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
     else {
         unreachable!();
     };
@@ -49,13 +47,11 @@ pub async fn size(
 ) -> Result<u64, Error> {
     let TxpoolReadResponse::Size(size) = txpool_read
         .ready()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .call(TxpoolReadRequest::Size {
             include_sensitive_txs,
         })
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
     else {
         unreachable!();
     };
@@ -71,15 +67,13 @@ pub async fn tx_blobs_by_hash(
 ) -> Result<Vec<PoolTxInfo>, Error> {
     let TxpoolReadResponse::TxsByHash(txs) = txpool_read
         .ready()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .call(TxpoolReadRequest::TxsByHash {
             tx_hashes: tx_hashes.to_vec(),
             // TODO: allow sending private txs on restricted.
             include_sensitive_txs: false,
         })
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
     else {
         unreachable!()
     };
@@ -134,15 +128,13 @@ pub async fn pool_info(
 ) -> Result<PoolInfo, Error> {
     let TxpoolReadResponse::PoolInfo(pool_info) = txpool_read
         .ready()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .call(TxpoolReadRequest::PoolInfo {
             include_sensitive_txs,
             max_tx_count,
             start_time,
         })
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
     else {
         unreachable!();
     };
@@ -158,14 +150,12 @@ pub async fn txs_by_hash(
 ) -> Result<Vec<TxInPool>, Error> {
     let TxpoolReadResponse::TxsByHash(txs_in_pool) = txpool_read
         .ready()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .call(TxpoolReadRequest::TxsByHash {
             tx_hashes,
             include_sensitive_txs,
         })
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
     else {
         unreachable!();
     };
@@ -181,14 +171,12 @@ pub async fn key_images_spent(
 ) -> Result<bool, Error> {
     let TxpoolReadResponse::KeyImagesSpent(status) = txpool_read
         .ready()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .call(TxpoolReadRequest::KeyImagesSpent {
             key_images,
             include_sensitive_txs,
         })
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
     else {
         unreachable!();
     };
@@ -204,14 +192,12 @@ pub async fn key_images_spent_vec(
 ) -> Result<Vec<bool>, Error> {
     let TxpoolReadResponse::KeyImagesSpentVec(status) = txpool_read
         .ready()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .call(TxpoolReadRequest::KeyImagesSpentVec {
             key_images,
             include_sensitive_txs,
         })
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
     else {
         unreachable!();
     };
@@ -229,13 +215,11 @@ pub async fn pool(
         spent_key_images,
     } = txpool_read
         .ready()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .call(TxpoolReadRequest::Pool {
             include_sensitive_txs,
         })
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
     else {
         unreachable!();
     };
@@ -253,13 +237,11 @@ pub async fn pool_stats(
 ) -> Result<TxpoolStats, Error> {
     let TxpoolReadResponse::PoolStats(txpool_stats) = txpool_read
         .ready()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .call(TxpoolReadRequest::PoolStats {
             include_sensitive_txs,
         })
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
     else {
         unreachable!();
     };
@@ -274,13 +256,11 @@ pub async fn all_hashes(
 ) -> Result<Vec<[u8; 32]>, Error> {
     let TxpoolReadResponse::AllHashes(hashes) = txpool_read
         .ready()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .call(TxpoolReadRequest::AllHashes {
             include_sensitive_txs,
         })
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
     else {
         unreachable!();
     };
@@ -295,11 +275,9 @@ pub async fn txs_for_block(
 ) -> Result<(HashMap<[u8; 32], TransactionVerificationData>, Vec<usize>), Error> {
     let TxpoolReadResponse::TxsForBlock { txs, missing } = txpool_read
         .ready()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .call(TxpoolReadRequest::TxsForBlock(tx_hashes))
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
     else {
         unreachable!();
     };
