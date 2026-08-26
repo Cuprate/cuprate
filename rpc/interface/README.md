@@ -69,6 +69,13 @@ when a request is received to an unknown endpoint, including HTTP stuff, e.g. st
 # Unknown JSON-RPC method behavior
 An unknown method is answered with `-32601 Method not found` at HTTP `200`.
 
+# Batching
+[Batches](https://www.jsonrpc.org/specification#batch) are supported, unlike `monerod`.
+
+Each entry is parsed on its own, so a malformed entry only fails itself.
+An entry that is a notification is not added to the response array.
+An empty batch is answered with `-32600 Invalid Request`.
+
 # Example
 Example usage of this crate + starting an RPC server.
 

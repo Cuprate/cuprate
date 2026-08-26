@@ -7,7 +7,9 @@ use axum::{
     http::{header::CONTENT_TYPE, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
+use futures::stream::{FuturesUnordered, StreamExt};
 use serde::Deserialize;
+use serde_json::value::RawValue;
 use tower::ServiceExt;
 
 use cuprate_json_rpc::{error::ErrorObject, Id, Response as JsonRpcResponse};
@@ -34,26 +36,58 @@ pub(crate) async fn json_rpc<H: RpcHandler>(
         Err(rejection) => return rejection.into_response(),
     };
 
-    let Some(response) = dispatch(handler, &request).await else {
-        return StatusCode::OK.into_response();
+    // A JSON array is a batch, anything else is a single request.
+    if request.trim_ascii_start().starts_with(b"[") {
+        return batch(handler, &request).await;
+    }
+
+    match dispatch(handler, &request).await {
+        Some(response) => json_rpc_response(response),
+        None => StatusCode::OK.into_response(),
+    }
+}
+
+/// Handle a [batch](https://www.jsonrpc.org/specification#batch) of requests.
+async fn batch<H: RpcHandler>(handler: H, request: &[u8]) -> Response {
+    let entries = match serde_json::from_slice::<Vec<&RawValue>>(request) {
+        // JSON-RPC 2.0 rule:
+        // An empty batch is an invalid request.
+        Ok(entries) if !entries.is_empty() => entries,
+        Err(error) if error.is_syntax() || error.is_eof() => {
+            return json_rpc_response(JsonRpcResponse::parse_error(Id::Null));
+        }
+        _ => {
+            return json_rpc_response(JsonRpcResponse::invalid_request(Id::Null));
+        }
     };
+
+    let concurrency = handler.batch_concurrency().get();
+    let mut entries = entries.into_iter();
+    let mut responses = FuturesUnordered::new();
+    for entry in entries.by_ref().take(concurrency) {
+        responses.push(dispatch(handler.clone(), entry.get().as_bytes()));
+    }
 
     let mut json = Vec::new();
-    let result = match &response.payload {
-        Ok(RpcResponse::GetTxpoolBacklog(body)) => {
-            serialize_txpool_backlog_response(&mut json, &response.id, body)
-        }
-        _ => serde_json::to_writer(&mut json, &response),
-    };
+    json.push(b'[');
 
-    if result.is_err() {
-        json.clear();
-        serde_json::to_writer(
-            &mut json,
-            &JsonRpcResponse::<RpcResponse>::internal_error(response.id),
-        )
-        .expect("an error response always serializes");
+    while let Some(response) = responses.next().await {
+        if let Some(response) = response {
+            write_response_json(response, &mut json);
+            json.push(b',');
+        }
+        if let Some(entry) = entries.next() {
+            responses.push(dispatch(handler.clone(), entry.get().as_bytes()));
+        }
     }
+
+    // A batch of only notifications is not responded to.
+    if json.len() == 1 {
+        return StatusCode::OK.into_response();
+    }
+
+    json.pop();
+    json.push(b']');
 
     Response::builder()
         .header(CONTENT_TYPE, "application/json")
@@ -161,6 +195,37 @@ fn json_content_type(headers: &HeaderMap) -> bool {
         && (subtype.eq_ignore_ascii_case(b"json")
             || subtype.len() > "+json".len()
                 && subtype[subtype.len() - "+json".len()..].eq_ignore_ascii_case(b"+json"))
+}
+
+/// Append a response to an existing JSON buffer.
+fn write_response_json(response: JsonRpcResponse<RpcResponse>, json: &mut Vec<u8>) {
+    let start = json.len();
+    let result = match &response.payload {
+        Ok(RpcResponse::GetTxpoolBacklog(body)) => {
+            serialize_txpool_backlog_response(json, &response.id, body)
+        }
+        _ => serde_json::to_writer(&mut *json, &response),
+    };
+
+    if result.is_err() {
+        json.truncate(start);
+        serde_json::to_writer(
+            json,
+            &JsonRpcResponse::<RpcResponse>::internal_error(response.id),
+        )
+        .expect("an error response always serializes");
+    }
+}
+
+/// Serialize a JSON-RPC response into an HTTP response.
+fn json_rpc_response(response: JsonRpcResponse<RpcResponse>) -> Response {
+    let mut json = Vec::new();
+    write_response_json(response, &mut json);
+
+    Response::builder()
+        .header(CONTENT_TYPE, "application/json")
+        .body(Body::from(json))
+        .expect("valid response builder")
 }
 
 // TODO: remove the code below once this: https://github.com/monero-project/monero/issues/9422 is resolved.

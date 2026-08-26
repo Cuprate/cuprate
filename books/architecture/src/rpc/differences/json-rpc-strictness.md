@@ -118,6 +118,24 @@ curl \
 	-H 'Content-Type: application/json'
 ```
 
+## Batching
+[The JSON-RPC 2.0 specification allows a batch of requests
+to be sent as an array](https://www.jsonrpc.org/specification#batch).
+
+`monerod` does not support this. It reads `method` off the root object of
+the body, so an array is answered with failure, see
+[here](https://github.com/monero-project/monero/blob/893916ad091a92e765ce3241b94e706ad012b62a/contrib/epee/include/net/http_server_handlers_map2.h#L141-L166).
+
+Cuprate supports batching. Empty batches are rejected as invalid.
+
+Example:
+```bash
+curl \
+	http://127.0.0.1:18081/json_rpc \
+	-d '[{"jsonrpc":"2.0","id":"0","method":"get_block_count"},{"jsonrpc":"2.0","id":"1","method":"get_info"}]' \
+	-H 'Content-Type: application/json'
+```
+
 ## Upper/mixed case fields
 `monerod` will accept upper/mixed case fields on:
 - `jsonrpc`

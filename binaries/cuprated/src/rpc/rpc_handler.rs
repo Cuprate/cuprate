@@ -1,6 +1,9 @@
 //! `cuprated`'s implementation of [`RpcHandler`].
 
-use std::task::{Context, Poll};
+use std::{
+    num::NonZeroUsize,
+    task::{Context, Poll},
+};
 
 use anyhow::Error;
 use futures::future::BoxFuture;
@@ -167,6 +170,9 @@ pub struct CupratedRpcHandler {
     /// This is not `pub` on purpose, as it should not be mutated after [`Self::new`].
     restricted: bool,
 
+    /// How many requests within a `/json_rpc` batch are handled at once.
+    batch_concurrency: NonZeroUsize,
+
     /// The active network.
     pub network: Network,
 
@@ -211,6 +217,8 @@ impl CupratedRpcHandler {
 
         Self {
             restricted,
+            batch_concurrency: NonZeroUsize::new(launch_ctx.config.storage.reader_threads / 4)
+                .unwrap_or(NonZeroUsize::MIN),
             network: launch_ctx.config.network,
             offline: launch_ctx.config.offline,
             tx_handler,
@@ -228,6 +236,10 @@ impl CupratedRpcHandler {
 impl RpcHandler for CupratedRpcHandler {
     fn is_restricted(&self) -> bool {
         self.restricted
+    }
+
+    fn batch_concurrency(&self) -> NonZeroUsize {
+        self.batch_concurrency
     }
 }
 
