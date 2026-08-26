@@ -15,6 +15,7 @@ use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::{
     transactions::{new_tx_verification_data, start_tx_verification, PrepTransactions},
     BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
+    VerificationContext,
 };
 use cuprate_dandelion_tower::{
     pool::{DandelionPoolService, IncomingTxBuilder},
@@ -217,8 +218,7 @@ async fn handle_incoming_txs(
             context.top_hash,
             context.current_adjusted_timestamp_for_time_lock(),
             context.current_hf,
-            blockchain_read_handle,
-            None,
+            &mut VerificationContext::Database(blockchain_read_handle),
         )
         .verify()
         .await?;
