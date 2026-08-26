@@ -256,6 +256,7 @@ impl super::BlockchainManager {
         let mut verification_context =
             VerificationContext::<ConsensusBlockchainReadHandle>::BatchPrepareCache(output_cache);
         let mut valid_blocks = Vec::with_capacity(prepped_blocks.len());
+        let mut error = false;
 
         for (block, txs) in prepped_blocks {
             let hash = block.block_hash;
@@ -279,7 +280,8 @@ impl super::BlockchainManager {
 
                         batch.peer_handle.ban_peer(MEDIUM_BAN);
                         self.stop_current_block_downloader.notify_waiters();
-                        return Ok(());
+                        error = true;
+                        break;
                     }
                 },
             };
@@ -289,10 +291,20 @@ impl super::BlockchainManager {
 
             valid_blocks.push(verified_block);
         }
+
+        let valid_blocks_len = valid_blocks.len();
         self.batch_add_valid_block_to_blockchain_database(valid_blocks)
             .await?;
 
-        info!(fast_sync = false, "Successfully added block batch");
+        if error {
+            info!(
+                valid_blocks = valid_blocks_len,
+                fast_sync = false,
+                "Partially added block batch"
+            );
+        } else {
+            info!(fast_sync = false, "Successfully added block batch");
+        }
         Ok(())
     }
 
