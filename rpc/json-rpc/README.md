@@ -14,10 +14,12 @@ This crate expects you to read the brief JSON-RPC 2.0 specification for context.
 ## Batching
 This crate does not have any types for [JSON-RPC 2.0 batching](https://www.jsonrpc.org/specification#batch).
 
-This is because `monerod` does not support this,
-as such, neither does Cuprate.
+A batch is transport framing, so it is handled by `cuprate-rpc-interface`,
+which decodes each entry into this crate's `Request`.
 
-TODO: citation needed on `monerod` not supporting batching.
+`monerod` does not support batching. It reads `method` off the
+root object of the body, so an array is an `Invalid Request`:
+<https://github.com/monero-project/monero/blob/893916ad091a92e765ce3241b94e706ad012b62a/contrib/epee/include/net/http_server_handlers_map2.h#L141-L166>
 
 ## Request changes
 [JSON-RPC 2.0's `Request` object](https://www.jsonrpc.org/specification#request_object) usually contains these 2 fields:
