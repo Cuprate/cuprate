@@ -17,16 +17,18 @@ pub struct Request<T> {
 
     /// An identifier established by the Client.
     ///
-    /// If it is not included it is assumed to be a
+    /// If the `id` field is not included, the request is a
     /// [notification](https://www.jsonrpc.org/specification#notification).
     ///
     /// ### `None` vs `Some(Id::Null)`
     /// This field will be completely omitted during serialization if [`None`],
-    /// however if it is `Some(Id::Null)`, it will be serialized as `"id": null`.
+    /// however if it is `Some(Id::Null)`, it will be serialized as `"id": null`
+    /// and is not a notification.
     ///
-    /// Note that the JSON-RPC 2.0 specification discourages the use of `Id::NUll`,
-    /// so if there is no ID needed, consider using `None`.
+    /// Note that the JSON-RPC 2.0 specification discourages the use of [`Id::Null`],
+    /// so use [`None`] for notifications.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, deserialize_with = "Id::deserialize_some")]
     pub id: Option<Id>,
 
     #[serde(flatten)]
@@ -44,32 +46,35 @@ pub struct Request<T> {
 }
 
 impl<T> Request<T> {
-    /// Create a new [`Self`] with no [`Id`].
-    ///
-    /// ```rust
-    /// use cuprate_json_rpc::Request;
-    ///
-    /// assert_eq!(Request::new("").id, None);
-    /// ```
-    pub const fn new(body: T) -> Self {
-        Self {
-            jsonrpc: Version,
-            id: None,
-            body,
-        }
-    }
-
     /// Create a new [`Self`] with an [`Id`].
     ///
     /// ```rust
     /// use cuprate_json_rpc::{Id, Request};
     ///
-    /// assert_eq!(Request::new_with_id(Id::Num(0), "").id, Some(Id::Num(0)));
+    /// assert_eq!(Request::new(Id::Num(0), "").id, Some(Id::Num(0)));
     /// ```
-    pub const fn new_with_id(id: Id, body: T) -> Self {
+    pub const fn new(id: Id, body: T) -> Self {
         Self {
             jsonrpc: Version,
             id: Some(id),
+            body,
+        }
+    }
+
+    /// Create a new [`Self`] with no [`Id`], i.e. a
+    /// [notification](https://www.jsonrpc.org/specification#notification).
+    ///
+    /// A conforming server will not respond to this.
+    ///
+    /// ```rust
+    /// use cuprate_json_rpc::Request;
+    ///
+    /// assert_eq!(Request::notification("").id, None);
+    /// ```
+    pub const fn notification(body: T) -> Self {
+        Self {
+            jsonrpc: Version,
+            id: None,
             body,
         }
     }
@@ -81,8 +86,8 @@ impl<T> Request<T> {
     /// ```rust
     /// use cuprate_json_rpc::{Id, Request};
     ///
-    /// assert!(Request::new("").is_notification());
-    /// assert!(!Request::new_with_id(Id::Null, "").is_notification());
+    /// assert!(Request::notification("").is_notification());
+    /// assert!(!Request::new(Id::Null, "").is_notification());
     /// ```
     pub const fn is_notification(&self) -> bool {
         self.id.is_none()
@@ -123,7 +128,7 @@ mod test {
             params: [0, 1, 2],
         };
 
-        let req = Request::new_with_id(id, body);
+        let req = Request::new(id, body);
 
         assert!(!req.is_notification());
 
@@ -145,7 +150,7 @@ mod test {
             params: [0, 1, 2],
         };
 
-        let req = Request::new_with_id(id, body);
+        let req = Request::new(id, body);
 
         let ser: String = serde_json::to_string(&req).unwrap();
         assert_eq!(
@@ -161,7 +166,7 @@ mod test {
     /// Tests that null `id` shows when serializing.
     #[test]
     fn request_null_id() {
-        let req = Request::new_with_id(
+        let req = Request::new(
             Id::Null,
             Body {
                 method: "m".into(),
@@ -181,7 +186,7 @@ mod test {
     /// Tests that a `None` `id` omits the field when serializing.
     #[test]
     fn request_none_id() {
-        let req = Request::new(Body {
+        let req = Request::notification(Body {
             method: "a".into(),
             params: "b".to_string(),
         });
@@ -202,7 +207,7 @@ mod test {
             method: String,
         }
 
-        let req = Request::new_with_id(
+        let req = Request::new(
             Id::Num(123),
             NoParamMethod {
                 method: "asdf".to_string(),
@@ -232,7 +237,7 @@ mod test {
             GetHeight(/* param: */ GetHeight),
         }
 
-        let req = Request::new_with_id(Id::Num(123), Methods::GetHeight(GetHeight { height: 0 }));
+        let req = Request::new(Id::Num(123), Methods::GetHeight(GetHeight { height: 0 }));
         let json = json!({
             "jsonrpc": "2.0",
             "id": 123,
@@ -251,7 +256,7 @@ mod test {
         // Test values: (request, expected_value)
         let array: [(Request<Body<[u8; 3]>>, Value); 3] = [
             (
-                Request::new_with_id(
+                Request::new(
                     Id::Num(123),
                     Body {
                         method: "method_1".into(),
@@ -266,7 +271,7 @@ mod test {
                 }),
             ),
             (
-                Request::new_with_id(
+                Request::new(
                     Id::Null,
                     Body {
                         method: "method_2".into(),
@@ -281,7 +286,7 @@ mod test {
                 }),
             ),
             (
-                Request::new_with_id(
+                Request::new(
                     Id::Str("string_id".into()),
                     Body {
                         method: "method_3".into(),
@@ -305,7 +310,7 @@ mod test {
     /// Tests that non-ordered fields still deserialize okay.
     #[test]
     fn deserialize_out_of_order_keys() {
-        let expected = Request::new_with_id(
+        let expected = Request::new(
             Id::Str("id".into()),
             Body {
                 method: "method".into(),
@@ -328,7 +333,7 @@ mod test {
     /// Also that unicode and backslashes work.
     #[test]
     fn unknown_fields_and_unicode() {
-        let expected = Request::new_with_id(
+        let expected = Request::new(
             Id::Str("id".into()),
             Body {
                 method: "method".into(),
