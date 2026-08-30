@@ -202,7 +202,7 @@ serde_json            = { version = "1", default-features = false }
 serde                 = { version = "1", default-features = false }
 strum                 = { version = "0.28", default-features = false }
 sysinfo               = { version = "0.38.4", default-features = false }
-tapes                 = { git = "https://github.com/Cuprate/Tapes.git", rev = "f28b6fb" }
+tapes                 = { git = "https://github.com/Cuprate/Tapes.git", rev = "001da519" }
 thiserror             = { version = "2", default-features = false }
 thread_local          = { version = "1", default-features = false }
 tikv-jemallocator     = { version = "0.7", default-features = false }

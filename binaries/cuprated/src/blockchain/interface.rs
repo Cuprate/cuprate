@@ -11,7 +11,7 @@ use monero_oxide::{block::Block, transaction::Transaction};
 use tokio::sync::{mpsc, oneshot};
 use tower::{Service, ServiceExt};
 
-use cuprate_blockchain::{service::BlockchainReadHandle, BlockchainError};
+use cuprate_blockchain::{service::BlockchainReadHandleTx, BlockchainError};
 use cuprate_consensus::{block::BlockVerificationError, transactions::new_tx_verification_data};
 use cuprate_txpool::service::{
     interface::{TxpoolReadRequest, TxpoolReadResponse},
@@ -75,7 +75,7 @@ impl BlockchainManagerHandle {
         &self,
         block: Block,
         mut given_txs: HashMap<[u8; 32], Transaction>,
-        blockchain_read_handle: &mut BlockchainReadHandle,
+        blockchain_read_handle: &mut BlockchainReadHandleTx,
         txpool_read_handle: &mut TxpoolReadHandle,
     ) -> Result<IncomingBlockOk, IncomingBlockError> {
         if given_txs.len() > block.transactions.len() {
@@ -179,7 +179,7 @@ impl BlockchainManagerHandle {
 /// Check if we have a block with the given hash.
 async fn block_exists(
     block_hash: [u8; 32],
-    blockchain_read_handle: &mut BlockchainReadHandle,
+    blockchain_read_handle: &mut BlockchainReadHandleTx,
 ) -> Result<bool, BlockchainError> {
     let BlockchainResponse::FindBlock(chain) = blockchain_read_handle
         .ready()

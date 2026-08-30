@@ -5174,7 +5174,7 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 [[package]]
 name = "tapes"
 version = "0.2.0"
-source = "git+https://github.com/Cuprate/Tapes.git?rev=f28b6fb#f28b6fb2db24996e3b58b64bfcd33c1e350d9979"
+source = "git+https://github.com/Cuprate/Tapes.git?rev=001da519#001da519294d7d05062fdc415e5096d936428a66"
 dependencies = [
  "blake2",
  "borsh",

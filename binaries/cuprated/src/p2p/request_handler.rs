@@ -16,7 +16,7 @@ use tokio_stream::wrappers::WatchStream;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
-use cuprate_blockchain::service::BlockchainReadHandle;
+use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainReadHandleTx};
 use cuprate_consensus::{
     transactions::new_tx_verification_data, BlockChainContextRequest, BlockChainContextResponse,
     BlockchainContextService,
@@ -153,7 +153,7 @@ where
             ProtocolRequest::NewFluffyBlock(r) => new_fluffy_block(
                 self.peer_information.clone(),
                 r,
-                self.blockchain_read_handle.clone(),
+                self.blockchain_read_handle.transaction(),
                 self.blockchain_context_service.clone(),
                 self.txpool_read_handle.clone(),
                 self.blockchain_manager.clone(),
@@ -303,7 +303,7 @@ async fn fluffy_missing_txs(
 async fn new_fluffy_block<A: NetZoneAddress>(
     peer_information: PeerInformation<A>,
     request: NewFluffyBlock,
-    mut blockchain_read_handle: BlockchainReadHandle,
+    mut blockchain_read_handle: BlockchainReadHandleTx,
     mut blockchain_context_service: BlockchainContextService,
     mut txpool_read_handle: TxpoolReadHandle,
     blockchain_manager: BlockchainManagerHandle,

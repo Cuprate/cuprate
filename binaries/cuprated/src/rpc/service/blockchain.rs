@@ -10,7 +10,7 @@ use indexmap::{IndexMap, IndexSet};
 use monero_oxide::block::Block;
 use tower::{Service, ServiceExt};
 
-use cuprate_blockchain::service::BlockchainReadHandle;
+use cuprate_blockchain::{service::BlockchainReadHandle, BlockchainError};
 use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_rpc_types::misc::GetOutputsOut;
 use cuprate_types::{
@@ -26,7 +26,11 @@ use cuprate_types::{
 
 /// [`BlockchainReadRequest::Block`].
 pub async fn block(
-    blockchain_read: &mut BlockchainReadHandle,
+    blockchain_read: &mut impl Service<
+        BlockchainReadRequest,
+        Response = BlockchainResponse,
+        Error = BlockchainError,
+    >,
     height: u64,
 ) -> Result<Block, Error> {
     let BlockchainResponse::Block(block) = blockchain_read
@@ -62,7 +66,11 @@ pub async fn block_by_hash(
 
 /// [`BlockchainReadRequest::BlockExtendedHeader`].
 pub async fn block_extended_header(
-    blockchain_read: &mut BlockchainReadHandle,
+    blockchain_read: &mut impl Service<
+        BlockchainReadRequest,
+        Response = BlockchainResponse,
+        Error = BlockchainError,
+    >,
     height: u64,
 ) -> Result<ExtendedBlockHeader, Error> {
     let BlockchainResponse::BlockExtendedHeader(header) = blockchain_read
@@ -81,7 +89,11 @@ pub async fn block_extended_header(
 
 /// [`BlockchainReadRequest::BlockHash`].
 pub async fn block_hash(
-    blockchain_read: &mut BlockchainReadHandle,
+    blockchain_read: &mut impl Service<
+        BlockchainReadRequest,
+        Response = BlockchainResponse,
+        Error = BlockchainError,
+    >,
     height: u64,
     chain: Chain,
 ) -> Result<[u8; 32], Error> {
@@ -100,23 +112,13 @@ pub async fn block_hash(
     Ok(hash)
 }
 
-/// [`BlockchainReadRequest::ChainHeight`].
-pub async fn chain_height(blockchain_read: &mut BlockchainReadHandle) -> Result<u64, Error> {
-    let BlockchainResponse::ChainHeight(height, _) = blockchain_read
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::ChainHeight)
-        .await?
-    else {
-        unreachable!();
-    };
-
-    Ok(usize_to_u64(height))
-}
-
 /// [`BlockchainReadRequest::FindBlock`].
 pub async fn find_block(
-    blockchain_read: &mut BlockchainReadHandle,
+    blockchain_read: &mut impl Service<
+        BlockchainReadRequest,
+        Response = BlockchainResponse,
+        Error = BlockchainError,
+    >,
     block_hash: [u8; 32],
 ) -> Result<Option<(Chain, usize)>, Error> {
     let BlockchainResponse::FindBlock(option) = blockchain_read

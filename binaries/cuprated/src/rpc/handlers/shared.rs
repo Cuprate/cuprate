@@ -120,10 +120,10 @@ pub(super) async fn get_output_distribution(
         .collect();
 
     // 0 / `None` is placeholder for the whole chain.
-    let to_height = match NonZero::new(request.to_height) {
-        Some(h) => Some(h),
-        None if pre_rct_amounts.is_empty() => None,
-        None => NonZero::new(blockchain::chain_height(&mut state.blockchain_read).await? - 1),
+    let to_height = if pre_rct_amounts.is_empty() {
+        None
+    } else {
+        NonZero::new(request.to_height)
     };
 
     let mut pre_rct = if pre_rct_amounts.is_empty() {
