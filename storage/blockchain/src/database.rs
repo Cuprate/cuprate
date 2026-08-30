@@ -322,7 +322,7 @@ impl BlockchainDatabase {
     /// Returns Fjall and Tapes read transactions at the same main-chain tip.
     pub fn read_transactions(
         &self,
-    ) -> Result<(fjall::Snapshot, TapesReadTransaction<'_>), BlockchainError> {
+    ) -> Result<(fjall::Snapshot, TapesReadTransaction), BlockchainError> {
         loop {
             let fjall = self.fjall.snapshot();
             let tapes = self.linear_tapes.reader();

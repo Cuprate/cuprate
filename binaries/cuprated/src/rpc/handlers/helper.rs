@@ -7,6 +7,9 @@
 
 use anyhow::{anyhow, Error};
 
+use monero_oxide::transaction::Timelock;
+
+use cuprate_blockchain::service::BlockchainReadHandleTx;
 use cuprate_helper::{
     cast::{u64_to_usize, usize_to_u64},
     map::split_u128_into_low_high_bits,
@@ -17,7 +20,6 @@ use cuprate_rpc_types::{
     misc::BlockHeader,
 };
 use cuprate_types::{Chain, HardFork};
-use monero_oxide::transaction::Timelock;
 
 use crate::rpc::{
     service::{blockchain, blockchain_context},
@@ -33,8 +35,20 @@ pub(super) async fn block_header(
     height: u64,
     fill_pow_hash: bool,
 ) -> Result<BlockHeader, Error> {
-    let block = blockchain::block(&mut state.blockchain_read, height).await?;
-    let header = blockchain::block_extended_header(&mut state.blockchain_read, height).await?;
+    let mut blockchain_read = state.blockchain_read.transaction();
+    let (header, _) =
+        block_header_with_tx(state, &mut blockchain_read, height, fill_pow_hash).await?;
+    Ok(header)
+}
+
+pub(super) async fn block_header_with_tx(
+    state: &mut CupratedRpcHandler,
+    blockchain_read: &mut BlockchainReadHandleTx,
+    height: u64,
+    fill_pow_hash: bool,
+) -> Result<(BlockHeader, monero_oxide::block::Block), Error> {
+    let block = blockchain::block(blockchain_read, height).await?;
+    let header = blockchain::block_extended_header(blockchain_read, height).await?;
     let hardfork = HardFork::from_vote(header.vote);
     let (top_height, _) = top_height(state);
 
@@ -47,8 +61,7 @@ pub(super) async fn block_header(
     let difficulty: u128 = if height == 0 {
         1
     } else {
-        let prev_header =
-            blockchain::block_extended_header(&mut state.blockchain_read, height - 1).await?;
+        let prev_header = blockchain::block_extended_header(blockchain_read, height - 1).await?;
         header
             .cumulative_difficulty
             .saturating_sub(prev_header.cumulative_difficulty)
@@ -57,8 +70,7 @@ pub(super) async fn block_header(
     let pow_hash = if fill_pow_hash && !state.is_restricted() {
         let seed_height =
             cuprate_consensus_rules::blocks::randomx_seed_height(u64_to_usize(height));
-        let seed_hash =
-            blockchain::block_hash(&mut state.blockchain_read, height, Chain::Main).await?;
+        let seed_hash = blockchain::block_hash(blockchain_read, height, Chain::Main).await?;
 
         Some(
             blockchain_context::calculate_pow(
@@ -89,7 +101,7 @@ pub(super) async fn block_header(
         .map(|o| o.amount.expect("coinbase is transparent"))
         .sum::<u64>();
 
-    Ok(cuprate_types::rpc::BlockHeader {
+    let header = cuprate_types::rpc::BlockHeader {
         block_weight,
         cumulative_difficulty_top64,
         cumulative_difficulty,
@@ -110,7 +122,9 @@ pub(super) async fn block_header(
         reward,
         timestamp: block.header.timestamp,
     }
-    .into())
+    .into();
+
+    Ok((header, block))
 }
 
 /// Same as [`block_header`] but with the block's hash.
@@ -119,13 +133,23 @@ pub(super) async fn block_header_by_hash(
     hash: [u8; 32],
     fill_pow_hash: bool,
 ) -> Result<BlockHeader, Error> {
-    let (_, height) = blockchain::find_block(&mut state.blockchain_read, hash)
+    let mut blockchain_read = state.blockchain_read.transaction();
+    let (header, _) =
+        block_header_by_hash_with_tx(state, &mut blockchain_read, hash, fill_pow_hash).await?;
+    Ok(header)
+}
+
+pub(super) async fn block_header_by_hash_with_tx(
+    state: &mut CupratedRpcHandler,
+    blockchain_read: &mut BlockchainReadHandleTx,
+    hash: [u8; 32],
+    fill_pow_hash: bool,
+) -> Result<(BlockHeader, monero_oxide::block::Block), Error> {
+    let (_, height) = blockchain::find_block(blockchain_read, hash)
         .await?
         .ok_or_else(|| anyhow!("Block did not exist."))?;
 
-    let block_header = block_header(state, usize_to_u64(height), fill_pow_hash).await?;
-
-    Ok(block_header)
+    block_header_with_tx(state, blockchain_read, usize_to_u64(height), fill_pow_hash).await
 }
 
 /// Check if `height` is greater than the [`top_height`].

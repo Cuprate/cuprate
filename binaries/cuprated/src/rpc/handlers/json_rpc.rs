@@ -246,7 +246,7 @@ async fn submit_block(
         .handle_incoming_block(
             block,
             HashMap::new(), // this function reads the txpool
-            &mut state.blockchain_read,
+            &mut state.blockchain_read.transaction(),
             &mut state.txpool_read,
         )
         .await?;
@@ -318,13 +318,25 @@ async fn get_block_header_by_hash(
         ));
     }
 
-    let block_header =
-        helper::block_header_by_hash(&mut state, request.hash.0, request.fill_pow_hash).await?;
+    let mut blockchain_read = state.blockchain_read.transaction();
+    let (block_header, _) = helper::block_header_by_hash_with_tx(
+        &mut state,
+        &mut blockchain_read,
+        request.hash.0,
+        request.fill_pow_hash,
+    )
+    .await?;
 
     // FIXME PERF: could make a `Vec` on await on all tasks at the same time.
     let mut block_headers = Vec::with_capacity(request.hashes.len());
     for hash in request.hashes {
-        let hash = helper::block_header_by_hash(&mut state, hash.0, request.fill_pow_hash).await?;
+        let (hash, _) = helper::block_header_by_hash_with_tx(
+            &mut state,
+            &mut blockchain_read,
+            hash.0,
+            request.fill_pow_hash,
+        )
+        .await?;
         block_headers.push(hash);
     }
 
@@ -392,10 +404,18 @@ async fn get_block_headers_range(
     };
 
     let mut headers = Vec::with_capacity(expected_len);
+    let mut blockchain_read = state.blockchain_read.transaction();
 
     for height in range {
+        // TODO: this request is inefficient as it requests the same block multiple times.
         let height = usize_to_u64(height);
-        let header = helper::block_header(&mut state, height, request.fill_pow_hash).await?;
+        let (header, _) = helper::block_header_with_tx(
+            &mut state,
+            &mut blockchain_read,
+            height,
+            request.fill_pow_hash,
+        )
+        .await?;
         headers.push(header);
     }
 
@@ -410,18 +430,27 @@ async fn get_block(
     mut state: CupratedRpcHandler,
     request: GetBlockRequest,
 ) -> Result<GetBlockResponse, Error> {
+    let mut blockchain_read = state.blockchain_read.transaction();
     let (block, block_header) = if request.hash.is_empty() {
         helper::check_height(&mut state, request.height)?;
 
-        let block = blockchain::block(&mut state.blockchain_read, request.height).await?;
-        let block_header =
-            helper::block_header(&mut state, request.height, request.fill_pow_hash).await?;
+        let (block_header, block) = helper::block_header_with_tx(
+            &mut state,
+            &mut blockchain_read,
+            request.height,
+            request.fill_pow_hash,
+        )
+        .await?;
         (block, block_header)
     } else {
         let hash: [u8; 32] = request.hash.try_into()?;
-        let block = blockchain::block_by_hash(&mut state.blockchain_read, hash).await?;
-        let block_header =
-            helper::block_header_by_hash(&mut state, hash, request.fill_pow_hash).await?;
+        let (block_header, block) = helper::block_header_by_hash_with_tx(
+            &mut state,
+            &mut blockchain_read,
+            hash,
+            request.fill_pow_hash,
+        )
+        .await?;
         (block, block_header)
     };
 

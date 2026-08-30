@@ -22,7 +22,7 @@ mod read;
 mod write;
 
 pub use free::init_with_pool;
-pub use read::BlockchainReadHandle;
+pub use read::{BlockchainReadHandle, BlockchainReadHandleTx};
 pub use write::{init_write_service, BlockchainWriteHandle};
 
 //---------------------------------------------------------------------------------------------------- Types
