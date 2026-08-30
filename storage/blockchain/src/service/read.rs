@@ -673,10 +673,7 @@ fn block_extended_header_in_range(
 
 /// [`BlockchainReadRequest::ChainHeight`].
 #[inline]
-fn chain_height(
-    db: &BlockchainDatabase,
-    txs: Option<&ReadTransactions>,
-) -> ResponseResult {
+fn chain_height(db: &BlockchainDatabase, txs: Option<&ReadTransactions>) -> ResponseResult {
     let local_tapes;
     let tapes = if let Some(txs) = txs {
         let (_, tapes) = txs;
@@ -1299,10 +1296,7 @@ fn block_by_hash(
 }
 
 /// [`BlockchainReadRequest::TotalTxCount`]
-fn total_tx_count(
-    db: &BlockchainDatabase,
-    txs: Option<&ReadTransactions>,
-) -> BlockchainResponse {
+fn total_tx_count(db: &BlockchainDatabase, txs: Option<&ReadTransactions>) -> BlockchainResponse {
     let local_tapes;
     let tapes = if let Some(txs) = txs {
         let (_, tapes) = txs;
@@ -1336,10 +1330,7 @@ fn dir_size(path: &std::path::Path) -> u64 {
 }
 
 /// [`BlockchainReadRequest::DatabaseSize`]
-fn database_size(
-    db: &BlockchainDatabase,
-    _txs: Option<&ReadTransactions>,
-) -> BlockchainResponse {
+fn database_size(db: &BlockchainDatabase, _txs: Option<&ReadTransactions>) -> BlockchainResponse {
     // Sum file sizes in both data directories (blob and index).
     let blob_size = dir_size(&db.config.blob_dir);
     let index_size = if db.config.index_dir == db.config.blob_dir {
@@ -1610,10 +1601,7 @@ fn alt_chains(db: &BlockchainDatabase, txs: Option<&ReadTransactions>) -> Respon
 }
 
 /// [`BlockchainReadRequest::AltChainCount`]
-fn alt_chain_count(
-    db: &BlockchainDatabase,
-    txs: Option<&ReadTransactions>,
-) -> ResponseResult {
+fn alt_chain_count(db: &BlockchainDatabase, txs: Option<&ReadTransactions>) -> ResponseResult {
     let local_tx;
     let tx_ro = if let Some(txs) = txs {
         let (tx_ro, _) = txs;
