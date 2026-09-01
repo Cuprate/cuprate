@@ -4,33 +4,29 @@
 
 //---------------------------------------------------------------------------------------------------- Imports
 
-use std::sync::Arc;
-
 use serde::{Deserialize, Serialize};
-use tracing::info;
 
 use cuprate_p2p::TransportConfig;
 use cuprate_p2p_core::{ClearNet, Tor};
 use cuprate_p2p_transport::{
-    is_socks5_proxy, Daemon, DaemonClientConfig, DaemonServerConfig, Socks, SocksClientConfig,
+    Daemon, DaemonClientConfig, DaemonServerConfig, Socks, SocksClientConfig,
 };
 
-use crate::{
-    config::{p2p_port, Config},
-    p2p::ProxySettings,
-    LaunchContext,
-};
+use crate::{config::Config, p2p::ProxySettings, LaunchContext};
 
 #[cfg(feature = "arti")]
 use {
+    crate::config::p2p_port,
     arti_client::{
         config::{onion_service::OnionServiceConfigBuilder, CfgPath},
         StreamPrefs, TorClient, TorClientConfig,
     },
-    cuprate_p2p_transport::{Arti, ArtiClientConfig, ArtiServerConfig},
+    cuprate_p2p_transport::{is_socks5_proxy, Arti, ArtiClientConfig, ArtiServerConfig},
+    std::sync::Arc,
     tor_hsservice::OnionService,
     tor_persist::hsnickname::HsNickname,
     tor_rtcompat::PreferredRuntime,
+    tracing::info,
 };
 //---------------------------------------------------------------------------------------------------- Initialization
 
