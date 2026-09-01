@@ -1,15 +1,12 @@
 //! Logging
 //!
 //! `cuprated` log filtering settings and related functionality.
-use std::ops::BitAnd;
 use std::{
     fmt::{Display, Formatter},
     io::IsTerminal,
     sync::OnceLock,
 };
-use tracing::{
-    instrument::WithSubscriber, level_filters::LevelFilter, subscriber::Interest, Metadata,
-};
+use tracing::{level_filters::LevelFilter, subscriber::Interest, Metadata};
 use tracing_appender::{
     non_blocking::{NonBlocking, WorkerGuard},
     rolling::Rotation,

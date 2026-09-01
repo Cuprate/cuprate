@@ -1,26 +1,13 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
-use futures::StreamExt;
-use monero_oxide::block::Block;
-use tokio::sync::{mpsc, oneshot, Notify, OwnedSemaphorePermit, RwLock};
+use tokio::sync::{mpsc, Notify, OwnedSemaphorePermit, RwLock};
 use tokio_util::sync::CancellationToken;
-use tower::{BoxError, Service, ServiceExt};
-use tracing::error;
+use tower::BoxError;
 
-use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
-use cuprate_consensus::{
-    BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
-};
-use cuprate_p2p::{
-    block_downloader::{self, BlockBatch},
-    BroadcastSvc, NetworkInterface,
-};
+use cuprate_blockchain::service::BlockchainWriteHandle;
+use cuprate_consensus::BlockchainContextService;
+use cuprate_p2p::{block_downloader::BlockBatch, BroadcastSvc, NetworkInterface};
 use cuprate_p2p_core::ClearNet;
-use cuprate_txpool::service::TxpoolWriteHandle;
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, TransactionVerificationData,
-};
 
 use crate::{
     blockchain::{
@@ -37,7 +24,7 @@ mod handler;
 #[cfg(test)]
 mod tests;
 
-pub use commands::{BlockchainManagerCommand, IncomingBlockOk};
+pub(crate) use commands::{BlockchainManagerCommand, IncomingBlockOk};
 
 /// Initialize the blockchain manager.
 ///
@@ -106,7 +93,7 @@ pub(crate) async fn init_blockchain_manager(
 /// go through this.
 ///
 /// Other parts of Cuprate can interface with this by using the functions in [`interface`](super::interface).
-pub struct BlockchainManager {
+struct BlockchainManager {
     /// The [`BlockchainWriteHandle`], this is the _only_ part of Cuprate where a [`BlockchainWriteHandle`]
     /// is held.
     blockchain_write_handle: BlockchainWriteHandle,
@@ -130,7 +117,7 @@ pub struct BlockchainManager {
 
 impl BlockchainManager {
     /// The [`BlockchainManager`] task.
-    pub async fn run(
+    pub(crate) async fn run(
         mut self,
         mut block_batch_rx: mpsc::Receiver<(BlockBatch, Arc<OwnedSemaphorePermit>)>,
         mut command_rx: mpsc::Receiver<BlockchainManagerCommand>,

@@ -1,20 +1,15 @@
-use std::{
-    cmp::min,
-    collections::BTreeSet,
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
-};
+use std::{cmp::min, collections::BTreeSet, time::Duration};
 
 use bytes::Bytes;
 use futures::StreamExt;
 use indexmap::IndexMap;
-use rand::Rng;
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::{sync::CancellationToken, time::delay_queue, time::DelayQueue};
 use tower::{Service, ServiceExt};
-use tracing::{instrument, Instrument, Span};
+use tracing::instrument;
 
 use cuprate_dandelion_tower::{
-    pool::{DandelionPoolService, IncomingTx, IncomingTxBuilder},
+    pool::{DandelionPoolService, IncomingTxBuilder},
     traits::DiffuseRequest,
     TxState,
 };
@@ -29,7 +24,7 @@ use cuprate_types::TransactionVerificationData;
 use crate::{
     config::TxpoolConfig,
     monitor::{FatalError, TaskExecutor},
-    p2p::{CrossNetworkInternalPeerId, NetworkInterfaces},
+    p2p::CrossNetworkInternalPeerId,
     txpool::{
         dandelion::DiffuseService,
         incoming_tx::{DandelionTx, TxId},
@@ -48,8 +43,8 @@ const MAX_RECENTLY_REMOVED_TXS: usize = 5000;
 /// # Errors
 ///
 /// This function will return an [`Err`] if any inner service has an unrecoverable error.
-pub async fn start_txpool_manager(
-    mut txpool_write_handle: TxpoolWriteHandle,
+pub(crate) async fn start_txpool_manager(
+    txpool_write_handle: TxpoolWriteHandle,
     mut txpool_read_handle: TxpoolReadHandle,
     promote_tx_channel: mpsc::UnboundedReceiver<[u8; 32]>,
     diffuse_service: DiffuseService<ClearNet>,
@@ -141,7 +136,7 @@ pub async fn start_txpool_manager(
     clippy::large_enum_variant,
     reason = "`IncomingTx` is the most common command"
 )]
-pub enum TxpoolManagerCommand {
+pub(crate) enum TxpoolManagerCommand {
     /// An incoming transaction to add to the pool.
     IncomingTx(
         TransactionVerificationData,
@@ -156,7 +151,7 @@ pub enum TxpoolManagerCommand {
 }
 
 /// Response to [`TxpoolManagerCommand::PoolInfoSince`].
-pub struct PoolInfoSinceResponse {
+pub(crate) struct PoolInfoSinceResponse {
     /// `true` if the manager's incremental tracking does not reach back to the
     /// requested timestamp, so the caller must send a full pool snapshot
     ///
@@ -170,7 +165,7 @@ pub struct PoolInfoSinceResponse {
 
 /// A handle to the tx-pool manager.
 #[derive(Clone)]
-pub struct TxpoolManagerHandle {
+pub(crate) struct TxpoolManagerHandle {
     /// Channel for sending commands to the manager.
     pub command_tx: mpsc::Sender<TxpoolManagerCommand>,
 
@@ -179,11 +174,12 @@ pub struct TxpoolManagerHandle {
 }
 
 impl TxpoolManagerHandle {
+    #[cfg(test)]
     /// Create a mock [`TxpoolManagerHandle`] that does nothing.
     ///
     /// Useful for testing.
     #[expect(clippy::let_underscore_must_use)]
-    pub fn mock() -> Self {
+    pub(crate) fn mock() -> Self {
         let (spent_kis_tx, mut spent_kis_rx) = mpsc::channel(1);
         let (command_tx, mut command_rx) = mpsc::channel(100);
 
@@ -212,7 +208,10 @@ impl TxpoolManagerHandle {
     }
 
     /// Tell the tx-pool about spent key images in an incoming block.
-    pub async fn new_block(&mut self, spent_key_images: Vec<[u8; 32]>) -> Result<(), FatalError> {
+    pub(crate) async fn new_block(
+        &self,
+        spent_key_images: Vec<[u8; 32]>,
+    ) -> Result<(), FatalError> {
         let (tx, rx) = oneshot::channel();
 
         drop(self.spent_kis_tx.send((spent_key_images, tx)).await);
@@ -224,8 +223,16 @@ impl TxpoolManagerHandle {
 /// Information on a transaction in the tx-pool.
 struct TxInfo {
     /// The weight of the transaction.
+    #[expect(
+        dead_code,
+        reason = "Will be used when we need to create block templates"
+    )]
     weight: usize,
     /// The fee the transaction paid.
+    #[expect(
+        dead_code,
+        reason = "Will be used when we need to create block templates"
+    )]
     fee: u64,
     /// The UNIX timestamp when the tx was received.
     received_at: u64,

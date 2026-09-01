@@ -1,16 +1,13 @@
 //! cuprated config
 use std::{
     fmt,
-    fs::{read_to_string, File},
-    io,
+    fs::read_to_string,
     net::{IpAddr, TcpListener},
     path::{Path, PathBuf},
     str::FromStr,
-    time::Duration,
 };
 
 use anyhow::{bail, Context};
-use cuprate_blockchain::config::CacheSizes;
 use serde::{Deserialize, Serialize};
 
 use cuprate_consensus::ContextConfig;
@@ -373,8 +370,6 @@ impl Config {
 
     /// The [`cuprate_blockchain`] config.
     pub fn blockchain_config(&self) -> cuprate_blockchain::config::Config {
-        let blockchain = &self.storage.blockchain;
-
         cuprate_blockchain::config::Config {
             blob_dir: path_with_network(&self.fs.slow_data_directory, self.network),
             index_dir: path_with_network(&self.fs.fast_data_directory, self.network),
@@ -455,16 +450,16 @@ impl Config {
         }
 
         if let Err(e) = std::fs::read_dir(path) {
-            bail!("No read permission for {}", path.display())
+            bail!("Failed to read file {} {e}", path.display())
         }
 
         let test_file = path.join(".cuprate_write_test");
         if let Err(e) = std::fs::write(&test_file, b"Cuprate") {
-            bail!("No write permission for {}", path.display());
+            bail!("Failed to write file {} {e}", path.display());
         }
 
         if let Err(e) = std::fs::remove_file(&test_file) {
-            bail!("Cannot remove temporary file from {}", path.display());
+            bail!("Cannot remove temporary file from {} {e}", path.display());
         }
 
         Ok(())

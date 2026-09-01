@@ -5,7 +5,7 @@ use cuprate_wire::OnionAddr;
 
 /// An identifier for a P2P peer on any network.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum CrossNetworkInternalPeerId {
+pub(crate) enum CrossNetworkInternalPeerId {
     /// A clear-net peer.
     ClearNet(InternalPeerID<<ClearNet as NetworkZone>::Addr>),
     /// A Tor onion peer.

@@ -1,9 +1,6 @@
-use std::path::PathBuf;
-
 use serde::{Deserialize, Serialize};
 
 use cuprate_blockchain::config::{CacheSizes, Persistence};
-use cuprate_helper::fs::CUPRATE_DATA_DIR;
 
 use super::{default::DefaultOrCustom, macros::config_struct};
 

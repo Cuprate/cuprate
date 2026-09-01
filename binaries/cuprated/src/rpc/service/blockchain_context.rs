@@ -7,8 +7,7 @@ use monero_oxide::block::Block;
 use tower::{Service, ServiceExt};
 
 use cuprate_consensus_context::{
-    BlockChainContextRequest, BlockChainContextResponse, BlockchainContext,
-    BlockchainContextService,
+    BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
 };
 use cuprate_types::{
     rpc::{FeeEstimate, HardForkInfo, OutputDistributionData},
@@ -107,23 +106,4 @@ pub(crate) async fn calculate_pow(
     };
 
     Ok(hash)
-}
-
-/// [`BlockChainContextRequest::BatchGetDifficulties`]
-pub async fn batch_get_difficulties(
-    blockchain_context: &mut BlockchainContextService,
-    difficulties: Vec<(u64, HardFork)>,
-) -> Result<Vec<u128>, Error> {
-    let BlockChainContextResponse::BatchDifficulties(resp) = blockchain_context
-        .ready()
-        .await
-        .map_err(|e| anyhow!(e))?
-        .call(BlockChainContextRequest::BatchGetDifficulties(difficulties))
-        .await
-        .map_err(|e| anyhow!(e))?
-    else {
-        unreachable!();
-    };
-
-    Ok(resp)
 }

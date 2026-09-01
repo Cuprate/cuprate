@@ -1,7 +1,6 @@
 use std::{
-    cmp::{max, min},
-    marker::PhantomData,
-    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    cmp::min,
+    net::{Ipv4Addr, Ipv6Addr, SocketAddr},
     path::Path,
     time::Duration,
 };
@@ -12,22 +11,12 @@ use cuprate_helper::{cast::u64_to_usize, fs::address_book_path, network::Network
 use cuprate_p2p::config::TransportConfig;
 use cuprate_p2p_core::{
     transports::{Tcp, TcpServerConfig},
-    ClearNet, NetworkZone, Tor, Transport,
+    ClearNet, NetworkZone,
 };
 use cuprate_wire::OnionAddr;
 
 use super::{default::DefaultOrCustom, macros::config_struct};
-use crate::{p2p::ProxySettings, tor::TorMode};
-
-#[cfg(feature = "arti")]
-use {
-    arti_client::{
-        config::onion_service::{OnionServiceConfig, OnionServiceConfigBuilder},
-        TorClient, TorClientBuilder, TorClientConfig,
-    },
-    cuprate_p2p_transport::{Arti, ArtiClientConfig, ArtiServerConfig, Socks, SocksClientConfig},
-    tor_rtcompat::PreferredRuntime,
-};
+use crate::p2p::ProxySettings;
 
 config_struct! {
     /// P2P config.
@@ -416,7 +405,7 @@ impl AddressBookConfig {
 }
 
 /// Seed nodes for [`ClearNet`].
-pub fn clear_net_seed_nodes(network: Network) -> Vec<SocketAddr> {
+pub(crate) fn clear_net_seed_nodes(network: Network) -> Vec<SocketAddr> {
     let seeds = match network {
         Network::FakeChain => [].as_slice(),
         Network::Mainnet => [
@@ -455,7 +444,7 @@ pub fn clear_net_seed_nodes(network: Network) -> Vec<SocketAddr> {
 }
 
 /// Seed nodes for `Tor`.
-pub fn tor_net_seed_nodes(network: Network) -> Vec<OnionAddr> {
+pub(crate) fn tor_net_seed_nodes(network: Network) -> Vec<OnionAddr> {
     let seeds = match network {
         Network::Mainnet => [
             "zbjkbsxc5munw3qusl7j2hpcmikhqocdf4pqhnhtpzw5nt5jrmofptid.onion:18083",

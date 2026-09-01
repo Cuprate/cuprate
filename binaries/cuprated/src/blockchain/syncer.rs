@@ -12,14 +12,13 @@ use tokio_util::sync::CancellationToken;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
-use cuprate_consensus::{BlockChainContextRequest, BlockChainContextResponse, BlockchainContext};
 use cuprate_consensus_context::BlockchainContextService;
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p::{
     block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
     NetworkInterface, PeerSetRequest, PeerSetResponse,
 };
-use cuprate_p2p_core::{client::PeerSyncCallback, ClearNet, CoreSyncData, NetworkZone};
+use cuprate_p2p_core::{client::PeerSyncCallback, ClearNet, CoreSyncData};
 
 use super::BlockchainManagerHandle;
 use crate::monitor::FatalError;
@@ -32,7 +31,7 @@ enum SyncStatus {
 }
 
 /// The syncer that makes sure we are fully synchronised with our connected peers.
-pub struct BlockchainSyncer {
+pub(crate) struct BlockchainSyncer {
     notify_syncer: Arc<Notify>,
     synced_tx: Option<futures::channel::oneshot::Sender<()>>,
     target_height: Arc<AtomicU64>,
@@ -40,7 +39,7 @@ pub struct BlockchainSyncer {
 
 impl BlockchainSyncer {
     /// Create a new [`BlockchainSyncer`] from its handle and the sender used to signal the node has synced.
-    pub fn new(
+    pub(crate) fn new(
         handle: &BlockchainSyncerHandle,
         synced_tx: futures::channel::oneshot::Sender<()>,
         offline: bool,
@@ -64,7 +63,7 @@ impl BlockchainSyncer {
     #[instrument(name = "syncer", level = "debug", skip_all)]
     #[expect(clippy::significant_drop_tightening)]
     #[expect(clippy::too_many_arguments)]
-    pub async fn run<CN>(
+    pub(crate) async fn run<CN>(
         mut self,
         mut context_svc: BlockchainContextService,
         our_chain: CN,
@@ -173,7 +172,7 @@ impl BlockchainSyncer {
 
     /// Checks if we are behind the connected peers.
     async fn check_sync_status(
-        &mut self,
+        &self,
         context_svc: &mut BlockchainContextService,
         clearnet_interface: &mut NetworkInterface<ClearNet>,
     ) -> Result<SyncStatus, tower::BoxError> {

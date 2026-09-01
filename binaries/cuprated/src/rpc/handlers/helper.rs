@@ -17,7 +17,6 @@ use cuprate_rpc_types::{
     misc::BlockHeader,
 };
 use cuprate_types::{Chain, HardFork};
-use monero_oxide::transaction::Timelock;
 
 use crate::rpc::{
     service::{blockchain, blockchain_context},
@@ -57,8 +56,12 @@ pub(super) async fn block_header(
     let pow_hash = if fill_pow_hash && !state.is_restricted() {
         let seed_height =
             cuprate_consensus_rules::blocks::randomx_seed_height(u64_to_usize(height));
-        let seed_hash =
-            blockchain::block_hash(&mut state.blockchain_read, height, Chain::Main).await?;
+        let seed_hash = blockchain::block_hash(
+            &mut state.blockchain_read,
+            usize_to_u64(seed_height),
+            Chain::Main,
+        )
+        .await?;
 
         Some(
             blockchain_context::calculate_pow(
@@ -145,22 +148,6 @@ pub(super) fn check_height(state: &mut CupratedRpcHandler, height: u64) -> Resul
     Ok(top_height)
 }
 
-/// Parse a hexadecimal [`String`] as a 32-byte hash.
-#[expect(clippy::needless_pass_by_value)]
-pub(super) fn hex_to_hash(hex: String) -> Result<[u8; 32], Error> {
-    let error = || anyhow!("Failed to parse hex representation of hash. Hex = {hex}.");
-
-    let Ok(bytes) = hex::decode(&hex) else {
-        return Err(error());
-    };
-
-    let Ok(hash) = bytes.try_into() else {
-        return Err(error());
-    };
-
-    Ok(hash)
-}
-
 /// [`cuprate_types::blockchain::BlockchainResponse::ChainHeight`] minus 1.
 pub(super) fn top_height(state: &mut CupratedRpcHandler) -> (u64, [u8; 32]) {
     let context = state.blockchain_context.blockchain_context();
@@ -169,7 +156,7 @@ pub(super) fn top_height(state: &mut CupratedRpcHandler) -> (u64, [u8; 32]) {
 }
 
 /// TODO: impl bootstrap
-pub const fn response_base(is_bootstrap: bool) -> ResponseBase {
+pub(crate) const fn response_base(is_bootstrap: bool) -> ResponseBase {
     if is_bootstrap {
         ResponseBase::OK_UNTRUSTED
     } else {
@@ -178,7 +165,7 @@ pub const fn response_base(is_bootstrap: bool) -> ResponseBase {
 }
 
 /// TODO: impl bootstrap
-pub const fn access_response_base(is_bootstrap: bool) -> AccessResponseBase {
+pub(crate) const fn access_response_base(is_bootstrap: bool) -> AccessResponseBase {
     if is_bootstrap {
         AccessResponseBase::OK_UNTRUSTED
     } else {

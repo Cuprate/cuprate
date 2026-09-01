@@ -49,14 +49,6 @@ If this happens frequently, consider using the `Safe` sync mode.";
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::config::Config;
-
-    #[test]
-    fn version() {
-        let semantic_version = format!("{MAJOR_VERSION}.{MINOR_VERSION}.{PATCH_VERSION}");
-        assert_eq!(VERSION, VERSION);
-        assert_eq!(VERSION, "0.1.0-preview");
-    }
 
     #[test]
     fn version_build() {

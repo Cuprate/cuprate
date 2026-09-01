@@ -4,24 +4,16 @@
 //! Some handlers have `todo!()`s for other Cuprate internals that must be completed, see:
 //! <https://github.com/Cuprate/cuprate/pull/355>
 
-use std::{
-    collections::{HashMap, HashSet},
-    num::NonZero,
-};
+use std::num::NonZero;
 
 use anyhow::{anyhow, Error};
 use cuprate_types::PreRctOutputDistributionInput;
-use monero_oxide::transaction::Timelock;
 
 use cuprate_constants::rpc::MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT;
 use cuprate_helper::cast::usize_to_u64;
-use cuprate_hex::Hex;
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
-    bin::{
-        GetOutsRequest, GetOutsResponse, GetTransactionPoolHashesRequest,
-        GetTransactionPoolHashesResponse,
-    },
+    bin::{GetOutsRequest, GetOutsResponse},
     json::{GetOutputDistributionRequest, GetOutputDistributionResponse},
     misc::{Distribution, DistributionCompressedBinary, DistributionUncompressed, OutKeyBin},
 };

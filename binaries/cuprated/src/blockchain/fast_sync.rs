@@ -1,5 +1,3 @@
-use std::slice;
-
 use cuprate_helper::network::Network;
 
 /// The hashes of the compiled in fast sync file.

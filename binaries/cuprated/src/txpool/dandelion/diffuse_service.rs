@@ -3,17 +3,16 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::FutureExt;
 use tower::Service;
 
 use cuprate_dandelion_tower::traits::DiffuseRequest;
 use cuprate_p2p::{BroadcastRequest, BroadcastSvc};
-use cuprate_p2p_core::{ClearNet, NetworkZone};
+use cuprate_p2p_core::NetworkZone;
 
 use crate::txpool::dandelion::DandelionTx;
 
 /// The dandelion diffusion service.
-pub struct DiffuseService<N: NetworkZone> {
+pub(crate) struct DiffuseService<N: NetworkZone> {
     pub clear_net_broadcast_service: BroadcastSvc<N>,
 }
 

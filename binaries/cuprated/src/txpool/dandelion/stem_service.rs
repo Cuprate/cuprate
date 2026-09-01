@@ -1,6 +1,4 @@
 use std::{
-    future::Future,
-    ops::DerefMut,
     pin::Pin,
     task::{ready, Context, Poll},
 };
@@ -13,20 +11,20 @@ use cuprate_dandelion_tower::{traits::StemRequest, OutboundPeer};
 use cuprate_p2p::{ClientDropGuard, NetworkInterface, PeerSetRequest, PeerSetResponse};
 use cuprate_p2p_core::{
     client::{Client, InternalPeerID},
-    BroadcastMessage, ClearNet, NetworkZone, PeerRequest, ProtocolRequest, Tor,
+    BroadcastMessage, NetworkZone,
 };
 use cuprate_wire::protocol::NewTransactions;
 
 use crate::{p2p::CrossNetworkInternalPeerId, txpool::dandelion::DandelionTx};
 
 /// The dandelion outbound peer stream.
-pub struct OutboundPeerStream<Z: NetworkZone> {
+pub(crate) struct OutboundPeerStream<Z: NetworkZone> {
     network_interface: NetworkInterface<Z>,
     state: OutboundPeerStreamState<Z>,
 }
 
 impl<Z: NetworkZone> OutboundPeerStream<Z> {
-    pub const fn new(network_interface: NetworkInterface<Z>) -> Self {
+    pub(crate) const fn new(network_interface: NetworkInterface<Z>) -> Self {
         Self {
             network_interface,
             state: OutboundPeerStreamState::Standby,
@@ -46,7 +44,9 @@ where
             match &mut self.state {
                 OutboundPeerStreamState::Standby => {
                     let peer_set = self.network_interface.peer_set();
-                    let res = ready!(peer_set.poll_ready(cx));
+                    if let Err(res) = ready!(peer_set.poll_ready(cx)) {
+                        return Poll::Ready(Some(Err(res)));
+                    }
 
                     self.state = OutboundPeerStreamState::AwaitingPeer(
                         peer_set.call(PeerSetRequest::StemPeer).boxed(),
@@ -84,7 +84,7 @@ enum OutboundPeerStreamState<Z: NetworkZone> {
 }
 
 /// The stem service, used to send stem txs.
-pub struct StemPeerService<N: NetworkZone>(ClientDropGuard<N>);
+pub(crate) struct StemPeerService<N: NetworkZone>(ClientDropGuard<N>);
 
 impl<N: NetworkZone> Service<StemRequest<DandelionTx>> for StemPeerService<N> {
     type Response = <Client<N> as Service<BroadcastMessage>>::Response;

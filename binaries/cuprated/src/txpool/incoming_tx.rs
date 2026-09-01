@@ -11,11 +11,9 @@ use tokio::sync::{mpsc, oneshot, RwLock};
 use tower::{BoxError, Service, ServiceExt};
 use tracing::instrument;
 
-use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::{
-    transactions::{new_tx_verification_data, start_tx_verification, PrepTransactions},
-    BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
-    VerificationContext,
+    transactions::{new_tx_verification_data, start_tx_verification},
+    BlockchainContextService, VerificationContext,
 };
 use cuprate_dandelion_tower::{
     pool::{DandelionPoolService, IncomingTxBuilder},
@@ -26,9 +24,7 @@ use cuprate_p2p::NetworkInterface;
 use cuprate_p2p_core::{ClearNet, Tor};
 use cuprate_txpool::{
     service::{
-        interface::{
-            TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest, TxpoolWriteResponse,
-        },
+        interface::{TxpoolReadRequest, TxpoolReadResponse},
         TxpoolReadHandle, TxpoolWriteHandle,
     },
     transaction_blob_hash, TxPoolError,
@@ -39,9 +35,7 @@ use crate::{
     blockchain::ConsensusBlockchainReadHandle,
     p2p::CrossNetworkInternalPeerId,
     txpool::{
-        dandelion::{
-            self, AnonTxService, ConcreteDandelionRouter, DiffuseService, MainDandelionRouter,
-        },
+        dandelion::{self, DiffuseService, MainDandelionRouter},
         manager::{start_txpool_manager, TxpoolManagerCommand, TxpoolManagerHandle},
         relay_rules::check_tx_relay_rules,
         txs_being_handled::{TxsBeingHandled, TxsBeingHandledLocally},
@@ -51,7 +45,7 @@ use crate::{
 };
 
 /// Incoming transactions.
-pub struct IncomingTxs {
+pub(crate) struct IncomingTxs {
     /// The raw bytes of the transactions.
     pub txs: Vec<Bytes>,
     /// The routing state of the transactions.
@@ -60,6 +54,7 @@ pub struct IncomingTxs {
     /// rules will be ignored and processing will continue,
     /// otherwise the service will return an early error.
     pub drop_relay_rule_errors: bool,
+    #[expect(dead_code, reason = "TODO:")]
     /// If [`true`], only checks will be done,
     /// the transaction will not be relayed.
     pub do_not_relay: bool,
@@ -67,7 +62,7 @@ pub struct IncomingTxs {
 
 ///  The transaction type used for dandelion++.
 #[derive(Clone)]
-pub struct DandelionTx(pub Bytes);
+pub(crate) struct DandelionTx(pub Bytes);
 
 /// A transaction ID/hash.
 pub(super) type TxId = [u8; 32];
@@ -76,7 +71,7 @@ pub(super) type TxId = [u8; 32];
 ///
 /// This service handles everything including verifying the tx, adding it to the pool and routing it to other nodes.
 #[derive(Clone)]
-pub struct IncomingTxHandler {
+pub(crate) struct IncomingTxHandler {
     /// A store of txs currently being handled in incoming tx requests.
     pub(super) txs_being_handled: TxsBeingHandled,
     /// The blockchain context cache.
@@ -97,7 +92,7 @@ impl IncomingTxHandler {
     /// Initialize the [`IncomingTxHandler`].
     #[expect(clippy::significant_drop_tightening)]
     #[instrument(level = "info", skip_all, name = "start_txpool")]
-    pub async fn init(
+    pub(crate) async fn init(
         launch_ctx: &LaunchContext,
         clear_net: NetworkInterface<ClearNet>,
         tor_net_rx: Option<oneshot::Receiver<NetworkInterface<Tor>>>,
@@ -167,7 +162,7 @@ impl Service<IncomingTxs> for IncomingTxHandler {
     type Error = IncomingTxError;
     type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
     }
 
@@ -193,19 +188,20 @@ async fn handle_incoming_txs(
         txs,
         state,
         drop_relay_rule_errors,
-        do_not_relay,
+        // TODO: use this field
+        do_not_relay: _,
     }: IncomingTxs,
     txs_being_handled: TxsBeingHandled,
     mut blockchain_context_cache: BlockchainContextService,
     blockchain_read_handle: ConsensusBlockchainReadHandle,
     mut txpool_read_handle: TxpoolReadHandle,
-    mut txpool_manager_handle: TxpoolManagerHandle,
+    txpool_manager_handle: TxpoolManagerHandle,
     mut dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
     reorg_lock: Arc<RwLock<()>>,
 ) -> Result<(), IncomingTxError> {
     let _reorg_guard = reorg_lock.read().await;
 
-    let (txs, stem_pool_txs, txs_being_handled_guard) =
+    let (txs, stem_pool_txs, _txs_being_handled_guard) =
         prepare_incoming_txs(txs, txs_being_handled, &mut txpool_read_handle).await?;
 
     let context = blockchain_context_cache.blockchain_context();

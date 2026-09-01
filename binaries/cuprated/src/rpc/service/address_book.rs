@@ -5,7 +5,7 @@ use std::net::SocketAddrV4;
 use anyhow::{anyhow, Error};
 use tower::ServiceExt;
 
-use cuprate_helper::{cast::usize_to_u64, map::u32_from_ipv4};
+use cuprate_helper::map::u32_from_ipv4;
 use cuprate_p2p_core::{
     services::{AddressBookRequest, AddressBookResponse, ZoneSpecificPeerListEntryBase},
     types::{BanState, ConnectionId},
@@ -16,26 +16,8 @@ use cuprate_types::rpc::Peer;
 
 // FIXME: use `anyhow::Error` over `tower::BoxError` in address book.
 
-/// [`AddressBookRequest::PeerlistSize`]
-pub async fn peerlist_size<Z: NetworkZone>(
-    address_book: &mut impl AddressBook<Z>,
-) -> Result<(u64, u64), Error> {
-    let AddressBookResponse::PeerlistSize { white, grey } = address_book
-        .ready()
-        .await
-        .map_err(|e| anyhow!(e))?
-        .call(AddressBookRequest::PeerlistSize)
-        .await
-        .map_err(|e| anyhow!(e))?
-    else {
-        unreachable!();
-    };
-
-    Ok((usize_to_u64(white), usize_to_u64(grey)))
-}
-
 /// [`AddressBookRequest::ConnectionInfo`]
-pub async fn connection_info<Z: NetworkZone>(
+pub(crate) async fn connection_info<Z: NetworkZone>(
     address_book: &mut impl AddressBook<Z>,
 ) -> Result<Vec<ConnectionInfo>, Error> {
     let AddressBookResponse::ConnectionInfo(vec) = address_book
@@ -91,26 +73,8 @@ pub async fn connection_info<Z: NetworkZone>(
     Ok(vec)
 }
 
-/// [`AddressBookRequest::ConnectionCount`]
-pub async fn connection_count<Z: NetworkZone>(
-    address_book: &mut impl AddressBook<Z>,
-) -> Result<(u64, u64), Error> {
-    let AddressBookResponse::ConnectionCount { incoming, outgoing } = address_book
-        .ready()
-        .await
-        .map_err(|e| anyhow!(e))?
-        .call(AddressBookRequest::ConnectionCount)
-        .await
-        .map_err(|e| anyhow!(e))?
-    else {
-        unreachable!();
-    };
-
-    Ok((usize_to_u64(incoming), usize_to_u64(outgoing)))
-}
-
 /// [`AddressBookRequest::SetBan`]
-pub async fn set_ban<Z: NetworkZone>(
+pub(crate) async fn set_ban<Z: NetworkZone>(
     address_book: &mut impl AddressBook<Z>,
     set_ban: cuprate_p2p_core::types::SetBan<Z::Addr>,
 ) -> Result<(), Error> {
@@ -129,7 +93,7 @@ pub async fn set_ban<Z: NetworkZone>(
 }
 
 /// [`AddressBookRequest::GetBan`]
-pub async fn get_ban<Z: NetworkZone>(
+pub(crate) async fn get_ban<Z: NetworkZone>(
     address_book: &mut impl AddressBook<Z>,
     peer: Z::Addr,
 ) -> Result<Option<std::time::Instant>, Error> {
@@ -148,7 +112,7 @@ pub async fn get_ban<Z: NetworkZone>(
 }
 
 /// [`AddressBookRequest::GetBans`]
-pub async fn get_bans<Z: NetworkZone>(
+pub(crate) async fn get_bans<Z: NetworkZone>(
     address_book: &mut impl AddressBook<Z>,
 ) -> Result<Vec<BanState<Z::Addr>>, Error> {
     let AddressBookResponse::GetBans(bans) = address_book
@@ -166,7 +130,7 @@ pub async fn get_bans<Z: NetworkZone>(
 }
 
 /// [`AddressBookRequest::Peerlist`]
-pub async fn peerlist<Z: NetworkZone>(
+pub(crate) async fn peerlist<Z: NetworkZone>(
     address_book: &mut impl AddressBook<Z>,
 ) -> Result<(Vec<Peer>, Vec<Peer>), Error> {
     let AddressBookResponse::Peerlist(peerlist) = address_book

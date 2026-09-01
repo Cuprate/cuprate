@@ -4,10 +4,9 @@ use std::{
 };
 
 use futures::{future::BoxFuture, FutureExt, TryFutureExt};
-use tower::{Service, ServiceExt};
+use tower::Service;
 
 use tokio::sync::{mpsc, oneshot};
-use tokio_util::sync::PollSender;
 
 use cuprate_dandelion_tower::{
     pool::DandelionPoolService, traits::StemRequest, DandelionConfig, DandelionRouteReq,
@@ -15,7 +14,7 @@ use cuprate_dandelion_tower::{
 };
 use cuprate_p2p::NetworkInterface;
 use cuprate_p2p_core::{client::InternalPeerID, ClearNet, NetworkZone, Tor};
-use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
+use cuprate_txpool::service::TxpoolReadHandle;
 
 use crate::{
     p2p::CrossNetworkInternalPeerId,
@@ -27,8 +26,8 @@ mod diffuse_service;
 mod stem_service;
 mod tx_store;
 
-pub use anon_net_service::AnonTxService;
-pub use diffuse_service::DiffuseService;
+pub(crate) use anon_net_service::AnonTxService;
+pub(crate) use diffuse_service::DiffuseService;
 
 /// The configuration used for [`cuprate_dandelion_tower`].
 ///
@@ -57,7 +56,7 @@ pub(super) struct MainDandelionRouter {
 }
 
 impl MainDandelionRouter {
-    pub const fn new(
+    pub(crate) const fn new(
         clearnet_router: ConcreteDandelionRouter<ClearNet>,
         tor_net_rx: Option<oneshot::Receiver<NetworkInterface<Tor>>>,
     ) -> Self {
@@ -126,7 +125,7 @@ impl Service<DandelionRouteReq<DandelionTx, CrossNetworkInternalPeerId>> for Mai
 }
 
 /// Starts the dandelion pool manager and returns its service and task handles.
-pub fn start_dandelion_pool_manager(
+pub(crate) fn start_dandelion_pool_manager(
     router: MainDandelionRouter,
     txpool_read_handle: TxpoolReadHandle,
     promote_tx: mpsc::UnboundedSender<[u8; 32]>,
@@ -147,7 +146,7 @@ pub fn start_dandelion_pool_manager(
 }
 
 /// Creates a [`DandelionRouter`] from a [`NetworkInterface`].
-pub fn dandelion_router<Z: NetworkZone>(
+pub(crate) fn dandelion_router<Z: NetworkZone>(
     network_interface: NetworkInterface<Z>,
 ) -> ConcreteDandelionRouter<Z>
 where

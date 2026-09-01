@@ -85,14 +85,14 @@ mod level_filter_serde {
     use tracing::level_filters::LevelFilter;
 
     #[expect(clippy::trivially_copy_pass_by_ref, reason = "serde")]
-    pub fn serialize<S>(level_filter: &LevelFilter, s: S) -> Result<S::Ok, S::Error>
+    pub(super) fn serialize<S>(level_filter: &LevelFilter, s: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         s.serialize_str(&level_filter.to_string())
     }
 
-    pub fn deserialize<'de, D>(d: D) -> Result<LevelFilter, D::Error>
+    pub(super) fn deserialize<'de, D>(d: D) -> Result<LevelFilter, D::Error>
     where
         D: Deserializer<'de>,
     {

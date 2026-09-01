@@ -9,7 +9,7 @@ use crate::{monitor::FatalError, txpool::relay_rules::RelayRuleError};
 
 /// An error returned while handling an incoming transaction.
 #[derive(Debug, thiserror::Error)]
-pub enum IncomingTxError {
+pub(crate) enum IncomingTxError {
     /// The transaction could not be parsed.
     #[error("Error parsing tx: {0}")]
     Parse(#[from] std::io::Error),

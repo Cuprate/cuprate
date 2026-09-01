@@ -20,7 +20,7 @@ const DYNAMIC_FEE_REFERENCE_TRANSACTION_WEIGHT: u128 = 3_000;
 const FEE_MASK: u64 = 10_u64.pow(4);
 
 #[derive(Debug, Error)]
-pub enum RelayRuleError {
+pub(crate) enum RelayRuleError {
     #[error("Tx has non-zero timelock.")]
     NonZeroTimelock,
     #[error("Tx extra field is too large.")]
@@ -32,7 +32,7 @@ pub enum RelayRuleError {
 /// Checks the transaction passes the relay rules.
 ///
 /// Relay rules are rules that govern the txs we accept to our tx-pool and propagate around the network.
-pub fn check_tx_relay_rules(
+pub(crate) fn check_tx_relay_rules(
     tx: &TransactionVerificationData,
     context: &BlockchainContext,
 ) -> Result<(), RelayRuleError> {
