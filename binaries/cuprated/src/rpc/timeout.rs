@@ -162,23 +162,24 @@ impl<S: AsyncRead + AsyncWrite> AsyncRead for WriteTimeout<S> {
 
 #[cfg(test)]
 mod test {
-    use std::{
-        future::Future,
-        io::ErrorKind,
-        net::{IpAddr, Ipv4Addr, SocketAddr},
-        time::Duration,
-    };
+    use std::{future::Future, io::ErrorKind, time::Duration};
 
-    #[cfg(not(target_os = "windows"))]
-    use tokio::select;
     use tokio::{
         io::{duplex, AsyncReadExt, AsyncWriteExt},
-        net::{TcpListener, TcpStream},
-        task::JoinSet,
         time::{sleep, timeout},
     };
 
     use crate::rpc::timeout::WriteTimeout;
+
+    #[cfg(not(target_os = "windows"))]
+    use {
+        std::net::{IpAddr, Ipv4Addr, SocketAddr},
+        tokio::{
+            net::{TcpListener, TcpStream},
+            select,
+            task::JoinSet,
+        },
+    };
 
     #[cfg(target_os = "macos")]
     const TEST_TIMEOUT: Duration = Duration::from_secs(2);
