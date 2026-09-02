@@ -3,27 +3,17 @@
 //! TODO:
 //! Some handlers have `todo!()`s for other Cuprate internals that must be completed, see:
 //! <https://github.com/Cuprate/cuprate/pull/355>
-
-use std::{
-    borrow::Cow,
-    collections::{BTreeSet, HashMap, HashSet},
-};
-
 use anyhow::{anyhow, Error};
-use monero_oxide::transaction::{Input, Pruned, Timelock, Transaction};
+use monero_oxide::transaction::{Input, Pruned, Transaction};
 
-use cuprate_constants::rpc::{
-    MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT, RESTRICTED_SPENT_KEY_IMAGES_COUNT,
-    RESTRICTED_TRANSACTIONS_COUNT,
-};
+use cuprate_constants::rpc::{RESTRICTED_SPENT_KEY_IMAGES_COUNT, RESTRICTED_TRANSACTIONS_COUNT};
 use cuprate_dandelion_tower::TxState;
-use cuprate_helper::cast::usize_to_u64;
+use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_hex::{Hex, HexVec};
 use cuprate_p2p_core::{client::handshaker::builder::DummyAddressBook, ClearNet};
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
-    base::{AccessResponseBase, ResponseBase},
-    json::{GetInfoRequest, GetInfoResponse},
+    base::ResponseBase,
     misc::{Status, TxEntry, TxEntryType},
     other::{
         GetAltBlocksHashesRequest, GetAltBlocksHashesResponse, GetHeightRequest, GetHeightResponse,
@@ -33,18 +23,16 @@ use cuprate_rpc_types::{
         GetTransactionPoolRequest, GetTransactionPoolResponse, GetTransactionPoolStatsRequest,
         GetTransactionPoolStatsResponse, GetTransactionsRequest, GetTransactionsResponse,
         InPeersRequest, InPeersResponse, IsKeyImageSpentRequest, IsKeyImageSpentResponse,
-        MiningStatusRequest, MiningStatusResponse, OtherRequest, OtherResponse, OutPeersRequest,
-        OutPeersResponse, PopBlocksRequest, PopBlocksResponse, SaveBcRequest, SaveBcResponse,
-        SendRawTransactionRequest, SendRawTransactionResponse, SetBootstrapDaemonRequest,
-        SetBootstrapDaemonResponse, SetLimitRequest, SetLimitResponse, SetLogCategoriesRequest,
-        SetLogCategoriesResponse, SetLogHashRateRequest, SetLogHashRateResponse,
-        SetLogLevelRequest, SetLogLevelResponse, StartMiningRequest, StartMiningResponse,
-        StopDaemonRequest, StopDaemonResponse, StopMiningRequest, StopMiningResponse,
+        OtherRequest, OtherResponse, OutPeersRequest, OutPeersResponse, PopBlocksRequest,
+        PopBlocksResponse, SaveBcRequest, SaveBcResponse, SendRawTransactionRequest,
+        SendRawTransactionResponse, SetBootstrapDaemonRequest, SetBootstrapDaemonResponse,
+        SetLimitRequest, SetLimitResponse, SetLogCategoriesRequest, SetLogCategoriesResponse,
+        SetLogLevelRequest, SetLogLevelResponse, StopDaemonRequest, StopDaemonResponse,
         UpdateRequest, UpdateResponse,
     },
 };
 use cuprate_types::{
-    rpc::{KeyImageSpentStatus, PoolInfo, PoolTxInfo, PublicNode},
+    rpc::{KeyImageSpentStatus, PublicNode},
     TxInBlockchain, TxInPool, TxRelayChecks,
 };
 
@@ -55,16 +43,14 @@ use crate::{
             helper,
             shared::{self, not_available},
         },
-        service::{
-            address_book, blockchain, blockchain_context, blockchain_manager, tx_handler, txpool,
-        },
+        service::{address_book, blockchain, tx_handler, txpool},
         CupratedRpcHandler,
     },
     txpool::IncomingTxs,
 };
 
 /// Map a [`OtherRequest`] to the function that will lead to a [`OtherResponse`].
-pub async fn map_request(
+pub(crate) async fn map_request(
     state: CupratedRpcHandler,
     request: OtherRequest,
 ) -> Result<OtherResponse, Error> {
@@ -72,31 +58,31 @@ pub async fn map_request(
     use OtherResponse as Resp;
 
     Ok(match request {
-        Req::GetHeight(r) => Resp::GetHeight(get_height(state, r).await?),
+        Req::GetHeight(r) => Resp::GetHeight(get_height(state, r)),
         Req::GetTransactions(r) => Resp::GetTransactions(get_transactions(state, r).await?),
-        Req::GetAltBlocksHashes(r) => Resp::GetAltBlocksHashes(not_available()?),
+        Req::GetAltBlocksHashes(_) => Resp::GetAltBlocksHashes(not_available()?),
         Req::IsKeyImageSpent(r) => Resp::IsKeyImageSpent(is_key_image_spent(state, r).await?),
         Req::SendRawTransaction(r) => {
             Resp::SendRawTransaction(send_raw_transaction(state, r).await?)
         }
-        Req::SaveBc(r) => Resp::SaveBc(not_available()?),
-        Req::GetPeerList(r) => Resp::GetPeerList(not_available()?),
-        Req::SetLogLevel(r) => Resp::SetLogLevel(not_available()?),
-        Req::SetLogCategories(r) => Resp::SetLogCategories(not_available()?),
-        Req::GetTransactionPool(r) => Resp::GetTransactionPool(not_available()?),
-        Req::GetTransactionPoolStats(r) => Resp::GetTransactionPoolStats(not_available()?),
-        Req::StopDaemon(r) => Resp::StopDaemon(stop_daemon(state, r).await?),
-        Req::GetLimit(r) => Resp::GetLimit(not_available()?),
-        Req::SetLimit(r) => Resp::SetLimit(not_available()?),
-        Req::OutPeers(r) => Resp::OutPeers(not_available()?),
-        Req::InPeers(r) => Resp::InPeers(not_available()?),
-        Req::GetNetStats(r) => Resp::GetNetStats(not_available()?),
-        Req::GetOuts(r) => Resp::GetOuts(not_available()?),
-        Req::PopBlocks(r) => Resp::PopBlocks(not_available()?),
+        Req::SaveBc(_) => Resp::SaveBc(not_available()?),
+        Req::GetPeerList(_) => Resp::GetPeerList(not_available()?),
+        Req::SetLogLevel(_) => Resp::SetLogLevel(not_available()?),
+        Req::SetLogCategories(_) => Resp::SetLogCategories(not_available()?),
+        Req::GetTransactionPool(_) => Resp::GetTransactionPool(not_available()?),
+        Req::GetTransactionPoolStats(_) => Resp::GetTransactionPoolStats(not_available()?),
+        Req::StopDaemon(r) => Resp::StopDaemon(stop_daemon(&state, r)?),
+        Req::GetLimit(_) => Resp::GetLimit(not_available()?),
+        Req::SetLimit(_) => Resp::SetLimit(not_available()?),
+        Req::OutPeers(_) => Resp::OutPeers(not_available()?),
+        Req::InPeers(_) => Resp::InPeers(not_available()?),
+        Req::GetNetStats(_) => Resp::GetNetStats(not_available()?),
+        Req::GetOuts(_) => Resp::GetOuts(not_available()?),
+        Req::PopBlocks(r) => Resp::PopBlocks(pop_blocks(state, r).await?),
         Req::GetTransactionPoolHashes(r) => {
             Resp::GetTransactionPoolHashes(get_transaction_pool_hashes(state, r).await?)
         }
-        Req::GetPublicNodes(r) => Resp::GetPublicNodes(not_available()?),
+        Req::GetPublicNodes(_) => Resp::GetPublicNodes(not_available()?),
         Req::GetInfo(r) => Resp::GetInfo(super::json_rpc::get_info(state, r).await?),
 
         // Unsupported requests.
@@ -110,19 +96,16 @@ pub async fn map_request(
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L486-L499>
-async fn get_height(
-    mut state: CupratedRpcHandler,
-    _: GetHeightRequest,
-) -> Result<GetHeightResponse, Error> {
+fn get_height(mut state: CupratedRpcHandler, _: GetHeightRequest) -> GetHeightResponse {
     let context = state.blockchain_context.blockchain_context();
     let height = usize_to_u64(context.chain_height);
     let hash = Hex(context.top_hash);
 
-    Ok(GetHeightResponse {
+    GetHeightResponse {
         base: helper::response_base(false),
         height,
         hash,
-    })
+    }
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L979-L1227>
@@ -292,6 +275,7 @@ async fn get_transactions(
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L790-L815>
+#[expect(dead_code)]
 async fn get_alt_blocks_hashes(
     mut state: CupratedRpcHandler,
     _: GetAltBlocksHashesRequest,
@@ -410,9 +394,9 @@ async fn send_raw_transaction(
         ///
         /// <https://github.com/monero-project/monero/blob/893916ad091a92e765ce3241b94e706ad012b62a/src/cryptonote_core/tx_sanity_check.cpp#L42>
         fn tx_sanity_check(tx: &Transaction, rct_outs_available: u64) -> Result<(), String> {
-            let Some(input) = tx.prefix().inputs.first() else {
+            if tx.prefix().inputs.is_empty() {
                 return Err("No inputs".to_string());
-            };
+            }
 
             let mut rct_indices = vec![];
             let mut n_indices: usize = 0;
@@ -423,7 +407,7 @@ async fn send_raw_transaction(
                     Input::ToKey {
                         amount,
                         key_offsets,
-                        key_image,
+                        key_image: _,
                     } => {
                         if amount.is_some() {
                             continue;
@@ -493,7 +477,7 @@ async fn send_raw_transaction(
 
     let txs = vec![tx.serialize().into()];
 
-    let mut txs = IncomingTxs {
+    let txs = IncomingTxs {
         txs,
         state: TxState::Local,
         drop_relay_rule_errors: false,
@@ -544,18 +528,20 @@ async fn send_raw_transaction(
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1525-L1535>
-async fn save_bc(mut state: CupratedRpcHandler, _: SaveBcRequest) -> Result<SaveBcResponse, Error> {
-    blockchain_manager::sync(todo!()).await?;
+#[expect(dead_code)]
+fn save_bc(_: CupratedRpcHandler, _: SaveBcRequest) -> SaveBcResponse {
+    // TODO: sync the blockchain here
 
-    Ok(SaveBcResponse {
+    SaveBcResponse {
         base: ResponseBase::OK,
-    })
+    }
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1537-L1582>
+#[expect(dead_code)]
 async fn get_peer_list(
-    mut state: CupratedRpcHandler,
-    request: GetPeerListRequest,
+    _state: CupratedRpcHandler,
+    _request: GetPeerListRequest,
 ) -> Result<GetPeerListResponse, Error> {
     let (white_list, gray_list) = address_book::peerlist::<ClearNet>(&mut DummyAddressBook).await?;
 
@@ -567,6 +553,7 @@ async fn get_peer_list(
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1663-L1687>
+#[expect(dead_code)]
 async fn get_transaction_pool(
     mut state: CupratedRpcHandler,
     _: GetTransactionPoolRequest,
@@ -584,6 +571,7 @@ async fn get_transaction_pool(
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1741-L1756>
+#[expect(dead_code)]
 async fn get_transaction_pool_stats(
     mut state: CupratedRpcHandler,
     _: GetTransactionPoolStatsRequest,
@@ -599,8 +587,8 @@ async fn get_transaction_pool_stats(
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1780-L1788>
-async fn stop_daemon(
-    state: CupratedRpcHandler,
+fn stop_daemon(
+    state: &CupratedRpcHandler,
     _: StopDaemonRequest,
 ) -> Result<StopDaemonResponse, Error> {
     if state.is_restricted() {
@@ -611,77 +599,52 @@ async fn stop_daemon(
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3066-L3077>
+#[expect(dead_code)]
 async fn get_limit(
-    mut state: CupratedRpcHandler,
+    _state: CupratedRpcHandler,
     _: GetLimitRequest,
 ) -> Result<GetLimitResponse, Error> {
     todo!("waiting on p2p service");
-
-    Ok(GetLimitResponse {
-        base: helper::response_base(false),
-        limit_down: todo!(),
-        limit_up: todo!(),
-    })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3079-L3117>
+#[expect(dead_code)]
 async fn set_limit(
-    mut state: CupratedRpcHandler,
-    request: SetLimitRequest,
+    _state: CupratedRpcHandler,
+    _request: SetLimitRequest,
 ) -> Result<SetLimitResponse, Error> {
     todo!("waiting on p2p service");
-
-    Ok(SetLimitResponse {
-        base: helper::response_base(false),
-        limit_down: todo!(),
-        limit_up: todo!(),
-    })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3119-L3127>
+#[expect(dead_code)]
 async fn out_peers(
-    mut state: CupratedRpcHandler,
-    request: OutPeersRequest,
+    _state: CupratedRpcHandler,
+    _request: OutPeersRequest,
 ) -> Result<OutPeersResponse, Error> {
     todo!("waiting on p2p service");
-
-    Ok(OutPeersResponse {
-        base: helper::response_base(false),
-        out_peers: todo!(),
-    })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3129-L3137>
+#[expect(dead_code)]
 async fn in_peers(
-    mut state: CupratedRpcHandler,
-    request: InPeersRequest,
+    _state: CupratedRpcHandler,
+    _request: InPeersRequest,
 ) -> Result<InPeersResponse, Error> {
     todo!("waiting on p2p service");
-
-    Ok(InPeersResponse {
-        base: helper::response_base(false),
-        in_peers: todo!(),
-    })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L584-L599>
+#[expect(dead_code)]
 async fn get_net_stats(
-    mut state: CupratedRpcHandler,
+    _state: CupratedRpcHandler,
     _: GetNetStatsRequest,
 ) -> Result<GetNetStatsResponse, Error> {
     todo!("waiting on p2p service");
-
-    Ok(GetNetStatsResponse {
-        base: helper::response_base(false),
-        start_time: state.start_instant_unix,
-        total_packets_in: todo!(),
-        total_bytes_in: todo!(),
-        total_packets_out: todo!(),
-        total_bytes_out: todo!(),
-    })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L912-L957>
+#[expect(dead_code)]
 async fn get_outs(
     state: CupratedRpcHandler,
     request: GetOutsRequest,
@@ -710,7 +673,12 @@ async fn pop_blocks(
     mut state: CupratedRpcHandler,
     request: PopBlocksRequest,
 ) -> Result<PopBlocksResponse, Error> {
-    let height = blockchain_manager::pop_blocks(todo!(), request.nblocks).await?;
+    state
+        .blockchain_manager
+        .pop_blocks(u64_to_usize(request.nblocks))
+        .await?;
+
+    let height = usize_to_u64(state.blockchain_context.blockchain_context().chain_height);
 
     Ok(PopBlocksResponse {
         base: helper::response_base(false),
@@ -720,7 +688,7 @@ async fn pop_blocks(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1713-L1739>
 async fn get_transaction_pool_hashes(
-    mut state: CupratedRpcHandler,
+    state: CupratedRpcHandler,
     _: GetTransactionPoolHashesRequest,
 ) -> Result<GetTransactionPoolHashesResponse, Error> {
     Ok(GetTransactionPoolHashesResponse {
@@ -734,9 +702,10 @@ async fn get_transaction_pool_hashes(
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L193-L225>
+#[expect(dead_code)]
 async fn get_public_nodes(
-    mut state: CupratedRpcHandler,
-    request: GetPublicNodesRequest,
+    _state: CupratedRpcHandler,
+    _request: GetPublicNodesRequest,
 ) -> Result<GetPublicNodesResponse, Error> {
     let (white, gray) = address_book::peerlist::<ClearNet>(&mut DummyAddressBook).await?;
 
@@ -775,67 +744,37 @@ async fn get_public_nodes(
 //---------------------------------------------------------------------------------------------------- Unsupported RPC calls (for now)
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1758-L1778>
+#[expect(dead_code)]
 async fn set_bootstrap_daemon(
-    state: CupratedRpcHandler,
-    request: SetBootstrapDaemonRequest,
+    _state: CupratedRpcHandler,
+    _request: SetBootstrapDaemonRequest,
 ) -> Result<SetBootstrapDaemonResponse, Error> {
     todo!();
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3139-L3240>
+#[expect(dead_code)]
 async fn update(
-    state: CupratedRpcHandler,
-    request: UpdateRequest,
+    _state: CupratedRpcHandler,
+    _request: UpdateRequest,
 ) -> Result<UpdateResponse, Error> {
     todo!();
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1641-L1652>
+#[expect(dead_code)]
 async fn set_log_level(
-    state: CupratedRpcHandler,
-    request: SetLogLevelRequest,
+    _state: CupratedRpcHandler,
+    _request: SetLogLevelRequest,
 ) -> Result<SetLogLevelResponse, Error> {
     todo!()
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1654-L1661>
+#[expect(dead_code)]
 async fn set_log_categories(
-    state: CupratedRpcHandler,
-    request: SetLogCategoriesRequest,
+    _state: CupratedRpcHandler,
+    _request: SetLogCategoriesRequest,
 ) -> Result<SetLogCategoriesResponse, Error> {
     todo!()
-}
-
-//---------------------------------------------------------------------------------------------------- Unsupported RPC calls (forever)
-
-/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1413-L1462>
-async fn start_mining(
-    state: CupratedRpcHandler,
-    request: StartMiningRequest,
-) -> Result<StartMiningResponse, Error> {
-    unreachable!()
-}
-
-/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1464-L1482>
-async fn stop_mining(
-    state: CupratedRpcHandler,
-    request: StopMiningRequest,
-) -> Result<StopMiningResponse, Error> {
-    unreachable!();
-}
-
-/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1484-L1523>
-async fn mining_status(
-    state: CupratedRpcHandler,
-    request: MiningStatusRequest,
-) -> Result<MiningStatusResponse, Error> {
-    unreachable!();
-}
-
-/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1626-L1639>
-async fn set_log_hash_rate(
-    state: CupratedRpcHandler,
-    request: SetLogHashRateRequest,
-) -> Result<SetLogHashRateResponse, Error> {
-    unreachable!();
 }

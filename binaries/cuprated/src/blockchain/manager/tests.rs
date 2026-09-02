@@ -1,11 +1,11 @@
-use std::{collections::HashMap, env::temp_dir, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use monero_oxide::{
     block::{Block, BlockHeader},
     ed25519::CompressedPoint,
     transaction::{Input, Output, Timelock, Transaction, TransactionPrefix},
 };
-use tokio::sync::{oneshot, watch};
+use tokio::sync::oneshot;
 use tower::BoxError;
 
 use cuprate_blockchain::config::Config;
@@ -42,8 +42,6 @@ async fn mock_manager(data_dir: PathBuf) -> BlockchainManager {
             Arc::clone(&thread_pool),
         )
         .unwrap();
-    let (txpool_read_handle, txpool_write_handle) =
-        cuprate_txpool::service::init_with_pool(fjall, thread_pool).unwrap();
 
     check_add_genesis(
         &mut blockchain_read_handle,
@@ -376,7 +374,7 @@ async fn recover_bad_reorg() {
         .blockchain_context()
         .clone();
 
-    let mut block_2 = generate_block(&context_2);
+    let block_2 = generate_block(&context_2);
 
     manager_1
         .handle_command(BlockchainManagerCommand::AddBlock {
@@ -394,7 +392,7 @@ async fn recover_bad_reorg() {
         .clone();
 
     // start building the alt chain.
-    let mut block_1_alt = generate_block(&context_1);
+    let block_1_alt = generate_block(&context_1);
 
     manager_1
         .handle_command(BlockchainManagerCommand::AddBlock {

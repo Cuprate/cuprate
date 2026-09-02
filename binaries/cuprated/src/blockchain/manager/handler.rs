@@ -2,34 +2,27 @@
 use std::{collections::HashMap, sync::Arc};
 
 use bytes::Bytes;
-use futures::{TryFutureExt, TryStreamExt};
-use monero_oxide::{
-    block::Block,
-    transaction::{Input, Transaction},
-};
+use monero_oxide::{block::Block, transaction::Input};
 use rayon::prelude::*;
 use tower::{Service, ServiceExt};
-use tracing::{info, instrument, warn, Span};
+use tracing::{info, instrument, warn};
 
-use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{
     block::{
         batch_prepare_main_chain_blocks, sanity_check_alt_block, verify_main_chain_block,
         verify_prepped_main_chain_block, BlockVerificationError, PreparedBlock,
     },
     transactions::new_tx_verification_data,
-    BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
-    VerificationContext,
+    BlockChainContextRequest, ExtendedConsensusError, VerificationContext,
 };
 use cuprate_consensus_context::{distribution::rct_output_count, BlockchainContext, NewBlockData};
 use cuprate_fast_sync::{block_to_verified_block_information, fast_sync_stop_height};
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p::{block_downloader::BlockBatch, constants::MEDIUM_BAN, BroadcastRequest};
-use cuprate_txpool::service::interface::TxpoolWriteRequest;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
     AltBlockInformation, Chain, ChainId, HardFork, TransactionVerificationData, TxConversionError,
-    VerifiedBlockInformation, VerifiedTransactionInformation,
+    VerifiedBlockInformation,
 };
 
 use crate::{
@@ -46,7 +39,7 @@ impl super::BlockchainManager {
     /// # Errors
     ///
     /// This function will return an [`Err`] if any internal service returns an unexpected error.
-    pub async fn handle_command(
+    pub(super) async fn handle_command(
         &mut self,
         command: BlockchainManagerCommand,
     ) -> Result<(), FatalError> {
@@ -108,7 +101,7 @@ impl super::BlockchainManager {
             txs = block.transactions.len(),
         )
     )]
-    pub async fn handle_incoming_block(
+    async fn handle_incoming_block(
         &mut self,
         block: Block,
         prepared_txs: HashMap<[u8; 32], TransactionVerificationData>,
@@ -185,7 +178,7 @@ impl super::BlockchainManager {
             len = batch.blocks.len()
         )
     )]
-    pub async fn handle_incoming_block_batch(
+    pub(super) async fn handle_incoming_block_batch(
         &mut self,
         batch: BlockBatch,
     ) -> Result<(), FatalError> {
@@ -235,7 +228,7 @@ impl super::BlockchainManager {
             return self.handle_incoming_block_batch_fast_sync(batch).await;
         }
 
-        let (prepped_blocks, mut output_cache) = match batch_prepare_main_chain_blocks(
+        let (prepped_blocks, output_cache) = match batch_prepare_main_chain_blocks(
             batch.blocks,
             &mut self.blockchain_context_service,
             self.blockchain_read_handle.clone(),
@@ -554,7 +547,7 @@ impl super::BlockchainManager {
     async fn reverse_reorg(&mut self, old_main_chain_id: ChainId) -> Result<(), FatalError> {
         warn!("Reorg failed, reverting to old chain.");
 
-        let BlockchainResponse::AltBlocksInChain(mut blocks) = self
+        let BlockchainResponse::AltBlocksInChain(blocks) = self
             .blockchain_read_handle
             .ready()
             .await?
@@ -808,7 +801,7 @@ enum BlockSource {
 /// # Panics
 ///
 /// This may panic if used on an invalid block.
-pub fn alt_block_to_verified_block_information(
+fn alt_block_to_verified_block_information(
     block: AltBlockInformation,
     blockchain_ctx: &BlockchainContext,
 ) -> VerifiedBlockInformation {

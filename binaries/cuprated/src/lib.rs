@@ -17,21 +17,15 @@
 
 #![doc = include_str!("../README.md")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
-#![allow(
-    unused_imports,
-    unreachable_pub,
-    unreachable_code,
-    unused_crate_dependencies,
-    dead_code,
-    unused_variables,
-    clippy::needless_pass_by_value,
-    clippy::unused_async,
-    clippy::diverging_sub_expression,
-    unused_mut,
-    clippy::let_unit_value,
-    clippy::needless_pass_by_ref_mut,
-    reason = "TODO: remove after v1.0.0"
-)]
+
+#[cfg(feature = "mimalloc")]
+use mimalloc as _;
+
+#[cfg(all(
+    feature = "jemalloc",
+    not(any(target_env = "msvc", target_os = "freebsd"))
+))]
+use tikv_jemallocator as _;
 
 pub mod blockchain;
 pub mod config;

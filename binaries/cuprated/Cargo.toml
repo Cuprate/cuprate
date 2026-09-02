@@ -15,7 +15,7 @@ name = "cuprated"
 
 [features]
 default = ["arti"]
-arti = ["arti-client", "tor-hsservice", "tor-persist", "tor-rtcompat", "cuprate-p2p-transport/arti"]
+arti = ["arti-client", "tor-hsservice", "tor-persist", "tor-rtcompat", "cuprate-p2p-transport/arti", "dep:safelog"]
 mimalloc = ["dep:mimalloc"]
 mimalloc-secure = ["mimalloc", "mimalloc/secure"]
 jemalloc = ["dep:tikv-jemallocator"]
@@ -23,7 +23,6 @@ jemalloc = ["dep:tikv-jemallocator"]
 [dependencies]
 # TODO: after v1.0.0, remove unneeded dependencies.
 cuprate-address-book      = { workspace = true }
-cuprate-async-buffer      = { workspace = true }
 cuprate-blockchain        = { workspace = true, features = ["serde"] }
 cuprate-consensus-context = { workspace = true }
 cuprate-consensus-rules   = { workspace = true }
@@ -31,20 +30,15 @@ cuprate-consensus         = { workspace = true }
 cuprate-constants         = { workspace = true, features = ["build", "rpc"] }
 cuprate-cryptonight       = { workspace = true }
 cuprate-dandelion-tower   = { workspace = true, features = ["txpool"] }
-cuprate-epee-encoding     = { workspace = true }
 cuprate-fast-sync         = { workspace = true }
 cuprate-fixed-bytes       = { workspace = true }
 cuprate-helper            = { workspace = true, features = ["std", "serde", "time", "net"] }
 cuprate-hex               = { workspace = true }
-cuprate-json-rpc          = { workspace = true }
-cuprate-levin             = { workspace = true }
 cuprate-p2p-core          = { workspace = true }
 cuprate-p2p-transport     = { workspace = true }
 cuprate-p2p               = { workspace = true }
-cuprate-pruning           = { workspace = true }
 cuprate-rpc-interface     = { workspace = true, features = ["dummy"] }
 cuprate-rpc-types         = { workspace = true, features = ["from"] }
-cuprate-test-utils        = { workspace = true }
 cuprate-txpool            = { workspace = true }
 cuprate-types             = { workspace = true, features = ["json"] }
 cuprate-wire              = { workspace = true, features = ["serde"] }
@@ -53,24 +47,14 @@ cuprate-wire              = { workspace = true, features = ["serde"] }
 axum                  = { workspace = true, features = ["tokio", "http1"] }
 anyhow                = { workspace = true }
 arti-client           = { workspace = true, features = ["tokio", "rustls", "onion-service-client", "onion-service-service", "static"], optional = true }
-async-trait           = { workspace = true }
-bitflags              = { workspace = true }
 borsh                 = { workspace = true }
-bytemuck              = { workspace = true }
 bytes                 = { workspace = true }
-cfg-if                = { workspace = true }
 clap                  = { workspace = true, features = ["cargo", "help", "wrap_help", "usage", "error-context", "suggestions"] }
-chrono                = { workspace = true }
-crypto-bigint         = { workspace = true }
-crossbeam             = { workspace = true }
-curve25519-dalek      = { workspace = true }
 const_format          = { workspace = true, features = ["all"] }
 dashmap               = { workspace = true }
-dirs                  = { workspace = true }
 fjall                 = { workspace = true }
 futures               = { workspace = true }
 hex                   = { workspace = true }
-hex-literal           = { workspace = true }
 hyper                 = { workspace = true }
 hyper-util            = { workspace = true }
 indexmap              = { workspace = true }
@@ -78,23 +62,14 @@ mimalloc              = { workspace = true, optional = true }
 monero-address        = { workspace = true }
 monero-oxide          = { workspace = true, features = ["std", "compile-time-generators"] }
 nu-ansi-term          = { workspace = true }
-paste                 = { workspace = true }
-pin-project           = { workspace = true }
 pin-project-lite      = { workspace = true }
-randomx-rs            = { workspace = true }
-rand                  = { workspace = true }
-rand_distr            = { workspace = true }
 rayon                 = { workspace = true }
-safelog               = { workspace = true }
-serde_bytes           = { workspace = true }
+safelog               = { workspace = true, optional = true }
 serde_json            = { workspace = true }
 serde                 = { workspace = true }
-strum                 = { workspace = true }
 sysinfo               = { workspace = true, features = ["system"] }
 thiserror             = { workspace = true }
-thread_local          = { workspace = true }
 tokio-util            = { workspace = true, features = ["rt"] }
-tokio-stream          = { workspace = true }
 tokio                 = { workspace = true }
 toml                  = { workspace = true, features = ["parse", "display", "serde"]}
 toml_edit             = { workspace = true, features = ["parse", "display"] }
@@ -107,13 +82,14 @@ tracing-appender      = { workspace = true }
 tracing-subscriber    = { workspace = true, features = ["std", "fmt", "default"] }
 tracing               = { workspace = true, features = ["default"] }
 
-# `jemalloc` does not support MSVC.
-[target.'cfg(not(target_env = "msvc"))'.dependencies]
+# `jemalloc` does not support MSVC, and FreeBSD already uses it.
+[target.'cfg(not(any(target_env = "msvc", target_os = "freebsd")))'.dependencies]
 tikv-jemallocator = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile          = { workspace = true }
 pretty_assertions = { workspace = true }
+rand               = { workspace = true }
 
 [build-dependencies]
 cuprate-hex = { workspace = true }

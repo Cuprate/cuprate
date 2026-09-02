@@ -1,22 +1,12 @@
 //! RPC server initialization and main loop.
 
-use std::{
-    cell::{Cell, UnsafeCell},
-    collections::HashMap,
-    net::{IpAddr, SocketAddr},
-    num::NonZeroUsize,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    },
-    time::Duration,
-};
+use std::{net::SocketAddr, time::Duration};
 
 use anyhow::{Context, Error};
 use axum::Router;
-use hyper::{body::Incoming, server::conn::http1, Request};
+use hyper::server::conn::http1;
 use hyper_util::{
-    rt::{TokioExecutor, TokioIo, TokioTimer},
+    rt::{TokioIo, TokioTimer},
     service::TowerToHyperService,
 };
 use tokio::{
@@ -24,8 +14,7 @@ use tokio::{
     task::JoinSet,
     time::timeout,
 };
-use tokio_util::{sync::CancellationToken, time::FutureExt};
-use tower::{limit::rate::RateLimitLayer, Service};
+use tokio_util::sync::CancellationToken;
 use tower_http::{limit::RequestBodyLimitLayer, timeout::RequestBodyDeadlineLayer};
 use tracing::{debug, info, warn};
 
@@ -33,7 +22,7 @@ use cuprate_helper::net::ip_is_local;
 use cuprate_rpc_interface::RouterBuilder;
 
 use crate::{
-    config::{restricted_rpc_port, unrestricted_rpc_port, RpcConfig},
+    config::{restricted_rpc_port, unrestricted_rpc_port},
     rpc::{timeout::WriteTimeout, CupratedRpcHandler},
     txpool::IncomingTxHandler,
     LaunchContext,
@@ -50,7 +39,7 @@ const RPC_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
 /// This function will return an [`Err`] if unrestricted RPC is started on a
 /// non-local address without the override option, or if an RPC listener cannot
 /// be bound.
-pub async fn init_rpc_servers(
+pub(crate) async fn init_rpc_servers(
     launch_ctx: &LaunchContext,
     tx_handler: IncomingTxHandler,
 ) -> Result<(), Error> {

@@ -1,5 +1,3 @@
-use toml_edit::TableLike;
-
 /// A macro for config structs defined in `cuprated`. This macro generates a function that
 /// can insert toml comments created from doc comments on fields.
 ///
@@ -191,6 +189,7 @@ macro_rules! __write_docs {
         'write_field: {
             let key_str = &stringify!($field);
 
+            #[allow(unused_mut)]
             let mut field_prefix = [ $(
               format!("##{}\n", $doc),
             )*].concat();
@@ -210,7 +209,7 @@ macro_rules! __write_docs {
             if let Some(table) = $document.entry(&key_str).or_insert_with(|| panic!()).as_table_mut() {
                 $(
                     if $inline {
-                        let mut table = table.clone().into_inline_table();
+                        let table = table.clone().into_inline_table();
                         $document.insert(&key_str, ::toml_edit::Item::Value(::toml_edit::Value::InlineTable(table)));
                         $document.key_mut(&key_str).unwrap().leaf_decor_mut().set_prefix(field_prefix);
                         break 'write_field;

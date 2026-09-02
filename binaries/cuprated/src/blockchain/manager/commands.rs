@@ -10,7 +10,7 @@ use crate::blockchain::IncomingBlockError;
 
 /// The blockchain manager commands.
 #[expect(clippy::large_enum_variant)]
-pub enum BlockchainManagerCommand {
+pub(crate) enum BlockchainManagerCommand {
     /// Attempt to add a new block to the blockchain.
     AddBlock {
         /// The [`Block`] to add.

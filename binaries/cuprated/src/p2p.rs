@@ -2,16 +2,13 @@
 //!
 //! Will handle initiating the P2P and contains a protocol request handler.
 
-use std::{convert::From, str::FromStr};
+use std::convert::From;
 
 use anyhow::anyhow;
-use futures::{FutureExt, TryFutureExt};
+use futures::FutureExt;
 use serde::{Deserialize, Serialize};
-use tokio::sync::{
-    mpsc,
-    oneshot::{self, Sender},
-};
-use tower::{Service, ServiceExt};
+use tokio::sync::oneshot::{self, Sender};
+use tower::ServiceExt;
 
 use cuprate_p2p::{config::TransportConfig, NetworkInterface, P2PConfig};
 use cuprate_p2p_core::{
@@ -20,29 +17,26 @@ use cuprate_p2p_core::{
     ClearNet, NetworkZone, Tor, Transport,
 };
 use cuprate_p2p_transport::{Daemon, Socks, SocksClientConfig};
-use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
-use cuprate_types::blockchain::BlockchainWriteRequest;
+use cuprate_txpool::service::TxpoolReadHandle;
 
 use crate::{
     blockchain::BlockchainInterface,
     tor::{transport_clearnet_daemon_config, transport_daemon_config, TorContext, TorMode},
-    txpool::{self, IncomingTxHandler},
+    txpool::IncomingTxHandler,
     LaunchContext,
 };
 
 #[cfg(feature = "arti")]
 use {
     crate::tor::{transport_arti_config, transport_clearnet_arti_config},
-    arti_client::TorClient,
-    cuprate_p2p_transport::{Arti, ArtiClientConfig},
-    tor_rtcompat::PreferredRuntime,
+    cuprate_p2p_transport::Arti,
 };
 
 mod core_sync_service;
 mod network_address;
-pub mod request_handler;
+pub(crate) mod request_handler;
 
-pub use network_address::CrossNetworkInternalPeerId;
+pub(crate) use network_address::CrossNetworkInternalPeerId;
 
 /// A simple parsing enum for the `p2p.clear_net.proxy` field
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]
@@ -102,27 +96,9 @@ impl From<ProxySettings> for String {
     }
 }
 
-/// This struct collect all supported and optional network zone interfaces.
-pub struct NetworkInterfaces {
-    /// Mandatory clearnet network interface
-    pub clearnet_network_interface: NetworkInterface<ClearNet>,
-    /// Optional tor network interface
-    pub tor_network_interface: Option<NetworkInterface<Tor>>,
-    // ...one can dream for more!
-}
-
-impl NetworkInterfaces {
-    pub const fn new(clearnet_network_interface: NetworkInterface<ClearNet>) -> Self {
-        Self {
-            clearnet_network_interface,
-            tor_network_interface: None,
-        }
-    }
-}
-
 /// Initialize the clearnet P2P network zone. Returns [`NetworkInterface<ClearNet>`] and
 /// [`Sender<IncomingTxHandler>`] for propagating the tx handler, [`None`] if offline.
-pub async fn initialize_clearnet_p2p(
+pub(crate) async fn initialize_clearnet_p2p(
     launch_ctx: &LaunchContext,
     tor_ctx: &TorContext,
 ) -> Result<
@@ -209,7 +185,7 @@ pub async fn initialize_clearnet_p2p(
 
 /// Initialize the Tor P2P network zone after the node has synced with the network.
 /// Publishes [`NetworkInterface<Tor>`] and forwards the [`IncomingTxHandler`] to the Tor zone.
-pub fn initialize_tor_p2p(
+pub(crate) fn initialize_tor_p2p(
     launch_ctx: LaunchContext,
     tor_context: TorContext,
     tx_handler: IncomingTxHandler,
@@ -291,7 +267,7 @@ pub fn initialize_tor_p2p(
 ///
 /// A [`oneshot::Sender`] is also returned to provide the [`IncomingTxHandler`], until this is provided network
 /// handshakes can not be completed.
-pub async fn start_zone_p2p<N, T>(
+pub(crate) async fn start_zone_p2p<N, T>(
     blockchain: &BlockchainInterface,
     txpool_read_handle: TxpoolReadHandle,
     config: P2PConfig<N>,

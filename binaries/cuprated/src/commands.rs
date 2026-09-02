@@ -9,12 +9,8 @@ use std::{
 
 use clap::{builder::TypedValueParser, Parser, ValueEnum};
 use tokio::sync::mpsc;
-use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
 
-use cuprate_consensus_context::{
-    BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
-};
 use cuprate_helper::time::secs_to_hms;
 
 use cuprated::logging::{self, CupratedTracingFilter};
@@ -29,7 +25,7 @@ use cuprated::logging::{self, CupratedTracingFilter};
     arg_required_else_help = true,
     disable_help_flag = true
 )]
-pub enum Command {
+pub(crate) enum Command {
     /// Change the log output.
     #[command(arg_required_else_help = true)]
     SetLog {
@@ -60,7 +56,7 @@ pub enum Command {
 
 /// The log output target.
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-pub enum OutputTarget {
+pub(crate) enum OutputTarget {
     /// The stdout logging output.
     #[default]
     Stdout,
@@ -69,8 +65,8 @@ pub enum OutputTarget {
 }
 
 /// The [`Command`] listener loop.
-pub fn command_listener(incoming_commands: mpsc::Sender<Command>) -> ! {
-    let mut stdin = io::stdin();
+pub(crate) fn command_listener(incoming_commands: &mpsc::Sender<Command>) -> ! {
+    let stdin = io::stdin();
     let mut line = String::new();
 
     loop {
@@ -94,7 +90,10 @@ pub fn command_listener(incoming_commands: mpsc::Sender<Command>) -> ! {
 }
 
 /// The [`Command`] handler loop.
-pub async fn io_loop(mut incoming_commands: mpsc::Receiver<Command>, mut node: cuprated::Node) {
+pub(crate) async fn io_loop(
+    mut incoming_commands: mpsc::Receiver<Command>,
+    mut node: cuprated::Node,
+) {
     let start_instant = Instant::now();
     let shutdown_token = node.task_executor.cancellation_token();
 

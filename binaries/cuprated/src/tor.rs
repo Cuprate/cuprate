@@ -4,36 +4,29 @@
 
 //---------------------------------------------------------------------------------------------------- Imports
 
-use std::{default, sync::Arc};
-
 use serde::{Deserialize, Serialize};
-use tracing::info;
 
 use cuprate_p2p::TransportConfig;
 use cuprate_p2p_core::{ClearNet, Tor};
 use cuprate_p2p_transport::{
-    is_socks5_proxy, Daemon, DaemonClientConfig, DaemonServerConfig, Socks, SocksClientConfig,
+    Daemon, DaemonClientConfig, DaemonServerConfig, Socks, SocksClientConfig,
 };
-use cuprate_wire::OnionAddr;
 
-use crate::{
-    config::{p2p_port, Config},
-    p2p::ProxySettings,
-    LaunchContext,
-};
+use crate::{config::Config, p2p::ProxySettings, LaunchContext};
 
 #[cfg(feature = "arti")]
 use {
+    crate::config::p2p_port,
     arti_client::{
-        config::{onion_service::OnionServiceConfigBuilder, CfgPath, TorClientConfigBuilder},
-        KeystoreSelector, StreamPrefs, TorClient, TorClientBuilder, TorClientConfig,
+        config::{onion_service::OnionServiceConfigBuilder, CfgPath},
+        StreamPrefs, TorClient, TorClientConfig,
     },
-    cuprate_helper::fs::CUPRATE_DATA_DIR,
-    cuprate_p2p_transport::{Arti, ArtiClientConfig, ArtiServerConfig},
-    futures::Stream,
-    tor_hsservice::{OnionService, RendRequest, RunningOnionService},
+    cuprate_p2p_transport::{is_socks5_proxy, Arti, ArtiClientConfig, ArtiServerConfig},
+    std::sync::Arc,
+    tor_hsservice::OnionService,
     tor_persist::hsnickname::HsNickname,
     tor_rtcompat::PreferredRuntime,
+    tracing::info,
 };
 //---------------------------------------------------------------------------------------------------- Initialization
 
@@ -72,7 +65,7 @@ pub struct TorContext {
 ///
 /// This function will bootstrap Arti if needed by Tor network zone or
 /// clearnet as a proxy.
-pub async fn initialize_tor_if_enabled(launch_ctx: &LaunchContext) -> TorContext {
+pub(crate) async fn initialize_tor_if_enabled(launch_ctx: &LaunchContext) -> TorContext {
     let config = launch_ctx.config.as_ref();
     let anonymize_clearnet = matches!(config.p2p.clear_net.proxy, ProxySettings::Tor);
     let tor_enabled = !config.offline && (config.p2p.tor_net.enabled || anonymize_clearnet);
@@ -172,7 +165,7 @@ fn initialize_arti_onion_service(client_config: &TorClientConfig, config: &Confi
 //---------------------------------------------------------------------------------------------------- Transport configuration
 
 #[cfg(feature = "arti")]
-pub fn transport_arti_config(
+pub(crate) fn transport_arti_config(
     config: &Config,
     ctx: TorContext,
 ) -> Result<TransportConfig<Tor, Arti>, anyhow::Error> {
@@ -207,7 +200,7 @@ pub fn transport_arti_config(
 }
 
 #[cfg(feature = "arti")]
-pub fn transport_clearnet_arti_config(
+pub(crate) fn transport_clearnet_arti_config(
     ctx: &TorContext,
 ) -> Result<TransportConfig<ClearNet, Arti>, anyhow::Error> {
     let Some(bootstrapped_client) = &ctx.bootstrapped_client else {
@@ -222,7 +215,7 @@ pub fn transport_clearnet_arti_config(
     })
 }
 
-pub fn transport_daemon_config(config: &Config) -> TransportConfig<Tor, Daemon> {
+pub(crate) fn transport_daemon_config(config: &Config) -> TransportConfig<Tor, Daemon> {
     let mut invalid_onion = false;
 
     if config.p2p.tor_net.inbound_onion && config.tor.daemon.anonymous_inbound.is_empty() {
@@ -244,7 +237,9 @@ pub fn transport_daemon_config(config: &Config) -> TransportConfig<Tor, Daemon> 
 }
 
 /// Gets the transport config for [`ClearNet`] over [`Socks`].
-pub const fn transport_clearnet_daemon_config(config: &Config) -> TransportConfig<ClearNet, Socks> {
+pub(crate) const fn transport_clearnet_daemon_config(
+    config: &Config,
+) -> TransportConfig<ClearNet, Socks> {
     TransportConfig {
         client_config: SocksClientConfig {
             proxy: config.tor.daemon.address,

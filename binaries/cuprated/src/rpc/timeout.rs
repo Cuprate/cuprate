@@ -20,7 +20,7 @@ use tokio::{
 };
 
 /// A pinned timeout state with a specified duration.
-pub struct TimeoutState {
+pub(crate) struct TimeoutState {
     timeout: Duration,
     refresh: bool,
     sleep: Pin<Box<Sleep>>,
@@ -31,7 +31,7 @@ where
     Self: Unpin,
 {
     /// Create a new [`TimeoutState`] with the given timeout type.
-    pub fn new(timeout: Duration) -> Self {
+    pub(crate) fn new(timeout: Duration) -> Self {
         Self {
             timeout,
             refresh: true,
@@ -41,7 +41,7 @@ where
 
     /// Poll inner [`Sleep`] for completion. Update its deadline on first use and return
     /// `Poll::Ready(Error::from(ErrorKind::TimedOut))` on completion, `Poll::Pending` otherwise
-    pub fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Error> {
+    pub(crate) fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Error> {
         let mut proj = self;
 
         // On first poll after refresh activate couldown.
@@ -111,7 +111,7 @@ pin_project! {
 
 impl<S: AsyncWrite + AsyncRead> WriteTimeout<S> {
     /// Create a new [`WriteTimeout`] with the given write timeout.
-    pub fn new(stream: S, write_timeout: Duration) -> Self {
+    pub(crate) fn new(stream: S, write_timeout: Duration) -> Self {
         Self {
             stream,
             write_timeout: Box::pin(TimeoutState::new(write_timeout)),
@@ -162,26 +162,28 @@ impl<S: AsyncRead + AsyncWrite> AsyncRead for WriteTimeout<S> {
 
 #[cfg(test)]
 mod test {
-    use std::{
-        future::Future,
-        io::ErrorKind,
-        net::{IpAddr, Ipv4Addr, SocketAddr},
-        time::Duration,
-    };
+    use std::{future::Future, io::ErrorKind, time::Duration};
 
     use tokio::{
         io::{duplex, AsyncReadExt, AsyncWriteExt},
-        net::{TcpListener, TcpStream},
-        select,
-        task::JoinSet,
         time::{sleep, timeout},
     };
 
     use crate::rpc::timeout::WriteTimeout;
 
+    #[cfg(not(target_os = "windows"))]
+    use {
+        std::net::{IpAddr, Ipv4Addr, SocketAddr},
+        tokio::{
+            net::{TcpListener, TcpStream},
+            select,
+            task::JoinSet,
+        },
+    };
+
     #[cfg(target_os = "macos")]
     const TEST_TIMEOUT: Duration = Duration::from_secs(2);
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
     const TEST_TIMEOUT: Duration = Duration::from_secs(10);
 
     fn within_current_thread_runtime(future: impl Future) {
@@ -196,6 +198,7 @@ mod test {
     }
 
     // Common setup used between TCP tests.
+    #[cfg(not(target_os = "windows"))]
     async fn spawn_tcp_setup<C, L, R1, R2>(port: u16, client_test: C, listener_test: L)
     where
         R1: Future<Output = ()> + Send + 'static,

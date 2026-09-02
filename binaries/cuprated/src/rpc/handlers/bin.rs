@@ -3,11 +3,7 @@
 //! TODO:
 //! Some handlers have `todo!()`s for other Cuprate internals that must be completed, see:
 //! <https://github.com/Cuprate/cuprate/pull/355>
-
-use std::num::NonZero;
-
 use anyhow::{anyhow, Error};
-use bytes::Bytes;
 
 use cuprate_constants::rpc::{
     GET_BLOCKS_BIN_MAX_BLOCK_COUNT, RESTRICTED_BLOCK_COUNT, RESTRICTED_TRANSACTIONS_COUNT,
@@ -26,10 +22,7 @@ use cuprate_rpc_types::{
     json::{GetOutputDistributionRequest, GetOutputDistributionResponse},
     misc::{RequestedInfo, Status},
 };
-use cuprate_types::{
-    rpc::{BlockOutputIndices, PoolInfoExtent, TxOutputIndices},
-    BlockCompleteEntry,
-};
+use cuprate_types::rpc::{BlockOutputIndices, PoolInfoExtent, TxOutputIndices};
 
 use crate::rpc::{
     handlers::{helper, shared},
@@ -38,7 +31,7 @@ use crate::rpc::{
 };
 
 /// Map a [`BinRequest`] to the function that will lead to a [`BinResponse`].
-pub async fn map_request(
+pub(crate) async fn map_request(
     state: CupratedRpcHandler,
     request: BinRequest,
 ) -> Result<BinResponse, Error> {
@@ -281,7 +274,7 @@ async fn get_outs(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1689-L1711>
 async fn get_transaction_pool_hashes(
-    mut state: CupratedRpcHandler,
+    state: CupratedRpcHandler,
     _: GetTransactionPoolHashesRequest,
 ) -> Result<GetTransactionPoolHashesResponse, Error> {
     Ok(GetTransactionPoolHashesResponse {

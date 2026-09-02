@@ -3,7 +3,7 @@ use std::{
     task::{ready, Context, Poll},
 };
 
-use futures::{Stream, StreamExt, TryStream};
+use futures::TryStream;
 use tower::Service;
 
 use cuprate_dandelion_tower::{DandelionRouterError, OutboundPeer};
@@ -16,7 +16,7 @@ use crate::{
 };
 
 /// The service to prepare peers on anonymous network zones for sending transactions.
-pub struct AnonTxService<Z: NetworkZone> {
+pub(crate) struct AnonTxService<Z: NetworkZone> {
     outbound_peer_discover: Pin<Box<OutboundPeerStream<Z>>>,
     pub peer: Option<StemPeerService<Z>>,
 }
@@ -25,14 +25,17 @@ impl<Z: NetworkZone> AnonTxService<Z>
 where
     InternalPeerID<Z::Addr>: Into<CrossNetworkInternalPeerId>,
 {
-    pub fn new(network_interface: NetworkInterface<Z>) -> Self {
+    pub(crate) fn new(network_interface: NetworkInterface<Z>) -> Self {
         Self {
             outbound_peer_discover: Box::pin(OutboundPeerStream::new(network_interface)),
             peer: None,
         }
     }
 
-    pub fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), DandelionRouterError>> {
+    pub(crate) fn poll_ready(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<(), DandelionRouterError>> {
         loop {
             if let Some(peer) = &mut self.peer {
                 if ready!(peer.poll_ready(cx)).is_err() {
@@ -62,7 +65,5 @@ where
                 OutboundPeer::Exhausted => return Poll::Ready(Ok(())),
             }
         }
-
-        Poll::Ready(Ok(()))
     }
 }

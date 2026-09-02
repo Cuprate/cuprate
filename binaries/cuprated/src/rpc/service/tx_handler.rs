@@ -5,7 +5,7 @@ use cuprate_types::TxRelayChecks;
 
 use crate::txpool::{IncomingTxError, IncomingTxHandler, IncomingTxs, RelayRuleError};
 
-pub async fn handle_incoming_txs(
+pub(crate) async fn handle_incoming_txs(
     tx_handler: &mut IncomingTxHandler,
     incoming_txs: IncomingTxs,
 ) -> Result<TxRelayChecks, IncomingTxError> {

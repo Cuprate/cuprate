@@ -2,28 +2,12 @@
 //!
 //! Wrapper around [`cuprated::Node::launch`] that handles argument parsing,
 //! logging setup, and the interactive command listener.
-
-#![allow(
-    unused_imports,
-    unreachable_pub,
-    unreachable_code,
-    unused_crate_dependencies,
-    dead_code,
-    unused_variables,
-    clippy::needless_pass_by_value,
-    clippy::unused_async,
-    clippy::diverging_sub_expression,
-    unused_mut,
-    clippy::let_unit_value,
-    clippy::needless_pass_by_ref_mut,
-    reason = "TODO: remove after v1.0.0"
-)]
+#![allow(unused_crate_dependencies)]
 
 use std::{
     io::{self, IsTerminal},
     process::ExitCode,
     thread::sleep,
-    time::Duration,
 };
 
 use clap::Parser;
@@ -47,15 +31,12 @@ static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 #[cfg(all(
     feature = "jemalloc",
     not(feature = "mimalloc"),
-    not(target_env = "msvc")
+    not(any(target_env = "msvc", target_os = "freebsd"))
 ))]
 #[global_allocator]
 static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
-use crate::{
-    args::Args,
-    commands::{command_listener, Command},
-};
+use crate::args::Args;
 
 fn main() -> ExitCode {
     match main_inner() {
@@ -109,7 +90,7 @@ fn main_inner() -> anyhow::Result<ExitCode> {
         // If STDIN is a terminal, spawn a blocking thread for user input.
         if io::stdin().is_terminal() {
             let (command_tx, command_rx) = mpsc::channel(1);
-            std::thread::spawn(|| commands::command_listener(command_tx));
+            std::thread::spawn(move || commands::command_listener(&command_tx));
 
             // Run the io_loop on a separate task as this improves performance.
             task_executor.spawn(commands::io_loop(command_rx, node));

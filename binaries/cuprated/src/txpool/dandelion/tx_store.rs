@@ -14,8 +14,8 @@ use cuprate_dandelion_tower::{
 };
 use cuprate_txpool::{
     service::{
-        interface::{TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest},
-        TxpoolReadHandle, TxpoolWriteHandle,
+        interface::{TxpoolReadRequest, TxpoolReadResponse},
+        TxpoolReadHandle,
     },
     TxPoolError,
 };
@@ -25,7 +25,7 @@ use super::{DandelionTx, TxId};
 /// The dandelion tx-store service.
 ///
 /// This is just mapping the interface [`cuprate_dandelion_tower`] wants to what [`cuprate_txpool`] provides.
-pub struct TxStoreService {
+pub(crate) struct TxStoreService {
     pub txpool_read_handle: TxpoolReadHandle,
     pub promote_tx: mpsc::UnboundedSender<[u8; 32]>,
 }
@@ -35,7 +35,7 @@ impl Service<TxStoreRequest<TxId>> for TxStoreService {
     type Error = tower::BoxError;
     type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
     }
 

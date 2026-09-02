@@ -1,7 +1,5 @@
 //! Misc version information about `cuprated`.
 
-use std::fmt::Display;
-
 use serde::{Deserialize, Serialize};
 
 use cuprate_constants::build::{BUILD, COMMIT};
