@@ -32,6 +32,8 @@ pub struct BatchPrepareCache {
 }
 
 /// Batch prepares a list of blocks for verification.
+///
+/// Also returns the key images the batch spends, in block and transaction order.
 #[instrument(level = "debug", name = "batch_prep_blocks", skip_all, fields(amt = blocks.len()))]
 #[expect(clippy::type_complexity)]
 pub async fn batch_prepare_main_chain_blocks<D: Database>(
@@ -42,6 +44,7 @@ pub async fn batch_prepare_main_chain_blocks<D: Database>(
     (
         Vec<(PreparedBlock, Vec<TransactionVerificationData>)>,
         BatchPrepareCache,
+        Vec<[u8; 32]>,
     ),
     ExtendedConsensusError,
 > {
@@ -206,10 +209,16 @@ pub async fn batch_prepare_main_chain_blocks<D: Database>(
     })
     .await?;
 
-    check_kis_unique(blocks.iter().flat_map(|(_, txs)| txs.iter()), &mut database).await?;
+    let mut spent_key_images = Vec::new();
+    check_kis_unique(
+        blocks.iter().flat_map(|(_, txs)| txs.iter()),
+        Some(&mut spent_key_images),
+        &mut database,
+    )
+    .await?;
 
     let output_cache =
         get_output_cache(blocks.iter().flat_map(|(_, txs)| txs.iter()), database).await?;
 
-    Ok((blocks, BatchPrepareCache { output_cache }))
+    Ok((blocks, BatchPrepareCache { output_cache }, spent_key_images))
 }

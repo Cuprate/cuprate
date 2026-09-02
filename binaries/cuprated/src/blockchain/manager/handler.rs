@@ -141,15 +141,17 @@ impl super::BlockchainManager {
             return Ok(res);
         }
 
+        let mut spent_key_images = Vec::new();
         let verified_block = verify_main_chain_block(
             block,
             prepared_txs,
             &mut self.blockchain_context_service,
             self.blockchain_read_handle.clone(),
+            Some(&mut spent_key_images),
         )
         .await?;
 
-        self.add_valid_block_to_main_chain(verified_block, BlockSource::Incoming)
+        self.add_valid_block_to_main_chain(verified_block, spent_key_images, BlockSource::Incoming)
             .await?;
 
         info!(
@@ -236,7 +238,7 @@ impl super::BlockchainManager {
             return self.handle_incoming_block_batch_fast_sync(batch).await;
         }
 
-        let (prepped_blocks, output_cache) = match batch_prepare_main_chain_blocks(
+        let (prepped_blocks, output_cache, mut key_images) = match batch_prepare_main_chain_blocks(
             batch.blocks,
             &mut self.blockchain_context_service,
             self.blockchain_read_handle.clone(),
@@ -266,6 +268,7 @@ impl super::BlockchainManager {
                 txs,
                 &mut self.blockchain_context_service,
                 &mut verification_context,
+                None,
             )
             .await
             {
@@ -295,8 +298,20 @@ impl super::BlockchainManager {
 
         let valid_blocks_len = valid_blocks.len();
         if !valid_blocks.is_empty() {
+            if error {
+                // The key images are in block order, so keep the ones of the blocks that were verified.
+                key_images.truncate(
+                    valid_blocks
+                        .iter()
+                        .flat_map(|block| &block.txs)
+                        .map(|tx| tx.tx.prefix().inputs.len())
+                        .sum(),
+                );
+            }
+
             self.batch_add_valid_block_to_blockchain_database(valid_blocks)
                 .await?;
+            self.txpool_manager_handle.new_block(key_images).await?;
         }
 
         if error {
@@ -590,8 +605,21 @@ impl super::BlockchainManager {
                 block,
                 self.blockchain_context_service.blockchain_context(),
             );
-            self.add_valid_block_to_main_chain(verified_block, BlockSource::Reorg)
-                .await?;
+            let spent_key_images = verified_block
+                .txs
+                .iter()
+                .flat_map(|tx| &tx.tx.prefix().inputs)
+                .map(|input| match input {
+                    Input::ToKey { key_image, .. } => key_image.to_bytes(),
+                    Input::Gen(_) => unreachable!(),
+                })
+                .collect();
+            self.add_valid_block_to_main_chain(
+                verified_block,
+                spent_key_images,
+                BlockSource::Reorg,
+            )
+            .await?;
         }
 
         self.blockchain_write_handle
@@ -662,16 +690,22 @@ impl super::BlockchainManager {
 
             let prepped_block = PreparedBlock::new_alt_block(alt_block)?;
 
+            let mut spent_key_images = Vec::new();
             let verified_block = verify_prepped_main_chain_block(
                 prepped_block,
                 prepped_txs,
                 &mut self.blockchain_context_service,
                 &mut VerificationContext::Database(self.blockchain_read_handle.clone()),
+                Some(&mut spent_key_images),
             )
             .await?;
 
-            self.add_valid_block_to_main_chain(verified_block, BlockSource::Reorg)
-                .await?;
+            self.add_valid_block_to_main_chain(
+                verified_block,
+                spent_key_images,
+                BlockSource::Reorg,
+            )
+            .await?;
         }
 
         Ok(())
@@ -689,20 +723,9 @@ impl super::BlockchainManager {
     async fn add_valid_block_to_main_chain(
         &mut self,
         verified_block: VerifiedBlockInformation,
+        spent_key_images: Vec<[u8; 32]>,
         source: BlockSource,
     ) -> Result<(), FatalError> {
-        // FIXME: this is pretty inefficient, we should probably return the KI map created in the consensus crate.
-        let spent_key_images = verified_block
-            .txs
-            .iter()
-            .flat_map(|tx| {
-                tx.tx.prefix().inputs.iter().map(|input| match input {
-                    Input::ToKey { key_image, .. } => key_image.to_bytes(),
-                    Input::Gen(_) => unreachable!(),
-                })
-            })
-            .collect::<Vec<[u8; 32]>>();
-
         let block_blob = matches!(source, BlockSource::Incoming)
             .then(|| Bytes::copy_from_slice(&verified_block.block_blob));
 
