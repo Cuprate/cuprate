@@ -37,7 +37,7 @@ mod alt_block;
 mod batch_prepare;
 mod free;
 
-pub use alt_block::sanity_check_alt_block;
+pub use alt_block::{alt_block_to_verified_block, sanity_check_alt_block};
 pub use batch_prepare::{batch_prepare_main_chain_blocks, BatchPrepareCache};
 use free::pull_ordered_transactions;
 
@@ -240,13 +240,37 @@ impl PreparedBlock {
     }
 }
 
+/// A block's ordered transactions paired with the key images they spend.
+#[derive(Debug)]
+pub struct TxsWithKis {
+    pub(crate) txs: Vec<TransactionVerificationData>,
+    pub(crate) spent_key_images: Vec<[u8; 32]>,
+}
+
+/// A verified block paired with its spent key images.
+#[derive(Debug)]
+pub struct VerifiedBlock {
+    pub info: VerifiedBlockInformation,
+    pub spent_key_images: Vec<[u8; 32]>,
+}
+
+/// Ordered transactions for a prepared block.
+#[derive(Debug)]
+pub enum PreparedBlockTxs {
+    /// Transactions whose key images have not yet been checked.
+    Unchecked(Vec<TransactionVerificationData>),
+    /// Transactions with key images already checked unique within the batch and
+    /// unspent in the chain.
+    Checked(TxsWithKis),
+}
+
 /// Fully verify a block and all its transactions.
 pub async fn verify_main_chain_block<D>(
     block: Block,
     txs: HashMap<[u8; 32], TransactionVerificationData>,
     context_svc: &mut BlockchainContextService,
     database: D,
-) -> Result<VerifiedBlockInformation, BlockVerificationError>
+) -> Result<VerifiedBlock, BlockVerificationError>
 where
     D: Database + Clone + Send + 'static,
 {
@@ -298,7 +322,7 @@ where
 
     verify_prepped_main_chain_block(
         prepped_block,
-        ordered_txs,
+        PreparedBlockTxs::Unchecked(ordered_txs),
         context_svc,
         &mut VerificationContext::Database(database),
     )
@@ -308,13 +332,18 @@ where
 /// Fully verify a block that has already been prepared using [`batch_prepare_main_chain_blocks`].
 pub async fn verify_prepped_main_chain_block<D>(
     prepped_block: PreparedBlock,
-    mut txs: Vec<TransactionVerificationData>,
+    txs: PreparedBlockTxs,
     context_svc: &mut BlockchainContextService,
     verification_context: &mut VerificationContext<D>,
-) -> Result<VerifiedBlockInformation, BlockVerificationError>
+) -> Result<VerifiedBlock, BlockVerificationError>
 where
     D: Database + Clone + Send + 'static,
 {
+    let (mut txs, mut spent_key_images, collect_key_images) = match txs {
+        PreparedBlockTxs::Unchecked(txs) => (txs, Vec::new(), true),
+        PreparedBlockTxs::Checked(twk) => (twk.txs, twk.spent_key_images, false),
+    };
+
     let context = context_svc.blockchain_context();
 
     tracing::debug!("verifying block: {}", hex::encode(prepped_block.block_hash));
@@ -338,7 +367,7 @@ where
             }
         }
 
-        let temp = start_tx_verification()
+        txs = start_tx_verification()
             .append_prepped_txs(mem::take(&mut txs))
             .prepare()
             .map_err(BlockVerificationError::valid_pow)?
@@ -349,11 +378,9 @@ where
                 context.current_hf,
                 verification_context,
             )
-            .verify()
+            .verify(collect_key_images.then_some(&mut spent_key_images))
             .await
             .map_err(BlockVerificationError::valid_pow)?;
-
-        txs = temp;
     }
 
     let block_weight =
@@ -371,7 +398,7 @@ where
     .map_err(ConsensusError::Block)
     .map_err(BlockVerificationError::valid_pow)?;
 
-    let block = VerifiedBlockInformation {
+    let info = VerifiedBlockInformation {
         block_hash: prepped_block.block_hash,
         block: prepped_block.block,
         block_blob: prepped_block.block_blob,
@@ -401,8 +428,11 @@ where
     };
 
     if let VerificationContext::BatchPrepareCache(batch_prep_cache) = verification_context {
-        batch_prep_cache.output_cache.add_block_to_cache(&block);
+        batch_prep_cache.output_cache.add_block_to_cache(&info);
     }
 
-    Ok(block)
+    Ok(VerifiedBlock {
+        info,
+        spent_key_images,
+    })
 }

@@ -1,6 +1,14 @@
 //! Utils for working with [`Transaction`]
 
-use monero_oxide::transaction::{Input, Transaction};
+use monero_oxide::transaction::{Input, Transaction, TransactionPrefix};
+
+/// Iterates the spent key images of the [`TransactionPrefix`].
+pub fn tx_key_images(prefix: &TransactionPrefix) -> impl Iterator<Item = [u8; 32]> + '_ {
+    prefix.inputs.iter().filter_map(|input| match input {
+        Input::ToKey { key_image, .. } => Some(key_image.to_bytes()),
+        Input::Gen(_) => None,
+    })
+}
 
 /// Calculates the fee of the [`Transaction`].
 ///
