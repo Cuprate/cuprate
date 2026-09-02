@@ -169,10 +169,11 @@ mod test {
         time::Duration,
     };
 
+    #[cfg(not(target_os = "windows"))]
+    use tokio::select;
     use tokio::{
         io::{duplex, AsyncReadExt, AsyncWriteExt},
         net::{TcpListener, TcpStream},
-        select,
         task::JoinSet,
         time::{sleep, timeout},
     };
@@ -181,7 +182,7 @@ mod test {
 
     #[cfg(target_os = "macos")]
     const TEST_TIMEOUT: Duration = Duration::from_secs(2);
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
     const TEST_TIMEOUT: Duration = Duration::from_secs(10);
 
     fn within_current_thread_runtime(future: impl Future) {
@@ -196,6 +197,7 @@ mod test {
     }
 
     // Common setup used between TCP tests.
+    #[cfg(not(target_os = "windows"))]
     async fn spawn_tcp_setup<C, L, R1, R2>(port: u16, client_test: C, listener_test: L)
     where
         R1: Future<Output = ()> + Send + 'static,
