@@ -31,7 +31,7 @@ static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 #[cfg(all(
     feature = "jemalloc",
     not(feature = "mimalloc"),
-    not(target_env = "msvc")
+    not(any(target_env = "msvc", target_os = "freebsd"))
 ))]
 #[global_allocator]
 static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;

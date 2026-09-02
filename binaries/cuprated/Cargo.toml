@@ -83,7 +83,8 @@ tracing-subscriber    = { workspace = true, features = ["std", "fmt", "default"]
 tracing               = { workspace = true, features = ["default"] }
 
 # `jemalloc` does not support MSVC.
-[target.'cfg(not(target_env = "msvc"))'.dependencies]
+# `jemalloc` does not support MSVC, and FreeBSD already uses it.
+[target.'cfg(not(any(target_env = "msvc", target_os = "freebsd")))'.dependencies]
 tikv-jemallocator = { workspace = true, optional = true }
 
 [dev-dependencies]

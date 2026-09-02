@@ -21,7 +21,11 @@
 #[cfg(feature = "mimalloc")]
 use mimalloc as _;
 
-#[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
+#[cfg(all(
+    feature = "jemalloc",
+    not(feature = "mimalloc"),
+    not(any(target_env = "msvc", target_os = "freebsd"))
+))]
 use tikv_jemallocator as _;
 
 pub mod blockchain;
