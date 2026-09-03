@@ -29,9 +29,6 @@ use crate::{
 /// other blocks.
 pub struct BatchPrepareCache {
     pub(crate) output_cache: OutputCache,
-    /// [`true`] if all the key images in the batch have been checked for double spends in the batch and
-    /// the whole chain.
-    pub(crate) key_images_spent_checked: bool,
 }
 
 /// Batch prepares a list of blocks for verification.
@@ -60,7 +57,7 @@ pub async fn batch_prepare_main_chain_blocks<D: Database>(
     .await?;
 
     let Some(last_block) = blocks.last() else {
-        return Err(ExtendedConsensusError::NoBlocksToVerify);
+        return Err(ConsensusError::Block(BlockError::NoBlocksToVerify).into());
     };
 
     // hard-forks cannot be reversed, so the last block will contain the highest hard fork (provided the
@@ -199,10 +196,10 @@ pub async fn batch_prepare_main_chain_blocks<D: Database>(
 
                 Ok((block, txs))
             })
-            .collect::<Result<Vec<_>, ExtendedConsensusError>>()?;
+            .collect::<Result<Vec<_>, ConsensusError>>()?;
 
         if !batch_verifier.verify() {
-            return Err(ExtendedConsensusError::OneOrMoreBatchVerificationStatementsInvalid);
+            return Err(ConsensusError::Block(BlockError::BatchVerificationFailed));
         }
 
         Ok(res)
@@ -214,11 +211,5 @@ pub async fn batch_prepare_main_chain_blocks<D: Database>(
     let output_cache =
         get_output_cache(blocks.iter().flat_map(|(_, txs)| txs.iter()), database).await?;
 
-    Ok((
-        blocks,
-        BatchPrepareCache {
-            output_cache,
-            key_images_spent_checked: true,
-        },
-    ))
+    Ok((blocks, BatchPrepareCache { output_cache }))
 }

@@ -37,25 +37,29 @@ pub use cuprate_types::{
     HardFork,
 };
 
+/// The verification context to verify a block or transaction with.
+#[expect(clippy::large_enum_variant)]
+pub enum VerificationContext<D> {
+    /// A full database
+    Database(D),
+    /// A batch prepared cache.
+    ///
+    /// This cache is only valid for the set of blocks it was created with, it should not be used for other blocks.
+    /// You must pass blocks in sequentially.
+    BatchPrepareCache(block::BatchPrepareCache),
+}
+
 /// An Error returned from one of the consensus services.
 #[derive(Debug, thiserror::Error)]
-#[expect(variant_size_differences)]
 pub enum ExtendedConsensusError {
     /// A consensus error.
     #[error("{0}")]
-    ConErr(#[from] ConsensusError),
-    /// A database error.
-    #[error("Database error: {0}")]
-    DBErr(#[from] tower::BoxError),
-    /// The transactions passed in with this block were not the ones needed.
-    #[error("The transactions passed in with the block are incorrect.")]
-    TxsIncludedWithBlockIncorrect,
-    /// One or more statements in the batch verifier was invalid.
-    #[error("One or more statements in the batch verifier was invalid.")]
-    OneOrMoreBatchVerificationStatementsInvalid,
-    /// A request to verify a batch of blocks had no blocks in the batch.
-    #[error("A request to verify a batch of blocks had no blocks in the batch.")]
-    NoBlocksToVerify,
+    ConsensusError(#[from] ConsensusError),
+    /// A service error that we cannot recover from.
+    ///
+    /// If this happens, no more consensus verification should be done with the given inner services.
+    #[error("Fatal error: {0}")]
+    FatalError(#[from] tower::BoxError),
 }
 
 use __private::Database;

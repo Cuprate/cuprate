@@ -9,5 +9,5 @@ mod server;
 mod service;
 mod timeout;
 
-pub use rpc_handler::CupratedRpcHandler;
-pub use server::init_rpc_servers;
+pub(crate) use rpc_handler::CupratedRpcHandler;
+pub(crate) use server::init_rpc_servers;

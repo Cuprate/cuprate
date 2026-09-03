@@ -174,6 +174,7 @@ pub struct BlockchainDatabase {
     /// Each blob tape is stored in an [`Option`] to allow for pruning.
     pub(crate) prunable_blobs: Vec<Option<tapes::BlobTape>>,
 
+    /// Metadata of the database, currently stores the pruning seed.
     pub(crate) tapes_metadata: tapes::BlobTape,
 
     /// Includes the top 5500 blocks, since pruned nodes have to always keep this.
@@ -187,6 +188,7 @@ pub struct BlockchainDatabase {
     /// This is filled in lazily.
     pub(crate) pre_rct_numb_outputs_cache: Mutex<HashMap<Amount, u64>>,
 
+    /// The [`PruningSeed`] for this database.
     pruning_seed: PruningSeed,
 }
 
@@ -425,6 +427,8 @@ impl BlockchainDatabase {
     }
 
     /// Rebuilds the fjall database.
+    ///
+    /// This will not fill in the prunable tip blocks.
     pub fn rebuild_fjall_database(&mut self) -> Result<(), BlockchainError> {
         self.block_heights = recreate_fjall_keyspace(&self.fjall, &self.block_heights)?;
         self.chain_tip = recreate_fjall_keyspace(&self.fjall, &self.chain_tip)?;
@@ -506,7 +510,7 @@ impl BlockchainDatabase {
         self.pruning_seed
     }
 
-    /// - generate new [`PruningSeed`]
+    /// - generate new [`PruningSeed`] (if one doesn't exist)
     /// - populate [`BlockchainDatabase::prunable_tip`] with latest blocks
     /// - delete unnecessary [`BlockchainDatabase::prunable_blobs`]
     fn enable_pruning(&mut self) -> Result<(), BlockchainError> {
@@ -551,6 +555,8 @@ impl BlockchainDatabase {
             .fixed_sized_tape_len(&self.tx_infos)
             .unwrap_or(0);
 
+        // We work backwards from the top, if this is stopped part way the cache will be short, which
+        // is acceptable.
         for (i, tx_id) in (start_tx_idx..end_tx_idx).rev().enumerate() {
             let tx_info = tapes_reader.read_entry(&self.tx_infos, tx_id)?.unwrap();
 
@@ -570,6 +576,8 @@ impl BlockchainDatabase {
             else {
                 self.prunable_tip = Some(prunable_tip);
                 w.commit()?;
+
+                tracing::warn!("We are missing some prunable tip data, top cache will be short.");
 
                 return Ok(());
             };

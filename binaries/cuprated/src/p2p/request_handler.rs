@@ -1,7 +1,5 @@
 use std::{
-    collections::HashSet,
     future::{ready, Ready},
-    hash::Hash,
     task::{Context, Poll},
 };
 
@@ -11,29 +9,23 @@ use futures::{
     FutureExt,
 };
 use monero_oxide::{block::Block, transaction::Transaction};
-use tokio::sync::{broadcast, mpsc, oneshot, watch};
-use tokio_stream::wrappers::WatchStream;
+use tokio::sync::oneshot;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
 use cuprate_blockchain::service::BlockchainReadHandle;
-use cuprate_consensus::{
-    transactions::new_tx_verification_data, BlockChainContextRequest, BlockChainContextResponse,
-    BlockchainContextService,
-};
+use cuprate_consensus::BlockchainContextService;
 use cuprate_dandelion_tower::TxState;
 use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_helper::{
-    asynch::rayon_spawn_async,
-    cast::{u64_to_usize, usize_to_u64},
-    map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
+    asynch::rayon_spawn_async, cast::usize_to_u64, map::split_u128_into_low_high_bits,
 };
 use cuprate_p2p::constants::{
     MAX_BLOCKS_IDS_IN_CHAIN_ENTRY, MAX_BLOCK_BATCH_LEN, MAX_TRANSACTION_BLOB_SIZE, MEDIUM_BAN,
 };
 use cuprate_p2p_core::{
     client::{InternalPeerID, PeerInformation},
-    NetZoneAddress, NetworkZone, ProtocolRequest, ProtocolResponse,
+    NetZoneAddress, ProtocolRequest, ProtocolResponse,
 };
 use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::{
@@ -46,15 +38,14 @@ use cuprate_wire::protocol::{
 };
 
 use crate::{
-    blockchain::interface::{BlockchainManagerHandle, IncomingBlockError},
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
+    blockchain::{interface::BlockchainManagerHandle, IncomingBlockError},
     p2p::CrossNetworkInternalPeerId,
     txpool::{IncomingTxError, IncomingTxHandler, IncomingTxs},
 };
 
 /// The P2P protocol request handler [`MakeService`](tower::MakeService).
 #[derive(Clone)]
-pub struct P2pProtocolRequestHandlerMaker {
+pub(crate) struct P2pProtocolRequestHandlerMaker {
     pub blockchain_read_handle: BlockchainReadHandle,
     pub blockchain_context_service: BlockchainContextService,
     pub txpool_read_handle: TxpoolReadHandle,
@@ -115,7 +106,7 @@ where
 
 /// The P2P protocol request handler.
 #[derive(Clone)]
-pub struct P2pProtocolRequestHandler<N: NetZoneAddress> {
+pub(crate) struct P2pProtocolRequestHandler<N: NetZoneAddress> {
     peer_information: PeerInformation<N>,
     blockchain_read_handle: BlockchainReadHandle,
     blockchain_context_service: BlockchainContextService,
@@ -377,6 +368,20 @@ async fn new_fluffy_block<A: NetZoneAddress>(
             // Block's parent was unknown, could be syncing?
             Ok(ProtocolResponse::NA)
         }
+        Err(IncomingBlockError::Validation { pow_valid, inner }) => {
+            if pow_valid {
+                tracing::warn!("Peer sent invalid block but PoW was valid: {inner}");
+                Ok(ProtocolResponse::NA)
+            } else {
+                tracing::warn!("Failed to verify block: {inner}, banning peer.");
+                peer_information.handle.ban_peer(MEDIUM_BAN);
+                Err(inner.into())
+            }
+        }
+        Err(IncomingBlockError::Fatal(e)) => {
+            tracing::error!("Failed to handle incoming block: {e}");
+            Err(anyhow::Error::from_boxed(e))
+        }
         Err(IncomingBlockError::ChannelClosed) => {
             // Manager has exited (likely shutdown); drop silently.
             Ok(ProtocolResponse::NA)
@@ -431,8 +436,7 @@ where
 
     let res = incoming_tx_handler
         .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .await?
         .call(IncomingTxs {
             txs,
             state,
@@ -443,6 +447,14 @@ where
 
     match res {
         Ok(()) => Ok(ProtocolResponse::NA),
+        Err(IncomingTxError::Fatal(e)) => {
+            tracing::error!("Failed to handle incoming txs: {e}");
+            Err(anyhow::Error::from_boxed(e))
+        }
+        Err(IncomingTxError::ChannelClosed) => {
+            // Manager has exited (likely shutdown); drop silently.
+            Ok(ProtocolResponse::NA)
+        }
         Err(e) => Err(e.into()),
     }
 }

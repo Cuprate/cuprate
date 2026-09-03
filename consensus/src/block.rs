@@ -29,7 +29,9 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork,
 };
 
-use crate::{transactions::start_tx_verification, Database, ExtendedConsensusError};
+use crate::{
+    transactions::start_tx_verification, Database, ExtendedConsensusError, VerificationContext,
+};
 
 mod alt_block;
 mod batch_prepare;
@@ -38,6 +40,52 @@ mod free;
 pub use alt_block::sanity_check_alt_block;
 pub use batch_prepare::{batch_prepare_main_chain_blocks, BatchPrepareCache};
 use free::pull_ordered_transactions;
+
+/// An error encountered while verifying a block.
+///
+/// [`Self::pow_valid`] records whether the block's proof-of-work was successfully verified before
+/// the error occurred.
+#[derive(Debug, thiserror::Error)]
+#[error("{inner}")]
+pub struct BlockVerificationError {
+    /// Whether the block's proof-of-work was successfully verified.
+    pub pow_valid: bool,
+    /// The underlying error.
+    #[source]
+    pub inner: ExtendedConsensusError,
+}
+
+impl BlockVerificationError {
+    /// Create an error that occurred after the block's proof-of-work was verified.
+    pub fn valid_pow(inner: impl Into<ExtendedConsensusError>) -> Self {
+        Self {
+            pow_valid: true,
+            inner: inner.into(),
+        }
+    }
+
+    /// Create an error that occurred before the block's proof-of-work was verified.
+    pub fn invalid_pow(inner: impl Into<ExtendedConsensusError>) -> Self {
+        Self {
+            pow_valid: false,
+            inner: inner.into(),
+        }
+    }
+
+    /// Create a fatal error from a service failure.
+    pub fn fatal(inner: tower::BoxError) -> Self {
+        Self {
+            pow_valid: false,
+            inner: ExtendedConsensusError::FatalError(inner),
+        }
+    }
+}
+
+impl From<BlockVerificationError> for ExtendedConsensusError {
+    fn from(inner: BlockVerificationError) -> Self {
+        inner.inner
+    }
+}
 
 /// A pre-prepared block with all data needed to verify it, except the block's proof of work.
 #[derive(Debug)]
@@ -198,7 +246,7 @@ pub async fn verify_main_chain_block<D>(
     txs: HashMap<[u8; 32], TransactionVerificationData>,
     context_svc: &mut BlockchainContextService,
     database: D,
-) -> Result<VerifiedBlockInformation, ExtendedConsensusError>
+) -> Result<VerifiedBlockInformation, BlockVerificationError>
 where
     D: Database + Clone + Send + 'static,
 {
@@ -218,9 +266,11 @@ where
     } else {
         let BlockChainContextResponse::RxVms(rx_vms) = context_svc
             .ready()
-            .await?
+            .await
+            .map_err(BlockVerificationError::fatal)?
             .call(BlockChainContextRequest::CurrentRxVms)
-            .await?
+            .await
+            .map_err(BlockVerificationError::fatal)?
         else {
             panic!("Blockchain context service returned wrong response!");
         };
@@ -235,15 +285,24 @@ where
             rx_vms.get(&randomx_seed_height(height)).map(AsRef::as_ref),
         )
     })
-    .await?;
+    .await
+    .map_err(BlockVerificationError::invalid_pow)?;
 
     check_block_pow(&prepped_block.pow_hash, context.next_difficulty)
-        .map_err(ConsensusError::Block)?;
+        .map_err(ConsensusError::Block)
+        .map_err(BlockVerificationError::invalid_pow)?;
 
     // Check that the txs included are what we need and that there are not any extra.
-    let ordered_txs = pull_ordered_transactions(&prepped_block.block, txs)?;
+    let ordered_txs = pull_ordered_transactions(&prepped_block.block, txs)
+        .map_err(BlockVerificationError::valid_pow)?;
 
-    verify_prepped_main_chain_block(prepped_block, ordered_txs, context_svc, database, None).await
+    verify_prepped_main_chain_block(
+        prepped_block,
+        ordered_txs,
+        context_svc,
+        &mut VerificationContext::Database(database),
+    )
+    .await
 }
 
 /// Fully verify a block that has already been prepared using [`batch_prepare_main_chain_blocks`].
@@ -251,9 +310,8 @@ pub async fn verify_prepped_main_chain_block<D>(
     prepped_block: PreparedBlock,
     mut txs: Vec<TransactionVerificationData>,
     context_svc: &mut BlockchainContextService,
-    database: D,
-    batch_prep_cache: Option<&mut BatchPrepareCache>,
-) -> Result<VerifiedBlockInformation, ExtendedConsensusError>
+    verification_context: &mut VerificationContext<D>,
+) -> Result<VerifiedBlockInformation, BlockVerificationError>
 where
     D: Database + Clone + Send + 'static,
 {
@@ -262,32 +320,38 @@ where
     tracing::debug!("verifying block: {}", hex::encode(prepped_block.block_hash));
 
     check_block_pow(&prepped_block.pow_hash, context.next_difficulty)
-        .map_err(ConsensusError::Block)?;
+        .map_err(ConsensusError::Block)
+        .map_err(BlockVerificationError::invalid_pow)?;
 
     if prepped_block.block.transactions.len() != txs.len() {
-        return Err(ExtendedConsensusError::TxsIncludedWithBlockIncorrect);
+        return Err(BlockVerificationError::valid_pow(ConsensusError::Block(
+            BlockError::TxsIncludedWithBlockIncorrect,
+        )));
     }
 
     if !prepped_block.block.transactions.is_empty() {
         for (expected_tx_hash, tx) in prepped_block.block.transactions.iter().zip(txs.iter()) {
             if expected_tx_hash != &tx.tx_hash {
-                return Err(ExtendedConsensusError::TxsIncludedWithBlockIncorrect);
+                return Err(BlockVerificationError::valid_pow(ConsensusError::Block(
+                    BlockError::TxsIncludedWithBlockIncorrect,
+                )));
             }
         }
 
         let temp = start_tx_verification()
             .append_prepped_txs(mem::take(&mut txs))
-            .prepare()?
+            .prepare()
+            .map_err(BlockVerificationError::valid_pow)?
             .full(
                 context.chain_height,
                 context.top_hash,
                 context.current_adjusted_timestamp_for_time_lock(),
                 context.current_hf,
-                database,
-                batch_prep_cache.as_deref(),
+                verification_context,
             )
             .verify()
-            .await?;
+            .await
+            .map_err(BlockVerificationError::valid_pow)?;
 
         txs = temp;
     }
@@ -304,7 +368,8 @@ where
         prepped_block.block_blob.len(),
         &context.context_to_verify_block,
     )
-    .map_err(ConsensusError::Block)?;
+    .map_err(ConsensusError::Block)
+    .map_err(BlockVerificationError::valid_pow)?;
 
     let block = VerifiedBlockInformation {
         block_hash: prepped_block.block_hash,
@@ -335,7 +400,7 @@ where
         cumulative_difficulty: context.cumulative_difficulty + context.next_difficulty,
     };
 
-    if let Some(batch_prep_cache) = batch_prep_cache {
+    if let VerificationContext::BatchPrepareCache(batch_prep_cache) = verification_context {
         batch_prep_cache.output_cache.add_block_to_cache(&block);
     }
 

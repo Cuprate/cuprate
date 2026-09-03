@@ -1,17 +1,16 @@
 //! Logging
 //!
 //! `cuprated` log filtering settings and related functionality.
-use std::ops::BitAnd;
 use std::{
     fmt::{Display, Formatter},
     io::IsTerminal,
-    mem::forget,
     sync::OnceLock,
 };
-use tracing::{
-    instrument::WithSubscriber, level_filters::LevelFilter, subscriber::Interest, Metadata,
+use tracing::{level_filters::LevelFilter, subscriber::Interest, Metadata};
+use tracing_appender::{
+    non_blocking::{NonBlocking, WorkerGuard},
+    rolling::Rotation,
 };
-use tracing_appender::{non_blocking::NonBlocking, rolling::Rotation};
 use tracing_subscriber::{
     filter::Filtered,
     fmt::{
@@ -84,7 +83,7 @@ impl<S> Filter<S> for CupratedTracingFilter {
 }
 
 /// Initialize [`tracing`] for logging to stdout and to a file.
-pub fn init_logging(config: &Config) {
+pub fn init_logging(config: &Config) -> WorkerGuard {
     // initialize the stdout filter, set `STDOUT_FILTER_HANDLE` and create the layer.
     let (stdout_filter, stdout_handle) = ReloadLayer::new(CupratedTracingFilter {
         level: config.tracing.stdout.level,
@@ -107,9 +106,6 @@ pub fn init_logging(config: &Config) {
             .unwrap(),
     );
 
-    // TODO: drop this when we shutdown.
-    forget(guard);
-
     // initialize the appender filter, set `FILE_WRITER_FILTER_HANDLE` and create the layer.
     let (appender_filter, appender_handle) = ReloadLayer::new(CupratedTracingFilter {
         level: appender_config.level,
@@ -127,6 +123,8 @@ pub fn init_logging(config: &Config) {
         .with(appender_layer)
         .with(stdout_layer)
         .init();
+
+    guard
 }
 
 /// Modify the stdout [`CupratedTracingFilter`].

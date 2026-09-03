@@ -1,20 +1,15 @@
-use std::{
-    cmp::min,
-    collections::BTreeSet,
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
-};
+use std::{cmp::min, collections::BTreeSet, time::Duration};
 
 use bytes::Bytes;
 use futures::StreamExt;
 use indexmap::IndexMap;
-use rand::Rng;
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::{sync::CancellationToken, time::delay_queue, time::DelayQueue};
 use tower::{Service, ServiceExt};
-use tracing::{instrument, Instrument, Span};
+use tracing::instrument;
 
 use cuprate_dandelion_tower::{
-    pool::{DandelionPoolService, IncomingTx, IncomingTxBuilder},
+    pool::{DandelionPoolService, IncomingTxBuilder},
     traits::DiffuseRequest,
     TxState,
 };
@@ -28,9 +23,8 @@ use cuprate_types::TransactionVerificationData;
 
 use crate::{
     config::TxpoolConfig,
-    constants::PANIC_CRITICAL_SERVICE_ERROR,
-    monitor::TaskExecutor,
-    p2p::{CrossNetworkInternalPeerId, NetworkInterfaces},
+    monitor::{FatalError, TaskExecutor},
+    p2p::CrossNetworkInternalPeerId,
     txpool::{
         dandelion::DiffuseService,
         incoming_tx::{DandelionTx, TxId},
@@ -46,25 +40,23 @@ const MAX_RECENTLY_REMOVED_TXS: usize = 5000;
 
 /// Starts the transaction pool manager service.
 ///
-/// # Panics
+/// # Errors
 ///
-/// This function may panic if any inner service has an unrecoverable error.
-pub async fn start_txpool_manager(
-    mut txpool_write_handle: TxpoolWriteHandle,
+/// This function will return an [`Err`] if any inner service has an unrecoverable error.
+pub(crate) async fn start_txpool_manager(
+    txpool_write_handle: TxpoolWriteHandle,
     mut txpool_read_handle: TxpoolReadHandle,
     promote_tx_channel: mpsc::UnboundedReceiver<[u8; 32]>,
     diffuse_service: DiffuseService<ClearNet>,
     dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
     config: TxpoolConfig,
     task_executor: TaskExecutor,
-) -> TxpoolManagerHandle {
+) -> Result<TxpoolManagerHandle, FatalError> {
     let TxpoolReadResponse::Backlog(backlog) = txpool_read_handle
         .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .await?
         .call(TxpoolReadRequest::Backlog)
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .await?
     else {
         unreachable!()
     };
@@ -121,19 +113,22 @@ pub async fn start_txpool_manager(
     tracing::info!(stem_txs = stem_txs.len(), "promoting stem txs");
 
     for tx in stem_txs {
-        manager.promote_tx(tx).await;
+        manager.promote_tx(tx).await?;
     }
 
     let (command_tx, command_rx) = mpsc::channel(INCOMING_TX_QUEUE_SIZE);
     let (spent_kis_tx, spent_kis_rx) = mpsc::channel(1);
 
     let shutdown_token = task_executor.cancellation_token();
-    task_executor.spawn(manager.run(command_rx, spent_kis_rx, shutdown_token));
+    task_executor.spawn_critical(
+        "txpool manager",
+        manager.run(command_rx, spent_kis_rx, shutdown_token),
+    );
 
-    TxpoolManagerHandle {
+    Ok(TxpoolManagerHandle {
         command_tx,
         spent_kis_tx,
-    }
+    })
 }
 
 /// Commands sent to the [`TxpoolManager`] via [`TxpoolManagerHandle`].
@@ -141,7 +136,7 @@ pub async fn start_txpool_manager(
     clippy::large_enum_variant,
     reason = "`IncomingTx` is the most common command"
 )]
-pub enum TxpoolManagerCommand {
+pub(crate) enum TxpoolManagerCommand {
     /// An incoming transaction to add to the pool.
     IncomingTx(
         TransactionVerificationData,
@@ -156,7 +151,7 @@ pub enum TxpoolManagerCommand {
 }
 
 /// Response to [`TxpoolManagerCommand::PoolInfoSince`].
-pub struct PoolInfoSinceResponse {
+pub(crate) struct PoolInfoSinceResponse {
     /// `true` if the manager's incremental tracking does not reach back to the
     /// requested timestamp, so the caller must send a full pool snapshot
     ///
@@ -170,7 +165,7 @@ pub struct PoolInfoSinceResponse {
 
 /// A handle to the tx-pool manager.
 #[derive(Clone)]
-pub struct TxpoolManagerHandle {
+pub(crate) struct TxpoolManagerHandle {
     /// Channel for sending commands to the manager.
     pub command_tx: mpsc::Sender<TxpoolManagerCommand>,
 
@@ -179,11 +174,12 @@ pub struct TxpoolManagerHandle {
 }
 
 impl TxpoolManagerHandle {
+    #[cfg(test)]
     /// Create a mock [`TxpoolManagerHandle`] that does nothing.
     ///
     /// Useful for testing.
     #[expect(clippy::let_underscore_must_use)]
-    pub fn mock() -> Self {
+    pub(crate) fn mock() -> Self {
         let (spent_kis_tx, mut spent_kis_rx) = mpsc::channel(1);
         let (command_tx, mut command_rx) = mpsc::channel(100);
 
@@ -212,21 +208,31 @@ impl TxpoolManagerHandle {
     }
 
     /// Tell the tx-pool about spent key images in an incoming block.
-    pub async fn new_block(&mut self, spent_key_images: Vec<[u8; 32]>) -> anyhow::Result<()> {
+    pub(crate) async fn new_block(
+        &self,
+        spent_key_images: Vec<[u8; 32]>,
+    ) -> Result<(), FatalError> {
         let (tx, rx) = oneshot::channel();
 
         drop(self.spent_kis_tx.send((spent_key_images, tx)).await);
 
-        rx.await
-            .map_err(|_| anyhow::anyhow!("txpool manager stopped"))
+        rx.await.map_err(|_| "txpool manager stopped".into())
     }
 }
 
 /// Information on a transaction in the tx-pool.
 struct TxInfo {
     /// The weight of the transaction.
+    #[expect(
+        dead_code,
+        reason = "Will be used when we need to create block templates"
+    )]
     weight: usize,
     /// The fee the transaction paid.
+    #[expect(
+        dead_code,
+        reason = "Will be used when we need to create block templates"
+    )]
     fee: u64,
     /// The UNIX timestamp when the tx was received.
     received_at: u64,
@@ -284,8 +290,20 @@ impl TxpoolManager {
     ///
     /// This function will panic if the tx is not in the tx-pool manager.
     #[instrument(level = "debug", skip_all, fields(tx_id = hex::encode(tx)))]
-    async fn remove_tx_from_pool(&mut self, tx: [u8; 32], remove_from_db: bool) {
+    async fn remove_tx_from_pool(
+        &mut self,
+        tx: [u8; 32],
+        remove_from_db: bool,
+    ) -> Result<(), FatalError> {
         tracing::debug!("removing tx from pool");
+
+        if remove_from_db {
+            self.txpool_write_handle
+                .ready()
+                .await?
+                .call(TxpoolWriteRequest::RemoveTransaction(tx))
+                .await?;
+        }
 
         let tx_info = self.current_txs.swap_remove(&tx).unwrap();
 
@@ -307,15 +325,7 @@ impl TxpoolManager {
             }
         }
 
-        if remove_from_db {
-            self.txpool_write_handle
-                .ready()
-                .await
-                .expect(PANIC_CRITICAL_SERVICE_ERROR)
-                .call(TxpoolWriteRequest::RemoveTransaction(tx))
-                .await
-                .expect(PANIC_CRITICAL_SERVICE_ERROR);
-        }
+        Ok(())
     }
 
     /// Re-relay a tx to the network.
@@ -324,37 +334,33 @@ impl TxpoolManager {
     ///
     /// This function will panic if the tx is not in the tx-pool.
     #[instrument(level = "debug", skip_all, fields(tx_id = hex::encode(tx)))]
-    async fn rerelay_tx(&mut self, tx: [u8; 32]) {
+    async fn rerelay_tx(&mut self, tx: [u8; 32]) -> Result<(), FatalError> {
         tracing::debug!("re-relaying tx to network");
 
-        let TxpoolReadResponse::TxBlob {
-            tx_blob,
-            state_stem: _,
-        } = self
+        let TxpoolReadResponse::TxBlob { tx_blob, .. } = self
             .txpool_read_handle
             .ready()
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .await?
             .call(TxpoolReadRequest::TxBlob(tx))
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .await?
         else {
             unreachable!()
         };
 
         self.diffuse_service
             .call(DiffuseRequest(DandelionTx(Bytes::from(tx_blob))))
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+            .await?;
+
+        Ok(())
     }
 
     /// Handles a transaction timeout, be either rebroadcasting or dropping the tx from the pool.
     /// If a rebroadcast happens, this function will handle adding another timeout to the queue.
     #[instrument(level = "debug", skip_all, fields(tx_id = hex::encode(tx)))]
-    async fn handle_tx_timeout(&mut self, tx: [u8; 32]) {
+    async fn handle_tx_timeout(&mut self, tx: [u8; 32]) -> Result<(), FatalError> {
         let Some(tx_info) = self.current_txs.get(&tx) else {
             tracing::warn!("tx timed out, but tx not in pool");
-            return;
+            return Ok(());
         };
 
         let time_in_pool = current_unix_timestamp() - tx_info.received_at;
@@ -363,15 +369,15 @@ impl TxpoolManager {
         // slightly off.
         if time_in_pool + 10 > self.config.maximum_age_secs {
             tracing::warn!("tx has been in pool too long, removing from pool");
-            self.remove_tx_from_pool(tx, true).await;
-            return;
+            self.remove_tx_from_pool(tx, true).await?;
+            return Ok(());
         }
 
         let received_at = tx_info.received_at;
 
         tracing::debug!(time_in_pool, "tx timed out, resending to network");
 
-        self.rerelay_tx(tx).await;
+        self.rerelay_tx(tx).await?;
 
         let tx_info = self.current_txs.get_mut(&tx).unwrap();
 
@@ -382,6 +388,8 @@ impl TxpoolManager {
             self.tx_timeouts
                 .insert(tx, Duration::from_secs(next_timeout)),
         );
+
+        Ok(())
     }
 
     /// Adds a tx to the tx-pool manager.
@@ -420,7 +428,7 @@ impl TxpoolManager {
         &mut self,
         tx: TransactionVerificationData,
         state: TxState<CrossNetworkInternalPeerId>,
-    ) {
+    ) -> Result<(), FatalError> {
         tracing::debug!("handling new tx");
 
         let incoming_tx =
@@ -431,14 +439,12 @@ impl TxpoolManager {
         let TxpoolWriteResponse::AddTransaction(double_spend) = self
             .txpool_write_handle
             .ready()
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .await?
             .call(TxpoolWriteRequest::AddTransaction {
                 tx: Box::new(tx),
                 state_stem: state.is_stem_stage(),
             })
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .await?
         else {
             unreachable!()
         };
@@ -448,7 +454,7 @@ impl TxpoolManager {
                 double_spent = hex::encode(tx_hash),
                 "transaction is a double spend, ignoring"
             );
-            return;
+            return Ok(());
         }
 
         self.track_tx(tx_hash, tx_weight, tx_fee, state.is_stem_stage());
@@ -461,29 +467,35 @@ impl TxpoolManager {
 
         self.dandelion_pool_manager
             .ready()
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .await?
             .call(incoming_tx)
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+            .await?;
+
+        Ok(())
     }
 
     /// Promote a tx to the public pool.
     #[instrument(level = "debug", skip_all, fields(tx_id = hex::encode(tx)))]
-    async fn promote_tx(&mut self, tx: [u8; 32]) {
+    async fn promote_tx(&mut self, tx: [u8; 32]) -> Result<(), FatalError> {
         let Some(tx_info) = self.current_txs.get_mut(&tx) else {
             tracing::debug!("not promoting tx, tx not in pool");
-            return;
+            return Ok(());
         };
 
         if !tx_info.private {
             tracing::trace!("not promoting tx, tx is already public");
-            return;
+            return Ok(());
         }
-        tx_info.private = false;
 
         tracing::debug!("promoting tx");
 
+        self.txpool_write_handle
+            .ready()
+            .await?
+            .call(TxpoolWriteRequest::Promote(tx))
+            .await?;
+
+        tx_info.private = false;
         // It's now in the public pool, pretend we just saw it.
         tx_info.received_at = current_unix_timestamp();
         self.public_pool_timestamps
@@ -497,13 +509,7 @@ impl TxpoolManager {
                 .insert(tx, Duration::from_secs(next_timeout)),
         );
 
-        self.txpool_write_handle
-            .ready()
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
-            .call(TxpoolWriteRequest::Promote(tx))
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR);
+        Ok(())
     }
 
     /// Returns the hashes of all public-pool transactions that entered the public pool at or
@@ -526,33 +532,31 @@ impl TxpoolManager {
 
     /// Handles removing all transactions that have been included/double spent in an incoming block.
     #[instrument(level = "debug", skip_all)]
-    async fn new_block(&mut self, spent_key_images: Vec<[u8; 32]>) {
+    async fn new_block(&mut self, spent_key_images: Vec<[u8; 32]>) -> Result<(), FatalError> {
         tracing::debug!("handling new block");
 
         let TxpoolWriteResponse::NewBlock(removed_txs) = self
             .txpool_write_handle
             .ready()
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .await?
             .call(TxpoolWriteRequest::NewBlock { spent_key_images })
-            .await
-            .expect(PANIC_CRITICAL_SERVICE_ERROR)
+            .await?
         else {
             unreachable!()
         };
 
         for tx in removed_txs {
-            self.remove_tx_from_pool(tx, false).await;
+            self.remove_tx_from_pool(tx, false).await?;
         }
+        Ok(())
     }
 
-    #[expect(clippy::let_underscore_must_use)]
     async fn run(
         mut self,
         mut command_rx: mpsc::Receiver<TxpoolManagerCommand>,
         mut block_rx: mpsc::Receiver<(Vec<[u8; 32]>, oneshot::Sender<()>)>,
         shutdown_token: CancellationToken,
-    ) {
+    ) -> Result<(), FatalError> {
         loop {
             tokio::select! {
                 biased;
@@ -560,16 +564,16 @@ impl TxpoolManager {
                     break;
                 }
                 Some((spent_kis, tx)) = block_rx.recv() => {
-                    self.new_block(spent_kis).await;
+                    self.new_block(spent_kis).await?;
                     let _ = tx.send(());
                 }
                 Some(tx) = self.tx_timeouts.next() => {
-                    self.handle_tx_timeout(tx.into_inner()).await;
+                    self.handle_tx_timeout(tx.into_inner()).await?;
                 }
                 Some(command) = command_rx.recv() => {
                     match command {
                         TxpoolManagerCommand::IncomingTx(tx, state) => {
-                            self.handle_incoming_tx(tx, state).await;
+                            self.handle_incoming_tx(tx, state).await?;
                         }
                         TxpoolManagerCommand::PoolInfoSince { since, response_tx } => {
                             // If `since` is 0 the requester wants the full pool. If `since` is older than `removed_txs_start_time`,
@@ -595,12 +599,13 @@ impl TxpoolManager {
                     }
                 }
                 Some(tx) = self.promote_tx_channel.recv() => {
-                    self.promote_tx(tx).await;
+                    self.promote_tx(tx).await?;
                 }
             }
         }
 
         tracing::info!("Txpool manager shut down.");
+        Ok(())
     }
 }
 

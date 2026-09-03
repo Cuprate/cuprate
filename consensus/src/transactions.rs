@@ -41,15 +41,13 @@ use cuprate_consensus_rules::{
 use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    output_cache::OutputCache,
     CachedVerificationState, TransactionVerificationData, TxVersion,
 };
 
 use crate::{
     batch_verifier::MultiThreadedBatchVerifier,
-    block::BatchPrepareCache,
     transactions::contextual_data::{batch_get_decoy_info, batch_get_ring_member_info},
-    Database, ExtendedConsensusError,
+    Database, ExtendedConsensusError, VerificationContext,
 };
 
 pub mod contextual_data;
@@ -156,8 +154,7 @@ impl VerificationWanted {
         top_hash: [u8; 32],
         time_for_time_lock: u64,
         hf: HardFork,
-        database: D,
-        batch_prep_cache: Option<&BatchPrepareCache>,
+        verification_context: &mut VerificationContext<D>,
     ) -> FullVerification<'_, D> {
         FullVerification {
             prepped_txs: self.prepped_txs,
@@ -165,8 +162,7 @@ impl VerificationWanted {
             top_hash,
             time_for_time_lock,
             hf,
-            database,
-            batch_prep_cache,
+            verification_context,
         }
     }
 }
@@ -219,8 +215,7 @@ pub struct FullVerification<'a, D> {
     top_hash: [u8; 32],
     time_for_time_lock: u64,
     hf: HardFork,
-    database: D,
-    batch_prep_cache: Option<&'a BatchPrepareCache>,
+    verification_context: &'a mut VerificationContext<D>,
 }
 
 impl<D: Database + Clone> FullVerification<'_, D> {
@@ -228,15 +223,13 @@ impl<D: Database + Clone> FullVerification<'_, D> {
     pub async fn verify(
         mut self,
     ) -> Result<Vec<TransactionVerificationData>, ExtendedConsensusError> {
-        if self
-            .batch_prep_cache
-            .is_none_or(|c| !c.key_images_spent_checked)
-        {
-            check_kis_unique(self.prepped_txs.iter(), &mut self.database).await?;
-        }
-
         let hashes_in_main_chain =
-            hashes_referenced_in_main_chain(&self.prepped_txs, &mut self.database).await?;
+            if let VerificationContext::Database(database) = &mut self.verification_context {
+                check_kis_unique(self.prepped_txs.iter(), database).await?;
+                hashes_referenced_in_main_chain(&self.prepped_txs, database).await?
+            } else {
+                HashSet::new()
+            };
 
         let (verification_needed, any_v1_decoy_check_needed) = verification_needed(
             &self.prepped_txs,
@@ -259,8 +252,7 @@ impl<D: Database + Clone> FullVerification<'_, D> {
                         }
                     }),
                 self.hf,
-                self.database.clone(),
-                self.batch_prep_cache.map(|c| &c.output_cache),
+                self.verification_context,
             )
             .await?;
         }
@@ -272,8 +264,7 @@ impl<D: Database + Clone> FullVerification<'_, D> {
             self.top_hash,
             self.time_for_time_lock,
             self.hf,
-            self.database,
-            self.batch_prep_cache.map(|c| &c.output_cache),
+            self.verification_context,
         )
         .await
     }
@@ -443,15 +434,14 @@ fn verification_needed(
 async fn verify_transactions_decoy_info<D: Database>(
     txs: impl Iterator<Item = &TransactionVerificationData> + Clone,
     hf: HardFork,
-    database: D,
-    output_cache: Option<&OutputCache>,
+    verification_context: &mut VerificationContext<D>,
 ) -> Result<(), ExtendedConsensusError> {
     // Decoy info is not validated for V1 txs.
     if hf == HardFork::V1 {
         return Ok(());
     }
 
-    batch_get_decoy_info(txs, hf, database, output_cache)
+    batch_get_decoy_info(txs, hf, verification_context)
         .await?
         .try_for_each(|decoy_info| decoy_info.and_then(|di| Ok(check_decoy_info(&di, hf)?)))?;
 
@@ -463,7 +453,6 @@ async fn verify_transactions_decoy_info<D: Database>(
 /// The inputs to this function are the txs wanted to be verified and a list of [`VerificationNeeded`],
 /// if any other [`VerificationNeeded`] is specified other than [`VerificationNeeded::Contextual`] or
 /// [`VerificationNeeded::SemanticAndContextual`], nothing will be verified for that tx.
-#[expect(clippy::too_many_arguments)]
 async fn verify_transactions<D>(
     mut txs: Vec<TransactionVerificationData>,
     verification_needed: Vec<VerificationNeeded>,
@@ -471,8 +460,7 @@ async fn verify_transactions<D>(
     top_hash: [u8; 32],
     current_time_lock_timestamp: u64,
     hf: HardFork,
-    database: D,
-    output_cache: Option<&OutputCache>,
+    verification_context: &mut VerificationContext<D>,
 ) -> Result<Vec<TransactionVerificationData>, ExtendedConsensusError>
 where
     D: Database,
@@ -492,8 +480,7 @@ where
             .filter(tx_filter)
             .map(|(tx, _)| tx),
         hf,
-        database,
-        output_cache,
+        verification_context,
     )
     .await?;
 
@@ -533,7 +520,9 @@ where
             })?;
 
         if !batch_verifier.verify() {
-            return Err(ExtendedConsensusError::OneOrMoreBatchVerificationStatementsInvalid);
+            return Err(
+                ConsensusError::Transaction(TransactionError::BatchVerificationFailed).into(),
+            );
         }
 
         txs.iter_mut()

@@ -32,7 +32,10 @@ use cuprate_types::{
     OutputOnChain,
 };
 
-use crate::{transactions::TransactionVerificationData, Database, ExtendedConsensusError};
+use crate::{
+    transactions::TransactionVerificationData, Database, ExtendedConsensusError,
+    VerificationContext,
+};
 
 /// Get the ring members for the inputs from the outputs on the chain.
 ///
@@ -160,32 +163,32 @@ pub async fn get_output_cache<D: Database>(
 pub async fn batch_get_ring_member_info<D: Database>(
     txs_verification_data: impl Iterator<Item = &TransactionVerificationData> + Clone,
     hf: HardFork,
-    mut database: D,
-    cache: Option<&OutputCache>,
+    verification_context: &mut VerificationContext<D>,
 ) -> Result<Vec<TxRingMembersInfo>, ExtendedConsensusError> {
-    let mut outputs = IndexMap::new();
+    let outputs = match verification_context {
+        VerificationContext::BatchPrepareCache(cache) => Cow::Borrowed(&cache.output_cache),
+        VerificationContext::Database(database) => {
+            let mut outputs = IndexMap::new();
 
-    for tx_v_data in txs_verification_data.clone() {
-        insert_ring_member_ids(&tx_v_data.tx.prefix().inputs, &mut outputs)
-            .map_err(ConsensusError::Transaction)?;
-    }
+            for tx_v_data in txs_verification_data.clone() {
+                insert_ring_member_ids(&tx_v_data.tx.prefix().inputs, &mut outputs)
+                    .map_err(ConsensusError::Transaction)?;
+            }
 
-    let outputs = if let Some(cache) = cache {
-        Cow::Borrowed(cache)
-    } else {
-        let BlockchainResponse::Outputs(outputs) = database
-            .ready()
-            .await?
-            .call(BlockchainReadRequest::Outputs {
-                outputs,
-                get_txid: false,
-            })
-            .await?
-        else {
-            unreachable!();
-        };
+            let BlockchainResponse::Outputs(outputs) = database
+                .ready()
+                .await?
+                .call(BlockchainReadRequest::Outputs {
+                    outputs,
+                    get_txid: false,
+                })
+                .await?
+            else {
+                unreachable!();
+            };
 
-        Cow::Owned(outputs)
+            Cow::Owned(outputs)
+        }
     };
 
     Ok(txs_verification_data
@@ -223,8 +226,7 @@ pub async fn batch_get_ring_member_info<D: Database>(
 pub async fn batch_get_decoy_info<'a, 'b, D: Database>(
     txs_verification_data: impl Iterator<Item = &'a TransactionVerificationData> + Clone,
     hf: HardFork,
-    mut database: D,
-    cache: Option<&'b OutputCache>,
+    verification_context: &mut VerificationContext<D>,
 ) -> Result<
     impl Iterator<Item = Result<DecoyInfo, ConsensusError>> + sealed::Captures<(&'a (), &'b ())>,
     ExtendedConsensusError,
@@ -248,24 +250,25 @@ pub async fn batch_get_decoy_info<'a, 'b, D: Database>(
         unique_input_amounts.len()
     );
 
-    let outputs_with_amount = if let Some(cache) = cache {
-        unique_input_amounts
+    let outputs_with_amount = match verification_context {
+        VerificationContext::BatchPrepareCache(cache) => unique_input_amounts
             .into_iter()
-            .map(|amount| (amount, cache.number_outs_with_amount(amount)))
-            .collect()
-    } else {
-        let BlockchainResponse::NumberOutputsWithAmount(outputs_with_amount) = database
-            .ready()
-            .await?
-            .call(BlockchainReadRequest::NumberOutputsWithAmount(
-                unique_input_amounts.into_iter().collect(),
-            ))
-            .await?
-        else {
-            unreachable!();
-        };
+            .map(|amount| (amount, cache.output_cache.number_outs_with_amount(amount)))
+            .collect(),
+        VerificationContext::Database(database) => {
+            let BlockchainResponse::NumberOutputsWithAmount(outputs_with_amount) = database
+                .ready()
+                .await?
+                .call(BlockchainReadRequest::NumberOutputsWithAmount(
+                    unique_input_amounts.into_iter().collect(),
+                ))
+                .await?
+            else {
+                unreachable!();
+            };
 
-        outputs_with_amount
+            outputs_with_amount
+        }
     };
 
     Ok(txs_verification_data.map(move |tx_v_data| {

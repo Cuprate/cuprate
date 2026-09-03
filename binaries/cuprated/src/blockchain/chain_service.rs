@@ -14,7 +14,7 @@ use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
 ///
 /// This has a more minimal interface than [`BlockchainReadRequest`] to make using the p2p crates easier.
 #[derive(Clone)]
-pub struct ChainService(pub BlockchainReadHandle, pub &'static [[u8; 32]]);
+pub(crate) struct ChainService(pub BlockchainReadHandle, pub &'static [[u8; 32]]);
 
 impl<N: NetworkZone> Service<ChainSvcRequest<N>> for ChainService {
     type Response = ChainSvcResponse<N>;

@@ -1,11 +1,6 @@
 //! Blockchain
 //!
 //! Contains the blockchain manager, syncer and an interface to mutate the blockchain.
-use std::sync::Arc;
-
-use cuprate_pruning::PruningSeed;
-use futures::FutureExt;
-use tokio::sync::{mpsc, Notify};
 use tower::{BoxError, Service, ServiceExt};
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
@@ -13,22 +8,22 @@ use cuprate_consensus::{
     generate_genesis_block, BlockchainContext, BlockchainContextService, ContextConfig,
 };
 use cuprate_cryptonight::cryptonight_hash_v0;
-use cuprate_p2p::{block_downloader::BlockDownloaderConfig, NetworkInterface};
-use cuprate_p2p_core::{client::PeerSyncCallback, ClearNet, Network};
+use cuprate_p2p_core::{client::PeerSyncCallback, Network};
+use cuprate_pruning::PruningSeed;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainWriteRequest},
     VerifiedBlockInformation,
 };
 
-use crate::constants::PANIC_CRITICAL_SERVICE_ERROR;
-
 mod chain_service;
+mod error;
 mod fast_sync;
 pub mod interface;
 mod manager;
 mod syncer;
 mod types;
 
+pub use error::IncomingBlockError;
 pub use fast_sync::get_fast_sync_hashes;
 pub use interface::BlockchainManagerHandle;
 pub use syncer::BlockchainSyncerHandle;
@@ -105,17 +100,16 @@ pub async fn check_add_genesis(
     blockchain_read_handle: &mut BlockchainReadHandle,
     blockchain_write_handle: &mut BlockchainWriteHandle,
     network: Network,
-) {
+) -> anyhow::Result<()> {
     // Try to get the chain height, will fail if the genesis block is not in the DB.
     if blockchain_read_handle
         .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .await?
         .call(BlockchainReadRequest::ChainHeight)
         .await
         .is_ok()
     {
-        return;
+        return Ok(());
     }
 
     let genesis = generate_genesis_block(network);
@@ -125,8 +119,7 @@ pub async fn check_add_genesis(
 
     blockchain_write_handle
         .ready()
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR)
+        .await?
         .call(BlockchainWriteRequest::WriteBlock(
             VerifiedBlockInformation {
                 block_blob: genesis.serialize(),
@@ -143,8 +136,9 @@ pub async fn check_add_genesis(
                 block: genesis,
             },
         ))
-        .await
-        .expect(PANIC_CRITICAL_SERVICE_ERROR);
+        .await?;
+
+    Ok(())
 }
 
 /// Initializes the consensus services.

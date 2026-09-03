@@ -193,11 +193,7 @@ fn write_alt_block(db: &BlockchainDatabase, block: &AltBlockInformation) -> Resp
 }
 
 /// [`BlockchainWriteRequest::PopBlocks`].
-pub(crate) fn pop_blocks(
-    db: &BlockchainDatabase,
-    numb_blocks: usize,
-    keep_blocks: bool,
-) -> ResponseResult {
+fn pop_blocks(db: &BlockchainDatabase, numb_blocks: usize, keep_blocks: bool) -> ResponseResult {
     let mut tapes = db.linear_tapes.truncate();
     let mut tx_rw = db.fjall.batch().durability(Some(PersistMode::SyncAll));
     let tx_ro = db.fjall.snapshot();

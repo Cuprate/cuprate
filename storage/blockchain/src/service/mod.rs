@@ -19,7 +19,7 @@ use crate::error::DbResult;
 
 mod free;
 mod read;
-pub(crate) mod write;
+mod write;
 
 pub use free::init_with_pool;
 pub use read::BlockchainReadHandle;

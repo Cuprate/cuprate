@@ -1,7 +1,6 @@
-use std::{io::Write, net::SocketAddr, path::PathBuf, process::exit, str::FromStr};
+use std::{net::SocketAddr, path::PathBuf, process::exit, str::FromStr};
 
 use clap::builder::TypedValueParser;
-use serde_json::Value;
 
 use cuprate_helper::network::Network;
 use cuprate_wire::OnionAddr;
@@ -34,7 +33,7 @@ impl FromStr for SeedNodeArg {
 /// Cuprate Args.
 #[derive(clap::Parser, Debug)]
 #[command(about)]
-pub struct Args {
+pub(crate) struct Args {
     /// The network to run on.
     #[arg(
         long,
@@ -119,7 +118,7 @@ impl Args {
     /// Complete any quick requests asked for in [`Args`].
     ///
     /// May cause the process to [`exit`].
-    pub fn do_quick_requests(&self) {
+    pub(crate) fn do_quick_requests(&self) {
         if self.version {
             let version_info = CupratedVersionInfo::new();
             let json = serde_json::to_string_pretty(&version_info).unwrap();
@@ -136,7 +135,7 @@ impl Args {
     /// Apply the [`Args`] to the given [`Config`].
     ///
     /// This may exit the program if a config value was set that requires an early exit.
-    pub fn apply_args(&self, mut config: Config) -> Config {
+    pub(crate) fn apply_args(&self, mut config: Config) -> Config {
         if let Some(network) = self.network {
             config.network = network;
         }

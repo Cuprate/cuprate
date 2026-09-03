@@ -280,12 +280,11 @@ pub fn add_blocks_to_tapes(
     Ok(())
 }
 
-/// Add a [`VerifiedBlockInformation`] to the dynamic database (fjall).
+/// Adds a batch of [`VerifiedBlockInformation`] to the dynamic database (fjall).
 ///
-/// This extracts all the data from the input block and
-/// maps/adds them to the appropriate database tables.
+/// This extracts all the data from the input blocks and maps/adds them to the appropriate database tables.
 ///
-/// Additionally, it removes the [`BlockchainDatabase::prunable_tip`] entries to they're always of length [`CRYPTONOTE_PRUNING_TIP_BLOCKS`].
+/// Additionally, it removes the [`BlockchainDatabase::prunable_tip`] entries so they're always a max length of [`CRYPTONOTE_PRUNING_TIP_BLOCKS`].
 pub(crate) fn add_blocks_to_dynamic_tables(
     db: &BlockchainDatabase,
     blocks: &[VerifiedBlockInformation],
@@ -449,6 +448,14 @@ pub fn pop_block(
     // Get the block from the database, so we know what txs to remove.
     let block = get_block(&block_height, Some(&block_info), tapes, db)?;
     //------------------------------------------------------ Transaction / Outputs / Key Images
+    if let Some(prunable_tip) = &db.prunable_tip {
+        let start = u64_to_usize(block_info.mining_tx_index);
+        let end = start + 1 + block.transactions.len(); // coinbase + txs
+        for tx_id in start..end {
+            tx_rw.remove(prunable_tip, tx_id.to_le_bytes().as_slice());
+        }
+    }
+
     remove_tx_from_dynamic_tables(db, &block.miner_transaction().hash(), tx_rw, tapes)?;
 
     let mut add_to_alt_chain = move_to_alt_chain.is_some();
@@ -458,6 +465,7 @@ pub fn pop_block(
         let (tx_id, _) = remove_tx_from_dynamic_tables(db, tx_hash, tx_rw, tapes)?;
 
         if add_to_alt_chain {
+            // TODO: we could just get the missing data here, `remove_tx_from_dynamic_tables` returns the pruned tx
             match get_tx_from_id(&tx_id, tapes, tx_ro, db) {
                 Ok(tx) => {
                     let tx_weight = tx.weight();
