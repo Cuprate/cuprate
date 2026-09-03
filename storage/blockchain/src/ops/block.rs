@@ -33,7 +33,7 @@ use crate::{
         blockchain::chain_height,
         tx::{
             add_tx_info_to_dynamic_tables, add_tx_info_to_tapes, get_tx_from_id,
-            read_prunable_tape, remove_tx_from_dynamic_tables,
+            remove_tx_from_dynamic_tables,
         },
     },
     types::{Amount, BlockHash, BlockHeight, BlockInfo},
@@ -667,7 +667,7 @@ pub fn get_block_complete_entry_from_height(
 
             let mut v2 = if let Some(prunable_tape) = prunable_tape {
                 read_blob(tapes, prunable_tape, block_info.prunable_blob_idx, v2_len)?
-            } else {
+            } else if let Some(prunable_tip) = &db.prunable_tip {
                 let mut buf = vec![0; v2_len];
                 let mut ptr = 0;
                 // read each transaction from keyspace
@@ -676,18 +676,18 @@ pub fn get_block_complete_entry_from_height(
                         continue;
                     }
 
-                    read_prunable_tape(
-                        &(block_info.mining_tx_index + usize_to_u64(i) + 1),
-                        tx,
-                        prunable_tape,
-                        &mut buf[ptr..ptr + tx.prunable_size],
-                        db,
-                        tapes,
-                        tx_ro,
-                    )?;
+                    let tx_id = block_info.mining_tx_index + usize_to_u64(i) + 1;
+
+                    let prunable_blob = tx_ro
+                        .get(prunable_tip, tx_id.to_le_bytes())?
+                        .ok_or(BlockchainError::NotFound)?;
+
+                    buf[ptr..ptr + tx.prunable_size].copy_from_slice(&prunable_blob);
                     ptr += tx.prunable_size;
                 }
                 Bytes::from(buf)
+            } else {
+                return Err(BlockchainError::NotFound);
             };
 
             TransactionBlobs::Normal(

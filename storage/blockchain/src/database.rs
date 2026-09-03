@@ -177,7 +177,9 @@ pub struct BlockchainDatabase {
     /// Metadata of the database, currently stores the pruning seed.
     pub(crate) tapes_metadata: tapes::BlobTape,
 
-    /// Includes the top 5500 blocks, since pruned nodes have to always keep this.
+    /// Includes up to the top 5500 blocks prunable blobs, since pruned nodes should keep this.
+    ///
+    /// In some circumstances this could hold less than that amount of blocks.
     ///
     /// | key                        | value                  |
     /// |----------------------------|------------------------|
@@ -505,6 +507,7 @@ impl BlockchainDatabase {
         Ok(())
     }
 
+    /// Returns the [`PruningSeed`] for this database.
     #[inline]
     pub const fn pruning_seed(&self) -> PruningSeed {
         self.pruning_seed
@@ -595,6 +598,7 @@ impl BlockchainDatabase {
         self.prunable_tip = Some(prunable_tip);
         w.commit()?;
 
+        // TODO: make the tapes delete API better so we don't need to reconstruct this.
         let tapes_blob_dir = self.config.blob_dir.join("tapes");
         let prunable_tape_open_options = TapeOpenOptions {
             top_cache_size: self.config.cache_sizes.prunable_blobs,

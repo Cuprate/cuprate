@@ -2,12 +2,12 @@
 use std::collections::HashMap;
 
 use bytes::Buf;
-use cuprate_helper::{cast::usize_to_u64, crypto::compute_zero_commitment};
-use cuprate_pruning::{CRYPTONOTE_PRUNING_LOG_STRIPES, CRYPTONOTE_PRUNING_TIP_BLOCKS};
-
 use fjall::Readable;
 use monero_oxide::transaction::{Input, Pruned, Timelock, Transaction};
 use tapes::{TapesAppend, TapesRead};
+
+use cuprate_helper::{cast::usize_to_u64, crypto::compute_zero_commitment};
+use cuprate_pruning::{CRYPTONOTE_PRUNING_LOG_STRIPES, CRYPTONOTE_PRUNING_TIP_BLOCKS};
 
 use crate::{
     error::{BlockchainError, DbResult},
@@ -246,7 +246,9 @@ pub fn get_tx(
     )
 }
 
-/// Retrieve a [`Transaction`] from the database with its [`TxId`].
+/// Retrieve a [`Transaction`]'s hash from the database with its [`TxId`].
+///
+/// This is expensive.
 #[inline]
 pub fn get_tx_hash_from_id(
     tx_id: &TxId,

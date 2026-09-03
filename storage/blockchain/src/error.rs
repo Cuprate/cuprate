@@ -1,5 +1,3 @@
-use cuprate_pruning::PruningError;
-
 pub type DbResult<T> = Result<T, BlockchainError>;
 
 /// A blockchain error.
@@ -11,8 +9,4 @@ pub enum BlockchainError {
     Fjall(#[from] fjall::Error),
     #[error("not found")]
     NotFound,
-    #[error("invalid metadata")]
-    InvalidMetadata(#[from] bytes::TryGetError),
-    #[error("invalid pruning seed")]
-    InvalidPruningSeed(#[from] PruningError),
 }

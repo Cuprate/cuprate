@@ -6,7 +6,6 @@ use std::{
 };
 
 use crossbeam::channel::Receiver;
-use cuprate_pruning::CRYPTONOTE_PRUNING_TIP_BLOCKS;
 use fjall::PersistMode;
 use futures::channel::oneshot;
 use tapes::TapesRead;
@@ -14,6 +13,7 @@ use tower::Service;
 use tracing::instrument;
 
 use cuprate_helper::cast::u64_to_usize;
+use cuprate_pruning::CRYPTONOTE_PRUNING_TIP_BLOCKS;
 use cuprate_types::{
     blockchain::{BlockchainResponse, BlockchainWriteRequest},
     AltBlockInformation, ChainId, VerifiedBlockInformation,
