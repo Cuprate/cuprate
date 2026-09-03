@@ -106,6 +106,12 @@ pub(crate) struct Args {
     /// - Required network ports can be bound to
     #[arg(long)]
     pub dry_run: bool,
+
+    /// Prune the blockchain.
+    ///
+    /// Note that once a node is pruned it cannot be un-pruned.
+    #[arg(long)]
+    pub prune: bool,
 }
 
 impl Args {
@@ -146,6 +152,10 @@ impl Args {
 
         if let Some(outbound_connections) = self.outbound_connections {
             config.p2p.clear_net.outbound_connections = outbound_connections;
+        }
+
+        if self.prune {
+            config.storage.blockchain.prune = true;
         }
 
         for seed_node in &self.seed_node {

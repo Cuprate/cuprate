@@ -23,10 +23,7 @@ use crate::{
 ///
 /// So the height of a new block would be `chain_height()`.
 #[inline]
-pub fn chain_height(
-    db: &BlockchainDatabase,
-    tapes: &tapes::TapesReadTransaction,
-) -> DbResult<BlockHeight> {
+pub fn chain_height(db: &BlockchainDatabase, tapes: &impl TapesRead) -> DbResult<BlockHeight> {
     Ok(u64_to_usize(
         tapes
             .fixed_sized_tape_len(&db.block_infos)

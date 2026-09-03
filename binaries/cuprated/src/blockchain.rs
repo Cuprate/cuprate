@@ -9,6 +9,7 @@ use cuprate_consensus::{
 };
 use cuprate_cryptonight::cryptonight_hash_v0;
 use cuprate_p2p_core::{client::PeerSyncCallback, Network};
+use cuprate_pruning::PruningSeed;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainWriteRequest},
     VerifiedBlockInformation,
@@ -76,6 +77,10 @@ impl BlockchainInterface {
     /// Returns a handle to the blockchain syncer.
     pub fn syncer(&self) -> BlockchainSyncerHandle {
         self.syncer.clone()
+    }
+
+    pub fn pruning_seed(&self) -> PruningSeed {
+        self.read.blockchain.pruning_seed()
     }
 
     /// Returns the blockchain context service.

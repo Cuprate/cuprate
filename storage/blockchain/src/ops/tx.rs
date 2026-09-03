@@ -1,16 +1,20 @@
 //! Transaction functions.
 use std::collections::HashMap;
 
-use cuprate_helper::{cast::usize_to_u64, crypto::compute_zero_commitment};
-use cuprate_pruning::CRYPTONOTE_PRUNING_LOG_STRIPES;
-
+use bytes::Buf;
 use fjall::Readable;
 use monero_oxide::transaction::{Input, Pruned, Timelock, Transaction};
 use tapes::{TapesAppend, TapesRead};
 
+use cuprate_helper::{cast::usize_to_u64, crypto::compute_zero_commitment};
+use cuprate_pruning::{CRYPTONOTE_PRUNING_LOG_STRIPES, CRYPTONOTE_PRUNING_TIP_BLOCKS};
+
 use crate::{
     error::{BlockchainError, DbResult},
-    ops::output::{add_output, remove_output},
+    ops::{
+        blockchain::chain_height,
+        output::{add_output, remove_output},
+    },
     types::{Amount, BlockHeight, Output, RctOutput, TxHash, TxId, TxInfo},
     BlockchainDatabase,
 };
@@ -98,9 +102,11 @@ pub fn add_tx_info_to_tapes(
 }
 
 /// Adds the tx info and related data to the dynamic tables.
+#[expect(clippy::too_many_arguments)]
 pub fn add_tx_info_to_dynamic_tables(
     db: &BlockchainDatabase,
     tx: &Transaction<Pruned>,
+    prunable_blob: &[u8],
     tx_id: TxId,
     tx_hash: &TxHash,
     height: &BlockHeight,
@@ -161,7 +167,11 @@ pub fn add_tx_info_to_dynamic_tables(
                 bytemuck::cast_slice::<_, u8>(&amount_indices),
             );
         }
-        Transaction::V2 { .. } => return Ok(()),
+        Transaction::V2 { .. } => {
+            if let Some(prunable_tip) = &db.prunable_tip {
+                w.insert(prunable_tip, tx_id.to_le_bytes(), prunable_blob);
+            }
+        }
     }
 
     Ok(())
@@ -174,7 +184,7 @@ pub fn remove_tx_from_dynamic_tables(
     tx_hash: &TxHash,
     tx_rw: &mut fjall::OwnedWriteBatch,
     tapes: &tapes::TapesTruncateTransaction,
-) -> DbResult<(TxId, Transaction)> {
+) -> DbResult<(TxId, Transaction<Pruned>)> {
     let tx_id = u64::from_le_bytes(
         db.tx_ids
             .get(tx_hash)?
@@ -186,7 +196,7 @@ pub fn remove_tx_from_dynamic_tables(
 
     tx_rw.remove(&db.tx_ids, tx_hash);
 
-    let tx = get_tx_from_id(&tx_id, tapes, db)?;
+    let tx = get_pruned_tx_from_id(&tx_id, tapes, db)?;
 
     for inputs in &tx.prefix().inputs {
         match inputs {
@@ -231,8 +241,49 @@ pub fn get_tx(
     get_tx_from_id(
         &u64::from_le_bytes(tx_id.as_ref().try_into().unwrap()),
         tapes,
+        tx_ro,
         db,
     )
+}
+
+/// Retrieve a [`Transaction`]'s hash from the database with its [`TxId`].
+///
+/// This is expensive.
+#[inline]
+pub fn get_tx_hash_from_id(
+    tx_id: &TxId,
+    tapes: &impl TapesRead,
+    tx_ro: &fjall::Snapshot,
+    is_miner_tx: bool,
+    db: &BlockchainDatabase,
+) -> DbResult<[u8; 32]> {
+    let tx_info = tapes
+        .read_entry(&db.tx_infos, *tx_id)?
+        .ok_or(BlockchainError::NotFound)?;
+
+    if tx_info.is_v1_tx() {
+        return Ok(get_tx_from_id(tx_id, tapes, tx_ro, db)?.hash());
+    }
+
+    let pruned_len = if is_miner_tx {
+        tx_info.pruned_size
+    } else {
+        tx_info.pruned_size + 32
+    };
+
+    let mut blob = vec![0; pruned_len];
+
+    tapes.read_bytes(&db.pruned_blobs, tx_info.pruned_blob_idx, &mut blob)?;
+
+    let tx = Transaction::<Pruned>::read(&mut &blob[..tx_info.pruned_size])?;
+
+    let prunable_hash = if is_miner_tx {
+        [0; 32]
+    } else {
+        blob[tx_info.pruned_size..].try_into().unwrap()
+    };
+
+    Ok(tx.hash_with_prunable_hash(prunable_hash).unwrap())
 }
 
 /// Retrieve a [`Transaction`] from the database with its [`TxId`].
@@ -240,12 +291,29 @@ pub fn get_tx(
 pub fn get_tx_from_id(
     tx_id: &TxId,
     tapes: &impl TapesRead,
+    tx_ro: &fjall::Snapshot,
     db: &BlockchainDatabase,
 ) -> DbResult<Transaction> {
-    let blob = get_tx_blob_from_id(tx_id, tapes, db)?;
+    let blob = get_tx_blob_from_id(tx_id, tapes, tx_ro, db)?;
     let tx = Transaction::read(&mut blob.as_slice())?;
 
     Ok(tx)
+}
+
+/// Retrieve a pruned transaction from the database with its [`TxId`].
+#[inline]
+pub fn get_pruned_tx_from_id(
+    tx_id: &TxId,
+    tapes: &impl TapesRead,
+    db: &BlockchainDatabase,
+) -> DbResult<Transaction<Pruned>> {
+    let tx_info = tapes
+        .read_entry(&db.tx_infos, *tx_id)?
+        .ok_or(BlockchainError::NotFound)?;
+    let mut blob = vec![0; tx_info.pruned_size];
+    tapes.read_bytes(&db.pruned_blobs, tx_info.pruned_blob_idx, &mut blob)?;
+
+    Ok(Transaction::read(&mut blob.as_slice())?)
 }
 
 /// Returns the prunable hash for a miner transaction.
@@ -258,12 +326,15 @@ const fn miner_tx_prunable_hash(tx_info: &TxInfo) -> [u8; 32] {
 }
 
 /// Returns a transaction's split blobs and prunable hash from its [`TxInfo`].
+#[expect(clippy::type_complexity)]
 pub(crate) fn get_split_tx_blobs(
+    tx_id: TxId,
     tx_info: &TxInfo,
     is_miner_tx: bool,
     tapes: &impl TapesRead,
+    tx_ro: &fjall::Snapshot,
     db: &BlockchainDatabase,
-) -> DbResult<(Vec<u8>, Vec<u8>, [u8; 32])> {
+) -> DbResult<(Vec<u8>, Option<Vec<u8>>, [u8; 32])> {
     let pruned_len = if is_miner_tx {
         tx_info.pruned_size
     } else {
@@ -279,10 +350,11 @@ pub(crate) fn get_split_tx_blobs(
     };
     pruned_blob.truncate(tx_info.pruned_size);
 
-    let mut prunable_blob = vec![0; tx_info.prunable_size];
-    if !prunable_blob.is_empty() {
+    let prunable_blob = if tx_info.prunable_size != 0 {
+        let mut prunable_blob = vec![0; tx_info.prunable_size];
+
         let prunable_tape = if tx_info.is_v1_tx() {
-            &db.v1_prunable_blobs
+            Some(&db.v1_prunable_blobs)
         } else {
             let stripe = cuprate_pruning::get_block_pruning_stripe(
                 tx_info.height,
@@ -291,12 +363,27 @@ pub(crate) fn get_split_tx_blobs(
             )
             .unwrap();
 
-            &db.prunable_blobs
+            db.prunable_blobs
                 [usize::try_from(stripe).expect("stripe will not exceed usize::MAX") - 1]
+                .as_ref()
         };
 
-        tapes.read_bytes(prunable_tape, tx_info.prunable_blob_idx, &mut prunable_blob)?;
-    }
+        match read_prunable_tape(
+            &tx_id,
+            tx_info,
+            prunable_tape,
+            &mut prunable_blob,
+            db,
+            tapes,
+            tx_ro,
+        ) {
+            Ok(()) => Some(prunable_blob),
+            Err(BlockchainError::NotFound) => None,
+            Err(e) => return Err(e),
+        }
+    } else {
+        Some(vec![])
+    };
 
     Ok((pruned_blob, prunable_blob, prunable_hash))
 }
@@ -305,6 +392,7 @@ pub(crate) fn get_split_tx_blobs(
 pub fn get_tx_blob_from_id(
     tx_id: &TxId,
     tapes: &impl TapesRead,
+    tx_ro: &fjall::Snapshot,
     db: &BlockchainDatabase,
 ) -> DbResult<Vec<u8>> {
     let tx_info = tapes
@@ -319,23 +407,30 @@ pub fn get_tx_blob_from_id(
         &mut blob[..tx_info.pruned_size],
     )?;
 
-    let prunable_tape = if tx_info.is_v1_tx() {
-        &db.v1_prunable_blobs
-    } else {
-        let stripe = cuprate_pruning::get_block_pruning_stripe(
-            tx_info.height,
-            usize::MAX,
-            CRYPTONOTE_PRUNING_LOG_STRIPES,
-        )
-        .unwrap();
-        &db.prunable_blobs[usize::try_from(stripe).expect("stripe will not exceed usize::MAX") - 1]
-    };
-
-    tapes.read_bytes(
-        prunable_tape,
-        tx_info.prunable_blob_idx,
-        &mut blob[tx_info.pruned_size..],
-    )?;
+    if tx_info.prunable_size != 0 {
+        let prunable_tape = if tx_info.is_v1_tx() {
+            Some(&db.v1_prunable_blobs)
+        } else {
+            let stripe = cuprate_pruning::get_block_pruning_stripe(
+                tx_info.height,
+                usize::MAX,
+                CRYPTONOTE_PRUNING_LOG_STRIPES,
+            )
+            .unwrap();
+            db.prunable_blobs
+                [usize::try_from(stripe).expect("stripe will not exceed usize::MAX") - 1]
+                .as_ref()
+        };
+        read_prunable_tape(
+            tx_id,
+            &tx_info,
+            prunable_tape,
+            &mut blob[tx_info.pruned_size..],
+            db,
+            tapes,
+            tx_ro,
+        )?;
+    }
 
     Ok(blob)
 }
@@ -355,6 +450,17 @@ pub fn get_num_tx(db: &BlockchainDatabase, tx_ro: &fjall::Snapshot) -> DbResult<
     Ok(usize_to_u64(tx_ro.len(&db.tx_ids)?))
 }
 
+/// Retrieves the transaction id based on a transactions hash
+#[inline]
+pub fn get_tx_id_from_hash(db: &BlockchainDatabase, tx_hash: &TxHash) -> DbResult<TxId> {
+    Ok(db
+        .tx_ids
+        .get(tx_hash)?
+        .ok_or(BlockchainError::NotFound)?
+        .as_ref()
+        .get_u64_le())
+}
+
 //----------------------------------------------------------------------------------------------------
 /// Check if a transaction exists in the database.
 ///
@@ -366,6 +472,40 @@ pub fn tx_exists(
     tx_ro: &fjall::Snapshot,
 ) -> DbResult<bool> {
     Ok(tx_ro.contains_key(&db.tx_ids, tx_hash)?)
+}
+
+/// Gets a transaction by reading the `prunable_tape` if it is Some or
+/// otherwise, checking the tip block if the tx is there
+///
+/// If it's neither where, it errors.
+#[inline]
+pub fn read_prunable_tape(
+    tx_id: &TxId,
+    tx_info: &TxInfo,
+    prunable_tape: Option<&tapes::BlobTape>,
+    buf: &mut [u8],
+    db: &BlockchainDatabase,
+    tapes: &impl TapesRead,
+    tx_ro: &fjall::Snapshot,
+) -> Result<(), BlockchainError> {
+    if let Some(prunable_tape) = prunable_tape {
+        tapes.read_bytes(prunable_tape, tx_info.prunable_blob_idx, buf)?;
+    } else if let Some(prunable_tip) = &db.prunable_tip {
+        let chain_height = chain_height(db, tapes)?;
+        if tx_info.height + CRYPTONOTE_PRUNING_TIP_BLOCKS >= chain_height {
+            let prunable_blob = tx_ro
+                .get(prunable_tip, tx_id.to_le_bytes())?
+                .ok_or(BlockchainError::NotFound)?;
+
+            buf[..prunable_blob.len()].copy_from_slice(&prunable_blob);
+        } else {
+            return Err(BlockchainError::NotFound);
+        }
+    } else {
+        return Err(BlockchainError::NotFound);
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

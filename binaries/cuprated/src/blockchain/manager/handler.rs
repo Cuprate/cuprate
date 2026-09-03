@@ -60,7 +60,7 @@ impl super::BlockchainManager {
             } => {
                 let reorg_lock = Arc::clone(&self.reorg_lock);
                 let _guard = reorg_lock.write().await;
-                self.pop_blocks(numb_blocks).await?;
+                self.pop_blocks(numb_blocks, false).await?;
                 self.blockchain_write_handle
                     .ready()
                     .await?
@@ -286,8 +286,10 @@ impl super::BlockchainManager {
         }
 
         let valid_blocks_len = valid_blocks.len();
-        self.batch_add_valid_block_to_blockchain_database(valid_blocks)
-            .await?;
+        if !valid_blocks.is_empty() {
+            self.batch_add_valid_block_to_blockchain_database(valid_blocks)
+                .await?;
+        }
 
         if error {
             info!(
@@ -510,7 +512,7 @@ impl super::BlockchainManager {
         info!(split_height, "Attempting blockchain reorg");
 
         let old_main_chain_id = self
-            .pop_blocks(current_main_chain_height - split_height)
+            .pop_blocks(current_main_chain_height - split_height, true)
             .await?;
 
         let reorg_res = self.verify_add_alt_blocks_to_main_chain(alt_blocks).await;
@@ -528,7 +530,11 @@ impl super::BlockchainManager {
                 Ok(())
             }
             Err(e) => {
-                self.reverse_reorg(old_main_chain_id).await?;
+                if let Some(old_main_chain_id) = old_main_chain_id {
+                    self.reverse_reorg(old_main_chain_id).await?;
+                } else {
+                    warn!("Failed to revert reorg, reorg removed pruned blocks which we cannot add back.");
+                }
                 Err(e)
             }
         }
@@ -566,7 +572,7 @@ impl super::BlockchainManager {
         let numb_blocks = current_main_chain_height - split_height;
 
         if numb_blocks > 0 {
-            self.pop_blocks(current_main_chain_height - split_height)
+            self.pop_blocks(current_main_chain_height - split_height, false)
                 .await?;
         }
 
@@ -598,12 +604,16 @@ impl super::BlockchainManager {
     /// This function will return an [`Err`] if any internal service returns an unexpected error that we cannot
     /// recover from.
     #[instrument(name = "pop_blocks", skip(self), level = "info")]
-    async fn pop_blocks(&mut self, numb_blocks: usize) -> Result<ChainId, FatalError> {
+    async fn pop_blocks(
+        &mut self,
+        numb_blocks: usize,
+        keep: bool,
+    ) -> Result<Option<ChainId>, FatalError> {
         let BlockchainResponse::PopBlocks(old_main_chain_id) = self
             .blockchain_write_handle
             .ready()
             .await?
-            .call(BlockchainWriteRequest::PopBlocks(numb_blocks))
+            .call(BlockchainWriteRequest::PopBlocks(numb_blocks, keep))
             .await?
         else {
             unreachable!();
