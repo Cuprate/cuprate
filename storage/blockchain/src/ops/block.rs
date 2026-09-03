@@ -524,16 +524,10 @@ pub fn pop_block(
     )
     .unwrap();
 
-    if db
-        .pruning_seed()
-        .get_stripe()
-        .is_none_or(|pruning_stripe| pruning_stripe == stripe)
+    if let Some(prunable_blob_tape) =
+        &db.prunable_blobs[usize::try_from(stripe).expect("stripe will not exceed usize::MAX") - 1]
     {
-        let tape = db.prunable_blobs
-            [usize::try_from(stripe).expect("stripe will not exceed usize::MAX") - 1]
-            .as_ref()
-            .expect("the retained pruning stripe must be open");
-        tapes.truncate_blob_tape(tape, block_info.prunable_blob_idx);
+        tapes.truncate_blob_tape(prunable_blob_tape, block_info.prunable_blob_idx);
     }
 
     tapes.truncate_fixed_sized_tape(&db.tx_infos, block_info.mining_tx_index);
