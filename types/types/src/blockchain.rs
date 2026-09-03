@@ -240,7 +240,7 @@ pub enum BlockchainWriteRequest {
 
     /// Request that a batch of blocks be written to the database.
     ///
-    /// Input is an already verified batch of blocks.
+    /// Input is an already verified batch of blocks, must not be empty.
     BatchWriteBlocks(Vec<VerifiedBlockInformation>),
 
     /// Write an alternative block to the database,

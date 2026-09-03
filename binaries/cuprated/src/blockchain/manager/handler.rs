@@ -286,8 +286,10 @@ impl super::BlockchainManager {
         }
 
         let valid_blocks_len = valid_blocks.len();
-        self.batch_add_valid_block_to_blockchain_database(valid_blocks)
-            .await?;
+        if !valid_blocks.is_empty() {
+            self.batch_add_valid_block_to_blockchain_database(valid_blocks)
+                .await?;
+        }
 
         if error {
             info!(
