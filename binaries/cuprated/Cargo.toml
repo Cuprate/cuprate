@@ -34,6 +34,7 @@ cuprate-fast-sync         = { workspace = true }
 cuprate-fixed-bytes       = { workspace = true }
 cuprate-helper            = { workspace = true, features = ["std", "serde", "time", "net"] }
 cuprate-hex               = { workspace = true }
+cuprate-pruning           = { workspace = true }
 cuprate-p2p-core          = { workspace = true }
 cuprate-p2p-transport     = { workspace = true }
 cuprate-p2p               = { workspace = true }

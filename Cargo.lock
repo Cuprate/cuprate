@@ -1502,6 +1502,7 @@ dependencies = [
  "cuprate-p2p",
  "cuprate-p2p-core",
  "cuprate-p2p-transport",
+ "cuprate-pruning",
  "cuprate-rpc-interface",
  "cuprate-rpc-types",
  "cuprate-txpool",
