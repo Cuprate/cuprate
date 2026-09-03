@@ -11,7 +11,8 @@ use cuprate_consensus_context::{
     difficulty::DifficultyCache,
     rx_vms::RandomXVm,
     weight::{self, BlockWeightsCache},
-    AltChainContextCache, AltChainRequestToken, BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
+    AltChainContextCache, AltChainRequestToken, BlockchainContext,
+    BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
 };
 use cuprate_consensus_rules::{
     blocks::{
@@ -20,14 +21,16 @@ use cuprate_consensus_rules::{
     miner_tx::MinerTxError,
     ConsensusError,
 };
-use cuprate_helper::{asynch::rayon_spawn_async, cast::u64_to_usize};
+use cuprate_helper::{asynch::rayon_spawn_async, cast::u64_to_usize, tx::tx_key_images};
 use cuprate_types::{
-    AltBlockInformation, Chain, ChainId, TransactionVerificationData,
+    AltBlockInformation, Chain, ChainId, TransactionVerificationData, VerifiedBlockInformation,
     VerifiedTransactionInformation,
 };
 
 use crate::{
-    block::{free::pull_ordered_transactions, BlockVerificationError, PreparedBlock},
+    block::{
+        free::pull_ordered_transactions, BlockVerificationError, PreparedBlock, VerifiedBlock,
+    },
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
 };
 
@@ -338,5 +341,53 @@ where
 
             Ok(weight_cache.insert(cache))
         }
+    }
+}
+
+/// Creates a new [`VerifiedBlock`] from a previously-verified [`AltBlockInformation`].
+///
+/// `block.height` must match `blockchain_ctx.chain_height` or this will panic.
+pub fn alt_block_to_verified_block(
+    block: AltBlockInformation,
+    blockchain_ctx: &BlockchainContext,
+) -> VerifiedBlock {
+    assert_eq!(
+        block.height, blockchain_ctx.chain_height,
+        "alt-block invalid"
+    );
+
+    let total_fees = block.txs.iter().map(|tx| tx.fee).sum::<u64>();
+    let spent_key_images = block
+        .txs
+        .iter()
+        .flat_map(|tx| tx_key_images(tx.tx.prefix()))
+        .collect();
+
+    let total_outputs = block
+        .block
+        .miner_transaction()
+        .prefix()
+        .outputs
+        .iter()
+        .map(|output| output.amount.unwrap_or(0))
+        .sum::<u64>();
+
+    let generated_coins = total_outputs - total_fees;
+
+    VerifiedBlock {
+        info: VerifiedBlockInformation {
+            block_blob: block.block_blob,
+            txs: block.txs,
+            block_hash: block.block_hash,
+            pow_hash: [u8::MAX; 32],
+            height: block.height,
+            generated_coins,
+            weight: block.weight,
+            long_term_weight: blockchain_ctx.next_block_long_term_weight(block.weight),
+            cumulative_difficulty: blockchain_ctx.cumulative_difficulty
+                + blockchain_ctx.next_difficulty,
+            block: block.block,
+        },
+        spent_key_images,
     }
 }

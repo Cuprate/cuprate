@@ -216,7 +216,7 @@ async fn handle_incoming_txs(
             context.current_hf,
             &mut VerificationContext::Database(blockchain_read_handle),
         )
-        .verify()
+        .verify(None)
         .await?;
 
     for tx in txs {

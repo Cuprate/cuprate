@@ -97,7 +97,7 @@ macro_rules! test_verify_valid_v2_tx {
                 .prepare()
                 .unwrap()
                 .full(10, [0; 32], u64::MAX, HardFork::$hf, &mut VerificationContext::Database(database.clone()))
-                .verify()
+                .verify(None)
                 .await.is_ok()
             );
 
@@ -125,7 +125,7 @@ macro_rules! test_verify_valid_v2_tx {
                 .prepare()
                 .unwrap()
                 .full(10, [0; 32], u64::MAX, HardFork::$hf, &mut VerificationContext::Database(database.clone()))
-                .verify()
+                .verify(None)
                 .await.is_err()
             );
 
