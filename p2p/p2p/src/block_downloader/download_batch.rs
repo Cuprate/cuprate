@@ -70,7 +70,7 @@ async fn request_batch_from_peer<N: NetworkZone>(
     };
 
     // Initial sanity checks
-    if blocks_response.blocks.len() > ids.len() {
+    if blocks_response.blocks.is_empty() || blocks_response.blocks.len() > ids.len() {
         client.info.handle.ban_peer(MEDIUM_BAN);
         return Err(BlockDownloadError::PeersResponseWasInvalid);
     }
