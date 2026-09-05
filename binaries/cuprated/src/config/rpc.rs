@@ -58,6 +58,57 @@ config_struct! {
         /// Examples     | 0 (no limit), 5242880 (5MB), 10485760 (10MB)
         pub request_byte_limit: usize,
 
+        #[comment_out = true]
+        /// Maximum amount of RPC connections allowed by a single public IP address.
+        ///
+        /// Setting this to `0` will disable the limit.
+        ///
+        /// Type         | Number
+        /// Valid values | >= 0
+        /// Examples     | 0 (no limit), 2, 4
+        pub public_ip_connection_limit: usize,
+
+        #[comment_out = true]
+        /// Maximum amount of RPC connections allowed by a single private IP address.
+        ///
+        /// Setting this to `0` will disable the limit.
+        ///
+        /// Type         | Number
+        /// Valid values | >= 0
+        /// Examples     | 0 (no limit), 16, 100
+        pub private_ip_connection_limit: usize,
+
+        #[comment_out = true]
+        /// Maximum amount of RPC connections allowed by a loopback address.
+        ///
+        /// Setting this to `0` will disable the limit.
+        ///
+        /// Type         | Number
+        /// Valid values | >= 0
+        /// Examples     | 0 (no limit), 67
+        pub loopback_connection_limit: usize,
+
+        #[comment_out = true]
+        /// Maximum amount of RPC connections allowed globally.
+        ///
+        /// Setting this to `0` will disable the limit.
+        ///
+        /// Type         | Number
+        /// Valid values | >= 0
+        /// Examples     | 0 (no limit), 16, 300
+        pub total_connection_limit: usize,
+
+        #[comment_out = true]
+        /// The list of IP addresses that are excluded from
+        /// all RPC connection limits.
+        ///
+        /// This can be useful if you are using a reverse proxy
+        /// in front of this node.
+        ///
+        /// Type     | IPv4/IPv6 address
+        /// Examples | "", "127.0.0.1", "192.168.1.50"
+        pub excluded_ips_connection_limit: Vec<IpAddr>,
+
         /// The time period during which the node can try sending data.
         /// If a send operation do not complete within this Duration,
         /// the connection is dropped.
@@ -123,6 +174,11 @@ impl Default for UnrestrictedRpcConfig {
             port: DefaultOrCustom::Default,
             enable: true,
             request_byte_limit: 0,
+            public_ip_connection_limit: 0,
+            private_ip_connection_limit: 0,
+            loopback_connection_limit: 0,
+            total_connection_limit: 0,
+            excluded_ips_connection_limit: Vec::new(),
             send_timeout: Duration::from_secs(5),
             header_read_timeout: Duration::from_secs(30),
             body_read_timeout: Duration::from_secs(5),
@@ -140,6 +196,11 @@ impl Default for RestrictedRpcConfig {
             // 1 megabyte.
             // <https://github.com/monero-project/monero/blob/3b01c490953fe92f3c6628fa31d280a4f0490d28/src/cryptonote_config.h#L134>
             request_byte_limit: 1024 * 1024,
+            public_ip_connection_limit: 3,
+            private_ip_connection_limit: 25,
+            loopback_connection_limit: 50,
+            total_connection_limit: 100,
+            excluded_ips_connection_limit: Vec::new(),
             send_timeout: Duration::from_secs(5),
             header_read_timeout: Duration::from_secs(30),
             body_read_timeout: Duration::from_secs(5),
