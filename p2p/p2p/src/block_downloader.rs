@@ -73,6 +73,14 @@ pub struct BlockDownloaderConfig {
     pub initial_batch_len: usize,
 }
 
+/// A running block downloader and its stream of downloaded blocks.
+pub struct BlockDownloaderHandle {
+    /// The sequential stream of downloaded blocks.
+    pub stream: BufferStream<BlockBatch>,
+    /// The downloader task.
+    pub task: JoinHandle<()>,
+}
+
 /// An error that occurred in the [`BlockDownloader`].
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum BlockDownloadError {
@@ -132,8 +140,7 @@ pub enum ChainSvcResponse<N: NetworkZone> {
     },
 }
 
-/// This function starts the block downloader and returns a [`BufferStream`] that will produce
-/// a sequential stream of blocks, plus the [`JoinHandle`] of the downloader task.
+/// This function starts the block downloader and returns a [`BlockDownloaderHandle`].
 ///
 /// The block downloader will pick the longest chain and will follow it for as long as possible,
 /// the blocks given from the [`BufferStream`] will be in order.
@@ -147,7 +154,7 @@ pub fn download_blocks<N: NetworkZone, C>(
     peer_set: BoxCloneService<PeerSetRequest, PeerSetResponse<N>, tower::BoxError>,
     our_chain_svc: C,
     config: BlockDownloaderConfig,
-) -> (BufferStream<BlockBatch>, JoinHandle<()>)
+) -> BlockDownloaderHandle
 where
     C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>
         + Send
@@ -164,7 +171,10 @@ where
             .instrument(Span::current()),
     );
 
-    (buffer_stream, task)
+    BlockDownloaderHandle {
+        stream: buffer_stream,
+        task,
+    }
 }
 
 /// # Block Downloader

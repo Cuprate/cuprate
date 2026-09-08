@@ -121,7 +121,7 @@ impl BlockchainSyncer {
                 "We are behind peers claimed cumulative difficulty, starting block downloader"
             );
 
-            let (mut block_batch_stream, downloader_task) =
+            let mut block_downloader =
                 clearnet_interface.block_downloader(our_chain.clone(), block_downloader_config);
 
             loop {
@@ -137,7 +137,7 @@ impl BlockchainSyncer {
                         self.notify_syncer.notify_one();
                         break;
                     }
-                    batch = block_batch_stream.next() => {
+                    batch = block_downloader.stream.next() => {
                         let Some(batch) = batch else {
                             // Wait for all references to the permit have been dropped (which means all blocks in the queue
                             // have been handled before checking if we are synced.
@@ -166,7 +166,7 @@ impl BlockchainSyncer {
                 }
             }
 
-            downloader_task.abort();
+            block_downloader.task.abort();
         }
     }
 
