@@ -120,16 +120,14 @@ impl BlockchainSyncer {
             tracing::debug!(
                 "We are behind peers claimed cumulative difficulty, starting block downloader"
             );
-            let mut block_batch_stream =
+
+            let (mut block_batch_stream, downloader_task) =
                 clearnet_interface.block_downloader(our_chain.clone(), block_downloader_config);
 
             loop {
                 tokio::select! {
                     biased;
-                    () = shutdown_token.cancelled() => {
-                        tracing::info!("Blockchain syncer shut down.");
-                        return Ok(());
-                    }
+                    () = shutdown_token.cancelled() => break,
                     () = stop_current_block_downloader.notified() => {
                         tracing::info!("Received stop signal, stopping block downloader");
 
@@ -160,13 +158,15 @@ impl BlockchainSyncer {
                         tracing::debug!("Got batch, len: {}", batch.blocks.len());
                         if incoming_block_batch_tx.send((batch, Arc::clone(&sync_permit))).await.is_err() {
                             if shutdown_token.is_cancelled() {
-                                return Ok(());
+                                break;
                             }
                             return Err("Incoming block channel closed.".into());
                         }
                     }
                 }
             }
+
+            downloader_task.abort();
         }
     }
 

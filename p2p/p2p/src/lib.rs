@@ -7,7 +7,7 @@ use std::sync::Arc;
 use futures::FutureExt;
 use tokio::{
     sync::mpsc,
-    task::JoinSet,
+    task::{JoinHandle, JoinSet},
     time::{sleep, Duration},
 };
 use tower::{buffer::Buffer, util::BoxCloneService, Service, ServiceExt};
@@ -248,12 +248,15 @@ impl<N: NetworkZone> NetworkInterface<N> {
         self.broadcast_svc.clone()
     }
 
-    /// Starts the block downloader and returns a stream that will yield sequentially downloaded blocks.
+    /// Starts the block downloader and returns a stream that will yield sequentially downloaded
+    /// blocks, plus the [`JoinHandle`] of the downloader task.
+    ///
+    /// The downloader runs until it is aborted with the returned [`JoinHandle`].
     pub fn block_downloader<C>(
         &self,
         our_chain_service: C,
         config: BlockDownloaderConfig,
-    ) -> BufferStream<BlockBatch>
+    ) -> (BufferStream<BlockBatch>, JoinHandle<()>)
     where
         C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>
             + Send
