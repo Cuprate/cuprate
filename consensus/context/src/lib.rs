@@ -446,7 +446,7 @@ impl Service<BlockChainContextRequest> for BlockchainContextService {
 
         async move {
             res.map_err(|_| "Context service closed.")?;
-            rx.await.expect("Oneshot closed without response!")
+            rx.await.map_err(|_| "Context service closed.")?
         }
         .boxed()
     }

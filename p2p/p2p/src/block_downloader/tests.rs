@@ -32,7 +32,10 @@ use cuprate_wire::{
 };
 
 use crate::{
-    block_downloader::{download_blocks, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
+    block_downloader::{
+        download_blocks, BlockDownloaderConfig, BlockDownloaderHandle, ChainSvcRequest,
+        ChainSvcResponse,
+    },
     peer_set::PeerSet,
 };
 
@@ -62,7 +65,7 @@ proptest! {
                     new_connection_tx.try_send(client).unwrap();
                 }
 
-                let stream = download_blocks(
+                let BlockDownloaderHandle { stream, task: _task } = download_blocks(
                     Buffer::new(peer_set, 10).boxed_clone(),
                     OurChainSvc {
                         genesis: *blockchain.blocks.first().unwrap().0
@@ -73,7 +76,8 @@ proptest! {
                         check_client_pool_interval: Duration::from_secs(5),
                         target_batch_bytes: 5_000,
                         initial_batch_len: 1,
-                });
+                    },
+                );
 
                 let blocks = stream.map(|blocks| blocks.blocks).concat().await;
 
