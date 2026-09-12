@@ -15,11 +15,6 @@ use crate::{
     BlockchainDatabase,
 };
 
-const EMPTY_PRUNABLE_BLOB_HASH: [u8; 32] = [
-    0xc5, 0xd2, 0x46, 0x01, 0x86, 0xf7, 0x23, 0x3c, 0x92, 0x7e, 0x7d, 0xb2, 0xdc, 0xc7, 0x03, 0xc0,
-    0xe5, 0x00, 0xb6, 0x53, 0xca, 0x82, 0x27, 0x3b, 0x7b, 0xfa, 0xd8, 0x04, 0x5d, 0x85, 0xa4, 0x70,
-];
-
 /// Adds the tx info and related data to the tapes, this does not add the tx blob to the tapes.
 #[expect(clippy::too_many_arguments)]
 pub fn add_tx_info_to_tapes(
@@ -248,15 +243,6 @@ pub fn get_tx_from_id(
     Ok(tx)
 }
 
-/// Returns the prunable hash for a miner transaction.
-const fn miner_tx_prunable_hash(tx_info: &TxInfo) -> [u8; 32] {
-    if tx_info.is_v1_tx() {
-        [0; 32]
-    } else {
-        EMPTY_PRUNABLE_BLOB_HASH
-    }
-}
-
 /// Returns a transaction's split blobs and prunable hash from its [`TxInfo`].
 pub(crate) fn get_split_tx_blobs(
     tx_info: &TxInfo,
@@ -273,7 +259,7 @@ pub(crate) fn get_split_tx_blobs(
     tapes.read_bytes(&db.pruned_blobs, tx_info.pruned_blob_idx, &mut pruned_blob)?;
 
     let prunable_hash = if is_miner_tx {
-        miner_tx_prunable_hash(tx_info)
+        [0; 32]
     } else {
         pruned_blob[tx_info.pruned_size..].try_into().unwrap()
     };
@@ -366,17 +352,4 @@ pub fn tx_exists(
     tx_ro: &fjall::Snapshot,
 ) -> DbResult<bool> {
     Ok(tx_ro.contains_key(&db.tx_ids, tx_hash)?)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::EMPTY_PRUNABLE_BLOB_HASH;
-
-    #[test]
-    fn empty_prunable_blob_hash_correct() {
-        assert_eq!(
-            EMPTY_PRUNABLE_BLOB_HASH,
-            monero_oxide::primitives::keccak256([])
-        );
-    }
 }
