@@ -12,14 +12,16 @@ use cuprate_consensus_rules::{
     miner_tx::MinerTxError,
     ConsensusError, HardFork,
 };
-use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_types::{output_cache::OutputCache, TransactionVerificationData};
+use cuprate_helper::{asynch::rayon_spawn_async, tx::tx_key_images};
+use cuprate_types::output_cache::OutputCache;
 
 use crate::{
     __private::Database,
     batch_verifier::MultiThreadedBatchVerifier,
-    block::{free::order_transactions, PreparedBlock, PreparedBlockExPow},
-    transactions::{check_kis_unique, contextual_data::get_output_cache, start_tx_verification},
+    block::{free::order_transactions, PreparedBlock, PreparedBlockExPow, TxsWithKis},
+    transactions::{
+        check_kis, contextual_data::get_output_cache, start_tx_verification, unique_kis,
+    },
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
 };
 
@@ -33,18 +35,11 @@ pub struct BatchPrepareCache {
 
 /// Batch prepares a list of blocks for verification.
 #[instrument(level = "debug", name = "batch_prep_blocks", skip_all, fields(amt = blocks.len()))]
-#[expect(clippy::type_complexity)]
 pub async fn batch_prepare_main_chain_blocks<D: Database>(
     blocks: Vec<(Block, Vec<Transaction>)>,
     context_svc: &mut BlockchainContextService,
     mut database: D,
-) -> Result<
-    (
-        Vec<(PreparedBlock, Vec<TransactionVerificationData>)>,
-        BatchPrepareCache,
-    ),
-    ExtendedConsensusError,
-> {
+) -> Result<(Vec<(PreparedBlock, TxsWithKis)>, BatchPrepareCache), ExtendedConsensusError> {
     let (blocks, txs): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
 
     tracing::debug!("Calculating block hashes.");
@@ -194,7 +189,18 @@ pub async fn batch_prepare_main_chain_blocks<D: Database>(
                 // Order the txs correctly.
                 order_transactions(&block.block, &mut txs)?;
 
-                Ok((block, txs))
+                let spent_key_images = txs
+                    .iter()
+                    .flat_map(|tx| tx_key_images(tx.tx.prefix()))
+                    .collect();
+
+                Ok((
+                    block,
+                    TxsWithKis {
+                        txs,
+                        spent_key_images,
+                    },
+                ))
             })
             .collect::<Result<Vec<_>, ConsensusError>>()?;
 
@@ -206,10 +212,16 @@ pub async fn batch_prepare_main_chain_blocks<D: Database>(
     })
     .await?;
 
-    check_kis_unique(blocks.iter().flat_map(|(_, txs)| txs.iter()), &mut database).await?;
+    let spent_kis = unique_kis(
+        blocks
+            .iter()
+            .flat_map(|(_, twk)| twk.spent_key_images.iter().copied()),
+    )?;
+
+    check_kis(spent_kis, &mut database).await?;
 
     let output_cache =
-        get_output_cache(blocks.iter().flat_map(|(_, txs)| txs.iter()), database).await?;
+        get_output_cache(blocks.iter().flat_map(|(_, twk)| twk.txs.iter()), database).await?;
 
     Ok((blocks, BatchPrepareCache { output_cache }))
 }
