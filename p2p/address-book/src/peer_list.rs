@@ -24,7 +24,7 @@ pub(crate) struct PeerList<Z: NetworkZone> {
     /// This means the first peers in this list will store more blocks than peers
     /// later on. So when we need a peer with a certain block we look at the peers
     /// storing more blocks first then work our way to the peers storing less.
-    ///  
+    ///
     pruning_seeds: BTreeMap<PruningSeed, Vec<Z::Addr>>,
     /// A hashmap linking `ban_ids` to addresses.
     ban_ids: HashMap<<Z::Addr as NetZoneAddress>::BanID, Vec<Z::Addr>>,

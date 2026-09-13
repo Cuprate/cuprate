@@ -36,6 +36,7 @@ pub struct CacheSizes {
     pub pruned_blobs: u64,
     pub v1_prunable_blobs: u64,
     pub prunable_blobs: u64,
+    pub prunable_tip: u64,
 }
 
 impl Default for CacheSizes {
@@ -47,6 +48,7 @@ impl Default for CacheSizes {
             pruned_blobs: 25 * 1024 * 1024,
             v1_prunable_blobs: 8 * 1024,
             prunable_blobs: 8 * 1024,
+            prunable_tip: 8 * 1024,
         }
     }
 }
@@ -62,6 +64,8 @@ pub struct Config {
     pub index_dir: PathBuf,
     /// The tapes cache sizes.
     pub cache_sizes: CacheSizes,
+    /// Whether to prune the blockchain database.
+    pub prune: bool,
     /// The [`Persistence`] mode to use.
     pub persistence: Persistence,
 }
@@ -72,6 +76,7 @@ impl Default for Config {
             blob_dir: CUPRATE_DATA_DIR.to_path_buf(),
             index_dir: CUPRATE_DATA_DIR.to_path_buf(),
             cache_sizes: CacheSizes::default(),
+            prune: false,
             persistence: Persistence::default(),
         }
     }

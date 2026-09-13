@@ -22,7 +22,9 @@ impl TxpoolDatabase {
         let s = Self {
             tx_blobs: fjall_database.keyspace("tx_blobs", || {
                 KeyspaceCreateOptions::default().with_kv_separation(Some(
-                    KvSeparationOptions::default().separation_threshold(3_000),
+                    KvSeparationOptions::default()
+                        .separation_threshold(3_000)
+                        .compression(fjall::CompressionType::None),
                 ))
             })?,
             tx_infos: fjall_database.keyspace("tx_infos", KeyspaceCreateOptions::default)?,

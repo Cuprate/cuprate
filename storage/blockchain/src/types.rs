@@ -91,6 +91,11 @@ pub struct TxInfo {
     /// The index of the transactions pruned blob in the pruned tape.
     pub pruned_blob_idx: u64,
     /// The index of the transactions prunable blob in the corresponding prunable tape.
+    ///
+    /// # Warning
+    ///
+    /// This value is only valid when the tx is in an unpruned block. If the tx is not then the value
+    /// is unspecified.
     pub prunable_blob_idx: u64,
     /// The size of the transactions pruned blob.
     pub pruned_size: usize,
@@ -168,7 +173,7 @@ impl PreRctOutputId {
 /// # Size & Alignment
 /// ```rust
 /// # use cuprate_blockchain::types::*;
-/// assert_eq!(size_of::<BlockInfo>(), 112);
+/// assert_eq!(size_of::<BlockInfo>(), 104);
 /// assert_eq!(align_of::<BlockInfo>(), 8);
 /// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -195,8 +200,6 @@ pub struct BlockInfo {
     pub long_term_weight: usize,
     /// [`TxId`] (u64) of the block coinbase transaction.
     pub mining_tx_index: TxId,
-    /// The index of the block blob in the v2 prunable tape.
-    pub prunable_blob_idx: u64,
     /// The index of the block blob in the v1 prunable tape.
     pub v1_prunable_blob_idx: u64,
     /// The index of the block blob in the pruned tape.

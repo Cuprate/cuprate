@@ -1308,7 +1308,7 @@ fn transactions(db: &BlockchainDatabase, tx_hashes: Vec<[u8; 32]>) -> ResponseRe
         let is_miner_tx = tx_id == block_info.mining_tx_index;
 
         let (pruned_blob, prunable_blob, prunable_hash) =
-            get_split_tx_blobs(&tx_info, is_miner_tx, &tapes, db)?;
+            get_split_tx_blobs(tx_id, &tx_info, is_miner_tx, &tapes, db)?;
 
         let block_timestamp = if let Some(timestamp) = block_timestamps.get(&tx_info.height) {
             *timestamp
@@ -1364,11 +1364,14 @@ fn total_rct_outputs(db: &BlockchainDatabase) -> BlockchainResponse {
 fn tx_output_indexes(db: &BlockchainDatabase, tx_hash: &[u8; 32]) -> ResponseResult {
     let (tx_ro, tapes) = db.read_transactions()?;
 
-    let tx_id = tx_ro
-        .get(&db.tx_ids, tx_hash)?
-        .ok_or(BlockchainError::NotFound)?;
-
-    let tx_id = u64::from_le_bytes(tx_id.as_ref().try_into().unwrap());
+    let tx_id = u64::from_le_bytes(
+        tx_ro
+            .get(&db.tx_ids, tx_hash)?
+            .ok_or(BlockchainError::NotFound)?
+            .as_ref()
+            .try_into()
+            .unwrap(),
+    );
 
     let tx_info = tapes
         .read_entry(&db.tx_infos, tx_id)?

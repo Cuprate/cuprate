@@ -13,7 +13,6 @@ use tokio::{
 use tower::{buffer::Buffer, util::BoxCloneService, Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
-use cuprate_async_buffer::BufferStream;
 use cuprate_p2p_core::{
     client::Connector,
     client::PeerSyncCallback,
@@ -29,7 +28,9 @@ pub mod constants;
 mod inbound_server;
 mod peer_set;
 
-use block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse};
+use block_downloader::{
+    BlockDownloaderConfig, BlockDownloaderHandle, ChainSvcRequest, ChainSvcResponse,
+};
 pub use broadcast::{BroadcastRequest, BroadcastSvc};
 pub use config::{AddressBookConfig, P2PConfig, TransportConfig};
 use connection_maintainer::MakeConnectionRequest;
@@ -248,12 +249,14 @@ impl<N: NetworkZone> NetworkInterface<N> {
         self.broadcast_svc.clone()
     }
 
-    /// Starts the block downloader and returns a stream that will yield sequentially downloaded blocks.
+    /// Starts the block downloader.
+    ///
+    /// The downloader runs until it is aborted with [`BlockDownloaderHandle::task`].
     pub fn block_downloader<C>(
         &self,
         our_chain_service: C,
         config: BlockDownloaderConfig,
-    ) -> BufferStream<BlockBatch>
+    ) -> BlockDownloaderHandle
     where
         C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>
             + Send

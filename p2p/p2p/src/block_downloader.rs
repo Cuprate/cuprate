@@ -11,10 +11,10 @@ use std::{
     time::Duration,
 };
 
-use futures::TryFutureExt;
+use futures::{FutureExt, TryFutureExt};
 use monero_oxide::{block::Block, transaction::Transaction};
 use tokio::{
-    task::JoinSet,
+    task::{JoinHandle, JoinSet},
     time::{interval, timeout, MissedTickBehavior},
 };
 use tower::{util::BoxCloneService, Service, ServiceExt};
@@ -71,6 +71,14 @@ pub struct BlockDownloaderConfig {
     pub target_batch_bytes: usize,
     /// The initial amount of blocks to request (in number of blocks)
     pub initial_batch_len: usize,
+}
+
+/// A running block downloader and its stream of downloaded blocks.
+pub struct BlockDownloaderHandle {
+    /// The sequential stream of downloaded blocks.
+    pub stream: BufferStream<BlockBatch>,
+    /// The downloader task.
+    pub task: JoinHandle<()>,
 }
 
 /// An error that occurred in the [`BlockDownloader`].
@@ -132,11 +140,12 @@ pub enum ChainSvcResponse<N: NetworkZone> {
     },
 }
 
-/// This function starts the block downloader and returns a [`BufferStream`] that will produce
-/// a sequential stream of blocks.
+/// This function starts the block downloader and returns a [`BlockDownloaderHandle`].
 ///
 /// The block downloader will pick the longest chain and will follow it for as long as possible,
 /// the blocks given from the [`BufferStream`] will be in order.
+///
+/// The downloader runs until it is aborted with the returned [`JoinHandle`].
 ///
 /// The block downloader may fail before the whole chain is downloaded. If this is the case you can
 /// call this function again, so it can start the search again.
@@ -145,7 +154,7 @@ pub fn download_blocks<N: NetworkZone, C>(
     peer_set: BoxCloneService<PeerSetRequest, PeerSetResponse<N>, tower::BoxError>,
     our_chain_svc: C,
     config: BlockDownloaderConfig,
-) -> BufferStream<BlockBatch>
+) -> BlockDownloaderHandle
 where
     C: Service<ChainSvcRequest<N>, Response = ChainSvcResponse<N>, Error = tower::BoxError>
         + Send
@@ -154,16 +163,18 @@ where
 {
     let (buffer_appender, buffer_stream) = cuprate_async_buffer::new_buffer(config.buffer_bytes);
 
-    let block_downloader = BlockDownloader::new(peer_set, our_chain_svc, buffer_appender, config);
-
-    tokio::spawn(
-        block_downloader
+    let task = tokio::spawn(
+        BlockDownloader::new(peer_set, our_chain_svc, buffer_appender, config)
             .run()
             .inspect_err(|e| tracing::debug!("Error downloading blocks: {e}"))
+            .map(drop)
             .instrument(Span::current()),
     );
 
-    buffer_stream
+    BlockDownloaderHandle {
+        stream: buffer_stream,
+        task,
+    }
 }
 
 /// # Block Downloader
