@@ -479,8 +479,7 @@ impl super::BlockchainManager {
     /// # Errors
     ///
     /// This function will return an [`Err`] if any internal service returns an unexpected error,
-    /// or if the re-org was unsuccessful. If this happens the chain
-    /// will be returned to the state it was in when the function was called.
+    /// or if the re-org was unsuccessful. The old chain is restored when available.
     #[instrument(name = "try_do_reorg", skip_all, level = "info")]
     async fn try_do_reorg(
         &mut self,
@@ -534,6 +533,7 @@ impl super::BlockchainManager {
                     self.reverse_reorg(old_main_chain_id).await?;
                 } else {
                     warn!("Failed to revert reorg, reorg removed pruned blocks which we cannot add back.");
+                    // TODO: recover by retaining the data needed for rollback or resyncing from the split point.
                 }
                 Err(e)
             }
@@ -595,9 +595,9 @@ impl super::BlockchainManager {
         Ok(())
     }
 
-    /// Pop blocks from the main chain, moving them to alt-blocks. This function will flush all other alt-blocks.
+    /// Pop blocks from the main chain, optionally moving them to alt-blocks. This function will flush all other alt-blocks.
     ///
-    /// This returns the [`ChainId`] of the blocks that were popped.
+    /// This returns the [`ChainId`] if the blocks were kept.
     ///
     /// # Errors
     ///

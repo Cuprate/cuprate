@@ -210,23 +210,20 @@ fn pop_blocks(db: &BlockchainDatabase, numb_blocks: usize, keep_blocks: bool) ->
         .fixed_sized_tape_len(&db.block_infos)
         .is_some_and(|height| u64_to_usize(height) > numb_blocks));
 
-    let mut dropped_alt_chain = false;
-
     // pop the blocks
     for _ in 0..numb_blocks {
-        let (_, _, _, added_to_alt_chain) =
+        let (.., added_to_alt_chain) =
             crate::ops::block::pop_block(db, old_main_chain_id, &mut tx_rw, &mut tapes)?;
 
         if old_main_chain_id.is_some() && !added_to_alt_chain {
             old_main_chain_id = None;
-            dropped_alt_chain = true;
         }
     }
 
     tapes.commit(tapes::Persistence::SyncAll)?;
     tx_rw.commit()?;
 
-    if dropped_alt_chain {
+    if keep_blocks && old_main_chain_id.is_none() {
         crate::ops::alt_block::flush_alt_blocks(db)?;
     }
 

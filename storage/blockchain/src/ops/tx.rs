@@ -1,7 +1,6 @@
 //! Transaction functions.
 use std::collections::HashMap;
 
-use bytes::Buf;
 use fjall::Readable;
 use monero_oxide::transaction::{Input, Pruned, Timelock, Transaction};
 use tapes::{TapesAppend, TapesRead};
@@ -319,14 +318,13 @@ const fn miner_tx_prunable_hash(tx_info: &TxInfo) -> [u8; 32] {
 }
 
 /// Returns a transaction's split blobs and prunable hash from its [`TxInfo`].
-#[expect(clippy::type_complexity)]
 pub(crate) fn get_split_tx_blobs(
     tx_id: TxId,
     tx_info: &TxInfo,
     is_miner_tx: bool,
     tapes: &impl TapesRead,
     db: &BlockchainDatabase,
-) -> DbResult<(Vec<u8>, Option<Vec<u8>>, [u8; 32])> {
+) -> DbResult<(Vec<u8>, Vec<u8>, [u8; 32])> {
     let pruned_len = if is_miner_tx {
         tx_info.pruned_size
     } else {
@@ -342,16 +340,16 @@ pub(crate) fn get_split_tx_blobs(
     };
     pruned_blob.truncate(tx_info.pruned_size);
 
-    let prunable_blob = if tx_info.prunable_size != 0 {
+    let prunable_blob = if tx_info.prunable_size == 0 {
+        vec![]
+    } else {
         let mut prunable_blob = vec![0; tx_info.prunable_size];
 
         match read_prunable_tape(&tx_id, tx_info, &mut prunable_blob, tapes, db) {
-            Ok(()) => Some(prunable_blob),
-            Err(BlockchainError::NotFound) => None,
+            Ok(()) => prunable_blob,
+            Err(BlockchainError::NotFound) => vec![],
             Err(e) => return Err(e),
         }
-    } else {
-        Some(vec![])
     };
 
     Ok((pruned_blob, prunable_blob, prunable_hash))
@@ -395,17 +393,6 @@ pub fn get_tx_blob_from_id(
 #[inline]
 pub fn get_num_tx(db: &BlockchainDatabase, tx_ro: &fjall::Snapshot) -> DbResult<u64> {
     Ok(usize_to_u64(tx_ro.len(&db.tx_ids)?))
-}
-
-/// Retrieves the transaction id based on a transactions hash
-#[inline]
-pub fn get_tx_id_from_hash(db: &BlockchainDatabase, tx_hash: &TxHash) -> DbResult<TxId> {
-    Ok(db
-        .tx_ids
-        .get(tx_hash)?
-        .ok_or(BlockchainError::NotFound)?
-        .as_ref()
-        .get_u64_le())
 }
 
 //----------------------------------------------------------------------------------------------------

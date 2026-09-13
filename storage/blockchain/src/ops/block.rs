@@ -533,9 +533,14 @@ pub fn pop_block(
             prunable_tip_blobs,
             ..
         } => {
-            let prunable_blob_idx_end = tapes
-                .read_entry(prunable_tip, block_info.mining_tx_index)?
-                .unwrap();
+            let prunable_blob_idx_end =
+                match tapes.read_entry(prunable_tip, block_info.mining_tx_index)? {
+                    Some(index) => index,
+                    // The offset is gone below the rolling tip; empty the blob tape.
+                    None => tapes
+                        .blob_tape_start(prunable_tip_blobs)
+                        .expect("required tape not open"),
+                };
 
             tapes.truncate_blob_tape(prunable_tip_blobs, prunable_blob_idx_end)?;
             tapes.truncate_fixed_sized_tape(prunable_tip, block_info.mining_tx_index)?;

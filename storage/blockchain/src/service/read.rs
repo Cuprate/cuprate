@@ -52,7 +52,7 @@ use crate::{
         output::{
             get_num_outputs_with_amount, id_to_output_on_chain, unlocked_and_recent_instances,
         },
-        tx::{get_split_tx_blobs, get_tx_blob_from_id, get_tx_id_from_hash},
+        tx::{get_split_tx_blobs, get_tx_blob_from_id},
     },
     service::{
         free::{compact_history_genesis_not_included, compact_history_index_to_height_offset},
@@ -1341,7 +1341,7 @@ fn transactions(db: &BlockchainDatabase, tx_hashes: Vec<[u8; 32]>) -> ResponseRe
             output_indices,
             tx_hash,
             pruned_blob,
-            prunable_blob: prunable_blob.unwrap_or_default(),
+            prunable_blob,
             prunable_hash,
         });
     }
@@ -1364,7 +1364,14 @@ fn total_rct_outputs(db: &BlockchainDatabase) -> BlockchainResponse {
 fn tx_output_indexes(db: &BlockchainDatabase, tx_hash: &[u8; 32]) -> ResponseResult {
     let (tx_ro, tapes) = db.read_transactions()?;
 
-    let tx_id = get_tx_id_from_hash(db, tx_hash)?;
+    let tx_id = u64::from_le_bytes(
+        tx_ro
+            .get(&db.tx_ids, tx_hash)?
+            .ok_or(BlockchainError::NotFound)?
+            .as_ref()
+            .try_into()
+            .unwrap(),
+    );
 
     let tx_info = tapes
         .read_entry(&db.tx_infos, tx_id)?
