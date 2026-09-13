@@ -240,7 +240,7 @@ pub enum BlockchainWriteRequest {
 
     /// Request that a batch of blocks be written to the database.
     ///
-    /// Input is an already verified batch of blocks.
+    /// Input is an already verified batch of blocks, must not be empty.
     BatchWriteBlocks(Vec<VerifiedBlockInformation>),
 
     /// Write an alternative block to the database,
@@ -250,11 +250,12 @@ pub enum BlockchainWriteRequest {
 
     /// A request to pop some blocks from the top of the main chain
     ///
-    /// Input is the amount of blocks to pop.
+    /// Input is the amount of blocks to pop and a bool for if the popped blocks should be added as
+    /// alt blocks.
     ///
     /// This request flushes all alt-chains from the cache before adding the popped blocks to the
-    /// alt cache.
-    PopBlocks(usize),
+    /// alt cache, if requested to do so.
+    PopBlocks(usize, bool),
 
     /// A request to flush all alternative blocks.
     FlushAltBlocks,
@@ -480,7 +481,7 @@ pub enum BlockchainResponse {
     /// Response to [`BlockchainWriteRequest::PopBlocks`].
     ///
     /// The inner value is the alt-chain ID for the old main chain blocks.
-    PopBlocks(ChainId),
+    PopBlocks(Option<ChainId>),
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

@@ -15,7 +15,7 @@ use cuprate_types::OutputOnChain;
 
 use crate::{
     error::{BlockchainError, DbResult},
-    ops::{block::get_block_extended_header_from_height, tx::get_tx_from_id},
+    ops::{block::get_block_extended_header_from_height, tx::get_tx_hash_from_id},
     types::{Amount, Output, PreRctOutputId, RctOutput},
     BlockchainDatabase,
 };
@@ -150,7 +150,15 @@ pub fn output_to_output_on_chain(
     let key = CompressedPoint::from(output.key);
 
     let txid = if get_txid {
-        let txid = get_tx_from_id(&output.tx_idx, tapes, db)?.hash();
+        let block_info = tapes
+            .read_entry(&db.block_infos, usize_to_u64(output.height))?
+            .unwrap();
+        let txid = get_tx_hash_from_id(
+            &output.tx_idx,
+            tapes,
+            block_info.mining_tx_index == output.tx_idx,
+            db,
+        )?;
 
         Some(txid)
     } else {
@@ -180,7 +188,15 @@ pub fn rct_output_to_output_on_chain(
     let key = CompressedPoint::from(rct_output.key);
 
     let txid = if get_txid {
-        let txid = get_tx_from_id(&rct_output.tx_idx, tapes, db)?.hash();
+        let block_info = tapes
+            .read_entry(&db.block_infos, usize_to_u64(rct_output.height))?
+            .unwrap();
+        let txid = get_tx_hash_from_id(
+            &rct_output.tx_idx,
+            tapes,
+            block_info.mining_tx_index == rct_output.tx_idx,
+            db,
+        )?;
 
         Some(txid)
     } else {

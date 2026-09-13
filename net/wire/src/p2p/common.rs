@@ -95,7 +95,7 @@ pub struct CoreSyncData {
     pub current_height: u64,
     /// Pruning Seed of the peer
     /// (If this is not in the message the default is 0)
-    pub pruning_seed: u32,
+    pub pruning_seed: u32, // TODO: use `PruningSeed` instead?
     /// Hash of the top block
     // We don't use ByteArray here to allow users to keep this data long term.
     pub top_id: [u8; 32],

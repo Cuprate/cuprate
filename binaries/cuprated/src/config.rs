@@ -374,6 +374,7 @@ impl Config {
             blob_dir: path_with_network(&self.fs.slow_data_directory, self.network),
             index_dir: path_with_network(&self.fs.fast_data_directory, self.network),
             cache_sizes: self.storage.blockchain.tapes_cache_sizes.clone(),
+            prune: self.storage.blockchain.prune,
             persistence: self.storage.blockchain.persistence,
         }
     }
