@@ -448,7 +448,10 @@ impl BlockchainDatabase {
         let fjall_tip = fjall.get(&self.chain_tip, CHAIN_TIP_KEY)?;
 
         Ok(match (tapes_tip, fjall_tip.as_deref()) {
-            (None, None) => true,
+            // Old fjall DBs do not have the `chain_tip` key space, with the pruning upgrade this would
+            // make cuprate think an empty tapes and full fjall DB is in sync. So for now check that
+            // fjall is really empty.
+            (None, None) => fjall.is_empty(&self.block_heights)?,
             (Some(tapes_tip), Some(fjall_tip)) => tapes_tip.as_slice() == fjall_tip,
             _ => false,
         })
