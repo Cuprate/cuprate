@@ -534,7 +534,7 @@ impl BlockchainDatabase {
             Cow::Owned(tx)
         });
 
-        let mut batch = self.fjall.batch().durability(Some(PersistMode::Buffer));
+        let mut batch = self.fjall.batch().durability(Some(PersistMode::SyncAll));
         let mut numb_txs = 0;
         for height in 0..tapes_reader
             .fixed_sized_tape_len(&self.block_infos)
@@ -559,7 +559,7 @@ impl BlockchainDatabase {
                 tracing::info!("{} blocks processed", height);
                 let old_batch = mem::replace(
                     &mut batch,
-                    self.fjall.batch().durability(Some(PersistMode::Buffer)),
+                    self.fjall.batch().durability(Some(PersistMode::SyncAll)),
                 );
 
                 old_batch.commit()?;
