@@ -2,6 +2,8 @@
 //!
 //! This crate implement additional transports for Cuprate.
 
+#![recursion_limit = "256"]
+
 /// Arti library implementation.
 #[cfg(feature = "arti")]
 mod arti;

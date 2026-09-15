@@ -3,6 +3,7 @@
 //! Wrapper around [`cuprated::Node::launch`] that handles argument parsing,
 //! logging setup, and the interactive command listener.
 #![allow(unused_crate_dependencies)]
+#![recursion_limit = "256"]
 
 use std::{
     io::{self, IsTerminal},

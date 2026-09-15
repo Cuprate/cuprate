@@ -17,6 +17,7 @@
 
 #![doc = include_str!("../README.md")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![recursion_limit = "256"]
 
 #[cfg(feature = "mimalloc")]
 use mimalloc as _;
