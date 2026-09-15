@@ -30,7 +30,7 @@ async fn get_single_block_from_monerod() {
 
     let mut connector = Connector::new(handshaker);
 
-    let mut connected_peer = connector
+    let connected_peer = connector
         .ready()
         .await
         .unwrap()
@@ -42,10 +42,7 @@ async fn get_single_block_from_monerod() {
         .unwrap();
 
     let PeerResponse::Protocol(ProtocolResponse::GetObjects(obj)) = connected_peer
-        .ready_peer_request()
-        .await
-        .unwrap()
-        .call(PeerRequest::Protocol(ProtocolRequest::GetObjects(
+        .request(PeerRequest::Protocol(ProtocolRequest::GetObjects(
             GetObjectsRequest {
                 blocks: hex::decode(
                     "418015bb9ae982a1975da7d79277c2705727a56894ba0fb246adaabb1f4632e3",
@@ -61,6 +58,7 @@ async fn get_single_block_from_monerod() {
     else {
         panic!("Client returned wrong response");
     };
+    drop(connected_peer);
 
     assert_eq!(obj.blocks.len(), 1);
     assert_eq!(obj.missed_ids.len(), 0);

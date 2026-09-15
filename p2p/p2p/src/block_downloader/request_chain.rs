@@ -27,13 +27,11 @@ use crate::{
 /// Because the block downloader only follows and downloads one chain we only have to send the block hash of
 /// top block we have found and the genesis block, this is then called `short_history`.
 pub(crate) async fn request_chain_entry_from_peer<N: NetworkZone>(
-    mut client: ClientDropGuard<N>,
+    client: ClientDropGuard<N>,
     short_history: [[u8; 32]; 2],
 ) -> Result<(ClientDropGuard<N>, ChainEntry<N>), BlockDownloadError> {
     let PeerResponse::Protocol(ProtocolResponse::GetChain(chain_res)) = client
-        .ready_peer_request()
-        .await?
-        .call(PeerRequest::Protocol(ProtocolRequest::GetChain(
+        .request(PeerRequest::Protocol(ProtocolRequest::GetChain(
             ChainRequest {
                 block_ids: short_history.into(),
                 prune: true,
@@ -123,7 +121,7 @@ where
 
     // Send the requests.
     while futs.len() < INITIAL_CHAIN_REQUESTS_TO_SEND {
-        let Some(mut next_peer) = peers.next() else {
+        let Some(next_peer) = peers.next() else {
             break;
         };
 
@@ -131,11 +129,8 @@ where
         futs.spawn(timeout(
             INITIAL_CHAIN_SEARCH_TIMEOUT,
             async move {
-                let PeerResponse::Protocol(ProtocolResponse::GetChain(chain_res)) = next_peer
-                    .ready_peer_request()
-                    .await?
-                    .call(cloned_req)
-                    .await?
+                let PeerResponse::Protocol(ProtocolResponse::GetChain(chain_res)) =
+                    next_peer.request(cloned_req).await?
                 else {
                     panic!("connection task returned wrong response!");
                 };

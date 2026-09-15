@@ -249,8 +249,13 @@ where
                         return;
                     }
                 }
-                Some(Ok((tx_id, res))) = self.routing_set.join_next() => {
+                Some(join_res) = self.routing_set.join_next() => {
                     let span = tracing::debug_span!("dandelion_routing_result");
+
+                    let Ok((tx_id, res)) = join_res else {
+                        tracing::debug!(parent: &span, "Routing task did not finish.");
+                        continue;
+                    };
 
                     let res = match res {
                         Ok(State::Fluff) => {
@@ -278,7 +283,7 @@ where
                         return;
                     }
                 }
-                req = rx.recv() => {
+                req = rx.recv(), if self.routing_set.len() < rx.max_capacity() => {
                     let Some(((IncomingTx { tx, tx_id, routing_state }, span), res_tx)) = req else {
                         return;
                     };
