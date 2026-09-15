@@ -448,7 +448,10 @@ impl BlockchainDatabase {
         let fjall_tip = fjall.get(&self.chain_tip, CHAIN_TIP_KEY)?;
 
         Ok(match (tapes_tip, fjall_tip.as_deref()) {
-            (None, None) => true,
+            // Old fjall DBs do not have the `chain_tip` key space, with the pruning upgrade this would
+            // make cuprate think an empty tapes and full fjall DB is in sync. So for now check that
+            // fjall is really empty.
+            (None, None) => fjall.is_empty(&self.block_heights)?,
             (Some(tapes_tip), Some(fjall_tip)) => tapes_tip.as_slice() == fjall_tip,
             _ => false,
         })
@@ -531,7 +534,7 @@ impl BlockchainDatabase {
             Cow::Owned(tx)
         });
 
-        let mut batch = self.fjall.batch().durability(Some(PersistMode::Buffer));
+        let mut batch = self.fjall.batch().durability(Some(PersistMode::SyncAll));
         let mut numb_txs = 0;
         for height in 0..tapes_reader
             .fixed_sized_tape_len(&self.block_infos)
@@ -556,7 +559,7 @@ impl BlockchainDatabase {
                 tracing::info!("{} blocks processed", height);
                 let old_batch = mem::replace(
                     &mut batch,
-                    self.fjall.batch().durability(Some(PersistMode::Buffer)),
+                    self.fjall.batch().durability(Some(PersistMode::SyncAll)),
                 );
 
                 old_batch.commit()?;
