@@ -1,0 +1,15 @@
+# For `CODEOWNERS` documentation, see:
+# <https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners>
+
+# Default owner(s) of all code.
+* @Boog900 @hinto-janai @SyntheticBird45
+
+# hinto-janai
+/books/architecture/** @hinto-janai
+/books/user/**         @hinto-janai
+/constants/**          @hinto-janai
+/rpc/**                @hinto-janai
+/storage/blockchain/** @hinto-janai
+/storage/database/**   @hinto-janai
+/test-utils/data/**    @hinto-janai
+/test-utils/rpc/**     @hinto-janai
