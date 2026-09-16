@@ -22,6 +22,14 @@ impl NetZoneAddress for SocketAddr {
         // TODO
         true
     }
+
+    fn display_redacted(&self) -> impl std::fmt::Display + '_ {
+        safelog::Redactable::redacted(self)
+    }
+
+    fn display_unredacted(&self) -> impl std::fmt::Display + '_ {
+        self
+    }
 }
 
 #[derive(Clone, Copy)]
