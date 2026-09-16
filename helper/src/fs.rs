@@ -271,32 +271,33 @@ mod test {
     #[test]
     fn path_sanity_check() {
         // Array of (PATH, expected_path_as_string).
-        //
-        // The different OS's will set the expected path below.
-        let mut array = [
-            (&*CUPRATE_CACHE_DIR, ""),
-            (&*CUPRATE_CONFIG_DIR, ""),
-            (&*CUPRATE_DATA_DIR, ""),
+        #[cfg(target_os = "windows")]
+        const ARRAY: &[(&LazyLock<PathBuf>, &[&str])] = &[
+            (&CUPRATE_CACHE_DIR, &[r"AppData\Local\Cuprate"]),
+            (&CUPRATE_CONFIG_DIR, &[r"AppData\Roaming\Cuprate"]),
+            (&CUPRATE_DATA_DIR, &[r"AppData\Roaming\Cuprate"]),
         ];
 
-        if cfg!(target_os = "windows") {
-            array[0].1 = r"AppData\Local\Cuprate";
-            array[1].1 = r"AppData\Roaming\Cuprate";
-            array[2].1 = r"AppData\Roaming\Cuprate";
-        } else if cfg!(target_os = "macos") {
-            array[0].1 = "Library/Caches/Cuprate";
-            array[1].1 = "Library/Application Support/Cuprate";
-            array[2].1 = "Library/Application Support/Cuprate";
-        } else {
-            // Assumes Linux.
-            array[0].1 = ".cache/cuprate";
-            array[1].1 = ".config/cuprate";
-            array[2].1 = ".local/share/cuprate";
-        }
+        #[cfg(target_os = "macos")]
+        const ARRAY: &[(&LazyLock<PathBuf>, &[&str])] = &[
+            (&CUPRATE_CACHE_DIR, &["Library/Caches/Cuprate"]),
+            (
+                &CUPRATE_CONFIG_DIR,
+                &["Library/Application Support/Cuprate"],
+            ),
+            (&CUPRATE_DATA_DIR, &["Library/Application Support/Cuprate"]),
+        ];
 
-        for (path, expected) in array {
+        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+        const ARRAY: &[(&LazyLock<PathBuf>, &[&str])] = &[
+            (&CUPRATE_CACHE_DIR, &[".cache/cuprate", "cache/cuprate"]),
+            (&CUPRATE_CONFIG_DIR, &[".config/cuprate", "config/cuprate"]),
+            (&CUPRATE_DATA_DIR, &[".local/share/cuprate", "data/cuprate"]),
+        ];
+
+        for (path, expected) in ARRAY {
             assert!(path.is_absolute());
-            assert!(path.ends_with(expected));
+            assert!(expected.iter().any(|e| path.ends_with(e)));
         }
     }
 }
