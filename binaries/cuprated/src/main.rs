@@ -50,6 +50,7 @@ fn main() -> ExitCode {
 
 fn main_inner() -> anyhow::Result<ExitCode> {
     // Set global private permissions for created files.
+    #[cfg(target_family = "unix")]
     cuprate_helper::fs::set_private_global_file_permissions();
 
     // Parse CLI args and read config.
@@ -57,6 +58,9 @@ fn main_inner() -> anyhow::Result<ExitCode> {
     args.do_quick_requests();
 
     let mut config = load_config(&args)?;
+
+    #[cfg(target_os = "windows")]
+    cuprate_helper::fs::set_private_directory_permissions(&config.writable_directories())?;
 
     if args.dry_run {
         return Ok(dry_run_config(&config));
