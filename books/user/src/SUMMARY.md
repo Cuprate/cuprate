@@ -23,6 +23,8 @@
 
 - [RPC](rpc.md)
 
+- [Tor](tor.md)
+
 - [Platform support](platform.md)
 
 - [License](license.md)
