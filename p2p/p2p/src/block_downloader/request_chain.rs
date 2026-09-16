@@ -1,4 +1,4 @@
-use std::mem;
+use std::{collections::HashSet, mem};
 
 use tokio::{task::JoinSet, time::timeout};
 use tower::{util::BoxCloneService, Service, ServiceExt};
@@ -51,22 +51,29 @@ pub(crate) async fn request_chain_entry_from_peer<N: NetworkZone>(
         return Err(BlockDownloadError::PeersResponseWasInvalid);
     }
 
+    let block_ids: Vec<[u8; 32]> = (&chain_res.m_block_ids).into();
+
+    // We must not receive duplicate block IDs.
+    let mut seen = HashSet::with_capacity(block_ids.len());
+    if !block_ids.iter().all(|id| seen.insert(id)) {
+        client.info.handle.ban_peer(MEDIUM_BAN);
+        return Err(BlockDownloadError::PeersResponseWasInvalid);
+    }
+
     // We must have at least one overlapping block.
-    if !(chain_res.m_block_ids[0] == short_history[0]
-        || chain_res.m_block_ids[0] == short_history[1])
-    {
+    if !(block_ids[0] == short_history[0] || block_ids[0] == short_history[1]) {
         client.info.handle.ban_peer(MEDIUM_BAN);
         return Err(BlockDownloadError::PeersResponseWasInvalid);
     }
 
     // If the genesis is the overlapping block then this peer does not have our top tracked block in
     // its chain.
-    if chain_res.m_block_ids[0] == short_history[1] {
+    if block_ids[0] == short_history[1] {
         return Err(BlockDownloadError::PeerDidNotHaveRequestedData);
     }
 
     let entry = ChainEntry {
-        ids: (&chain_res.m_block_ids).into(),
+        ids: block_ids,
         peer: client.info.id,
         handle: client.info.handle.clone(),
     };

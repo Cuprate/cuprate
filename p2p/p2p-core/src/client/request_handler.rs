@@ -105,6 +105,7 @@ where
     ) -> Result<TimedSyncResponse, tower::BoxError> {
         // TODO: add a limit on the amount of these requests in a certain time period.
 
+        // TODO: ban peer if their `current_height` keeps regressing
         *self.peer_info.core_sync_data.lock().unwrap() = req.payload_data.clone();
 
         if let Some(on_peer_sync) = &self.on_peer_sync {
