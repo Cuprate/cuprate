@@ -387,27 +387,15 @@ where
         }
     }
 
-    /// Shutdowns the connection, flushing pending requests.
-    #[expect(clippy::significant_drop_tightening)]
+    /// Shutdowns the connection, responding to the in-flight request.
     fn shutdown(mut self, err: &PeerError) {
         tracing::debug!("Connection task shutting down: {}", err);
-
-        let mut client_rx = self.client_rx.into_inner().into_inner();
-        client_rx.close();
-
-        let err_str = err.to_string();
 
         if let State::WaitingForResponse { tx, .. } =
             std::mem::replace(&mut self.state, State::WaitingForRequest)
         {
-            drop(tx.send(Err(err_str.clone().into())));
+            drop(tx.send(Err(err.to_string().into())));
         }
-
-        tokio::spawn(async move {
-            while let Some(req) = client_rx.recv().await {
-                drop(req.response_channel.send(Err(err_str.clone().into())));
-            }
-        });
 
         self.connection_guard.connection_closed();
     }
