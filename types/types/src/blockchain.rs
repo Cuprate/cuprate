@@ -34,9 +34,12 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BlockchainReadRequest {
     /// Request [`BlockCompleteEntry`]s.
-    ///
-    /// The input is the block hashes.
-    BlockCompleteEntries(Vec<[u8; 32]>),
+    BlockCompleteEntries {
+        /// The block hashes.
+        block_hashes: Vec<[u8; 32]>,
+        /// If `true`, strip the prunable tx data.
+        pruned: bool,
+    },
 
     /// Request [`BlockCompleteEntry`]s.
     ///
