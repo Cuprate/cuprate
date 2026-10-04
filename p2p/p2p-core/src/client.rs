@@ -129,12 +129,26 @@ impl<Z: NetworkZone> Client<Z> {
         ServiceExt::ready(self)
     }
 
-    fn is_closed(&self) -> bool {
-        self.info.handle.is_closed()
-            || self
-                .connection_tx
-                .get_ref()
-                .is_none_or(mpsc::Sender::is_closed)
+    /// Sends a request to the connection task, returning the response future.
+    fn send(
+        &mut self,
+        request: PeerRequest,
+        permit: Option<OwnedSemaphorePermit>,
+    ) -> ClientResponse {
+        let (tx, rx) = oneshot::channel();
+        let req = connection::ConnectionTaskRequest {
+            response_channel: tx,
+            request,
+            permit,
+        };
+
+        // A failed send drops the request, which resolves `rx`.
+        drop(self.connection_tx.send_item(req));
+
+        ClientResponse {
+            response: rx,
+            connection_closed: self.info.handle.closed(),
+        }
     }
 }
 
@@ -172,7 +186,7 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
     type Future = ClientResponse;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        if self.is_closed() {
+        if self.info.handle.is_closed() {
             return Poll::Ready(Err(PeerError::ClientChannelClosed.into()));
         }
 
@@ -196,19 +210,7 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
             .take()
             .expect("poll_ready did not return ready before call to call");
 
-        let (tx, rx) = oneshot::channel();
-        let req = connection::ConnectionTaskRequest {
-            response_channel: tx,
-            request,
-            permit: Some(permit),
-        };
-
-        drop(self.connection_tx.send_item(req));
-
-        ClientResponse {
-            response: rx,
-            connection_closed: self.info.handle.closed(),
-        }
+        self.send(request, Some(permit))
     }
 }
 
@@ -218,7 +220,7 @@ impl<N: NetworkZone> Service<BroadcastMessage> for Client<N> {
     type Future = ClientResponse;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        if self.is_closed() {
+        if self.info.handle.is_closed() {
             return Poll::Ready(Err(PeerError::ClientChannelClosed.into()));
         }
 
@@ -232,20 +234,8 @@ impl<N: NetworkZone> Service<BroadcastMessage> for Client<N> {
     }
 
     fn call(&mut self, request: BroadcastMessage) -> Self::Future {
-        let (tx, rx) = oneshot::channel();
-        let req = connection::ConnectionTaskRequest {
-            response_channel: tx,
-            request: request.into(),
-            // We don't need a permit as we only accept `BroadcastMessage`, which does not require a response.
-            permit: None,
-        };
-
-        drop(self.connection_tx.send_item(req));
-
-        ClientResponse {
-            response: rx,
-            connection_closed: self.info.handle.closed(),
-        }
+        // We don't need a permit as we only accept `BroadcastMessage`, which does not require a response.
+        self.send(request.into(), None)
     }
 }
 
