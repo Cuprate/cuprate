@@ -16,13 +16,13 @@ pub(crate) const MAX_SEED_CONNECTIONS: usize = 3;
 pub(crate) const OUTBOUND_CONNECTION_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// The durations of a short ban.
-pub const SHORT_BAN: Duration = Duration::from_secs(60 * 10);
+pub const SHORT_BAN: Duration = Duration::from_mins(10);
 
 /// The durations of a medium ban.
-pub const MEDIUM_BAN: Duration = Duration::from_secs(60 * 60 * 24);
+pub const MEDIUM_BAN: Duration = Duration::from_hours(24);
 
 /// The durations of a long ban.
-pub const LONG_BAN: Duration = Duration::from_secs(60 * 60 * 24 * 7);
+pub const LONG_BAN: Duration = Duration::from_hours(24 * 7);
 
 /// The default amount of time between inbound diffusion flushes.
 pub(crate) const DIFFUSION_FLUSH_AVERAGE_SECONDS_INBOUND: Duration = Duration::from_secs(5);

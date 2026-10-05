@@ -73,7 +73,7 @@ pub const MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT: usize = 5000;
 ///
 /// Used at:
 /// <https://github.com/monero-project/monero/blob/a1dc85c5373a30f14aaf7dcfdd95f5a7375d3623/src/rpc/core_rpc_server.cpp#L2961>
-pub const OUTPUT_HISTOGRAM_RECENT_CUTOFF_RESTRICTION: Duration = Duration::from_secs(86400 * 3);
+pub const OUTPUT_HISTOGRAM_RECENT_CUTOFF_RESTRICTION: Duration = Duration::from_hours(24 * 3);
 
 /// Maximum amount of requestable blocks in `/get_blocks.bin`.
 #[doc = monero_definition_link!(a1dc85c5373a30f14aaf7dcfdd95f5a7375d3623, "/src/cryptonote_config.h", 128)]

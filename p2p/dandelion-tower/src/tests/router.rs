@@ -11,7 +11,7 @@ use super::*;
 async fn number_stems_correct() {
     let mut config = DandelionConfig {
         time_between_hop: Duration::from_millis(175),
-        epoch_duration: Duration::from_secs(60_000),
+        epoch_duration: Duration::from_mins(1000),
         fluff_probability: 0.0, // we want to be in stem state
         graph: Graph::FourRegular,
     };
@@ -64,7 +64,7 @@ async fn number_stems_correct() {
 async fn routes_consistent() {
     let config = DandelionConfig {
         time_between_hop: Duration::from_millis(175),
-        epoch_duration: Duration::from_secs(60_000),
+        epoch_duration: Duration::from_mins(1000),
         fluff_probability: 0.0, // we want this test to always stem
         graph: Graph::FourRegular,
     };
@@ -111,7 +111,7 @@ async fn routes_consistent() {
 async fn local_always_stem() {
     let config = DandelionConfig {
         time_between_hop: Duration::from_millis(175),
-        epoch_duration: Duration::from_secs(60_000),
+        epoch_duration: Duration::from_mins(1000),
         fluff_probability: 1.0, // we want this test to always fluff
         graph: Graph::FourRegular,
     };
@@ -156,7 +156,7 @@ async fn local_always_stem() {
 async fn stem_txs_fluff_in_state_fluff() {
     let config = DandelionConfig {
         time_between_hop: Duration::from_millis(175),
-        epoch_duration: Duration::from_secs(60_000),
+        epoch_duration: Duration::from_mins(1000),
         fluff_probability: 1.0, // we want this test to always fluff
         graph: Graph::FourRegular,
     };

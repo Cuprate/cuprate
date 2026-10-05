@@ -383,6 +383,14 @@ manual_assert_eq = "deny"
 manual_clear = "deny"
 some_filter = "deny"
 useless_borrows_in_formatting = "deny"
+with_capacity_zero = "deny"
+manual_bit_width = "deny"
+unnecessary_rest_pattern = "deny"
+assert_is_empty = "deny"
+duration_suboptimal_units = "deny"
+self_only_used_in_recursion = "deny"
+coerce_container_to_any = "deny"
+volatile_composites = "deny"
 
 # Warm
 cast_possible_truncation = "deny"
@@ -431,6 +439,7 @@ empty_drop = "deny"
 clone_on_ref_ptr = "deny"
 upper_case_acronyms  = "deny"
 allow_attributes = "deny"
+unused_async_trait_impl = "deny"
 
 # Hot
 # inline_always = "deny"
@@ -451,6 +460,8 @@ undocumented_unsafe_blocks = "deny"
 # multiple_unsafe_ops_per_block = "deny"
 # single_char_lifetime_names = "deny"
 wildcard_enum_match_arm = "deny"
+# definition_in_module_root = "deny"
+# rest_pattern_accessible_field = "deny"
 
 [workspace.lints.rust]
 # Cold
