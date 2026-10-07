@@ -188,7 +188,7 @@ pub(crate) fn make_dummy_message<T: LevinCommand>(protocol: &Protocol, size: usi
     // A header to put on the dummy message.
     let header = BucketHead {
         signature: protocol.signature,
-        size: usize_to_u64(size),
+        size: usize_to_u64(size - HEADER_SIZE),
         have_to_return_data: false,
         // Just use a default command.
         command: T::from(0),

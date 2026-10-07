@@ -17,8 +17,8 @@ use tokio_util::codec::{FramedRead, FramedWrite};
 use cuprate_helper::cast::u64_to_usize;
 
 use cuprate_levin::{
-    message::make_fragmented_messages, BucketBuilder, BucketError, LevinBody, LevinCommand,
-    LevinMessageCodec, MessageType, Protocol,
+    message::{make_fragmented_messages, Dummy},
+    BucketBuilder, BucketError, LevinBody, LevinCommand, LevinMessageCodec, MessageType, Protocol,
 };
 
 /// A timeout put on streams so tests don't stall.
@@ -120,6 +120,33 @@ async fn codec_fragmented_messages() {
     match (message, message2) {
         (TestBody::Bytes(_, buf), TestBody::Bytes(_, buf2)) => assert_eq!(buf, buf2),
     }
+}
+
+#[tokio::test]
+async fn codec_dummy_message_is_skipped() {
+    let (write, read) = duplex(100_000);
+
+    let mut read = FramedRead::new(read, LevinMessageCodec::<TestBody>::default());
+    let mut write = FramedWrite::new(write, LevinMessageCodec::<TestBody>::default());
+
+    let message = TestBody::Bytes(4, Bytes::from_static(&[1, 2, 3, 4]));
+
+    timeout(TEST_TIMEOUT, write.send(Dummy(100).into()))
+        .await
+        .unwrap()
+        .unwrap();
+    timeout(TEST_TIMEOUT, write.send(message.into()))
+        .await
+        .unwrap()
+        .unwrap();
+
+    let TestBody::Bytes(_, buf) = timeout(TEST_TIMEOUT, read.next())
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(buf.as_ref(), [1, 2, 3, 4]);
 }
 
 proptest! {
