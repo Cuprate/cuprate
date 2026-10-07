@@ -19,6 +19,7 @@ mod chain_service;
 mod error;
 mod fast_sync;
 pub mod interface;
+mod known_blocks;
 mod manager;
 mod syncer;
 mod types;

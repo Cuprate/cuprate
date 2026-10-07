@@ -266,7 +266,9 @@ impl BlockchainSyncerHandle {
             // If we are behind the peer, and we aren't just one block behind with the blockchain manager handling the block, wake the syncer.
             if peer_csd.cumulative_difficulty() > ctx.cumulative_difficulty
                 && !(peer_csd.current_height.saturating_sub(1) == ctx.chain_height as u64
-                    && blockchain_manager.is_block_being_handled(&peer_csd.top_id))
+                    && blockchain_manager
+                        .known_blocks()
+                        .is_being_handled(&peer_csd.top_id))
             {
                 sync_handle.notify_syncer.notify_one();
             }

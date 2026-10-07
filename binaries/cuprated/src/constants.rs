@@ -30,6 +30,9 @@ pub const DEFAULT_CONFIG_WARNING: &str = formatcp!(
 
 pub const DEFAULT_CONFIG_STARTUP_DELAY: Duration = Duration::from_secs(15);
 
+/// How far below the chain height a block sent by a peer can be before it is ignored.
+pub const MAX_INCOMING_BLOCK_DEPTH: usize = 10;
+
 /// Corrupt database error message.
 ///
 /// The error message shown to end-users in panic

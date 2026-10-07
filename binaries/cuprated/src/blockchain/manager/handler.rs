@@ -48,9 +48,11 @@ impl super::BlockchainManager {
                 block,
                 prepped_txs,
                 response_tx,
+                outcome,
             } => match self.handle_incoming_block(block, prepped_txs).await {
                 Err(IncomingBlockError::Fatal(e)) => return Err(e),
                 res => {
+                    outcome.record(&res);
                     let _ = response_tx.send(res);
                 }
             },
