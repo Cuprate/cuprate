@@ -2,10 +2,7 @@
 //!
 //! This module contains all the functions to mutate the blockchain's state in any way, through the
 //! blockchain manager.
-use std::{
-    collections::{HashMap, HashSet},
-    sync::{Arc, Mutex},
-};
+use std::collections::HashMap;
 
 use monero_oxide::{block::Block, transaction::Transaction};
 use tokio::sync::{mpsc, oneshot};
@@ -20,6 +17,7 @@ use cuprate_txpool::service::{
 use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
 
 use crate::blockchain::{
+    known_blocks::KnownBlocks,
     manager::{BlockchainManagerCommand, IncomingBlockOk},
     IncomingBlockError,
 };
@@ -31,15 +29,8 @@ use crate::blockchain::{
 pub struct BlockchainManagerHandle {
     /// The channel used to send [`BlockchainManagerCommand`]s to the blockchain manager.
     command_tx: mpsc::Sender<BlockchainManagerCommand>,
-    /// A [`HashSet`] of block hashes that the blockchain manager is currently handling.
-    ///
-    /// This prevents sending the same block to the blockchain manager from multiple connections
-    /// before one of them actually gets added to the chain, allowing peers to do other things.
-    ///
-    /// This is used over something like a dashmap as we expect a lot of collisions in a short amount of
-    /// time for new blocks, so we would lose the benefit of sharded locks. A dashmap is made up of `RwLocks`
-    /// which are also more expensive than `Mutex`s.
-    blocks_being_handled: Arc<Mutex<HashSet<[u8; 32]>>>,
+    /// The blocks sent to the blockchain manager.
+    known_blocks: KnownBlocks,
 }
 
 impl BlockchainManagerHandle {
@@ -49,15 +40,15 @@ impl BlockchainManagerHandle {
         (
             Self {
                 command_tx,
-                blocks_being_handled: Arc::new(Mutex::new(HashSet::new())),
+                known_blocks: KnownBlocks::default(),
             },
             command_rx,
         )
     }
 
-    /// Returns `true` if the given block hash is currently being handled.
-    pub fn is_block_being_handled(&self, hash: &[u8; 32]) -> bool {
-        self.blocks_being_handled.lock().unwrap().contains(hash)
+    /// Returns the blocks sent to the blockchain manager.
+    pub(crate) const fn known_blocks(&self) -> &KnownBlocks {
+        &self.known_blocks
     }
 
     /// Try to add a new block to the blockchain.
@@ -82,14 +73,23 @@ impl BlockchainManagerHandle {
             return Err(IncomingBlockError::TooManyTxs);
         }
 
-        if !block_exists(block.header.previous, blockchain_read_handle).await? {
-            return Err(IncomingBlockError::Orphan);
-        }
+        let height = block_height(block.header.previous, blockchain_read_handle)
+            .await?
+            .ok_or(IncomingBlockError::Orphan)?
+            + 1;
 
         let block_hash = block.hash();
 
-        if block_exists(block_hash, blockchain_read_handle).await? {
+        if block_height(block_hash, blockchain_read_handle)
+            .await?
+            .is_some()
+        {
             return Ok(IncomingBlockOk::AlreadyHave);
+        }
+
+        // If this block is being handled, or is known to be invalid, then we can stop.
+        if let Some(res) = self.known_blocks.response(&block_hash) {
+            return res;
         }
 
         let TxpoolReadResponse::TxsForBlock { mut txs, missing } = txpool_read_handle
@@ -121,24 +121,13 @@ impl BlockchainManagerHandle {
         }
 
         // Add the blocks hash to the blocks being handled.
-        if !self.blocks_being_handled.lock().unwrap().insert(block_hash) {
-            // If another place is already adding this block then we can stop.
-            return Ok(IncomingBlockOk::AlreadyHave);
-        }
-
-        // We must remove the block hash from `blocks_being_handled`.
-        let blocks = Arc::clone(&self.blocks_being_handled);
-        let _guard = {
-            struct RemoveFromBlocksBeingHandled {
-                block_hash: [u8; 32],
-                blocks: Arc<Mutex<HashSet<[u8; 32]>>>,
-            }
-            impl Drop for RemoveFromBlocksBeingHandled {
-                fn drop(&mut self) {
-                    self.blocks.lock().unwrap().remove(&self.block_hash);
-                }
-            }
-            RemoveFromBlocksBeingHandled { block_hash, blocks }
+        let outcome = match self
+            .known_blocks
+            .insert(block_hash, height, &block.serialize())
+        {
+            Ok(outcome) => outcome,
+            // If another place is already adding this block, or found it invalid, then we can stop.
+            Err(res) => return res,
         };
 
         let (response_tx, response_rx) = oneshot::channel();
@@ -148,6 +137,7 @@ impl BlockchainManagerHandle {
                 block,
                 prepped_txs: txs,
                 response_tx,
+                outcome,
             })
             .await
             .map_err(|_| IncomingBlockError::ChannelClosed)?;
@@ -176,11 +166,11 @@ impl BlockchainManagerHandle {
     }
 }
 
-/// Check if we have a block with the given hash.
-async fn block_exists(
+/// Returns the height of the block with the given hash, if we have it.
+async fn block_height(
     block_hash: [u8; 32],
     blockchain_read_handle: &mut BlockchainReadHandle,
-) -> Result<bool, BlockchainError> {
+) -> Result<Option<usize>, BlockchainError> {
     let BlockchainResponse::FindBlock(chain) = blockchain_read_handle
         .ready()
         .await?
@@ -190,5 +180,5 @@ async fn block_exists(
         unreachable!();
     };
 
-    Ok(chain.is_some())
+    Ok(chain.map(|(_, height)| height))
 }
