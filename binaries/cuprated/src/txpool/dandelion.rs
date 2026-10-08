@@ -34,7 +34,7 @@ pub(crate) use diffuse_service::DiffuseService;
 /// TODO: should we expose this to users of cuprated? probably not.
 const DANDELION_CONFIG: DandelionConfig = DandelionConfig {
     time_between_hop: Duration::from_millis(175),
-    epoch_duration: Duration::from_secs(10 * 60),
+    epoch_duration: Duration::from_mins(10),
     fluff_probability: 0.12,
     graph: Graph::FourRegular,
 };

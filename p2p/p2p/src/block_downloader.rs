@@ -578,8 +578,6 @@ where
 
                     self.failed_batches.push(Reverse(start_height));
                 }
-
-                Ok(())
             }
             Ok((client, block_batch)) => {
                 // Remove the batch from the inflight batches.
@@ -635,10 +633,10 @@ where
                     .push(client);
 
                 self.check_pending_peers(chain_tracker, pending_peers);
-
-                Ok(())
             }
         }
+
+        Ok(())
     }
 
     /// Starts the main loop of the block downloader.

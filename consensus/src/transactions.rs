@@ -220,11 +220,9 @@ pub struct FullVerification<'a, D> {
 
 impl<D: Database + Clone> FullVerification<'_, D> {
     /// Fully verify each transaction.
-    pub async fn verify(
-        mut self,
-    ) -> Result<Vec<TransactionVerificationData>, ExtendedConsensusError> {
+    pub async fn verify(self) -> Result<Vec<TransactionVerificationData>, ExtendedConsensusError> {
         let hashes_in_main_chain =
-            if let VerificationContext::Database(database) = &mut self.verification_context {
+            if let VerificationContext::Database(database) = &mut *self.verification_context {
                 check_kis_unique(self.prepped_txs.iter(), database).await?;
                 hashes_referenced_in_main_chain(&self.prepped_txs, database).await?
             } else {

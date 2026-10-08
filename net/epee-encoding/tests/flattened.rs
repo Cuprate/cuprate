@@ -39,7 +39,6 @@ epee_object!(
 );
 
 #[test]
-#[expect(clippy::float_cmp)]
 fn epee_flatten() {
     let val2 = ParentChild {
         h: 38.9,

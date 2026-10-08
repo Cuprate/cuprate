@@ -115,7 +115,7 @@ pub async fn check_add_genesis(
     let genesis = generate_genesis_block(network);
 
     assert_eq!(genesis.miner_transaction().prefix().outputs.len(), 1);
-    assert!(genesis.transactions.is_empty());
+    assert_eq!(genesis.transactions.len(), 0);
 
     blockchain_write_handle
         .ready()
