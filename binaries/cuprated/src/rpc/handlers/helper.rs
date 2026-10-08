@@ -68,7 +68,7 @@ pub(super) async fn block_header(
                 &mut state.blockchain_context,
                 hardfork,
                 // TODO: expensive clone
-                block.clone(),
+                (*block).clone(),
                 seed_hash,
             )
             .await?,

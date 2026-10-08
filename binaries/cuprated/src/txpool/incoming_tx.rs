@@ -6,7 +6,6 @@ use std::{
 
 use bytes::Bytes;
 use futures::{future::BoxFuture, FutureExt};
-use monero_oxide::transaction::Transaction;
 use tokio::sync::{mpsc, oneshot, RwLock};
 use tower::{BoxError, Service, ServiceExt};
 use tracing::instrument;
@@ -29,7 +28,7 @@ use cuprate_txpool::{
     },
     transaction_blob_hash, TxPoolError,
 };
-use cuprate_types::TransactionVerificationData;
+use cuprate_types::{Transaction, TransactionVerificationData};
 
 use crate::{
     blockchain::ConsensusBlockchainReadHandle,

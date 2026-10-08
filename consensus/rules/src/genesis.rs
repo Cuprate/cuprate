@@ -26,7 +26,7 @@ fn genesis_miner_tx(network: Network) -> Transaction {
 /// Generates the Monero genesis block.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/genesis_block.html>
-pub fn generate_genesis_block(network: Network) -> Block {
+pub fn generate_genesis_block(network: Network) -> cuprate_types::Block {
     Block::new(
         BlockHeader {
             hardfork_version: 1,
@@ -38,6 +38,7 @@ pub fn generate_genesis_block(network: Network) -> Block {
         genesis_miner_tx(network),
         vec![],
     )
+    .map(cuprate_types::Block::new)
     .unwrap()
 }
 

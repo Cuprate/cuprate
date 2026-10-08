@@ -8,7 +8,6 @@ use futures::{
     future::{BoxFuture, Shared},
     FutureExt,
 };
-use monero_oxide::{block::Block, transaction::Transaction};
 use tokio::sync::oneshot;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
@@ -30,7 +29,7 @@ use cuprate_p2p_core::{
 use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    BlockCompleteEntry, TransactionBlobs, TxsInBlock,
+    BlockCompleteEntry, Transaction, TransactionBlobs, TxsInBlock,
 };
 use cuprate_wire::protocol::{
     ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest,
@@ -309,7 +308,7 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         .current_height = current_blockchain_height;
 
     let (block, txs) = rayon_spawn_async(move || -> Result<_, anyhow::Error> {
-        let block = Block::read(&mut request.b.block.as_ref())?;
+        let block = monero_oxide::block::Block::read(&mut request.b.block.as_ref())?;
 
         let tx_blobs = request
             .b

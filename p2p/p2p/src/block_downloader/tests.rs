@@ -83,8 +83,10 @@ proptest! {
 
                 assert_eq!(blocks.len() + 1, blockchain.blocks.len());
 
-                for (i, block) in blocks.into_iter().enumerate() {
-                    assert_eq!(&block, blockchain.blocks.get_index(i + 1).unwrap().1);
+                for (i, (block, txs)) in blocks.into_iter().enumerate() {
+                    let expected = blockchain.blocks.get_index(i + 1).unwrap().1;
+                    let txs = txs.into_iter().map(cuprate_types::Transaction::into_inner);
+                    assert_eq!(&(block.into_inner(), txs.collect::<Vec<_>>()), expected);
                 }
             }).await
         }).unwrap();

@@ -116,7 +116,10 @@ pub fn get_alt_block_information(
         )?
         .ok_or(BlockchainError::NotFound)?;
 
-    let block = Block::read(&mut block_blob.as_ref()).unwrap();
+    let block = cuprate_types::Block::with_hash(
+        Block::read(&mut block_blob.as_ref()).unwrap(),
+        block_info.block_hash,
+    );
 
     let txs = block
         .transactions

@@ -1,10 +1,9 @@
 //! This module contains the commands for the blockchain manager.
 use std::collections::HashMap;
 
-use monero_oxide::block::Block;
 use tokio::sync::oneshot;
 
-use cuprate_types::TransactionVerificationData;
+use cuprate_types::{Block, TransactionVerificationData};
 
 use crate::blockchain::IncomingBlockError;
 
@@ -15,7 +14,8 @@ pub(crate) enum BlockchainManagerCommand {
     AddBlock {
         /// The [`Block`] to add.
         block: Block,
-        /// All the transactions defined in [`Block::transactions`].
+        /// All the transactions defined in
+        /// [`Block::transactions`](monero_oxide::block::Block::transactions).
         prepped_txs: HashMap<[u8; 32], TransactionVerificationData>,
         /// The channel to send the response down.
         response_tx: oneshot::Sender<Result<IncomingBlockOk, IncomingBlockError>>,

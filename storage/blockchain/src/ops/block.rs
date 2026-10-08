@@ -4,7 +4,7 @@ use std::{borrow::Cow, cmp::min, collections::HashMap, io};
 use bytes::{Buf, Bytes};
 use fjall::Readable;
 use monero_oxide::{
-    block::{Block, BlockHeader},
+    block::{self, BlockHeader},
     transaction::{Pruned, Transaction},
 };
 use tapes::{BlobTape, TapesAppend, TapesRead, TapesTruncate};
@@ -21,7 +21,7 @@ use cuprate_pruning::{
     CRYPTONOTE_PRUNING_TIP_BLOCKS,
 };
 use cuprate_types::{
-    AltBlockInformation, BlockCompleteEntry, ChainId, ExtendedBlockHeader, HardFork,
+    AltBlockInformation, Block, BlockCompleteEntry, ChainId, ExtendedBlockHeader, HardFork,
     PrunedTxBlobEntry, TransactionBlobs, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 
@@ -896,7 +896,10 @@ pub fn get_block(
 
     tapes.read_bytes(&db.pruned_blobs, block_info.pruned_blob_idx, &mut blob)?;
 
-    Ok(Block::read(&mut blob.as_slice())?)
+    Ok(Block::with_hash(
+        block::Block::read(&mut blob.as_slice())?,
+        block_info.block_hash,
+    ))
 }
 
 /// Retrieve a [`Block`] via its [`BlockHash`].

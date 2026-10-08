@@ -2,14 +2,13 @@
 
 //---------------------------------------------------------------------------------------------------- Use
 use monero_daemon_rpc::{prelude::ProvidesTransactions, MoneroDaemon};
-use monero_oxide::block::Block;
 use monero_simple_request_rpc::SimpleRequestTransport;
 use serde::Deserialize;
 use serde_json::json;
 use tokio::task::spawn_blocking;
 
 use cuprate_helper::tx::tx_fee;
-use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
+use cuprate_types::{Block, VerifiedBlockInformation, VerifiedTransactionInformation};
 
 //---------------------------------------------------------------------------------------------------- Constants
 /// The default URL used for Monero RPC connections.
