@@ -1,7 +1,5 @@
 //! Functions to send [`BlockChainContextRequest`]s.
 
-use std::num::NonZero;
-
 use anyhow::{anyhow, Error};
 use monero_oxide::block::Block;
 use tower::{Service, ServiceExt};
@@ -10,7 +8,7 @@ use cuprate_consensus_context::{
     BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
 };
 use cuprate_types::{
-    rpc::{FeeEstimate, HardForkInfo, OutputDistributionData},
+    rpc::{FeeEstimate, HardForkInfo},
     HardFork,
 };
 
@@ -51,31 +49,6 @@ pub(crate) async fn fee_estimate(
     };
 
     Ok(fee)
-}
-
-/// [`BlockChainContextRequest::RctOutputDistribution`]
-pub(crate) async fn rct_output_distribution(
-    blockchain_context: &mut BlockchainContextService,
-    from_height: u64,
-    to_height: Option<NonZero<u64>>,
-    cumulative: bool,
-) -> Result<OutputDistributionData, Error> {
-    let BlockChainContextResponse::RctOutputDistribution(data) = blockchain_context
-        .ready()
-        .await
-        .map_err(|e| anyhow!(e))?
-        .call(BlockChainContextRequest::RctOutputDistribution {
-            from_height,
-            to_height,
-            cumulative,
-        })
-        .await
-        .map_err(|e| anyhow!(e))?
-    else {
-        unreachable!();
-    };
-
-    Ok(data)
 }
 
 /// [`BlockChainContextRequest::CalculatePow`]
