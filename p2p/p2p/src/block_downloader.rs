@@ -12,7 +12,6 @@ use std::{
 };
 
 use futures::{FutureExt, TryFutureExt};
-use monero_oxide::{block::Block, transaction::Transaction};
 use tokio::{
     task::{JoinHandle, JoinSet},
     time::{interval, timeout, MissedTickBehavior},
@@ -24,6 +23,7 @@ use cuprate_async_buffer::{BufferAppender, BufferStream};
 use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
 use cuprate_p2p_core::{handles::ConnectionHandle, NetworkZone};
 use cuprate_pruning::PruningSeed;
+use cuprate_types::{Block, Transaction};
 
 use crate::{
     constants::{

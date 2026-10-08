@@ -2,7 +2,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use bytes::Bytes;
-use monero_oxide::{block::Block, transaction::Input};
+use monero_oxide::transaction::Input;
 use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::{info, instrument, warn};
@@ -21,8 +21,8 @@ use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p::{block_downloader::BlockBatch, constants::MEDIUM_BAN, BroadcastRequest};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
-    AltBlockInformation, Chain, ChainId, HardFork, TransactionVerificationData, TxConversionError,
-    VerifiedBlockInformation,
+    AltBlockInformation, Block, Chain, ChainId, HardFork, TransactionVerificationData,
+    TxConversionError, VerifiedBlockInformation,
 };
 
 use crate::{

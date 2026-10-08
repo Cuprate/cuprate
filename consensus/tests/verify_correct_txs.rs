@@ -9,10 +9,7 @@ use std::{
 
 use curve25519_dalek::constants::ED25519_BASEPOINT_COMPRESSED;
 use indexmap::IndexMap;
-use monero_oxide::{
-    ed25519::CompressedPoint,
-    transaction::{Timelock, Transaction},
-};
+use monero_oxide::{ed25519::CompressedPoint, transaction::Timelock};
 use tower::service_fn;
 
 use cuprate_consensus::{
@@ -21,7 +18,7 @@ use cuprate_consensus::{
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     output_cache::OutputCache,
-    OutputOnChain,
+    OutputOnChain, Transaction,
 };
 
 use cuprate_consensus_rules::HardFork;

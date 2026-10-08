@@ -4,8 +4,8 @@ use std::{borrow::Cow, cmp::min, collections::HashMap, io};
 use bytes::{Buf, Bytes};
 use fjall::Readable;
 use monero_oxide::{
-    block::{Block, BlockHeader},
-    transaction::{Pruned, Transaction},
+    block::{self, BlockHeader},
+    transaction::{self, Pruned},
 };
 use tapes::{BlobTape, TapesAppend, TapesRead, TapesTruncate};
 use tracing::instrument;
@@ -21,7 +21,7 @@ use cuprate_pruning::{
     CRYPTONOTE_PRUNING_TIP_BLOCKS,
 };
 use cuprate_types::{
-    AltBlockInformation, BlockCompleteEntry, ChainId, ExtendedBlockHeader, HardFork,
+    AltBlockInformation, Block, BlockCompleteEntry, ChainId, ExtendedBlockHeader, HardFork,
     PrunedTxBlobEntry, TransactionBlobs, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 
@@ -343,7 +343,10 @@ pub fn add_blocks_to_tapes(
 /// # Panics
 /// This function will panic if the block is invalid.
 // no inline, too big.
-pub fn add_block_to_dynamic_tables<'a, I: Iterator<Item = Cow<'a, Transaction<Pruned>>>>(
+pub fn add_block_to_dynamic_tables<
+    'a,
+    I: Iterator<Item = Cow<'a, transaction::Transaction<Pruned>>>,
+>(
     db: &BlockchainDatabase,
     block: &Block,
     block_hash: &BlockHash,
@@ -449,7 +452,6 @@ pub fn pop_block(
             match get_tx_from_id(&tx_id, tapes, db) {
                 Ok(tx) => {
                     let tx_weight = tx.weight();
-                    let tx_hash = tx.hash();
                     let fee = tx_fee(&tx);
                     let (tx_pruned, prunable) = tx.pruned_with_prunable();
 
@@ -457,7 +459,7 @@ pub fn pop_block(
                         tx_weight,
                         tx_pruned: tx_pruned.serialize(),
                         tx_prunable_blob: prunable,
-                        tx_hash,
+                        tx_hash: *tx_hash,
                         fee,
                         tx: tx_pruned,
                     });
@@ -896,7 +898,10 @@ pub fn get_block(
 
     tapes.read_bytes(&db.pruned_blobs, block_info.pruned_blob_idx, &mut blob)?;
 
-    Ok(Block::read(&mut blob.as_slice())?)
+    Ok(Block::with_hash(
+        block::Block::read(&mut blob.as_slice())?,
+        block_info.block_hash,
+    ))
 }
 
 /// Retrieve a [`Block`] via its [`BlockHash`].

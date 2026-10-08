@@ -4,7 +4,7 @@
 //! Some handlers have `todo!()`s for other Cuprate internals that must be completed, see:
 //! <https://github.com/Cuprate/cuprate/pull/355>
 use anyhow::{anyhow, Error};
-use monero_oxide::transaction::{Input, Pruned, Transaction};
+use monero_oxide::transaction::{self, Input, Pruned};
 
 use cuprate_constants::rpc::{RESTRICTED_SPENT_KEY_IMAGES_COUNT, RESTRICTED_TRANSACTIONS_COUNT};
 use cuprate_dandelion_tower::TxState;
@@ -33,7 +33,7 @@ use cuprate_rpc_types::{
 };
 use cuprate_types::{
     rpc::{KeyImageSpentStatus, PublicNode},
-    TxInBlockchain, TxInPool, TxRelayChecks,
+    Transaction, TxInBlockchain, TxInPool, TxRelayChecks,
 };
 
 use crate::{
@@ -130,7 +130,7 @@ async fn get_transactions(
 
         let is_pruned = prunable_blob.is_empty() && {
             let mut pruned_blob_reader = pruned_blob.as_slice();
-            let tx = Transaction::<Pruned>::read(&mut pruned_blob_reader)?;
+            let tx = transaction::Transaction::<Pruned>::read(&mut pruned_blob_reader)?;
             !matches!(tx.prefix().inputs.first(), Some(Input::Gen(_)))
         };
 
@@ -181,7 +181,7 @@ async fn get_transactions(
         } = tx;
 
         let mut tx_blob_reader = tx_blob.as_slice();
-        let tx = Transaction::read(&mut tx_blob_reader)?;
+        let tx = transaction::Transaction::read(&mut tx_blob_reader)?;
         let (pruned_tx, prunable_blob) = tx.pruned_with_prunable();
         let prunable_hash = if prunable_blob.is_empty() || pruned_tx.version() == 1 {
             [0; 32]

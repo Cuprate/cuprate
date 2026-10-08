@@ -2,11 +2,12 @@
 ///
 /// ref: consensus-doc#Genesis
 use monero_oxide::{
-    block::{Block, BlockHeader},
-    transaction::Transaction,
+    block::{self, BlockHeader},
+    transaction,
 };
 
 use cuprate_helper::network::Network;
+use cuprate_types::Block;
 
 const fn genesis_nonce(network: Network) -> u32 {
     match network {
@@ -16,8 +17,8 @@ const fn genesis_nonce(network: Network) -> u32 {
     }
 }
 
-fn genesis_miner_tx(network: Network) -> Transaction {
-    Transaction::read(&mut hex::decode(match network {
+fn genesis_miner_tx(network: Network) -> transaction::Transaction {
+    transaction::Transaction::read(&mut hex::decode(match network {
         Network::Mainnet | Network::Testnet | Network::FakeChain  => "013c01ff0001ffffffffffff03029b2e4c0281c0b02e7c53291a94d1d0cbff8883f8024f5142ee494ffbbd08807121017767aafcde9be00dcfd098715ebcf7f410daebc582fda69d24a28e9d0bc890d1",
         Network::Stagenet => "013c01ff0001ffffffffffff0302df5d56da0c7d643ddd1ce61901c7bdc5fb1738bfe39fbe69c28a3a7032729c0f2101168d0c4ca86fb55a4cf6a36d31431be1c53a3bd7411bb24e8832410289fa6f3b"
     }).unwrap().as_slice()).unwrap()
@@ -27,7 +28,7 @@ fn genesis_miner_tx(network: Network) -> Transaction {
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/genesis_block.html>
 pub fn generate_genesis_block(network: Network) -> Block {
-    Block::new(
+    let block = block::Block::new(
         BlockHeader {
             hardfork_version: 1,
             hardfork_signal: 0,
@@ -38,7 +39,9 @@ pub fn generate_genesis_block(network: Network) -> Block {
         genesis_miner_tx(network),
         vec![],
     )
-    .unwrap()
+    .unwrap();
+
+    Block::new(block)
 }
 
 #[cfg(test)]

@@ -7,7 +7,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use monero_oxide::{block::Block, transaction::Transaction};
 use tokio::sync::{mpsc, oneshot};
 use tower::{Service, ServiceExt};
 
@@ -17,7 +16,10 @@ use cuprate_txpool::service::{
     interface::{TxpoolReadRequest, TxpoolReadResponse},
     TxpoolReadHandle,
 };
-use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
+use cuprate_types::{
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
+    Block, Transaction,
+};
 
 use crate::blockchain::{
     manager::{BlockchainManagerCommand, IncomingBlockOk},

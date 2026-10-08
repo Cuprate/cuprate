@@ -8,7 +8,6 @@ use futures::{
     future::{BoxFuture, Shared},
     FutureExt,
 };
-use monero_oxide::{block::Block, transaction::Transaction};
 use tokio::sync::oneshot;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
@@ -30,7 +29,7 @@ use cuprate_p2p_core::{
 use cuprate_txpool::service::TxpoolReadHandle;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    BlockCompleteEntry, TransactionBlobs, TxsInBlock,
+    Block, BlockCompleteEntry, Transaction, TransactionBlobs, TxsInBlock,
 };
 use cuprate_wire::protocol::{
     ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest,

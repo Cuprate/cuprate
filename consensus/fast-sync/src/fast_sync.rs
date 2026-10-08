@@ -4,10 +4,7 @@ use std::{
 };
 
 use blake3::Hasher;
-use monero_oxide::{
-    block::Block,
-    transaction::{Input, Transaction},
-};
+use monero_oxide::transaction::Input;
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::service::BlockchainReadHandle;
@@ -17,7 +14,7 @@ use cuprate_p2p::block_downloader::ChainEntry;
 use cuprate_p2p_core::NetworkZone;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, VerifiedBlockInformation, VerifiedTransactionInformation,
+    Block, Chain, Transaction, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 
 /// The size of a batch of block hashes to hash to create a fast sync hash.
@@ -200,7 +197,7 @@ pub fn block_to_verified_block_information(
     for tx in &block.transactions {
         let data = txs.remove(tx).expect("fast sync block invalid");
 
-        let (tx, prunable) = data.tx.pruned_with_prunable();
+        let (tx, prunable) = data.tx.into_inner().pruned_with_prunable();
         verified_txs.push(VerifiedTransactionInformation {
             tx_prunable_blob: prunable,
             tx_pruned: tx.serialize(),
