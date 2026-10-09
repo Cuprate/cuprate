@@ -9,8 +9,9 @@ use tracing::{info, instrument, warn};
 
 use cuprate_consensus::{
     block::{
-        batch_prepare_main_chain_blocks, sanity_check_alt_block, verify_main_chain_block,
-        verify_prepped_main_chain_block, BlockVerificationError, PreparedBlock,
+        batch_prepare_main_chain_blocks, prepare_main_chain_block, sanity_check_alt_block,
+        verify_main_chain_block, verify_prepped_main_chain_block, BlockVerificationError,
+        PreparedBlock,
     },
     transactions::new_tx_verification_data,
     BlockChainContextRequest, ExtendedConsensusError, VerificationContext,
@@ -135,8 +136,11 @@ impl super::BlockchainManager {
             return Ok(IncomingBlockOk::AddedToAltChain);
         }
 
+        let prepped_block =
+            prepare_main_chain_block(block, &mut self.blockchain_context_service).await?;
+
         let verified_block = verify_main_chain_block(
-            block,
+            prepped_block,
             prepared_txs,
             &mut self.blockchain_context_service,
             self.blockchain_read_handle.clone(),

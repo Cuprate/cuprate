@@ -1,6 +1,7 @@
 //! Block Verification.
 //!
 //! This module contains functions for verifying blocks:
+//! - [`prepare_main_chain_block`]
 //! - [`verify_main_chain_block`]
 //! - [`batch_prepare_main_chain_blocks`]
 //! - [`verify_prepped_main_chain_block`]
@@ -240,16 +241,11 @@ impl PreparedBlock {
     }
 }
 
-/// Fully verify a block and all its transactions.
-pub async fn verify_main_chain_block<D>(
+/// Prepare a block for verification, checking its proof-of-work.
+pub async fn prepare_main_chain_block(
     block: Block,
-    txs: HashMap<[u8; 32], TransactionVerificationData>,
     context_svc: &mut BlockchainContextService,
-    database: D,
-) -> Result<VerifiedBlockInformation, BlockVerificationError>
-where
-    D: Database + Clone + Send + 'static,
-{
+) -> Result<PreparedBlock, BlockVerificationError> {
     let context = context_svc.blockchain_context().clone();
     tracing::debug!("got blockchain context: {:?}", context);
 
@@ -257,8 +253,6 @@ where
         "Preparing block for verification, expected height: {}",
         context.chain_height
     );
-
-    // Set up the block and just pass it to [`verify_prepped_main_chain_block`]
 
     // We just use the raw `hardfork_version` here, no need to turn it into a `HardFork`.
     let rx_vms = if block.header.hardfork_version < 12 {
@@ -292,6 +286,19 @@ where
         .map_err(ConsensusError::Block)
         .map_err(BlockVerificationError::invalid_pow)?;
 
+    Ok(prepped_block)
+}
+
+/// Fully verify a block that has already been prepared using [`prepare_main_chain_block`] and all its transactions.
+pub async fn verify_main_chain_block<D>(
+    prepped_block: PreparedBlock,
+    txs: HashMap<[u8; 32], TransactionVerificationData>,
+    context_svc: &mut BlockchainContextService,
+    database: D,
+) -> Result<VerifiedBlockInformation, BlockVerificationError>
+where
+    D: Database + Clone + Send + 'static,
+{
     // Check that the txs included are what we need and that there are not any extra.
     let ordered_txs = pull_ordered_transactions(&prepped_block.block, txs)
         .map_err(BlockVerificationError::valid_pow)?;
