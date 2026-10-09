@@ -1,6 +1,7 @@
 //! Block Verification.
 //!
 //! This module contains functions for verifying blocks:
+//! - [`prepare_main_chain_block`]
 //! - [`verify_main_chain_block`]
 //! - [`batch_prepare_main_chain_blocks`]
 //! - [`verify_prepped_main_chain_block`]
@@ -22,7 +23,8 @@ use cuprate_types::{
 
 use cuprate_consensus_rules::{
     blocks::{
-        calculate_pow_hash, check_block, check_block_pow, randomx_seed_height, BlockError, RandomX,
+        calculate_pow_hash, check_block, check_block_header, check_block_pow, randomx_seed_height,
+        BlockError, RandomX,
     },
     hard_forks::HardForkError,
     miner_tx::MinerTxError,
@@ -167,7 +169,11 @@ impl PreparedBlock {
     ///
     /// The randomX VM must be Some if RX is needed or this will panic.
     /// The randomX VM must also be initialised with the correct seed.
-    pub fn new<R: RandomX>(block: Block, randomx_vm: Option<&R>) -> Result<Self, ConsensusError> {
+    pub fn new<R: RandomX>(
+        block: Block,
+        chain_height: usize,
+        randomx_vm: Option<&R>,
+    ) -> Result<Self, ConsensusError> {
         let (hf_version, hf_vote) = HardFork::from_block_header(&block.header)
             .map_err(|_| BlockError::HardForkError(HardForkError::HardForkUnknown))?;
 
@@ -176,6 +182,13 @@ impl PreparedBlock {
                 MinerTxError::InputNotOfTypeGen,
             )));
         };
+
+        // The PoW hash depends on the height, which the block must not choose.
+        if *height != chain_height {
+            return Err(ConsensusError::Block(BlockError::MinerTxError(
+                MinerTxError::InputsHeightIncorrect,
+            )));
+        }
 
         Ok(Self {
             block_blob: block.serialize(),
@@ -240,16 +253,11 @@ impl PreparedBlock {
     }
 }
 
-/// Fully verify a block and all its transactions.
-pub async fn verify_main_chain_block<D>(
+/// Prepare a block for verification, checking its height, proof-of-work and header.
+pub async fn prepare_main_chain_block(
     block: Block,
-    txs: HashMap<[u8; 32], TransactionVerificationData>,
     context_svc: &mut BlockchainContextService,
-    database: D,
-) -> Result<VerifiedBlockInformation, BlockVerificationError>
-where
-    D: Database + Clone + Send + 'static,
-{
+) -> Result<PreparedBlock, BlockVerificationError> {
     let context = context_svc.blockchain_context().clone();
     tracing::debug!("got blockchain context: {:?}", context);
 
@@ -257,8 +265,6 @@ where
         "Preparing block for verification, expected height: {}",
         context.chain_height
     );
-
-    // Set up the block and just pass it to [`verify_prepped_main_chain_block`]
 
     // We just use the raw `hardfork_version` here, no need to turn it into a `HardFork`.
     let rx_vms = if block.header.hardfork_version < 12 {
@@ -282,6 +288,7 @@ where
     let prepped_block = rayon_spawn_async(move || {
         PreparedBlock::new(
             block,
+            height,
             rx_vms.get(&randomx_seed_height(height)).map(AsRef::as_ref),
         )
     })
@@ -292,6 +299,24 @@ where
         .map_err(ConsensusError::Block)
         .map_err(BlockVerificationError::invalid_pow)?;
 
+    // Also checked with the rest of the block, done here as it does not need the txs.
+    check_block_header(&prepped_block.block, &context.context_to_verify_block)
+        .map_err(ConsensusError::Block)
+        .map_err(BlockVerificationError::valid_pow)?;
+
+    Ok(prepped_block)
+}
+
+/// Fully verify a block that has already been prepared using [`prepare_main_chain_block`] and all its transactions.
+pub async fn verify_main_chain_block<D>(
+    prepped_block: PreparedBlock,
+    txs: HashMap<[u8; 32], TransactionVerificationData>,
+    context_svc: &mut BlockchainContextService,
+    database: D,
+) -> Result<VerifiedBlockInformation, BlockVerificationError>
+where
+    D: Database + Clone + Send + 'static,
+{
     // Check that the txs included are what we need and that there are not any extra.
     let ordered_txs = pull_ordered_transactions(&prepped_block.block, txs)
         .map_err(BlockVerificationError::valid_pow)?;

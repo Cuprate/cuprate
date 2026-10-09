@@ -9,8 +9,9 @@ use tracing::{info, instrument, warn};
 
 use cuprate_consensus::{
     block::{
-        batch_prepare_main_chain_blocks, sanity_check_alt_block, verify_main_chain_block,
-        verify_prepped_main_chain_block, BlockVerificationError, PreparedBlock,
+        batch_prepare_main_chain_blocks, prepare_main_chain_block, sanity_check_alt_block,
+        verify_main_chain_block, verify_prepped_main_chain_block, BlockVerificationError,
+        PreparedBlock,
     },
     transactions::new_tx_verification_data,
     BlockChainContextRequest, ExtendedConsensusError, VerificationContext,
@@ -27,6 +28,7 @@ use cuprate_types::{
 
 use crate::{
     blockchain::{
+        known_blocks::BlockOutcome,
         manager::commands::{BlockchainManagerCommand, IncomingBlockOk},
         ConsensusBlockchainReadHandle, IncomingBlockError,
     },
@@ -48,9 +50,14 @@ impl super::BlockchainManager {
                 block,
                 prepped_txs,
                 response_tx,
-            } => match self.handle_incoming_block(block, prepped_txs).await {
+                mut outcome,
+            } => match self
+                .handle_incoming_block(block, prepped_txs, &mut outcome)
+                .await
+            {
                 Err(IncomingBlockError::Fatal(e)) => return Err(e),
                 res => {
+                    outcome.record(&res);
                     let _ = response_tx.send(res);
                 }
             },
@@ -72,7 +79,7 @@ impl super::BlockchainManager {
         Ok(())
     }
 
-    /// Broadcast a valid block to the network.
+    /// Broadcast a block to the network.
     async fn broadcast_block(&mut self, block_bytes: Bytes, blockchain_height: usize) {
         self.broadcast_svc
             .ready()
@@ -105,6 +112,7 @@ impl super::BlockchainManager {
         &mut self,
         block: Block,
         prepared_txs: HashMap<[u8; 32], TransactionVerificationData>,
+        outcome: &mut BlockOutcome,
     ) -> Result<IncomingBlockOk, IncomingBlockError> {
         if block.header.previous
             != self
@@ -122,27 +130,45 @@ impl super::BlockchainManager {
                     "Successfully added block"
                 );
 
-                let chain_height = self
-                    .blockchain_context_service
-                    .blockchain_context()
-                    .chain_height;
+                if outcome.should_announce() {
+                    let chain_height = self
+                        .blockchain_context_service
+                        .blockchain_context()
+                        .chain_height;
 
-                self.broadcast_block(block_blob, chain_height).await;
+                    self.broadcast_block(block_blob, chain_height).await;
+                }
             }
 
             return Ok(IncomingBlockOk::AddedToAltChain);
         }
 
+        let prepped_block =
+            prepare_main_chain_block(block, &mut self.blockchain_context_service).await?;
+
+        // The block is announced to peers before it is verified, so that they can verify it too.
+        if outcome.should_announce() {
+            let next_chain_height = self
+                .blockchain_context_service
+                .blockchain_context()
+                .chain_height
+                + 1;
+            self.broadcast_block(
+                Bytes::copy_from_slice(&prepped_block.block_blob),
+                next_chain_height,
+            )
+            .await;
+        }
+
         let verified_block = verify_main_chain_block(
-            block,
+            prepped_block,
             prepared_txs,
             &mut self.blockchain_context_service,
             self.blockchain_read_handle.clone(),
         )
         .await?;
 
-        self.add_valid_block_to_main_chain(verified_block, BlockSource::Incoming)
-            .await?;
+        self.add_valid_block_to_main_chain(verified_block).await?;
 
         info!(
             hash = hex::encode(
@@ -581,8 +607,7 @@ impl super::BlockchainManager {
                 block,
                 self.blockchain_context_service.blockchain_context(),
             );
-            self.add_valid_block_to_main_chain(verified_block, BlockSource::Reorg)
-                .await?;
+            self.add_valid_block_to_main_chain(verified_block).await?;
         }
 
         self.blockchain_write_handle
@@ -661,8 +686,7 @@ impl super::BlockchainManager {
             )
             .await?;
 
-            self.add_valid_block_to_main_chain(verified_block, BlockSource::Reorg)
-                .await?;
+            self.add_valid_block_to_main_chain(verified_block).await?;
         }
 
         Ok(())
@@ -670,8 +694,7 @@ impl super::BlockchainManager {
 
     /// Adds a [`VerifiedBlockInformation`] to the main-chain.
     ///
-    /// This function will update the blockchain database and the context cache,
-    /// and announce the block to peers if `source` is [`BlockSource::Incoming`].
+    /// This function will update the blockchain database and the context cache.
     ///
     /// # Errors
     ///
@@ -680,7 +703,6 @@ impl super::BlockchainManager {
     async fn add_valid_block_to_main_chain(
         &mut self,
         verified_block: VerifiedBlockInformation,
-        source: BlockSource,
     ) -> Result<(), FatalError> {
         // FIXME: this is pretty inefficient, we should probably return the KI map created in the consensus crate.
         let spent_key_images = verified_block
@@ -694,23 +716,11 @@ impl super::BlockchainManager {
             })
             .collect::<Vec<[u8; 32]>>();
 
-        let block_blob = matches!(source, BlockSource::Incoming)
-            .then(|| Bytes::copy_from_slice(&verified_block.block_blob));
-
         self.add_valid_block_to_blockchain_cache(&verified_block)
             .await?;
 
         self.add_valid_block_to_blockchain_database(verified_block)
             .await?;
-
-        if let Some(block_blob) = block_blob {
-            let chain_height = self
-                .blockchain_context_service
-                .blockchain_context()
-                .chain_height;
-
-            self.broadcast_block(block_blob, chain_height).await;
-        }
 
         self.txpool_manager_handle
             .new_block(spent_key_images)
@@ -796,14 +806,6 @@ enum AddAltBlock {
     NewlyCached(Bytes),
     /// The chain was reorged.
     Reorged,
-}
-
-/// The context in which a verified block is being added to the main chain.
-enum BlockSource {
-    /// A single incoming block. Will be announced to peers.
-    Incoming,
-    /// A block re-applied during a reorg.
-    Reorg,
 }
 
 /// Creates a [`VerifiedBlockInformation`] from an alt-block known to be valid.

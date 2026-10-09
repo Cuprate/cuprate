@@ -13,7 +13,7 @@ use tokio::sync::oneshot;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
-use cuprate_blockchain::service::BlockchainReadHandle;
+use cuprate_blockchain::{service::BlockchainReadHandle, BlockchainError};
 use cuprate_consensus::BlockchainContextService;
 use cuprate_dandelion_tower::TxState;
 use cuprate_fixed_bytes::ByteArrayVec;
@@ -39,6 +39,7 @@ use cuprate_wire::protocol::{
 
 use crate::{
     blockchain::{interface::BlockchainManagerHandle, IncomingBlockError},
+    constants::MAX_INCOMING_BLOCK_DEPTH,
     p2p::CrossNetworkInternalPeerId,
     txpool::{IncomingTxError, IncomingTxHandler, IncomingTxs},
 };
@@ -135,9 +136,12 @@ where
             ProtocolRequest::GetChain(r) => {
                 get_chain(r, self.blockchain_read_handle.clone()).boxed()
             }
-            ProtocolRequest::FluffyMissingTxs(r) => {
-                fluffy_missing_txs(r, self.blockchain_read_handle.clone()).boxed()
-            }
+            ProtocolRequest::FluffyMissingTxs(r) => fluffy_missing_txs(
+                r,
+                self.blockchain_read_handle.clone(),
+                self.blockchain_manager.clone(),
+            )
+            .boxed(),
             ProtocolRequest::NewBlock(_) => ready(Err(anyhow::anyhow!(
                 "Peer sent a full block when we support fluffy blocks"
             )))
@@ -255,6 +259,7 @@ async fn get_chain(
 async fn fluffy_missing_txs(
     mut request: FluffyMissingTransactionsRequest,
     mut blockchain_read_handle: BlockchainReadHandle,
+    blockchain_manager: BlockchainManagerHandle,
 ) -> anyhow::Result<ProtocolResponse> {
     let tx_indexes = std::mem::take(&mut request.missing_tx_indices);
     let block_hash: [u8; 32] = *request.block_hash;
@@ -263,15 +268,23 @@ async fn fluffy_missing_txs(
     // deallocate the backing `Bytes`.
     drop(request);
 
-    let BlockchainResponse::TxsInBlock(res) = blockchain_read_handle
+    // A block is announced to peers before it is in the database.
+    let known_blocks = blockchain_manager.known_blocks();
+    known_blocks.wait_until_handled(&block_hash).await;
+
+    let response = blockchain_read_handle
         .ready()
         .await?
         .call(BlockchainReadRequest::TxsInBlock {
             block_hash,
             tx_indexes,
         })
-        .await?
-    else {
+        .await;
+    // A peer is not dropped for asking for a block that we handled and did not add.
+    if matches!(response, Err(BlockchainError::NotFound)) && known_blocks.contains(&block_hash) {
+        return Ok(ProtocolResponse::NA);
+    }
+    let BlockchainResponse::TxsInBlock(res) = response? else {
         unreachable!();
     };
 
@@ -308,8 +321,23 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         .unwrap()
         .current_height = current_blockchain_height;
 
+    // A known block sent without txs can be ignored before it is parsed.
+    if matches!(request.b.txs, TransactionBlobs::None) {
+        let top_hash = blockchain_context_service.blockchain_context().top_hash;
+        if blockchain_manager
+            .known_blocks()
+            .is_blob_known(&request.b.block, &top_hash)
+        {
+            return Ok(ProtocolResponse::NA);
+        }
+    }
+
     let (block, txs) = rayon_spawn_async(move || -> Result<_, anyhow::Error> {
-        let block = Block::read(&mut request.b.block.as_ref())?;
+        let mut block_blob = request.b.block.as_ref();
+        let block = Block::read(&mut block_blob)?;
+        if !block_blob.is_empty() {
+            anyhow::bail!("Peer sent a block with trailing bytes.");
+        }
 
         let tx_blobs = request
             .b
@@ -337,7 +365,7 @@ async fn new_fluffy_block<A: NetZoneAddress>(
     .await?;
 
     let context = blockchain_context_service.blockchain_context();
-    if block.number() + 10 < context.chain_height {
+    if block.number() + MAX_INCOMING_BLOCK_DEPTH < context.chain_height {
         tracing::debug!(
             our_height = context.chain_height,
             block_height = block.number(),
