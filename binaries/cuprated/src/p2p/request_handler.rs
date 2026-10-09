@@ -13,7 +13,7 @@ use tokio::sync::oneshot;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
-use cuprate_blockchain::service::BlockchainReadHandle;
+use cuprate_blockchain::{service::BlockchainReadHandle, BlockchainError};
 use cuprate_consensus::BlockchainContextService;
 use cuprate_dandelion_tower::TxState;
 use cuprate_fixed_bytes::ByteArrayVec;
@@ -136,9 +136,12 @@ where
             ProtocolRequest::GetChain(r) => {
                 get_chain(r, self.blockchain_read_handle.clone()).boxed()
             }
-            ProtocolRequest::FluffyMissingTxs(r) => {
-                fluffy_missing_txs(r, self.blockchain_read_handle.clone()).boxed()
-            }
+            ProtocolRequest::FluffyMissingTxs(r) => fluffy_missing_txs(
+                r,
+                self.blockchain_read_handle.clone(),
+                self.blockchain_manager.clone(),
+            )
+            .boxed(),
             ProtocolRequest::NewBlock(_) => ready(Err(anyhow::anyhow!(
                 "Peer sent a full block when we support fluffy blocks"
             )))
@@ -256,6 +259,7 @@ async fn get_chain(
 async fn fluffy_missing_txs(
     mut request: FluffyMissingTransactionsRequest,
     mut blockchain_read_handle: BlockchainReadHandle,
+    blockchain_manager: BlockchainManagerHandle,
 ) -> anyhow::Result<ProtocolResponse> {
     let tx_indexes = std::mem::take(&mut request.missing_tx_indices);
     let block_hash: [u8; 32] = *request.block_hash;
@@ -264,15 +268,23 @@ async fn fluffy_missing_txs(
     // deallocate the backing `Bytes`.
     drop(request);
 
-    let BlockchainResponse::TxsInBlock(res) = blockchain_read_handle
+    // A block is announced to peers before it is in the database.
+    let known_blocks = blockchain_manager.known_blocks();
+    known_blocks.wait_until_handled(&block_hash).await;
+
+    let response = blockchain_read_handle
         .ready()
         .await?
         .call(BlockchainReadRequest::TxsInBlock {
             block_hash,
             tx_indexes,
         })
-        .await?
-    else {
+        .await;
+    // A peer is not dropped for asking for a block that we handled and did not add.
+    if matches!(response, Err(BlockchainError::NotFound)) && known_blocks.contains(&block_hash) {
+        return Ok(ProtocolResponse::NA);
+    }
+    let BlockchainResponse::TxsInBlock(res) = response? else {
         unreachable!();
     };
 

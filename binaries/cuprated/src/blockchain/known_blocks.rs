@@ -2,8 +2,10 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
     hash::{BuildHasher, RandomState},
-    sync::{Arc, OnceLock, RwLock},
+    sync::{Arc, RwLock},
 };
+
+use tokio::sync::SetOnce;
 
 use cuprate_consensus_rules::{blocks::BlockError, transactions::TransactionError, ConsensusError};
 
@@ -17,6 +19,8 @@ use crate::{
 enum BlockState {
     /// The blockchain manager is handling it.
     BeingHandled,
+    /// It was announced to peers, with nothing else to remember.
+    Announced,
     /// It was added to the main chain.
     Added,
     /// It failed verification with valid proof-of-work, for this reason.
@@ -34,21 +38,32 @@ impl BlockState {
                 pow_valid: true,
                 inner,
             })),
-            Self::Added | Self::Forgotten => None,
+            Self::Announced | Self::Added | Self::Forgotten => None,
         }
     }
 }
 
 /// The state the blockchain manager left a block in, unset while it is handling the block.
-type Outcome = Arc<OnceLock<BlockState>>;
+type Outcome = Arc<SetOnce<BlockState>>;
 
 /// The blockchain manager's handle to a block's [`Outcome`].
 #[derive(Default)]
-pub(crate) struct BlockOutcome(Outcome);
+pub(crate) struct BlockOutcome {
+    cell: Outcome,
+    /// If the block was announced to peers.
+    announced: bool,
+}
 
 impl BlockOutcome {
+    /// Returns `true` if the block is to be announced to peers, and marks it as announced.
+    pub(crate) const fn should_announce(&mut self) -> bool {
+        !std::mem::replace(&mut self.announced, true)
+    }
+
     /// Record what the blockchain manager's response says about the block.
-    pub(crate) fn record(&self, res: &Result<IncomingBlockOk, IncomingBlockError>) {
+    ///
+    /// A response with nothing to remember is left to this type's [`Drop`].
+    pub(crate) fn record(self, res: &Result<IncomingBlockOk, IncomingBlockError>) {
         let state = match res {
             Ok(IncomingBlockOk::AddedToMainChain) => BlockState::Added,
             Err(IncomingBlockError::Validation {
@@ -62,21 +77,25 @@ impl BlockOutcome {
                     | BlockError::TxsIncludedWithBlockIncorrect,
                 )
                 | ConsensusError::Transaction(TransactionError::OneOrMoreRingMembersLocked) => {
-                    BlockState::Forgotten
+                    return;
                 }
                 ConsensusError::Block(_) | ConsensusError::Transaction(_) => {
                     BlockState::Invalid(*inner)
                 }
             },
-            _ => BlockState::Forgotten,
+            _ => return,
         };
-        let _ = self.0.set(state);
+        let _ = self.cell.set(state);
     }
 }
 
 impl Drop for BlockOutcome {
     fn drop(&mut self) {
-        let _ = self.0.set(BlockState::Forgotten);
+        let _ = self.cell.set(if self.announced {
+            BlockState::Announced
+        } else {
+            BlockState::Forgotten
+        });
     }
 }
 
@@ -121,9 +140,27 @@ impl KnownBlocks {
         self.blocks.read().unwrap().get(hash).map(KnownBlock::state)
     }
 
+    /// Waits for the blockchain manager to be done with the block, if it is being handled.
+    pub(crate) async fn wait_until_handled(&self, hash: &[u8; 32]) {
+        let outcome = self
+            .blocks
+            .read()
+            .unwrap()
+            .get(hash)
+            .map(|known| Arc::clone(&known.outcome));
+        if let Some(outcome) = outcome {
+            outcome.wait().await;
+        }
+    }
+
     /// Returns `true` if the given block hash is currently being handled.
     pub(crate) fn is_being_handled(&self, hash: &[u8; 32]) -> bool {
         matches!(self.state(hash), Some(BlockState::BeingHandled))
+    }
+
+    /// Returns `true` if the block was sent to the blockchain manager.
+    pub(crate) fn contains(&self, hash: &[u8; 32]) -> bool {
+        self.state(hash).is_some()
     }
 
     /// Returns a hash of the serialized block.
@@ -171,20 +208,27 @@ impl KnownBlocks {
             BlockState::BeingHandled => true,
             // An added block is only known while it is our top block.
             BlockState::Added => known.height + 1 >= height,
-            BlockState::Invalid(_) => known.height + MAX_INCOMING_BLOCK_DEPTH >= height,
+            BlockState::Announced | BlockState::Invalid(_) => {
+                known.height + MAX_INCOMING_BLOCK_DEPTH >= height
+            }
             BlockState::Forgotten => false,
         });
 
         let entry = blocks.entry(block_hash);
-        if let Entry::Occupied(known) = &entry {
-            if let Some(res) = known.get().state().response() {
-                return Err(res);
-            }
+        let state = match &entry {
+            Entry::Occupied(known) => Some(known.get().state()),
+            Entry::Vacant(_) => None,
+        };
+        if let Some(res) = state.and_then(BlockState::response) {
+            return Err(res);
         }
 
-        let outcome = BlockOutcome::default();
+        let outcome = BlockOutcome {
+            cell: Arc::default(),
+            announced: matches!(state, Some(BlockState::Announced | BlockState::Added)),
+        };
         entry.insert_entry(KnownBlock {
-            outcome: Arc::clone(&outcome.0),
+            outcome: Arc::clone(&outcome.cell),
             height,
             blob_len: block_blob.len(),
             blob_hash,
