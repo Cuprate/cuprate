@@ -3,9 +3,9 @@
 //! This module handles reading full transaction data, like getting a transaction from the pool.
 
 use fjall::Readable;
-use monero_oxide::transaction::Transaction;
+use monero_oxide::transaction;
 
-use cuprate_types::{TransactionVerificationData, TxVersion};
+use cuprate_types::{Transaction, TransactionVerificationData, TxVersion};
 
 use crate::{
     error::TxPoolError,
@@ -30,12 +30,12 @@ pub fn get_transaction_verification_data(
 
     let tx_info: TransactionInfo = bytemuck::pod_read_unaligned(tx_info.as_ref());
 
-    let tx =
-        Transaction::read(&mut tx_blob.as_slice()).expect("Tx in the tx-pool must be parseable");
+    let tx = transaction::Transaction::read(&mut tx_blob.as_slice())
+        .expect("Tx in the tx-pool must be parseable");
 
     Ok(TransactionVerificationData {
         version: TxVersion::from_raw(tx.version()).expect("Tx in tx-pool has invalid version"),
-        tx,
+        tx: Transaction::with_hash(tx, *tx_hash),
         tx_blob,
         tx_weight: tx_info.weight,
         fee: tx_info.fee,

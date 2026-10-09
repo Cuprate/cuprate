@@ -16,8 +16,6 @@ cuprate-helper = { workspace = true, features = ["asynch"], default-features = f
 cuprate-async-buffer = { workspace = true }
 cuprate-types = { workspace = true, default-features = false }
 
-monero-oxide = { workspace = true, features = ["std"] }
-
 tower = { workspace = true, features = ["buffer"] }
 tokio = { workspace = true, features = ["rt", "rt-multi-thread"] }
 tokio-util = { workspace = true }
@@ -35,6 +33,7 @@ tracing = { workspace = true, features = ["std", "attributes"] }
 borsh = { workspace = true, features = ["derive", "std"] }
 
 [dev-dependencies]
+monero-oxide = { workspace = true, features = ["std"] }
 cuprate-test-utils = { workspace = true }
 indexmap = { workspace = true }
 proptest = { workspace = true }

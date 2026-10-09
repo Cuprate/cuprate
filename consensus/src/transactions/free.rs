@@ -1,10 +1,10 @@
 use monero_oxide::{
     ringct::{bulletproofs::Bulletproof, RctType},
-    transaction::{Input, Transaction},
+    transaction::{self, Input},
 };
 
 use cuprate_consensus_rules::{transactions::TransactionError, ConsensusError};
-use cuprate_types::{CachedVerificationState, TransactionVerificationData, TxVersion};
+use cuprate_types::{CachedVerificationState, Transaction, TransactionVerificationData, TxVersion};
 
 /// Creates a new [`TransactionVerificationData`] from a [`Transaction`].
 ///
@@ -36,13 +36,17 @@ pub fn new_tx_verification_data(
 
 /// Calculates the weight of a [`Transaction`].
 ///
-/// This is more efficient that [`Transaction::weight`] if you already have the transaction blob.
+/// This is more efficient than [`transaction::Transaction::weight`] if you already have the
+/// transaction blob.
 pub(crate) fn tx_weight(tx: &Transaction, tx_blob: &[u8]) -> usize {
     // the tx weight is only different from the blobs length for bp(+) txs.
+    let tx: &transaction::Transaction = tx;
 
     match &tx {
-        Transaction::V1 { .. } | Transaction::V2 { proofs: None, .. } => tx_blob.len(),
-        Transaction::V2 {
+        transaction::Transaction::V1 { .. } | transaction::Transaction::V2 { proofs: None, .. } => {
+            tx_blob.len()
+        }
+        transaction::Transaction::V2 {
             proofs: Some(proofs),
             ..
         } => match proofs.rct_type() {
@@ -61,10 +65,11 @@ pub(crate) fn tx_weight(tx: &Transaction, tx_blob: &[u8]) -> usize {
 
 /// Calculates the fee of the [`Transaction`].
 pub(crate) fn tx_fee(tx: &Transaction) -> Result<u64, TransactionError> {
+    let tx: &transaction::Transaction = tx;
     let mut fee = 0_u64;
 
     match &tx {
-        Transaction::V1 { prefix, .. } => {
+        transaction::Transaction::V1 { prefix, .. } => {
             for input in &prefix.inputs {
                 if let Input::ToKey { amount, .. } = input {
                     fee = fee
@@ -79,7 +84,7 @@ pub(crate) fn tx_fee(tx: &Transaction) -> Result<u64, TransactionError> {
                     .ok_or(TransactionError::OutputsTooHigh)?;
             }
         }
-        Transaction::V2 { proofs, .. } => {
+        transaction::Transaction::V2 { proofs, .. } => {
             fee = proofs
                 .as_ref()
                 .ok_or(TransactionError::TransactionVersionInvalid)?

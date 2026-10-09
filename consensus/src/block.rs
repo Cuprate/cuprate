@@ -8,7 +8,7 @@
 //!
 use std::{collections::HashMap, mem};
 
-use monero_oxide::{block::Block, transaction::Input};
+use monero_oxide::transaction::Input;
 use tower::{Service, ServiceExt};
 
 use cuprate_consensus_context::{
@@ -16,7 +16,7 @@ use cuprate_consensus_context::{
 };
 use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_types::{
-    AltBlockInformation, TransactionVerificationData, VerifiedBlockInformation,
+    AltBlockInformation, Block, TransactionVerificationData, VerifiedBlockInformation,
     VerifiedTransactionInformation,
 };
 
@@ -381,7 +381,7 @@ where
                 let tx_weight = tx.tx_weight;
                 let fee = tx.fee;
                 let tx_hash = tx.tx_hash;
-                let (tx, tx_prunable_blob) = tx.tx.pruned_with_prunable();
+                let (tx, tx_prunable_blob) = tx.tx.into_inner().pruned_with_prunable();
                 VerifiedTransactionInformation {
                     tx_prunable_blob,
                     tx_pruned: tx.serialize(),

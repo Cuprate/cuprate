@@ -20,7 +20,6 @@ use std::{
 
 use arc_swap::Cache;
 use futures::{channel::oneshot, FutureExt};
-use monero_oxide::block::Block;
 use tokio::sync::mpsc;
 use tokio_util::sync::PollSender;
 use tower::Service;
@@ -41,7 +40,7 @@ mod task;
 
 use cuprate_types::{
     rpc::{ChainInfo, FeeEstimate, HardForkInfo, OutputDistributionData},
-    Chain,
+    Block, Chain,
 };
 use difficulty::DifficultyCache;
 use rx_vms::RandomXVm;

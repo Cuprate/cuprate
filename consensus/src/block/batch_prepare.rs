@@ -1,6 +1,5 @@
 use std::{collections::HashMap, sync::Arc};
 
-use monero_oxide::{block::Block, transaction::Transaction};
 use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
@@ -13,7 +12,7 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_types::{output_cache::OutputCache, TransactionVerificationData};
+use cuprate_types::{output_cache::OutputCache, Block, Transaction, TransactionVerificationData};
 
 use crate::{
     __private::Database,

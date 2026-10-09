@@ -9,10 +9,10 @@
 use std::sync::LazyLock;
 
 use hex_literal::hex;
-use monero_oxide::{block::Block, transaction::Transaction};
+use monero_oxide::transaction;
 
 use cuprate_helper::{map::combine_low_high_bits_to_u128, tx::tx_fee};
-use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
+use cuprate_types::{Block, VerifiedBlockInformation, VerifiedTransactionInformation};
 
 use crate::data::constants::{
     BLOCK_43BD1F, BLOCK_5ECB7E, BLOCK_F91043, TX_2180A8, TX_3BC7FF, TX_84D48D, TX_9E3F73,
@@ -99,7 +99,7 @@ impl VerifiedBlockMap {
 
 // Same as [`VerifiedBlockMap`] but for [`VerifiedTransactionInformation`].
 fn to_tx_verification_data(tx_blob: impl AsRef<[u8]>) -> VerifiedTransactionInformation {
-    let tx = Transaction::read(&mut tx_blob.as_ref()).unwrap();
+    let tx = transaction::Transaction::read(&mut tx_blob.as_ref()).unwrap();
     let tx_weight = tx.weight();
     let fee = tx_fee(&tx);
     let tx_hash = tx.hash();

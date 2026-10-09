@@ -1,9 +1,8 @@
 use std::collections::HashSet;
 
 use crypto_bigint::U256;
-use monero_oxide::block::Block;
-
 use cuprate_cryptonight::*;
+use cuprate_types::Block;
 
 use crate::{
     check_block_version_vote, current_unix_timestamp,
