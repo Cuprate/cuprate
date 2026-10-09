@@ -1,0 +1,253 @@
+name: Guix reproducible build smoke
+
+# Verify that the contrib/guix pipeline still produces byte-identical
+# cuprated artifacts across two independent runs. Runs on:
+#   - every PR touching the pipeline itself or workspace Cargo
+#     metadata (catches a regression in the toolchain pin, scripts,
+#     or any vendored crate that affects determinism)
+#   - workflow_dispatch (manual; use this when changing crate source
+#     code without touching the pipeline)
+#
+# We do NOT run on every source-tree change. The smoke job takes
+# ~25-35 min on a stock ubuntu-24.04 runner and we'd burn that budget
+# on every PR otherwise; the mechanical native-flag grep below catches
+# the most common regression class anyway. If a change touches a crate
+# that ends up linking into cuprated and might affect determinism,
+# trigger the workflow manually before merging.
+
+on:
+  pull_request:
+    paths:
+      - 'contrib/guix/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/guix-reproducibility.yml'
+  workflow_dispatch:
+  schedule:
+    # Weekly smoke run on the default branch. The path-filtered PR
+    # trigger above intentionally skips source-only PRs (to keep CI
+    # cost bounded); this catches drift those PRs would introduce.
+    - cron: '0 7 * * 1'  # Mondays 07:00 UTC
+
+env:
+  # Guix binary tarball: pin BOTH the SHA256 of the bytes and the GPG
+  # signer fingerprint. The SHA256 is the primary trust anchor (a
+  # mismatched tarball fails the workflow before any key import). The
+  # signature verification is defense in depth and forces a maintainer
+  # to update both pins together when bumping Guix versions.
+  GUIX_VER: '1.5.0'
+  GUIX_ARCH: 'x86_64-linux'
+  GUIX_TARBALL_SHA256: 'aa41025489c5061543e9c48873eaa829b900b2da75d40f9648913622f5f47817'
+  GUIX_SIGNER_FPR: 'A28BF40C3E551372662D14F741AAE7DCCA3D8351'  # Efraim Flashner, Guix release signer (expires 2029-01-18)
+
+jobs:
+  smoke:
+    name: smoke-reproducible.sh
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      # Pinned by full commit SHA (NOT tag) - tags are mutable, commit SHAs
+      # are not. v6.0.2 -> de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      # Bump together with any deliberate action update.
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      # The build needs ~20 GiB of writable disk for Guix substitutes
+      # plus two cargo build trees. The default runner ships with only
+      # ~14 GiB free; reclaim the rest by removing pre-installed
+      # toolchains we don't use. Inline to avoid a third-party action.
+      - name: Reclaim runner disk
+        run: |
+          set -euxo pipefail
+          df -h /
+          sudo rm -rf \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /usr/local/lib/android \
+            /usr/local/share/boost \
+            /opt/hostedtoolcache/CodeQL \
+            /opt/hostedtoolcache/Java_* \
+            /opt/hostedtoolcache/Ruby \
+            /opt/hostedtoolcache/PyPy \
+            /opt/hostedtoolcache/go \
+            /opt/hostedtoolcache/node \
+            "$AGENT_TOOLSDIRECTORY" || true
+          sudo docker system prune -af || true
+          df -h /
+
+      - name: Install Guix
+        run: |
+          set -euxo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            xz-utils gpg gpg-agent ca-certificates curl jq
+
+          tarball="guix-binary-${GUIX_VER}.${GUIX_ARCH}.tar.xz"
+          base="https://ftp.gnu.org/gnu/guix"
+
+          # 1. Fetch tarball + detached sig.
+          curl -fsSL "$base/$tarball"     -o "/tmp/$tarball"
+          curl -fsSL "$base/$tarball.sig" -o "/tmp/$tarball.sig"
+
+          # 2. SHA256 check first - this is the primary trust anchor and
+          #    runs before any key import.
+          echo "$GUIX_TARBALL_SHA256  /tmp/$tarball" > /tmp/expected.sha256
+          sha256sum -c /tmp/expected.sha256
+
+          # 3. GPG verification against the pinned signer fingerprint.
+          #
+          # Public keyservers flake on GitHub runners (we saw an empty
+          # response from the dirmngr default within 70ms in a previous
+          # run). Try a list of well-known keyservers in order, and do
+          # the FULL verification (--status-fd + VALIDSIG check) inside
+          # each iteration with a per-keyserver scratch homedir. This
+          # way, a malformed-but-importable key from server A doesn't
+          # poison the homedir and block trying server B - we only
+          # commit the homedir on a successful pinned VALIDSIG.
+          verified=0
+          for ks in \
+              hkps://keyserver.ubuntu.com \
+              hkps://keys.openpgp.org \
+              hkps://pgp.mit.edu; do
+            echo "Trying keyserver: $ks"
+            try_home="$(mktemp -d /tmp/gpg-try.XXXXXX)"
+            chmod 0700 "$try_home"
+            if gpg --homedir "$try_home" --batch --no-tty --quiet \
+                   --keyserver "$ks" --recv-keys "$GUIX_SIGNER_FPR" \
+                   >/dev/null 2>&1 \
+               && gpg --homedir "$try_home" --batch --no-tty --status-fd 1 --verify \
+                      "/tmp/$tarball.sig" "/tmp/$tarball" 2>/dev/null \
+                  | tee "$try_home/status" >/dev/null \
+               && grep -q "^\[GNUPG:\] VALIDSIG $GUIX_SIGNER_FPR " "$try_home/status"; then
+              # Commit this homedir as the trusted one.
+              rm -rf /tmp/gpghome
+              mv "$try_home" /tmp/gpghome
+              echo "Verified Guix tarball signature with $GUIX_SIGNER_FPR via $ks"
+              verified=1
+              break
+            fi
+            rm -rf "$try_home"
+          done
+          if [[ "$verified" -ne 1 ]]; then
+            echo "FATAL: no keyserver yielded a key that verifies the Guix tarball signature against pinned fingerprint $GUIX_SIGNER_FPR" >&2
+            exit 1
+          fi
+
+          # 4. Only now extract.
+          sudo tar --warning=no-timestamp -xJf "/tmp/$tarball" -C /
+
+          # Create build users (Guix daemon needs an isolated UID pool).
+          sudo groupadd --system guixbuild || true
+          for i in $(seq -w 1 10); do
+            id "guixbuilder$i" >/dev/null 2>&1 || sudo useradd \
+              -g guixbuild -G guixbuild -d /var/empty -s /usr/sbin/nologin \
+              -c "Guix build user $i" --system "guixbuilder$i"
+          done
+
+          # Profile symlink for root
+          sudo mkdir -p /root/.config/guix
+          sudo ln -sf /var/guix/profiles/per-user/root/current-guix /root/.config/guix/current
+
+          # Authorize substitute keys (the daemon will only accept
+          # substitutes signed by these). These come out of the
+          # verified tarball we extracted above. No `|| true`: a
+          # failure here would leave the daemon with no authorized
+          # keys, which is a real problem worth surfacing loudly.
+          GUIX_BIN=/var/guix/profiles/per-user/root/current-guix/bin
+          key_count=0
+          for key in /var/guix/profiles/per-user/root/current-guix/share/guix/*.pub; do
+            [[ -f "$key" ]] || continue
+            # `cat | sudo` rather than `sudo ... < "$key"`: the
+            # redirect form is SC2024 (the redirect is opened by the
+            # unprivileged shell, not by sudo). The `cat` here is also
+            # unprivileged - this is purely about shellcheck-clean
+            # piping, not about reading a root-only key. Today the .pub
+            # files in the extracted tarball are world-readable, so a
+            # plain unprivileged read works.
+            cat "$key" | sudo "$GUIX_BIN/guix" archive --authorize
+            key_count=$((key_count + 1))
+          done
+          if [[ "$key_count" -eq 0 ]]; then
+            echo "FATAL: no substitute keys authorized from verified tarball" >&2
+            exit 1
+          fi
+          echo "Authorized $key_count substitute key(s) from verified tarball"
+
+          # Start the daemon. The `> /tmp/guix-daemon.log 2>&1` redirect
+          # has to happen INSIDE the sudo shell - otherwise the redirect
+          # is opened by the unprivileged shell (SC2024). The
+          # `setsid </dev/null` + trailing `&` detaches the daemon from
+          # the runner's session so the workflow step can return.
+          sudo setsid bash -c "\"$GUIX_BIN/guix-daemon\" --build-users-group=guixbuild --substitute-urls='https://ci.guix.gnu.org https://bordeaux.guix.gnu.org' > /tmp/guix-daemon.log 2>&1" </dev/null &
+          sleep 5
+          sudo "$GUIX_BIN/guix" --version
+
+          # Make guix available to subsequent steps
+          echo "/var/guix/profiles/per-user/root/current-guix/bin" >> "$GITHUB_PATH"
+
+      - name: Run smoke-reproducible.sh
+        run: |
+          set -euxo pipefail
+          sudo -E PATH="$PATH" ./contrib/guix/smoke-reproducible.sh
+
+      # Mechanical regression guard. smoke-reproducible.sh already does
+      # this check itself; running it again at the workflow level makes
+      # the regression render directly in the job summary. The smoke
+      # script exports its per-run build logs to contrib/guix/smoke-logs/
+      # before its cleanup runs (and `chmod a+rX` them so this non-sudo
+      # step can read them even when the smoke script ran under sudo).
+      - name: Assert no host-CPU-native flags in build logs
+        if: always()
+        run: |
+          set -uo pipefail
+          shopt -s globstar nullglob
+          pat='-march=native|-mcpu=native|target-cpu=native'
+          # Positive self-test: a known-bad line MUST trip the grep. Without
+          # this, a future regression in `pat` or the grep invocation could
+          # silently turn the guard into a no-op (the regex starts with
+          # `-m`, which grep parses as an option unless `--` or `-e` is
+          # used - exactly the trap this self-test catches).
+          selftest="$(mktemp)"
+          printf '%s\n' 'cc -march=native foo.c' > "$selftest"
+          if ! grep -nE -- "$pat" "$selftest" >/dev/null 2>&1; then
+            echo "::error::native-flag guard self-test failed; regex is broken" >&2
+            rm -f "$selftest"
+            exit 2
+          fi
+          rm -f "$selftest"
+          logs=( contrib/guix/smoke-logs/build-*.log )
+          if [[ "${#logs[@]}" -eq 0 ]]; then
+            echo "::warning::no exported smoke logs found at contrib/guix/smoke-logs/build-*.log; native-flag scan not run"
+            exit 0
+          fi
+          found=0
+          for f in "${logs[@]}"; do
+            if grep -nE -- "$pat" "$f" >/dev/null 2>&1; then
+              echo "::error file=$f::native-arch flag detected"
+              grep -nE -- "$pat" "$f" | head -5
+              found=1
+            fi
+          done
+          exit "$found"
+
+      - name: Surface daemon log on failure
+        if: failure()
+        run: tail -200 /tmp/guix-daemon.log || true
+
+      # On failure, upload every log smoke-reproducible.sh's EXIT trap
+      # exported (cargo-verbose + guix-build wrapper output + mk-distsrc
+      # stderr, per run a/b). Without this the runner is torn down and
+      # the only artifact left is the timestamped grep at the end of the
+      # job log, which is rarely enough to root-cause a silent failure
+      # like "guix-build returned 0 but no cuprated tarball appeared".
+      # Pinned by full SHA (v5.0.0 -> 330a01c490aca151604b8cf639adc76d48f6c5d4).
+      - name: Upload smoke logs on failure
+        if: failure()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
+        with:
+          name: smoke-logs
+          path: contrib/guix/smoke-logs/
+          if-no-files-found: warn
+          retention-days: 7

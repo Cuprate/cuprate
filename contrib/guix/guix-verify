@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Integrity check (NOT authentication) of a release artifact against the
+# sidecar SHA256SUM that lives next to it. Use this to check that the
+# tarball matches the sum it was published with - it does NOT verify who
+# produced the tarball or that the sum itself is trustworthy. For
+# authenticity, fetch and verify the GPG-signed attestation under
+# contrib/guix/sigs/<version>/<builder>/attestation.json.asc.
+
+archive="${1:-}"
+if [[ -z "$archive" ]]; then
+  echo "usage: $0 <path-to-archive.tar.gz>" >&2
+  echo "       integrity check vs the sidecar <archive>.SHA256SUM" >&2
+  exit 1
+fi
+
+dir="$(cd -- "$(dirname -- "$archive")" && pwd)"
+base="$(basename -- "$archive")"
+sum_file="$dir/${base}.SHA256SUM"
+if [[ ! -f "$sum_file" ]]; then
+  echo "missing checksum file: $sum_file" >&2
+  exit 1
+fi
+
+( cd "$dir" && sha256sum --check "${base}.SHA256SUM" )

@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# realpath the repo root so the containment check below compares two
+# physical paths. Without this, a checkout reached via a symlink would
+# return a logical path from `git rev-parse` while `realpath` further
+# down returns the physical path, and an in-repo --out-dir would be
+# falsely rejected.
+repo_root="$(realpath "$(git -C "$script_dir/../.." rev-parse --show-toplevel)")"
+cd "$repo_root"
+
+guix_system="x86_64-linux"
+rust_target="x86_64-unknown-linux-gnu"
+package_name="cuprated"
+distsrc=""
+out_dir=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --guix-system) guix_system="$2"; shift 2 ;;
+    --target) rust_target="$2"; shift 2 ;;
+    --distsrc) distsrc="$2"; shift 2 ;;
+    --package) package_name="$2"; shift 2 ;;
+    --out-dir) out_dir="$2"; shift 2 ;;
+    *) echo "unknown argument: $1" >&2; exit 1 ;;
+  esac
+done
+
+[[ "$package_name" == "cuprated" ]] || { echo "only --package cuprated is supported" >&2; exit 1; }
+[[ -n "$distsrc" ]] || { echo "missing required --distsrc <path-to-cuprate-*-src.tar.*>" >&2; exit 1; }
+[[ -f "$distsrc" ]] || { echo "distsrc not found: $distsrc" >&2; exit 1; }
+
+dist_src="$(realpath "$distsrc")"
+case "$dist_src" in
+  "$repo_root"/*) ;;
+  *) echo "distsrc must be inside the repository" >&2; exit 1 ;;
+esac
+
+if [[ -z "$out_dir" ]]; then
+  out_dir="$repo_root/contrib/guix/out"
+fi
+mkdir -p "$out_dir"
+# Normalize and constrain to inside the repo. `guix shell --container
+# --pure` does not bind-mount arbitrary paths; an absolute path outside
+# the repo would silently fail or land in a non-persisted overlay inside
+# the container. Same goes for relative paths that resolve outside.
+out_dir="$(realpath "$out_dir")"
+case "$out_dir" in
+  "$repo_root"/*) ;;
+  *) echo "ERROR: --out-dir must resolve inside the repository ($repo_root); got $out_dir" >&2; exit 1 ;;
+esac
+
+# Capture the exact Guix instance that will be used BEFORE entering the
+# hermetic container. `guix` itself isn't in manifest.scm (and shouldn't be -
+# the whole point of `guix shell --container --pure` is no host tools), so
+# `guix describe` cannot run inside the container. Running it here, on the
+# outer host, against the same channels.scm gives the authoritative pinned
+# instance metadata for build-metadata.json / attestation.
+if command -v guix >/dev/null 2>&1; then
+  guix time-machine -C "$script_dir/channels.scm" -- describe --format=json \
+    > "$out_dir/guix-describe.json"
+else
+  echo "ERROR: guix not on PATH; cannot capture guix-describe.json" >&2
+  exit 1
+fi
+
+# See guix-mk-distsrc for the rationale: redirect TMPDIR inside the
+# container to a bind-mounted host directory so the cargo target tree
+# isn't constrained by the container's private tmpfs (~50% of RAM ~=
+# 8 GB on a 16 GB GHA runner, smaller than a release build of cuprated).
+work_root="$repo_root/contrib/guix/.work"
+mkdir -p "$work_root"
+guix time-machine -C "$script_dir/channels.scm" \
+  -- shell --system="$guix_system" -m "$script_dir/manifest.scm" --container --pure -- \
+  env \
+    GUIX_BUILD_SYSTEM="$guix_system" \
+    GUIX_RUST_TARGET="$rust_target" \
+    GUIX_DIST_SRC="$dist_src" \
+    GUIX_OUT_DIR="$out_dir" \
+    GUIX_ALLOW_COMMIT_MISMATCH="${GUIX_ALLOW_COMMIT_MISMATCH:-0}" \
+    GUIX_SKIP_FENV_WORKAROUND="${GUIX_SKIP_FENV_WORKAROUND:-0}" \
+    TMPDIR="$work_root" \
+    bash "$script_dir/libexec/build.sh"
