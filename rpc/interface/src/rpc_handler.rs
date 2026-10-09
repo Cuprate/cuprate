@@ -1,6 +1,8 @@
 //! RPC handler trait.
 
 //---------------------------------------------------------------------------------------------------- Use
+use std::num::NonZeroUsize;
+
 use cuprate_rpc_types::{
     bin::{BinRequest, BinResponse},
     json::{JsonRpcRequest, JsonRpcResponse},
@@ -47,4 +49,7 @@ pub trait RpcHandler:
     /// will automatically be denied access when using the
     /// [`axum::Router`] provided by [`RouterBuilder`](crate::RouterBuilder).
     fn is_restricted(&self) -> bool;
+
+    /// How many requests within a `/json_rpc` batch are handled at once.
+    fn batch_concurrency(&self) -> NonZeroUsize;
 }

@@ -1,7 +1,7 @@
 //! [`Id`]: request/response identification.
 
 //---------------------------------------------------------------------------------------------------- Use
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::borrow::Cow;
 
 //---------------------------------------------------------------------------------------------------- Id
@@ -119,6 +119,27 @@ impl Id {
     /// ```
     pub fn is_null(&self) -> bool {
         *self == Self::Null
+    }
+
+    /// Deserialize an [`Id`] into [`Some`], including [`Id::Null`].
+    ///
+    /// `#[serde(default)]` preserves an absent ID as [`None`].
+    ///
+    /// ```rust
+    /// # use cuprate_json_rpc::Id;
+    /// # use serde::Deserialize;
+    /// #[derive(Deserialize)]
+    /// struct Request {
+    ///     #[serde(default, deserialize_with = "Id::deserialize_some")]
+    ///     id: Option<Id>,
+    /// }
+    /// assert_eq!(serde_json::from_str::<Request>(r#"{"id":null}"#).unwrap().id, Some(Id::Null));
+    /// assert_eq!(serde_json::from_str::<Request>(r#"{}"#).unwrap().id, None);
+    /// ```
+    pub fn deserialize_some<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Option<Self>, D::Error> {
+        Self::deserialize(deserializer).map(Some)
     }
 
     /// Create a new [`Id::Str`] from a static string.
