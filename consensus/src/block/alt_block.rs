@@ -86,8 +86,9 @@ where
 
     // prep the alt block.
     let prepped_block = {
+        let chain_height = alt_context_cache.chain_height;
         let rx_vm = alt_rx_vm(
-            alt_context_cache.chain_height,
+            chain_height,
             block.header.hardfork_version,
             alt_context_cache.parent_chain,
             &mut alt_context_cache,
@@ -96,7 +97,7 @@ where
         .await
         .map_err(BlockVerificationError::invalid_pow)?;
 
-        rayon_spawn_async(move || PreparedBlock::new(block, rx_vm.as_deref()))
+        rayon_spawn_async(move || PreparedBlock::new(block, chain_height, rx_vm.as_deref()))
             .await
             .map_err(BlockVerificationError::invalid_pow)?
     };

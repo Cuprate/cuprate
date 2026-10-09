@@ -23,7 +23,8 @@ use cuprate_types::{
 
 use cuprate_consensus_rules::{
     blocks::{
-        calculate_pow_hash, check_block, check_block_pow, randomx_seed_height, BlockError, RandomX,
+        calculate_pow_hash, check_block, check_block_header, check_block_pow, randomx_seed_height,
+        BlockError, RandomX,
     },
     hard_forks::HardForkError,
     miner_tx::MinerTxError,
@@ -168,7 +169,11 @@ impl PreparedBlock {
     ///
     /// The randomX VM must be Some if RX is needed or this will panic.
     /// The randomX VM must also be initialised with the correct seed.
-    pub fn new<R: RandomX>(block: Block, randomx_vm: Option<&R>) -> Result<Self, ConsensusError> {
+    pub fn new<R: RandomX>(
+        block: Block,
+        chain_height: usize,
+        randomx_vm: Option<&R>,
+    ) -> Result<Self, ConsensusError> {
         let (hf_version, hf_vote) = HardFork::from_block_header(&block.header)
             .map_err(|_| BlockError::HardForkError(HardForkError::HardForkUnknown))?;
 
@@ -177,6 +182,13 @@ impl PreparedBlock {
                 MinerTxError::InputNotOfTypeGen,
             )));
         };
+
+        // The PoW hash depends on the height, which the block must not choose.
+        if *height != chain_height {
+            return Err(ConsensusError::Block(BlockError::MinerTxError(
+                MinerTxError::InputsHeightIncorrect,
+            )));
+        }
 
         Ok(Self {
             block_blob: block.serialize(),
@@ -241,7 +253,7 @@ impl PreparedBlock {
     }
 }
 
-/// Prepare a block for verification, checking its proof-of-work.
+/// Prepare a block for verification, checking its height, proof-of-work and header.
 pub async fn prepare_main_chain_block(
     block: Block,
     context_svc: &mut BlockchainContextService,
@@ -276,6 +288,7 @@ pub async fn prepare_main_chain_block(
     let prepped_block = rayon_spawn_async(move || {
         PreparedBlock::new(
             block,
+            height,
             rx_vms.get(&randomx_seed_height(height)).map(AsRef::as_ref),
         )
     })
@@ -285,6 +298,11 @@ pub async fn prepare_main_chain_block(
     check_block_pow(&prepped_block.pow_hash, context.next_difficulty)
         .map_err(ConsensusError::Block)
         .map_err(BlockVerificationError::invalid_pow)?;
+
+    // Also checked with the rest of the block, done here as it does not need the txs.
+    check_block_header(&prepped_block.block, &context.context_to_verify_block)
+        .map_err(ConsensusError::Block)
+        .map_err(BlockVerificationError::valid_pow)?;
 
     Ok(prepped_block)
 }
