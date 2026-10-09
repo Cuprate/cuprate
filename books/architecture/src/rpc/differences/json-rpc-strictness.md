@@ -102,12 +102,13 @@ Response:
 ```
 
 ## Responding to notifications
-> TODO: decide on Cuprate behavior <https://github.com/Cuprate/cuprate/pull/233#discussion_r1704611186>
-
 Requests that have no `id` field are "notifications".
 
 [The JSON-RPC 2.0 specification states that requests without
 an `id` field must _not_ be responded to](https://www.jsonrpc.org/specification#notification).
+
+`monerod` responds to them anyway. Cuprate follows the specification: the
+method still runs, but the response is an empty HTTP `200` body.
 
 Example:
 ```bash

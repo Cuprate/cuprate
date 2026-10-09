@@ -51,7 +51,7 @@ enum Methods {
 }
 
 // Create the request object.
-let request = Request::new_with_id(
+let request = Request::new(
     Id::Str("hello".into()),
     Methods::GetBlock(GetBlock { height: 123 }),
 );
