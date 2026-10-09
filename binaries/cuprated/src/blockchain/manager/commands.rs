@@ -6,7 +6,7 @@ use tokio::sync::oneshot;
 
 use cuprate_types::TransactionVerificationData;
 
-use crate::blockchain::IncomingBlockError;
+use crate::blockchain::{known_blocks::BlockOutcome, IncomingBlockError};
 
 /// The blockchain manager commands.
 #[expect(clippy::large_enum_variant)]
@@ -19,6 +19,8 @@ pub(crate) enum BlockchainManagerCommand {
         prepped_txs: HashMap<[u8; 32], TransactionVerificationData>,
         /// The channel to send the response down.
         response_tx: oneshot::Sender<Result<IncomingBlockOk, IncomingBlockError>>,
+        /// Where the outcome of the block is recorded.
+        outcome: BlockOutcome,
     },
     /// Pop blocks from the top of the blockchain.
     PopBlocks {

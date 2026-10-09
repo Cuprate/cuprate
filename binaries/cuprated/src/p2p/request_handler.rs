@@ -39,6 +39,7 @@ use cuprate_wire::protocol::{
 
 use crate::{
     blockchain::{interface::BlockchainManagerHandle, IncomingBlockError},
+    constants::MAX_INCOMING_BLOCK_DEPTH,
     p2p::CrossNetworkInternalPeerId,
     txpool::{IncomingTxError, IncomingTxHandler, IncomingTxs},
 };
@@ -308,8 +309,23 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         .unwrap()
         .current_height = current_blockchain_height;
 
+    // A known block sent without txs can be ignored before it is parsed.
+    if matches!(request.b.txs, TransactionBlobs::None) {
+        let top_hash = blockchain_context_service.blockchain_context().top_hash;
+        if blockchain_manager
+            .known_blocks()
+            .is_blob_known(&request.b.block, &top_hash)
+        {
+            return Ok(ProtocolResponse::NA);
+        }
+    }
+
     let (block, txs) = rayon_spawn_async(move || -> Result<_, anyhow::Error> {
-        let block = Block::read(&mut request.b.block.as_ref())?;
+        let mut block_blob = request.b.block.as_ref();
+        let block = Block::read(&mut block_blob)?;
+        if !block_blob.is_empty() {
+            anyhow::bail!("Peer sent a block with trailing bytes.");
+        }
 
         let tx_blobs = request
             .b
@@ -337,7 +353,7 @@ async fn new_fluffy_block<A: NetZoneAddress>(
     .await?;
 
     let context = blockchain_context_service.blockchain_context();
-    if block.number() + 10 < context.chain_height {
+    if block.number() + MAX_INCOMING_BLOCK_DEPTH < context.chain_height {
         tracing::debug!(
             our_height = context.chain_height,
             block_height = block.number(),
