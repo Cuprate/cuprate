@@ -58,7 +58,6 @@ pub struct AddressBook<Z: BorshNetworkZone> {
     anchor_list: HashSet<Z::Addr>,
     /// The currently connected peers.
     connected_peers: HashMap<InternalPeerID<Z::Addr>, ConnectionPeerEntry<Z>>,
-    connected_peers_ban_id: HashMap<<Z::Addr as NetZoneAddress>::BanID, HashSet<Z::Addr>>,
 
     banned_peers: HashMap<<Z::Addr as NetZoneAddress>::BanID, Instant>,
     banned_peers_queue: DelayQueue<<Z::Addr as NetZoneAddress>::BanID>,
@@ -94,7 +93,6 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
             gray_list,
             anchor_list,
             connected_peers,
-            connected_peers_ban_id: HashMap::new(),
             banned_peers,
             banned_peers_queue,
             peer_save_task_handle: None,
@@ -164,51 +162,57 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
         }
 
         for disconnected_addr in internal_addr_disconnected {
-            self.connected_peers.remove(&disconnected_addr);
-            if let InternalPeerID::KnownAddr(addr) = disconnected_addr {
-                // remove the peer from the connected peers with this ban ID.
-                self.connected_peers_ban_id
-                    .get_mut(&addr.ban_id())
-                    .unwrap()
-                    .remove(&addr);
-
-                // If the amount of peers with this ban id is 0 remove the whole set.
-                if self.connected_peers_ban_id[&addr.ban_id()].is_empty() {
-                    self.connected_peers_ban_id.remove(&addr.ban_id());
+            let peer = self.connected_peers.remove(&disconnected_addr);
+            // The anchor list is keyed by the address we can reach the peer on, and we can
+            // hold more than one connection to it.
+            if let Some(addr) = peer.and_then(|peer| peer.addr) {
+                if !self
+                    .connected_peers
+                    .values()
+                    .any(|peer| peer.addr == Some(addr))
+                {
+                    self.anchor_list.remove(&addr);
                 }
-                // remove the peer from the anchor list.
-                self.anchor_list.remove(&addr);
             }
         }
     }
 
     fn ban_peer(&mut self, addr: Z::Addr, time: Duration) {
-        if self.banned_peers.contains_key(&addr.ban_id()) {
+        let ban_id = addr.ban_id();
+
+        if self.banned_peers.contains_key(&ban_id) {
             tracing::error!("Tried to ban peer twice, this shouldn't happen.");
         }
 
-        if let Some(connected_peers_with_ban_id) = self.connected_peers_ban_id.get(&addr.ban_id()) {
-            for peer in connected_peers_with_ban_id.iter().map(|addr| {
-                tracing::debug!("Banning peer: {}, for: {:?}", addr, time);
+        let peers_with_ban_id = self
+            .connected_peers
+            .iter()
+            .filter_map(|(internal_peer_id, peer)| match internal_peer_id {
+                InternalPeerID::KnownAddr(addr) if addr.ban_id() == ban_id => {
+                    Some((*addr, peer.addr, peer.handle.clone()))
+                }
+                InternalPeerID::KnownAddr(_) | InternalPeerID::Unknown(_) => None,
+            })
+            .collect::<Vec<_>>();
 
-                self.connected_peers
-                    .get(&InternalPeerID::KnownAddr(*addr))
-                    .expect("Peer must be in connected list if in connected_peers_with_ban_id")
-            }) {
-                // The peer will get removed from our connected list once we disconnect
-                peer.handle.send_close_signal();
-                // Remove the peer now from anchors so we don't accidentally persist a bad anchor peer to disk.
-                self.anchor_list.remove(&addr);
+        for (addr, reachable_addr, handle) in peers_with_ban_id {
+            tracing::debug!("Banning peer: {}, for: {:?}", addr, time);
+
+            // The peer will get removed from our connected list once we disconnect
+            handle.send_close_signal();
+            // Remove the peer now from anchors so we don't accidentally persist a bad anchor peer to disk.
+            if let Some(reachable_addr) = reachable_addr {
+                self.anchor_list.remove(&reachable_addr);
             }
         }
 
-        self.white_list.remove_peers_with_ban_id(&addr.ban_id());
-        self.gray_list.remove_peers_with_ban_id(&addr.ban_id());
+        self.white_list.remove_peers_with_ban_id(&ban_id);
+        self.gray_list.remove_peers_with_ban_id(&ban_id);
 
         let unban_at = Instant::now() + time;
 
-        self.banned_peers_queue.insert_at(addr.ban_id(), unban_at);
-        self.banned_peers.insert(addr.ban_id(), unban_at);
+        self.banned_peers_queue.insert_at(ban_id, unban_at);
+        self.banned_peers.insert(ban_id, unban_at);
     }
 
     /// adds a peer to the gray list.
@@ -335,11 +339,6 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
             if self.is_peer_banned(addr) {
                 return Err(AddressBookError::PeerIsBanned);
             }
-            // although the peer may not be reachable still add it to the connected peers with ban ID.
-            self.connected_peers_ban_id
-                .entry(addr.ban_id())
-                .or_default()
-                .insert(*addr);
         }
 
         // if the address is Some that means we can reach it from our node.
