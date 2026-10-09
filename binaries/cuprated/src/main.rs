@@ -71,6 +71,14 @@ fn main_inner() -> anyhow::Result<ExitCode> {
     //Printing configuration
     info!("{config}");
 
+    // Warn if log redaction is disabled.
+    if !config.tracing.redact {
+        tracing::warn!(
+            "log redaction is disabled: transaction hashes and peer addresses will be \
+             written to logs in plaintext."
+        );
+    }
+
     // Initialize the thread-pools
     init_global_rayon_pool(&config)?;
 
