@@ -51,6 +51,7 @@ pub(crate) async fn init_blockchain_manager(
         &launch_ctx.blockchain.syncer(),
         synced_tx,
         launch_ctx.config.offline,
+        launch_ctx.events.clone(),
     );
 
     launch_ctx.task_executor.spawn_critical(

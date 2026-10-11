@@ -21,7 +21,10 @@ use cuprate_p2p::{
 use cuprate_p2p_core::{client::PeerSyncCallback, ClearNet, CoreSyncData};
 
 use super::BlockchainManagerHandle;
-use crate::monitor::FatalError;
+use crate::{
+    events::{EventSender, NodeEvent},
+    monitor::FatalError,
+};
 
 #[derive(Debug, PartialEq)]
 enum SyncStatus {
@@ -35,6 +38,7 @@ pub(crate) struct BlockchainSyncer {
     notify_syncer: Arc<Notify>,
     synced_tx: Option<futures::channel::oneshot::Sender<()>>,
     target_height: Arc<AtomicU64>,
+    events: EventSender,
 }
 
 impl BlockchainSyncer {
@@ -43,6 +47,7 @@ impl BlockchainSyncer {
         handle: &BlockchainSyncerHandle,
         synced_tx: futures::channel::oneshot::Sender<()>,
         offline: bool,
+        events: EventSender,
     ) -> Self {
         let synced_tx = if offline {
             #[expect(clippy::let_underscore_must_use)]
@@ -56,6 +61,7 @@ impl BlockchainSyncer {
             notify_syncer: Arc::clone(&handle.notify_syncer),
             synced_tx,
             target_height: Arc::clone(&handle.target_height),
+            events,
         }
     }
 
@@ -112,6 +118,7 @@ impl BlockchainSyncer {
                         tracing::info!("Synchronised with the network.");
                         #[expect(clippy::let_underscore_must_use)]
                         let _ = synced.send(());
+                        self.events.send(NodeEvent::Synced);
                     }
                     continue;
                 }
@@ -149,6 +156,7 @@ impl BlockchainSyncer {
                                 if let Some(synced) = self.synced_tx.take() {
                                     #[expect(clippy::let_underscore_must_use)]
                                     let _ = synced.send(());
+                                    self.events.send(NodeEvent::Synced);
                                 }
                             }
 
