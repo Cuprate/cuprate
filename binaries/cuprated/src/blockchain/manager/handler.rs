@@ -30,6 +30,7 @@ use crate::{
         manager::commands::{BlockchainManagerCommand, IncomingBlockOk},
         ConsensusBlockchainReadHandle, IncomingBlockError,
     },
+    events::NodeEvent,
     monitor::FatalError,
 };
 
@@ -625,6 +626,12 @@ impl super::BlockchainManager {
             .call(BlockChainContextRequest::PopBlocks { numb_blocks })
             .await?;
 
+        let context = self.blockchain_context_service.blockchain_context();
+        self.events.send(NodeEvent::BlocksPopped {
+            chain_height: context.chain_height,
+            top_hash: context.top_hash,
+        });
+
         Ok(old_main_chain_id)
     }
 
@@ -757,11 +764,20 @@ impl super::BlockchainManager {
         &mut self,
         verified_block: VerifiedBlockInformation,
     ) -> Result<(), FatalError> {
+        let event = NodeEvent::BlocksAdded {
+            first_height: verified_block.height,
+            first_prev_hash: verified_block.block.header.previous,
+            chain_height: verified_block.height + 1,
+            top_hash: verified_block.block_hash,
+        };
+
         self.blockchain_write_handle
             .ready()
             .await?
             .call(BlockchainWriteRequest::WriteBlock(verified_block))
             .await?;
+
+        self.events.send(event);
         Ok(())
     }
 
@@ -777,11 +793,25 @@ impl super::BlockchainManager {
         &mut self,
         blocks: Vec<VerifiedBlockInformation>,
     ) -> Result<(), FatalError> {
+        let event = blocks
+            .first()
+            .zip(blocks.last())
+            .map(|(first, last)| NodeEvent::BlocksAdded {
+                first_height: first.height,
+                first_prev_hash: first.block.header.previous,
+                chain_height: last.height + 1,
+                top_hash: last.block_hash,
+            });
+
         self.blockchain_write_handle
             .ready()
             .await?
             .call(BlockchainWriteRequest::BatchWriteBlocks(blocks))
             .await?;
+
+        if let Some(event) = event {
+            self.events.send(event);
+        }
         Ok(())
     }
 }
