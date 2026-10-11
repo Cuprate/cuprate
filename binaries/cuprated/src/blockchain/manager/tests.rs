@@ -21,6 +21,7 @@ use crate::{
         check_add_genesis, manager::BlockchainManager, manager::BlockchainManagerCommand,
         ConsensusBlockchainReadHandle,
     },
+    events::EventSender,
     txpool::TxpoolManagerHandle,
 };
 
@@ -74,6 +75,7 @@ async fn mock_manager(data_dir: PathBuf) -> BlockchainManager {
         broadcast_svc: BroadcastSvc::mock(),
         reorg_lock: Arc::new(Default::default()),
         fast_sync_hashes: &[],
+        events: EventSender::default(),
     }
 }
 

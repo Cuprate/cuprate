@@ -23,12 +23,14 @@ use cuprate_types::TransactionVerificationData;
 
 use crate::{
     config::TxpoolConfig,
-    monitor::{FatalError, TaskExecutor},
+    events::{EventSender, NodeEvent, TxRemovedReason},
+    monitor::FatalError,
     p2p::CrossNetworkInternalPeerId,
     txpool::{
         dandelion::DiffuseService,
         incoming_tx::{DandelionTx, TxId},
     },
+    LaunchContext,
 };
 
 const INCOMING_TX_QUEUE_SIZE: usize = 100;
@@ -44,14 +46,15 @@ const MAX_RECENTLY_REMOVED_TXS: usize = 5000;
 ///
 /// This function will return an [`Err`] if any inner service has an unrecoverable error.
 pub(crate) async fn start_txpool_manager(
+    launch_ctx: &LaunchContext,
     txpool_write_handle: TxpoolWriteHandle,
-    mut txpool_read_handle: TxpoolReadHandle,
     promote_tx_channel: mpsc::UnboundedReceiver<[u8; 32]>,
     diffuse_service: DiffuseService<ClearNet>,
     dandelion_pool_manager: DandelionPoolService<DandelionTx, TxId, CrossNetworkInternalPeerId>,
-    config: TxpoolConfig,
-    task_executor: TaskExecutor,
 ) -> Result<TxpoolManagerHandle, FatalError> {
+    let config = launch_ctx.config.storage.txpool.clone();
+    let mut txpool_read_handle = launch_ctx.txpool_read.clone();
+
     let TxpoolReadResponse::Backlog(backlog) = txpool_read_handle
         .ready()
         .await?
@@ -80,6 +83,7 @@ pub(crate) async fn start_txpool_manager(
             (
                 tx.id,
                 TxInfo {
+                    blob_size: None,
                     weight: tx.weight,
                     fee: tx.fee,
                     received_at: tx.received_at,
@@ -108,6 +112,7 @@ pub(crate) async fn start_txpool_manager(
         promote_tx_channel,
         diffuse_service,
         config,
+        events: launch_ctx.events.clone(),
     };
 
     tracing::info!(stem_txs = stem_txs.len(), "promoting stem txs");
@@ -119,8 +124,8 @@ pub(crate) async fn start_txpool_manager(
     let (command_tx, command_rx) = mpsc::channel(INCOMING_TX_QUEUE_SIZE);
     let (spent_kis_tx, spent_kis_rx) = mpsc::channel(1);
 
-    let shutdown_token = task_executor.cancellation_token();
-    task_executor.spawn_critical(
+    let shutdown_token = launch_ctx.task_executor.cancellation_token();
+    launch_ctx.task_executor.spawn_critical(
         "txpool manager",
         manager.run(command_rx, spent_kis_rx, shutdown_token),
     );
@@ -222,17 +227,11 @@ impl TxpoolManagerHandle {
 
 /// Information on a transaction in the tx-pool.
 struct TxInfo {
+    /// The size of the transaction, [`None`] if it was in the pool at startup.
+    blob_size: Option<usize>,
     /// The weight of the transaction.
-    #[expect(
-        dead_code,
-        reason = "Will be used when we need to create block templates"
-    )]
     weight: usize,
     /// The fee the transaction paid.
-    #[expect(
-        dead_code,
-        reason = "Will be used when we need to create block templates"
-    )]
     fee: u64,
     /// The UNIX timestamp when the tx was received.
     received_at: u64,
@@ -281,6 +280,9 @@ struct TxpoolManager {
     diffuse_service: DiffuseService<ClearNet>,
 
     config: TxpoolConfig,
+
+    /// The [`NodeEvent`] sender.
+    events: EventSender,
 }
 
 impl TxpoolManager {
@@ -323,6 +325,15 @@ impl TxpoolManager {
                         self.removed_txs_start_time.max(evicted_timestamp);
                 }
             }
+
+            self.events.send(NodeEvent::TxRemoved {
+                hash: tx,
+                reason: if remove_from_db {
+                    TxRemovedReason::Expired
+                } else {
+                    TxRemovedReason::Block
+                },
+            });
         }
 
         Ok(())
@@ -394,7 +405,7 @@ impl TxpoolManager {
 
     /// Adds a tx to the tx-pool manager.
     #[instrument(level = "trace", skip_all, fields(tx_id = hex::encode(tx)))]
-    fn track_tx(&mut self, tx: [u8; 32], weight: usize, fee: u64, private: bool) {
+    fn track_tx(&mut self, tx: [u8; 32], blob_size: usize, weight: usize, fee: u64, private: bool) {
         let now = current_unix_timestamp();
 
         let timeout_key = if private {
@@ -402,6 +413,12 @@ impl TxpoolManager {
             None
         } else {
             self.public_pool_timestamps.insert((now, tx));
+            self.events.send(NodeEvent::TxAdded {
+                hash: tx,
+                blob_size,
+                weight,
+                fee,
+            });
 
             let timeout = calculate_next_timeout(now, self.config.maximum_age_secs);
 
@@ -413,6 +430,7 @@ impl TxpoolManager {
         self.current_txs.insert(
             tx,
             TxInfo {
+                blob_size: Some(blob_size),
                 weight,
                 fee,
                 received_at: now,
@@ -434,7 +452,8 @@ impl TxpoolManager {
         let incoming_tx =
             IncomingTxBuilder::new(DandelionTx(Bytes::copy_from_slice(&tx.tx_blob)), tx.tx_hash);
 
-        let (tx_hash, tx_weight, tx_fee) = (tx.tx_hash, tx.tx_weight, tx.fee);
+        let (tx_hash, tx_blob_size, tx_weight, tx_fee) =
+            (tx.tx_hash, tx.tx_blob.len(), tx.tx_weight, tx.fee);
 
         let TxpoolWriteResponse::AddTransaction(double_spend) = self
             .txpool_write_handle
@@ -457,7 +476,13 @@ impl TxpoolManager {
             return Ok(());
         }
 
-        self.track_tx(tx_hash, tx_weight, tx_fee, state.is_stem_stage());
+        self.track_tx(
+            tx_hash,
+            tx_blob_size,
+            tx_weight,
+            tx_fee,
+            state.is_stem_stage(),
+        );
 
         let incoming_tx = incoming_tx
             .with_routing_state(state)
@@ -508,6 +533,15 @@ impl TxpoolManager {
             self.tx_timeouts
                 .insert(tx, Duration::from_secs(next_timeout)),
         );
+
+        if let Some(blob_size) = tx_info.blob_size {
+            self.events.send(NodeEvent::TxAdded {
+                hash: tx,
+                blob_size,
+                weight: tx_info.weight,
+                fee: tx_info.fee,
+            });
+        }
 
         Ok(())
     }

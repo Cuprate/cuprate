@@ -13,6 +13,7 @@ use crate::{
     blockchain::{
         chain_service::ChainService, syncer::BlockchainSyncer, types::ConsensusBlockchainReadHandle,
     },
+    events::EventSender,
     monitor::FatalError,
     txpool::TxpoolManagerHandle,
     LaunchContext,
@@ -50,6 +51,7 @@ pub(crate) async fn init_blockchain_manager(
         &launch_ctx.blockchain.syncer(),
         synced_tx,
         launch_ctx.config.offline,
+        launch_ctx.events.clone(),
     );
 
     launch_ctx.task_executor.spawn_critical(
@@ -77,6 +79,7 @@ pub(crate) async fn init_blockchain_manager(
         broadcast_svc: clearnet_interface.broadcast_svc(),
         reorg_lock: Arc::clone(&launch_ctx.reorg_lock),
         fast_sync_hashes,
+        events: launch_ctx.events.clone(),
     };
 
     launch_ctx.task_executor.spawn_critical(
@@ -113,6 +116,8 @@ struct BlockchainManager {
     reorg_lock: Arc<RwLock<()>>,
     /// Fast-sync hashes for this node's network.
     fast_sync_hashes: &'static [[u8; 32]],
+    /// The [`NodeEvent`](crate::events::NodeEvent) sender.
+    events: EventSender,
 }
 
 impl BlockchainManager {
