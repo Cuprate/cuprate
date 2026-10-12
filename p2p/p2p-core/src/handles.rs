@@ -30,11 +30,8 @@ impl HandleBuilder {
     }
 
     /// Builds the [`ConnectionGuard`] which should be handed to the connection task and the [`ConnectionHandle`].
-    ///
-    /// This will panic if a permit was not set [`HandleBuilder::with_permit`]
     pub fn build(self) -> (ConnectionGuard, ConnectionHandle) {
         let token = CancellationToken::new();
-
         (
             ConnectionGuard {
                 token: token.clone(),
