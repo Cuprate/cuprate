@@ -4,6 +4,7 @@ use std::{
     collections::{hash_map::Entry, HashMap},
     net::{IpAddr, SocketAddr},
     num::NonZeroUsize,
+    sync::Arc,
     time::Duration,
 };
 
@@ -17,7 +18,7 @@ use hyper_util::{
 };
 use tokio::{
     net::{TcpListener, TcpStream},
-    task::JoinSet,
+    task::{AbortHandle, JoinSet},
     time::timeout,
 };
 use tokio_util::{
@@ -32,7 +33,11 @@ use cuprate_rpc_interface::RouterBuilder;
 
 use crate::{
     config::{restricted_rpc_port, unrestricted_rpc_port, RpcConfig},
-    rpc::{timeout::WriteTimeout, CupratedRpcHandler},
+    rpc::{
+        ratelimit::{RateLimitBudget, RateLimitLayer, RpcRateLimitCache},
+        timeout::WriteTimeout,
+        CupratedRpcHandler,
+    },
     txpool::IncomingTxHandler,
     LaunchContext,
 };
@@ -51,6 +56,10 @@ const RPC_FAILURE_KEEP_ALIVE: Duration = Duration::from_secs(5);
 
 /// The amount of time banned IP addresses are unable to be served.
 const RPC_BAN_PERIOD: Duration = Duration::from_secs(3);
+
+/// The grace period after which the rate limit state of a disconnected IP
+/// address is erased, unless the IP reconnected in the meantime.
+const RPC_RATE_LIMIT_KEEP_ALIVE: Duration = Duration::from_secs(2);
 
 /// Initialize the RPC server(s).
 ///
@@ -122,8 +131,33 @@ pub(crate) async fn init_rpc_servers(
         // Initialize RPC handler service.
         let rpc_handler = CupratedRpcHandler::new(restricted, tx_handler.clone(), launch_ctx);
 
+        // Initialize the per IP rate limit budgets.
+        let rate_limit_budget = if restricted {
+            RateLimitBudget::new(
+                config.restricted.max_budget_size,
+                config.restricted.income_size,
+                config.restricted.max_budget_time,
+                config.restricted.income_time,
+            )
+        } else {
+            RateLimitBudget::new(
+                config.unrestricted.max_budget_size,
+                config.unrestricted.income_size,
+                config.unrestricted.max_budget_time,
+                config.unrestricted.income_time,
+            )
+        };
+
+        // Initialize the per IP rate limit cache
+        let rate_limit_cache = Arc::new(RpcRateLimitCache::new(rate_limit_budget));
+
         // Initialize Axum RPC router.
-        let rpc_router = init_rpc_router(rpc_handler, request_byte_limit, rpc_body_read_timeout);
+        let rpc_router = init_rpc_router(
+            rpc_handler,
+            request_byte_limit,
+            rpc_body_read_timeout,
+            Arc::clone(&rate_limit_cache),
+        );
 
         // Initialize per IP connection limit cache.
         let rpc_limit_cache = RpcLimitCache::from_config(config, restricted);
@@ -133,6 +167,7 @@ pub(crate) async fn init_rpc_servers(
             rpc_send_timeout,
             rpc_header_read_timeout,
             rpc_limit_cache,
+            rate_limit_cache,
             rpc_router,
         );
 
@@ -165,6 +200,7 @@ fn init_rpc_router(
     rpc_handler: CupratedRpcHandler,
     request_byte_limit: usize,
     body_read_timeout: Duration,
+    rate_limit_cache: Arc<RpcRateLimitCache>,
 ) -> Router {
     let mut router = RouterBuilder::new()
         .json_rpc()
@@ -199,6 +235,8 @@ fn init_rpc_router(
     // Add restrictive layers if restricted RPC.
     //
     // TODO: <https://github.com/Cuprate/cuprate/issues/445>
+    router = router.layer(RateLimitLayer::new(rate_limit_cache));
+
     if request_byte_limit != 0 {
         router = router.layer(RequestBodyLimitLayer::new(request_byte_limit));
     }
@@ -214,6 +252,10 @@ struct RpcServer {
     rpc: Router,
     /// The connection limit cache of this server.
     ip_limit_cache: RpcLimitCache,
+    /// The rate limit cache of this server, shared with the rate limit layer.
+    rate_limit_cache: Arc<RpcRateLimitCache>,
+    /// Pending erasures of disconnected IP addresses' rate limit state.
+    rate_limit_expiry: HashMap<IpAddr, AbortHandle>,
     // Socket timeouts
     send_timeout: Duration,
     header_read_timeout: Duration,
@@ -226,11 +268,14 @@ impl RpcServer {
         send_timeout: Duration,
         header_read_timeout: Duration,
         ip_limit_cache: RpcLimitCache,
+        rate_limit_cache: Arc<RpcRateLimitCache>,
         rpc: Router,
     ) -> Self {
         Self {
             rpc,
             ip_limit_cache,
+            rate_limit_cache,
+            rate_limit_expiry: HashMap::new(),
             send_timeout,
             header_read_timeout,
             rpc_tasks: JoinSet::new(),
@@ -269,6 +314,10 @@ impl RpcServer {
                             debug!("RPC refused connection from banned ip address: {ip}");
                             continue;
                         }
+
+                        if let Some(eviction) = self.rate_limit_expiry.remove(&remote_addr.ip()) {
+                            eviction.abort();
+                        }
                     }
 
                     self.serve(socket, remote_addr, shutdown_token.clone());
@@ -282,12 +331,23 @@ impl RpcServer {
                     }
 
                     // Untrack connection from IP
-                    self.ip_limit_cache.remove_connection(&ip);
+                    let is_last_connection = self.ip_limit_cache.remove_connection(&ip);
 
                     // If hyper serve failed, increase the serve failure and ban the IP
                     // for `RPC_BAN_PERIOD` seconds if it reaches `RPC_FAILURE_BAN_THRESHOLD` failures.
                     if serve_failed {
                         self.ip_limit_cache.increment_serve_failure(&ip);
+                    }
+
+                    // The IP address' last connection ended. Erase its rate limit state
+                    // after a grace period.
+                    if is_last_connection {
+                        let rate_limit_cache = Arc::clone(&self.rate_limit_cache);
+                        let task = tokio::spawn(async move {
+                            tokio::time::sleep(RPC_RATE_LIMIT_KEEP_ALIVE).await;
+                            rate_limit_cache.remove_ip(&ip);
+                        });
+                        self.rate_limit_expiry.insert(ip, task.abort_handle());
                     }
                 }
                 Some(expiry) = self.ip_limit_cache.per_ip_failures_expiry.next() => {
@@ -322,6 +382,10 @@ impl RpcServer {
         .is_err()
         {
             warn!("RPC tasks survived shutdown signal for more than {RPC_SHUTDOWN_TIMEOUT:?}... Dropping connections anyway.");
+        }
+
+        for eviction in std::mem::take(&mut self.rate_limit_expiry).into_values() {
+            eviction.abort();
         }
 
         Ok(())
@@ -478,9 +542,9 @@ impl RpcLimitCache {
     /// Remove a connection of the remote IP address.
     ///
     /// Excluded IP addresses must be filtered out by the caller.
-    fn remove_connection(&mut self, remote_addr: &IpAddr) {
+    fn remove_connection(&mut self, remote_addr: &IpAddr) -> bool {
         let Entry::Occupied(mut entry) = self.per_ip_conn_count.entry(*remote_addr) else {
-            return;
+            return false;
         };
 
         let value = entry.get_mut();
@@ -489,6 +553,9 @@ impl RpcLimitCache {
 
         if *value == 0 {
             entry.remove();
+            true
+        } else {
+            false
         }
     }
 
