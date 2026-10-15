@@ -33,9 +33,9 @@ pub enum IncomingBlockError {
     #[error("Unknown transactions in block.")]
     UnknownTransactions([u8; 32], Vec<usize>),
 
-    /// The block claimed more transactions than it contained.
-    #[error("Too many transactions given for block.")]
-    TooManyTxs,
+    /// Transactions were given that the block does not contain.
+    #[error("Transactions given that are not in the block.")]
+    TxsNotInBlock,
 
     /// The blockchain manager command channel is closed.
     #[error("The blockchain manager command channel is closed.")]

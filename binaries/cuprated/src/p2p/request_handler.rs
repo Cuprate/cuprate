@@ -317,6 +317,10 @@ async fn new_fluffy_block<A: NetZoneAddress>(
             .take_normal()
             .ok_or(anyhow::anyhow!("Peer sent pruned txs in fluffy block"))?;
 
+        if tx_blobs.len() > block.transactions.len() {
+            anyhow::bail!("Peer sent more txs than the block has.");
+        }
+
         let txs = tx_blobs
             .into_iter()
             .map(|tx_blob| {

@@ -13,6 +13,7 @@ use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::{service::BlockchainReadHandle, BlockchainError};
 use cuprate_consensus::{block::BlockVerificationError, transactions::new_tx_verification_data};
+use cuprate_consensus_rules::{blocks::BlockError, ConsensusError};
 use cuprate_txpool::service::{
     interface::{TxpoolReadRequest, TxpoolReadResponse},
     TxpoolReadHandle,
@@ -68,7 +69,9 @@ impl BlockchainManagerHandle {
     ///
     /// This function will return an error if:
     ///  - the block was invalid
+    ///  - the block has duplicate transactions
     ///  - we are missing transactions
+    ///  - a given transaction is not in the block
     ///  - the block's parent is unknown
     ///  - the blockchain manager command channel is closed
     pub async fn handle_incoming_block(
@@ -78,13 +81,24 @@ impl BlockchainManagerHandle {
         blockchain_read_handle: &mut BlockchainReadHandle,
         txpool_read_handle: &mut TxpoolReadHandle,
     ) -> Result<IncomingBlockOk, IncomingBlockError> {
-        if given_txs.len() > block.transactions.len() {
-            return Err(IncomingBlockError::TooManyTxs);
-        }
-
         if !block_exists(block.header.previous, blockchain_read_handle).await? {
             return Err(IncomingBlockError::Orphan);
         }
+
+        let block_txs = block.transactions.iter().collect::<HashSet<_>>();
+        if block_txs.len() != block.transactions.len() {
+            return Err(BlockVerificationError::invalid_pow(ConsensusError::Block(
+                BlockError::DuplicateTransaction,
+            ))
+            .into());
+        }
+
+        if !given_txs.keys().all(|hash| block_txs.contains(hash)) {
+            return Err(IncomingBlockError::TxsNotInBlock);
+        }
+
+        // Don't keep this while the block waits for the manager.
+        drop(block_txs);
 
         let block_hash = block.hash();
 
