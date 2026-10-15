@@ -68,6 +68,7 @@ impl BlockchainManagerHandle {
     ///
     /// This function will return an error if:
     ///  - the block was invalid
+    ///  - the block has duplicate transactions
     ///  - we are missing transactions
     ///  - the block's parent is unknown
     ///  - the blockchain manager command channel is closed
@@ -78,8 +79,13 @@ impl BlockchainManagerHandle {
         blockchain_read_handle: &mut BlockchainReadHandle,
         txpool_read_handle: &mut TxpoolReadHandle,
     ) -> Result<IncomingBlockOk, IncomingBlockError> {
-        if given_txs.len() > block.transactions.len() {
-            return Err(IncomingBlockError::TooManyTxs);
+        let block_txs = block.transactions.iter().collect::<HashSet<_>>();
+        if block_txs.len() != block.transactions.len() {
+            return Err(IncomingBlockError::DuplicateTxs);
+        }
+
+        if !given_txs.keys().all(|hash| block_txs.contains(hash)) {
+            return Err(IncomingBlockError::TxsNotInBlock);
         }
 
         if !block_exists(block.header.previous, blockchain_read_handle).await? {
