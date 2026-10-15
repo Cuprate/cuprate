@@ -329,15 +329,30 @@ where
         )));
     }
 
-    if !prepped_block.block.transactions.is_empty() {
-        for (expected_tx_hash, tx) in prepped_block.block.transactions.iter().zip(txs.iter()) {
-            if expected_tx_hash != &tx.tx_hash {
-                return Err(BlockVerificationError::valid_pow(ConsensusError::Block(
-                    BlockError::TxsIncludedWithBlockIncorrect,
-                )));
-            }
+    for (expected_tx_hash, tx) in prepped_block.block.transactions.iter().zip(txs.iter()) {
+        if expected_tx_hash != &tx.tx_hash {
+            return Err(BlockVerificationError::valid_pow(ConsensusError::Block(
+                BlockError::TxsIncludedWithBlockIncorrect,
+            )));
         }
+    }
 
+    let block_weight =
+        prepped_block.miner_tx_weight + txs.iter().map(|tx| tx.tx_weight).sum::<usize>();
+    let total_fees = txs.iter().map(|tx| tx.fee).sum::<u64>();
+
+    tracing::debug!("Verifying block header.");
+    let (_, generated_coins) = check_block(
+        &prepped_block.block,
+        total_fees,
+        block_weight,
+        prepped_block.block_blob.len(),
+        &context.context_to_verify_block,
+    )
+    .map_err(ConsensusError::Block)
+    .map_err(BlockVerificationError::valid_pow)?;
+
+    if !prepped_block.block.transactions.is_empty() {
         let temp = start_tx_verification()
             .append_prepped_txs(mem::take(&mut txs))
             .prepare()
@@ -355,21 +370,6 @@ where
 
         txs = temp;
     }
-
-    let block_weight =
-        prepped_block.miner_tx_weight + txs.iter().map(|tx| tx.tx_weight).sum::<usize>();
-    let total_fees = txs.iter().map(|tx| tx.fee).sum::<u64>();
-
-    tracing::debug!("Verifying block header.");
-    let (_, generated_coins) = check_block(
-        &prepped_block.block,
-        total_fees,
-        block_weight,
-        prepped_block.block_blob.len(),
-        &context.context_to_verify_block,
-    )
-    .map_err(ConsensusError::Block)
-    .map_err(BlockVerificationError::valid_pow)?;
 
     let block = VerifiedBlockInformation {
         block_hash: prepped_block.block_hash,

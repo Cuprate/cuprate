@@ -57,7 +57,7 @@ impl BlockOutcome {
             }) => match inner {
                 // These can pass later, or are not about the block itself.
                 ConsensusError::Block(
-                    BlockError::TimeStampInvalid
+                    BlockError::TimeStampInFuture
                     | BlockError::PreviousIDIncorrect
                     | BlockError::TxsIncludedWithBlockIncorrect,
                 )

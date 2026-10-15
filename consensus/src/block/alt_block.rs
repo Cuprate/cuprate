@@ -110,6 +110,12 @@ where
     .await
     .map_err(BlockVerificationError::invalid_pow)?;
 
+    let next_difficulty = difficulty_cache.next_difficulty(prepped_block.hf_version);
+    // make sure the block's PoW is valid for this difficulty.
+    check_block_pow(&prepped_block.pow_hash, next_difficulty)
+        .map_err(ConsensusError::Block)
+        .map_err(BlockVerificationError::invalid_pow)?;
+
     // Check the alt block timestamp is in the correct range.
     //
     // Unlike monerod we also check the future time limit.
@@ -117,13 +123,7 @@ where
         difficulty_cache.median_timestamp(u64_to_usize(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW));
     check_timestamp(&prepped_block.block, median_timestamp)
         .map_err(ConsensusError::Block)
-        .map_err(BlockVerificationError::invalid_pow)?;
-
-    let next_difficulty = difficulty_cache.next_difficulty(prepped_block.hf_version);
-    // make sure the block's PoW is valid for this difficulty.
-    check_block_pow(&prepped_block.pow_hash, next_difficulty)
-        .map_err(ConsensusError::Block)
-        .map_err(BlockVerificationError::invalid_pow)?;
+        .map_err(BlockVerificationError::valid_pow)?;
 
     // TODO: weight check before PoW check?
 
