@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     future::{ready, Ready},
     task::{Context, Poll},
 };
@@ -331,6 +332,10 @@ async fn new_fluffy_block<A: NetZoneAddress>(
             .take_normal()
             .ok_or(anyhow::anyhow!("Peer sent pruned txs in fluffy block"))?;
 
+        if tx_blobs.len() > block.transactions.len() {
+            anyhow::bail!("Peer sent more txs than the block has.");
+        }
+
         let txs = tx_blobs
             .into_iter()
             .map(|tx_blob| {
@@ -357,6 +362,12 @@ async fn new_fluffy_block<A: NetZoneAddress>(
             block_height = block.number(),
             "fluffy block too old, ignoring."
         );
+        return Ok(ProtocolResponse::NA);
+    }
+
+    let mut tx_hashes = HashSet::with_capacity(block.transactions.len());
+    if !block.transactions.iter().all(|hash| tx_hashes.insert(hash)) {
+        tracing::debug!("fluffy block has duplicate txs, ignoring.");
         return Ok(ProtocolResponse::NA);
     }
 
