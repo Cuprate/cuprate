@@ -204,7 +204,7 @@ pub fn check_timestamp(block: &Block, median_timestamp: Option<u64>) -> Result<(
 /// Checks that all txs in the block have a unique hash.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#no-duplicate-transactions>
-fn check_txs_unique(txs: &[[u8; 32]]) -> Result<(), BlockError> {
+pub fn check_txs_unique(txs: &[[u8; 32]]) -> Result<(), BlockError> {
     let set = txs.iter().collect::<HashSet<_>>();
 
     if set.len() == txs.len() {

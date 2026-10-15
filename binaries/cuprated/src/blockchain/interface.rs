@@ -13,6 +13,7 @@ use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::{service::BlockchainReadHandle, BlockchainError};
 use cuprate_consensus::{block::BlockVerificationError, transactions::new_tx_verification_data};
+use cuprate_consensus_rules::blocks::check_txs_unique;
 use cuprate_txpool::service::{
     interface::{TxpoolReadRequest, TxpoolReadResponse},
     TxpoolReadHandle,
@@ -68,6 +69,7 @@ impl BlockchainManagerHandle {
     ///
     /// This function will return an error if:
     ///  - the block was invalid
+    ///  - the block has duplicate transactions
     ///  - we are missing transactions
     ///  - the block's parent is unknown
     ///  - the blockchain manager command channel is closed
@@ -80,6 +82,10 @@ impl BlockchainManagerHandle {
     ) -> Result<IncomingBlockOk, IncomingBlockError> {
         if given_txs.len() > block.transactions.len() {
             return Err(IncomingBlockError::TooManyTxs);
+        }
+
+        if check_txs_unique(&block.transactions).is_err() {
+            return Err(IncomingBlockError::DuplicateTxs);
         }
 
         if !block_exists(block.header.previous, blockchain_read_handle).await? {

@@ -37,6 +37,10 @@ pub enum IncomingBlockError {
     #[error("Too many transactions given for block.")]
     TooManyTxs,
 
+    /// The block has duplicate transactions.
+    #[error("The block has duplicate transactions.")]
+    DuplicateTxs,
+
     /// The blockchain manager command channel is closed.
     #[error("The blockchain manager command channel is closed.")]
     ChannelClosed,
