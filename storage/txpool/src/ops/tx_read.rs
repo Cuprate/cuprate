@@ -36,7 +36,7 @@ pub fn get_transaction_verification_data(
     Ok(TransactionVerificationData {
         version: TxVersion::from_raw(tx.version()).expect("Tx in tx-pool has invalid version"),
         tx,
-        tx_blob,
+        tx_blob: tx_blob.into(),
         tx_weight: tx_info.weight,
         fee: tx_info.fee,
         tx_hash: *tx_hash,
