@@ -2,10 +2,13 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
     hash::{BuildHasher, RandomState},
-    sync::{Arc, OnceLock, RwLock},
+    sync::{Arc, OnceLock, RwLock, Weak},
 };
 
+use bytes::Bytes;
+
 use cuprate_consensus_rules::{blocks::BlockError, transactions::TransactionError, ConsensusError};
+use cuprate_types::TransactionVerificationData;
 
 use crate::{
     blockchain::{manager::IncomingBlockOk, IncomingBlockError},
@@ -39,18 +42,58 @@ impl BlockState {
     }
 }
 
-/// The state the blockchain manager left a block in, unset while it is handling the block.
-type Outcome = Arc<OnceLock<BlockState>>;
+/// What the blockchain manager shares about a block it was sent.
+#[derive(Default)]
+struct Outcome {
+    /// The state the blockchain manager left the block in, unset while it is handling the block.
+    state: OnceLock<BlockState>,
+    /// The block, while it is being handled after being announced to peers.
+    announced: OnceLock<Weak<AnnouncedBlock>>,
+}
+
+/// A block announced to peers before it is in the database, kept to send them its txs.
+pub(crate) struct AnnouncedBlock {
+    /// The serialized block.
+    pub(crate) block_blob: Bytes,
+    /// The serialized txs, by hash.
+    pub(crate) txs: HashMap<[u8; 32], Bytes>,
+}
 
 /// The blockchain manager's handle to a block's [`Outcome`].
 #[derive(Default)]
-pub(crate) struct BlockOutcome(Outcome);
+pub(crate) struct BlockOutcome {
+    cell: Arc<Outcome>,
+    /// The block, if it was announced to peers while being handled.
+    announced: Option<Arc<AnnouncedBlock>>,
+}
 
 impl BlockOutcome {
+    /// Marks the block as announced to peers, so any failure is remembered and it is not announced again.
+    ///
+    /// Until the block is handled, its txs are sent to peers from here.
+    pub(crate) fn set_announced(
+        &mut self,
+        block_blob: Bytes,
+        txs: &HashMap<[u8; 32], TransactionVerificationData>,
+    ) {
+        let block = self.announced.insert(Arc::new(AnnouncedBlock {
+            block_blob,
+            txs: txs
+                .iter()
+                .map(|(hash, tx)| (*hash, Bytes::copy_from_slice(&tx.tx_blob)))
+                .collect(),
+        }));
+        let _ = self.cell.announced.set(Arc::downgrade(block));
+    }
+
     /// Record what the blockchain manager's response says about the block.
     pub(crate) fn record(&self, res: &Result<IncomingBlockOk, IncomingBlockError>) {
         let state = match res {
             Ok(IncomingBlockOk::AddedToMainChain) => BlockState::Added,
+            Err(IncomingBlockError::Validation {
+                pow_valid: true,
+                inner,
+            }) if self.announced.is_some() => BlockState::Invalid(*inner),
             Err(IncomingBlockError::Validation {
                 pow_valid: true,
                 inner,
@@ -70,19 +113,19 @@ impl BlockOutcome {
             },
             _ => BlockState::Forgotten,
         };
-        let _ = self.0.set(state);
+        let _ = self.cell.state.set(state);
     }
 }
 
 impl Drop for BlockOutcome {
     fn drop(&mut self) {
-        let _ = self.0.set(BlockState::Forgotten);
+        let _ = self.cell.state.set(BlockState::Forgotten);
     }
 }
 
 /// A block sent to the blockchain manager.
 struct KnownBlock {
-    outcome: Outcome,
+    outcome: Arc<Outcome>,
     height: usize,
     /// The length of the serialized block.
     blob_len: usize,
@@ -94,6 +137,7 @@ impl KnownBlock {
     /// Returns the block's state.
     fn state(&self) -> BlockState {
         self.outcome
+            .state
             .get()
             .copied()
             .unwrap_or(BlockState::BeingHandled)
@@ -124,6 +168,23 @@ impl KnownBlocks {
     /// Returns `true` if the given block hash is currently being handled.
     pub(crate) fn is_being_handled(&self, hash: &[u8; 32]) -> bool {
         matches!(self.state(hash), Some(BlockState::BeingHandled))
+    }
+
+    /// Returns the block with the given hash, while it is being handled after being announced to peers.
+    pub(crate) fn announced_block(&self, hash: &[u8; 32]) -> Option<Arc<AnnouncedBlock>> {
+        self.blocks
+            .read()
+            .unwrap()
+            .get(hash)?
+            .outcome
+            .announced
+            .get()?
+            .upgrade()
+    }
+
+    /// Returns `true` if the block was sent to the blockchain manager.
+    pub(crate) fn contains(&self, hash: &[u8; 32]) -> bool {
+        self.state(hash).is_some()
     }
 
     /// Returns a hash of the serialized block.
@@ -184,7 +245,7 @@ impl KnownBlocks {
 
         let outcome = BlockOutcome::default();
         entry.insert_entry(KnownBlock {
-            outcome: Arc::clone(&outcome.0),
+            outcome: Arc::clone(&outcome.cell),
             height,
             blob_len: block_blob.len(),
             blob_hash,
@@ -192,5 +253,26 @@ impl KnownBlocks {
         drop(blocks);
 
         Ok(outcome)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn announced_block_is_only_kept_while_handled() {
+        let known_blocks = KnownBlocks::default();
+        let mut outcome = known_blocks.insert([1; 32], 1, &[1]).ok().unwrap();
+        assert!(known_blocks.announced_block(&[1; 32]).is_none());
+
+        outcome.set_announced(Bytes::from_static(&[1]), &HashMap::new());
+        assert_eq!(
+            known_blocks.announced_block(&[1; 32]).unwrap().block_blob,
+            Bytes::from_static(&[1])
+        );
+
+        drop(outcome);
+        assert!(known_blocks.announced_block(&[1; 32]).is_none());
     }
 }
