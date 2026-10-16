@@ -34,8 +34,10 @@ pub enum BlockError {
     TooManyTxs,
     #[error("The block's previous ID is incorrect.")]
     PreviousIDIncorrect,
-    #[error("The block's timestamp is invalid.")]
+    #[error("The block's timestamp is below the median.")]
     TimeStampInvalid,
+    #[error("The block's timestamp is too far in the future.")]
+    TimeStampInFuture,
     #[error("The block contains a duplicate transaction.")]
     DuplicateTransaction,
     #[error("The transactions passed in with the block are incorrect.")]
@@ -192,10 +194,10 @@ fn check_prev_id(block: &Block, top_hash: &[u8; 32]) -> Result<(), BlockError> {
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#timestamp>
 pub fn check_timestamp(block: &Block, median_timestamp: Option<u64>) -> Result<(), BlockError> {
-    if block.header.timestamp > current_unix_timestamp() + BLOCK_FUTURE_TIME_LIMIT
-        || median_timestamp.is_some_and(|median| block.header.timestamp < median)
-    {
+    if median_timestamp.is_some_and(|median| block.header.timestamp < median) {
         Err(BlockError::TimeStampInvalid)
+    } else if block.header.timestamp > current_unix_timestamp() + BLOCK_FUTURE_TIME_LIMIT {
+        Err(BlockError::TimeStampInFuture)
     } else {
         Ok(())
     }
@@ -236,6 +238,23 @@ pub struct ContextToVerifyBlock {
     pub already_generated_coins: u64,
 }
 
+/// Checks the block's header is valid returning the block's hard-fork `VOTE`.
+pub fn check_block_header(
+    block: &Block,
+    block_chain_ctx: &ContextToVerifyBlock,
+) -> Result<HardFork, BlockError> {
+    let (version, vote) =
+        HardFork::from_block_header(&block.header).map_err(|_| HardForkError::HardForkUnknown)?;
+
+    check_block_version_vote(&block_chain_ctx.current_hf, &version, &vote)?;
+
+    check_timestamp(block, block_chain_ctx.median_block_timestamp)?;
+
+    check_prev_id(block, &block_chain_ctx.top_hash)?;
+
+    Ok(vote)
+}
+
 /// Checks the block is valid returning the block's hard-fork `VOTE` and the amount of coins generated in this block.
 ///
 /// This does not check the POW nor does it calculate the POW hash, this is because checking POW is very expensive and
@@ -255,14 +274,7 @@ pub fn check_block(
     block_blob_len: usize,
     block_chain_ctx: &ContextToVerifyBlock,
 ) -> Result<(HardFork, u64), BlockError> {
-    let (version, vote) =
-        HardFork::from_block_header(&block.header).map_err(|_| HardForkError::HardForkUnknown)?;
-
-    check_block_version_vote(&block_chain_ctx.current_hf, &version, &vote)?;
-
-    check_timestamp(block, block_chain_ctx.median_block_timestamp)?;
-
-    check_prev_id(block, &block_chain_ctx.top_hash)?;
+    let vote = check_block_header(block, block_chain_ctx)?;
 
     check_block_weight(block_weight, block_chain_ctx.median_weight_for_block_reward)?;
     block_size_sanity_check(block_blob_len, block_chain_ctx.effective_median_weight)?;

@@ -1,4 +1,5 @@
 use std::{
+    collections::{HashMap, HashSet},
     future::{ready, Ready},
     task::{Context, Poll},
 };
@@ -13,12 +14,14 @@ use tokio::sync::oneshot;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
-use cuprate_blockchain::service::BlockchainReadHandle;
+use cuprate_blockchain::{service::BlockchainReadHandle, BlockchainError};
 use cuprate_consensus::BlockchainContextService;
 use cuprate_dandelion_tower::TxState;
 use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_helper::{
-    asynch::rayon_spawn_async, cast::usize_to_u64, map::split_u128_into_low_high_bits,
+    asynch::rayon_spawn_async,
+    cast::{u64_to_usize, usize_to_u64},
+    map::split_u128_into_low_high_bits,
 };
 use cuprate_p2p::constants::{
     MAX_BLOCKS_IDS_IN_CHAIN_ENTRY, MAX_BLOCK_BATCH_LEN, MAX_TRANSACTION_BLOB_SIZE, MEDIUM_BAN,
@@ -39,6 +42,7 @@ use cuprate_wire::protocol::{
 
 use crate::{
     blockchain::{interface::BlockchainManagerHandle, IncomingBlockError},
+    constants::MAX_INCOMING_BLOCK_DEPTH,
     p2p::CrossNetworkInternalPeerId,
     txpool::{IncomingTxError, IncomingTxHandler, IncomingTxs},
 };
@@ -135,9 +139,12 @@ where
             ProtocolRequest::GetChain(r) => {
                 get_chain(r, self.blockchain_read_handle.clone()).boxed()
             }
-            ProtocolRequest::FluffyMissingTxs(r) => {
-                fluffy_missing_txs(r, self.blockchain_read_handle.clone()).boxed()
-            }
+            ProtocolRequest::FluffyMissingTxs(r) => fluffy_missing_txs(
+                r,
+                self.blockchain_read_handle.clone(),
+                self.blockchain_manager.clone(),
+            )
+            .boxed(),
             ProtocolRequest::NewBlock(_) => ready(Err(anyhow::anyhow!(
                 "Peer sent a full block when we support fluffy blocks"
             )))
@@ -255,6 +262,7 @@ async fn get_chain(
 async fn fluffy_missing_txs(
     mut request: FluffyMissingTransactionsRequest,
     mut blockchain_read_handle: BlockchainReadHandle,
+    blockchain_manager: BlockchainManagerHandle,
 ) -> anyhow::Result<ProtocolResponse> {
     let tx_indexes = std::mem::take(&mut request.missing_tx_indices);
     let block_hash: [u8; 32] = *request.block_hash;
@@ -263,32 +271,68 @@ async fn fluffy_missing_txs(
     // deallocate the backing `Bytes`.
     drop(request);
 
-    let BlockchainResponse::TxsInBlock(res) = blockchain_read_handle
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::TxsInBlock {
-            block_hash,
-            tx_indexes,
-        })
-        .await?
-    else {
-        unreachable!();
-    };
+    // A block is announced to peers before it is in the database.
+    let known_blocks = blockchain_manager.known_blocks();
+    let (block, txs) = if let Some(block) = known_blocks.announced_block(&block_hash) {
+        let txs = announced_block_txs(&block.block_blob, &block.txs, &tx_indexes)?;
+        (block.block_blob.clone(), txs)
+    } else {
+        let response = blockchain_read_handle
+            .ready()
+            .await?
+            .call(BlockchainReadRequest::TxsInBlock {
+                block_hash,
+                tx_indexes,
+            })
+            .await;
+        // A peer is not dropped for asking for a block that we handled and did not add.
+        if matches!(response, Err(BlockchainError::NotFound)) && known_blocks.contains(&block_hash)
+        {
+            return Ok(ProtocolResponse::NA);
+        }
+        let BlockchainResponse::TxsInBlock(res) = response? else {
+            unreachable!();
+        };
 
-    let Some(TxsInBlock { block, txs }) = res else {
-        anyhow::bail!("The peer requested txs out of range.");
+        let Some(TxsInBlock { block, txs }) = res else {
+            anyhow::bail!("The peer requested txs out of range.");
+        };
+
+        (
+            Bytes::from(block),
+            txs.into_iter().map(Bytes::from).collect(),
+        )
     };
 
     Ok(ProtocolResponse::NewFluffyBlock(NewFluffyBlock {
         b: BlockCompleteEntry {
-            block: Bytes::from(block),
-            txs: TransactionBlobs::Normal(txs.into_iter().map(Bytes::from).collect()),
+            block,
+            txs: TransactionBlobs::Normal(txs),
             pruned: false,
             // only needed for pruned blocks.
             block_weight: 0,
         },
         current_blockchain_height,
     }))
+}
+
+/// Returns the txs at `tx_indexes` of a block announced to peers before it is in the database.
+fn announced_block_txs(
+    mut block_blob: &[u8],
+    txs: &HashMap<[u8; 32], Bytes>,
+    tx_indexes: &[u64],
+) -> anyhow::Result<Vec<Bytes>> {
+    let block_txs = Block::read(&mut block_blob)?.transactions;
+    // Like the database, which bounds the response to the block's size.
+    if tx_indexes.len() > block_txs.len() {
+        anyhow::bail!("The peer requested txs out of range.");
+    }
+
+    tx_indexes
+        .iter()
+        .map(|index| txs.get(block_txs.get(u64_to_usize(*index))?).cloned())
+        .collect::<Option<_>>()
+        .ok_or_else(|| anyhow::anyhow!("The peer requested txs out of range."))
 }
 
 /// [`ProtocolRequest::NewFluffyBlock`]
@@ -308,14 +352,31 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         .unwrap()
         .current_height = current_blockchain_height;
 
+    // A known block can be ignored before it is parsed, along with any txs sent with it.
+    let top_hash = blockchain_context_service.blockchain_context().top_hash;
+    if blockchain_manager
+        .known_blocks()
+        .is_blob_known(&request.b.block, &top_hash)
+    {
+        return Ok(ProtocolResponse::NA);
+    }
+
     let (block, txs) = rayon_spawn_async(move || -> Result<_, anyhow::Error> {
-        let block = Block::read(&mut request.b.block.as_ref())?;
+        let mut block_blob = request.b.block.as_ref();
+        let block = Block::read(&mut block_blob)?;
+        if !block_blob.is_empty() {
+            anyhow::bail!("Peer sent a block with trailing bytes.");
+        }
 
         let tx_blobs = request
             .b
             .txs
             .take_normal()
             .ok_or(anyhow::anyhow!("Peer sent pruned txs in fluffy block"))?;
+
+        if tx_blobs.len() > block.transactions.len() {
+            anyhow::bail!("Peer sent more txs than the block has.");
+        }
 
         let txs = tx_blobs
             .into_iter()
@@ -337,12 +398,18 @@ async fn new_fluffy_block<A: NetZoneAddress>(
     .await?;
 
     let context = blockchain_context_service.blockchain_context();
-    if block.number() + 10 < context.chain_height {
+    if block.number() + MAX_INCOMING_BLOCK_DEPTH < context.chain_height {
         tracing::debug!(
             our_height = context.chain_height,
             block_height = block.number(),
             "fluffy block too old, ignoring."
         );
+        return Ok(ProtocolResponse::NA);
+    }
+
+    let mut tx_hashes = HashSet::with_capacity(block.transactions.len());
+    if !block.transactions.iter().all(|hash| tx_hashes.insert(hash)) {
+        tracing::debug!("fluffy block has duplicate txs, ignoring.");
         return Ok(ProtocolResponse::NA);
     }
 
@@ -456,5 +523,49 @@ where
             Ok(ProtocolResponse::NA)
         }
         Err(e) => Err(e.into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use monero_oxide::{
+        block::BlockHeader,
+        transaction::{Input, Timelock, TransactionPrefix},
+    };
+
+    use super::*;
+
+    #[test]
+    fn announced_block_txs_are_in_requested_order() {
+        let miner_tx = Transaction::V2 {
+            prefix: TransactionPrefix {
+                additional_timelock: Timelock::None,
+                inputs: vec![Input::Gen(1)],
+                outputs: vec![],
+                extra: vec![],
+            },
+            proofs: None,
+        };
+        let header = BlockHeader {
+            hardfork_version: 16,
+            hardfork_signal: 16,
+            timestamp: 0,
+            previous: [0; 32],
+            nonce: 0,
+        };
+        let block_blob = Block::new(header, miner_tx, vec![[2; 32], [3; 32]])
+            .unwrap()
+            .serialize();
+        let txs = HashMap::from([
+            ([2; 32], Bytes::from_static(&[2])),
+            ([3; 32], Bytes::from_static(&[3])),
+        ]);
+
+        assert_eq!(
+            announced_block_txs(&block_blob, &txs, &[1, 0]).unwrap(),
+            [Bytes::from_static(&[3]), Bytes::from_static(&[2])]
+        );
+        assert!(announced_block_txs(&block_blob, &txs, &[2]).is_err());
+        assert!(announced_block_txs(&block_blob, &txs, &[0, 0, 0]).is_err());
     }
 }
