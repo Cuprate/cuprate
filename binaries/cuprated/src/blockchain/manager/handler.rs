@@ -121,22 +121,27 @@ impl super::BlockchainManager {
                 .top_hash
         {
             let block_hash = block.hash();
-            let res = self.handle_incoming_alt_block(block, prepared_txs).await?;
+            let block_blob = match self.handle_incoming_alt_block(block, prepared_txs).await? {
+                AddAltBlock::NewlyCached(block_blob) => {
+                    info!(
+                        alt_block = true,
+                        hash = hex::encode(block_hash),
+                        "Successfully added block"
+                    );
+                    block_blob
+                }
+                AddAltBlock::Reorged(block_blob) => block_blob,
+                AddAltBlock::AlreadyCached | AddAltBlock::AlreadyInMainChain => {
+                    return Ok(IncomingBlockOk::AddedToAltChain);
+                }
+            };
 
-            if let AddAltBlock::NewlyCached(block_blob) = res {
-                info!(
-                    alt_block = true,
-                    hash = hex::encode(block_hash),
-                    "Successfully added block"
-                );
+            let chain_height = self
+                .blockchain_context_service
+                .blockchain_context()
+                .chain_height;
 
-                let chain_height = self
-                    .blockchain_context_service
-                    .blockchain_context()
-                    .chain_height;
-
-                self.broadcast_block(block_blob, chain_height).await;
-            }
+            self.broadcast_block(block_blob, chain_height).await;
 
             return Ok(IncomingBlockOk::AddedToAltChain);
         }
@@ -401,7 +406,7 @@ impl super::BlockchainManager {
                     self.stop_current_block_downloader.notify_waiters();
                     return Ok(());
                 }
-                Ok(AddAltBlock::Reorged) => {
+                Ok(AddAltBlock::Reorged(_)) => {
                     // Collect the remaining blocks and add them to the main chain instead.
                     batch.blocks = blocks.collect();
 
@@ -464,6 +469,8 @@ impl super::BlockchainManager {
             sanity_check_alt_block(block, prepared_txs, self.blockchain_context_service.clone())
                 .await?;
 
+        let block_blob = Bytes::copy_from_slice(&alt_block_info.block_blob);
+
         // If this alt chain has more cumulative difficulty, reorg.
         if alt_block_info.cumulative_difficulty
             > self
@@ -474,10 +481,9 @@ impl super::BlockchainManager {
             self.try_do_reorg(alt_block_info)
                 .await
                 .map_err(BlockVerificationError::valid_pow)?;
-            return Ok(AddAltBlock::Reorged);
+            return Ok(AddAltBlock::Reorged(block_blob));
         }
 
-        let block_blob = Bytes::copy_from_slice(&alt_block_info.block_blob);
         self.blockchain_write_handle
             .ready()
             .await
@@ -797,8 +803,8 @@ enum AddAltBlock {
     AlreadyInMainChain,
     /// The alt-block was newly cached. Contains the block blob.
     NewlyCached(Bytes),
-    /// The chain was reorged.
-    Reorged,
+    /// The chain was reorged. Contains the block blob.
+    Reorged(Bytes),
 }
 
 /// Creates a [`VerifiedBlockInformation`] from an alt-block known to be valid.
