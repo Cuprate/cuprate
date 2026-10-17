@@ -13,7 +13,10 @@ use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::{service::BlockchainReadHandle, BlockchainError};
 use cuprate_consensus::{block::BlockVerificationError, transactions::new_tx_verification_data};
-use cuprate_consensus_rules::{blocks::BlockError, ConsensusError};
+use cuprate_consensus_rules::{
+    blocks::{check_timestamp, BlockError},
+    ConsensusError,
+};
 use cuprate_txpool::service::{
     interface::{TxpoolReadRequest, TxpoolReadResponse},
     TxpoolReadHandle,
@@ -69,6 +72,7 @@ impl BlockchainManagerHandle {
     ///
     /// This function will return an error if:
     ///  - the block was invalid
+    ///  - the block's timestamp is too far in the future
     ///  - we are missing transactions
     ///  - a given transaction is not in the block
     ///  - the block's parent is unknown
@@ -89,6 +93,9 @@ impl BlockchainManagerHandle {
         if block_exists(block_hash, blockchain_read_handle).await? {
             return Ok(IncomingBlockOk::AlreadyHave);
         }
+
+        // Only the future limit, as the median needs the parent chain.
+        check_timestamp(&block, None).map_err(|_| IncomingBlockError::InFuture)?;
 
         // Don't keep this while the block waits for the manager.
         {
