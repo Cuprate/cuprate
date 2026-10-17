@@ -37,6 +37,10 @@ pub enum IncomingBlockError {
     #[error("Transactions given that are not in the block.")]
     TxsNotInBlock,
 
+    /// The block's timestamp is too far in the future.
+    #[error("The block's timestamp is too far in the future.")]
+    InFuture,
+
     /// The blockchain manager command channel is closed.
     #[error("The blockchain manager command channel is closed.")]
     ChannelClosed,

@@ -368,6 +368,11 @@ async fn new_fluffy_block<A: NetZoneAddress>(
                 missing_tx_indices: missing_tx_indices.into_iter().map(usize_to_u64).collect(),
             }),
         ),
+        Err(IncomingBlockError::InFuture) => {
+            // The peer's clock may be ahead of ours.
+            tracing::debug!("fluffy block too far in the future, ignoring.");
+            Ok(ProtocolResponse::NA)
+        }
         Err(IncomingBlockError::Orphan) => {
             // Block's parent was unknown, could be syncing?
             Ok(ProtocolResponse::NA)
