@@ -37,6 +37,14 @@ pub enum IncomingBlockError {
     #[error("Too many transactions given for block.")]
     TooManyTxs,
 
+    /// The block has duplicate transactions.
+    #[error("The block has duplicate transactions.")]
+    DuplicateTxs,
+
+    /// The block's timestamp is too far in the future.
+    #[error("The block's timestamp is too far in the future.")]
+    InFuture,
+
     /// The blockchain manager command channel is closed.
     #[error("The blockchain manager command channel is closed.")]
     ChannelClosed,
