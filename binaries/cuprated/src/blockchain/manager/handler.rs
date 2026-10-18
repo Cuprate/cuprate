@@ -16,6 +16,7 @@ use cuprate_consensus::{
     BlockChainContextRequest, ExtendedConsensusError, VerificationContext,
 };
 use cuprate_consensus_context::{distribution::rct_output_count, BlockchainContext, NewBlockData};
+use cuprate_consensus_rules::{blocks::BlockError, ConsensusError};
 use cuprate_fast_sync::{block_to_verified_block_information, fast_sync_stop_height};
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p::{block_downloader::BlockBatch, constants::MEDIUM_BAN, BroadcastRequest};
@@ -115,12 +116,19 @@ impl super::BlockchainManager {
             let block_hash = block.hash();
             let (block_blob, res) = match self
                 .handle_incoming_alt_block(block, prepared_txs)
-                .await?
+                .await
+                .map_err(IncomingBlockError::from)
             {
-                AddAltBlock::AlreadyCached | AddAltBlock::AlreadyInMainChain => {
+                // A reorg or pop can remove the block's parent while the block waits to be handled.
+                Err(IncomingBlockError::Validation {
+                    pow_valid: false,
+                    inner: ConsensusError::Block(BlockError::PreviousIDIncorrect),
+                }) => return Err(IncomingBlockError::Orphan),
+                Err(e) => return Err(e),
+                Ok(AddAltBlock::AlreadyCached | AddAltBlock::AlreadyInMainChain) => {
                     return Ok(IncomingBlockOk::AlreadyHave);
                 }
-                AddAltBlock::NewlyCached(block_blob) => {
+                Ok(AddAltBlock::NewlyCached(block_blob)) => {
                     info!(
                         alt_block = true,
                         hash = hex::encode(block_hash),
@@ -128,7 +136,9 @@ impl super::BlockchainManager {
                     );
                     (block_blob, IncomingBlockOk::AddedToAltChain)
                 }
-                AddAltBlock::Reorged(block_blob) => (block_blob, IncomingBlockOk::AddedToMainChain),
+                Ok(AddAltBlock::Reorged(block_blob)) => {
+                    (block_blob, IncomingBlockOk::AddedToMainChain)
+                }
             };
 
             let chain_height = self
