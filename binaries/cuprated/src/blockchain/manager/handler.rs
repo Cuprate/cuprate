@@ -457,19 +457,14 @@ impl super::BlockchainManager {
             sanity_check_alt_block(block, prepared_txs, self.blockchain_context_service.clone())
                 .await?;
 
-        // If this alt chain has more cumulative difficulty, reorg.
-        if alt_block_info.cumulative_difficulty
+        let chain_id = alt_block_info.chain_id;
+        let reorg = alt_block_info.cumulative_difficulty
             > self
                 .blockchain_context_service
                 .blockchain_context()
-                .cumulative_difficulty
-        {
-            self.try_do_reorg(alt_block_info)
-                .await
-                .map_err(BlockVerificationError::valid_pow)?;
-            return Ok(AddAltBlock::Reorged);
-        }
+                .cumulative_difficulty;
 
+        // The block is written first, so a reorg reads its whole chain from the database.
         let block_blob = Bytes::copy_from_slice(&alt_block_info.block_blob);
         self.blockchain_write_handle
             .ready()
@@ -479,10 +474,18 @@ impl super::BlockchainManager {
             .await
             .map_err(|e| BlockVerificationError::fatal(e.into()))?;
 
+        // If this alt chain has more cumulative difficulty, reorg.
+        if reorg {
+            self.try_do_reorg(chain_id)
+                .await
+                .map_err(BlockVerificationError::valid_pow)?;
+            return Ok(AddAltBlock::Reorged);
+        }
+
         Ok(AddAltBlock::NewlyCached(block_blob))
     }
 
-    /// Attempt a re-org with the given top block of the alt-chain.
+    /// Attempt a re-org to the alt-chain with the given [`ChainId`].
     ///
     /// This function will take a write lock on `reorg_lock` and then set up the blockchain database
     /// and context cache to verify the alt-chain. It will then attempt to verify and add each block
@@ -493,26 +496,19 @@ impl super::BlockchainManager {
     /// This function will return an [`Err`] if any internal service returns an unexpected error,
     /// or if the re-org was unsuccessful. The old chain is restored when available.
     #[instrument(name = "try_do_reorg", skip_all, level = "info")]
-    async fn try_do_reorg(
-        &mut self,
-        top_alt_block: AltBlockInformation,
-    ) -> Result<(), ExtendedConsensusError> {
+    async fn try_do_reorg(&mut self, chain_id: ChainId) -> Result<(), ExtendedConsensusError> {
         let reorg_lock = Arc::clone(&self.reorg_lock);
         let _guard = reorg_lock.write().await;
 
-        let BlockchainResponse::AltBlocksInChain(mut alt_blocks) = self
+        let BlockchainResponse::AltBlocksInChain(alt_blocks) = self
             .blockchain_read_handle
             .ready()
             .await?
-            .call(BlockchainReadRequest::AltBlocksInChain(
-                top_alt_block.chain_id,
-            ))
+            .call(BlockchainReadRequest::AltBlocksInChain(chain_id))
             .await?
         else {
             unreachable!();
         };
-
-        alt_blocks.push(top_alt_block);
 
         let split_height = alt_blocks[0].height;
         let current_main_chain_height = self
