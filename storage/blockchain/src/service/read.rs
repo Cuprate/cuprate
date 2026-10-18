@@ -1045,8 +1045,9 @@ fn database_size(db: &BlockchainDatabase) -> BlockchainResponse {
     };
     let database_size = blob_size + index_size;
 
-    // TODO:
-    let free_space = u64::MAX;
+    // If the free space cannot be read, e.g. the PATH no longer exists, fall back to
+    // `u64::MAX` which is what restricted RPC returns and what this used to return.
+    let free_space = cuprate_helper::fs::free_space(&db.config.blob_dir).unwrap_or(u64::MAX);
 
     BlockchainResponse::DatabaseSize {
         database_size,

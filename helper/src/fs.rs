@@ -258,6 +258,79 @@ pub fn set_private_global_file_permissions() {
     }
 }
 
+/// Returns the free space, in bytes, available to the current user on the filesystem
+/// that holds `path`.
+///
+/// This uses `statvfs` on Unix and `GetDiskFreeSpaceExW` on Windows.
+///
+/// # Errors
+///
+/// This returns an error if the free space of `path` cannot be read, for example
+/// if `path` does not exist, or if the platform is not supported.
+pub fn free_space(path: &Path) -> std::io::Result<u64> {
+    #[cfg(target_family = "unix")]
+    {
+        use std::{
+            ffi::CString,
+            io::{Error, ErrorKind},
+            mem::MaybeUninit,
+            os::unix::ffi::OsStrExt,
+        };
+
+        let c_path = CString::new(path.as_os_str().as_bytes())
+            .map_err(|_| Error::new(ErrorKind::InvalidInput, "PATH contains a null byte"))?;
+
+        // SAFETY: `c_path` is a valid NUL-terminated C string and `statvfs` only
+        // writes to the pointer we give it, which points to a valid `statvfs`.
+        let stat = unsafe {
+            let mut stat = MaybeUninit::<target_os_lib::statvfs>::uninit();
+
+            if target_os_lib::statvfs(c_path.as_ptr(), stat.as_mut_ptr()) != 0 {
+                return Err(Error::last_os_error());
+            }
+
+            stat.assume_init()
+        };
+
+        // `f_frsize` is the size of a filesystem block and `f_bavail` is the amount of
+        // blocks available to unprivileged users.
+        #[expect(
+            clippy::useless_conversion,
+            reason = "`f_bavail` and `f_frsize` are `u32` on 32-bit targets"
+        )]
+        let free = u64::from(stat.f_bavail) * u64::from(stat.f_frsize);
+
+        Ok(free)
+    }
+
+    #[cfg(target_family = "windows")]
+    {
+        use std::os::windows::ffi::OsStrExt;
+
+        use target_os_lib::{core::PCWSTR, Win32::Storage::FileSystem::GetDiskFreeSpaceExW};
+
+        let wide_path: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+        let mut free = 0_u64;
+
+        // SAFETY: `wide_path` is a NUL-terminated wide string and `free` is a valid pointer.
+        let res =
+            unsafe { GetDiskFreeSpaceExW(PCWSTR(wide_path.as_ptr()), Some(&mut free), None, None) };
+
+        res.map(|()| free)
+            .map_err(|e| std::io::Error::from_raw_os_error(e.code().0))
+    }
+
+    #[cfg(not(any(target_family = "unix", target_family = "windows")))]
+    {
+        let _ = path;
+
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "reading the free space is not supported on this platform",
+        ))
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
@@ -298,5 +371,15 @@ mod test {
             assert!(path.is_absolute());
             assert!(path.ends_with(expected));
         }
+    }
+
+    // `free_space()` should return the free space of the filesystem holding a PATH,
+    // and should error when given a PATH that does not exist.
+    #[test]
+    fn free_space_sanity_check() {
+        let free = free_space(&std::env::temp_dir()).unwrap();
+        assert!(free > 0);
+
+        assert!(free_space(Path::new("/cuprate/this/PATH/does/not/exist")).is_err());
     }
 }
