@@ -34,8 +34,10 @@ pub enum BlockError {
     TooManyTxs,
     #[error("The block's previous ID is incorrect.")]
     PreviousIDIncorrect,
-    #[error("The block's timestamp is invalid.")]
+    #[error("The block's timestamp is below the median.")]
     TimeStampInvalid,
+    #[error("The block's timestamp is too far in the future.")]
+    TimeStampInFuture,
     #[error("The block contains a duplicate transaction.")]
     DuplicateTransaction,
     #[error("The transactions passed in with the block are incorrect.")]
@@ -192,9 +194,9 @@ fn check_prev_id(block: &Block, top_hash: &[u8; 32]) -> Result<(), BlockError> {
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#timestamp>
 pub fn check_timestamp(block: &Block, median_timestamp: Option<u64>) -> Result<(), BlockError> {
-    if block.header.timestamp > current_unix_timestamp() + BLOCK_FUTURE_TIME_LIMIT
-        || median_timestamp.is_some_and(|median| block.header.timestamp < median)
-    {
+    if block.header.timestamp > current_unix_timestamp() + BLOCK_FUTURE_TIME_LIMIT {
+        Err(BlockError::TimeStampInFuture)
+    } else if median_timestamp.is_some_and(|median| block.header.timestamp < median) {
         Err(BlockError::TimeStampInvalid)
     } else {
         Ok(())

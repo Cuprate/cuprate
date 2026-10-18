@@ -48,9 +48,11 @@ impl super::BlockchainManager {
                 block,
                 prepped_txs,
                 response_tx,
+                outcome,
             } => match self.handle_incoming_block(block, prepped_txs).await {
                 Err(IncomingBlockError::Fatal(e)) => return Err(e),
                 res => {
+                    outcome.record(&res);
                     let _ = response_tx.send(res);
                 }
             },
@@ -113,24 +115,28 @@ impl super::BlockchainManager {
                 .top_hash
         {
             let block_hash = block.hash();
-            let res = self.handle_incoming_alt_block(block, prepared_txs).await?;
+            return match self.handle_incoming_alt_block(block, prepared_txs).await? {
+                AddAltBlock::Reorged => Ok(IncomingBlockOk::AddedToMainChain),
+                AddAltBlock::NewlyCached(block_blob) => {
+                    info!(
+                        alt_block = true,
+                        hash = hex::encode(block_hash),
+                        "Successfully added block"
+                    );
 
-            if let AddAltBlock::NewlyCached(block_blob) = res {
-                info!(
-                    alt_block = true,
-                    hash = hex::encode(block_hash),
-                    "Successfully added block"
-                );
+                    let chain_height = self
+                        .blockchain_context_service
+                        .blockchain_context()
+                        .chain_height;
 
-                let chain_height = self
-                    .blockchain_context_service
-                    .blockchain_context()
-                    .chain_height;
+                    self.broadcast_block(block_blob, chain_height).await;
 
-                self.broadcast_block(block_blob, chain_height).await;
-            }
-
-            return Ok(IncomingBlockOk::AddedToAltChain);
+                    Ok(IncomingBlockOk::AddedToAltChain)
+                }
+                AddAltBlock::AlreadyCached | AddAltBlock::AlreadyInMainChain => {
+                    Ok(IncomingBlockOk::AlreadyHave)
+                }
+            };
         }
 
         let verified_block = verify_main_chain_block(
