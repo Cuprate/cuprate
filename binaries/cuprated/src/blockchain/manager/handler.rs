@@ -16,6 +16,7 @@ use cuprate_consensus::{
     BlockChainContextRequest, ExtendedConsensusError, VerificationContext,
 };
 use cuprate_consensus_context::{distribution::rct_output_count, BlockchainContext, NewBlockData};
+use cuprate_consensus_rules::{blocks::BlockError, ConsensusError};
 use cuprate_fast_sync::{block_to_verified_block_information, fast_sync_stop_height};
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p::{block_downloader::BlockBatch, constants::MEDIUM_BAN, BroadcastRequest};
@@ -113,7 +114,18 @@ impl super::BlockchainManager {
                 .top_hash
         {
             let block_hash = block.hash();
-            let res = self.handle_incoming_alt_block(block, prepared_txs).await?;
+            let res = match self
+                .handle_incoming_alt_block(block, prepared_txs)
+                .await
+                .map_err(IncomingBlockError::from)
+            {
+                // A reorg or pop can remove the block's parent while the block waits to be handled.
+                Err(IncomingBlockError::Validation {
+                    inner: ConsensusError::Block(BlockError::PreviousIDIncorrect),
+                    ..
+                }) => return Err(IncomingBlockError::Orphan),
+                res => res?,
+            };
 
             if let AddAltBlock::NewlyCached(block_blob) = res {
                 info!(
