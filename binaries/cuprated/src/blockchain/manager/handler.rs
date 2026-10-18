@@ -33,7 +33,34 @@ use crate::{
     monitor::FatalError,
 };
 
+/// Progress against the current peer target, with both heights expressed as block counts.
+fn sync_progress(chain_height: u64, target_height: u64) -> (Option<String>, Option<u64>) {
+    if target_height == 0 {
+        return (None, None);
+    }
+
+    // Use integer hundredths to avoid rounding an incomplete sync up to 100%.
+    let hundredths =
+        u128::from(chain_height.min(target_height)) * 10_000 / u128::from(target_height);
+    (
+        Some(format!("{}.{:02}%", hundredths / 100, hundredths % 100)),
+        Some(target_height.saturating_sub(chain_height)),
+    )
+}
+
 impl super::BlockchainManager {
+    /// Read progress after successfully updating the main chain.
+    fn sync_progress(&mut self) -> (Option<String>, Option<u64>) {
+        sync_progress(
+            usize_to_u64(
+                self.blockchain_context_service
+                    .blockchain_context()
+                    .chain_height,
+            ),
+            self.syncer.target_height(),
+        )
+    }
+
     /// Handle an incoming command from another part of Cuprate.
     ///
     /// # Errors
@@ -144,7 +171,10 @@ impl super::BlockchainManager {
         self.add_valid_block_to_main_chain(verified_block, BlockSource::Incoming)
             .await?;
 
+        let (sync_percent, blocks_remaining) = self.sync_progress();
         info!(
+            sync_percent = sync_percent.as_deref(),
+            blocks_remaining,
             hash = hex::encode(
                 self.blockchain_context_service
                     .blockchain_context()
@@ -291,14 +321,22 @@ impl super::BlockchainManager {
                 .await?;
         }
 
+        let (sync_percent, blocks_remaining) = self.sync_progress();
         if error {
             info!(
+                sync_percent = sync_percent.as_deref(),
+                blocks_remaining,
                 valid_blocks = valid_blocks_len,
                 fast_sync = false,
                 "Partially added block batch"
             );
         } else {
-            info!(fast_sync = false, "Successfully added block batch");
+            info!(
+                sync_percent = sync_percent.as_deref(),
+                blocks_remaining,
+                fast_sync = false,
+                "Successfully added block batch"
+            );
         }
         Ok(())
     }
@@ -328,7 +366,13 @@ impl super::BlockchainManager {
         self.batch_add_valid_block_to_blockchain_database(valid_blocks)
             .await?;
 
-        info!(fast_sync = true, "Successfully added block batch");
+        let (sync_percent, blocks_remaining) = self.sync_progress();
+        info!(
+            sync_percent = sync_percent.as_deref(),
+            blocks_remaining,
+            fast_sync = true,
+            "Successfully added block batch"
+        );
         Ok(())
     }
 
@@ -844,5 +888,35 @@ fn alt_block_to_verified_block_information(
         cumulative_difficulty: blockchain_ctx.cumulative_difficulty
             + blockchain_ctx.next_difficulty,
         block: block.block,
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::sync_progress;
+
+    #[test]
+    fn sync_progress_counts_blocks() {
+        assert_eq!(sync_progress(1, 4), (Some("25.00%".into()), Some(3)));
+        assert_eq!(
+            sync_progress(3_402_414, 3_402_565),
+            (Some("99.99%".into()), Some(151))
+        );
+        assert_eq!(sync_progress(0, 4), (Some("0.00%".into()), Some(4)));
+        assert_eq!(
+            sync_progress(u64::MAX - 1, u64::MAX),
+            (Some("99.99%".into()), Some(1))
+        );
+    }
+
+    #[test]
+    fn sync_progress_handles_unknown_and_reached_targets() {
+        assert_eq!(sync_progress(10, 0), (None, None));
+        assert_eq!(sync_progress(10, 10), (Some("100.00%".into()), Some(0)));
+        assert_eq!(sync_progress(11, 10), (Some("100.00%".into()), Some(0)));
+        assert_eq!(
+            sync_progress(u64::MAX, u64::MAX),
+            (Some("100.00%".into()), Some(0))
+        );
     }
 }
