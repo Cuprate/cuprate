@@ -34,6 +34,30 @@ use crate::{
 };
 
 impl super::BlockchainManager {
+    /// Progress against the current peer target, read after successfully updating the main chain.
+    ///
+    /// Both heights are block counts.
+    fn sync_progress(&mut self) -> (Option<String>, Option<u64>) {
+        let target_height = self.syncer.target_height();
+        if target_height == 0 {
+            return (None, None);
+        }
+
+        let chain_height = usize_to_u64(
+            self.blockchain_context_service
+                .blockchain_context()
+                .chain_height,
+        );
+
+        // Use integer hundredths to avoid rounding an incomplete sync up to 100%.
+        let hundredths =
+            u128::from(chain_height.min(target_height)) * 10_000 / u128::from(target_height);
+        (
+            Some(format!("{}.{:02}%", hundredths / 100, hundredths % 100)),
+            Some(target_height.saturating_sub(chain_height)),
+        )
+    }
+
     /// Handle an incoming command from another part of Cuprate.
     ///
     /// # Errors
@@ -144,7 +168,10 @@ impl super::BlockchainManager {
         self.add_valid_block_to_main_chain(verified_block, BlockSource::Incoming)
             .await?;
 
+        let (sync_percent, blocks_remaining) = self.sync_progress();
         info!(
+            sync_percent = sync_percent.as_deref(),
+            blocks_remaining,
             hash = hex::encode(
                 self.blockchain_context_service
                     .blockchain_context()
@@ -291,14 +318,22 @@ impl super::BlockchainManager {
                 .await?;
         }
 
+        let (sync_percent, blocks_remaining) = self.sync_progress();
         if error {
             info!(
+                sync_percent = sync_percent.as_deref(),
+                blocks_remaining,
                 valid_blocks = valid_blocks_len,
                 fast_sync = false,
                 "Partially added block batch"
             );
         } else {
-            info!(fast_sync = false, "Successfully added block batch");
+            info!(
+                sync_percent = sync_percent.as_deref(),
+                blocks_remaining,
+                fast_sync = false,
+                "Successfully added block batch"
+            );
         }
         Ok(())
     }
@@ -328,7 +363,13 @@ impl super::BlockchainManager {
         self.batch_add_valid_block_to_blockchain_database(valid_blocks)
             .await?;
 
-        info!(fast_sync = true, "Successfully added block batch");
+        let (sync_percent, blocks_remaining) = self.sync_progress();
+        info!(
+            sync_percent = sync_percent.as_deref(),
+            blocks_remaining,
+            fast_sync = true,
+            "Successfully added block batch"
+        );
         Ok(())
     }
 
