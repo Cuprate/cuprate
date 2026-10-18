@@ -16,6 +16,7 @@ use cuprate_consensus::{
     BlockChainContextRequest, ExtendedConsensusError, VerificationContext,
 };
 use cuprate_consensus_context::{distribution::rct_output_count, BlockchainContext, NewBlockData};
+use cuprate_consensus_rules::{blocks::BlockError, ConsensusError};
 use cuprate_fast_sync::{block_to_verified_block_information, fast_sync_stop_height};
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p::{block_downloader::BlockBatch, constants::MEDIUM_BAN, BroadcastRequest};
@@ -117,6 +118,7 @@ impl super::BlockchainManager {
                 .handle_incoming_alt_block(block, prepared_txs)
                 .await?
             {
+                AddAltBlock::Orphan => return Err(IncomingBlockError::Orphan),
                 AddAltBlock::AlreadyCached | AddAltBlock::AlreadyInMainChain => {
                     return Ok(IncomingBlockOk::AlreadyHave);
                 }
@@ -357,12 +359,18 @@ impl super::BlockchainManager {
         mut batch: BlockBatch,
     ) -> Result<(), FatalError> {
         let mut blocks = batch.blocks.into_iter();
+        let mut previous_hash = None;
 
         while let Some((block, txs)) = blocks.next() {
             let hash = block.hash();
 
             // async blocks work as try blocks.
             let res = async {
+                // Only the first block's parent can be missing through no fault of the peer.
+                if previous_hash.is_some_and(|previous| previous != block.header.previous) {
+                    return Err(ConsensusError::Block(BlockError::PreviousIDIncorrect).into());
+                }
+
                 let txs = txs
                     .into_par_iter()
                     .map(|tx| {
@@ -390,6 +398,10 @@ impl super::BlockchainManager {
                     self.stop_current_block_downloader.notify_waiters();
                     return Ok(());
                 }
+                Ok(AddAltBlock::Orphan) => {
+                    self.stop_current_block_downloader.notify_waiters();
+                    return Ok(());
+                }
                 Ok(AddAltBlock::Reorged(_)) => {
                     // Collect the remaining blocks and add them to the main chain instead.
                     batch.blocks = blocks.collect();
@@ -405,7 +417,7 @@ impl super::BlockchainManager {
                     AddAltBlock::NewlyCached(_)
                     | AddAltBlock::AlreadyCached
                     | AddAltBlock::AlreadyInMainChain,
-                ) => (),
+                ) => previous_hash = Some(hash),
             }
         }
 
@@ -449,9 +461,13 @@ impl super::BlockchainManager {
             None => (),
         }
 
-        let alt_block_info =
+        let Some(alt_block_info) =
             sanity_check_alt_block(block, prepared_txs, self.blockchain_context_service.clone())
-                .await?;
+                .await?
+        else {
+            // The parent can be removed, or never added, while the block waits.
+            return Ok(AddAltBlock::Orphan);
+        };
 
         let block_blob = Bytes::copy_from_slice(&alt_block_info.block_blob);
 
@@ -797,6 +813,8 @@ impl super::BlockchainManager {
 
 /// The result from successfully adding an alt-block.
 enum AddAltBlock {
+    /// The alt-block's parent is unknown.
+    Orphan,
     /// We already had this alt-block cached.
     AlreadyCached,
     /// The block already exists on the main chain.

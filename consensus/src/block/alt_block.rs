@@ -34,13 +34,14 @@ use crate::{
 /// This function sanity checks an alt-block.
 ///
 /// Returns [`AltBlockInformation`], which contains the cumulative difficulty of the alt chain.
+/// Returns [`None`] if the block's parent is unknown.
 ///
 /// This function only checks the block's proof-of-work and its weight.
 pub async fn sanity_check_alt_block<C>(
     block: Block,
     txs: HashMap<[u8; 32], TransactionVerificationData>,
     mut context_svc: C,
-) -> Result<AltBlockInformation, BlockVerificationError>
+) -> Result<Option<AltBlockInformation>, BlockVerificationError>
 where
     C: Service<
             BlockChainContextRequest,
@@ -66,9 +67,7 @@ where
     };
 
     let Some(mut alt_context_cache) = alt_context_cache else {
-        return Err(BlockVerificationError::invalid_pow(ConsensusError::Block(
-            BlockError::PreviousIDIncorrect,
-        )));
+        return Ok(None);
     };
 
     // Check if the block's miner input is formed correctly.
@@ -211,7 +210,7 @@ where
         .await
         .map_err(BlockVerificationError::fatal)?;
 
-    Ok(block_info)
+    Ok(Some(block_info))
 }
 
 /// Retrieves the alt RX VM for the chosen block height.
