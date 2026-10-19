@@ -704,6 +704,13 @@ impl super::BlockchainManager {
         let block_blob = matches!(source, BlockSource::Incoming)
             .then(|| Bytes::copy_from_slice(&verified_block.block_blob));
 
+        let event = NodeEvent::BlocksAdded {
+            first_height: verified_block.height,
+            first_prev_hash: verified_block.block.header.previous,
+            chain_height: verified_block.height + 1,
+            top_hash: verified_block.block_hash,
+        };
+
         self.add_valid_block_to_blockchain_cache(&verified_block)
             .await?;
 
@@ -723,6 +730,7 @@ impl super::BlockchainManager {
             .new_block(spent_key_images)
             .await?;
 
+        self.events.send(event);
         Ok(())
     }
 
@@ -764,20 +772,11 @@ impl super::BlockchainManager {
         &mut self,
         verified_block: VerifiedBlockInformation,
     ) -> Result<(), FatalError> {
-        let event = NodeEvent::BlocksAdded {
-            first_height: verified_block.height,
-            first_prev_hash: verified_block.block.header.previous,
-            chain_height: verified_block.height + 1,
-            top_hash: verified_block.block_hash,
-        };
-
         self.blockchain_write_handle
             .ready()
             .await?
             .call(BlockchainWriteRequest::WriteBlock(verified_block))
             .await?;
-
-        self.events.send(event);
         Ok(())
     }
 
