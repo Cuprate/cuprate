@@ -15,6 +15,7 @@ use cuprate_types::{
     VerifiedBlockInformation,
 };
 
+pub(crate) mod block_template;
 mod chain_service;
 mod error;
 mod fast_sync;

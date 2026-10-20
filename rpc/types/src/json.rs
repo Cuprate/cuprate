@@ -199,9 +199,13 @@ define_request_and_response! {
     GenerateBlocks (restricted),
 
     Request {
+        /// number of blocks to be generated
         amount_of_blocks: u64,
+        /// block to start generating from, empty if latest
         prev_block: HexVec = default::<HexVec>(), "default",
+        /// increased by miner until it finds a matching result that solves a block
         starting_nonce: u32,
+        /// address to receive the coinbase reward
         wallet_address: String,
     },
 

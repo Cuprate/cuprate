@@ -8,7 +8,10 @@ use std::{num::NonZero, ops::Range};
 use tower::ServiceExt;
 use tracing::instrument;
 
-use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
+use cuprate_helper::{
+    cast::{u64_to_usize, usize_to_u64},
+    network::Network,
+};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     rpc::OutputDistributionData,
@@ -41,7 +44,11 @@ impl CumulativeRctOutsCache {
         tracing::info!("Initializing output distribution cache, this may take a while.");
 
         // The first height an RCT output can appear at is the HF v4 activation height.
-        let rct_start_height = hard_fork_cfg.info.info_for_hf(&HardFork::V4).height();
+        let rct_start_height = if hard_fork_cfg.network == Network::FakeChain {
+            0
+        } else {
+            hard_fork_cfg.info.info_for_hf(&HardFork::V4).height()
+        };
 
         let cumulative_rct_outs = if rct_start_height < chain_height {
             get_cumulative_rct_outs(database, rct_start_height..chain_height).await?
