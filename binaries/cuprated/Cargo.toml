@@ -52,6 +52,7 @@ borsh                 = { workspace = true }
 bytes                 = { workspace = true }
 clap                  = { workspace = true, features = ["cargo", "help", "wrap_help", "usage", "error-context", "suggestions"] }
 const_format          = { workspace = true, features = ["all"] }
+curve25519-dalek      = { workspace = true, features = ["rand_core"] }
 dashmap               = { workspace = true }
 fjall                 = { workspace = true }
 futures               = { workspace = true }
@@ -64,6 +65,7 @@ monero-address        = { workspace = true }
 monero-oxide          = { workspace = true, features = ["std", "compile-time-generators"] }
 nu-ansi-term          = { workspace = true }
 pin-project-lite      = { workspace = true }
+rand                  = { workspace = true, features = ["std", "std_rng"]}
 rayon                 = { workspace = true }
 safelog               = { workspace = true, optional = true }
 serde_json            = { workspace = true }
@@ -90,7 +92,6 @@ tikv-jemallocator = { workspace = true, optional = true }
 [dev-dependencies]
 tempfile          = { workspace = true }
 pretty_assertions = { workspace = true }
-rand               = { workspace = true }
 
 [build-dependencies]
 cuprate-hex = { workspace = true }
