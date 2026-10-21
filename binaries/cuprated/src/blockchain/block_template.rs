@@ -336,7 +336,7 @@ fn create_miner_tx(
     //  two-phase miner transaction generation: we don't know exact block weight until we prepare block, but we don't know reward until we know
     //  block weight, so first miner transaction generated with fake amount of money, and with phase we know think we know expected block weight
     let miner_tx = construct_miner_tx(context, miner_address, extra_nonce, total_weight, fee)?;
-    let cum_weight = total_weight + miner_tx.weight();
+    let mut cum_weight = total_weight + miner_tx.weight();
 
     let mut miner_tx = None;
     for _ in 0..10 {
@@ -344,6 +344,7 @@ fn create_miner_tx(
             construct_miner_tx(context, miner_address, extra_nonce, cum_weight, fee)?;
 
         if found_miner_tx.weight() > cum_weight - total_weight {
+            cum_weight = total_weight + found_miner_tx.weight();
             tracing::warn!("Miner tx weight is greater than before.");
             continue;
         } else if found_miner_tx.weight() < cum_weight - total_weight {
