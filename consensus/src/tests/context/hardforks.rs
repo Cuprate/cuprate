@@ -32,6 +32,7 @@ const TEST_HFS: [HFInfo; NUMB_OF_HARD_FORKS] = [
 pub(crate) const TEST_HARD_FORK_CONFIG: HardForkConfig = HardForkConfig {
     window: TEST_WINDOW_SIZE,
     info: HFsInfo::new(TEST_HFS),
+    network: cuprate_helper::network::Network::Mainnet,
 };
 
 #[tokio::test]

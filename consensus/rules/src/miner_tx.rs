@@ -35,7 +35,7 @@ const MONEY_SUPPLY: u64 = u64::MAX;
 /// The minimum block reward per minute, "tail-emission"
 const MINIMUM_REWARD_PER_MIN: u64 = 3 * 10_u64.pow(11);
 /// The value which `lock_time` should be for a coinbase output.
-const MINER_TX_TIME_LOCKED_BLOCKS: usize = 60;
+pub const MINER_TX_TIME_LOCKED_BLOCKS: usize = 60;
 
 /// Calculates the base block reward without taking away the penalty for expanding
 /// the block.
