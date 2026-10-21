@@ -336,19 +336,19 @@ fn create_miner_tx(
     //  two-phase miner transaction generation: we don't know exact block weight until we prepare block, but we don't know reward until we know
     //  block weight, so first miner transaction generated with fake amount of money, and with phase we know think we know expected block weight
     let miner_tx = construct_miner_tx(context, miner_address, extra_nonce, total_weight, fee)?;
-    let mut cum_weight = total_weight + miner_tx.weight();
+    let mut cumulative_weight = total_weight + miner_tx.weight();
 
     let mut miner_tx = None;
     for _ in 0..10 {
         let mut found_miner_tx =
-            construct_miner_tx(context, miner_address, extra_nonce, cum_weight, fee)?;
+            construct_miner_tx(context, miner_address, extra_nonce, cumulative_weight, fee)?;
 
-        if found_miner_tx.weight() > cum_weight - total_weight {
-            cum_weight = total_weight + found_miner_tx.weight();
+        if found_miner_tx.weight() > cumulative_weight - total_weight {
+            cumulative_weight = total_weight + found_miner_tx.weight();
             tracing::warn!("Miner tx weight is greater than before.");
             continue;
-        } else if found_miner_tx.weight() < cum_weight - total_weight {
-            let delta = cum_weight - total_weight - found_miner_tx.weight();
+        } else if found_miner_tx.weight() < cumulative_weight - total_weight {
+            let delta = cumulative_weight - total_weight - found_miner_tx.weight();
             tracing::info!("Miner tx weight is less than before, adding {delta} zero-bytes.");
 
             found_miner_tx.prefix_mut().extra.put_bytes(0, delta);
@@ -358,7 +358,7 @@ fn create_miner_tx(
             // <https://github.com/monero-project/monero/blob/8308dee67eba7c6b63ab748834e58c17c5ba4688/src/cryptonote_core/blockchain.cpp#L1763-L1775>
         }
 
-        assert_eq!(cum_weight, total_weight + found_miner_tx.weight());
+        assert_eq!(cumulative_weight, total_weight + found_miner_tx.weight());
 
         miner_tx = Some(found_miner_tx);
         break;
