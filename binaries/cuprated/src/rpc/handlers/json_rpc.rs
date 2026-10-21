@@ -152,18 +152,7 @@ async fn get_block_template(
         return Err(anyhow!("extra_nonce not implemented"));
     }
 
-    let network = match state.network {
-        Network::Mainnet | Network::FakeChain => monero_address::Network::Mainnet,
-        Network::Stagenet => monero_address::Network::Stagenet,
-        Network::Testnet => monero_address::Network::Testnet,
-    };
-
-    let address = monero_address::MoneroAddress::from_str(network, &request.wallet_address)?;
-
-    if *address.kind() != monero_address::AddressType::Legacy {
-        return Err(anyhow!("Incorrect address type"));
-    }
-
+    let address = helper::get_address(state.network, &request.wallet_address)?;
     let prev_block = request.prev_block.try_into().unwrap_or([0; 32]);
 
     let BlockTemplate {
@@ -272,19 +261,21 @@ async fn generate_blocks(
         return Err(anyhow!("Regtest required when generating blocks"));
     }
 
+    let address = helper::get_address(state.network, &request.wallet_address)?;
     let mut blocks = Vec::with_capacity(u64_to_usize(request.amount_of_blocks));
     let mut prev_block = request.prev_block;
 
     for _ in 0..request.amount_of_blocks {
-        let template_req = GetBlockTemplateRequest {
-            extra_nonce: HexVec::new(),
-            prev_block: prev_block.clone(),
-            reserve_size: 1,
-            wallet_address: request.wallet_address.clone(),
-        };
-        let block_template = get_block_template(state.clone(), template_req).await?;
-
-        let block = Block::read(&mut block_template.blocktemplate_blob.as_slice())?;
+        let BlockTemplate { block, .. } = create_block_template(
+            &mut state.blockchain_read,
+            &state.blockchain_context,
+            &mut state.txpool_read,
+            &address,
+            prev_block.try_into().unwrap_or_default(),
+            HexVec::new(),
+            true,
+        )
+        .await?;
 
         // TODO: ⛏️ with request.starting_nonce
         // <https://github.com/monero-project/monero/blob/e4fbca88b15f3cb2b6aa2d0e98639649f7da3d21/src/cryptonote_basic/cryptonote_format_utils.cpp#L1778-L1801>
