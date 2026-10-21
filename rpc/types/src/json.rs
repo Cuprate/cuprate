@@ -204,7 +204,7 @@ define_request_and_response! {
         /// block to start generating from, empty if latest
         prev_block: HexVec = default::<HexVec>(), "default",
         /// increased by miner until it finds a matching result that solves a block
-        starting_nonce: u32,
+        starting_nonce: u32 = default::<u32>(), "default",
         /// address to receive the coinbase reward
         wallet_address: String,
     },

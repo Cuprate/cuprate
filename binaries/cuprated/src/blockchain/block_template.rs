@@ -366,6 +366,9 @@ fn create_miner_tx(
 }
 
 /// constructs miner tx for a block
+/// the miner tx pays the block reward (base emission plus the collected `fee`) to `miner_address`
+///
+/// Note: use [`create_miner_tx`] if you don't know the final weight yet, as the reward depends on `block_weight`.
 ///
 /// ref <https://github.com/monero-project/monero/blob/160e21504aed2a9b6dfdba0970517161383b04e5/src/cryptonote_core/cryptonote_tx_utils.cpp#L105-L208>
 fn construct_miner_tx(
