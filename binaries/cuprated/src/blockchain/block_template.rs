@@ -263,7 +263,6 @@ fn consider_transaction(
             context.current_hf,
         );
         let coinbase = block_reward + builder.fee + entry.fee;
-        // TODO: coinbase isn't updated if hf < V5. this is also a minor bug in monerod as far as I've seen it
         if coinbase < builder.best_coinbase * ACCEPT_THRESHOLD {
             return None;
         }
@@ -272,6 +271,7 @@ fn consider_transaction(
         tracing::info!("exceeds median block weight");
         return None;
     } else {
+        // TODO: coinbase isn't updated if hf < V5. this is also a minor bug in monerod as far as I've seen it
         None
     };
 
