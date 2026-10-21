@@ -549,9 +549,7 @@ fn decompose_amount_into_digits(mut amount: u64, dust_threshold: u64, out_amount
 
 /// ref <https://github.com/monero-project/monero/blob/24272e4a3b2e812cc2a569d95b177ecef4b91e46/src/crypto/crypto.cpp#L254-L267>
 fn generate_key_derivation(view: Point, private: Scalar) -> Point {
-    let view = view.into();
-    let private = private.into();
-    Point::from((view * private).mul_by_cofactor())
+    Point::from((view.into() * private.into()).mul_by_cofactor())
 }
 
 /// ref <https://github.com/monero-project/monero/blob/24272e4a3b2e812cc2a569d95b177ecef4b91e46/src/crypto/crypto.cpp#L281-L299>
