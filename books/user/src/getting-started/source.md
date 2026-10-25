@@ -25,6 +25,32 @@ sudo pacman -Syu base-devel cmake git
 
 # Fedora
 sudo dnf install @development-tools gcc gcc-c++ cmake git
+
+# NixOS
+# Create shell.nix file
+nano shell.nix
+# and paste the following:
+{ pkgs ? import <nixpkgs> {} }:
+
+pkgs.mkShell {
+  nativeBuildInputs = [
+    pkgs.cargo
+    pkgs.cmake		# Cmake
+    pkgs.git		# Git version control system
+    pkgs.lld            # keep it if you want it for pure‑Rust crates
+    pkgs.pkg-config    # often needed for C dependencies
+    pkgs.rustc          # Nix’s rustc (matches the store layout)
+    pkgs.stdenv.cc     # the GCC wrapper that knows where libgcc, glibc, etc. live
+  ];
+
+  # Optional – tell Rust to prefer lld for Rust‑only code, but fall back to gcc
+  # for build‑script / C‑linking steps.
+  RUSTFLAGS = "-C link-arg=-fuse-ld=lld";
+}
+
+# then save the file with Ctrl+x
+# and finally
+nix-shell
 ```
 
 Clone the Cuprate repository and build:
