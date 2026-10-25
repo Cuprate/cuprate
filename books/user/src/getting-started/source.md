@@ -16,6 +16,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ## Linux
 Install the required system dependencies:
 
+### General distributions
 ```bash
 # Debian/Ubuntu
 sudo apt install -y build-essential cmake git
@@ -25,8 +26,10 @@ sudo pacman -Syu base-devel cmake git
 
 # Fedora
 sudo dnf install @development-tools gcc gcc-c++ cmake git
+```
 
-# NixOS
+### NixOS 
+```bash
 # Create shell.nix file
 nano shell.nix
 # and paste the following:
@@ -53,7 +56,7 @@ pkgs.mkShell {
 nix-shell
 ```
 
-Clone the Cuprate repository and build:
+### Clone the Cuprate repository and build:
 
 ```bash
 git clone https://github.com/Cuprate/cuprate
