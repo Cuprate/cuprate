@@ -11,6 +11,7 @@ The commands below use traditional Nix expressions. Flakes and experimental Nix 
 # Building
 
 Run these commands from the repository root:
+
 bash
 ```
 nix-build ./misc/nix \
@@ -19,6 +20,7 @@ nix-build ./misc/nix \
 After a successful build, Nix creates a result symlink pointing to the package in the Nix store.
 
 Test the executable:
+
 bash
 ```
 ./result/bin/cuprated -h
@@ -53,7 +55,7 @@ To install an updated checkout, run the installation command again with its curr
 
 Installation does not configure or start a systemd service.
 
-To uninstall run `nix-env -e cuprate`
+To uninstall: run `nix-env -e cuprate`
 
 # Updating dependency hashes
 The `cargoHash` attribute in `default.nix` verifies the vendored Cargo dependencies, including Git dependencies.
@@ -61,19 +63,22 @@ The `cargoHash` attribute in `default.nix` verifies the vendored Cargo dependenc
 If a dependency update changes the vendored dependency output:
 
 1. Temporarily replace the existing hash with:
+
 Nix
 ```
 cargoHash = pkgs.lib.fakeHash;
 ```
 
 2. Run the build:
+
 bash
 ```
 nix-build ./misc/nix \
   --argstr rev "$(git rev-parse HEAD)"
 ```
 
-3. The build should fail with a hash mismatch. Copy the complete got hash into the definition:
+3. The build should fail with a hash mismatch. Copy the complete `got hash` into the definition:
+
 Nix
 ```
 cargoHash = "sha256-REPLACE-WITH-THE-REPORTED-HASH";
@@ -122,6 +127,8 @@ Cache upload credentials must remain outside the repository. CI should upload on
 # Troubleshooting
 ## Nix looks for `flake.nix`
 Use nix-build with a hyphen:
+
+bash
 ```
 nix-build ./misc/nix \
   --argstr rev "$(git rev-parse HEAD)"
@@ -130,6 +137,8 @@ Plain `nix build` defaults to flake-based operation. This package does not requi
 
 ## A build fails
 Request a more detailed evaluation trace:
+
+bash
 ```
 nix-build ./misc/nix \
   --argstr rev "$(git rev-parse HEAD)" \
