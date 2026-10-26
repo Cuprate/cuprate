@@ -38,23 +38,29 @@ nano shell.nix
 pkgs.mkShell {
   nativeBuildInputs = [
     pkgs.cargo
-    pkgs.cmake		# Cmake
-    pkgs.git		# Git version control system
-    pkgs.lld            # keep it if you want it for pure‑Rust crates
-    pkgs.pkg-config    # often needed for C dependencies
-    pkgs.rustc          # Nix’s rustc (matches the store layout)
-    pkgs.stdenv.cc     # the GCC wrapper that knows where libgcc, glibc, etc. live
+    pkgs.cmake
+    pkgs.git
+    pkgs.lld
+    pkgs.patchelf
+    pkgs.pkg-config
+    pkgs.rustc
+    pkgs.stdenv.cc
   ];
 
-  # Optional – tell Rust to prefer lld for Rust‑only code, but fall back to gcc
-  # for build‑script / C‑linking steps.
+  # Deliberately do not set LD_LIBRARY_PATH globally.
+
   RUSTFLAGS = "-C link-arg=-fuse-ld=lld";
+
+  shellHook = ''
+    export CUPRATE_CXX_LIB_DIR="${pkgs.stdenv.cc.cc.lib}/lib"
+  '';
 }
 
 # then save the file with Ctrl+x
 # and finally
 nix-shell
 ```
+NOTE: NixOS requires some special instructions. see [Running](https://user.cuprate.org/getting-started/run.html) for details
 
 ### Clone the Cuprate repository and build:
 
