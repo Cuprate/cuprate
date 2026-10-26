@@ -460,3 +460,60 @@ async fn recover_bad_reorg() {
         manager_1.blockchain_context_service.blockchain_context()
     );
 }
+
+/// An alt block that fails before its PoW must not stop its alt chain from reorging later.
+#[tokio::test]
+async fn reorg_after_failed_alt_block() {
+    let data_dir = tempfile::tempdir().unwrap();
+    let mut manager = mock_manager(data_dir.path().to_path_buf()).await;
+
+    // A main-chain block and an alt block competing with it.
+    let context = manager
+        .blockchain_context_service
+        .blockchain_context()
+        .clone();
+    let block_1a = generate_block(&context);
+    let block_1b = generate_block(&context);
+
+    for block in [block_1a, block_1b.clone()] {
+        manager
+            .handle_command(BlockchainManagerCommand::AddBlock {
+                block,
+                prepped_txs: HashMap::new(),
+                response_tx: oneshot::channel().0,
+            })
+            .await
+            .unwrap();
+    }
+
+    let mut context = manager
+        .blockchain_context_service
+        .blockchain_context()
+        .clone();
+    context.context_to_verify_block.top_hash = block_1b.hash();
+
+    // A child of the alt block with the wrong miner height, which fails before its PoW.
+    let mut bad_context = context.clone();
+    bad_context.context_to_verify_block.chain_height += 1;
+    let block_2 = generate_block(&context);
+
+    for block in [generate_block(&bad_context), block_2.clone()] {
+        manager
+            .handle_command(BlockchainManagerCommand::AddBlock {
+                block,
+                prepped_txs: HashMap::new(),
+                response_tx: oneshot::channel().0,
+            })
+            .await
+            .unwrap();
+    }
+
+    // The valid child reorged to the alt chain.
+    assert_eq!(
+        manager
+            .blockchain_context_service
+            .blockchain_context()
+            .top_hash,
+        block_2.hash()
+    );
+}

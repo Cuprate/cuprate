@@ -13,6 +13,7 @@ use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::{service::BlockchainReadHandle, BlockchainError};
 use cuprate_consensus::{block::BlockVerificationError, transactions::new_tx_verification_data};
+use cuprate_consensus_rules::blocks::check_timestamp;
 use cuprate_txpool::service::{
     interface::{TxpoolReadRequest, TxpoolReadResponse},
     TxpoolReadHandle,
@@ -68,6 +69,8 @@ impl BlockchainManagerHandle {
     ///
     /// This function will return an error if:
     ///  - the block was invalid
+    ///  - the block has duplicate transactions
+    ///  - the block's timestamp is too far in the future
     ///  - we are missing transactions
     ///  - the block's parent is unknown
     ///  - the blockchain manager command channel is closed
@@ -78,8 +81,18 @@ impl BlockchainManagerHandle {
         blockchain_read_handle: &mut BlockchainReadHandle,
         txpool_read_handle: &mut TxpoolReadHandle,
     ) -> Result<IncomingBlockOk, IncomingBlockError> {
-        if given_txs.len() > block.transactions.len() {
-            return Err(IncomingBlockError::TooManyTxs);
+        let block_txs = block.transactions.iter().collect::<HashSet<_>>();
+        if block_txs.len() != block.transactions.len() {
+            return Err(IncomingBlockError::DuplicateTxs);
+        }
+
+        if !given_txs.keys().all(|hash| block_txs.contains(hash)) {
+            return Err(IncomingBlockError::TxsNotInBlock);
+        }
+
+        // Only the future limit, as the median needs the parent chain.
+        if check_timestamp(&block, None).is_err() {
+            return Err(IncomingBlockError::InFuture);
         }
 
         if !block_exists(block.header.previous, blockchain_read_handle).await? {
