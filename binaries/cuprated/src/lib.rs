@@ -7,6 +7,7 @@
 //!
 //! ```ignore
 //! use cuprated::{config::Config, Node};
+//! use tokio::sync::broadcast::error::RecvError;
 //!
 //! let config = Config::read_from_path("cuprated.toml")?;
 //! cuprated::logging::init_logging(&config);
@@ -16,11 +17,14 @@
 //!
 //! let mut events = node.events();
 //! loop {
-//!     match events.recv().await {
-//!         Ok(event) => println!("{event:?}"),
-//!         // Some events were missed, read the state from the node again.
-//!         Err(RecvError::Lagged(_)) => {}
-//!         Err(RecvError::Closed) => break,
+//!     tokio::select! {
+//!         event = events.recv() => match event {
+//!             Ok(event) => println!("{event:?}"),
+//!             // Some events were missed, read the state from the node again.
+//!             Err(RecvError::Lagged(_)) => {}
+//!             Err(RecvError::Closed) => break,
+//!         },
+//!         _ = node.task_executor.wait_for_shutdown() => break,
 //!     }
 //! }
 //! ```
