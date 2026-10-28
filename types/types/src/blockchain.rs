@@ -250,12 +250,12 @@ pub enum BlockchainWriteRequest {
 
     /// A request to pop some blocks from the top of the main chain
     ///
-    /// Input is the amount of blocks to pop and a bool for if the popped blocks should be added as
-    /// alt blocks.
+    /// Input is the amount of blocks to pop and, if the popped blocks should be added as alt blocks,
+    /// how many of them to return, counted from the lowest.
     ///
     /// This request flushes all alt-chains from the cache before adding the popped blocks to the
     /// alt cache, if requested to do so.
-    PopBlocks(usize, bool),
+    PopBlocks(usize, Option<usize>),
 
     /// A request to flush all alternative blocks.
     FlushAltBlocks,
@@ -480,8 +480,9 @@ pub enum BlockchainResponse {
 
     /// Response to [`BlockchainWriteRequest::PopBlocks`].
     ///
-    /// The inner value is the alt-chain ID for the old main chain blocks.
-    PopBlocks(Option<ChainId>),
+    /// The inner value is the alt-chain ID for the old main chain blocks, if they were added as alt blocks,
+    /// and the requested blocks, counted from the lowest, in chain order.
+    PopBlocks(Option<(ChainId, Vec<AltBlockInformation>)>),
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
