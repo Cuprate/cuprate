@@ -409,7 +409,18 @@ fn check_inputs_sorted(inputs: &[Input], hf: HardFork) -> Result<(), Transaction
     Ok(())
 }
 
-/// Checks the youngest output is at least 10 blocks old.
+/// Returns the minimum age, in blocks, an output must have for a tx to use it.
+///
+/// ref: <https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#10-block-lock>
+pub fn min_output_age(hf: HardFork) -> usize {
+    if hf >= HardFork::V12 {
+        10
+    } else {
+        0
+    }
+}
+
+/// Checks the youngest output is at least [`min_output_age`] blocks old.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#10-block-lock>
 fn check_10_block_lock(
@@ -417,15 +428,9 @@ fn check_10_block_lock(
     current_chain_height: usize,
     hf: HardFork,
 ) -> Result<(), TransactionError> {
-    if hf >= HardFork::V12 {
-        if youngest_used_out_height + 10 > current_chain_height {
-            tracing::debug!(
-                "Transaction invalid: One or more ring members younger than 10 blocks."
-            );
-            Err(TransactionError::OneOrMoreRingMembersLocked)
-        } else {
-            Ok(())
-        }
+    if youngest_used_out_height + min_output_age(hf) > current_chain_height {
+        tracing::debug!("Transaction invalid: One or more ring members younger than 10 blocks.");
+        Err(TransactionError::OneOrMoreRingMembersLocked)
     } else {
         Ok(())
     }
