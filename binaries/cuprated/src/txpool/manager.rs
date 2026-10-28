@@ -117,18 +117,27 @@ pub(crate) async fn start_txpool_manager(
     }
 
     let (command_tx, command_rx) = mpsc::channel(INCOMING_TX_QUEUE_SIZE);
-    let (spent_kis_tx, spent_kis_rx) = mpsc::channel(1);
+    let (chain_update_tx, chain_update_rx) = mpsc::channel(1);
 
     let shutdown_token = task_executor.cancellation_token();
     task_executor.spawn_critical(
         "txpool manager",
-        manager.run(command_rx, spent_kis_rx, shutdown_token),
+        manager.run(command_rx, chain_update_rx, shutdown_token),
     );
 
     Ok(TxpoolManagerHandle {
         command_tx,
-        spent_kis_tx,
+        chain_update_tx,
     })
+}
+
+/// A main-chain update sent to the [`TxpoolManager`] by the blockchain manager.
+enum ChainUpdate {
+    /// The spent key images in a new block.
+    NewBlock(Vec<[u8; 32]>),
+
+    /// Txs from popped blocks to return to the pool.
+    ReturnedTxs(Vec<TransactionVerificationData>),
 }
 
 /// Commands sent to the [`TxpoolManager`] via [`TxpoolManagerHandle`].
@@ -169,8 +178,8 @@ pub(crate) struct TxpoolManagerHandle {
     /// Channel for sending commands to the manager.
     pub command_tx: mpsc::Sender<TxpoolManagerCommand>,
 
-    /// The spent key images in a new block tx.
-    spent_kis_tx: mpsc::Sender<(Vec<[u8; 32]>, oneshot::Sender<()>)>,
+    /// The main-chain update tx.
+    chain_update_tx: mpsc::Sender<(ChainUpdate, oneshot::Sender<()>)>,
 }
 
 impl TxpoolManagerHandle {
@@ -180,12 +189,13 @@ impl TxpoolManagerHandle {
     /// Useful for testing.
     #[expect(clippy::let_underscore_must_use)]
     pub(crate) fn mock() -> Self {
-        let (spent_kis_tx, mut spent_kis_rx) = mpsc::channel(1);
+        let (chain_update_tx, mut chain_update_rx) = mpsc::channel(1);
         let (command_tx, mut command_rx) = mpsc::channel(100);
 
         tokio::spawn(async move {
             loop {
-                let Some(rec): Option<(_, oneshot::Sender<()>)> = spent_kis_rx.recv().await else {
+                let Some(rec): Option<(_, oneshot::Sender<()>)> = chain_update_rx.recv().await
+                else {
                     return;
                 };
 
@@ -203,7 +213,7 @@ impl TxpoolManagerHandle {
 
         Self {
             command_tx,
-            spent_kis_tx,
+            chain_update_tx,
         }
     }
 
@@ -214,7 +224,33 @@ impl TxpoolManagerHandle {
     ) -> Result<(), FatalError> {
         let (tx, rx) = oneshot::channel();
 
-        drop(self.spent_kis_tx.send((spent_key_images, tx)).await);
+        drop(
+            self.chain_update_tx
+                .send((ChainUpdate::NewBlock(spent_key_images), tx))
+                .await,
+        );
+
+        rx.await.map_err(|_| "txpool manager stopped".into())
+    }
+
+    /// Return the txs from popped blocks to the tx-pool.
+    ///
+    /// The relay rules are not checked, as these txs were already mined.
+    pub(crate) async fn return_txs(
+        &self,
+        txs: Vec<TransactionVerificationData>,
+    ) -> Result<(), FatalError> {
+        if txs.is_empty() {
+            return Ok(());
+        }
+
+        let (tx, rx) = oneshot::channel();
+
+        drop(
+            self.chain_update_tx
+                .send((ChainUpdate::ReturnedTxs(txs), tx))
+                .await,
+        );
 
         rx.await.map_err(|_| "txpool manager stopped".into())
     }
@@ -551,10 +587,43 @@ impl TxpoolManager {
         Ok(())
     }
 
+    /// Handles adding txs from popped blocks to the public pool, these txs are not relayed now but are re-relayed
+    /// like any other public tx.
+    #[instrument(level = "debug", skip_all)]
+    async fn return_txs(
+        &mut self,
+        txs: Vec<TransactionVerificationData>,
+    ) -> Result<(), FatalError> {
+        tracing::debug!(txs = txs.len(), "returning txs to pool");
+
+        for tx in txs {
+            let (tx_hash, tx_weight, tx_fee) = (tx.tx_hash, tx.tx_weight, tx.fee);
+
+            let TxpoolWriteResponse::AddTransaction(double_spend) = self
+                .txpool_write_handle
+                .ready()
+                .await?
+                .call(TxpoolWriteRequest::AddTransaction {
+                    tx: Box::new(tx),
+                    state_stem: false,
+                })
+                .await?
+            else {
+                unreachable!()
+            };
+
+            if double_spend.is_none() {
+                self.track_tx(tx_hash, tx_weight, tx_fee, false);
+            }
+        }
+
+        Ok(())
+    }
+
     async fn run(
         mut self,
         mut command_rx: mpsc::Receiver<TxpoolManagerCommand>,
-        mut block_rx: mpsc::Receiver<(Vec<[u8; 32]>, oneshot::Sender<()>)>,
+        mut chain_update_rx: mpsc::Receiver<(ChainUpdate, oneshot::Sender<()>)>,
         shutdown_token: CancellationToken,
     ) -> Result<(), FatalError> {
         loop {
@@ -563,8 +632,11 @@ impl TxpoolManager {
                 () = shutdown_token.cancelled() => {
                     break;
                 }
-                Some((spent_kis, tx)) = block_rx.recv() => {
-                    self.new_block(spent_kis).await?;
+                Some((update, tx)) = chain_update_rx.recv() => {
+                    match update {
+                        ChainUpdate::NewBlock(spent_kis) => self.new_block(spent_kis).await?,
+                        ChainUpdate::ReturnedTxs(txs) => self.return_txs(txs).await?,
+                    }
                     let _ = tx.send(());
                 }
                 Some(tx) = self.tx_timeouts.next() => {
