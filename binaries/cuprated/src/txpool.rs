@@ -10,5 +10,7 @@ mod txs_being_handled;
 
 pub(crate) use error::IncomingTxError;
 pub(crate) use incoming_tx::{IncomingTxHandler, IncomingTxs};
-pub(crate) use manager::{PoolInfoSinceResponse, TxpoolManagerCommand, TxpoolManagerHandle};
+pub(crate) use manager::{
+    MinedTxs, PoolInfoSinceResponse, TxpoolManagerCommand, TxpoolManagerHandle,
+};
 pub(crate) use relay_rules::RelayRuleError;

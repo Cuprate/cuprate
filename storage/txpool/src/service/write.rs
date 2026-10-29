@@ -67,7 +67,10 @@ fn handle_txpool_request(
         }
         TxpoolWriteRequest::RemoveTransaction(tx_hash) => remove_transaction(env, &tx_hash),
         TxpoolWriteRequest::Promote(tx_hash) => promote(env, &tx_hash),
-        TxpoolWriteRequest::NewBlock { spent_key_images } => new_block(env, &spent_key_images),
+        TxpoolWriteRequest::NewBlock {
+            pool_txs,
+            spent_key_images,
+        } => new_block(env, &pool_txs, &spent_key_images),
     }
 }
 
@@ -179,20 +182,23 @@ fn promote(
 /// [`TxpoolWriteRequest::NewBlock`]
 fn new_block(
     db: &TxpoolDatabase,
+    pool_txs: &[(TransactionHash, Vec<KeyImage>)],
     spent_key_images: &[KeyImage],
 ) -> Result<TxpoolWriteResponse, TxPoolError> {
     let mut txs_removed = HashSet::new();
 
     let mut writer = db.fjall_database.batch();
 
-    // Remove all txs which spend key images that were spent in the new block.
-    for key_image in spent_key_images {
-        if let Some(tx_hash) = db.spent_key_images.get(key_image)? {
-            let tx_hash = tx_hash.as_ref().try_into().unwrap();
+    // Remove the txs mined in the new blocks.
+    for (tx_hash, key_images) in pool_txs {
+        ops::remove_transaction_with_key_images(tx_hash, key_images, &mut writer, db)?;
+        txs_removed.insert(*tx_hash);
+    }
 
-            if txs_removed.insert(tx_hash) {
-                ops::remove_transaction(&tx_hash, &mut writer, db)?;
-            }
+    // Remove all txs which spend key images that were spent in the new blocks.
+    for tx_hash in ops::txs_spending_key_images(spent_key_images, db)? {
+        if txs_removed.insert(tx_hash) {
+            ops::remove_transaction(&tx_hash, &mut writer, db)?;
         }
     }
 

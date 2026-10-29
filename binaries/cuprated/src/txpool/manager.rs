@@ -117,18 +117,26 @@ pub(crate) async fn start_txpool_manager(
     }
 
     let (command_tx, command_rx) = mpsc::channel(INCOMING_TX_QUEUE_SIZE);
-    let (spent_kis_tx, spent_kis_rx) = mpsc::channel(1);
+    let (mined_txs_tx, mined_txs_rx) = mpsc::channel(1);
 
     let shutdown_token = task_executor.cancellation_token();
     task_executor.spawn_critical(
         "txpool manager",
-        manager.run(command_rx, spent_kis_rx, shutdown_token),
+        manager.run(command_rx, mined_txs_rx, shutdown_token),
     );
 
     Ok(TxpoolManagerHandle {
         command_tx,
-        spent_kis_tx,
+        mined_txs_tx,
     })
+}
+
+/// The txs mined in new blocks.
+pub(crate) struct MinedTxs {
+    /// Each tx's hash and the number of key images it spends.
+    pub(crate) txs: Vec<([u8; 32], usize)>,
+    /// The key images spent by the txs, in the same order.
+    pub(crate) key_images: Vec<[u8; 32]>,
 }
 
 /// Commands sent to the [`TxpoolManager`] via [`TxpoolManagerHandle`].
@@ -169,8 +177,8 @@ pub(crate) struct TxpoolManagerHandle {
     /// Channel for sending commands to the manager.
     pub command_tx: mpsc::Sender<TxpoolManagerCommand>,
 
-    /// The spent key images in a new block tx.
-    spent_kis_tx: mpsc::Sender<(Vec<[u8; 32]>, oneshot::Sender<()>)>,
+    /// The txs mined in new blocks tx.
+    mined_txs_tx: mpsc::Sender<(MinedTxs, oneshot::Sender<()>)>,
 }
 
 impl TxpoolManagerHandle {
@@ -180,12 +188,12 @@ impl TxpoolManagerHandle {
     /// Useful for testing.
     #[expect(clippy::let_underscore_must_use)]
     pub(crate) fn mock() -> Self {
-        let (spent_kis_tx, mut spent_kis_rx) = mpsc::channel(1);
+        let (mined_txs_tx, mut mined_txs_rx) = mpsc::channel(1);
         let (command_tx, mut command_rx) = mpsc::channel(100);
 
         tokio::spawn(async move {
             loop {
-                let Some(rec): Option<(_, oneshot::Sender<()>)> = spent_kis_rx.recv().await else {
+                let Some(rec): Option<(_, oneshot::Sender<()>)> = mined_txs_rx.recv().await else {
                     return;
                 };
 
@@ -203,18 +211,19 @@ impl TxpoolManagerHandle {
 
         Self {
             command_tx,
-            spent_kis_tx,
+            mined_txs_tx,
         }
     }
 
-    /// Tell the tx-pool about spent key images in an incoming block.
-    pub(crate) async fn new_block(
-        &self,
-        spent_key_images: Vec<[u8; 32]>,
-    ) -> Result<(), FatalError> {
+    /// Tell the tx-pool about the txs mined in new blocks, each with its key images.
+    pub(crate) async fn new_block(&self, mined_txs: MinedTxs) -> Result<(), FatalError> {
+        if mined_txs.txs.is_empty() {
+            return Ok(());
+        }
+
         let (tx, rx) = oneshot::channel();
 
-        drop(self.spent_kis_tx.send((spent_key_images, tx)).await);
+        drop(self.mined_txs_tx.send((mined_txs, tx)).await);
 
         rx.await.map_err(|_| "txpool manager stopped".into())
     }
@@ -530,16 +539,43 @@ impl TxpoolManager {
             .collect()
     }
 
-    /// Handles removing all transactions that have been included/double spent in an incoming block.
+    /// Handles removing all transactions that have been included/double spent in new blocks.
     #[instrument(level = "debug", skip_all)]
-    async fn new_block(&mut self, spent_key_images: Vec<[u8; 32]>) -> Result<(), FatalError> {
+    async fn new_block(&mut self, mined_txs: MinedTxs) -> Result<(), FatalError> {
+        if self.current_txs.is_empty() {
+            return Ok(());
+        }
+
         tracing::debug!("handling new block");
+
+        let mut pool_txs = Vec::new();
+        let mut spent_key_images = Vec::with_capacity(mined_txs.key_images.len());
+        let mut key_images = mined_txs.key_images.as_slice();
+
+        for (tx_hash, numb_key_images) in mined_txs.txs {
+            let (tx_key_images, rest) = key_images.split_at(numb_key_images);
+            key_images = rest;
+
+            if self.current_txs.contains_key(&tx_hash) {
+                pool_txs.push((tx_hash, tx_key_images.to_vec()));
+            } else {
+                spent_key_images.extend_from_slice(tx_key_images);
+            }
+        }
+
+        // If every pool tx was mined there are none left to double spend.
+        if pool_txs.len() == self.current_txs.len() {
+            spent_key_images.clear();
+        }
 
         let TxpoolWriteResponse::NewBlock(removed_txs) = self
             .txpool_write_handle
             .ready()
             .await?
-            .call(TxpoolWriteRequest::NewBlock { spent_key_images })
+            .call(TxpoolWriteRequest::NewBlock {
+                pool_txs,
+                spent_key_images,
+            })
             .await?
         else {
             unreachable!()
@@ -554,7 +590,7 @@ impl TxpoolManager {
     async fn run(
         mut self,
         mut command_rx: mpsc::Receiver<TxpoolManagerCommand>,
-        mut block_rx: mpsc::Receiver<(Vec<[u8; 32]>, oneshot::Sender<()>)>,
+        mut mined_txs_rx: mpsc::Receiver<(MinedTxs, oneshot::Sender<()>)>,
         shutdown_token: CancellationToken,
     ) -> Result<(), FatalError> {
         loop {
@@ -563,8 +599,8 @@ impl TxpoolManager {
                 () = shutdown_token.cancelled() => {
                     break;
                 }
-                Some((spent_kis, tx)) = block_rx.recv() => {
-                    self.new_block(spent_kis).await?;
+                Some((mined_txs, tx)) = mined_txs_rx.recv() => {
+                    self.new_block(mined_txs).await?;
                     let _ = tx.send(());
                 }
                 Some(tx) = self.tx_timeouts.next() => {
