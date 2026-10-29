@@ -7,7 +7,7 @@ mod tx_write;
 
 use crate::error::TxPoolError;
 pub use tx_read::{get_transaction_verification_data, in_stem_pool};
-pub use tx_write::{add_transaction, remove_transaction};
+pub use tx_write::{add_transaction, remove_transaction, remove_transaction_with_key_images};
 
 /// An error that can occur on some tx-write ops.
 #[derive(thiserror::Error, Debug)]

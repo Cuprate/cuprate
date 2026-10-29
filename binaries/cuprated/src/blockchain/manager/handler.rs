@@ -22,7 +22,7 @@ use cuprate_p2p::{block_downloader::BlockBatch, constants::MEDIUM_BAN, Broadcast
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
     AltBlockInformation, Chain, ChainId, HardFork, TransactionVerificationData, TxConversionError,
-    VerifiedBlockInformation,
+    VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 
 use crate::{
@@ -31,6 +31,7 @@ use crate::{
         ConsensusBlockchainReadHandle, IncomingBlockError,
     },
     monitor::FatalError,
+    txpool::MinedTxs,
 };
 
 impl super::BlockchainManager {
@@ -295,8 +296,12 @@ impl super::BlockchainManager {
 
         let valid_blocks_len = valid_blocks.len();
         if !valid_blocks.is_empty() {
+            let mined_txs = mined_txs(valid_blocks.iter().flat_map(|block| &block.txs));
+
             self.batch_add_valid_block_to_blockchain_database(valid_blocks)
                 .await?;
+
+            self.txpool_manager_handle.new_block(mined_txs).await?;
         }
 
         if error {
@@ -333,8 +338,12 @@ impl super::BlockchainManager {
             valid_blocks.push(block);
         }
 
+        let mined_txs = mined_txs(valid_blocks.iter().flat_map(|block| &block.txs));
+
         self.batch_add_valid_block_to_blockchain_database(valid_blocks)
             .await?;
+
+        self.txpool_manager_handle.new_block(mined_txs).await?;
 
         info!(fast_sync = true, "Successfully added block batch");
         Ok(())
@@ -691,17 +700,7 @@ impl super::BlockchainManager {
         verified_block: VerifiedBlockInformation,
         source: BlockSource,
     ) -> Result<(), FatalError> {
-        // FIXME: this is pretty inefficient, we should probably return the KI map created in the consensus crate.
-        let spent_key_images = verified_block
-            .txs
-            .iter()
-            .flat_map(|tx| {
-                tx.tx.prefix().inputs.iter().map(|input| match input {
-                    Input::ToKey { key_image, .. } => key_image.to_bytes(),
-                    Input::Gen(_) => unreachable!(),
-                })
-            })
-            .collect::<Vec<[u8; 32]>>();
+        let mined_txs = mined_txs(verified_block.txs.iter());
 
         let block_blob = matches!(source, BlockSource::Incoming)
             .then(|| Bytes::copy_from_slice(&verified_block.block_blob));
@@ -721,9 +720,7 @@ impl super::BlockchainManager {
             self.broadcast_block(block_blob, chain_height).await;
         }
 
-        self.txpool_manager_handle
-            .new_block(spent_key_images)
-            .await?;
+        self.txpool_manager_handle.new_block(mined_txs).await?;
 
         Ok(())
     }
@@ -813,6 +810,28 @@ enum BlockSource {
     Incoming,
     /// A block re-applied during a reorg.
     Reorg,
+}
+
+/// Returns the hash and key images of each tx, to tell the tx-pool which txs were mined.
+// FIXME: this is pretty inefficient, we should probably return the KI map created in the consensus crate.
+fn mined_txs<'a>(
+    verified_txs: impl Iterator<Item = &'a VerifiedTransactionInformation> + Clone,
+) -> MinedTxs {
+    let mut txs = Vec::with_capacity(verified_txs.clone().count());
+    verified_txs
+        .clone()
+        .for_each(|tx| txs.push((tx.tx_hash, tx.tx.prefix().inputs.len())));
+
+    let mut key_images =
+        Vec::with_capacity(txs.iter().map(|(_, numb_key_images)| numb_key_images).sum());
+    verified_txs.for_each(|tx| {
+        key_images.extend(tx.tx.prefix().inputs.iter().map(|input| match input {
+            Input::ToKey { key_image, .. } => key_image.to_bytes(),
+            Input::Gen(_) => unreachable!(),
+        }));
+    });
+
+    MinedTxs { txs, key_images }
 }
 
 /// Creates a [`VerifiedBlockInformation`] from an alt-block known to be valid.

@@ -83,6 +83,7 @@ fn map_request(
         }
         TxpoolReadRequest::TxsForBlock(txs_needed) => txs_for_block(db, txs_needed),
         TxpoolReadRequest::Backlog => backlog(db),
+        TxpoolReadRequest::BlobHashes => blob_hashes(db),
         TxpoolReadRequest::Size {
             include_sensitive_txs,
         } => size(db, include_sensitive_txs),
@@ -256,6 +257,25 @@ fn backlog(db: &TxpoolDatabase) -> Result<TxpoolReadResponse, TxPoolError> {
         .collect::<Result<_, TxPoolError>>()?;
 
     Ok(TxpoolReadResponse::Backlog(backlog))
+}
+
+/// [`TxpoolReadRequest::BlobHashes`].
+#[inline]
+fn blob_hashes(db: &TxpoolDatabase) -> Result<TxpoolReadResponse, TxPoolError> {
+    let blob_hashes = db
+        .known_blob_hashes
+        .iter()
+        .map(|guard| {
+            let (blob_hash, tx_hash) = guard.into_inner()?;
+
+            Ok((
+                tx_hash.as_ref().try_into().unwrap(),
+                blob_hash.as_ref().try_into().unwrap(),
+            ))
+        })
+        .collect::<Result<_, TxPoolError>>()?;
+
+    Ok(TxpoolReadResponse::BlobHashes(blob_hashes))
 }
 
 /// [`TxpoolReadRequest::Size`].
