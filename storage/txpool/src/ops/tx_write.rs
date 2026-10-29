@@ -10,16 +10,16 @@ use crate::{
     error::TxPoolError,
     free::transaction_blob_hash,
     ops::{
-        key_images::{add_tx_key_images, remove_tx_key_images},
+        key_images::{add_tx_key_images, ki_from_input, remove_tx_key_images},
         TxPoolWriteError,
     },
     txpool::TxpoolDatabase,
-    types::{TransactionHash, TransactionInfo, TxStateFlags},
+    types::{KeyImage, TransactionBlobHash, TransactionHash, TransactionInfo, TxStateFlags},
 };
 
 /// Adds a transaction to the tx-pool.
 ///
-/// This function fills in all tables necessary to add the transaction to the pool.
+/// This function fills in all tables necessary to add the transaction to the pool, and returns its blob hash.
 ///
 /// # Panics
 /// This function will panic if the transactions inputs are not all of type [`Input::ToKey`](monero_oxide::transaction::Input::ToKey).
@@ -28,7 +28,7 @@ pub fn add_transaction(
     state_stem: bool,
     w: &mut fjall::OwnedWriteBatch,
     db: &TxpoolDatabase,
-) -> Result<(), TxPoolWriteError> {
+) -> Result<TransactionBlobHash, TxPoolWriteError> {
     add_tx_key_images(&tx.tx.prefix().inputs, &tx.tx_hash, w, db)?;
 
     // Add the tx blob.
@@ -55,34 +55,76 @@ pub fn add_transaction(
     let blob_hash = transaction_blob_hash(&tx.tx_blob);
     w.insert(&db.known_blob_hashes, blob_hash, tx.tx_hash);
 
-    Ok(())
+    Ok(blob_hash)
 }
 
 /// Removes a transaction from the transaction pool.
+///
+/// The blob hash is calculated from the tx blob if it is not given.
 pub fn remove_transaction(
     tx_hash: &TransactionHash,
+    blob_hash: Option<TransactionBlobHash>,
     w: &mut fjall::OwnedWriteBatch,
     db: &TxpoolDatabase,
 ) -> Result<(), TxPoolError> {
-    // Remove the tx blob.
-    w.remove(&db.tx_blobs, tx_hash);
-
-    w.remove(&db.tx_infos, tx_hash);
-
     let tx_blob = db
         .tx_blobs
         .get(tx_hash.as_ref())?
         .ok_or(TxPoolError::NotFound)?;
-
-    // Remove the tx key images from table 3.
     let tx = Transaction::<Pruned>::read(&mut tx_blob.as_ref())
         .expect("Tx in the tx-pool must be parseable");
 
-    remove_tx_key_images(&tx.prefix().inputs, w, db);
+    let key_images = tx
+        .prefix()
+        .inputs
+        .iter()
+        .map(ki_from_input)
+        .collect::<Vec<_>>();
 
-    // Remove the blob hash from table 4.
-    let blob_hash = transaction_blob_hash(&tx_blob);
-    w.remove(&db.known_blob_hashes, blob_hash);
+    let blob_hash = blob_hash.unwrap_or_else(|| transaction_blob_hash(&tx_blob));
+
+    remove_transaction_with_key_images(tx_hash, &blob_hash, &key_images, w, db);
 
     Ok(())
+}
+
+/// Removes a transaction from the transaction pool, given its blob hash and key images.
+///
+/// Unlike [`remove_transaction`] nothing is read.
+///
+/// # Invariant
+/// `blob_hash` and `key_images` must be the tx's own, this is checked in debug builds.
+pub fn remove_transaction_with_key_images(
+    tx_hash: &TransactionHash,
+    blob_hash: &TransactionBlobHash,
+    key_images: &[KeyImage],
+    w: &mut fjall::OwnedWriteBatch,
+    db: &TxpoolDatabase,
+) {
+    // Make sure the given blob hash and key images are the tx's own.
+    #[cfg(debug_assertions)]
+    {
+        let tx_blob = db
+            .tx_blobs
+            .get(tx_hash.as_ref())
+            .unwrap()
+            .expect("Tx must be in the tx-pool");
+        let tx = Transaction::<Pruned>::read(&mut tx_blob.as_ref())
+            .expect("Tx in the tx-pool must be parseable");
+
+        assert_eq!(&transaction_blob_hash(&tx_blob), blob_hash);
+        assert!(tx
+            .prefix()
+            .inputs
+            .iter()
+            .map(ki_from_input)
+            .eq(key_images.iter().copied()));
+    }
+
+    w.remove(&db.tx_blobs, tx_hash);
+    w.remove(&db.tx_infos, tx_hash);
+
+    remove_tx_key_images(key_images, w, db);
+
+    w.remove(&db.known_blob_hashes, blob_hash);
 }
