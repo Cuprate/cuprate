@@ -10,7 +10,7 @@ use rayon::ThreadPool;
 use tower::Service;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
-use cuprate_types::TransactionVerificationData;
+use cuprate_types::{HardFork, TransactionVerificationData, VerifiedTransactionInformation};
 
 use crate::{
     error::TxPoolError,
@@ -65,6 +65,7 @@ fn handle_txpool_request(
         TxpoolWriteRequest::AddTransaction { tx, state_stem } => {
             add_transaction(env, &tx, state_stem)
         }
+        TxpoolWriteRequest::ReturnTransactions { txs, hf } => return_transactions(env, &txs, hf),
         TxpoolWriteRequest::RemoveTransaction(tx_hash) => remove_transaction(env, &tx_hash),
         TxpoolWriteRequest::Promote(tx_hash) => promote(env, &tx_hash),
         TxpoolWriteRequest::NewBlock { spent_key_images } => new_block(env, &spent_key_images),
@@ -86,29 +87,79 @@ fn add_transaction(
     tx: &TransactionVerificationData,
     state_stem: bool,
 ) -> Result<TxpoolWriteResponse, TxPoolError> {
-    struct KiDropGuard<'a>(Vec<[u8; 32]>, &'a TxpoolDatabase);
+    let mut guard = KiDropGuard(Vec::with_capacity(tx.tx.prefix().inputs.len()), db);
 
-    impl Drop for KiDropGuard<'_> {
-        fn drop(&mut self) {
+    let double_spend = claim_and_write(&mut guard, &tx.tx_hash, &tx.tx.prefix().inputs, || {
+        let mut writer = db.fjall_database.batch();
+        ops::add_transaction(tx, state_stem, &mut writer, db)?;
+        Ok(writer.commit().map_err(TxPoolError::Fjall)?)
+    })?;
+
+    Ok(TxpoolWriteResponse::AddTransaction(double_spend))
+}
+
+/// [`TxpoolWriteRequest::ReturnTransactions`]
+fn return_transactions(
+    db: &TxpoolDatabase,
+    txs: &[VerifiedTransactionInformation],
+    hf: HardFork,
+) -> Result<TxpoolWriteResponse, TxPoolError> {
+    let mut guard = KiDropGuard(Vec::new(), db);
+    let mut writer = db.fjall_database.batch();
+
+    let double_spends = txs
+        .iter()
+        .map(|tx| {
+            claim_and_write(&mut guard, &tx.tx_hash, &tx.tx.prefix().inputs, || {
+                ops::return_transaction(tx, hf, &mut writer, db)
+            })
+        })
+        .collect::<Result<_, _>>()?;
+
+    writer.commit()?;
+
+    Ok(TxpoolWriteResponse::ReturnTransactions(double_spends))
+}
+
+struct KiDropGuard<'a>(Vec<[u8; 32]>, &'a TxpoolDatabase);
+
+impl Drop for KiDropGuard<'_> {
+    fn drop(&mut self) {
+        if !self.0.is_empty() {
+            let mut in_progress_key_images = self.1.in_progress_key_images.lock().unwrap();
             for ki in &self.0 {
-                self.1.in_progress_key_images.lock().unwrap().remove(ki);
+                in_progress_key_images.remove(ki);
             }
         }
     }
+}
 
-    let mut guard = KiDropGuard(Vec::with_capacity(tx.tx.prefix().inputs.len()), db);
+/// Claims a tx's key images in `guard` then writes it with `write`, returning the tx it double spends, if any.
+///
+/// A tx that is not written releases its claims.
+fn claim_and_write(
+    guard: &mut KiDropGuard<'_>,
+    tx_hash: &TransactionHash,
+    inputs: &[Input],
+    write: impl FnOnce() -> Result<(), TxPoolWriteError>,
+) -> Result<Option<TransactionHash>, TxPoolError> {
+    let claimed = guard.0.len();
+    let mut double_spend = None;
 
-    let mut in_progress_key_images = db.in_progress_key_images.lock().unwrap();
-    for ki in tx.tx.prefix().inputs.iter().map(|i| match i {
+    let mut in_progress_key_images = guard.1.in_progress_key_images.lock().unwrap();
+    for ki in inputs.iter().map(|i| match i {
         Input::ToKey { key_image, .. } => key_image,
         Input::Gen(_) => unreachable!(),
     }) {
         let e = in_progress_key_images.entry(ki.to_bytes());
 
         match e {
-            Entry::Occupied(o) => return Ok(TxpoolWriteResponse::AddTransaction(Some(*o.get()))),
+            Entry::Occupied(o) => {
+                double_spend = Some(*o.get());
+                break;
+            }
             Entry::Vacant(v) => {
-                v.insert(tx.tx_hash);
+                v.insert(*tx_hash);
             }
         }
 
@@ -116,27 +167,25 @@ fn add_transaction(
     }
     drop(in_progress_key_images);
 
-    let mut writer = db.fjall_database.batch();
-
-    if let Err(e) = ops::add_transaction(tx, state_stem, &mut writer, db) {
-        // error adding the tx, abort the DB transaction.
-        drop(writer);
-
-        return match e {
-            TxPoolWriteError::DoubleSpend(tx_hash) => {
-                // If we couldn't add the tx due to a double spend still return ok, but include the tx
-                // this double spent.
-                // TODO: mark the double spent tx?
-                Ok(TxpoolWriteResponse::AddTransaction(Some(tx_hash)))
-            }
-            TxPoolWriteError::TxPool(e) => Err(e),
-        };
+    if double_spend.is_none() {
+        match write() {
+            Ok(()) => (),
+            // If we couldn't add the tx due to a double spend still return ok, but include the tx
+            // this double spent.
+            // TODO: mark the double spent tx?
+            Err(TxPoolWriteError::DoubleSpend(spender)) => double_spend = Some(spender),
+            Err(TxPoolWriteError::TxPool(e)) => return Err(e),
+        }
     }
 
-    // The tx was added to the pool successfully.
-    writer.commit()?;
+    if double_spend.is_some() && guard.0.len() > claimed {
+        let mut in_progress_key_images = guard.1.in_progress_key_images.lock().unwrap();
+        for ki in guard.0.drain(claimed..) {
+            in_progress_key_images.remove(&ki);
+        }
+    }
 
-    Ok(TxpoolWriteResponse::AddTransaction(None))
+    Ok(double_spend)
 }
 
 /// [`TxpoolWriteRequest::RemoveTransaction`]

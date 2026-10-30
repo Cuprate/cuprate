@@ -196,7 +196,11 @@ fn write_alt_block(db: &BlockchainDatabase, block: &AltBlockInformation) -> Resp
 }
 
 /// [`BlockchainWriteRequest::PopBlocks`].
-fn pop_blocks(db: &BlockchainDatabase, numb_blocks: usize, keep_blocks: bool) -> ResponseResult {
+fn pop_blocks(
+    db: &BlockchainDatabase,
+    numb_blocks: usize,
+    keep_blocks: Option<usize>,
+) -> ResponseResult {
     let mut tapes = db.linear_tapes.truncate();
     let mut tx_rw = db.fjall.batch().durability(Some(PersistMode::SyncAll));
 
@@ -204,30 +208,40 @@ fn pop_blocks(db: &BlockchainDatabase, numb_blocks: usize, keep_blocks: bool) ->
     crate::ops::alt_block::flush_alt_blocks(db)?;
 
     // generate a `ChainId` for the popped blocks.
-    let mut old_main_chain_id = keep_blocks.then_some(ChainId(rand::random()));
+    let mut old_main_chain_id = keep_blocks.map(|_| ChainId(rand::random()));
+    let return_blocks = keep_blocks.unwrap_or(0);
 
     assert!(tapes
         .fixed_sized_tape_len(&db.block_infos)
         .is_some_and(|height| u64_to_usize(height) > numb_blocks));
 
+    let mut popped_blocks = Vec::new();
+
     // pop the blocks
-    for _ in 0..numb_blocks {
-        let (.., added_to_alt_chain) =
+    for blocks_below in (0..numb_blocks).rev() {
+        let alt_block =
             crate::ops::block::pop_block(db, old_main_chain_id, &mut tx_rw, &mut tapes)?;
 
-        if old_main_chain_id.is_some() && !added_to_alt_chain {
-            old_main_chain_id = None;
+        match alt_block {
+            Some(alt_block) if blocks_below < return_blocks => popped_blocks.push(alt_block),
+            Some(_) => (),
+            None => old_main_chain_id = None,
         }
     }
 
     tapes.commit(tapes::Persistence::SyncAll)?;
     tx_rw.commit()?;
 
-    if keep_blocks && old_main_chain_id.is_none() {
+    if keep_blocks.is_some() && old_main_chain_id.is_none() {
         crate::ops::alt_block::flush_alt_blocks(db)?;
     }
 
-    Ok(BlockchainResponse::PopBlocks(old_main_chain_id))
+    // the blocks were popped from the top of the chain down.
+    popped_blocks.reverse();
+
+    Ok(BlockchainResponse::PopBlocks(
+        old_main_chain_id.map(|chain_id| (chain_id, popped_blocks)),
+    ))
 }
 
 /// [`BlockchainWriteRequest::FlushAltBlocks`].

@@ -4,7 +4,9 @@
 use monero_oxide::transaction::{Pruned, Transaction};
 
 use cuprate_helper::time::current_unix_timestamp;
-use cuprate_types::TransactionVerificationData;
+use cuprate_types::{
+    CachedVerificationState, HardFork, TransactionVerificationData, VerifiedTransactionInformation,
+};
 
 use crate::{
     error::TxPoolError,
@@ -53,6 +55,45 @@ pub fn add_transaction(
 
     // Add the blob hash to table 4.
     let blob_hash = transaction_blob_hash(&tx.tx_blob);
+    w.insert(&db.known_blob_hashes, blob_hash, tx.tx_hash);
+
+    Ok(())
+}
+
+/// Returns a transaction from a block removed by a reorg to the public tx-pool, it only needs its contextual checks
+/// redone at `hf`.
+///
+/// # Panics
+/// This function will panic if the transactions inputs are not all of type [`Input::ToKey`](monero_oxide::transaction::Input::ToKey).
+pub fn return_transaction(
+    tx: &VerifiedTransactionInformation,
+    hf: HardFork,
+    w: &mut fjall::OwnedWriteBatch,
+    db: &TxpoolDatabase,
+) -> Result<(), TxPoolWriteError> {
+    add_tx_key_images(&tx.tx.prefix().inputs, &tx.tx_hash, w, db)?;
+
+    let tx_blob = [tx.tx_pruned.as_slice(), &tx.tx_prunable_blob].concat();
+
+    // Add the tx blob.
+    w.insert(&db.tx_blobs, tx.tx_hash, tx_blob.as_slice());
+
+    // Add the tx info.
+    w.insert(
+        &db.tx_infos,
+        tx.tx_hash,
+        bytemuck::bytes_of(&TransactionInfo {
+            fee: tx.fee,
+            weight: tx.tx_weight,
+            received_at: current_unix_timestamp(),
+            cached_verification_state: CachedVerificationState::OnlySemantic(hf).into(),
+            flags: TxStateFlags::empty(),
+            _padding: [0; 6],
+        }),
+    );
+
+    // Add the blob hash to table 4.
+    let blob_hash = transaction_blob_hash(&tx_blob);
     w.insert(&db.known_blob_hashes, blob_hash, tx.tx_hash);
 
     Ok(())
