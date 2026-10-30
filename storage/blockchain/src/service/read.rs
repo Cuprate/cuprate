@@ -120,7 +120,10 @@ fn map_request(
     /* SOMEDAY: pre-request handling, run some code for each request? */
 
     match request {
-        R::BlockCompleteEntries(block_hashes) => block_complete_entries(env, block_hashes),
+        R::BlockCompleteEntries {
+            block_hashes,
+            pruned,
+        } => block_complete_entries(env, block_hashes, pruned),
         R::BlockCompleteEntriesByHeight(heights) => block_complete_entries_by_height(env, heights),
         R::BlockCompleteEntriesAboveSplitPoint {
             chain,
@@ -201,13 +204,17 @@ fn map_request(
 // amount of parallelism.
 
 /// [`BlockchainReadRequest::BlockCompleteEntries`].
-fn block_complete_entries(db: &BlockchainDatabase, block_hashes: Vec<BlockHash>) -> ResponseResult {
+fn block_complete_entries(
+    db: &BlockchainDatabase,
+    block_hashes: Vec<BlockHash>,
+    pruned: bool,
+) -> ResponseResult {
     let (tx_ro, tapes) = db.read_transactions()?;
 
     let (missing_hashes, blocks) = block_hashes
         .into_par_iter()
         .map(
-            |block_hash| match get_block_complete_entry(db, &block_hash, false, &tx_ro, &tapes) {
+            |block_hash| match get_block_complete_entry(db, &block_hash, pruned, &tx_ro, &tapes) {
                 Err(BlockchainError::NotFound) => Ok(Either::Left(block_hash)),
                 res => res.map(Either::Right),
             },
