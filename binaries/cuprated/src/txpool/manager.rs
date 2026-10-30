@@ -431,8 +431,7 @@ impl TxpoolManager {
     ) -> Result<(), FatalError> {
         tracing::debug!("handling new tx");
 
-        let incoming_tx =
-            IncomingTxBuilder::new(DandelionTx(Bytes::copy_from_slice(&tx.tx_blob)), tx.tx_hash);
+        let incoming_tx = IncomingTxBuilder::new(DandelionTx(tx.tx_blob.clone()), tx.tx_hash);
 
         let (tx_hash, tx_weight, tx_fee) = (tx.tx_hash, tx.tx_weight, tx.fee);
 

@@ -26,7 +26,7 @@ pub fn new_tx_verification_data(
         tx_hash,
         version: TxVersion::from_raw(tx.version())
             .ok_or(TransactionError::TransactionVersionInvalid)?,
-        tx_blob,
+        tx_blob: tx_blob.into(),
         tx_weight,
         fee,
         cached_verification_state: CachedVerificationState::NotVerified,

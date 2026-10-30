@@ -416,7 +416,7 @@ async fn recover_bad_reorg() {
 
     let tx = TransactionVerificationData {
         version: TxVersion::RingSignatures,
-        tx_blob: tx.serialize(),
+        tx_blob: tx.serialize().into(),
         tx_weight: 0,
         fee: 0,
         tx_hash: tx.hash(),

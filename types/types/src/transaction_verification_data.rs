@@ -1,5 +1,6 @@
 //! Contains [`TransactionVerificationData`] and the related types.
 
+use bytes::Bytes;
 use monero_oxide::transaction::{Timelock, Transaction};
 
 use crate::{HardFork, VerifiedTransactionInformation};
@@ -82,7 +83,7 @@ pub struct TransactionVerificationData {
     /// The [`TxVersion`] of this tx.
     pub version: TxVersion,
     /// The serialised transaction.
-    pub tx_blob: Vec<u8>,
+    pub tx_blob: Bytes,
     /// The weight of the transaction.
     pub tx_weight: usize,
     /// The fee this transaction has paid.
@@ -101,8 +102,8 @@ impl TryFrom<VerifiedTransactionInformation> for TransactionVerificationData {
     type Error = TxConversionError;
 
     fn try_from(value: VerifiedTransactionInformation) -> Result<Self, Self::Error> {
-        let tx_blob = [value.tx_pruned, value.tx_prunable_blob].concat();
-        let tx = Transaction::read(&mut tx_blob.as_slice()).map_err(|_| TxConversionError)?;
+        let tx_blob = Bytes::from([value.tx_pruned, value.tx_prunable_blob].concat());
+        let tx = Transaction::read(&mut tx_blob.as_ref()).map_err(|_| TxConversionError)?;
 
         Ok(Self {
             version: TxVersion::from_raw(value.tx.version()).ok_or(TxConversionError)?,

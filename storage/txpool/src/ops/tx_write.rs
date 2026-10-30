@@ -32,7 +32,7 @@ pub fn add_transaction(
     add_tx_key_images(&tx.tx.prefix().inputs, &tx.tx_hash, w, db)?;
 
     // Add the tx blob.
-    w.insert(&db.tx_blobs, tx.tx_hash, &tx.tx_blob);
+    w.insert(&db.tx_blobs, tx.tx_hash, tx.tx_blob.as_ref());
 
     let mut flags = TxStateFlags::empty();
     flags.set(TxStateFlags::STATE_STEM, state_stem);
