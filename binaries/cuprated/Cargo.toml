@@ -32,7 +32,7 @@ cuprate-cryptonight       = { workspace = true }
 cuprate-dandelion-tower   = { workspace = true, features = ["txpool"] }
 cuprate-fast-sync         = { workspace = true }
 cuprate-fixed-bytes       = { workspace = true }
-cuprate-helper            = { workspace = true, features = ["std", "serde", "time", "net"] }
+cuprate-helper            = { workspace = true, features = ["std", "serde", "time", "net", "tx"] }
 cuprate-hex               = { workspace = true }
 cuprate-pruning           = { workspace = true }
 cuprate-p2p-core          = { workspace = true }
