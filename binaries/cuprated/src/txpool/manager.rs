@@ -19,7 +19,7 @@ use cuprate_txpool::service::{
     interface::{TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest, TxpoolWriteResponse},
     TxpoolReadHandle, TxpoolWriteHandle,
 };
-use cuprate_types::TransactionVerificationData;
+use cuprate_types::{HardFork, TransactionVerificationData, VerifiedTransactionInformation};
 
 use crate::{
     config::TxpoolConfig,
@@ -155,7 +155,7 @@ enum ChainUpdate {
     NewBlock(MinedTxs),
 
     /// Txs from popped blocks to return to the pool.
-    ReturnedTxs(Vec<TransactionVerificationData>),
+    ReturnedTxs(Vec<VerifiedTransactionInformation>, HardFork),
 }
 
 /// Commands sent to the [`TxpoolManager`] via [`TxpoolManagerHandle`].
@@ -257,7 +257,8 @@ impl TxpoolManagerHandle {
     /// The relay rules are not checked, as these txs were already mined.
     pub(crate) async fn return_txs(
         &self,
-        txs: Vec<TransactionVerificationData>,
+        txs: Vec<VerifiedTransactionInformation>,
+        hf: HardFork,
     ) -> Result<(), FatalError> {
         if txs.is_empty() {
             return Ok(());
@@ -267,7 +268,7 @@ impl TxpoolManagerHandle {
 
         drop(
             self.chain_update_tx
-                .send((ChainUpdate::ReturnedTxs(txs), tx))
+                .send((ChainUpdate::ReturnedTxs(txs, hf), tx))
                 .await,
         );
 
@@ -649,26 +650,27 @@ impl TxpoolManager {
     #[instrument(level = "debug", skip_all)]
     async fn return_txs(
         &mut self,
-        txs: Vec<TransactionVerificationData>,
+        txs: Vec<VerifiedTransactionInformation>,
+        hf: HardFork,
     ) -> Result<(), FatalError> {
         tracing::debug!(txs = txs.len(), "returning txs to pool");
 
-        for tx in txs {
-            let (tx_hash, tx_weight, tx_fee) = (tx.tx_hash, tx.tx_weight, tx.fee);
+        let tracked = txs
+            .iter()
+            .map(|tx| (tx.tx_hash, tx.tx_weight, tx.fee))
+            .collect::<Vec<_>>();
 
-            let TxpoolWriteResponse::AddTransaction(added) = self
-                .txpool_write_handle
-                .ready()
-                .await?
-                .call(TxpoolWriteRequest::AddTransaction {
-                    tx: Box::new(tx),
-                    state_stem: false,
-                })
-                .await?
-            else {
-                unreachable!()
-            };
+        let TxpoolWriteResponse::ReturnTransactions(added) = self
+            .txpool_write_handle
+            .ready()
+            .await?
+            .call(TxpoolWriteRequest::ReturnTransactions { txs, hf })
+            .await?
+        else {
+            unreachable!()
+        };
 
+        for ((tx_hash, tx_weight, tx_fee), added) in tracked.into_iter().zip(added) {
             if let Ok(blob_hash) = added {
                 self.track_tx(tx_hash, blob_hash, tx_weight, tx_fee, false);
             }
@@ -692,7 +694,7 @@ impl TxpoolManager {
                 Some((update, tx)) = chain_update_rx.recv() => {
                     match update {
                         ChainUpdate::NewBlock(mined_txs) => self.new_block(mined_txs).await?,
-                        ChainUpdate::ReturnedTxs(txs) => self.return_txs(txs).await?,
+                        ChainUpdate::ReturnedTxs(txs, hf) => self.return_txs(txs, hf).await?,
                     }
                     let _ = tx.send(());
                 }

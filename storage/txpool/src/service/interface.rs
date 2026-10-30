@@ -9,7 +9,7 @@ use std::{
 
 use cuprate_types::{
     rpc::{PoolInfo, SpentKeyImageInfo, TxInfo, TxpoolStats},
-    TransactionVerificationData, TxInPool,
+    HardFork, TransactionVerificationData, TxInPool, VerifiedTransactionInformation,
 };
 
 use crate::{
@@ -178,6 +178,18 @@ pub enum TxpoolWriteRequest {
         state_stem: bool,
     },
 
+    /// Return transactions from blocks removed by a reorg to the public pool, in one database write.
+    ///
+    /// The txs were verified in their blocks, so only their contextual checks are redone.
+    ///
+    /// Returns [`TxpoolWriteResponse::ReturnTransactions`].
+    ReturnTransactions {
+        /// The txs to add.
+        txs: Vec<VerifiedTransactionInformation>,
+        /// The hard-fork the txs were verified at.
+        hf: HardFork,
+    },
+
     /// Remove a transaction with the given hash and blob hash from the pool.
     RemoveTransaction(TransactionHash, TransactionBlobHash),
 
@@ -215,4 +227,9 @@ pub enum TxpoolWriteResponse {
     ///
     /// The inner value is the tx's blob hash if it was added, or the hash of the tx it double spends if it was not.
     AddTransaction(Result<TransactionBlobHash, TransactionHash>),
+
+    /// Response to [`TxpoolWriteRequest::ReturnTransactions`].
+    ///
+    /// The inner values are, in order, what [`TxpoolWriteResponse::AddTransaction`] holds for each tx.
+    ReturnTransactions(Vec<Result<TransactionBlobHash, TransactionHash>>),
 }
