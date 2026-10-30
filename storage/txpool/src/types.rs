@@ -48,6 +48,8 @@ pub struct TransactionInfo {
     /// The UNIX timestamp of when this tx was received.
     pub received_at: u64,
     pub cached_verification_state: RawCachedVerificationState,
+    /// The hash of the transaction blob, see [`transaction_blob_hash`](crate::free::transaction_blob_hash).
+    pub blob_hash: TransactionBlobHash,
     /// [`TxStateFlags`] of this transaction.
     pub flags: TxStateFlags,
     #[expect(clippy::pub_underscore_fields)]

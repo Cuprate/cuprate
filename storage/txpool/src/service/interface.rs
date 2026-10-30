@@ -177,9 +177,14 @@ pub enum TxpoolWriteRequest {
     /// If the tx is already in the fluff pool this does nothing.
     Promote(TransactionHash),
 
-    /// Tell the tx-pool about a new block.
+    /// Tell the tx-pool about new blocks.
     NewBlock {
-        /// The spent key images in the new block.
+        /// The txs in the pool that the new blocks mined, with their key images.
+        ///
+        /// # Invariant
+        /// Every hash must be a tx in the pool, with exactly that tx's key images.
+        pool_txs: Vec<(TransactionHash, Vec<KeyImage>)>,
+        /// The key images spent in the new blocks by txs that are not in the pool.
         spent_key_images: Vec<KeyImage>,
     },
 }
