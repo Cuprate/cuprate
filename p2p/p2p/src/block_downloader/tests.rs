@@ -2,6 +2,7 @@ use std::{
     collections::VecDeque,
     fmt::{Debug, Formatter},
     future::Future,
+    ops::Deref,
     pin::Pin,
     sync::{Arc, Mutex},
     task::{Context, Poll},
@@ -83,8 +84,13 @@ proptest! {
 
                 assert_eq!(blocks.len() + 1, blockchain.blocks.len());
 
-                for (i, block) in blocks.into_iter().enumerate() {
-                    assert_eq!(&block, blockchain.blocks.get_index(i + 1).unwrap().1);
+                for (i, (block, txs)) in blocks.into_iter().enumerate() {
+                    let expected = blockchain.blocks.get_index(i + 1).unwrap().1;
+                    assert_eq!(*block, expected.0);
+                    assert_eq!(
+                        txs.iter().map(Deref::deref).collect::<Vec<_>>(),
+                        expected.1.iter().collect::<Vec<_>>()
+                    );
                 }
             }).await
         }).unwrap();

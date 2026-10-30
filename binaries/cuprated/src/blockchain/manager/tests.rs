@@ -1,9 +1,9 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use monero_oxide::{
-    block::{Block, BlockHeader},
+    block::{self, BlockHeader},
     ed25519::CompressedPoint,
-    transaction::{Input, Output, Timelock, Transaction, TransactionPrefix},
+    transaction::{self, Input, Output, Timelock, TransactionPrefix},
 };
 use tokio::sync::oneshot;
 use tower::BoxError;
@@ -14,7 +14,9 @@ use cuprate_consensus_rules::{hard_forks::HFInfo, miner_tx::calculate_block_rewa
 use cuprate_helper::network::Network;
 use cuprate_p2p::{block_downloader::BlockBatch, BroadcastSvc};
 use cuprate_p2p_core::handles::HandleBuilder;
-use cuprate_types::{CachedVerificationState, TransactionVerificationData, TxVersion};
+use cuprate_types::{
+    Block, CachedVerificationState, Transaction, TransactionVerificationData, TxVersion,
+};
 
 use crate::{
     blockchain::{
@@ -78,7 +80,7 @@ async fn mock_manager(data_dir: PathBuf) -> BlockchainManager {
 }
 
 fn generate_block(context: &BlockchainContext) -> Block {
-    Block::new(
+    let block = block::Block::new(
         BlockHeader {
             hardfork_version: 16,
             hardfork_signal: 16,
@@ -86,7 +88,7 @@ fn generate_block(context: &BlockchainContext) -> Block {
             previous: context.top_hash,
             nonce: 0,
         },
-        Transaction::V2 {
+        transaction::Transaction::V2 {
             prefix: TransactionPrefix {
                 additional_timelock: Timelock::Block(context.chain_height + 60),
                 inputs: vec![Input::Gen(context.chain_height)],
@@ -107,7 +109,9 @@ fn generate_block(context: &BlockchainContext) -> Block {
         },
         vec![],
     )
-    .unwrap()
+    .unwrap();
+
+    Block::new(block)
 }
 
 #[tokio::test]
@@ -404,7 +408,7 @@ async fn recover_bad_reorg() {
         .unwrap();
 
     // This tx is invalid and will make the reorg fail.
-    let tx = Transaction::V2 {
+    let tx = transaction::Transaction::V2 {
         prefix: TransactionPrefix {
             additional_timelock: Timelock::None,
             inputs: vec![Input::Gen(1)],
@@ -421,23 +425,24 @@ async fn recover_bad_reorg() {
         fee: 0,
         tx_hash: tx.hash(),
         cached_verification_state: CachedVerificationState::NotVerified,
-        tx,
+        tx: Transaction::new(tx),
     };
 
-    let mut block_2_alt = generate_block(&context_2);
+    let mut block_2_alt = generate_block(&context_2).into_inner();
     block_2_alt.transactions = vec![tx.tx_hash];
     block_2_alt.header.previous = block_1_alt.hash();
 
     manager_1
         .handle_command(BlockchainManagerCommand::AddBlock {
-            block: block_2_alt.clone(),
+            block: Block::new(block_2_alt.clone()),
             prepped_txs: HashMap::from([(tx.tx_hash, tx)]),
             response_tx: oneshot::channel().0,
         })
         .await
         .unwrap();
 
-    let mut block_3_alt = generate_block(manager_1.blockchain_context_service.blockchain_context());
+    let mut block_3_alt =
+        generate_block(manager_1.blockchain_context_service.blockchain_context()).into_inner();
     block_3_alt.header.previous = block_2_alt.hash();
 
     // Currently this is the state of the DB:
@@ -447,7 +452,7 @@ async fn recover_bad_reorg() {
     // this will fail, and we should stay on the main chain.
     manager_1
         .handle_command(BlockchainManagerCommand::AddBlock {
-            block: block_3_alt,
+            block: Block::new(block_3_alt),
             prepped_txs: HashMap::new(),
             response_tx: oneshot::channel().0,
         })

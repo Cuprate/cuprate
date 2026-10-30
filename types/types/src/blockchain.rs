@@ -9,7 +9,6 @@ use std::{
 };
 
 use indexmap::{IndexMap, IndexSet};
-use monero_oxide::block::Block;
 
 use crate::{
     output_cache::OutputCache,
@@ -18,7 +17,7 @@ use crate::{
         OutputHistogramInput,
     },
     types::{Chain, ExtendedBlockHeader, OutputOnChain, TxsInBlock, VerifiedBlockInformation},
-    AltBlockInformation, BlockCompleteEntry, ChainId, PreRctOutputDistributionInput,
+    AltBlockInformation, Block, BlockCompleteEntry, ChainId, PreRctOutputDistributionInput,
     TxInBlockchain,
 };
 

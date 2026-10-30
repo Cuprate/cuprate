@@ -2,8 +2,10 @@ use curve25519_dalek::traits::IsIdentity;
 use monero_oxide::{
     ed25519::Point,
     ringct::RctType,
-    transaction::{Input, Output, Timelock, Transaction},
+    transaction::{self, Input, Output, Timelock},
 };
+
+use cuprate_types::Transaction;
 
 use crate::{
     batch_verifier::BatchVerifier, blocks::penalty_free_zone, is_decomposed_amount, HardFork,
@@ -567,10 +569,12 @@ pub fn check_transaction_semantic(
     tx: &Transaction,
     tx_blob_size: usize,
     tx_weight: usize,
-    tx_hash: &[u8; 32],
     hf: HardFork,
     verifier: impl BatchVerifier,
 ) -> Result<u64, TransactionError> {
+    let tx_hash = tx.hash();
+    let tx: &transaction::Transaction = tx;
+
     // <https://monero-book.cuprate.org/consensus_rules/transactions.html#transaction-size>
     if tx_blob_size > MAX_TX_BLOB_SIZE
         || (hf >= HardFork::V8 && tx_weight > transaction_weight_limit(hf))
@@ -582,7 +586,7 @@ pub fn check_transaction_semantic(
         TxVersion::from_raw(tx.version()).ok_or(TransactionError::TransactionVersionInvalid)?;
 
     let bp_or_bpp = match tx {
-        Transaction::V2 {
+        transaction::Transaction::V2 {
             proofs: Some(proofs),
             ..
         } => match proofs.rct_type() {
@@ -592,25 +596,27 @@ pub fn check_transaction_semantic(
             | RctType::ClsagBulletproof
             | RctType::ClsagBulletproofPlus => true,
         },
-        Transaction::V2 { proofs: None, .. } | Transaction::V1 { .. } => false,
+        transaction::Transaction::V2 { proofs: None, .. } | transaction::Transaction::V1 { .. } => {
+            false
+        }
     };
 
     let outputs_sum = check_outputs_semantics(&tx.prefix().outputs, hf, tx_version, bp_or_bpp)?;
     let inputs_sum = check_inputs_semantics(&tx.prefix().inputs, hf)?;
 
     let fee = match tx {
-        Transaction::V1 { .. } => {
+        transaction::Transaction::V1 { .. } => {
             if outputs_sum >= inputs_sum {
                 return Err(TransactionError::OutputsTooHigh);
             }
             inputs_sum - outputs_sum
         }
-        Transaction::V2 { proofs, .. } => {
+        transaction::Transaction::V2 { proofs, .. } => {
             let proofs = proofs
                 .as_ref()
                 .ok_or(TransactionError::TransactionVersionInvalid)?;
 
-            ring_ct::ring_ct_semantic_checks(proofs, tx_hash, verifier, hf)?;
+            ring_ct::ring_ct_semantic_checks(proofs, &tx_hash, verifier, hf)?;
 
             proofs.base.fee
         }
@@ -633,6 +639,7 @@ pub fn check_transaction_contextual(
     current_time_lock_timestamp: u64,
     hf: HardFork,
 ) -> Result<(), TransactionError> {
+    let tx: &transaction::Transaction = tx;
     let tx_version =
         TxVersion::from_raw(tx.version()).ok_or(TransactionError::TransactionVersionInvalid)?;
 
@@ -652,15 +659,17 @@ pub fn check_transaction_contextual(
     )?;
 
     match &tx {
-        Transaction::V1 { prefix, signatures } => ring_signatures::check_input_signatures(
-            &prefix.inputs,
-            signatures,
-            &tx_ring_members_info.rings,
-            // This will only return None on v2 miner txs.
-            &tx.signature_hash()
-                .ok_or(TransactionError::TransactionVersionInvalid)?,
-        ),
-        Transaction::V2 { prefix, proofs } => Ok(ring_ct::check_input_signatures(
+        transaction::Transaction::V1 { prefix, signatures } => {
+            ring_signatures::check_input_signatures(
+                &prefix.inputs,
+                signatures,
+                &tx_ring_members_info.rings,
+                // This will only return None on v2 miner txs.
+                &tx.signature_hash()
+                    .ok_or(TransactionError::TransactionVersionInvalid)?,
+            )
+        }
+        transaction::Transaction::V2 { prefix, proofs } => Ok(ring_ct::check_input_signatures(
             &tx.signature_hash()
                 .ok_or(TransactionError::TransactionVersionInvalid)?,
             &prefix.inputs,

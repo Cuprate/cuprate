@@ -11,7 +11,6 @@ use std::{
 };
 
 use anyhow::{anyhow, Error};
-use monero_oxide::block::Block;
 
 use cuprate_constants::rpc::{
     OUTPUT_HISTOGRAM_RECENT_CUTOFF_RESTRICTION, RESTRICTED_BLOCK_COUNT,
@@ -51,7 +50,7 @@ use cuprate_rpc_types::{
 };
 use cuprate_types::{
     rpc::{CoinbaseTxSum, GetMinerDataTxBacklogEntry, HardForkEntry, TxBacklogEntry},
-    Chain, HardFork,
+    Block, Chain, HardFork,
 };
 
 use crate::{
@@ -431,7 +430,7 @@ async fn get_block(
     let miner_tx_hash = Hex(block.miner_transaction().hash());
     let tx_hashes = block.transactions.iter().copied().map(Hex).collect();
     let json = {
-        let block = cuprate_types::json::block::Block::from(block);
+        let block = cuprate_types::json::block::Block::from(block.into_inner());
         serde_json::to_string_pretty(&block)?
     };
 

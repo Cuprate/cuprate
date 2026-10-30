@@ -1,10 +1,8 @@
 //! Free functions for block verification
 use std::collections::HashMap;
 
-use monero_oxide::block::Block;
-
 use cuprate_consensus_rules::{blocks::BlockError, ConsensusError};
-use cuprate_types::TransactionVerificationData;
+use cuprate_types::{Block, TransactionVerificationData};
 
 /// Orders the [`TransactionVerificationData`] list the same as it appears in [`Block::transactions`]
 pub(crate) fn order_transactions(

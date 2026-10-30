@@ -3,12 +3,11 @@
 use std::num::NonZero;
 
 use monero_oxide::{
-    block::Block,
     ed25519::CompressedPoint,
-    transaction::{Pruned, Timelock, Transaction},
+    transaction::{self, Pruned, Timelock},
 };
 
-use crate::HardFork;
+use crate::{Block, HardFork};
 
 /// Extended header data of a block.
 ///
@@ -41,20 +40,20 @@ pub struct ExtendedBlockHeader {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedTransactionInformation {
     /// The transaction itself.
-    pub tx: Transaction<Pruned>,
+    pub tx: transaction::Transaction<Pruned>,
     /// The pruned blob of the transaction.
     pub tx_pruned: Vec<u8>,
     /// The prunable blob of the transaction.
     pub tx_prunable_blob: Vec<u8>,
     /// The transaction's weight.
     ///
-    /// [`Transaction::weight`].
+    /// [`transaction::Transaction::weight`].
     pub tx_weight: usize,
     /// The transaction's total fees.
     pub fee: u64,
     /// The transaction's hash.
     ///
-    /// [`Transaction::hash`].
+    /// [`transaction::Transaction::hash`].
     pub tx_hash: [u8; 32],
 }
 
@@ -67,9 +66,10 @@ pub struct VerifiedBlockInformation {
     pub block: Block,
     /// The serialized byte form of [`Self::block`].
     ///
-    /// [`Block::serialize`].
+    /// [`Block::serialize`](monero_oxide::block::Block::serialize).
     pub block_blob: Vec<u8>,
-    /// All the transactions in the block, excluding the [`Block::miner_transaction`].
+    /// All the transactions in the block, excluding the
+    /// [`Block::miner_transaction`](monero_oxide::block::Block::miner_transaction).
     pub txs: Vec<VerifiedTransactionInformation>,
     /// The block's hash.
     ///
@@ -112,9 +112,10 @@ pub struct AltBlockInformation {
     pub block: Block,
     /// The serialized byte form of [`Self::block`].
     ///
-    /// [`Block::serialize`].
+    /// [`Block::serialize`](monero_oxide::block::Block::serialize).
     pub block_blob: Vec<u8>,
-    /// All the transactions in the block, excluding the [`Block::miner_transaction`].
+    /// All the transactions in the block, excluding the
+    /// [`Block::miner_transaction`](monero_oxide::block::Block::miner_transaction).
     pub txs: Vec<VerifiedTransactionInformation>,
     /// The block's hash.
     ///

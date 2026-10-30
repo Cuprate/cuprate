@@ -1,11 +1,11 @@
 use fjall::Readable;
-use monero_oxide::block::{Block, BlockHeader};
+use monero_oxide::block::{self, BlockHeader};
 
 use cuprate_helper::{
     cast::usize_to_u64,
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
 };
-use cuprate_types::{AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, HardFork};
+use cuprate_types::{AltBlockInformation, Block, Chain, ChainId, ExtendedBlockHeader, HardFork};
 
 use crate::{
     database::reset_fjall_keyspace,
@@ -116,7 +116,10 @@ pub fn get_alt_block_information(
         )?
         .ok_or(BlockchainError::NotFound)?;
 
-    let block = Block::read(&mut block_blob.as_ref()).unwrap();
+    let block = Block::with_hash(
+        block::Block::read(&mut block_blob.as_ref()).unwrap(),
+        block_info.block_hash,
+    );
 
     let txs = block
         .transactions

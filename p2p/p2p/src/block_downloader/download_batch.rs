@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-use monero_oxide::{block::Block, transaction::Transaction};
 use rayon::prelude::*;
 use tower::Service;
 use tracing::instrument;
@@ -11,6 +10,7 @@ use cuprate_p2p_core::{
     handles::ConnectionHandle, NetworkZone, PeerRequest, PeerResponse, ProtocolRequest,
     ProtocolResponse,
 };
+use cuprate_types::{Block, Transaction};
 use cuprate_wire::protocol::{GetObjectsRequest, GetObjectsResponse};
 
 use crate::{

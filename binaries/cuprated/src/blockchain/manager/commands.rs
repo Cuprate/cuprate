@@ -1,7 +1,7 @@
 //! This module contains the commands for the blockchain manager.
 use std::collections::HashMap;
 
-use monero_oxide::block::Block;
+use cuprate_types::Block;
 use tokio::sync::oneshot;
 
 use cuprate_types::TransactionVerificationData;

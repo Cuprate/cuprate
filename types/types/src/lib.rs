@@ -10,16 +10,20 @@
 // Documentation for each module is located in the respective file.
 
 mod address_type;
+mod block;
 mod block_complete_entry;
 mod connection_state;
 mod hard_fork;
+mod transaction;
 mod transaction_verification_data;
 mod types;
 
 pub use address_type::AddressType;
+pub use block::Block;
 pub use block_complete_entry::{BlockCompleteEntry, PrunedTxBlobEntry, TransactionBlobs};
 pub use connection_state::ConnectionState;
 pub use hard_fork::{HardFork, HardForkError};
+pub use transaction::Transaction;
 pub use transaction_verification_data::{
     CachedVerificationState, TransactionVerificationData, TxConversionError, TxVersion,
 };

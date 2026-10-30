@@ -3,7 +3,6 @@
 use std::num::NonZero;
 
 use anyhow::{anyhow, Error};
-use monero_oxide::block::Block;
 use tower::{Service, ServiceExt};
 
 use cuprate_consensus_context::{
@@ -11,7 +10,7 @@ use cuprate_consensus_context::{
 };
 use cuprate_types::{
     rpc::{FeeEstimate, HardForkInfo, OutputDistributionData},
-    HardFork,
+    Block, HardFork,
 };
 
 // FIXME: use `anyhow::Error` over `tower::BoxError` in blockchain context.
