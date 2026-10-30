@@ -9,8 +9,8 @@ use monero_oxide::transaction::Input;
 use rayon::ThreadPool;
 use tower::Service;
 
-use cuprate_helper::asynch::InfallibleOneshotReceiver;
-use cuprate_types::TransactionVerificationData;
+use cuprate_helper::{asynch::InfallibleOneshotReceiver, time::current_unix_timestamp};
+use cuprate_types::{HardFork, TransactionVerificationData, VerifiedTransactionInformation};
 
 use crate::{
     error::TxPoolError,
@@ -65,6 +65,7 @@ fn handle_txpool_request(
         TxpoolWriteRequest::AddTransaction { tx, state_stem } => {
             add_transaction(env, &tx, state_stem)
         }
+        TxpoolWriteRequest::ReturnTransactions { txs, hf } => return_transactions(env, txs, hf),
         TxpoolWriteRequest::RemoveTransaction(tx_hash, blob_hash) => {
             remove_transaction(env, &tx_hash, blob_hash)
         }
@@ -91,35 +92,11 @@ fn add_transaction(
     tx: &TransactionVerificationData,
     state_stem: bool,
 ) -> Result<TxpoolWriteResponse, TxPoolError> {
-    struct KiDropGuard<'a>(Vec<[u8; 32]>, &'a TxpoolDatabase);
-
-    impl Drop for KiDropGuard<'_> {
-        fn drop(&mut self) {
-            for ki in &self.0 {
-                self.1.in_progress_key_images.lock().unwrap().remove(ki);
-            }
-        }
-    }
-
     let mut guard = KiDropGuard(Vec::with_capacity(tx.tx.prefix().inputs.len()), db);
 
-    let mut in_progress_key_images = db.in_progress_key_images.lock().unwrap();
-    for ki in tx.tx.prefix().inputs.iter().map(|i| match i {
-        Input::ToKey { key_image, .. } => key_image,
-        Input::Gen(_) => unreachable!(),
-    }) {
-        let e = in_progress_key_images.entry(ki.to_bytes());
-
-        match e {
-            Entry::Occupied(o) => return Ok(TxpoolWriteResponse::AddTransaction(Err(*o.get()))),
-            Entry::Vacant(v) => {
-                v.insert(tx.tx_hash);
-            }
-        }
-
-        guard.0.push(ki.to_bytes());
+    if let Some(tx_hash) = guard.claim(&tx.tx_hash, &tx.tx.prefix().inputs) {
+        return Ok(TxpoolWriteResponse::AddTransaction(Err(tx_hash)));
     }
-    drop(in_progress_key_images);
 
     let mut writer = db.fjall_database.batch();
 
@@ -139,6 +116,70 @@ fn add_transaction(
     writer.commit()?;
 
     Ok(TxpoolWriteResponse::AddTransaction(Ok(blob_hash)))
+}
+
+/// [`TxpoolWriteRequest::ReturnTransactions`]
+fn return_transactions(
+    db: &TxpoolDatabase,
+    txs: Vec<VerifiedTransactionInformation>,
+    hf: HardFork,
+) -> Result<TxpoolWriteResponse, TxPoolError> {
+    let received_at = current_unix_timestamp();
+
+    txs.into_iter()
+        .map(|tx| {
+            let mut guard = KiDropGuard(Vec::with_capacity(tx.tx.prefix().inputs.len()), db);
+            if let Some(tx_hash) = guard.claim(&tx.tx_hash, &tx.tx.prefix().inputs) {
+                return Ok(Err(tx_hash));
+            }
+
+            let mut writer = db.fjall_database.batch();
+
+            match ops::return_transaction(&tx, hf, received_at, &mut writer, db) {
+                Ok(blob_hash) => {
+                    writer.commit()?;
+                    Ok(Ok(blob_hash))
+                }
+                Err(TxPoolWriteError::DoubleSpend(tx_hash)) => Ok(Err(tx_hash)),
+                Err(TxPoolWriteError::TxPool(e)) => Err(e),
+            }
+        })
+        .collect::<Result<_, _>>()
+        .map(TxpoolWriteResponse::ReturnTransactions)
+}
+
+struct KiDropGuard<'a>(Vec<[u8; 32]>, &'a TxpoolDatabase);
+
+impl Drop for KiDropGuard<'_> {
+    fn drop(&mut self) {
+        for ki in &self.0 {
+            self.1.in_progress_key_images.lock().unwrap().remove(ki);
+        }
+    }
+}
+
+impl KiDropGuard<'_> {
+    /// Claims a tx's key images, returning the tx that already claimed one, if any.
+    fn claim(&mut self, tx_hash: &TransactionHash, inputs: &[Input]) -> Option<TransactionHash> {
+        let mut in_progress_key_images = self.1.in_progress_key_images.lock().unwrap();
+        for ki in inputs.iter().map(|i| match i {
+            Input::ToKey { key_image, .. } => key_image,
+            Input::Gen(_) => unreachable!(),
+        }) {
+            let e = in_progress_key_images.entry(ki.to_bytes());
+
+            match e {
+                Entry::Occupied(o) => return Some(*o.get()),
+                Entry::Vacant(v) => {
+                    v.insert(*tx_hash);
+                }
+            }
+
+            self.0.push(ki.to_bytes());
+        }
+
+        None
+    }
 }
 
 /// [`TxpoolWriteRequest::RemoveTransaction`]

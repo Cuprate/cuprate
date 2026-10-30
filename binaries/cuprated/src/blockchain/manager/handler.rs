@@ -25,9 +25,8 @@ use cuprate_helper::{cast::usize_to_u64, tx::tx_key_images};
 use cuprate_p2p::{block_downloader::BlockBatch, constants::MEDIUM_BAN, BroadcastRequest};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
-    AltBlockInformation, CachedVerificationState, Chain, ChainId, HardFork,
-    TransactionVerificationData, TxConversionError, VerifiedBlockInformation,
-    VerifiedTransactionInformation,
+    AltBlockInformation, Chain, ChainId, HardFork, TransactionVerificationData, TxConversionError,
+    VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 
 use crate::{
@@ -695,24 +694,12 @@ impl super::BlockchainManager {
                 continue;
             }
 
-            for tx in block.txs {
-                if tx_key_images(tx.tx.prefix())
-                    .any(|key_image| new_key_images.contains(&key_image))
-                {
-                    continue;
-                }
-
-                let Ok(mut tx) = TransactionVerificationData::try_from(tx) else {
-                    warn!("Failed to convert a popped tx, not returning it to the tx-pool.");
-                    continue;
-                };
-                // The tx was in the main chain, so it only needs its contextual checks redone.
-                tx.cached_verification_state = CachedVerificationState::OnlySemantic(current_hf);
-                txs.push(tx);
-            }
+            txs.extend(block.txs.into_iter().filter(|tx| {
+                !tx_key_images(tx.tx.prefix()).any(|key_image| new_key_images.contains(&key_image))
+            }));
         }
 
-        self.txpool_manager_handle.return_txs(txs).await
+        self.txpool_manager_handle.return_txs(txs, current_hf).await
     }
 
     /// Verify and add a list of [`AltBlockInformation`]s to the main-chain.
