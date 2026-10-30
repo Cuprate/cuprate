@@ -2,7 +2,7 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FcmpLeafBlocks {
     pub hash: [u8; 32],
-    pub leafs_in_tree: u64,
+    pub leaves_in_tree: u64,
 }
 
 /// An output for the FCMP tree.
@@ -21,7 +21,7 @@ pub struct FcmpOutput {
 pub struct FcmpLeafData {
     /// The output point.
     ///
-    /// This must ba as the output is on chain, i.e. should not be torsion cleared. Also should not
+    /// This must be as the output is on chain, i.e. should not be torsion cleared. Also should not
     /// be the identity or any of the small order points.
     pub o: [u8; 32],
     /// The outputs amount.
@@ -35,7 +35,7 @@ pub enum FcmpLeafAmount {
     Clear(u64),
     /// A commitment.
     ///
-    /// This must ba as the commitment is on chain, i.e. should not be torsion cleared. Also, should not
+    /// This must be as the commitment is on chain, i.e. should not be torsion cleared. Also, should not
     /// be the identity or any of the small order points.
     Commitment([u8; 32]),
 }

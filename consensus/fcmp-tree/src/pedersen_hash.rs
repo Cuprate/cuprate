@@ -389,7 +389,7 @@ mod tests {
             .collect()
     }
 
-    fn generate_leafs(amt: usize) -> Vec<FcmpLeafData> {
+    fn generate_leaves(amt: usize) -> Vec<FcmpLeafData> {
         (0..amt)
             .map(|_| FcmpLeafData {
                 o: EdwardsPoint::random(&mut rand::rngs::OsRng).compress().0,
@@ -479,7 +479,7 @@ mod tests {
         single_hash_consistent_inner::<Helios, FcmpLeafData>(
             *SELENE_HASH_INIT,
             *HELIOS_HASH_INIT,
-            generate_leafs,
+            generate_leaves,
             generate_scalars::<Helios>,
         );
     }
@@ -524,6 +524,6 @@ mod tests {
 
         chunks_hasher_consistent_inner::<Selene, Branch>(generate_scalars::<Selene>);
         chunks_hasher_consistent_inner::<Helios, Branch>(generate_scalars::<Helios>);
-        chunks_hasher_consistent_inner::<Selene, FcmpLeafData>(generate_leafs);
+        chunks_hasher_consistent_inner::<Selene, FcmpLeafData>(generate_leaves);
     }
 }
