@@ -65,14 +65,6 @@ jobs:
           readonly ARCHIVE=$(realpath ${{ env.ARCHIVE }})
           readonly VERSION=$(grep '^version = ' binaries/cuprated/Cargo.toml | cut -d'"' -f2)
 
-          # All archives have these files.
-          cp LICENSE-AGPL target/release/LICENSE
-          if [ "$RUNNER_OS" == "Windows" ]; then
-              target/release/cuprated.exe --generate-config > target/release/Cuprated.toml
-          else
-              target/release/cuprated --generate-config > target/release/Cuprated.toml
-          fi
-
           # Archive extension.
           if [ "$RUNNER_OS" == "Windows" ]; then
             readonly EXTENSION="zip"
@@ -82,26 +74,35 @@ jobs:
 
           # Generate the asset name.
           readonly TARGET=$(rustc -vV | sed -n 's/^host: //p')
-          readonly ASSET="cuprated-$VERSION-$TARGET.$EXTENSION"
+          readonly NAME="cuprated-$VERSION-$TARGET"
+          readonly ASSET="$NAME.$EXTENSION"
 
-          # Generate archives for Linux.
-          if [ "$RUNNER_OS" == "Linux" ]; then
-              cp binaries/cuprated/cuprated.service target/release/
-              cd target/release
-              tar -czpf "$ARCHIVE/$ASSET" cuprated LICENSE Cuprated.toml cuprated.service
+          # Files are staged in a top-level directory so the archive extracts into it.
+          readonly STAGING="target/release/$NAME"
+          rm -rf "$STAGING"
+          mkdir -p "$STAGING"
+
+          # All archives have these files.
+          cp LICENSE-AGPL "$STAGING/LICENSE"
+          if [ "$RUNNER_OS" == "Windows" ]; then
+              cp -p target/release/cuprated.exe "$STAGING/"
+              target/release/cuprated.exe --generate-config > "$STAGING/Cuprated.toml"
+          else
+              cp -p target/release/cuprated "$STAGING/"
+              target/release/cuprated --generate-config > "$STAGING/Cuprated.toml"
           fi
 
-          # Generate archives for macOS.
-          if [ "$RUNNER_OS" == "macOS" ]; then
-              cd target/release
-              tar -czpf "$ARCHIVE/$ASSET" cuprated LICENSE Cuprated.toml
+          # Linux archives also have the systemd service.
+          if [ "$RUNNER_OS" == "Linux" ]; then
+              cp binaries/cuprated/cuprated.service "$STAGING/"
           fi
 
           # Generate archives for Windows.
           if [ "$RUNNER_OS" == "Windows" ]; then
-              mv target/release/cuprated.exe target/release/
               cd target/release
-              powershell Compress-Archive -LiteralPath cuprated.exe, LICENSE, Cuprated.toml -DestinationPath "$ARCHIVE/$ASSET"
+              powershell Compress-Archive -LiteralPath "$NAME" -DestinationPath "$ARCHIVE/$ASSET"
+          else
+              tar -czpf "$ARCHIVE/$ASSET" -C target/release "$NAME"
           fi
 
       - name: Archive
@@ -175,12 +176,19 @@ jobs:
 
           # Generate the asset name.
           readonly TARGET=$(rustc -vV | sed -n 's/^host: //p')
-          readonly ASSET="cuprated-$VERSION-$TARGET.tar.gz"
+          readonly NAME="cuprated-$VERSION-$TARGET"
+          readonly ASSET="$NAME.tar.gz"
+
+          # Files are staged in a top-level directory so the archive extracts into it.
+          readonly STAGING="target/release/$NAME"
+          rm -rf "$STAGING"
+          mkdir -p "$STAGING"
 
           # Generate archive for BSD.
-          cp LICENSE-AGPL target/release/LICENSE
-          target/release/cuprated --generate-config > target/release/Cuprated.toml
-          tar -czpf "$ARCHIVE/$ASSET" -C target/release cuprated LICENSE Cuprated.toml
+          cp -p target/release/cuprated "$STAGING/"
+          cp LICENSE-AGPL "$STAGING/LICENSE"
+          target/release/cuprated --generate-config > "$STAGING/Cuprated.toml"
+          tar -czpf "$ARCHIVE/$ASSET" -C target/release "$NAME"
 
           # Only sync the finished archive back to the runner.
           rm -rf target
@@ -241,13 +249,20 @@ jobs:
           readonly ARCHIVE=$(realpath ${{ env.ARCHIVE }})
           readonly VERSION=$(grep '^version = ' binaries/cuprated/Cargo.toml | cut -d'"' -f2)
           readonly OUT="target/$CARGO_BUILD_TARGET/release"
-          readonly ASSET="cuprated-$VERSION-$CARGO_BUILD_TARGET.tar.gz"
+          readonly NAME="cuprated-$VERSION-$CARGO_BUILD_TARGET"
+          readonly ASSET="$NAME.tar.gz"
+
+          # Files are staged in a top-level directory so the archive extracts into it.
+          readonly STAGING="$OUT/$NAME"
+          rm -rf "$STAGING"
+          mkdir -p "$STAGING"
 
           # Generate archives for Linux.
-          cp LICENSE-AGPL "$OUT/LICENSE"
-          cp binaries/cuprated/cuprated.service "$OUT"
-          mv Cuprated.toml "$OUT"
-          tar -czpf "$ARCHIVE/$ASSET" -C "$OUT" cuprated LICENSE Cuprated.toml cuprated.service
+          cp -p "$OUT/cuprated" "$STAGING/"
+          cp LICENSE-AGPL "$STAGING/LICENSE"
+          cp binaries/cuprated/cuprated.service "$STAGING/"
+          mv Cuprated.toml "$STAGING/"
+          tar -czpf "$ARCHIVE/$ASSET" -C "$OUT" "$NAME"
 
       - name: Archive
         uses: actions/upload-artifact@v4
