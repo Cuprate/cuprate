@@ -98,8 +98,6 @@ impl IncomingTxHandler {
         tor_net_rx: Option<oneshot::Receiver<NetworkInterface<Tor>>>,
         txpool_write_handle: TxpoolWriteHandle,
     ) -> anyhow::Result<Self> {
-        let txpool_config = launch_ctx.config.storage.txpool.clone();
-
         let diffuse_service = DiffuseService {
             clear_net_broadcast_service: clear_net.broadcast_svc(),
         };
@@ -131,13 +129,11 @@ impl IncomingTxHandler {
             });
 
         let txpool_manager = start_txpool_manager(
+            launch_ctx,
             txpool_write_handle,
-            launch_ctx.txpool_read.clone(),
             promote_rx,
             diffuse_service,
             dandelion_pool_manager.clone(),
-            txpool_config,
-            launch_ctx.task_executor.clone(),
         )
         .await
         .map_err(anyhow::Error::from_boxed)?;
