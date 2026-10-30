@@ -36,6 +36,7 @@ pub mod blockchain;
 #[cfg(feature = "blockchain")]
 pub mod output_cache;
 
+pub mod fcmp;
 #[cfg(feature = "json")]
 pub mod json;
 

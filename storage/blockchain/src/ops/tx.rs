@@ -70,7 +70,7 @@ pub fn add_tx_info_to_tapes(
         for (i, output) in prefix.outputs.iter().enumerate() {
             // Create commitment.
             let commitment = if miner_tx {
-                compute_zero_commitment(output.amount.unwrap_or(0))
+                compute_zero_commitment(output.amount.unwrap_or(0)).compress()
             } else {
                 proofs
                     .as_ref()
