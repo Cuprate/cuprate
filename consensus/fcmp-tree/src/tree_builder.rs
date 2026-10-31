@@ -258,10 +258,7 @@ fn build_layer<P: FcmpCurve, C: Child<P> + Send + 'static, W: LayerWriter, R: Ch
     mut reader: R,
     cached_incomplete_branch: Option<CachedIncompleteBranch<P, C>>,
     prev_layer_overflow: Option<C>,
-) -> Result<(Option<CachedIncompleteBranch<P, C>>, u64), io::Error>
-where
-    PedersenChunkHasher<P, C>: From<CachedIncompleteBranch<P, C>> + Default,
-{
+) -> Result<(Option<CachedIncompleteBranch<P, C>>, u64), io::Error> {
     let layer_len = layer_tx.branch_len()?;
 
     // start_index into the child layer
@@ -270,9 +267,7 @@ where
             .as_ref()
             .map_or(0, |c| c.complete_children as u64);
 
-    let mut chunk_hasher: PedersenChunkHasher<_, _> = cached_incomplete_branch
-        .map(PedersenChunkHasher::from)
-        .unwrap_or_default();
+    let mut chunk_hasher = PedersenChunkHasher::new(cached_incomplete_branch);
 
     loop {
         // The end index, either the size of the buffer of the end of the child layer.

@@ -15,6 +15,7 @@ use curve25519_dalek::{EdwardsPoint, Scalar, edwards::CompressedEdwardsY};
 use ec_divisors::DivisorCurve;
 use helioselene::{Helios, Selene};
 use monero_fcmp_plus_plus::{HELIOS_FCMP_GENERATORS, SELENE_FCMP_GENERATORS};
+use monero_fcmp_plus_plus_generators::{HELIOS_HASH_INIT, SELENE_HASH_INIT};
 use monero_oxide::ed25519::{CompressedPoint, Point};
 
 use cuprate_types::fcmp::{FcmpLeafAmount, FcmpLeafData};
@@ -37,6 +38,9 @@ pub(crate) trait FcmpCurve:
 
     /// The generators for Pedersen hashing.
     fn generators() -> &'static monero_fcmp_plus_plus_generators::FcmpGenerators<Self>;
+
+    /// A fixed point to add to each Pedersen hash. `B_curve` in the FCMP paper.
+    fn hash_init() -> Self::G;
 }
 
 /// A trait representing a child layer in the tree.
@@ -123,6 +127,10 @@ impl FcmpCurve for Selene {
     fn generators() -> &'static monero_fcmp_plus_plus_generators::FcmpGenerators<Self> {
         &SELENE_FCMP_GENERATORS
     }
+
+    fn hash_init() -> Self::G {
+        *SELENE_HASH_INIT
+    }
 }
 
 impl FcmpCurve for Helios {
@@ -132,6 +140,10 @@ impl FcmpCurve for Helios {
 
     fn generators() -> &'static monero_fcmp_plus_plus_generators::FcmpGenerators<Self> {
         &HELIOS_FCMP_GENERATORS
+    }
+
+    fn hash_init() -> Self::G {
+        *HELIOS_HASH_INIT
     }
 }
 

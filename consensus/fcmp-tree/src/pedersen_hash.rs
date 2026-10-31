@@ -3,8 +3,7 @@
 //! This module handles executing the Pedersen hash algorithm over children in the Merkle tree.
 use std::borrow::Cow;
 
-use helioselene::{Helios, Selene, group::GroupEncoding};
-use monero_fcmp_plus_plus_generators::{HELIOS_HASH_INIT, SELENE_HASH_INIT};
+use helioselene::group::GroupEncoding;
 use rayon::prelude::*;
 
 use crate::{
@@ -46,50 +45,19 @@ enum PedersenChunkHasherState<C> {
     LeftOver { left_over_children: Vec<C> },
 }
 
-impl<C: Child<Selene>> Default for PedersenChunkHasher<Selene, C> {
-    fn default() -> Self {
-        Self {
-            hash_init: *SELENE_HASH_INIT,
-            cache: None,
-            state: PedersenChunkHasherState::Empty,
-        }
-    }
-}
-
-impl<C: Child<Helios>> Default for PedersenChunkHasher<Helios, C> {
-    fn default() -> Self {
-        Self {
-            hash_init: *HELIOS_HASH_INIT,
-            cache: None,
-            state: PedersenChunkHasherState::Empty,
-        }
-    }
-}
-
-impl<C: Child<Selene>> From<CachedIncompleteBranch<Selene, C>> for PedersenChunkHasher<Selene, C> {
-    fn from(value: CachedIncompleteBranch<Selene, C>) -> Self {
-        Self {
-            hash_init: *SELENE_HASH_INIT,
-            cache: Some(value),
-            state: PedersenChunkHasherState::Empty,
-        }
-    }
-}
-
-impl<C: Child<Helios>> From<CachedIncompleteBranch<Helios, C>> for PedersenChunkHasher<Helios, C> {
-    fn from(value: CachedIncompleteBranch<Helios, C>) -> Self {
-        Self {
-            hash_init: *HELIOS_HASH_INIT,
-            cache: Some(value),
-            state: PedersenChunkHasherState::Empty,
-        }
-    }
-}
-
 impl<P: FcmpCurve, C: Child<P>> PedersenChunkHasher<P, C>
 where
     [C]: ToOwned<Owned = Vec<C>>,
 {
+    /// Create a hasher that continues the cached incomplete branch, if there is one.
+    pub fn new(cache: Option<CachedIncompleteBranch<P, C>>) -> Self {
+        Self {
+            hash_init: P::hash_init(),
+            cache,
+            state: PedersenChunkHasherState::Empty,
+        }
+    }
+
     /// Compute a chunk of full Pedersen hashes over the given children.
     ///
     /// All children passed in here must be full themselves if they are branches.
@@ -372,7 +340,6 @@ mod tests {
             ff::{Field, PrimeField},
         },
     };
-    use monero_fcmp_plus_plus_generators::{HELIOS_HASH_INIT, SELENE_HASH_INIT};
     use rand::RngCore;
 
     use cuprate_types::fcmp::{FcmpLeafAmount, FcmpLeafData};
@@ -401,16 +368,13 @@ mod tests {
     #[test]
     fn single_hash_consistent() {
         fn single_hash_consistent_inner<P: FcmpCurve, GC: Child<P::Other>>(
-            child_hash_init: <P::Other as Ciphersuite>::G,
-            hash_init: P::G,
-
             gen_grandchildren: fn(usize) -> Vec<GC>,
             gen_children: fn(usize) -> Vec<Branch>,
         ) {
             let grandchildren = gen_grandchildren(<P::Other as FcmpCurve>::CHUNK_LEN);
 
             let child_hasher = PedersenHasher::<P::Other, _>::New {
-                hash_init: child_hash_init,
+                hash_init: P::Other::hash_init(),
                 children: Cow::Borrowed(&grandchildren[..grandchildren.len() - 1]),
             };
 
@@ -421,7 +385,7 @@ mod tests {
             full_children.push(partial_child.to_bytes());
 
             let hasher = PedersenHasher::<P, _>::New {
-                hash_init,
+                hash_init: P::hash_init(),
                 children: Cow::Borrowed(&full_children[..]),
             };
 
@@ -449,7 +413,7 @@ mod tests {
             let full_branch = hasher.hash_with_scratch_space(&mut Vec::new());
 
             let full_child_hasher = PedersenHasher::<P::Other, _>::New {
-                hash_init: child_hash_init,
+                hash_init: P::Other::hash_init(),
                 children: Cow::Borrowed(&grandchildren),
             };
             let full_child = full_child_hasher.hash_with_scratch_space(&mut Vec::new());
@@ -457,7 +421,7 @@ mod tests {
             full_children.push(full_child.to_bytes());
 
             let hasher = PedersenHasher::<P, _>::New {
-                hash_init,
+                hash_init: P::hash_init(),
                 children: Cow::Borrowed(&full_children[..]),
             };
 
@@ -465,20 +429,14 @@ mod tests {
         }
 
         single_hash_consistent_inner::<Selene, Branch>(
-            *HELIOS_HASH_INIT,
-            *SELENE_HASH_INIT,
             generate_scalars::<Helios>,
             generate_scalars::<Selene>,
         );
         single_hash_consistent_inner::<Helios, Branch>(
-            *SELENE_HASH_INIT,
-            *HELIOS_HASH_INIT,
             generate_scalars::<Selene>,
             generate_scalars::<Helios>,
         );
         single_hash_consistent_inner::<Helios, FcmpLeafData>(
-            *SELENE_HASH_INIT,
-            *HELIOS_HASH_INIT,
             generate_leaves,
             generate_scalars::<Helios>,
         );
@@ -489,12 +447,11 @@ mod tests {
         fn chunks_hasher_consistent_inner<P: FcmpCurve, C: Child<P>>(
             gen_children: fn(usize) -> Vec<C>,
         ) where
-            PedersenChunkHasher<P, C>: Default + From<CachedIncompleteBranch<P, C>>,
             CachedIncompleteBranch<P, C>: Debug + PartialEq,
         {
             let children = gen_children(10_000);
 
-            let mut chunks_hasher = PedersenChunkHasher::<P, C>::default();
+            let mut chunks_hasher = PedersenChunkHasher::<P, C>::new(None);
             let mut res = Vec::new();
 
             let mut i = 0;
@@ -506,14 +463,12 @@ mod tests {
 
                 if rand::rngs::OsRng.next_u64().is_multiple_of(10) {
                     let cache = chunks_hasher.finish(None);
-                    chunks_hasher = cache
-                        .map(PedersenChunkHasher::from)
-                        .unwrap_or_else(PedersenChunkHasher::default);
+                    chunks_hasher = PedersenChunkHasher::new(cache);
                 }
             }
 
             let incomplete_branch = chunks_hasher.finish(None);
-            let mut chunks_hasher = PedersenChunkHasher::<P, _>::default();
+            let mut chunks_hasher = PedersenChunkHasher::<P, _>::new(None);
 
             let res2 = chunks_hasher.hash_children(&children);
             let incomplete_branch2 = chunks_hasher.finish(None);
