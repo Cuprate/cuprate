@@ -1,4 +1,6 @@
 //! Test that the tree is consistent after a reorg, across restarts and at edge sizes.
+#![expect(unused_crate_dependencies, reason = "external test module")]
+
 use std::{io, path::Path, sync::Arc};
 
 use ciphersuite::group::Group;
@@ -8,9 +10,10 @@ use rand::rngs::OsRng;
 use tempfile::TempDir;
 
 use cuprate_fcmp_tree::{
-    CachedFcmpTreeRootData, FcmpTreeStorageConfig, NewLeaves, TapeBlockInfo, TapesTreeStore,
-    TreeBuilder,
+    CachedFcmpTreeRootData, FcmpRoot, FcmpTreeStorageConfig, NewLeaves, TapeBlockInfo,
+    TapesTreeStore, TreeBuilder,
 };
+use cuprate_helper::cast::u64_to_usize;
 use cuprate_types::fcmp::{FcmpLeafAmount, FcmpLeafData};
 
 // With 1-4 leaves per block (~250 total on average) this gives committed branches in both the
@@ -26,7 +29,7 @@ fn block_hash(height: u64) -> [u8; 32] {
 }
 
 fn open_store(dir: &Path) -> io::Result<TapesTreeStore> {
-    TapesTreeStore::open(FcmpTreeStorageConfig {
+    TapesTreeStore::open(&FcmpTreeStorageConfig {
         path: dir.to_path_buf(),
         layer_cache_size: 1_000,
     })
@@ -38,7 +41,7 @@ fn random_leaf_offsets(
     num_blocks: usize,
     max_leaves_per_block: usize,
 ) -> Vec<usize> {
-    let mut offsets = vec![0usize; num_blocks + 1];
+    let mut offsets = vec![0_usize; num_blocks + 1];
     for h in 0..num_blocks {
         offsets[h + 1] = offsets[h] + rng.gen_range(1..=max_leaves_per_block);
     }
@@ -77,7 +80,7 @@ fn random_leaves(rng: &mut OsRng, n: usize) -> Vec<FcmpLeafData> {
 /// [`CachedFcmpTreeRootData::next_leaf_idx_needed`]), while block infos are already committed for
 /// every kept block (`block_start`).
 fn extend_range(
-    store: Arc<TapesTreeStore>,
+    store: &Arc<TapesTreeStore>,
     root_data: CachedFcmpTreeRootData,
     all_leaves: &[FcmpLeafData],
     leaf_offsets: &[usize],
@@ -85,16 +88,16 @@ fn extend_range(
     block_start: usize,
     target: usize,
 ) -> Result<CachedFcmpTreeRootData, io::Error> {
-    let mut builder = TreeBuilder::new(store.clone(), root_data).unwrap();
+    let mut builder = TreeBuilder::new(Arc::clone(store), root_data).unwrap();
 
     // Add the blocks to the store.
     builder.layer_1_writer.add_blocks(
-        (block_start..target)
+        &(block_start..target)
             .map(|h| TapeBlockInfo {
                 hash: block_hash(h as u64),
                 leaves_in_tree: leaf_offsets[h + 1] as u64,
             })
-            .collect(),
+            .collect::<Vec<_>>(),
     )?;
 
     // Extend the tree with the new leaves.
@@ -122,7 +125,7 @@ fn run_consistency(num_blocks: usize, max_leaves_per_block: usize) -> io::Result
 
     // Reference tree: extend with everything, no pops.
     let root_a = extend_range(
-        store_a.clone(),
+        &store_a,
         CachedFcmpTreeRootData::empty(),
         &all_leaves,
         &leaf_offsets,
@@ -132,8 +135,8 @@ fn run_consistency(num_blocks: usize, max_leaves_per_block: usize) -> io::Result
     )?;
 
     // Test tree: randomly pop and add back while extending a random amount at a time.
-    let mut height = 0usize;
-    let mut leaf_start = 0usize;
+    let mut height = 0_usize;
+    let mut leaf_start = 0_usize;
     let mut root_b = CachedFcmpTreeRootData::empty();
     while height < num_blocks {
         let old_height = height;
@@ -146,7 +149,7 @@ fn run_consistency(num_blocks: usize, max_leaves_per_block: usize) -> io::Result
 
             // Restart from the committed tape, which may be mid-chunk and thus behind `height`.
             root_b = CachedFcmpTreeRootData::empty();
-            leaf_start = root_b.next_leaf_idx_needed(&store_b)? as usize;
+            leaf_start = u64_to_usize(root_b.next_leaf_idx_needed(&store_b)?);
         }
 
         // Extend to a new high-water mark: always at least one block past the previous tip,
@@ -159,7 +162,7 @@ fn run_consistency(num_blocks: usize, max_leaves_per_block: usize) -> io::Result
         // Block infos are only needed for the new blocks; leaves may need re-hashing from an
         // earlier point if we restarted mid-chunk.
         root_b = extend_range(
-            store_b.clone(),
+            &store_b,
             root_b,
             &all_leaves,
             &leaf_offsets,
@@ -172,8 +175,8 @@ fn run_consistency(num_blocks: usize, max_leaves_per_block: usize) -> io::Result
     }
 
     assert_eq!(
-        root_a.root.as_ref().map(|r| r.to_bytes()),
-        root_b.root.as_ref().map(|r| r.to_bytes())
+        root_a.root.as_ref().map(FcmpRoot::to_bytes),
+        root_b.root.as_ref().map(FcmpRoot::to_bytes)
     );
 
     let (height_a, top_a) = store_a.top_block_in_tree()?.unwrap();
@@ -236,7 +239,7 @@ fn test_tree_persistence_across_reopen() -> io::Result<()> {
     let dir_a = TempDir::new()?;
     let store_a = Arc::new(open_store(dir_a.path())?);
     let root_a = extend_range(
-        store_a.clone(),
+        &store_a,
         CachedFcmpTreeRootData::empty(),
         &all_leaves,
         &leaf_offsets,
@@ -253,7 +256,7 @@ fn test_tree_persistence_across_reopen() -> io::Result<()> {
     {
         let store_b = Arc::new(open_store(dir_b.path())?);
         extend_range(
-            store_b.clone(),
+            &store_b,
             CachedFcmpTreeRootData::empty(),
             &all_leaves,
             &leaf_offsets,
@@ -267,10 +270,10 @@ fn test_tree_persistence_across_reopen() -> io::Result<()> {
     // re-hashed from the last complete chunk while block infos start at `mid`.
     let store_b = Arc::new(open_store(dir_b.path())?);
     let root_data = CachedFcmpTreeRootData::empty();
-    let leaf_start = root_data.next_leaf_idx_needed(&store_b)? as usize;
+    let leaf_start = u64_to_usize(root_data.next_leaf_idx_needed(&store_b)?);
     assert!(leaf_start < leaf_offsets[mid]);
     let root_b = extend_range(
-        store_b.clone(),
+        &store_b,
         root_data,
         &all_leaves,
         &leaf_offsets,
@@ -280,8 +283,8 @@ fn test_tree_persistence_across_reopen() -> io::Result<()> {
     )?;
 
     assert_eq!(
-        root_a.root.as_ref().map(|r| r.to_bytes()),
-        root_b.root.as_ref().map(|r| r.to_bytes())
+        root_a.root.as_ref().map(FcmpRoot::to_bytes),
+        root_b.root.as_ref().map(FcmpRoot::to_bytes)
     );
 
     Ok(())

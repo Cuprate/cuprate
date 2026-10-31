@@ -1,6 +1,7 @@
 use std::{cmp::min, io, path::PathBuf, sync::Arc};
 
 use bytemuck::{Pod, Zeroable};
+use cuprate_helper::cast::u64_to_usize;
 use helioselene::{Helios, Selene};
 use tapes::{
     CachedBlobTape, CachedTapeOpenOptions, FixedSizedTape, Persistence, Tapes, TapesAppend,
@@ -40,36 +41,22 @@ pub struct TapesTreeStore {
 
 impl TapesTreeStore {
     /// Open the store or create a new one if one does not exist.
-    pub fn open(config: FcmpTreeStorageConfig) -> io::Result<Self> {
-        let tapes = Arc::new(Tapes::open(&config.path.join("tree"))?);
+    pub fn open(config: &FcmpTreeStorageConfig) -> io::Result<Self> {
+        let dir = config.path.join("tree");
+        let tapes = Arc::new(Tapes::open(&dir)?);
         let mut append = tapes.append();
+
+        let options = || CachedTapeOpenOptions {
+            inner: WholeTapeOpenOptions { dir: dir.clone() },
+            top_cache_size: config.layer_cache_size,
+        };
 
         let layers = LAYER_NAMES
             .iter()
-            .map(|name| {
-                append
-                    .open_fixed_sized_tape(
-                        name,
-                        CachedTapeOpenOptions {
-                            inner: WholeTapeOpenOptions {
-                                dir: config.path.join("tree"),
-                            },
-                            top_cache_size: config.layer_cache_size,
-                        },
-                    )
-                    .map(Arc::new)
-            })
+            .map(|name| append.open_fixed_sized_tape(name, options()).map(Arc::new))
             .collect::<io::Result<_>>()?;
 
-        let blocks = Arc::new(append.open_fixed_sized_tape(
-            "blocks",
-            CachedTapeOpenOptions {
-                inner: WholeTapeOpenOptions {
-                    dir: config.path.join("tree"),
-                },
-                top_cache_size: config.layer_cache_size,
-            },
-        )?);
+        let blocks = Arc::new(append.open_fixed_sized_tape("blocks", options())?);
 
         append.commit(Persistence::SyncAll)?;
 
@@ -131,7 +118,7 @@ impl TapesTreeStore {
                 new_branches_in_layer /= Selene::CHUNK_LEN as u64;
             }
 
-            truncate.truncate_fixed_sized_tape(layer, new_branches_in_layer)?
+            truncate.truncate_fixed_sized_tape(layer, new_branches_in_layer)?;
         }
 
         truncate.truncate_fixed_sized_tape(&self.blocks, to_height)?;
@@ -146,15 +133,15 @@ impl TreeStore for TapesTreeStore {
 
     fn layer_reader(&self, layer_idx: usize) -> Self::LayerReader {
         BranchReader {
-            layer: self.layers[layer_idx].clone(),
-            tapes: self.tapes.clone(),
+            layer: Arc::clone(&self.layers[layer_idx]),
+            tapes: Arc::clone(&self.tapes),
         }
     }
 
     fn layer_writer(&self, layer_idx: usize) -> Self::LayerWriter {
         BranchWriter {
-            layer: self.layers[layer_idx].clone(),
-            blocks: self.blocks.clone(),
+            layer: Arc::clone(&self.layers[layer_idx]),
+            blocks: Arc::clone(&self.blocks),
             tx: self.tapes.append(),
         }
     }
@@ -177,7 +164,7 @@ impl ChildReader<Branch> for BranchReader {
             return Ok(vec![]);
         }
 
-        let mut buf = vec![[0_u8; 32]; buf_len as usize];
+        let mut buf = vec![[0_u8; 32]; u64_to_usize(buf_len)];
 
         tx.read_entries(&self.layer, start_index, &mut buf)?;
 
@@ -199,8 +186,8 @@ pub struct BranchWriter {
 
 impl BranchWriter {
     /// Add block's [`TapeBlockInfo`] to the tree.
-    pub fn add_blocks(&mut self, blocks: Vec<TapeBlockInfo>) -> io::Result<()> {
-        self.tx.append_entries(&self.blocks, &blocks)?;
+    pub fn add_blocks(&mut self, blocks: &[TapeBlockInfo]) -> io::Result<()> {
+        self.tx.append_entries(&self.blocks, blocks)?;
         Ok(())
     }
 }

@@ -14,18 +14,18 @@ use crate::{
 /// An in-memory cache of an incomplete branch. This can be used to speed up calculation of the full
 /// branch later and may represent the root of the tree, if the tree has incomplete children.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CachedIncompleteBranch<P: FcmpCurve, C: Child<P>> {
+pub(crate) struct CachedIncompleteBranch<P: FcmpCurve, C: Child<P>> {
     /// The hash of the children currently present.
-    pub branch: P::G,
+    pub(crate) branch: P::G,
     /// The potential incomplete child on the right of the lower layer.
     incomplete_child: Option<C>,
     /// The number of complete children in the chunk. There may be 1 more child the furthest right that is not counted
     /// if it is incomplete (`incomplete_child`).
-    pub complete_children: usize,
+    pub(crate) complete_children: usize,
 }
 
 /// A Pedersen hash computer that can compute chunks of hashes.
-pub struct PedersenChunkHasher<P: FcmpCurve, C: Child<P>> {
+pub(crate) struct PedersenChunkHasher<P: FcmpCurve, C: Child<P>> {
     cache: Option<CachedIncompleteBranch<P, C>>,
     /// Left over children from this hasher run.
     ///
@@ -38,7 +38,7 @@ where
     [C]: ToOwned<Owned = Vec<C>>,
 {
     /// Create a hasher that continues the cached incomplete branch, if there is one.
-    pub fn new(cache: Option<CachedIncompleteBranch<P, C>>) -> Self {
+    pub(crate) const fn new(cache: Option<CachedIncompleteBranch<P, C>>) -> Self {
         Self {
             cache,
             left_over_children: Vec::new(),
@@ -50,7 +50,7 @@ where
     /// All children passed in here must be full themselves if they are branches.
     ///
     /// Once you have passed in all children you can get the potential incomplete branch from [`PedersenChunkHasher::finish`].
-    pub fn hash_children(&mut self, children: &[C]) -> Vec<Branch> {
+    pub(crate) fn hash_children(&mut self, children: &[C]) -> Vec<Branch> {
         if children.is_empty() {
             return vec![];
         }
@@ -110,7 +110,7 @@ where
     /// Finish the hasher, returning a [`CachedIncompleteBranch`] if there were leftover children.
     ///
     /// Accepts a potential incomplete child if there was an incomplete branch in the child layer.
-    pub fn finish(
+    pub(crate) fn finish(
         &mut self,
         far_right_partial_child: Option<C>,
     ) -> Option<CachedIncompleteBranch<P, C>> {
@@ -187,7 +187,7 @@ where
         scratch_space.extend(
             self.children
                 .iter()
-                .flat_map(|c| c.parent_scalars())
+                .flat_map(Child::parent_scalars)
                 .zip(
                     P::generators()
                         .generators
@@ -228,6 +228,7 @@ mod tests {
     };
     use rand::RngCore;
 
+    use cuprate_helper::cast::u64_to_usize;
     use cuprate_types::fcmp::{FcmpLeafAmount, FcmpLeafData};
 
     use super::{CachedIncompleteBranch, PedersenChunkHasher, PedersenHasher};
@@ -331,7 +332,7 @@ mod tests {
 
             let mut i = 0;
             while i != children.len() {
-                let r = rand::rngs::OsRng.next_u64() as usize % (children.len() - i) + 1;
+                let r = u64_to_usize(rand::rngs::OsRng.next_u64()) % (children.len() - i) + 1;
                 res.extend_from_slice(&chunks_hasher.hash_children(&children[i..(i + r)]));
 
                 i += r;

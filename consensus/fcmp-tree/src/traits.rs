@@ -44,7 +44,7 @@ pub(crate) trait FcmpCurve:
 }
 
 /// A trait representing a child layer in the tree.
-pub trait Child<P: FcmpCurve>: Clone + Sized + Send + Sync {
+pub(crate) trait Child<P: FcmpCurve>: Clone + Sized + Send + Sync {
     /// The amount of parent scalars the child will make.
     const PARENT_SCALARS: usize;
     /// A hack type as Rust does not yet allow `[P::F; Self::PARENT_SCALARS]` as a return type.
@@ -206,7 +206,7 @@ impl<P: FcmpCurve> Child<P> for Branch {
 
     fn parent_scalars(&self) -> Self::ParentScalars {
         #[inline(always)]
-        fn clear_sign(mut x: [u8; 32]) -> [u8; 32] {
+        const fn clear_sign(mut x: [u8; 32]) -> [u8; 32] {
             x[31] &= u8::MAX >> 1;
             x
         }

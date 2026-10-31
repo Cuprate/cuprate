@@ -25,8 +25,8 @@ pub enum FcmpRoot {
 impl FcmpRoot {
     pub fn to_bytes(&self) -> [u8; 32] {
         match self {
-            FcmpRoot::Helios(hp) => hp.to_bytes(),
-            FcmpRoot::Selene(se) => se.to_bytes(),
+            Self::Helios(hp) => hp.to_bytes(),
+            Self::Selene(se) => se.to_bytes(),
         }
     }
 }
@@ -69,10 +69,10 @@ impl CachedBranches {
     }
 
     fn push_selene(&mut self, new: Option<CachedIncompleteBranch<Selene, Branch>>) {
-        self.selene.push(new)
+        self.selene.push(new);
     }
 
-    fn try_get_root(&mut self, layer_idx: usize) -> Option<FcmpRoot> {
+    fn try_get_root(&self, layer_idx: usize) -> Option<FcmpRoot> {
         if layer_idx == 0 {
             self.layer1.as_ref().map(|b| FcmpRoot::Selene(b.branch))
         } else if layer_idx & 1 == 1 {
@@ -218,34 +218,33 @@ impl<T: TreeStore> TreeBuilder<T> {
             layer_store.commit()?;
         }
 
-        match new_cached_branches.try_get_root(layer_idx) {
+        if let Some(root) = new_cached_branches.try_get_root(layer_idx) {
             // Root is in cache
-            Some(root) => Ok(CachedFcmpTreeRootData {
+            Ok(CachedFcmpTreeRootData {
                 root: Some(root),
                 cached_branches: new_cached_branches,
-            }),
+            })
+        } else {
             // Tree is balanced or empty
-            None => {
-                let layer_store = self.tree_store.layer_reader(layer_idx);
-                let root = layer_store.get(0)?;
+            let layer_store = self.tree_store.layer_reader(layer_idx);
+            let root = layer_store.get(0)?;
 
-                let root = root.map(|r| {
-                    if layer_idx & 1 == 1 {
-                        FcmpRoot::Helios(
-                            HeliosPoint::from_bytes(&r).expect("Tapes database stored wrong point"),
-                        )
-                    } else {
-                        FcmpRoot::Selene(
-                            SelenePoint::from_bytes(&r).expect("Tapes database stored wrong point"),
-                        )
-                    }
-                });
+            let root = root.map(|r| {
+                if layer_idx & 1 == 1 {
+                    FcmpRoot::Helios(
+                        HeliosPoint::from_bytes(&r).expect("Tapes database stored wrong point"),
+                    )
+                } else {
+                    FcmpRoot::Selene(
+                        SelenePoint::from_bytes(&r).expect("Tapes database stored wrong point"),
+                    )
+                }
+            });
 
-                Ok(CachedFcmpTreeRootData {
-                    root,
-                    cached_branches: new_cached_branches,
-                })
-            }
+            Ok(CachedFcmpTreeRootData {
+                root,
+                cached_branches: new_cached_branches,
+            })
         }
     }
 }
