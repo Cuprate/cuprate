@@ -26,7 +26,6 @@ pub struct CachedIncompleteBranch<P: FcmpCurve, C: Child<P>> {
 
 /// A Pedersen hash computer that can compute chunks of hashes.
 pub struct PedersenChunkHasher<P: FcmpCurve, C: Child<P>> {
-    hash_init: P::G,
     cache: Option<CachedIncompleteBranch<P, C>>,
     /// Left over children from this hasher run.
     ///
@@ -41,7 +40,6 @@ where
     /// Create a hasher that continues the cached incomplete branch, if there is one.
     pub fn new(cache: Option<CachedIncompleteBranch<P, C>>) -> Self {
         Self {
-            hash_init: P::hash_init(),
             cache,
             left_over_children: Vec::new(),
         }
@@ -84,19 +82,7 @@ where
             Cow::Owned(left_over_children)
         };
 
-        let first_chunk = if let Some(cache) = self.cache.take() {
-            PedersenHasher::Cached {
-                incomplete_branch: cache.branch,
-                previous_complete_children: cache.complete_children,
-                new_children: &first_chunk,
-                incomplete_child: cache.incomplete_child,
-            }
-        } else {
-            PedersenHasher::New {
-                hash_init: self.hash_init,
-                children: first_chunk,
-            }
-        };
+        let first_chunk = PedersenHasher::new(self.cache.take(), &first_chunk);
 
         // Create the chunks iter over the rest of the children.
         let next_child_chunks = children.par_chunks_exact(P::CHUNK_LEN);
@@ -105,10 +91,7 @@ where
 
         let full_chunks = rayon::iter::once(first_chunk)
             // Chain on the rest of the children we can hash.
-            .chain(next_child_chunks.map(|child_chunk| PedersenHasher::New {
-                hash_init: self.hash_init,
-                children: Cow::Borrowed(child_chunk),
-            }))
+            .chain(next_child_chunks.map(|child_chunk| PedersenHasher::new(None, child_chunk)))
             // Do the hashing.
             .map_with(
                 // Reusable scratch space to reduce allocations.
@@ -143,21 +126,11 @@ where
 
         // Try to use the cache, we have to be careful enough children were given as someone could pass in less
         // children than the amount the passed in to make the cache in the previous instance.
-        let hash = if let Some(cache) = self.cache.take() {
+        if let Some(cache) = &self.cache {
             complete_children += cache.complete_children;
+        }
 
-            PedersenHasher::Cached {
-                incomplete_branch: cache.branch,
-                previous_complete_children: cache.complete_children,
-                new_children: &left_over_children,
-                incomplete_child: cache.incomplete_child,
-            }
-        } else {
-            PedersenHasher::New {
-                hash_init: self.hash_init,
-                children: Cow::Owned(left_over_children),
-            }
-        };
+        let hash = PedersenHasher::new(self.cache.take(), &left_over_children);
 
         Some(CachedIncompleteBranch {
             branch: hash.hash_with_scratch_space(&mut Vec::new()),
@@ -170,31 +143,39 @@ where
 /// A Pedersen hash computer.
 ///
 /// This allows computation of a Pedersen hash over some given children.
-enum PedersenHasher<'a, P: FcmpCurve, C: Child<P>> {
-    /// Create a new hash.
-    New {
-        /// A fixed point to add to each Pedersen hash. `B_curve` in the FCMP paper.
-        hash_init: P::G,
-        /// The children to hash.
-        children: Cow<'a, [C]>,
-    },
-    /// Update an already computed branch.
-    Cached {
-        /// The branch we want to update.
-        incomplete_branch: P::G,
-        /// The amount of _full_ children already hashed into the incomplete_branch;
-        previous_complete_children: usize,
-        /// The new children to hash, including the updated `incomplete_child` if there was one.
-        new_children: &'a [C],
-        /// The potential incomplete child, if the child layer also had an `incomplete_branch`.
-        incomplete_child: Option<C>,
-    },
+struct PedersenHasher<'a, P: FcmpCurve, C: Child<P>> {
+    /// The branch to add the hash onto, the fixed point `B_curve` in the FCMP paper for a new branch.
+    base: P::G,
+    /// The amount of _full_ children already hashed into `base`.
+    offset: usize,
+    /// The children to hash, including the updated `incomplete_child` if there was one.
+    children: &'a [C],
+    /// The potential incomplete child, if the child layer also had an `incomplete_branch`.
+    incomplete_child: Option<C>,
 }
 
 impl<'a, P: FcmpCurve, C: Child<P>> PedersenHasher<'a, P, C>
 where
     [C]: ToOwned<Owned = Vec<C>>,
 {
+    /// Create a hasher over the children, updating the cached incomplete branch if there is one.
+    fn new(cache: Option<CachedIncompleteBranch<P, C>>, children: &'a [C]) -> Self {
+        match cache {
+            Some(cache) => Self {
+                base: cache.branch,
+                offset: cache.complete_children,
+                children,
+                incomplete_child: cache.incomplete_child,
+            },
+            None => Self {
+                base: P::hash_init(),
+                offset: 0,
+                children,
+                incomplete_child: None,
+            },
+        }
+    }
+
     /// Compute the Pedersen hash with the given scratch space.
     ///
     /// The scratch space will be cleared before being used. Its contents after this function is
@@ -203,61 +184,37 @@ where
     fn hash_with_scratch_space(&self, scratch_space: &mut Vec<(P::F, P::G)>) -> P::G {
         scratch_space.clear();
 
-        match self {
-            PedersenHasher::New {
-                hash_init,
-                children,
-            } => {
-                scratch_space.extend(
-                    children
+        scratch_space.extend(
+            self.children
+                .iter()
+                .flat_map(|c| c.parent_scalars())
+                .zip(
+                    P::generators()
+                        .generators
+                        .g_bold_slice()
                         .iter()
-                        .flat_map(|c| c.parent_scalars())
-                        .zip(P::generators().generators.g_bold_slice())
-                        .map(|(scalar, generator)| (scalar, *generator)),
-                );
+                        // Skip the generators we have already used.
+                        .skip(self.offset * C::PARENT_SCALARS),
+                )
+                .map(|(scalar, generator)| (scalar, *generator)),
+        );
 
-                *hash_init + multiexp::multiexp_vartime(scratch_space)
-            }
-            PedersenHasher::Cached {
-                incomplete_branch,
-                previous_complete_children,
-                new_children,
-                incomplete_child,
-            } => {
-                scratch_space.extend(
-                    new_children
-                        .iter()
-                        .flat_map(|c| c.parent_scalars())
-                        .zip(
-                            P::generators()
-                                .generators
-                                .g_bold_slice()
-                                .iter()
-                                // Skip the generators we have already used.
-                                .skip(*previous_complete_children * C::PARENT_SCALARS),
-                        )
-                        .map(|(scalar, generator)| (scalar, *generator)),
-                );
-
-                if let Some(incomplete_child) = incomplete_child {
-                    // Only branches can be incomplete.
-                    assert_eq!(C::PARENT_SCALARS, 1);
-                    // If we had an incomplete child then we need to take the old one away from the new
-                    // child in that space so we don't double count the grandchildren in the hash.
-                    let mut incomplete_child = incomplete_child.parent_scalars().into_iter();
-                    scratch_space[0].0 -= incomplete_child.next().unwrap();
-                    assert!(incomplete_child.next().is_none());
-                }
-
-                *incomplete_branch + multiexp::multiexp_vartime(scratch_space)
-            }
+        if let Some(incomplete_child) = &self.incomplete_child {
+            // Only branches can be incomplete.
+            assert_eq!(C::PARENT_SCALARS, 1);
+            // If we had an incomplete child then we need to take the old one away from the new
+            // child in that space so we don't double count the grandchildren in the hash.
+            let mut incomplete_child = incomplete_child.parent_scalars().into_iter();
+            scratch_space[0].0 -= incomplete_child.next().unwrap();
+            assert!(incomplete_child.next().is_none());
         }
+
+        self.base + multiexp::multiexp_vartime(scratch_space)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Cow;
     use std::fmt::Debug;
 
     use ciphersuite::{Ciphersuite, group::Group};
@@ -302,10 +259,8 @@ mod tests {
         ) {
             let grandchildren = gen_grandchildren(<P::Other as FcmpCurve>::CHUNK_LEN);
 
-            let child_hasher = PedersenHasher::<P::Other, _>::New {
-                hash_init: P::Other::hash_init(),
-                children: Cow::Borrowed(&grandchildren[..grandchildren.len() - 1]),
-            };
+            let child_hasher =
+                PedersenHasher::<P::Other, _>::new(None, &grandchildren[..grandchildren.len() - 1]);
 
             let partial_child = child_hasher.hash_with_scratch_space(&mut Vec::new());
 
@@ -313,18 +268,15 @@ mod tests {
 
             full_children.push(partial_child.to_bytes());
 
-            let hasher = PedersenHasher::<P, _>::New {
-                hash_init: P::hash_init(),
-                children: Cow::Borrowed(&full_children[..]),
-            };
+            let hasher = PedersenHasher::<P, _>::new(None, &full_children);
 
             let incomplete_branch = hasher.hash_with_scratch_space(&mut Vec::new());
 
-            let child_hasher = PedersenHasher::<P::Other, _>::Cached {
-                incomplete_branch: partial_child,
-                previous_complete_children: grandchildren.len() - 1,
+            let child_hasher = PedersenHasher::<P::Other, _> {
+                base: partial_child,
+                offset: grandchildren.len() - 1,
+                children: &grandchildren[grandchildren.len() - 1..],
                 incomplete_child: None,
-                new_children: &grandchildren[grandchildren.len() - 1..],
             };
 
             let full_child = child_hasher.hash_with_scratch_space(&mut Vec::new());
@@ -332,27 +284,21 @@ mod tests {
             full_children.pop();
             full_children.push(full_child.to_bytes());
 
-            let hasher = PedersenHasher::<P, _>::Cached {
-                incomplete_branch,
-                previous_complete_children: full_children.len() - 1,
+            let hasher = PedersenHasher::<P, _> {
+                base: incomplete_branch,
+                offset: full_children.len() - 1,
+                children: &full_children[full_children.len() - 1..],
                 incomplete_child: Some(partial_child.to_bytes()),
-                new_children: &full_children[full_children.len() - 1..],
             };
 
             let full_branch = hasher.hash_with_scratch_space(&mut Vec::new());
 
-            let full_child_hasher = PedersenHasher::<P::Other, _>::New {
-                hash_init: P::Other::hash_init(),
-                children: Cow::Borrowed(&grandchildren),
-            };
+            let full_child_hasher = PedersenHasher::<P::Other, _>::new(None, &grandchildren);
             let full_child = full_child_hasher.hash_with_scratch_space(&mut Vec::new());
             full_children.pop();
             full_children.push(full_child.to_bytes());
 
-            let hasher = PedersenHasher::<P, _>::New {
-                hash_init: P::hash_init(),
-                children: Cow::Borrowed(&full_children[..]),
-            };
+            let hasher = PedersenHasher::<P, _>::new(None, &full_children);
 
             assert_eq!(full_branch, hasher.hash_with_scratch_space(&mut Vec::new()));
         }
