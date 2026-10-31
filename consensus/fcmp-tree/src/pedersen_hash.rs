@@ -28,21 +28,10 @@ pub struct CachedIncompleteBranch<P: FcmpCurve, C: Child<P>> {
 pub struct PedersenChunkHasher<P: FcmpCurve, C: Child<P>> {
     hash_init: P::G,
     cache: Option<CachedIncompleteBranch<P, C>>,
-    state: PedersenChunkHasherState<C>,
-}
-
-/// The internal state of the [`PedersenChunkHasher`].
-#[derive(Default)]
-enum PedersenChunkHasherState<C> {
-    /// Empty state.
-    ///
-    /// The hasher will compute the next hash from the first child given.
-    #[default]
-    Empty,
     /// Left over children from this hasher run.
     ///
     /// These children will be combined with the next given children to create a full chunk.
-    LeftOver { left_over_children: Vec<C> },
+    left_over_children: Vec<C>,
 }
 
 impl<P: FcmpCurve, C: Child<P>> PedersenChunkHasher<P, C>
@@ -54,7 +43,7 @@ where
         Self {
             hash_init: P::hash_init(),
             cache,
-            state: PedersenChunkHasherState::Empty,
+            left_over_children: Vec::new(),
         }
     }
 
@@ -77,38 +66,22 @@ where
 
         // Get the first Pedersen hasher for the first chunk if we need to, then get the other
         // children which are not contained in that first hash.
-        let (first_chunk, children) = match std::mem::take(&mut self.state) {
-            PedersenChunkHasherState::Empty => {
-                if children.len() < first_chunk_len {
-                    self.state = PedersenChunkHasherState::LeftOver {
-                        left_over_children: children.to_vec(),
-                    };
-                    return vec![];
-                }
+        if self.left_over_children.len() + children.len() < first_chunk_len {
+            // If we still can't make a hash then just extend the leftover children and return now.
+            self.left_over_children.extend_from_slice(children);
+            return vec![];
+        }
 
-                let (l, r) = children.split_at(first_chunk_len);
+        // We can make a hash, split the children used returning the first hash and the rest.
+        let (first_chunk_needed, children) =
+            children.split_at(first_chunk_len - self.left_over_children.len());
 
-                (Cow::Borrowed(l), r)
-            }
-            // Left over children from a previous call.
-            PedersenChunkHasherState::LeftOver {
-                mut left_over_children,
-            } => {
-                if left_over_children.len() + children.len() < first_chunk_len {
-                    // If we still can't make a hash then just extend the leftover children and return now.
-                    left_over_children.extend_from_slice(children);
-                    self.state = PedersenChunkHasherState::LeftOver { left_over_children };
-                    return vec![];
-                }
-
-                // We can make a hash, split the children used returning the first hash and the rest.
-                let (first_chunk_needed, rest) =
-                    children.split_at(first_chunk_len - left_over_children.len());
-
-                left_over_children.extend_from_slice(first_chunk_needed);
-
-                (Cow::Owned(left_over_children), rest)
-            }
+        let first_chunk = if self.left_over_children.is_empty() {
+            Cow::Borrowed(first_chunk_needed)
+        } else {
+            let mut left_over_children = std::mem::take(&mut self.left_over_children);
+            left_over_children.extend_from_slice(first_chunk_needed);
+            Cow::Owned(left_over_children)
         };
 
         let first_chunk = if let Some(cache) = self.cache.take() {
@@ -145,12 +118,8 @@ where
             .map(|h| h.to_bytes())
             .collect::<Vec<_>>();
 
-        // If we have children not hashed set the state to keep them.
-        if !left_over_children.is_empty() {
-            self.state = PedersenChunkHasherState::LeftOver {
-                left_over_children: left_over_children.to_vec(),
-            }
-        }
+        // If we have children not hashed keep them.
+        self.left_over_children = left_over_children.to_vec();
 
         full_chunks
     }
@@ -162,76 +131,36 @@ where
         &mut self,
         far_right_partial_child: Option<C>,
     ) -> Option<CachedIncompleteBranch<P, C>> {
-        let (hash, complete_children) = match (
-            std::mem::take(&mut self.state),
-            far_right_partial_child.clone(),
-        ) {
-            // Empty state but partial child, the partial child is the start of a new branch.
-            (PedersenChunkHasherState::Empty, Some(far_right_partial_child)) => {
-                if let Some(cache) = self.cache.take() {
-                    // No new children were consumed this run; the cached branch already
-                    // contains the previous rightmost child. Re-hash only that position.
-                    let hash = PedersenHasher::Cached {
-                        incomplete_branch: cache.branch,
-                        previous_complete_children: cache.complete_children,
-                        new_children: std::slice::from_ref(&far_right_partial_child),
-                        incomplete_child: cache.incomplete_child,
-                    };
+        let mut left_over_children = std::mem::take(&mut self.left_over_children);
+        let mut complete_children = left_over_children.len();
+        // Add the partial child if Some.
+        left_over_children.extend(far_right_partial_child.clone());
 
-                    return Some(CachedIncompleteBranch {
-                        branch: hash.hash_with_scratch_space(&mut Vec::new()),
-                        complete_children: cache.complete_children,
-                        incomplete_child: Some(far_right_partial_child),
-                    });
-                }
+        // Nothing to hash.
+        if left_over_children.is_empty() {
+            return self.cache.take();
+        }
 
-                let hash = PedersenHasher::New {
-                    hash_init: self.hash_init,
-                    children: Cow::Owned(vec![far_right_partial_child]),
-                };
+        // Try to use the cache, we have to be careful enough children were given as someone could pass in less
+        // children than the amount the passed in to make the cache in the previous instance.
+        let hash = if let Some(cache) = self.cache.take() {
+            complete_children += cache.complete_children;
 
-                (hash.hash_with_scratch_space(&mut Vec::new()), 0)
+            PedersenHasher::Cached {
+                incomplete_branch: cache.branch,
+                previous_complete_children: cache.complete_children,
+                new_children: &left_over_children,
+                incomplete_child: cache.incomplete_child,
             }
-            // Left over full children, maybe a partial child.
-            (
-                PedersenChunkHasherState::LeftOver {
-                    mut left_over_children,
-                },
-                far_right_partial_child,
-            ) => {
-                let mut complete_children = left_over_children.len();
-                // Add the partial child if Some.
-                left_over_children.extend(far_right_partial_child);
-
-                // Try to use the cache, we have to be careful enough children were given as someone could pass in less
-                // children than the amount the passed in to make the cache in the previous instance.
-                let hash = if let Some(cache) = self.cache.take() {
-                    complete_children += cache.complete_children;
-
-                    PedersenHasher::Cached {
-                        incomplete_branch: cache.branch,
-                        previous_complete_children: cache.complete_children,
-                        new_children: &left_over_children,
-                        incomplete_child: cache.incomplete_child,
-                    }
-                } else {
-                    PedersenHasher::New {
-                        hash_init: self.hash_init,
-                        children: Cow::Owned(left_over_children),
-                    }
-                };
-
-                (
-                    hash.hash_with_scratch_space(&mut Vec::new()),
-                    complete_children,
-                )
+        } else {
+            PedersenHasher::New {
+                hash_init: self.hash_init,
+                children: Cow::Owned(left_over_children),
             }
-            // No other case will lead to a hash.
-            _ => return self.cache.take(),
         };
 
         Some(CachedIncompleteBranch {
-            branch: hash,
+            branch: hash.hash_with_scratch_space(&mut Vec::new()),
             complete_children,
             incomplete_child: far_right_partial_child,
         })
