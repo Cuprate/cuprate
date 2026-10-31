@@ -32,6 +32,7 @@ use cuprate_rpc_types::{
     },
 };
 use cuprate_types::{
+    json::{block::MinerTransaction, tx::Transaction as JsonTransaction},
     rpc::{KeyImageSpentStatus, PublicNode},
     TxInBlockchain, TxInPool, TxRelayChecks,
 };
@@ -69,15 +70,19 @@ pub(crate) async fn map_request(
         Req::GetPeerList(_) => Resp::GetPeerList(not_available()?),
         Req::SetLogLevel(_) => Resp::SetLogLevel(not_available()?),
         Req::SetLogCategories(_) => Resp::SetLogCategories(not_available()?),
-        Req::GetTransactionPool(_) => Resp::GetTransactionPool(not_available()?),
-        Req::GetTransactionPoolStats(_) => Resp::GetTransactionPoolStats(not_available()?),
+        Req::GetTransactionPool(r) => {
+            Resp::GetTransactionPool(get_transaction_pool(state, r).await?)
+        }
+        Req::GetTransactionPoolStats(r) => {
+            Resp::GetTransactionPoolStats(get_transaction_pool_stats(state, r).await?)
+        }
         Req::StopDaemon(r) => Resp::StopDaemon(stop_daemon(&state, r)?),
         Req::GetLimit(_) => Resp::GetLimit(not_available()?),
         Req::SetLimit(_) => Resp::SetLimit(not_available()?),
         Req::OutPeers(_) => Resp::OutPeers(not_available()?),
         Req::InPeers(_) => Resp::InPeers(not_available()?),
         Req::GetNetStats(_) => Resp::GetNetStats(not_available()?),
-        Req::GetOuts(_) => Resp::GetOuts(not_available()?),
+        Req::GetOuts(r) => Resp::GetOuts(get_outs(state, r).await?),
         Req::PopBlocks(r) => Resp::PopBlocks(pop_blocks(state, r).await?),
         Req::GetTransactionPoolHashes(r) => {
             Resp::GetTransactionPoolHashes(get_transaction_pool_hashes(state, r).await?)
@@ -113,6 +118,28 @@ async fn get_transactions(
     mut state: CupratedRpcHandler,
     request: GetTransactionsRequest,
 ) -> Result<GetTransactionsResponse, Error> {
+    /// Formats `as_json` as monerod does: pruned if requested or if the prunable blob is absent.
+    fn tx_as_json(pruned_blob: &[u8], prunable_blob: &[u8], prune: bool) -> Result<String, Error> {
+        let pruned_tx = Transaction::<Pruned>::read(&mut &*pruned_blob)?;
+        let full_tx = || Transaction::read(&mut [pruned_blob, prunable_blob].concat().as_slice());
+
+        let json = if matches!(pruned_tx.prefix().inputs.first(), Some(Input::Gen(_))) {
+            match MinerTransaction::try_from(full_tx()?)
+                .map_err(|_| anyhow!("Failed to parse miner transaction"))?
+            {
+                // monerod omits a v1 coinbase's empty `signatures`.
+                MinerTransaction::V1 { prefix, .. } => serde_json::to_string_pretty(&prefix)?,
+                tx @ MinerTransaction::V2 { .. } => serde_json::to_string_pretty(&tx)?,
+            }
+        } else if prune || prunable_blob.is_empty() {
+            serde_json::to_string_pretty(&JsonTransaction::from(pruned_tx))?
+        } else {
+            serde_json::to_string_pretty(&JsonTransaction::from(full_tx()?))?
+        };
+
+        Ok(json)
+    }
+
     fn blockchain_tx_entry(
         tx: TxInBlockchain,
         request: &GetTransactionsRequest,
@@ -132,6 +159,12 @@ async fn get_transactions(
             let mut pruned_blob_reader = pruned_blob.as_slice();
             let tx = Transaction::<Pruned>::read(&mut pruned_blob_reader)?;
             !matches!(tx.prefix().inputs.first(), Some(Input::Gen(_)))
+        };
+
+        let as_json = if request.decode_as_json {
+            tx_as_json(&pruned_blob, &prunable_blob, request.prune)?
+        } else {
+            String::new()
         };
 
         let (as_hex, pruned_as_hex, prunable_as_hex) =
@@ -155,7 +188,7 @@ async fn get_transactions(
 
         Ok(TxEntry {
             as_hex,
-            as_json: String::new(),
+            as_json,
             double_spend_seen: false,
             tx_hash: Hex(tx_hash),
             prunable_as_hex,
@@ -189,6 +222,12 @@ async fn get_transactions(
             monero_oxide::primitives::keccak256(&prunable_blob)
         };
 
+        let as_json = if request.decode_as_json {
+            tx_as_json(&pruned_tx.serialize(), &prunable_blob, request.prune)?
+        } else {
+            String::new()
+        };
+
         let (as_hex, pruned_as_hex, prunable_as_hex) = if request.prune || request.split {
             (
                 HexVec::new(),
@@ -205,7 +244,7 @@ async fn get_transactions(
 
         Ok(TxEntry {
             as_hex,
-            as_json: String::new(),
+            as_json,
             double_spend_seen,
             tx_hash: Hex(tx_hash),
             prunable_as_hex,
@@ -223,10 +262,6 @@ async fn get_transactions(
         return Err(anyhow!(
             "Too many transactions requested in restricted mode"
         ));
-    }
-
-    if request.decode_as_json {
-        return Err(anyhow!("decode_as_json is not supported"));
     }
 
     let requested_txs: Vec<[u8; 32]> = request.txs_hashes.iter().map(|tx| tx.0).collect();
@@ -247,6 +282,7 @@ async fn get_transactions(
 
     let mut txs = Vec::with_capacity(requested_txs.len());
     let mut txs_as_hex = Vec::with_capacity(requested_txs.len());
+    let mut txs_as_json = Vec::new();
     let mut missed_tx = Vec::new();
 
     for requested_tx in requested_txs {
@@ -262,13 +298,16 @@ async fn get_transactions(
         };
 
         txs_as_hex.push(entry.as_hex.clone());
+        if request.decode_as_json {
+            txs_as_json.push(entry.as_json.clone());
+        }
         txs.push(entry);
     }
 
     Ok(GetTransactionsResponse {
         base: helper::access_response_base(false),
         txs_as_hex,
-        txs_as_json: Vec::new(),
+        txs_as_json,
         missed_tx,
         txs,
     })
@@ -553,7 +592,6 @@ async fn get_peer_list(
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1663-L1687>
-#[expect(dead_code)]
 async fn get_transaction_pool(
     mut state: CupratedRpcHandler,
     _: GetTransactionPoolRequest,
@@ -571,7 +609,6 @@ async fn get_transaction_pool(
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1741-L1756>
-#[expect(dead_code)]
 async fn get_transaction_pool_stats(
     mut state: CupratedRpcHandler,
     _: GetTransactionPoolStatsRequest,
@@ -644,7 +681,6 @@ async fn get_net_stats(
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L912-L957>
-#[expect(dead_code)]
 async fn get_outs(
     state: CupratedRpcHandler,
     request: GetOutsRequest,
