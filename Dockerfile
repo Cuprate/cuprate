@@ -7,6 +7,9 @@ WORKDIR /cuprate
 COPY . .
 
 ARG FEATURES="jemalloc"
+# Embedded by constants/build.rs into `cuprated --version`. Not copied into scratch.
+ARG GITHUB_SHA
+ENV GITHUB_SHA=$GITHUB_SHA
 
 # Persist the registry and target file across builds. See: https://docs.docker.com/build/cache/optimize/#use-cache-mounts
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
@@ -23,7 +26,18 @@ RUN mkdir -p /skel/.local/share/cuprate \
 # Runtime stage
 FROM scratch
 
-LABEL org.opencontainers.image.source="https://github.com/Cuprate/cuprate"
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION
+
+LABEL org.opencontainers.image.title="cuprated" \
+      org.opencontainers.image.description="Official Cuprate Monero node image" \
+      org.opencontainers.image.url="https://github.com/Cuprate/cuprate" \
+      org.opencontainers.image.source="https://github.com/Cuprate/cuprate" \
+      org.opencontainers.image.licenses="AGPL-3.0" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.version="${VERSION}"
 
 COPY --from=builder /passwd /etc/passwd
 COPY --from=builder /group  /etc/group
