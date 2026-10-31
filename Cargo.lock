@@ -1301,6 +1301,7 @@ dependencies = [
  "hex",
  "hex-literal 1.1.0",
  "rand 0.8.8",
+ "safelog",
  "thiserror 2.0.20",
  "tokio",
  "tokio-stream",

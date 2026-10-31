@@ -15,7 +15,7 @@ name = "cuprated"
 
 [features]
 default = ["arti"]
-arti = ["arti-client", "tor-hsservice", "tor-persist", "tor-rtcompat", "cuprate-p2p-transport/arti", "dep:safelog"]
+arti = ["arti-client", "tor-hsservice", "tor-persist", "tor-rtcompat", "cuprate-p2p-transport/arti"]
 mimalloc = ["dep:mimalloc"]
 mimalloc-secure = ["mimalloc", "mimalloc/secure"]
 jemalloc = ["dep:tikv-jemallocator"]
@@ -65,7 +65,7 @@ monero-oxide          = { workspace = true, features = ["std", "compile-time-gen
 nu-ansi-term          = { workspace = true }
 pin-project-lite      = { workspace = true }
 rayon                 = { workspace = true }
-safelog               = { workspace = true, optional = true }
+safelog               = { workspace = true }
 serde_json            = { workspace = true }
 serde                 = { workspace = true }
 sysinfo               = { workspace = true, features = ["system"] }
