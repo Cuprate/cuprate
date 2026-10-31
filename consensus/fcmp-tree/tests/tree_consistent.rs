@@ -91,7 +91,7 @@ fn extend_range(
     let mut builder = TreeBuilder::new(Arc::clone(store), root_data).unwrap();
 
     // Add the blocks to the store.
-    builder.layer_1_writer.add_blocks(
+    builder.writer.add_blocks(
         &(block_start..target)
             .map(|h| TapeBlockInfo {
                 hash: block_hash(h as u64),

@@ -12,7 +12,7 @@ pub type Branch = [u8; 32];
 
 #[cfg(feature = "tapes")]
 pub use tapes_tree::{FcmpTreeStorageConfig, TapeBlockInfo, TapesTreeStore};
-pub use traits::{ChildReader, LayerWriter, NewLeaves, TreeStore};
+pub use traits::{ChildReader, NewLeaves, TreeStore, TreeWriter};
 pub use tree_builder::{CachedFcmpTreeRootData, FcmpRoot, TreeBuilder};
 
 #[cfg(test)]

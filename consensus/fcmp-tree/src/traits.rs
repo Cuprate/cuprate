@@ -64,40 +64,48 @@ pub trait ChildReader<C>: Send + 'static {
     fn get(&self, index: u64) -> Result<Option<C>, io::Error>;
 }
 
-/// A trait representing a layer writer.
-pub trait LayerWriter: Send + 'static {
-    /// The amount of branches already in this layer.
-    fn branch_len(&self) -> Result<u64, io::Error>;
+/// A trait representing a writer to every layer of the tree, which commits them together.
+pub trait TreeWriter: Send + 'static {
+    /// The amount of branches in a layer, including the ones appended with this writer.
+    fn branch_len(&self, layer_idx: usize) -> Result<u64, io::Error>;
 
-    /// Append some new branches.
-    fn append_branches(&mut self, branches: &[Branch]) -> Result<(), io::Error>;
+    /// Get a batch of branches in a layer from a given index, including the ones appended with this writer.
+    fn get_batch(
+        &self,
+        layer_idx: usize,
+        start_index: u64,
+        batch_size: u64,
+    ) -> Result<Vec<Branch>, io::Error>;
 
-    /// Commit the new branches.
+    /// Append some new branches to a layer.
+    fn append_branches(&mut self, layer_idx: usize, branches: &[Branch]) -> Result<(), io::Error>;
+
+    /// Commit the new branches of every layer.
     fn commit(self) -> Result<(), io::Error>;
 }
 
 /// A trait representing a backing store for the FCMP tree.
 pub trait TreeStore {
     type LayerReader: ChildReader<Branch>;
-    type LayerWriter: LayerWriter;
+    type Writer: TreeWriter;
 
     fn layer_reader(&self, layer_idx: usize) -> Self::LayerReader;
 
-    fn layer_writer(&self, layer_idx: usize) -> Self::LayerWriter;
+    fn writer(&self) -> Self::Writer;
 }
 
 // impls
 
 impl<T: TreeStore> TreeStore for Arc<T> {
     type LayerReader = T::LayerReader;
-    type LayerWriter = T::LayerWriter;
+    type Writer = T::Writer;
 
     fn layer_reader(&self, layer_idx: usize) -> Self::LayerReader {
         T::layer_reader(self, layer_idx)
     }
 
-    fn layer_writer(&self, layer_idx: usize) -> Self::LayerWriter {
-        T::layer_writer(self, layer_idx)
+    fn writer(&self) -> Self::Writer {
+        T::writer(self)
     }
 }
 

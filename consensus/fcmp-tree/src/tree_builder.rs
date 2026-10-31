@@ -12,7 +12,7 @@ use cuprate_types::fcmp::FcmpLeafData;
 use crate::{
     Branch,
     pedersen_hash::{CachedIncompleteBranch, PedersenChunkHasher},
-    traits::{Child, ChildReader, FcmpCurve, LayerWriter, NewLeaves, TreeStore},
+    traits::{Child, ChildReader, FcmpCurve, NewLeaves, TreeStore, TreeWriter},
 };
 
 /// The root of the FCMP tree.
@@ -100,7 +100,7 @@ impl CachedFcmpTreeRootData {
     /// Returns the next leaf needed to extend the tree.
     pub fn next_leaf_idx_needed<T: TreeStore>(&self, tree_store: &T) -> Result<u64, io::Error> {
         Ok(
-            tree_store.layer_writer(0).branch_len()? * Selene::CHUNK_LEN as u64
+            tree_store.writer().branch_len(0)? * Selene::CHUNK_LEN as u64
                 + self
                     .cached_branches
                     .layer1
@@ -112,8 +112,8 @@ impl CachedFcmpTreeRootData {
 
 /// The tree builder.
 pub struct TreeBuilder<T: TreeStore> {
-    /// The tx for the lowest layer, exposed so you can add state to the backing store while building.
-    pub layer_1_writer: T::LayerWriter,
+    /// The tx for the tree, exposed so you can add state to the backing store while building.
+    pub writer: T::Writer,
 
     cached_branches: CachedBranches,
     tree_store: T,
@@ -124,8 +124,8 @@ pub struct TreeBuilder<T: TreeStore> {
 impl<T: TreeStore> TreeBuilder<T> {
     /// Create a new tree builder to extend a tree.
     pub fn new(tree_store: T, old_root_data: CachedFcmpTreeRootData) -> Result<Self, io::Error> {
-        let layer_1_writer = tree_store.layer_writer(0);
-        let layer_1_len = layer_1_writer.branch_len()?;
+        let writer = tree_store.writer();
+        let layer_1_len = writer.branch_len(0)?;
         let overflow = old_root_data
             .cached_branches
             .layer1
@@ -133,7 +133,7 @@ impl<T: TreeStore> TreeBuilder<T> {
             .map(|b| b.branch.to_bytes());
 
         Ok(Self {
-            layer_1_writer,
+            writer,
             tree_store,
             cached_branches: old_root_data.cached_branches,
             overflow,
@@ -143,10 +143,11 @@ impl<T: TreeStore> TreeBuilder<T> {
 
     /// Extend the tree with the given [`NewLeaves`]. The [`NewLeaves`] should start at the index provided
     /// by the [`CachedFcmpTreeRootData::next_leaf_idx_needed`] that was passed into [`TreeBuilder::new`].
-    pub fn extend(&mut self, new_leaves: NewLeaves) -> Result<(), io::Error> {
+    pub fn extend(&mut self, mut new_leaves: NewLeaves) -> Result<(), io::Error> {
         let (cached_incomplete_branch, layer_len1) = build_layer(
-            &mut self.layer_1_writer,
-            new_leaves,
+            &mut self.writer,
+            0,
+            |_, start_index, batch_size| new_leaves.get_batch(start_index, batch_size),
             self.cached_branches.layer1.clone(),
             None,
         )?;
@@ -163,8 +164,6 @@ impl<T: TreeStore> TreeBuilder<T> {
 
     /// Fills the upper layers of the tree returning the tree root with cached data.
     pub fn complete_tree(mut self) -> Result<CachedFcmpTreeRootData, io::Error> {
-        self.layer_1_writer.commit()?;
-
         let mut new_cached_branches = CachedBranches {
             layer1: self.cached_branches.layer1.clone(),
             ..Default::default()
@@ -181,16 +180,22 @@ impl<T: TreeStore> TreeBuilder<T> {
 
             layer_idx += 1;
 
-            let mut layer_store = self.tree_store.layer_writer(layer_idx);
-            let child_reader = self.tree_store.layer_reader(layer_idx - 1);
+            let child_layer = move |writer: &T::Writer, start_index, batch_size| {
+                writer.get_batch(layer_idx - 1, start_index, batch_size)
+            };
 
             match layer_idx {
                 // Helios
                 x if x & 1 == 1 => {
                     let cached_branch = self.cached_branches.get_helios_layer(layer_idx);
 
-                    let (cached_incomplete_branch, layer_len2) =
-                        build_layer(&mut layer_store, child_reader, cached_branch, self.overflow)?;
+                    let (cached_incomplete_branch, layer_len2) = build_layer(
+                        &mut self.writer,
+                        layer_idx,
+                        child_layer,
+                        cached_branch,
+                        self.overflow,
+                    )?;
                     layer_len = layer_len2 + u64::from(cached_incomplete_branch.is_some());
 
                     self.overflow = cached_incomplete_branch
@@ -203,8 +208,13 @@ impl<T: TreeStore> TreeBuilder<T> {
                 _ => {
                     let cached_branch = self.cached_branches.get_selene_layer(layer_idx);
 
-                    let (cached_incomplete_branch, layer_len2) =
-                        build_layer(&mut layer_store, child_reader, cached_branch, self.overflow)?;
+                    let (cached_incomplete_branch, layer_len2) = build_layer(
+                        &mut self.writer,
+                        layer_idx,
+                        child_layer,
+                        cached_branch,
+                        self.overflow,
+                    )?;
                     layer_len = layer_len2 + u64::from(cached_incomplete_branch.is_some());
 
                     self.overflow = cached_incomplete_branch
@@ -214,9 +224,9 @@ impl<T: TreeStore> TreeBuilder<T> {
                     new_cached_branches.push_selene(cached_incomplete_branch);
                 }
             }
-
-            layer_store.commit()?;
         }
+
+        self.writer.commit()?;
 
         if let Some(root) = new_cached_branches.try_get_root(layer_idx) {
             // Root is in cache
@@ -252,13 +262,14 @@ impl<T: TreeStore> TreeBuilder<T> {
 /// The layer builder.
 ///
 /// This function extends the layer to the right for any missing children.
-fn build_layer<P: FcmpCurve, C: Child<P> + Send + 'static, W: LayerWriter, R: ChildReader<C>>(
-    layer_tx: &mut W,
-    mut reader: R,
+fn build_layer<P: FcmpCurve, C: Child<P> + Send + 'static, W: TreeWriter>(
+    writer: &mut W,
+    layer_idx: usize,
+    mut get_children: impl FnMut(&W, u64, u64) -> Result<Vec<C>, io::Error>,
     cached_incomplete_branch: Option<CachedIncompleteBranch<P, C>>,
     prev_layer_overflow: Option<C>,
 ) -> Result<(Option<CachedIncompleteBranch<P, C>>, u64), io::Error> {
-    let layer_len = layer_tx.branch_len()?;
+    let layer_len = writer.branch_len(layer_idx)?;
 
     // start_index into the child layer
     let mut start_index = layer_len * P::CHUNK_LEN as u64
@@ -270,7 +281,7 @@ fn build_layer<P: FcmpCurve, C: Child<P> + Send + 'static, W: LayerWriter, R: Ch
 
     loop {
         // The end index, either the size of the buffer of the end of the child layer.
-        let children = reader.get_batch(start_index, P::CHUNK_LEN as u64 * 10_000)?;
+        let children = get_children(writer, start_index, P::CHUNK_LEN as u64 * 10_000)?;
 
         if children.is_empty() {
             break;
@@ -282,10 +293,10 @@ fn build_layer<P: FcmpCurve, C: Child<P> + Send + 'static, W: LayerWriter, R: Ch
         let grow = chunk_hasher.hash_children(children.as_slice());
 
         // Write the hashes.
-        layer_tx.append_branches(&grow)?;
+        writer.append_branches(layer_idx, &grow)?;
     }
 
-    let full_branches = layer_tx.branch_len()?;
+    let full_branches = writer.branch_len(layer_idx)?;
 
     Ok((chunk_hasher.finish(prev_layer_overflow), full_branches))
 }

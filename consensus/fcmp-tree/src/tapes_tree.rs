@@ -10,7 +10,7 @@ use tapes::{
 
 use crate::{
     Branch,
-    traits::{ChildReader, FcmpCurve, LayerWriter, TreeStore},
+    traits::{ChildReader, FcmpCurve, TreeStore, TreeWriter},
 };
 
 const LAYER_NAMES: &[&str] = &[
@@ -129,7 +129,7 @@ impl TapesTreeStore {
 
 impl TreeStore for TapesTreeStore {
     type LayerReader = BranchReader;
-    type LayerWriter = BranchWriter;
+    type Writer = BranchWriter;
 
     fn layer_reader(&self, layer_idx: usize) -> Self::LayerReader {
         BranchReader {
@@ -138,9 +138,9 @@ impl TreeStore for TapesTreeStore {
         }
     }
 
-    fn layer_writer(&self, layer_idx: usize) -> Self::LayerWriter {
+    fn writer(&self) -> Self::Writer {
         BranchWriter {
-            layer: Arc::clone(&self.layers[layer_idx]),
+            layers: self.layers.clone(),
             blocks: Arc::clone(&self.blocks),
             tx: self.tapes.append(),
         }
@@ -154,21 +154,7 @@ pub struct BranchReader {
 
 impl ChildReader<Branch> for BranchReader {
     fn get_batch(&mut self, start_index: u64, batch_size: u64) -> Result<Vec<Branch>, io::Error> {
-        let tx = self.tapes.reader();
-
-        let len = tx.fixed_sized_tape_len(&self.layer).unwrap_or_default();
-
-        let buf_len = min(len.saturating_sub(start_index), batch_size);
-
-        if buf_len == 0 {
-            return Ok(vec![]);
-        }
-
-        let mut buf = vec![[0_u8; 32]; u64_to_usize(buf_len)];
-
-        tx.read_entries(&self.layer, start_index, &mut buf)?;
-
-        Ok(buf)
+        read_branches(&self.tapes.reader(), &self.layer, start_index, batch_size)
     }
 
     fn get(&self, index: u64) -> Result<Option<Branch>, io::Error> {
@@ -179,7 +165,7 @@ impl ChildReader<Branch> for BranchReader {
 }
 
 pub struct BranchWriter {
-    layer: Arc<FixedSizedTape<Branch, CachedBlobTape<WholeBlobTape>>>,
+    layers: Vec<Arc<FixedSizedTape<Branch, CachedBlobTape<WholeBlobTape>>>>,
     blocks: Arc<FixedSizedTape<TapeBlockInfo, CachedBlobTape<WholeBlobTape>>>,
     tx: TapesAppendTransaction,
 }
@@ -192,16 +178,28 @@ impl BranchWriter {
     }
 }
 
-impl LayerWriter for BranchWriter {
-    fn branch_len(&self) -> Result<u64, io::Error> {
+impl TreeWriter for BranchWriter {
+    fn branch_len(&self, layer_idx: usize) -> Result<u64, io::Error> {
         Ok(self
             .tx
-            .fixed_sized_tape_len(&self.layer)
+            .fixed_sized_tape_len(&self.layers[layer_idx])
             .expect("We created the tape on open"))
     }
 
-    fn append_branches(&mut self, branches: &[Branch]) -> Result<(), io::Error> {
-        self.tx.append_entries(&self.layer, branches)?;
+    fn get_batch(
+        &self,
+        layer_idx: usize,
+        start_index: u64,
+        batch_size: u64,
+    ) -> Result<Vec<Branch>, io::Error> {
+        read_branches(&self.tx, &self.layers[layer_idx], start_index, batch_size)
+    }
+
+    fn append_branches(&mut self, layer_idx: usize, branches: &[Branch]) -> Result<(), io::Error> {
+        // Appending nothing would still make the commit sync the layer.
+        if !branches.is_empty() {
+            self.tx.append_entries(&self.layers[layer_idx], branches)?;
+        }
 
         Ok(())
     }
@@ -209,4 +207,26 @@ impl LayerWriter for BranchWriter {
     fn commit(self) -> Result<(), io::Error> {
         self.tx.commit(Persistence::SyncAll)
     }
+}
+
+/// Reads up to `batch_size` branches of a layer from `start_index`.
+fn read_branches(
+    tx: &impl TapesRead,
+    layer: &FixedSizedTape<Branch, CachedBlobTape<WholeBlobTape>>,
+    start_index: u64,
+    batch_size: u64,
+) -> Result<Vec<Branch>, io::Error> {
+    let len = tx.fixed_sized_tape_len(layer).unwrap_or_default();
+
+    let buf_len = min(len.saturating_sub(start_index), batch_size);
+
+    if buf_len == 0 {
+        return Ok(vec![]);
+    }
+
+    let mut buf = vec![[0_u8; 32]; u64_to_usize(buf_len)];
+
+    tx.read_entries(layer, start_index, &mut buf)?;
+
+    Ok(buf)
 }
