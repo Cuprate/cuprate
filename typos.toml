@@ -10,6 +10,8 @@ extend-ignore-identifiers-re = [
 	"RO",
 	"Ro",
 	"ro",
+	# SDDL alias for `BUILTIN\Administrators`
+	"BA",
 ]
 
 [files]
