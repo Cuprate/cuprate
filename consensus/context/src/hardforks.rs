@@ -5,7 +5,7 @@ use tower::ServiceExt;
 use tracing::instrument;
 
 use cuprate_consensus_rules::{HFVotes, HFsInfo, HardFork};
-use cuprate_helper::time::current_unix_timestamp;
+use cuprate_helper::{network::Network, time::current_unix_timestamp};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     rpc::HardForkInfo,
@@ -23,10 +23,12 @@ const DEFAULT_WINDOW_SIZE: usize = 10080; // supermajority window check length -
 ///
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct HardForkConfig {
-    /// The network we are on.
+    /// Information about every hard-fork Monero has had.
     pub info: HFsInfo,
     /// The amount of votes we are taking into account to decide on a fork activation.
     pub window: usize,
+    /// The network we are on.
+    pub network: Network,
 }
 
 impl HardForkConfig {
@@ -35,6 +37,7 @@ impl HardForkConfig {
         Self {
             info: HFsInfo::main_net(),
             window: DEFAULT_WINDOW_SIZE,
+            network: Network::Mainnet,
         }
     }
 
@@ -43,6 +46,7 @@ impl HardForkConfig {
         Self {
             info: HFsInfo::stage_net(),
             window: DEFAULT_WINDOW_SIZE,
+            network: Network::Stagenet,
         }
     }
 
@@ -51,6 +55,7 @@ impl HardForkConfig {
         Self {
             info: HFsInfo::test_net(),
             window: DEFAULT_WINDOW_SIZE,
+            network: Network::Testnet,
         }
     }
 
@@ -59,6 +64,7 @@ impl HardForkConfig {
         Self {
             info: HFsInfo::fake_chain(),
             window: DEFAULT_WINDOW_SIZE,
+            network: Network::FakeChain,
         }
     }
 }
