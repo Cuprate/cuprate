@@ -111,6 +111,7 @@ where
             timed_sync.local_peerlist_new.len()
         );
 
+        // TODO: ban peer on repeated invalid peer lists in timed sync responses
         if timed_sync.local_peerlist_new.len() > MAX_PEERS_IN_PEER_LIST_MESSAGE {
             return Err("Peer sent too many peers in peer list".into());
         }
@@ -129,6 +130,7 @@ where
             ))
             .await?;
 
+        // TODO: ban peer if their `current_height` keeps regressing
         *peer_information.core_sync_data.lock().unwrap() = timed_sync.payload_data.clone();
 
         if let Some(on_peer_sync) = &on_peer_sync {
