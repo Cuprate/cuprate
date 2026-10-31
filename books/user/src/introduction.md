@@ -19,6 +19,11 @@ Cuprate was started by [SyntheticBird45](https://github.com/SyntheticBird45) in 
 
 Cuprate contributors are funded by Monero's [Community Crowdfunding System](https://ccs.getmonero.org) to work on Cuprate and occasionally `monerod`.
 
+## Why `Cuprate` and how do releases get their names?
+Cuprate gets it's name from Cuprate high-temperature superconductors[1](https://en.wikipedia.org/wiki/Cuprate_superconductor) which are a family of high-temperature superconducting materials made of layers of copper oxides (CuO2) alternating with layers of other metal oxides.
+
+Cuprate releases are named after metals or metalic minerals and the metal theme is due to the program being written in the Rust programming language.[2](https://github.com/cuprate/cuprate/issues/3)
+
 ## What is `cuprated`?
 `monerod` is the [daemon](https://en.wikipedia.org/wiki/Daemon_(computing)) of the Monero project, the Monero node.
 
