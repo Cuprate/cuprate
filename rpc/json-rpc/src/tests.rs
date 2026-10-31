@@ -85,7 +85,7 @@ fn monero_jsonrpc_get_block() {
     //--- Request
     const REQUEST: &str =
         r#"{"jsonrpc":"2.0","id":"0","method":"get_block","params":{"height":123}}"#;
-    let request = Request::new_with_id(
+    let request = Request::new(
         Id::Str("0".into()),
         Methods::GetBlock(GetBlock { height: 123 }),
     );
@@ -215,7 +215,7 @@ fn monero_jsonrpc_get_block() {
 fn monero_jsonrpc_get_block_count() {
     //--- Request
     const REQUEST: &str = r#"{"jsonrpc":"2.0","id":0,"method":"get_block_count"}"#;
-    let request = Request::new_with_id(Id::Num(0), Methods::GetBlockCount);
+    let request = Request::new(Id::Num(0), Methods::GetBlockCount);
     assert_ser_string(&request, REQUEST);
     assert_de(REQUEST, request);
 

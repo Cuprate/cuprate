@@ -1,7 +1,7 @@
 //! Dummy implementation of [`RpcHandler`].
 
 //---------------------------------------------------------------------------------------------------- Use
-use std::task::Poll;
+use std::{num::NonZeroUsize, task::Poll};
 
 use anyhow::Error;
 use futures::channel::oneshot::channel;
@@ -39,6 +39,10 @@ pub struct RpcHandlerDummy {
 impl RpcHandler for RpcHandlerDummy {
     fn is_restricted(&self) -> bool {
         self.restricted
+    }
+
+    fn batch_concurrency(&self) -> NonZeroUsize {
+        NonZeroUsize::MIN
     }
 }
 

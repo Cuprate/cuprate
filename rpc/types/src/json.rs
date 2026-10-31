@@ -789,10 +789,45 @@ pub enum JsonRpcRequest {
     GetTxIdsLoose(GetTxIdsLooseRequest),
 }
 
+//---------------------------------------------------------------------------------------------------- Method
+/// Parsed JSON-RPC methods.
+///
+/// A method is known, unknown, or has invalid parameters.
+#[cfg(feature = "serde")]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum JsonRpcMethod {
+    /// A method that exists.
+    Known(JsonRpcRequest),
+
+    /// A method that does not exist.
+    Unknown,
+
+    /// A known method whose parameters could not be decoded.
+    InvalidParams {
+        /// Whether the method is unavailable on restricted RPC servers.
+        restricted: bool,
+    },
+}
+
 #[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for JsonRpcRequest {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         use serde::de::Error;
+
+        match JsonRpcMethod::deserialize(deserializer)? {
+            JsonRpcMethod::Known(request) => Ok(request),
+            JsonRpcMethod::Unknown => Err(D::Error::custom("unknown JSON-RPC method")),
+            JsonRpcMethod::InvalidParams { .. } => {
+                Err(D::Error::custom("invalid JSON-RPC parameters"))
+            }
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for JsonRpcMethod {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        use JsonRpcRequest as Req;
 
         fn default_params() -> serde_json::Value {
             serde_json::Value::Object(Default::default())
@@ -816,59 +851,66 @@ impl<'de> Deserialize<'de> for JsonRpcRequest {
         // Deserialize `params` (a `serde_json::Value`) into the concrete request type.
         macro_rules! de {
             ($T:ty) => {
-                serde_json::from_value::<$T>(params).map_err(D::Error::custom)?
+                match serde_json::from_value::<$T>(params) {
+                    Ok(params) => params,
+                    Err(_) => {
+                        return Ok(Self::InvalidParams {
+                            restricted: <$T as crate::rpc_call::RpcCall>::IS_RESTRICTED,
+                        });
+                    }
+                }
             };
         }
 
-        Ok(match method.as_str() {
-            "get_block_count" | "getblockcount" => Self::GetBlockCount(de!(GetBlockCountRequest)),
+        Ok(Self::Known(match method.as_str() {
+            "get_block_count" | "getblockcount" => Req::GetBlockCount(de!(GetBlockCountRequest)),
             "on_get_block_hash" | "on_getblockhash" => {
-                Self::OnGetBlockHash(de!(OnGetBlockHashRequest))
+                Req::OnGetBlockHash(de!(OnGetBlockHashRequest))
             }
             "get_block_template" | "getblocktemplate" => {
-                Self::GetBlockTemplate(de!(GetBlockTemplateRequest))
+                Req::GetBlockTemplate(de!(GetBlockTemplateRequest))
             }
-            "get_miner_data" => Self::GetMinerData(de!(GetMinerDataRequest)),
-            "calc_pow" => Self::CalcPow(de!(CalcPowRequest)),
-            "add_aux_pow" => Self::AddAuxPow(de!(AddAuxPowRequest)),
-            "submit_block" | "submitblock" => Self::SubmitBlock(de!(SubmitBlockRequest)),
-            "generateblocks" => Self::GenerateBlocks(de!(GenerateBlocksRequest)),
+            "get_miner_data" => Req::GetMinerData(de!(GetMinerDataRequest)),
+            "calc_pow" => Req::CalcPow(de!(CalcPowRequest)),
+            "add_aux_pow" => Req::AddAuxPow(de!(AddAuxPowRequest)),
+            "submit_block" | "submitblock" => Req::SubmitBlock(de!(SubmitBlockRequest)),
+            "generateblocks" => Req::GenerateBlocks(de!(GenerateBlocksRequest)),
             "get_last_block_header" | "getlastblockheader" => {
-                Self::GetLastBlockHeader(de!(GetLastBlockHeaderRequest))
+                Req::GetLastBlockHeader(de!(GetLastBlockHeaderRequest))
             }
             "get_block_header_by_hash" | "getblockheaderbyhash" => {
-                Self::GetBlockHeaderByHash(de!(GetBlockHeaderByHashRequest))
+                Req::GetBlockHeaderByHash(de!(GetBlockHeaderByHashRequest))
             }
             "get_block_header_by_height" | "getblockheaderbyheight" => {
-                Self::GetBlockHeaderByHeight(de!(GetBlockHeaderByHeightRequest))
+                Req::GetBlockHeaderByHeight(de!(GetBlockHeaderByHeightRequest))
             }
             "get_block_headers_range" | "getblockheadersrange" => {
-                Self::GetBlockHeadersRange(de!(GetBlockHeadersRangeRequest))
+                Req::GetBlockHeadersRange(de!(GetBlockHeadersRangeRequest))
             }
-            "get_block" | "getblock" => Self::GetBlock(de!(GetBlockRequest)),
-            "get_connections" => Self::GetConnections(de!(GetConnectionsRequest)),
-            "get_info" => Self::GetInfo(de!(GetInfoRequest)),
-            "hard_fork_info" => Self::HardForkInfo(de!(HardForkInfoRequest)),
-            "set_bans" => Self::SetBans(de!(SetBansRequest)),
-            "get_bans" => Self::GetBans(de!(GetBansRequest)),
-            "banned" => Self::Banned(de!(BannedRequest)),
-            "flush_txpool" => Self::FlushTxpool(de!(FlushTxpoolRequest)),
-            "get_output_histogram" => Self::GetOutputHistogram(de!(GetOutputHistogramRequest)),
-            "get_version" => Self::GetVersion(de!(GetVersionRequest)),
-            "get_coinbase_tx_sum" => Self::GetCoinbaseTxSum(de!(GetCoinbaseTxSumRequest)),
-            "get_fee_estimate" => Self::GetFeeEstimate(de!(GetFeeEstimateRequest)),
-            "get_alternate_chains" => Self::GetAlternateChains(de!(GetAlternateChainsRequest)),
-            "relay_tx" => Self::RelayTx(de!(RelayTxRequest)),
-            "sync_info" => Self::SyncInfo(de!(SyncInfoRequest)),
-            "get_txpool_backlog" => Self::GetTxpoolBacklog(de!(GetTxpoolBacklogRequest)),
+            "get_block" | "getblock" => Req::GetBlock(de!(GetBlockRequest)),
+            "get_connections" => Req::GetConnections(de!(GetConnectionsRequest)),
+            "get_info" => Req::GetInfo(de!(GetInfoRequest)),
+            "hard_fork_info" => Req::HardForkInfo(de!(HardForkInfoRequest)),
+            "set_bans" => Req::SetBans(de!(SetBansRequest)),
+            "get_bans" => Req::GetBans(de!(GetBansRequest)),
+            "banned" => Req::Banned(de!(BannedRequest)),
+            "flush_txpool" => Req::FlushTxpool(de!(FlushTxpoolRequest)),
+            "get_output_histogram" => Req::GetOutputHistogram(de!(GetOutputHistogramRequest)),
+            "get_version" => Req::GetVersion(de!(GetVersionRequest)),
+            "get_coinbase_tx_sum" => Req::GetCoinbaseTxSum(de!(GetCoinbaseTxSumRequest)),
+            "get_fee_estimate" => Req::GetFeeEstimate(de!(GetFeeEstimateRequest)),
+            "get_alternate_chains" => Req::GetAlternateChains(de!(GetAlternateChainsRequest)),
+            "relay_tx" => Req::RelayTx(de!(RelayTxRequest)),
+            "sync_info" => Req::SyncInfo(de!(SyncInfoRequest)),
+            "get_txpool_backlog" => Req::GetTxpoolBacklog(de!(GetTxpoolBacklogRequest)),
             "get_output_distribution" => {
-                Self::GetOutputDistribution(de!(GetOutputDistributionRequest))
+                Req::GetOutputDistribution(de!(GetOutputDistributionRequest))
             }
-            "prune_blockchain" => Self::PruneBlockchain(de!(PruneBlockchainRequest)),
-            "flush_cache" => Self::FlushCache(de!(FlushCacheRequest)),
-            "get_tx_ids_loose" => Self::GetTxIdsLoose(de!(GetTxIdsLooseRequest)),
-            other => return Err(D::Error::unknown_variant(other, &[])),
-        })
+            "prune_blockchain" => Req::PruneBlockchain(de!(PruneBlockchainRequest)),
+            "flush_cache" => Req::FlushCache(de!(FlushCacheRequest)),
+            "get_tx_ids_loose" => Req::GetTxIdsLoose(de!(GetTxIdsLooseRequest)),
+            _ => return Ok(Self::Unknown),
+        }))
     }
 }
 

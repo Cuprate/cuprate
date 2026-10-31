@@ -67,8 +67,14 @@ TODO: decide what this crate should return (per different endpoint)
 when a request is received to an unknown endpoint, including HTTP stuff, e.g. status code.
 
 # Unknown JSON-RPC method behavior
-TODO: decide what this crate returns when a `/json_rpc`
-request is received with an unknown method, including HTTP stuff, e.g. status code.
+An unknown method is answered with `-32601 Method not found` at HTTP `200`.
+
+# Batching
+[Batches](https://www.jsonrpc.org/specification#batch) are supported, unlike `monerod`.
+
+Each entry is parsed on its own, so a malformed entry only fails itself.
+An entry that is a notification is not added to the response array.
+An empty batch is answered with `-32600 Invalid Request`.
 
 # Example
 Example usage of this crate + starting an RPC server.
@@ -105,7 +111,7 @@ async fn get_height(port: u16) -> OtherResponse {
 async fn get_block_count(port: u16) -> String {
     let url = format!("http://127.0.0.1:{port}/json_rpc");
     let method = JsonRpcRequest::GetBlockCount(Default::default());
-    let request = Request::new(method);
+    let request = Request::new(Id::Num(0), method);
     ureq::get(&url)
         .set("Content-Type", "application/json")
         .send_json(request)
@@ -143,11 +149,11 @@ async fn main() {
 
     // Assert the response JSON is correct.
     let response = get_block_count(port).await;
-    let expected = r#"{"jsonrpc":"2.0","id":null,"result":{"status":"OK","untrusted":false,"count":0}}"#;
+    let expected = r#"{"jsonrpc":"2.0","id":0,"result":{"status":"OK","untrusted":false,"count":0}}"#;
     assert_eq!(response, expected);
 
     // Assert that (de)serialization works.
-    let expected = Response::ok(Id::Null, Default::default());
+    let expected = Response::ok(Id::Num(0), Default::default());
     let response: Response<GetBlockCountResponse> = serde_json::from_str(&response).unwrap();
     assert_eq!(response, expected);
 }
