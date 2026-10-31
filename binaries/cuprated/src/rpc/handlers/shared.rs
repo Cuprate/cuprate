@@ -7,8 +7,9 @@
 use std::num::NonZero;
 
 use anyhow::{anyhow, Error};
-use cuprate_types::PreRctOutputDistributionInput;
+use tower::{Service, ServiceExt};
 
+use cuprate_consensus_context::{BlockChainContextRequest, BlockChainContextResponse};
 use cuprate_constants::rpc::MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT;
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_rpc_interface::RpcHandler;
@@ -17,12 +18,13 @@ use cuprate_rpc_types::{
     json::{GetOutputDistributionRequest, GetOutputDistributionResponse},
     misc::{Distribution, DistributionCompressedBinary, DistributionUncompressed, OutKeyBin},
 };
-
-use crate::rpc::{
-    handlers::helper,
-    service::{blockchain, blockchain_context, txpool},
-    CupratedRpcHandler,
+use cuprate_txpool::service::interface::{TxpoolReadRequest, TxpoolReadResponse};
+use cuprate_types::{
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
+    PreRctOutputDistributionInput,
 };
+
+use crate::rpc::{handlers::helper, CupratedRpcHandler};
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L912-L957>
 ///
@@ -37,12 +39,25 @@ pub(super) async fn get_outs(
         return Err(anyhow!("Too many outs requested"));
     }
 
-    let outputs = blockchain::outputs_vec(
-        &mut state.blockchain_read,
-        request.outputs,
-        request.get_txid,
-    )
-    .await?;
+    let outputs = request
+        .outputs
+        .into_iter()
+        .map(|output| (output.amount, output.index))
+        .collect();
+
+    let BlockchainResponse::OutputsVec(outputs) = state
+        .blockchain_read
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::OutputsVec {
+            outputs,
+            get_txid: request.get_txid,
+        })
+        .await?
+    else {
+        unreachable!();
+    };
+
     let mut outs = Vec::<OutKeyBin>::with_capacity(outputs.len());
     let blockchain_ctx = state.blockchain_context.blockchain_context();
 
@@ -82,7 +97,20 @@ pub(super) async fn get_transaction_pool_hashes(
     mut state: CupratedRpcHandler,
 ) -> Result<Vec<[u8; 32]>, Error> {
     let include_sensitive_txs = !state.is_restricted();
-    txpool::all_hashes(&mut state.txpool_read, include_sensitive_txs).await
+
+    let TxpoolReadResponse::AllHashes(hashes) = state
+        .txpool_read
+        .ready()
+        .await?
+        .call(TxpoolReadRequest::AllHashes {
+            include_sensitive_txs,
+        })
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(hashes)
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3352-L3398>
@@ -115,35 +143,73 @@ pub(super) async fn get_output_distribution(
     let to_height = match NonZero::new(request.to_height) {
         Some(h) => Some(h),
         None if pre_rct_amounts.is_empty() => None,
-        None => NonZero::new(blockchain::chain_height(&mut state.blockchain_read).await? - 1),
+        None => {
+            let BlockchainResponse::ChainHeight(height, _) = state
+                .blockchain_read
+                .ready()
+                .await?
+                .call(BlockchainReadRequest::ChainHeight)
+                .await?
+            else {
+                unreachable!();
+            };
+
+            NonZero::new(usize_to_u64(height) - 1)
+        }
     };
 
     let mut pre_rct = if pre_rct_amounts.is_empty() {
         Vec::new()
     } else {
-        blockchain::pre_rct_output_distribution(
-            &mut state.blockchain_read,
-            PreRctOutputDistributionInput {
-                amounts: pre_rct_amounts,
-                cumulative: request.cumulative,
-                from_height: request.from_height,
-                to_height,
-            },
-        )
-        .await?
+        let BlockchainResponse::PreRctOutputDistribution(data) = state
+            .blockchain_read
+            .ready()
+            .await?
+            .call(BlockchainReadRequest::PreRctOutputDistribution(
+                PreRctOutputDistributionInput {
+                    amounts: pre_rct_amounts,
+                    cumulative: request.cumulative,
+                    from_height: request.from_height,
+                    to_height,
+                },
+            ))
+            .await?
+        else {
+            unreachable!();
+        };
+
+        data
     }
     .into_iter();
+
+    let rct = if request.amounts.contains(&0) {
+        let BlockChainContextResponse::RctOutputDistribution(data) = state
+            .blockchain_context
+            .ready()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .call(BlockChainContextRequest::RctOutputDistribution {
+                from_height: request.from_height,
+                to_height,
+                cumulative: request.cumulative,
+            })
+            .await
+            .map_err(|e| anyhow!(e))?
+        else {
+            unreachable!();
+        };
+
+        Some(data)
+    } else {
+        None
+    };
 
     let mut distributions = Vec::with_capacity(request.amounts.len());
     for &amount in &request.amounts {
         let data = if amount == 0 {
-            blockchain_context::rct_output_distribution(
-                &mut state.blockchain_context,
-                request.from_height,
-                to_height,
-                request.cumulative,
-            )
-            .await?
+            rct.as_ref()
+                .expect("RCT distribution requested above")
+                .clone()
         } else {
             pre_rct.next().expect("one distribution per pre-RCT amount")
         };
