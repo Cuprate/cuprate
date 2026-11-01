@@ -14,3 +14,8 @@ pub type Branch = [u8; 32];
 pub use tapes_tree::{FcmpTreeStorageConfig, TapeBlockInfo, TapesTreeStore};
 pub use traits::{ChildReader, LayerWriter, NewLeaves, TreeStore};
 pub use tree_builder::{CachedFcmpTreeRootData, FcmpRoot, TreeBuilder};
+
+#[cfg(test)]
+mod test {
+    use tempfile as _;
+}

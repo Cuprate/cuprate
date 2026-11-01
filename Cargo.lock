@@ -1202,7 +1202,7 @@ dependencies = [
  "monero-fcmp-plus-plus",
  "monero-fcmp-plus-plus-generators",
  "monero-oxide 0.1.0",
- "multiexp 0.4.2",
+ "multiexp",
  "rand 0.8.8",
  "rayon",
  "tapes",
@@ -2413,7 +2413,7 @@ dependencies = [
  "generalized-bulletproofs-circuit-abstraction",
  "generalized-bulletproofs-ec-gadgets",
  "generic-array 1.4.5",
- "multiexp 0.5.2",
+ "multiexp",
  "rand_core 0.6.4",
  "std-shims",
  "subtle",
@@ -2535,7 +2535,7 @@ dependencies = [
  "ciphersuite",
  "ff",
  "flexible-transcript",
- "multiexp 0.5.2",
+ "multiexp",
  "rand_core 0.6.4",
  "std-shims",
  "subtle",
@@ -3780,7 +3780,7 @@ dependencies = [
  "monero-fcmp-plus-plus-generators",
  "monero-io 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=31c26d9)",
  "monero-primitives 0.1.0 (git+https://github.com/monero-oxide/monero-oxide.git?rev=31c26d9)",
- "multiexp 0.5.2",
+ "multiexp",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
  "std-shims",
@@ -3923,20 +3923,6 @@ dependencies = [
  "monero-daemon-rpc",
  "simple-request",
  "tokio",
- "zeroize",
-]
-
-[[package]]
-name = "multiexp"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ec2ce93a6f06ac6cae04c1da3f2a6a24fcfc1f0eb0b4e0f3d302f0df45326cb"
-dependencies = [
- "ff",
- "group",
- "rand_core 0.6.4",
- "rustversion",
- "std-shims",
  "zeroize",
 ]
 
