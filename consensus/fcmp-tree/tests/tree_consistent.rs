@@ -85,7 +85,7 @@ fn extend_range(
     block_start: usize,
     target: usize,
 ) -> Result<CachedFcmpTreeRootData, io::Error> {
-    let mut builder = TreeBuilder::new(store.clone(), root_data);
+    let mut builder = TreeBuilder::new(store.clone(), root_data).unwrap();
 
     // Add the blocks to the store.
     builder.layer_1_writer.add_blocks(
@@ -208,7 +208,17 @@ fn test_tree_deep() -> io::Result<()> {
 /// Boundary sizes: single leaf, partial chunks, and exact selene/helios chunk boundaries.
 #[test]
 fn test_tree_edge_sizes() -> io::Result<()> {
-    for (blocks, max_leaves) in [(1, 1), (2, 1), (37, 1), (38, 1), (39, 1), (76, 1), (77, 1)] {
+    for (blocks, max_leaves) in [
+        (1, 1),
+        (2, 1),
+        (37, 1),
+        (38, 1),
+        (39, 1),
+        (76, 1),
+        (77, 1),
+        (684, 1),
+        (685, 1),
+    ] {
         run_consistency(blocks, max_leaves)?;
     }
     Ok(())

@@ -34,3 +34,7 @@ cuprate-types = { workspace = true, features = ["blockchain"] }
 rand = { workspace = true, features = ["std"] }
 tempfile = { workspace = true }
 curve25519-dalek = { workspace = true, features = ["group"] }
+
+[[test]]
+name = "tree_consistent"
+required-features = ["tapes"]

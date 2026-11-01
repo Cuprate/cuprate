@@ -123,14 +123,22 @@ pub struct TreeBuilder<T: TreeStore> {
 
 impl<T: TreeStore> TreeBuilder<T> {
     /// Create a new tree builder to extend a tree.
-    pub fn new(tree_store: T, old_root_data: CachedFcmpTreeRootData) -> Self {
-        Self {
-            layer_1_writer: tree_store.layer_writer(0),
+    pub fn new(tree_store: T, old_root_data: CachedFcmpTreeRootData) -> Result<Self, io::Error> {
+        let layer_1_writer = tree_store.layer_writer(0);
+        let layer_1_len = layer_1_writer.branch_len()?;
+        let overflow = old_root_data
+            .cached_branches
+            .layer1
+            .as_ref()
+            .map(|b| b.branch.to_bytes());
+
+        Ok(Self {
+            layer_1_writer,
             tree_store,
             cached_branches: old_root_data.cached_branches,
-            overflow: None,
-            layer_1_len: 0,
-        }
+            overflow,
+            layer_1_len,
+        })
     }
 
     /// Extend the tree with the given [`NewLeaves`]. The [`NewLeaves`] should start at the index provided
