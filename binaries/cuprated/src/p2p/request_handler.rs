@@ -15,6 +15,7 @@ use tracing::instrument;
 
 use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::BlockchainContextService;
+use cuprate_consensus_rules::blocks::block_size_sanity_check;
 use cuprate_dandelion_tower::TxState;
 use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_helper::{
@@ -308,7 +309,16 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         .unwrap()
         .current_height = current_blockchain_height;
 
-    let (block, txs) = rayon_spawn_async(move || -> Result<_, anyhow::Error> {
+    let effective_median_weight = blockchain_context_service
+        .blockchain_context()
+        .effective_median_weight;
+
+    let Some((block, txs)) = rayon_spawn_async(move || -> Result<_, anyhow::Error> {
+        // The limit comes from our chain; the peer's may be ahead or forked.
+        if block_size_sanity_check(request.b.block.len(), effective_median_weight).is_err() {
+            return Ok(None);
+        }
+
         let block = Block::read(&mut request.b.block.as_ref())?;
 
         let tx_blobs = request
@@ -336,9 +346,13 @@ async fn new_fluffy_block<A: NetZoneAddress>(
 
         // The backing `Bytes` will be deallocated when this closure returns.
 
-        Ok((block, txs))
+        Ok(Some((block, txs)))
     })
-    .await?;
+    .await?
+    else {
+        tracing::debug!("fluffy block too large, ignoring.");
+        return Ok(ProtocolResponse::NA);
+    };
 
     let context = blockchain_context_service.blockchain_context();
     if block.number() + 10 < context.chain_height {

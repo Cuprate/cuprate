@@ -141,7 +141,7 @@ pub fn penalty_free_zone(hf: HardFork) -> usize {
 /// Sanity check on the block blob size.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#block-weight-and-size>
-const fn block_size_sanity_check(
+pub const fn block_size_sanity_check(
     block_blob_len: usize,
     effective_median: usize,
 ) -> Result<(), BlockError> {
