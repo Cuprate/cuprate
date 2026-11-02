@@ -12,10 +12,11 @@ use crate::{
     HardFork,
 };
 
-const BLOCK_SIZE_SANITY_LEEWAY: usize = 100;
 const BLOCK_FUTURE_TIME_LIMIT: u64 = 60 * 60 * 2;
 const BLOCK_202612_POW_HASH: [u8; 32] =
     hex_literal::hex!("84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000");
+
+pub const BLOCK_SIZE_SANITY_LEEWAY: usize = 100;
 
 pub const PENALTY_FREE_ZONE_1: usize = 20000;
 pub const PENALTY_FREE_ZONE_2: usize = 60000;

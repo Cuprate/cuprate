@@ -308,6 +308,19 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         .unwrap()
         .current_height = current_blockchain_height;
 
+    // The limit depends on our chain, and the peer's may be ahead or forked, so this is not the peer's fault.
+    let size_limit = blockchain_context_service
+        .blockchain_context()
+        .block_blob_size_limit();
+    if request.b.block.len() > size_limit {
+        tracing::debug!(
+            size = request.b.block.len(),
+            limit = size_limit,
+            "fluffy block too large, ignoring."
+        );
+        return Ok(ProtocolResponse::NA);
+    }
+
     let (block, txs) = rayon_spawn_async(move || -> Result<_, anyhow::Error> {
         let block = Block::read(&mut request.b.block.as_ref())?;
 
