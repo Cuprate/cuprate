@@ -10,8 +10,8 @@ use rand::rngs::OsRng;
 use tempfile::TempDir;
 
 use cuprate_fcmp_tree::{
-    CachedFcmpTreeRootData, FcmpRoot, FcmpTreeStorageConfig, TapeBlockInfo,
-    TapesTreeStore, TreeBuilder,
+    CachedFcmpTreeRootData, FcmpRoot, FcmpTreeStorageConfig, TapeBlockInfo, TapesTreeStore,
+    TreeBuilder,
 };
 use cuprate_helper::cast::u64_to_usize;
 use cuprate_types::fcmp::{FcmpLeafAmount, FcmpLeafData};
@@ -101,7 +101,7 @@ fn extend_range(
     )?;
 
     // Extend the tree with the new leaves.
-    builder.extend( all_leaves[leaf_start..leaf_offsets[target]].to_vec())?;
+    builder.extend(all_leaves[leaf_start..leaf_offsets[target]].to_vec())?;
 
     // Complete the tree and return the root data.
     builder.complete_tree()
