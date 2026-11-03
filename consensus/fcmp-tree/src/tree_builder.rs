@@ -141,7 +141,7 @@ impl<T: TreeStore> TreeBuilder<T> {
         })
     }
 
-    /// Extend the tree with the given [`NewLeaves`]. The [`NewLeaves`] should start at the index provided
+    /// Extend the tree with the given new leaves. The new leaves should start at the index provided
     /// by the [`CachedFcmpTreeRootData::next_leaf_idx_needed`] that was passed into [`TreeBuilder::new`].
     pub fn extend(&mut self, mut new_leaves: Vec<FcmpLeafData>) -> Result<(), io::Error> {
         let (cached_incomplete_branch, layer_len1) = build_layer(
