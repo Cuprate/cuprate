@@ -26,7 +26,7 @@ use tokio_util::sync::PollSender;
 use tower::Service;
 
 use cuprate_consensus_rules::{
-    blocks::{ContextToVerifyBlock, PENALTY_FREE_ZONE_5},
+    blocks::{ContextToVerifyBlock, BLOCK_SIZE_SANITY_LEEWAY, PENALTY_FREE_ZONE_5},
     current_unix_timestamp, HardFork,
 };
 
@@ -176,6 +176,13 @@ impl BlockchainContext {
         let adjusted_top_block = self.top_block_timestamp.unwrap() + block_time;
 
         min(adjusted_median, adjusted_top_block)
+    }
+
+    /// Returns the largest the blob of the next main-chain block can be.
+    ///
+    /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#block-weight-and-size>
+    pub fn block_blob_size_limit(&self) -> usize {
+        self.effective_median_weight * 2 + BLOCK_SIZE_SANITY_LEEWAY
     }
 
     /// Returns the next blocks long term weight from its block weight.

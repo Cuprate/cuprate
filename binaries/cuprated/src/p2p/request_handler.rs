@@ -308,6 +308,19 @@ async fn new_fluffy_block<A: NetZoneAddress>(
         .unwrap()
         .current_height = current_blockchain_height;
 
+    // The limit depends on our chain, and the peer's may be ahead or forked, so this is not the peer's fault.
+    let size_limit = blockchain_context_service
+        .blockchain_context()
+        .block_blob_size_limit();
+    if request.b.block.len() > size_limit {
+        tracing::debug!(
+            size = request.b.block.len(),
+            limit = size_limit,
+            "fluffy block too large, ignoring."
+        );
+        return Ok(ProtocolResponse::NA);
+    }
+
     let (block, txs) = rayon_spawn_async(move || -> Result<_, anyhow::Error> {
         let block = Block::read(&mut request.b.block.as_ref())?;
 
@@ -316,6 +329,10 @@ async fn new_fluffy_block<A: NetZoneAddress>(
             .txs
             .take_normal()
             .ok_or(anyhow::anyhow!("Peer sent pruned txs in fluffy block"))?;
+
+        if tx_blobs.len() > block.transactions.len() {
+            anyhow::bail!("Peer sent more txs than the block has.");
+        }
 
         let txs = tx_blobs
             .into_iter()
@@ -364,6 +381,11 @@ async fn new_fluffy_block<A: NetZoneAddress>(
                 missing_tx_indices: missing_tx_indices.into_iter().map(usize_to_u64).collect(),
             }),
         ),
+        Err(IncomingBlockError::InFuture) => {
+            // The peer's clock may be ahead of ours.
+            tracing::debug!("fluffy block too far in the future, ignoring.");
+            Ok(ProtocolResponse::NA)
+        }
         Err(IncomingBlockError::Orphan) => {
             // Block's parent was unknown, could be syncing?
             Ok(ProtocolResponse::NA)
