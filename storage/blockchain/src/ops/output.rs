@@ -145,7 +145,7 @@ pub fn output_to_output_on_chain(
     tapes: &tapes::TapesReadTransaction,
     db: &BlockchainDatabase,
 ) -> DbResult<OutputOnChain> {
-    let commitment = compute_zero_commitment(amount);
+    let commitment = compute_zero_commitment(amount).compress();
 
     let key = CompressedPoint::from(output.key);
 

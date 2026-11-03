@@ -126,11 +126,12 @@ impl OutputCache {
 fn get_output_commitment(tx: &Transaction<Pruned>, i: usize) -> CompressedPoint {
     match tx {
         Transaction::V1 { prefix, .. } => {
-            compute_zero_commitment(prefix.outputs[i].amount.unwrap_or_default())
+            compute_zero_commitment(prefix.outputs[i].amount.unwrap_or_default()).compress()
         }
         Transaction::V2 { prefix, proofs } => {
             let Some(proofs) = proofs else {
-                return compute_zero_commitment(prefix.outputs[i].amount.unwrap_or_default());
+                return compute_zero_commitment(prefix.outputs[i].amount.unwrap_or_default())
+                    .compress();
             };
 
             proofs.base.commitments[i]
