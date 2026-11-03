@@ -51,12 +51,10 @@ impl TapesTreeStore {
             top_cache_size: config.layer_cache_size,
         };
 
-        let layers = Arc::from(
-            LAYER_NAMES
-                .iter()
-                .map(|name| append.open_fixed_sized_tape(name, options()))
-                .collect::<io::Result<Vec<_>>>()?,
-        );
+        let layers = LAYER_NAMES
+            .iter()
+            .map(|name| append.open_fixed_sized_tape(name, options()))
+            .collect::<io::Result<_>>()?;
 
         let blocks = Arc::new(append.open_fixed_sized_tape("blocks", options())?);
 

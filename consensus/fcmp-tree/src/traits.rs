@@ -59,7 +59,7 @@ pub trait TreeWriter: Send + 'static {
     /// The amount of branches in a layer, including the ones appended with this writer.
     fn branch_len(&self, layer_idx: usize) -> Result<u64, io::Error>;
 
-    /// Get a specific branch at the given index.
+    /// Get a specific branch at the given index, including the ones appended with this writer.
     fn get(&self, layer_idx: usize, index: u64) -> Result<Option<Branch>, io::Error>;
 
     /// Get a batch of branches in a layer from a given index, including the ones appended with this writer.

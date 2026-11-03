@@ -116,14 +116,13 @@ pub struct TreeBuilder<T: TreeStore> {
     pub writer: T::Writer,
 
     cached_branches: CachedBranches,
-    tree_store: T,
     overflow: Option<Branch>,
     layer_1_len: u64,
 }
 
 impl<T: TreeStore> TreeBuilder<T> {
     /// Create a new tree builder to extend a tree.
-    pub fn new(tree_store: T, old_root_data: CachedFcmpTreeRootData) -> Result<Self, io::Error> {
+    pub fn new(tree_store: &T, old_root_data: CachedFcmpTreeRootData) -> Result<Self, io::Error> {
         let writer = tree_store.writer();
         let layer_1_len = writer.branch_len(0)?;
         let overflow = old_root_data
@@ -134,7 +133,6 @@ impl<T: TreeStore> TreeBuilder<T> {
 
         Ok(Self {
             writer,
-            tree_store,
             cached_branches: old_root_data.cached_branches,
             overflow,
             layer_1_len,
@@ -143,6 +141,8 @@ impl<T: TreeStore> TreeBuilder<T> {
 
     /// Extend the tree with the given new leaves. The new leaves should start at the index provided
     /// by the [`CachedFcmpTreeRootData::next_leaf_idx_needed`] that was passed into [`TreeBuilder::new`].
+    ///
+    /// Every given leaf must be allowed to be inserted into the tree. i.e. no point should be the identity.
     pub fn extend(&mut self, mut new_leaves: Vec<FcmpLeafData>) -> Result<(), io::Error> {
         let (cached_incomplete_branch, layer_len1) = build_layer(
             &mut self.writer,
@@ -226,9 +226,7 @@ impl<T: TreeStore> TreeBuilder<T> {
             }
         }
 
-        self.writer.commit()?;
-
-        if let Some(root) = new_cached_branches.try_get_root(layer_idx) {
+        let root = if let Some(root) = new_cached_branches.try_get_root(layer_idx) {
             // Root is in cache
             Ok(CachedFcmpTreeRootData {
                 root: Some(root),
@@ -236,8 +234,7 @@ impl<T: TreeStore> TreeBuilder<T> {
             })
         } else {
             // Tree is balanced or empty
-            let layer_store = self.tree_store.writer();
-            let root = layer_store.get(layer_idx, 0)?;
+            let root = self.writer.get(layer_idx, 0)?;
 
             let root = root.map(|r| {
                 if layer_idx & 1 == 1 {
@@ -255,7 +252,11 @@ impl<T: TreeStore> TreeBuilder<T> {
                 root,
                 cached_branches: new_cached_branches,
             })
-        }
+        };
+
+        self.writer.commit()?;
+
+        root
     }
 }
 
