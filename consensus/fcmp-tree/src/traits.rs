@@ -54,20 +54,13 @@ pub(crate) trait Child<P: FcmpCurve>: Clone + Sized + Send + Sync {
     fn parent_scalars(&self) -> Self::ParentScalars;
 }
 
-/// A trait representing a reader for a child layer.
-pub trait ChildReader<C>: Send + 'static {
-    /// Get a batch of children from a given index. A size hint is given, but it does not need to be
-    /// respected. If no children are returned it will be assumed the end of the child layer is reached.
-    fn get_batch(&mut self, start_index: u64, batch_size_hint: u64) -> Result<Vec<C>, io::Error>;
-
-    /// Get a specific child at the given index.
-    fn get(&self, index: u64) -> Result<Option<C>, io::Error>;
-}
-
 /// A trait representing a writer to every layer of the tree, which commits them together.
 pub trait TreeWriter: Send + 'static {
     /// The amount of branches in a layer, including the ones appended with this writer.
     fn branch_len(&self, layer_idx: usize) -> Result<u64, io::Error>;
+
+    /// Get a specific branch at the given index.
+    fn get(&self, layer_idx: usize, index: u64) -> Result<Option<Branch>, io::Error>;
 
     /// Get a batch of branches in a layer from a given index, including the ones appended with this writer.
     fn get_batch(
@@ -86,10 +79,7 @@ pub trait TreeWriter: Send + 'static {
 
 /// A trait representing a backing store for the FCMP tree.
 pub trait TreeStore {
-    type LayerReader: ChildReader<Branch>;
     type Writer: TreeWriter;
-
-    fn layer_reader(&self, layer_idx: usize) -> Self::LayerReader;
 
     fn writer(&self) -> Self::Writer;
 }
@@ -97,33 +87,10 @@ pub trait TreeStore {
 // impls
 
 impl<T: TreeStore> TreeStore for Arc<T> {
-    type LayerReader = T::LayerReader;
     type Writer = T::Writer;
-
-    fn layer_reader(&self, layer_idx: usize) -> Self::LayerReader {
-        T::layer_reader(self, layer_idx)
-    }
 
     fn writer(&self) -> Self::Writer {
         T::writer(self)
-    }
-}
-
-/// The new leaves type.
-///
-/// This is used for extending the FCMP tree with some new leaves to the right. Every given leaf must
-/// be allowed to be inserted into the tree. i.e. no point should be the identity.
-pub struct NewLeaves {
-    pub leaves: Vec<FcmpLeafData>,
-}
-
-impl ChildReader<FcmpLeafData> for NewLeaves {
-    fn get_batch(&mut self, _: u64, _: u64) -> Result<Vec<FcmpLeafData>, io::Error> {
-        Ok(std::mem::take(&mut self.leaves))
-    }
-
-    fn get(&self, _: u64) -> Result<Option<FcmpLeafData>, io::Error> {
-        unreachable!()
     }
 }
 

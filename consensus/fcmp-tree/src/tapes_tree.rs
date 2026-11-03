@@ -10,7 +10,7 @@ use tapes::{
 
 use crate::{
     Branch,
-    traits::{ChildReader, FcmpCurve, TreeStore, TreeWriter},
+    traits::{ FcmpCurve, TreeStore, TreeWriter},
 };
 
 const LAYER_NAMES: &[&str] = &[
@@ -35,7 +35,7 @@ pub struct FcmpTreeStorageConfig {
 /// A tree store implementation with the tapes database.
 pub struct TapesTreeStore {
     pub tapes: Arc<Tapes>,
-    layers: Vec<Arc<FixedSizedTape<Branch, CachedBlobTape<WholeBlobTape>>>>,
+    layers: Arc<[FixedSizedTape<Branch, CachedBlobTape<WholeBlobTape>>]>,
     pub blocks: Arc<FixedSizedTape<TapeBlockInfo, CachedBlobTape<WholeBlobTape>>>,
 }
 
@@ -51,10 +51,10 @@ impl TapesTreeStore {
             top_cache_size: config.layer_cache_size,
         };
 
-        let layers = LAYER_NAMES
+        let layers = Arc::from(LAYER_NAMES
             .iter()
-            .map(|name| append.open_fixed_sized_tape(name, options()).map(Arc::new))
-            .collect::<io::Result<_>>()?;
+            .map(|name| append.open_fixed_sized_tape(name, options()))
+            .collect::<io::Result<Vec<_>>>()?);
 
         let blocks = Arc::new(append.open_fixed_sized_tape("blocks", options())?);
 
@@ -128,44 +128,19 @@ impl TapesTreeStore {
 }
 
 impl TreeStore for TapesTreeStore {
-    type LayerReader = BranchReader;
     type Writer = BranchWriter;
-
-    fn layer_reader(&self, layer_idx: usize) -> Self::LayerReader {
-        BranchReader {
-            layer: Arc::clone(&self.layers[layer_idx]),
-            tapes: Arc::clone(&self.tapes),
-        }
-    }
 
     fn writer(&self) -> Self::Writer {
         BranchWriter {
-            layers: self.layers.clone(),
+            layers: Arc::clone(&self.layers),
             blocks: Arc::clone(&self.blocks),
             tx: self.tapes.append(),
         }
     }
 }
 
-pub struct BranchReader {
-    layer: Arc<FixedSizedTape<Branch, CachedBlobTape<WholeBlobTape>>>,
-    tapes: Arc<Tapes>,
-}
-
-impl ChildReader<Branch> for BranchReader {
-    fn get_batch(&mut self, start_index: u64, batch_size: u64) -> Result<Vec<Branch>, io::Error> {
-        read_branches(&self.tapes.reader(), &self.layer, start_index, batch_size)
-    }
-
-    fn get(&self, index: u64) -> Result<Option<Branch>, io::Error> {
-        let tx = self.tapes.reader();
-
-        tx.read_entry(&self.layer, index)
-    }
-}
-
 pub struct BranchWriter {
-    layers: Vec<Arc<FixedSizedTape<Branch, CachedBlobTape<WholeBlobTape>>>>,
+    layers: Arc<[FixedSizedTape<Branch, CachedBlobTape<WholeBlobTape>>]>,
     blocks: Arc<FixedSizedTape<TapeBlockInfo, CachedBlobTape<WholeBlobTape>>>,
     tx: TapesAppendTransaction,
 }
@@ -193,6 +168,10 @@ impl TreeWriter for BranchWriter {
         batch_size: u64,
     ) -> Result<Vec<Branch>, io::Error> {
         read_branches(&self.tx, &self.layers[layer_idx], start_index, batch_size)
+    }
+
+    fn get(&self, layer_idx: usize, index: u64) -> Result<Option<Branch>, io::Error> {
+        self.tx.read_entry(&self.layers[layer_idx], index)
     }
 
     fn append_branches(&mut self, layer_idx: usize, branches: &[Branch]) -> Result<(), io::Error> {

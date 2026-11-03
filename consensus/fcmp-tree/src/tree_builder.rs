@@ -12,7 +12,7 @@ use cuprate_types::fcmp::FcmpLeafData;
 use crate::{
     Branch,
     pedersen_hash::{CachedIncompleteBranch, PedersenChunkHasher},
-    traits::{Child, ChildReader, FcmpCurve, NewLeaves, TreeStore, TreeWriter},
+    traits::{Child, FcmpCurve, TreeStore, TreeWriter},
 };
 
 /// The root of the FCMP tree.
@@ -143,11 +143,11 @@ impl<T: TreeStore> TreeBuilder<T> {
 
     /// Extend the tree with the given [`NewLeaves`]. The [`NewLeaves`] should start at the index provided
     /// by the [`CachedFcmpTreeRootData::next_leaf_idx_needed`] that was passed into [`TreeBuilder::new`].
-    pub fn extend(&mut self, mut new_leaves: NewLeaves) -> Result<(), io::Error> {
+    pub fn extend(&mut self, mut new_leaves: Vec<FcmpLeafData>) -> Result<(), io::Error> {
         let (cached_incomplete_branch, layer_len1) = build_layer(
             &mut self.writer,
             0,
-            |_, start_index, batch_size| new_leaves.get_batch(start_index, batch_size),
+            |_, _, _| Ok(std::mem::take(&mut new_leaves)),
             self.cached_branches.layer1.clone(),
             None,
         )?;
@@ -236,8 +236,8 @@ impl<T: TreeStore> TreeBuilder<T> {
             })
         } else {
             // Tree is balanced or empty
-            let layer_store = self.tree_store.layer_reader(layer_idx);
-            let root = layer_store.get(0)?;
+            let layer_store = self.tree_store.writer();
+            let root = layer_store.get(layer_idx, 0)?;
 
             let root = root.map(|r| {
                 if layer_idx & 1 == 1 {
