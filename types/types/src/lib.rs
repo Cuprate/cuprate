@@ -30,12 +30,6 @@ pub use types::{
 };
 
 //---------------------------------------------------------------------------------------------------- Feature-gated
-#[cfg(feature = "blockchain")]
-pub mod blockchain;
-
-#[cfg(feature = "blockchain")]
-pub mod output_cache;
-
 cfg_if::cfg_if! {
     if #[cfg(feature = "rpc")] {
         pub mod rpc;

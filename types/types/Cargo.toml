@@ -9,8 +9,7 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/types"
 keywords    = ["cuprate", "types"]
 
 [features]
-default    = ["blockchain", "epee", "serde"]
-blockchain = ["dep:indexmap", "dep:cuprate-helper", "cuprate-helper/crypto", "rpc"]
+default    = ["epee", "serde", "rpc"]
 epee       = ["dep:cuprate-epee-encoding", "cuprate-json?/epee"]
 serde      = ["dep:serde", "cuprate-json?/serde"]
 proptest   = ["dep:proptest",  "dep:proptest-derive"]
@@ -18,7 +17,6 @@ rpc        = ["dep:cuprate-hex", "dep:cuprate-json"]
 
 [dependencies]
 cuprate-epee-encoding = { workspace = true, optional = true, features = ["std"] }
-cuprate-helper        = { workspace = true, optional = true, features = ["cast"] }
 cuprate-fixed-bytes   = { workspace = true, features = ["std", "serde"] }
 cuprate-hex           = { workspace = true, optional = true }
 cuprate-json          = { workspace = true, optional = true }
@@ -30,7 +28,6 @@ monero-oxide     = { workspace = true }
 serde            = { workspace = true, features = ["std", "derive"], optional = true }
 strum            = { workspace = true, features = ["derive"] }
 thiserror        = { workspace = true }
-indexmap         = { workspace = true, features = ["std"], optional = true }
 
 proptest = { workspace = true, optional = true }
 proptest-derive  = { workspace = true, optional = true }

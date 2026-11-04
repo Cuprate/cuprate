@@ -26,6 +26,7 @@ members = [
 
 	# Storage
 	"storage/blockchain",
+	"storage/blockchain-types",
 	"storage/txpool",
 
 	# Types
@@ -83,6 +84,7 @@ default-members = [
 
 	# Storage
 	"storage/blockchain",
+	"storage/blockchain-types",
 	"storage/txpool",
 
 	# Types
@@ -147,6 +149,7 @@ cuprate-p2p-transport     = { path = "p2p/p2p-transport",         default-featur
 cuprate-dandelion-tower   = { path = "p2p/dandelion-tower",       default-features = false }
 cuprate-address-book      = { path = "p2p/address-book",          default-features = false }
 cuprate-blockchain        = { path = "storage/blockchain",        default-features = false }
+cuprate-blockchain-types  = { path = "storage/blockchain-types",  default-features = false }
 cuprate-txpool            = { path = "storage/txpool",            default-features = false }
 cuprate-pruning           = { path = "pruning",                   default-features = false }
 cuprate-test-utils        = { path = "test-utils",                default-features = false }

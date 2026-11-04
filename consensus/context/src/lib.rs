@@ -459,7 +459,7 @@ use __private::Database;
 pub mod __private {
     use std::future::Future;
 
-    use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
+    use cuprate_blockchain_types::{BlockchainReadRequest, BlockchainResponse};
 
     /// A type alias trait used to represent a database, so we don't have to write [`tower::Service`] bounds
     /// everywhere.

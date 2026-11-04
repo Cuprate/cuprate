@@ -11,14 +11,12 @@ use monero_oxide::{
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::service::BlockchainReadHandle;
+use cuprate_blockchain_types::{BlockchainReadRequest, BlockchainResponse};
 use cuprate_consensus::transactions::new_tx_verification_data;
 use cuprate_consensus_context::BlockchainContext;
 use cuprate_p2p::block_downloader::ChainEntry;
 use cuprate_p2p_core::NetworkZone;
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, VerifiedBlockInformation, VerifiedTransactionInformation,
-};
+use cuprate_types::{Chain, VerifiedBlockInformation, VerifiedTransactionInformation};
 
 /// The size of a batch of block hashes to hash to create a fast sync hash.
 pub const FAST_SYNC_BATCH_LEN: usize = 512;

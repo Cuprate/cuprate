@@ -9,11 +9,9 @@ use futures::TryStreamExt;
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::{config::Config, service::BlockchainReadHandle, DbResult};
+use cuprate_blockchain_types::{BlockchainReadRequest, BlockchainResponse};
 use cuprate_hex::Hex;
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain,
-};
+use cuprate_types::Chain;
 
 use cuprate_fast_sync::FAST_SYNC_BATCH_LEN;
 use cuprate_helper::fs::CUPRATE_DATA_DIR;

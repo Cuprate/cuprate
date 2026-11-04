@@ -31,11 +31,9 @@ pub use cuprate_consensus_context::{
 };
 
 // re-export.
+pub use cuprate_blockchain_types::{BlockchainReadRequest, BlockchainResponse};
 pub use cuprate_consensus_rules::genesis::generate_genesis_block;
-pub use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    HardFork,
-};
+pub use cuprate_types::HardFork;
 
 /// The verification context to verify a block or transaction with.
 #[expect(clippy::large_enum_variant)]
@@ -65,7 +63,7 @@ pub enum ExtendedConsensusError {
 use __private::Database;
 
 pub mod __private {
-    use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
+    use cuprate_blockchain_types::{BlockchainReadRequest, BlockchainResponse};
 
     /// A type alias trait used to represent a database, so we don't have to write [`tower::Service`] bounds
     /// everywhere.

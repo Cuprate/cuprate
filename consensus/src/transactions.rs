@@ -31,6 +31,7 @@ use monero_oxide::transaction::{Input, Timelock, Transaction};
 use rayon::prelude::*;
 use tower::ServiceExt;
 
+use cuprate_blockchain_types::{BlockchainReadRequest, BlockchainResponse};
 use cuprate_consensus_rules::{
     transactions::{
         check_decoy_info, check_transaction_contextual, check_transaction_semantic,
@@ -39,10 +40,7 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    CachedVerificationState, TransactionVerificationData, TxVersion,
-};
+use cuprate_types::{CachedVerificationState, TransactionVerificationData, TxVersion};
 
 use crate::{
     batch_verifier::MultiThreadedBatchVerifier,

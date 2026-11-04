@@ -1,0 +1,19 @@
+[package]
+name        = "cuprate-blockchain-types"
+version     = "0.0.0"
+edition     = "2021"
+description = "Cuprate's blockchain database request and response types"
+license     = "MIT"
+authors     = ["boog900", "hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/storage/blockchain-types"
+keywords    = ["cuprate", "blockchain", "types"]
+
+[dependencies]
+cuprate-helper = { workspace = true, features = ["cast", "crypto"] }
+cuprate-types  = { workspace = true, features = ["rpc"] }
+
+indexmap     = { workspace = true, features = ["std"] }
+monero-oxide = { workspace = true }
+
+[lints]
+workspace = true

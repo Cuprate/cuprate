@@ -7,6 +7,7 @@ use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::{info, instrument, warn};
 
+use cuprate_blockchain_types::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest};
 use cuprate_consensus::{
     block::{
         batch_prepare_main_chain_blocks, sanity_check_alt_block, verify_main_chain_block,
@@ -20,7 +21,6 @@ use cuprate_fast_sync::{block_to_verified_block_information, fast_sync_stop_heig
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p::{block_downloader::BlockBatch, constants::MEDIUM_BAN, BroadcastRequest};
 use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
     AltBlockInformation, Chain, ChainId, HardFork, TransactionVerificationData, TxConversionError,
     VerifiedBlockInformation,
 };

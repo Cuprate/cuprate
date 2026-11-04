@@ -8,12 +8,9 @@ use std::{num::NonZero, ops::Range};
 use tower::ServiceExt;
 use tracing::instrument;
 
+use cuprate_blockchain_types::{BlockchainReadRequest, BlockchainResponse};
 use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    rpc::OutputDistributionData,
-    VerifiedBlockInformation,
-};
+use cuprate_types::{rpc::OutputDistributionData, VerifiedBlockInformation};
 
 use crate::{hardforks::HardForkConfig, ContextCacheError, Database, HardFork};
 

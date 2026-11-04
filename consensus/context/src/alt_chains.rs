@@ -2,10 +2,8 @@ use std::{collections::HashMap, sync::Arc};
 
 use tower::ServiceExt;
 
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, ChainId,
-};
+use cuprate_blockchain_types::{BlockchainReadRequest, BlockchainResponse};
+use cuprate_types::{Chain, ChainId};
 
 use crate::{
     __private::Database, difficulty::DifficultyCache, rx_vms::RandomXVm, weight::BlockWeightsCache,

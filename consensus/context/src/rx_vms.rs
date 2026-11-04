@@ -15,16 +15,14 @@ use thread_local::ThreadLocal;
 use tower::ServiceExt;
 use tracing::instrument;
 
+use cuprate_blockchain_types::{BlockchainReadRequest, BlockchainResponse};
 use cuprate_consensus_rules::blocks::randomx_seed_height;
 use cuprate_consensus_rules::{
     blocks::{is_randomx_seed_height, RandomX, RX_SEEDHASH_EPOCH_BLOCKS},
     HardFork,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain,
-};
+use cuprate_types::Chain;
 
 use crate::{ContextCacheError, Database};
 

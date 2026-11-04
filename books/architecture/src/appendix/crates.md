@@ -41,6 +41,7 @@ cargo doc --open --package cuprate-blockchain
 | Crate | In-tree path | Purpose |
 |-------|--------------|---------|
 | [`cuprate-blockchain`](https://doc.cuprate.org/cuprate_blockchain) | [`storage/blockchain/`](https://github.com/Cuprate/cuprate/tree/main/storage/blockchain) | Blockchain database built on-top of `cuprate-database` & `cuprate-database-service`
+| [`cuprate-blockchain-types`](https://doc.cuprate.org/cuprate_blockchain_types) | [`storage/blockchain-types/`](https://github.com/Cuprate/cuprate/tree/main/storage/blockchain-types) | Blockchain database request/response types
 | [`cuprate-database`](https://doc.cuprate.org/cuprate_database) | [`storage/database/`](https://github.com/Cuprate/cuprate/tree/main/storage/database) | Pure database abstraction
 | [`cuprate-database-service`](https://doc.cuprate.org/cuprate_database_service) | [`storage/database-service/`](https://github.com/Cuprate/cuprate/tree/main/storage/database-service) | `tower::Service` + thread-pool abstraction built on-top of `cuprate-database`
 | [`cuprate-txpool`](https://doc.cuprate.org/cuprate_txpool) | [`storage/txpool/`](https://github.com/Cuprate/cuprate/tree/main/storage/txpool) | Transaction pool database built on-top of `cuprate-database` & `cuprate-database-service`
