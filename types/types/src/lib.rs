@@ -36,9 +36,6 @@ pub mod blockchain;
 #[cfg(feature = "blockchain")]
 pub mod output_cache;
 
-#[cfg(feature = "json")]
-pub mod json;
-
 cfg_if::cfg_if! {
     if #[cfg(feature = "rpc")] {
         pub mod rpc;
@@ -46,3 +43,6 @@ cfg_if::cfg_if! {
 }
 
 //---------------------------------------------------------------------------------------------------- Private
+
+#[cfg(test)]
+use serde_json as _;

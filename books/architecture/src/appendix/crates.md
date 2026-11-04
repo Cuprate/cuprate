@@ -51,6 +51,7 @@ cargo doc --open --package cuprate-blockchain
 | [`cuprate-types`](https://doc.cuprate.org/cuprate_types) | [`types/types/`](https://github.com/Cuprate/cuprate/tree/main/types/types) | General types used throughout Cuprate |
 | [`cuprate-hex`](https://doc.cuprate.org/cuprate_hex) | [`types/hex/`](https://github.com/Cuprate/cuprate/tree/main/types/hex) | Hexadecimal data types |
 | [`cuprate-fixed-bytes`](https://doc.cuprate.org/cuprate_fixed_bytes) | [`types/fixed-bytes/`](https://github.com/Cuprate/cuprate/tree/main/net/fixed-bytes) | Fixed byte containers backed by `byte::Byte`
+| [`cuprate-json`](https://doc.cuprate.org/cuprate_json) | [`types/json/`](https://github.com/Cuprate/cuprate/tree/main/types/json) | JSON representations of common Monero types
 
 ## RPC
 | Crate | In-tree path | Purpose |

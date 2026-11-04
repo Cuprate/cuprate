@@ -34,6 +34,7 @@ cuprate-fast-sync         = { workspace = true }
 cuprate-fixed-bytes       = { workspace = true }
 cuprate-helper            = { workspace = true, features = ["std", "serde", "asynch", "cast", "fmt", "fs", "map", "net", "num", "thread", "time"] }
 cuprate-hex               = { workspace = true }
+cuprate-json              = { workspace = true, features = ["serde"] }
 cuprate-pruning           = { workspace = true }
 cuprate-p2p-core          = { workspace = true }
 cuprate-p2p-transport     = { workspace = true }
@@ -41,7 +42,7 @@ cuprate-p2p               = { workspace = true }
 cuprate-rpc-interface     = { workspace = true, features = ["dummy"] }
 cuprate-rpc-types         = { workspace = true, features = ["from"] }
 cuprate-txpool            = { workspace = true }
-cuprate-types             = { workspace = true, features = ["json"] }
+cuprate-types             = { workspace = true, features = ["rpc"] }
 cuprate-wire              = { workspace = true, features = ["serde"] }
 
 # TODO: after v1.0.0, remove unneeded dependencies.
