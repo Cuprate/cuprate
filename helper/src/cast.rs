@@ -37,12 +37,6 @@ mod functions {
     pub const fn u64_to_usize(u: u64) -> usize {
         u as usize
     }
-
-    /// Cast [`i64`] to [`isize`].
-    #[inline(always)]
-    pub const fn i64_to_isize(i: i64) -> isize {
-        i as isize
-    }
 }
 
 #[cfg(target_pointer_width = "32")]
@@ -59,22 +53,9 @@ mod functions {
             u as usize
         }
     }
-
-    /// Cast [`i64`] to [`isize`].
-    ///
-    /// # Panics
-    /// This panics on 32-bit arches if `i` is lesser than [`i32::MIN`] or greater [`i32::MAX`].
-    #[inline(always)]
-    pub const fn i64_to_isize(i: i64) -> isize {
-        if i < i32::MIN as i64 || i > i32::MAX as i64 {
-            panic!()
-        } else {
-            i as isize
-        }
-    }
 }
 
-pub use functions::{i64_to_isize, u64_to_usize};
+pub use functions::u64_to_usize;
 
 /// Cast [`u32`] to [`usize`].
 #[inline(always)]
@@ -82,22 +63,10 @@ pub const fn u32_to_usize(u: u32) -> usize {
     u as usize
 }
 
-/// Cast [`i32`] to [`isize`].
-#[inline(always)]
-pub const fn i32_to_isize(i: i32) -> isize {
-    i as isize
-}
-
 /// Cast [`usize`] to [`u64`].
 #[inline(always)]
 pub const fn usize_to_u64(u: usize) -> u64 {
     u as u64
-}
-
-/// Cast [`isize`] to [`i64`].
-#[inline(always)]
-pub const fn isize_to_i64(i: isize) -> i64 {
-    i as i64
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
@@ -116,15 +85,6 @@ mod test {
 
         assert_eq!(usize_to_u64(usize::MAX), u64::MAX);
         assert_eq!(u64_to_usize(usize_to_u64(usize::MAX)), usize::MAX);
-
-        assert_eq!(i32_to_isize(i32::MAX), isize::try_from(i32::MAX).unwrap());
-        assert_eq!(isize_to_i64(i32_to_isize(i32::MAX)), i64::from(i32::MAX));
-
-        assert_eq!(i64_to_isize(i64::MAX), isize::MAX);
-        assert_eq!(isize_to_i64(i64_to_isize(i64::MAX)), i64::MAX);
-
-        assert_eq!(isize_to_i64(isize::MAX), i64::MAX);
-        assert_eq!(i64_to_isize(isize_to_i64(isize::MAX)), isize::MAX);
     }
 
     #[test]
@@ -132,19 +92,5 @@ mod test {
     #[should_panic]
     fn panic_u64_32bit() {
         u64_to_usize(u64::from(u32::MAX + 1));
-    }
-
-    #[test]
-    #[cfg(target_pointer_width = "32")]
-    #[should_panic]
-    fn panic_i64_lesser_32bit() {
-        i64_to_usize(i64::from(i32::MIN - 1));
-    }
-
-    #[test]
-    #[cfg(target_pointer_width = "32")]
-    #[should_panic]
-    fn panic_i64_greater_32bit() {
-        i64_to_usize(i64::from(i32::MAX + 1));
     }
 }

@@ -170,36 +170,6 @@ pub fn path_with_network(path: &Path, network: Network) -> PathBuf {
     }
 }
 
-/// Cuprate's blockchain directory.
-///
-/// This is the PATH used for any Cuprate blockchain files.
-///
-/// ```rust
-/// use cuprate_helper::{network::Network, fs::{CUPRATE_DATA_DIR, blockchain_path}};
-///
-/// assert_eq!(blockchain_path(&**CUPRATE_DATA_DIR, Network::Mainnet).as_path(), CUPRATE_DATA_DIR.join("blockchain"));
-/// assert_eq!(blockchain_path(&**CUPRATE_DATA_DIR, Network::Stagenet).as_path(), CUPRATE_DATA_DIR.join(Network::Stagenet.to_string()).join("blockchain"));
-/// assert_eq!(blockchain_path(&**CUPRATE_DATA_DIR, Network::Testnet).as_path(), CUPRATE_DATA_DIR.join(Network::Testnet.to_string()).join("blockchain"));
-/// ```
-pub fn blockchain_path(data_dir: &Path, network: Network) -> PathBuf {
-    path_with_network(data_dir, network).join("blockchain")
-}
-
-/// Cuprate's txpool directory.
-///
-/// This is the PATH used for any Cuprate txpool files.
-///
-/// ```rust
-/// use cuprate_helper::{network::Network, fs::{CUPRATE_DATA_DIR, txpool_path}};
-///
-/// assert_eq!(txpool_path(&**CUPRATE_DATA_DIR, Network::Mainnet).as_path(), CUPRATE_DATA_DIR.join("txpool"));
-/// assert_eq!(txpool_path(&**CUPRATE_DATA_DIR, Network::Stagenet).as_path(), CUPRATE_DATA_DIR.join(Network::Stagenet.to_string()).join("txpool"));
-/// assert_eq!(txpool_path(&**CUPRATE_DATA_DIR, Network::Testnet).as_path(), CUPRATE_DATA_DIR.join(Network::Testnet.to_string()).join("txpool"));
-/// ```
-pub fn txpool_path(data_dir: &Path, network: Network) -> PathBuf {
-    path_with_network(data_dir, network).join("txpool")
-}
-
 /// Cuprate's logs directory.
 ///
 /// This is the PATH used for all Cuprate log files.
@@ -248,13 +218,7 @@ pub fn set_private_global_file_permissions() {
     #[cfg(target_family = "unix")]
     // SAFETY: calling C.
     unsafe {
-        target_os_lib::umask(0o027);
-    }
-
-    #[cfg(target_os = "windows")]
-    // TODO: impl for Windows.
-    {
-        use target_os_lib as _;
+        libc::umask(0o027);
     }
 }
 

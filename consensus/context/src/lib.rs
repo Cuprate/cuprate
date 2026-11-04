@@ -37,6 +37,7 @@ pub mod rx_vms;
 pub mod weight;
 
 mod alt_chains;
+mod rolling_median;
 mod task;
 
 use cuprate_types::{

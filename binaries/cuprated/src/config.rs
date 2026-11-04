@@ -3,6 +3,7 @@ use std::{
     fmt,
     fs::read_to_string,
     net::{IpAddr, TcpListener},
+    num::NonZeroUsize,
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -72,6 +73,11 @@ const HEADER: &str = r"##     ____                      _
 ## For more documentation, see: <https://user.cuprate.org>.
 
 ";
+
+/// Get the total amount of system threads.
+fn threads() -> NonZeroUsize {
+    std::thread::available_parallelism().unwrap_or(NonZeroUsize::MIN)
+}
 
 /// Resolves `target_max_memory` from system RAM if unset.
 ///
