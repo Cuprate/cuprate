@@ -12,10 +12,8 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"
 # All features off by default.
 default   = []
 std       = []
-atomic    = ["dep:crossbeam"]
 asynch    = ["dep:futures", "dep:rayon"]
 cast      = []
-constants = []
 crypto    = ["dep:curve25519-dalek", "dep:monero-oxide", "std"]
 fs        = ["dep:dirs", "std", "dep:target_os_lib"]
 num       = []
@@ -30,7 +28,6 @@ net       = []
 cuprate-constants = { workspace = true, optional = true, features = ["block"] }
 
 chrono           = { workspace = true, optional = true, features = ["std", "clock"] }
-crossbeam        = { workspace = true, optional = true }
 curve25519-dalek = { workspace = true, optional = true }
 dirs             = { workspace = true, optional = true }
 futures          = { workspace = true, optional = true, features = ["std"] }

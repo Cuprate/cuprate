@@ -1193,7 +1193,6 @@ name = "cuprate-helper"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "crossbeam",
  "cuprate-constants",
  "curve25519-dalek",
  "dirs",
