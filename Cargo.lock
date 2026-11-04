@@ -1055,6 +1055,7 @@ dependencies = [
  "futures",
  "hex",
  "monero-oxide",
+ "proptest",
  "randomx-rs",
  "rayon",
  "strum",
@@ -1192,18 +1193,14 @@ dependencies = [
 name = "cuprate-helper"
 version = "0.1.0"
 dependencies = [
- "chrono",
- "cuprate-constants",
  "curve25519-dalek",
  "dirs",
  "futures",
  "libc",
  "monero-oxide",
- "proptest",
  "rayon",
  "serde",
  "tokio",
- "windows",
 ]
 
 [[package]]

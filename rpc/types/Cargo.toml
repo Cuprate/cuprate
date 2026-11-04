@@ -14,7 +14,6 @@ serde   = ["dep:serde", "dep:serde_json", "dep:monero-oxide", "cuprate-fixed-byt
 epee    = ["dep:cuprate-epee-encoding", "dep:monero-oxide", "cuprate-json/epee", "cuprate-types/epee"]
 from    = [
 	"dep:cuprate-helper",
-	"cuprate-helper/map",
 	"cuprate-helper/fmt",
 	"dep:cuprate-p2p-core",
 	"dep:hex"

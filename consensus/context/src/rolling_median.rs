@@ -4,33 +4,14 @@ use std::{
     ops::{Add, Div, Mul, Sub},
 };
 
-use crate::num::{get_mid, median};
+use cuprate_helper::num::{get_mid, median};
 
 /// A rolling median type.
 ///
 /// This keeps track of a window of items and allows calculating the [`RollingMedian::median`] of them.
-///
-/// Example:
-/// ```rust
-/// # use cuprate_helper::num::RollingMedian;
-/// let mut rolling_median = RollingMedian::new(2);
-///
-/// rolling_median.push(1);
-/// assert_eq!(rolling_median.median(), 1);
-/// assert_eq!(rolling_median.window_len(), 1);
-///
-/// rolling_median.push(3);
-/// assert_eq!(rolling_median.median(), 2);
-/// assert_eq!(rolling_median.window_len(), 2);
-///
-/// rolling_median.push(5);
-/// assert_eq!(rolling_median.median(), 4);
-/// assert_eq!(rolling_median.window_len(), 2);
-/// ```
-///
 // TODO: a more efficient structure is probably possible.
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
-pub struct RollingMedian<T> {
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub(crate) struct RollingMedian<T> {
     /// The window of items, in order of insertion.
     window: VecDeque<T>,
     /// The window of items, sorted.
@@ -51,24 +32,13 @@ where
         + Copy
         + From<u8>,
 {
-    /// Creates a new [`RollingMedian`] with a certain target window length.
-    ///
-    /// `target_window` is the maximum amount of items to keep in the rolling window.
-    pub fn new(target_window: usize) -> Self {
-        Self {
-            window: VecDeque::with_capacity(target_window),
-            sorted_window: Vec::with_capacity(target_window),
-            target_window,
-        }
-    }
-
     /// Creates a new [`RollingMedian`] from a [`Vec`] with a certain target window length.
     ///
     /// `target_window` is the maximum amount of items to keep in the rolling window.
     ///
     /// # Panics
     /// This function panics if `vec.len() > target_window`.
-    pub fn from_vec(vec: Vec<T>, target_window: usize) -> Self {
+    pub(crate) fn from_vec(vec: Vec<T>, target_window: usize) -> Self {
         assert!(vec.len() <= target_window);
 
         let mut sorted_window = vec.clone();
@@ -82,10 +52,7 @@ where
     }
 
     /// Pops the front of the window, i.e. the oldest item.
-    ///
-    /// This is often not needed as [`RollingMedian::push`] will handle popping old values when they fall
-    /// out of the window.
-    pub fn pop_front(&mut self) {
+    fn pop_front(&mut self) {
         if let Some(item) = self.window.pop_front() {
             match self.sorted_window.binary_search(&item) {
                 Ok(idx) => {
@@ -97,7 +64,7 @@ where
     }
 
     /// Pops the back of the window, i.e. the youngest item.
-    pub fn pop_back(&mut self) {
+    pub(crate) fn pop_back(&mut self) {
         if let Some(item) = self.window.pop_back() {
             match self.sorted_window.binary_search(&item) {
                 Ok(idx) => {
@@ -111,7 +78,7 @@ where
     /// Push an item to the _back_ of the window.
     ///
     /// This will pop the oldest item in the window if the target length has been exceeded.
-    pub fn push(&mut self, item: T) {
+    pub(crate) fn push(&mut self, item: T) {
         if self.window.len() >= self.target_window {
             self.pop_front();
         }
@@ -126,7 +93,7 @@ where
     ///
     /// These new values will be the oldest items in the window. The order of the inputted items will be
     /// kept, i.e. the first item in the [`Vec`] will be the oldest item in the queue.
-    pub fn append_front(&mut self, items: Vec<T>) {
+    pub(crate) fn append_front(&mut self, items: Vec<T>) {
         for item in items.into_iter().rev() {
             self.window.push_front(item);
             match self.sorted_window.binary_search(&item) {
@@ -140,12 +107,12 @@ where
     }
 
     /// Returns the number of items currently in the [`RollingMedian`].
-    pub fn window_len(&self) -> usize {
+    pub(crate) fn window_len(&self) -> usize {
         self.window.len()
     }
 
     /// Calculates the median of the values currently in the [`RollingMedian`].
-    pub fn median(&self) -> T {
+    pub(crate) fn median(&self) -> T {
         median(&self.sorted_window)
     }
 
@@ -154,7 +121,7 @@ where
     /// `grace` values are minimum values added to the back of the [`RollingMedian`]. The median is then
     /// got as if these values had been added and replaced any values at the front, if the capacity is
     /// reached.
-    pub fn median_with_grace(&self, grace: usize) -> T {
+    pub(crate) fn median_with_grace(&self, grace: usize) -> T {
         let zero = T::from(0);
         let current_len = self.sorted_window.len();
         let cap = self.target_window;
@@ -227,10 +194,10 @@ where
 mod tests {
     use proptest::{collection::vec, prelude::*};
 
-    use crate::num::RollingMedian;
+    use super::RollingMedian;
 
     fn assert_median_with_grace(window: Vec<u64>, grace: usize, target_window: usize) {
-        let mut median = RollingMedian::new(target_window);
+        let mut median = RollingMedian::from_vec(Vec::new(), target_window);
 
         for i in window {
             median.push(i);
@@ -243,6 +210,23 @@ mod tests {
         }
 
         assert_eq!(median1, median.median());
+    }
+
+    #[test]
+    fn window() {
+        let mut rolling_median = RollingMedian::from_vec(Vec::new(), 2);
+
+        rolling_median.push(1);
+        assert_eq!(rolling_median.median(), 1);
+        assert_eq!(rolling_median.window_len(), 1);
+
+        rolling_median.push(3);
+        assert_eq!(rolling_median.median(), 2);
+        assert_eq!(rolling_median.window_len(), 2);
+
+        rolling_median.push(5);
+        assert_eq!(rolling_median.median(), 4);
+        assert_eq!(rolling_median.window_len(), 2);
     }
 
     proptest! {
