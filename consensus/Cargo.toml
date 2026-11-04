@@ -8,9 +8,9 @@ authors = ["Boog900"]
 repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"
 
 [dependencies]
-cuprate-helper              = { workspace = true, default-features = false, features = ["std", "asynch", "num"] }
+cuprate-helper              = { workspace = true, default-features = false, features = ["std", "asynch", "cast", "num"] }
 cuprate-consensus-rules     = { workspace = true, features = ["rayon"] }
-cuprate-types               = { workspace = true }
+cuprate-types               = { workspace = true, features = ["blockchain"] }
 cuprate-consensus-context   = { workspace = true }
 
 cfg-if = { workspace = true }
