@@ -5,8 +5,7 @@ use monero_oxide::{
 };
 
 use cuprate_helper::{cast::u64_to_usize, crypto::compute_zero_commitment};
-
-use crate::{OutputOnChain, VerifiedBlockInformation};
+use cuprate_types::{OutputOnChain, VerifiedBlockInformation};
 
 /// A cache of outputs from the blockchain database.
 #[derive(Debug, Clone, PartialEq, Eq)]

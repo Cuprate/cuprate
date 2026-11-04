@@ -4,10 +4,10 @@ use monero_oxide::block::Block;
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::service::BlockchainReadHandle;
+use cuprate_blockchain_types::{BlockchainReadRequest, BlockchainResponse};
 use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_rpc_types::misc::GetOutputsOut;
 use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
     rpc::{
         ChainInfo, CoinbaseTxSum, OutputDistributionData, OutputHistogramEntry,
         OutputHistogramInput,

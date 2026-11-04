@@ -41,6 +41,7 @@ cargo doc --open --package cuprate-blockchain
 | Crate | In-tree path | Purpose |
 |-------|--------------|---------|
 | [`cuprate-blockchain`](https://doc.cuprate.org/cuprate_blockchain) | [`storage/blockchain/`](https://github.com/Cuprate/cuprate/tree/main/storage/blockchain) | Blockchain database built on-top of `cuprate-database` & `cuprate-database-service`
+| [`cuprate-blockchain-types`](https://doc.cuprate.org/cuprate_blockchain_types) | [`storage/blockchain-types/`](https://github.com/Cuprate/cuprate/tree/main/storage/blockchain-types) | Blockchain database request/response types
 | [`cuprate-database`](https://doc.cuprate.org/cuprate_database) | [`storage/database/`](https://github.com/Cuprate/cuprate/tree/main/storage/database) | Pure database abstraction
 | [`cuprate-database-service`](https://doc.cuprate.org/cuprate_database_service) | [`storage/database-service/`](https://github.com/Cuprate/cuprate/tree/main/storage/database-service) | `tower::Service` + thread-pool abstraction built on-top of `cuprate-database`
 | [`cuprate-txpool`](https://doc.cuprate.org/cuprate_txpool) | [`storage/txpool/`](https://github.com/Cuprate/cuprate/tree/main/storage/txpool) | Transaction pool database built on-top of `cuprate-database` & `cuprate-database-service`
@@ -51,6 +52,7 @@ cargo doc --open --package cuprate-blockchain
 | [`cuprate-types`](https://doc.cuprate.org/cuprate_types) | [`types/types/`](https://github.com/Cuprate/cuprate/tree/main/types/types) | General types used throughout Cuprate |
 | [`cuprate-hex`](https://doc.cuprate.org/cuprate_hex) | [`types/hex/`](https://github.com/Cuprate/cuprate/tree/main/types/hex) | Hexadecimal data types |
 | [`cuprate-fixed-bytes`](https://doc.cuprate.org/cuprate_fixed_bytes) | [`types/fixed-bytes/`](https://github.com/Cuprate/cuprate/tree/main/net/fixed-bytes) | Fixed byte containers backed by `byte::Byte`
+| [`cuprate-json`](https://doc.cuprate.org/cuprate_json) | [`types/json/`](https://github.com/Cuprate/cuprate/tree/main/types/json) | JSON representations of common Monero types
 
 ## RPC
 | Crate | In-tree path | Purpose |

@@ -4,13 +4,10 @@ use strum::VariantArray;
 use tower::ServiceExt;
 use tracing::instrument;
 
+use cuprate_blockchain_types::{BlockchainReadRequest, BlockchainResponse};
 use cuprate_consensus_rules::{HFVotes, HFsInfo, HardFork};
 use cuprate_helper::time::current_unix_timestamp;
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    rpc::HardForkInfo,
-    Chain,
-};
+use cuprate_types::{rpc::HardForkInfo, Chain};
 
 use crate::{ContextCacheError, Database};
 

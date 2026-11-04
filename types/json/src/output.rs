@@ -1,8 +1,8 @@
 //! JSON output types.
 //!
 //! The same [`Output`] is used in both
-//! [`crate::json::block::MinerTransactionPrefix::vout`]
-//! and [`crate::json::tx::TransactionPrefix::vout`].
+//! [`crate::block::MinerTransactionPrefix::vout`]
+//! and [`crate::tx::TransactionPrefix::vout`].
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

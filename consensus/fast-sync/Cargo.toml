@@ -11,6 +11,7 @@ path = "src/create.rs"
 [dependencies]
 cuprate-helper              = { workspace = true, features = ["fs"] }
 cuprate-blockchain          = { workspace = true }
+cuprate-blockchain-types    = { workspace = true }
 cuprate-consensus           = { workspace = true }
 cuprate-consensus-context   = { workspace = true }
 cuprate-hex                 = { workspace = true }

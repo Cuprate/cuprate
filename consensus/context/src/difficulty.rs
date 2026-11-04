@@ -11,11 +11,9 @@ use std::{collections::VecDeque, ops::Range};
 use tower::ServiceExt;
 use tracing::instrument;
 
+use cuprate_blockchain_types::{BlockchainReadRequest, BlockchainResponse};
 use cuprate_helper::num::median;
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain,
-};
+use cuprate_types::Chain;
 
 use crate::{ContextCacheError, Database, HardFork};
 

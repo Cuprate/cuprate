@@ -4,16 +4,14 @@
 use tower::{BoxError, Service, ServiceExt};
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
+use cuprate_blockchain_types::{BlockchainReadRequest, BlockchainWriteRequest};
 use cuprate_consensus::{
     generate_genesis_block, BlockchainContext, BlockchainContextService, ContextConfig,
 };
 use cuprate_cryptonight::cryptonight_hash_v0;
 use cuprate_p2p_core::{client::PeerSyncCallback, Network};
 use cuprate_pruning::PruningSeed;
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainWriteRequest},
-    VerifiedBlockInformation,
-};
+use cuprate_types::VerifiedBlockInformation;
 
 mod chain_service;
 mod error;

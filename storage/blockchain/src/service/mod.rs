@@ -13,7 +13,7 @@
 // needed for docs
 use tower as _;
 
-use cuprate_types::blockchain::BlockchainResponse;
+use cuprate_blockchain_types::BlockchainResponse;
 
 use crate::error::DbResult;
 

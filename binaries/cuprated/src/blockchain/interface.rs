@@ -12,12 +12,12 @@ use tokio::sync::{mpsc, oneshot};
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::{service::BlockchainReadHandle, BlockchainError};
+use cuprate_blockchain_types::{BlockchainReadRequest, BlockchainResponse};
 use cuprate_consensus::{block::BlockVerificationError, transactions::new_tx_verification_data};
 use cuprate_txpool::service::{
     interface::{TxpoolReadRequest, TxpoolReadResponse},
     TxpoolReadHandle,
 };
-use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
 
 use crate::blockchain::{
     manager::{BlockchainManagerCommand, IncomingBlockOk},

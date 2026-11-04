@@ -11,16 +11,16 @@ use std::{
 use indexmap::{IndexMap, IndexSet};
 use monero_oxide::block::Block;
 
-use crate::{
-    output_cache::OutputCache,
+use cuprate_types::{
     rpc::{
         ChainInfo, CoinbaseTxSum, OutputDistributionData, OutputHistogramEntry,
         OutputHistogramInput,
     },
-    types::{Chain, ExtendedBlockHeader, OutputOnChain, TxsInBlock, VerifiedBlockInformation},
-    AltBlockInformation, BlockCompleteEntry, ChainId, PreRctOutputDistributionInput,
-    TxInBlockchain,
+    AltBlockInformation, BlockCompleteEntry, Chain, ChainId, ExtendedBlockHeader, OutputOnChain,
+    PreRctOutputDistributionInput, TxInBlockchain, TxsInBlock, VerifiedBlockInformation,
 };
+
+use crate::OutputCache;
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
 /// A read request to the blockchain database.

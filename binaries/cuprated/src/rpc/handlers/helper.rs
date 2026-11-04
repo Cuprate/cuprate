@@ -148,7 +148,7 @@ pub(super) fn check_height(state: &mut CupratedRpcHandler, height: u64) -> Resul
     Ok(top_height)
 }
 
-/// [`cuprate_types::blockchain::BlockchainResponse::ChainHeight`] minus 1.
+/// [`cuprate_blockchain_types::BlockchainResponse::ChainHeight`] minus 1.
 pub(super) fn top_height(state: &mut CupratedRpcHandler) -> (u64, [u8; 32]) {
     let context = state.blockchain_context.blockchain_context();
     let height = context.chain_height.checked_sub(1).unwrap();

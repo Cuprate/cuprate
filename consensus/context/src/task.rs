@@ -11,12 +11,10 @@ use tokio::sync::mpsc;
 use tower::ServiceExt;
 use tracing::Instrument;
 
+use cuprate_blockchain_types::{BlockchainReadRequest, BlockchainResponse};
 use cuprate_consensus_rules::blocks::ContextToVerifyBlock;
 use cuprate_helper::cast::u64_to_usize;
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, HardFork,
-};
+use cuprate_types::{Chain, HardFork};
 
 use crate::{
     alt_chains::{get_alt_chain_difficulty_cache, get_alt_chain_weight_cache, AltChainMap},

@@ -21,14 +21,13 @@ use rayon::{
 use tapes::TapesRead;
 use tower::Service;
 
+use cuprate_blockchain_types::{BlockchainReadRequest, BlockchainResponse, OutputCache};
 use cuprate_helper::{
     asynch::InfallibleOneshotReceiver,
     cast::{u64_to_usize, usize_to_u64},
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
 };
 use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    output_cache::OutputCache,
     rpc::{
         ChainInfo, CoinbaseTxSum, OutputDistributionData, OutputHistogramEntry,
         OutputHistogramInput,

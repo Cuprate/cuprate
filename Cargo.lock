@@ -998,6 +998,7 @@ dependencies = [
  "bytemuck",
  "bytes",
  "crossbeam",
+ "cuprate-blockchain-types",
  "cuprate-constants",
  "cuprate-helper",
  "cuprate-pruning",
@@ -1017,10 +1018,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-blockchain-types"
+version = "0.0.0"
+dependencies = [
+ "cuprate-helper",
+ "cuprate-types",
+ "indexmap 2.14.1",
+ "monero-oxide",
+]
+
+[[package]]
 name = "cuprate-consensus"
 version = "0.1.0"
 dependencies = [
  "cfg-if",
+ "cuprate-blockchain-types",
  "cuprate-consensus-context",
  "cuprate-consensus-rules",
  "cuprate-helper",
@@ -1049,6 +1061,7 @@ name = "cuprate-consensus-context"
 version = "0.1.0"
 dependencies = [
  "arc-swap",
+ "cuprate-blockchain-types",
  "cuprate-consensus-rules",
  "cuprate-helper",
  "cuprate-types",
@@ -1143,6 +1156,7 @@ dependencies = [
  "blake3",
  "clap",
  "cuprate-blockchain",
+ "cuprate-blockchain-types",
  "cuprate-consensus",
  "cuprate-consensus-context",
  "cuprate-helper",
@@ -1193,8 +1207,6 @@ name = "cuprate-helper"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "crossbeam",
- "cuprate-constants",
  "curve25519-dalek",
  "dirs",
  "futures",
@@ -1204,7 +1216,6 @@ dependencies = [
  "rayon",
  "serde",
  "tokio",
- "windows",
 ]
 
 [[package]]
@@ -1212,6 +1223,20 @@ name = "cuprate-hex"
 version = "0.0.0"
 dependencies = [
  "hex",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "cuprate-json"
+version = "0.0.0"
+dependencies = [
+ "cuprate-epee-encoding",
+ "cuprate-helper",
+ "cuprate-hex",
+ "hex-literal 1.1.0",
+ "monero-oxide",
+ "pretty_assertions",
  "serde",
  "serde_json",
 ]
@@ -1366,6 +1391,7 @@ dependencies = [
  "cuprate-fixed-bytes",
  "cuprate-helper",
  "cuprate-hex",
+ "cuprate-json",
  "cuprate-p2p-core",
  "cuprate-test-utils",
  "cuprate-types",
@@ -1432,12 +1458,9 @@ dependencies = [
  "cfg-if",
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
- "cuprate-helper",
  "cuprate-hex",
- "hex-literal 1.1.0",
- "indexmap 2.14.1",
+ "cuprate-json",
  "monero-oxide",
- "pretty_assertions",
  "proptest",
  "proptest-derive",
  "serde",
@@ -1489,6 +1512,7 @@ dependencies = [
  "const_format",
  "cuprate-address-book",
  "cuprate-blockchain",
+ "cuprate-blockchain-types",
  "cuprate-consensus",
  "cuprate-consensus-context",
  "cuprate-consensus-rules",
@@ -1499,6 +1523,7 @@ dependencies = [
  "cuprate-fixed-bytes",
  "cuprate-helper",
  "cuprate-hex",
+ "cuprate-json",
  "cuprate-p2p",
  "cuprate-p2p-core",
  "cuprate-p2p-transport",

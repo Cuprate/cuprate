@@ -14,6 +14,7 @@ use tower::{Service, ServiceExt};
 use tracing::instrument;
 
 use cuprate_blockchain::service::BlockchainReadHandle;
+use cuprate_blockchain_types::{BlockchainReadRequest, BlockchainResponse};
 use cuprate_consensus::BlockchainContextService;
 use cuprate_dandelion_tower::TxState;
 use cuprate_fixed_bytes::ByteArrayVec;
@@ -28,10 +29,7 @@ use cuprate_p2p_core::{
     NetZoneAddress, ProtocolRequest, ProtocolResponse,
 };
 use cuprate_txpool::service::TxpoolReadHandle;
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    BlockCompleteEntry, TransactionBlobs, TxsInBlock,
-};
+use cuprate_types::{BlockCompleteEntry, TransactionBlobs, TxsInBlock};
 use cuprate_wire::protocol::{
     ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest,
     GetObjectsResponse, NewFluffyBlock, NewTransactions,

@@ -15,14 +15,11 @@ use monero_oxide::{
 };
 use tower::service_fn;
 
+use cuprate_blockchain_types::{BlockchainReadRequest, BlockchainResponse, OutputCache};
 use cuprate_consensus::{
     __private::Database, transactions::start_tx_verification, VerificationContext,
 };
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    output_cache::OutputCache,
-    OutputOnChain,
-};
+use cuprate_types::OutputOnChain;
 
 use cuprate_consensus_rules::HardFork;
 

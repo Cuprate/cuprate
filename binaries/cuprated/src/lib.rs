@@ -46,10 +46,10 @@ use tokio::sync::{oneshot, RwLock};
 use tower::{Service, ServiceExt};
 use tracing::error;
 
+use cuprate_blockchain_types::BlockchainWriteRequest;
 use cuprate_p2p::NetworkInterface;
 use cuprate_p2p_core::{ClearNet, Tor};
 use cuprate_txpool::service::TxpoolReadHandle;
-use cuprate_types::blockchain::BlockchainWriteRequest;
 
 use crate::{
     blockchain::{BlockchainInterface, BlockchainManagerHandle, BlockchainSyncerHandle},

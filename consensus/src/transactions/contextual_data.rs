@@ -26,11 +26,8 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork, TxVersion,
 };
 
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse},
-    output_cache::OutputCache,
-    OutputOnChain,
-};
+use cuprate_blockchain_types::{BlockchainReadRequest, BlockchainResponse, OutputCache};
+use cuprate_types::OutputOnChain;
 
 use crate::{
     transactions::TransactionVerificationData, Database, ExtendedConsensusError,
