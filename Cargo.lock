@@ -1207,7 +1207,6 @@ name = "cuprate-helper"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "cuprate-constants",
  "curve25519-dalek",
  "dirs",
  "futures",
@@ -1217,7 +1216,6 @@ dependencies = [
  "rayon",
  "serde",
  "tokio",
- "windows",
 ]
 
 [[package]]

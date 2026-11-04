@@ -11,11 +11,11 @@ keywords    = ["cuprate", "blockchain", "database"]
 [features]
 
 [dependencies]
-cuprate-helper           = { workspace = true, features = ["fs", "map", "crypto", "tx", "asynch"] }
+cuprate-helper           = { workspace = true, features = ["cast", "fs", "map", "crypto", "tx", "asynch"] }
 cuprate-types            = { workspace = true, features = ["rpc"] }
 cuprate-blockchain-types = { workspace = true }
 cuprate-pruning          = { workspace = true }
-cuprate-constants        = { workspace = true }
+cuprate-constants        = { workspace = true, features = ["block"] }
 
 arc-swap         = { workspace = true }
 crossbeam        = { workspace = true, features = ["std", "crossbeam-channel"] }
