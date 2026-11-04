@@ -9,19 +9,19 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/types"
 keywords    = ["cuprate", "types"]
 
 [features]
-default    = ["blockchain", "epee", "serde", "json"]
+default    = ["blockchain", "epee", "serde"]
 blockchain = ["dep:indexmap", "dep:cuprate-helper", "cuprate-helper/crypto", "rpc"]
-epee       = ["dep:cuprate-epee-encoding"]
-serde      = ["dep:serde"]
+epee       = ["dep:cuprate-epee-encoding", "cuprate-json?/epee"]
+serde      = ["dep:serde", "cuprate-json?/serde"]
 proptest   = ["dep:proptest",  "dep:proptest-derive"]
-json       = ["dep:cuprate-hex", "dep:cuprate-helper"]
-rpc        = ["dep:cuprate-hex", "json"]
+rpc        = ["dep:cuprate-hex", "dep:cuprate-json"]
 
 [dependencies]
 cuprate-epee-encoding = { workspace = true, optional = true, features = ["std"] }
 cuprate-helper        = { workspace = true, optional = true, features = ["cast"] }
 cuprate-fixed-bytes   = { workspace = true, features = ["std", "serde"] }
 cuprate-hex           = { workspace = true, optional = true }
+cuprate-json          = { workspace = true, optional = true }
 
 bitflags         = { workspace = true }
 bytes            = { workspace = true }
@@ -36,8 +36,6 @@ proptest = { workspace = true, optional = true }
 proptest-derive  = { workspace = true, optional = true }
 
 [dev-dependencies]
-hex-literal       = { workspace = true }
-pretty_assertions = { workspace = true }
 serde_json        = { workspace = true, features = ["std"] }
 
 [lints]

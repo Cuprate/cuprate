@@ -361,7 +361,7 @@ define_struct_and_impl_epee! {
         receive_time: u64,
         relayed: bool,
         tx_blob: Vec<u8>,
-        tx_json: crate::json::tx::Transaction,
+        tx_json: cuprate_json::tx::Transaction,
         #[cfg_attr(feature = "serde", serde(default = "default_zero"))]
         weight: u64 = default_zero::<u64>(),
     }

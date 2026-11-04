@@ -431,7 +431,7 @@ async fn get_block(
     let miner_tx_hash = Hex(block.miner_transaction().hash());
     let tx_hashes = block.transactions.iter().copied().map(Hex).collect();
     let json = {
-        let block = cuprate_types::json::block::Block::from(block);
+        let block = cuprate_json::block::Block::from(block);
         serde_json::to_string_pretty(&block)?
     };
 

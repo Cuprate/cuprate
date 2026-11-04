@@ -1,0 +1,30 @@
+[package]
+name        = "cuprate-json"
+version     = "0.0.0"
+edition     = "2021"
+description = "JSON representations of common Monero types"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/types"
+keywords    = ["cuprate", "json"]
+
+[features]
+default = ["epee", "serde"]
+epee    = ["dep:cuprate-epee-encoding"]
+serde   = ["dep:serde"]
+
+[dependencies]
+cuprate-epee-encoding = { workspace = true, optional = true, features = ["std"] }
+cuprate-helper        = { workspace = true, features = ["cast"] }
+cuprate-hex           = { workspace = true }
+
+monero-oxide = { workspace = true }
+serde        = { workspace = true, features = ["std", "derive"], optional = true }
+
+[dev-dependencies]
+hex-literal       = { workspace = true }
+pretty_assertions = { workspace = true }
+serde_json        = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true
