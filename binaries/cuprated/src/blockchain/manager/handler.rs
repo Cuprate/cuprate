@@ -260,7 +260,7 @@ impl super::BlockchainManager {
         let mut error = false;
 
         for (block, txs) in prepped_blocks {
-            let hash = block.block_hash;
+            let hash = block.block.hash();
             let verified_block = match verify_prepped_main_chain_block(
                 block,
                 txs,
@@ -367,7 +367,7 @@ impl super::BlockchainManager {
                     .into_par_iter()
                     .map(|tx| {
                         let tx = new_tx_verification_data(tx)?;
-                        Ok((tx.tx_hash, tx))
+                        Ok((tx.tx_hash(), tx))
                     })
                     .collect::<Result<_, ExtendedConsensusError>>()?;
 
@@ -742,7 +742,7 @@ impl super::BlockchainManager {
             .ready()
             .await?
             .call(BlockChainContextRequest::Update(NewBlockData {
-                block_hash: verified_block.block_hash,
+                block_hash: verified_block.block.hash(),
                 height: verified_block.height,
                 timestamp: verified_block.block.header.timestamp,
                 weight: verified_block.weight,
@@ -844,7 +844,6 @@ fn alt_block_to_verified_block_information(
     VerifiedBlockInformation {
         block_blob: block.block_blob,
         txs: block.txs,
-        block_hash: block.block_hash,
         pow_hash: [u8::MAX; 32],
         height: block.height,
         generated_coins,

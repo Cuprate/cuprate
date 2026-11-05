@@ -548,7 +548,6 @@ impl BlockchainDatabase {
             crate::ops::block::add_block_to_dynamic_tables(
                 self,
                 &block,
-                &block.hash(),
                 &mut tx_iter,
                 &mut numb_txs,
                 &mut batch,

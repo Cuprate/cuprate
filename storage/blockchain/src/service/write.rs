@@ -170,7 +170,6 @@ fn write_blocks(db: &BlockchainDatabase, blocks: &[VerifiedBlockInformation]) ->
         crate::ops::block::add_block_to_dynamic_tables(
             db,
             &block.block,
-            &block.block_hash,
             block.txs.iter().map(|tx| Cow::Borrowed(&tx.tx)),
             &mut numb_transactions,
             &mut tx_rw,

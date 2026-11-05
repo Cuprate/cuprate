@@ -54,7 +54,7 @@ pub fn add_alt_block(
 
     tx_rw.insert(
         &db.alt_block_heights.load(),
-        alt_block.block_hash,
+        alt_block.block.hash(),
         bytemuck::bytes_of(&alt_block_height),
     );
     update_alt_chain_info(db, &alt_block_height, &alt_block.block.header.previous)?;
@@ -63,7 +63,7 @@ pub fn add_alt_block(
         split_u128_into_low_high_bits(alt_block.cumulative_difficulty);
 
     let alt_block_info = CompactAltBlockInfo {
-        block_hash: alt_block.block_hash,
+        block_hash: alt_block.block.hash(),
         pow_hash: alt_block.pow_hash,
         height: alt_block.height,
         weight: alt_block.weight,
@@ -131,7 +131,6 @@ pub fn get_alt_block_information(
         block,
         block_blob: block_blob.to_vec(),
         txs,
-        block_hash: block_info.block_hash,
         pow_hash: block_info.pow_hash,
         height: block_info.height,
         weight: block_info.weight,

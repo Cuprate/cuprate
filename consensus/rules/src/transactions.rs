@@ -564,13 +564,15 @@ fn transaction_weight_limit(hf: HardFork) -> usize {
 /// To fully verify a transaction this must be accompanied by [`check_transaction_contextual`]
 ///
 pub fn check_transaction_semantic(
-    tx: &Transaction,
+    tx: &cuprate_types::Transaction,
     tx_blob_size: usize,
     tx_weight: usize,
-    tx_hash: &[u8; 32],
     hf: HardFork,
     verifier: impl BatchVerifier,
 ) -> Result<u64, TransactionError> {
+    let tx_hash = tx.hash();
+    let tx: &Transaction = tx;
+
     // <https://monero-book.cuprate.org/consensus_rules/transactions.html#transaction-size>
     if tx_blob_size > MAX_TX_BLOB_SIZE
         || (hf >= HardFork::V8 && tx_weight > transaction_weight_limit(hf))
@@ -610,7 +612,7 @@ pub fn check_transaction_semantic(
                 .as_ref()
                 .ok_or(TransactionError::TransactionVersionInvalid)?;
 
-            ring_ct::ring_ct_semantic_checks(proofs, tx_hash, verifier, hf)?;
+            ring_ct::ring_ct_semantic_checks(proofs, &tx_hash, verifier, hf)?;
 
             proofs.base.fee
         }

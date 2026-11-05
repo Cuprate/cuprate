@@ -15,7 +15,6 @@ use cuprate_types::{CachedVerificationState, TransactionVerificationData, TxVers
 pub fn new_tx_verification_data(
     tx: cuprate_types::Transaction,
 ) -> Result<TransactionVerificationData, ConsensusError> {
-    let tx_hash = tx.hash();
     let tx_blob = tx.serialize();
 
     let tx_weight = tx_weight(&tx, &tx_blob);
@@ -23,7 +22,6 @@ pub fn new_tx_verification_data(
     let fee = tx_fee(&tx)?;
 
     Ok(TransactionVerificationData {
-        tx_hash,
         version: TxVersion::from_raw(tx.version())
             .ok_or(TransactionError::TransactionVersionInvalid)?,
         tx_blob: tx_blob.into(),

@@ -80,7 +80,6 @@ impl VerifiedBlockMap {
         }
 
         VerifiedBlockInformation {
-            block_hash: block.hash(),
             block_blob,
             block,
             txs,

@@ -422,19 +422,18 @@ async fn recover_bad_reorg() {
         tx_blob: tx.serialize().into(),
         tx_weight: 0,
         fee: 0,
-        tx_hash: tx.hash(),
         cached_verification_state: CachedVerificationState::NotVerified,
         tx: Transaction::new(tx),
     };
 
     let mut block_2_alt = generate_block(&context_2).into_inner();
-    block_2_alt.transactions = vec![tx.tx_hash];
+    block_2_alt.transactions = vec![tx.tx_hash()];
     block_2_alt.header.previous = block_1_alt.hash();
 
     manager_1
         .handle_command(BlockchainManagerCommand::AddBlock {
             block: Block::new(block_2_alt.clone()),
-            prepped_txs: HashMap::from([(tx.tx_hash, tx)]),
+            prepped_txs: HashMap::from([(tx.tx_hash(), tx)]),
             response_tx: oneshot::channel().0,
         })
         .await

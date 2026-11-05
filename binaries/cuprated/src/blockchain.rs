@@ -124,7 +124,6 @@ pub async fn check_add_genesis(
             VerifiedBlockInformation {
                 block_blob: genesis.serialize(),
                 txs: vec![],
-                block_hash: genesis.hash(),
                 pow_hash: cryptonight_hash_v0(&genesis.serialize_pow_hash()),
                 height: 0,
                 generated_coins: genesis.miner_transaction().prefix().outputs[0]

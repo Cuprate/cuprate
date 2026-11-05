@@ -189,7 +189,6 @@ impl SemanticVerification {
                 &tx.tx,
                 tx.tx_blob.len(),
                 tx.tx_weight,
-                &tx.tx_hash,
                 self.hf,
                 batch_verifier,
             )?;
@@ -497,7 +496,6 @@ where
                         &tx.tx,
                         tx.tx_blob.len(),
                         tx.tx_weight,
-                        &tx.tx_hash,
                         hf,
                         &batch_verifier,
                     )?;

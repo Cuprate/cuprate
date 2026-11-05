@@ -71,10 +71,6 @@ pub struct VerifiedBlockInformation {
     /// All the transactions in the block, excluding the
     /// [`Block::miner_transaction`](monero_oxide::block::Block::miner_transaction).
     pub txs: Vec<VerifiedTransactionInformation>,
-    /// The block's hash.
-    ///
-    /// [`Block::hash`].
-    pub block_hash: [u8; 32],
     /// The block's proof-of-work hash.
     // TODO: make this an option.
     pub pow_hash: [u8; 32],
@@ -117,10 +113,6 @@ pub struct AltBlockInformation {
     /// All the transactions in the block, excluding the
     /// [`Block::miner_transaction`](monero_oxide::block::Block::miner_transaction).
     pub txs: Vec<VerifiedTransactionInformation>,
-    /// The block's hash.
-    ///
-    /// [`Block::hash`].
-    pub block_hash: [u8; 32],
     /// The block's proof-of-work hash.
     pub pow_hash: [u8; 32],
     /// The block's height.

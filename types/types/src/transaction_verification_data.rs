@@ -88,10 +88,15 @@ pub struct TransactionVerificationData {
     pub tx_weight: usize,
     /// The fee this transaction has paid.
     pub fee: u64,
-    /// The hash of this transaction.
-    pub tx_hash: [u8; 32],
     /// The verification state of this transaction.
     pub cached_verification_state: CachedVerificationState,
+}
+
+impl TransactionVerificationData {
+    /// The transaction's hash.
+    pub const fn tx_hash(&self) -> [u8; 32] {
+        self.tx.hash()
+    }
 }
 
 #[derive(Debug, Copy, Clone, thiserror::Error)]
@@ -112,7 +117,6 @@ impl TryFrom<VerifiedTransactionInformation> for TransactionVerificationData {
             tx_blob,
             tx_weight: value.tx_weight,
             fee: value.fee,
-            tx_hash: value.tx_hash,
             cached_verification_state: CachedVerificationState::NotVerified,
         })
     }

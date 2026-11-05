@@ -18,10 +18,10 @@ pub(crate) fn order_transactions(
     }
 
     for (i, tx_hash) in block.transactions.iter().enumerate() {
-        if tx_hash != &txs[i].tx_hash {
+        if tx_hash != &txs[i].tx_hash() {
             let at_index = txs[i..]
                 .iter()
-                .position(|tx| &tx.tx_hash == tx_hash)
+                .position(|tx| &tx.tx_hash() == tx_hash)
                 .ok_or(ConsensusError::Block(
                     BlockError::TxsIncludedWithBlockIncorrect,
                 ))?;
@@ -35,7 +35,7 @@ pub(crate) fn order_transactions(
         .transactions
         .iter()
         .zip(txs.iter())
-        .all(|(tx_hash, tx)| tx_hash == &tx.tx_hash));
+        .all(|(tx_hash, tx)| tx_hash == &tx.tx_hash()));
 
     Ok(())
 }

@@ -171,8 +171,6 @@ pub fn block_to_verified_block_information(
     txs: Vec<Transaction>,
     blockchin_ctx: &BlockchainContext,
 ) -> VerifiedBlockInformation {
-    let block_hash = block.hash();
-
     let block_blob = block.serialize();
 
     let Some(Input::Gen(height)) = block.miner_transaction().prefix().inputs.first() else {
@@ -189,13 +187,13 @@ pub fn block_to_verified_block_information(
         .map(|tx| {
             let data = new_tx_verification_data(tx).expect("fast sync block invalid");
 
-            (data.tx_hash, data)
+            (data.tx_hash(), data)
         })
         .collect::<HashMap<_, _>>();
 
     let mut verified_txs = Vec::with_capacity(txs.len());
-    for tx in &block.transactions {
-        let data = txs.remove(tx).expect("fast sync block invalid");
+    for tx_hash in &block.transactions {
+        let data = txs.remove(tx_hash).expect("fast sync block invalid");
 
         let (tx, prunable) = data.tx.into_inner().pruned_with_prunable();
         verified_txs.push(VerifiedTransactionInformation {
@@ -203,7 +201,7 @@ pub fn block_to_verified_block_information(
             tx_pruned: tx.serialize(),
             tx_weight: data.tx_weight,
             fee: data.fee,
-            tx_hash: data.tx_hash,
+            tx_hash: *tx_hash,
             tx,
         });
     }
@@ -225,7 +223,6 @@ pub fn block_to_verified_block_information(
     VerifiedBlockInformation {
         block_blob,
         txs: verified_txs,
-        block_hash,
         pow_hash: [u8::MAX; 32],
         height: *height,
         generated_coins,

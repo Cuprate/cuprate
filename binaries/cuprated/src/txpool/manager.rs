@@ -423,7 +423,7 @@ impl TxpoolManager {
     }
 
     /// Handles an incoming tx, adding it to the pool and routing it.
-    #[instrument(level = "debug", skip_all, fields(tx_id = hex::encode(tx.tx_hash), state))]
+    #[instrument(level = "debug", skip_all, fields(tx_id = hex::encode(tx.tx_hash()), state))]
     async fn handle_incoming_tx(
         &mut self,
         tx: TransactionVerificationData,
@@ -431,9 +431,9 @@ impl TxpoolManager {
     ) -> Result<(), FatalError> {
         tracing::debug!("handling new tx");
 
-        let incoming_tx = IncomingTxBuilder::new(DandelionTx(tx.tx_blob.clone()), tx.tx_hash);
+        let incoming_tx = IncomingTxBuilder::new(DandelionTx(tx.tx_blob.clone()), tx.tx_hash());
 
-        let (tx_hash, tx_weight, tx_fee) = (tx.tx_hash, tx.tx_weight, tx.fee);
+        let (tx_hash, tx_weight, tx_fee) = (tx.tx_hash(), tx.tx_weight, tx.fee);
 
         let TxpoolWriteResponse::AddTransaction(double_spend) = self
             .txpool_write_handle

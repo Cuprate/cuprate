@@ -164,7 +164,6 @@ where
 
     // Create the alt block info.
     let block_info = AltBlockInformation {
-        block_hash: prepped_block.block_hash,
         block: prepped_block.block,
         block_blob: prepped_block.block_blob,
         txs: ordered_txs
@@ -172,7 +171,7 @@ where
             .map(|tx| {
                 let tx_weight = tx.tx_weight;
                 let fee = tx.fee;
-                let tx_hash = tx.tx_hash;
+                let tx_hash = tx.tx_hash();
                 let (tx, tx_prunable_blob) = tx.tx.into_inner().pruned_with_prunable();
                 VerifiedTransactionInformation {
                     tx_prunable_blob,
@@ -195,7 +194,7 @@ where
     // Add this block to the cache.
     alt_context_cache.add_new_block(
         block_info.height,
-        block_info.block_hash,
+        block_info.block.hash(),
         block_info.weight,
         block_info.long_term_weight,
         block_info.block.header.timestamp,
