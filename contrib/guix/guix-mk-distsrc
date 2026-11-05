@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# Match guix-build: realpath so the containment check below compares
+# physical paths consistently with `realpath "$out_dir"`.
+repo_root="$(realpath "$(git -C "$script_dir/../.." rev-parse --show-toplevel)")"
+cd "$repo_root"
+
+guix_system="x86_64-linux"
+out_dir=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --out-dir) out_dir="$2"; shift 2 ;;
+    --) shift; break ;;
+    -*) echo "unknown argument: $1" >&2; exit 1 ;;
+    *) guix_system="$1"; shift ;;
+  esac
+done
+
+if [[ -z "$out_dir" ]]; then
+  out_dir="$repo_root/contrib/guix/out"
+fi
+mkdir -p "$out_dir"
+# Same constraint as guix-build: out_dir must live inside the repo so
+# `guix shell --container --pure` can see it.
+out_dir="$(realpath "$out_dir")"
+case "$out_dir" in
+  "$repo_root"/*) ;;
+  *) echo "ERROR: --out-dir must resolve inside the repository ($repo_root); got $out_dir" >&2; exit 1 ;;
+esac
+
+# `guix shell --container` mounts a private tmpfs over /tmp inside the
+# container, sized at the kernel's tmpfs default (~50% of RAM). On a
+# 16 GB GHA runner that's ~8 GB - smaller than the full cuprate cargo-
+# vendor tree (windows-0.62.2 alone unpacks to ~2 GB, and the whole
+# tree easily exceeds 10 GB). Redirect TMPDIR inside the container to
+# a bind-mounted work directory on the host filesystem so mktemp and
+# cargo vendor target the host volume (typically 100+ GB free) rather
+# than the constrained tmpfs.
+work_root="$repo_root/contrib/guix/.work"
+mkdir -p "$work_root"
+guix time-machine -C "$script_dir/channels.scm" \
+  -- shell --system="$guix_system" -m "$script_dir/manifest.scm" --container --pure --network -- \
+  env \
+    GUIX_OUT_DIR="$out_dir" \
+    TMPDIR="$work_root" \
+    bash "$script_dir/mk-distsrc"
