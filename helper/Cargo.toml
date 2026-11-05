@@ -37,7 +37,6 @@ libc = { version = "0.2", optional = true }
 
 [dev-dependencies]
 tokio            = { workspace = true, features = ["full"] }
-curve25519-dalek = { workspace = true }
 
 [lints]
 workspace = true

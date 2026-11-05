@@ -42,7 +42,7 @@ cuprate-p2p               = { workspace = true }
 cuprate-rpc-interface     = { workspace = true, features = ["dummy"] }
 cuprate-rpc-types         = { workspace = true, features = ["from"] }
 cuprate-txpool            = { workspace = true }
-cuprate-types             = { workspace = true, features = ["rpc"] }
+cuprate-types             = { workspace = true, features = ["blockchain", "rpc"] }
 cuprate-wire              = { workspace = true, features = ["serde"] }
 
 # TODO: after v1.0.0, remove unneeded dependencies.

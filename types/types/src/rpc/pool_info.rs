@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "epee")]
-use crate::rpc::PoolInfoExtent;
+use crate::rpc::{PoolInfoExtent, PoolTxInfo};
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::{
     error,
@@ -12,7 +12,7 @@ use cuprate_epee_encoding::{
 #[cfg(feature = "epee")]
 use cuprate_fixed_bytes::ByteArrayVec;
 
-use crate::rpc::{PoolInfoFull, PoolInfoIncremental, PoolTxInfo};
+use crate::rpc::{PoolInfoFull, PoolInfoIncremental};
 
 //---------------------------------------------------------------------------------------------------- PoolInfo
 /// Used in RPC's `get_blocks.bin`.
