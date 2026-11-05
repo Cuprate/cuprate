@@ -8,7 +8,7 @@
 use cuprate_hex::{Hex, HexVec};
 use cuprate_types::HardFork;
 
-#[cfg(any(feature = "epee", feature = "serde"))]
+#[cfg(feature = "epee")]
 use crate::defaults::default;
 
 use crate::macros::monero_definition_link;

@@ -1,6 +1,9 @@
 #![doc = include_str!("../README.md")]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(test)]
+use tokio as _;
+
 //---------------------------------------------------------------------------------------------------- Public API
 #[cfg(feature = "asynch")]
 pub mod asynch; // async collides

@@ -10,6 +10,7 @@ const fn default_string() -> String {
     String::new()
 }
 
+#[cfg(any(feature = "serde", feature = "epee"))]
 fn default_zero<T: From<u8>>() -> T {
     T::from(0)
 }

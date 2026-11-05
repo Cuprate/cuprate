@@ -33,6 +33,7 @@ thiserror = { workspace = true }
 rayon = { workspace = true, optional = true }
 
 [dev-dependencies]
+cuprate-types = { workspace = true, features = ["proptest"] }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 tokio = { version = "1.35.0", features = ["rt-multi-thread", "macros"] }
