@@ -5,6 +5,7 @@ mod dandelion;
 mod error;
 mod incoming_tx;
 mod manager;
+pub(crate) mod read;
 mod relay_rules;
 mod txs_being_handled;
 
