@@ -407,7 +407,7 @@ pub fn add_block_to_dynamic_tables<'a, I: Iterator<Item = Cow<'a, Transaction<Pr
 //---------------------------------------------------------------------------------------------------- `pop_block`
 /// Remove the top/latest block from the database.
 ///
-/// The removed block's data is returned along with whether it was added to the alt block tables.
+/// Returns whether the block was added to the alt block tables.
 ///
 /// If a [`ChainId`] is specified the popped block will be added to the alt block tables under
 /// that [`ChainId`]. Otherwise, the block will be completely removed from the DB.
@@ -417,7 +417,7 @@ pub fn pop_block(
     move_to_alt_chain: Option<ChainId>,
     tx_rw: &mut fjall::OwnedWriteBatch,
     tapes: &mut tapes::TapesTruncateTransaction,
-) -> DbResult<(BlockHeight, BlockHash, Block, bool)> {
+) -> DbResult<bool> {
     // Pop the last block info.
     let (block_height, block_info) = tapes
         .pop_fixed_sized_tape(&db.block_infos)?
@@ -474,8 +474,8 @@ pub fn pop_block(
         alt_block::add_alt_block(
             db,
             &AltBlockInformation {
-                block: block.clone(),
                 block_blob: block.serialize(),
+                block,
                 txs,
                 // We know the PoW is valid for this block so just set it so it will always verify as valid.
                 pow_hash: [0; 32],
@@ -553,7 +553,7 @@ pub fn pop_block(
 
     tapes.truncate_fixed_sized_tape(&db.rct_outputs, cumulative_rct_outs)?;
 
-    Ok((block_height, block_info.block_hash, block, add_to_alt_chain))
+    Ok(add_to_alt_chain)
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_complete_entry_*`

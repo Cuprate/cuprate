@@ -211,7 +211,7 @@ fn pop_blocks(db: &BlockchainDatabase, numb_blocks: usize, keep_blocks: bool) ->
 
     // pop the blocks
     for _ in 0..numb_blocks {
-        let (.., added_to_alt_chain) =
+        let added_to_alt_chain =
             crate::ops::block::pop_block(db, old_main_chain_id, &mut tx_rw, &mut tapes)?;
 
         if old_main_chain_id.is_some() && !added_to_alt_chain {
