@@ -41,8 +41,10 @@ jobs:
           cache-directories: ~/.cargo/advisory-dbs
           # This job does not build the workspace.
           cache-targets: false
+
       - name: Install dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: cargo install --locked --version ${{ env.CARGO_DENY_VERSION }} cargo-deny
+
       - name: Deny
         run: cargo deny check

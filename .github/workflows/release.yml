@@ -168,9 +168,6 @@ jobs:
       - name: Build
         run: cargo build --release --package cuprated
 
-      - name: Hack Check
-        run: ${{ env.CMD_HACK }}
-
       - name: Generate Archive
         shell: cpa.sh {0} --sync-files vm-to-runner
         run: |
@@ -239,9 +236,6 @@ jobs:
 
       - name: Build
         run: cargo build --release --package cuprated
-
-      - name: Hack Check
-        run: ${{ env.CMD_HACK }}
 
       - name: Generate config
         run: cargo run --release --package cuprated -- --generate-config > Cuprated.toml

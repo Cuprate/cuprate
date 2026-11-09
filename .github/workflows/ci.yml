@@ -83,7 +83,7 @@ jobs:
         run: cargo build --target wasm32-unknown-unknown --features __not_public_32_bit -p ${{ matrix.crate }}
 
   feature-check:
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -185,11 +185,6 @@ jobs:
         with:
           clean: false
 
-      - name: Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: rustcache-ci-docker-${{ matrix.os.image }}
-
       - name: Dependencies
         run: ${{ matrix.os.commands }}
 
@@ -198,6 +193,11 @@ jobs:
         with:
           toolchain: stable
           components: clippy
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: rustcache-ci-docker-${{ matrix.os.image }}
 
       - name: Install nextest
         uses: taiki-e/install-action@v2
