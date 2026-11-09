@@ -50,6 +50,11 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: rustcache-release-${{ matrix.os.name }}
+
       - name: Build
         run: cargo build --release --package cuprated --features "${{ matrix.os.features }}"
 
@@ -221,6 +226,11 @@ jobs:
         uses: taiki-e/setup-cross-toolchain-action@v1
         with:
           target: ${{ matrix.os.target }}
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: rustcache-release-cross-${{ matrix.os.name }}
 
       - name: Build
         run: cargo build --release --package cuprated

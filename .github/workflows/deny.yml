@@ -11,6 +11,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # The version of `cargo-deny` to install and use.
+  CARGO_DENY_VERSION: 0.20.2
 
 jobs:
   audit:
@@ -18,24 +20,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Cache
-      uses: actions/cache@v4
+    - name: Checkout
+      uses: actions/checkout@v4
       with:
-        path: |
-          ~/.cargo
-          target
-        key: deny
+        submodules: recursive
 
     - name: Install Rust
       uses: dtolnay/rust-toolchain@master
       with:
         toolchain: stable
 
-    - uses: actions/checkout@v4
+    - name: Cache
+      uses: actions/cache@v4
       with:
-        submodules: recursive
-
+        path: ${{ runner.tool_cache }}/cargo-deny
+        key: cargo-deny-bin-${{ env.CARGO_DENY_VERSION }}
+    - name: Add cargo-deny to PATH
+      run: echo "${{ runner.tool_cache }}/cargo-deny/bin" >> $GITHUB_PATH
     - name: Install dependencies
-      run: cargo install cargo-deny --locked
+      run: cargo install --locked --version ${{ env.CARGO_DENY_VERSION }} --root "${{ runner.tool_cache }}/cargo-deny" cargo-deny
     - name: Deny
       run: cargo deny check

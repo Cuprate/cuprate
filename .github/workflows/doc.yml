@@ -33,12 +33,9 @@ jobs:
         toolchain: nightly
 
     - name: Cache
-      uses: actions/cache@v4
+      uses: Swatinem/rust-cache@v2
       with:
-        # Don't cache actual doc files, just build files.
-        # This is so that removed crates don't show up.
-        path: target/debug
-        key: doc
+        prefix-key: rustcache-doc
 
     - name: Documentation
       run: cargo +nightly doc --workspace --all-features --no-deps

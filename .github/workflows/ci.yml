@@ -16,6 +16,8 @@ env:
   RUST_MIN_STACK: 8000000
   # Fail on documentation warnings.
   RUSTDOCFLAGS: '-D warnings'
+  # Disable incremental compilation, it only bloats caches.
+  CARGO_INCREMENTAL: "0"
   # Enable debug information generation for build dependencies.
   CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG: true
   # Build commands.
@@ -112,10 +114,9 @@ jobs:
           components: clippy
 
       - name: Cache
-        uses: actions/cache@v4
+        uses: Swatinem/rust-cache@v2
         with:
-          path: target
-          key: ${{ matrix.os.runner }}
+          prefix-key: rustcache-ci-${{ matrix.os.runner }}
 
       - name: Download monerod
         uses: ./.github/actions/monerod-download
@@ -307,10 +308,9 @@ jobs:
           target: ${{ matrix.target }}
 
       - name: Cache
-        uses: actions/cache@v4
+        uses: Swatinem/rust-cache@v2
         with:
-          path: target
-          key: ${{ matrix.target }}
+          prefix-key: rustcache-cross-${{ matrix.target }}
 
       - name: Documentation
         run: ${{ env.CMD_DOC }}
