@@ -128,6 +128,11 @@ jobs:
         if: matrix.os.runner == 'windows-2022'
         uses: lukka/get-cmake@v3.31.6 # Needed for `randomx-rs`
 
+      - name: Install nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
       - name: Documentation
         run: ${{ env.CMD_DOC }}
 
@@ -135,7 +140,7 @@ jobs:
         run: ${{ env.CMD_CLIPPY }}
 
       - name: Test
-        run: ${{ env.CMD_TEST }}
+        run: cargo nextest run --all-features
 
       - name: Build
         run: ${{ env.CMD_BUILD }}
@@ -319,10 +324,15 @@ jobs:
         run: ${{ env.CMD_CLIPPY }}
 
       # There is no prebuilt monerod for RISC-V, so the tests that require it are skipped.
+      - name: Install nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
       - name: Test
         run: |
-          cargo test --all-features --workspace --exclude cuprate-p2p-core
-          cargo test --all-features --package cuprate-p2p-core --lib --tests -- --skip monerod
+          cargo nextest run --all-features --workspace --exclude cuprate-p2p-core
+          cargo nextest run --all-features --package cuprate-p2p-core -E 'not test(monerod)'
 
       - name: Build
         run: ${{ env.CMD_BUILD }}
