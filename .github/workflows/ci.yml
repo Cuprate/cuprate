@@ -348,6 +348,7 @@ jobs:
         run: |
           cargo nextest run --all-features --workspace --exclude cuprate-p2p-core --profile ci
           cargo nextest run --all-features --package cuprate-p2p-core --profile ci -E 'not test(monerod)'
+          cargo test --all-features --doc --workspace --exclude cuprate-p2p-core
 
       - name: Build
         run: ${{ env.CMD_BUILD }}
