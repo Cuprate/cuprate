@@ -4,14 +4,14 @@ name: Doc
 
 on:
   push:
-    branches: [ "main" ] # Only deploy if `main` changes.
+    branches: ["main"] # Only deploy if `main` changes.
   workflow_dispatch:
 
 env:
   # Show colored output in CI.
   CARGO_TERM_COLOR: always
   # Generate an index page.
-  RUSTDOCFLAGS: '--cfg docsrs --show-type-layout --enable-index-page -Zunstable-options'
+  RUSTDOCFLAGS: "--cfg docsrs --show-type-layout --enable-index-page -Zunstable-options"
 
 jobs:
   # Build documentation.
@@ -21,29 +21,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@master
-      with:
-        # Nightly required for some `cargo doc` settings.
-        toolchain: nightly
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          # Nightly required for some `cargo doc` settings.
+          toolchain: nightly
 
-    - name: Cache
-      uses: Swatinem/rust-cache@v2
-      with:
-        prefix-key: rustcache-doc
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          # don't cache actual doc files, which is done automatically by swatinem
+          prefix-key: rustcache-doc
 
-    - name: Documentation
-      run: cargo +nightly doc --workspace --all-features --no-deps
+      - name: Documentation
+        run: cargo +nightly doc --workspace --all-features --no-deps
 
-    - name: Upload documentation
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: target/doc/
+      - name: Upload documentation
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: target/doc/
 
   # Deployment job.
   deploy:
