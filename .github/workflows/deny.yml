@@ -5,8 +5,8 @@ name: Deny
 on:
   push:
     paths:
-      - '**/Cargo.toml'
-      - '**/Cargo.lock'
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
   workflow_dispatch:
 
 env:
@@ -16,28 +16,33 @@ env:
 
 jobs:
   audit:
-
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: stable
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
 
-    - name: Cache
-      uses: actions/cache@v4
-      with:
-        path: ${{ runner.tool_cache }}/cargo-deny
-        key: cargo-deny-bin-${{ env.CARGO_DENY_VERSION }}
-    - name: Add cargo-deny to PATH
-      run: echo "${{ runner.tool_cache }}/cargo-deny/bin" >> $GITHUB_PATH
-    - name: Install dependencies
-      run: cargo install --locked --version ${{ env.CARGO_DENY_VERSION }} --root "${{ runner.tool_cache }}/cargo-deny" cargo-deny
-    - name: Deny
-      run: cargo deny check
+      - name: Cache
+        id: cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: rustcache-deny
+          key: cargo-deny-${{ env.CARGO_DENY_VERSION }}
+          # as this workflow only runs when dependencies change, the lockfile
+          # hash would change on every run and prevent cache hits
+          add-rust-environment-hash-key: false
+          cache-directories: ~/.cargo/advisory-dbs
+          # This job does not build the workspace.
+          cache-targets: false
+      - name: Install dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: cargo install --locked --version ${{ env.CARGO_DENY_VERSION }} cargo-deny
+      - name: Deny
+        run: cargo deny check
