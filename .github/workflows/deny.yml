@@ -35,6 +35,7 @@ jobs:
         with:
           prefix-key: rustcache-deny
           key: cargo-deny-${{ env.CARGO_DENY_VERSION }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
           # as this workflow only runs when dependencies change, the lockfile
           # hash would change on every run and prevent cache hits
           add-rust-environment-hash-key: false

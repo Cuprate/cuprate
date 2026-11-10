@@ -33,9 +33,9 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Monero Daemon Cache
+    - name: Restore Monero Daemon
       id: cache-monerod
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         path: |
           monerod
@@ -68,3 +68,15 @@ runs:
           tar -xvf $FILE
           mv */monerod monerod
         fi
+
+    # only store caches if we're on main, not on workflow triggers inside a PR
+    # this makes that (although pretty insignificant) monerod isn't filling up the 10GB cache space in github
+    # (equivalent to `save-if: ${{ github.ref == 'refs/heads/main' }}` on Swantinem's rust-cache)
+    - name: Save Monero Daemon
+      if: steps.cache-monerod.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          monerod
+          monerod.exe
+        key: monerod-${{ inputs.os }}-${{ inputs.arch }}-${{ inputs.version }}
