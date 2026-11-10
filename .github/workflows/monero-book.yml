@@ -4,10 +4,10 @@ name: Monero mdBook
 
 on:
   push:
-    branches: ['main']
-    paths: ['books/protocol/**']
+    branches: ["main"]
+    paths: ["books/protocol/**"]
   pull_request:
-    paths: ['books/protocol/**']
+    paths: ["books/protocol/**"]
   workflow_dispatch:
 
 env:

@@ -4,10 +4,10 @@ name: User mdBook
 
 on:
   push:
-    branches: ['main']
-    paths: ['books/user/**']
+    branches: ["main"]
+    paths: ["books/user/**"]
   pull_request:
-    paths: ['books/user/**']
+    paths: ["books/user/**"]
   workflow_dispatch:
 
 env:

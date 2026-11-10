@@ -4,10 +4,10 @@ name: Architecture mdBook
 
 on:
   push:
-    branches: ['main']
-    paths: ['books/architecture/**']
+    branches: ["main"]
+    paths: ["books/architecture/**"]
   pull_request:
-    paths: ['books/architecture/**']
+    paths: ["books/architecture/**"]
   workflow_dispatch:
 
 env:
