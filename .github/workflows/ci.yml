@@ -99,6 +99,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           prefix-key: rustcache-feature-check
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-hack
         uses: taiki-e/install-action@v2
@@ -137,6 +138,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           prefix-key: rustcache-ci-${{ matrix.os.runner }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Download monerod
         uses: ./.github/actions/monerod-download
@@ -198,6 +200,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           prefix-key: rustcache-ci-docker-${{ matrix.os.image }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install nextest
         uses: taiki-e/install-action@v2
@@ -336,6 +339,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           prefix-key: rustcache-cross-${{ matrix.target }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Documentation
         run: ${{ env.CMD_DOC }}

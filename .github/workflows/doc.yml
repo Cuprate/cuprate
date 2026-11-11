@@ -37,6 +37,7 @@ jobs:
         with:
           # don't cache actual doc files, which is done automatically by swatinem
           prefix-key: rustcache-doc
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Documentation
         run: cargo +nightly doc --workspace --all-features --no-deps
