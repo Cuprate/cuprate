@@ -5,7 +5,7 @@ use super::macros::config_struct;
 
 config_struct! {
     /// [`tracing`] config.
-    #[derive(Debug, Default, Deserialize, Serialize, Eq, PartialEq)]
+    #[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
     #[serde(deny_unknown_fields, default)]
     pub struct TracingConfig {
         #[child = true]
@@ -15,6 +15,27 @@ config_struct! {
         #[child = true]
         /// Configuration for cuprated's file logging system.
         pub file: FileTracingConfig,
+
+        /// Whether to redact sensitive data (transaction hashes, peer and onion
+        /// addresses) from logs.
+        ///
+        /// When `true` (the default), such data is replaced with `[scrubbed]` (IP
+        /// addresses are partially redacted). Do not disable this on a public or
+        /// shared node, as the log file becomes a deanonymization target.
+        ///
+        /// Type         | boolean
+        /// Valid values | true, false
+        pub redact: bool,
+    }
+}
+
+impl Default for TracingConfig {
+    fn default() -> Self {
+        Self {
+            stdout: StdoutTracingConfig::default(),
+            file: FileTracingConfig::default(),
+            redact: true,
+        }
     }
 }
 
