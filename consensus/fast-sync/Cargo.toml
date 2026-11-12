@@ -14,7 +14,7 @@ cuprate-blockchain          = { workspace = true }
 cuprate-consensus           = { workspace = true }
 cuprate-consensus-context   = { workspace = true }
 cuprate-hex                 = { workspace = true }
-cuprate-types               = { workspace = true }
+cuprate-types               = { workspace = true, features = ["blockchain"] }
 cuprate-p2p                 = { workspace = true }
 cuprate-p2p-core            = { workspace = true }
 

@@ -12,7 +12,7 @@ cuprate-wire = { workspace = true }
 cuprate-p2p-core = { workspace = true, features = ["borsh"] }
 cuprate-address-book = { workspace = true }
 cuprate-pruning = { workspace = true }
-cuprate-helper = { workspace = true, features = ["asynch"], default-features = false }
+cuprate-helper = { workspace = true, features = ["asynch", "cast"], default-features = false }
 cuprate-async-buffer = { workspace = true }
 cuprate-types = { workspace = true, default-features = false }
 

@@ -7,7 +7,7 @@ use std::{
     time::Duration,
 };
 
-use cuprate_helper::{fmt::HexPrefix, map::ipv4_from_u32};
+use cuprate_helper::fmt::HexPrefix;
 use cuprate_hex::{Hex, HexVec};
 use cuprate_p2p_core::{
     types::{ConnectionId, ConnectionInfo, SetBan, Span},
@@ -87,7 +87,8 @@ impl<A: NetZoneAddress> From<ConnectionInfo<A>> for crate::misc::ConnectionInfo 
 // TODO: support non-clearnet addresses.
 impl From<crate::misc::SetBan> for SetBan<SocketAddr> {
     fn from(x: crate::misc::SetBan) -> Self {
-        let address = SocketAddr::V4(SocketAddrV4::new(ipv4_from_u32(x.ip), 0));
+        // IPv4 addresses are little-endian: <https://architecture.cuprate.org/oddities/le-ipv4.html>.
+        let address = SocketAddr::V4(SocketAddrV4::new(x.ip.to_le_bytes().into(), 0));
 
         let ban = if x.ban {
             Some(Duration::from_secs(x.seconds.into()))

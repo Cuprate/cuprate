@@ -53,7 +53,7 @@ define_request_and_response! {
     AccessResponseBase {
         #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Vec::is_empty"))]
         txs_as_hex: Vec<HexVec>,
-        /// `cuprate_rpc_types::json::tx::Transaction` should be used
+        /// `cuprate_json::tx::Transaction` should be used
         /// to create these JSON strings in a type-safe manner.
         #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Vec::is_empty"))]
         txs_as_json: Vec<String>,

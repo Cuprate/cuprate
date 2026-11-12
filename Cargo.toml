@@ -32,6 +32,7 @@ members = [
 	"types/types",
 	"types/hex",
 	"types/fixed-bytes",
+	"types/json",
 
 	# RPC
 	"rpc/json-rpc",
@@ -88,6 +89,7 @@ default-members = [
 	"types/types",
 	"types/hex",
 	"types/fixed-bytes",
+	"types/json",
 
 	# RPC
 	"rpc/json-rpc",
@@ -151,6 +153,7 @@ cuprate-test-utils        = { path = "test-utils",                default-featur
 cuprate-types             = { path = "types/types",               default-features = false }
 cuprate-hex               = { path = "types/hex",                 default-features = false }
 cuprate-fixed-bytes       = { path = "types/fixed-bytes",         default-features = false }
+cuprate-json              = { path = "types/json",                default-features = false }
 cuprate-json-rpc          = { path = "rpc/json-rpc",              default-features = false }
 cuprate-rpc-types         = { path = "rpc/types",                 default-features = false }
 cuprate-rpc-interface     = { path = "rpc/interface",             default-features = false }
@@ -170,7 +173,6 @@ bytemuck              = { version = "1", default-features = false }
 bytes                 = { version = "1", default-features = false }
 cfg-if                = { version = "1", default-features = false }
 clap                  = { version = "4", default-features = false }
-chrono                = { version = "0.4", default-features = false }
 crypto-bigint         = { version = "0.7", default-features = false }
 crossbeam             = { version = "0.8", default-features = false }
 const_format          = { version = "0.2", default-features = false }

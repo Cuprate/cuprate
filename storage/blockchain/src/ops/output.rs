@@ -6,11 +6,13 @@ use std::{
 
 use fjall::Readable;
 use monero_oxide::ed25519::CompressedPoint;
+use monero_oxide::transaction::Timelock;
 use monero_oxide::DEFAULT_LOCK_WINDOW;
 use tapes::TapesRead;
 
+use cuprate_constants::block::MAX_BLOCK_HEIGHT;
 use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
-use cuprate_helper::{crypto::compute_zero_commitment, map::u64_to_timelock};
+use cuprate_helper::crypto::compute_zero_commitment;
 use cuprate_types::OutputOnChain;
 
 use crate::{
@@ -322,4 +324,42 @@ pub fn unlocked_and_recent_instances(
     };
 
     Ok((unlocked, recent))
+}
+
+/// Map a [`u64`] to a [`Timelock`].
+///
+/// Height/time is not differentiated via type, but rather:
+/// "height is any value less than [`MAX_BLOCK_HEIGHT`] and timestamp is any value above"
+/// so the `u64/usize` is stored without any tag.
+///
+/// - <https://github.com/Cuprate/cuprate/pull/102#discussion_r1558504285>
+/// - <https://github.com/serai-dex/serai/blob/bc1dec79917d37d326ac3d9bc571a64131b0424a/coins/monero/src/transaction.rs#L139>
+const fn u64_to_timelock(u: u64) -> Timelock {
+    if u == 0 {
+        Timelock::None
+    } else if u < MAX_BLOCK_HEIGHT {
+        Timelock::Block(u64_to_usize(u))
+    } else {
+        Timelock::Time(u)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
+
+    use super::*;
+
+    #[test]
+    fn u64_timelock() {
+        assert_eq!(u64_to_timelock(0), Timelock::None);
+        assert_eq!(
+            u64_to_timelock(MAX_BLOCK_HEIGHT - 1),
+            Timelock::Block(MAX_BLOCK_HEIGHT_USIZE - 1)
+        );
+        assert_eq!(
+            u64_to_timelock(MAX_BLOCK_HEIGHT),
+            Timelock::Time(MAX_BLOCK_HEIGHT)
+        );
+    }
 }

@@ -22,7 +22,8 @@ config_struct! {
 impl Default for TokioConfig {
     fn default() -> Self {
         Self {
-            threads: cuprate_helper::thread::threads_75(),
+            // 75% of the system threads, rounded up.
+            threads: NonZeroUsize::new((super::threads().get() * 3).div_ceil(4)).unwrap(),
         }
     }
 }
