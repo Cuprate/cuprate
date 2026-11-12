@@ -5,7 +5,6 @@ use std::net::SocketAddrV4;
 use anyhow::{anyhow, Error};
 use tower::ServiceExt;
 
-use cuprate_helper::map::u32_from_ipv4;
 use cuprate_p2p_core::{
     services::{AddressBookRequest, AddressBookResponse, ZoneSpecificPeerListEntryBase},
     types::{BanState, ConnectionId},
@@ -159,8 +158,12 @@ pub(crate) async fn peerlist<Z: NetworkZone>(
 
                 let host = adr.to_string();
 
+                // IPv4 addresses are little-endian: <https://architecture.cuprate.org/oddities/le-ipv4.html>.
                 let (ip, port) = if let Ok(socket_addr) = host.parse::<SocketAddrV4>() {
-                    (u32_from_ipv4(*socket_addr.ip()), socket_addr.port())
+                    (
+                        u32::from_le_bytes(socket_addr.ip().octets()),
+                        socket_addr.port(),
+                    )
                 } else {
                     (0, 0)
                 };

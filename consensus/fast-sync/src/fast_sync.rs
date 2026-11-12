@@ -4,10 +4,7 @@ use std::{
 };
 
 use blake3::Hasher;
-use monero_oxide::{
-    block::Block,
-    transaction::{Input, Transaction},
-};
+use monero_oxide::transaction::Input;
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::service::BlockchainReadHandle;
@@ -17,7 +14,7 @@ use cuprate_p2p::block_downloader::ChainEntry;
 use cuprate_p2p_core::NetworkZone;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, VerifiedBlockInformation, VerifiedTransactionInformation,
+    Block, Chain, Transaction, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 
 /// The size of a batch of block hashes to hash to create a fast sync hash.
@@ -174,8 +171,6 @@ pub fn block_to_verified_block_information(
     txs: Vec<Transaction>,
     blockchin_ctx: &BlockchainContext,
 ) -> VerifiedBlockInformation {
-    let block_hash = block.hash();
-
     let block_blob = block.serialize();
 
     let Some(Input::Gen(height)) = block.miner_transaction().prefix().inputs.first() else {
@@ -192,21 +187,21 @@ pub fn block_to_verified_block_information(
         .map(|tx| {
             let data = new_tx_verification_data(tx).expect("fast sync block invalid");
 
-            (data.tx_hash, data)
+            (data.tx_hash(), data)
         })
         .collect::<HashMap<_, _>>();
 
     let mut verified_txs = Vec::with_capacity(txs.len());
-    for tx in &block.transactions {
-        let data = txs.remove(tx).expect("fast sync block invalid");
+    for tx_hash in &block.transactions {
+        let data = txs.remove(tx_hash).expect("fast sync block invalid");
 
-        let (tx, prunable) = data.tx.pruned_with_prunable();
+        let (tx, prunable) = data.tx.into_inner().pruned_with_prunable();
         verified_txs.push(VerifiedTransactionInformation {
             tx_prunable_blob: prunable,
             tx_pruned: tx.serialize(),
             tx_weight: data.tx_weight,
             fee: data.fee,
-            tx_hash: data.tx_hash,
+            tx_hash: *tx_hash,
             tx,
         });
     }
@@ -228,7 +223,6 @@ pub fn block_to_verified_block_information(
     VerifiedBlockInformation {
         block_blob,
         txs: verified_txs,
-        block_hash,
         pow_hash: [u8::MAX; 32],
         height: *height,
         generated_coins,

@@ -4,7 +4,7 @@ use std::{borrow::Cow, cmp::min, collections::HashMap, io};
 use bytes::{Buf, Bytes};
 use fjall::Readable;
 use monero_oxide::{
-    block::{Block, BlockHeader},
+    block::{self, BlockHeader},
     transaction::{Pruned, Transaction},
 };
 use tapes::{BlobTape, TapesAppend, TapesRead, TapesTruncate};
@@ -21,7 +21,7 @@ use cuprate_pruning::{
     CRYPTONOTE_PRUNING_TIP_BLOCKS,
 };
 use cuprate_types::{
-    AltBlockInformation, BlockCompleteEntry, ChainId, ExtendedBlockHeader, HardFork,
+    AltBlockInformation, Block, BlockCompleteEntry, ChainId, ExtendedBlockHeader, HardFork,
     PrunedTxBlobEntry, TransactionBlobs, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 
@@ -312,7 +312,7 @@ pub fn add_blocks_to_tapes(
                     cumulative_difficulty_high,
                     cumulative_generated_coins,
                     cumulative_rct_outs: numb_rct_outs,
-                    block_hash: block.block_hash,
+                    block_hash: block.block.hash(),
                     weight: block.weight,
                     long_term_weight: block.long_term_weight,
                     mining_tx_index,
@@ -346,7 +346,6 @@ pub fn add_blocks_to_tapes(
 pub fn add_block_to_dynamic_tables<'a, I: Iterator<Item = Cow<'a, Transaction<Pruned>>>>(
     db: &BlockchainDatabase,
     block: &Block,
-    block_hash: &BlockHash,
     txs: I,
     numb_transactions: &mut u64,
     w: &mut fjall::OwnedWriteBatch,
@@ -398,6 +397,7 @@ pub fn add_block_to_dynamic_tables<'a, I: Iterator<Item = Cow<'a, Transaction<Pr
         *numb_transactions += 1;
     }
 
+    let block_hash = block.hash();
     w.insert(&db.block_heights, block_hash, block.number().to_le_bytes());
     w.insert(&db.chain_tip, CHAIN_TIP_KEY, block_hash);
 
@@ -407,7 +407,7 @@ pub fn add_block_to_dynamic_tables<'a, I: Iterator<Item = Cow<'a, Transaction<Pr
 //---------------------------------------------------------------------------------------------------- `pop_block`
 /// Remove the top/latest block from the database.
 ///
-/// The removed block's data is returned along with whether it was added to the alt block tables.
+/// Returns whether the block was added to the alt block tables.
 ///
 /// If a [`ChainId`] is specified the popped block will be added to the alt block tables under
 /// that [`ChainId`]. Otherwise, the block will be completely removed from the DB.
@@ -417,7 +417,7 @@ pub fn pop_block(
     move_to_alt_chain: Option<ChainId>,
     tx_rw: &mut fjall::OwnedWriteBatch,
     tapes: &mut tapes::TapesTruncateTransaction,
-) -> DbResult<(BlockHeight, BlockHash, Block, bool)> {
+) -> DbResult<bool> {
     // Pop the last block info.
     let (block_height, block_info) = tapes
         .pop_fixed_sized_tape(&db.block_infos)?
@@ -449,7 +449,6 @@ pub fn pop_block(
             match get_tx_from_id(&tx_id, tapes, db) {
                 Ok(tx) => {
                     let tx_weight = tx.weight();
-                    let tx_hash = tx.hash();
                     let fee = tx_fee(&tx);
                     let (tx_pruned, prunable) = tx.pruned_with_prunable();
 
@@ -457,7 +456,7 @@ pub fn pop_block(
                         tx_weight,
                         tx_pruned: tx_pruned.serialize(),
                         tx_prunable_blob: prunable,
-                        tx_hash,
+                        tx_hash: *tx_hash,
                         fee,
                         tx: tx_pruned,
                     });
@@ -475,10 +474,9 @@ pub fn pop_block(
         alt_block::add_alt_block(
             db,
             &AltBlockInformation {
-                block: block.clone(),
                 block_blob: block.serialize(),
+                block,
                 txs,
-                block_hash: block_info.block_hash,
                 // We know the PoW is valid for this block so just set it so it will always verify as valid.
                 pow_hash: [0; 32],
                 height: block_height,
@@ -555,7 +553,7 @@ pub fn pop_block(
 
     tapes.truncate_fixed_sized_tape(&db.rct_outputs, cumulative_rct_outs)?;
 
-    Ok((block_height, block_info.block_hash, block, add_to_alt_chain))
+    Ok(add_to_alt_chain)
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_complete_entry_*`
@@ -896,7 +894,10 @@ pub fn get_block(
 
     tapes.read_bytes(&db.pruned_blobs, block_info.pruned_blob_idx, &mut blob)?;
 
-    Ok(Block::read(&mut blob.as_slice())?)
+    Ok(Block::with_hash(
+        block::Block::read(&mut blob.as_slice())?,
+        block_info.block_hash,
+    ))
 }
 
 /// Retrieve a [`Block`] via its [`BlockHash`].

@@ -35,11 +35,10 @@ pub fn get_transaction_verification_data(
 
     Ok(TransactionVerificationData {
         version: TxVersion::from_raw(tx.version()).expect("Tx in tx-pool has invalid version"),
-        tx,
+        tx: cuprate_types::Transaction::with_hash(tx, *tx_hash),
         tx_blob: tx_blob.into(),
         tx_weight: tx_info.weight,
         fee: tx_info.fee,
-        tx_hash: *tx_hash,
         cached_verification_state: tx_info.cached_verification_state.into(),
     })
 }

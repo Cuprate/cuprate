@@ -2,14 +2,13 @@
 
 //---------------------------------------------------------------------------------------------------- Use
 use monero_daemon_rpc::{prelude::ProvidesTransactions, MoneroDaemon};
-use monero_oxide::block::Block;
 use monero_simple_request_rpc::SimpleRequestTransport;
 use serde::Deserialize;
 use serde_json::json;
 use tokio::task::spawn_blocking;
 
 use cuprate_helper::tx::tx_fee;
-use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
+use cuprate_types::{Block, VerifiedBlockInformation, VerifiedTransactionInformation};
 
 //---------------------------------------------------------------------------------------------------- Constants
 /// The default URL used for Monero RPC connections.
@@ -107,10 +106,10 @@ impl HttpRpcClient {
 
         let reward = result.block_header.reward;
 
-        let (block_hash, block_blob, block) = spawn_blocking(|| {
+        let (block_blob, block) = spawn_blocking(|| {
             let block_blob = hex::decode(result.blob).unwrap();
             let block = Block::read(&mut block_blob.as_slice()).unwrap();
-            (block.hash(), block_blob, block)
+            (block_blob, block)
         })
         .await
         .unwrap();
@@ -125,7 +124,7 @@ impl HttpRpcClient {
         let pow_hash = <[u8; 32]>::try_from(hex::decode(&block_header.pow_hash).unwrap()).unwrap();
 
         // Assert the block hash matches.
-        assert_eq!(block_hash, block_hash_2);
+        assert_eq!(block.hash(), block_hash_2);
 
         let total_tx_fees = txs.iter().map(|tx| tx.fee).sum::<u64>();
         let generated_coins = block
@@ -146,7 +145,6 @@ impl HttpRpcClient {
             block,
             block_blob,
             txs,
-            block_hash,
             pow_hash,
             generated_coins,
             height: block_header.height,
@@ -226,7 +224,7 @@ mod tests {
             assert_eq!(block.txs.len(), tx_count);
             println!("{block:#?}");
 
-            assert_eq!(block.block_hash, block_hash);
+            assert_eq!(block.block.hash(), block_hash);
             assert_eq!(block.pow_hash, pow_hash);
             assert_eq!(block.height, height);
             assert_eq!(block.generated_coins, generated_coins);

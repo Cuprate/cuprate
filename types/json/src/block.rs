@@ -8,7 +8,7 @@ use monero_oxide::{block, transaction};
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_hex::Hex;
 
-use crate::json::output::{Output, TaggedKey, Target};
+use crate::output::{Output, TaggedKey, Target};
 
 /// JSON representation of a block.
 ///

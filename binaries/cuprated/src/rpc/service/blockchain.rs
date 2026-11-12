@@ -1,6 +1,5 @@
 //! Functions to send [`BlockchainReadRequest`]s.
 use anyhow::Error;
-use monero_oxide::block::Block;
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::service::BlockchainReadHandle;
@@ -12,8 +11,8 @@ use cuprate_types::{
         ChainInfo, CoinbaseTxSum, OutputDistributionData, OutputHistogramEntry,
         OutputHistogramInput,
     },
-    BlockCompleteEntry, Chain, ExtendedBlockHeader, OutputOnChain, PreRctOutputDistributionInput,
-    TxInBlockchain,
+    Block, BlockCompleteEntry, Chain, ExtendedBlockHeader, OutputOnChain,
+    PreRctOutputDistributionInput, TxInBlockchain,
 };
 
 /// [`BlockchainReadRequest::Block`].

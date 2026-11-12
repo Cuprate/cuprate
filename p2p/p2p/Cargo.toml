@@ -12,11 +12,9 @@ cuprate-wire = { workspace = true }
 cuprate-p2p-core = { workspace = true, features = ["borsh"] }
 cuprate-address-book = { workspace = true }
 cuprate-pruning = { workspace = true }
-cuprate-helper = { workspace = true, features = ["asynch"], default-features = false }
+cuprate-helper = { workspace = true, features = ["asynch", "cast"], default-features = false }
 cuprate-async-buffer = { workspace = true }
 cuprate-types = { workspace = true, default-features = false }
-
-monero-oxide = { workspace = true, features = ["std"] }
 
 tower = { workspace = true, features = ["buffer"] }
 tokio = { workspace = true, features = ["rt", "rt-multi-thread"] }
@@ -37,6 +35,7 @@ borsh = { workspace = true, features = ["derive", "std"] }
 [dev-dependencies]
 cuprate-test-utils = { workspace = true }
 indexmap = { workspace = true }
+monero-oxide = { workspace = true, features = ["std"] }
 proptest = { workspace = true }
 tokio-test = { workspace = true }
 

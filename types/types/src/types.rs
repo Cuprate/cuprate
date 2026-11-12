@@ -3,12 +3,11 @@
 use std::num::NonZero;
 
 use monero_oxide::{
-    block::Block,
     ed25519::CompressedPoint,
     transaction::{Pruned, Timelock, Transaction},
 };
 
-use crate::HardFork;
+use crate::{Block, HardFork};
 
 /// Extended header data of a block.
 ///
@@ -67,14 +66,11 @@ pub struct VerifiedBlockInformation {
     pub block: Block,
     /// The serialized byte form of [`Self::block`].
     ///
-    /// [`Block::serialize`].
+    /// [`Block::serialize`](monero_oxide::block::Block::serialize).
     pub block_blob: Vec<u8>,
-    /// All the transactions in the block, excluding the [`Block::miner_transaction`].
+    /// All the transactions in the block, excluding the
+    /// [`Block::miner_transaction`](monero_oxide::block::Block::miner_transaction).
     pub txs: Vec<VerifiedTransactionInformation>,
-    /// The block's hash.
-    ///
-    /// [`Block::hash`].
-    pub block_hash: [u8; 32],
     /// The block's proof-of-work hash.
     // TODO: make this an option.
     pub pow_hash: [u8; 32],
@@ -112,14 +108,11 @@ pub struct AltBlockInformation {
     pub block: Block,
     /// The serialized byte form of [`Self::block`].
     ///
-    /// [`Block::serialize`].
+    /// [`Block::serialize`](monero_oxide::block::Block::serialize).
     pub block_blob: Vec<u8>,
-    /// All the transactions in the block, excluding the [`Block::miner_transaction`].
+    /// All the transactions in the block, excluding the
+    /// [`Block::miner_transaction`](monero_oxide::block::Block::miner_transaction).
     pub txs: Vec<VerifiedTransactionInformation>,
-    /// The block's hash.
-    ///
-    /// [`Block::hash`].
-    pub block_hash: [u8; 32],
     /// The block's proof-of-work hash.
     pub pow_hash: [u8; 32],
     /// The block's height.
@@ -160,7 +153,7 @@ pub struct TxsInBlock {
 /// A block template, used in RPC's `get_block_template`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BlockTemplate {
-    pub block: Block,
+    pub block: monero_oxide::block::Block,
     pub reserved_offset: u64,
     pub difficulty: u128,
     pub height: u64,

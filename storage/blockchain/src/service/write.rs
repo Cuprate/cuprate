@@ -170,7 +170,6 @@ fn write_blocks(db: &BlockchainDatabase, blocks: &[VerifiedBlockInformation]) ->
         crate::ops::block::add_block_to_dynamic_tables(
             db,
             &block.block,
-            &block.block_hash,
             block.txs.iter().map(|tx| Cow::Borrowed(&tx.tx)),
             &mut numb_transactions,
             &mut tx_rw,
@@ -212,7 +211,7 @@ fn pop_blocks(db: &BlockchainDatabase, numb_blocks: usize, keep_blocks: bool) ->
 
     // pop the blocks
     for _ in 0..numb_blocks {
-        let (.., added_to_alt_chain) =
+        let added_to_alt_chain =
             crate::ops::block::pop_block(db, old_main_chain_id, &mut tx_rw, &mut tapes)?;
 
         if old_main_chain_id.is_some() && !added_to_alt_chain {

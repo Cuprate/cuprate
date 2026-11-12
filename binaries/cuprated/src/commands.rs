@@ -11,8 +11,6 @@ use clap::{builder::TypedValueParser, Parser, ValueEnum};
 use tokio::sync::mpsc;
 use tracing::level_filters::LevelFilter;
 
-use cuprate_helper::time::secs_to_hms;
-
 use cuprated::logging::{self, CupratedTracingFilter};
 
 /// A command received from [`io::stdin`].
@@ -130,9 +128,8 @@ pub(crate) async fn io_loop(
             Command::Status => {
                 let context = node.blockchain.context();
 
-                let uptime = start_instant.elapsed();
-
-                let (h, m, s) = secs_to_hms(uptime.as_secs());
+                let uptime = start_instant.elapsed().as_secs();
+                let (h, m, s) = (uptime / 3600, uptime / 60 % 60, uptime % 60);
                 let height = context.chain_height;
                 let top_hash = hex::encode(context.top_hash);
 

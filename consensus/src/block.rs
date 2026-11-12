@@ -8,7 +8,7 @@
 //!
 use std::{collections::HashMap, mem};
 
-use monero_oxide::{block::Block, transaction::Input};
+use monero_oxide::transaction::Input;
 use tower::{Service, ServiceExt};
 
 use cuprate_consensus_context::{
@@ -16,7 +16,7 @@ use cuprate_consensus_context::{
 };
 use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_types::{
-    AltBlockInformation, TransactionVerificationData, VerifiedBlockInformation,
+    AltBlockInformation, Block, TransactionVerificationData, VerifiedBlockInformation,
     VerifiedTransactionInformation,
 };
 
@@ -100,8 +100,6 @@ pub struct PreparedBlockExPow {
     /// The block's hard-fork version.
     pub hf_version: HardFork,
 
-    /// The block's hash.
-    pub block_hash: [u8; 32],
     /// The height of the block.
     pub height: usize,
 
@@ -131,7 +129,6 @@ impl PreparedBlockExPow {
             hf_vote,
             hf_version,
 
-            block_hash: block.hash(),
             height: *height,
 
             miner_tx_weight: block.miner_transaction().weight(),
@@ -153,8 +150,6 @@ pub struct PreparedBlock {
     /// The block's hf version
     pub hf_version: HardFork,
 
-    /// The block's hash
-    pub block_hash: [u8; 32],
     /// The block's POW hash.
     pub pow_hash: [u8; 32],
 
@@ -182,7 +177,6 @@ impl PreparedBlock {
             hf_vote,
             hf_version,
 
-            block_hash: block.hash(),
             pow_hash: calculate_pow_hash(
                 randomx_vm,
                 &block.serialize_pow_hash(),
@@ -212,7 +206,6 @@ impl PreparedBlock {
             hf_vote: block.hf_vote,
             hf_version: block.hf_version,
 
-            block_hash: block.block_hash,
             pow_hash: calculate_pow_hash(
                 randomx_vm,
                 &block.block.serialize_pow_hash(),
@@ -232,7 +225,6 @@ impl PreparedBlock {
             hf_vote: HardFork::from_vote(block.block.header.hardfork_signal),
             hf_version: HardFork::from_version(block.block.header.hardfork_version)
                 .map_err(|_| BlockError::HardForkError(HardForkError::HardForkUnknown))?,
-            block_hash: block.block_hash,
             pow_hash: block.pow_hash,
             miner_tx_weight: block.block.miner_transaction().weight(),
             block: block.block,
@@ -317,7 +309,10 @@ where
 {
     let context = context_svc.blockchain_context();
 
-    tracing::debug!("verifying block: {}", hex::encode(prepped_block.block_hash));
+    tracing::debug!(
+        "verifying block: {}",
+        hex::encode(prepped_block.block.hash())
+    );
 
     check_block_pow(&prepped_block.pow_hash, context.next_difficulty)
         .map_err(ConsensusError::Block)
@@ -331,7 +326,7 @@ where
 
     if !prepped_block.block.transactions.is_empty() {
         for (expected_tx_hash, tx) in prepped_block.block.transactions.iter().zip(txs.iter()) {
-            if expected_tx_hash != &tx.tx_hash {
+            if expected_tx_hash != &tx.tx_hash() {
                 return Err(BlockVerificationError::valid_pow(ConsensusError::Block(
                     BlockError::TxsIncludedWithBlockIncorrect,
                 )));
@@ -372,7 +367,6 @@ where
     .map_err(BlockVerificationError::valid_pow)?;
 
     let block = VerifiedBlockInformation {
-        block_hash: prepped_block.block_hash,
         block: prepped_block.block,
         block_blob: prepped_block.block_blob,
         txs: txs
@@ -380,8 +374,8 @@ where
             .map(|tx| {
                 let tx_weight = tx.tx_weight;
                 let fee = tx.fee;
-                let tx_hash = tx.tx_hash;
-                let (tx, tx_prunable_blob) = tx.tx.pruned_with_prunable();
+                let tx_hash = tx.tx_hash();
+                let (tx, tx_prunable_blob) = tx.tx.into_inner().pruned_with_prunable();
                 VerifiedTransactionInformation {
                     tx_prunable_blob,
                     tx_pruned: tx.serialize(),

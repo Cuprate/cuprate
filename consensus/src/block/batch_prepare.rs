@@ -1,6 +1,5 @@
 use std::{collections::HashMap, sync::Arc};
 
-use monero_oxide::{block::Block, transaction::Transaction};
 use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
@@ -13,7 +12,7 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_types::{output_cache::OutputCache, TransactionVerificationData};
+use cuprate_types::{output_cache::OutputCache, Block, Transaction, TransactionVerificationData};
 
 use crate::{
     __private::Database,
@@ -47,7 +46,7 @@ pub async fn batch_prepare_main_chain_blocks<D: Database>(
 > {
     let (blocks, txs): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
 
-    tracing::debug!("Calculating block hashes.");
+    tracing::debug!("Preparing blocks.");
     let blocks: Vec<PreparedBlockExPow> = rayon_spawn_async(|| {
         blocks
             .into_iter()
@@ -83,7 +82,7 @@ pub async fn batch_prepare_main_chain_blocks<D: Database>(
             .into());
         }
 
-        if block_0.block_hash != block_1.block.header.previous
+        if block_0.block.hash() != block_1.block.header.previous
             || block_0.height != block_1.height - 1
         {
             tracing::debug!("Blocks do not follow each other, verification failed.");
@@ -92,7 +91,7 @@ pub async fn batch_prepare_main_chain_blocks<D: Database>(
 
         // Cache any potential RX VM seeds as we may need them for future blocks in the batch.
         if is_randomx_seed_height(block_0.height) && top_hf_in_batch >= HardFork::V12 {
-            new_rx_vm = Some((block_0.height, block_0.block_hash));
+            new_rx_vm = Some((block_0.height, block_0.block.hash()));
         }
 
         timestamps_hfs.push((block_0.block.header.timestamp, block_0.hf_version));

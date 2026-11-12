@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-use monero_oxide::{block::Block, transaction::Transaction};
 use rayon::prelude::*;
 use tower::Service;
 use tracing::instrument;
@@ -11,6 +10,7 @@ use cuprate_p2p_core::{
     handles::ConnectionHandle, NetworkZone, PeerRequest, PeerResponse, ProtocolRequest,
     ProtocolResponse,
 };
+use cuprate_types::{Block, Transaction};
 use cuprate_wire::protocol::{GetObjectsRequest, GetObjectsResponse};
 
 use crate::{
@@ -154,11 +154,16 @@ fn deserialize_batch(
                 return Err(BlockDownloadError::ChainInvalid);
             }
 
-            // Deserialize the transactions.
-            let txs = block_entry
+            let tx_blobs = block_entry
                 .txs
                 .take_normal()
-                .ok_or(BlockDownloadError::PeersResponseWasInvalid)?
+                .ok_or(BlockDownloadError::PeersResponseWasInvalid)?;
+
+            // Make sure the transactions in the block were the ones the peer sent.
+            let mut expected_txs = block.transactions.iter().collect::<HashSet<_>>();
+
+            // Deserialize the transactions.
+            let txs = tx_blobs
                 .into_iter()
                 .map(|tx_blob| {
                     size += tx_blob.len();
@@ -167,19 +172,16 @@ fn deserialize_batch(
                         return Err(BlockDownloadError::PeersResponseWasInvalid);
                     }
 
-                    Transaction::read(&mut tx_blob.as_ref())
-                        .map_err(|_| BlockDownloadError::PeersResponseWasInvalid)
+                    let tx = Transaction::read(&mut tx_blob.as_ref())
+                        .map_err(|_| BlockDownloadError::PeersResponseWasInvalid)?;
+
+                    if !expected_txs.remove(&tx.hash()) {
+                        return Err(BlockDownloadError::PeersResponseWasInvalid);
+                    }
+
+                    Ok(tx)
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-
-            // Make sure the transactions in the block were the ones the peer sent.
-            let mut expected_txs = block.transactions.iter().collect::<HashSet<_>>();
-
-            for tx in &txs {
-                if !expected_txs.remove(&tx.hash()) {
-                    return Err(BlockDownloadError::PeersResponseWasInvalid);
-                }
-            }
 
             if !expected_txs.is_empty() {
                 return Err(BlockDownloadError::PeersResponseWasInvalid);

@@ -9,10 +9,10 @@
 use std::sync::LazyLock;
 
 use hex_literal::hex;
-use monero_oxide::{block::Block, transaction::Transaction};
+use monero_oxide::transaction::Transaction;
 
 use cuprate_helper::{map::combine_low_high_bits_to_u128, tx::tx_fee};
-use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
+use cuprate_types::{Block, VerifiedBlockInformation, VerifiedTransactionInformation};
 
 use crate::data::constants::{
     BLOCK_43BD1F, BLOCK_5ECB7E, BLOCK_F91043, TX_2180A8, TX_3BC7FF, TX_84D48D, TX_9E3F73,
@@ -80,7 +80,6 @@ impl VerifiedBlockMap {
         }
 
         VerifiedBlockInformation {
-            block_hash: block.hash(),
             block_blob,
             block,
             txs,

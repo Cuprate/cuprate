@@ -8,7 +8,7 @@
 use cuprate_hex::{Hex, HexVec};
 use cuprate_types::HardFork;
 
-#[cfg(any(feature = "epee", feature = "serde"))]
+#[cfg(feature = "epee")]
 use crate::defaults::default;
 
 use crate::macros::monero_definition_link;
@@ -308,7 +308,7 @@ define_struct_and_impl_epee! {
         receive_time: u64,
         relayed: bool,
         tx_blob: HexVec,
-        tx_json: cuprate_types::json::tx::Transaction,
+        tx_json: cuprate_json::tx::Transaction,
         weight: u64 = default::<u64>(),
     }
 }

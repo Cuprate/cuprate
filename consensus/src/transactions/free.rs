@@ -6,16 +6,15 @@ use monero_oxide::{
 use cuprate_consensus_rules::{transactions::TransactionError, ConsensusError};
 use cuprate_types::{CachedVerificationState, TransactionVerificationData, TxVersion};
 
-/// Creates a new [`TransactionVerificationData`] from a [`Transaction`].
+/// Creates a new [`TransactionVerificationData`] from a [`cuprate_types::Transaction`].
 ///
 /// # Errors
 ///
 /// This function will return [`Err`] if the transaction is malformed, although returning [`Ok`] does
 /// not necessarily mean the tx is correctly formed.
 pub fn new_tx_verification_data(
-    tx: Transaction,
+    tx: cuprate_types::Transaction,
 ) -> Result<TransactionVerificationData, ConsensusError> {
-    let tx_hash = tx.hash();
     let tx_blob = tx.serialize();
 
     let tx_weight = tx_weight(&tx, &tx_blob);
@@ -23,7 +22,6 @@ pub fn new_tx_verification_data(
     let fee = tx_fee(&tx)?;
 
     Ok(TransactionVerificationData {
-        tx_hash,
         version: TxVersion::from_raw(tx.version())
             .ok_or(TransactionError::TransactionVersionInvalid)?,
         tx_blob: tx_blob.into(),

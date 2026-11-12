@@ -4,7 +4,7 @@
 //! difficulty of the alt chain so callers will know if they should re-org to the alt chain.
 use std::{collections::HashMap, sync::Arc};
 
-use monero_oxide::{block::Block, transaction::Input};
+use monero_oxide::transaction::Input;
 use tower::{Service, ServiceExt};
 
 use cuprate_consensus_context::{
@@ -22,7 +22,7 @@ use cuprate_consensus_rules::{
 };
 use cuprate_helper::{asynch::rayon_spawn_async, cast::u64_to_usize};
 use cuprate_types::{
-    AltBlockInformation, Chain, ChainId, TransactionVerificationData,
+    AltBlockInformation, Block, Chain, ChainId, TransactionVerificationData,
     VerifiedTransactionInformation,
 };
 
@@ -164,7 +164,6 @@ where
 
     // Create the alt block info.
     let block_info = AltBlockInformation {
-        block_hash: prepped_block.block_hash,
         block: prepped_block.block,
         block_blob: prepped_block.block_blob,
         txs: ordered_txs
@@ -172,8 +171,8 @@ where
             .map(|tx| {
                 let tx_weight = tx.tx_weight;
                 let fee = tx.fee;
-                let tx_hash = tx.tx_hash;
-                let (tx, tx_prunable_blob) = tx.tx.pruned_with_prunable();
+                let tx_hash = tx.tx_hash();
+                let (tx, tx_prunable_blob) = tx.tx.into_inner().pruned_with_prunable();
                 VerifiedTransactionInformation {
                     tx_prunable_blob,
                     tx_pruned: tx.serialize(),
@@ -195,7 +194,7 @@ where
     // Add this block to the cache.
     alt_context_cache.add_new_block(
         block_info.height,
-        block_info.block_hash,
+        block_info.block.hash(),
         block_info.weight,
         block_info.long_term_weight,
         block_info.block.header.timestamp,

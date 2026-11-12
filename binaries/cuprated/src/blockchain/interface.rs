@@ -7,7 +7,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use monero_oxide::{block::Block, transaction::Transaction};
 use tokio::sync::{mpsc, oneshot};
 use tower::{Service, ServiceExt};
 
@@ -17,7 +16,10 @@ use cuprate_txpool::service::{
     interface::{TxpoolReadRequest, TxpoolReadResponse},
     TxpoolReadHandle,
 };
-use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
+use cuprate_types::{
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
+    Block, Transaction,
+};
 
 use crate::blockchain::{
     manager::{BlockchainManagerCommand, IncomingBlockOk},
@@ -73,7 +75,7 @@ impl BlockchainManagerHandle {
     ///  - the blockchain manager command channel is closed
     pub async fn handle_incoming_block(
         &self,
-        block: Block,
+        block: monero_oxide::block::Block,
         mut given_txs: HashMap<[u8; 32], Transaction>,
         blockchain_read_handle: &mut BlockchainReadHandle,
         txpool_read_handle: &mut TxpoolReadHandle,
@@ -86,6 +88,7 @@ impl BlockchainManagerHandle {
             return Err(IncomingBlockError::Orphan);
         }
 
+        let block = Block::new(block);
         let block_hash = block.hash();
 
         if block_exists(block_hash, blockchain_read_handle).await? {

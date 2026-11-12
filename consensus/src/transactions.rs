@@ -8,7 +8,7 @@
 //!
 //! ```rust
 //! # use cuprate_test_utils::data::TX_E2D393;
-//! # use monero_oxide::transaction::Transaction;
+//! # use cuprate_types::Transaction;
 //! use cuprate_consensus::{transactions::start_tx_verification, HardFork, batch_verifier::MultiThreadedBatchVerifier};
 //!
 //! # fn main() -> Result<(), tower::BoxError> {
@@ -27,7 +27,7 @@
 //! ```
 use std::collections::HashSet;
 
-use monero_oxide::transaction::{Input, Timelock, Transaction};
+use monero_oxide::transaction::{Input, Timelock};
 use rayon::prelude::*;
 use tower::ServiceExt;
 
@@ -41,7 +41,7 @@ use cuprate_consensus_rules::{
 use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    CachedVerificationState, TransactionVerificationData, TxVersion,
+    CachedVerificationState, Transaction, TransactionVerificationData, TxVersion,
 };
 
 use crate::{
@@ -189,7 +189,6 @@ impl SemanticVerification {
                 &tx.tx,
                 tx.tx_blob.len(),
                 tx.tx_weight,
-                &tx.tx_hash,
                 self.hf,
                 batch_verifier,
             )?;
@@ -497,7 +496,6 @@ where
                         &tx.tx,
                         tx.tx_blob.len(),
                         tx.tx_weight,
-                        &tx.tx_hash,
                         hf,
                         &batch_verifier,
                     )?;

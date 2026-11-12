@@ -913,7 +913,7 @@ fn txs_in_block(
             .map(|index_offset| get_tx_blob_from_id(&(first_tx_index + index_offset), &tapes, db))
             .collect::<DbResult<_>>()?;
 
-        (block, txs)
+        (block.into_inner(), txs)
     } else {
         let alt_block_height =
             alt_block_height(db, &tx_ro, &block_hash)?.ok_or(BlockchainError::NotFound)?;

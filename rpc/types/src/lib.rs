@@ -11,6 +11,7 @@ use getrandom as _;
 mod constants;
 #[cfg(any(feature = "serde", feature = "epee"))]
 mod defaults;
+#[cfg(feature = "serde")]
 mod free;
 #[cfg(feature = "from")]
 mod from;

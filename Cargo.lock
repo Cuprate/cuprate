@@ -1055,6 +1055,7 @@ dependencies = [
  "futures",
  "hex",
  "monero-oxide",
+ "proptest",
  "randomx-rs",
  "rayon",
  "strum",
@@ -1192,19 +1193,14 @@ dependencies = [
 name = "cuprate-helper"
 version = "0.1.0"
 dependencies = [
- "chrono",
- "crossbeam",
- "cuprate-constants",
  "curve25519-dalek",
  "dirs",
  "futures",
  "libc",
  "monero-oxide",
- "proptest",
  "rayon",
  "serde",
  "tokio",
- "windows",
 ]
 
 [[package]]
@@ -1212,6 +1208,20 @@ name = "cuprate-hex"
 version = "0.0.0"
 dependencies = [
  "hex",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "cuprate-json"
+version = "0.0.0"
+dependencies = [
+ "cuprate-epee-encoding",
+ "cuprate-helper",
+ "cuprate-hex",
+ "hex-literal 1.1.0",
+ "monero-oxide",
+ "pretty_assertions",
  "serde",
  "serde_json",
 ]
@@ -1366,6 +1376,7 @@ dependencies = [
  "cuprate-fixed-bytes",
  "cuprate-helper",
  "cuprate-hex",
+ "cuprate-json",
  "cuprate-p2p-core",
  "cuprate-test-utils",
  "cuprate-types",
@@ -1434,10 +1445,9 @@ dependencies = [
  "cuprate-fixed-bytes",
  "cuprate-helper",
  "cuprate-hex",
- "hex-literal 1.1.0",
+ "cuprate-json",
  "indexmap 2.14.1",
  "monero-oxide",
- "pretty_assertions",
  "proptest",
  "proptest-derive",
  "serde",
@@ -1499,6 +1509,7 @@ dependencies = [
  "cuprate-fixed-bytes",
  "cuprate-helper",
  "cuprate-hex",
+ "cuprate-json",
  "cuprate-p2p",
  "cuprate-p2p-core",
  "cuprate-p2p-transport",

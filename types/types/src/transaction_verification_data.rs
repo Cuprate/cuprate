@@ -1,9 +1,9 @@
 //! Contains [`TransactionVerificationData`] and the related types.
 
 use bytes::Bytes;
-use monero_oxide::transaction::{Timelock, Transaction};
+use monero_oxide::transaction::{self, Timelock};
 
-use crate::{HardFork, VerifiedTransactionInformation};
+use crate::{HardFork, Transaction, VerifiedTransactionInformation};
 
 /// An enum representing all valid Monero transaction versions.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
@@ -88,10 +88,15 @@ pub struct TransactionVerificationData {
     pub tx_weight: usize,
     /// The fee this transaction has paid.
     pub fee: u64,
-    /// The hash of this transaction.
-    pub tx_hash: [u8; 32],
     /// The verification state of this transaction.
     pub cached_verification_state: CachedVerificationState,
+}
+
+impl TransactionVerificationData {
+    /// The transaction's hash.
+    pub const fn tx_hash(&self) -> [u8; 32] {
+        self.tx.hash()
+    }
 }
 
 #[derive(Debug, Copy, Clone, thiserror::Error)]
@@ -103,15 +108,15 @@ impl TryFrom<VerifiedTransactionInformation> for TransactionVerificationData {
 
     fn try_from(value: VerifiedTransactionInformation) -> Result<Self, Self::Error> {
         let tx_blob = Bytes::from([value.tx_pruned, value.tx_prunable_blob].concat());
-        let tx = Transaction::read(&mut tx_blob.as_ref()).map_err(|_| TxConversionError)?;
+        let tx =
+            transaction::Transaction::read(&mut tx_blob.as_ref()).map_err(|_| TxConversionError)?;
 
         Ok(Self {
             version: TxVersion::from_raw(value.tx.version()).ok_or(TxConversionError)?,
-            tx,
+            tx: Transaction::with_hash(tx, value.tx_hash),
             tx_blob,
             tx_weight: value.tx_weight,
             fee: value.fee,
-            tx_hash: value.tx_hash,
             cached_verification_state: CachedVerificationState::NotVerified,
         })
     }
