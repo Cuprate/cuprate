@@ -241,11 +241,14 @@ impl PreparedBlock {
 }
 
 /// Fully verify a block and all its transactions.
+///
+/// The key images the block's transactions spend are pushed to `spent_key_images` if given.
 pub async fn verify_main_chain_block<D>(
     block: Block,
     txs: HashMap<[u8; 32], TransactionVerificationData>,
     context_svc: &mut BlockchainContextService,
     database: D,
+    spent_key_images: Option<&mut Vec<[u8; 32]>>,
 ) -> Result<VerifiedBlockInformation, BlockVerificationError>
 where
     D: Database + Clone + Send + 'static,
@@ -301,16 +304,21 @@ where
         ordered_txs,
         context_svc,
         &mut VerificationContext::Database(database),
+        spent_key_images,
     )
     .await
 }
 
 /// Fully verify a block that has already been prepared using [`batch_prepare_main_chain_blocks`].
+///
+/// With a [`VerificationContext::Database`], the key images the block's transactions spend are pushed to
+/// `spent_key_images` if given. [`batch_prepare_main_chain_blocks`] returns them for the whole batch instead.
 pub async fn verify_prepped_main_chain_block<D>(
     prepped_block: PreparedBlock,
     mut txs: Vec<TransactionVerificationData>,
     context_svc: &mut BlockchainContextService,
     verification_context: &mut VerificationContext<D>,
+    spent_key_images: Option<&mut Vec<[u8; 32]>>,
 ) -> Result<VerifiedBlockInformation, BlockVerificationError>
 where
     D: Database + Clone + Send + 'static,
@@ -349,7 +357,7 @@ where
                 context.current_hf,
                 verification_context,
             )
-            .verify()
+            .verify(spent_key_images)
             .await
             .map_err(BlockVerificationError::valid_pow)?;
 

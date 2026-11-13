@@ -220,10 +220,16 @@ pub struct FullVerification<'a, D> {
 
 impl<D: Database + Clone> FullVerification<'_, D> {
     /// Fully verify each transaction.
-    pub async fn verify(self) -> Result<Vec<TransactionVerificationData>, ExtendedConsensusError> {
+    ///
+    /// With a [`VerificationContext::Database`], the key images the transactions spend are pushed to
+    /// `spent_key_images` if given.
+    pub async fn verify(
+        self,
+        spent_key_images: Option<&mut Vec<[u8; 32]>>,
+    ) -> Result<Vec<TransactionVerificationData>, ExtendedConsensusError> {
         let hashes_in_main_chain =
             if let VerificationContext::Database(database) = &mut *self.verification_context {
-                check_kis_unique(self.prepped_txs.iter(), database).await?;
+                check_kis_unique(self.prepped_txs.iter(), spent_key_images, database).await?;
                 hashes_referenced_in_main_chain(&self.prepped_txs, database).await?
             } else {
                 HashSet::new()
@@ -268,25 +274,41 @@ impl<D: Database + Clone> FullVerification<'_, D> {
     }
 }
 
-/// Check that each key image used in each transaction is unique in the whole chain.
+/// Check that each key image used in each transaction is unique in the whole chain, pushing them to
+/// `spent_key_images` in transaction order if given.
 pub(crate) async fn check_kis_unique<D: Database>(
-    mut txs: impl Iterator<Item = &TransactionVerificationData>,
+    mut txs: impl Iterator<Item = &TransactionVerificationData> + Clone,
+    mut spent_key_images: Option<&mut Vec<[u8; 32]>>,
     database: &mut D,
 ) -> Result<(), ExtendedConsensusError> {
-    let mut spent_kis = HashSet::with_capacity(txs.size_hint().1.unwrap_or(0) * 2);
+    // Sized from the input count, so nothing rehashes or reallocates.
+    let count = txs.clone().map(|tx| tx.tx.prefix().inputs.len()).sum();
+    let mut spent_kis = HashSet::with_capacity(count);
+    if let Some(spent_key_images) = &mut spent_key_images {
+        spent_key_images.reserve(count);
+    }
 
     txs.try_for_each(|tx| {
         tx.tx.prefix().inputs.iter().try_for_each(|input| {
             if let Input::ToKey { key_image, .. } = input {
-                if !spent_kis.insert(key_image.to_bytes()) {
+                let key_image = key_image.to_bytes();
+                if !spent_kis.insert(key_image) {
                     tracing::debug!("Duplicate key image found in batch.");
                     return Err(ConsensusError::Transaction(TransactionError::KeyImageSpent));
+                }
+
+                if let Some(spent_key_images) = &mut spent_key_images {
+                    spent_key_images.push(key_image);
                 }
             }
 
             Ok(())
         })
     })?;
+
+    if spent_kis.is_empty() {
+        return Ok(());
+    }
 
     let BlockchainResponse::KeyImagesSpent(kis_spent) = database
         .ready()
