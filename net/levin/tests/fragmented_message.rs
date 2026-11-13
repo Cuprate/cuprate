@@ -1,8 +1,4 @@
-#![expect(
-    clippy::tests_outside_test_module,
-    unused_crate_dependencies,
-    reason = "outer test module"
-)]
+#![expect(clippy::tests_outside_test_module, reason = "outer test module")]
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use futures::{SinkExt, StreamExt};

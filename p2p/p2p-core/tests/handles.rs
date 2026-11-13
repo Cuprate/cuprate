@@ -1,5 +1,3 @@
-#![expect(unused_crate_dependencies, reason = "external test module")]
-
 use std::{sync::Arc, time::Duration};
 
 use futures::FutureExt;

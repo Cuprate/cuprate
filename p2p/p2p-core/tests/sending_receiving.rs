@@ -1,5 +1,3 @@
-#![expect(unused_crate_dependencies, reason = "external test module")]
-
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::network::Network;

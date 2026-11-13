@@ -600,8 +600,7 @@ where
                     > self
                         .most_recent_batch_sizes
                         .peek()
-                        .map(|Reverse((height, _))| *height)
-                        .unwrap_or_default()
+                        .map_or_default(|Reverse((height, _))| *height)
                 {
                     self.most_recent_batch_sizes.push(Reverse((
                         start_height,

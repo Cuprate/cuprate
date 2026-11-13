@@ -1,7 +1,3 @@
-#![expect(
-    unused_crate_dependencies,
-    reason = "binary shares same Cargo.toml as library"
-)]
 use std::{fs::write, sync::Arc};
 
 use clap::Parser;

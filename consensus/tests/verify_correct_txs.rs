@@ -1,4 +1,3 @@
-#![expect(unused_crate_dependencies, reason = "external test module")]
 #![expect(clippy::allow_attributes, reason = "usage inside macro")]
 
 use std::{

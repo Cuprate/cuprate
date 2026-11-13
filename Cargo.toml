@@ -139,8 +139,7 @@ cuprate-levin             = { path = "net/levin",                 default-featur
 cuprate-wire              = { path = "net/wire",                  default-features = false }
 cuprate-async-buffer      = { path = "p2p/async-buffer",          default-features = false }
 cuprate-p2p               = { path = "p2p/p2p",                   default-features = false }
-cuprate-p2p-core          = { path = "p2p/p2p-core",              default-features = false }
-cuprate-p2p-bucket        = { path = "p2p/p2p-bucket",            default-features = false }
+cuprate-p2p-core          = { path = "p2p/p2p-core",            default-features = false }
 cuprate-p2p-transport     = { path = "p2p/p2p-transport",         default-features = false }
 cuprate-dandelion-tower   = { path = "p2p/dandelion-tower",       default-features = false }
 cuprate-address-book      = { path = "p2p/address-book",          default-features = false }
@@ -154,7 +153,6 @@ cuprate-fixed-bytes       = { path = "types/fixed-bytes",         default-featur
 cuprate-json-rpc          = { path = "rpc/json-rpc",              default-features = false }
 cuprate-rpc-types         = { path = "rpc/types",                 default-features = false }
 cuprate-rpc-interface     = { path = "rpc/interface",             default-features = false }
-cuprate-zmq-types         = { path = "zmq/types",                 default-features = false }
 
 # External dependencies
 axum                  = { version = "0.8", default-features = false }
@@ -175,7 +173,6 @@ crypto-bigint         = { version = "0.7", default-features = false }
 crossbeam             = { version = "0.8", default-features = false }
 const_format          = { version = "0.2", default-features = false }
 curve25519-dalek      = { version = "4", default-features = false, features = ["alloc", "zeroize"] }
-zeroize               = { version = "1", default-features = false }
 dashmap               = { version = "6", default-features = false }
 dirs                  = { version = "6", default-features = false }
 fjall                 = { version = "3.1.7", default-features = false }
@@ -197,7 +194,6 @@ rand                  = { version = "0.8", default-features = false }
 rand_distr            = { version = "0.4", default-features = false }
 rayon                 = { version = "1", default-features = false }
 safelog               = { version = "0.9", default-features = false }
-serde_bytes           = { version = "0.11", default-features = false }
 serde_json            = { version = "1", default-features = false }
 serde                 = { version = "1", default-features = false }
 strum                 = { version = "0.28", default-features = false }
