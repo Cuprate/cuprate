@@ -38,7 +38,7 @@ pub enum BlockchainReadRequest {
         /// The block hashes.
         block_hashes: Vec<[u8; 32]>,
         /// If `true`, strip the prunable tx data.
-        pruned: bool,
+        prune: bool,
     },
 
     /// Request [`BlockCompleteEntry`]s.
@@ -56,7 +56,7 @@ pub enum BlockchainReadRequest {
         /// empty placeholder.
         no_miner_tx: bool,
         len: usize,
-        pruned: bool,
+        prune: bool,
     },
 
     /// Request a block's extended header.

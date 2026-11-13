@@ -175,7 +175,7 @@ async fn get_objects(
     }
 
     let block_hashes: Vec<[u8; 32]> = (&request.blocks).into();
-    let pruned = request.pruned;
+    let prune = request.prune;
     // deallocate the backing `Bytes`.
     drop(request);
 
@@ -188,7 +188,7 @@ async fn get_objects(
         .await?
         .call(BlockchainReadRequest::BlockCompleteEntries {
             block_hashes,
-            pruned,
+            prune,
         })
         .await?
     else {

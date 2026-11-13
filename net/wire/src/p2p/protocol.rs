@@ -69,13 +69,13 @@ pub struct GetObjectsRequest {
     /// Block hashes wanted.
     pub blocks: ByteArrayVec<32>,
     /// Whether to return the blocks pruned.
-    pub pruned: bool,
+    pub prune: bool,
 }
 
 epee_object!(
     GetObjectsRequest,
     blocks: ByteArrayVec<32>,
-    pruned("prune"): bool = false,
+    prune: bool = false,
 );
 
 /// A Blocks Response

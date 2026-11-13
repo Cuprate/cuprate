@@ -53,7 +53,7 @@ async fn get_single_block_from_monerod() {
                 .unwrap()
                 .try_into()
                 .unwrap(),
-                pruned: false,
+                prune: false,
             },
         )))
         .await

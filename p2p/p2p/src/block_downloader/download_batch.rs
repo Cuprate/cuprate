@@ -55,7 +55,7 @@ async fn request_batch_from_peer<N: NetworkZone>(
 ) -> Result<(ClientDropGuard<N>, BlockBatch), BlockDownloadError> {
     let request = PeerRequest::Protocol(ProtocolRequest::GetObjects(GetObjectsRequest {
         blocks: ids.clone(),
-        pruned: false,
+        prune: false,
     }));
 
     // Request the blocks and add a timeout to the request

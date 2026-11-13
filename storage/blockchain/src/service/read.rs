@@ -122,22 +122,22 @@ fn map_request(
     match request {
         R::BlockCompleteEntries {
             block_hashes,
-            pruned,
-        } => block_complete_entries(env, block_hashes, pruned),
+            prune,
+        } => block_complete_entries(env, block_hashes, prune),
         R::BlockCompleteEntriesByHeight(heights) => block_complete_entries_by_height(env, heights),
         R::BlockCompleteEntriesAboveSplitPoint {
             chain,
             start_height,
             no_miner_tx,
             len,
-            pruned,
+            prune,
         } => block_complete_entries_above_split_point(
             env,
             &chain,
             start_height,
             no_miner_tx,
             len,
-            pruned,
+            prune,
         ),
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
         R::BlockHash(block, chain) => block_hash(env, block, chain),
@@ -207,14 +207,14 @@ fn map_request(
 fn block_complete_entries(
     db: &BlockchainDatabase,
     block_hashes: Vec<BlockHash>,
-    pruned: bool,
+    prune: bool,
 ) -> ResponseResult {
     let (tx_ro, tapes) = db.read_transactions()?;
 
     let (missing_hashes, blocks) = block_hashes
         .into_par_iter()
         .map(
-            |block_hash| match get_block_complete_entry(db, &block_hash, pruned, &tx_ro, &tapes) {
+            |block_hash| match get_block_complete_entry(db, &block_hash, prune, &tx_ro, &tapes) {
                 Err(BlockchainError::NotFound) => Ok(Either::Left(block_hash)),
                 res => res.map(Either::Right),
             },
@@ -237,7 +237,7 @@ fn block_complete_entries_above_split_point(
     start_height: Option<usize>,
     no_miner_tx: bool,
     len: usize,
-    pruned: bool,
+    prune: bool,
 ) -> ResponseResult {
     /// Total size of all block/tx blobs to return before stopping early.
     ///
@@ -297,7 +297,7 @@ fn block_complete_entries_above_split_point(
                 return None;
             }
 
-            let block = match get_block_complete_entry_from_height(height, pruned, &tapes, db) {
+            let block = match get_block_complete_entry_from_height(height, prune, &tapes, db) {
                 Ok(v) => v,
                 Err(e) => return Some(Err(e)),
             };

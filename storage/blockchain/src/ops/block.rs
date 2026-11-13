@@ -564,7 +564,7 @@ pub fn pop_block(
 pub fn get_block_complete_entry(
     db: &BlockchainDatabase,
     block_hash: &BlockHash,
-    pruned: bool,
+    prune: bool,
     tx_ro: &fjall::Snapshot,
     tapes: &tapes::TapesReadTransaction,
 ) -> DbResult<BlockCompleteEntry> {
@@ -574,7 +574,7 @@ pub fn get_block_complete_entry(
 
     get_block_complete_entry_from_height(
         usize::from_le_bytes(block_height.as_ref().try_into().unwrap()),
-        pruned,
+        prune,
         tapes,
         db,
     )
@@ -584,7 +584,7 @@ pub fn get_block_complete_entry(
 ///
 pub fn get_block_complete_entry_from_height(
     block_height: BlockHeight,
-    pruned: bool,
+    prune: bool,
     tapes: &tapes::TapesReadTransaction,
     db: &BlockchainDatabase,
 ) -> DbResult<BlockCompleteEntry> {
@@ -610,7 +610,7 @@ pub fn get_block_complete_entry_from_height(
 
     // return early if we don't have this block (we pruned it)
     let chain_height = chain_height(db, tapes)?;
-    if !pruned && !db.pruning_seed().has_full_block(block_height, chain_height) {
+    if !prune && !db.pruning_seed().has_full_block(block_height, chain_height) {
         return Err(BlockchainError::NotFound);
     }
 
@@ -665,7 +665,7 @@ pub fn get_block_complete_entry_from_height(
             v1_len,
         )?;
 
-        if pruned {
+        if prune {
             // v1 txs can't be pruned, so they are sent whole with the null prunable hash they are stored with,
             // which tells the peer the blob is a full tx, as in `monerod`:
             // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_core/blockchain.cpp#L2547-L2563>
@@ -772,8 +772,8 @@ pub fn get_block_complete_entry_from_height(
     Ok(BlockCompleteEntry {
         block: block_blob,
         txs,
-        pruned,
-        block_weight: if pruned {
+        pruned: prune,
+        block_weight: if prune {
             usize_to_u64(block_info.weight)
         } else {
             0
