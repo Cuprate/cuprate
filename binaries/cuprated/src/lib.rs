@@ -7,12 +7,26 @@
 //!
 //! ```ignore
 //! use cuprated::{config::Config, Node};
+//! use tokio::sync::broadcast::error::RecvError;
 //!
 //! let config = Config::read_from_path("cuprated.toml")?;
 //! cuprated::logging::init_logging(&config);
 //!
 //! let mut node = Node::launch(config).await;
 //! let height = node.blockchain.context().chain_height;
+//!
+//! let mut events = node.events();
+//! loop {
+//!     tokio::select! {
+//!         event = events.recv() => match event {
+//!             Ok(event) => println!("{event:?}"),
+//!             // Some events were missed, read the state from the node again.
+//!             Err(RecvError::Lagged(_)) => {}
+//!             Err(RecvError::Closed) => break,
+//!         },
+//!         _ = node.task_executor.wait_for_shutdown() => break,
+//!     }
+//! }
 //! ```
 
 #![doc = include_str!("../README.md")]
@@ -30,6 +44,7 @@ use tikv_jemallocator as _;
 pub mod blockchain;
 pub mod config;
 pub mod constants;
+pub mod events;
 pub mod logging;
 pub mod monitor;
 pub mod version;
@@ -42,7 +57,7 @@ mod txpool;
 use std::sync::Arc;
 
 use anyhow::Context;
-use tokio::sync::{oneshot, RwLock};
+use tokio::sync::{broadcast, oneshot, RwLock};
 use tower::{Service, ServiceExt};
 use tracing::error;
 
@@ -55,6 +70,7 @@ use crate::{
     blockchain::{BlockchainInterface, BlockchainManagerHandle, BlockchainSyncerHandle},
     config::Config,
     constants::DATABASE_CORRUPT_MSG,
+    events::{EventSender, NodeEvent},
     monitor::TaskExecutor,
     tor::initialize_tor_if_enabled,
     txpool::IncomingTxHandler,
@@ -88,6 +104,9 @@ pub(crate) struct LaunchContext {
 
     /// Task spawning and shutdown coordination.
     pub task_executor: TaskExecutor,
+
+    /// The [`NodeEvent`] sender.
+    pub events: EventSender,
 }
 
 /// An active `cuprated` node.
@@ -112,6 +131,9 @@ pub struct Node {
 
     /// Task spawning and shutdown executor.
     pub task_executor: TaskExecutor,
+
+    /// The [`NodeEvent`] sender.
+    events: EventSender,
 }
 
 impl Drop for Node {
@@ -209,6 +231,7 @@ impl Node {
                 blockchain: blockchain_interface,
                 txpool_read: txpool_read_handle,
                 task_executor,
+                events: EventSender::default(),
             };
 
             // Bootstrap or configure Tor if enabled.
@@ -271,6 +294,7 @@ impl Node {
                 txpool_read,
                 config,
                 task_executor,
+                events,
                 ..
             } = launch_ctx;
 
@@ -281,6 +305,7 @@ impl Node {
                 tor: if tor_enabled { Some(tor_rx) } else { None },
                 config,
                 task_executor,
+                events,
             })
         }
         .await;
@@ -291,6 +316,13 @@ impl Node {
             drop(launch_executor.wait_for_shutdown().await);
         }
         node
+    }
+
+    /// Subscribe to the [`NodeEvent`]s emitted by this node.
+    ///
+    /// Only events emitted after this call are received.
+    pub fn events(&self) -> broadcast::Receiver<NodeEvent> {
+        self.events.subscribe()
     }
 
     /// Trigger a graceful shutdown.
