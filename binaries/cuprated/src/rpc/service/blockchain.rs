@@ -354,7 +354,7 @@ pub(crate) async fn block_complete_entries_above_split_point(
     start_height: Option<usize>,
     no_miner_tx: bool,
     len: usize,
-    pruned: bool,
+    prune: bool,
 ) -> Result<
     (
         Vec<BlockCompleteEntry>,
@@ -379,7 +379,7 @@ pub(crate) async fn block_complete_entries_above_split_point(
             start_height,
             no_miner_tx,
             len,
-            pruned,
+            prune,
         })
         .await?
     else {

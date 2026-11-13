@@ -564,7 +564,7 @@ pub fn pop_block(
 pub fn get_block_complete_entry(
     db: &BlockchainDatabase,
     block_hash: &BlockHash,
-    pruned: bool,
+    prune: bool,
     tx_ro: &fjall::Snapshot,
     tapes: &tapes::TapesReadTransaction,
 ) -> DbResult<BlockCompleteEntry> {
@@ -574,7 +574,7 @@ pub fn get_block_complete_entry(
 
     get_block_complete_entry_from_height(
         usize::from_le_bytes(block_height.as_ref().try_into().unwrap()),
-        pruned,
+        prune,
         tapes,
         db,
     )
@@ -584,7 +584,7 @@ pub fn get_block_complete_entry(
 ///
 pub fn get_block_complete_entry_from_height(
     block_height: BlockHeight,
-    pruned: bool,
+    prune: bool,
     tapes: &tapes::TapesReadTransaction,
     db: &BlockchainDatabase,
 ) -> DbResult<BlockCompleteEntry> {
@@ -610,7 +610,7 @@ pub fn get_block_complete_entry_from_height(
 
     // return early if we don't have this block (we pruned it)
     let chain_height = chain_height(db, tapes)?;
-    if !pruned && !db.pruning_seed().has_full_block(block_height, chain_height) {
+    if !prune && !db.pruning_seed().has_full_block(block_height, chain_height) {
         return Err(BlockchainError::NotFound);
     }
 
@@ -646,34 +646,46 @@ pub fn get_block_complete_entry_from_height(
                 + 32,
         )?;
 
-        if pruned {
+        let mut v2_prunable_blob_idx = None;
+        let (mut v1_len, mut v2_len) = (0, 0);
+        for t in &txs {
+            if t.is_v1_tx() {
+                v1_len += t.prunable_size;
+            } else {
+                v2_prunable_blob_idx.get_or_insert(t.prunable_blob_idx);
+                v2_len += t.prunable_size;
+            }
+        }
+        let v2_prunable_blob_idx = v2_prunable_blob_idx.unwrap_or(0);
+
+        let mut v1 = read_blob(
+            tapes,
+            &db.v1_prunable_blobs,
+            block_info.v1_prunable_blob_idx,
+            v1_len,
+        )?;
+
+        if prune {
+            // v1 txs can't be pruned, so they are sent whole with the null prunable hash they are stored with,
+            // which tells the peer the blob is a full tx, as in `monerod`:
+            // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_core/blockchain.cpp#L2547-L2563>
             TransactionBlobs::Pruned(
                 txs.iter()
                     .map(|tx_info| PrunedTxBlobEntry {
-                        blob: bytes.split_to(tx_info.pruned_size),
+                        blob: {
+                            let pruned = bytes.split_to(tx_info.pruned_size);
+                            if tx_info.is_v1_tx() {
+                                let prunable = v1.split_to(tx_info.prunable_size);
+                                Bytes::from([pruned.as_ref(), prunable.as_ref()].concat())
+                            } else {
+                                pruned
+                            }
+                        },
                         prunable_hash: bytes.split_to(32).try_into().unwrap(),
                     })
                     .collect(),
             )
         } else {
-            let mut v2_prunable_blob_idx = None;
-            let (mut v1_len, mut v2_len) = (0, 0);
-            for t in &txs {
-                if t.is_v1_tx() {
-                    v1_len += t.prunable_size;
-                } else {
-                    v2_prunable_blob_idx.get_or_insert(t.prunable_blob_idx);
-                    v2_len += t.prunable_size;
-                }
-            }
-            let v2_prunable_blob_idx = v2_prunable_blob_idx.unwrap_or(0);
-
-            let mut v1 = read_blob(
-                tapes,
-                &db.v1_prunable_blobs,
-                block_info.v1_prunable_blob_idx,
-                v1_len,
-            )?;
             let pruning_stripe = cuprate_pruning::get_block_pruning_stripe(
                 block_height,
                 usize::MAX,
@@ -760,8 +772,8 @@ pub fn get_block_complete_entry_from_height(
     Ok(BlockCompleteEntry {
         block: block_blob,
         txs,
-        pruned,
-        block_weight: if pruned {
+        pruned: prune,
+        block_weight: if prune {
             usize_to_u64(block_info.weight)
         } else {
             0
