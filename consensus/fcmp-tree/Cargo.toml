@@ -1,0 +1,44 @@
+[package]
+name = "cuprate-fcmp-tree"
+version = "0.1.0"
+edition = "2024"
+description = "A crate implementing the FCMP++ tree construction algorithm."
+license = "MIT"
+authors = ["Boog900"]
+repository = "https://github.com/Cuprate/cuprate/tree/main/consensus/fcmp-tree"
+
+[features]
+tapes = ["dep:tapes", "dep:bytemuck"]
+
+[dependencies]
+cuprate-helper = { workspace = true, features = ["cast", "crypto"] }
+
+# TODO: update the workspace with these deps when the rest of the node needs the FCMP types.
+monero-oxide = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "31c26d9" }
+monero-fcmp-plus-plus = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "31c26d9" }
+monero-fcmp-plus-plus-generators =  { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "31c26d9" }
+helioselene = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "31c26d9", features = ["std"] }
+ec-divisors = { git = "https://github.com/monero-oxide/monero-oxide.git", rev = "31c26d9", features = ["ed25519"] }
+
+bytemuck = { workspace = true, optional = true }
+ciphersuite = "0.4"
+curve25519-dalek = { workspace = true }
+multiexp = "0.5"
+
+rayon = { workspace = true }
+dalek-ff-group = "0.5"
+
+tapes =  { workspace = true, optional = true }
+cuprate-types = { workspace = true }
+
+[dev-dependencies]
+rand = { workspace = true, features = ["std"] }
+tempfile = { workspace = true }
+curve25519-dalek = { workspace = true, features = ["group"] }
+
+[[test]]
+name = "tree_consistent"
+required-features = ["tapes"]
+
+[lints]
+workspace = true

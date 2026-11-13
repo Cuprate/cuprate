@@ -1,0 +1,303 @@
+//! # Tree Builder
+//!
+//! This file contains the [`TreeBuilder`], this struct does the leaf and layer hashing required
+//! to get the root of the tree.
+use std::io;
+
+use ciphersuite::group::GroupEncoding;
+use helioselene::{Helios, HeliosPoint, Selene, SelenePoint};
+
+use cuprate_types::fcmp::FcmpLeafData;
+
+use crate::{
+    Branch,
+    pedersen_hash::{CachedIncompleteBranch, PedersenChunkHasher},
+    traits::{Child, FcmpCurve, TreeStore, TreeWriter},
+};
+
+/// The root of the FCMP tree.
+#[derive(Clone)]
+pub enum FcmpRoot {
+    Helios(HeliosPoint),
+    Selene(SelenePoint),
+}
+
+impl FcmpRoot {
+    pub fn to_bytes(&self) -> [u8; 32] {
+        match self {
+            Self::Helios(hp) => hp.to_bytes(),
+            Self::Selene(se) => se.to_bytes(),
+        }
+    }
+}
+
+/// Cached root data.
+///
+/// This contains the FCMP root and data to speed up adding more leaves to the tree.
+pub struct CachedFcmpTreeRootData {
+    /// The FCMP root, will be [`None`] if the tree is empty.
+    pub root: Option<FcmpRoot>,
+    cached_branches: CachedBranches,
+}
+
+/// Cached branches to speed up adding new leaves to the tree.
+#[derive(Default)]
+struct CachedBranches {
+    /// The cached first layer.
+    layer1: Option<CachedIncompleteBranch<Selene, FcmpLeafData>>,
+    /// The cached helios layers, from bottom to top.
+    helios: Vec<Option<CachedIncompleteBranch<Helios, Branch>>>,
+    /// The cached selene layers, from bottom to top.
+    selene: Vec<Option<CachedIncompleteBranch<Selene, Branch>>>,
+}
+
+impl CachedBranches {
+    fn get_helios_layer(&self, layer_idx: usize) -> Option<CachedIncompleteBranch<Helios, Branch>> {
+        let helios_idx = layer_idx >> 1;
+        self.helios.get(helios_idx).cloned().flatten()
+    }
+
+    fn get_selene_layer(&self, layer_idx: usize) -> Option<CachedIncompleteBranch<Selene, Branch>> {
+        assert_ne!(layer_idx, 0);
+
+        let selene_idx = (layer_idx >> 1) - 1; // First layer is stored in its own field.
+        self.selene.get(selene_idx).cloned().flatten()
+    }
+
+    fn push_helios(&mut self, new: Option<CachedIncompleteBranch<Helios, Branch>>) {
+        self.helios.push(new);
+    }
+
+    fn push_selene(&mut self, new: Option<CachedIncompleteBranch<Selene, Branch>>) {
+        self.selene.push(new);
+    }
+
+    fn try_get_root(&self, layer_idx: usize) -> Option<FcmpRoot> {
+        if layer_idx == 0 {
+            self.layer1.as_ref().map(|b| FcmpRoot::Selene(b.branch))
+        } else if layer_idx & 1 == 1 {
+            self.get_helios_layer(layer_idx)
+                .map(|b| FcmpRoot::Helios(b.branch))
+        } else {
+            self.get_selene_layer(layer_idx)
+                .map(|b| FcmpRoot::Selene(b.branch))
+        }
+    }
+}
+
+impl CachedFcmpTreeRootData {
+    /// Create an empty [`CachedFcmpTreeRootData`].
+    ///
+    /// This can be passed into [`TreeBuilder::new`] and the same root will be generated as long as
+    /// [`CachedFcmpTreeRootData::next_leaf_idx_needed`] is respected.
+    pub fn empty() -> Self {
+        Self {
+            root: None,
+            cached_branches: CachedBranches::default(),
+        }
+    }
+
+    /// Returns the next leaf needed to extend the tree.
+    pub fn next_leaf_idx_needed<T: TreeStore>(&self, tree_store: &T) -> Result<u64, io::Error> {
+        Ok(
+            tree_store.writer().branch_len(0)? * Selene::CHUNK_LEN as u64
+                + self
+                    .cached_branches
+                    .layer1
+                    .as_ref()
+                    .map_or(0, |c| c.complete_children as u64),
+        )
+    }
+}
+
+/// The tree builder.
+pub struct TreeBuilder<T: TreeStore> {
+    /// The tx for the tree, exposed so you can add state to the backing store while building.
+    pub writer: T::Writer,
+
+    cached_branches: CachedBranches,
+    overflow: Option<Branch>,
+    layer_1_len: u64,
+}
+
+impl<T: TreeStore> TreeBuilder<T> {
+    /// Create a new tree builder to extend a tree.
+    pub fn new(tree_store: &T, old_root_data: CachedFcmpTreeRootData) -> Result<Self, io::Error> {
+        let writer = tree_store.writer();
+        let layer_1_len = writer.branch_len(0)?;
+        let overflow = old_root_data
+            .cached_branches
+            .layer1
+            .as_ref()
+            .map(|b| b.branch.to_bytes());
+
+        Ok(Self {
+            writer,
+            cached_branches: old_root_data.cached_branches,
+            overflow,
+            layer_1_len,
+        })
+    }
+
+    /// Extend the tree with the given new leaves. The new leaves should start at the index provided
+    /// by the [`CachedFcmpTreeRootData::next_leaf_idx_needed`] that was passed into [`TreeBuilder::new`].
+    ///
+    /// Every given leaf must be allowed to be inserted into the tree. i.e. no point should be the identity.
+    pub fn extend(&mut self, mut new_leaves: Vec<FcmpLeafData>) -> Result<(), io::Error> {
+        let (cached_incomplete_branch, layer_len1) = build_layer(
+            &mut self.writer,
+            0,
+            |_, _, _| Ok(std::mem::take(&mut new_leaves)),
+            self.cached_branches.layer1.clone(),
+            None,
+        )?;
+        self.layer_1_len = layer_len1;
+
+        self.overflow = cached_incomplete_branch
+            .as_ref()
+            .map(|b| b.branch.to_bytes());
+
+        self.cached_branches.layer1 = cached_incomplete_branch;
+
+        Ok(())
+    }
+
+    /// Fills the upper layers of the tree returning the tree root with cached data.
+    pub fn complete_tree(mut self) -> Result<CachedFcmpTreeRootData, io::Error> {
+        let mut new_cached_branches = CachedBranches {
+            layer1: self.cached_branches.layer1.clone(),
+            ..Default::default()
+        };
+
+        let mut layer_len = self.layer_1_len + u64::from(self.overflow.is_some());
+        let mut layer_idx = 0;
+
+        loop {
+            if layer_len <= 1 {
+                // We have a root!
+                break;
+            }
+
+            layer_idx += 1;
+
+            let child_layer = move |writer: &T::Writer, start_index, batch_size| {
+                writer.get_batch(layer_idx - 1, start_index, batch_size)
+            };
+
+            match layer_idx {
+                // Helios
+                x if x & 1 == 1 => {
+                    let cached_branch = self.cached_branches.get_helios_layer(layer_idx);
+
+                    let (cached_incomplete_branch, layer_len2) = build_layer(
+                        &mut self.writer,
+                        layer_idx,
+                        child_layer,
+                        cached_branch,
+                        self.overflow,
+                    )?;
+                    layer_len = layer_len2 + u64::from(cached_incomplete_branch.is_some());
+
+                    self.overflow = cached_incomplete_branch
+                        .as_ref()
+                        .map(|b| b.branch.to_bytes());
+
+                    new_cached_branches.push_helios(cached_incomplete_branch);
+                }
+                // Selene
+                _ => {
+                    let cached_branch = self.cached_branches.get_selene_layer(layer_idx);
+
+                    let (cached_incomplete_branch, layer_len2) = build_layer(
+                        &mut self.writer,
+                        layer_idx,
+                        child_layer,
+                        cached_branch,
+                        self.overflow,
+                    )?;
+                    layer_len = layer_len2 + u64::from(cached_incomplete_branch.is_some());
+
+                    self.overflow = cached_incomplete_branch
+                        .as_ref()
+                        .map(|b| b.branch.to_bytes());
+
+                    new_cached_branches.push_selene(cached_incomplete_branch);
+                }
+            }
+        }
+
+        let root = if let Some(root) = new_cached_branches.try_get_root(layer_idx) {
+            // Root is in cache
+            Ok(CachedFcmpTreeRootData {
+                root: Some(root),
+                cached_branches: new_cached_branches,
+            })
+        } else {
+            // Tree is balanced or empty
+            let root = self.writer.get(layer_idx, 0)?;
+
+            let root = root.map(|r| {
+                if layer_idx & 1 == 1 {
+                    FcmpRoot::Helios(
+                        HeliosPoint::from_bytes(&r).expect("Tapes database stored wrong point"),
+                    )
+                } else {
+                    FcmpRoot::Selene(
+                        SelenePoint::from_bytes(&r).expect("Tapes database stored wrong point"),
+                    )
+                }
+            });
+
+            Ok(CachedFcmpTreeRootData {
+                root,
+                cached_branches: new_cached_branches,
+            })
+        };
+
+        self.writer.commit()?;
+
+        root
+    }
+}
+
+/// The layer builder.
+///
+/// This function extends the layer to the right for any missing children.
+fn build_layer<P: FcmpCurve, C: Child<P> + Send + 'static, W: TreeWriter>(
+    writer: &mut W,
+    layer_idx: usize,
+    mut get_children: impl FnMut(&W, u64, u64) -> Result<Vec<C>, io::Error>,
+    cached_incomplete_branch: Option<CachedIncompleteBranch<P, C>>,
+    prev_layer_overflow: Option<C>,
+) -> Result<(Option<CachedIncompleteBranch<P, C>>, u64), io::Error> {
+    let layer_len = writer.branch_len(layer_idx)?;
+
+    // start_index into the child layer
+    let mut start_index = layer_len * P::CHUNK_LEN as u64
+        + cached_incomplete_branch
+            .as_ref()
+            .map_or(0, |c| c.complete_children as u64);
+
+    let mut chunk_hasher = PedersenChunkHasher::new(cached_incomplete_branch);
+
+    loop {
+        // The end index, either the size of the buffer of the end of the child layer.
+        let children = get_children(writer, start_index, P::CHUNK_LEN as u64 * 10_000)?;
+
+        if children.is_empty() {
+            break;
+        }
+
+        start_index += children.len() as u64;
+
+        // Hash the children and return the hashes to write to our layer.
+        let grow = chunk_hasher.hash_children(children.as_slice());
+
+        // Write the hashes.
+        writer.append_branches(layer_idx, &grow)?;
+    }
+
+    let full_branches = writer.branch_len(layer_idx)?;
+
+    Ok((chunk_hasher.finish(prev_layer_overflow), full_branches))
+}
