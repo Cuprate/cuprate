@@ -1,0 +1,262 @@
+# Publish official `cuprated` images to GHCR.
+#
+# `main` / dispatch-on-main → `nightly` + short SHA
+# `cuprated-<version>` tags → `<version>` + `latest` + short SHA
+# PRs that touch the Dockerfile or this workflow build amd64 only and do not push.
+
+name: Docker
+
+on:
+  push:
+    branches: [main]
+    tags: ["cuprated-*"]
+  pull_request:
+    paths:
+      - Dockerfile
+      - .github/workflows/docker.yml
+  workflow_dispatch:
+
+# Tags must finish; a second release tag queues.
+# `main` and PRs cancel older runs so a stale `main` build cannot overwrite `nightly`.
+concurrency:
+  group: ${{ startsWith(github.ref, 'refs/tags/cuprated-') && 'docker-release' || format('docker-{0}', github.ref) }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/cuprated-') }}
+
+env:
+  IMAGE: ghcr.io/cuprate/cuprated
+
+permissions:
+  contents: read
+
+jobs:
+  # Pull requests: amd64 only, no registry login, no push.
+  pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Expected commit
+        id: commit
+        run: |
+          set -euo pipefail
+          EXPECTED="$(git rev-parse HEAD)"
+          if [[ ! "$EXPECTED" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "expected commit is not a 40-character hex hash: $EXPECTED" >&2
+            exit 1
+          fi
+          echo "sha=$EXPECTED" >> "$GITHUB_OUTPUT"
+          echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: cuprated
+          tags: |
+            type=raw,value=testing
+          labels: |
+            org.opencontainers.image.title=cuprated
+            org.opencontainers.image.description=Official Cuprate Monero node image
+            org.opencontainers.image.url=https://github.com/Cuprate/cuprate
+            org.opencontainers.image.source=https://github.com/Cuprate/cuprate
+            org.opencontainers.image.licenses=AGPL-3.0
+            org.opencontainers.image.revision=${{ steps.commit.outputs.sha }}
+            org.opencontainers.image.version=testing
+
+      - name: Build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: cuprated:testing
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: false
+          sbom: false
+          build-args: |
+            GITHUB_SHA=${{ steps.commit.outputs.sha }}
+            BUILD_DATE=${{ steps.commit.outputs.created }}
+            VCS_REF=${{ steps.commit.outputs.sha }}
+            VERSION=testing
+          cache-from: type=gha,scope=build-amd64
+
+      - name: Smoke test
+        env:
+          IMG: cuprated:testing
+          EXPECTED: ${{ steps.commit.outputs.sha }}
+        run: |
+          set -euo pipefail
+          json="$(docker run --rm "$IMG" --version)"
+          echo "$json"
+          commit="$(echo "$json" | jq -r .commit)"
+          if [ "$commit" != "$EXPECTED" ]; then
+            echo "commit mismatch: got $commit want $EXPECTED" >&2
+            exit 1
+          fi
+
+  # Push to main, cuprated-* tags, and workflow_dispatch: one image per architecture.
+  build:
+    if: github.event_name != 'pull_request'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            arch: amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            arch: arm64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Expected commit
+        id: commit
+        run: |
+          set -euo pipefail
+          EXPECTED="$(git rev-parse HEAD)"
+          if [[ ! "$EXPECTED" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "expected commit is not a 40-character hex hash: $EXPECTED" >&2
+            exit 1
+          fi
+          echo "sha=$EXPECTED" >> "$GITHUB_OUTPUT"
+          echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/cuprated-* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/cuprated-}" >> "$GITHUB_OUTPUT"
+          elif [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            echo "version=nightly" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=${{ steps.commit.outputs.sha }}-${{ matrix.arch }}
+          labels: |
+            org.opencontainers.image.title=cuprated
+            org.opencontainers.image.description=Official Cuprate Monero node image
+            org.opencontainers.image.url=https://github.com/Cuprate/cuprate
+            org.opencontainers.image.source=https://github.com/Cuprate/cuprate
+            org.opencontainers.image.licenses=AGPL-3.0
+            org.opencontainers.image.revision=${{ steps.commit.outputs.sha }}
+            org.opencontainers.image.version=${{ steps.commit.outputs.version }}
+
+      - name: Build and push
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: ${{ env.IMAGE }}:${{ steps.commit.outputs.sha }}-${{ matrix.arch }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: false
+          sbom: false
+          build-args: |
+            GITHUB_SHA=${{ steps.commit.outputs.sha }}
+            BUILD_DATE=${{ steps.commit.outputs.created }}
+            VCS_REF=${{ steps.commit.outputs.sha }}
+            VERSION=${{ steps.commit.outputs.version }}
+          cache-from: type=gha,scope=build-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=build-${{ matrix.arch }}
+
+      - name: Smoke test
+        env:
+          IMG: ${{ env.IMAGE }}:${{ steps.commit.outputs.sha }}-${{ matrix.arch }}
+          EXPECTED: ${{ steps.commit.outputs.sha }}
+        run: |
+          set -euo pipefail
+          docker pull "$IMG"
+          json="$(docker run --rm "$IMG" --version)"
+          echo "$json"
+          commit="$(echo "$json" | jq -r .commit)"
+          if [ "$commit" != "$EXPECTED" ]; then
+            echo "commit mismatch: got $commit want $EXPECTED" >&2
+            exit 1
+          fi
+
+  # Promote multi-arch tags only after both architectures smoke-test clean.
+  merge:
+    if: github.event_name != 'pull_request' && success()
+    needs: [build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Expected commit
+        id: commit
+        run: |
+          set -euo pipefail
+          EXPECTED="$(git rev-parse HEAD)"
+          if [[ ! "$EXPECTED" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "expected commit is not a 40-character hex hash: $EXPECTED" >&2
+            exit 1
+          fi
+          echo "sha=$EXPECTED" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Merge manifests
+        env:
+          EXPECTED: ${{ steps.commit.outputs.sha }}
+          SHORT_SHA: ${{ steps.commit.outputs.short_sha }}
+        run: |
+          set -euo pipefail
+          tags=(-t "${IMAGE}:${SHORT_SHA}")
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            tags+=(-t "${IMAGE}:nightly")
+          fi
+          if [[ "$GITHUB_REF" == refs/tags/cuprated-* ]]; then
+            version="${GITHUB_REF#refs/tags/cuprated-}"
+            tags+=(-t "${IMAGE}:${version}" -t "${IMAGE}:latest")
+          fi
+          docker buildx imagetools create \
+            "${tags[@]}" \
+            "${IMAGE}:${EXPECTED}-amd64" \
+            "${IMAGE}:${EXPECTED}-arm64"
