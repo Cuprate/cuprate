@@ -178,7 +178,10 @@ fn init_rpc_router(
         .other_is_key_image_spent()
         .other_send_raw_transaction()
         .other_sendrawtransaction()
+        .other_get_transaction_pool()
+        .other_get_transaction_pool_stats()
         .other_get_transaction_pool_hashes()
+        .other_get_outs()
         .other_stop_daemon()
         //
         .bin_get_blocks()

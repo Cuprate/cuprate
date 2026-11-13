@@ -5,6 +5,8 @@
     reason = "JSON serialization requires non snake-case casing"
 )]
 
+use std::io;
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -16,9 +18,14 @@ use cuprate_epee_encoding::{
 };
 
 use cuprate_helper::cast::usize_to_u64;
-use cuprate_hex::Hex;
+use cuprate_hex::{Hex, HexVec};
 
-use monero_oxide::{ringct, transaction};
+use monero_oxide::{
+    ed25519::CompressedPoint,
+    io::VarInt,
+    ringct::{self, borromean::BorromeanRange, mlsag::Mlsag},
+    transaction,
+};
 
 use crate::json::output::{Output, TaggedKey, Target};
 
@@ -31,20 +38,27 @@ use crate::json::output::{Output, TaggedKey, Target};
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 pub enum Transaction {
-    V1 {
-        /// This field is [flattened](https://serde.rs/field-attrs.html#flatten).
-        #[cfg_attr(feature = "serde", serde(flatten))]
-        prefix: TransactionPrefix,
-        signatures: Vec<Hex<64>>,
-    },
+    // `V2` is first, else its JSON would parse as a `V1` with defaulted `signatures`.
     V2 {
         /// This field is [flattened](https://serde.rs/field-attrs.html#flatten).
         #[cfg_attr(feature = "serde", serde(flatten))]
         prefix: TransactionPrefix,
         rct_signatures: RctSignatures,
         /// This field is [`Some`] if [`Self::V2::rct_signatures`]
-        /// is [`RctSignatures::NonCoinbase`], else [`None`].
+        /// is [`RctSignatures::NonCoinbase`] and the transaction is not pruned, else [`None`].
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         rctsig_prunable: Option<RctSigPrunable>,
+    },
+    V1 {
+        /// This field is [flattened](https://serde.rs/field-attrs.html#flatten).
+        #[cfg_attr(feature = "serde", serde(flatten))]
+        prefix: TransactionPrefix,
+        /// One ring signature per input, empty if the transaction is pruned.
+        #[cfg_attr(
+            feature = "serde",
+            serde(default, skip_serializing_if = "Vec::is_empty")
+        )]
+        signatures: Vec<HexVec>,
     },
 }
 
@@ -94,87 +108,16 @@ pub struct TransactionPrefix {
 
 impl From<transaction::Transaction> for Transaction {
     fn from(tx: transaction::Transaction) -> Self {
-        fn map_prefix(prefix: transaction::TransactionPrefix, version: u8) -> TransactionPrefix {
-            let mut height = 0;
-
-            let vin = prefix
-                .inputs
-                .into_iter()
-                .filter_map(|input| match input {
-                    transaction::Input::ToKey {
-                        amount,
-                        key_offsets,
-                        key_image,
-                    } => {
-                        let key = Key {
-                            amount: amount.unwrap_or(0),
-                            key_offsets,
-                            k_image: Hex(key_image.to_bytes()),
-                        };
-
-                        Some(Input { key })
-                    }
-                    transaction::Input::Gen(h) => {
-                        height = usize_to_u64(h);
-                        None
-                    }
-                })
-                .collect();
-
-            let vout = prefix
-                .outputs
-                .into_iter()
-                .map(|o| {
-                    let amount = o.amount.unwrap_or(0);
-
-                    let target = match o.view_tag {
-                        Some(view_tag) => {
-                            let tagged_key = TaggedKey {
-                                key: Hex(o.key.to_bytes()),
-                                view_tag: Hex([view_tag]),
-                            };
-
-                            Target::TaggedKey { tagged_key }
-                        }
-                        None => Target::Key {
-                            key: Hex(o.key.to_bytes()),
-                        },
-                    };
-
-                    Output { amount, target }
-                })
-                .collect();
-
-            let unlock_time = match prefix.additional_timelock {
-                transaction::Timelock::None => 0,
-                transaction::Timelock::Block(x) => usize_to_u64(x),
-                transaction::Timelock::Time(x) => x,
-            };
-
-            TransactionPrefix {
-                version,
-                unlock_time,
-                vin,
-                vout,
-                extra: prefix.extra,
-            }
-        }
-
-        #[expect(unused_variables, reason = "TODO: finish impl")]
         match tx {
             transaction::Transaction::V1 { prefix, signatures } => Self::V1 {
                 prefix: map_prefix(prefix, 1),
                 signatures: signatures
-                    .into_iter()
-                    .map(|sig| {
-                        // TODO: `RingSignature` needs to expose the
-                        // inner `Signature` struct as a byte array.
-                        let sig_to_64_bytes = |sig| -> Hex<64> { todo!() };
-                        sig_to_64_bytes(sig)
-                    })
+                    .iter()
+                    .map(|sig| HexVec(write_to_vec(|w| sig.write(w))))
                     .collect(),
             },
             transaction::Transaction::V2 { prefix, proofs } => {
+                let inputs = prefix.inputs.len();
                 let prefix = map_prefix(prefix, 2);
 
                 let Some(proofs) = proofs else {
@@ -185,47 +128,201 @@ impl From<transaction::Transaction> for Transaction {
                     };
                 };
 
-                let r#type = match proofs.rct_type() {
-                    ringct::RctType::AggregateMlsagBorromean => 1,
-                    ringct::RctType::MlsagBorromean => 2,
-                    ringct::RctType::MlsagBulletproofs => 3,
-                    ringct::RctType::MlsagBulletproofsCompactAmount => 4,
-                    ringct::RctType::ClsagBulletproof => 5,
-                    ringct::RctType::ClsagBulletproofPlus => 6,
-                };
-
-                let txnFee = proofs.base.fee;
-
-                let ecdhInfo = proofs
-                    .base
-                    .encrypted_amounts
-                    .into_iter()
-                    .map(EcdhInfo::from)
-                    .collect();
-
-                let outPk = proofs
-                    .base
-                    .commitments
-                    .into_iter()
-                    .map(|point| Hex(point.to_bytes()))
-                    .collect();
-
-                let rct_signatures = RctSignatures::NonCoinbase {
-                    r#type,
-                    txnFee,
-                    ecdhInfo,
-                    outPk,
-                };
-
-                let rctsig_prunable = Some(RctSigPrunable::from(proofs.prunable));
+                let rct_type = proofs.rct_type();
 
                 Self::V2 {
                     prefix,
-                    rct_signatures,
-                    rctsig_prunable,
+                    rct_signatures: map_rct_base(proofs.base, rct_type),
+                    rctsig_prunable: Some(map_rct_prunable(proofs.prunable, inputs)),
                 }
             }
         }
+    }
+}
+
+impl From<transaction::Transaction<transaction::Pruned>> for Transaction {
+    fn from(tx: transaction::Transaction<transaction::Pruned>) -> Self {
+        match tx {
+            transaction::Transaction::V1 { prefix, .. } => Self::V1 {
+                prefix: map_prefix(prefix, 1),
+                signatures: Vec::new(),
+            },
+            transaction::Transaction::V2 { prefix, proofs } => Self::V2 {
+                prefix: map_prefix(prefix, 2),
+                rct_signatures: match proofs {
+                    Some(proofs) => map_rct_base(proofs.base, proofs.rct_type),
+                    None => RctSignatures::Coinbase { r#type: 0 },
+                },
+                rctsig_prunable: None,
+            },
+        }
+    }
+}
+
+/// Maps a [`transaction::TransactionPrefix`], dropping miner inputs.
+fn map_prefix(prefix: transaction::TransactionPrefix, version: u8) -> TransactionPrefix {
+    let vin = prefix
+        .inputs
+        .into_iter()
+        .filter_map(|input| match input {
+            transaction::Input::ToKey {
+                amount,
+                key_offsets,
+                key_image,
+            } => Some(Input {
+                key: Key {
+                    amount: amount.unwrap_or(0),
+                    key_offsets,
+                    k_image: Hex(key_image.to_bytes()),
+                },
+            }),
+            transaction::Input::Gen(_) => None,
+        })
+        .collect();
+
+    let vout = prefix
+        .outputs
+        .into_iter()
+        .map(|o| {
+            let amount = o.amount.unwrap_or(0);
+
+            let target = match o.view_tag {
+                Some(view_tag) => {
+                    let tagged_key = TaggedKey {
+                        key: Hex(o.key.to_bytes()),
+                        view_tag: Hex([view_tag]),
+                    };
+
+                    Target::TaggedKey { tagged_key }
+                }
+                None => Target::Key {
+                    key: Hex(o.key.to_bytes()),
+                },
+            };
+
+            Output { amount, target }
+        })
+        .collect();
+
+    let unlock_time = match prefix.additional_timelock {
+        transaction::Timelock::None => 0,
+        transaction::Timelock::Block(x) => usize_to_u64(x),
+        transaction::Timelock::Time(x) => x,
+    };
+
+    TransactionPrefix {
+        version,
+        unlock_time,
+        vin,
+        vout,
+        extra: prefix.extra,
+    }
+}
+
+/// Maps a [`ringct::RctBase`] to [`RctSignatures::NonCoinbase`].
+fn map_rct_base(base: ringct::RctBase, rct_type: ringct::RctType) -> RctSignatures {
+    RctSignatures::NonCoinbase {
+        r#type: u8::from(rct_type),
+        txnFee: base.fee,
+        pseudoOuts: map_points(base.pseudo_outs),
+        ecdhInfo: base
+            .encrypted_amounts
+            .into_iter()
+            .map(EcdhInfo::from)
+            .collect(),
+        outPk: map_points(base.commitments),
+    }
+}
+
+/// Maps a [`ringct::RctPrunable`], `inputs` is the transaction's input count.
+fn map_rct_prunable(prunable: ringct::RctPrunable, inputs: usize) -> RctSigPrunable {
+    use ringct::{bulletproofs::Bulletproof as B, RctPrunable as R};
+
+    match prunable {
+        R::AggregateMlsagBorromean { mlsag, borromean } => RctSigPrunable::MlsagBorromean {
+            rangeSigs: borromean.iter().map(RangeSignature::from).collect(),
+            MGs: vec![Mg::new(&mlsag, inputs + 1)],
+        },
+        R::MlsagBorromean { mlsags, borromean } => RctSigPrunable::MlsagBorromean {
+            rangeSigs: borromean.iter().map(RangeSignature::from).collect(),
+            MGs: mlsags.iter().map(|mg| Mg::new(mg, 2)).collect(),
+        },
+        R::MlsagBulletproofs {
+            mlsags,
+            pseudo_outs,
+            bulletproof,
+        }
+        | R::MlsagBulletproofsCompactAmount {
+            mlsags,
+            pseudo_outs,
+            bulletproof,
+        } => RctSigPrunable::MlsagBulletproofs {
+            nbp: 1,
+            bp: vec![Bulletproof::from(&bulletproof)],
+            MGs: mlsags.iter().map(|mg| Mg::new(mg, 2)).collect(),
+            pseudoOuts: map_points(pseudo_outs),
+        },
+        R::Clsag {
+            clsags,
+            pseudo_outs,
+            bulletproof,
+        } => {
+            let CLSAGs = clsags.iter().map(Clsag::from).collect();
+            let pseudoOuts = map_points(pseudo_outs);
+
+            match bulletproof {
+                B::Original(_) => RctSigPrunable::ClsagBulletproofs {
+                    nbp: 1,
+                    bp: vec![Bulletproof::from(&bulletproof)],
+                    CLSAGs,
+                    pseudoOuts,
+                },
+                B::Plus(_) => RctSigPrunable::ClsagBulletproofsPlus {
+                    nbp: 1,
+                    bpp: vec![BulletproofPlus::from(&bulletproof)],
+                    CLSAGs,
+                    pseudoOuts,
+                },
+            }
+        }
+    }
+}
+
+fn map_points(points: Vec<CompressedPoint>) -> Vec<Hex<32>> {
+    points
+        .into_iter()
+        .map(|point| Hex(point.to_bytes()))
+        .collect()
+}
+
+/// Serializes with a `monero-oxide` `write` function, which cannot fail on a [`Vec`].
+fn write_to_vec(write: impl FnOnce(&mut Vec<u8>) -> io::Result<()>) -> Vec<u8> {
+    let mut buf = Vec::new();
+    write(&mut buf).expect("writing to a Vec does not fail");
+    buf
+}
+
+/// Reads fields back out of bytes produced by [`write_to_vec`].
+struct Reader<'a>(&'a [u8]);
+
+impl Reader<'_> {
+    const fn bytes(&mut self, n: usize) -> &[u8] {
+        let (head, tail) = self.0.split_at(n);
+        self.0 = tail;
+        head
+    }
+
+    fn hex32(&mut self) -> Hex<32> {
+        Hex(self.bytes(32).try_into().unwrap())
+    }
+
+    fn hex32_vec(&mut self, n: usize) -> Vec<Hex<32>> {
+        (0..n).map(|_| self.hex32()).collect()
+    }
+
+    fn prefixed_hex32_vec(&mut self) -> Vec<Hex<32>> {
+        let n = VarInt::read(&mut self.0).expect("valid length prefix");
+        self.hex32_vec(n)
     }
 }
 
@@ -237,6 +334,12 @@ pub enum RctSignatures {
     NonCoinbase {
         r#type: u8,
         txnFee: u64,
+        /// Only present for [`ringct::RctType::MlsagBorromean`].
+        #[cfg_attr(
+            feature = "serde",
+            serde(default, skip_serializing_if = "Vec::is_empty")
+        )]
+        pseudoOuts: Vec<Hex<32>>,
         ecdhInfo: Vec<EcdhInfo>,
         outPk: Vec<Hex<32>>,
     },
@@ -299,51 +402,25 @@ impl Default for RctSigPrunable {
     }
 }
 
-#[expect(unused_variables, reason = "TODO: finish impl")]
-impl From<ringct::RctPrunable> for RctSigPrunable {
-    fn from(r: ringct::RctPrunable) -> Self {
-        use ringct::RctPrunable as R;
-
-        match r {
-            R::AggregateMlsagBorromean { mlsag, borromean } => {
-                todo!()
-            }
-            R::MlsagBorromean { mlsags, borromean } => {
-                todo!()
-            }
-            R::MlsagBulletproofs {
-                mlsags,
-                pseudo_outs,
-                bulletproof,
-            } => {
-                todo!()
-            }
-            R::MlsagBulletproofsCompactAmount {
-                mlsags,
-                pseudo_outs,
-                bulletproof,
-            } => {
-                todo!()
-            }
-            R::Clsag {
-                clsags,
-                pseudo_outs,
-                bulletproof,
-            } => {
-                todo!()
-            }
-        }
-    }
-}
-
 /// [`RctSigPrunable::MlsagBorromean::rangeSigs`]
 #[derive(Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RangeSignature {
-    // These fields are hex but way too big to be
-    // using stack arrays to represent them.
-    pub asig: String,
-    pub Ci: String,
+    pub asig: HexVec,
+    pub Ci: HexVec,
+}
+
+impl From<&BorromeanRange> for RangeSignature {
+    fn from(range: &BorromeanRange) -> Self {
+        let mut bytes = write_to_vec(|w| range.write(w));
+        // `s0`, `s1` and `ee`, then the 64 bit commitments.
+        let Ci = bytes.split_off(bytes.len() - 64 * 32);
+
+        Self {
+            asig: HexVec(bytes),
+            Ci: HexVec(Ci),
+        }
+    }
 }
 
 /// - [`RctSigPrunable::MlsagBorromean::MGs`]
@@ -351,8 +428,22 @@ pub struct RangeSignature {
 #[derive(Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Mg {
-    pub ss: Vec<[Hex<32>; 2]>,
+    pub ss: Vec<Vec<Hex<32>>>,
     pub cc: Hex<32>,
+}
+
+impl Mg {
+    /// `columns` is the width of each `ss` row.
+    fn new(mlsag: &Mlsag, columns: usize) -> Self {
+        let bytes = write_to_vec(|w| mlsag.write(w));
+        let rows = (bytes.len() / 32 - 1) / columns;
+        let mut r = Reader(&bytes);
+
+        Self {
+            ss: (0..rows).map(|_| r.hex32_vec(columns)).collect(),
+            cc: r.hex32(),
+        }
+    }
 }
 
 /// - [`RctSigPrunable::MlsagBulletproofs::bp`]
@@ -373,6 +464,27 @@ pub struct Bulletproof {
     pub t: Hex<32>,
 }
 
+impl From<&ringct::bulletproofs::Bulletproof> for Bulletproof {
+    fn from(bp: &ringct::bulletproofs::Bulletproof) -> Self {
+        let bytes = write_to_vec(|w| bp.write(w));
+        let mut r = Reader(&bytes);
+
+        Self {
+            A: r.hex32(),
+            S: r.hex32(),
+            T1: r.hex32(),
+            T2: r.hex32(),
+            taux: r.hex32(),
+            mu: r.hex32(),
+            L: r.prefixed_hex32_vec(),
+            R: r.prefixed_hex32_vec(),
+            a: r.hex32(),
+            b: r.hex32(),
+            t: r.hex32(),
+        }
+    }
+}
+
 /// - [`RctSigPrunable::ClsagBulletproofsPlus::bpp`]
 #[derive(Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -387,6 +499,24 @@ pub struct BulletproofPlus {
     pub R: Vec<Hex<32>>,
 }
 
+impl From<&ringct::bulletproofs::Bulletproof> for BulletproofPlus {
+    fn from(bp: &ringct::bulletproofs::Bulletproof) -> Self {
+        let bytes = write_to_vec(|w| bp.write(w));
+        let mut r = Reader(&bytes);
+
+        Self {
+            A: r.hex32(),
+            A1: r.hex32(),
+            B: r.hex32(),
+            r1: r.hex32(),
+            s1: r.hex32(),
+            d1: r.hex32(),
+            L: r.prefixed_hex32_vec(),
+            R: r.prefixed_hex32_vec(),
+        }
+    }
+}
+
 /// - [`RctSigPrunable::ClsagBulletproofs`]
 /// - [`RctSigPrunable::ClsagBulletproofsPlus`]
 #[derive(Default, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -395,6 +525,19 @@ pub struct Clsag {
     pub s: Vec<Hex<32>>,
     pub c1: Hex<32>,
     pub D: Hex<32>,
+}
+
+impl From<&ringct::clsag::Clsag> for Clsag {
+    fn from(clsag: &ringct::clsag::Clsag) -> Self {
+        let bytes = write_to_vec(|w| clsag.write(w));
+        let mut r = Reader(&bytes);
+
+        Self {
+            s: r.hex32_vec(bytes.len() / 32 - 2),
+            c1: r.hex32(),
+            D: r.hex32(),
+        }
+    }
 }
 
 /// [`RctSignatures::NonCoinbase::ecdhInfo`].
@@ -548,9 +691,9 @@ mod test {
                 ],
             },
             signatures: vec![
-              Hex(hex!("318755c67c5d3379b0958a047f5439cf43dd251f64b6314c84b2edbf240d950abbeaad13233700e6b6c59bea178c6fbaa246b8fd84b5caf94d1affd520e6770b")),
-              Hex(hex!("a47e6a65e907e49442828db46475ecdf27f3c472f24688423ac97f0efbd8b90b164ed52c070f7a2a95b95398814b19c0befd14a4aab5520963daf3482604df01")),
-              Hex(hex!("fa6981c969c2a1b9d330a8901d2ef7def7f3ade8d9fba444e18e7e349e286a035ae1729a76e01bbbb3ccd010502af6c77049e3167cf108be69706a8674b0c508"))
+              HexVec(hex!("318755c67c5d3379b0958a047f5439cf43dd251f64b6314c84b2edbf240d950abbeaad13233700e6b6c59bea178c6fbaa246b8fd84b5caf94d1affd520e6770b").to_vec()),
+              HexVec(hex!("a47e6a65e907e49442828db46475ecdf27f3c472f24688423ac97f0efbd8b90b164ed52c070f7a2a95b95398814b19c0befd14a4aab5520963daf3482604df01").to_vec()),
+              HexVec(hex!("fa6981c969c2a1b9d330a8901d2ef7def7f3ade8d9fba444e18e7e349e286a035ae1729a76e01bbbb3ccd010502af6c77049e3167cf108be69706a8674b0c508").to_vec())
             ],
         };
 
@@ -636,6 +779,7 @@ mod test {
             rct_signatures: RctSignatures::NonCoinbase {
                 r#type: 3,
                 txnFee: 86000000,
+                pseudoOuts: vec![],
                 ecdhInfo: vec![
                     EcdhInfo::Original {
                         mask: Hex(hex!(
@@ -787,7 +931,7 @@ mod test {
                 }],
                 MGs: vec![Mg {
                     ss: vec![
-                        [
+                        vec![
                             Hex(hex!(
                                 "8a8838d965aa1bb49448c12ea1aabb680b393f5bf02e3b73874aa545cde6dc04"
                             )),
@@ -795,7 +939,7 @@ mod test {
                                 "e16bf1d0c4c2639af6bed0c0205181b2a03bc5cdc22207906aac710acdd5170e"
                             )),
                         ],
-                        [
+                        vec![
                             Hex(hex!(
                                 "208d25cad34bcc9c49a5516102990814c75e0bbe2335b601880d9c6ce4fb400a"
                             )),
@@ -803,7 +947,7 @@ mod test {
                                 "279a89826548b8b15ea342d892ca6f8bf9e6a5a14077a57edaa4fd676b0b9f0f"
                             )),
                         ],
-                        [
+                        vec![
                             Hex(hex!(
                                 "9edbd1d2082bad9dd9ca98baf82b4d70014dee720c758ed0944a9fb82ae55206"
                             )),
@@ -811,7 +955,7 @@ mod test {
                                 "3314001eeec40a2e0ca83f48af1ade8b4139418da49e2c6d95aa3a1d4427de07"
                             )),
                         ],
-                        [
+                        vec![
                             Hex(hex!(
                                 "1837f42c1a4bd0747ed86c1e99bfe058031858c47ff4f066cfcdaf107499bf0f"
                             )),
@@ -819,7 +963,7 @@ mod test {
                                 "963bd0ed98a01be7c847b393ad0c2c25c3052148d67126c12b25ec2239373005"
                             )),
                         ],
-                        [
+                        vec![
                             Hex(hex!(
                                 "e41e7dd0430ccbc17f717db7fa1720241ab4de24249c607b9f882143d266ff0e"
                             )),
@@ -827,7 +971,7 @@ mod test {
                                 "95c4a4ec2756ec57caacb64f17a7e5306103f030dfb12dd53b42c72e68b6e60b"
                             )),
                         ],
-                        [
+                        vec![
                             Hex(hex!(
                                 "8ecfab987a8697c58f4b183620b2fa0e11972fa666b71c138e067621ab5d1703"
                             )),
@@ -835,7 +979,7 @@ mod test {
                                 "2e070ae83ab7f01f91766c2fd6de425dc0f18ae4e34fdcb3ac18db4dfec77a0c"
                             )),
                         ],
-                        [
+                        vec![
                             Hex(hex!(
                                 "187cd1a318666e9f7a9f2f9d4eaf7c662c6162c5bc2be94219992f261f46b90b"
                             )),
@@ -843,7 +987,7 @@ mod test {
                                 "97ca174ff4bcf1e5d139bf0ad85577b9c6247f9e4782cd69100e683bf2e3f80b"
                             )),
                         ],
-                        [
+                        vec![
                             Hex(hex!(
                                 "28eb6f60cfa35b52cbf74b7e68ce795ebfa0d3db6f00e69677fc98aef963bf05"
                             )),
@@ -851,7 +995,7 @@ mod test {
                                 "6662186aa949465b7b2174d6da077ab8ffdddb710bdab42386e7d8ae20f1890d"
                             )),
                         ],
-                        [
+                        vec![
                             Hex(hex!(
                                 "577c9cf99480b0633121737756bcc7f4887fc7fdf3a9344c84578886e60d1404"
                             )),
@@ -859,7 +1003,7 @@ mod test {
                                 "2d241b48e63acc39c8c899f7c009fcbc09025ea1211930a338e193d17aed890a"
                             )),
                         ],
-                        [
+                        vec![
                             Hex(hex!(
                                 "7a3f489532743f117999a1b375789cd0863541cae0b8633e8cd4c7dedc740305"
                             )),
@@ -867,7 +1011,7 @@ mod test {
                                 "500c1033ca2b4b47c39e70a1c563553571e0e25a2e1fa984cb5ba08546bc4907"
                             )),
                         ],
-                        [
+                        vec![
                             Hex(hex!(
                                 "82efb453a98454e07e8f4b367ee0db2f957e6222e720a69354fdf910fe5fe803"
                             )),
@@ -936,6 +1080,7 @@ mod test {
             rct_signatures: RctSignatures::NonCoinbase {
                 r#type: 5,
                 txnFee: 13210000,
+                pseudoOuts: vec![],
                 ecdhInfo: vec![
                     EcdhInfo::Compact {
                         amount: Hex(hex!("5db75ce558a47531")),
@@ -1173,6 +1318,7 @@ mod test {
             rct_signatures: RctSignatures::NonCoinbase {
                 r#type: 6,
                 txnFee: 71860000,
+                pseudoOuts: vec![],
                 ecdhInfo: vec![
                     EcdhInfo::Compact {
                         amount: Hex(hex!("b0af37c16a8f08a0")),
