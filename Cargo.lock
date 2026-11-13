@@ -1300,6 +1300,7 @@ dependencies = [
  "futures",
  "hex",
  "hex-literal 1.1.0",
+ "pin-project-lite",
  "rand 0.8.8",
  "thiserror 2.0.20",
  "tokio",
