@@ -224,7 +224,6 @@ impl Blake256 {
             g(i, 1, 6, 11, 12, 10);
         }
 
-        #[expect(clippy::needless_range_loop)]
         for i in 0..16 {
             self.h[i % 8] ^= v[i];
         }

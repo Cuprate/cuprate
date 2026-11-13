@@ -1,7 +1,5 @@
 //! This file contains a test for a handshake with monerod but uses fragmented messages.
 
-#![expect(unused_crate_dependencies, reason = "external test module")]
-
 use std::{
     net::SocketAddr,
     pin::Pin,
@@ -43,7 +41,7 @@ use cuprate_p2p_core::{
 /// A network zone equal to clear net where every message sent is turned into a fragmented message.
 /// Does not support sending fragmented or dummy messages manually.
 #[derive(Clone, Copy)]
-pub enum FragNet {}
+pub struct FragNet(!);
 
 #[async_trait::async_trait]
 impl NetworkZone for FragNet {

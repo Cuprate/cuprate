@@ -61,3 +61,6 @@ path = "fuzz_targets/oxide_tx.rs"
 test = false
 doc = false
 bench = false
+
+[lints]
+workspace = true

@@ -46,8 +46,8 @@ pub fn new_buffer<T>(max_item_weight: usize) -> (BufferAppender<T>, BufferStream
     (
         BufferAppender {
             queue: tx,
-            sink_waker: sink_waker.clone(),
-            capacity: capacity_atomic.clone(),
+            sink_waker: Arc::clone(&sink_waker),
+            capacity: Arc::clone(&capacity_atomic),
             max_item_weight,
         },
         BufferStream {
@@ -165,7 +165,7 @@ impl<T> Future for BufferSinkSend<'_, T> {
 
         let size_needed = this.ready.size_needed;
 
-        this.ready.as_mut().poll(cx).map(|_| {
+        this.ready.as_mut().poll(cx).map(|()| {
             this.ready
                 .sink
                 .try_send(this.item.take().unwrap(), size_needed)

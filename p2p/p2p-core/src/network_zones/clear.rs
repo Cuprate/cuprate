@@ -25,7 +25,7 @@ impl NetZoneAddress for SocketAddr {
 }
 
 #[derive(Clone, Copy)]
-pub enum ClearNet {}
+pub struct ClearNet(!);
 
 impl NetworkZone for ClearNet {
     const NAME: &'static str = "ClearNet";
