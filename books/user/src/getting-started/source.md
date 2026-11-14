@@ -16,6 +16,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ## Linux
 Install the required system dependencies:
 
+### General distributions
 ```bash
 # Debian/Ubuntu
 sudo apt install -y build-essential cmake git
@@ -27,7 +28,41 @@ sudo pacman -Syu base-devel cmake git
 sudo dnf install @development-tools gcc gcc-c++ cmake git
 ```
 
-Clone the Cuprate repository and build:
+### NixOS 
+```bash
+# Create shell.nix file
+nano shell.nix
+# and paste the following:
+{ pkgs ? import <nixpkgs> {} }:
+
+pkgs.mkShell {
+  nativeBuildInputs = [
+    pkgs.cargo
+    pkgs.cmake
+    pkgs.git
+    pkgs.lld
+    pkgs.patchelf
+    pkgs.pkg-config
+    pkgs.rustc
+    pkgs.stdenv.cc
+  ];
+
+  # Deliberately do not set LD_LIBRARY_PATH globally.
+
+  RUSTFLAGS = "-C link-arg=-fuse-ld=lld";
+
+  shellHook = ''
+    export CUPRATE_CXX_LIB_DIR="${pkgs.stdenv.cc.cc.lib}/lib"
+  '';
+}
+
+# then save the file with Ctrl+x
+# and finally
+nix-shell
+```
+NOTE: NixOS requires some special instructions. see [Running](https://user.cuprate.org/getting-started/run.html) for details
+
+### Clone the Cuprate repository and build:
 
 ```bash
 git clone https://github.com/Cuprate/cuprate
