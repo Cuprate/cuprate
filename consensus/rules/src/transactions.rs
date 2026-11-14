@@ -23,6 +23,7 @@ pub use ring_ct::RingCTError;
 
 const MAX_BULLETPROOFS_OUTPUTS: usize = 16;
 const MAX_TX_BLOB_SIZE: usize = 1_000_000;
+pub const CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE: usize = 600;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum TransactionError {
@@ -552,7 +553,7 @@ fn min_tx_version(hf: HardFork) -> TxVersion {
 }
 
 fn transaction_weight_limit(hf: HardFork) -> usize {
-    penalty_free_zone(hf) / 2 - 600
+    penalty_free_zone(hf) / 2 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE
 }
 
 /// Checks the transaction is semantically valid.

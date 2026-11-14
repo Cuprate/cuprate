@@ -51,14 +51,18 @@ use cuprate_rpc_types::{
 };
 use cuprate_types::{
     rpc::{CoinbaseTxSum, GetMinerDataTxBacklogEntry, HardForkEntry, TxBacklogEntry},
-    Chain, HardFork,
+    BlockTemplate, Chain, HardFork,
 };
 
 use crate::{
+    blockchain::block_template::create_block_template,
     constants::VERSION_BUILD,
     rpc::{
         constants::UNSUPPORTED_RPC_CALL,
-        handlers::{helper, shared, shared::not_available},
+        handlers::{
+            helper,
+            shared::{self, not_available},
+        },
         service::{address_book, blockchain, blockchain_context, txpool},
         CupratedRpcHandler,
     },
@@ -73,11 +77,11 @@ pub(crate) async fn map_request(
     use JsonRpcResponse as Resp;
 
     Ok(match request {
-        Req::GetBlockTemplate(_) => Resp::GetBlockTemplate(not_available()?),
+        Req::GetBlockTemplate(r) => Resp::GetBlockTemplate(get_block_template(state, r).await?),
         Req::GetBlockCount(r) => Resp::GetBlockCount(get_block_count(state, r)),
         Req::OnGetBlockHash(r) => Resp::OnGetBlockHash(on_get_block_hash(state, r).await?),
         Req::SubmitBlock(r) => Resp::SubmitBlock(submit_block(state, r).await?),
-        Req::GenerateBlocks(_) => Resp::GenerateBlocks(not_available()?),
+        Req::GenerateBlocks(r) => Resp::GenerateBlocks(generate_blocks(state, r).await?),
         Req::GetLastBlockHeader(r) => {
             Resp::GetLastBlockHeader(get_last_block_header(state, r).await?)
         }
@@ -127,9 +131,8 @@ pub(crate) async fn map_request(
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1911-L2005>
-#[expect(dead_code)]
 async fn get_block_template(
-    _state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: GetBlockTemplateRequest,
 ) -> Result<GetBlockTemplateResponse, Error> {
     if request.reserve_size > 255 {
@@ -141,26 +144,15 @@ async fn get_block_template(
             "Cannot specify both a reserve_size and an extra_nonce"
         ));
     }
-
     if request.extra_nonce.len() > 510 {
         return Err(anyhow!("Too big extra_nonce size"));
     }
 
-    // TODO: This should be `cuprated`'s active network.
-    let network = match Network::Mainnet {
-        Network::Mainnet | Network::FakeChain => monero_address::Network::Mainnet,
-        Network::Stagenet => monero_address::Network::Stagenet,
-        Network::Testnet => monero_address::Network::Testnet,
-    };
-
-    let address = monero_address::MoneroAddress::from_str(network, &request.wallet_address)?;
-
-    if *address.kind() != monero_address::AddressType::Legacy {
-        return Err(anyhow!("Incorrect address type"));
+    if !request.extra_nonce.is_empty() {
+        return Err(anyhow!("extra_nonce not implemented"));
     }
 
-    todo!()
-    /*
+    let address = helper::get_address(state.network, &request.wallet_address)?;
     let prev_block = request.prev_block.try_into().unwrap_or([0; 32]);
 
     let BlockTemplate {
@@ -172,7 +164,16 @@ async fn get_block_template(
         seed_height,
         seed_hash,
         next_seed_hash,
-    } = ;
+    } = create_block_template(
+        &mut state.blockchain_read,
+        &state.blockchain_context,
+        &mut state.txpool_read,
+        &address,
+        prev_block,
+        request.extra_nonce,
+        true, // <https://github.com/monero-project/monero/blob/1c079ffa9117e7429d16ebc6d627ecdb0a952bd4/src/cryptonote_core/cryptonote_core.h#L239>
+    )
+    .await?;
 
     let blockhashing_blob = HexVec(block.serialize_pow_hash());
     let blocktemplate_blob = HexVec(block.serialize());
@@ -197,8 +198,6 @@ async fn get_block_template(
         seed_height,
         wide_difficulty,
     })
-
-     */
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1790-L1804>
@@ -254,45 +253,53 @@ async fn submit_block(
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2268-L2340>
-#[expect(dead_code)]
 async fn generate_blocks(
-    state: CupratedRpcHandler,
-    _request: GenerateBlocksRequest,
+    mut state: CupratedRpcHandler,
+    request: GenerateBlocksRequest,
 ) -> Result<GenerateBlocksResponse, Error> {
     if state.network != Network::FakeChain {
         return Err(anyhow!("Regtest required when generating blocks"));
     }
 
-    todo!()
+    let address = helper::get_address(state.network, &request.wallet_address)?;
+    let mut blocks = Vec::with_capacity(u64_to_usize(request.amount_of_blocks));
+    let mut prev_block = request.prev_block;
 
-    /*
-    // FIXME:
-    // is this field only used as a local variable in the handler in `monerod`?
-    // It may not be needed in the request type.
-    let prev_block = if request.prev_block.is_empty() {
-        None
+    for _ in 0..request.amount_of_blocks {
+        let BlockTemplate { block, .. } = create_block_template(
+            &mut state.blockchain_read,
+            &state.blockchain_context,
+            &mut state.txpool_read,
+            &address,
+            prev_block.try_into().unwrap_or_default(),
+            HexVec::new(),
+            true,
+        )
+        .await?;
+
+        // TODO: ⛏️ with request.starting_nonce
+        // <https://github.com/monero-project/monero/blob/e4fbca88b15f3cb2b6aa2d0e98639649f7da3d21/src/cryptonote_basic/cryptonote_format_utils.cpp#L1778-L1801>
+
+        let block_hash = Hex::from(block.hash());
+        blocks.push(block_hash);
+        let submit_block_req = SubmitBlockRequest {
+            block_blob: [HexVec::from(block.serialize())],
+        };
+        submit_block(state.clone(), submit_block_req).await?;
+
+        prev_block = HexVec::from(block_hash.to_vec());
+    }
+
+    let height = if request.amount_of_blocks == 0 {
+        0
     } else {
-        Some(request.prev_block.try_into()?)
+        usize_to_u64(state.blockchain_context.blockchain_context().chain_height).saturating_sub(1)
     };
-
-    let (blocks, height) = blockchain_manager::generate_blocks(
-        todo!(),
-        request.amount_of_blocks,
-        prev_block,
-        request.starting_nonce,
-        request.wallet_address,
-    )
-    .await?;
-
-    let blocks = blocks.into_iter().map(Hex).collect();
-
     Ok(GenerateBlocksResponse {
         base: helper::response_base(false),
         blocks,
         height,
     })
-
-     */
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2468-L2498>
