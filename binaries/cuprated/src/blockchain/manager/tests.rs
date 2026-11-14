@@ -19,7 +19,7 @@ use cuprate_types::{CachedVerificationState, TransactionVerificationData, TxVers
 use crate::{
     blockchain::{
         check_add_genesis, manager::BlockchainManager, manager::BlockchainManagerCommand,
-        ConsensusBlockchainReadHandle,
+        BlockchainSyncerHandle, ConsensusBlockchainReadHandle,
     },
     txpool::TxpoolManagerHandle,
 };
@@ -74,6 +74,7 @@ async fn mock_manager(data_dir: PathBuf) -> BlockchainManager {
         broadcast_svc: BroadcastSvc::mock(),
         reorg_lock: Arc::new(Default::default()),
         fast_sync_hashes: &[],
+        syncer: BlockchainSyncerHandle::new().0,
     }
 }
 

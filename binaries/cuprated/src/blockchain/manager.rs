@@ -11,7 +11,9 @@ use cuprate_p2p_core::ClearNet;
 
 use crate::{
     blockchain::{
-        chain_service::ChainService, syncer::BlockchainSyncer, types::ConsensusBlockchainReadHandle,
+        chain_service::ChainService,
+        syncer::{BlockchainSyncer, BlockchainSyncerHandle},
+        types::ConsensusBlockchainReadHandle,
     },
     monitor::FatalError,
     txpool::TxpoolManagerHandle,
@@ -77,6 +79,7 @@ pub(crate) async fn init_blockchain_manager(
         broadcast_svc: clearnet_interface.broadcast_svc(),
         reorg_lock: Arc::clone(&launch_ctx.reorg_lock),
         fast_sync_hashes,
+        syncer: launch_ctx.blockchain.syncer(),
     };
 
     launch_ctx.task_executor.spawn_critical(
@@ -113,6 +116,8 @@ struct BlockchainManager {
     reorg_lock: Arc<RwLock<()>>,
     /// Fast-sync hashes for this node's network.
     fast_sync_hashes: &'static [[u8; 32]],
+    /// The syncer handle, providing the current target height.
+    syncer: BlockchainSyncerHandle,
 }
 
 impl BlockchainManager {
