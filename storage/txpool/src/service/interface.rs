@@ -9,7 +9,7 @@ use std::{
 
 use cuprate_types::{
     rpc::{PoolInfo, SpentKeyImageInfo, TxInfo, TxpoolStats},
-    TransactionVerificationData, TxInPool,
+    HardFork, TransactionVerificationData, TxInPool, VerifiedTransactionInformation,
 };
 
 use crate::{
@@ -41,6 +41,9 @@ pub enum TxpoolReadRequest {
 
     /// Get information on all transactions in the pool.
     Backlog,
+
+    /// Get the blob hash of every transaction in the pool.
+    BlobHashes,
 
     /// Get the number of transactions in the pool.
     Size { include_sensitive_txs: bool },
@@ -118,6 +121,11 @@ pub enum TxpoolReadResponse {
     /// the transactions currently in the pool.
     Backlog(Vec<TxEntry>),
 
+    /// Response to [`TxpoolReadRequest::BlobHashes`].
+    ///
+    /// The inner map is each tx's hash to its blob hash.
+    BlobHashes(HashMap<TransactionHash, TransactionBlobHash>),
+
     /// Response to [`TxpoolReadRequest::Size`].
     ///
     /// The inner value is the amount of
@@ -170,16 +178,33 @@ pub enum TxpoolWriteRequest {
         state_stem: bool,
     },
 
-    /// Remove a transaction with the given hash from the pool.
-    RemoveTransaction(TransactionHash),
+    /// Return transactions from blocks removed by a reorg to the public pool, in one database write.
+    ///
+    /// The txs were verified in their blocks, so only their contextual checks are redone.
+    ///
+    /// Returns [`TxpoolWriteResponse::ReturnTransactions`].
+    ReturnTransactions {
+        /// The txs to add.
+        txs: Vec<VerifiedTransactionInformation>,
+        /// The hard-fork the txs were verified at.
+        hf: HardFork,
+    },
+
+    /// Remove a transaction with the given hash and blob hash from the pool.
+    RemoveTransaction(TransactionHash, TransactionBlobHash),
 
     /// Promote a transaction from the stem pool to the fluff pool.
     /// If the tx is already in the fluff pool this does nothing.
     Promote(TransactionHash),
 
-    /// Tell the tx-pool about a new block.
+    /// Tell the tx-pool about new blocks.
     NewBlock {
-        /// The spent key images in the new block.
+        /// The txs in the pool that the new blocks mined, with their blob hashes and key images.
+        ///
+        /// # Invariant
+        /// Every hash must be a tx in the pool, with exactly that tx's blob hash and key images.
+        pool_txs: Vec<(TransactionHash, TransactionBlobHash, Vec<KeyImage>)>,
+        /// The key images spent in the new blocks by txs that are not in the pool.
         spent_key_images: Vec<KeyImage>,
     },
 }
@@ -200,6 +225,11 @@ pub enum TxpoolWriteResponse {
 
     /// Response to [`TxpoolWriteRequest::AddTransaction`].
     ///
-    /// If the inner value is [`Some`] the tx was not added to the pool as it double spends a tx with the given hash.
-    AddTransaction(Option<TransactionHash>),
+    /// The inner value is the tx's blob hash if it was added, or the hash of the tx it double spends if it was not.
+    AddTransaction(Result<TransactionBlobHash, TransactionHash>),
+
+    /// Response to [`TxpoolWriteRequest::ReturnTransactions`].
+    ///
+    /// The inner values are, in order, what [`TxpoolWriteResponse::AddTransaction`] holds for each tx.
+    ReturnTransactions(Vec<Result<TransactionBlobHash, TransactionHash>>),
 }

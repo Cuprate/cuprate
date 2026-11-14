@@ -7,7 +7,7 @@ use crate::{
 
 /// Adds the transaction key images to the [`SpentKeyImages`] table.
 ///
-/// This function will return an error if any of the key images are already spent.
+/// This function will return an error if any of the key images are already spent, writing nothing.
 ///
 /// # Panics
 /// This function will panic if any of the [`Input`]s are not [`Input::ToKey`]
@@ -23,7 +23,9 @@ pub(super) fn add_tx_key_images(
                 ki.as_ref().try_into().unwrap(),
             ));
         }
+    }
 
+    for ki in inputs.iter().map(ki_from_input) {
         writer.insert(&db.spent_key_images, ki, tx_hash);
     }
 
@@ -31,16 +33,13 @@ pub(super) fn add_tx_key_images(
 }
 
 /// Removes key images from the [`SpentKeyImages`] table.
-///
-/// # Panics
-/// This function will panic if any of the [`Input`]s are not [`Input::ToKey`]
 pub(super) fn remove_tx_key_images(
-    inputs: &[Input],
+    key_images: &[[u8; 32]],
     writer: &mut fjall::OwnedWriteBatch,
     db: &TxpoolDatabase,
 ) {
-    for ki in inputs.iter().map(ki_from_input) {
-        writer.remove(&db.spent_key_images, ki);
+    for key_image in key_images {
+        writer.remove(&db.spent_key_images, key_image);
     }
 }
 

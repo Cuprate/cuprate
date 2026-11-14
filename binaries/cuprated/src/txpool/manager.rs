@@ -19,7 +19,7 @@ use cuprate_txpool::service::{
     interface::{TxpoolReadRequest, TxpoolReadResponse, TxpoolWriteRequest, TxpoolWriteResponse},
     TxpoolReadHandle, TxpoolWriteHandle,
 };
-use cuprate_types::TransactionVerificationData;
+use cuprate_types::{HardFork, TransactionVerificationData, VerifiedTransactionInformation};
 
 use crate::{
     config::TxpoolConfig,
@@ -61,6 +61,15 @@ pub(crate) async fn start_txpool_manager(
         unreachable!()
     };
 
+    let TxpoolReadResponse::BlobHashes(blob_hashes) = txpool_read_handle
+        .ready()
+        .await?
+        .call(TxpoolReadRequest::BlobHashes)
+        .await?
+    else {
+        unreachable!()
+    };
+
     tracing::info!(txs_in_pool = backlog.len(), "starting txpool manager");
 
     let mut stem_txs = Vec::new();
@@ -80,6 +89,7 @@ pub(crate) async fn start_txpool_manager(
             (
                 tx.id,
                 TxInfo {
+                    blob_hash: blob_hashes[&tx.id],
                     weight: tx.weight,
                     fee: tx.fee,
                     received_at: tx.received_at,
@@ -117,18 +127,35 @@ pub(crate) async fn start_txpool_manager(
     }
 
     let (command_tx, command_rx) = mpsc::channel(INCOMING_TX_QUEUE_SIZE);
-    let (spent_kis_tx, spent_kis_rx) = mpsc::channel(1);
+    let (chain_update_tx, chain_update_rx) = mpsc::channel(1);
 
     let shutdown_token = task_executor.cancellation_token();
     task_executor.spawn_critical(
         "txpool manager",
-        manager.run(command_rx, spent_kis_rx, shutdown_token),
+        manager.run(command_rx, chain_update_rx, shutdown_token),
     );
 
     Ok(TxpoolManagerHandle {
         command_tx,
-        spent_kis_tx,
+        chain_update_tx,
     })
+}
+
+/// The txs mined in new blocks.
+pub(crate) struct MinedTxs {
+    /// Each tx's hash and the number of key images it spends.
+    pub(crate) txs: Vec<([u8; 32], usize)>,
+    /// The key images spent by the txs, in the same order.
+    pub(crate) key_images: Vec<[u8; 32]>,
+}
+
+/// A main-chain update sent to the [`TxpoolManager`] by the blockchain manager.
+enum ChainUpdate {
+    /// The txs mined in new blocks.
+    NewBlock(MinedTxs),
+
+    /// Txs from popped blocks to return to the pool.
+    ReturnedTxs(Vec<VerifiedTransactionInformation>, HardFork),
 }
 
 /// Commands sent to the [`TxpoolManager`] via [`TxpoolManagerHandle`].
@@ -169,8 +196,8 @@ pub(crate) struct TxpoolManagerHandle {
     /// Channel for sending commands to the manager.
     pub command_tx: mpsc::Sender<TxpoolManagerCommand>,
 
-    /// The spent key images in a new block tx.
-    spent_kis_tx: mpsc::Sender<(Vec<[u8; 32]>, oneshot::Sender<()>)>,
+    /// The main-chain update tx.
+    chain_update_tx: mpsc::Sender<(ChainUpdate, oneshot::Sender<()>)>,
 }
 
 impl TxpoolManagerHandle {
@@ -180,12 +207,13 @@ impl TxpoolManagerHandle {
     /// Useful for testing.
     #[expect(clippy::let_underscore_must_use)]
     pub(crate) fn mock() -> Self {
-        let (spent_kis_tx, mut spent_kis_rx) = mpsc::channel(1);
+        let (chain_update_tx, mut chain_update_rx) = mpsc::channel(1);
         let (command_tx, mut command_rx) = mpsc::channel(100);
 
         tokio::spawn(async move {
             loop {
-                let Some(rec): Option<(_, oneshot::Sender<()>)> = spent_kis_rx.recv().await else {
+                let Some(rec): Option<(_, oneshot::Sender<()>)> = chain_update_rx.recv().await
+                else {
                     return;
                 };
 
@@ -203,18 +231,46 @@ impl TxpoolManagerHandle {
 
         Self {
             command_tx,
-            spent_kis_tx,
+            chain_update_tx,
         }
     }
 
-    /// Tell the tx-pool about spent key images in an incoming block.
-    pub(crate) async fn new_block(
-        &self,
-        spent_key_images: Vec<[u8; 32]>,
-    ) -> Result<(), FatalError> {
+    /// Tell the tx-pool about the txs mined in new blocks, each with its key images.
+    pub(crate) async fn new_block(&self, mined_txs: MinedTxs) -> Result<(), FatalError> {
+        if mined_txs.txs.is_empty() {
+            return Ok(());
+        }
+
         let (tx, rx) = oneshot::channel();
 
-        drop(self.spent_kis_tx.send((spent_key_images, tx)).await);
+        drop(
+            self.chain_update_tx
+                .send((ChainUpdate::NewBlock(mined_txs), tx))
+                .await,
+        );
+
+        rx.await.map_err(|_| "txpool manager stopped".into())
+    }
+
+    /// Return the txs from popped blocks to the tx-pool.
+    ///
+    /// The relay rules are not checked, as these txs were already mined.
+    pub(crate) async fn return_txs(
+        &self,
+        txs: Vec<VerifiedTransactionInformation>,
+        hf: HardFork,
+    ) -> Result<(), FatalError> {
+        if txs.is_empty() {
+            return Ok(());
+        }
+
+        let (tx, rx) = oneshot::channel();
+
+        drop(
+            self.chain_update_tx
+                .send((ChainUpdate::ReturnedTxs(txs, hf), tx))
+                .await,
+        );
 
         rx.await.map_err(|_| "txpool manager stopped".into())
     }
@@ -222,6 +278,8 @@ impl TxpoolManagerHandle {
 
 /// Information on a transaction in the tx-pool.
 struct TxInfo {
+    /// The hash of the transaction blob, see [`transaction_blob_hash`](cuprate_txpool::transaction_blob_hash).
+    blob_hash: [u8; 32],
     /// The weight of the transaction.
     #[expect(
         dead_code,
@@ -297,15 +355,15 @@ impl TxpoolManager {
     ) -> Result<(), FatalError> {
         tracing::debug!("removing tx from pool");
 
+        let tx_info = self.current_txs.swap_remove(&tx).unwrap();
+
         if remove_from_db {
             self.txpool_write_handle
                 .ready()
                 .await?
-                .call(TxpoolWriteRequest::RemoveTransaction(tx))
+                .call(TxpoolWriteRequest::RemoveTransaction(tx, tx_info.blob_hash))
                 .await?;
         }
-
-        let tx_info = self.current_txs.swap_remove(&tx).unwrap();
 
         tx_info
             .timeout_key
@@ -394,7 +452,14 @@ impl TxpoolManager {
 
     /// Adds a tx to the tx-pool manager.
     #[instrument(level = "trace", skip_all, fields(tx_id = hex::encode(tx)))]
-    fn track_tx(&mut self, tx: [u8; 32], weight: usize, fee: u64, private: bool) {
+    fn track_tx(
+        &mut self,
+        tx: [u8; 32],
+        blob_hash: [u8; 32],
+        weight: usize,
+        fee: u64,
+        private: bool,
+    ) {
         let now = current_unix_timestamp();
 
         let timeout_key = if private {
@@ -413,6 +478,7 @@ impl TxpoolManager {
         self.current_txs.insert(
             tx,
             TxInfo {
+                blob_hash,
                 weight,
                 fee,
                 received_at: now,
@@ -435,7 +501,7 @@ impl TxpoolManager {
 
         let (tx_hash, tx_weight, tx_fee) = (tx.tx_hash, tx.tx_weight, tx.fee);
 
-        let TxpoolWriteResponse::AddTransaction(double_spend) = self
+        let TxpoolWriteResponse::AddTransaction(added) = self
             .txpool_write_handle
             .ready()
             .await?
@@ -448,15 +514,18 @@ impl TxpoolManager {
             unreachable!()
         };
 
-        if let Some(tx_hash) = double_spend {
-            tracing::debug!(
-                double_spent = hex::encode(tx_hash),
-                "transaction is a double spend, ignoring"
-            );
-            return Ok(());
-        }
+        let blob_hash = match added {
+            Ok(blob_hash) => blob_hash,
+            Err(tx_hash) => {
+                tracing::debug!(
+                    double_spent = hex::encode(tx_hash),
+                    "transaction is a double spend, ignoring"
+                );
+                return Ok(());
+            }
+        };
 
-        self.track_tx(tx_hash, tx_weight, tx_fee, state.is_stem_stage());
+        self.track_tx(tx_hash, blob_hash, tx_weight, tx_fee, state.is_stem_stage());
 
         let incoming_tx = incoming_tx
             .with_routing_state(state)
@@ -529,16 +598,42 @@ impl TxpoolManager {
             .collect()
     }
 
-    /// Handles removing all transactions that have been included/double spent in an incoming block.
+    /// Handles removing all transactions that have been included/double spent in new blocks.
     #[instrument(level = "debug", skip_all)]
-    async fn new_block(&mut self, spent_key_images: Vec<[u8; 32]>) -> Result<(), FatalError> {
+    async fn new_block(&mut self, mined_txs: MinedTxs) -> Result<(), FatalError> {
+        if self.current_txs.is_empty() {
+            return Ok(());
+        }
+
         tracing::debug!("handling new block");
+
+        let mut pool_txs = Vec::new();
+        let mut spent_key_images = Vec::with_capacity(mined_txs.key_images.len());
+        let mut key_images = mined_txs.key_images.as_slice();
+
+        for (tx_hash, numb_key_images) in mined_txs.txs {
+            let tx_key_images = key_images.split_off(..numb_key_images).unwrap();
+
+            if let Some(tx_info) = self.current_txs.get(&tx_hash) {
+                pool_txs.push((tx_hash, tx_info.blob_hash, tx_key_images.to_vec()));
+            } else {
+                spent_key_images.extend_from_slice(tx_key_images);
+            }
+        }
+
+        // If every pool tx was mined there are none left to double spend.
+        if pool_txs.len() == self.current_txs.len() {
+            spent_key_images.clear();
+        }
 
         let TxpoolWriteResponse::NewBlock(removed_txs) = self
             .txpool_write_handle
             .ready()
             .await?
-            .call(TxpoolWriteRequest::NewBlock { spent_key_images })
+            .call(TxpoolWriteRequest::NewBlock {
+                pool_txs,
+                spent_key_images,
+            })
             .await?
         else {
             unreachable!()
@@ -550,10 +645,44 @@ impl TxpoolManager {
         Ok(())
     }
 
+    /// Handles adding txs from popped blocks to the public pool, these txs are not relayed now but are re-relayed
+    /// like any other public tx.
+    #[instrument(level = "debug", skip_all)]
+    async fn return_txs(
+        &mut self,
+        txs: Vec<VerifiedTransactionInformation>,
+        hf: HardFork,
+    ) -> Result<(), FatalError> {
+        tracing::debug!(txs = txs.len(), "returning txs to pool");
+
+        let tracked = txs
+            .iter()
+            .map(|tx| (tx.tx_hash, tx.tx_weight, tx.fee))
+            .collect::<Vec<_>>();
+
+        let TxpoolWriteResponse::ReturnTransactions(added) = self
+            .txpool_write_handle
+            .ready()
+            .await?
+            .call(TxpoolWriteRequest::ReturnTransactions { txs, hf })
+            .await?
+        else {
+            unreachable!()
+        };
+
+        for ((tx_hash, tx_weight, tx_fee), added) in tracked.into_iter().zip(added) {
+            if let Ok(blob_hash) = added {
+                self.track_tx(tx_hash, blob_hash, tx_weight, tx_fee, false);
+            }
+        }
+
+        Ok(())
+    }
+
     async fn run(
         mut self,
         mut command_rx: mpsc::Receiver<TxpoolManagerCommand>,
-        mut block_rx: mpsc::Receiver<(Vec<[u8; 32]>, oneshot::Sender<()>)>,
+        mut chain_update_rx: mpsc::Receiver<(ChainUpdate, oneshot::Sender<()>)>,
         shutdown_token: CancellationToken,
     ) -> Result<(), FatalError> {
         loop {
@@ -562,8 +691,11 @@ impl TxpoolManager {
                 () = shutdown_token.cancelled() => {
                     break;
                 }
-                Some((spent_kis, tx)) = block_rx.recv() => {
-                    self.new_block(spent_kis).await?;
+                Some((update, tx)) = chain_update_rx.recv() => {
+                    match update {
+                        ChainUpdate::NewBlock(mined_txs) => self.new_block(mined_txs).await?,
+                        ChainUpdate::ReturnedTxs(txs, hf) => self.return_txs(txs, hf).await?,
+                    }
                     let _ = tx.send(());
                 }
                 Some(tx) = self.tx_timeouts.next() => {

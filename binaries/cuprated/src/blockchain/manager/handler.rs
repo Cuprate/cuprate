@@ -1,5 +1,8 @@
 //! The blockchain manager handler functions.
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use bytes::Bytes;
 use monero_oxide::{block::Block, transaction::Input};
@@ -16,13 +19,14 @@ use cuprate_consensus::{
     BlockChainContextRequest, ExtendedConsensusError, VerificationContext,
 };
 use cuprate_consensus_context::{distribution::rct_output_count, BlockchainContext, NewBlockData};
+use cuprate_consensus_rules::transactions::min_output_age;
 use cuprate_fast_sync::{block_to_verified_block_information, fast_sync_stop_height};
-use cuprate_helper::cast::usize_to_u64;
+use cuprate_helper::{cast::usize_to_u64, tx::tx_key_images};
 use cuprate_p2p::{block_downloader::BlockBatch, constants::MEDIUM_BAN, BroadcastRequest};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
     AltBlockInformation, Chain, ChainId, HardFork, TransactionVerificationData, TxConversionError,
-    VerifiedBlockInformation,
+    VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 
 use crate::{
@@ -31,6 +35,7 @@ use crate::{
         ConsensusBlockchainReadHandle, IncomingBlockError,
     },
     monitor::FatalError,
+    txpool::MinedTxs,
 };
 
 impl super::BlockchainManager {
@@ -60,7 +65,7 @@ impl super::BlockchainManager {
             } => {
                 let reorg_lock = Arc::clone(&self.reorg_lock);
                 let _guard = reorg_lock.write().await;
-                self.pop_blocks(numb_blocks, false).await?;
+                self.pop_blocks(numb_blocks, None).await?;
                 self.blockchain_write_handle
                     .ready()
                     .await?
@@ -295,8 +300,12 @@ impl super::BlockchainManager {
 
         let valid_blocks_len = valid_blocks.len();
         if !valid_blocks.is_empty() {
+            let mined_txs = mined_txs(valid_blocks.iter().flat_map(|block| &block.txs));
+
             self.batch_add_valid_block_to_blockchain_database(valid_blocks)
                 .await?;
+
+            self.txpool_manager_handle.new_block(mined_txs).await?;
         }
 
         if error {
@@ -333,8 +342,12 @@ impl super::BlockchainManager {
             valid_blocks.push(block);
         }
 
+        let mined_txs = mined_txs(valid_blocks.iter().flat_map(|block| &block.txs));
+
         self.batch_add_valid_block_to_blockchain_database(valid_blocks)
             .await?;
+
+        self.txpool_manager_handle.new_block(mined_txs).await?;
 
         info!(fast_sync = true, "Successfully added block batch");
         Ok(())
@@ -519,9 +532,22 @@ impl super::BlockchainManager {
 
         info!(split_height, "Attempting blockchain reorg");
 
-        let old_main_chain_id = self
-            .pop_blocks(current_main_chain_height - split_height, true)
-            .await?;
+        // Keep the old blocks so a failed reorg can read them back, and take the first `min_output_age` of them
+        // above the split, as only their txs can be returned.
+        let (old_main_chain_id, old_blocks) = self
+            .pop_blocks(
+                current_main_chain_height - split_height,
+                Some(min_output_age(HardFork::LATEST)),
+            )
+            .await?
+            .unzip();
+
+        // Taken before verification consumes the alt blocks.
+        let new_key_images = alt_blocks
+            .iter()
+            .flat_map(|block| &block.txs)
+            .flat_map(|tx| tx_key_images(tx.tx.prefix()))
+            .collect::<HashSet<_>>();
 
         let reorg_res = self.verify_add_alt_blocks_to_main_chain(alt_blocks).await;
 
@@ -535,6 +561,11 @@ impl super::BlockchainManager {
                     ),
                     "Successfully reorged"
                 );
+
+                if let Some(old_blocks) = old_blocks {
+                    self.return_txs_to_pool(old_blocks, &new_key_images).await?;
+                }
+
                 Ok(())
             }
             Err(e) => {
@@ -581,7 +612,7 @@ impl super::BlockchainManager {
         let numb_blocks = current_main_chain_height - split_height;
 
         if numb_blocks > 0 {
-            self.pop_blocks(current_main_chain_height - split_height, false)
+            self.pop_blocks(current_main_chain_height - split_height, None)
                 .await?;
         }
 
@@ -606,7 +637,8 @@ impl super::BlockchainManager {
 
     /// Pop blocks from the main chain, optionally moving them to alt-blocks. This function will flush all other alt-blocks.
     ///
-    /// This returns the [`ChainId`] if the blocks were kept.
+    /// This returns the [`ChainId`] of the popped blocks if they were kept, and the first `keep` of them counted from
+    /// the lowest, in chain order.
     ///
     /// # Errors
     ///
@@ -616,9 +648,9 @@ impl super::BlockchainManager {
     async fn pop_blocks(
         &mut self,
         numb_blocks: usize,
-        keep: bool,
-    ) -> Result<Option<ChainId>, FatalError> {
-        let BlockchainResponse::PopBlocks(old_main_chain_id) = self
+        keep: Option<usize>,
+    ) -> Result<Option<(ChainId, Vec<AltBlockInformation>)>, FatalError> {
+        let BlockchainResponse::PopBlocks(old_blocks) = self
             .blockchain_write_handle
             .ready()
             .await?
@@ -634,7 +666,48 @@ impl super::BlockchainManager {
             .call(BlockChainContextRequest::PopBlocks { numb_blocks })
             .await?;
 
-        Ok(old_main_chain_id)
+        Ok(old_blocks)
+    }
+
+    /// Returns the txs in the old main chain, that the new main chain does not spend, to the tx-pool.
+    ///
+    /// A tx can only use outputs at least [`min_output_age`] blocks older than it, so the txs in the first that many
+    /// blocks above the split only depend on the chain below it. Only these are returned, and only from blocks at the
+    /// current hard-fork, as that makes `min_output_age(current_hf)` the age their txs were checked with.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an [`Err`] if any internal service returns an unexpected error that we cannot
+    /// recover from.
+    async fn return_txs_to_pool(
+        &mut self,
+        old_blocks: Vec<AltBlockInformation>,
+        new_key_images: &HashSet<[u8; 32]>,
+    ) -> Result<(), FatalError> {
+        let current_hf = self
+            .blockchain_context_service
+            .blockchain_context()
+            .current_hf;
+
+        let mut txs = Vec::new();
+
+        for block in old_blocks.into_iter().take(min_output_age(current_hf)) {
+            if block.block.header.hardfork_version != current_hf.as_u8() {
+                continue;
+            }
+
+            for tx in block.txs {
+                if tx_key_images(tx.tx.prefix())
+                    .any(|key_image| new_key_images.contains(&key_image))
+                {
+                    continue;
+                }
+
+                txs.push(tx);
+            }
+        }
+
+        self.txpool_manager_handle.return_txs(txs, current_hf).await
     }
 
     /// Verify and add a list of [`AltBlockInformation`]s to the main-chain.
@@ -691,17 +764,7 @@ impl super::BlockchainManager {
         verified_block: VerifiedBlockInformation,
         source: BlockSource,
     ) -> Result<(), FatalError> {
-        // FIXME: this is pretty inefficient, we should probably return the KI map created in the consensus crate.
-        let spent_key_images = verified_block
-            .txs
-            .iter()
-            .flat_map(|tx| {
-                tx.tx.prefix().inputs.iter().map(|input| match input {
-                    Input::ToKey { key_image, .. } => key_image.to_bytes(),
-                    Input::Gen(_) => unreachable!(),
-                })
-            })
-            .collect::<Vec<[u8; 32]>>();
+        let mined_txs = mined_txs(verified_block.txs.iter());
 
         let block_blob = matches!(source, BlockSource::Incoming)
             .then(|| Bytes::copy_from_slice(&verified_block.block_blob));
@@ -721,9 +784,7 @@ impl super::BlockchainManager {
             self.broadcast_block(block_blob, chain_height).await;
         }
 
-        self.txpool_manager_handle
-            .new_block(spent_key_images)
-            .await?;
+        self.txpool_manager_handle.new_block(mined_txs).await?;
 
         Ok(())
     }
@@ -813,6 +874,28 @@ enum BlockSource {
     Incoming,
     /// A block re-applied during a reorg.
     Reorg,
+}
+
+/// Returns the hash and key images of each tx, to tell the tx-pool which txs were mined.
+// FIXME: this is pretty inefficient, we should probably return the KI map created in the consensus crate.
+fn mined_txs<'a>(
+    verified_txs: impl Iterator<Item = &'a VerifiedTransactionInformation> + Clone,
+) -> MinedTxs {
+    let mut txs = Vec::with_capacity(verified_txs.clone().count());
+    verified_txs
+        .clone()
+        .for_each(|tx| txs.push((tx.tx_hash, tx.tx.prefix().inputs.len())));
+
+    let mut key_images =
+        Vec::with_capacity(txs.iter().map(|(_, numb_key_images)| numb_key_images).sum());
+    verified_txs.for_each(|tx| {
+        key_images.extend(tx.tx.prefix().inputs.iter().map(|input| match input {
+            Input::ToKey { key_image, .. } => key_image.to_bytes(),
+            Input::Gen(_) => unreachable!(),
+        }));
+    });
+
+    MinedTxs { txs, key_images }
 }
 
 /// Creates a [`VerifiedBlockInformation`] from an alt-block known to be valid.

@@ -407,7 +407,7 @@ pub fn add_block_to_dynamic_tables<'a, I: Iterator<Item = Cow<'a, Transaction<Pr
 //---------------------------------------------------------------------------------------------------- `pop_block`
 /// Remove the top/latest block from the database.
 ///
-/// The removed block's data is returned along with whether it was added to the alt block tables.
+/// The removed block is returned if it was added to the alt block tables.
 ///
 /// If a [`ChainId`] is specified the popped block will be added to the alt block tables under
 /// that [`ChainId`]. Otherwise, the block will be completely removed from the DB.
@@ -417,7 +417,7 @@ pub fn pop_block(
     move_to_alt_chain: Option<ChainId>,
     tx_rw: &mut fjall::OwnedWriteBatch,
     tapes: &mut tapes::TapesTruncateTransaction,
-) -> DbResult<(BlockHeight, BlockHash, Block, bool)> {
+) -> DbResult<Option<AltBlockInformation>> {
     // Pop the last block info.
     let (block_height, block_info) = tapes
         .pop_fixed_sized_tape(&db.block_infos)?
@@ -449,7 +449,6 @@ pub fn pop_block(
             match get_tx_from_id(&tx_id, tapes, db) {
                 Ok(tx) => {
                     let tx_weight = tx.weight();
-                    let tx_hash = tx.hash();
                     let fee = tx_fee(&tx);
                     let (tx_pruned, prunable) = tx.pruned_with_prunable();
 
@@ -457,7 +456,7 @@ pub fn pop_block(
                         tx_weight,
                         tx_pruned: tx_pruned.serialize(),
                         tx_prunable_blob: prunable,
-                        tx_hash,
+                        tx_hash: *tx_hash,
                         fee,
                         tx: tx_pruned,
                     });
@@ -471,27 +470,27 @@ pub fn pop_block(
         }
     }
 
-    if let Some(chain_id) = move_to_alt_chain.filter(|_| add_to_alt_chain) {
-        alt_block::add_alt_block(
-            db,
-            &AltBlockInformation {
-                block: block.clone(),
-                block_blob: block.serialize(),
-                txs,
-                block_hash: block_info.block_hash,
-                // We know the PoW is valid for this block so just set it so it will always verify as valid.
-                pow_hash: [0; 32],
-                height: block_height,
-                weight: block_info.weight,
-                long_term_weight: block_info.long_term_weight,
-                cumulative_difficulty: combine_low_high_bits_to_u128(
-                    block_info.cumulative_difficulty_low,
-                    block_info.cumulative_difficulty_high,
-                ),
-                chain_id,
-            },
-            tx_rw,
-        )?;
+    let alt_block = move_to_alt_chain
+        .filter(|_| add_to_alt_chain)
+        .map(|chain_id| AltBlockInformation {
+            block_blob: block.serialize(),
+            block,
+            txs,
+            block_hash: block_info.block_hash,
+            // We know the PoW is valid for this block so just set it so it will always verify as valid.
+            pow_hash: [0; 32],
+            height: block_height,
+            weight: block_info.weight,
+            long_term_weight: block_info.long_term_weight,
+            cumulative_difficulty: combine_low_high_bits_to_u128(
+                block_info.cumulative_difficulty_low,
+                block_info.cumulative_difficulty_high,
+            ),
+            chain_id,
+        });
+
+    if let Some(alt_block) = &alt_block {
+        alt_block::add_alt_block(db, alt_block, tx_rw)?;
     }
 
     // Truncate the tapes.
@@ -555,7 +554,7 @@ pub fn pop_block(
 
     tapes.truncate_fixed_sized_tape(&db.rct_outputs, cumulative_rct_outs)?;
 
-    Ok((block_height, block_info.block_hash, block, add_to_alt_chain))
+    Ok(alt_block)
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_complete_entry_*`

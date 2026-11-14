@@ -1,5 +1,5 @@
 use std::{
-    collections::{hash_map::Entry, HashSet},
+    collections::{hash_map::Entry, HashMap, HashSet},
     sync::Arc,
     task::{Context, Poll},
 };
@@ -10,14 +10,14 @@ use rayon::ThreadPool;
 use tower::Service;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
-use cuprate_types::TransactionVerificationData;
+use cuprate_types::{HardFork, TransactionVerificationData, VerifiedTransactionInformation};
 
 use crate::{
     error::TxPoolError,
     ops::{self, TxPoolWriteError},
     service::interface::{TxpoolWriteRequest, TxpoolWriteResponse},
     txpool::TxpoolDatabase,
-    types::{KeyImage, TransactionHash, TransactionInfo, TxStateFlags},
+    types::{KeyImage, TransactionBlobHash, TransactionHash, TransactionInfo, TxStateFlags},
 };
 
 /// The txpool [`Service`] write handle.
@@ -65,9 +65,15 @@ fn handle_txpool_request(
         TxpoolWriteRequest::AddTransaction { tx, state_stem } => {
             add_transaction(env, &tx, state_stem)
         }
-        TxpoolWriteRequest::RemoveTransaction(tx_hash) => remove_transaction(env, &tx_hash),
+        TxpoolWriteRequest::ReturnTransactions { txs, hf } => return_transactions(env, &txs, hf),
+        TxpoolWriteRequest::RemoveTransaction(tx_hash, blob_hash) => {
+            remove_transaction(env, &tx_hash, blob_hash)
+        }
         TxpoolWriteRequest::Promote(tx_hash) => promote(env, &tx_hash),
-        TxpoolWriteRequest::NewBlock { spent_key_images } => new_block(env, &spent_key_images),
+        TxpoolWriteRequest::NewBlock {
+            pool_txs,
+            spent_key_images,
+        } => new_block(env, &pool_txs, &spent_key_images),
     }
 }
 
@@ -86,29 +92,73 @@ fn add_transaction(
     tx: &TransactionVerificationData,
     state_stem: bool,
 ) -> Result<TxpoolWriteResponse, TxPoolError> {
-    struct KiDropGuard<'a>(Vec<[u8; 32]>, &'a TxpoolDatabase);
+    let mut guard = KiDropGuard(Vec::with_capacity(tx.tx.prefix().inputs.len()), db);
+    let mut writer = db.fjall_database.batch();
 
-    impl Drop for KiDropGuard<'_> {
-        fn drop(&mut self) {
+    let added = claim_and_write(&mut guard, &tx.tx_hash, &tx.tx.prefix().inputs, || {
+        ops::add_transaction(tx, state_stem, &mut writer, db)
+    })?;
+
+    writer.commit()?;
+
+    Ok(TxpoolWriteResponse::AddTransaction(added))
+}
+
+/// [`TxpoolWriteRequest::ReturnTransactions`]
+fn return_transactions(
+    db: &TxpoolDatabase,
+    txs: &[VerifiedTransactionInformation],
+    hf: HardFork,
+) -> Result<TxpoolWriteResponse, TxPoolError> {
+    let mut guard = KiDropGuard(Vec::new(), db);
+    let mut writer = db.fjall_database.batch();
+
+    let added = txs
+        .iter()
+        .map(|tx| {
+            claim_and_write(&mut guard, &tx.tx_hash, &tx.tx.prefix().inputs, || {
+                ops::return_transaction(tx, hf, &mut writer, db)
+            })
+        })
+        .collect::<Result<_, _>>()?;
+
+    writer.commit()?;
+
+    Ok(TxpoolWriteResponse::ReturnTransactions(added))
+}
+
+struct KiDropGuard<'a>(Vec<[u8; 32]>, &'a TxpoolDatabase);
+
+impl Drop for KiDropGuard<'_> {
+    fn drop(&mut self) {
+        if !self.0.is_empty() {
+            let mut in_progress_key_images = self.1.in_progress_key_images.lock().unwrap();
             for ki in &self.0 {
-                self.1.in_progress_key_images.lock().unwrap().remove(ki);
+                in_progress_key_images.remove(ki);
             }
         }
     }
+}
 
-    let mut guard = KiDropGuard(Vec::with_capacity(tx.tx.prefix().inputs.len()), db);
-
-    let mut in_progress_key_images = db.in_progress_key_images.lock().unwrap();
-    for ki in tx.tx.prefix().inputs.iter().map(|i| match i {
+/// Claims a tx's key images in `guard` then writes it with `write`, returning its blob hash, or the tx it double
+/// spends.
+fn claim_and_write(
+    guard: &mut KiDropGuard<'_>,
+    tx_hash: &TransactionHash,
+    inputs: &[Input],
+    write: impl FnOnce() -> Result<TransactionBlobHash, TxPoolWriteError>,
+) -> Result<Result<TransactionBlobHash, TransactionHash>, TxPoolError> {
+    let mut in_progress_key_images = guard.1.in_progress_key_images.lock().unwrap();
+    for ki in inputs.iter().map(|i| match i {
         Input::ToKey { key_image, .. } => key_image,
         Input::Gen(_) => unreachable!(),
     }) {
         let e = in_progress_key_images.entry(ki.to_bytes());
 
         match e {
-            Entry::Occupied(o) => return Ok(TxpoolWriteResponse::AddTransaction(Some(*o.get()))),
+            Entry::Occupied(o) => return Ok(Err(*o.get())),
             Entry::Vacant(v) => {
-                v.insert(tx.tx_hash);
+                v.insert(*tx_hash);
             }
         }
 
@@ -116,37 +166,27 @@ fn add_transaction(
     }
     drop(in_progress_key_images);
 
-    let mut writer = db.fjall_database.batch();
+    let added = match write() {
+        Ok(blob_hash) => Ok(blob_hash),
+        // If we couldn't add the tx due to a double spend still return ok, but include the tx
+        // this double spent.
+        // TODO: mark the double spent tx?
+        Err(TxPoolWriteError::DoubleSpend(tx_hash)) => Err(tx_hash),
+        Err(TxPoolWriteError::TxPool(e)) => return Err(e),
+    };
 
-    if let Err(e) = ops::add_transaction(tx, state_stem, &mut writer, db) {
-        // error adding the tx, abort the DB transaction.
-        drop(writer);
-
-        return match e {
-            TxPoolWriteError::DoubleSpend(tx_hash) => {
-                // If we couldn't add the tx due to a double spend still return ok, but include the tx
-                // this double spent.
-                // TODO: mark the double spent tx?
-                Ok(TxpoolWriteResponse::AddTransaction(Some(tx_hash)))
-            }
-            TxPoolWriteError::TxPool(e) => Err(e),
-        };
-    }
-
-    // The tx was added to the pool successfully.
-    writer.commit()?;
-
-    Ok(TxpoolWriteResponse::AddTransaction(None))
+    Ok(added)
 }
 
 /// [`TxpoolWriteRequest::RemoveTransaction`]
 fn remove_transaction(
     db: &TxpoolDatabase,
     tx_hash: &TransactionHash,
+    blob_hash: TransactionBlobHash,
 ) -> Result<TxpoolWriteResponse, TxPoolError> {
     let mut writer = db.fjall_database.batch();
 
-    ops::remove_transaction(tx_hash, &mut writer, db)?;
+    ops::remove_transaction(tx_hash, Some(blob_hash), &mut writer, db)?;
 
     writer.commit()?;
 
@@ -179,19 +219,50 @@ fn promote(
 /// [`TxpoolWriteRequest::NewBlock`]
 fn new_block(
     db: &TxpoolDatabase,
+    pool_txs: &[(TransactionHash, TransactionBlobHash, Vec<KeyImage>)],
     spent_key_images: &[KeyImage],
 ) -> Result<TxpoolWriteResponse, TxPoolError> {
-    let mut txs_removed = HashSet::new();
+    let mut txs_removed = HashSet::with_capacity(pool_txs.len());
 
     let mut writer = db.fjall_database.batch();
 
-    // Remove all txs which spend key images that were spent in the new block.
-    for key_image in spent_key_images {
-        if let Some(tx_hash) = db.spent_key_images.get(key_image)? {
-            let tx_hash = tx_hash.as_ref().try_into().unwrap();
+    // Remove the txs mined in the new blocks.
+    for (tx_hash, blob_hash, key_images) in pool_txs {
+        ops::remove_transaction_with_key_images(tx_hash, blob_hash, key_images, &mut writer, db);
+        txs_removed.insert(*tx_hash);
+    }
 
-            if txs_removed.insert(tx_hash) {
-                ops::remove_transaction(&tx_hash, &mut writer, db)?;
+    // Remove all txs which spend key images that were spent in the new blocks, by looking up each key
+    // image or scanning the pool's, whichever has fewer.
+    // `approximate_len` also counts tombstones, which a scan walks too.
+    if spent_key_images.len() <= db.spent_key_images.approximate_len() {
+        for key_image in spent_key_images {
+            if let Some(tx_hash) = db.spent_key_images.get(key_image)? {
+                let tx_hash = tx_hash.as_ref().try_into().unwrap();
+
+                if txs_removed.insert(tx_hash) {
+                    ops::remove_transaction(&tx_hash, None, &mut writer, db)?;
+                }
+            }
+        }
+    } else {
+        let pool_key_images = db
+            .spent_key_images
+            .iter()
+            .map(|guard| {
+                let (key_image, tx_hash) = guard.into_inner()?;
+                Ok((
+                    key_image.as_ref().try_into().unwrap(),
+                    tx_hash.as_ref().try_into().unwrap(),
+                ))
+            })
+            .collect::<Result<HashMap<KeyImage, TransactionHash>, TxPoolError>>()?;
+
+        for key_image in spent_key_images {
+            if let Some(tx_hash) = pool_key_images.get(key_image) {
+                if txs_removed.insert(*tx_hash) {
+                    ops::remove_transaction(tx_hash, None, &mut writer, db)?;
+                }
             }
         }
     }
