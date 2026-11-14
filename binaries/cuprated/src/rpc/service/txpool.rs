@@ -196,22 +196,3 @@ pub(crate) async fn pool_stats(
 
     Ok(txpool_stats)
 }
-
-/// [`TxpoolReadRequest::AllHashes`]
-pub(crate) async fn all_hashes(
-    txpool_read: &mut TxpoolReadHandle,
-    include_sensitive_txs: bool,
-) -> Result<Vec<[u8; 32]>, Error> {
-    let TxpoolReadResponse::AllHashes(hashes) = txpool_read
-        .ready()
-        .await?
-        .call(TxpoolReadRequest::AllHashes {
-            include_sensitive_txs,
-        })
-        .await?
-    else {
-        unreachable!();
-    };
-
-    Ok(hashes)
-}
