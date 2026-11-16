@@ -31,7 +31,7 @@ struct T {
     t: Vec<f64>,
     u: Vec<String>,
     v: Vec<bool>,
-    w: Vec<T>,
+    w: Vec<Self>,
     x: Vec<[u8; 32]>,
 
     y: Bytes,
