@@ -1,16 +1,18 @@
 use std::{
     fmt::{Debug, Display, Formatter},
+    future::Future,
+    pin::Pin,
     sync::{Arc, Mutex},
     task::{ready, Context, Poll},
 };
 
 use futures::channel::oneshot;
+use pin_project_lite::pin_project;
 use tokio::sync::{mpsc, OwnedSemaphorePermit, Semaphore};
-use tokio_util::sync::{PollSemaphore, PollSender};
+use tokio_util::sync::{PollSemaphore, PollSender, WaitForCancellationFutureOwned};
 use tower::{Service, ServiceExt};
 use tracing::Instrument;
 
-use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_pruning::PruningSeed;
 use cuprate_wire::{BasicNodeData, CoreSyncData};
 
@@ -126,14 +128,68 @@ impl<Z: NetworkZone> Client<Z> {
     pub fn ready_broadcast(&mut self) -> tower::util::Ready<'_, Self, BroadcastMessage> {
         ServiceExt::ready(self)
     }
+
+    /// Sends a request to the connection task, returning the response future.
+    fn send(
+        &mut self,
+        request: PeerRequest,
+        permit: Option<OwnedSemaphorePermit>,
+    ) -> ClientResponse {
+        let (tx, rx) = oneshot::channel();
+        let req = connection::ConnectionTaskRequest {
+            response_channel: tx,
+            request,
+            permit,
+        };
+
+        // A failed send drops the request, which resolves `rx`.
+        drop(self.connection_tx.send_item(req));
+
+        ClientResponse {
+            response: rx,
+            connection_closed: self.info.handle.closed(),
+        }
+    }
+}
+
+pin_project! {
+    /// Resolves when the connection responds or closes.
+    pub struct ClientResponse {
+        #[pin]
+        response: oneshot::Receiver<Result<PeerResponse, tower::BoxError>>,
+        #[pin]
+        connection_closed: WaitForCancellationFutureOwned,
+    }
+}
+
+impl Future for ClientResponse {
+    type Output = Result<PeerResponse, tower::BoxError>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+
+        match this.response.poll(cx) {
+            Poll::Ready(response) => {
+                Poll::Ready(response.unwrap_or_else(|_| Err(PeerError::ClientChannelClosed.into())))
+            }
+            Poll::Pending => this
+                .connection_closed
+                .poll(cx)
+                .map(|()| Err(PeerError::ClientChannelClosed.into())),
+        }
+    }
 }
 
 impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
     type Response = PeerResponse;
     type Error = tower::BoxError;
-    type Future = InfallibleOneshotReceiver<Result<Self::Response, Self::Error>>;
+    type Future = ClientResponse;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        if self.info.handle.is_closed() {
+            return Poll::Ready(Err(PeerError::ClientChannelClosed.into()));
+        }
+
         if self.permit.is_none() {
             let permit = ready!(self.semaphore.poll_acquire(cx))
                 .expect("Client semaphore should not be closed!");
@@ -154,30 +210,20 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
             .take()
             .expect("poll_ready did not return ready before call to call");
 
-        let (tx, rx) = oneshot::channel();
-        let req = connection::ConnectionTaskRequest {
-            response_channel: tx,
-            request,
-            permit: Some(permit),
-        };
-
-        if let Err(req) = self.connection_tx.send_item(req) {
-            // The connection task could have closed between a call to `poll_ready` and the call to
-            // `call`, which means if we don't handle the error here the receiver would panic.
-            let resp = Err(PeerError::ClientChannelClosed.into());
-            drop(req.into_inner().unwrap().response_channel.send(resp));
-        }
-
-        rx.into()
+        self.send(request, Some(permit))
     }
 }
 
 impl<N: NetworkZone> Service<BroadcastMessage> for Client<N> {
     type Response = PeerResponse;
     type Error = tower::BoxError;
-    type Future = InfallibleOneshotReceiver<Result<Self::Response, Self::Error>>;
+    type Future = ClientResponse;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        if self.info.handle.is_closed() {
+            return Poll::Ready(Err(PeerError::ClientChannelClosed.into()));
+        }
+
         self.permit.take();
 
         if ready!(self.connection_tx.poll_reserve(cx)).is_err() {
@@ -188,22 +234,8 @@ impl<N: NetworkZone> Service<BroadcastMessage> for Client<N> {
     }
 
     fn call(&mut self, request: BroadcastMessage) -> Self::Future {
-        let (tx, rx) = oneshot::channel();
-        let req = connection::ConnectionTaskRequest {
-            response_channel: tx,
-            request: request.into(),
-            // We don't need a permit as we only accept `BroadcastMessage`, which does not require a response.
-            permit: None,
-        };
-
-        if let Err(req) = self.connection_tx.send_item(req) {
-            // The connection task could have closed between a call to `poll_ready` and the call to
-            // `call`, which means if we don't handle the error here the receiver would panic.
-            let resp = Err(PeerError::ClientChannelClosed.into());
-            drop(req.into_inner().unwrap().response_channel.send(resp));
-        }
-
-        rx.into()
+        // We don't need a permit as we only accept `BroadcastMessage`, which does not require a response.
+        self.send(request.into(), None)
     }
 }
 
