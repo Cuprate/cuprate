@@ -6,3 +6,6 @@ fast_sync_hashes.bin
 /books/user/Cuprated.toml
 fuzz/corpus
 fuzz/artifacts
+/contrib/guix/out/
+/contrib/guix/.work/
+/contrib/guix/smoke-logs/
