@@ -1,8 +1,8 @@
 # Development environment advice
 
-This documentation contain advice for setting up the development environment.
+This documentation contains advice for setting up the development environment.
 
-Cuprate is a rust project, and therefore inherit the use of the default of LSP plugin Rust-analyzer. Rust-analyzer is well conceived but can be 
+Cuprate is a rust project, and therefore inherits the use of the default of LSP plugin Rust-analyzer. Rust-analyzer is well conceived but can be 
 slow on big project such as Cuprate. 
 
 Here are following suggested configurations from Polkadot-SDK's documentation:
@@ -86,5 +86,5 @@ On Rust-analyzer's VSCode plugin, you can add the following configuration if you
 ### Alternative IDE
 
 If you still deal with lags on VSCode or Neovim, you could try the following IDE:
-- RustRover: It have been reported to have excellent performance at managing huge workspace. It use its own fine-tuned plugins by jetbrains.
+- RustRover: It has been reported to have excellent performance at managing huge workspace. It uses its own fine-tuned plugins by jetbrains.
 - Zed: Rust-written IDE focused on performance. Stable on MacOS and Linux (requires Vulkan driver, therefore unable in virtual machines).

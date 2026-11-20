@@ -8,7 +8,7 @@ This is the amount of different blockchain portions that a pruned peer could kee
 
 ## Stripes Size
 
-Depending on your stripe (and therefore your seed) `monerod` will store, in a cyclic manner, a portion of blocks while discarding the ones that are out of your stripe. The stripe's size is amount of blocks before another stripe will have to store their portion of blocks, it is set at 4096. That means that in terms of a block's height, the first pruning stripe will store blocks 0 to 4095, the second stripes will store blocks 4096 to 8191, the third stripe will store blocks 8192 to 12288... etc. While a specific stripe is storing a portion of the blockchain, nodes with another stripe can just discard them. This is shown in the table below:
+Depending on your stripe (and therefore your seed) `monerod` will store, in a cyclic manner, a portion of blocks while discarding the ones that are out of your stripe. The stripe's size is amount of blocks before another stripe will have to store their portion of blocks, it is set at 4096. That means that in terms of a block's height, the first pruning stripe will store blocks 0 to 4095, the second stripe will store blocks 4096 to 8191, the third stripe will store blocks 8192 to 12288... etc. While a specific stripe is storing a portion of the blockchain, nodes with another stripe can just discard them. This is shown in the table below:
 
 | stripe           | 1             | 2           | 3            | 4  | 5  | 6  | 7  | 8  |
 | ---------------- | ------------- | ----------- | ------------ | -- | -- | -- | -- | -- |

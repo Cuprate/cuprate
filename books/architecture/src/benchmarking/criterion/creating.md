@@ -18,4 +18,4 @@ For a real example, see:
 Finally, make sure to add the benchmark crate to the workspace
 [`Cargo.toml`](https://github.com/Cuprate/benches/blob/main/Cargo.toml) file.
 
-Your benchmark is now ready to be ran.
+Your benchmark is now ready to be run.

@@ -78,9 +78,9 @@ For reasoning, see: <https://github.com/Cuprate/cuprate/pull/146#issuecomment-21
 ## Serialization changes
 This crate's serialized field order slightly differs compared to `monerod`.
 
-`monerod`'s JSON objects are serialized in alphabetically order, where as this crate serializes the fields in their defined order (due to [`serde`]).
+`monerod`'s JSON objects are serialized in alphabetical order, whereas this crate serializes the fields in their defined order (due to [`serde`]).
 
-With that said, parsing should be not affected at all since a key-value map is used:
+With that said, parsing should not be affected at all since a key-value map is used:
 ```rust
 # use pretty_assertions::assert_eq;
 use cuprate_json_rpc::{Id, Response};

@@ -3,7 +3,7 @@
 
 [Cuprate](https://github.com/Cuprate/cuprate) is an alternative and independent [Monero](https://getmonero.org) node implementation that is focused on being fast, user-friendly, and backwards compatible with [`monerod`](https://github.com/monero-project/monero).
 
-This project is currently a work-in-progress; the `cuprated` node can be ran by users, although it is not yet ready for production. This book contains brief sections documenting `cuprated` usage, however, be aware that it is **incomplete** and missing sections.
+This project is currently a work-in-progress; the `cuprated` node can be run by users, although it is not yet ready for production. This book contains brief sections documenting `cuprated` usage, however, be aware that it is **incomplete** and missing sections.
 
 To get started, see: [`Getting started`](./getting-started/intro.md).
 
@@ -20,7 +20,7 @@ Cuprate was started by [SyntheticBird45](https://github.com/SyntheticBird45) in 
 Cuprate contributors are funded by Monero's [Community Crowdfunding System](https://ccs.getmonero.org) to work on Cuprate and occasionally `monerod`.
 
 ## Why `Cuprate` and how do releases get their names?
-Cuprate gets it's name from Cuprate high-temperature superconductors[1](https://en.wikipedia.org/wiki/Cuprate_superconductor) which are a family of high-temperature superconducting materials made of layers of copper oxides (CuO2) alternating with layers of other metal oxides.
+Cuprate gets its name from Cuprate high-temperature superconductors[1](https://en.wikipedia.org/wiki/Cuprate_superconductor) which are a family of high-temperature superconducting materials made of layers of copper oxides (CuO2) alternating with layers of other metal oxides.
 
 Cuprate releases are named after metals or metallic minerals and the metal theme is due to the program being written in the Rust programming language.[2](https://github.com/cuprate/cuprate/issues/3)
 
