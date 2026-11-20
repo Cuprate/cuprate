@@ -107,7 +107,7 @@ It currently:
 - Runs [`clippy`](https://github.com/rust-lang/rust-clippy) (and fails on warnings)
 - Runs all tests
 - Builds all targets
-- Automatically adds approriate [labels](#31-labels) to your PR
+- Automatically adds appropriate [labels](#31-labels) to your PR
 
 Before pushing your code, please run the following at the root of the repository:
 
@@ -158,7 +158,7 @@ This section is primarily targeted at maintainers. Most contributors aren't able
 | [E-]         | The **experience** level necessary to fix an issue. | `E-easy`, `E-hard`
 | [I-]         | The **importance** of the issue. | `I-crash`, `I-memory`
 | [O-]         | The **operating system** or platform that the issue is specific to. | `O-windows`, `O-macos`, `O-linux`
-| [P-]         | The issue **priority**. These labels can be assigned by anyone that understand the issue and is able to prioritize it, and remove the [I-prioritize] label. | `P-high`, `P-low`
+| [P-]         | The issue **priority**. These labels can be assigned by anyone that understands the issue and is able to prioritize it, and remove the [I-prioritize] label. | `P-high`, `P-low`
 
 [A-]: https://github.com/Cuprate/cuprate/labels?q=A
 [C-]: https://github.com/Cuprate/cuprate/labels?q=C
@@ -171,7 +171,7 @@ This section is primarily targeted at maintainers. Most contributors aren't able
 ### 3.2 Tracking issues
 If you are working on a larger effort, consider opening a [tracking issue](https://github.com/Cuprate/cuprate/issues/new/choose)!
 
-The main purpose of these are to track efforts that may contain multiple PRs and/or are generally spread out. These don't usually contain the "why", but if they do, they are brief. These contain no implementation details or the how, as those are for the issues/PRs that are being tracked.
+The main purpose of these is to track efforts that may contain multiple PRs and/or are generally spread out. These don't usually contain the "why", but if they do, they are brief. These contain no implementation details or the how, as those are for the issues/PRs that are being tracked.
 
 Examples:
 - https://github.com/Cuprate/cuprate/issues/187
