@@ -98,7 +98,7 @@
     - [⚪️ P2P](networking/p2p.md)
     - [⚪️ Dandelion++](networking/dandelion.md)
     - [⚪️ Proxy](networking/proxy.md)
-    - [⚪️ Tor](networking/tor.md)
+    - [🟢 Tor](networking/tor.md)
     - [⚪️ i2p](networking/i2p.md)
     - [⚪️ IPv4/IPv6](networking/ipv4-ipv6.md)
 
