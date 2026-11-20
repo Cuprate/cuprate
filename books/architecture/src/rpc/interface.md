@@ -29,8 +29,7 @@ async fn json_rpc(
 ```
 and you provide the function body.
 
-The main handler crate is [`cuprate-rpc-handler`](https://doc.cuprate.org/cuprate_rpc_handler).
-This crate implements the standard RPC behavior, i.e. it mostly mirrors `monerod`.
+The main handler crate is `cuprated` itself, it implements the standard RPC behavior, i.e. it mostly mirrors `monerod`.
 
 Although, it's worth noting that other implementations are possible, such as an RPC handler that caches blocks,
 or an RPC handler that only accepts certain endpoints, or any combination.

@@ -68,7 +68,7 @@
         - [🟢 Metadata](rpc/types/metadata.md)
         - [🟡 (De)serialization](rpc/types/deserialization.md)
     - [🟢 The interface](rpc/interface.md)
-    - [🔴 The handler](rpc/handler/intro.md)
+    - [🟢 The handler](rpc/handler.md)
     - [🔴 The server](rpc/server/intro.md)
     - [🟢 Differences with `monerod`](rpc/differences/intro.md)
         - [🟢 JSON field ordering](rpc/differences/json-field-ordering.md)
@@ -76,10 +76,9 @@
         - [🟢 JSON strictness](rpc/differences/json-strictness.md)
         - [🟡 JSON-RPC strictness](rpc/differences/json-rpc-strictness.md)
         - [🟡 HTTP methods](rpc/differences/http-methods.md)
-        - [🟡 RPC payment](rpc/differences/rpc-payment.md)
         - [🟢 Custom strings](rpc/differences/custom-strings.md)
-        - [🔴 Unsupported RPC calls](rpc/differences/unsupported-rpc-calls.md)
-        - [🔴 RPC calls with different behavior](rpc/differences/rpc-calls-with-different-behavior.md)
+        - [🟡 RPC payment](rpc/differences/rpc-payment.md)
+        - [🔴 RPC calls](rpc/differences/rpc-calls.md)
 
 ---
 
