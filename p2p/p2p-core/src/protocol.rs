@@ -138,8 +138,8 @@ impl PeerResponse {
             Self::Protocol(protocol_res) => match protocol_res {
                 ProtocolResponse::GetObjects(_) => MessageID::GetObjects,
                 ProtocolResponse::GetChain(_) => MessageID::GetChain,
-                ProtocolResponse::NewFluffyBlock(_) => MessageID::NewBlock,
-                ProtocolResponse::NewTransactions(_) => MessageID::NewFluffyBlock,
+                ProtocolResponse::NewFluffyBlock(_) => MessageID::FluffyMissingTxs,
+                ProtocolResponse::NewTransactions(_) => MessageID::GetTxPoolCompliment,
                 ProtocolResponse::FluffyMissingTransactionsRequest(_) => {
                     MessageID::FluffyMissingTxs
                 }
@@ -147,5 +147,36 @@ impl PeerResponse {
                 ProtocolResponse::NA => return None,
             },
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use cuprate_wire::{
+        common::BlockCompleteEntry,
+        protocol::{NewFluffyBlock, NewTransactions},
+    };
+
+    use super::{MessageID, PeerResponse, ProtocolResponse};
+
+    #[test]
+    fn new_fluffy_block_answers_missing_transactions_request() {
+        let response = PeerResponse::Protocol(ProtocolResponse::NewFluffyBlock(NewFluffyBlock {
+            b: BlockCompleteEntry::default(),
+            current_blockchain_height: 1,
+        }));
+
+        assert_eq!(response.id(), Some(MessageID::FluffyMissingTxs));
+    }
+
+    #[test]
+    fn new_transactions_answers_txpool_compliment_request() {
+        let response = PeerResponse::Protocol(ProtocolResponse::NewTransactions(NewTransactions {
+            txs: vec![],
+            dandelionpp_fluff: true,
+            padding: Vec::new().into(),
+        }));
+
+        assert_eq!(response.id(), Some(MessageID::GetTxPoolCompliment));
     }
 }
