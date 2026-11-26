@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use crypto_bigint::U256;
-use monero_oxide::block::Block;
+use monero_oxide::{block::Block, io::VarInt, primitives::keccak256};
 
 use cuprate_cryptonight::*;
 
@@ -16,6 +16,11 @@ const BLOCK_SIZE_SANITY_LEEWAY: usize = 100;
 const BLOCK_FUTURE_TIME_LIMIT: u64 = 60 * 60 * 2;
 const BLOCK_202612_POW_HASH: [u8; 32] =
     hex_literal::hex!("84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000");
+const BLOCK_202612_HASHING_BLOB_IDS: [[u8; 32]; 3] = [
+    hex_literal::hex!("426d16cff04c71f8b16340b722dc4010a2dd3831c22041431f772547ba6e331a"),
+    hex_literal::hex!("248fde4b96b829c4ddbd00e3f76d35b03d01257898bc1b5578bc9e04b379a676"),
+    hex_literal::hex!("f3449e658b5f880c4b0e69007ed5d092c9c883ac3a518166fa652d5cc505e7b1"),
+];
 
 pub const PENALTY_FREE_ZONE_1: usize = 20000;
 pub const PENALTY_FREE_ZONE_2: usize = 60000;
@@ -87,7 +92,13 @@ pub fn calculate_pow_hash<R: RandomX>(
     hf: &HardFork,
 ) -> Result<[u8; 32], BlockError> {
     if height == 202612 {
-        return Ok(BLOCK_202612_POW_HASH);
+        let mut hashing_blob = Vec::new();
+        VarInt::write(&buf.len(), &mut hashing_blob).unwrap();
+        hashing_blob.extend_from_slice(buf);
+
+        if BLOCK_202612_HASHING_BLOB_IDS.contains(&keccak256(hashing_blob)) {
+            return Ok(BLOCK_202612_POW_HASH);
+        }
     }
 
     Ok(if hf < &HardFork::V7 {
