@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use crypto_bigint::U256;
-use monero_oxide::block::Block;
+use monero_oxide::{block::Block, io::VarInt, primitives::keccak256};
 
 use cuprate_cryptonight::*;
 
@@ -16,6 +16,11 @@ const BLOCK_SIZE_SANITY_LEEWAY: usize = 100;
 const BLOCK_FUTURE_TIME_LIMIT: u64 = 60 * 60 * 2;
 const BLOCK_202612_POW_HASH: [u8; 32] =
     hex_literal::hex!("84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000");
+const BLOCK_202612_HASHING_BLOB_IDS: [[u8; 32]; 3] = [
+    hex_literal::hex!("426d16cff04c71f8b16340b722dc4010a2dd3831c22041431f772547ba6e331a"),
+    hex_literal::hex!("248fde4b96b829c4ddbd00e3f76d35b03d01257898bc1b5578bc9e04b379a676"),
+    hex_literal::hex!("f3449e658b5f880c4b0e69007ed5d092c9c883ac3a518166fa652d5cc505e7b1"),
+];
 
 pub const PENALTY_FREE_ZONE_1: usize = 20000;
 pub const PENALTY_FREE_ZONE_2: usize = 60000;
@@ -34,8 +39,10 @@ pub enum BlockError {
     TooManyTxs,
     #[error("The block's previous ID is incorrect.")]
     PreviousIDIncorrect,
-    #[error("The block's timestamp is invalid.")]
+    #[error("The block's timestamp is below the median.")]
     TimeStampInvalid,
+    #[error("The block's timestamp is too far in the future.")]
+    TimeStampInFuture,
     #[error("The block contains a duplicate transaction.")]
     DuplicateTransaction,
     #[error("The transactions passed in with the block are incorrect.")]
@@ -85,7 +92,13 @@ pub fn calculate_pow_hash<R: RandomX>(
     hf: &HardFork,
 ) -> Result<[u8; 32], BlockError> {
     if height == 202612 {
-        return Ok(BLOCK_202612_POW_HASH);
+        let mut hashing_blob = Vec::new();
+        VarInt::write(&buf.len(), &mut hashing_blob).unwrap();
+        hashing_blob.extend_from_slice(buf);
+
+        if BLOCK_202612_HASHING_BLOB_IDS.contains(&keccak256(hashing_blob)) {
+            return Ok(BLOCK_202612_POW_HASH);
+        }
     }
 
     Ok(if hf < &HardFork::V7 {
@@ -192,9 +205,9 @@ fn check_prev_id(block: &Block, top_hash: &[u8; 32]) -> Result<(), BlockError> {
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#timestamp>
 pub fn check_timestamp(block: &Block, median_timestamp: Option<u64>) -> Result<(), BlockError> {
-    if block.header.timestamp > current_unix_timestamp() + BLOCK_FUTURE_TIME_LIMIT
-        || median_timestamp.is_some_and(|median| block.header.timestamp < median)
-    {
+    if block.header.timestamp > current_unix_timestamp() + BLOCK_FUTURE_TIME_LIMIT {
+        Err(BlockError::TimeStampInFuture)
+    } else if median_timestamp.is_some_and(|median| block.header.timestamp < median) {
         Err(BlockError::TimeStampInvalid)
     } else {
         Ok(())
@@ -204,7 +217,7 @@ pub fn check_timestamp(block: &Block, median_timestamp: Option<u64>) -> Result<(
 /// Checks that all txs in the block have a unique hash.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#no-duplicate-transactions>
-fn check_txs_unique(txs: &[[u8; 32]]) -> Result<(), BlockError> {
+pub fn check_txs_unique(txs: &[[u8; 32]]) -> Result<(), BlockError> {
     let set = txs.iter().collect::<HashSet<_>>();
 
     if set.len() == txs.len() {

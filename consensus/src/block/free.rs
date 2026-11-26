@@ -3,7 +3,10 @@ use std::collections::HashMap;
 
 use monero_oxide::block::Block;
 
-use cuprate_consensus_rules::{blocks::BlockError, ConsensusError};
+use cuprate_consensus_rules::{
+    blocks::{check_txs_unique, BlockError},
+    ConsensusError,
+};
 use cuprate_types::TransactionVerificationData;
 
 /// Orders the [`TransactionVerificationData`] list the same as it appears in [`Block::transactions`]
@@ -48,6 +51,8 @@ pub(crate) fn pull_ordered_transactions(
     mut txs: HashMap<[u8; 32], TransactionVerificationData>,
 ) -> Result<Vec<TransactionVerificationData>, ConsensusError> {
     if block.transactions.len() != txs.len() {
+        check_txs_unique(&block.transactions)?;
+
         return Err(ConsensusError::Block(
             BlockError::TxsIncludedWithBlockIncorrect,
         ));

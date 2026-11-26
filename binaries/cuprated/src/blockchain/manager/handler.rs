@@ -48,12 +48,24 @@ impl super::BlockchainManager {
                 block,
                 prepped_txs,
                 response_tx,
-            } => match self.handle_incoming_block(block, prepped_txs).await {
-                Err(IncomingBlockError::Fatal(e)) => return Err(e),
-                res => {
-                    let _ = response_tx.send(res);
+                outcome,
+            } => {
+                let extends_top = block.header.previous
+                    == self
+                        .blockchain_context_service
+                        .blockchain_context()
+                        .top_hash;
+                match self
+                    .handle_incoming_block(block, prepped_txs, extends_top)
+                    .await
+                {
+                    Err(IncomingBlockError::Fatal(e)) => return Err(e),
+                    res => {
+                        outcome.record(&res, extends_top);
+                        let _ = response_tx.send(res);
+                    }
                 }
-            },
+            }
             BlockchainManagerCommand::PopBlocks {
                 numb_blocks,
                 response_tx,
@@ -105,13 +117,9 @@ impl super::BlockchainManager {
         &mut self,
         block: Block,
         prepared_txs: HashMap<[u8; 32], TransactionVerificationData>,
+        extends_top: bool,
     ) -> Result<IncomingBlockOk, IncomingBlockError> {
-        if block.header.previous
-            != self
-                .blockchain_context_service
-                .blockchain_context()
-                .top_hash
-        {
+        if !extends_top {
             let block_hash = block.hash();
             let (block_blob, res) = match self
                 .handle_incoming_alt_block(block, prepared_txs)
