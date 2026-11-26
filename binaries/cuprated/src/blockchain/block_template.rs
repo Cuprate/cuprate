@@ -4,27 +4,11 @@
 //! - (finding the parent block: not done as `from_block` is not used by monero-oxide; using the most recent (genesis for `FakeChain`))
 //! - (selecting txs from the pool: not used in monero-oxide)
 //! - constructing a miner transaction
+use std::collections::HashSet;
+
 use anyhow::{anyhow, ensure, Error};
 use bytes::BufMut;
-use cuprate_consensus::{
-    batch_verifier::MultiThreadedBatchVerifier,
-    transactions::contextual_data::batch_get_ring_member_info, BlockchainContext,
-    BlockchainContextService, BlockchainReadRequest, BlockchainResponse, VerificationContext,
-};
-use cuprate_consensus_rules::{
-    blocks::{check_block_weight, ContextToVerifyBlock, RX_SEEDHASH_EPOCH_LAG},
-    miner_tx::{calculate_block_reward, MINER_TX_TIME_LOCKED_BLOCKS},
-    transactions::{
-        check_transaction_contextual, check_transaction_semantic, TxRingMembersInfo,
-        CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE,
-    },
-};
-use cuprate_helper::{cast::usize_to_u64, time::current_unix_timestamp};
 use monero_address::MoneroAddress;
-
-use cuprate_blockchain::{service::BlockchainReadHandle, types::BlockHash};
-use cuprate_txpool::{service::TxpoolReadHandle, types::TransactionHash, TxEntry};
-use cuprate_types::{BlockTemplate, HardFork, TransactionVerificationData};
 use monero_oxide::{
     block::{Block, BlockHeader},
     ed25519::{CompressedPoint, Point, Scalar},
@@ -32,13 +16,21 @@ use monero_oxide::{
     primitives::keccak256,
     transaction::{Input, Output, Timelock, Transaction, TransactionPrefix},
 };
-use tower::{BoxError, Service, ServiceExt};
+use tower::{Service, ServiceExt};
 use tracing::instrument;
 
-use crate::{
-    blockchain::ConsensusBlockchainReadHandle,
-    txpool::read::{backlog, txs_for_block},
+use cuprate_blockchain::{service::BlockchainReadHandle, types::BlockHash};
+use cuprate_consensus::{BlockchainContextService, BlockchainReadRequest, BlockchainResponse};
+use cuprate_consensus_rules::{
+    blocks::{check_block_weight, ContextToVerifyBlock, RX_SEEDHASH_EPOCH_LAG},
+    miner_tx::{calculate_block_reward, MINER_TX_TIME_LOCKED_BLOCKS},
+    transactions::CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE,
 };
+use cuprate_helper::{cast::usize_to_u64, time::current_unix_timestamp};
+use cuprate_txpool::{service::TxpoolReadHandle, types::TransactionHash, TxEntry};
+use cuprate_types::{BlockTemplate, HardFork};
+
+use crate::txpool::read::{backlog, txs_for_block};
 
 const ACCEPT_THRESHOLD: u64 = 1;
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_basic/tx_extra.h#L35-L39>
@@ -153,7 +145,7 @@ struct BlockTemplateBuilder {
 }
 
 impl BlockTemplateBuilder {
-    fn new(context: &BlockchainContext) -> Self {
+    fn new(context: &ContextToVerifyBlock) -> Self {
         Self {
             total_weight: 0,
             fee: 0,
@@ -171,149 +163,179 @@ impl BlockTemplateBuilder {
 ///
 /// returns the selected transaction hashes and the totals needed to construct the miner tx ([`BlockTemplateFill`])
 ///
-/// ref <https://github.com/monero-project/monero/blob/e0f36de6149ebfbbe092e783fffe0430d97f3e1f/src/cryptonote_core/tx_pool.cpp#L1595-L1739>
+/// ref <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_core/tx_pool.cpp#L1617-L1760>
 async fn fill_block_template(
-    context: &BlockchainContext,
-    blockchain_read: &BlockchainReadHandle,
+    context: &ContextToVerifyBlock,
+    blockchain_read: &mut BlockchainReadHandle,
     txpool_read: &mut TxpoolReadHandle,
     include_sensitive_txs: bool,
 ) -> Result<BlockTemplateFill, Error> {
-    let max_total_weight =
-        2 * context.median_weight_for_block_reward - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
-    // later TODO: handle pre V5
+    let tx_entries = backlog(txpool_read).await?;
 
-    let mut tx_entries = backlog(txpool_read).await?;
-    if !include_sensitive_txs {
-        tx_entries.retain(|tx| !tx.private);
-    }
-
-    let tx_hashes = tx_entries.iter().map(|tx| tx.id).collect();
-    let (verification_data, _) = txs_for_block(txpool_read, tx_hashes).await?;
-
-    let candidates: Vec<_> = tx_entries
-        .iter()
-        .filter_map(|entry| verification_data.get(&entry.id).map(|tx| (entry, tx)))
-        .collect();
-
-    let verification_txs: Vec<_> = candidates.iter().map(|(_, tx)| *tx).collect();
-    let consensus_read =
-        ConsensusBlockchainReadHandle::new(blockchain_read.clone(), BoxError::from);
-    let mut verification_context = VerificationContext::Database(consensus_read);
-
-    let ring_members = batch_get_ring_member_info(
-        verification_txs.iter().copied(),
-        context.current_hf,
-        &mut verification_context,
-    )
-    .await?;
-
-    let mut builder = BlockTemplateBuilder::new(context);
-
-    tracing::info!(
+    tracing::debug!(
         "Filling block template, median weight {}, {} txes in the pool",
         context.median_weight_for_block_reward,
         tx_entries.len()
     );
-    let transaction_hashes = candidates
-        .iter()
-        .zip(ring_members.iter())
-        .filter_map(|((entry, tx), tx_ring_members_info)| {
-            consider_transaction(
-                context,
-                max_total_weight,
-                entry,
-                tx,
-                tx_ring_members_info,
-                &mut builder,
-            )
-        })
-        .collect();
+    let selected = select_transactions(context, tx_entries, include_sensitive_txs);
 
-    Ok(BlockTemplateFill {
-        transaction_hashes,
-        total_weight: builder.total_weight,
-        fee: builder.fee,
-    })
+    // The pool may have changed since the backlog was read, and it learns about new
+    // blocks asynchronously, so leave out transactions that are gone or already spent.
+    //
+    // monerod verifies the inputs of every transaction it considers again. Here that
+    // would be the ring signatures of the whole pool on every call, without a cache.
+    let (mut txs, _) = txs_for_block(txpool_read, selected.clone()).await?;
+    let key_images: Vec<[u8; 32]> = txs.values().flat_map(|tx| tx_key_images(&tx.tx)).collect();
+    let mut seen_key_images = key_images_spent(blockchain_read, key_images).await?;
+
+    let mut fill = BlockTemplateFill {
+        transaction_hashes: Vec::with_capacity(selected.len()),
+        total_weight: 0,
+        fee: 0,
+    };
+    for tx_hash in selected {
+        let Some(tx) = txs.remove(&tx_hash) else {
+            continue;
+        };
+
+        let key_images = tx_key_images(&tx.tx);
+        if key_images.iter().any(|ki| seen_key_images.contains(ki)) {
+            tracing::debug!("key images already seen");
+            continue;
+        }
+        seen_key_images.extend(key_images);
+
+        fill.transaction_hashes.push(tx_hash);
+        fill.total_weight += tx.tx_weight;
+        fill.fee = fill.fee.saturating_add(tx.fee);
+    }
+
+    Ok(fill)
+}
+
+/// selects the transactions of the next block from the pool's `tx_entries`, by weight and fee
+///
+/// Like monerod, this considers them by fee per weight, then by age,
+/// and leaves out stem transactions unless `include_sensitive_txs` is set.
+fn select_transactions(
+    context: &ContextToVerifyBlock,
+    mut tx_entries: Vec<TxEntry>,
+    include_sensitive_txs: bool,
+) -> Vec<TransactionHash> {
+    let median_weight = context.median_weight_for_block_reward;
+    let max_total_weight = if context.current_hf >= HardFork::V5 {
+        2 * median_weight
+    } else {
+        (130 * median_weight) / 100
+    } - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
+
+    if !include_sensitive_txs {
+        tx_entries.retain(|tx| !tx.private);
+    }
+    tx_entries.sort_unstable_by(|a, b| {
+        // `fee / weight` compared by cross-multiplication.
+        let a_rate = u128::from(a.fee) * u128::from(usize_to_u64(b.weight));
+        let b_rate = u128::from(b.fee) * u128::from(usize_to_u64(a.weight));
+        b_rate
+            .cmp(&a_rate)
+            .then_with(|| a.received_at.cmp(&b.received_at))
+            .then_with(|| a.id.cmp(&b.id))
+    });
+
+    let mut builder = BlockTemplateBuilder::new(context);
+    tx_entries
+        .iter()
+        .filter_map(|entry| consider_transaction(context, max_total_weight, entry, &mut builder))
+        .collect()
 }
 
 /// returns the transaction's hash if it should be added, `None` if it should be skipped
 /// The mutable totals are only updated if the transaction is added.
 ///
 /// transactions are skipped if they
-/// - don't fit in the block weight limits
-/// - would decrease the coinbase reward, or
-/// - fail the contextual/semantic consensus checks
-#[tracing::instrument(ret, skip_all, fields(tx.id = ?entry.id, tx.weight = entry.weight, total_weight = builder.total_weight / max_total_weight))]
+/// - don't fit in the block weight limits, or
+/// - would decrease the coinbase reward
+#[instrument(level = "trace", ret, skip_all, fields(tx.weight = entry.weight, total_weight = builder.total_weight))]
 fn consider_transaction(
-    context: &BlockchainContext,
+    context: &ContextToVerifyBlock,
     max_total_weight: usize,
     entry: &TxEntry,
-    tx: &TransactionVerificationData,
-    tx_ring_members_info: &TxRingMembersInfo,
     builder: &mut BlockTemplateBuilder,
 ) -> Option<TransactionHash> {
     // later TODO: check if pruned, continue if it is
 
-    if entry.weight > max_total_weight {
-        tracing::info!("exceeds maximum block weight");
+    if builder.total_weight + entry.weight > max_total_weight {
+        tracing::trace!("exceeds maximum block weight");
         return None;
     }
 
     let coinbase = if context.current_hf >= HardFork::V5 {
-        if builder.total_weight + entry.weight > 2 * context.median_weight_for_block_reward {
-            tracing::info!("exceeds maximum block weight");
-            return None;
-        }
-
         let block_reward = calculate_block_reward(
             builder.total_weight + entry.weight,
             context.median_weight_for_block_reward,
             context.already_generated_coins,
             context.current_hf,
         );
-        let coinbase = block_reward + builder.fee + entry.fee;
+        let coinbase = block_reward
+            .saturating_add(builder.fee)
+            .saturating_add(entry.fee);
         if coinbase < builder.best_coinbase * ACCEPT_THRESHOLD {
+            tracing::trace!("would decrease coinbase");
             return None;
         }
         Some(coinbase)
     } else if builder.total_weight > context.median_weight_for_block_reward {
-        tracing::info!("exceeds median block weight");
+        tracing::trace!("exceeds median block weight");
         return None;
     } else {
         // TODO: coinbase isn't updated if hf < V5. this is also a minor bug in monerod as far as I've seen it
         None
     };
 
-    let ready = check_transaction_contextual(
-        &tx.tx,
-        tx_ring_members_info,
-        context.chain_height,
-        context.current_adjusted_timestamp_for_time_lock(),
-        context.current_hf,
-    )
-    .is_ok()
-        && check_transaction_semantic(
-            &tx.tx,
-            tx.tx_blob.len(),
-            tx.tx_weight,
-            &tx.tx_hash,
-            context.current_hf,
-            &MultiThreadedBatchVerifier::new(1),
-        )
-        .is_ok();
-
-    if !ready {
-        tracing::info!("not ready to go");
-        return None;
-    }
-
     builder.total_weight += entry.weight;
-    builder.fee += entry.fee;
+    builder.fee = builder.fee.saturating_add(entry.fee);
     if let Some(coinbase) = coinbase {
         builder.best_coinbase = coinbase;
     }
 
     Some(entry.id)
+}
+
+/// The key images `tx` spends.
+fn tx_key_images(tx: &Transaction) -> Vec<[u8; 32]> {
+    tx.prefix()
+        .inputs
+        .iter()
+        .filter_map(|input| match input {
+            Input::ToKey { key_image, .. } => Some(key_image.to_bytes()),
+            Input::Gen(_) => None,
+        })
+        .collect()
+}
+
+/// The `key_images` that the main chain has spent.
+async fn key_images_spent(
+    blockchain_read: &mut BlockchainReadHandle,
+    key_images: Vec<[u8; 32]>,
+) -> Result<HashSet<[u8; 32]>, Error> {
+    if key_images.is_empty() {
+        return Ok(HashSet::new());
+    }
+
+    let BlockchainResponse::KeyImagesSpentVec(spent) = blockchain_read
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::KeyImagesSpentVec(key_images.clone()))
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(key_images
+        .into_iter()
+        .zip(spent)
+        .filter_map(|(key_image, spent)| spent.then_some(key_image))
+        .collect())
 }
 
 async fn get_block_hash_main_chain(
@@ -654,6 +676,94 @@ mod tests {
             MoneroAddress::new(Network::Mainnet, AddressType::Legacy, spend, view),
             secrets,
         )
+    }
+
+    fn entry(id: u8, weight: usize, fee: u64, received_at: u64) -> TxEntry {
+        TxEntry {
+            id: [id; 32],
+            weight,
+            fee,
+            private: false,
+            received_at,
+        }
+    }
+
+    /// The first byte of each transaction selected from `tx_entries`.
+    fn selected(hf: HardFork, tx_entries: Vec<TxEntry>, include_sensitive_txs: bool) -> Vec<u8> {
+        select_transactions(&context(hf), tx_entries, include_sensitive_txs)
+            .into_iter()
+            .map(|tx_hash| tx_hash[0])
+            .collect()
+    }
+
+    #[test]
+    fn stem_txs_are_only_selected_when_asked() {
+        let mut stem = entry(2, 1, 1, 0);
+        stem.private = true;
+        let tx_entries = vec![entry(1, 1, 1, 0), stem];
+
+        assert_eq!(selected(HardFork::V16, tx_entries.clone(), false), [1]);
+        assert_eq!(selected(HardFork::V16, tx_entries, true), [1, 2]);
+    }
+
+    #[test]
+    fn txs_are_considered_by_fee_rate_then_age_then_id() {
+        let tx_entries = vec![
+            entry(5, 2_000, 2_000, 9),
+            entry(4, 1_000, 1_000, 9),
+            entry(3, 1_000, 1_000, 1),
+            entry(2, 3_000, 9_000, 9),
+            entry(1, 1_000, 2_999, 0),
+        ];
+
+        assert_eq!(selected(HardFork::V16, tx_entries, false), [2, 1, 3, 4, 5]);
+    }
+
+    #[test]
+    fn selection_leaves_room_for_the_miner_tx() {
+        // Fees that outweigh any penalty.
+        let fee = 1_000_000_000_000_000;
+        let heavy = |id| entry(id, 100_000, fee, 0);
+        let light = |id, weight| entry(id, weight, fee / 4, 0);
+
+        // From hard fork 5, up to twice the median weight.
+        let mut tx_entries: Vec<_> = (1..=6).map(heavy).collect();
+        tx_entries.push(light(7, 100_000 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE));
+        tx_entries.push(entry(8, 1, 1_000_000_000, 0));
+        assert_eq!(
+            selected(HardFork::V16, tx_entries, false),
+            [1, 2, 3, 4, 5, 7]
+        );
+
+        // Before, up to 130% of it, and nothing more once past the median.
+        let tx_entries = vec![heavy(1), heavy(2), heavy(3), light(4, 90_000)];
+        assert_eq!(selected(HardFork::V4, tx_entries, false), [1, 2, 3]);
+        let tx_entries = vec![
+            heavy(1),
+            heavy(2),
+            heavy(3),
+            light(4, 50_000),
+            entry(5, 1, 1, 0),
+        ];
+        assert_eq!(selected(HardFork::V4, tx_entries, false), [1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn selection_never_lowers_the_coinbase() {
+        let tx_entries = vec![
+            // Fills the block up to the median weight.
+            entry(1, MEDIAN_WEIGHT, 1_000_000_000_000_000, 0),
+            // Each costs about 1% of the 35 XMR reward.
+            entry(2, 30_000, 3, 0),
+            entry(3, 30_000, 2, 0),
+            entry(4, 30_000, 0, 0),
+        ];
+        assert_eq!(selected(HardFork::V16, tx_entries.clone(), false), [1]);
+
+        // One that pays for its penalty is worth it.
+        let mut paying = tx_entries;
+        paying[2].fee = 1_000_000_000_000;
+        assert_eq!(selected(HardFork::V16, paying, false), [1, 3]);
     }
 
     #[test]

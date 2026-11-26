@@ -174,7 +174,9 @@ async fn get_block_template(
         &address,
         prev_block,
         &extra_nonce,
-        true, // <https://github.com/monero-project/monero/blob/1c079ffa9117e7429d16ebc6d627ecdb0a952bd4/src/cryptonote_core/cryptonote_core.h#L239>
+        // monerod only mines transactions that are still in the stem phase on regtest:
+        // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_core/tx_pool.cpp#L1657-L1661>
+        state.network == Network::FakeChain,
     )
     .await?;
 
