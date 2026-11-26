@@ -55,7 +55,7 @@ use cuprate_types::{
 };
 
 use crate::{
-    blockchain::block_template::create_block_template,
+    blockchain::block_template::{create_block_template, TX_EXTRA_NONCE_MAX_COUNT},
     constants::VERSION_BUILD,
     rpc::{
         constants::UNSUPPORTED_RPC_CALL,
@@ -144,13 +144,16 @@ async fn get_block_template(
             "Cannot specify both a reserve_size and an extra_nonce"
         ));
     }
-    if request.extra_nonce.len() > 510 {
+    // monerod's limit of 510 is in hex characters.
+    if request.extra_nonce.len() > TX_EXTRA_NONCE_MAX_COUNT {
         return Err(anyhow!("Too big extra_nonce size"));
     }
 
-    if !request.extra_nonce.is_empty() {
-        return Err(anyhow!("extra_nonce not implemented"));
-    }
+    let extra_nonce = if request.reserve_size == 0 {
+        request.extra_nonce.0
+    } else {
+        vec![0; u64_to_usize(request.reserve_size)]
+    };
 
     let address = helper::get_address(state.network, &request.wallet_address)?;
     let prev_block = request.prev_block.try_into().unwrap_or([0; 32]);
@@ -170,7 +173,7 @@ async fn get_block_template(
         &mut state.txpool_read,
         &address,
         prev_block,
-        request.extra_nonce,
+        &extra_nonce,
         true, // <https://github.com/monero-project/monero/blob/1c079ffa9117e7429d16ebc6d627ecdb0a952bd4/src/cryptonote_core/cryptonote_core.h#L239>
     )
     .await?;
@@ -272,7 +275,8 @@ async fn generate_blocks(
             &mut state.txpool_read,
             &address,
             prev_block.try_into().unwrap_or_default(),
-            HexVec::new(),
+            // Like monerod, reserve one byte of extra nonce.
+            &[0],
             true,
         )
         .await?;
