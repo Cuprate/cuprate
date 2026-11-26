@@ -267,36 +267,37 @@ mod test {
     //
     // Each new PATH should be added to this test:
     // - It must be `is_absolute()`
-    // - It must `ends_with()` the expected end PATH for the OS
+    // - It must start with the `dirs` base directory it is derived from
+    // - It must end with `CUPRATE_DIR`
+    //
+    // `dirs` resolves the platform convention itself, so on systems
+    // like Flatpak the PATHs won't end with the normal OS suffix (#610).
     #[test]
     fn path_sanity_check() {
-        // Array of (PATH, expected_path_as_string).
-        //
-        // The different OS's will set the expected path below.
-        let mut array = [
-            (&*CUPRATE_CACHE_DIR, ""),
-            (&*CUPRATE_CONFIG_DIR, ""),
-            (&*CUPRATE_DATA_DIR, ""),
+        // Array of (PATH, its `dirs` base directory).
+        let array = [
+            (&*CUPRATE_CACHE_DIR, dirs::cache_dir()),
+            (&*CUPRATE_CONFIG_DIR, dirs::config_dir()),
+            (&*CUPRATE_DATA_DIR, dirs::data_dir()),
         ];
 
-        if cfg!(target_os = "windows") {
-            array[0].1 = r"AppData\Local\Cuprate";
-            array[1].1 = r"AppData\Roaming\Cuprate";
-            array[2].1 = r"AppData\Roaming\Cuprate";
-        } else if cfg!(target_os = "macos") {
-            array[0].1 = "Library/Caches/Cuprate";
-            array[1].1 = "Library/Application Support/Cuprate";
-            array[2].1 = "Library/Application Support/Cuprate";
-        } else {
-            // Assumes Linux.
-            array[0].1 = ".cache/cuprate";
-            array[1].1 = ".config/cuprate";
-            array[2].1 = ".local/share/cuprate";
-        }
-
-        for (path, expected) in array {
+        for (path, base) in array {
             assert!(path.is_absolute());
-            assert!(path.ends_with(expected));
+
+            assert!(
+                path.ends_with(CUPRATE_DIR),
+                "PATH {path:?} does not end with `{CUPRATE_DIR}`"
+            );
+
+            // Some platforms do not resolve all base directories.
+            let Some(base) = base else {
+                continue;
+            };
+
+            assert!(
+                path.starts_with(&base),
+                "PATH {path:?} is not within the base directory {base:?}"
+            );
         }
     }
 }
