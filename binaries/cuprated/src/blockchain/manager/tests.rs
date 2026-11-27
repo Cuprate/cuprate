@@ -1,5 +1,6 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
+use futures::FutureExt;
 use monero_oxide::{
     block::{Block, BlockHeader},
     ed25519::CompressedPoint,
@@ -19,7 +20,7 @@ use cuprate_types::{CachedVerificationState, TransactionVerificationData, TxVers
 use crate::{
     blockchain::{
         check_add_genesis, manager::BlockchainManager, manager::BlockchainManagerCommand,
-        ConsensusBlockchainReadHandle,
+        ConsensusBlockchainReadHandle, IncomingBlockError,
     },
     txpool::TxpoolManagerHandle,
 };
@@ -459,4 +460,160 @@ async fn recover_bad_reorg() {
         &context,
         manager_1.blockchain_context_service.blockchain_context()
     );
+}
+
+/// An alt block that fails before its PoW must not stop its alt chain from reorging later.
+#[tokio::test]
+async fn reorg_after_failed_alt_block() {
+    let data_dir = tempfile::tempdir().unwrap();
+    let mut manager = mock_manager(data_dir.path().to_path_buf()).await;
+
+    // A main-chain block and an alt block competing with it.
+    let block_1a = generate_block(manager.blockchain_context_service.blockchain_context());
+    let block_1b = generate_block(manager.blockchain_context_service.blockchain_context());
+
+    // A child of the alt block with the wrong miner height, which fails before its PoW.
+    let mut bad_block = generate_block(manager.blockchain_context_service.blockchain_context());
+    bad_block.header.previous = block_1b.hash();
+
+    for block in [block_1a, block_1b.clone()] {
+        manager
+            .handle_command(BlockchainManagerCommand::AddBlock {
+                block,
+                prepped_txs: HashMap::new(),
+                response_tx: oneshot::channel().0,
+            })
+            .await
+            .unwrap();
+    }
+
+    let mut block_2 = generate_block(manager.blockchain_context_service.blockchain_context());
+    block_2.header.previous = block_1b.hash();
+
+    for block in [bad_block, block_2.clone()] {
+        manager
+            .handle_command(BlockchainManagerCommand::AddBlock {
+                block,
+                prepped_txs: HashMap::new(),
+                response_tx: oneshot::channel().0,
+            })
+            .await
+            .unwrap();
+    }
+
+    // The valid child reorged to the alt chain.
+    assert_eq!(
+        manager
+            .blockchain_context_service
+            .blockchain_context()
+            .top_hash,
+        block_2.hash()
+    );
+}
+
+/// A batch that starts with our top block adds the block after it, without banning the peer.
+#[tokio::test]
+async fn alt_batch_starts_at_top() {
+    let handle = HandleBuilder::new().build();
+    let data_dir = tempfile::tempdir().unwrap();
+    let mut manager = mock_manager(data_dir.path().to_path_buf()).await;
+
+    let block_1 = generate_block(manager.blockchain_context_service.blockchain_context());
+
+    manager
+        .handle_command(BlockchainManagerCommand::AddBlock {
+            block: block_1.clone(),
+            prepped_txs: HashMap::new(),
+            response_tx: oneshot::channel().0,
+        })
+        .await
+        .unwrap();
+
+    let block_2 = generate_block(manager.blockchain_context_service.blockchain_context());
+
+    manager
+        .handle_incoming_block_batch(BlockBatch {
+            blocks: vec![(block_1, vec![]), (block_2.clone(), vec![])],
+            size: 0,
+            peer_handle: handle.1.clone(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(
+        manager
+            .blockchain_context_service
+            .blockchain_context()
+            .top_hash,
+        block_2.hash()
+    );
+}
+
+/// A block whose parent is unknown is ignored, without banning the peer.
+#[tokio::test]
+async fn unknown_parent() {
+    let mut handle = HandleBuilder::new().build();
+    let data_dir = tempfile::tempdir().unwrap();
+    let mut manager = mock_manager(data_dir.path().to_path_buf()).await;
+
+    let mut block_2 = generate_block(manager.blockchain_context_service.blockchain_context());
+    block_2.header.previous = rand::random();
+
+    let (response_tx, response_rx) = oneshot::channel();
+    manager
+        .handle_command(BlockchainManagerCommand::AddBlock {
+            block: block_2.clone(),
+            prepped_txs: HashMap::new(),
+            response_tx,
+        })
+        .await
+        .unwrap();
+    assert!(matches!(
+        response_rx.await.unwrap(),
+        Err(IncomingBlockError::Orphan)
+    ));
+
+    let stop = Arc::clone(&manager.stop_current_block_downloader);
+    let stopped = stop.notified();
+    manager
+        .handle_incoming_block_batch(BlockBatch {
+            blocks: vec![(block_2, vec![])],
+            size: 0,
+            peer_handle: handle.1.clone(),
+        })
+        .await
+        .unwrap();
+    assert!(handle.1.check_should_ban().is_none());
+    assert!(stopped.now_or_never().is_some());
+}
+
+/// A batch block that doesn't follow the block before it bans the peer.
+#[tokio::test]
+async fn alt_batch_not_linked() {
+    let mut handle = HandleBuilder::new().build();
+    let data_dir = tempfile::tempdir().unwrap();
+    let mut manager = mock_manager(data_dir.path().to_path_buf()).await;
+
+    // A main-chain block and two alt blocks competing with it.
+    let block_1a = generate_block(manager.blockchain_context_service.blockchain_context());
+    let block_1b = generate_block(manager.blockchain_context_service.blockchain_context());
+    let block_1c = generate_block(manager.blockchain_context_service.blockchain_context());
+
+    manager
+        .handle_command(BlockchainManagerCommand::AddBlock {
+            block: block_1a,
+            prepped_txs: HashMap::new(),
+            response_tx: oneshot::channel().0,
+        })
+        .await
+        .unwrap();
+
+    manager
+        .handle_incoming_block_batch(BlockBatch {
+            blocks: vec![(block_1b, vec![]), (block_1c, vec![])],
+            size: 0,
+            peer_handle: handle.1.clone(),
+        })
+        .await
+        .unwrap();
+    assert!(handle.1.check_should_ban().is_some());
 }
