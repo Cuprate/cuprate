@@ -93,6 +93,24 @@ pub(crate) async fn pool_info_since(
         .map_err(|_| anyhow!("txpool manager stopped"))
 }
 
+/// Flush `txids`, or the whole pool if empty.
+pub(crate) async fn flush_txs(
+    txpool_manager: &crate::txpool::TxpoolManagerHandle,
+    txids: Vec<[u8; 32]>,
+) -> Result<(), Error> {
+    let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+
+    txpool_manager
+        .command_tx
+        .send(crate::txpool::TxpoolManagerCommand::FlushTxs { txids, response_tx })
+        .await
+        .map_err(|_| anyhow!("txpool manager stopped"))?;
+
+    response_rx
+        .await
+        .map_err(|_| anyhow!("txpool manager stopped"))
+}
+
 /// [`TxpoolReadRequest::TxsByHash`]
 pub(crate) async fn txs_by_hash(
     txpool_read: &mut TxpoolReadHandle,

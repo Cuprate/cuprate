@@ -148,6 +148,12 @@ pub(crate) enum TxpoolManagerCommand {
         since: u64,
         response_tx: oneshot::Sender<PoolInfoSinceResponse>,
     },
+
+    /// Remove the given transactions from the pool, or all of them if `txids` is empty.
+    FlushTxs {
+        txids: Vec<[u8; 32]>,
+        response_tx: oneshot::Sender<()>,
+    },
 }
 
 /// Response to [`TxpoolManagerCommand::PoolInfoSince`].
@@ -350,6 +356,26 @@ impl TxpoolManager {
         self.diffuse_service
             .call(DiffuseRequest(DandelionTx(Bytes::from(tx_blob))))
             .await?;
+
+        Ok(())
+    }
+
+    /// Removes `txids` from the pool, or every tx if `txids` is empty.
+    ///
+    /// Like monerod, this skips `txids` that are not in the pool.
+    async fn flush_txs(&mut self, txids: Vec<[u8; 32]>) -> Result<(), FatalError> {
+        let txids = if txids.is_empty() {
+            self.current_txs.keys().copied().collect()
+        } else {
+            txids
+        };
+
+        for tx in txids {
+            // `txids` may repeat or name unknown txs, which `remove_tx_from_pool` panics on.
+            if self.current_txs.contains_key(&tx) {
+                self.remove_tx_from_pool(tx, true).await?;
+            }
+        }
 
         Ok(())
     }
@@ -594,6 +620,10 @@ impl TxpoolManager {
                                 }
                             };
                             let _ = response_tx.send(response);
+                        }
+                        TxpoolManagerCommand::FlushTxs { txids, response_tx } => {
+                            self.flush_txs(txids).await?;
+                            let _ = response_tx.send(());
                         }
                     }
                 }

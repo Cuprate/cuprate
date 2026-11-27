@@ -105,7 +105,7 @@ pub(crate) async fn map_request(
         Req::SetBans(_) => Resp::SetBans(not_available()?),
         Req::GetBans(_) => Resp::GetBans(not_available()?),
         Req::Banned(_) => Resp::Banned(not_available()?),
-        Req::FlushTxpool(_) => Resp::FlushTxpool(not_available()?),
+        Req::FlushTxpool(r) => Resp::FlushTxpool(flush_transaction_pool(state, r).await?),
         Req::GetOutputHistogram(r) => {
             Resp::GetOutputHistogram(get_output_histogram(state, r).await?)
         }
@@ -811,12 +811,14 @@ async fn banned(
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2880-L2932>
-#[expect(dead_code)]
 async fn flush_transaction_pool(
-    _state: CupratedRpcHandler,
-    _request: FlushTxpoolRequest,
+    state: CupratedRpcHandler,
+    request: FlushTxpoolRequest,
 ) -> Result<FlushTxpoolResponse, Error> {
-    todo!()
+    let txids = request.txids.into_iter().map(|id| id.0).collect();
+    txpool::flush_txs(&state.tx_handler.txpool_manager, txids).await?;
+
+    Ok(FlushTxpoolResponse { status: Status::Ok })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2934-L2979>

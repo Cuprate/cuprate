@@ -60,6 +60,14 @@ impl super::BlockchainManager {
             } => {
                 let reorg_lock = Arc::clone(&self.reorg_lock);
                 let _guard = reorg_lock.write().await;
+                // Like monerod, keep the genesis block. Popping it panics the database writer.
+                // TODO: monerod returns the popped blocks' transactions to the txpool.
+                let numb_blocks = numb_blocks.min(
+                    self.blockchain_context_service
+                        .blockchain_context()
+                        .chain_height
+                        .saturating_sub(1),
+                );
                 self.pop_blocks(numb_blocks, false).await?;
                 self.blockchain_write_handle
                     .ready()
