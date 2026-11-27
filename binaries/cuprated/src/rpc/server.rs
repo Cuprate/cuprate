@@ -179,6 +179,7 @@ fn init_rpc_router(
         .other_send_raw_transaction()
         .other_sendrawtransaction()
         .other_get_transaction_pool_hashes()
+        .other_pop_blocks()
         .other_stop_daemon()
         //
         .bin_get_blocks()

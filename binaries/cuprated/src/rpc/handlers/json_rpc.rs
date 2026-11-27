@@ -11,6 +11,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Error};
+use futures::FutureExt;
 use monero_oxide::block::Block;
 
 use cuprate_constants::rpc::{
@@ -51,14 +52,21 @@ use cuprate_rpc_types::{
 };
 use cuprate_types::{
     rpc::{CoinbaseTxSum, GetMinerDataTxBacklogEntry, HardForkEntry, TxBacklogEntry},
-    Chain, HardFork,
+    BlockTemplate, Chain, HardFork,
 };
 
 use crate::{
+    blockchain::{
+        block_template::{create_block_template, find_nonce, TX_EXTRA_NONCE_MAX_COUNT},
+        IncomingBlockOk,
+    },
     constants::VERSION_BUILD,
     rpc::{
         constants::UNSUPPORTED_RPC_CALL,
-        handlers::{helper, shared, shared::not_available},
+        handlers::{
+            helper,
+            shared::{self, not_available},
+        },
         service::{address_book, blockchain, blockchain_context, txpool},
         CupratedRpcHandler,
     },
@@ -73,11 +81,11 @@ pub(crate) async fn map_request(
     use JsonRpcResponse as Resp;
 
     Ok(match request {
-        Req::GetBlockTemplate(_) => Resp::GetBlockTemplate(not_available()?),
+        Req::GetBlockTemplate(r) => Resp::GetBlockTemplate(get_block_template(state, r).await?),
         Req::GetBlockCount(r) => Resp::GetBlockCount(get_block_count(state, r)),
         Req::OnGetBlockHash(r) => Resp::OnGetBlockHash(on_get_block_hash(state, r).await?),
         Req::SubmitBlock(r) => Resp::SubmitBlock(submit_block(state, r).await?),
-        Req::GenerateBlocks(_) => Resp::GenerateBlocks(not_available()?),
+        Req::GenerateBlocks(r) => Resp::GenerateBlocks(generate_blocks(state, r).await?),
         Req::GetLastBlockHeader(r) => {
             Resp::GetLastBlockHeader(get_last_block_header(state, r).await?)
         }
@@ -97,7 +105,7 @@ pub(crate) async fn map_request(
         Req::SetBans(_) => Resp::SetBans(not_available()?),
         Req::GetBans(_) => Resp::GetBans(not_available()?),
         Req::Banned(_) => Resp::Banned(not_available()?),
-        Req::FlushTxpool(_) => Resp::FlushTxpool(not_available()?),
+        Req::FlushTxpool(r) => Resp::FlushTxpool(flush_transaction_pool(state, r).await?),
         Req::GetOutputHistogram(r) => {
             Resp::GetOutputHistogram(get_output_histogram(state, r).await?)
         }
@@ -127,11 +135,19 @@ pub(crate) async fn map_request(
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1911-L2005>
-#[expect(dead_code)]
 async fn get_block_template(
-    _state: CupratedRpcHandler,
+    mut state: CupratedRpcHandler,
     request: GetBlockTemplateRequest,
 ) -> Result<GetBlockTemplateResponse, Error> {
+    // Like monerod, do not hand out work before the first sync.
+    // FIXME: monerod answers with error code -9, but handler errors are a bare HTTP 500.
+    if !matches!(
+        state.blockchain_syncer.wait_for_synced().now_or_never(),
+        Some(Ok(()))
+    ) {
+        return Err(anyhow!("Core is busy"));
+    }
+
     if request.reserve_size > 255 {
         return Err(anyhow!("Too big reserved size, maximum 255"));
     }
@@ -141,27 +157,19 @@ async fn get_block_template(
             "Cannot specify both a reserve_size and an extra_nonce"
         ));
     }
-
-    if request.extra_nonce.len() > 510 {
+    // monerod's limit of 510 is in hex characters.
+    if request.extra_nonce.len() > TX_EXTRA_NONCE_MAX_COUNT {
         return Err(anyhow!("Too big extra_nonce size"));
     }
 
-    // TODO: This should be `cuprated`'s active network.
-    let network = match Network::Mainnet {
-        Network::Mainnet | Network::FakeChain => monero_address::Network::Mainnet,
-        Network::Stagenet => monero_address::Network::Stagenet,
-        Network::Testnet => monero_address::Network::Testnet,
+    let extra_nonce = if request.reserve_size == 0 {
+        request.extra_nonce.0
+    } else {
+        vec![0; u64_to_usize(request.reserve_size)]
     };
 
-    let address = monero_address::MoneroAddress::from_str(network, &request.wallet_address)?;
-
-    if *address.kind() != monero_address::AddressType::Legacy {
-        return Err(anyhow!("Incorrect address type"));
-    }
-
-    todo!()
-    /*
-    let prev_block = request.prev_block.try_into().unwrap_or([0; 32]);
+    let address = helper::get_address(state.network, &request.wallet_address)?;
+    let prev_block = helper::get_prev_block(&request.prev_block)?;
 
     let BlockTemplate {
         block,
@@ -172,7 +180,18 @@ async fn get_block_template(
         seed_height,
         seed_hash,
         next_seed_hash,
-    } = ;
+    } = create_block_template(
+        &mut state.blockchain_read,
+        &state.blockchain_context,
+        &mut state.txpool_read,
+        &address,
+        prev_block,
+        &extra_nonce,
+        // monerod only mines transactions that are still in the stem phase on regtest:
+        // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_core/tx_pool.cpp#L1657-L1661>
+        state.network == Network::FakeChain,
+    )
+    .await?;
 
     let blockhashing_blob = HexVec(block.serialize_pow_hash());
     let blocktemplate_blob = HexVec(block.serialize());
@@ -197,8 +216,6 @@ async fn get_block_template(
         seed_height,
         wide_difficulty,
     })
-
-     */
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1790-L1804>
@@ -254,45 +271,73 @@ async fn submit_block(
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2268-L2340>
-#[expect(dead_code)]
 async fn generate_blocks(
-    state: CupratedRpcHandler,
-    _request: GenerateBlocksRequest,
+    mut state: CupratedRpcHandler,
+    request: GenerateBlocksRequest,
 ) -> Result<GenerateBlocksResponse, Error> {
     if state.network != Network::FakeChain {
         return Err(anyhow!("Regtest required when generating blocks"));
     }
 
-    todo!()
+    let address = helper::get_address(state.network, &request.wallet_address)?;
+    let mut blocks = Vec::new();
+    let mut prev_block = helper::get_prev_block(&request.prev_block)?;
 
-    /*
-    // FIXME:
-    // is this field only used as a local variable in the handler in `monerod`?
-    // It may not be needed in the request type.
-    let prev_block = if request.prev_block.is_empty() {
-        None
-    } else {
-        Some(request.prev_block.try_into()?)
-    };
+    let mut height = usize_to_u64(state.blockchain_context.blockchain_context().chain_height);
 
-    let (blocks, height) = blockchain_manager::generate_blocks(
-        todo!(),
-        request.amount_of_blocks,
-        prev_block,
-        request.starting_nonce,
-        request.wallet_address,
-    )
-    .await?;
+    for _ in 0..request.amount_of_blocks {
+        let BlockTemplate {
+            block,
+            difficulty,
+            height: block_height,
+            ..
+        } = create_block_template(
+            &mut state.blockchain_read,
+            &state.blockchain_context,
+            &mut state.txpool_read,
+            &address,
+            prev_block,
+            // Like monerod, reserve one byte of extra nonce.
+            &[0],
+            // Regtest mines transactions that are still in the stem phase.
+            true,
+        )
+        .await?;
 
-    let blocks = blocks.into_iter().map(Hex).collect();
+        let block = find_nonce(
+            &mut state.blockchain_context,
+            block,
+            u64_to_usize(block_height),
+            difficulty,
+            request.starting_nonce,
+        )
+        .await?;
+        let block_hash = block.hash();
+
+        let outcome = state
+            .blockchain_manager
+            .handle_incoming_block(
+                block,
+                HashMap::new(), // this function reads the txpool
+                &mut state.blockchain_read,
+                &mut state.txpool_read,
+            )
+            .await?;
+        // TODO: monerod also accepts blocks that extend an alternative chain.
+        if !matches!(outcome, IncomingBlockOk::AddedToMainChain) {
+            return Err(anyhow!("Block not accepted"));
+        }
+
+        blocks.push(Hex(block_hash));
+        prev_block = Some(block_hash);
+        height = block_height;
+    }
 
     Ok(GenerateBlocksResponse {
         base: helper::response_base(false),
         blocks,
         height,
     })
-
-     */
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2468-L2498>
@@ -766,12 +811,14 @@ async fn banned(
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2880-L2932>
-#[expect(dead_code)]
 async fn flush_transaction_pool(
-    _state: CupratedRpcHandler,
-    _request: FlushTxpoolRequest,
+    state: CupratedRpcHandler,
+    request: FlushTxpoolRequest,
 ) -> Result<FlushTxpoolResponse, Error> {
-    todo!()
+    let txids = request.txids.into_iter().map(|id| id.0).collect();
+    txpool::flush_txs(&state.tx_handler.txpool_manager, txids).await?;
+
+    Ok(FlushTxpoolResponse { status: Status::Ok })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2934-L2979>

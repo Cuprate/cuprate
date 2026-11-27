@@ -11,6 +11,7 @@ use cuprate_helper::{
     cast::{u64_to_usize, usize_to_u64},
     map::split_u128_into_low_high_bits,
 };
+use cuprate_p2p_core::Network;
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
     base::{AccessResponseBase, ResponseBase},
@@ -171,4 +172,38 @@ pub(crate) const fn access_response_base(is_bootstrap: bool) -> AccessResponseBa
     } else {
         AccessResponseBase::OK
     }
+}
+
+/// Parses `wallet_address` as a standard address of `network`.
+///
+/// Unlike monerod, this rejects integrated addresses.
+pub(super) fn get_address(
+    network: Network,
+    wallet_address: &str,
+) -> Result<monero_address::MoneroAddress, Error> {
+    let network = match network {
+        Network::Mainnet | Network::FakeChain => monero_address::Network::Mainnet,
+        Network::Stagenet => monero_address::Network::Stagenet,
+        Network::Testnet => monero_address::Network::Testnet,
+    };
+
+    let address = monero_address::MoneroAddress::from_str(network, wallet_address)?;
+
+    if *address.kind() != monero_address::AddressType::Legacy {
+        return Err(anyhow!("Incorrect address type"));
+    }
+
+    Ok(address)
+}
+
+/// Parses the `prev_block` of a request, which is empty for the most recent block.
+pub(super) fn get_prev_block(prev_block: &[u8]) -> Result<Option<[u8; 32]>, Error> {
+    if prev_block.is_empty() {
+        return Ok(None);
+    }
+
+    prev_block
+        .try_into()
+        .map(Some)
+        .map_err(|_| anyhow!("Invalid prev_block"))
 }

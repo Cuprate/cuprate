@@ -5,32 +5,14 @@ use tower::{Service, ServiceExt};
 
 use cuprate_helper::cast::usize_to_u64;
 use cuprate_rpc_types::misc::{SpentKeyImageInfo, TxInfo};
-use cuprate_txpool::{
-    service::{
-        interface::{TxpoolReadRequest, TxpoolReadResponse},
-        TxpoolReadHandle,
-    },
-    TxEntry,
+use cuprate_txpool::service::{
+    interface::{TxpoolReadRequest, TxpoolReadResponse},
+    TxpoolReadHandle,
 };
-use cuprate_types::{
-    rpc::{PoolTxInfo, TxpoolStats},
-    TxInPool,
-};
-// FIXME: use `anyhow::Error` over `tower::BoxError` in txpool.
+use cuprate_types::rpc::{PoolTxInfo, TxpoolStats};
+use cuprate_types::TxInPool;
 
-/// [`TxpoolReadRequest::Backlog`]
-pub(crate) async fn backlog(txpool_read: &mut TxpoolReadHandle) -> Result<Vec<TxEntry>, Error> {
-    let TxpoolReadResponse::Backlog(tx_entries) = txpool_read
-        .ready()
-        .await?
-        .call(TxpoolReadRequest::Backlog)
-        .await?
-    else {
-        unreachable!();
-    };
-
-    Ok(tx_entries)
-}
+pub(crate) use crate::txpool::read::backlog;
 
 /// [`TxpoolReadRequest::Size`]
 pub(crate) async fn size(
@@ -103,6 +85,24 @@ pub(crate) async fn pool_info_since(
     txpool_manager
         .command_tx
         .send(crate::txpool::TxpoolManagerCommand::PoolInfoSince { since, response_tx })
+        .await
+        .map_err(|_| anyhow!("txpool manager stopped"))?;
+
+    response_rx
+        .await
+        .map_err(|_| anyhow!("txpool manager stopped"))
+}
+
+/// Flush `txids`, or the whole pool if empty.
+pub(crate) async fn flush_txs(
+    txpool_manager: &crate::txpool::TxpoolManagerHandle,
+    txids: Vec<[u8; 32]>,
+) -> Result<(), Error> {
+    let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+
+    txpool_manager
+        .command_tx
+        .send(crate::txpool::TxpoolManagerCommand::FlushTxs { txids, response_tx })
         .await
         .map_err(|_| anyhow!("txpool manager stopped"))?;
 
