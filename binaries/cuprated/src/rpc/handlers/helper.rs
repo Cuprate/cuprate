@@ -174,10 +174,13 @@ pub(crate) const fn access_response_base(is_bootstrap: bool) -> AccessResponseBa
     }
 }
 
+/// Parses `wallet_address` as a standard address of `network`.
+///
+/// Unlike monerod, this rejects integrated addresses.
 pub(super) fn get_address(
     network: Network,
     wallet_address: &str,
-) -> Result<monero_address::Address<24025614979073411782522386751669927936>, Error> {
+) -> Result<monero_address::MoneroAddress, Error> {
     let network = match network {
         Network::Mainnet | Network::FakeChain => monero_address::Network::Mainnet,
         Network::Stagenet => monero_address::Network::Stagenet,
@@ -191,4 +194,16 @@ pub(super) fn get_address(
     }
 
     Ok(address)
+}
+
+/// Parses the `prev_block` of a request, which is empty for the most recent block.
+pub(super) fn get_prev_block(prev_block: &[u8]) -> Result<Option<[u8; 32]>, Error> {
+    if prev_block.is_empty() {
+        return Ok(None);
+    }
+
+    prev_block
+        .try_into()
+        .map(Some)
+        .map_err(|_| anyhow!("Invalid prev_block"))
 }

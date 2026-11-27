@@ -11,6 +11,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Error};
+use futures::FutureExt;
 use monero_oxide::block::Block;
 
 use cuprate_constants::rpc::{
@@ -135,6 +136,15 @@ async fn get_block_template(
     mut state: CupratedRpcHandler,
     request: GetBlockTemplateRequest,
 ) -> Result<GetBlockTemplateResponse, Error> {
+    // Like monerod, do not hand out work before the first sync.
+    // FIXME: monerod answers with error code -9, but handler errors are a bare HTTP 500.
+    if !matches!(
+        state.blockchain_syncer.wait_for_synced().now_or_never(),
+        Some(Ok(()))
+    ) {
+        return Err(anyhow!("Core is busy"));
+    }
+
     if request.reserve_size > 255 {
         return Err(anyhow!("Too big reserved size, maximum 255"));
     }
@@ -156,7 +166,7 @@ async fn get_block_template(
     };
 
     let address = helper::get_address(state.network, &request.wallet_address)?;
-    let prev_block = request.prev_block.try_into().unwrap_or([0; 32]);
+    let prev_block = helper::get_prev_block(&request.prev_block)?;
 
     let BlockTemplate {
         block,
@@ -267,8 +277,8 @@ async fn generate_blocks(
     }
 
     let address = helper::get_address(state.network, &request.wallet_address)?;
-    let mut blocks = Vec::with_capacity(u64_to_usize(request.amount_of_blocks));
-    let mut prev_block = request.prev_block;
+    let mut blocks = Vec::new();
+    let mut prev_block = helper::get_prev_block(&request.prev_block)?;
 
     for _ in 0..request.amount_of_blocks {
         let BlockTemplate { block, .. } = create_block_template(
@@ -276,9 +286,10 @@ async fn generate_blocks(
             &state.blockchain_context,
             &mut state.txpool_read,
             &address,
-            prev_block.try_into().unwrap_or_default(),
+            prev_block,
             // Like monerod, reserve one byte of extra nonce.
             &[0],
+            // Regtest mines transactions that are still in the stem phase.
             true,
         )
         .await?;
@@ -293,7 +304,7 @@ async fn generate_blocks(
         };
         submit_block(state.clone(), submit_block_req).await?;
 
-        prev_block = HexVec::from(block_hash.to_vec());
+        prev_block = Some(block_hash.0);
     }
 
     let height = if request.amount_of_blocks == 0 {

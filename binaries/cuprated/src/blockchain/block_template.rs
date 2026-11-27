@@ -1,9 +1,17 @@
 //! Handles creating a block-template with all the relevant methods.
 //!
 //! This mainly includes:
-//! - (finding the parent block: not done as `from_block` is not used by monero-oxide; using the most recent (genesis for `FakeChain`))
-//! - (selecting txs from the pool: not used in monero-oxide)
+//! - selecting txs from the pool
 //! - constructing a miner transaction
+//! - finding a nonce, for `generateblocks`
+//!
+//! Known differences from monerod:
+//! - Templates are not cached, so every call returns a new transaction key and blob.
+//! - Pool transactions are only checked for spent key images. One that a reorg or
+//!   `pop_blocks` invalidated stays in templates, which are then rejected, until it leaves the pool.
+//! - The parent is always the top block, so alternative chains cannot be extended.
+//! - `expected_reward` is exactly what the miner transaction pays. Above the median
+//!   weight, monerod's is an estimate that ignores the miner transaction's own weight.
 use std::collections::HashSet;
 
 use anyhow::{anyhow, ensure, Error};
@@ -22,7 +30,9 @@ use tracing::instrument;
 use cuprate_blockchain::{service::BlockchainReadHandle, types::BlockHash};
 use cuprate_consensus::{BlockchainContextService, BlockchainReadRequest, BlockchainResponse};
 use cuprate_consensus_rules::{
-    blocks::{check_block_weight, ContextToVerifyBlock, RX_SEEDHASH_EPOCH_LAG},
+    blocks::{
+        check_block_weight, randomx_seed_height, ContextToVerifyBlock, RX_SEEDHASH_EPOCH_LAG,
+    },
     miner_tx::{calculate_block_reward, MINER_TX_TIME_LOCKED_BLOCKS},
     transactions::CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE,
 };
@@ -45,21 +55,31 @@ const MINER_TX_ATTEMPTS: usize = 10;
 
 /// This function makes a new block for a miner to mine the hash for
 ///
-/// ref <https://github.com/monero-project/monero/blob/1c079ffa9117e7429d16ebc6d627ecdb0a952bd4/src/cryptonote_core/blockchain.cpp#L1521-L1790>
+/// `from_block` is the block to build on, the most recent one if [`None`].
+///
+/// ref <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_core/blockchain.cpp#L1547-L1812>
 #[instrument(level = "debug", skip_all, name = "create_block_template")]
 pub(crate) async fn create_block_template(
     blockchain_read: &mut BlockchainReadHandle,
     blockchain_context: &BlockchainContextService,
     txpool_read: &mut TxpoolReadHandle,
     miner_address: &MoneroAddress,
-    from_block: BlockHash,
+    from_block: Option<BlockHash>,
     extra_nonce: &[u8],
     include_sensitive_txs: bool,
 ) -> Result<BlockTemplate, Error> {
     // later TODO: add separate cache for block template creation?
-    let context = blockchain_context.blockchain_context_snapshot();
+    let context = blockchain_context
+        .blockchain_context_snapshot()
+        .context_to_verify_block
+        .clone();
 
-    assert_eq!(from_block, BlockHash::default(), "creating a block template from a previous block other than the most recent (or alt-chain) is currently not supported.");
+    // later TODO: build on other blocks and alt-chains, as monerod does.
+    if from_block.is_some_and(|from_block| from_block != context.top_hash) {
+        return Err(anyhow!(
+            "Creating a block template from a previous block other than the most recent is not supported"
+        ));
+    }
 
     let BlockTemplateFill {
         transaction_hashes,
@@ -95,8 +115,8 @@ pub(crate) async fn create_block_template(
 
     let block = Block::new(
         BlockHeader {
-            hardfork_version: HardFork::LATEST as u8,
-            hardfork_signal: HardFork::LATEST as u8,
+            hardfork_version: context.current_hf.as_u8(),
+            hardfork_signal: HardFork::LATEST.as_u8(),
             timestamp,
             previous: context.top_hash,
             nonce: 0,
@@ -107,20 +127,25 @@ pub(crate) async fn create_block_template(
     .ok_or_else(|| anyhow!("Failed to create block template"))?;
     let reserved_offset = reserved_offset(&block, extra_nonce.len())?;
 
-    let height = context.chain_height; // later TODO: the height may be provided by `from_block`
-    let seed_height = cuprate_consensus_rules::blocks::randomx_seed_height(height); // later TODO: this is not correct for alt-chains,
-    let seed_hash = get_block_hash_main_chain(blockchain_read, seed_height).await?; // later TODO: this is not correct for alt-chains,
+    // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1870-L1875>
+    let height = context.chain_height;
+    let seed_height = randomx_seed_height(height);
+    let next_seed_height = randomx_seed_height(height + RX_SEEDHASH_EPOCH_LAG);
 
-    let next_seed_hash = get_block_hash_main_chain(
-        blockchain_read,
-        cuprate_consensus_rules::blocks::randomx_seed_height(seed_height + RX_SEEDHASH_EPOCH_LAG),
-    )
-    .await?;
+    // Zeroed before RandomX, and for a next seed that is the current one.
+    let mut seed_hash = [0; 32];
+    let mut next_seed_hash = [0; 32];
+    if context.current_hf >= HardFork::V12 {
+        seed_hash = get_block_hash_main_chain(blockchain_read, seed_height).await?;
+        if next_seed_height != seed_height {
+            next_seed_hash = get_block_hash_main_chain(blockchain_read, next_seed_height).await?;
+        }
+    }
 
     Ok(BlockTemplate {
         block,
         reserved_offset,
-        difficulty: context.next_difficulty, // later TODO: this is not correct for alt-chains,
+        difficulty: context.next_difficulty,
         height: usize_to_u64(height),
         expected_reward,
         seed_height: usize_to_u64(seed_height),
