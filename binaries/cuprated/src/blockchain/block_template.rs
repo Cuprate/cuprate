@@ -28,15 +28,19 @@ use tower::{Service, ServiceExt};
 use tracing::instrument;
 
 use cuprate_blockchain::{service::BlockchainReadHandle, types::BlockHash};
-use cuprate_consensus::{BlockchainContextService, BlockchainReadRequest, BlockchainResponse};
+use cuprate_consensus::{
+    BlockChainContextRequest, BlockChainContextResponse, BlockchainContextService,
+    BlockchainReadRequest, BlockchainResponse,
+};
 use cuprate_consensus_rules::{
     blocks::{
-        check_block_weight, randomx_seed_height, ContextToVerifyBlock, RX_SEEDHASH_EPOCH_LAG,
+        calculate_pow_hash, check_block_pow, check_block_weight, randomx_seed_height,
+        ContextToVerifyBlock, RX_SEEDHASH_EPOCH_LAG,
     },
     miner_tx::{calculate_block_reward, MINER_TX_TIME_LOCKED_BLOCKS},
     transactions::CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE,
 };
-use cuprate_helper::{cast::usize_to_u64, time::current_unix_timestamp};
+use cuprate_helper::{asynch::rayon_spawn_async, cast::usize_to_u64, time::current_unix_timestamp};
 use cuprate_txpool::{service::TxpoolReadHandle, types::TransactionHash, TxEntry};
 use cuprate_types::{BlockTemplate, HardFork};
 
@@ -152,6 +156,62 @@ pub(crate) async fn create_block_template(
         seed_hash,
         next_seed_hash,
     })
+}
+
+/// Finds a nonce at or after `starting_nonce` that satisfies `difficulty`.
+///
+/// Like monerod's, the search cannot be cancelled. It keeps
+/// a `rayon` thread busy until it ends, even if the caller is gone.
+///
+/// ref <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_basic/miner.cpp#L476-L491>
+pub(crate) async fn find_nonce(
+    blockchain_context: &mut BlockchainContextService,
+    mut block: Block,
+    height: usize,
+    difficulty: u128,
+    starting_nonce: u32,
+) -> Result<Block, Error> {
+    block.header.nonce = starting_nonce;
+    if difficulty <= 1 {
+        return Ok(block);
+    }
+
+    let hf = HardFork::from_version(block.header.hardfork_version)?;
+    let rx_vm = if hf >= HardFork::V12 {
+        let BlockChainContextResponse::RxVms(mut rx_vms) = blockchain_context
+            .ready()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .call(BlockChainContextRequest::CurrentRxVms)
+            .await
+            .map_err(|e| anyhow!(e))?
+        else {
+            unreachable!();
+        };
+
+        // `calculate_pow_hash` panics without a VM.
+        Some(
+            rx_vms
+                .remove(&randomx_seed_height(height))
+                .ok_or_else(|| anyhow!("No RandomX VM for height {height}"))?,
+        )
+    } else {
+        None
+    };
+
+    rayon_spawn_async(move || loop {
+        let pow_hash =
+            calculate_pow_hash(rx_vm.as_deref(), &block.serialize_pow_hash(), height, &hf)?;
+        if check_block_pow(&pow_hash, difficulty).is_ok() {
+            return Ok(block);
+        }
+
+        block.header.nonce = block.header.nonce.wrapping_add(1);
+        if block.header.nonce == starting_nonce {
+            return Err(anyhow!("No nonce satisfies difficulty {difficulty}"));
+        }
+    })
+    .await
 }
 
 /// return type of [`fill_block_template`]

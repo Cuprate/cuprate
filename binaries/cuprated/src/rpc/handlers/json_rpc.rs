@@ -56,7 +56,10 @@ use cuprate_types::{
 };
 
 use crate::{
-    blockchain::block_template::{create_block_template, TX_EXTRA_NONCE_MAX_COUNT},
+    blockchain::{
+        block_template::{create_block_template, find_nonce, TX_EXTRA_NONCE_MAX_COUNT},
+        IncomingBlockOk,
+    },
     constants::VERSION_BUILD,
     rpc::{
         constants::UNSUPPORTED_RPC_CALL,
@@ -280,8 +283,15 @@ async fn generate_blocks(
     let mut blocks = Vec::new();
     let mut prev_block = helper::get_prev_block(&request.prev_block)?;
 
+    let mut height = usize_to_u64(state.blockchain_context.blockchain_context().chain_height);
+
     for _ in 0..request.amount_of_blocks {
-        let BlockTemplate { block, .. } = create_block_template(
+        let BlockTemplate {
+            block,
+            difficulty,
+            height: block_height,
+            ..
+        } = create_block_template(
             &mut state.blockchain_read,
             &state.blockchain_context,
             &mut state.txpool_read,
@@ -294,24 +304,35 @@ async fn generate_blocks(
         )
         .await?;
 
-        // TODO: ⛏️ with request.starting_nonce
-        // <https://github.com/monero-project/monero/blob/e4fbca88b15f3cb2b6aa2d0e98639649f7da3d21/src/cryptonote_basic/cryptonote_format_utils.cpp#L1778-L1801>
+        let block = find_nonce(
+            &mut state.blockchain_context,
+            block,
+            u64_to_usize(block_height),
+            difficulty,
+            request.starting_nonce,
+        )
+        .await?;
+        let block_hash = block.hash();
 
-        let block_hash = Hex::from(block.hash());
-        blocks.push(block_hash);
-        let submit_block_req = SubmitBlockRequest {
-            block_blob: [HexVec::from(block.serialize())],
-        };
-        submit_block(state.clone(), submit_block_req).await?;
+        let outcome = state
+            .blockchain_manager
+            .handle_incoming_block(
+                block,
+                HashMap::new(), // this function reads the txpool
+                &mut state.blockchain_read,
+                &mut state.txpool_read,
+            )
+            .await?;
+        // TODO: monerod also accepts blocks that extend an alternative chain.
+        if !matches!(outcome, IncomingBlockOk::AddedToMainChain) {
+            return Err(anyhow!("Block not accepted"));
+        }
 
-        prev_block = Some(block_hash.0);
+        blocks.push(Hex(block_hash));
+        prev_block = Some(block_hash);
+        height = block_height;
     }
 
-    let height = if request.amount_of_blocks == 0 {
-        0
-    } else {
-        usize_to_u64(state.blockchain_context.blockchain_context().chain_height).saturating_sub(1)
-    };
     Ok(GenerateBlocksResponse {
         base: helper::response_base(false),
         blocks,

@@ -30,7 +30,7 @@ pub use interface::BlockchainManagerHandle;
 pub use syncer::BlockchainSyncerHandle;
 pub use types::ConsensusBlockchainReadHandle;
 
-pub(crate) use manager::init_blockchain_manager;
+pub(crate) use manager::{init_blockchain_manager, IncomingBlockOk};
 
 /// The interface to the blockchain.
 #[derive(Clone)]
