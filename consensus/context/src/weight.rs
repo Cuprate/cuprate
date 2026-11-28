@@ -18,12 +18,14 @@ use cuprate_consensus_rules::{
     blocks::{penalty_free_zone, PENALTY_FREE_ZONE_5},
     miner_tx::calculate_block_reward,
 };
-use cuprate_helper::{asynch::rayon_spawn_async, num::RollingMedian};
+use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     rpc::FeeEstimate,
     Chain,
 };
+
+use crate::rolling_median::RollingMedian;
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_config.h#L75>
 const DYNAMIC_FEE_REFERENCE_TX_WEIGHT: u64 = 3_000;

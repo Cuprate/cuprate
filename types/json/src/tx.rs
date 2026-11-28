@@ -20,7 +20,7 @@ use cuprate_hex::Hex;
 
 use monero_oxide::{ringct, transaction};
 
-use crate::json::output::{Output, TaggedKey, Target};
+use crate::output::{Output, TaggedKey, Target};
 
 /// JSON representation of a non-miner transaction.
 ///

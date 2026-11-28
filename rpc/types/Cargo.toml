@@ -10,11 +10,10 @@ keywords    = ["cuprate", "rpc", "types", "monero"]
 
 [features]
 default = ["serde", "epee"]
-serde   = ["dep:serde", "dep:serde_json", "dep:monero-oxide", "cuprate-fixed-bytes/serde", "cuprate-types/serde"]
-epee    = ["dep:cuprate-epee-encoding", "dep:monero-oxide", "cuprate-types/epee"]
+serde   = ["dep:serde", "dep:serde_json", "dep:monero-oxide", "cuprate-fixed-bytes/serde", "cuprate-json/serde", "cuprate-types/serde"]
+epee    = ["dep:cuprate-epee-encoding", "dep:monero-oxide", "cuprate-json/epee", "cuprate-types/epee"]
 from    = [
 	"dep:cuprate-helper",
-	"cuprate-helper/map",
 	"cuprate-helper/fmt",
 	"dep:cuprate-p2p-core",
 	"dep:hex"
@@ -25,7 +24,8 @@ __not_public_32_bit = ["getrandom"]
 cuprate-fixed-bytes   = { workspace = true }
 cuprate-hex           = { workspace = true }
 cuprate-epee-encoding = { workspace = true, optional = true }
-cuprate-types         = { workspace = true, default-features = false, features = ["rpc", "json"] }
+cuprate-json          = { workspace = true }
+cuprate-types         = { workspace = true, default-features = false, features = ["rpc"] }
 cuprate-helper        = { workspace = true, optional = true, default-features = false }
 cuprate-p2p-core      = { workspace = true, optional = true, default-features = false }
 

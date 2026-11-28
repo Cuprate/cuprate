@@ -304,7 +304,7 @@ define_request_and_response! {
     AccessResponseBase {
         blob: HexVec,
         block_header: BlockHeader,
-        /// `cuprate_types::json::block::Block` should be used
+        /// `cuprate_json::block::Block` should be used
         /// to create this JSON string in a type-safe manner.
         json: String,
         miner_tx_hash: Hex<32>,

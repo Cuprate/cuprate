@@ -33,7 +33,7 @@ use crate::serde::{serde_false, serde_true};
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct TxEntry {
-    /// `cuprate_types::json::tx::Transaction` should be used
+    /// `cuprate_json::tx::Transaction` should be used
     /// to create this JSON string in a type-safe manner.
     pub as_json: String,
 
